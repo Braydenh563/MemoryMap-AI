@@ -2704,3 +2704,240 @@ input[type="url"]:hover:not(:focus) {
 .modal-card {
   align-items: stretch;
 }
+
+/* --- the app's own dropdown ----------------------------------------------
+   See `enhanceSelect` in app.js for why a native <select> popup had to be
+   replaced rather than styled: it is drawn by the operating system and no
+   stylesheet reaches it. The real <select> is still there and still owns the
+   value; these rules dress the button and listbox that stand in front of it. */
+.select-shell {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+}
+
+/* Kept in the DOM for its value, its label association and any form that
+   submits it — just never seen. Not `display: none`, which would take it out
+   of the accessibility tree and out of some form serialisations. */
+.select-native-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* The closed control keeps the field's own recipe — it is still a field, so
+   it should read like one and not like a button. */
+.select-opener {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  min-width: 0;
+  min-height: var(--target-min);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--border) 60%, var(--ink) 25%);
+  border-radius: var(--radius-lg);
+  background: var(--input-bg);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 400;
+  text-align: left;
+  box-shadow: inset 0 1px 2px var(--field-inset);
+}
+
+.select-opener:hover:not([disabled]) {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+.select-opener[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.select-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.select-caret {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+/* The popup. Sized to the control it belongs to, capped so a model list with
+   forty entries scrolls instead of running off the screen. */
+.select-menu {
+  min-width: 100%;
+  max-height: 18rem;
+  overflow-y: auto;
+}
+
+.select-option {
+  width: 100%;
+}
+
+/* The current value, so an open list says which one you are on — the one
+   piece of state the native popup gave for free. */
+.select-option.is-chosen {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* --- the last column-flex button, found by measuring rather than grepping --
+   Reported: "the text in the timeline is cut off??" — a card's title clipped
+   at *both* ends. Same cause as the theme swatches: `align-items: center` on
+   a column-flex button centres its children horizontally, and `.timeline-dot`
+   also sets `overflow: hidden`, so a title wider than the card lost an equal
+   slice off each side instead of ellipsising at the end.
+
+   It was missed the first time because that sweep grepped selector *names*
+   for card/tile/button words, and "timeline-dot" contains none of them.
+   Re-done by asking the running app instead — every `<button>` whose
+   computed `flex-direction` is `column`, across seven tabs and Settings —
+   which returned exactly one remaining offender. Measure the thing, not its
+   name. */
+.timeline-dot {
+  align-items: stretch;
+}
+
+/* --- a chip lane scrolls without drawing a scrollbar ----------------------
+   Reported: "the collapsed view of notes is completely visually broken" —
+   a scrollbar had appeared under the chips on every row.
+
+   Nothing changed in the row itself. `.entry-list.is-rows .entry-meta` has
+   scrolled since the fix that stopped metadata from crowding out a note's
+   own text ("chips don't shrink; the lane scrolls instead"), but its
+   scrollbar was the platform's overlay one and effectively invisible. The
+   app-wide scrollbar styling added this session gave every scroll container
+   a *persistent* thin bar — correct for a sidebar or a long list, wrong for
+   a 24px strip of chips, where the bar is as tall as the content it is
+   scrolling. Hidden here specifically: the lane still scrolls by wheel and
+   drag, it just stops drawing furniture inside a chip row. */
+.entry-list.is-rows .entry-meta {
+  scrollbar-width: none;
+}
+
+.entry-list.is-rows .entry-meta::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* --- a disclosure arrow that matches the app's own carets -----------------
+   Reported: "the dropdown header for what's new isn't formatted right with
+   the arrow". It was the browser's default `list-item` marker — a solid
+   triangle that sits on the text baseline, in a bar whose other controls all
+   use Phosphor carets. Replaced with the app's own caret, rotated when open,
+   so the one disclosure in Settings reads like every other expander. */
+.about-whats-new {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.about-whats-new::-webkit-details-marker {
+  display: none;
+}
+
+.about-whats-new::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--motion-fast) ease;
+}
+
+details[open]>.about-whats-new::before {
+  transform: rotate(45deg);
+}
+
+/* A chip in a collapsed row ellipsises rather than being sliced.
+   The lane is capped so metadata can never crowd out a note's own text, and
+   it scrolls rather than wrapping — but with no limit on the chip itself a
+   long category came out cut through the middle of a word ("Courses &"),
+   which reads as broken rather than as truncated. A max-width plus an
+   ellipsis says the same thing on purpose, and the full name is still in the
+   chip's title and one click away in the expanded row. */
+.entry-list.is-rows .entry-meta .chip {
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- nothing interactive is bare text ------------------------------------
+   "MAKE SURE ALL BUTTONS AND ELEMENTS HAVE THE AFFORDANCES SO THEY DON'T
+   JUST LOOK LIKE TEXT IN A BOX OR SHAPE."
+
+   The earlier passes audited *hover*, which was the wrong question: the
+   complaint is about the **resting** look. Re-audited by asking the running
+   app for every interactive element whose computed style has no background,
+   no border and no shadow at rest — genuinely indistinguishable from a run
+   of text — across seven tabs and Settings. Eleven came back, and they are
+   all handled here.
+
+   The tabs are the important ones. An unselected tab was pure text beside an
+   accent-filled selected one, so the row read as one button and six labels.
+   They now carry a faint ground and hairline of their own: enough to say
+   "this is a control", far short of competing with the selected pill, which
+   keeps its solid accent. Same treatment for the sub-tab rows, which had the
+   identical problem one level down. */
+#tab-bar button:not(.active),
+.notes-subtabs button:not(.active),
+[role="tab"]:not(.active):not([aria-selected="true"]) {
+  background: var(--ghost-btn-bg);
+  border: 1px solid var(--ghost-btn-border);
+  box-shadow: var(--shadow-sm);
+}
+
+#tab-bar button:not(.active):hover,
+.notes-subtabs button:not(.active):hover,
+[role="tab"]:not(.active):not([aria-selected="true"]):hover {
+  background: var(--ghost-btn-bg-hover);
+  border-color: var(--ghost-btn-border-hover);
+}
+
+/* A bare icon button anywhere that missed `.ghost` still gets a surface. */
+button.icon-only:not(.ghost):not(.active),
+button.icon-button:not(.ghost):not(.active) {
+  background: var(--ghost-btn-bg);
+  border: 1px solid var(--ghost-btn-border);
+}
+
+/* The small "×" that detaches a chip: a faint disc, so it reads as a button
+   rather than as punctuation sitting inside the label. */
+.unlink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  background: var(--ghost-btn-bg);
+  transition: background var(--motion-fast) ease, color var(--motion-fast) ease;
+}
+
+.unlink:hover {
+  background: var(--ghost-btn-bg-hover);
+  color: var(--error);
+}
+
+/* A disclosure row reads as a control at rest, not only under the pointer. */
+summary:not(.icon-only):not(.icon-button) {
+  background: var(--ghost-btn-bg);
+  border: 1px solid var(--ghost-btn-border);
+  padding: var(--space-2) var(--space-3);
+}

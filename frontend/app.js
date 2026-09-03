@@ -12287,6 +12287,155 @@ function labelledMenu(label, items, ariaLabel) {
   return wrap;
 }
 
+// --- every <select> in the app wears the app's own menu ---------------------
+//
+// **The last surface the stylesheet could not reach.** Reported repeatedly,
+// and finally with a screenshot of the model picker: a native `<select>`
+// popup is drawn by the operating system, not the page. It ignores the
+// app's palette, radius, padding, hover and icons entirely — which is why
+// dropdowns looked like a different program, why their text sat "right up
+// against the edge", and why no amount of CSS on `select` ever fixed it.
+// `select` itself is styled (the closed control matches); only the *popup*
+// was out of reach, and there is no CSS that reaches it.
+//
+// So the popup is replaced rather than restyled. The real `<select>` stays
+// in the DOM and stays the source of truth: every `.value` read, `.options`
+// write and `change` listener in the rest of the app keeps working
+// untouched, which is what makes this safe to apply everywhere at once
+// instead of rewriting dozens of call sites. The visible control is a
+// button plus a `role="listbox"`, using the same `openActionMenu` /
+// `closeActionMenus` plumbing as every other menu here, so it inherits
+// their positioning, flip-when-clipped and click-away behaviour for free.
+//
+// Selects are repopulated all over this app (models, categories, personas),
+// often long after first render, so a MutationObserver re-reads the options
+// rather than trusting a one-time build.
+const SELECT_ENHANCED = "data-enhanced-select";
+
+function enhanceSelect(select) {
+  if (!select || select.hasAttribute(SELECT_ENHANCED)) return;
+  // A multi-select is a different control with different semantics, and
+  // nothing in this app uses one; leave it to the browser rather than
+  // guessing at a listbox that supports multiple selection.
+  if (select.multiple || select.size > 1) return;
+  if (select.closest("[data-no-select-enhance]")) return;
+  select.setAttribute(SELECT_ENHANCED, "1");
+
+  const shell = document.createElement("span");
+  shell.className = "select-shell";
+
+  const opener = document.createElement("button");
+  opener.type = "button";
+  opener.className = "select-opener";
+  opener.setAttribute("aria-haspopup", "listbox");
+  opener.setAttribute("aria-expanded", "false");
+
+  const valueText = document.createElement("span");
+  valueText.className = "select-value";
+  const caret = document.createElement("i");
+  caret.className = "ph ph-caret-down select-caret";
+  caret.setAttribute("aria-hidden", "true");
+  opener.append(valueText, caret);
+
+  const menu = document.createElement("div");
+  menu.className = "action-menu select-menu hidden";
+  menu.setAttribute("role", "listbox");
+
+  select.parentNode.insertBefore(shell, select);
+  shell.append(select, opener, menu);
+
+  // The native control keeps doing its job (form value, validation, the
+  // label association) but stops being what you see or tab to — the opener
+  // carries the keyboard now.
+  select.classList.add("select-native-hidden");
+  select.tabIndex = -1;
+  select.setAttribute("aria-hidden", "true");
+
+  const label =
+    select.getAttribute("aria-label") ||
+    select.title ||
+    "Choose an option";
+  opener.setAttribute("aria-label", label);
+  opener.title = select.title || label;
+
+  const syncValue = () => {
+    const chosen = select.options[select.selectedIndex];
+    valueText.textContent = chosen ? chosen.textContent.trim() : "";
+    opener.disabled = select.disabled;
+    for (const row of menu.querySelectorAll("[role='option']")) {
+      const on = row.dataset.value === select.value;
+      row.setAttribute("aria-selected", String(on));
+      row.classList.toggle("is-chosen", on);
+    }
+  };
+
+  const rebuild = () => {
+    menu.replaceChildren();
+    for (const option of select.options) {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "menu-item select-option";
+      row.setAttribute("role", "option");
+      row.dataset.value = option.value;
+      row.textContent = option.textContent.trim();
+      if (option.disabled) row.setAttribute("aria-disabled", "true");
+      row.addEventListener("click", (event) => {
+        event.stopPropagation();
+        closeActionMenus();
+        if (option.disabled || select.value === option.value) return;
+        select.value = option.value;
+        syncValue();
+        // The app listens on the real control, so the real control is what
+        // announces the change.
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      menu.appendChild(row);
+    }
+    syncValue();
+  };
+
+  opener.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (select.disabled) return;
+    if (menu.classList.contains("hidden")) {
+      rebuild();
+      openActionMenu(menu, opener);
+      menu.querySelector(".is-chosen")?.focus();
+    } else {
+      closeActionMenus();
+    }
+  });
+
+  // Programmatic `select.value = …` fires no event, and plenty of this app
+  // sets one directly; `change` covers the rest.
+  select.addEventListener("change", syncValue);
+  new MutationObserver(rebuild).observe(select, { childList: true, subtree: true });
+
+  wireMenuKeyboard(menu, opener);
+  rebuild();
+}
+
+function enhanceAllSelects(root) {
+  for (const select of (root || document).querySelectorAll("select")) {
+    enhanceSelect(select);
+  }
+}
+
+// New selects appear whenever a panel renders, so watch for them rather
+// than asking every render path to remember to call this.
+function watchForSelects() {
+  enhanceAllSelects(document);
+  new MutationObserver((records) => {
+    for (const record of records) {
+      for (const node of record.addedNodes) {
+        if (node.nodeType !== 1) continue;
+        if (node.tagName === "SELECT") enhanceSelect(node);
+        else enhanceAllSelects(node);
+      }
+    }
+  }).observe(document.body, { childList: true, subtree: true });
+}
+
 function kebabMenu(items, ariaLabel) {
   const wrap = document.createElement("span");
   wrap.className = "menu-wrap";
@@ -27149,3 +27298,8 @@ async function renderTemplateSettings() {
 $("template-add")?.addEventListener("click", addTemplate);
 $("template-cancel")?.addEventListener("click", stopEditingTemplate);
 
+
+// Upgrade every dropdown in the app, and keep upgrading the ones that
+// appear later. Last line of the file on purpose: by here every panel this
+// script builds up front exists, and the observer inside covers the rest.
+watchForSelects();

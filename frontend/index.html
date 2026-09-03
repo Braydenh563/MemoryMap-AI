@@ -48,7 +48,7 @@
        the loading screen". A guard that exists to report a broken boot must
        not itself be the thing that breaks, and `script-src 'self'` covers a
        same-origin file unconditionally. -->
-  <script src="/boot-guard.js"></script>
+  <script src="/boot-guard.js?v=0.1.7"></script>
   <script>
     // Everything visual is applied before first paint, so the app never
     // flashes the default look and then corrects itself.

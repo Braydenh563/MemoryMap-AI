@@ -1706,13 +1706,26 @@ header#top-bar.tabs-wrapped #tab-bar {
   padding: var(--space-3) var(--space-5);
 }
 
+/* **A fixed track, not a percentage.** Reported with a screenshot: "the
+   middle content in the library lines view isnt aligned." `flex: 1 1 40%`
+   on both halves makes each row's split depend on *its own* content, so the
+   preview column started at a different x on every single row — the
+   alignment failure DESIGN.md's CARP section is about, repeated once per
+   item down the whole list.
+
+   A fixed basis means every title occupies the same width and every preview
+   therefore begins on the same edge, which is the entire point of a list
+   view. `min-width: 0` so a long title ellipsises inside its track instead
+   of pushing it wider and taking the alignment with it. */
 .library-list .library-card-top {
-  flex: 1 1 40%;
+  flex: 0 0 22rem;
+  min-width: 0;
   padding-right: 0;
 }
 
 .library-list .library-card-preview {
-  flex: 1 1 40%;
+  flex: 1 1 auto;
+  min-width: 0;
   /* -webkit-line-clamp, not just the unprefixed property: a note's own
      preview (.library-note .library-card-preview, same specificity, tied
      on source order for the property this rule forgot) clamps to 8 lines

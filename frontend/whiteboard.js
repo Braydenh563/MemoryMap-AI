@@ -2442,7 +2442,13 @@ async function initWhiteboard() {
   document.getElementById("wb-zoom-out").addEventListener("click", () => container.transition().call(wbZoom.scaleBy, 0.8));
   document.getElementById("wb-zoom-fit").addEventListener("click", () => container.transition().call(wbZoom.transform, d3.zoomIdentity));
 
-  document.getElementById("wb-fullscreen")?.addEventListener("click", toggleWhiteboardFullscreen);
+  // **An arrow, not the function directly.** `addEventListener` passes the
+  // click event as the first argument, which would land in
+  // `toggleWhiteboardFullscreen`'s own `force` parameter — a `MouseEvent` is
+  // truthy, so `force === undefined` was never true and the toggle could
+  // only ever turn full screen *on*. Reported as "I cant exit full screen
+  // mode in the whiteboard".
+  document.getElementById("wb-fullscreen")?.addEventListener("click", () => toggleWhiteboardFullscreen());
   
   // Sidebar toggling
   const setWbLibraryOpen = (open) => {
@@ -5894,6 +5900,10 @@ function wbShowCanvasView() {
 }
 
 function wbShowBoardsLanding() {
+  // First, because the boards list lives inside the element full screen
+  // pins to the viewport — see `wbLeaveFullscreen` for what that looked
+  // like when it was left on.
+  wbLeaveFullscreen();
   $("wb-canvas-view")?.classList.add("hidden");
   $("wb-boards-landing")?.classList.remove("hidden");
   renderLibraryBoardsGallery();
@@ -6000,6 +6010,30 @@ async function renderLibraryBoardsGallery() {
     }
 
     grid.appendChild(card);
+  }
+}
+
+//: Leaving the canvas has to leave full screen with it.
+//:
+//: Reported: "if i am still in whiteboard fullscreen and press the back to
+//: boards button, the ui is broken." It was: `wb-fullscreen` pins
+//: `#library-view-whiteboard` to `position: fixed; inset: 0` at z-index
+//: 1000, and the *boards list* lives inside that same element — so going
+//: back left the list covering the entire window, over the app header, the
+//: Library sub-tabs and everything else, with no visible way out because the
+//: control that turns it off is on the canvas you just left.
+//:
+//: Called from every exit rather than only from the back button: the board
+//: picker, a board card and the Library sub-tabs can all take you off the
+//: canvas too, and each would have had the same bug.
+function wbLeaveFullscreen() {
+  document.getElementById("library-view-whiteboard")?.classList.remove("wb-fullscreen");
+  const button = document.getElementById("wb-fullscreen");
+  if (button) {
+    button.classList.remove("is-on");
+    button.title = "Full screen (Esc to leave)";
+    const icon = button.querySelector("i");
+    if (icon) icon.className = "ph ph-arrows-out";
   }
 }
 
@@ -6116,7 +6150,12 @@ window.createConceptMap = createConceptMap;
 function toggleWhiteboardFullscreen(force) {
   const host = document.getElementById("library-view-whiteboard");
   if (!host) return;
-  const on = force === undefined ? !host.classList.contains("wb-fullscreen") : force;
+  // Only a real boolean forces a state; anything else (notably a DOM event
+  // arriving from a listener registered by reference) means "toggle". Belt
+  // and braces with the arrow at the call site — this one is what makes the
+  // function safe to pass around at all.
+  const on =
+    typeof force === "boolean" ? force : !host.classList.contains("wb-fullscreen");
   host.classList.toggle("wb-fullscreen", on);
   const button = document.getElementById("wb-fullscreen");
   if (button) {

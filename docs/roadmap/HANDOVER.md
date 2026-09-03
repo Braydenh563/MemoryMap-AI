@@ -9329,3 +9329,58 @@ short labels ("All", "Links") sitting in min-width boxes next to long ones
 misalignment it looks like, and it did not justify a speculative rewrite of
 a working tab bar. Worth revisiting deliberately if it is reported again
 with what specifically looks wrong.
+
+## Same session: composer alignment (a self-inflicted regression) and the page inset
+
+**"The chat controls go out of alignment when I extend the text bar."**
+Reproduced by setting `#chat-input` to 260px and reading every sibling's
+bottom edge: `chat-send` and `note-picker` stayed pinned at 814 while
+`attach-image` and `mic-chat` floated at 706 — a **108px** spread.
+
+The cause was this session's own work. `.icon-only { align-self: center }`
+was added so an icon button could not be stretched into an oval by a row
+that stretches its items; `.chat-composer` does not stretch, it *end*-aligns,
+and `align-self` on an item beats `align-items` on its container — so
+precisely the two flanking buttons that had just gained `.icon-only` stopped
+obeying the row. `.chat-composer > button` now restates `align-self:
+flex-end`, and the spread measures **0** at both 48px and 264px composer
+heights. Worth remembering as a shape: a *generic* rule that sets
+`align-self` will silently overrule every container that had an opinion.
+
+**"Too large of a gap ... around the outside of the page ... on majority of
+the pages."** Measured: `--page-gutter` is
+`clamp(--space-4, 2.2vw, --space-9)`, which at 1440px resolved to **31.7px a
+side** — about 64px of every window spent before any content — and
+`.library-controls` sat a further `--space-9` (32px) clear of the list it
+filters. Both came down one step (`1.5vw`/`--space-8`, and `--space-7`),
+giving 21.6px and 20px. `test_style_scale.py` pins the *shape* of the gutter
+declaration, not its values, so this stays within the design system, and the
+responsive scan across 1024/1280/1440 still reports zero overflow.
+
+## Odysseus chat, read from the screenshots — the gap list, not yet built
+
+Provided as reference for "the chat interface is dearly lacking in
+capability". What odysseus shows that this app's chat does not have, in
+rough order of value:
+
+1. **Per-message actions.** Copy message, Edit, Rewrite shorter, Explain
+   simpler, Fork conversation on an assistant turn; Resend/Copy on a user
+   turn. This app has no per-message menu at all.
+2. **A chat-level menu** on the title: Rename, Compact, Copy Chat, PDF, Save
+   to Documents, Delete Chat. Several of these exist here but are scattered
+   or only in the dock; none hang off the conversation's own title.
+3. **A live context-window meter** — "337 used / 262,144 total", model,
+   usage %, shown both as a small dial in the message meta row and as a
+   popover. This app shows a % in the meta line but no window size, no
+   model/provider breakdown and no dial.
+4. **Message meta row**: elapsed seconds, regenerate, stop, overflow, context
+   dial — a compact, consistent row under every answer.
+5. **Model picker in the composer**, with search, Favourites vs All, and the
+   provider beside each entry.
+6. **A composer segmented Agent | Chat toggle** next to send, rather than
+   this app's four separate mode pills.
+7. **A side-by-side document pane** with a language picker and Save — the
+   editor living beside the chat rather than in another tab.
+
+None of this is built yet; it is recorded here so the next block starts from
+a list rather than from the screenshots.

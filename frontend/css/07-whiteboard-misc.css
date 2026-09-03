@@ -1217,7 +1217,12 @@ body.has-agent-monitor .doc-sidebar .doc-list {
 }
 
 .library-controls {
-  margin-bottom: var(--space-9);
+  /* Part of the same "too large of gaps between some of the floating ui
+     panels" report: --space-9 is 2rem, so the controls panel sat a full
+     32px clear of the results it filters, which reads as two unrelated
+     screens rather than a toolbar over its list. One step down keeps them
+     visibly separate without the chasm. */
+  margin-bottom: var(--space-7);
 }
 
 .library-sort-check {
@@ -2486,4 +2491,22 @@ button.setting-hint-toggle {
 .library-image-ocr-empty {
   font-size: var(--text-xs);
   opacity: 0.55;
+}
+
+/* **A composer's buttons sit on its bottom edge, however tall it grows.**
+   Reported: "the chat controls go out of alignment when I extend the text
+   bar". Reproduced by setting the textarea to 260px and reading every
+   child's bottom edge: `chat-send` and `note-picker` stayed pinned at 814
+   while `attach-image` and `mic-chat` floated at 706 — a 108px spread.
+
+   The cause was this session's own `.icon-only { align-self: center }`,
+   added so an icon button could not be stretched into an oval by a row that
+   stretches its items. `.chat-composer` does not stretch, it end-aligns, and
+   `align-self` on the item beats `align-items` on the container — so exactly
+   the two flanking buttons that had just gained `.icon-only` stopped
+   honouring the alignment the row asked for. Restated where the container
+   has an opinion: the row wins. */
+.chat-composer>button,
+.chat-composer>label {
+  align-self: flex-end;
 }

@@ -270,12 +270,19 @@ select optgroup {
      two-line control still grows. Not a spacing token, for the reason
      DESIGN.md already gives: a hit target must not move with density. */
   --target-min: 1.75rem;
-  --page-gutter: clamp(var(--space-4), 2.2vw, var(--space-9));
+  /* Reported: "there is too large of a gap ... around the outside of the
+     page, it takes up so much space, this is on majority of the pages."
+     Measured at 1440px the gutter resolved to 31.7px a side — the 2.2vw
+     term, capped by --space-9 — so ~64px of every window was inset before
+     any content. Both ends of the clamp come in one step: the page keeps a
+     comfortable margin at small widths and stops spending a fifth of a
+     laptop screen on emptiness at large ones. */
+  --page-gutter: clamp(var(--space-4), 1.5vw, var(--space-8));
   --page-left: var(--page-gutter);
   --page-right: var(--page-gutter);
   /* 2rem, the inset five rules had by hand */
   --page-top: var(--space-6);
-  --page-bottom: var(--space-9);
+  --page-bottom: var(--space-8);
 
   /* How tall a sticky sidebar may be: the page, minus the page's own padding.
      Both ends of it.

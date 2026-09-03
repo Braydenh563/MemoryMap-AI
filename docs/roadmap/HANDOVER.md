@@ -9405,3 +9405,40 @@ bug: the copy action was labelled with a raw `⧉` glyph next to Phosphor
 icons in the same row — the identical font-metric mismatch already fixed for
 `×` in five places and `⊘` in one. All three copy buttons now use
 `ph:copy`.
+
+## Odysseus reference, second batch: documents, gallery and the manager shell
+
+Screenshots supplied for "the chat and documents". Recorded as patterns, with
+a note on what this app already has, so the next block starts from a diff
+rather than from images.
+
+1. **A split Save button with a caret menu**: Import from library / Import
+   from device, then Export Markdown / Print as PDF / Export as Word. This
+   app's document editor has export, but not gathered behind the primary
+   action where the eye already is.
+2. **A file detail view worth copying.** Odysseus's gallery opens a file into
+   Back / Edit / Open chat / favourite / kebab (Favorite, AI Tag, Download,
+   Delete), with a right-hand metadata column: NAME, OCR CAPTION, PROMPT,
+   DATE, EDITED, DIMENSIONS, SOURCE, SESSION, TAGS (add a tag), ALBUM. This
+   app's Files & Images shows caption and OCR on the tile itself and has no
+   detail view at all — **dimensions, file size, source, which chat it came
+   from, and albums do not exist here.** That is the single biggest gap in
+   the second batch, and it is mostly presentation over data the app already
+   stores (`MediaUpload` has source and session).
+3. **One manager shell, four tabs** — Chats / Documents / Research / Archive —
+   each with: a count in the header ("37 documents"), Import + Create, a
+   Recent / Select / Tidy row, a search field, **type-filter chips carrying
+   counts** (all 37, markdown 27, html 7, css 1 …), and rows showing a type
+   icon, title, a **version badge (v4)**, source, type and a relative date.
+   Chats rows show message count and the model that answered.
+   **This app's Library is already very close to this**: sub-tabs, search,
+   semantic toggle, sort, filter chips *with counts*, page size. What it
+   lacks are version badges, per-row model/source lines, and "Load more
+   (20 of 37)" phrasing that says how much is left.
+
+The honest summary of both batches: this app is not behind odysseus on
+*structure* — it has the manager, the chips, the counts, and a richer
+per-message action row. It is behind on **detail views** (a file or document
+opened into its own screen with its metadata) and on a few chat affordances
+(context-window meter, fork, rewrite/explain). Those are the things worth
+building; the shell is not.

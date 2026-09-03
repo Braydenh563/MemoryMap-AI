@@ -542,15 +542,23 @@ const QUICK_GO = [
       $("note-search").focus();
     },
   },
-  { icon: "ph:books", label: "Notes", run: () => { switchTab("notes"); showNotesSection("browse"); } },
-  { icon: "ph:chat-circle", label: "Chat", run: () => switchTab("chat") },
-  // The Library, the Timeline and Reminders were all reachable only from the
-  // tab bar. A "quick access" strip that skips three of the app's seven tabs
-  // is a strip that has stopped being an index of the app.
-  { icon: "ph:book-open", label: "Library", run: () => switchTab("library") },
-  { icon: "ph:graph", label: "Graph", run: () => switchTab("graph") },
-  { icon: "ph:calendar", label: "Timeline", run: () => switchTab("timeline") },
-  { icon: "ph:alarm", label: "Reminders", run: () => switchTab("reminders") },
+  // **The six chips that named tabs are gone**, and the reason is the ask
+  // they came from being wrong about what the row is for. It said: "a quick
+  // access strip that skips three of the app's seven tabs is a strip that
+  // has stopped being an index of the app" — and completing the index is
+  // exactly what made the Dashboard show its own navigation three times.
+  // Measured on one 1440x900 screen: the tab bar, a "Start something" row of
+  // five action cards, and a "Jump to" row of eight chips, six of which
+  // named *the same tabs as the tab bar two inches above them*. Three ways
+  // to reach the same seven places, none of them obviously the one to use —
+  // reported as "a lot of ui elements arent where they should be from a
+  // learnability and ux point of view. it doesnt feel intuitive."
+  //
+  // What survives is what the tab bar cannot do: focus the search box,
+  // open the features modal, and open the command palette (which was
+  // findable only by already knowing Ctrl+K — a button is how you learn a
+  // shortcut). Every tab is still one click away, in the one place that has
+  // always been for tabs.
   { icon: "ph:toolbox", label: "Tools & features", run: () => openFeatures() },
   // The palette is the fastest route to anything at all, and it was findable
   // only by already knowing Ctrl+K. A button is how you learn a shortcut.

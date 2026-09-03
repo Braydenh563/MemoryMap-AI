@@ -1,6 +1,210 @@
 # Session handover
 
-## Latest round — two real nav-history bugs found by measurement, AI-first note filing, and text highlighting
+## Latest round — three small real fixes, and a large new request burst that reverses a design assumption; read the priority list below before building anything
+
+This round landed after the big redesign session (§R1–§R9 in REDESIGN.md,
+commits `708aeda`..`2a7b918` and earlier — 12 whiteboard/graph/library/notes
+fixes, the async-backend answer, the space-leak fix, all already narrated at
+REDESIGN.md and HISTORY.md). What's new here is three small fixes plus a
+fresh burst of user requests that landed faster than they could be built.
+**Read the priority list below before starting anything** — it is more
+valuable than the fixes, and one item in it overturns something `docview.py`
+was deliberately built around.
+
+**Fixed and verified this round** (full suite green, `ruff` clean, pushed as
+`f3ce204` and `cf7d005`):
+
+1. **Settings rows collapsed to one height.** Long hints (measured: six over
+   160 characters, longest 385) were making rows 22/37/91px depending on
+   whether a hint happened to have one. They now collapse behind a small `?`
+   toggle — `collapseLongSettingHints` in settings.js, `.setting-hint` rules
+   in `01-forms-settings.css`.
+2. **A PDF misdiagnosis, caught from the user's own log.** A PDF PDFium
+   can't open at all — corrupted, truncated, encrypted, or an unsupported
+   feature (`Failed to load document (PDFium: Data format error)`, verbatim
+   from a user log delivered through `/logs/client`) — was reported
+   identically to a genuine scanned page with no text layer, sending the
+   user to install a vision model that cannot help either way. `docview.py`
+   now calls `pdfpages.page_count(path)` before falling through to the
+   "probably a scan" message; a file that can't be decoded says so instead.
+   New test: `test_a_pdf_pdfium_cannot_open_says_so_not_probably_a_scan`.
+3. **Note-link chip action icons, measured before being touched.** Reported
+   twice as "still not aligned" after an earlier round already fixed the
+   *box* geometry. Measured live with `getBoundingClientRect` first rather
+   than guessing again: every child's box **was** correctly centred
+   (`centerY` identical across all five children, down to one decimal). The
+   bug was font metrics, not layout — `reason-clear` and `unlink` were the
+   raw characters "⊘" and "×" from the system font sitting next to a
+   Phosphor `<i class="ph">` pencil icon, and two different fonts have two
+   different vertical origins no amount of flex centring can reconcile.
+   Both now render as Phosphor icons (`ph:prohibit`, `ph:x`) via `setLabel`,
+   matching the pencil. Re-screenshotted after the change to confirm.
+
+**Not investigated this round, reported live and unresolved:** "some chat
+sessions have a random horizontal scrollbar" — no screenshot, and "some"
+means it wasn't reproduced. Next session: `document.documentElement.scrollWidth
+> innerWidth` per chat session, the same check `wiring.js` in scratchpad
+already uses elsewhere in this repo's history, tried across a few sessions
+with different content (long code blocks and attachments are the likely
+cause — an unconstrained `<pre>` or a wide table are simpler answers than
+anything actually filed).
+
+### ► Next session priority list — read this before building
+
+Ranked by what blocks the most, with the specific reversal first because it
+changes the shape of work already scoped below it (R7.1, the document/file
+editor rebuild).
+
+1. **PDFs and documents must be viewable, downloadable and manageable with
+   zero AI involvement — direct instruction, stated three times.** *"pdfs
+   should be renderable and readable without the ai models anyway... or
+   rasterization. like a regular pdf viewer"* and *"it is the user's
+   notebook, the ai shouldnt impede that."* This reverses a stated design
+   decision: `docview.py`'s own module docstring argues at length for
+   **never** serving a file to the browser inline ("an inline PDF viewer is
+   a script host... the folder it serves from is not guaranteed to contain
+   only things this app wrote") and for extraction-as-text instead. That
+   reasoning was sound for *AI reading*; the user is asking for something
+   the app currently has no answer for at all — opening and reading a PDF
+   like a PDF, independent of whether markitdown or a vision model can say
+   anything about it. This needs real design work, not a quick patch:
+   - The file management basics (list, rename, download, delete an
+     attachment) already don't touch AI — `GET /files/{id}` and
+     `DELETE`/`PUT /media/{id}` are plain byte/metadata operations. Confirm
+     that's actually reachable from every surface a file appears in
+     (note card, Library, chat attachment) — the user's complaint may be
+     partly that the *UI* routes every file through the AI-reading viewer
+     with no "just open/download it" escape hatch, not that the backend
+     requires AI.
+     — that's the actual gap even before a real renderer exists: something
+       tried to open `/media/{filename}` directly.
+   - The larger piece is real client-side PDF rendering (pages, zoom, text
+     selection) without a round trip through markitdown/vision at all — a
+     vendored, sandboxed PDF.js is the standard answer, but it has to be
+     reconciled with this app's CSP (`object-src 'none'`, no `frame-src`,
+     and the documented reason a raw-file endpoint was refused). Options to
+     weigh: a Web Worker + canvas renderer (no iframe, no `object`/`embed`,
+     PDF.js's own recommended embedding and the one most compatible with a
+     strict CSP) vs. a sandboxed same-origin `<iframe>` with a narrow,
+     newly-scoped CSP just for it. Needs a decision recorded in
+     ANALYSIS.md, not a silent pick.
+   - Whatever ships needs the extraction-based viewer (docview.py) kept
+     *behind* it as the AI-reading path, not replaced — the two are
+     answering different questions ("what does this page look like" vs.
+     "what can the model do with this").
+
+2. **A dedicated Files area in the Library, separate from Images.** Direct
+   instruction: *"files need a separate area to images in the library as
+   the text extracted from large files like scanned pdfs could be wayy more
+   than images meaning the ui design that works for image would be
+   insufficient."* The image-gallery tile treats every item as a thumbnail;
+   a file's "preview" can be tens of thousands of characters of extracted
+   text, which needs its own list/card shape (title, kind, size, page/word
+   count, an excerpt) rather than a scaled-down thumbnail. Ties directly
+   into item 1 and R7.1 below — build them together.
+
+3. **Concept maps — audit against the actual ask before extending.**
+   Direct instruction: *"is it possible to make new custom graphs like I
+   mentioned?? with core topic nodes and branching notes and ideas that can
+   either become real linked notes, or contained within that graph??"* This
+   reads as already built (`createConceptMap()` in whiteboard.js, task
+   tracked as done, HISTORY.md §100) — but per this repo's own standing
+   rule, "already exists" is not "is good enough," and the user asking
+   again after it shipped is itself a signal. Before doing anything: drive
+   it live in Chromium and check, specifically, whether (a) a node's
+   sub-ideas can be promoted into real linked notes on demand, (b) a node
+   can just as easily stay contained within the map with no note ever
+   created, and (c) both directions are discoverable without reading this
+   paragraph first. If any of those three isn't true, that's the actual
+   gap, not "build concept maps" from scratch. Also still open regardless:
+   **R7.6, listing/managing maps in the Library** (rename, duplicate — only
+   creation exists).
+
+4. **Floating panel margins.** Recurring complaint, not yet acted on:
+   modals/panels lose roughly a centimetre of edge space that could go to
+   content. Needs the same measured approach as the pane-shell work
+   (R7.5) — before/after distinct-left-edge and used-viewport-percentage
+   numbers, not a guess at padding values.
+
+5. **Row-expand button: fixed position, and click-anywhere-on-the-row.**
+   Direct instruction: *"move the note collapse button on the compact rows
+   view to the permanent left, make sure the button keeps its position even
+   when expanded, and make it so if the user clicks on the main body of the
+   note and not an element on the collapsed row view, it will expand or
+   collapse without the user having to click the button."* Current
+   `.row-expand` button (app.js, the rows-view meta strip added this
+   session) sits wherever the meta strip flows it, and only the button
+   itself is a click target. Needs: pin it to a fixed left column so it
+   doesn't reflow when the row's content grows on expand, and add a
+   click handler on the row body itself (excluding any inner interactive
+   element — links, chips, other buttons — the usual "don't swallow clicks
+   meant for something else" care) that toggles the same state.
+
+6. **A "Select" action in the note's kebab/more-actions menu**, direct
+   instruction, for entering a multi-select mode from the row itself rather
+   than requiring some other discovery path (shift-click, a toolbar button)
+   the user hasn't found. Should drive the same selection state bulk
+   actions already use, if one exists — check before adding a second one.
+
+7. **All-spaces space exclusion — build this one carefully.** Direct
+   instruction, and quoted in full because the caution is the point:
+   *"I want to be able to exclude content from specific spaces in the all
+   spaces space, and that needs to be thorough, make sure if that is
+   modified that nothing leaks into other spaces they shouldnt, or vice
+   versa."* This is R7.9 below, but the user is naming the exact risk this
+   session already paid for once: the original cross-space file/reminder
+   leak (fixed, §R1) and the `categories.name` unique-constraint bug (fixed
+   this session, a 500 on a second space) both came from the same
+   `WorkspaceMixin`/`with_loader_criteria` machinery this feature has to
+   extend. Do not touch the scoping hooks without a test that asserts, in
+   both directions, that excluding space B from an "all spaces" view (a)
+   actually hides B's content there and (b) changes nothing about what
+   space B sees on its own, or what any other space sees. Run the full
+   suite (not just the touched tests) before considering this done — the
+   categories bug this session only surfaced because a second space was
+   exercised at all.
+
+8. **A generating/loading animation on the Notes tab's "Ask" sub-box.**
+   Reported live: *"there's no generating animation on the ask tab."* This
+   may be a live-verification gap rather than a missing feature — reading
+   `askQuestion()` (app.js:7169), it already calls `answerBox.appendChild(
+   typingDots())` before the first token and sets `status.textContent` to
+   "Searching your notes…" / "The model is writing…", which is exactly the
+   pattern the main Chat tab's own generation animation uses (task 9,
+   built). **Don't rebuild this blind** — drive the Ask sub-tab live first
+   (Notes → Ask) and check whether `typingDots()` is actually rendering,
+   whether a CSS rule elsewhere (a later `display`/`animation` override,
+   the same shape as this session's three regressions in §R8.4) is
+   suppressing it, or whether `prefers-reduced-motion` is stripping it
+   entirely for a viewer that has it set. Only write new animation code if
+   the live check says the existing one genuinely isn't there.
+
+9. **Control-element redesign, app-wide** — the broad, repeated instruction
+   ("ALL THE UI NEEDS IMPROVEMENT... fix the ui control elements and
+   panels") remains open. Tasks 10/11/14 below are this same ask split by
+   surface; nothing new to add here except that it is still the largest
+   open item by scope and should stay ranked accordingly once 1–8 above are
+   clear.
+
+**The existing task ledger, unchanged and still open** (see REDESIGN.md
+§R7/§R8 for the detail behind each): unify the file model into real
+attachment cards everywhere (in progress); improve the agent harness for
+small local models; fix control placement for learnability; audit and
+improve Settings/Chat/Graph/Timeline/Reminders/Dashboard layouts; stage ALL
+files (images, chat attachments) until their note/message is committed —
+notes already stage, these two surfaces still upload immediately; rebuild
+the document/file editor (now scoped by items 1–2 above, not the old
+AI-only assumption); reimagine the whiteboard's control panels; cross-link
+everything (notes, documents, files, maps) from anywhere; list and manage
+concept maps in the Library (folded into item 3 above). Also still open
+from earlier rounds and not superseded by anything above: the graph legend
+collapsible behind the top dock (asked twice), togglable cluster-drag
+grouping and shift/button multi-select in the graph (old behaviour kept as
+opt-in, not default), the Settings tool-toggle card redesign, and the
+Instagram-style-optimistic-UI + transparent-logging framing for
+background AI work that R5/R7.4 scoped but didn't fully write up.
+
+## Prior round — two real nav-history bugs found by measurement, AI-first note filing, and text highlighting
 
 **Read BACKLOG.md §109 before touching anything visual.** The single most
 useful thing this round produced is a method, not a fix.

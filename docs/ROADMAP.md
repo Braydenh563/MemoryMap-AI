@@ -20,6 +20,13 @@ complaint, the three underlying causes, the target shape, a complete ledger
 of all forty requests with their state (§R8), and the numbers as they stand
 (§R9). **Read it before doing any UI, file-handling, graph or backend work.**
 
+**A later session added a second, larger burst of requests than fits here —
+read the top of [roadmap/HANDOVER.md](roadmap/HANDOVER.md) first.** It leads
+with a reversal worth knowing before anything else: PDFs and documents must
+be viewable, downloadable and manageable **without any AI model in the
+loop** — the file-viewer design this repo had been building toward assumed
+AI-only reading, and that assumption is now wrong.
+
 **The next session's order of work, highest value first.** Each links to the
 section that holds the quoted request and the detail:
 

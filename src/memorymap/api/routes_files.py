@@ -17,14 +17,14 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from memorymap.ai import captioning, vision_ocr
 from memorymap.api.routes_entries import _existing_entry, _to_out
 from memorymap.api.schemas import EntryOut
-from memorymap.core import deps, docview, media_gc, media_process, ocr
+from memorymap.core import deps, docview, media_gc, media_process, ocr, pdfpages
 from memorymap.core.database import Attachment, MediaUpload
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
@@ -188,6 +188,76 @@ def attached_file_text(
         truncated=viewed.truncated,
         message=viewed.message,
     )
+
+
+class PdfInfoOut(BaseModel):
+    #: Whether the matching pdf-page endpoint can serve anything for this
+    #: file — `media_pdf_page` for a `/media/` upload, `attached_file_pdf_page`
+    #: for a note's own attachment. Moved up here, ahead of both `pdf-info`
+    #: endpoints that return it: a FastAPI route decorator's `response_model`
+    #: evaluates at import time, not lazily like a `from __future__ import
+    #: annotations` type hint, so this has to exist before either decorator
+    #: runs rather than merely before either function is called.
+    available: bool
+    #: Real page count, or 0 when `available` is False.
+    pages: int
+    #: Why `available` is False, for a caller that wants to say so rather
+    #: than just hide the button. "" when `available` is True.
+    message: str = ""
+
+
+@router.get("/files/{attachment_id}/pdf-info", response_model=PdfInfoOut)
+def attached_file_pdf_info(attachment_id: int, session: Session = Depends(get_session)) -> PdfInfoOut:
+    """`media_pdf_info`'s sibling for a note's own attached PDF (the
+    `Attachment` model, `uploads_dir` — a different file and a different
+    table from a `/media/` upload, which is why this is a second endpoint
+    rather than one that takes either id). See that docstring for why this
+    exists apart from `attached_file_text` at all."""
+    attachment = _existing_attachment(session, attachment_id)
+    if Path(attachment.filename).suffix.lower() != ".pdf":
+        raise HTTPException(status_code=422, detail="Not a PDF.")
+    path = deps.get_config().uploads_dir / attachment.stored_name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="File is missing from disk")
+    if not pdfpages.available():
+        return PdfInfoOut(
+            available=False,
+            pages=0,
+            message=(
+                "Viewing PDF pages needs a small rasteriser: install "
+                "“Read scanned PDFs” in Settings → Extras."
+            ),
+        )
+    count = pdfpages.page_count(path)
+    if count == 0:
+        return PdfInfoOut(
+            available=False,
+            pages=0,
+            message=(
+                "This PDF couldn't be opened. It may be corrupted, "
+                "password-protected, or saved in a way this app's reader "
+                "doesn't support."
+            ),
+        )
+    return PdfInfoOut(available=True, pages=count)
+
+
+@media_router.get("/files/{attachment_id}/pdf-page/{index}")
+def attached_file_pdf_page(attachment_id: int, index: int, session: Session = Depends(get_session)) -> Response:
+    """`media_pdf_page`'s sibling for an attached PDF — see that docstring
+    for why this is always a freshly rendered PNG, never the file's own
+    bytes. On `media_router`, same reason: loaded via `mediaSrc()`-tokened
+    `<img src>`, not `apiJson`."""
+    attachment = _existing_attachment(session, attachment_id)
+    if Path(attachment.filename).suffix.lower() != ".pdf":
+        raise HTTPException(status_code=404, detail="Not a PDF.")
+    path = deps.get_config().uploads_dir / attachment.stored_name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="File is missing from disk")
+    png = pdfpages.render_page(path, index)
+    if png is None:
+        raise HTTPException(status_code=404, detail="That page doesn't exist.")
+    return Response(content=png, media_type="image/png", headers={"Cache-Control": "private, max-age=3600"})
 
 
 @router.delete("/files/{attachment_id}", response_model=EntryOut)
@@ -680,6 +750,86 @@ def media_text(filename: str, session: Session = Depends(get_session)) -> Attach
         truncated=viewed.truncated,
         message=viewed.message,
     )
+
+
+def _media_upload_path(session: Session, filename: str) -> tuple[MediaUpload, Path]:
+    upload = session.query(MediaUpload).filter(MediaUpload.filename == filename).first()
+    if not upload:
+        raise HTTPException(status_code=404, detail="No upload by that name.")
+    path = deps.get_config().data_dir / "media" / upload.filename
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="That file is no longer on disk.")
+    return upload, path
+
+
+@router.get("/media/pdf-info/{filename}", response_model=PdfInfoOut)
+def media_pdf_info(filename: str, session: Session = Depends(get_session)) -> PdfInfoOut:
+    """Page count for `pdf_page` below to page through — deliberately its
+    own round trip rather than folded into `media_text`'s response, so the
+    lightbox can show real PDF pages **without ever calling `media_text` (and
+    therefore without markitdown or a vision model in the loop at all)**.
+    That split is the point: viewing a PDF like a PDF and *reading* it with
+    AI are two different questions (`docview.py`'s module docstring answers
+    the second one at length), and until now this app only had an answer for
+    the second — a scanned lecture PDF got stuck on the AI extraction path
+    with no way to just look at the pages, direct instruction: "pdfs and
+    documents should be viewable, accessible and manageable without the ai,
+    even if the ai cant read them."
+    """
+    if Path(filename).suffix.lower() != ".pdf":
+        raise HTTPException(status_code=422, detail="Not a PDF.")
+    _upload, path = _media_upload_path(session, filename)
+    if not pdfpages.available():
+        return PdfInfoOut(
+            available=False,
+            pages=0,
+            message=(
+                "Viewing PDF pages needs a small rasteriser: install "
+                "“Read scanned PDFs” in Settings → Extras."
+            ),
+        )
+    count = pdfpages.page_count(path)
+    if count == 0:
+        return PdfInfoOut(
+            available=False,
+            pages=0,
+            message=(
+                "This PDF couldn't be opened. It may be corrupted, "
+                "password-protected, or saved in a way this app's reader "
+                "doesn't support."
+            ),
+        )
+    return PdfInfoOut(available=True, pages=count)
+
+
+@media_router.get("/media/pdf-page/{filename}/{index}")
+def media_pdf_page(filename: str, index: int, session: Session = Depends(get_session)) -> Response:
+    """One page of an uploaded PDF, rasterised to a PNG — the actual pixels
+    a `<img>` in the lightbox loads, one per page, so a PDF scrolls like a
+    PDF. On `media_router` rather than `router`: this is loaded the same
+    declarative way `/media/{filename}` already is (`mediaSrc()` in app.js
+    appends the unlock token as a query param for exactly these routes,
+    since a plain `<img src>` cannot carry a header), not fetched with
+    `apiJson` the way `media_pdf_info` above is.
+
+    Always a **freshly rendered PNG**, never the PDF's own bytes — the
+    security reasoning `get_media`'s own docstring gives for refusing to
+    serve a PDF inline (a script host, from a folder not guaranteed to hold
+    only what this app wrote) does not apply to pixels this process drew
+    itself. A rasterised page cannot carry a PDF action, an embedded script,
+    or anything else a PDF's own structure can.
+    """
+    if Path(filename).suffix.lower() != ".pdf":
+        raise HTTPException(status_code=404, detail="Not a PDF.")
+    _upload, path = _media_upload_path(session, filename)
+    png = pdfpages.render_page(path, index)
+    if png is None:
+        raise HTTPException(status_code=404, detail="That page doesn't exist.")
+    # Regenerated on every request rather than cached to disk: ~20ms/page
+    # (measured, pdfpages.py's own docstring) and this app has no existing
+    # per-file render cache to hang a second one off. `Cache-Control`
+    # still lets the *browser* avoid re-fetching a page it already has.
+    return Response(content=png, media_type="image/png", headers={"Cache-Control": "private, max-age=3600"})
 
 
 @router.delete("/media/{upload_id}")

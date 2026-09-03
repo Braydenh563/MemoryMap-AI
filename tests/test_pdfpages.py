@@ -99,6 +99,32 @@ def test_an_absurdly_large_page_is_skipped_rather_than_allocated(one_page, monke
     assert pdfpages.render_pages(one_page) == []
 
 
+# --- render_page: one page, for the viewer, independent of MAX_PAGES -----------
+
+
+def test_render_page_without_the_extra_is_none(one_page, monkeypatch):
+    monkeypatch.setattr(pdfpages, "available", lambda: False)
+    assert pdfpages.render_page(one_page, 0) is None
+
+
+def test_render_page_on_a_missing_file_is_none(tmp_path):
+    assert pdfpages.render_page(tmp_path / "nope.pdf", 0) is None
+
+
+@needs_pdfium
+def test_render_page_renders_to_a_png(one_page):
+    png = pdfpages.render_page(one_page, 0)
+    assert png is not None
+    assert png.startswith(b"\x89PNG\r\n\x1a\n")
+
+
+@needs_pdfium
+def test_render_page_out_of_range_is_none(one_page):
+    assert pdfpages.render_page(one_page, 5) is None
+
+
+
+
 # --- the whole path, which is what was actually missing -------------------------
 
 

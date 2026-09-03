@@ -23,7 +23,9 @@ import io
 import re
 from pathlib import Path
 
-from memorymap.core import docview
+import pytest
+
+from memorymap.core import docview, pdfpages
 
 
 def _write(tmp_path, name, text):
@@ -148,12 +150,20 @@ def test_a_file_markitdown_cannot_parse_is_a_message_not_a_500(tmp_path, monkeyp
 def test_a_scanned_pdf_falls_through_to_the_vision_reader(tmp_path, monkeypatch):
     """The seam for the scanned-page case. Nothing here touches Tesseract —
     by direct instruction, scanned pages are the vision model's job."""
+    from memorymap.core import pdfpages
     from memorymap.entry import importer
 
     monkeypatch.setattr(importer, "markitdown_available", lambda: True)
     # What markitdown gives back for a scan: a line of metadata, not nothing,
     # which is why the check is a length floor rather than `if not text`.
     monkeypatch.setattr(importer, "convert_to_markdown", lambda p: "scan.pdf")
+    # A real scan has real pages — pdfium can open it fine, it just has no
+    # text layer. Monkeypatched rather than left to whatever is actually
+    # installed in this environment (a real PDF fixture would make this
+    # test's outcome depend on pypdfium2 being present), and explicit so it
+    # can't be confused with the "PDFium can't open this at all" case below.
+    monkeypatch.setattr(pdfpages, "available", lambda: True)
+    monkeypatch.setattr(pdfpages, "page_count", lambda p: 1)
     path = tmp_path / "scan.pdf"
     path.write_bytes(b"%PDF-1.4")
     viewed = docview.extract(path, vision_reader=lambda p: "The words on the page.")
@@ -164,10 +174,13 @@ def test_a_scanned_pdf_falls_through_to_the_vision_reader(tmp_path, monkeypatch)
 def test_a_scanned_pdf_with_no_vision_reader_says_what_is_missing(tmp_path, monkeypatch):
     """The honest state: the hook exists, and the piece that goes in it —
     something to turn PDF pages into images — does not ship with this app."""
+    from memorymap.core import pdfpages
     from memorymap.entry import importer
 
     monkeypatch.setattr(importer, "markitdown_available", lambda: True)
     monkeypatch.setattr(importer, "convert_to_markdown", lambda p: "scan.pdf")
+    monkeypatch.setattr(pdfpages, "available", lambda: True)
+    monkeypatch.setattr(pdfpages, "page_count", lambda p: 1)
     path = tmp_path / "scan.pdf"
     path.write_bytes(b"%PDF-1.4")
     viewed = docview.extract(path)
@@ -203,6 +216,7 @@ def test_a_pdf_pdfium_cannot_open_says_so_not_probably_a_scan(tmp_path, monkeypa
 
 
 def test_a_vision_reader_that_throws_does_not_break_the_view(tmp_path, monkeypatch):
+    from memorymap.core import pdfpages
     from memorymap.entry import importer
 
     def boom(_path):
@@ -210,6 +224,10 @@ def test_a_vision_reader_that_throws_does_not_break_the_view(tmp_path, monkeypat
 
     monkeypatch.setattr(importer, "markitdown_available", lambda: True)
     monkeypatch.setattr(importer, "convert_to_markdown", lambda p: "scan.pdf")
+    # A real, openable scan — so this test actually reaches `boom()` rather
+    # than being pre-empted by the "PDFium can't open this at all" branch.
+    monkeypatch.setattr(pdfpages, "available", lambda: True)
+    monkeypatch.setattr(pdfpages, "page_count", lambda p: 1)
     path = tmp_path / "scan.pdf"
     path.write_bytes(b"%PDF-1.4")
     viewed = docview.extract(path, vision_reader=boom)
@@ -256,6 +274,62 @@ def test_a_type_with_no_viewer_is_a_200_with_a_message(client):
 
 def test_reading_an_unknown_attachment_404s(client):
     assert client.get("/files/999999/text").status_code == 404
+
+
+# --- an attachment's own PDF pages: view without AI, the sibling of the ---
+# --- /media/pdf-info /pdf-page pair in test_media_api.py -------------------
+#
+# Direct instruction, after a note attachment's non-image chip turned out to
+# only ever download rather than open: attachments needed the same "view
+# real pages, no AI" path the Library's `/media/` uploads got, not a second,
+# different dead end.
+
+_ONE_PAGE_PDF = (
+    b"%PDF-1.4\n"
+    b"1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n"
+    b"2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n"
+    b"3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 100]/Contents 4 0 R"
+    b"/Resources<</Font<</F1 5 0 R>>>>>>endobj\n"
+    b"4 0 obj<</Length 44>>stream\nBT /F1 24 Tf 20 40 Td (Hello view) Tj ET\n"
+    b"endstream endobj\n"
+    b"5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\n"
+    b"trailer<</Root 1 0 R>>"
+)
+
+
+def test_attached_pdf_info_404s_for_an_unknown_attachment(client):
+    assert client.get("/files/999999/pdf-info").status_code == 404
+
+
+def test_attached_pdf_info_422s_for_a_non_pdf(client):
+    attachment_id = _attach(client, "notes.txt", b"words")
+    assert client.get(f"/files/{attachment_id}/pdf-info").status_code == 422
+
+
+def test_attached_pdf_info_without_the_extra_says_so(client, monkeypatch):
+    from memorymap.core import pdfpages
+
+    monkeypatch.setattr(pdfpages, "available", lambda: False)
+    attachment_id = _attach(client, "notes.pdf", _ONE_PAGE_PDF)
+    payload = client.get(f"/files/{attachment_id}/pdf-info").json()
+    assert payload["available"] is False
+    assert payload["pages"] == 0
+
+
+def test_attached_pdf_page_404s_for_a_non_pdf(client):
+    attachment_id = _attach(client, "notes.txt", b"words")
+    assert client.get(f"/files/{attachment_id}/pdf-page/0").status_code == 404
+
+
+@pytest.mark.skipif(not pdfpages.available(), reason="the pdfpages extra is not installed")
+def test_attached_pdf_page_returns_a_real_png(client):
+    attachment_id = _attach(client, "notes.pdf", _ONE_PAGE_PDF)
+    info = client.get(f"/files/{attachment_id}/pdf-info").json()
+    assert info == {"available": True, "pages": 1, "message": ""}
+    page = client.get(f"/files/{attachment_id}/pdf-page/0")
+    assert page.status_code == 200
+    assert page.headers["content-type"] == "image/png"
+    assert page.content.startswith(b"\x89PNG\r\n\x1a\n")
 
 
 def test_a_short_word_document_is_not_mistaken_for_a_scan(tmp_path, monkeypatch):

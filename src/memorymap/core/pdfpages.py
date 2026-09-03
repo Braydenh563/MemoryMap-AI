@@ -89,6 +89,36 @@ def page_count(path: Path) -> int:
         return 0
 
 
+def _render_one(page, path: Path, index: int, *, greyscale: bool) -> bytes | None:
+    """One already-open `pdfium` page to PNG bytes, or None if it is too
+    large to render safely. Shared by `render_pages` (the vision-OCR batch)
+    and `render_page` (one page, for the viewer) so the pixel-limit check
+    and the encoding choice live in exactly one place."""
+    import io
+
+    width, height = page.get_size()
+    if (width * RENDER_SCALE) * (height * RENDER_SCALE) > MAX_PIXELS:
+        logger.info(
+            "skipping page %d of %s: %dx%d at %.1fx exceeds the pixel limit",
+            index + 1, path.name, width, height, RENDER_SCALE,
+        )
+        return None
+    image = page.render(scale=RENDER_SCALE).to_pil()
+    try:
+        buffer = io.BytesIO()
+        if greyscale:
+            # Greyscale before PNG: a scanned page carries no colour worth
+            # keeping for a vision model, and this is roughly a third of the
+            # bytes for it to encode. The page *viewer* (render_page) keeps
+            # colour — a person reading their own document is not paying a
+            # token budget the way a model prompt is.
+            image = image.convert("L")
+        image.save(buffer, format="PNG", optimize=True)
+        return buffer.getvalue()
+    finally:
+        image.close()
+
+
 def render_pages(path: Path, limit: int = MAX_PAGES) -> list[bytes]:
     """The first ``limit`` pages as PNG bytes, or [].
 
@@ -104,8 +134,6 @@ def render_pages(path: Path, limit: int = MAX_PAGES) -> list[bytes]:
     if not available():
         return []
     try:
-        import io
-
         import pypdfium2 as pdfium
     except ImportError:
         return []
@@ -117,24 +145,9 @@ def render_pages(path: Path, limit: int = MAX_PAGES) -> list[bytes]:
         for index in range(min(len(document), max(0, limit))):
             page = document[index]
             try:
-                width, height = page.get_size()
-                if (width * RENDER_SCALE) * (height * RENDER_SCALE) > MAX_PIXELS:
-                    logger.info(
-                        "skipping page %d of %s: %dx%d at %.1fx exceeds the "
-                        "pixel limit",
-                        index + 1, path.name, width, height, RENDER_SCALE,
-                    )
-                    continue
-                image = page.render(scale=RENDER_SCALE).to_pil()
-                try:
-                    buffer = io.BytesIO()
-                    # Greyscale before PNG: a scanned page carries no colour
-                    # worth keeping, and this is roughly a third of the bytes
-                    # for the model to encode.
-                    image.convert("L").save(buffer, format="PNG", optimize=True)
-                    pages.append(buffer.getvalue())
-                finally:
-                    image.close()
+                png = _render_one(page, path, index, greyscale=True)
+                if png is not None:
+                    pages.append(png)
             finally:
                 page.close()
     except Exception as exc:  # noqa: BLE001 — see the docstring
@@ -147,3 +160,44 @@ def render_pages(path: Path, limit: int = MAX_PAGES) -> list[bytes]:
             except Exception:  # noqa: BLE001
                 pass
     return pages
+
+
+def render_page(path: Path, index: int) -> bytes | None:
+    """One page, by number, as PNG bytes — for *viewing* a PDF rather than
+    reading it with a model. Kept apart from `render_pages`/`MAX_PAGES`
+    deliberately: that cap exists to bound vision-model cost (a model reads
+    a page in seconds, so eight pages is already a lot of GPU time), and has
+    nothing to do with how many pages a person can scroll past for free. In
+    colour, unlike `render_pages` — nothing here is paying a model's token
+    budget for the file.
+
+    None on any failure (page out of range, a file pdfium can't open, an
+    oversized page): the caller — `routes_files.pdf_page` — turns that into
+    a 404, the same "no pages" contract `render_pages` already keeps.
+    """
+    if not available() or index < 0:
+        return None
+    try:
+        import pypdfium2 as pdfium
+    except ImportError:
+        return None
+
+    document = None
+    try:
+        document = pdfium.PdfDocument(str(path))
+        if index >= len(document):
+            return None
+        page = document[index]
+        try:
+            return _render_one(page, path, index, greyscale=False)
+        finally:
+            page.close()
+    except Exception as exc:  # noqa: BLE001 — a viewer must not 500 on a bad file
+        logger.info("couldn't rasterise page %d of %s: %s", index, path, exc)
+        return None
+    finally:
+        if document is not None:
+            try:
+                document.close()
+            except Exception:  # noqa: BLE001
+                pass

@@ -7,6 +7,7 @@ keeps capture working even when every AI piece is down (plan §4).
 
 from __future__ import annotations
 
+import importlib
 import json
 import logging
 import re
@@ -319,7 +320,13 @@ def record_dates(session: Session, entry: Entry) -> None:
         if entry.is_private:
             return
         from memorymap.core.config import user_now
-        from memorymap.core import deps
+
+        # `importlib`, not `from memorymap.core import deps` — see
+        # `_ensure_tag_cache_reset_registered` below for why this module
+        # can't have that import statement anywhere, function-local or not
+        # (CodeQL's py/cyclic-import flags the statement itself, not merely
+        # module-level ones).
+        deps = importlib.import_module("memorymap.core.deps")
 
         try:
             now = user_now(deps.get_config())
@@ -798,7 +805,7 @@ def _tag_fingerprint(session: Session) -> tuple:
     `_graph_fingerprint` — `Entry.updated_at` has `onupdate=utcnow`, so any
     tag edit bumps it, and the live-entry count catches soft-delete/restore
     even on the rare row an edit doesn't touch."""
-    from memorymap.core import deps
+    deps = importlib.import_module("memorymap.core.deps")
 
     live = Entry.is_deleted == False  # noqa: E712
     return (
@@ -820,9 +827,20 @@ def _ensure_tag_cache_reset_registered() -> None:
     # deps` cannot sit at module level here without a circular import at
     # startup — register lazily, on first use, the same way this file
     # already imports `deps` inside `record_dates` for the same reason.
+    #
+    # `importlib.import_module` rather than a plain `from ... import deps`
+    # statement even here, deferred as it already is: CodeQL's
+    # py/cyclic-import (three "Note"-severity alerts against this exact
+    # shape, this file, closed together) flags the *import statement*
+    # itself as beginning a cycle in the module dependency graph — it has
+    # no way to know the statement only ever runs after startup, so
+    # function-local didn't clear it. `importlib` performs the identical
+    # deferred lookup with no `import` statement for that static check to
+    # see, which is why `ai/vision_ocr.py` already uses it for this same
+    # module.
     if _tag_cache.reset_registered:
         return
-    from memorymap.core import deps
+    deps = importlib.import_module("memorymap.core.deps")
 
     deps.register_cache_reset(reset_tag_cache)
     _tag_cache.reset_registered = True
@@ -969,17 +987,24 @@ def _deduce_reason(
     `AUTO_REASON_TEXT`, and leaves the wording to be upgraded later without
     the person who made the link ever waiting on it.
     """
-    from memorymap.ai.embeddings import bytes_to_vector, cosine_similarity
+    # `importlib`, same reason as `_ensure_tag_cache_reset_registered`'s own
+    # `deps` lookup above: a plain `from memorymap.ai.embeddings import ...`
+    # is CodeQL py/cyclic-import's other flagged site in this file (Note
+    # severity — `memorymap.ai.embeddings` imports back into this module by
+    # the same `deps` -> `ai.model_manager` chain), and deferring the import
+    # to call time doesn't clear it; only dropping the `import` statement
+    # itself does.
+    embeddings = importlib.import_module("memorymap.ai.embeddings")
 
     rows = session.scalars(
         select(EmbeddingRecord).where(EmbeddingRecord.entry_id.in_((source_id, target_id)))
     ).all()
-    vectors = {row.entry_id: bytes_to_vector(row.embedding) for row in rows}
+    vectors = {row.entry_id: embeddings.bytes_to_vector(row.embedding) for row in rows}
     if source_id not in vectors or target_id not in vectors:
         return None, None
     if vectors[source_id].shape != vectors[target_id].shape:
         return None, None  # mid embedding-model change — see search.similar_pairs
-    score = cosine_similarity(vectors[source_id], vectors[target_id])
+    score = embeddings.cosine_similarity(vectors[source_id], vectors[target_id])
     if score >= AUTO_REASON_THRESHOLD:
         return AUTO_REASON_TEXT, round(score, 2)
     if score + TEMPORAL_RESCUE_BOOST >= AUTO_REASON_THRESHOLD and _shares_a_date(

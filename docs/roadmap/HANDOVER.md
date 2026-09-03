@@ -9253,3 +9253,45 @@ DOM order put it. Matching the element as well as the class ties the
 specificity, and 04 loads after 01, so the tie resolves correctly. **A
 screenshot is what caught it**: the row looked "fixed" (one tidy line)
 while being nothing of the kind.
+
+## Same session: the help "?" in Settings, and an honest answer on "liquid glass"
+
+Reported with a screenshot: "the minimum similarity '?' tooltip button
+doesn't have that affordance improvement, is an oval and the popup appears
+in the top right of the settings page." Two separate bugs, both real.
+
+- **The oval.** `.graph-help-toggle` declares a 2rem box, but it is (0,1,0)
+  and `button.small`'s `padding: 0 0.8rem` is (0,1,1) — so the padding won
+  and pushed the glyph off-centre inside the fixed box, whatever the source
+  order. Raised to `button.graph-help-toggle` (0,1,1), which ties and then
+  wins because the rule lives in the last stylesheet. Verified on the graph's
+  own "?": 32x32, `padding-inline: 0`, radius 50%.
+- **The popup in the wrong corner.** `.graph-help-panel` is `position:
+  absolute; top: 3.5rem; right: …`, which is correct in a graph toolbar,
+  where the nearest positioned ancestor is the map's own corner. Inside the
+  Settings modal the nearest positioned ancestor is the modal, so the text
+  flew to the modal's top-right, over unrelated settings and nowhere near the
+  button that opened it. In a settings form it now opens *in flow* under its
+  own row, like every other hint in that modal.
+
+**On the SVG "liquid glass" technique** (feTurbulence + feDisplacementMap
+referenced from `backdrop-filter`), asked about directly with "idk if this is
+a better look or not": it was checked in this runtime rather than answered
+from memory — `CSS.supports('backdrop-filter', 'url(#lg) blur(3px)')` is
+**true** here and the value computes, so it is genuinely available in the
+Chromium this app ships against.
+
+It is still not on by default, and the reasoning is worth keeping. The
+displacement half is the expensive half: it runs per glass surface (this app
+has many, several of them scrolling), and displacing the backdrop is exactly
+what smears the text *behind* a panel — the legibility failure this file has
+already been burned by once with `--modal-bg`'s 4% transparency. The half
+that actually sells glass is the cheap one, and it was simply missing: a
+one-pixel specular lip along the top edge (`inset 0 1px 0`, the
+`box-shadow: inset 0 1px 0 #ffffff5c` line in the snippet). That is now on
+`.card` via a `--glass-specular` token in all three palette blocks, low in
+the light theme for the same reason the sheen gradient already records
+(white on near-white adds nothing). The fuller effect stays available as a
+future opt-in in Settings → Appearance, which already owns glass on/off,
+blur and sheen — the right home for a taste-dependent, GPU-heavy option,
+rather than something imposed on every surface.

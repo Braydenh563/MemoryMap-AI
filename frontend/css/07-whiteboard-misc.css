@@ -2418,9 +2418,40 @@ dialog::backdrop {
 button.icon-only,
 button.icon-button,
 summary.icon-only,
-summary.icon-button {
+summary.icon-button,
+button.graph-help-toggle,
+button.setting-hint-toggle {
   padding-inline: 0;
   width: auto;
   min-width: var(--target-min);
   min-height: var(--target-min);
+}
+
+/* The two help buttons declare an explicit 2rem box of their own; keep the
+   width pinned to it rather than letting `width: auto` above hand it back to
+   content + padding. Reported as an oval: `.graph-help-toggle` is (0,1,0) and
+   `button.small`'s `padding: 0 0.8rem` is (0,1,1), so the padding won and
+   pushed the glyph off centre inside the fixed box. */
+button.graph-help-toggle,
+button.setting-hint-toggle {
+  width: 2rem;
+  height: 2rem;
+}
+
+/* **A help popup belongs beside the thing it explains.** Reported with a
+   screenshot: the "minimum similarity" explanation "appears in the top right
+   of the settings page". `.graph-help-panel` is `position: absolute; top:
+   3.5rem; right: …`, which is right in a graph toolbar — the nearest
+   positioned ancestor there is the panel's own corner of the map. Inside the
+   Settings modal the nearest positioned ancestor is the modal itself, so the
+   text flew to the modal's top-right corner, over unrelated settings and
+   nowhere near the "?" that opened it. In a settings form the explanation
+   should simply open in flow underneath its own row, which is what every
+   other hint in this modal already does. */
+#settings-modal .graph-help-panel,
+.settings-section .graph-help-panel {
+  position: static;
+  width: auto;
+  max-width: none;
+  margin-top: var(--space-2);
 }

@@ -2626,7 +2626,11 @@ mark.lightbox-hit {
    `.lightbox-doc`'s existing scrollbars become the pan control with no
    drag handler of its own needed. */
 .lightbox-pdf-pages {
-  transform-origin: top center;
+  /* Left, not centre, for the same reason as `.lightbox img` above: a
+     centred origin grows the page column equally to both sides, and the
+     half that goes past the container's start edge is not scrollable
+     overflow in any browser, so it can never be panned to. */
+  transform-origin: top left;
 }
 
 .lightbox-pdf-pages.zoomed {
@@ -2641,8 +2645,22 @@ mark.lightbox-hit {
   border-radius: var(--radius-lg);
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
   cursor: default;
-  /* Transform-origin centre so zooming grows the picture out from its
-     middle rather than pushing it down and to the right off its own stage.
+  /* **Top-left, and it has to be** — reported directly: "when I zoom in on
+     the images or documents in the lightbox, I can't scroll left or up,
+     only right or down."
+
+     This was `center center`, chosen so zooming grew the picture out from
+     its middle rather than pushing it down and right. That looks nicer and
+     is unusable: a scroll container's scrollable overflow region only ever
+     extends past its *end* edges. Content a transform pushes past the
+     start edge (left/top) is not added to the scrollable area by any
+     browser — it is unreachable by scrollbar, wheel, or our own drag-pan,
+     which is why exactly half of every zoomed picture could not be
+     inspected. Scaling from the top-left corner keeps the whole magnified
+     image inside positive scroll space, so every part of it is reachable.
+     The layout box is unchanged by a transform, so the picture still sits
+     centred on the stage at rest (zoom 1 clears the transform entirely).
+
      Merged into this rule rather than a second `.lightbox img {}` block —
      a duplicate selector reads fine to a browser but not to
      test_lightbox.py, which greps the *first* `.lightbox img {` block by
@@ -2650,7 +2668,7 @@ mark.lightbox-hit {
      have hidden max-height from that check while leaving it live in the
      browser, exactly the "looks fine, test lies" gap that check exists to
      catch. */
-  transform-origin: center center;
+  transform-origin: top left;
 }
 
 /* Stands in for the image when it fails to decode — a deleted underlying

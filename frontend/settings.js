@@ -2883,9 +2883,28 @@ function collapseLongSettingHints(root) {
       const open = hint.classList.toggle("is-collapsed") === false;
       toggle.setAttribute("aria-expanded", String(open));
     });
-    // After the hint, so the reading order is label -> explanation -> the
-    // control that reveals it, which is also the tab order.
-    hint.insertAdjacentElement("afterend", toggle);
+    // **On the label's own line, not under it.** Reported with a
+    // screenshot ("the 'keep the ai on this machine' line in settings needs
+    // visual fixing and alignment"): this used to be
+    // `hint.insertAdjacentElement("afterend", toggle)`, which made the
+    // button a sibling of the label text inside `.setting-check > span` —
+    // and that span is a flex *column*, so every element child becomes its
+    // own row. The "?" sat on a line of its own beneath the setting it
+    // explains, which reads as a broken row rather than a control.
+    //
+    // Wrapping the label's leading nodes and the button together in one
+    // flex row fixes it structurally instead of fighting the column with
+    // margins: text and "?" share a line, the hint still opens underneath.
+    // The disclosure order stays correct for a screen reader too — the
+    // button now precedes the region its `aria-expanded` describes.
+    const parent = hint.parentElement;
+    const row = document.createElement("span");
+    row.className = "setting-hint-row";
+    while (parent.firstChild && parent.firstChild !== hint) {
+      row.appendChild(parent.firstChild);
+    }
+    row.appendChild(toggle);
+    parent.insertBefore(row, hint);
   }
 }
 window.collapseLongSettingHints = collapseLongSettingHints;

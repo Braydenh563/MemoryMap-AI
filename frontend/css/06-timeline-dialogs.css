@@ -99,7 +99,20 @@
   color: var(--accent);
   border-color: var(--accent-soft);
   border-left-color: var(--accent);
-  background: var(--bg);
+  /* **Was `var(--bg)`, which is the page's own linear-gradient.** Found by
+     hovering this band and reading the computed style back, during a sweep
+     for controls with no hover feedback: at rest the band is a solid
+     `--modal-bg`, and on hover its `background-color` computed to
+     `rgba(0, 0, 0, 0)` — because a gradient is a background *image*, so
+     assigning one leaves the colour transparent and drops the band's
+     surface entirely, letting the timeline behind it show through a
+     control that is meant to lift toward the pointer. `--bg` is one of the
+     compatibility aliases noted in the token block (a second vocabulary
+     that came in with imported CSS), and it never meant "a surface" here.
+     A solid tint of the band's own resting colour is what the hover was
+     reaching for, and it matches the accent-tinted hover every other
+     control in the app uses. */
+  background: color-mix(in srgb, var(--accent) 8%, var(--modal-bg));
   box-shadow: var(--shadow-md);
   outline: none;
 }

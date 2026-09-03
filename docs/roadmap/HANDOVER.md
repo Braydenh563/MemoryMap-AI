@@ -9136,3 +9136,63 @@ properties, never spacing.
 - CodeQL PR check alert count/detail still not confirmed resolved — this
   session's tools could not surface per-alert SARIF locations; unchanged from
   the last handover entry.
+
+## Same session: five reported UI bugs, each root-caused by measurement
+
+All five came in as live reports, two with screenshots. None was fixed by
+eye — each was measured on the running app first, and two of them turned out
+to have causes nothing in a screenshot could have shown.
+
+1. **"When I zoom in on the images or documents in the lightbox, I can't
+   scroll left or up, only right or down."** Real, and a spec-level cause:
+   `.lightbox img` had `transform-origin: center center`, chosen earlier so
+   zoom grew the picture from its middle. But **a scroll container's
+   scrollable overflow region only ever extends past its end edges** —
+   content a transform pushes past the start edge is not added to the
+   scrollable area by any browser, so exactly the half of every zoomed
+   picture that grew up and left was unreachable by scrollbar, wheel *or*
+   the drag-pan added earlier this session. Both `.lightbox img` and
+   `.lightbox-pdf-pages` now scale from `top left`, which keeps the whole
+   magnified image inside positive scroll space. A transform does not affect
+   layout, so the picture still sits centred at rest.
+2. **The "Keep the AI on this machine" row.** The "?" toggle is inserted by
+   `collapseLongSettingHints` (settings.js) as a sibling of the label text
+   inside `.setting-check > span` — which is a flex *column*, so it landed
+   on its own row underneath the setting it explains. Fixed structurally
+   rather than with margins: the label's leading nodes and the button are
+   now wrapped in one `.setting-hint-row` flex row. Verified: row and toggle
+   both at y=494, both 32px.
+3. **"?" buttons were three different shapes.** Measured: of the twelve in
+   the DOM, nine carried `.graph-help-toggle` (32px circles), the Settings
+   hint toggle rendered **43x28 with a 9.8px radius**, and the whiteboard's
+   was a third shape. The size/shape half of that recipe is now shared;
+   `margin-left: auto` deliberately stays on `.graph-help-toggle` alone,
+   since pushing to the end of the row is toolbar behaviour that would fling
+   the Settings one away from its own label. Verified: now 32x32, radius 50%.
+4. **"The combobox and search bar are quite taller than the neighbouring
+   buttons."** Not subtle: **45.2px against 28px**, a 17px gap, on three
+   Settings rows. A field's default padding is sized for a stacked form;
+   inline beside a compact button it towers. A settings `.row` is a control
+   strip and never got the treatment DESIGN.md's own "Control height"
+   section describes, so it now declares `--control-h: 2.2rem` (the same
+   value the chat dock and library toolbar use, not a fourth number) and
+   zeroes the fields' stacked-form `margin-bottom`. Verified: zero
+   mismatches remain in Settings.
+5. **A hover bug found by sweeping, not reported.** `.timeline-band:hover`
+   set `background: var(--bg)` — and `--bg` is one of the compatibility
+   aliases from imported CSS, resolving to the **page's linear-gradient**. A
+   gradient is a background *image*, so the band's `background-color`
+   computed to `rgba(0,0,0,0)` on hover: the surface vanished and the
+   timeline showed through a control that is meant to lift toward the
+   pointer. Now a solid `color-mix` tint of its own resting colour.
+
+**The sweep that found #5 is worth repeating, and so is its lesson about
+probes.** Hovering one representative of every interactive class signature
+across seven tabs and diffing computed styles first reported *14* controls
+with no feedback — nearly all false. `document.elementFromPoint` at a
+button's centre returns the child `<i>` icon, whose own styles never change,
+so the probe was measuring the wrong node. Tagging the intended element with
+a data attribute and reading styles back from *that* gave the honest number:
+**2 of 32**, one of which (`.scroll-top`) was merely `visibility: hidden` at
+the time and has a perfectly good hover rule. A bad probe will invent a
+backlog; check what your measurement is actually pointing at.

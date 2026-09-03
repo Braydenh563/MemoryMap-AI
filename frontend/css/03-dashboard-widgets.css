@@ -2128,6 +2128,30 @@
   border-radius: 50%;
 }
 
+/* **Every "?" in the app is this button.** Direct instruction: "make sure
+   all the tooltip question mark buttons across the application are
+   consistent." They were not, and it was measurable rather than a matter of
+   taste — of the twelve in the DOM, nine carried `.graph-help-toggle` and
+   rendered as 32px circles, while the Settings hint toggle rendered 43x28
+   with a 9.8px radius (a wide rounded rect, photographed in the report) and
+   the whiteboard's help button was a third shape again. The size/shape half
+   of the recipe is shared here; `margin-left: auto` deliberately stays
+   above, on `.graph-help-toggle` alone, because pushing the button to the
+   end of the row is a *toolbar* behaviour — doing it to the Settings one
+   would fling it to the far edge of the row, away from the label it
+   explains. */
+.setting-hint-toggle,
+#wb-help-btn {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
 .graph-help-panel {
   position: absolute;
   top: 3.5rem;

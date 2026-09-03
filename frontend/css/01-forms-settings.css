@@ -440,6 +440,40 @@ input[type="radio"] {
   align-items: center;
 }
 
+/* **A settings `.row` is a control strip, and never got the control-strip
+   treatment DESIGN.md describes.** Reported: "in quite a few areas, the
+   combobox and search bar are quite taller than the neighbouring buttons or
+   other elements." Measured in Settings before touching anything, and it is
+   not a subtle four pixels — a select or text field rendered **45.2px**
+   beside a 28px `button.small` in the same flex row: a 17px difference,
+   three separate rows of it (Model backend's provider select and address
+   field next to Connect, and the embedding model select next to Apply &
+   re-index).
+
+   The cause is that a field's default padding (`--space-4`/`--space-5`) is
+   sized for a full-width stacked form, where it is right; inline beside a
+   compact button it towers. So this declares the strip height the way the
+   chat dock and the library toolbar already do, at the same 2.2rem, rather
+   than inventing a fourth number — and zeroes the fields' own
+   `margin-bottom`, because DESIGN.md's own note on this ("And zero the
+   margins, not just the heights") is that a stacked-form margin centred on
+   a flex item is what breaks the row the second time, after the heights
+   already match. `padding-block: 0` so the text keeps centring inside the
+   now-shorter box instead of being squeezed against it. */
+.settings-group .row {
+  --control-h: 2.2rem;
+}
+
+.settings-group .row select,
+.settings-group .row input[type="text"],
+.settings-group .row input[type="search"],
+.settings-group .row input[type="number"],
+.settings-group .row button {
+  height: var(--control-h);
+  margin-bottom: 0;
+  padding-block: 0;
+}
+
 /* BACKLOG §77 item 1: the Notes-tab page selector, shown under the list only
    when a numeric page size is chosen (not the default "All notes"). */
 .notes-pagination {
@@ -3251,9 +3285,21 @@ html.modal-open body {
   max-height: 40rem;
 }
 
+/* Puts the label's own text and its "?" on one line. Without this the
+   toggle was a block-level child of `.setting-check > span`, which is a
+   flex *column* — so it landed on its own row underneath the label,
+   reported with a screenshot as the "Keep the AI on this machine" row
+   being misaligned. `align-self: flex-start` below stopped it stretching
+   edge to edge, but nothing was ever going to pull it back up onto the
+   label's line while it was a sibling row in a column. */
+.setting-hint-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
 .setting-hint-toggle {
-  margin-left: var(--space-2);
-  padding-inline: var(--space-2);
   vertical-align: middle;
   color: var(--muted);
   /* `.setting-check > span` (04-chat-dock-appearance.css) is a flex column

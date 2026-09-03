@@ -3039,6 +3039,16 @@ mark.lightbox-hit {
    monitor takes bottom-left, the toolbar the top), which is exactly why this
    is a choice rather than a better hard-coded guess. Default is top-left: the
    one corner nothing else claims by default. */
+/* **Translucent, and it steps out of the way while you are not using it.**
+   Reported as part of "the graph ui is completely broken", and the
+   screenshot makes the case: a fully opaque 175x115 panel sitting *on top
+   of* the map, hiding whatever notes are under that corner. A minimap is an
+   orientation aid — it is the least important thing on this screen and it
+   was the most visually solid.
+
+   Opacity rather than a smaller box: shrinking it makes it useless as a
+   map. At rest it is a hint of where you are; hovering it — which is what
+   you do before clicking to jump — brings it fully back. */
 .graph-minimap {
   position: absolute;
   z-index: 5;
@@ -3049,6 +3059,21 @@ mark.lightbox-hit {
   box-shadow: var(--shadow-sm);
   cursor: crosshair;
   color: var(--accent);
+  opacity: 0.45;
+  transition: opacity var(--motion-fast) ease;
+}
+
+.graph-minimap:hover,
+.graph-minimap:focus-within {
+  opacity: 1;
+}
+
+/* Someone who asked for less motion still gets the full-strength panel on
+   hover — only the fade between the two states goes. */
+@media (prefers-reduced-motion: reduce) {
+  .graph-minimap {
+    transition: none;
+  }
 }
 
 .graph-minimap.hidden {

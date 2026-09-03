@@ -292,11 +292,33 @@
 
 /* A legend is a key, not a list to browse: past a couple of rows it is eating
    the thing it explains. It scrolls at that point instead. */
+/* **One row that scrolls sideways, not two or three that stack.** Reported:
+   "the graph view area keeps feeling squashed on my screen due to the top
+   dock", with a screenshot showing eleven category chips wrapped over two
+   rows above the canvas.
+
+   `max-height: 5.5rem` let the legend take up to three rows of the thing
+   people came to look at, and it grows with the notebook — the more
+   categories you have, the less graph you get, which is backwards. A single
+   non-wrapping row is a fixed cost regardless of how many categories exist,
+   and horizontal scrolling is the right affordance for a list whose length
+   is not the point.
+
+   `scrollbar-width: thin` keeps the bar from claiming a chip's worth of
+   height back. */
 #graph-legend {
-  flex: 0 1 auto;
-  max-height: 5.5rem;
-  overflow-y: auto;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
   min-height: 0;
+  scrollbar-width: thin;
+}
+
+/* A chip must not shrink to fit the row — that is what turns a legend into
+   a line of ellipses. It keeps its size and the row scrolls instead. */
+#graph-legend > * {
+  flex: 0 0 auto;
 }
 
 @media (max-width: 720px) {
@@ -1144,18 +1166,37 @@
   margin: 0.15rem 0 0.5rem;
 }
 
+/* **A grid, not a wrapping row.** Reported with a screenshot: "the popups
+   when interacting with graph nodes need a full redesign as well." Nine
+   actions in a `flex-wrap` row pack by *label length*, so they landed 4 / 3
+   / 2 across three ragged rows with the edges lining up nowhere — the
+   alignment failure DESIGN.md's own CARP section is about, in one component.
+
+   Three equal columns means every button is the same width, every row has
+   the same count, and the block reads as one set of related actions rather
+   than a spill. `minmax(0, 1fr)` so a long label ellipsises inside its cell
+   instead of widening the column and taking the grid with it. */
 .graph-popup-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  margin-top: 0.5rem;
-  padding-top: 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
   border-top: 1px solid var(--border);
 }
 
 .graph-popup-actions button {
-  font-size: 0.8rem;
-  padding: 0.25rem 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: var(--target-min);
+  padding: 0 var(--space-3);
+  font-size: var(--text-md);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .graph-physics {
@@ -1230,7 +1271,11 @@
 .graph-popup {
   position: absolute;
   z-index: 40;
-  width: 22rem;
+  /* Widened from 22rem. At the old width the three-column action grid below
+     is too tight for its labels, and the note's own text — the thing the
+     popup exists to show — wrapped every four or five words into a column
+     narrower than the buttons under it. */
+  width: 26rem;
   max-width: calc(100% - 1rem);
   padding: 0.8rem 0.8rem;
   background: var(--modal-bg);
@@ -1253,7 +1298,13 @@
 
 .graph-popup textarea,
 .graph-popup input {
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--space-3);
+}
+
+/* The note's own text is the reason this popup opened, so it gets room to
+   be read rather than a three-line slot above a wall of buttons. */
+.graph-popup textarea {
+  min-height: 7rem;
 }
 
 .graph-popup .row {

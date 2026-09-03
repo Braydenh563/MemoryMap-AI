@@ -24197,7 +24197,34 @@ $("entry-content").addEventListener("input", () => {
 // Moving the caret with the mouse or arrows can leave the fragment behind.
 $("entry-content").addEventListener("click", () => renderWikiSuggest($("entry-content")));
 $("entry-content").addEventListener("blur", () => setTimeout(hideWikiSuggest, 120));
+//: True while the notebook is locked — the unlock overlay is up and nothing
+//: behind it may be reached.
+//:
+//: **This is a privacy hole, not a polish item.** Reported directly: "I can
+//: use keyboard shortcuts to access features even when locked out… like the
+//: meeting notes popup." The global handler below had no lock check of any
+//: kind, so every shortcut worked behind the lock screen: the command
+//: palette (which lists and opens notes by title), "/" to focus search, the
+//: `g`-then-letter tab jumps, the meeting recorder, all of it. The lock
+//: screen is the only privacy boundary this app has, and the keyboard walked
+//: straight past it.
+//:
+//: Read off the DOM rather than a flag, deliberately: the overlay's own
+//: `hidden` class is what every other part of the app already treats as the
+//: truth about being locked, and a second source of truth is how a boundary
+//: like this drifts back open.
+function notebookLocked() {
+  const overlay = document.getElementById("lock-overlay");
+  return Boolean(overlay) && !overlay.classList.contains("hidden");
+}
+
 document.addEventListener("keydown", (e) => {
+  // **Before anything else.** A locked notebook answers no shortcut — not a
+  // chorded one, not a bare one, not a tab jump. Typing is untouched: this
+  // returns before any shortcut is *dispatched*, so the password field still
+  // receives every keystroke, and Enter still submits it through the form's
+  // own handler rather than this one.
+  if (notebookLocked()) return;
   // Rebinding swallows everything while it's listening.
   if (captureShortcutKey(e)) {
     e.preventDefault();

@@ -1,60 +1,39 @@
-// Service worker (Wave F; hardened in Wave O). Caches the app shell so
-// MemoryMap opens instantly and still opens while the local server is
-// briefly down. API calls are NEVER cached — notes must always be live.
+// Service worker — **network-only, and deliberately so.**
 //
-// Wave O fix: a stale cache was serving old app.js/style.css after an
-// update (the graph overlay, model pickers, and buttons all looked
-// "broken" because the HTML was new but the CSS/JS were old). The cache
-// name is now versioned, the worker takes over immediately, and it tells
-// open pages to reload once so fresh assets always win.
-// Bumped with the icon set: a stale cache would keep serving the old favicon
-// long after the new one shipped, which is exactly the class of bug the
-// version in this name exists to prevent.
-// Bumped again for the style.css split (ROADMAP.md Priority 0 item 2):
-// single-file "/style.css" no longer exists on disk, and precaching a 404
-// would fail the whole addAll() call, taking the entire shell offline-cache
-// with it — not a soft failure, install() rejects and nothing gets cached.
-// Bumped a third time for the app.js/whiteboard.js split (same roadmap
-// item's other half): the whiteboard tab is now served from a second file
-// that also has to be in this list, or a page loaded offline gets app.js
-// from the cache but a 404 for whiteboard.js and the tab renders blank.
-// Bumped a fourth time for the graph.js extraction (frontend refactor
-// path, the step after whiteboard): same failure mode — the Graph tab
-// would 404 offline without this file precached too.
-const CACHE = "memorymap-shell-v10";
-const SHELL = [
-  "/",
-  "/graph.js",
-  "/app.js",
-  "/whiteboard.js",
-  // style.css split into eight files, in load order — see index.html's
-  // <link> tags for why the order matters (00 holds :root and other
-  // global-scope declarations later files' var() calls depend on).
-  "/css/00-tokens-shell.css",
-  "/css/01-forms-settings.css",
-  "/css/02-chat-graph.css",
-  "/css/03-dashboard-widgets.css",
-  "/css/04-chat-dock-appearance.css",
-  "/css/05-sidebars-themes.css",
-  "/css/06-timeline-dialogs.css",
-  "/css/07-whiteboard-misc.css",
-  // The icon font and its stylesheet are shell, not decoration: without them
-  // every button in the app is a blank square. Precached so a cold offline
-  // start still draws icons.
-  "/vendor/phosphor/style.css",
-  "/vendor/phosphor/Phosphor.woff2",
-  "/favicon.svg",
-  "/icon-maskable.svg",
-  "/apple-touch-icon.png",
-  "/icon-512.png",
-  "/vendor/d3.v7.min.js",
-  "/vendor/p5.min.js",
-  "/manifest.webmanifest",
-];
+// Asked for directly: *"if the backend is closed the ui should fail to load
+// or connect on browsers until started back up again."*
+//
+// This file used to precache the app shell (`/`, app.js, the eight CSS
+// files, the icon font, d3, p5) so MemoryMap would "open instantly and still
+// open while the local server is briefly down". That second half is the
+// problem. MemoryMap is not a web app that degrades gracefully offline — it
+// is a front end for a local server that holds every note, every file and
+// every model call. With the server down, the shell still painted: tabs,
+// toolbars, empty lists, a capture box you could type into. It looked like a
+// working app with an empty notebook, which is the most alarming thing it
+// could possibly show someone whose notes are all on that machine.
+//
+// So the shell is not cached any more, and this worker now does exactly one
+// useful thing: it gets out of the way, and it **deletes the caches earlier
+// versions left behind**. That second part is why the file still exists
+// rather than being removed outright — a worker that is simply deleted is
+// not fetched again, so every browser that already installed v10 would keep
+// serving that stale shell forever, including the stale `app.js` that this
+// project's own CLAUDE.md records as having cost two sessions of debugging.
+// A worker that installs, claims its clients and clears the old caches is
+// the only reliable way to retire one.
+//
+// Nothing replaces the offline behaviour, on purpose. When the server is
+// down the browser shows its own "can't connect" page, which is true, and
+// `boot-guard.js` covers the case where the page loads but a script does
+// not.
 
-self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
-  self.skipWaiting(); // don't wait for old tabs to close
+const RETIRED_CACHE_PREFIX = "memorymap-shell-";
+
+self.addEventListener("install", () => {
+  // Nothing to precache. `skipWaiting` so a browser still running the old
+  // caching worker replaces it on this load rather than the next one.
+  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
@@ -62,28 +41,19 @@ self.addEventListener("activate", (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
+        Promise.all(
+          keys
+            .filter((key) => key.startsWith(RETIRED_CACHE_PREFIX))
+            .map((key) => caches.delete(key))
+        )
       )
       .then(() => self.clients.claim())
   );
 });
 
-self.addEventListener("fetch", (event) => {
-  const url = new URL(event.request.url);
-  const isShell =
-    event.request.method === "GET" &&
-    (SHELL.includes(url.pathname) || url.pathname.startsWith("/vendor/"));
-  if (!isShell) return; // API and uploads go straight to the server
-
-  // Network first, cache only as an offline fallback — a running server
-  // always wins, so an updated asset is served the moment it's deployed.
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE).then((cache) => cache.put(event.request, copy));
-        return response;
-      })
-      .catch(() => caches.match(event.request))
-  );
-});
+// No `fetch` handler at all. A service worker without one is transparent —
+// every request goes to the network exactly as if this worker were not
+// installed, which is precisely the behaviour asked for. An empty handler
+// that called `fetch(event.request)` would be the same thing with an extra
+// round trip through the worker thread, and a handler is the place a future
+// change would quietly re-introduce caching.

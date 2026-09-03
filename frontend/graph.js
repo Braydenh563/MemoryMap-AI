@@ -104,6 +104,14 @@ function settleNoteClamps() {
   }
 }
 
+//: The largest a node can get, from `graphNodeRadius` below: its 9px base
+//: plus the 12px ceiling on the centrality bonus (the access bonus caps
+//: lower, and `Math.max` takes one or the other, never both). Named because
+//: the world-size calculation needs to reserve room for the worst case
+//: rather than the average, and a literal there would drift the moment
+//: either cap below changed.
+const GRAPH_NODE_MAX_RADIUS = 21;
+
 function graphNodeRadius(node) {
   // A category heading in a tree layout is a fixed size — it has no access
   // count of its own, and sizing it by one would be inventing a number.
@@ -1473,8 +1481,33 @@ async function renderGraph() {
   // drift the clamp exists to stop is still bounded. Zoom-to-fit means a
   // larger world is only ever a smaller starting zoom, never lost notes.
   const GRAPH_WORLD_SCALE = 1.8;
-  const worldW = width * GRAPH_WORLD_SCALE;
-  const worldH = height * GRAPH_WORLD_SCALE;
+  // **The world is sized by how many notes there are, not by the shape of
+  // the window.** Reported again after the 1.8x-the-frame version above:
+  // "the graph nodes seem to be stuck in an invisible rectangular box", with
+  // a screenshot showing them packed against a straight edge.
+  //
+  // Multiplying the frame was the right idea and the wrong axis. A graph box
+  // is wide and short, so `height * 1.8` on a full-screen map is a few
+  // hundred pixels of vertical room — and every node claims a collide radius
+  // of roughly 50px plus 24 of padding. Past about twenty notes the walls,
+  // not the forces, are what the layout settles against, and what settles
+  // between outward repulsion and a wall is a rectangle. The frame's aspect
+  // ratio has nothing to do with how much room a given number of notes
+  // needs, which is why tying the two kept reproducing this.
+  //
+  // So: a **square** world whose side grows with sqrt(count) — area scales
+  // linearly with the number of notes, which is the honest relationship —
+  // floored at the old frame-derived size so a small notebook is unchanged.
+  // Square, because a circular blob is what these forces actually produce
+  // and a square is the smallest box that never squashes one.
+  //
+  // A bigger world costs nothing on screen: zoom-to-fit frames whatever the
+  // nodes end up occupying, so this only ever changes their arrangement.
+  const perNode = 2 * (GRAPH_NODE_MAX_RADIUS + 28);
+  const roomy = Math.sqrt(Math.max(nodes.length, 1)) * perNode * 1.6;
+  const worldSide = Math.max(roomy, width * GRAPH_WORLD_SCALE, height * GRAPH_WORLD_SCALE);
+  const worldW = worldSide;
+  const worldH = worldSide;
   const worldLeft = (width - worldW) / 2;
   const worldTop = (height - worldH) / 2;
   const worldRight = worldLeft + worldW;
@@ -1981,8 +2014,16 @@ async function renderGraph() {
           ? " — categories around the centre; replies branch off the note they answer."
           : layoutKind === "arc"
             ? " — one line, filed left to right; arcs below show what answers what."
-            : " — bigger, brighter notes are the ones you use most.";
-  $("graph-stats").textContent = parts.join(" · ") + shape;
+            : "";
+  // The shape sentence is an *explanation*, and it was costing a full row
+  // above the canvas on every layout — reported as the graph "feeling
+  // squashed on my screen due to the top dock". Counts stay on the line
+  // because they are facts about this notebook that change; the sentence
+  // that describes how a layout works is the same every time you read it,
+  // so it moves to the line's own tooltip, next to the "?" that already
+  // exists for exactly this kind of thing.
+  $("graph-stats").textContent = parts.join(" · ");
+  $("graph-stats").title = shape ? shape.replace(/^\s*—\s*/, "") : "";
 
   // Hover-highlight (spotlight a note's connections). Uses the same dimming
   // pipeline as search so the two never fight each other.
@@ -2843,7 +2884,11 @@ function renderGraphPopupActions(entry) {
   const tracingFrom = Boolean(traceFromNode);
   box.appendChild(
     smallButton(
-      tracingFrom ? "ph:path Trace to here" : "ph:path Trace from here",
+      // "Trace from here" was the one label too long for its cell in the
+      // three-column action grid, so it ellipsised to "Trace from he…".
+      // The icon and the tooltip carry the rest; a button that cannot show
+      // its own label is worse than a shorter one.
+      tracingFrom ? "ph:path Trace to" : "ph:path Trace",
       tracingFrom
         ? "Find how this note connects to the one you started from"
         : "Start tracing a path from this note",

@@ -2597,3 +2597,15 @@ textarea.autogrow {
 .chip.link.link-in {
   border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
 }
+
+/* The × that detaches a link, and the pencil that edits its reason. Measured
+   at 10x18 — under half of WCAG 2.2 AA's 24px floor, and the fiddliest
+   target left in the notes list. The glyph stays its size; the box around it
+   grows to something a trackpad can actually land on. */
+.unlink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--target-min);
+  min-height: var(--target-min);
+}

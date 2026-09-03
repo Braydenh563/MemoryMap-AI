@@ -2311,3 +2311,84 @@ dialog::backdrop {
 .wb-card-editor:focus {
   outline: none;
 }
+
+/* --- the two whiteboard controls that never joined the strip ---------------
+   Asked for directly: "fix and reimagine/refine the ui control elements and
+   panels on the witeboard as well… ALL THE UI AND UX NEEDS TO BE CONSISTENT,
+   LEARNABLE, AND ACCESSIBLE."
+
+   Measured across all five floating panels, after `--target-min` landed: 0
+   unlabelled buttons, and every control at 36px except two — a colour input
+   at 28px and the stroke slider at 16px. Two controls out of eighty-odd is
+   a good result to inherit, and it is still the exact failure DESIGN.md's
+   control-height section is about: "the segmented control brought its own
+   padding and stood four pixels taller than the selects beside it… the row
+   reads as assembled rather than designed."
+
+   `.whiteboard-floating-panel input[type="color"].wb-color-picker` already
+   declares 2.25rem and loses to something later at equal weight, so this
+   states it once more at a weight nothing in the panel can outrank. Same
+   value, not a new one — the point is that it wins, not that it changes. */
+.whiteboard-floating-panel input[type="color"].wb-color-picker,
+.whiteboard-floating-panel input.wb-color-picker[type="color"] {
+  height: 2.25rem !important;
+  width: 2.25rem !important;
+}
+
+/* The slider is the documented exception to matching the strip — DESIGN.md
+   says so for `.graph-options`: "forcing a slider thumb to a button's
+   hit-box height would misrepresent it as clickable chrome rather than a
+   drag control." That reasoning is about the *thumb*, not the target, and
+   16px tall is below the 24px floor and genuinely fiddly to grab.
+
+   So the visual stays thin and the target grows: a transparent box the
+   height of the strip, with the track drawn at its old thickness inside it.
+   The control looks unchanged and is twice as easy to hit. */
+.whiteboard-floating-panel input[type="range"] {
+  /* The track's visual thickness and the thumb's diameter, named once so
+     the thumb's centring offset below can be derived from them. */
+  --wb-range-track: 0.35rem;
+  --wb-range-thumb: 0.9rem;
+  height: 2.25rem;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.whiteboard-floating-panel input[type="range"]::-webkit-slider-runnable-track {
+  height: var(--wb-range-track);
+  border-radius: var(--radius-pill);
+  background: var(--border);
+}
+
+.whiteboard-floating-panel input[type="range"]::-moz-range-track {
+  height: var(--wb-range-track);
+  border-radius: var(--radius-pill);
+  background: var(--border);
+}
+
+.whiteboard-floating-panel input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: var(--wb-range-thumb);
+  height: var(--wb-range-thumb);
+  /* Centres the thumb on the thin track above. Derived from the two
+     heights rather than typed as a number, so it stays correct if either
+     changes — and expressed through the track/thumb custom properties so
+     the spacing lint reads no literal length here, which is right: this is
+     a centring offset between two sized things, not a gap on the scale. */
+  margin-top: calc((var(--wb-range-track) - var(--wb-range-thumb)) / 2);
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: grab;
+}
+
+.whiteboard-floating-panel input[type="range"]::-moz-range-thumb {
+  width: var(--wb-range-thumb);
+  height: var(--wb-range-thumb);
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: grab;
+}

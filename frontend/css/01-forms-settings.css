@@ -336,12 +336,18 @@ button.small {
      horizontally, give it up vertically, and let the declared height
      decide"). Before this, `button.small` rendered at 19, 24, 25, 26 and
      30px across the app, entirely according to what each button happened to
-     contain. `inline-flex` + centring is what makes the extra height from
-     the floor sit around the label rather than above it. */
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
+     contain.
+
+     **No `display` here, and that is a fix, not an omission.** The first
+     version set `display: inline-flex` to centre the label inside the new
+     floor. `button.small` is (0,1,1); a rule that hides a button by class
+     alone — `.graph-fullscreen-close { display: none }` — is (0,1,0), so
+     the display declaration *outranked every such rule in the app* and
+     forced those buttons visible. Reported within minutes, with a
+     screenshot: "the exit full screen button even shows when not in
+     fullscreen." A `<button>` already centres its own content vertically,
+     so the floor works without touching display at all, and nothing that
+     hides one has to fight this rule to do it. */
   min-height: var(--target-min);
   padding: 0 0.8rem;
   font-size: 0.85rem;
@@ -898,6 +904,7 @@ progress {
    worse than none, and the card view is one click away. */
 .entry-list.is-rows .entry-content img,
 .entry-list.is-rows .file-card,
+.entry-list.is-rows .entry-links,
 .entry-list.is-rows .entry-more {
   display: none;
 }

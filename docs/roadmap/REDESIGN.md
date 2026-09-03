@@ -658,3 +658,151 @@ session; captioning, OCR and vision-OCR were already there), use
 Revisit async only if this ever becomes multi-user or gains a real network
 backend — at which point the database layer changes first and the routes
 follow, not the other way round.
+
+---
+
+## R8. The complete request ledger
+
+> *"scan all my requests from this chat session and make sure you havent
+> missed anything"*, asked four times, and *"make sure none of my requests in
+> the entire chat have been unaccounted for."*
+
+Every ask from the session that produced this file, in the order it arrived,
+with what happened to it. **Nothing here is a paraphrase of a paraphrase** —
+if an item is still open, its own §R7 entry quotes the original words.
+
+| # | The ask | State |
+| --- | --- | --- |
+| 1 | PDFs in notes are "pure md with no visual card allowing me to delete the files" | **Done** — file cards, composer strip, remove |
+| 2 | "I cant see, manage or view the files or documents anywhere" | **Done** — non-image gallery tiles; sub-tab is "Files & Images" |
+| 3 | Clicking a note's file → "black fode screen… no way for me to go back" | **Done** — opens the in-app viewer; zero `/media/` anchors remain |
+| 4 | Files the composer refused (.docx, .txt, code) | **Done** — staged, attached on save |
+| 5 | "the documents editor feels really rudimentary… annoying to use" | **Open** — §R7.1, the largest gap |
+| 6 | Odysseus document features (code, HTML, PDF, export, selection→chat) | **Open** — §R7.1, in build order |
+| 7 | "all the files should be managable, viewable and editable in the library and document/file/text editor" | **Partly** — manageable and viewable; editable is §R7.1 |
+| 8 | Files staged, not saved, until the note/message is committed | **Partly** — note files stage; images and chat are §R7.2 |
+| 9 | Instant upload only through the Library, with an upload button | **Partly** — the button exists; §R7.2 finishes the rule |
+| 10 | Graph as a mindmap: core idea, branches, notes attached | **Done** — concept maps, §R4 |
+| 11 | "make and manage map graphs (maybe in library??)" | **Partly** — create is in the Library; managing is §R7.6 |
+| 12 | Export a map to the whiteboard, "for later" | **Done by construction** — a map *is* a board |
+| 13 | Making notes "slow and annoying"; panels should disappear, file in the background | **Done** — 971ms → 32ms, "Filing…" chip, notification |
+| 14 | Images from the main space showing in another space's gallery | **Done** — six models scoped; backfill inherits from the parent |
+| 15 | Whiteboard "definately needs a fullscreen mode" | **Done** — 1376×676 → 1440×900 |
+| 16 | Graph "soooooo annoying to use"; connections "annoying and manual" | **Done** — a drag places a note and it stays placed |
+| 17 | "the gravity and separation in the main graph view are annoying" | **Done** — the world is sized by node count, not the window's shape |
+| 18 | "the graph nodes seem to be stuck in an invisible rectangular box" | **Done** — same fix; measured 5 of 47 nodes on the boundary |
+| 19 | Graph node popups "need a full redesign" | **Done** — a 3-column grid, equal widths, wider popup, readable note |
+| 20 | "the graph view area keeps feeling squashed… due to the top dock" | **Done** — one-row legend, explanation moved to a tooltip |
+| 21 | "the exit full screen button even shows when not in fullscreen" | **Done** — a regression I introduced, same session |
+| 22 | The minimap sitting over the map | **Done** — translucent at rest, full on hover |
+| 23 | "half the screen is taken up by poor ui choices or structuring" | **Done** — 5 notes visible → 12; a Library row removed |
+| 24 | Margins/edges losing space; adapt to any resolution | **Done** — fluid gutter and sidebar, measured at six widths |
+| 25 | "there are no animations for chat generation" | **Done** — a streaming caret |
+| 26 | "ui elements arent where they should be… doesnt feel intuitive" | **Partly** — the Dashboard's triple nav is gone; §R7.5 |
+| 27 | Keep the old note layout as an option | **Done** — a rows/cards toggle |
+| 28 | Typography, spacing, alignment, sizing, consistency, CARP | **Done** — DESIGN.md's principles section, `--target-min`, two lints |
+| 29 | "they should be part of design.md and you should be sticking to them" | **Done** — and two are now enforced in CI |
+| 30 | Save the UI skills so future sessions have them | **Done** — seven vendored in `.claude/skills/` |
+| 31 | "ALL THE UI NEEDS IMPROVEMENT, INCLUDING THE SETTINGS AND WHITEBOARD" | **Partly** — §R7.5; Settings is unmeasured |
+| 32 | Reimagine the whiteboard's control panels | **Partly** — sizes unified; the layout rethink is §R7.5 |
+| 33 | Everything cross-linked and searchable from everywhere | **Partly** — link direction landed; §R7.3 |
+| 34 | "make sure the app is completely local, offline and private" | **Done** — audited, §R5b |
+| 35 | Spaces kept separate unless viewing All spaces | **Done** — and found a 500 that made two spaces impossible |
+| 36 | "the app is stuck on th eloading screen" (pydesktop) | **Mitigated** — see §R8.1 |
+| 37 | Make the backend asynchronous | **Answered: no** — §R7.7, with the measurements |
+| 38 | "I can use keyboard shortcuts to access features even when locked out" | **Done** — a lock gate, §R8.2 |
+| 39 | "if the backend is closed the ui should fail to load" | **Done** — the service worker no longer caches the shell |
+| 40 | Commit and push in batches so nothing is lost | **Done** — pushed throughout |
+
+### R8.1 The stuck loading screen, and what was actually found
+
+Not reproduced: a cold boot on a fresh profile clears the splash in
+1.2–1.4s with no JS errors, database init is 140ms on an existing database,
+static assets are served `no-cache` with an ETag, and there is no CSP
+violation.
+
+But two real causes of exactly that symptom were found and closed:
+
+1. **A stale server serves a stale CSP hash.** `create_app` computes the
+   inline-script hashes from `index.html` **once, at startup**. A server left
+   running from before an update therefore sends a hash that no longer
+   matches, the browser refuses the page's own inline script, and the app
+   dies with the splash still up. Reproduced here by accident, mid-session.
+   The boot guard moved out of that inline block into `boot-guard.js` —
+   `script-src 'self'` covers a same-origin file unconditionally, so the
+   thing that reports a broken boot can no longer be broken by the same
+   fault. It names this case specifically, with the fix (restart the server).
+2. **The splash had no failure state at all.** `initAuth` bounds its own
+   probe, so it cannot hang if it runs; the gap was every failure where it
+   never runs. The guard now surfaces the real error, a CSP refusal, or a
+   12-second "this is taking too long".
+
+**Still worth checking on the desktop build next session**, since the report
+was specific to it: whether PyWebView is caching, and whether it starts its
+server before or after the frontend is unpacked.
+
+### R8.2 Shortcuts worked while the notebook was locked
+
+> *"I can use keyboard shortcuts to access features even when locked out…
+> like the meeting notes popup."*
+
+A privacy hole, not a polish item, and it had no guard of any kind: the
+global `keydown` handler ran the full shortcut table with the lock overlay
+up — the command palette (which lists and opens notes **by title**), `/` to
+focus search, the `g`-then-letter tab jumps, the meeting recorder. The lock
+screen is this app's only privacy boundary and the keyboard walked past it.
+
+Fixed with one gate at the very top of the handler, reading the overlay's own
+`hidden` class rather than a second flag — the same source of truth the rest
+of the app already uses, because a boundary with two of those is a boundary
+that drifts back open.
+
+**A lock audit is the follow-up**, and it belongs at the top of §R7: this
+was found by a user pressing keys, not by a test. What else is reachable
+while locked — drag and drop onto the window, the browser's own context
+menu, a `#hash` route, an already-open second tab — has not been checked.
+
+### R8.3 The UI, re-imagined: what the remaining work is *for*
+
+> *"deep think the rest of the ui reimagined designs as well as for the
+> backend."*
+
+Everything above is a list of repairs. This is the shape they are repairs
+*toward*, so the next session is not just working a queue.
+
+**The organising idea: one workspace, many panes.** MemoryMap today is seven
+screens that each own the whole window, and switching loses everything about
+where you were. Every unresolved complaint in §R7 is downstream of that:
+cross-linking is hard because you cannot see two things at once (§R7.3); the
+document editor feels "contained and small" because it is a tab, not a pane
+(§R7.1); alignment is bad because seven screens each solve layout for
+themselves (37 distinct left edges); and the Dashboard needed a duplicate
+navigation because there was no persistent way to get anywhere.
+
+Kortex's answer, in the screenshots supplied, is the one to take:
+
+- **A left rail that is content, not chrome.** Destinations at the top;
+  below them, the user's own tree. MemoryMap has seven top tabs, seven
+  Library sub-tabs and four Notes sub-tabs — three levels of tab bar over
+  one hierarchy.
+- **Panes, each with its own back/forward and breadcrumbs.** This also
+  retires the nav-history popup, which has been reported and re-fixed
+  repeatedly *because it is per-pane history in a single-pane app*.
+- **A narrow measure for prose, wide chrome around it.** The 72ch cap the
+  note cards got this session, applied to documents.
+- **Content is the only bright thing.** The default theme paints a lilac
+  gradient behind translucent cards, which is why nothing reads as
+  foreground.
+
+**The test for every piece of it** is already written down and is not taste:
+does it reduce the distinct-left-edge count (DESIGN.md), and does it move
+"pixels of chrome before the first item" (§R1.1)? A change that does neither
+is decoration.
+
+**And the backend's version of the same idea:** the two file models
+(`MediaUpload` inline vs `Attachment` downloaded) are the same shape of
+problem one layer down — one concept, two implementations, and every bug
+this session fixed in files was a seam between them. One model with a
+`disposition` flag removes the class, not the instances. The same is true of
+three migration mechanisms and of `app.js` at 26,000 lines. None of that is
+urgent; all of it is why small changes cost more than they should.

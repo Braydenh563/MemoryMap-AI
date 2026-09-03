@@ -896,8 +896,11 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- Batch actions bar: appears in select mode -->
           <div id="batch-bar" class="row hidden">
             <span id="batch-count" class="muted" role="status">0 selected</span>
-            <select id="batch-category" aria-label="Move selected notes to category"></select>
-            <button id="batch-move" class="small">Move</button>
+            <!-- The move menu is built by fillBatchCategories(); its items are
+                 the categories themselves, so picking one performs the move.
+                 That replaced a <select> plus a separate "Move" button, which
+                 was three clicks and had a failure state of its own. -->
+            <span id="batch-category-host"></span>
             <button id="batch-tag" class="ghost small">＋ Tag</button>
             <button id="batch-delete" class="ghost small"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
             <button id="batch-cancel" class="ghost small">Done</button>

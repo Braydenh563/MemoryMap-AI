@@ -12236,6 +12236,57 @@ function makeMenuItem(label, title, run) {
   return { label, title, run };
 }
 
+// The same menu as `kebabMenu`, with a worded opener instead of a "⋯".
+//
+// Reported: "a lot of the dropdown menus aren't the same ui style??" — and
+// they were not, because some of them were not this component at all. A
+// native `<select>` used as an action list is drawn by the operating system:
+// it cannot take the app's padding, radius, hover or icons, which is exactly
+// the "tight and right up against the edge of the text" the report describes.
+// A `<select>` is the right control for *choosing a value in a form*; an
+// action that happens the moment you pick it is a menu, and now uses the
+// app's own one.
+function labelledMenu(label, items, ariaLabel) {
+  const wrap = document.createElement("span");
+  wrap.className = "menu-wrap";
+
+  const menu = document.createElement("div");
+  menu.className = "action-menu hidden";
+  menu.setAttribute("role", "menu");
+
+  const opener = document.createElement("button");
+  opener.type = "button";
+  opener.className = "ghost small";
+  setLabel(opener, label);
+  opener.title = ariaLabel;
+  opener.setAttribute("aria-label", ariaLabel);
+  opener.setAttribute("aria-haspopup", "menu");
+  opener.setAttribute("aria-expanded", "false");
+  opener.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const willOpen = menu.classList.contains("hidden");
+    if (willOpen) openActionMenu(menu, opener);
+    else closeActionMenus();
+  });
+
+  for (const item of items) {
+    const button = document.createElement("button");
+    button.className = "menu-item";
+    button.setAttribute("role", "menuitem");
+    setLabel(button, item.label);
+    button.title = item.title;
+    button.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      closeActionMenus();
+      await item.run();
+    });
+    menu.appendChild(button);
+  }
+  wireMenuKeyboard(menu, opener);
+  wrap.append(opener, menu);
+  return wrap;
+}
+
 function kebabMenu(items, ariaLabel) {
   const wrap = document.createElement("span");
   wrap.className = "menu-wrap";
@@ -13778,23 +13829,29 @@ function updateBatchCount() {
   $("batch-count").textContent = `${n} selected`;
 }
 
+// **One step, not three.** This used to be a `<select>` of categories beside
+// a separate "Move" button: you picked a category, which did nothing, then
+// pressed Move — and pressing Move without having picked produced an error
+// toast ("Pick a category to move them to"). A menu whose items *are* the
+// categories removes the second control and the failure state with it:
+// choosing a category is the move. It also puts the list in the app's own
+// menu styling instead of the operating system's select popup.
 function fillBatchCategories() {
-  const select = $("batch-category");
-  select.replaceChildren();
-  const placeholder = document.createElement("option");
-  placeholder.value = "";
-  placeholder.textContent = "Move to…";
-  select.appendChild(placeholder);
-  for (const name of [...new Set(allEntries.map((e) => e.category))].sort()) {
-    const option = document.createElement("option");
-    option.value = name;
-    option.textContent = name;
-    select.appendChild(option);
-  }
-  const fresh = document.createElement("option");
-  fresh.value = "__new__";
-  fresh.textContent = "＋ New category…";
-  select.appendChild(fresh);
+  const host = $("batch-category-host");
+  if (!host) return;
+  const names = [...new Set(allEntries.map((e) => e.category))].filter(Boolean).sort();
+  const items = names.map((name) =>
+    makeMenuItem(`ph:folder ${name}`, `Move the selected notes to ${name}`, () =>
+      batchMove(name)
+    )
+  );
+  items.push(
+    makeMenuItem("ph:plus New category…", "Move them to a category you name now", async () => {
+      const category = await promptDialog("New category name:", "", { confirmLabel: "Move" });
+      if (category) await batchMove(category);
+    })
+  );
+  host.replaceChildren(labelledMenu("ph:folder-open Move to", items, "Move selected notes to a category"));
 }
 
 function enterSelectMode() {
@@ -13821,18 +13878,10 @@ function batchSelection() {
   return ids;
 }
 
-async function batchMove() {
+async function batchMove(category) {
   const ids = batchSelection();
   if (!ids.length) return;
-  let category = $("batch-category").value;
-  if (!category) {
-    toast("Pick a category to move them to.", true);
-    return;
-  }
-  if (category === "__new__") {
-    category = await promptDialog("New category name:", "", { confirmLabel: "Move" });
-    if (!category) return;
-  }
+  if (!category) return;
   for (const id of ids) {
     await apiJson(`/entries/${id}`, {
       method: "PUT",
@@ -23680,7 +23729,6 @@ $("graph-fullscreen")?.addEventListener("click", toggleGraphFullscreen);
 $("select-btn").addEventListener("click", () =>
   selectMode ? exitSelectMode() : enterSelectMode()
 );
-$("batch-move").addEventListener("click", batchMove);
 $("batch-tag").addEventListener("click", batchTag);
 $("batch-delete").addEventListener("click", batchDelete);
 $("batch-cancel").addEventListener("click", exitSelectMode);

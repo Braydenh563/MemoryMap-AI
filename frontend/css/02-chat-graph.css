@@ -2573,8 +2573,43 @@ html {
   font-size: var(--text-sm);
 }
 
+/* A PDF's own rasterised pages — see `showDocument`/`pdfPages` in app.js.
+   One column, one page after another, the way a PDF actually reads. Lives
+   inside `.lightbox-doc`, so it inherits that element's own scroll and
+   near-opaque background; only the stacking is this rule's job. */
+.lightbox-pdf-pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.lightbox-pdf-pages.hidden {
+  display: none;
+}
+
+.lightbox-pdf-page {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  box-shadow: var(--glass-shadow);
+}
+
+/* Overrides the generic `input[type="search"]` rule (01-forms-settings.css),
+   which is sized for a standalone form field — full-width padding and a
+   bottom margin meant to separate stacked fields. Neither belongs in a
+   toolbar row: the margin pushed this input's box taller than its sibling
+   `.lightbox-action` buttons (which use `button.small`'s `--target-min`
+   floor with no margin at all), so the row read as two different control
+   heights sitting on two different baselines. Matching `button.small`'s own
+   floor and padding, rather than inventing a third height, is what makes
+   this row read as one toolbar instead of a form field parked among
+   buttons. */
 .lightbox-find {
   max-width: 14rem;
+  min-height: var(--target-min);
+  margin-bottom: 0;
+  padding: 0 var(--space-3);
 }
 
 .lightbox-action.hidden,

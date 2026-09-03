@@ -1084,6 +1084,56 @@ function entryItem(entry, options = {}) {
     return li;
   }
 
+  // The row's own open/close control. Rendered always but only *shown* in
+  // rows view (CSS), rather than branched on `notesViewMode` here — the
+  // view can change without a re-render, and a control that exists only in
+  // the mode it was rendered in would go missing on the toggle.
+  //
+  // A direct child of `<li>` now, not of `.entry-meta` — direct instruction:
+  // *"move the note collapse button on the compact rows view to the
+  // permanent left, make sure the button keeps its position even when
+  // expanded."* `.entry-meta` sits in the row's third grid column while
+  // collapsed (title/content/meta side by side) and becomes a bottom-of-card
+  // block once expanded (`li.row-expanded` drops the grid for `block`), so a
+  // button living inside it visibly jumped from the row's right edge to the
+  // card's bottom on every expand. Pinned absolutely to the card's own
+  // top-left corner instead (`.row-expand` in 01-forms-settings.css), which
+  // neither of those two layouts moves — it is positioned against `<li>`
+  // itself, not against whichever of its children currently holds it.
+  {
+    const open = expandedRows.has(entry.id);
+    const expand = document.createElement("button");
+    expand.type = "button";
+    expand.className = "ghost small icon-only row-expand";
+    setLabel(expand, open ? "ph:caret-up" : "ph:caret-down");
+    expand.title = open ? "Show less of this note" : "Show the whole note here";
+    expand.setAttribute("aria-label", expand.title);
+    expand.setAttribute("aria-expanded", String(open));
+    expand.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleRowExpanded(entry.id);
+    });
+    li.appendChild(expand);
+  }
+
+  // Click anywhere on a collapsed/expanded row's own body to toggle it,
+  // same as the button — direct instruction: "if the user clicks on the
+  // main body of the note and not an element on the collapsed row view, it
+  // will expand or collapse without the user having to click the button."
+  // Scoped to rows view only (`.entry-list.is-rows`, checked live rather
+  // than cached — the view can change after this card was built) and
+  // skipped whenever the click landed on something that already has its
+  // own job: a link, a button, an image, selectable text, the checkbox.
+  // `closest("a, button, input, .chip, img")` is the same "don't swallow a
+  // click meant for something else" guard the rest of this file already
+  // uses for row-level handlers.
+  li.addEventListener("click", (event) => {
+    if (!li.closest(".entry-list.is-rows")) return;
+    if (event.target.closest("a, button, input, textarea, .chip, img, .unlink")) return;
+    if (window.getSelection()?.toString()) return; // a text selection, not a click
+    toggleRowExpanded(entry.id);
+  });
+
   // Batch select mode (Wave M): a checkbox leads each card.
   if (options.actions && selectMode) {
     const check = document.createElement("input");
@@ -1193,25 +1243,6 @@ function entryItem(entry, options = {}) {
 
   const meta = document.createElement("div");
   meta.className = "entry-meta";
-  // The row's own open/close control. Rendered always but only *shown* in
-  // rows view (CSS), rather than branched on `notesViewMode` here — the view
-  // can change without a re-render, and a control that exists only in the
-  // mode it was rendered in would go missing on the toggle.
-  {
-    const open = expandedRows.has(entry.id);
-    const expand = document.createElement("button");
-    expand.type = "button";
-    expand.className = "ghost small icon-only row-expand";
-    setLabel(expand, open ? "ph:caret-up" : "ph:caret-down");
-    expand.title = open ? "Show less of this note" : "Show the whole note here";
-    expand.setAttribute("aria-label", expand.title);
-    expand.setAttribute("aria-expanded", String(open));
-    expand.addEventListener("click", (event) => {
-      event.stopPropagation();
-      toggleRowExpanded(entry.id);
-    });
-    meta.appendChild(expand);
-  }
   // A note saved with filing deferred is in its holding category, not its
   // real one, and saying "Uncategorised" for the second or two before the
   // background pass lands reads as the AI having failed. Say what is
@@ -1462,10 +1493,30 @@ function entryItem(entry, options = {}) {
         if (options.actions) wrap.appendChild(removeButton());
         fileRow.appendChild(wrap);
       } else {
+        // Opens the lightbox's document viewer, not a download — this used
+        // to go straight to `downloadAttachment`, the one file surface that
+        // never got the fileCard treatment §... unified everywhere else.
+        // Reported directly: "I tried to open and view a file i attached to
+        // a note, instead it just downloaded it." `mediaSrc()` already knows
+        // how to token-gate a `/files/{id}` url the same way it does
+        // `/media/{name}`; `show()` below is what learned to read one.
         const fileChip = chip(`ph:file-text ${attachment.filename}`, "link", () =>
-          downloadAttachment(attachment)
+          openLightbox(
+            [{ filename: attachment.filename, getUrl: () => mediaSrc(`/files/${attachment.id}`) }],
+            0
+          )
         );
-        fileChip.title = `Download (${Math.max(1, Math.round(attachment.size / 1024))} KB)`;
+        fileChip.title = `${attachment.filename} — ${Math.max(1, Math.round(attachment.size / 1024))} KB`;
+        const downloadBtn = document.createElement("span");
+        downloadBtn.className = "unlink";
+        setLabel(downloadBtn, "ph:download-simple");
+        downloadBtn.title = `Save “${attachment.filename}” to disk`;
+        downloadBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          downloadAttachment(attachment);
+        });
+        makeUnlinkAccessible(downloadBtn);
+        fileChip.appendChild(downloadBtn);
         if (options.actions) fileChip.appendChild(removeButton());
         fileRow.appendChild(fileChip);
       }
@@ -2991,6 +3042,16 @@ function openLightbox(items, startIndex = 0) {
     }
   });
 
+  // Only shown while a PDF is displayed as pages (see showDocument) — swaps
+  // to the AI-extracted-text view on demand, rather than automatically. A
+  // PDF's *pages* render with zero AI involvement; reading its words with a
+  // model is a deliberate, opt-in second step, not something a user has to
+  // sit through just to look at their own document.
+  const readWithAiBtn = actionBtn("ph:sparkle Read text with AI", "Extract this PDF's text with the local AI", () => {
+    lightboxLoadExtractedText?.();
+  });
+  readWithAiBtn.classList.add("hidden");
+
   // **The AI/manage actions — gated on a media id, and only ever visible
   // when one is present.** Reported directly, and left open on purpose the
   // first time this bar was built: rename, describe with AI, read text (two
@@ -3136,7 +3197,15 @@ function openLightbox(items, startIndex = 0) {
   docBody.className = "lightbox-doc-body";
   const docNote = document.createElement("p");
   docNote.className = "muted lightbox-doc-note hidden";
-  doc.append(docNote, docBody);
+  // A PDF's actual pages, rasterised server-side — direct instruction, after
+  // the AI-extraction path alone left a scanned PDF stuck on "Reading…"
+  // forever: "pdfs and documents should be viewable, accessible and
+  // manageable without the ai, even if the ai cant read them." Plain
+  // <img>s, one per page, in their own scrolling column so a PDF scrolls
+  // like a PDF — no script, no PDF renderer, no AI in this path at all.
+  const pdfPages = document.createElement("div");
+  pdfPages.className = "lightbox-pdf-pages hidden";
+  doc.append(docNote, docBody, pdfPages);
   doc.addEventListener("click", (e) => e.stopPropagation());
   stage.appendChild(doc);
 
@@ -3209,75 +3278,131 @@ function openLightbox(items, startIndex = 0) {
   // reaches the lightbox is offered to the document reader instead.
   const IMAGE_SUFFIXES = /\.(png|jpe?g|gif|webp|avif|bmp|ico|svg)$/i;
 
-  async function showDocument(item, name) {
+  // Reassigned on every `showDocument` call — see `readWithAiBtn` above,
+  // which is the only caller. A closure rather than a stored url string so
+  // the "Read with AI" button always re-derives from whichever item and
+  // text-endpoint are current, the same way `show(i)` already recomputes
+  // everything else per item rather than caching it.
+  let lightboxLoadExtractedText = null;
+
+  async function showDocument(item, name, attachmentId) {
     img.classList.add("hidden");
     broken.classList.add("hidden");
     doc.classList.remove("hidden");
     docBody.replaceChildren();
+    pdfPages.replaceChildren();
+    pdfPages.classList.add("hidden");
     docNote.classList.add("hidden");
+    readWithAiBtn.classList.add("hidden");
     clearFind();
     find.classList.remove("hidden");
-    docBody.textContent = "Reading…";
-    let payload = null;
-    // **A native MemoryMap document already has its content** — asked for
-    // directly: "make a way to view documents in the documents tab in the
-    // lightbox." The Library's Documents list holds real `Document` rows,
-    // not uploads, and their body comes back whole from `GET /documents/
-    // {id}`; there is nothing to *extract*, so going through
-    // `/media/text` (which exists for files that started life as something
-    // other than markdown) would be asking the server to do work it
-    // already did. A caller that already knows its own kind and text — set
-    // by the Documents list's own "Preview" action below — skips the fetch
-    // entirely.
-    if (item.kind && item.text != null) {
-      payload = { kind: item.kind, text: item.text, source: item.source || "file" };
-    } else {
-      try {
-        payload = await apiJson(`/media/text/${encodeURIComponent(name)}`);
-      } catch {
-        payload = null;
+
+    // A native MemoryMap document (the Documents list) or a real Attachment
+    // row each has its own text/info endpoint; a `/media/` upload has a
+    // third. All three converge on the same `AttachedFileTextOut` shape, so
+    // everything past this point reads one variable rather than branching
+    // three ways again and again.
+    const textUrl = attachmentId
+      ? `/files/${attachmentId}/text`
+      : `/media/text/${encodeURIComponent(name)}`;
+    const isPdf = /\.pdf$/i.test(item.filename || name || "");
+
+    async function loadExtractedText() {
+      pdfPages.classList.add("hidden");
+      docBody.classList.remove("hidden");
+      find.classList.remove("hidden");
+      docBody.textContent = "Reading…";
+      let payload = null;
+      // See the doc-viewer comment block above `doc`'s own creation: a
+      // native document already has its text, set by the Documents list's
+      // "Preview" action — nothing to fetch.
+      if (item.kind && item.text != null) {
+        payload = { kind: item.kind, text: item.text, source: item.source || "file" };
+      } else {
+        try {
+          payload = await apiJson(textUrl);
+        } catch {
+          payload = null;
+        }
       }
+      if (!payload) {
+        docBody.textContent = "";
+        docNote.textContent =
+          "This file can't be previewed here. Use Save to open it in another app.";
+        docNote.classList.remove("hidden");
+        find.classList.add("hidden");
+        return;
+      }
+      docBody.replaceChildren();
+      const body = payload.text || "";
+      if (!body.trim()) {
+        docNote.textContent =
+          payload.message || "There's no readable text in this file.";
+        docNote.classList.remove("hidden");
+        return;
+      }
+      if (payload.kind === "markdown") {
+        // The same renderer documents and chat use, so a previewed .md
+        // looks like the same app rather than a second idea of markdown.
+        renderMarkdown(docBody, body);
+      } else {
+        // Code and plain text keep their own whitespace, which is most of
+        // what makes them readable.
+        const pre = document.createElement("pre");
+        pre.className = "lightbox-doc-pre";
+        const code = document.createElement("code");
+        code.textContent = body;
+        pre.appendChild(code);
+        docBody.appendChild(pre);
+      }
+      // `source` is shown, not just logged: text a vision model
+      // transcribed off a scanned page is a *reading* of the file, and
+      // presenting it identically to text read out of a .txt would state a
+      // guess as fact.
+      const notes = [];
+      if (payload.source === "vision-ocr") notes.push("Text read off the page by a vision model");
+      else if (payload.source === "converted") notes.push("Converted for preview");
+      if (payload.truncated) notes.push("Long file — showing the beginning only");
+      if (payload.message) notes.push(payload.message);
+      docNote.textContent = notes.join(" · ");
+      docNote.classList.toggle("hidden", !notes.length);
     }
-    if (!payload) {
-      docBody.textContent = "";
-      docNote.textContent =
-        "This file can't be previewed here. Use Save to open it in another app.";
-      docNote.classList.remove("hidden");
-      find.classList.add("hidden");
-      return;
+    lightboxLoadExtractedText = loadExtractedText;
+
+    // A native document is markdown from the database — there is no PDF
+    // underneath it to rasterise, so it always takes the text path above.
+    if (isPdf && !item.kind) {
+      const infoUrl = attachmentId ? `/files/${attachmentId}/pdf-info` : `/media/pdf-info/${encodeURIComponent(name)}`;
+      const pageUrl = (i) =>
+        attachmentId ? `/files/${attachmentId}/pdf-page/${i}` : `/media/pdf-page/${encodeURIComponent(name)}/${i}`;
+      let info = null;
+      try {
+        info = await apiJson(infoUrl);
+      } catch {
+        info = null;
+      }
+      if (info && info.available && info.pages > 0) {
+        docBody.classList.add("hidden");
+        find.classList.add("hidden"); // nothing here is text to search yet
+        readWithAiBtn.classList.remove("hidden");
+        pdfPages.classList.remove("hidden");
+        for (let i = 0; i < info.pages; i++) {
+          const pageImg = document.createElement("img");
+          pageImg.className = "lightbox-pdf-page";
+          pageImg.loading = "lazy";
+          pageImg.alt = `Page ${i + 1} of ${info.pages}`;
+          pageImg.src = mediaSrc(pageUrl(i));
+          pdfPages.appendChild(pageImg);
+        }
+        return;
+      }
+      // pdfpages isn't installed, or this particular file can't be opened —
+      // `info.message` already says which. Fall through to the AI-text path
+      // below, which gives the same honest message (docview.py's own
+      // "couldn't be opened" vs. "probably a scan" split) rather than a
+      // second, differently-worded dead end.
     }
-    docBody.replaceChildren();
-    const body = payload.text || "";
-    if (!body.trim()) {
-      docNote.textContent =
-        payload.message || "There's no readable text in this file.";
-      docNote.classList.remove("hidden");
-      return;
-    }
-    if (payload.kind === "markdown") {
-      // The same renderer documents and chat use, so a previewed .md looks
-      // like the same app rather than a second idea of what markdown is.
-      renderMarkdown(docBody, body);
-    } else {
-      // Code and plain text keep their own whitespace, which is most of
-      // what makes them readable.
-      const pre = document.createElement("pre");
-      pre.className = "lightbox-doc-pre";
-      const code = document.createElement("code");
-      code.textContent = body;
-      pre.appendChild(code);
-      docBody.appendChild(pre);
-    }
-    // `source` is shown, not just logged: text a vision model transcribed
-    // off a scanned page is a *reading* of the file, and presenting it
-    // identically to text read out of a .txt would state a guess as fact.
-    const notes = [];
-    if (payload.source === "vision-ocr") notes.push("Text read off the page by a vision model");
-    else if (payload.source === "converted") notes.push("Converted for preview");
-    if (payload.truncated) notes.push("Long file — showing the beginning only");
-    if (payload.message) notes.push(payload.message);
-    docNote.textContent = notes.join(" · ");
-    docNote.classList.toggle("hidden", !notes.length);
+    await loadExtractedText();
   }
 
   async function show(i) {
@@ -3296,12 +3421,21 @@ function openLightbox(items, startIndex = 0) {
     // caller returns.
     const rawUrl = await Promise.resolve(item.getUrl()).catch(() => "");
     const name = (/\/media\/([^/?#]+)/.exec(rawUrl || "") || [])[1] || "";
+    // A note's own attached file (the `Attachment` model, `/files/{id}`) —
+    // distinct from a `/media/{name}` upload, and until now the only file
+    // shape the lightbox's document viewer could not read at all: it went
+    // straight to a download instead. Same token-gated url shape `mediaSrc`
+    // already handles; `showDocument` below is what learned to use it.
+    const attachmentId = name ? "" : (/\/files\/(\d+)(?:[/?#]|$)/.exec(rawUrl || "") || [])[1] || "";
     const looksLikeImage =
       IMAGE_SUFFIXES.test(item.filename || "") || IMAGE_SUFFIXES.test(name);
     // A native document (item.kind already set — see showDocument) has no
     // `/media/...` url to sniff at all; a caller that already declares
-    // itself a document skips the filename guess entirely.
-    if (item.kind || (name && !looksLikeImage)) {
+    // itself a document skips the filename guess entirely. An attachment id
+    // is the third way in — only ever set for a non-image `/files/{id}` (see
+    // above), so it never needs the `!looksLikeImage` guard the media-name
+    // case does.
+    if (item.kind || attachmentId || (name && !looksLikeImage)) {
       overlay.setAttribute("aria-label", item.filename || "Document preview");
       meta.textContent =
         items.length > 1
@@ -3311,7 +3445,7 @@ function openLightbox(items, startIndex = 0) {
       setZoom(1);
       showZoomControls(false);
       syncMoreMenu(item);
-      await showDocument(item, name);
+      await showDocument(item, name, attachmentId);
       hydrate(index, item, true);
       return;
     }
@@ -22115,6 +22249,15 @@ function renderEmblem(holder, size = 34, { animate = false } = {}) {
 }
 
 // Every emblem currently on the page, keyed by element id and size.
+// Every slot animates — direct instruction, after the onboarding and About
+// emblems were caught sitting still: "whenever the generated p5.js node
+// graph logo shows, make sure it is never static and always rotating."
+// `renderEmblem` already respects Settings → Appearance's motion switch
+// (and only that switch, not the OS-level prefers-reduced-motion hint —
+// see its own comment), so `animate: true` here doesn't reintroduce motion
+// for anyone who asked this app to hold still; it only removes the extra,
+// per-slot "hold this one still anyway" that had nothing to do with that
+// preference.
 const EMBLEM_SLOTS = [
   // Not the top bar any more: that is the favicon now, so the app's icon in
   // the tab strip and the mark above it are the same thing. The generated
@@ -22122,10 +22265,10 @@ const EMBLEM_SLOTS = [
   // where the AI is doing something — asked for as "kinda like an ai symbol".
   ["ai-mark", 24, true],
   ["lock-emblem", 76, true],
-  ["onboarding-emblem", 64, false],
+  ["onboarding-emblem", 64, true],
   ["chat-empty-emblem", 52, true],
-  ["graph-empty-emblem", 52, false],
-  ["about-emblem", 44, false],
+  ["graph-empty-emblem", 52, true],
+  ["about-emblem", 44, true],
 ];
 
 function renderBrandLogo() {
@@ -25889,6 +26032,15 @@ function renderStatusBarSettings() {
   const box = $("status-bar-items");
   if (!box) return;
   const hidden = hiddenStatusSlots();
+  // The clock's own row lives inside this same container now (index.html) —
+  // moved there so it wraps as one more compact chip alongside STATUS_SLOTS'
+  // instead of stretching full-width as a lone sibling after the flex box.
+  // `replaceChildren()` below is only ever meant to clear the *generated*
+  // rows this loop is about to rebuild; without pulling the static clock
+  // label out first, it would delete that markup along with them on every
+  // call and silently orphan `#status-bar-clock-toggle` for the rest of
+  // this function.
+  const clockLabel = document.getElementById("status-bar-clock-toggle")?.closest("label");
   box.replaceChildren();
   for (const slot of STATUS_SLOTS) {
     const label = document.createElement("label");
@@ -25911,6 +26063,10 @@ function renderStatusBarSettings() {
     label.append(box_, text);
     box.appendChild(label);
   }
+  // Put the clock's row back — see the comment above `clockLabel`'s
+  // declaration. Appended last, so it reads as the odd one out it actually
+  // is (off by default) without visually separating from its siblings.
+  if (clockLabel) box.appendChild(clockLabel);
   // The clock's own opt-in toggle — not one of STATUS_SLOTS above (it is
   // off by default, so it is rendered and wired separately rather than
   // joining a loop that assumes every entry starts visible).

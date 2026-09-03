@@ -877,8 +877,16 @@ progress {
 }
 
 /* Anything else a row grows later (an actions strip, a badge) spans the
-   width on its own line rather than silently landing in a text column. */
-.entry-list.is-rows li:not(:has(textarea)) > *:not(.entry-title):not(.entry-content):not(.entry-meta) {
+   width on its own line rather than silently landing in a text column.
+   `.row-expand` is excluded on purpose: it is `position: absolute` (below),
+   and an absolutely positioned grid item that *does* carry an explicit
+   `grid-column` gets its containing block from that grid *area* rather
+   than the grid container's own padding box — which measured out as a
+   16px horizontal jump between this row's collapsed (grid) and expanded
+   (`display: block`) layouts, the exact "keeps its position" bug this
+   button exists to not have. Leaving it with no grid placement at all
+   keeps its containing block the plain padding box in both layouts. */
+.entry-list.is-rows li:not(:has(textarea)) > *:not(.entry-title):not(.entry-content):not(.entry-meta):not(.row-expand) {
   grid-column: 1 / -1;
   min-width: 0;
 }
@@ -925,9 +933,21 @@ progress {
    images, file cards, link chips, Show more — comes back, by *undoing* the
    row rules rather than by restating the card ones, so the expanded state
    cannot drift away from what a card actually looks like. */
-.entry-list.is-rows li.row-expanded:not(:has(textarea)) {
+#entry-list.entry-list.is-rows li.row-expanded:not(:has(textarea)) {
   display: block;
   padding: var(--space-3) var(--space-4);
+  /* This rule's own `padding` shorthand above would otherwise win over the
+     collapsed row's `padding-left` reservation for `.row-expand` (more
+     classes in this selector, so higher specificity regardless of source
+     order) — which is exactly the "moves on expand" bug restated as
+     overlap instead of displacement. Restated here so the button's gutter
+     survives expansion, matching `--space-4` for the other three sides.
+     `#entry-list` prefix: see the sibling collapsed-state rule's own
+     comment — without it, `03-dashboard-widgets.css`'s ID-selector
+     `#entry-list li { padding: 0.8rem 1rem }` won regardless of how many
+     classes this rule stacked, measured live as the actual cause of the
+     overlap this rule exists to prevent. */
+  padding-left: calc(var(--target-min) + var(--space-2) + var(--space-4));
 }
 
 .entry-list.is-rows li.row-expanded .entry-title {
@@ -953,6 +973,39 @@ progress {
    is already whole and a caret would promise something it cannot do. */
 .entry-list:not(.is-rows) .row-expand {
   display: none;
+}
+
+/* The row-expand button, pinned to the card's own top-left corner rather
+   than flowing with either layout `is-rows` switches between. Direct
+   instruction: "move the note collapse button on the compact rows view to
+   the permanent left, make sure the button keeps its position even when
+   expanded." A collapsed row is a 3-column grid (title/content/meta) and an
+   expanded one is `display: block` (see `li.row-expanded` above) — two
+   different layouts a normal-flow child would visibly jump between.
+   `position: absolute` against the `<li>` itself is what makes one `top`/
+   `left` correct in both: the button no longer belongs to either layout, so
+   neither layout's change moves it. The left padding below is this
+   button's own reserved gutter, not a guess — `--target-min` (its width)
+   plus a `--space-2` gap plus the card's own base `0.8rem` side padding. */
+/* `#entry-list` prefixed on this pair and on the `.row-expanded` override
+   below: `03-dashboard-widgets.css` has its own `#entry-list li { padding:
+   0.8rem 1rem; }`, an ID selector that beats any number of classes stacked
+   on `li` alone — measured live: without the id here, that rule was the
+   one actually winning, silently discarding this `padding-left` and
+   putting the button right back where a collapsed-vs-expanded row's text
+   overlapped it. Scoped to `#entry-list` specifically (not a bare `#…`
+   wildcard) because `.entry-list` is a shared class — Reminders and the
+   Dashboard's task list use it too, under their own ids, and rows/
+   row-expand is a Notes-only concept. */
+#entry-list.entry-list.is-rows li:not(:has(textarea)) {
+  position: relative;
+  padding-left: calc(var(--target-min) + var(--space-2) + 0.8rem);
+}
+
+.entry-list.is-rows .row-expand {
+  position: absolute;
+  left: 0.4rem;
+  top: var(--space-3);
 }
 
 /* Readable measure, in card view too. 72ch is inside the 65-75 the rule
@@ -3142,6 +3195,15 @@ html.modal-open body {
   padding-inline: var(--space-2);
   vertical-align: middle;
   color: var(--muted);
+  /* `.setting-check > span` (04-chat-dock-appearance.css) is a flex column
+     with no `align-items`, so it defaults to `stretch` — a real flex item
+     (this button, inserted right after the hint it collapses) filled the
+     whole row edge to edge instead of sitting compact next to its own text.
+     Reported directly with a screenshot: a "?" alone in a full-width bar.
+     `flex-start` opts this button out wherever it lands inside a flex
+     column, which is the only context this stretch behaviour can happen in
+     — a plain block-flow label never stretched anything to begin with. */
+  align-self: flex-start;
 }
 
 .setting-hint-toggle[aria-expanded="true"] {

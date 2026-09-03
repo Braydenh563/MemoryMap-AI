@@ -4142,15 +4142,24 @@ Link to another note with [[its first few words]]."></textarea>
                 they appear only when there's something to say, and hiding a
                 warning you asked for is a different kind of setting.
               </p>
-              <div id="status-bar-items" class="status-bar-items"></div>
-              <!-- Opt-in, not part of the STATUS_SLOTS list above: those are
-                   permanent landmarks that show by default and can be hidden;
-                   a clock is neither permanent nor default — see its own
-                   comment in app.js's applyStatusClock(). -->
-              <label class="checkbox-label status-bar-item">
-                <input type="checkbox" id="status-bar-clock-toggle">
-                <span>Clock <small class="muted">— the current time, bottom right</small></span>
-              </label>
+              <div id="status-bar-items" class="status-bar-items">
+                <!-- Opt-in, not part of the STATUS_SLOTS list rendered into
+                     this container by app.js: those are permanent landmarks
+                     that show by default and can be hidden; a clock is
+                     neither permanent nor default — see its own comment in
+                     app.js's applyStatusClock(). Kept as a real DOM child of
+                     `#status-bar-items` rather than a sibling after it: that
+                     container is `display: flex; flex-wrap: wrap`, which is
+                     what makes every other row here a compact chip instead
+                     of a full-width bar. A sibling row shares the same
+                     `.checkbox-label` class but none of that flex context,
+                     so it fell back to block-level width — reported
+                     directly as inconsistent with the rest of this list. -->
+                <label class="checkbox-label status-bar-item">
+                  <input type="checkbox" id="status-bar-clock-toggle">
+                  <span>Clock <small class="muted">— the current time, bottom right</small></span>
+                </label>
+              </div>
             </div>
 
             <!-- ---------- Advanced ---------- -->

@@ -834,6 +834,19 @@ Link to another note with [[its first few words]]."></textarea>
                  delete it on every re-render. -->
             <h2 id="entries-heading" class="entries-heading"><span id="entries-heading-label">All notes</span></h2>
             <button id="select-btn" class="ghost small" title="Select several notes to move, tag, or delete together"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Select</button>
+            <!-- Reported directly: "half the screen is taken up by poor ui
+                 choices or structuring." Measured: a two-line note occupied
+                 121px including its gap, so a 900px window showed **five
+                 notes**. Rows show the same five in 320px. Cards are still
+                 here and still the right answer when a note has an image or
+                 a file in it — this is a view switch, not a replacement,
+                 and it defaults to rows because a list of notes is a list. -->
+            <div class="seg notes-view-toggle" role="group" aria-label="How to show notes">
+              <button type="button" id="notes-view-rows" class="active"
+                title="Compact rows — more notes on screen" aria-label="Show notes as compact rows"><i class="ph ph-list" aria-hidden="true"></i></button>
+              <button type="button" id="notes-view-cards"
+                title="Cards — full preview of each note" aria-label="Show notes as cards"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
+            </div>
             <input id="note-search" class="library-search" type="search"
               placeholder="Filter — try tag:work or &quot;exact phrase&quot;"
               aria-label="Filter notes. Supports tag:, cat:, is:pinned, -exclude and quoted phrases"

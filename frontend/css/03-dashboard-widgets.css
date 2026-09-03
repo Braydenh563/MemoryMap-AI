@@ -208,6 +208,13 @@
   color: #fff;
 }
 
+/* `.seg`'s own `margin-bottom` is for a segmented control sitting above the
+   thing it filters (the dashboard's, which is what it was written for). In
+   a toolbar row it just pushes this one control off the shared baseline. */
+.notes-view-toggle {
+  margin-bottom: 0;
+}
+
 /* Text size scales the root font (rem-based layout follows). Composed with
    --zoom multiplicatively (§37E) rather than as a second, competing driver of
    font-size — "Large text" at 80% zoom and "Normal text" at 100% zoom are

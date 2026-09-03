@@ -37,17 +37,19 @@ Seeded with ten notes, a 1440×900 viewport, default theme, fresh profile.
 | Note card width | **1037px** | 60–75 characters (~640px) |
 | Categories sidebar | 260 × 755px holding **three rows** (~110px used) | either dense and useful, or narrower |
 | `#entry-list` height inside a 755px `main` | **1248px** | the pane scrolls, not the page |
-| Library chrome above the first item | **340px** across four stacked control rows | one row |
+| Library chrome above the first item | **344px** across four stacked control rows | one row |
+| Side gutter at 1024 / 1440 / 1920 | **32px at all three** — a step function, not a response | continuous |
+| Category sidebar at 820px wide | **260px, unchanged from 1920** — 32% of the window | proportional |
 
 The last two are the structural ones and everything else follows from them.
 
-**The page scrolls, not the panes.** `main` is 755px tall and the list
-inside it is 1248px, so the browser's own scrollbar moves the whole
-document. A real application shell has a fixed shell and independently
-scrolling regions; this has a header, a footer, and one long page between
-them. That single fact is why the header sometimes feels like it is going
-to slide away, why scroll position is lost on tab switches, and why nothing
-can be pinned next to anything else.
+**Panes do scroll — that part of the shell is already right.** Measured
+after the first draft of this file said otherwise, and the correction is
+worth keeping: `document.documentElement` never overflows, and the scroller
+is `MAIN` on Notes and `.tab-page` on Timeline and the Dashboard. What is
+missing from the shell is not scrolling but *structure* — per-pane history,
+more than one pane at a time, and a left rail (§R3.1) — so the work in §R6
+item 6 stands, with one less thing to fix.
 
 **Chrome stacks instead of collapsing.** The Library screen draws, top to
 bottom: the app tab bar, the Library sub-tab bar, a title row with two
@@ -417,7 +419,7 @@ of work"*, which is what was actually asked for.
 | 2 | Non-blocking filing (971ms → 32ms) | **done, verified live** |
 | 3 | Cross-space leak for files, reminders, whiteboards | **done, verified live** |
 | 4 | Whiteboard fullscreen | small, next |
-| 5 | Density pass: dense note rows, one Library control row, pane scrolling | the biggest single win on "half the screen is wasted" |
+| 5 | Density pass: note rows, fluid gutter and sidebar, one less Library row | **done, verified live — 5 notes visible → 12** |
 | 6 | The shell: left rail, per-pane history, independent scroll | the structural fix (C1); large |
 | 7 | Concept maps (§R4) | new feature; large |
 | 8 | Selection → chat context, `Connections` block, typed blocks (§R3.2) | "feels capable"; medium each |

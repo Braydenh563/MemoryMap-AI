@@ -5534,11 +5534,46 @@ function resolveNotePage(id) {
   return Math.floor(index / Number(notesPageSize)) + 1;
 }
 
+//: Rows or cards. Rows is the default and the reason is measured, not a
+//: preference: a two-line note was a 111px card plus a 10px gap, so a
+//: 900px window showed five notes — reported as "half the screen is taken
+//: up by poor ui choices or structuring." Cards stay for a note carrying an
+//: image or a file, which genuinely needs the room.
+//:
+//: Stored in localStorage rather than as a server preference: it is a
+//: property of this screen on this machine, in the same family as the
+//: expanded/collapsed sets above, and a round trip to change how a list
+//: looks would be the wrong trade.
+let notesViewMode = localStorage.getItem("notesViewMode") === "cards" ? "cards" : "rows";
+
+function applyNotesViewMode() {
+  const list = $("entry-list");
+  if (list) list.classList.toggle("is-rows", notesViewMode === "rows");
+  $("notes-view-rows")?.classList.toggle("active", notesViewMode === "rows");
+  $("notes-view-cards")?.classList.toggle("active", notesViewMode === "cards");
+  $("notes-view-rows")?.setAttribute("aria-pressed", String(notesViewMode === "rows"));
+  $("notes-view-cards")?.setAttribute("aria-pressed", String(notesViewMode === "cards"));
+}
+
+function setNotesViewMode(mode) {
+  notesViewMode = mode === "cards" ? "cards" : "rows";
+  localStorage.setItem("notesViewMode", notesViewMode);
+  applyNotesViewMode();
+}
+
+$("notes-view-rows")?.addEventListener("click", () => setNotesViewMode("rows"));
+$("notes-view-cards")?.addEventListener("click", () => setNotesViewMode("cards"));
+
 function renderEntries() {
   const list = $("entry-list");
   const empty = $("empty-message");
   const noMatch = $("no-match-message");
   list.replaceChildren();
+  // Re-applied on every render, not just on a click: `replaceChildren`
+  // above leaves the class alone, but a later render that rebuilt the <ul>
+  // itself would not — and this failing silently would look like the
+  // toggle not working rather than a class being dropped.
+  applyNotesViewMode();
 
   // Drafts stay out of All/category views entirely — user-reported: they
   // should only show up in the Drafts filter until saved as a real note.
@@ -11476,23 +11511,71 @@ function layoutIsStacked() {
   return window.matchMedia(STACKED_LAYOUT).matches;
 }
 
-function applySidebarWidth(aside, width) {
+//: The most of the window a sidebar may take. Reported directly: "the ui
+//: needs to seemlessly adapt and perfect itself on any resolution and not
+//: just be squashed but still fit somehow."
+//:
+//: Measured before this existed: the sidebar was its saved pixel width at
+//: *every* viewport — 260px at 1920 (14% of the window, fine) and 260px at
+//: 820 (32%, leaving the notes column 459px). The sidebar never gave up a
+//: pixel, so the content absorbed the entire difference. That is the
+//: "squashed but still fit somehow" feeling, and its cause is a stored
+//: absolute width applied to a relative space.
+//:
+//: A stylesheet `clamp()` cannot fix it: the width is written as an inline
+//: `grid-template-columns` on the parent (below), and an inline style beats
+//: every rule. So the cap belongs here, where the number is decided.
+const SIDEBAR_VIEWPORT_SHARE = 0.24;
+
+//: What the sidebar may actually occupy right now — the user's own width
+//: where there is room for it, less where there is not, never below the
+//: floor a category name needs to stay readable.
+function sidebarFittedWidth(saved) {
+  const cap = Math.max(SIDEBAR_MIN, Math.round(window.innerWidth * SIDEBAR_VIEWPORT_SHARE));
+  return Math.min(saved, cap);
+}
+
+function applySidebarWidth(aside, width, { remember = true } = {}) {
   const clamped = Math.min(Math.max(Math.round(width), SIDEBAR_MIN), SIDEBAR_MAX);
-  localStorage.setItem(`sidebarWidth:${aside.id}`, String(clamped));
+  // **The user's choice is stored, the fitted width is applied**, and the
+  // split matters: storing the fitted one would mean dragging a window
+  // narrow permanently shrank a preference the user set on a wide screen,
+  // with no way to notice it had happened. Widening the window restores it.
+  // `remember: false` is for the re-fit on resize, which is the app
+  // reacting rather than the user choosing.
+  if (remember) localStorage.setItem(`sidebarWidth:${aside.id}`, String(clamped));
   aside.style.setProperty("--saved-width", `${clamped}px`);
-  
+
   if (layoutIsStacked()) {
     aside.parentElement.style.removeProperty("grid-template-columns");
     return clamped;
   }
-  
+
   if (aside.classList.contains("sidebar-collapsed")) {
     aside.parentElement.style.gridTemplateColumns = `48px minmax(0, 1fr)`;
   } else {
-    aside.parentElement.style.gridTemplateColumns = `${clamped}px minmax(0, 1fr)`;
+    aside.parentElement.style.gridTemplateColumns = `${sidebarFittedWidth(clamped)}px minmax(0, 1fr)`;
   }
   return clamped;
 }
+
+//: Re-fit every sidebar as the window changes size, not only when it crosses
+//: the one stacking breakpoint below. Without this the cap above would apply
+//: at load and then go stale the moment anyone resized a window — which is
+//: the normal way a desktop app is used, and exactly the case the report was
+//: about. `remember: false`: this is not the user choosing a width.
+let sidebarRefitTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(sidebarRefitTimer);
+  sidebarRefitTimer = setTimeout(() => {
+    for (const id of ["sidebar", "chat-sidebar", "doc-sidebar"]) {
+      const aside = document.getElementById(id);
+      if (aside?.dataset.resizable) {
+        applySidebarWidth(aside, sidebarWidth(id, sidebarDefault(id)), { remember: false });
+      }
+    }
+  }, 120);
+});
 
 // Rotating a phone, or dragging a desktop window narrow, crosses the
 // threshold without reloading — so re-decide then too.

@@ -741,6 +741,138 @@ progress {
   margin-bottom: 0.6rem;
 }
 
+/* ---- Rows: the default way a list of notes is shown --------------------
+   Reported directly: "half the screen is taken up by poor ui choices or
+   structuring." Measured before this existed, at 1440x900: a two-line note
+   was a 111px card plus a 10px gap, so the window held **five notes**. The
+   body text ran the full 1003px of the card, which is roughly 160
+   characters — more than twice the 65-75 the readable-measure rule (and
+   every typographic source behind it) puts the limit at.
+
+   Both numbers come from the same cause: the card is laid out as a
+   document, one block stacked under another across the full width, when a
+   list row wants two columns — what the note says on the left, what the
+   app knows about it on the right.
+
+   Cards are not deleted and are one click away, because a note carrying an
+   image or a file genuinely needs the room. Rows are the default because a
+   list of notes is a list. */
+/* Three columns on one line: the title, then the preview, then what the app
+   knows about the note. Stacking those as three blocks is what made a
+   two-line note 111px tall; side by side it is one text line plus padding.
+
+   `:has(textarea)` opts a row *out* while it is being edited in place —
+   an editor squeezed into a 24px-tall middle column would be unusable, and
+   an inline edit is no longer a summary. */
+.entry-list.is-rows li:not(:has(textarea)) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-4);
+  padding: var(--space-2) var(--space-4);
+}
+
+/* One bordered list with hairline separators, rather than N bordered cards
+   with gaps between them. Two reasons, and the second is the one that
+   matters: it removes a border, a radius and a margin per row — real
+   vertical space at this density — and a run of separate rounded boxes
+   reads as a set of unrelated objects, where a list of notes is one thing
+   with many entries. */
+.entry-list.is-rows {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.entry-list.is-rows li {
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  margin-bottom: 0;
+  background: transparent;
+}
+
+.entry-list.is-rows li:last-child {
+  border-bottom: 0;
+}
+
+/* A row is a target you point at, so it has to say so. Cards get this from
+   having visible edges; a row in a flat list does not. */
+.entry-list.is-rows li:hover {
+  background: var(--chip-bg);
+}
+
+/* Explicit placement, not source order. A note with no `# Heading` has no
+   `.entry-title` element at all, and with auto-flow its body would slide
+   into the title's column — where `width: auto` sizes it to its content and
+   the row's proportions change from note to note. Pinning each part to its
+   own cell keeps every row aligned whether or not it has a title. */
+.entry-list.is-rows li:not(:has(textarea)) > .entry-title {
+  grid-column: 1;
+  grid-row: 1;
+  max-width: 28ch;
+}
+
+.entry-list.is-rows li:not(:has(textarea)) > .entry-content {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.entry-list.is-rows li:not(:has(textarea)) > .entry-meta {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+/* Anything else a row grows later (an actions strip, a badge) spans the
+   width on its own line rather than silently landing in a text column. */
+.entry-list.is-rows li:not(:has(textarea)) > *:not(.entry-title):not(.entry-content):not(.entry-meta) {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.entry-list.is-rows .entry-meta {
+  margin: 0;
+  flex-wrap: nowrap;
+}
+
+.entry-list.is-rows .entry-title {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* One line of preview, ellipsised. `-webkit-line-clamp` rather than a
+   height: the clamp is what puts the ellipsis on the *text*, and a fixed
+   height would cut a descender in half instead. */
+.entry-list.is-rows .entry-content {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  overflow: hidden;
+  margin: 0;
+  color: var(--muted);
+}
+
+/* A row is a summary, so the things that only make sense on an opened note
+   have nothing to do here: an image, a file card and a "Show more" all
+   assume the full card. Hidden rather than shrunk — a 3px-tall thumbnail is
+   worse than none, and the card view is one click away. */
+.entry-list.is-rows .entry-content img,
+.entry-list.is-rows .file-card,
+.entry-list.is-rows .entry-more {
+  display: none;
+}
+
+/* Readable measure, in card view too. 72ch is inside the 65-75 the rule
+   asks for; `ch` rather than px so it tracks the user's own font-size
+   setting instead of fixing the line length in pixels and drifting off the
+   rule the moment anyone changes it. */
+.entry-list:not(.is-rows) .entry-content {
+  max-width: 72ch;
+}
+
 /* The AI Skills panel's own log rows (`renderSkillLogs`, library.js) —
    `#skills-logs-list` is a plain `<div class="entry-list">`, not a `<ul>`
    (it holds status text on the empty-state path too), so its rows are

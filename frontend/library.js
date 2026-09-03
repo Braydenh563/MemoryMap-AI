@@ -146,15 +146,6 @@ const LIBRARY_KINDS = [
 //: somewhere — the same test the status bar had to pass, for the same reason:
 //: a number you cannot act on is decoration, and a management screen made of
 //: decoration is a dashboard nobody opens twice.
-const LIBRARY_OVERVIEW_TILES = [
-  { key: "notes", icon: "ph:note-pencil", label: "notes", kind: "note" },
-  { key: "documents", icon: "ph:file-text", label: "documents", kind: "document" },
-  { key: "chats", icon: "ph:chat-circle", label: "chats", kind: "chat" },
-  { key: "tags", icon: "ph:tag", label: "tags", kind: "tag" },
-  { key: "shelved", icon: "ph:archive", label: "archived", kind: "shelved" },
-  { key: "binned", icon: "ph:trash", label: "in the bin", kind: "archived" },
-];
-
 //: What is ticked. Ids alone would collide — a tag's id 3 and a note's id 3 are
 //: different things — so the key is kind + id, and it survives a re-render
 //: because it is not read off the DOM.
@@ -194,38 +185,25 @@ async function loadLibrary() {
   renderLibrary();
 }
 
+/** The one line of the old overview strip that was not already on screen.
+ *
+ *  The strip used to be six stat tiles above the filter chips —
+ *  notes / documents / chats / tags / archived / in the bin — each showing a
+ *  count and, on click, setting `libraryKind`. Six of the chips directly
+ *  below it are the same six filters, with the same counts, doing the same
+ *  thing. Measured: 61px of duplicate control, in a screen that already put
+ *  344px of chrome above its first item, and reported as "half the screen
+ *  is taken up by poor ui choices or structuring."
+ *
+ *  Removing the tiles loses nothing: every filter they offered is still one
+ *  click away in the row underneath, still labelled, still counted. What the
+ *  chips never carried is the prose — how much disk the attachments take and
+ *  how much writing is in the documents — so that stays, as one quiet line.
+ */
 function renderLibraryOverview() {
   const box = $("library-overview");
   if (!box) return;
   box.replaceChildren();
-  for (const tile of LIBRARY_OVERVIEW_TILES) {
-    const value = libraryOverview[tile.key] || 0;
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "library-stat" + (libraryKind === tile.kind ? " active" : "");
-    const icon = document.createElement("span");
-    icon.className = "library-stat-icon";
-    setLabel(icon, tile.icon);
-    icon.setAttribute("aria-hidden", "true");
-    const number = document.createElement("strong");
-    number.className = "library-stat-value";
-    number.textContent = value;
-    const label = document.createElement("span");
-    label.className = "library-stat-label";
-    setLabel(label, tile.label);
-    button.append(icon, number, label);
-    button.title = `Show ${tile.label}`;
-    // Every tile is a filter. That is what stops it being decoration.
-    button.addEventListener("click", () => {
-      libraryKind = tile.kind;
-      if (tile.kind === "archived") $("library-show-binned").checked = true;
-      libraryCurrentPage = 1; // a filter switch can move an item off whatever page it was on
-      renderLibraryOverview();
-      renderLibraryFilters();
-      renderLibrary();
-    });
-    box.appendChild(button);
-  }
   // One line of plain prose about the things that are not counts: how much
   // disk the attachments take, and how much writing is in the documents.
   const note = document.createElement("p");

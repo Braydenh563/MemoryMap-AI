@@ -217,7 +217,23 @@ select optgroup {
      control floating in the middle of the header rather than one grouped with
      the toggle. Toggle plus one small gap is the whole reserve. */
   --sidebar-toggle-lane: calc(var(--sidebar-toggle-size) + var(--space-2));
-  --page-gutter: var(--space-9);
+  /* **Fluid, not stepped.** Reported directly: "the margins around edges of
+     the ui on the pages and the floating panels currently lose a lot of
+     space… the ui needs to seemlessly adapt and perfect itself on any
+     resolution and not just be squashed but still fit somehow."
+
+     Measured before this: the gutter was a flat 32px at 1024, 1280, 1440
+     *and* 1920, then dropped to 12.8px below one breakpoint. That is a step
+     function, and it is exactly what "altered to try and fit" looks like
+     from the inside — a 1024px laptop paid the same 64px of side margin as
+     a 1920px monitor, out of a third of the horizontal room.
+
+     `clamp` makes it continuous: it tracks the viewport between a floor
+     that keeps content off the edge on a phone and the same 2rem ceiling on
+     a wide screen, so nothing about the roomy case changes and every narrow
+     one gains. `--density` still multiplies it, so the Appearance setting
+     keeps working. */
+  --page-gutter: clamp(var(--space-4), 2.2vw, var(--space-9));
   --page-left: var(--page-gutter);
   --page-right: var(--page-gutter);
   /* 2rem, the inset five rules had by hand */
@@ -1195,6 +1211,33 @@ header#top-bar.tabs-wrapped #tab-bar {
 .library-toolbar .seg {
   display: inline-flex;
   align-items: center;
+}
+
+/* The Notes toolbar overflowed its row by ~155px and wrapped, which put a
+   lone "All notes" select on a second line — 53px of chrome carrying one
+   control, in the middle of a change made specifically to remove chrome.
+   Measured: 1192px of controls in a 1037px row.
+
+   The search field absorbs the slack instead of being the widest fixed
+   thing in the row (it was 371px), and the two selects are capped at the
+   width their longest option actually needs. Nothing is hidden or moved —
+   the row simply stops asking for more space than it has. */
+.library-toolbar input[type="search"],
+.library-toolbar .library-search {
+  /* 12rem, and the exact number is load-bearing. A wrapping flex row places
+     items at their *basis* and only shrinks the ones already on a line, so
+     the row wraps as soon as the bases plus gaps exceed it — no amount of
+     `flex-shrink` prevents that. Measured: 16rem of basis put the total at
+     1045px against a 1037px row, so one select fell to a second line by
+     8px. At 12rem the bases total 1013px and the search still *grows* into
+     whatever is left, which is how it ends up wider than its basis on a
+     roomy window. */
+  flex: 1 1 12rem;
+  min-width: 8rem;
+}
+
+.library-toolbar select {
+  max-width: 9rem;
 }
 
 .library-search {
@@ -2482,8 +2525,18 @@ header#top-bar.tabs-wrapped #tab-bar {
      paragraph beside it — a long horizontal scrollbar and text that looked
      scaled up. The content column must be allowed to be narrower than its
      widest child so `overflow-x: auto` on that child can do its job. */
-  grid-template-columns: 260px minmax(0, 1fr);
-  gap: 1rem;
+  /* The starting track, and only that. **A resizable sidebar writes its
+     width as an inline `grid-template-columns` on this element**
+     (`applySidebarWidth`, app.js), and an inline style beats every rule
+     here — so this value is what a layout *without* a resizable sidebar
+     gets, and what every layout shows for the frame before that code runs.
+     The responsive cap that stops a sidebar taking a third of a narrow
+     window lives in that function, next to the number it adjusts; see its
+     comment for the measurements. Written as a clamp anyway so the two
+     agree on the frame before JS has run, rather than starting at 260px
+     and visibly jumping. */
+  grid-template-columns: clamp(11rem, 17vw, 16rem) minmax(0, 1fr);
+  gap: var(--space-5);
   /* The gutter belongs to .tab-page now; this is only the column gap. */
   padding: 0;
   /* stretch, not start: with `start` the sidebar shrank to its content and sat
@@ -2505,7 +2558,11 @@ header#top-bar.tabs-wrapped #tab-bar {
   /* The shell tightens once, for every tab, instead of each page shrinking its
      own gutter to a different number (§35L). */
   :root {
-    --page-gutter: var(--space-6);
+    /* The gutter is fluid now (see `--page-gutter` above) and has already
+       tightened itself well before this breakpoint, so it is deliberately
+       *not* re-declared here — a second, stepped value would put the jump
+       back that the clamp exists to remove. Only the vertical insets,
+       which are not viewport-relative, still step. */
     --page-top: var(--space-3);
     --page-bottom: var(--space-6);
   }

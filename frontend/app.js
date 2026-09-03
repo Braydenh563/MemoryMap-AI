@@ -3021,33 +3021,54 @@ function openLightbox(items, startIndex = 0) {
   // Drag to pan, once zoomed. The scrollbars already pan the stage, but a
   // magnified picture with `cursor: grab` on it that does not actually drag
   // is an affordance telling a lie — every image viewer drags here.
+  //
+  // Bound to both `img` and `pdfPages`, panning whichever container
+  // `scrollTarget()` says actually scrolls (`stage` for the image, `doc`
+  // for PDF pages) — reported live: "when zooming in on docs or images etc
+  // in the lightbox, i cant drag to adjust the zoom position." This only
+  // ever panned `stage.scroll{Left,Top}` via listeners on `img` alone, the
+  // same single-target gap `zoomTarget()`/`scrollTarget()` above already
+  // exist to close for zoom and Fit; drag never got the same treatment when
+  // PDF pages gained their own zoomable, independently-scrolling view.
   let panning = null;
-  img.addEventListener("pointerdown", (e) => {
+  const startPan = (el) => (e) => {
     if (zoom === 1) return;
     e.preventDefault();
-    panning = { x: e.clientX, y: e.clientY, left: stage.scrollLeft, top: stage.scrollTop };
-    img.setPointerCapture(e.pointerId);
-    img.style.cursor = "grabbing";
-  });
-  img.addEventListener("pointermove", (e) => {
+    const scroller = scrollTarget();
+    panning = { x: e.clientX, y: e.clientY, left: scroller.scrollLeft, top: scroller.scrollTop };
+    el.setPointerCapture(e.pointerId);
+    el.style.cursor = "grabbing";
+  };
+  const movePan = (e) => {
     if (!panning) return;
-    stage.scrollLeft = panning.left - (e.clientX - panning.x);
-    stage.scrollTop = panning.top - (e.clientY - panning.y);
-  });
-  const endPan = (e) => {
+    const scroller = scrollTarget();
+    scroller.scrollLeft = panning.left - (e.clientX - panning.x);
+    scroller.scrollTop = panning.top - (e.clientY - panning.y);
+  };
+  const endPan = (el) => (e) => {
     if (!panning) return;
     panning = null;
-    img.style.cursor = "";
-    if (e.pointerId !== undefined && img.hasPointerCapture(e.pointerId)) {
-      img.releasePointerCapture(e.pointerId);
+    el.style.cursor = "";
+    if (e.pointerId !== undefined && el.hasPointerCapture(e.pointerId)) {
+      el.releasePointerCapture(e.pointerId);
     }
   };
-  img.addEventListener("pointerup", endPan);
-  img.addEventListener("pointercancel", endPan);
-  // A drag that ends on the image must not also read as a click on the
+  // A drag that ends on the picture must not also read as a click on the
   // backdrop, which closes the dialog — panning to the edge of a picture
   // and having the whole thing vanish is the bug this prevents.
-  img.addEventListener("click", (e) => e.stopPropagation());
+  //
+  // `pdfPages` doesn't exist yet at this point in `openLightbox` (it's
+  // built further down, alongside the rest of the document view) — wiring
+  // it up here throws a temporal-dead-zone ReferenceError the instant the
+  // lightbox opens. `bindPan`, called once `pdfPages` is actually in scope.
+  const bindPan = (el) => {
+    el.addEventListener("pointerdown", startPan(el));
+    el.addEventListener("pointermove", movePan);
+    el.addEventListener("pointerup", endPan(el));
+    el.addEventListener("pointercancel", endPan(el));
+    el.addEventListener("click", (e) => e.stopPropagation());
+  };
+  bindPan(img);
 
   // Copy the text the app read out of the picture. Hidden unless this item
   // actually has some — an enabled button that copies "" is a lie.
@@ -3255,6 +3276,7 @@ function openLightbox(items, startIndex = 0) {
   // like a PDF — no script, no PDF renderer, no AI in this path at all.
   const pdfPages = document.createElement("div");
   pdfPages.className = "lightbox-pdf-pages hidden";
+  bindPan(pdfPages);
   doc.append(docNote, docBody, pdfPages);
   doc.addEventListener("click", (e) => e.stopPropagation());
   stage.appendChild(doc);

@@ -31,14 +31,14 @@
        every later file's var() calls depend on. See
        tests/test_style_scale.py's STYLE_FILES for the list the design-token
        lint reads instead of a single style.css path. -->
-  <link rel="stylesheet" href="/css/00-tokens-shell.css?v=0.1.9">
-  <link rel="stylesheet" href="/css/01-forms-settings.css?v=0.1.9">
-  <link rel="stylesheet" href="/css/02-chat-graph.css?v=0.1.9">
-  <link rel="stylesheet" href="/css/03-dashboard-widgets.css?v=0.1.9">
-  <link rel="stylesheet" href="/css/04-chat-dock-appearance.css?v=0.1.9">
-  <link rel="stylesheet" href="/css/05-sidebars-themes.css?v=0.1.9">
-  <link rel="stylesheet" href="/css/06-timeline-dialogs.css?v=0.1.9">
-  <link rel="stylesheet" href="/css/07-whiteboard-misc.css?v=0.1.9">
+  <link rel="stylesheet" href="/css/00-tokens-shell.css?v=0.1.10">
+  <link rel="stylesheet" href="/css/01-forms-settings.css?v=0.1.10">
+  <link rel="stylesheet" href="/css/02-chat-graph.css?v=0.1.10">
+  <link rel="stylesheet" href="/css/03-dashboard-widgets.css?v=0.1.10">
+  <link rel="stylesheet" href="/css/04-chat-dock-appearance.css?v=0.1.10">
+  <link rel="stylesheet" href="/css/05-sidebars-themes.css?v=0.1.10">
+  <link rel="stylesheet" href="/css/06-timeline-dialogs.css?v=0.1.10">
+  <link rel="stylesheet" href="/css/07-whiteboard-misc.css?v=0.1.10">
   <!-- **Its own file, not an inline block, and that is the point.** The CSP
        allows inline scripts only by sha256 hash, and `create_app` computes
        those hashes from index.html **once at startup**. A server still
@@ -48,7 +48,7 @@
        the loading screen". A guard that exists to report a broken boot must
        not itself be the thing that breaks, and `script-src 'self'` covers a
        same-origin file unconditionally. -->
-  <script src="/boot-guard.js?v=0.1.9"></script>
+  <script src="/boot-guard.js?v=0.1.10"></script>
   <script>
     // Everything visual is applied before first paint, so the app never
     // flashes the default look and then corrects itself.
@@ -5598,8 +5598,8 @@ Link to another note with [[its first few words]]."></textarea>
        it can safely go first. See frontend/graph.js's own header for the
        full explanation. -->
 
-  <script src="/graph.js?v=0.1.9"></script>
-  <script src="/app.js?v=0.1.9"></script>
+  <script src="/graph.js?v=0.1.10"></script>
+  <script src="/app.js?v=0.1.10"></script>
   <!-- Document editor, split out of app.js (§10 of the app.js-split plan).
        Loaded after app.js and shares its global scope; the two directions
        differ. app.js calls INTO this file (loadDocuments, renderDocStorage,
@@ -5609,14 +5609,14 @@ Link to another note with [[its first few words]]."></textarea>
        `initDocSidebarTabs();` sitting in app.js's own wiring block — moved
        here with the function itself, so this file now calls it on its own
        last line instead of app.js calling it mid-file. -->
-  <script src="/documents.js?v=0.1.9"></script>
+  <script src="/documents.js?v=0.1.10"></script>
   <!-- Whiteboard subsystem, split out of app.js (ROADMAP.md Priority 0 item
        2). Loaded after app.js and shares its global scope; every
        cross-file call between the two happens at runtime (inside a
        function or event listener), never at parse time, so this order is
        not load-bearing for correctness — it just keeps app.js as the
        first, larger script, matching the split's own diff. -->
-  <script src="/whiteboard.js?v=0.1.9"></script>
+  <script src="/whiteboard.js?v=0.1.10"></script>
   <!-- The Library tab, split out of app.js and whiteboard.js both (§88.3 of
        the app.js split plan — documents.js above was the first file, this
        is the second). Loaded after both for the same reason documents.js is
@@ -5631,7 +5631,7 @@ Link to another note with [[its first few words]]."></textarea>
        documents.js's split found that this one checked for and did not
        find (a bare top-level call site left orphaned by a moved
        definition). -->
-  <script src="/library.js?v=0.1.9"></script>
+  <script src="/library.js?v=0.1.10"></script>
   <!-- The editor layer: the "/" command menu, the block frames it inserts, and
        the caret-anchored popup the document editor's [[ autocomplete uses.
        Loaded after app.js for the same reason whiteboard.js is — every
@@ -5639,7 +5639,7 @@ Link to another note with [[its first few words]]."></textarea>
        allEntries from app.js, and MD_ACTIONS/markDocDirty from documents.js
        (loaded above) — all runtime reads inside closures, so this ordering
        relative to documents.js isn't load-bearing either. -->
-  <script src="/editor.js?v=0.1.9"></script>
+  <script src="/editor.js?v=0.1.10"></script>
   <!-- Dashboard: widgets, masonry packing, the generative-art widget (§88.3
        of the app.js-split plan). Loaded after app.js and shares its global
        scope; every cross-file call happens at runtime (inside a function or
@@ -5651,7 +5651,7 @@ Link to another note with [[its first few words]]."></textarea>
        closure) moved here along with the functions they call, the same fix
        documents.js made for `initDocSidebarTabs()` — see dashboard.js's own
        header for the full explanation. -->
-  <script src="/dashboard.js?v=0.1.9"></script>
+  <script src="/dashboard.js?v=0.1.10"></script>
   <!-- Settings: the modal shell, the logs console, and appearance (theme,
        accent, curated palettes, saved looks, the generative background
        preview) — §88.3 of the app.js-split plan, the fourth and LAST file.
@@ -5670,6 +5670,6 @@ Link to another note with [[its first few words]]."></textarea>
        event-listener closure — see this file's own header for the full
        account of what moved, what stayed in app.js and why, and the two
        hazards this ordering fixes. -->
-  <script src="/settings.js?v=0.1.9"></script>
+  <script src="/settings.js?v=0.1.10"></script>
 </body>
 </html>

@@ -9051,15 +9051,44 @@ a test-methodology gap, not a rendering bug, for whoever next needs a real
 dark-mode screenshot. `test_style_scale.py` (design-token lint) stays
 green — this only touched color/shadow properties, not spacing.
 
+## Same session, continued: lightbox drag-to-pan, now covers PDF pages too
+
+"When zooming in on docs or images etc in the lightbox, i cant drag to
+adjust the zoom position" — confirmed exactly the shape flagged above before
+building it: drag-to-pan was wired to `img` only (`pointerdown`/`move`/`up`/
+`cancel`, scrolling `stage`), so it always worked for a plain image and
+never for the PDF-pages view, whose scrollable container is `doc` (the
+`img`/`pdfPages` split `zoomTarget()`/`scrollTarget()` already model, for
+zoom and Fit). Generalised the same way: `startPan`/`movePan`/`endPan` now
+read `scrollTarget()` instead of hardcoding `stage`, and a `bindPan(el)`
+helper wires the same three listeners onto whichever element is dragged.
+
+**First attempt threw immediately on every lightbox open** — a real bug live
+verification caught before it ever reached the app: `pdfPages` is declared
+~250 lines further down in `openLightbox` (built alongside the rest of the
+document view) than where the drag wiring lives, so `for (const el of [img,
+pdfPages])` at the original location was a temporal-dead-zone
+`ReferenceError` the instant `openLightbox` ran, not something that only
+showed up once a PDF was opened. `zoomTarget`/`scrollTarget` get away with
+referencing `pdfPages` from the same early spot because they're closures
+only *called* later; this loop accessed it directly, immediately. Fixed by
+splitting `bindPan` out and calling it on `img` where the rest of the drag
+code already lives, then calling it a second time on `pdfPages` right after
+`pdfPages`'s own `const` declaration.
+
+Verified live, twice, end to end through the real upload → click → lightbox
+path (not a synthetic DOM poke): a genuine multi-page PDF (reusing
+`_make_multipage_pdf` from `tests/test_pdfpages.py`) uploaded to a real note
+via the app's own upload endpoint, opened by clicking its attachment chip.
+**Image view**: zoomed 5×, dragged 100px/70px, `stage.scrollLeft/Top` moved
+by exactly that. **PDF-pages view**: same PDF, zoomed to 350%, dragged
+35px/100px, `.lightbox-doc`'s scroll moved by exactly that —
+screenshotted (`shots/dragpan_pdf.png`) showing the page's "Hello" text
+panned into a different position than where it zoomed in. Both previously
+impossible for PDF pages, confirmed working now.
+
 ## Still open from before this batch, unchanged
 
-- **Lightbox drag-to-pan when zoomed** ("when zooming in on docs or images
-  etc in the lightbox, i cant drag to adjust the zoom position") — not yet
-  investigated. The existing pointerdown/move/up drag code is bound only to
-  the single-image `<img>` and scrolls `stage`; the PDF-pages view's
-  scrollable container is `doc`/`pdfPages`, so this likely needs the same
-  `zoomTarget()`/`scrollTarget()`-style dispatch already used for zoom to be
-  extended to the drag handlers too, rather than being a fresh bug.
 - CodeQL PR check alert count/detail still not confirmed resolved — this
   session's tools could not surface per-alert SARIF locations; unchanged from
   the last handover entry.

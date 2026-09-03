@@ -1002,10 +1002,25 @@ progress {
   padding-left: calc(var(--target-min) + var(--space-2) + 0.8rem);
 }
 
+/* Vertically centred by default — direct instruction: "centre the dropdown
+   buttons vertically in the notes, at least when collapsed." A collapsed
+   row is one line, and `top: var(--space-3)` (a fixed offset from the
+   card's own top edge) reads as "stuck near the top" rather than centred
+   in it. `li.row-expanded` overrides back to that fixed offset just below:
+   a tall expanded card centring this button on its full height would float
+   it in empty space partway down the card, so "collapsed" and "expanded"
+   get two different, each individually correct, anchors rather than one
+   compromise that's wrong in both. */
 .entry-list.is-rows .row-expand {
   position: absolute;
   left: 0.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.entry-list.is-rows li.row-expanded .row-expand {
   top: var(--space-3);
+  transform: none;
 }
 
 /* Readable measure, in card view too. 72ch is inside the 65-75 the rule

@@ -322,6 +322,23 @@ alerts closed, and a fresh burst of requests logged for next.
   (bounded, session-only is probably fine — nothing here claims to survive
   a reload today either) surfaced from the existing notification bell/
   panel, with the same action button re-offered from there.
+- **"Sometimes two empty new lines randomly are entered in the main notes
+  text box in the Capture tab."** Checked, not reproduced — no repro steps
+  came with it, so this is what was ruled out rather than a fix: the
+  three `#entry-content` `input` listeners (character count/draft-save,
+  the preview painter, the wiki-suggest renderer) only ever *read*
+  `e.target.value`, none of them write to it; the `keydown` handler only
+  intercepts Enter for wiki-suggestion accept (`preventDefault()`'d
+  correctly, so no double-insert there) and Ctrl+Enter to save; dictation
+  joins transcribed text with a single space (`trimEnd() + " " + text`),
+  never a newline. The one real lead, not yet confirmed as the cause:
+  `handleFileUpload`'s insertion (both the upload and paste/drop paths)
+  always appends a bare `\n` after `![Uploading …]()` and again after the
+  real markdown that replaces it, with no check for what's already at the
+  cursor — pasting or dropping a file while already on a blank line, or
+  twice in close succession, plausibly stacks blank lines this way. Next
+  session: reproduce with an actual paste/drop sequence before patching
+  it; a fix aimed at the wrong mechanism here would look done and not be.
 
 ### ► Next session priority list — read this before building
 

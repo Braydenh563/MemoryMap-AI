@@ -7105,6 +7105,10 @@ async function askQuestion(preset) {
       onAnswer: (delta) => {
         if (thinkingBox.open) thinkingBox.open = false; // reasoning done → tuck away
         answerRaw += delta;
+        // Same caret the Chat tab's timeline gets, for the same reason — see
+        // `.is-streaming` in 01-forms-settings.css. Set here rather than
+        // before the request because the dots own the "nothing yet" state.
+        answerBox.classList.add("is-streaming");
         renderLive(answerRaw); // markdown renders AS it streams (user request)
         status.textContent = "The model is writing…";
       },
@@ -7146,6 +7150,9 @@ async function askQuestion(preset) {
       status.classList.add("error");
     }
   } finally {
+    // Every exit path, including Stop and an error: a caret still blinking on
+    // an answer that stopped arriving is worse than never showing one.
+    answerBox.classList.remove("is-streaming");
     askController = null;
     setAsking(false);
     // The question used to be cleared here, which left an answer on screen with
@@ -9016,7 +9023,21 @@ function agentTimeline(holder) {
   const startAnswer = () => {
     foldEarlierThinking();
     const el = document.createElement("div");
-    el.className = "agent-step step-answer bubble-answer";
+    // **`is-streaming` is the only thing on screen that says the answer is
+    // still arriving.** Reported directly: "there are no animations for chat
+    // generation." The typing dots that run before the first token are
+    // removed the moment one arrives (`clearPending`), and from then until
+    // the turn ends the text simply grows — no caret, no cursor, nothing.
+    // Every chat interface has this affordance because without it a slow
+    // local model producing a token a second is indistinguishable from a
+    // finished short answer.
+    //
+    // A class plus a CSS `::after`, not an appended element: the answer body
+    // is re-rendered from scratch on every frame by `liveMarkdownRenderer`,
+    // so a real node would be destroyed and recreated ~30 times a second (and
+    // would land inside whatever block the markdown happened to end with).
+    // A pseudo-element is untouched by that and is removed by `finalise`.
+    el.className = "agent-step step-answer bubble-answer is-streaming";
     holder.appendChild(el);
     current = {
       kind: "answer",
@@ -9183,6 +9204,11 @@ function agentTimeline(holder) {
     // Re-render each prose step properly once streaming has finished.
     finalise() {
       for (const step of answerSteps) renderMarkdown(step.body, step.raw);
+      // The caret goes out with the stream that justified it. Called from
+      // every exit path this timeline has — a finished turn, an error, and
+      // Stop — because a caret left blinking on an answer that stopped
+      // arriving is a worse lie than never having shown one.
+      for (const step of answerSteps) step.el.classList.remove("is-streaming");
       foldEarlierThinking();
     },
     // The box to put a message into when the model produced nothing at all.

@@ -2748,6 +2748,46 @@ html.modal-open body {
 }
 
 /* Typing indicator (Wave D): three bouncing dots until the first token */
+/* The answer is still arriving. Reported directly: "there are no animations
+   for chat generation" — the typing dots below run only until the *first*
+   token, and from then on the text just grew with nothing saying it was
+   live. On a slow local model that makes a partial answer indistinguishable
+   from a finished short one.
+
+   `::after` on the container rather than a real node, because the answer
+   body is re-rendered from scratch on every animation frame while streaming
+   (`liveMarkdownRenderer`) — an appended element would be destroyed and
+   rebuilt ~30 times a second. `display: inline-block` with a zero-width
+   space as content is what makes it sit on the last text line's baseline
+   rather than starting a new one. */
+.is-streaming::after {
+  content: "\200b";
+  display: inline-block;
+  width: 0.5rem;
+  height: 1em;
+  margin-left: 0.15rem;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  vertical-align: text-bottom;
+  animation: answer-caret 1s steps(2, start) infinite;
+}
+
+@keyframes answer-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Someone who asked for less motion still needs to know the answer is
+   live — so the caret stays and only its blink stops. Removing it outright
+   would take the information away from exactly the people least able to
+   infer it from text quietly appearing. */
+@media (prefers-reduced-motion: reduce) {
+  .is-streaming::after {
+    animation: none;
+  }
+}
+
 .typing-dots {
   display: inline-flex;
   gap: 0.25rem;

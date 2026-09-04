@@ -4017,3 +4017,40 @@ button.connection-row {
   background: var(--accent-soft);
   color: var(--accent);
 }
+
+/* --- what the agent found, as things you can open -------------------------
+   `cmdPaletteResultRow` and `cmdPaletteLinkNotes` (app.js). Reported: "i have
+   no clue what the notes numbers are, there are no links to notes, no way to
+   actually find and navigate to the things it found".
+
+   The row reuses `.chip.result-reason-chip` rather than inventing a look, so
+   a found note is the same object here as it is in the Ask box's grounding
+   row — the app should not have two different pictures of "a note this answer
+   came from". */
+.cmd-palette-found {
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+/* A note reference inside the answer's own prose. Styled as a link and not as
+   a button on purpose: it sits mid-sentence, and a control with a border and
+   a fill there would break the line it is part of. It still *is* a `<button>`
+   in the markup — it performs an action rather than navigating to a URL, and
+   an `<a href="#">` that does neither is the "shape with text in it" this app
+   has been pulling out everywhere else. */
+.cmd-note-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.cmd-note-link:hover,
+.cmd-note-link:focus-visible {
+  text-decoration-thickness: 2px;
+}

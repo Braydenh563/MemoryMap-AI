@@ -27938,6 +27938,125 @@ function cmdPaletteBusy(busy) {
   if (!busy) cmdPaletteInput.focus();
 }
 
+//: **What the agent found has to be reachable, not recited.** Reported with a
+//: screenshot of the palette answering "You can find your notes about gaming
+//: in notes id 3, 43 and 49": *"i have no clue what the notes numbers are,
+//: there are no links to notes, no way to actually find and navigate to the
+//: things it found, there is no semantic search results that appear."*
+//:
+//: Every word of that was a fair reading of what the code did. `onMeta` — the
+//: event carrying `raw_results`, the notes retrieval actually surfaced — was
+//: wired to `() => {}` here, so the one surface that knew which notes the turn
+//: had found threw them away and left the model to describe them in prose. A
+//: row id is the app's internal handle; printing it at a person is the same
+//: mistake as the audit log's raw `entity_type`, and worse, because there is
+//: nothing they can do with it.
+//:
+//: Two halves, and both are needed. The row below the answer is the *result
+//: set* — it exists even when the model's prose forgets to mention a note, and
+//: it is the semantic search result the report says is missing. The linkifier
+//: is for the prose itself: a model that says "note id 43" is naming something
+//: real, so that phrase becomes the button that opens it rather than a number
+//: to go hunting for.
+const CMD_NOTE_REF = /\bnotes?\s*(?:id|#)?\s*(\d{1,7})\b/gi;
+
+//: Opening a note means leaving the palette — it is an overlay over the app it
+//: is about to navigate. Closing it first is what makes "find it" and "go to
+//: it" one gesture instead of a jump that happens behind a panel.
+function cmdPaletteGoToNote(id) {
+  cmdPaletteOverlay.classList.add("hidden");
+  flashEntry(id);
+}
+
+//: The notes this turn actually retrieved, as things you can open.
+function cmdPaletteResultRow(results) {
+  const row = document.createElement("div");
+  row.className = "row cmd-palette-found";
+  const label = document.createElement("span");
+  label.className = "muted";
+  label.textContent = results.length === 1 ? "Found in:" : `Found in ${results.length} notes:`;
+  row.appendChild(label);
+  for (const entry of results) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip result-reason-chip result-reason-connected";
+    setLabel(chip, `ph:file-text ${noteLabel({ content: entry.content || "" }, 28)}`);
+    chip.title = `Open this note${entry.category ? ` (${entry.category})` : ""}`;
+    chip.addEventListener("click", () => cmdPaletteGoToNote(entry.id));
+    row.appendChild(chip);
+  }
+  return row;
+}
+
+//: One reference, as a control. Extracted because a list of ids builds several
+//: of these and they must be identical — a note you can open should not look
+//: like two different things in the same sentence.
+function cmdNoteLink(text, id) {
+  const link = document.createElement("button");
+  link.type = "button";
+  link.className = "cmd-note-link";
+  link.textContent = text;
+  link.title = "Open this note";
+  link.addEventListener("click", () => cmdPaletteGoToNote(id));
+  return link;
+}
+
+//: Turns "note id 43" in the rendered answer into a button that opens note 43.
+//:
+//: Walks text nodes and splits them, the same shape `addInlineCitations` uses
+//: for the Ask box's citation markers — and for the same reason: the answer is
+//: already safe DOM built by `renderMarkdown`, and going back to a string to
+//: regex over it would be re-introducing the innerHTML this function's own
+//: neighbourhood was fixed to stop using. Only ids the turn actually retrieved
+//: are linked, so a model inventing "note id 900" leaves plain text behind
+//: rather than a button that goes nowhere.
+function cmdPaletteLinkNotes(root, results) {
+  const known = new Set((results || []).map((entry) => entry.id));
+  if (!known.size) return;
+  const queue = [root];
+  while (queue.length) {
+    const node = queue.shift();
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      if (node.classList?.contains("cmd-note-link")) continue;
+      queue.unshift(...node.childNodes);
+      continue;
+    }
+    if (node.nodeType !== Node.TEXT_NODE) continue;
+    CMD_NOTE_REF.lastIndex = 0;
+    const match = CMD_NOTE_REF.exec(node.textContent);
+    if (!match) continue;
+    const id = Number(match[1]);
+    if (!known.has(id)) continue;
+    const tail = node.splitText(match.index);
+    const rest = tail.splitText(match[0].length);
+    tail.replaceWith(cmdNoteLink(match[0], id));
+    //: **The rest of the list, which is where the report actually lands.** A
+    //: model writes "notes id 3, 43 and 49" — one phrase naming the id, then
+    //: bare numbers. Linking only the head leaves two of the three notes as
+    //: unreachable digits, which is the complaint verbatim. So after a match,
+    //: keep eating `, 43` / ` and 49` for as long as the next number is one
+    //: this turn actually retrieved. An unknown id ends the run rather than
+    //: being skipped over: past it the numbers are no longer reliably part of
+    //: this list, and guessing is how "$150 to $68" in the very next sentence
+    //: of that screenshot would have become two note links.
+    let cursor = rest;
+    for (;;) {
+      const more = /^(\s*(?:,|and|,\s*and)\s*)(\d{1,7})\b/i.exec(cursor.textContent);
+      if (!more) break;
+      const nextId = Number(more[2]);
+      if (!known.has(nextId)) break;
+      const numStart = cursor.splitText(more[1].length);
+      const after = numStart.splitText(more[2].length);
+      numStart.replaceWith(cmdNoteLink(more[2], nextId));
+      cursor = after;
+    }
+    //: `cursor` carries everything after the run, including any further
+    //: mentions in the same sentence — re-queueing it is what stops the first
+    //: reference in a paragraph being the only one that becomes a link.
+    queue.unshift(cursor);
+  }
+}
+
 async function cmdPaletteAsk(text) {
   $("command-palette-intro")?.classList.add("hidden");
 
@@ -27965,6 +28084,7 @@ async function cmdPaletteAsk(text) {
   // of a second, parallel, broken implementation of both.
   let answerRaw = "";
   let answered = false;
+  let found = [];
   cmdPaletteRun = new AbortController();
   cmdPaletteBusy(true);
   try {
@@ -27976,7 +28096,12 @@ async function cmdPaletteAsk(text) {
       history: cmdPaletteTurns.slice(-MAX_CLIENT_HISTORY),
       useTools: true, // the palette is meant to act on the notebook, like Chat
       signal: cmdPaletteRun.signal,
-      onMeta: () => {},
+      //: `raw_results` is the notes retrieval surfaced for this turn. It used
+      //: to be discarded here, which is why the palette could only describe
+      //: what it found and never show it.
+      onMeta: (meta) => {
+        found = meta?.raw_results || [];
+      },
       onThinking: () => {},
       onTool: (event) => {
         // Something visible while a tool runs, so a long silence reads as
@@ -27993,7 +28118,18 @@ async function cmdPaletteAsk(text) {
       },
     });
     if (!answered) agentMsg.textContent = "(no answer)";
-    else cmdPaletteTurns.push({ question: text, answer: answerRaw });
+    else {
+      //: Linked once, at the end, rather than on every delta: mid-stream the
+      //: text can be "note id 4" on its way to "note id 43", and a link built
+      //: from that half-arrived number would point at the wrong note.
+      cmdPaletteLinkNotes(agentMsg, found);
+      cmdPaletteTurns.push({ question: text, answer: answerRaw });
+    }
+    //: Below the answer, and always when there were results — the model's
+    //: prose is free to summarise or to leave a note out, but what retrieval
+    //: found should not depend on whether it got a mention.
+    if (found.length) cmdPaletteResults.appendChild(cmdPaletteResultRow(found));
+    cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
   } catch (err) {
     if (err?.name === "AbortError") {
       agentMsg.textContent = answerRaw || "(stopped)";

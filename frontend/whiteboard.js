@@ -638,6 +638,41 @@ function wbNearestAnchor(kind, item, px, py, thresholdPx = 16) {
 //: centre toward `(towardX, towardY)` crosses the box's own border. This is
 //: what a "floating" end actually resolves to each render — aimed at the
 //: other end's real point, not always the other shape's centre.
+//: **Which edge an endpoint sits on, as an outward unit vector.** This is
+//: what makes a connector leave a card perpendicular to the side it is
+//: attached to, instead of always leaving horizontally.
+//:
+//: Reported directly: "links don't change in their direction based off the
+//: edge they are connected to and where the other end is coming from." Two
+//: separate faults produced that, and this function is the input to both
+//: fixes (see `wbLinkPathD`).
+//:
+//: Snapped to one axis rather than used as a raw radial vector: a connector
+//: that leaves a rectangle at 37 degrees because that is where the anchor
+//: happens to be reads as sloppy, where one that leaves squarely off the top
+//: edge reads as deliberate. The dominant axis is chosen by comparing the
+//: offset from centre against the box's own half-extents, so a wide, short
+//: card still resolves its short edges correctly.
+function wbEdgeNormal(box, pt) {
+  if (!box || !pt) return null;
+  const halfW = (box.maxX - box.minX) / 2 || 1;
+  const halfH = (box.maxY - box.minY) / 2 || 1;
+  const dx = (pt.x - (box.minX + box.maxX) / 2) / halfW;
+  const dy = (pt.y - (box.minY + box.maxY) / 2) / halfH;
+  if (!dx && !dy) return null;
+  if (Math.abs(dx) >= Math.abs(dy)) return { x: Math.sign(dx) || 1, y: 0 };
+  return { x: 0, y: Math.sign(dy) || 1 };
+}
+
+//: Attach a direction to an endpoint without changing its shape, so every
+//: existing `wbLinkPathD(type, endpoints.source, …)` call site keeps working
+//: and simply gains the better curve. An endpoint with no direction (a free
+//: dangling point, or the live drag preview) falls back to the old
+//: behaviour.
+function wbWithDir(pt, dir) {
+  return dir ? { x: pt.x, y: pt.y, dir } : pt;
+}
+
 function wbBoxRayIntersection(box, towardX, towardY) {
   const cx = (box.minX + box.maxX) / 2, cy = (box.minY + box.maxY) / 2;
   const dx = towardX - cx, dy = towardY - cy;
@@ -661,9 +696,11 @@ function wbLinkEndpoints(sourceItem, sourceAnchor, targetItem, targetAnchor) {
   const targetCenter = { x: (targetBox.minX + targetBox.maxX) / 2, y: (targetBox.minY + targetBox.maxY) / 2 };
   const fixedSource = wbAnchorPoint("node", sourceItem, sourceAnchor);
   const fixedTarget = wbAnchorPoint("node", targetItem, targetAnchor);
+  const source = fixedSource || wbBoxRayIntersection(sourceBox, (fixedTarget || targetCenter).x, (fixedTarget || targetCenter).y);
+  const target = fixedTarget || wbBoxRayIntersection(targetBox, (fixedSource || sourceCenter).x, (fixedSource || sourceCenter).y);
   return {
-    source: fixedSource || wbBoxRayIntersection(sourceBox, (fixedTarget || targetCenter).x, (fixedTarget || targetCenter).y),
-    target: fixedTarget || wbBoxRayIntersection(targetBox, (fixedSource || sourceCenter).x, (fixedSource || sourceCenter).y),
+    source: wbWithDir(source, wbEdgeNormal(sourceBox, source)),
+    target: wbWithDir(target, wbEdgeNormal(targetBox, target)),
   };
 }
 
@@ -695,9 +732,13 @@ function wbResolveLinkEndpoints(parsed) {
   const targetFixed = targetNode ? wbAnchorPoint("node", targetNode, parsed.targetAnchor) : parsed.targetPoint;
   const targetCenter = targetBox && { x: (targetBox.minX + targetBox.maxX) / 2, y: (targetBox.minY + targetBox.maxY) / 2 };
   const sourceCenter = sourceBox && { x: (sourceBox.minX + sourceBox.maxX) / 2, y: (sourceBox.minY + sourceBox.maxY) / 2 };
+  const source = sourceFixed || wbBoxRayIntersection(sourceBox, (targetFixed || targetCenter).x, (targetFixed || targetCenter).y);
+  const target = targetFixed || wbBoxRayIntersection(targetBox, (sourceFixed || sourceCenter).x, (sourceFixed || sourceCenter).y);
+  // Only a card end has an edge to leave perpendicular to. A free dangling
+  // point has no box, so it keeps the plain chord behaviour.
   return {
-    source: sourceFixed || wbBoxRayIntersection(sourceBox, (targetFixed || targetCenter).x, (targetFixed || targetCenter).y),
-    target: targetFixed || wbBoxRayIntersection(targetBox, (sourceFixed || sourceCenter).x, (sourceFixed || sourceCenter).y),
+    source: wbWithDir(source, sourceBox && wbEdgeNormal(sourceBox, source)),
+    target: wbWithDir(target, targetBox && wbEdgeNormal(targetBox, target)),
   };
 }
 
@@ -729,20 +770,69 @@ function wbLinkCaps(parsed) {
 //: a straight link and a reasonable approximation for a curved one (the
 //: curve's own tangent at the endpoint, not attempted — this app's curves
 //: are gentle enough that the difference is small).
+//: **A curved link leaves and enters along the edge it is attached to, and
+//: its arrowheads point along the curve rather than along the chord.**
+//:
+//: Reported: "links don't change in their direction based off the edge they
+//: are connected to and where the other end is coming from." That was two
+//: faults in this one function, and both are visible on any two cards that
+//: are not side by side:
+//:
+//: 1. **The curve was hardcoded horizontal.** The control points offset the
+//:    endpoints in `x` only (`sPt.x + dx/2, sPt.y`), so every curved link
+//:    left its source heading sideways and entered its target heading
+//:    sideways — whichever edge each end was actually anchored to. Two cards
+//:    stacked vertically got an S-bend that bulged out to the side and
+//:    re-entered, instead of a short curve leaving the bottom edge and
+//:    arriving at the top one.
+//: 2. **The arrowhead angle was the chord**, `atan2` between the two
+//:    endpoints — not the tangent of the curve it is drawn on. On any link
+//:    with real curvature the head pointed visibly off the line it ended.
+//:
+//: Both now derive from each end's outward edge normal (`wbEdgeNormal`,
+//: attached to the endpoint by `wbWithDir`). The control point is pushed
+//: along that normal, so the curve leaves perpendicular to its edge; and
+//: because a cubic Bezier's tangent at an endpoint is the direction to its
+//: adjacent control point, the cap angle is read from that same control
+//: point and therefore always agrees with the drawn curve.
+//:
+//: The offset is proportional to the distance between the ends and clamped:
+//: unclamped, two distant cards produced a control point far outside the
+//: board and a curve that swung wide of both; a fixed offset made a short
+//: link between adjacent cards loop absurdly. An endpoint with no direction
+//: — a free dangling point, or the live drag preview — keeps the original
+//: horizontal behaviour, which is correct for a point with no edge.
 function wbLinkPathD(type, sPt, tPt, caps, width) {
-  const base = type === "link-straight"
+  const straight = type === "link-straight";
+  const dx = tPt.x - sPt.x;
+  const dy = tPt.y - sPt.y;
+  const span = Math.hypot(dx, dy);
+  // Enough to read as a deliberate curve, never enough to swing wide.
+  const reach = Math.max(24, Math.min(span * 0.4, 160));
+  const c1 = sPt.dir
+    ? { x: sPt.x + sPt.dir.x * reach, y: sPt.y + sPt.dir.y * reach }
+    : { x: sPt.x + dx / 2, y: sPt.y };
+  const c2 = tPt.dir
+    ? { x: tPt.x + tPt.dir.x * reach, y: tPt.y + tPt.dir.y * reach }
+    : { x: tPt.x - dx / 2, y: tPt.y };
+  const base = straight
     ? `M ${sPt.x} ${sPt.y} L ${tPt.x} ${tPt.y}`
-    : (() => {
-        const dx = tPt.x - sPt.x;
-        return `M ${sPt.x} ${sPt.y} C ${sPt.x + dx / 2} ${sPt.y}, ${tPt.x - dx / 2} ${tPt.y}, ${tPt.x} ${tPt.y}`;
-      })();
+    : `M ${sPt.x} ${sPt.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${tPt.x} ${tPt.y}`;
   const startCap = caps?.startCap || "none", endCap = caps?.endCap || "none";
   if (startCap === "none" && endCap === "none") return base;
   const headLen = (width || 3) * 4 + 6;
-  const angle = Math.atan2(tPt.y - sPt.y, tPt.x - sPt.x);
+  // On a straight link the chord *is* the tangent. On a curve, the tangent at
+  // an end is the direction to that end's own control point — pointing away
+  // from the shape, so the head is rotated by PI to point back into it.
+  const endAngle = straight
+    ? Math.atan2(dy, dx)
+    : Math.atan2(tPt.y - c2.y, tPt.x - c2.x);
+  const startAngle = straight
+    ? Math.atan2(dy, dx) + Math.PI
+    : Math.atan2(sPt.y - c1.y, sPt.x - c1.x);
   let d = base;
-  if (endCap !== "none") d += " " + wbCapPath(endCap, tPt.x, tPt.y, angle, headLen);
-  if (startCap !== "none") d += " " + wbCapPath(startCap, sPt.x, sPt.y, angle + Math.PI, headLen);
+  if (endCap !== "none") d += " " + wbCapPath(endCap, tPt.x, tPt.y, endAngle, headLen);
+  if (startCap !== "none") d += " " + wbCapPath(startCap, sPt.x, sPt.y, startAngle, headLen);
   return d;
 }
 

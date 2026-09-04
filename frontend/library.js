@@ -1846,6 +1846,19 @@ async function renderLibraryDocuments() {
     meta.textContent = [words, when].filter(Boolean).join(" · ");
     body.append(title, meta);
 
+    // The document's own opening, which is the thing that actually tells four
+    // similarly-named drafts apart — a title, a word count and a date do not.
+    // Asked for directly: the Documents sub-tab is "boring and should probably
+    // have previews". Served by the list endpoint as a flattened 240-character
+    // snippet (`routes_documents._preview`) rather than by shipping every
+    // document's full text to draw a list.
+    if (doc.preview) {
+      const preview = document.createElement("span");
+      preview.className = "doc-list-preview";
+      preview.textContent = doc.preview;
+      body.append(preview);
+    }
+
     // Same three actions `libraryActions()` gives a document's card in the
     // "All" view — kept as its own copy rather than calling that function
     // directly, because its `reload` is hard-coded to `loadLibrary()` (the

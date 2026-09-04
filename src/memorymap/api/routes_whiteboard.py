@@ -273,10 +273,70 @@ class BoardOut(BaseModel):
     node_count: int
     sketch_count: int
     object_count: int = 0
+    #: A miniature of where things actually sit on this board: up to
+    #: `PREVIEW_POINTS` `[x, y]` pairs, each normalised into 0..1 against the
+    #: board's own bounding box. The Library's board cards showed an icon, a
+    #: title and a count of cards, which is the same three facts for every
+    #: board anyone has ever drawn — reported as the Boards & maps sub-tab
+    #: being "boring" and wanting previews.
+    #:
+    #: Normalised here rather than client-side because the client would then
+    #: need every node's absolute coordinates to compute the bounds, which is
+    #: the whole board — and a list of twenty boards would ship twenty whole
+    #: boards to draw twenty thumbnails.
+    preview_points: list[list[float]] = []
 
 
 class BoardCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
+
+
+#: The most points a board's thumbnail carries. A minimap is a shape, not a
+#: census: past a few dozen dots the picture stops distinguishing boards and
+#: starts being noise, and the payload grows with every card anyone adds.
+PREVIEW_POINTS = 40
+
+
+def _preview_points(rows: list[tuple[float, float]]) -> list[list[float]]:
+    """Normalise raw board coordinates into 0..1 for a thumbnail.
+
+    Evenly sampled rather than truncated: `rows[:40]` of a 300-card board is
+    whatever 40 cards were inserted first, which is not the board's shape.
+    A stride keeps the sample spread across the whole board.
+
+    A board whose content is a single point, or a perfectly straight row of
+    cards, has zero extent on at least one axis — hence the guard, which
+    centres that axis instead of dividing by zero.
+    """
+    if not rows:
+        return []
+    stride = max(1, len(rows) // PREVIEW_POINTS)
+    sampled = rows[::stride][:PREVIEW_POINTS]
+    xs = [x for x, _ in sampled]
+    ys = [y for _, y in sampled]
+    min_x, max_x = min(xs), max(xs)
+    min_y, max_y = min(ys), max(ys)
+    span_x = max_x - min_x
+    span_y = max_y - min_y
+    return [
+        [
+            round((x - min_x) / span_x, 3) if span_x else 0.5,
+            round((y - min_y) / span_y, 3) if span_y else 0.5,
+        ]
+        for x, y in sampled
+    ]
+
+
+def _board_points(db: Session, board_id: int | None) -> list[list[float]]:
+    """Every card's position on one board, as a thumbnail."""
+    rows = db.execute(
+        select(WhiteboardNode.x, WhiteboardNode.y).where(
+            WhiteboardNode.board_id.is_(None)
+            if board_id is None
+            else WhiteboardNode.board_id == board_id
+        )
+    ).all()
+    return _preview_points([(float(x), float(y)) for x, y in rows])
 
 
 @router.get("/boards", response_model=list[BoardOut])
@@ -331,6 +391,7 @@ def list_boards(db: Session = Depends(get_session)) -> list[BoardOut]:
             node_count=default_nodes,
             sketch_count=default_sketches,
             object_count=default_objects,
+            preview_points=_board_points(db, None),
         )
     ]
     # `is_board` entries are included even at zero counts — see its own
@@ -357,6 +418,7 @@ def list_boards(db: Session = Depends(get_session)) -> list[BoardOut]:
                     node_count=node_counts.get(entry.id, 0),
                     sketch_count=sketch_counts.get(entry.id, 0),
                     object_count=object_counts.get(entry.id, 0),
+                    preview_points=_board_points(db, entry.id),
                 )
             )
     return boards

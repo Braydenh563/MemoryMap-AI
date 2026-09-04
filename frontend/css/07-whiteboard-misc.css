@@ -3232,3 +3232,46 @@ summary:not(.icon-only):not(.icon-button) {
 .settings-group .setting-dependent:empty {
   display: none;
 }
+
+/* --- previews on the Library's document and board cards -------------------
+   Both sub-tabs were reported as "boring and should probably have previews",
+   and both showed the same three facts for every row: an icon, a name, and a
+   count or a date. None of that distinguishes four similarly-named drafts or
+   two boards you drew last week, which is the job a list of them has. */
+
+/* A document's opening lines. Three lines, clamped: enough to recognise a
+   draft by, short enough that the row stays a row. */
+.doc-list-preview {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  margin-top: var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-base);
+  line-height: 1.5;
+}
+
+/* A board's actual layout, in miniature. The dots are cards drawn at their
+   real relative positions, so two boards look different from each other in
+   the way the boards themselves do. */
+.board-minimap {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 100 / 56;
+  margin: var(--space-3) 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 0.5);
+  background: var(--chip-bg);
+}
+
+.board-minimap rect {
+  fill: var(--accent);
+  opacity: 0.55;
+}
+
+.library-board-card:hover .board-minimap rect {
+  opacity: 0.8;
+}

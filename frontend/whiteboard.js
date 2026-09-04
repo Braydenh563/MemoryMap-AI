@@ -5979,7 +5979,41 @@ async function renderLibraryBoardsGallery() {
     meta.className = "muted library-card-meta";
     meta.textContent = parts.length ? parts.join(" · ") : "Empty board";
 
-    card.append(top, title, meta);
+    // **A thumbnail of the board itself**, rather than the same icon on every
+    // card. Asked for directly: the Boards & maps sub-tab is "boring and
+    // should probably have previews". `preview_points` is up to 40 of the
+    // board's card positions, already normalised into 0..1 against the
+    // board's own bounds by `routes_whiteboard._preview_points` — so this
+    // draws the real layout without the client ever holding the board.
+    //
+    // Built as inline SVG with attributes rather than a `style` string: this
+    // app's CSP rejects inline styles outright, and thirty-five of them
+    // shipped once as silently-dead markup (CLAUDE.md, "a policy silently
+    // refusing the work"). An empty board draws nothing and keeps its
+    // "Empty board" line, which says more than a blank rectangle would.
+    const points = Array.isArray(board.preview_points) ? board.preview_points : [];
+    if (points.length) {
+      const NS = "http://www.w3.org/2000/svg";
+      const map = document.createElementNS(NS, "svg");
+      map.setAttribute("class", "board-minimap");
+      map.setAttribute("viewBox", "0 0 100 56");
+      map.setAttribute("preserveAspectRatio", "none");
+      map.setAttribute("aria-hidden", "true");
+      for (const [nx, ny] of points) {
+        const dot = document.createElementNS(NS, "rect");
+        // Inset by the dot's own size so a card at the extreme edge of the
+        // board is drawn inside the thumbnail rather than half outside it.
+        dot.setAttribute("x", String(3 + nx * 88));
+        dot.setAttribute("y", String(3 + ny * 44));
+        dot.setAttribute("width", "9");
+        dot.setAttribute("height", "6");
+        dot.setAttribute("rx", "1.5");
+        map.appendChild(dot);
+      }
+      card.append(top, title, map, meta);
+    } else {
+      card.append(top, title, meta);
+    }
 
     // The default (id === null) scratch board isn't a note and can't be
     // renamed or deleted the way a real board (a plain Entry — see

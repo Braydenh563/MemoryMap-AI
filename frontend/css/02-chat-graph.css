@@ -2672,12 +2672,46 @@ html {
    heights sitting on two different baselines. Matching `button.small`'s own
    floor and padding, rather than inventing a third height, is what makes
    this row read as one toolbar instead of a form field parked among
-   buttons. */
-.lightbox-find {
-  max-width: 14rem;
+   buttons.
+
+   **Scoped to `.lightbox` because the version without it never applied, and
+   the row was reported tall a second time.** The rule it means to beat is
+   `input[type="search"]` in the selector list above — (0,1,1). A bare
+   `.lightbox-find` is (0,1,0), so it lost `padding` and `margin-bottom`, the
+   only two declarations it existed for, no matter which file came last;
+   `min-height` was the one thing it won because nothing else set it. Measured
+   in Chromium before this change: 40.38px tall with `padding: 7.2px` and a
+   live `margin-bottom: 7.2px`, in a row whose zoom label and match count are
+   24px — the input's own box overhanging the row by 8px at the bottom on top
+   of being taller. Adding the ancestor takes it to (0,2,0), and a class
+   outranks an element regardless of order, so this cannot quietly lose again
+   the way the first attempt did. */
+.lightbox .lightbox-find {
+  /* `flex-basis`, not `max-width`. The form-field rule leaves the input at
+     `width: 100%`, which in a flex row is a *demand* for the whole row;
+     `max-width` capped that demand at 14rem but left it rigid, so the input
+     could never give a pixel back when the row ran short. A basis of the same
+     14rem with `shrink: 1` asks for exactly as much and yields under
+     pressure — the pattern `.doc-find-bar input[type="text"]` already uses
+     for the editor's own find field. No `grow`: this is a search box in a
+     centred toolbar, not the row's filler.
+
+     This does not stop the row wrapping, and it is not meant to.
+     `.lightbox-actions` is `flex-wrap: wrap` on purpose, and flexbox wraps
+     before it shrinks — a narrow row still puts the search on its own line,
+     which is the right answer for a toolbar that has to survive an unknown
+     number of buttons. Measured on a 387px row, where it does exactly that. */
+  flex: 0 1 14rem;
+  min-width: 6rem;
   min-height: var(--target-min);
   margin-bottom: 0;
   padding: 0 var(--space-3);
+  /* The last thing separating this from its neighbours once the box matched:
+     the form-field rule leaves an input at `font: inherit` (16px), and every
+     `.lightbox-action` beside it is `button.small` at 0.85rem. Same number,
+     not a token, because it is `button.small` specifically that this row has
+     to read level with — the point of the whole rule. */
+  font-size: 0.85rem;
 }
 
 .lightbox-action.hidden,

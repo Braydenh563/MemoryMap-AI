@@ -2927,15 +2927,14 @@ function collapseLongSettingHints(root) {
     toggle.title = `What does “${label}” do?`;
     toggle.setAttribute("aria-label", toggle.title);
     toggle.setAttribute("aria-expanded", "false");
-    toggle.addEventListener("click", (event) => {
-      // The hint lives inside a <label>, so a click anywhere in it would
-      // otherwise toggle the setting itself — the one thing this control
-      // must never do.
-      event.preventDefault();
-      event.stopPropagation();
-      const open = hint.classList.toggle("is-collapsed") === false;
-      toggle.setAttribute("aria-expanded", String(open));
-    });
+    // The same popover every other "?" in this app opens (app.js), rather
+    // than this control's own inline expand — reported directly: "the search
+    // relevance '?' popup tooltip is completely different from all other
+    // tooltips like it, same with the 'keep the ai on this machine' tooltip".
+    // `wireHelpPopover` handles the click (including the preventDefault a
+    // hint living inside a <label> needs, or opening it would toggle the very
+    // setting it explains), the placement, and all three ways it closes.
+    wireHelpPopover(toggle, hint);
     // **On the label's own line, not under it.** Reported with a
     // screenshot ("the 'keep the ai on this machine' line in settings needs
     // visual fixing and alignment"): this used to be

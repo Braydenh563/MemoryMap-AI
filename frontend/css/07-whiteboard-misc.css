@@ -2529,12 +2529,12 @@ button.setting-hint-toggle {
    should simply open in flow underneath its own row, which is what every
    other hint in this modal already does. */
 #settings-modal .graph-help-panel,
-.settings-section .graph-help-panel {
-  position: static;
-  width: auto;
-  max-width: none;
-  margin-top: var(--space-2);
-}
+/* Was: `position: static` — which turned this panel from a popover into a
+   bordered paragraph that pushed the whole form down, the single biggest
+   reason Settings' "?" felt like a different control from every other "?"
+   in the app. It is a real popover here too now (`.help-popover`,
+   03-dashboard-widgets.css), lifted to <body> and anchored to its own
+   trigger, so there is nothing left for this override to correct. */
 
 /* --- a file tile shows what it has, not what it lacks ---------------------
    Every card in Files & Images rendered four lines of chrome before it

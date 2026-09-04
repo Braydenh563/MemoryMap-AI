@@ -2480,3 +2480,83 @@ p.graph-help-panel {
   max-width: 100%;
   margin: 0;
 }
+
+
+/* ---------------------------------------------------------------------------
+   Placed at the end of this file on purpose. A panel keeps its original class
+   (`.graph-help-panel`, `.setting-hint`) when `wireHelpPopover` promotes it,
+   and those rules carry the same single-class specificity as these — so
+   whichever is written later wins. Written first, this block lost, and the
+   popover silently rendered with the old `position: absolute; z-index: 30`:
+   measured at (8, 10) and painted underneath the settings modal it was
+   opened from. Keep it last.
+   ------------------------------------------------------------------------ */
+/* --- the app's one help popover ------------------------------------------
+   Every "?" in this app now opens this, wherever it lives: the Graph and
+   Timeline panels, the Library sub-tabs, and Settings' own hints — which
+   until now were three different presentations of the same idea (a floating
+   glass card, a static bordered paragraph that pushed the form down, and
+   plain inline text with no surface at all). Reported as exactly that: "the
+   search relevance '?' popup tooltip is completely different from all other
+   tooltips like it".
+
+   `position: fixed` and lifted to <body> by `wireHelpPopover` (app.js), so a
+   card's `overflow` or `backdrop-filter` cannot clip it — the same escape
+   the action menus make. The caret is what stops it reading as "just text in
+   a box": it ties the panel to the control that opened it, which is the
+   affordance an unanchored rectangle is missing. */
+.help-popover {
+  position: fixed;
+  z-index: 1020;
+  width: min(26rem, calc(100vw - var(--space-8)));
+  max-height: min(24rem, 70vh);
+  overflow-y: auto;
+  padding: var(--space-4);
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  /* Beats `.setting-hint.is-collapsed`'s own max-height:0 for a Settings
+     hint being shown through this component rather than inline. */
+  margin: 0;
+  line-height: 1.5;
+  /* Declared here, overwritten per-open by `placeHelpPopover` (app.js) with
+     the trigger's own centre. Declared rather than left to a `var()`
+     fallback so `test_style_scale.py` can tell a real token from a typo. */
+  --help-caret-x: 50%;
+}
+
+/* The caret. Two squares rotated 45° — the back one carries the border, the
+   front one covers the join so the panel's own edge reads as continuous. */
+.help-popover::before,
+.help-popover::after {
+  content: "";
+  position: absolute;
+  left: var(--help-caret-x);
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  transform: rotate(45deg);
+}
+
+.help-popover::before {
+  top: -6px;
+  background: var(--glass-border);
+}
+
+.help-popover::after {
+  top: -5px;
+  background: var(--modal-bg);
+}
+
+.help-popover.help-popover-above::before {
+  top: auto;
+  bottom: -6px;
+}
+
+.help-popover.help-popover-above::after {
+  top: auto;
+  bottom: -5px;
+}

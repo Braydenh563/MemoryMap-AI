@@ -1820,6 +1820,124 @@ function nearestScrollParent(el) {
   return document.documentElement;
 }
 
+// **One help popover, for every "?" in the app.** Reported directly, with a
+// screenshot of Settings' own Search-relevance hint: "the search relevance
+// '?' popup tooltip is completely different from all other tooltips like it,
+// same with the 'keep the ai on this machine' tooltip… all the ui and ux
+// needs to be consistent in how it looks, how it functions, and where it is
+// placed."
+//
+// It genuinely was three different things wearing the same "?" icon:
+//   1. `.graph-help-panel` — a floating glass card (Graph, Timeline, three
+//      Library sub-tabs).
+//   2. the same class inside `.settings-section`, where a CSS override made
+//      it `position: static` — so it was not a popover at all, it was a
+//      bordered paragraph that shoved the rest of the form down the page.
+//      That is the "just text in a box" in the screenshot.
+//   3. `.setting-hint` — Settings' own long hints, which expanded inline
+//      with no surface, border or shadow whatsoever.
+//
+// This makes all three the same control: a real popover, lifted to <body> so
+// no card's `overflow` or `backdrop-filter` can clip it (the same escape
+// `wireEscapedActionMenu` above makes, for the same reason), anchored under
+// its own trigger with a caret pointing back at it, and closed the three
+// ways every other popover here closes.
+function placeHelpPopover(panel, trigger) {
+  const margin = 8;
+  const anchor = trigger.getBoundingClientRect();
+  panel.style.left = "0px";
+  panel.style.top = "0px";
+  const box = panel.getBoundingClientRect();
+  // Centred on the trigger, then pulled inside the window — a "?" sitting in
+  // a right-hand control cluster would otherwise open half off-screen.
+  let left = anchor.left + anchor.width / 2 - box.width / 2;
+  left = Math.min(Math.max(left, margin), Math.max(margin, window.innerWidth - margin - box.width));
+  let top = anchor.bottom + 10;
+  let above = false;
+  if (top + box.height > window.innerHeight - margin) {
+    const room = anchor.top - 10 - box.height;
+    if (room >= margin) {
+      top = room;
+      above = true;
+    } else {
+      top = Math.max(margin, window.innerHeight - margin - box.height);
+    }
+  }
+  panel.style.left = `${Math.round(left)}px`;
+  panel.style.top = `${Math.round(top)}px`;
+  panel.classList.toggle("help-popover-above", above);
+  // The caret is positioned against the panel, but it has to point at the
+  // trigger — which is only the panel's own centre when nothing clamped it.
+  const caretX = Math.min(Math.max(anchor.left + anchor.width / 2 - left, 14), Math.max(box.width - 14, 14));
+  panel.style.setProperty("--help-caret-x", `${Math.round(caretX)}px`);
+}
+
+//: Every open popover this session, so a second one closes the first and
+//: nothing is left stranded at <body> after a tab switch.
+const openHelpPopovers = new Set();
+
+function closeHelpPopovers() {
+  for (const entry of [...openHelpPopovers]) entry.close();
+}
+
+function wireHelpPopover(trigger, panel) {
+  if (!trigger || !panel || panel.dataset.helpPopover) return;
+  panel.dataset.helpPopover = "1";
+  let homeParent = null;
+  let homeNext = null;
+  const entry = {
+    close() {
+      if (!openHelpPopovers.has(entry)) return;
+      openHelpPopovers.delete(entry);
+      panel.classList.add("hidden");
+      panel.classList.remove("help-popover", "help-popover-above");
+      panel.style.left = "";
+      panel.style.top = "";
+      if (homeParent) homeParent.insertBefore(panel, homeNext);
+      trigger.setAttribute("aria-expanded", "false");
+    },
+  };
+  const open = () => {
+    closeHelpPopovers();
+    homeParent = panel.parentElement;
+    homeNext = panel.nextSibling;
+    document.body.appendChild(panel);
+    panel.classList.remove("hidden");
+    // `.setting-hint`'s own collapsed state is a max-height animation, not a
+    // `hidden` class — an inline hint has to be un-collapsed as well, or the
+    // popover opens at zero height.
+    panel.classList.remove("is-collapsed");
+    panel.classList.add("help-popover");
+    trigger.setAttribute("aria-expanded", "true");
+    openHelpPopovers.add(entry);
+    placeHelpPopover(panel, trigger);
+  };
+  trigger.addEventListener("click", (event) => {
+    // These triggers live inside <label>s often enough that a bare click
+    // would toggle the setting they explain.
+    event.preventDefault();
+    event.stopPropagation();
+    if (openHelpPopovers.has(entry)) entry.close();
+    else open();
+  });
+  panel.addEventListener("click", (event) => event.stopPropagation());
+  document.addEventListener("click", (event) => {
+    if (!openHelpPopovers.has(entry)) return;
+    if (panel.contains(event.target) || trigger.contains(event.target)) return;
+    entry.close();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") entry.close();
+  });
+  window.addEventListener("resize", () => {
+    if (openHelpPopovers.has(entry)) placeHelpPopover(panel, trigger);
+  }, { passive: true });
+  // A popover is anchored to a rect that scrolls away underneath it; every
+  // other floating thing in this app closes rather than chasing it.
+  window.addEventListener("scroll", () => entry.close(), true);
+}
+window.wireHelpPopover = wireHelpPopover;
+
 function openActionMenu(menu, opener) {
   closeActionMenus(); // only one open at a time
   menu.classList.remove("hidden", "action-menu-flip");
@@ -23825,25 +23943,7 @@ $("draft-discard").addEventListener("click", async () => {
 // ways every other popover in this app closes. One shared wiring function
 // rather than five copies of the same three listeners.
 function initHelpToggle(buttonId, panelId) {
-  const button = $(buttonId);
-  const panel = $(panelId);
-  if (!button || !panel) return;
-  button.addEventListener("click", (event) => {
-    event.stopPropagation();
-    const open = panel.classList.toggle("hidden") === false;
-    button.setAttribute("aria-expanded", String(open));
-  });
-  document.addEventListener("click", (event) => {
-    if (panel.classList.contains("hidden")) return;
-    if (panel.contains(event.target) || event.target === button) return;
-    panel.classList.add("hidden");
-    button.setAttribute("aria-expanded", "false");
-  });
-  document.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape" || panel.classList.contains("hidden")) return;
-    panel.classList.add("hidden");
-    button.setAttribute("aria-expanded", "false");
-  });
+  wireHelpPopover($(buttonId), $(panelId));
 }
 initHelpToggle("draft-help", "draft-intro");
 initHelpToggle("search-relevance-help", "search-relevance-intro");

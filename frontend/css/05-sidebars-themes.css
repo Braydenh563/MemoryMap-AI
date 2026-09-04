@@ -784,6 +784,45 @@ mark.text-highlight-grey { background: rgba(148, 163, 184, 0.25); }
   color: var(--callout-accent);
 }
 
+/* --- a callout that folds (REDESIGN.md §R7.3 item 3) -----------------------
+   `> [!note]-` renders as a `<details>` and its head as the `<summary>`, so
+   the open/close, the keyboard operation and the ARIA all come from the
+   browser. What is left to style is the marker: the default `list-item`
+   triangle sits on the baseline in a box whose other disclosures all use the
+   app's own caret, so this is the same caret every other expander uses. */
+.callout-foldable > .callout-head {
+  list-style: none;
+  cursor: pointer;
+}
+
+.callout-foldable > .callout-head::-webkit-details-marker {
+  display: none;
+}
+
+.callout-foldable > .callout-head::after {
+  content: "";
+  flex: 0 0 auto;
+  /* Pushed to the far end rather than sitting against the title: the head is
+     a flex row and the caret is the affordance for the whole row. */
+  margin-left: auto;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--motion-fast) ease;
+}
+
+.callout-foldable[open] > .callout-head::after {
+  transform: rotate(45deg);
+}
+
+/* Closed, the head is the whole box, so the margin under it is a gap with
+   nothing on the other side of it. */
+.callout-foldable:not([open]) > .callout-head {
+  margin-bottom: 0;
+}
+
 /* The body is rendered by renderMarkdown, so it can hold lists, code and
    links. Its first and last children lose their outer margin or the box gains
    a stripe of dead space at each end. */

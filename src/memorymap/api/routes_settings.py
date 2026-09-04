@@ -242,6 +242,12 @@ class PreferencesBody(BaseModel):
     # autonomous pass could never actually pick up any candidates no matter
     # what the checkbox showed.
     auto_stale_review_enabled: bool | None = None
+    #: ANALYSIS.md §60 item 2. Declared here as well as in the response and
+    #: `_AUTONOMOUS_PREFS` below — the comment above this block records what
+    #: happens when it is not: Pydantic drops the key, every PUT that turns it
+    #: on is a silent no-op, and the checkbox shows a state the backend never
+    #: had.
+    auto_capture_enabled: bool | None = None
     autonomous_tasks_interval_hours: int | None = Field(default=None, ge=1, le=168)
     autonomous_tasks_model: str | None = Field(default=None, max_length=100)
     battery_efficient_mode: bool | None = None
@@ -429,6 +435,7 @@ def get_preferences() -> dict:
         "auto_link_enabled": config.get_preference("auto_link_enabled", True),
         "auto_dedupe_enabled": config.get_preference("auto_dedupe_enabled", True),
         "auto_stale_review_enabled": config.get_preference("auto_stale_review_enabled", False),
+        "auto_capture_enabled": config.get_preference("auto_capture_enabled", False),
         "autonomous_tasks_interval_hours": config.get_preference(
             "autonomous_tasks_interval_hours", 6
         ),
@@ -471,6 +478,7 @@ _AUTONOMOUS_PREFS = frozenset(
         "auto_link_enabled",
         "auto_dedupe_enabled",
         "auto_stale_review_enabled",
+        "auto_capture_enabled",
     }
 )
 

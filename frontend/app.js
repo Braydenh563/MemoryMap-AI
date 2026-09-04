@@ -15640,17 +15640,36 @@ function mdHeadingId(text, taken) {
 // A `.callout` element for a run of blockquote lines, or null when the quote
 // is an ordinary one (no `[!kind]` marker) or nesting is already too deep.
 function mdCalloutElement(quoted, depth) {
-  const callout = quoted.length && quoted[0].match(/^\s*\[!(\w+)\]\s*(.*)$/);
+  // **The `-`/`+` after the marker is the fold flag** — REDESIGN.md §R7.3
+  // item 3, Kortex's "typed collapsible blocks", asked for again directly:
+  // "I want the structured note features and elements from kortex with the
+  // slash commands to be rendered and easier for the user to use."
+  //
+  // It is deliberately Obsidian's own spelling rather than a new one: people
+  // who want this feature have almost certainly met it there, and it is a
+  // *marker*, so §R7.3's constraint holds exactly — storage and export do not
+  // change, and a plain `> [!note]` in a note written last year still renders
+  // as the same open box it always did.
+  //
+  //     > [!note]-  collapsed, click to open
+  //     > [!note]+  a real fold, but open to begin with
+  //     > [!note]   not foldable at all, unchanged
+  const callout = quoted.length && quoted[0].match(/^\s*\[!(\w+)\]([-+])?\s*(.*)$/);
   if (!callout || depth >= MD_MAX_DEPTH) return null;
 
   const kind = callout[1].toLowerCase();
+  const fold = callout[2] || "";
   const meta = (typeof CALLOUT_KINDS !== "undefined" && CALLOUT_KINDS[kind]) || null;
-  const box = document.createElement("div");
+  // `<details>`/`<summary>` rather than a div and a click handler: the
+  // browser gives the open/close, the keyboard operation and the ARIA for
+  // free, which is the same reason every other disclosure in this app is one.
+  const box = document.createElement(fold ? "details" : "div");
+  if (fold === "+") box.open = true;
   // An unrecognised kind still renders as a box rather than as literal
   // "[!whatever]" text — a typo should look slightly wrong, not broken.
-  box.className = `callout callout-${meta ? kind : "note"}`;
+  box.className = `callout callout-${meta ? kind : "note"}${fold ? " callout-foldable" : ""}`;
 
-  const head = document.createElement("p");
+  const head = document.createElement(fold ? "summary" : "p");
   head.className = "callout-head";
   const icon = document.createElement("span");
   icon.setAttribute("aria-hidden", "true");
@@ -15658,7 +15677,7 @@ function mdCalloutElement(quoted, depth) {
   head.appendChild(icon);
   const title = document.createElement("span");
   // The title after the marker wins; failing that, the kind's own name.
-  title.textContent = callout[2].trim() || (meta ? meta.label : kind);
+  title.textContent = callout[3].trim() || (meta ? meta.label : kind);
   head.appendChild(title);
   box.appendChild(head);
 
@@ -18196,6 +18215,7 @@ function renderAutonomousSettings() {
   $("pref-auto-link").checked = prefsCache.auto_link_enabled ?? true;
   $("pref-auto-dedupe").checked = prefsCache.auto_dedupe_enabled ?? true;
   $("pref-auto-stale-review").checked = Boolean(prefsCache.auto_stale_review_enabled);
+  $("pref-auto-capture").checked = Boolean(prefsCache.auto_capture_enabled);
   $("pref-autonomous-interval").value = prefsCache.autonomous_tasks_interval_hours || 6;
   $("pref-autonomous-model").value = prefsCache.autonomous_tasks_model || "";
   $("pref-battery-mode").checked = Boolean(prefsCache.battery_efficient_mode);
@@ -23577,6 +23597,9 @@ $("pref-auto-dedupe").addEventListener("change", (e) =>
 );
 $("pref-auto-stale-review").addEventListener("change", (e) =>
   setPreference("auto_stale_review_enabled", e.target.checked)
+);
+$("pref-auto-capture").addEventListener("change", (e) =>
+  setPreference("auto_capture_enabled", e.target.checked)
 );
 $("pref-battery-mode").addEventListener("change", (e) => {
   setPreference("battery_efficient_mode", e.target.checked);

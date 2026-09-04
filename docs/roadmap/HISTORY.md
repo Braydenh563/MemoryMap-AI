@@ -5608,3 +5608,96 @@ the right runs off the edge for a card at nx ≈ 91, coming out sliced mid-word
 ("Cloud computi") — it hangs off the left past the halfway mark now; and a bare
 16-character slice reads as broken ("Connections prob") where an ellipsis reads
 as shortened.
+
+## §95 — collapsible blocks, and the one feature the odysseus read said was missing
+
+**Typed collapsible blocks (REDESIGN.md §R7.3 item 3), the last piece of that
+section.** Asked for again directly: *"I want the structured note features and
+elements from kortex with the slash commands to be rendered and easier for the
+user to use."*
+
+Checking first was worth it, and is why this is small: the slash menu, `[[`
+linking, callouts, embeds, tables and checklists **all already existed and all
+already rendered**. What did not exist was folding. `> [!note]-` (closed) and
+`> [!note]+` (open, but foldable) now render as a `<details>` with the head as
+its `<summary>`; a plain `> [!note]` renders exactly as it always did, which is
+§R7.3's own constraint — a marker, so storage and export do not change and old
+notes are unaffected. Obsidian's spelling rather than a new one, because the
+people who want this have met it there.
+
+One slash command rather than eight foldable variants: a live browser check has
+already caught this menu once for pushing Links and Templates below the fold,
+and "fold this away" is the ask, not "fold this away, in orange". Verified in
+Chromium: all three forms render as expected, the closed one opens on click,
+and typing `/fold` offers it.
+
+**Passive capture from chat (ANALYSIS.md §60 item 2).** The odysseus read's own
+one-line answer to "any features overlooked?" was this one: *"nothing in this
+app turns an offhand mention in ordinary chat into a filed note"* — a strange
+gap for an app whose pitch is "a local AI files your notes". It is now a fifth
+opt-in background-librarian job, `auto_capture_enabled`, exactly where that
+analysis said it belonged.
+
+Three decisions carry it, and each has a test that fails if it breaks:
+
+- **Drafts, never notes.** ANALYSIS.md's own caution: a background job that
+  mis-files something nobody asked to capture is a worse failure than one that
+  misses something. A draft is kept off the notes list, out of the Library's
+  main view and off the graph.
+- **A fingerprint short-circuit**, written *before* the model call rather than
+  after — a crash between the two would otherwise re-offer the same turns.
+  Odysseus's own comment records 30–120s per call before they added one.
+- **The user's words, not the assistant's.** Capturing an answer the model
+  wrote would fill the notebook with the model quoting itself back.
+
+**A promise corrected before it shipped.** The first draft of the Settings copy
+said a capture stays "out of search, out of the graph and out of the AI's own
+context". Checked instead of assumed: only the graph, the Library list and the
+notes list filter drafts — `search_manager` and the AI's retrieved context do
+not. That is a pre-existing property of drafts generally (the text-selection
+popup makes them too), not something this job introduced, but the wording next
+to the toggle now promises only what actually holds.
+
+Verified live: the toggle round-trips checkbox → PUT → config → GET, and the
+row renders with its long hint collapsed behind the "?" like its neighbours.
+
+**And one thing found by measuring the Chat tab, which is what "make the chat
+tab more like odysseus" turned into.** ANALYSIS.md §60's own verdict is that
+odysseus's UI is not a model worth copying (*"the backend is bigger, not
+better-organised, by its own audit"*), and its one real feature gap is the
+passive capture above. So the Chat tab got the same treatment every other
+screen has had this session — measured against this app's own standards — and
+that found a genuine bug.
+
+**The Agent Activity panel was 38% see-through, over the chat sidebar.** It
+carries `card glass`, and the translucency lives in the `--card` token, not in
+any rule about this panel. `position: fixed` puts it over the sidebar, so the
+sidebar's own text rendered *through* it. Measured on a row inside the panel
+where only sidebar text lies underneath: 63 distinct colours with a brightest
+of **(74,79,86)** before, 12 with a brightest of **(21,24,29)** after — while
+the rows carrying the panel's own log text still reach (240,242,245) in both,
+which is how you can tell the right layer was removed.
+
+This is the `--modal-bg` lesson in CLAUDE.md and worse: that was 4%
+see-through over a form and cost six rounds of "fixed"/"still broken"; this was
+38% over a scrolling wall of small monospace.
+
+The fix took three attempts and the two failures are the useful part:
+
+1. `.agent-monitor { background: var(--card) }` — loses to `.card.glass` at
+   (0,2,0). Alpha unchanged at 0.62.
+2. `.agent-monitor.card.glass { background: var(--card) }` — right
+   specificity, still nothing, because **`--card` *is* the transparency**. The
+   rule set the panel to exactly what it already was.
+3. `background-color: var(--page)` — invalid, computing to `rgba(0,0,0,0)`,
+   because **`--page` is a `linear-gradient`, not a colour**. A rule that looks
+   right, parses, and does nothing.
+
+What works is two background *image* layers: the card's tint as a one-stop
+gradient over the page's own gradient.
+
+**Found and deliberately not changed:** open, that panel also covers the
+composer's Skills button. That is a placement decision rather than a defect in
+what was reported, and moving a `position: fixed` panel without measuring it
+across window heights is how this session's other regressions were made.
+Recorded here rather than guessed at.

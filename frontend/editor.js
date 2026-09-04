@@ -157,10 +157,10 @@ function editorApplyAction(textarea, action) {
 // line that does not start with one, so a two-line callout written without the
 // prefix on line two silently becomes a one-line callout followed by a
 // paragraph. Getting that wrong is invisible until it renders.
-function calloutTemplate(kind) {
+function calloutTemplate(kind, fold = "") {
   const meta = CALLOUT_KINDS[kind] || CALLOUT_KINDS.note;
   return {
-    block: `\n> [!${kind}] ${meta.label}\n> `,
+    block: `\n> [!${kind}]${fold} ${meta.label}\n> `,
     suffix: "\n",
     placeholder: "What matters about this?",
   };
@@ -192,6 +192,26 @@ function editorCommands(context) {
       run: (textarea) => editorApplyAction(textarea, calloutTemplate(kind)),
     });
   }
+
+  // **Typed collapsible blocks** — REDESIGN.md §R7.3 item 3, and the last
+  // piece of it. Asked for directly: "I want the structured note features and
+  // elements from kortex with the slash commands to be rendered and easier
+  // for the user to use."
+  //
+  // One command rather than eight more (a foldable variant of every callout
+  // kind would double this menu, which a live browser check already caught
+  // once as pushing Links and Templates below the fold). The kind is easy to
+  // change afterwards — it is one word in the text — and "fold this away" is
+  // the thing being asked for, not "fold this away, in orange".
+  commands.push({
+    id: "callout-fold",
+    primary: true,
+    group: "Blocks & frames",
+    label: "\u{1F4C1} Collapsible section",
+    hint: "> [!note]- — folded until clicked",
+    keywords: ["fold", "collapse", "collapsible", "toggle", "details", "section", "hide"],
+    run: (textarea) => editorApplyAction(textarea, calloutTemplate("note", "-")),
+  });
 
   commands.push(
     {

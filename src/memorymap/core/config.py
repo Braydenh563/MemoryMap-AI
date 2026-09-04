@@ -137,6 +137,14 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     # "forgotten" rather than performing a request the user already made
     # (tag/link/dedupe are all reactions to a note's own content).
     "auto_stale_review_enabled": False,
+    # ANALYSIS.md §60 item 2 — the one real feature gap the odysseus read
+    # found: nothing in this app turns an offhand mention in ordinary chat
+    # into a filed note. Off by default, and this is the *most* deliberate
+    # opt-in of the five: the other four react to notes the user wrote, and
+    # this one decides on its own that something said in passing was worth
+    # keeping. It writes drafts rather than notes for the same reason — see
+    # `ai/passive_capture.py`.
+    "auto_capture_enabled": False,
     "autonomous_tasks_interval_hours": 6,
     #: Skip the expensive extras — similarity edges on the graph, the
     #: background pass — on a laptop running off its battery.

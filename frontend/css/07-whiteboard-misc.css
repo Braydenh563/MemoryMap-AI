@@ -726,6 +726,43 @@ textarea.drag-over {
   z-index: 1000;
   box-shadow: var(--shadow-md);
   animation: slide-up 0.3s ease-out;
+  /* **Opaque, and `.glass` is exactly why it has to be said here.** This
+     panel carries `card glass`, which is a translucent background — measured
+     on the Chat tab at `alpha 0.62`. It is `position: fixed` over the chat
+     sidebar, so at that alpha the sidebar's own text renders *through* it:
+     "No saved chats yet" and "see all in Library →" both read as ghost lines
+     across the log, at (74,79,86) against the panel's own log text at
+     (240,242,245) — three layers of type in one rectangle.
+
+     This is the `--modal-bg` lesson in CLAUDE.md, and worse: that was 4%
+     see-through over a form and cost six rounds; this is 38% over a scrolling
+     wall of small monospace. A floating panel that covers something is
+     supposed to cover it.
+
+     `.agent-monitor.card.glass` (0,3,0), not a bare `.agent-monitor` (0,1,0):
+     the translucency comes from `.card.glass` at (0,2,0), so the obvious
+     version of this rule loses to it and changes nothing — measured, the
+     computed alpha stayed at 0.62. The same specificity trap as the document
+     width toggle earlier in this session, and worth stating twice. */
+}
+
+.agent-monitor.card.glass {
+  /* **Two layers, because `--card` *is* the transparency.** The first attempt
+     here set `background: var(--card)`, which is precisely what `.glass`
+     already sets — the alpha lives in the token, not in the rule, so it
+     changed nothing and the measurement said so (0.62, again).
+
+     The second attempt failed too, and for a reason worth writing down:
+     **`--page` is a `linear-gradient`, not a colour.** So
+     `background-color: var(--page)` is invalid, computes to
+     `rgba(0, 0, 0, 0)`, and the panel stayed exactly as see-through as
+     before — a rule that looks right, parses, and does nothing.
+
+     Two background *image* layers is what works: the card's own tint as a
+     one-stop gradient, painted over the page's gradient. That composites to
+     the card's intended look with the app's own backdrop behind it and
+     nothing from the sidebar showing through. */
+  background-image: linear-gradient(var(--card), var(--card)), var(--page);
 }
 
 @media (max-width: 600px) {

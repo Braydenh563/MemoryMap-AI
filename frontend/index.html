@@ -4790,6 +4790,26 @@ Link to another note with [[its first few words]]."></textarea>
                   <input type="checkbox" id="pref-auto-stale-review">
                   <span>Flag stale or orphaned notes</span>
                 </label>
+                <!-- ANALYSIS.md §60 item 2. The hint is longer than its four
+                     neighbours' on purpose: this is the only one of the five
+                     that writes something *new* into the notebook off its own
+                     judgement, and the two facts that make that acceptable
+                     (drafts, and a tag you can filter and clear) are the two
+                     a person needs before deciding whether to turn it on. -->
+                <label class="check-row">
+                  <input type="checkbox" id="pref-auto-capture">
+                  <span>
+                    Capture things you mention in chat
+                    <small class="muted">
+                      After a chat, look back over what you said and save
+                      anything worth keeping. Everything it finds arrives as a
+                      draft tagged “auto-captured”, kept out of your notes list
+                      and off the graph until you look at it — so a bad guess
+                      is a suggestion to dismiss rather than a note you did not
+                      write. Find them under Drafts.
+                    </small>
+                  </span>
+                </label>
 
                 <label for="pref-autonomous-interval" class="form-label form-label-spaced">Run every (hours)</label>
                 <input type="number" id="pref-autonomous-interval" class="wide" min="1" max="168" placeholder="6">

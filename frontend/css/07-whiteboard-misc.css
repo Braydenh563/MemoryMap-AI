@@ -3450,3 +3450,41 @@ summary:not(.icon-only):not(.icon-button) {
   white-space: nowrap;
   cursor: pointer;
 }
+
+/* --- a narrow measure for prose, wide chrome around it -------------------
+   REDESIGN.md names this and it had not been done: "Kortex's document column
+   is roughly 700px... the 72ch cap the note cards got this session, applied
+   to documents." Measured in the running editor first: the source textarea
+   was **1079px wide with `max-width: none`**, which at its monospace size is
+   about 130 characters a line — roughly double the 65-75 the typographic rule
+   asks for, and the reason a long document in this editor is tiring to read
+   back.
+
+   `ch` rather than px, for the same reason `.entry-content` already uses it:
+   the cap then tracks the user's own font-size setting from Appearance
+   instead of fixing a pixel count and drifting off the rule the moment
+   anyone changes it. 78ch on the source pane rather than 72: markdown adds
+   syntax characters (`**`, `- `, `[]()`) that are not prose, so the same
+   *prose* measure needs slightly more room when you can see the marks.
+
+   The chrome deliberately stays wide. The toolbar, the mode switcher and the
+   status line are controls, not text — centring them with the column would
+   make the editor feel narrow rather than the writing feel comfortable,
+   which is the distinction REDESIGN.md is drawing. Only the writing surface
+   is capped, and it is centred in the space it is given.
+
+   Split view opts out: two panes side by side are already narrow, and
+   capping each again would leave two thin ribbons with a gulf between. */
+.doc-source-wrap:not(.doc-split-pane) #doc-content,
+#doc-live:not(.doc-split-pane),
+#doc-preview:not(.doc-split-pane) {
+  max-width: 78ch;
+  margin-inline: auto;
+}
+
+#doc-live,
+#doc-preview {
+  /* The rendered halves hold real prose with no syntax in it, so they take
+     the stricter measure the note cards already use. */
+  max-width: 72ch;
+}

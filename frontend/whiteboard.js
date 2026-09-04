@@ -4190,8 +4190,16 @@ function renderWbLibrary() {
   for (const entry of allEntries) {
     const li = document.createElement("li");
     li.className = "wb-library-item";
-    const text = entry.content || entry.preview || "";
+    // `notePreviewText` (app.js), not the raw body. Reported with a
+    // screenshot of this very list: a sketch note read "A real drawn sketch
+    // ![A real drawn sket…", because its drawing lives in the note as inline
+    // `![alt](/media/…)` markdown and this printed it verbatim. Every other
+    // list of notes in the app already goes through this helper — the
+    // whiteboard's own card renderer two hundred lines up included — so this
+    // was the last place a note's markdown leaked into a label.
+    const text = notePreviewText(entry.content || entry.preview || "");
     li.textContent = text ? (text.length > 40 ? text.substring(0, 40) + "…" : text) : entry.id;
+    li.title = text || String(entry.id);
     li.draggable = true;
     li.addEventListener("dragstart", (e) => {
       e.dataTransfer.setData("text/plain", entry.id);

@@ -359,6 +359,16 @@
   font-weight: 500;
 }
 
+/* The day, written once at the head of the axis when the ticks along it are
+   times rather than dates. Set apart from them — this names the whole axis,
+   the ticks divide it. */
+.timeline-branch-ticks text.timeline-branch-axis-caption {
+  font-size: 0.8rem;
+  fill: var(--ink);
+  font-weight: 600;
+  text-anchor: start;
+}
+
 /* A category heading in a tree layout — a real node in the drawing, but not
    a note: hollow, so it never reads as something you can open. */
 .graph-core.graph-group {

@@ -26,11 +26,16 @@ import json
 from pathlib import Path
 
 import pytest
+import requests
 
 from fakes_http import FakeResponse, sse
 
 from memorymap.ai import provider as provider_module
-from memorymap.ai.ollama_client import OllamaClient, OllamaError
+from memorymap.ai.ollama_client import (
+    OllamaClient,
+    OllamaError,
+    describe_http_error,
+)
 from memorymap.ai.openai_client import OpenAICompatClient
 from memorymap.ai.provider import (
     ProviderError,
@@ -779,3 +784,60 @@ def test_the_probe_asks_without_tools_and_caps_the_reply(ollama, capture_post):
     sent = capture_post.sent[-1]["json"]
     assert "tools" not in sent
     assert sent["options"]["num_predict"] == 1
+
+
+class _FakeErrorResponse:
+    """Just enough of a `requests.Response` for `describe_http_error`."""
+
+    def __init__(self, status_code, payload=None, text=""):
+        self.status_code = status_code
+        self._payload = payload
+        self.text = text
+
+    def json(self):
+        if self._payload is None:
+            raise ValueError("no json")
+        return self._payload
+
+
+def _http_error(status_code, payload=None, text=""):
+    exc = requests.HTTPError(f"{status_code} Server Error: for url: /api/chat")
+    exc.response = _FakeErrorResponse(status_code, payload, text)
+    return exc
+
+
+def test_http_error_quotes_what_ollama_actually_said():
+    """Reported as "the AI is broken", and the only evidence was
+    `ProviderError: Chat with 'x' failed: 500 Server Error`. Ollama puts the
+    diagnosis in the body and `str(HTTPError)` never reads it, so every 500
+    looked the same whatever had gone wrong."""
+    message = describe_http_error(
+        _http_error(500, {"error": "llama runner process has terminated: exit status 2"}),
+        "my-custom-gguf",
+    )
+    assert "llama runner process has terminated" in message
+    assert "could not load the model file" in message
+    # The bare status line is what this replaces; it must not be all there is.
+    assert message != "Chat with 'my-custom-gguf' failed: 500 Server Error"
+
+
+def test_http_error_names_the_memory_case():
+    message = describe_http_error(
+        _http_error(500, {"error": "model requires more system memory than is available"}),
+        "big-model",
+    )
+    assert "more system memory" in message
+    assert "smaller quantisation" in message
+
+
+def test_http_error_falls_back_to_the_status_line_when_the_body_is_empty():
+    """No body, nothing to add — the old message is still the best available,
+    so this must not manufacture a diagnosis it does not have."""
+    message = describe_http_error(_http_error(500, payload={}), "m")
+    assert message == "Chat with 'm' failed: 500 Server Error: for url: /api/chat"
+
+
+def test_http_error_reads_a_non_json_body():
+    message = describe_http_error(_http_error(404, text="model 'ghost' not found"), "ghost")
+    assert "not found" in message
+    assert "Pull it first" in message

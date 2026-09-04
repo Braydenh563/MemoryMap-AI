@@ -16213,12 +16213,41 @@ function renderTimelineBranch(body) {
       const taken = placed
         .filter((p) => Math.abs(p.cx - n.cx) < minDistance)
         .map((p) => p._dy);
-      // Try dy offsets: 0, 15, -15, 30, -30...
+      // Try dy offsets: 0, 15, -15, 30, -30... but **bounded**, and then
+      // sideways.
+      //
+      // Unbounded, this resolver answers a busy minute by stacking straight
+      // up and down for as long as it takes. Seen in the running app on one
+      // ordinary day's notes: twelve notes sharing a timestamp came out as a
+      // 240px column of touching dots that filled its whole lane, read as
+      // beads on a string rather than as points on a line, and pushed the
+      // next band most of the way down the chart. The single-day line view is
+      // the common case, not an edge case — it is what "what did I do today"
+      // looks like — so this is the shape it has to be good at.
+      //
+      // Six slots up and down is as tall as a cluster can get before it stops
+      // reading as one moment; past that the overflow goes *sideways* by one
+      // dot width and starts a fresh column. A run of notes a second apart
+      // then draws as a compact block a few dots wide instead of a tower, and
+      // no dot is ever hidden behind another either way.
       const step = TIMELINE_DOT_R * 1.5;
+      const MAX_STACK_SLOTS = 6;
       let offsetIdx = 0;
       let dy = 0;
       while (taken.includes(dy)) {
         offsetIdx++;
+        if (offsetIdx > MAX_STACK_SLOTS) {
+          n.cx += minDistance;
+          offsetIdx = 0;
+          dy = 0;
+          taken.length = 0;
+          taken.push(
+            ...placed
+              .filter((p) => Math.abs(p.cx - n.cx) < minDistance)
+              .map((p) => p._dy)
+          );
+          continue;
+        }
         const sign = offsetIdx % 2 === 0 ? 1 : -1;
         dy = Math.ceil(offsetIdx / 2) * step * sign;
       }
@@ -16453,6 +16482,23 @@ function renderTimelineBranch(body) {
   // A handful of date ticks along the spine — an unlabelled line reads as a
   // decoration, not an axis.
   const tickGroup = svg.append("g").attr("class", "timeline-branch-ticks");
+  const [axisFrom, axisTo] = scale.domain();
+  const spanMs = Math.abs(axisTo - axisFrom);
+  // **The label's resolution has to follow the axis's span.** It was always
+  // `{month, day}`, and d3 chooses tick *positions* by span — so a day's
+  // worth of notes got hour ticks that all printed the same date, and the
+  // axis read "Sep 3 · Sep 3 · Sep 3 · Sep 3 · Sep 3 · Sep 3": six labels
+  // carrying no information at all, above notes that were genuinely hours
+  // apart. Seen in the running app; the line view of a single busy day is
+  // the common case, not the edge case, because that is what "what did I do
+  // today" looks like.
+  const DAY_MS = 86400000;
+  const tickFormat =
+    spanMs < 2 * DAY_MS
+      ? { hour: "numeric", minute: "2-digit" }
+      : spanMs < 200 * DAY_MS
+        ? { month: "short", day: "numeric" }
+        : { month: "short", year: "numeric" };
   for (const tick of scale.ticks(Math.min(6, notes.length))) {
     const x = scale(tick);
     tickGroup
@@ -16466,7 +16512,24 @@ function renderTimelineBranch(body) {
       .attr("x", x)
       .attr("y", spineY - 10)
       .attr("text-anchor", "middle")
-      .text(tick.toLocaleDateString(undefined, { month: "short", day: "numeric" }));
+      .text(tick.toLocaleString(undefined, tickFormat));
+  }
+  // With time-of-day ticks the day itself is no longer written anywhere, so
+  // it goes once at the start of the axis rather than six times along it.
+  if (spanMs < 2 * DAY_MS) {
+    tickGroup
+      .append("text")
+      .attr("class", "timeline-branch-axis-caption")
+      .attr("x", scale.range()[0])
+      .attr("y", spineY - 26)
+      .attr("text-anchor", "start")
+      .text(
+        axisFrom.toLocaleDateString(undefined, {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+        })
+      );
   }
 }
 

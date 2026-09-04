@@ -25077,6 +25077,30 @@ $("ask-history-search").addEventListener("input", () => {
   askHistorySearchDebounce = setTimeout(() => loadAskHistoryPage(true), 200);
 });
 $("lock-btn").addEventListener("click", lockNow);
+
+// **Locking has to reach every open tab, not just the one you clicked in.**
+//
+// The lock audit found this one by opening a second tab, which ROADMAP.md had
+// named as an unchecked avenue. Locking in tab A cleared tab A and dropped the
+// shared token — so the API correctly refused tab B — but tab B kept showing
+// all 61 notes with no lock screen at all, indefinitely. Lock the notebook,
+// walk away from a shared machine, and everything is still on screen in the
+// window behind.
+//
+// `storage` fires in *other* tabs of the same origin when a key changes, which
+// is exactly the signal wanted: the tab that did the locking has already
+// handled itself, and no polling or cross-tab channel is needed. A `null`
+// `newValue` is the removal specifically (`localStorage.clear()` also arrives
+// with a null `key`, and is treated the same way — the token is gone either
+// way).
+window.addEventListener("storage", (event) => {
+  if (event.storageArea !== localStorage) return;
+  if (event.key !== null && event.key !== "token") return;
+  if (localStorage.getItem("token")) return; // a sign-in elsewhere, not a lock
+  if (!$("lock-overlay").classList.contains("hidden")) return; // already locked
+  purgeLockedContent();
+  showLockScreen(false);
+});
 $("lock-submit").addEventListener("click", submitLockForm);
 $("lock-password").addEventListener("keydown", (e) => {
   if (e.key === "Enter") submitLockForm();

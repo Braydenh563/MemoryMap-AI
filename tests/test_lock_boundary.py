@@ -65,3 +65,29 @@ def test_text_fields_are_cleared_too():
     assert '"value" in field' in body or ".value = \"\"" in body
     for field in ("doc-content", "doc-title"):
         assert field in body, f"{field} keeps its text in .value and must be cleared"
+
+
+def test_locking_reaches_every_open_tab():
+    """Locking in one tab must lock the others.
+
+    The audit found this by opening a second tab, which ROADMAP.md had named
+    as an unchecked avenue. Locking in tab A cleared tab A and dropped the
+    shared token — so the API correctly refused tab B — but tab B kept showing
+    all 61 notes with no lock screen, indefinitely. Lock the notebook, walk
+    away from a shared machine, and everything is still on screen in the
+    window behind.
+
+    `storage` is the right signal because it fires in *other* tabs of the same
+    origin only: the tab that locked has already handled itself, and nothing
+    has to poll.
+    """
+    source = APP_JS.read_text(encoding="utf-8")
+    assert 'addEventListener("storage"' in source, (
+        "no cross-tab lock listener — a second open tab keeps showing everything"
+    )
+    start = source.index('addEventListener("storage"')
+    handler = source[start : source.index("\n});", start)]
+    assert "purgeLockedContent()" in handler
+    assert "showLockScreen(false)" in handler
+    # A sign-in elsewhere must not be mistaken for a lock.
+    assert 'localStorage.getItem("token")' in handler

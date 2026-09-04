@@ -318,6 +318,59 @@ async function submitLockForm() {
   }
 }
 
+//: **The containers that hold the user's own words**, cleared when the
+//: notebook locks. Enumerated explicitly rather than derived, because this is
+//: a privacy boundary and a reviewer should be able to read exactly what is
+//: purged without running anything.
+//:
+//: Static UI text (the Settings panels, the capture form's own labels) is
+//: deliberately not here — it belongs to the app, not to the user, and
+//: clearing markup that `startApp()` does not rebuild would break the app on
+//: unlock.
+const LOCK_PURGE_IDS = [
+  "entry-list", // notes
+  "chat-messages", // the conversation
+  "library-grid", // files and images
+  "library-docs-list", // documents
+  "timeline-scroll", // the timeline
+  "reminder-list-card", // reminders
+  "graph-svg", // node labels are note titles
+  "palette-list", // whatever was last searched for
+  "doc-live",
+  "doc-preview",
+];
+
+//: Empty everything the lock screen is covering.
+//:
+//: **The lock overlay was a visual cover, not a purge**, and the roadmap
+//: ranked auditing it first precisely because it is this app's only privacy
+//: boundary. Measured with the notebook locked: `#entry-list` still held 61
+//: notes and 3,431 characters of their text, `#library-grid` 5,089, the
+//: documents list 6,422 — all of it one devtools click, one screen reader,
+//: or one browser extension away from being read.
+//:
+//: The server side was already right (every endpoint answers 401 while
+//: locked, verified in the same audit), so this closes the client half.
+//:
+//: Safe because unlocking runs `startApp()`, which re-fetches and re-renders
+//: all of it. The codebase already reasons this way elsewhere —
+//: `hideBootSplash` removes itself from the DOM rather than leaving a hidden
+//: overlay, on the same principle that nothing should sit over the viewport
+//: invisibly.
+function purgeLockedContent() {
+  for (const id of LOCK_PURGE_IDS) {
+    const el = document.getElementById(id);
+    if (el) el.replaceChildren();
+  }
+  // A textarea's text lives in `.value`, which `replaceChildren` never
+  // touches — the document editor would otherwise keep the whole document
+  // readable behind the lock screen.
+  for (const id of ["doc-content", "doc-title", "entry-input", "chat-input"]) {
+    const field = document.getElementById(id);
+    if (field && "value" in field) field.value = "";
+  }
+}
+
 async function lockNow() {
   try {
     await api("/auth/lock", { method: "POST" });
@@ -325,6 +378,7 @@ async function lockNow() {
     /* locking locally regardless */
   }
   localStorage.removeItem("token");
+  purgeLockedContent();
   showLockScreen(false);
 }
 

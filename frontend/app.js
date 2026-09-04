@@ -10237,7 +10237,13 @@ function agentTimeline(holder) {
           renderMarkdown(node.body, step.text);
           current = null;
         } else if (step.kind === "tool") {
-          this.tool(toolChip(step.label, step.ok !== false));
+          //: `step` is passed through, so a replayed tool row keeps the
+          //: arguments/result disclosure the live one had. Without it a
+          //: reloaded conversation silently lost what each call actually did
+          //: — the same turn showed less of itself the second time you looked
+          //: at it, which is the shape behind "tools render fine in the chat
+          //: initially but then I come back to them after reloading".
+          this.tool(toolChip(step.label, step.ok !== false, step));
         }
       }
     },

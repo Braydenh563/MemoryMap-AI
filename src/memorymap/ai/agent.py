@@ -457,6 +457,49 @@ REPEATED_CALL_NOTE = (
 # failures is a model correcting itself, which is the behaviour the recovery
 # hints are there to produce and worth allowing; a third means it is not
 # converging and every further round is spent, not invested.
+#: What the chat transcript's tool disclosure shows when a tool did not write
+#: its own `summary`.
+#:
+#: Reported with a screenshot: "tools render fine in the chat initially but
+#: then I come back to them after reloading the app later and they look like
+#: this" — rows reading `Listed your categories{'categories': [{'name':
+#: 'Games', 'notes': 3}], 'total_notes': 27, 'label': 'ph:folders Listed your
+#: categories'}`. That is Python's `repr` of the result dict, which is what
+#: the fallback here used to be: single quotes, `True`/`False`, no line
+#: breaks, and the app's own display `label` repeated inside the body of the
+#: row whose heading already is that label.
+#:
+#: JSON instead, indented, for three reasons: it is the format the arguments
+#: block directly above it in the same disclosure already uses
+#: (`JSON.stringify(args, null, 2)`), so the two halves stop looking like they
+#: came from different programs; it is what the tool actually returned over
+#: the wire; and it wraps at field boundaries instead of running as one line.
+#: `label` is dropped because it is presentation the row has already shown,
+#: and `default=str` keeps a stray datetime from turning the whole disclosure
+#: into an error.
+#:
+#: 4000 is unchanged and deliberate — see the note at the call site: the box
+#: it lands in already scrolls (`.tool-chip-result`, 12rem), so this only
+#: bounds a pathological single result from bloating the SSE event.
+RESULT_SUMMARY_CHARS = 4000
+
+
+def _result_summary(result: dict) -> str:
+    """A tool's result as the transcript shows it."""
+    summary = result.get("summary")
+    if summary:
+        return str(summary)
+    body = {k: v for k, v in result.items() if k != "label"}
+    try:
+        text = json.dumps(body, indent=2, ensure_ascii=False, default=str)
+    except (TypeError, ValueError):
+        # A result that will not serialise is still worth showing.
+        text = str(body)
+    if len(text) > RESULT_SUMMARY_CHARS:
+        return text[:RESULT_SUMMARY_CHARS] + "…"
+    return text
+
+
 MAX_TOOL_FAILURES = 3
 
 # How many confirm cards one destructive tool may put in front of the user in
@@ -1563,7 +1606,7 @@ def run_agent(
                     # reads in full, while still bounding a pathological
                     # single result (a huge page fetch) from bloating the
                     # SSE event.
-                    "result_summary": result.get("summary") or (str(result)[:4000] + "…" if len(str(result)) > 4000 else str(result)),
+                    "result_summary": _result_summary(result),
                 }
                 if change:
                     event["change"] = change

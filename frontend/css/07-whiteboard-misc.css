@@ -3608,13 +3608,21 @@ summary:not(.icon-only):not(.icon-button) {
    caption competing with the real one. It wraps rather than scrolls, because
    unlike the collapsed note row's chip lane this is the last row of a card
    with room below it. */
+/* Reported with a screenshot of three tiles side by side: the chips sat
+   hard against the DESCRIPTION label under them, and started a whole
+   `--space-4` to the left of it — the usage row had vertical rhythm but no
+   horizontal padding, while `.library-image-fields` below it (00-tokens-
+   shell.css) is inset on both sides. Two different left edges inside one
+   card reads as a mistake even when nothing is technically broken, so this
+   matches that inset and adds the missing gap underneath. */
 .library-image-usage {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   margin-top: var(--space-2);
-  padding-top: var(--space-2);
+  padding: var(--space-2) var(--space-4) 0;
+  margin-bottom: var(--space-3);
   border-top: 1px solid var(--border);
 }
 

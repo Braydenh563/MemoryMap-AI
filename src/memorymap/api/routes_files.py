@@ -19,13 +19,14 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import captioning, vision_ocr
 from memorymap.api.routes_entries import _existing_entry, _to_out
 from memorymap.api.schemas import EntryOut
 from memorymap.core import deps, docview, media_gc, media_process, ocr, pdfpages
-from memorymap.core.database import Attachment, MediaUpload
+from memorymap.core.database import Attachment, Entry, MediaUpload
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
 
@@ -131,6 +132,81 @@ def download_file(attachment_id: int, session: Session = Depends(get_session)) -
     if not path.is_file():
         raise HTTPException(status_code=404, detail="File is missing from disk")
     return FileResponse(path, filename=attachment.filename, media_type=attachment.mime)
+
+
+class AttachmentGalleryOut(BaseModel):
+    """One note's own file, shaped for the Library's Images/Files gallery —
+    not `MediaUploadOut`: an `Attachment` has never been OCR'd, captioned, or
+    read by a vision model (those are `MediaUpload`-only features, see that
+    model's own docstring), so reusing that shape would mean either faking
+    fields that don't apply or leaving the gallery to guess why they're
+    always empty. This is deliberately the smaller, honest set of what an
+    attachment actually has.
+
+    Reported directly, and root-caused rather than patched around: "a pdf I
+    uplaoded to a note doesnt show in the libary" / "my uploaded pdf file
+    isnt shown in the library files subtab". `renderLibraryImagesGallery()`
+    (library.js) has only ever called `GET /media`, which is `MediaUpload`
+    rows — a file attached to a note through the composer or note editor
+    (`POST /entries/{id}/files`, this file, above) is an `Attachment` row
+    instead, a completely different table, and so never appeared no matter
+    how the gallery itself was styled or filtered.
+    """
+
+    id: int
+    #: `/files/{id}` — token-gated the same way as `/media/{name}`, see
+    #: `mediaSrc()` (app.js) and `require_unlock_media` (routes_auth.py).
+    #: Deliberately has no file extension (an attachment is served by id,
+    #: not by stored name), which is why the gallery classifies Images vs.
+    #: Files from `mime` here rather than sniffing the url the way it does
+    #: for a `MediaUpload` row's `/media/{name}.ext`.
+    url: str
+    original_name: str
+    mime: str
+    created_at: str
+    #: The one note this file hangs on — an attachment's "used in", where a
+    #: `MediaUpload` row can be referenced from several places at once.
+    #: Shaped as a single-item `used_by` list rather than a new field so the
+    #: gallery tile's existing "used in" rendering (ROADMAP item 43) needs
+    #: no branch for which kind of row it is looking at.
+    used_by: list[dict] = []
+
+
+@router.get("/files/gallery", response_model=list[AttachmentGalleryOut])
+def list_attachment_gallery(session: Session = Depends(get_session)) -> list[AttachmentGalleryOut]:
+    """Every note-attached file the Library's gallery may show — the
+    `Attachment` half of what `GET /media` (this file, `list_media`) already
+    covers for `MediaUpload` rows. See `AttachmentGalleryOut` for why this is
+    a separate, smaller shape rather than folded into that endpoint.
+
+    Same privacy rule as the Library's own overview list (`_images()` in
+    routes_library.py): a private note's attachment is as private as the
+    note, so it is excluded here rather than shown in a browsing surface the
+    note itself is hidden from. Workspace scoping comes for free from
+    `Attachment`'s own `WorkspaceMixin` — the ambient session filter already
+    applies before this query ever runs, the same as every other
+    workspace-scoped read in this app.
+    """
+    rows = session.execute(
+        select(Attachment, Entry)
+        .join(Entry, Attachment.entry_id == Entry.id)
+        .where(
+            Entry.is_deleted == False,  # noqa: E712
+            Entry.is_private == False,  # noqa: E712
+        )
+        .order_by(Attachment.created_at.desc())
+    ).all()
+    return [
+        AttachmentGalleryOut(
+            id=attachment.id,
+            url=f"/files/{attachment.id}",
+            original_name=attachment.filename,
+            mime=attachment.mime or "application/octet-stream",
+            created_at=attachment.created_at.isoformat(),
+            used_by=[{"kind": "note", "id": entry.id, "label": entry.content[:60]}],
+        )
+        for attachment, entry in rows
+    ]
 
 
 class AttachedFileTextOut(BaseModel):

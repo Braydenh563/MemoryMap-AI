@@ -2150,8 +2150,36 @@ async function renderLibraryImagesGallery() {
   const empty = $("library-images-empty");
   if (!grid) return;
   const images = await apiJson("/media", { silent: true }).catch(() => null);
-  libraryImagesCache = images || [];
-  if (!images) {
+  // A note's own attached file (`Attachment`, not `MediaUpload`) never came
+  // from `/media` at all — reported directly, twice: "a pdf I uplaoded to a
+  // note doesnt show in the libary" and "my uploaded pdf file isnt shown in
+  // the library files subtab". `GET /files/gallery` (routes_files.py) is the
+  // same rows the note editor's own attachment list already shows, reshaped
+  // for this gallery — see its own docstring for why it's a separate,
+  // smaller shape rather than pretending an attachment has OCR/captions.
+  //
+  // `_isImage`/`_isAttachment` are set here, once, rather than making every
+  // later call site re-derive them: an attachment's `.url` is `/files/{id}`
+  // with no extension (served by id, not by stored filename), so the
+  // extension-sniffing `isImageUrl()` below — which is exactly right for a
+  // `/media/{name}.ext` row — would silently call every attachment a "file"
+  // regardless of its real mime.
+  const attachments = await apiJson("/files/gallery", { silent: true }).catch(() => []);
+  for (const item of images || []) item._isImage = isImageUrl(item.url);
+  for (const item of attachments || []) {
+    item._isImage = (item.mime || "").startsWith("image/");
+    item._isAttachment = true;
+    // Never OCR'd, captioned, or read by a vision model — see
+    // AttachmentGalleryOut's own docstring. Explicit empty strings, the
+    // same never-null convention `MediaUploadOut` uses, so every other
+    // reader of this cache (search filter, lightbox) can keep assuming
+    // these fields exist without a branch for which kind of row this is.
+    item.ocr_text = "";
+    item.caption = "";
+    item.vision_ocr_text = "";
+  }
+  libraryImagesCache = [...(images || []), ...(attachments || [])];
+  if (!images && !attachments?.length) {
     grid.replaceChildren();
     empty?.classList.remove("hidden");
     return;
@@ -2175,7 +2203,7 @@ function filterLibraryImagesGallery() {
   // would show the Images tab as "no match for your search" with an empty
   // search box.
   const ofKind = libraryImagesCache.filter((i) =>
-    libraryMediaKind === "files" ? !isImageUrl(i.url) : isImageUrl(i.url)
+    libraryMediaKind === "files" ? !i._isImage : i._isImage
   );
   const images = query
     ? ofKind.filter(
@@ -2208,7 +2236,14 @@ function filterLibraryImagesGallery() {
     // non-image `/media/…` url and hands it to the document viewer. Only the
     // tile was missing, so this gives a non-image its own tile instead of an
     // image that cannot exist.
-    const isImage = isImageUrl(image.url);
+    // `image._isImage` (set in renderLibraryImagesGallery), not
+    // `isImageUrl(image.url)`: an Attachment row's url is `/files/{id}` —
+    // served by id, no file extension at all — so the url-sniffing test
+    // that works for a `/media/{name}.ext` row would call every attached
+    // PDF a "file" with no icon or label. `mediaFileIcon`/`mediaFileKind`
+    // below read `original_name` for the same reason: it carries the real
+    // extension on both kinds of row, where the url only does for one.
+    const isImage = image._isImage;
     const img = document.createElement(isImage ? "img" : "div");
     if (isImage) {
       img.src = mediaSrc(image.url);
@@ -2217,14 +2252,14 @@ function filterLibraryImagesGallery() {
     } else {
       img.className = "library-file-thumb";
       const glyph = document.createElement("i");
-      glyph.className = `ph ${mediaFileIcon(image.url)}`;
+      glyph.className = `ph ${mediaFileIcon(image.original_name)}`;
       glyph.setAttribute("aria-hidden", "true");
       const kind = document.createElement("span");
       kind.className = "library-file-thumb-kind";
-      kind.textContent = mediaFileKind(image.url);
+      kind.textContent = mediaFileKind(image.original_name);
       img.append(glyph, kind);
       img.setAttribute("role", "img");
-      img.setAttribute("aria-label", `${mediaFileKind(image.url)} — ${image.original_name}`);
+      img.setAttribute("aria-label", `${mediaFileKind(image.original_name)} — ${image.original_name}`);
     }
     img.addEventListener("error", () => {
       fig.remove();
@@ -2244,11 +2279,16 @@ function filterLibraryImagesGallery() {
         images.map((i) => ({
           filename: i.original_name,
           getUrl: () => mediaSrc(i.url),
-          // The one caller with a real media row, so the lightbox's id-
-          // gated actions (rename/describe/OCR/delete) only ever appear
+          // The one caller with a real *MediaUpload* row, so the lightbox's
+          // id-gated actions (rename/describe/OCR/delete) only ever appear
           // here — every other caller has a url and nothing else, and a
-          // button guaranteed to 404 is worse than no button.
-          id: i.id,
+          // button guaranteed to 404 is worse than no button. `i._isAttachment`
+          // (Attachment rows this gallery also lists now, see
+          // renderLibraryImagesGallery) is the same case: `i.id` is real,
+          // but it names a row in a different table with none of those
+          // actions, so it must stay unset here for exactly the reason this
+          // comment already gives.
+          id: i._isAttachment ? undefined : i.id,
           // Asked for directly: "if clicking on an image to view expand it in
           // the lightbox…can the captions and ocr accompany it somehow??"
           // The tile is the one place these are too small to read.
@@ -2272,7 +2312,12 @@ function filterLibraryImagesGallery() {
     del.addEventListener("click", async (e) => {
       e.stopPropagation();
       if (!(await confirmDialog(`Delete "${image.original_name}"?\n\nAny note or board still showing it will show a "deleted" placeholder instead.`))) return;
-      await apiJson(`/media/${image.id}`, { method: "DELETE" }).catch((err) => toast(err.message, true));
+      // An Attachment row (image._isAttachment) lives at a completely
+      // different id space from MediaUpload — `DELETE /media/{id}` here
+      // would either 404 or, worse, delete an unrelated MediaUpload row
+      // that happened to share the same numeric id.
+      const endpoint = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
+      await apiJson(endpoint, { method: "DELETE" }).catch((err) => toast(err.message, true));
       const idx = libraryImagesCache.indexOf(image);
       if (idx !== -1) libraryImagesCache.splice(idx, 1);
       filterLibraryImagesGallery();
@@ -2870,7 +2915,16 @@ function filterLibraryImagesGallery() {
     setLabel(menuButton, "ph:dots-three");
     const menuList = document.createElement("div");
     menuList.className = "library-image-menu-list";
-    menuList.append(rename, captionBtn, visionOcrBtn, ocrBtn, del);
+    // Rename/caption/OCR/vision-OCR are `MediaUpload`-only actions — an
+    // Attachment row has none of that (see AttachmentGalleryOut's own
+    // docstring, routes_files.py), and each of those buttons' handler calls
+    // `/media/{id}/...` with this row's id, which is an Attachment id in a
+    // completely separate id space. Wiring them up regardless would mean a
+    // button that either 404s or, on an id collision, edits an unrelated
+    // MediaUpload row — so for an attachment tile, Delete is the only
+    // action offered, same principle as the lightbox's own id-gated actions
+    // just above ("a button guaranteed to 404 is worse than no button").
+    menuList.append(...(image._isAttachment ? [del] : [rename, captionBtn, visionOcrBtn, ocrBtn, del]));
     menu.append(menuButton, menuList);
     // Picking anything closes the menu — on the **capture** phase, which is
     // the whole point. This was a bubble-phase listener with a comment
@@ -3094,7 +3148,13 @@ function filterLibraryImagesGallery() {
       usage.appendChild(note);
     }
 
-    fig.append(img, actions, cap, usage, fields);
+    // `fields` (caption/vision-OCR/Tesseract-OCR boxes) is skipped entirely
+    // for an attachment tile, not just emptied — each of those is a
+    // click-to-edit control that saves through `/media/{id}/...` (see the
+    // menuList comment above for why that id doesn't belong to this row),
+    // and a caption box that looks editable but silently 404s on save is
+    // worse than a tile with no caption box at all.
+    fig.append(img, actions, cap, usage, ...(image._isAttachment ? [] : [fields]));
     grid.appendChild(fig);
   }
 }

@@ -2169,10 +2169,38 @@ kbd {
    <body> to escape a clipping scroll ancestor — see the note there. `left`/
    `top` come from that same function as inline style, computed from the
    opener's own rect; this only has to override the base rule's
-   `position: absolute; right: 0; top: calc(100% + 4px)`. */
+   `position: absolute; right: 0; top: calc(100% + 4px)`.
+
+   `z-index: 1020`: this rule's only caller until now was the Library's
+   Documents kebab, opened from a plain tab page with nothing above
+   `.action-menu`'s own `z-index: 30` to beat. Wiring the same escape into
+   `enhanceSelect()` (app.js — every `<select>` in the app, including ones
+   opened from inside the Settings modal) put it in real competition for the
+   first time: reparented to <body>, the menu became a *sibling* of
+   `.modal-overlay` (`z-index: 1010`) rather than its descendant, and 30
+   loses that fight outright — the menu was live in the DOM, correctly
+   positioned, and completely invisible, painted underneath the modal.
+   1020 matches this app's own tier system (above the modal's 1010, below
+   the toast box's 1050 — see `.modal-overlay`'s own comment in
+   01-forms-settings.css for the full ladder). */
 .action-menu.action-menu-escaped {
   position: fixed;
   right: auto;
+  z-index: 1020;
+}
+
+/* `.select-menu`'s `min-width: 100%` (07-whiteboard-misc.css) means "at
+   least as wide as `.select-shell`, my normal parent" — a sensible floor
+   when the menu is a document-flow child of that shell. Once escaped, it is
+   `position: fixed` with no positioned ancestor between it and the
+   viewport, so `100%` silently stops meaning "my shell's width" and starts
+   meaning "the viewport's width" instead: measured live at 1440px wide,
+   full-bleed, on a select whose real content wanted well under 400px.
+   `width: max-content` plus the existing `max-width: min(24rem, 80vw)` cap
+   already size this correctly on their own — the floor is not needed once
+   there is no longer a narrow shell to guarantee a minimum against. */
+.select-menu.action-menu-escaped {
+  min-width: 0;
 }
 
 /* The whiteboard's right-click/long-press selection menu (ROADMAP §89.12).

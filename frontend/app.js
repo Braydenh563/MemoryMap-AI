@@ -3740,15 +3740,30 @@ function openLightbox(items, startIndex = 0) {
     // shape the lightbox's document viewer could not read at all: it went
     // straight to a download instead. Same token-gated url shape `mediaSrc`
     // already handles; `showDocument` below is what learned to use it.
-    const attachmentId = name ? "" : (/\/files\/(\d+)(?:[/?#]|$)/.exec(rawUrl || "") || [])[1] || "";
     const looksLikeImage =
       IMAGE_SUFFIXES.test(item.filename || "") || IMAGE_SUFFIXES.test(name);
+    // A note's own attached file (the `Attachment` model, `/files/{id}`) —
+    // distinct from a `/media/{name}` upload, and until now the only file
+    // shape the lightbox's document viewer could not read at all: it went
+    // straight to a download instead. Same token-gated url shape `mediaSrc`
+    // already handles; `showDocument` below is what learned to use it.
+    //
+    // Gated on `!looksLikeImage`, matching the `name` case just below it —
+    // the comment here used to claim this was "only ever set for a
+    // non-image /files/{id}", true only because nothing had ever opened an
+    // *image* attachment through this lightbox yet. The Library gallery's
+    // own Attachment rows (`renderLibraryImagesGallery`, library.js) changed
+    // that: a photo attached to a note now reaches this same code path, and
+    // without this guard it fell into the document viewer below — no PDF
+    // pages, no image to show, `isPdf` false, straight to `loadExtractedText`
+    // asking `/files/{id}/text` for a picture, "no readable text in this
+    // file" for what should have been a plain zoomable image.
+    const attachmentId = name || looksLikeImage
+      ? ""
+      : (/\/files\/(\d+)(?:[/?#]|$)/.exec(rawUrl || "") || [])[1] || "";
     // A native document (item.kind already set — see showDocument) has no
     // `/media/...` url to sniff at all; a caller that already declares
-    // itself a document skips the filename guess entirely. An attachment id
-    // is the third way in — only ever set for a non-image `/files/{id}` (see
-    // above), so it never needs the `!looksLikeImage` guard the media-name
-    // case does.
+    // itself a document skips the filename guess entirely.
     if (item.kind || attachmentId || (name && !looksLikeImage)) {
       overlay.setAttribute("aria-label", item.filename || "Document preview");
       meta.textContent =
@@ -9959,7 +9974,12 @@ function changeRow(change, options = {}) {
   row.className = "skill-change";
   const label = document.createElement("span");
   label.className = "skill-change-label";
-  label.textContent = change.label || change.tool;
+  // `setLabel`, not `.textContent`: a tool's own `label` carries this app's
+  // "ph:icon-name Rest of the text" convention (see `_merge_categories` and
+  // friends in ai/tools/categories.py, which write exactly that shape), and
+  // assigning it raw printed the icon spec as visible text — reported with
+  // a screenshot of three agent rows all reading "ph:folder Merged …".
+  setLabel(label, change.label || change.tool);
   row.appendChild(label);
 
   if (change.note_id && change.tool === "delete_note") {
@@ -10016,7 +10036,7 @@ function changeRow(change, options = {}) {
         });
         if (result && result.error) throw new Error(result.error);
         row.classList.add("skill-change-undone");
-        label.textContent = `${change.label || change.tool} — undone`;
+        setLabel(label, `${change.label || change.tool} — undone`);
         undo.remove();
         loadEntries();
       } catch (error) {
@@ -12658,6 +12678,19 @@ function enhanceSelect(select) {
 
   select.parentNode.insertBefore(shell, select);
   shell.append(select, opener, menu);
+  // Reported repeatedly, on different selects, as the same shape: the
+  // model picker (Settings) and the note editor's category picker both
+  // spilled off the edge of whatever scrolling/backdrop-filter ancestor
+  // they opened inside — ".modal-content" for the first, the note card's
+  // own stacking context for the second. `wireEscapedActionMenu` (this
+  // file, above) already exists for exactly this — it was built for the
+  // Library's Documents kebab and reparents an open menu to <body>,
+  // positioning it from the opener's own rect so no ancestor's overflow or
+  // stacking context can clip it — but it was only ever wired to that one
+  // menu. Every one of this app's 51+ selects shares the same
+  // `.select-menu`/`openActionMenu` shape, so wiring it here once covers
+  // all of them instead of chasing each report to a different select.
+  wireEscapedActionMenu(shell);
 
   // The native control keeps doing its job (form value, validation, the
   // label association) but stops being what you see or tab to — the opener

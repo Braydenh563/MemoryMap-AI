@@ -837,6 +837,9 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
             mode=mode,
             images=images,
             image_context=image_context,
+            # The Ask box (`notes_only`) gets the overview brief instead of
+            # the chat one — see `librarian.ASK_OVERVIEW`.
+            ask_overview=body.notes_only,
             **shared,
         )
     # Direct Q&A only — conversational replies aren't grounded in retrieved
@@ -1002,6 +1005,10 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                     persona_prompt,
                     mode,
                 ),
+                # The Ask box's own brief on the streaming path too — this is
+                # the one people actually use, so a fix only on the blocking
+                # route above would be a fix nobody sees.
+                ask_overview=body.notes_only,
             )
         # §88.4 item 4: the same per-stage token estimate agent.py's tool
         # path now attaches to its own stats event (chars/4, no tool

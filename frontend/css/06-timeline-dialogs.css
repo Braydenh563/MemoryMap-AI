@@ -1661,10 +1661,26 @@
 
    Built from the input itself rather than a wrapper span: no markup changes,
    so it reaches the controls built at runtime too, and the browser keeps
-   ownership of focus, keyboard and the accessibility tree. */
+   ownership of focus, keyboard and the accessibility tree.
+
+   **`#tool-list`, by id, not `.tool-row` by class.** Settings → "Tools it
+   can use" looks exactly like the tick-list case above — fifty-one rows in
+   a list — and reads the opposite way: each checkbox means "is this tool
+   currently on", the same on/off fact every other switch here states, not
+   "is this row selected". It needs the switch, but `#tool-list` also carries
+   `class="entry-list"` for its layout (row spacing, hover, the rest), and
+   `.entry-list input[type="checkbox"]:not(.sr-only)` below (07-whiteboard-
+   misc.css) is the generic version of the tick rule this comment just
+   described — same specificity family as a bare `.tool-row input` would
+   have been, later in file order, so it silently won and the switch style
+   above never painted. Reported directly, with a screenshot: "the toggles
+   in the settings 'tools it can use' page are visually broken." The id
+   selector is what settles it — no amount of reordering either rule can
+   flip this back by accident the way the class version already had. */
 .settings-section label>input[type="checkbox"],
 .setting-check input[type="checkbox"],
 .tools-toggle input[type="checkbox"],
+#tool-list input[type="checkbox"],
 .library-toolbar label>input[type="checkbox"],
 .semantic-toggle input[type="checkbox"],
 .library-sort-check input[type="checkbox"],
@@ -1750,6 +1766,7 @@
 .settings-section label>input[type="checkbox"]::after,
 .setting-check input[type="checkbox"]::after,
 .tools-toggle input[type="checkbox"]::after,
+#tool-list input[type="checkbox"]::after,
 .library-toolbar label>input[type="checkbox"]::after,
 .semantic-toggle input[type="checkbox"]::after,
 .library-sort-check input[type="checkbox"]::after,
@@ -1771,6 +1788,7 @@
 .settings-section label>input[type="checkbox"]:hover,
 .setting-check input[type="checkbox"]:hover,
 .tools-toggle input[type="checkbox"]:hover,
+#tool-list input[type="checkbox"]:hover,
 .library-toolbar label>input[type="checkbox"]:hover,
 .semantic-toggle input[type="checkbox"]:hover,
 .library-sort-check input[type="checkbox"]:hover,
@@ -1781,6 +1799,7 @@
 .settings-section label>input[type="checkbox"]:checked,
 .setting-check input[type="checkbox"]:checked,
 .tools-toggle input[type="checkbox"]:checked,
+#tool-list input[type="checkbox"]:checked,
 .library-toolbar label>input[type="checkbox"]:checked,
 .semantic-toggle input[type="checkbox"]:checked,
 .library-sort-check input[type="checkbox"]:checked,
@@ -1792,6 +1811,7 @@
 .settings-section label>input[type="checkbox"]:checked::after,
 .setting-check input[type="checkbox"]:checked::after,
 .tools-toggle input[type="checkbox"]:checked::after,
+#tool-list input[type="checkbox"]:checked::after,
 .library-toolbar label>input[type="checkbox"]:checked::after,
 .semantic-toggle input[type="checkbox"]:checked::after,
 .library-sort-check input[type="checkbox"]:checked::after,

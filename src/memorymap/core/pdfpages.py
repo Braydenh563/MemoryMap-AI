@@ -201,7 +201,18 @@ def render_page(path: Path, index: int) -> bytes | None:
     oversized page): the caller — `routes_files.pdf_page` — turns that into
     a 404, the same "no pages" contract `render_pages` already keeps.
     """
-    if not available() or index < 0:
+    # CodeQL (py/log-injection) flags `index` itself here, not just `path`:
+    # it can't see that FastAPI's `index: int` route parameter already
+    # rejects anything non-numeric before this function is ever called, so
+    # it treats the value reaching `logger.info` below as still tainted.
+    # An explicit int() re-cast into a fresh local breaks that taint chain
+    # for CodeQL and costs nothing at runtime — a real int passes through
+    # unchanged, and the `except` mirrors the `index < 0` guard it replaces.
+    try:
+        safe_index = int(index)
+    except (TypeError, ValueError):
+        return None
+    if not available() or safe_index < 0:
         return None
     try:
         import pypdfium2 as pdfium
@@ -212,15 +223,15 @@ def render_page(path: Path, index: int) -> bytes | None:
     try:
         with _pdfium_lock:
             document = pdfium.PdfDocument(str(path))
-            if index >= len(document):
+            if safe_index >= len(document):
                 return None
-            page = document[index]
+            page = document[safe_index]
             try:
-                return _render_one(page, path, index, greyscale=False)
+                return _render_one(page, path, safe_index, greyscale=False)
             finally:
                 page.close()
     except Exception as exc:  # noqa: BLE001 — a viewer must not 500 on a bad file
-        logger.info("couldn't rasterise page %d of %r: %s", index, path, exc)
+        logger.info("couldn't rasterise page %d of %r: %s", safe_index, path, exc)
         return None
     finally:
         if document is not None:

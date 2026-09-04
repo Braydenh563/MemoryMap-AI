@@ -1548,22 +1548,22 @@ label.setting-check,
 /* The "?" beside the switch rather than mid-sentence. Reported: "the 'keep
    the AI on this machine' toggle and '?' icon need to be swapped and
    properly aligned" — measured, the label ended at x=724, the "?" sat at
-   732 as a 32px circle, and the switch was 325 pixels further right.
-   Sized down to sit *with* the switch rather than out-weigh it: the switch
-   is the control, this only explains it. */
+   732 as a 32px circle, and the switch was 325 pixels further right. Fixed
+   by moving it into its own grid column next to the switch.
+
+   The size was shrunk to 1.5rem in that same pass, on the reasoning that a
+   help icon should not out-weigh the switch it explains — a judgement call
+   nobody had asked for, and it created the next report: "the '?' button in
+   the keep the ai on this machine toggle is smaller than all the others in
+   the application," true of every other `.setting-hint-toggle` in Settings,
+   all 2rem. Consistency wins over that original aesthetic argument — one
+   size for one control, everywhere it appears — so only the position moves
+   here now; the size comes back from the shared rule
+   (03-dashboard-widgets.css) like every other hint button's does. */
 .setting-check>.setting-hint-toggle {
   grid-column: 2;
   grid-row: 1;
   align-self: center;
-  width: 1.5rem;
-  min-width: 1.5rem;
-  height: 1.5rem;
-  min-height: 1.5rem;
-  padding: 0;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .settings-group>.setting-check:first-of-type {

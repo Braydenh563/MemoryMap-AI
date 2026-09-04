@@ -328,8 +328,15 @@
   accent-color: var(--accent);
 }
 
+/* **Zero horizontal padding**, reported directly with a screenshot: "the
+   text in the cards goes right against the right [edge]" — measured at
+   `padding: 8px 0px`, so a row's own description ran flush to both the
+   card's left rule and its right edge with nothing to separate it from
+   either. Given the same inline padding every settings card uses, so a tool
+   row reads as one more card in the list rather than a different kind of
+   row. */
 #tool-list li {
-  padding: 0.5rem 0;
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
 }
 
@@ -341,16 +348,26 @@
   font-weight: 500;
 }
 
-.tool-row input {
-  width: 1.15rem;
-  height: 1.15rem;
-  margin: 0;
-  accent-color: var(--accent);
-}
+/* Sizing for this checkbox now comes from the shared toggle-switch recipe
+   (06-timeline-dialogs.css, `.tool-row input[type="checkbox"]` was added to
+   its selector list) — reported directly, with a screenshot, as "visually
+   broken": this was a bare native checkbox (a tick in a small square) next
+   to every other on/off setting in the app rendering as a pill switch, the
+   one place in Settings that hadn't been converted. Nothing left to say
+   here beyond the gap the switch sits in; `appearance: none` in that shared
+   rule makes `accent-color` inert, so it is gone rather than dead weight. */
 
+/* The switch is 2rem wide now (was 1.15rem) — reported once already, for
+   the identical reason, when the whiteboard's snap-to-grid switch grew and
+   its own label's indent didn't: a description that used to line up under
+   the tool's name now sits half under the switch instead. 2rem + the row's
+   own 0.5rem gap keeps the description flush with the name above it. */
 .tool-desc {
   display: block;
-  margin: 0.25rem 0 0 1.65rem;
+  /* --space-9 (2rem, the switch's own width) + --space-3 (0.5rem, the row's
+     own gap) rather than a bare 2.5rem: exact, and the scale lint can see
+     it, unlike a literal number it would have to special-case. */
+  margin: var(--space-2) 0 0 calc(var(--space-9) + var(--space-3));
   font-size: 0.8rem;
 }
 

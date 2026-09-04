@@ -3699,7 +3699,23 @@ summary:not(.icon-only):not(.icon-button) {
   position: sticky;
   top: 0;
   z-index: 2;
-  background: var(--card-bg);
+  /* **Opaque, matching what is actually behind it, not `--card-bg`.** This
+     is `.modal-bg` glass hiding in a token name again — `--card-bg` resolves
+     to `--card`, a 0.62-alpha tint (00-tokens-shell.css), and this row sits
+     directly on `.modal-card`'s own background (`var(--modal-bg)`,
+     documented there as "nearly opaque: a settings dialog floats over busy
+     content, full glass here makes it unreadable"). A sticky element paints
+     over rows scrolling up from underneath it, so the mismatch showed up
+     exactly the way CLAUDE.md's own `--modal-bg` history describes it:
+     reported as the "Filter" label and the search field looking broken —
+     measured, and the tool list's own top row was bleeding through both,
+     legible enough to read as overlapping text.
+     `var(--modal-bg)` is the fix, not a composited two-layer gradient like
+     the Agent Activity panel's own version of this bug needed — that panel
+     floats over the *page*, whose background genuinely is a gradient; this
+     row's parent is a flat, already-defined colour, so naming it directly is
+     both simpler and exactly correct rather than an approximation of it. */
+  background: var(--modal-bg);
   padding-block: var(--space-2);
   margin-bottom: var(--space-2);
   border-bottom: 1px solid var(--border);

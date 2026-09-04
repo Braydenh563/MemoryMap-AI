@@ -2690,35 +2690,63 @@ Link to another note with [[its first few words]]."></textarea>
         <option value="">Default board</option>
       </select>
       <button id="wb-rename-board" class="ghost small icon-button" type="button" title="Rename this board" aria-label="Rename this board"><i class="ph ph-pencil-simple" aria-hidden="true"></i></button>
-      <button id="wb-new-board" class="ghost small icon-button" type="button" title="Create a new board">＋</button>
+      <button id="wb-new-board" class="ghost small icon-button" type="button" title="Create a new board" aria-label="Create a new board"><i class="ph ph-plus" aria-hidden="true"></i></button>
     </div>
 
     <div class="whiteboard-floating-panel top-right card glass" data-panel-id="library">
       <span class="wb-panel-grip" title="Drag to move" aria-hidden="true">⠿</span>
-      <button id="wb-add-note" class="ghost small" title="Toggle Library"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i> Library</button>
-      <input
-        type="color"
-        id="wb-bg-color-picker" aria-label="Board background colour" title="Board background colour"
-        value="#1b1f2c"
-        title="Board background colour"
-        class="wb-color-picker"
-      >
-      <button id="wb-bg-color-reset" class="ghost small icon-button" type="button" title="Reset to theme default" aria-label="Reset to theme default"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
-      <select id="wb-grid-select" aria-label="Grid style" title="Grid style" class="ghost small" title="Grid">
-        <option value="none">No grid</option>
-        <option value="lines">Grid: lines</option>
-        <option value="dots">Grid: dots</option>
-        <option value="iso">Grid: isometric</option>
-      </select>
-      <label class="wb-snap-label" title="Snap items to the grid while dragging">
-        <input type="checkbox" id="wb-snap-toggle">
-        <span>Snap</span>
-      </label>
-      <button id="wb-bg-image" class="ghost small icon-button" type="button" title="Set a background image" aria-label="Set a background image"><i class="ph ph-image" aria-hidden="true"></i></button>
+      <!-- **Grouped, and labelled.** This panel held nine controls in source
+           order with nothing separating them: a Library toggle, a colour
+           input, a colour reset, a grid dropdown, a Snap toggle, a background
+           image button, a reset-panels button, a clear-board button and an
+           export button — which laid out as a 3x3 grid of mostly unlabelled
+           icons where two different circular arrows sat next to each other
+           meaning two entirely different things (reset the *colour* vs reset
+           the *panel positions*).
+           Everything still does exactly what it did; it is now sorted into
+           the three questions a person actually has here — how the board
+           looks, what to do with the board, and where the panels sit — with a
+           heading on each so the icons are read in a context rather than
+           guessed at individually. -->
+      <button id="wb-add-note" class="ghost small wb-panel-primary" title="Toggle Library"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i> Library</button>
+
+      <div class="wb-panel-group">
+        <span class="wb-panel-group-label">Look</span>
+        <div class="wb-panel-group-row">
+          <input
+            type="color"
+            id="wb-bg-color-picker" aria-label="Board background colour" title="Board background colour"
+            value="#1b1f2c"
+            class="wb-color-picker"
+          >
+          <button id="wb-bg-color-reset" class="ghost small icon-button" type="button" title="Reset the background colour to the theme default" aria-label="Reset the background colour to the theme default"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
+          <button id="wb-bg-image" class="ghost small icon-button" type="button" title="Set a background image" aria-label="Set a background image"><i class="ph ph-image" aria-hidden="true"></i></button>
+        </div>
+        <div class="wb-panel-group-row">
+          <select id="wb-grid-select" aria-label="Grid style" title="Grid style" class="ghost small">
+            <option value="none">No grid</option>
+            <option value="lines">Grid: lines</option>
+            <option value="dots">Grid: dots</option>
+            <option value="iso">Grid: isometric</option>
+          </select>
+          <label class="wb-snap-label" title="Snap items to the grid while dragging">
+            <input type="checkbox" id="wb-snap-toggle">
+            <span>Snap</span>
+          </label>
+        </div>
+      </div>
       <input type="file" id="wb-bg-image-input" aria-label="Choose a board background image" title="Choose a board background image" accept="image/*" class="hidden" aria-hidden="true">
-      <button id="wb-reset-panels" class="ghost small icon-button" type="button" title="Reset panel positions">⟲</button>
-      <button id="wb-clear-board" class="ghost small icon-button" type="button" title="Clear this board" aria-label="Clear this board"><i class="ph ph-trash" aria-hidden="true"></i></button>
-      <button id="wb-export" class="ghost small icon-button" type="button" title="Export this board">⬇</button>
+
+      <div class="wb-panel-group">
+        <span class="wb-panel-group-label">Board</span>
+        <div class="wb-panel-group-row">
+          <button id="wb-export" class="ghost small icon-button" type="button" title="Export this board" aria-label="Export this board"><i class="ph ph-download-simple" aria-hidden="true"></i></button>
+          <!-- The one destructive control here, so it carries the danger
+               colour rather than sitting in the same grey as Export. -->
+          <button id="wb-clear-board" class="ghost small icon-button wb-panel-danger" type="button" title="Clear this board" aria-label="Clear this board"><i class="ph ph-trash" aria-hidden="true"></i></button>
+          <button id="wb-reset-panels" class="ghost small icon-button" type="button" title="Reset panel positions" aria-label="Reset panel positions"><i class="ph ph-layout" aria-hidden="true"></i></button>
+        </div>
+      </div>
     </div>
 
     <div class="whiteboard-floating-panel bottom-center card glass" data-panel-id="tools" id="wb-tools-panel" data-dock="bottom">
@@ -2919,9 +2947,9 @@ Link to another note with [[its first few words]]."></textarea>
 
     <div class="whiteboard-floating-panel bottom-right card glass" data-panel-id="zoom">
       <span class="wb-panel-grip" title="Drag to move" aria-hidden="true">⠿</span>
-      <button id="wb-zoom-in" class="ghost small" title="Zoom In" aria-label="Zoom In"><i class="ph ph-plus" aria-hidden="true"></i></button>
-      <button id="wb-zoom-out" class="ghost small" title="Zoom Out" aria-label="Zoom Out"><i class="ph ph-minus" aria-hidden="true"></i></button>
-      <button id="wb-zoom-fit" class="ghost small" title="Fit to Screen" aria-label="Fit to Screen"><i class="ph ph-frame-corners" aria-hidden="true"></i></button>
+      <button id="wb-zoom-in" class="ghost small icon-only" title="Zoom In" aria-label="Zoom In"><i class="ph ph-plus" aria-hidden="true"></i></button>
+      <button id="wb-zoom-out" class="ghost small icon-only" title="Zoom Out" aria-label="Zoom Out"><i class="ph ph-minus" aria-hidden="true"></i></button>
+      <button id="wb-zoom-fit" class="ghost small icon-only" title="Fit to Screen" aria-label="Fit to Screen"><i class="ph ph-frame-corners" aria-hidden="true"></i></button>
       <!-- Reported directly: "the whiteboard definately needs a fullscreen
            mode because it feels too squished." Measured before building —
            the board is 1376x676 in a 1440x900 window, so a quarter of the
@@ -2929,7 +2957,7 @@ Link to another note with [[its first few words]]."></textarea>
            status bar. Sits in the zoom cluster because that is where the
            graph's own fullscreen toggle sits, and the two should not be in
            different places. -->
-      <button id="wb-fullscreen" class="ghost small" title="Full screen (Esc to leave)" aria-label="Toggle full screen"><i class="ph ph-arrows-out" aria-hidden="true"></i></button>
+      <button id="wb-fullscreen" class="ghost small icon-only" title="Full screen (Esc to leave)" aria-label="Toggle full screen"><i class="ph ph-arrows-out" aria-hidden="true"></i></button>
       <button id="wb-help-btn" class="ghost small" title="Show the whiteboard help again">?</button>
     </div>
 

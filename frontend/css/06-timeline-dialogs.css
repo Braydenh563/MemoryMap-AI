@@ -2539,18 +2539,40 @@
   box-shadow: inset 0 0 0 1px var(--border);
 }
 
+/* **A swatch has to show its colour, including when that colour is white.**
+   The board-background picker sits on a white floating panel and its value is
+   usually `#ffffff`, so a white circle inside a 10%-alpha hairline was, in
+   the running app, an empty hole — indistinguishable from a control that had
+   failed to render. `--muted` gives it a ring that survives any value it can
+   hold, and the inset shadow keeps a light swatch from dissolving into the
+   panel behind it.
+
+   The size is stated as `min-*` as well, because the declared 28px was being
+   overridden to 36px by the app-wide hit-target floor: the stylesheet said
+   one thing and the browser did another, which is worse than either size on
+   its own. Matching `--target-min` here means the two agree. */
 #wb-color-picker,
 #wb-bg-color-picker {
-  width: 28px;
-  height: 28px;
+  width: var(--target-min);
+  height: var(--target-min);
+  min-width: var(--target-min);
+  min-height: var(--target-min);
   padding: 0;
-  border: 2px solid var(--border);
+  border: 2px solid var(--muted);
   border-radius: 50%;
   background: transparent;
+  box-shadow: inset 0 0 0 1px var(--field-inset);
   cursor: pointer;
   overflow: hidden;
   flex-shrink: 0;
   margin: 0 4px;
+}
+
+#wb-color-picker:hover,
+#wb-bg-color-picker:hover,
+#wb-color-picker:focus-visible,
+#wb-bg-color-picker:focus-visible {
+  border-color: var(--accent);
 }
 
 #wb-color-picker::-webkit-color-swatch-wrapper,

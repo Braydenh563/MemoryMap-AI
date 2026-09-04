@@ -10529,7 +10529,10 @@ function renderImageAttachments() {
     // (04-chat-dock-appearance.css) rather than inventing a second one.
     chipEl.className = "chip attachment-chip attachment-chip-image";
     const thumb = document.createElement("img");
-    thumb.src = mediaSrc(image.url); // a plain <img> never attaches X-Auth-Token
+    // A staged image has no server url yet — its bytes are local, so the
+    // object URL is what draws it. `mediaSrc` is still right for one already
+    // uploaded: a plain <img> never attaches X-Auth-Token.
+    thumb.src = image.objectUrl || mediaSrc(image.url);
     thumb.alt = "";
     const remove = document.createElement("button");
     remove.className = "attachment-remove";
@@ -10538,21 +10541,20 @@ function renderImageAttachments() {
     remove.title = "Remove this image";
     remove.setAttribute("aria-label", remove.title);
     remove.addEventListener("click", async () => {
-      attachedImages = attachedImages.filter((img) => img.id !== image.id);
+      attachedImages = attachedImages.filter((img) => img.key !== image.key);
+      // An object URL is a document-lifetime reference to a Blob: dropping the
+      // array entry alone leaks the image's bytes for as long as the tab is
+      // open.
+      if (image.objectUrl) URL.revokeObjectURL(image.objectUrl);
       renderImageAttachments();
       announce(`Removed image. ${attachedImages.length} image(s) attached.`);
-      // Reported directly: an image attached then removed before the message
-      // was ever sent stayed uploaded and showed up in the Library gallery —
-      // this only detached it from the composer, same as it did before, and
-      // never told the server the upload was abandoned. Same delete-on-remove
-      // fix already applied to the note composer's own image chips
-      // (renderEntryAttachmentChips): nothing else could reference this
-      // upload yet, since the message carrying it was never sent.
-      try {
-        await apiJson(`/media/${image.id}`, { method: "DELETE" });
-      } catch (err) {
-        console.error("Couldn't delete the abandoned upload", err);
-      }
+      // Nothing to tell the server about: a staged image has never been
+      // uploaded (see `attachImageFiles`). The delete call that used to live
+      // here existed because attaching uploaded immediately, so removing had
+      // to clean up after it — staging removes the need rather than the
+      // symptom. An image that *is* already on the server (a regenerate
+      // re-using an earlier message's attachments) keeps its id and is left
+      // alone, because the sent message still references it.
     });
     chipEl.append(thumb, remove);
     box.appendChild(chipEl);
@@ -10566,31 +10568,58 @@ async function attachImageFiles(files) {
   // picker already does with unresolved wiki-links.
   const room = 4 - attachedImages.length;
   for (const file of Array.from(files).slice(0, Math.max(0, room))) {
-    const form = new FormData();
-    form.append("file", file);
-    try {
-      // No explicit Content-Type: the browser sets its own multipart
-      // boundary for a FormData body, and `api()`'s default JSON header
-      // would be wrong here — the same reason the editor's own image-drop
-      // upload (app.js, ~line 27615) overrides headers rather than merging.
-      const uploaded = await apiJson("/media/upload", {
-        method: "POST",
-        headers: { "X-Auth-Token": authToken() },
-        body: form,
-      });
-      // The filename comes along now: the bubble drawn on send needs a label
-      // for the "find it in the Library" button, and after the composer is
-      // cleared there is nowhere left to look it up from.
-      attachedImages.push({
-        id: uploaded.id,
-        url: uploaded.url,
-        name: uploaded.filename || file.name,
-      });
-    } catch (error) {
-      toast(error.message || `Couldn't attach "${file.name}".`, true);
-    }
+    // **Staged, not uploaded.** REDESIGN.md R7.2, asked for directly: "files
+    // should only be staged and not permanently saved while uploaded to a
+    // note that hasnt been saved yet, or chat messages that havent been sent
+    // yet."
+    //
+    // Attaching used to `POST /media/upload` immediately, so an image
+    // attached to a message that was never sent stayed on disk and in the
+    // Library gallery forever. Removing the chip cleaned up after itself, but
+    // *abandoning* the draft — closing the tab, switching conversation,
+    // walking away — did not, and that is the common case rather than the
+    // rare one.
+    //
+    // The bytes stay in the browser until `commitStagedImages()` runs on
+    // send. The thumbnail renders from an object URL, so the preview costs no
+    // round trip and the server learns nothing about a message that may never
+    // exist.
+    attachedImages.push({
+      key: `staged-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      file,
+      objectUrl: URL.createObjectURL(file),
+      name: file.name,
+    });
   }
   renderImageAttachments();
+}
+
+//: Upload whatever is still staged, and return the attachment list with real
+//: ids. Called at the moment a message is actually sent — the point where the
+//: user has committed to it and the server needs to know.
+//:
+//: A failure here has to stop the send rather than drop the picture quietly:
+//: a message that arrives without the image it was written about is worse
+//: than one that refuses to send and says why.
+async function commitStagedImages() {
+  for (const image of attachedImages) {
+    if (image.id) continue; // already on the server (a regenerate re-uses these)
+    const form = new FormData();
+    form.append("file", image.file);
+    // No explicit Content-Type: the browser sets its own multipart boundary
+    // for a FormData body, and `api()`'s default JSON header would be wrong
+    // here — the same reason the editor's own image-drop upload overrides
+    // headers rather than merging.
+    const uploaded = await apiJson("/media/upload", {
+      method: "POST",
+      headers: { "X-Auth-Token": authToken() },
+      body: form,
+    });
+    image.id = uploaded.id;
+    image.url = uploaded.url;
+    image.name = uploaded.filename || image.name;
+  }
+  return attachedImages;
 }
 
 // --- one attach button, two destinations ---------------------------------------
@@ -10867,6 +10896,23 @@ async function sendChatMessage(preset, opts = {}) {
   const answeringAgent = opts.answeringAgent ?? chatAwaitingAgentAnswer;
   chatAwaitingAgentAnswer = false;
 
+  // **Staged images become real uploads here**, at the moment the message is
+  // actually committed — see `attachImageFiles` for why nothing was uploaded
+  // when they were attached.
+  //
+  // Before the snapshot below, because that snapshot reads `img.id` and a
+  // staged image has none until this runs. A failure stops the send and says
+  // so: a message arriving without the picture it was written about is worse
+  // than one that refuses and explains.
+  if (!opts.imageMediaIds) {
+    try {
+      await commitStagedImages();
+    } catch (error) {
+      toast(error.message || "Couldn't upload the attached image.", true);
+      return;
+    }
+  }
+
   // Snapshot the attachments for this message. A regenerate re-uses the same
   // ones; a fresh send clears them, so they don't silently ride along on
   // every later question.
@@ -10905,6 +10951,15 @@ async function sendChatMessage(preset, opts = {}) {
     lastChatAttachments = sentAttachments;
     lastChatImageAttachments = attachedImages.slice();
     lastChatDocumentAttachments = attachedDocuments.slice();
+    // The staged bytes are on the server now, so the local Blob references
+    // are dead weight — an object URL lives as long as the document unless it
+    // is revoked, and a chat session sending several images would hold every
+    // one of them in memory for the life of the tab. The upload's real url is
+    // what the sent bubble draws from, so nothing on screen depends on these.
+    for (const image of attachedImages) {
+      if (image.objectUrl) URL.revokeObjectURL(image.objectUrl);
+      image.objectUrl = null;
+    }
     attachedNoteIds = [];
     attachedImages = [];
     attachedDocuments = [];

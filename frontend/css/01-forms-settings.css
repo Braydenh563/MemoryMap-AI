@@ -401,9 +401,26 @@ button.small {
    `min-height: 1.5rem`; the control itself did not.
 
    Sized in `em` so it tracks the text it sits beside instead of fixing a
-   pixel count, with the same `--target-min` floor underneath. */
-input[type="checkbox"],
-input[type="radio"] {
+   pixel count, with the same `--target-min` floor underneath.
+
+   **Checkboxes only — radios used to be here and were measured out (§39).**
+   This app paints no radio circles at all: the user asked for "all radio
+   buttons to toggle buttons", and three rules deliver it (`.check-row`,
+   `.segmented-control`, `.provider-option`), each clipping its input to
+   `width: 1px` rather than `display: none` so the group keeps its native
+   arrow-key navigation. All thirteen radios in the app go through one of
+   those three. This floor out-specified none of them on `position` or
+   `clip-path`, but it did beat their `width`/`height`, so every one of them
+   was really a 28x28 box — measured 28x28, PAINTED=false, on all seven
+   reachable in Settings. Invisible today, and one declaration from not
+   being: a radio given the visible `1rem` `accent-color` treatment further
+   down this file renders 28px instead, and a clipped one that ever loses
+   `position: absolute` paints a native OS circle in a row designed to have
+   none. That is the same shape as the checkbox failure documented below, so
+   radios are excluded at the source rather than cancelled afterwards. The
+   target is not lost: what a person aims at is the whole row or segment,
+   which carries its own height. */
+input[type="checkbox"] {
   min-width: var(--target-min);
   min-height: var(--target-min);
 }
@@ -422,7 +439,26 @@ input[type="radio"] {
       comment exists so the next person does not try to solve it here.
 
    Neither loses the target: the label around a switch carries
-   `min-height: 1.5rem`, and the label is what a person aims at. */
+   `min-height: 1.5rem`, and the label is what a person aims at.
+
+   3. **Every radio in this app**, added after a measured audit (§39) that
+      found the floor silently winning against `width: 1px` on all thirteen
+      of them. The app has no visible radio circles at all — the user asked
+      for "all radio buttons to toggle buttons", and three rules deliver it
+      (`.check-row`, `.segmented-control`, `.provider-option`, each clipping
+      its input to 1px rather than `display: none` so the group keeps its
+      arrow-key navigation). The floor overrode that `width`/`height` and
+      inflated each one back to 28x28. It did no visible damage *today*
+      because those rules also set `position: absolute` and
+      `clip-path: inset(50%)`, so a 28px box neither paints nor takes flow
+      space — measured at 28x28, PAINTED=false, on all seven radios reachable
+      in Settings. But that is one declaration away from a stray native
+      circle: a radio styled to be visible (the `1rem` `accent-color`
+      treatment further down this file) renders 28px instead, and a clipped
+      one that ever loses `position: absolute` paints a 28px OS control in a
+      row designed to have none. That is exactly the shape of the checkbox
+      failure above, and it is cheaper to exclude radios here than to
+      re-diagnose it. */
 .switch input[type="checkbox"],
 .checkbox-label input[type="checkbox"].sr-only {
   min-width: 0;
@@ -1439,24 +1475,26 @@ progress {
   font-size: 0.92rem;
 }
 
-.settings-section label input[type="radio"] {
-  width: 1rem;
-  height: 1rem;
-  flex: 0 0 auto;
-  margin: 0;
-  /* Optical, not arbitrary: nudges a 1rem control onto the centre of a
-     0.92rem line of text rather than its top edge. Radios only now — the
-     switch block at the end of this file owns checkboxes, and it used to lose
-     a specificity *tie* to this rule purely because this one comes later,
-     which is why a checkbox rendered as a 1rem circle instead of a switch. */
-  margin-top: 0.15rem;
-  /* Themes the native control instead of rebuilding it. A hand-built radio
-     has to reimplement focus rings, high-contrast mode and the platform's own
-     touch targets, and usually gets one of them wrong; `accent-color` gets all
-     three for free and follows the palette the user picked. */
-  accent-color: var(--accent);
-  cursor: pointer;
-}
+/* **There was a `.settings-section label input[type="radio"]` rule here and
+   it was deleted, measured (§39).** It drew a 1rem `accent-color` circle, and
+   nothing in this app has wanted one since the user asked for "all radio
+   buttons to toggle buttons": all thirteen radios go through `.check-row`,
+   `.segmented-control` or `.provider-option`, each of which clips its input
+   away and lets the row or segment carry the chosen state.
+
+   So it painted nothing — but it was not inert. At (0,2,2) it out-specified
+   all three of those rules at (0,2,1), and since it came from a file they
+   don't override on `width`/`height`, every clipped radio in Settings was
+   really 16x16 rather than the 1px those rules ask for (measured; it had been
+   28x28 before the `--target-min` floor above stopped naming radios). Only
+   `position: absolute` and `clip-path`, which this rule never contested, kept
+   that invisible. One dropped `clip-path` and a native OS circle appears in a
+   row designed to have none — the same class of failure as the checkbox one
+   documented at the floor above, waiting on an unrelated edit to fire.
+
+   A visible radio, if this app ever wants one, should be built where it is
+   used and beside the rule that hides its neighbours, not restored here as a
+   blanket that reaches every radio in Settings. */
 
 /* Labels that are just a caption for a following control (e.g. the accent
    picker, the intensity slider row) shouldn't force the flex row. */

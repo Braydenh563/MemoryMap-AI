@@ -3802,6 +3802,27 @@ summary:not(.icon-only):not(.icon-button) {
   margin-inline: auto;
 }
 
+/* Task #41: a brand-new (or emptied-out) document's Live pane rendered as a
+   sliver — measured at 42px inside a 1100px pane. `margin-inline: auto`
+   above only centres a box that already has a width; per the flex spec, an
+   auto cross-axis margin on a flex item *disables* stretch alignment for
+   that axis, so #doc-live (a `flex: 1 1 auto` item of the column-flex
+   `#doc-panes`) falls back to shrinking to fit its own content instead of
+   filling the pane. With real paragraphs in it that shrink-to-fit width
+   usually still hits the 78ch cap and looks identical to filling the pane —
+   which is why this only ever showed up on an empty document, and why
+   `#doc-content` and `#doc-preview` never needed this: the textarea already
+   gets `width: 100%` from the base `textarea` rule (01-forms-settings.css),
+   and `#doc-preview` gets an explicit width from whichever mode shows it
+   (`#doc-panes.reading>.doc-preview`'s own `width: 100%` for Rendered,
+   `#doc-panes.split>.doc-preview`'s `flex: 1 1 0` for Split) — #doc-live had
+   no equivalent. `width: 100%` here restores the stretch this pane was
+   missing; `max-width` above still caps it and `margin-inline: auto` still
+   centres it once content is wide enough to reach that cap. */
+#doc-live {
+  width: 100%;
+}
+
 #doc-live,
 #doc-preview {
   /* The rendered halves hold real prose with no syntax in it, so they take

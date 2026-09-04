@@ -456,6 +456,20 @@
   overflow: hidden;
 }
 
+/* Task #47: reported directly — no gap between the sort combobox and the
+   chat list below it. Measured before this fix: 0px, the shell flush against
+   `#conversation-list`. The base `select { margin-bottom: var(--space-4) }`
+   rule (01-forms-settings.css) would have supplied one, but `enhanceSelect()`
+   (app.js) hides `#chat-sidebar-sort` itself — `position: absolute`, out of
+   flow — and inserts `.select-shell` as the visible stand-in, which carries
+   none of the original element's margin. Scoped to this sidebar rather than
+   `.select-shell` generally: other call sites (a `.row`'s own `gap`, a modal
+   field list) already have their own spacing and don't need this restated on
+   top of it. */
+#chat-sidebar .select-shell {
+  margin-bottom: var(--space-4);
+}
+
 #conversation-list {
   flex: 1 1 auto;
   overflow-y: auto;
@@ -1413,6 +1427,26 @@ button {
 }
 
 .about-hero p {
+  text-align: left;
+}
+
+/* Task #40: the restart row (`#about-restart-row`, added after this
+   `.about-hero p` override was written) is a `.row`, not a `<p>`, so the
+   centred `text-align` above still reached it — measured before this fix,
+   "Restart MemoryMap" wrapped to two lines that each centred independently
+   (57px vs 73px wide, left edges 8px apart) and the muted hint beside it did
+   the same. `.row` covers the hint (`text-align` inherits into its `<span>`
+   fine), but a `<button>` does not take an inherited `text-align` — the UA
+   stylesheet sets one directly on the element, which always beats an
+   inherited value regardless of where it is set on an ancestor. So the
+   button needs its own declaration; restating it on the row too keeps this
+   readable as one rule for "everything in this row reads left" rather than
+   two unrelated-looking ones. */
+.about-hero .row {
+  text-align: left;
+}
+
+.about-hero .row button {
   text-align: left;
 }
 

@@ -27958,6 +27958,83 @@ function cmdPaletteBusy(busy) {
   if (!busy) cmdPaletteInput.focus();
 }
 
+//: **The palette says what it did, the way the Chat tab does.** Reported:
+//: "the popup agent is still missing many things like the semantic search,
+//: token count, thinking boxes, metadata, persona used, model used... the
+//: popup agent should be an application wide utility tool."
+//:
+//: Every one of those already arrives on the stream — `onMeta` carries the
+//: search mode and what answered, `onStats` the model and the token counts,
+//: `onThinking` the reasoning — and the palette wired all three to `() => {}`.
+//: So this is not new machinery; it is the same events the Chat tab reads,
+//: rendered in the one surface that was throwing them away.
+//:
+//: A quiet footer rather than the Chat tab's full panel, on purpose: the
+//: palette is a 600px overlay you open on top of whatever you were doing, and
+//: reproducing a side panel in it would make the answer harder to read, not
+//: better evidenced. Each fact is a chip, so the row wraps and stays one line
+//: tall when there is little to say.
+function cmdPaletteMetaRow({ meta, stats, persona }) {
+  const facts = [];
+  if (meta?.search_mode && meta.search_mode !== "none") {
+    facts.push([
+      "ph:magnifying-glass",
+      SEARCH_MODE_LABELS[meta.search_mode] || meta.search_mode,
+      "How your notes were searched for this answer",
+    ]);
+  }
+  const model = stats?.model || meta?.answered_by;
+  if (model) facts.push(["ph:cpu", model, "The model that answered"]);
+  if (persona) facts.push(["ph:user-circle", persona, "The persona that answered"]);
+  const tokens = (stats?.prompt_tokens || 0) + (stats?.output_tokens || 0);
+  if (tokens) {
+    //: `usage_source` is the difference between a measured count and a guess,
+    //: and reporting a guess as a measurement is the dishonest way round —
+    //: the same reason the Chat tab's own accumulator propagates it.
+    const estimated = stats.usage_source === "estimated";
+    facts.push([
+      "ph:coins",
+      `${formatTokens(tokens)} tokens${estimated ? " (est.)" : ""}`,
+      estimated
+        ? "Estimated — this model did not report its own usage"
+        : "Counted by the model",
+    ]);
+  }
+  if (stats?.round > 1) {
+    facts.push(["ph:arrows-clockwise", `${stats.round} rounds`, "Tool rounds this turn took"]);
+  }
+  if (!facts.length) return null;
+  const row = document.createElement("div");
+  row.className = "row cmd-palette-meta";
+  for (const [icon, text, title] of facts) {
+    const item = document.createElement("span");
+    item.className = "chip tag cmd-palette-fact";
+    setLabel(item, `${icon} ${text}`);
+    item.title = title;
+    row.appendChild(item);
+  }
+  return row;
+}
+
+//: The model's reasoning, closed. It is long, it is not the answer, and the
+//: palette is the smallest surface in the app — but hiding it entirely is what
+//: made this window feel like it was doing something it would not explain.
+function cmdPaletteThinkingBox(text) {
+  const box = document.createElement("details");
+  box.className = "tool-chip cmd-palette-thinking";
+  const summary = document.createElement("summary");
+  setLabel(summary, "ph:brain Thinking");
+  box.appendChild(summary);
+  const body = document.createElement("div");
+  body.className = "tool-chip-body";
+  const pre = document.createElement("pre");
+  pre.className = "tool-chip-result";
+  pre.textContent = text;
+  body.appendChild(pre);
+  box.appendChild(body);
+  return box;
+}
+
 //: **What the agent found has to be reachable, not recited.** Reported with a
 //: screenshot of the palette answering "You can find your notes about gaming
 //: in notes id 3, 43 and 49": *"i have no clue what the notes numbers are,
@@ -28108,6 +28185,9 @@ async function cmdPaletteAsk(text) {
   let answerRaw = "";
   let answered = false;
   let found = [];
+  let meta = null;
+  let stats = null;
+  let thinkingRaw = "";
   cmdPaletteRun = new AbortController();
   cmdPaletteBusy(true);
   try {
@@ -28122,10 +28202,30 @@ async function cmdPaletteAsk(text) {
       //: `raw_results` is the notes retrieval surfaced for this turn. It used
       //: to be discarded here, which is why the palette could only describe
       //: what it found and never show it.
-      onMeta: (meta) => {
-        found = meta?.raw_results || [];
+      onMeta: (event) => {
+        meta = event;
+        found = event?.raw_results || [];
       },
-      onThinking: () => {},
+      //: Accumulated, not rendered per delta: the box is closed, so there is
+      //: nothing on screen to keep up to date, and re-rendering a <pre> on
+      //: every token would be work nobody can see.
+      onThinking: (delta) => {
+        thinkingRaw += delta;
+      },
+      //: An agent turn reports once per round. Same accumulation the Chat tab
+      //: does — output tokens add up, the prompt is the largest one sent, and
+      //: one estimated round makes the whole figure an estimate.
+      onStats: (event) => {
+        if (!stats) {
+          stats = { ...event };
+          return;
+        }
+        stats.model = event.model || stats.model;
+        stats.prompt_tokens = Math.max(stats.prompt_tokens || 0, event.prompt_tokens || 0);
+        stats.output_tokens = (stats.output_tokens || 0) + (event.output_tokens || 0);
+        stats.round = Math.max(stats.round || 0, event.round || 0);
+        if (event.usage_source === "estimated") stats.usage_source = "estimated";
+      },
       onTool: (event) => {
         // Something visible while a tool runs, so a long silence reads as
         // work rather than as nothing happening.
@@ -28160,6 +28260,18 @@ async function cmdPaletteAsk(text) {
     //: prose is free to summarise or to leave a note out, but what retrieval
     //: found should not depend on whether it got a mention.
     if (found.length) cmdPaletteResults.appendChild(cmdPaletteResultRow(found));
+    //: Reasoning above the evidence, evidence above the accounting — the same
+    //: order the Chat tab reads in, so moving between the two surfaces does
+    //: not mean learning a second layout.
+    if (thinkingRaw.trim()) {
+      agentMsg.prepend(cmdPaletteThinkingBox(thinkingRaw.trim()));
+    }
+    const metaRow = cmdPaletteMetaRow({
+      meta,
+      stats,
+      persona: (prefsCache && prefsCache.active_persona) || null,
+    });
+    if (metaRow) cmdPaletteResults.appendChild(metaRow);
     cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
   } catch (err) {
     if (err?.name === "AbortError") {

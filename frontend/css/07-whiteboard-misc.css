@@ -4069,3 +4069,39 @@ button.connection-row {
 .cmd-note-link:focus-visible {
   text-decoration-thickness: 2px;
 }
+
+/* --- what the turn cost and how it got there ------------------------------
+   `cmdPaletteMetaRow` (app.js). Reported: "the popup agent is still missing
+   many things like the semantic search, token count, thinking boxes,
+   metadata, persona used, model used".
+
+   A row of chips rather than the Chat tab's side panel: the palette is an
+   overlay you open on top of whatever you were doing, and reproducing a panel
+   inside it would crowd the answer instead of evidencing it. Chips wrap, so
+   the row is one line tall when there is little to say and grows only when
+   there is more. `.chip.tag` is the app's existing "a small stated fact"
+   object — a different-looking badge here would be a second sign for the same
+   meaning. */
+.cmd-palette-meta {
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+/* These state something; they are not pressable. Read-only chips sit beside
+   the openable note chips of `.cmd-palette-found` directly above, so the
+   difference has to be visible: no pointer, no hover lift, and the muted
+   colour the app already uses for text that reports rather than acts. */
+.cmd-palette-fact {
+  cursor: default;
+  color: var(--muted);
+}
+
+/* Full width, because a `<details>` in a flex column would otherwise shrink to
+   its summary and leave the disclosure hanging in the middle of the bubble. */
+.cmd-palette-thinking {
+  display: block;
+  margin-bottom: var(--space-3);
+}

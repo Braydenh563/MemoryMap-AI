@@ -9623,3 +9623,88 @@ measurement in this handover was taken at a single 1440x900 viewport.
 machine. Everything above was measured against Chromium at 1440x900 in the
 sandbox with one seeded profile. The Ollama fix in particular is tested
 against a fake response object — no real Ollama was ever contacted.
+
+## Session: the lock audit (ROADMAP.md's #1), and two bugs it takes to find
+
+### The lock audit, done — and it found two real holes
+
+ROADMAP.md ranks this first and says why: shortcuts once ran behind the lock
+screen and were found *by a user pressing keys, not by a test*. It names four
+unchecked avenues. All were driven against the running app, locked.
+
+**Four held, and it is worth recording which**, so nobody re-audits them:
+
+| Avenue | Result |
+| --- | --- |
+| The API while locked | `/entries`, `/media`, `/documents`, `/reminders` all **401** |
+| Keyboard shortcuts | palette, agent palette, `/`, `g`-then-letter — all refused |
+| A `#hash` route | does not unlock or reveal anything |
+| Drag and drop onto the window | inert: no overlay, no staged file, no toast |
+
+**Two did not:**
+
+1. **The overlay was a cover, not a purge.** With the notebook locked,
+   `#entry-list` still held **61 notes and 3,431 characters** of their text,
+   `#library-grid` 5,089, the documents list 6,422, chat 3,599. One devtools
+   click, one screen reader or one browser extension away from being read.
+2. **A second open tab never locked at all.** Locking in tab A cleared tab A
+   and dropped the shared token — so the API refused tab B — but tab B kept
+   showing all 61 notes with no lock screen, indefinitely.
+
+The token being gone stops new data arriving; it does nothing about data
+already painted. Both are fixed (`purgeLockedContent`, plus a `storage`
+listener so a lock reaches every tab) with four tests, each verified to fail
+without its fix.
+
+### Ctrl+K has never searched your notes
+
+The palette's reminder filter read `r.content`; a reminder's field is `text`.
+`undefined.toLowerCase()` threw partway through `paletteMatches`, so **every**
+group was lost with it — notes, documents, reminders, conversations. Ctrl+K
+silently degraded to its static command list for anyone with one reminder
+saved, with the only trace an exception in a console nobody has open.
+
+**My first read of the symptom was wrong**, and that is the part worth
+keeping: I recorded "Ctrl+K gives you commands, not your notes" as a *design*
+gap. The design was right; the code was throwing. Fixed, and the palette now
+also resolves files and boards, which is REDESIGN.md R7.3's universal picker.
+
+### A privacy bug I introduced and caught by re-reading my own code
+
+The file-usage labels added earlier in this session put each referencing
+note's first line on the Library's file cards — including a **private** note's
+first line, once the vault is unlocked. Fixed to show "Private note" while
+still reporting the connection, which is what `_linked_notes` already does.
+The link must stay: knowing *that* a file is in use is what stops it being
+deleted as an orphan.
+
+### Probes invent work — four times this session
+
+The phone nav tab bar (it scrolls; I measured a scrolled strip), eight "too
+small" graph controls (deliberate toggle sizing this repo already reverted
+once), a 1px select (a hidden native element behind a 258x39 opener), and
+`hasConnections: false` on documents (the wraps exist; the test document has
+none). **Every one was caught by looking at a screenshot or taking a second,
+narrower measurement.** Widen a probe and it will find phantoms; scope it to
+the thing being judged.
+
+### Also this session
+
+- Whiteboard: wheel zoom, middle-drag pan and held-space pan now work from
+  *every* tool (they were detached for all but Pan, which also killed wheel
+  zoom while drawing). Connector curves leave and enter along the edge they
+  attach to — measured 0 degrees before, 90 after — and arrowheads follow the
+  curve's tangent rather than the chord.
+- Wide screens get a 1500px centred content column: the Reminders input was
+  stretching to ~1450px and rows put title and date ~1700px apart.
+- Settings on a phone had a **20px** content pane — every section listed, none
+  openable. The nav is a scrolling strip there now.
+- Documents get a 78ch measure (was ~130 characters a line).
+- Files & Images says where each file is used, with chips that open it.
+
+### Still open
+
+The pane-based shell (ROADMAP #4, the largest remaining piece), the agent
+harness audit (#6, five changes none yet checked against running code),
+managing concept maps (#8), the backend list (#9), typed collapsible blocks,
+and the `@` picker inside composers (the palette half is done).

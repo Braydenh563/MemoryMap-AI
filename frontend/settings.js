@@ -314,6 +314,24 @@ async function openSettingsModal(section = "models", scrollToId = null) {
 // and only when the settings panel is opened — it is several thousand words
 // and nobody is waiting for it at startup.
 let changelogLoaded = false;
+//: **The changelog renders when it is opened, not when Settings is.**
+//:
+//: Measured during the first audit of Settings (ROADMAP.md item 7 — it had
+//: never been measured): `#changelog-body` held **21,452 words across ~505
+//: paragraphs**, laid out on every single open of Settings -> About, while
+//: the `<details>` around it showed 47 pixels of that. It is not a visual
+//: problem — the fold clips it, and the panel reads as compact — which is
+//: exactly why it went unnoticed. It is DOM weight and layout work for
+//: content nobody has asked to see yet.
+//:
+//: The fetch stays eager, because its answer decides whether the control is
+//: shown at all: a packaged build may not ship the file, and offering a
+//: disclosure that opens onto nothing is worse than not offering one. Only
+//: the render is deferred, since that is the expensive half.
+//:
+//: `toggle` rather than `click`: a `<details>` can also be opened by the
+//: keyboard, by find-in-page, and programmatically, and `toggle` is the one
+//: event that fires for all of them.
 async function loadChangelog() {
   if (changelogLoaded) return;
   const fold = $("changelog-fold");
@@ -328,7 +346,15 @@ async function loadChangelog() {
   }
   changelogLoaded = true;
   fold.classList.remove("hidden");
-  renderMarkdown(body, data.markdown);
+  const paint = () => {
+    if (fold.dataset.rendered) return;
+    fold.dataset.rendered = "1";
+    renderMarkdown(body, data.markdown);
+  };
+  if (fold.open) paint(); // already open from a previous visit
+  fold.addEventListener("toggle", () => {
+    if (fold.open) paint();
+  });
 }
 
 // --- finding a setting (§36B) ------------------------------------------------------

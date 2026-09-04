@@ -60,3 +60,28 @@ def test_palette_field_reads_go_through_the_guard():
     source = _palette_matches_source()
     raw = re.findall(r"\b[a-z]\.\w+\.toLowerCase\(\)", source)
     assert not raw, f"these bypass paletteText and can throw the palette away: {raw}"
+
+
+def test_the_palette_resolves_every_kind_of_thing_the_app_holds():
+    """REDESIGN.md R7.3: "one universal picker... resolving notes, documents,
+    files and maps alike".
+
+    It searched four of six — notes, documents, reminders, conversations — so
+    a file or a board could only be reached by navigating to its tab first.
+    That is the difference between a jump-to-note box and the way you move
+    around the app.
+    """
+    source = _palette_matches_source()
+    for group in ("Notes", "Documents", "Files", "Boards & maps", "Reminders", "Conversations"):
+        assert f'"{group}"' in source, f"the palette no longer resolves {group}"
+
+
+def test_the_palette_returns_every_group_it_builds():
+    """A group that is built and then left out of the return is dead code that
+    looks alive — the "never ran once" shape again. Every `*Matches` list the
+    function builds has to appear in what it returns."""
+    source = _palette_matches_source()
+    built = set(re.findall(r"const (\w+Matches) =", source))
+    returned = source[source.rindex("return ["):]
+    missing = sorted(name for name in built if name not in returned)
+    assert not missing, f"built but never returned: {missing}"

@@ -18618,6 +18618,13 @@ function paletteCommands() {
 
 let paletteReminders = [];
 let paletteConversations = [];
+//: Files and boards, so the palette resolves every kind of thing this app
+//: holds rather than four of six. REDESIGN.md R7.3 asks for exactly this —
+//: "one universal picker... resolving notes, documents, files and maps
+//: alike" — and it is the difference between a jump-to-note box and the way
+//: you actually move around the app.
+let paletteMedia = [];
+let paletteBoards = [];
 
 async function openPalette() {
   overlayReturnFocus = document.activeElement;
@@ -18630,6 +18637,8 @@ async function openPalette() {
   // Background fetch of Reminders and Conversations for the palette to search.
   apiJson("/reminders", { silent: true }).then(res => { paletteReminders = res || []; }).catch(() => { paletteReminders = []; });
   apiJson("/conversations", { silent: true }).then(res => { paletteConversations = res || []; }).catch(() => { paletteConversations = []; });
+  apiJson("/media", { silent: true }).then(res => { paletteMedia = res || []; }).catch(() => { paletteMedia = []; });
+  apiJson("/whiteboard/boards", { silent: true }).then(res => { paletteBoards = res || []; }).catch(() => { paletteBoards = []; });
 }
 
 function closePalette() {
@@ -18708,7 +18717,61 @@ function paletteMatches(query) {
       run: () => loadChatHistory(c.id),
     }));
 
-  return [...commands, ...notes, ...docMatches, ...reminderMatches, ...conversationMatches];
+  // Files: matched on the name you gave the file and on its caption, because
+  // "the screenshot of the timetable" is how people remember an image, not
+  // `a3f9c2.png`. Opens the Library's Files tab, which is where the file's own
+  // metadata and its usage links live.
+  const mediaMatches = paletteMedia
+    .filter(
+      (m) =>
+        paletteText(m.original_name).includes(lowered) ||
+        paletteText(m.caption).includes(lowered)
+    )
+    .slice(0, 3)
+    .map((m) => ({
+      group: "Files",
+      label: `ph:image ${m.original_name || "Untitled file"}`,
+      run: () => {
+        switchTab("library");
+        // Click the sub-tab rather than reaching for a view-switching
+        // function: `#library-subtabs`'s own handler sets the active class,
+        // the aria-selected state and that view's lazy load, and this app
+        // already learned once that re-implementing three of those is how
+        // they drift (see the identical call in the graph's file jump).
+        document
+          .querySelector('#library-subtabs button[data-target="library-view-media"]')
+          ?.click();
+        // The gallery filters on filename, so putting the name in its own
+        // search is what "take me to it" means for a file.
+        const search = $("library-images-search");
+        if (search) {
+          search.value = m.original_name || "";
+          search.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      },
+    }));
+
+  // Boards and maps. `id` is null for the default board — passed through as
+  // null rather than skipped, because the default board is the one most
+  // people actually draw on.
+  const boardMatches = paletteBoards
+    .filter((b) => paletteText(b.title).includes(lowered))
+    .slice(0, 3)
+    .map((b) => ({
+      group: "Boards & maps",
+      label: `ph:squares-four ${b.title || "Untitled board"}`,
+      run: () => openWhiteboardBoard(b.id ?? null),
+    }));
+
+  return [
+    ...commands,
+    ...notes,
+    ...docMatches,
+    ...mediaMatches,
+    ...boardMatches,
+    ...reminderMatches,
+    ...conversationMatches,
+  ];
 }
 
 function renderPalette(query) {

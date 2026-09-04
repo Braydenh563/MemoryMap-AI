@@ -44,7 +44,49 @@
 // Whiteboard sub-tab.
 
 // ======================= WHITEBOARD LOGIC =======================
-let wbZoom = d3.zoom().scaleExtent([0.1, 4]).on("zoom", handleWbZoom);
+// **Held-space panning, middle-mouse panning, and wheel zoom from every
+// tool.** Reported directly: "the whiteboard is really annoying to use with
+// the tools, I'm constantly having to switch between tools to select and move
+// around."
+//
+// That was structural rather than a missing shortcut. Panning *was* a tool —
+// you pressed V to pan and S to select — and `selectWbTool` disabled the zoom
+// behaviour outright for every other tool (`container.on(".zoom", null)`),
+// which also took **wheel zoom** with it. So while drawing you could neither
+// scroll the canvas nor zoom it without first changing tool and then changing
+// back.
+//
+// Every drawing app people already know (Figma, Excalidraw, tldraw) solves
+// this the same way, and it is a filter rather than a mode: the zoom
+// behaviour stays attached at all times, and decides per-event whether a
+// gesture is a pan. Held space or the middle mouse button pans from *any*
+// tool; a plain left-drag only pans when Pan is genuinely the active tool, so
+// drawing, the marquee and lasso are untouched.
+let wbSpaceHeld = false;
+
+function wbZoomFilter(event) {
+  // Wheel: always. Zooming is a way of looking, not an edit, and there is no
+  // tool for which "you may not zoom right now" is the correct answer.
+  if (event.type === "wheel") return true;
+  // Middle button pans from anywhere. `buttons` rather than `button` because
+  // mousemove reports the held set, and the drag half of the gesture needs to
+  // pass the filter too.
+  if (event.button === 1 || (event.buttons & 4) === 4) return true;
+  // Touch: only in Pan. A finger drag while a brush is selected is a stroke,
+  // and stealing it for a pan would make the board undrawable on a tablet.
+  if (event.type.startsWith("touch")) return window.currentTool === "pan";
+  // Left button: Pan tool, or space held down.
+  if (event.button === 0 || event.buttons === 1 || event.buttons === 0) {
+    return window.currentTool === "pan" || wbSpaceHeld;
+  }
+  return false;
+}
+
+let wbZoom = d3
+  .zoom()
+  .scaleExtent([0.1, 4])
+  .filter(wbZoomFilter)
+  .on("zoom", handleWbZoom);
 let wbState = { nodes: [], sketches: [], objects: [] };
 let wbHintForcedOpen = false; // the "?" help button's override — see renderWhiteboard
 let wbInitialized = false;
@@ -3077,11 +3119,14 @@ async function initWhiteboard() {
         b.classList.toggle("active", b.dataset.tool === tool);
       });
     }
-    if (tool !== "pan") {
-      container.on(".zoom", null); // disable zoom-drag so it can't fight drawing
-    } else {
-      container.call(wbZoom).on("dblclick.zoom", null);
-    }
+    // The zoom behaviour stays attached for every tool. It used to be
+    // detached for all but Pan so a drag could not fight drawing — but
+    // `wbZoomFilter` (top of file) now makes that decision per event, and
+    // detaching also removed **wheel zoom**, so you could not zoom or scroll
+    // the canvas while any drawing tool was selected without switching tool
+    // and switching back. That was a large part of the reported "constantly
+    // having to switch between tools".
+    container.call(wbZoom).on("dblclick.zoom", null);
     // The toggle shows whichever shape is actually active (and reads as
     // "on" the same way any other tool button does) instead of a fixed
     // icon — picking "circle" from the menu should look exactly like
@@ -3328,11 +3373,38 @@ async function initWhiteboard() {
     b: "bucket",
     x: "delete",
   };
+  // Held space = pan, from whatever tool you are holding. The flag is read by
+  // `wbZoomFilter`; nothing about the active tool changes, so releasing space
+  // puts you back exactly where you were rather than in a different mode.
+  //
+  // The cursor changes with it, because a modifier that alters what a drag
+  // does has to say so before the drag — a grab cursor is how every canvas
+  // app signals this, and without it "space does something" is a secret.
+  const wbCanvasEl = () => document.getElementById("whiteboard-container");
+  function wbSetSpaceHeld(held) {
+    if (wbSpaceHeld === held) return;
+    wbSpaceHeld = held;
+    const el = wbCanvasEl();
+    if (el) el.classList.toggle("wb-space-pan", held);
+  }
+  document.addEventListener("keyup", (e) => {
+    if (e.code === "Space") wbSetSpaceHeld(false);
+  });
+  // A board left while space is down would otherwise stay stuck in pan.
+  window.addEventListener("blur", () => wbSetSpaceHeld(false));
+
   document.addEventListener("keydown", (e) => {
     const view = document.getElementById("library-view-whiteboard");
     if (!view || view.classList.contains("hidden")) return;
     const tag = (document.activeElement?.tagName || "").toLowerCase();
     if (tag === "input" || tag === "textarea" || document.activeElement?.isContentEditable) return;
+    if (e.code === "Space") {
+      // preventDefault so the page does not scroll under the board, and so a
+      // focused toolbar button is not "clicked" by the space that is panning.
+      e.preventDefault();
+      wbSetSpaceHeld(true);
+      return;
+    }
     if (e.key === "Escape") {
       clearWbSelection();
       selectWbTool("pan");

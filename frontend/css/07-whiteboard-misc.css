@@ -3344,3 +3344,28 @@ summary:not(.icon-only):not(.icon-button) {
   background: var(--ghost-btn-bg-hover);
   color: var(--accent);
 }
+
+/* --- held space pans, from any tool --------------------------------------
+   Reported: "the whiteboard is really annoying to use with the tools, I'm
+   constantly having to switch between tools to select and move around."
+
+   The cursor is not decoration here. Space changes what a drag will do, and a
+   modifier that changes a gesture has to say so *before* the gesture starts —
+   otherwise "hold space to pan" is a secret only someone who read the help
+   panel knows. `grab` while held, `grabbing` while actually dragging, which
+   is the pair every canvas app uses and the one people already recognise.
+
+   `!important` on the cursor specifically: `selectWbTool` writes
+   `container.style.cursor` inline for the active tool (a crosshair, a custom
+   brush bitmap), and an inline style beats any selector here. The whole point
+   of this class is to override the tool's own cursor for as long as space is
+   down, so it has to win against that inline value. */
+.whiteboard-container.wb-space-pan,
+.whiteboard-container.wb-space-pan * {
+  cursor: grab !important;
+}
+
+.whiteboard-container.wb-space-pan:active,
+.whiteboard-container.wb-space-pan:active * {
+  cursor: grabbing !important;
+}

@@ -3703,10 +3703,20 @@ Link to another note with [[its first few words]]."></textarea>
                 fills in. The built-in engine works either way.
               </p>
             </div>
-            <div id="reindex-box" class="hidden settings-group">
-              <h3>Re-indexing your notes…</h3>
-              <progress id="reindex-progress" value="0" max="1"></progress>
-              <p id="reindex-label" class="status"></p>
+            <!-- Not `hidden` any more: this used to appear only *while* a
+                 re-index ran, and the only thing that could start one was
+                 switching embedding backend, where a rebuild is a side effect.
+                 It is a real section now — see `POST /models/reindex` and
+                 `renderReindex` in app.js, which swaps the button for the
+                 progress bar while a job is going. -->
+            <div id="reindex-box" class="settings-group">
+              <h3>Search index</h3>
+              <progress id="reindex-progress" class="hidden" value="0" max="1"></progress>
+              <p id="reindex-label" class="status hidden"></p>
+              <div class="row space-between reindex-action">
+                <p id="reindex-blurb" class="muted text-sm">Rebuilds what semantic search matches on. Worth doing after an update, or if searching stops finding notes you know are there — it re-reads every note with its category, tags and attached text included.</p>
+                <button id="reindex-start" class="ghost small" type="button">Rebuild search index</button>
+              </div>
             </div>
             <div id="installed-box" class="hidden settings-group">
               <h3>Installed models</h3>

@@ -2772,21 +2772,6 @@ aside[data-resizable="1"] {
   font-weight: 600;
 }
 
-.checkbox-label input[type="checkbox"] {
-  /* Clipped, not display:none - stays in the accessibility tree and
-     keyboard-focusable via the <label> click target it already is. */
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
-  white-space: nowrap;
-  border: 0;
-}
-
 /* The Library's per-card selection tick is the one genuinely undersized
    control in the app: a bare 13x13 native checkbox, and nothing wraps it, so
    13x13 is the entire target. It only appears in select mode, which is why a

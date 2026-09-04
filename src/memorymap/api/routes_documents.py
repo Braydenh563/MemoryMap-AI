@@ -470,6 +470,37 @@ def detach_note(
     return _full(document, session)
 
 
+@router.get("/{document_id}/connections")
+def document_connections(document_id: int, session: Session = Depends(get_session)) -> dict:
+    """The same Connections block a note gets, for a document.
+
+    A document's joins were split across three places before this: attached
+    notes came back inside `GET /documents/{id}`, bookmarks had their own
+    endpoint, and the images a document embeds were listed nowhere — you
+    could only find them by reading the markdown. One shape, one request.
+    """
+    from memorymap.api.routes_entries import _connected_files
+
+    document = _existing(session, document_id)
+    bookmarks = [
+        {"id": row.id, "title": row.title, "url": row.url}
+        for row in session.scalars(
+            select(Bookmark)
+            .join(DocumentBookmark, DocumentBookmark.bookmark_id == Bookmark.id)
+            .where(DocumentBookmark.document_id == document.id)
+            .order_by(Bookmark.title)
+        )
+    ]
+    notes = _linked_notes(session, document.id)
+    files = _connected_files(session, document.content)
+    return {
+        "notes": notes,
+        "bookmarks": bookmarks,
+        "files": files,
+        "total": len(notes) + len(bookmarks) + len(files),
+    }
+
+
 @router.get("/{document_id}/export.md")
 def export_markdown(
     document_id: int, session: Session = Depends(get_session)

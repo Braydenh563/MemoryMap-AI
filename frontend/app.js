@@ -1933,6 +1933,142 @@ function wireEscapedActionMenu(wrap) {
   );
 }
 
+// The Connections block (REDESIGN.md §R7.3 item 1), for a note or a document.
+//
+// `kind` is "entries" or "documents" — the two API prefixes, used verbatim
+// as the path segment rather than mapped through a lookup, because a third
+// kind would need a third endpoint anyway and a two-entry map is a place for
+// them to disagree.
+//
+// Direction is the whole point of the first two groups. `links_for_entry`
+// has always returned both directions merged, so a note could show what it
+// was connected to and never which way round — and "this note points at that
+// one" and "that one points at this" are different facts. Everything else on
+// this dialog is a join that existed in the database and was surfaced
+// nowhere: the boards a note is a card on, and the uploads its markdown
+// embeds.
+async function openConnections(kind, id, subject) {
+  const overlay = $("connections-overlay");
+  const list = $("connections-list");
+  const status = $("connections-status");
+  status.classList.remove("error");
+  status.textContent = "Loading…";
+  list.replaceChildren();
+  $("connections-subject").textContent = subject || "";
+  overlay.classList.remove("hidden");
+  $("connections-close").focus();
+
+  let data;
+  try {
+    data = await apiJson(`/${kind}/${id}/connections`);
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+    return;
+  }
+  status.textContent = "";
+
+  // Each group is [heading, rows, how to open one]. Built as data rather
+  // than five near-identical blocks of DOM code: the groups differ only in
+  // their label field and their click target, and writing that out five
+  // times is how one of them quietly loses its keyboard handling.
+  const groups =
+    kind === "entries"
+      ? [
+          ["ph:arrow-up-right This note links to", data.outgoing, noteRow],
+          ["ph:arrow-down-left Notes that link here", data.incoming, noteRow],
+          ["ph:file-text In these documents", data.documents, docRow],
+          ["ph:squares-four On these boards", data.boards, boardRow],
+          ["ph:image Files it uses", data.files, fileRow],
+        ]
+      : [
+          ["ph:note Notes attached", data.notes, noteRow],
+          ["ph:bookmark-simple References", data.bookmarks, bookmarkRow],
+          ["ph:image Files it uses", data.files, fileRow],
+        ];
+
+  function row(label, title, onOpen) {
+    const item = smallButton(label, title, () => {
+      overlay.classList.add("hidden");
+      onOpen();
+    });
+    item.classList.add("connection-row");
+    return item;
+  }
+  function noteRow(link) {
+    // A private note contributes the fact of the connection and not its
+    // words — the server sends "Private note" as the preview, and the flag
+    // is what lets this say so rather than showing a label that reads like
+    // a real (empty-looking) note title.
+    const label = link.is_private ? "ph:lock Private note" : `ph:note ${link.preview}`;
+    const why = link.reason ? `\nWhy: ${link.reason}` : "";
+    return row(label, `Open this note${why}`, () => flashEntry(link.id));
+  }
+  function docRow(doc) {
+    return row(`ph:file-text ${doc.title}`, `Open “${doc.title}”`, () =>
+      openDocumentFromNote(doc.id)
+    );
+  }
+  function boardRow(board) {
+    return row(`ph:squares-four ${board.title}`, `Open “${board.title}”`, () =>
+      openWhiteboardBoard(board.id ?? null)
+    );
+  }
+  function bookmarkRow(mark) {
+    return row(`ph:bookmark-simple ${mark.title || mark.url}`, `Open ${mark.url}`, () =>
+      window.open(mark.url, "_blank", "noopener,noreferrer")
+    );
+  }
+  function fileRow(file) {
+    const name = file.original_name || file.name;
+    // Same three steps the palette's own file jump takes, and for the same
+    // reason it takes them: clicking the sub-tab runs its active class,
+    // aria-selected and lazy load, and the gallery filters on filename, so
+    // filling its search is what "take me to it" means for a file.
+    return row(`ph:image ${name}`, `Find “${name}” in the Library`, () => {
+      switchTab("library");
+      document
+        .querySelector('#library-subtabs button[data-target="library-view-media"]')
+        ?.click();
+      const search = $("library-images-search");
+      if (search) {
+        search.value = name;
+        search.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    });
+  }
+
+  let shown = 0;
+  for (const [heading, rows, build] of groups) {
+    if (!rows || !rows.length) continue;
+    shown += rows.length;
+    const section = document.createElement("div");
+    section.className = "connection-group";
+    const head = document.createElement("p");
+    head.className = "muted connection-heading";
+    setLabel(head, `${heading} (${rows.length})`);
+    section.appendChild(head);
+    const holder = document.createElement("div");
+    holder.className = "connection-rows";
+    for (const item of rows) holder.appendChild(build(item));
+    section.appendChild(holder);
+    list.appendChild(section);
+  }
+  if (!shown) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent =
+      kind === "entries"
+        ? "Nothing is joined to this note yet. Link it to another note, attach it to a document, or drop it on a whiteboard."
+        : "Nothing is joined to this document yet. Attach a note or a reference to it.";
+    list.appendChild(empty);
+  }
+}
+
+$("connections-close")?.addEventListener("click", () =>
+  $("connections-overlay").classList.add("hidden")
+);
+
 // The ⋯ overflow menu on each note card (Wave L rework).
 // Earlier versions of one note, with a way back to any of them.
 async function openEntryHistory(entry) {
@@ -2297,6 +2433,24 @@ function entryOverflowMenu(entry) {
           ? "Decrypt this note so search and the AI can use it again"
           : "Encrypt this note at rest, and keep it out of search and the AI",
         run: () => toggleEntryPrivacy(entry),
+      },
+      {
+        // Sits above History because it is the more common question by far:
+        // "what else is this about?" is asked of a note every time it is
+        // read, and "what did it used to say?" only when something looks
+        // wrong.
+        label: "ph:graph Connections",
+        title: "Everything this note is joined to — links both ways, documents, boards and files",
+        // The note's own title when it wrote one, and its first words
+        // otherwise — `notePreviewText` alone hands back both lines of a
+        // titled note ("Probe A\nrelates to sourdough"), which reads as
+        // two sentences jammed together on one line of the dialog.
+        run: () =>
+          openConnections(
+            "entries",
+            entry.id,
+            entry.title || notePreviewText(entry.content).split("\n")[0].slice(0, 80)
+          ),
       },
       {
         label: "ph:clock-counter-clockwise History",
@@ -25314,6 +25468,10 @@ document.addEventListener("keydown", (e) => {
     closeImprove();
     return;
   }
+  if (e.key === "Escape" && !$("connections-overlay").classList.contains("hidden")) {
+    $("connections-overlay").classList.add("hidden");
+    return;
+  }
   if (e.key === "Escape" && !$("history-overlay").classList.contains("hidden")) {
     $("history-overlay").classList.add("hidden");
     return;
@@ -25733,6 +25891,16 @@ const DEFAULT_SHORTCUTS = {
   stopAI: { keys: "Ctrl+.", label: "Stop the answer being written" },
   agentMode: { keys: "Ctrl+Shift+G", label: "Turn agent mode on or off" },
   quickSketch: { keys: "Ctrl+Shift+K", label: "Open the quick sketch pad" },
+  // **The agent bar's chord, declared here rather than bound loose.** It was
+  // moved off Ctrl+K once already, to settle a collision with the navigation
+  // palette — onto Ctrl+Shift+K, which `quickSketch` above had held all
+  // along, so the fix swapped one silent collision for another and the sketch
+  // pad and the agent bar both opened on one press (reported). The cause both
+  // times was the same: this chord lived in a `document.addEventListener` of
+  // its own, where nothing could see it. In the registry it is checked against
+  // every other chord by `test_frontend_shortcuts.py`, appears in the
+  // shortcuts help, and can be rebound like all the rest.
+  askAgent: { keys: "Ctrl+Shift+A", label: "Ask the agent anything" },
   whiteboard: { keys: "Ctrl+Shift+B", label: "Open the whiteboard" },
   settings: { keys: "Ctrl+,", label: "Open settings" },
   attachNote: { keys: "Ctrl+Shift+P", label: "Clip a note to your next question" },
@@ -25880,6 +26048,7 @@ function runShortcut(id) {
       toggle.dispatchEvent(new Event("change", { bubbles: true }));
     },
     quickSketch: openSketch,
+    askAgent: toggleAgentPalette,
     whiteboard: () => switchTab("whiteboard"),
     settings: () => openSettingsModal(),
     attachNote: () => {
@@ -27144,27 +27313,21 @@ const cmdPaletteOverlay = $("command-palette-overlay");
 const cmdPaletteInput = $("command-palette-input");
 const cmdPaletteResults = $("command-palette-results");
 
-document.addEventListener("keydown", (e) => {
-  // Real bug, found live while testing an unrelated command-palette change:
-  // this "ask the agent anything" overlay and the *other*, separately-built
-  // navigation palette (`openPalette`, `#palette-overlay`, wired to Ctrl+K
-  // at the shortcut dispatcher and in the shortcuts help text) both bound
-  // the identical Ctrl+K keydown on `document`, independently, neither
-  // aware the other existed. Both toggled open at once, and since this
-  // overlay sits later in the DOM it silently ate every click meant for the
-  // "real" one underneath — a fully built, previously-fixed feature (see
-  // this handler's own XSS-fix comment below) made unusable by a shortcut
-  // collision, not by anything wrong in either implementation. Ctrl+Shift+K
-  // here, Ctrl+K stays with the older/more-integrated navigation palette.
-  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "k") {
-    e.preventDefault();
-    if (cmdPaletteOverlay.classList.contains("hidden")) {
-      cmdPaletteOverlay.classList.remove("hidden");
-      cmdPaletteInput.focus();
-    } else {
-      cmdPaletteOverlay.classList.add("hidden");
-    }
+// Opened and closed by `runShortcut("askAgent")` — see DEFAULT_SHORTCUTS.
+// This deliberately has no `document.addEventListener` chord of its own:
+// binding one here is what let this overlay collide with the navigation
+// palette on Ctrl+K, and then with the sketch pad on Ctrl+Shift+K, twice
+// without anything noticing.
+function toggleAgentPalette() {
+  if (cmdPaletteOverlay.classList.contains("hidden")) {
+    cmdPaletteOverlay.classList.remove("hidden");
+    cmdPaletteInput.focus();
+  } else {
+    cmdPaletteOverlay.classList.add("hidden");
   }
+}
+
+document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !cmdPaletteOverlay.classList.contains("hidden")) {
     cmdPaletteOverlay.classList.add("hidden");
   }

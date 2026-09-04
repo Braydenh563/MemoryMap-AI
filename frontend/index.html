@@ -49,64 +49,22 @@
        not itself be the thing that breaks, and `script-src 'self'` covers a
        same-origin file unconditionally. -->
   <script src="/boot-guard.js?v=0.1.8"></script>
-  <script>
-    // Everything visual is applied before first paint, so the app never
-    // flashes the default look and then corrects itself.
-    //
-    // The lookup order matches appearancePref() in app.js exactly:
-    //     your manual change  →  the selected theme  →  the app default
-    // It is duplicated here rather than imported because app.js loads at the
-    // end of the body, which is far too late to prevent the flash. The theme
-    // VALUES are the only thing repeated; keep them in step with
-    // THEME_PRESETS, or a themed reload will flicker.
-    (function () {
-      const _r = document.documentElement;
-      const THEMES = {
-        default: { palette: "default", glass: "on", radius: "14" },
-        manuscript: { palette: "parchment", font: "serif", glass: "off", radius: "6", density: "spacious" },
-        terminal: { palette: "carbon", font: "mono", glass: "off", radius: "2", density: "compact" },
-        study: { palette: "sage", font: "serif", glass: "on", radius: "16" },
-        abyss: { palette: "ocean", glass: "on", "glass-blur": "26", radius: "14" },
-        ember: { palette: "ember", glass: "on", radius: "12" },
-        orchid: { palette: "plum", glass: "on", radius: "18" },
-        blueprint: { palette: "ocean", font: "mono", glass: "off", radius: "4", density: "compact" },
-        graphite: { palette: "carbon", glass: "off", radius: "4" },
-        lagoon: { palette: "lagoon", glass: "on", radius: "14" },
-      };
-      const preset = THEMES[localStorage.getItem("themePreset")] || {};
-      const pref = (key, fallback) =>
-        localStorage.getItem(key) ?? preset[key] ?? fallback;
+  <!-- **Its own file for the same reason boot-guard.js is**, and this one
+       was reported: "[browser/csp] blocked script-src-elem: inline". The
+       policy has no `'unsafe-inline'`, so an inline block has to be named by
+       sha256 hash, and a hash is a second copy of the file that can disagree
+       with the first. `CspForPage` recomputes it whenever index.html changes,
+       which closed the stale-server case, but any path that lets a browser
+       pair one version of this page with the other version's header brings
+       the failure straight back — and when it comes back, the app paints its
+       default look with the resolved light/dark mode never applied.
 
-      const theme = pref("theme", "system");
-      if (theme && theme !== "system") _r.dataset.theme = theme;
-      // data-mode is the RESOLVED light/dark, which the palettes match on —
-      // under "System" there is no data-theme for CSS to hang off, so without
-      // this every palette would paint its light set on a dark desktop until
-      // app.js caught up.
-      _r.dataset.mode =
-        theme === "light" || theme === "dark"
-          ? theme
-          : window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-
-      const palette = pref("palette", "default");
-      if (palette && palette !== "default") _r.dataset.palette = palette;
-      const accent = pref("accent", "indigo");
-      if (accent && accent !== "indigo") _r.dataset.accent = accent;
-      if (localStorage.getItem("contrast") === "on") _r.dataset.contrast = "on";
-
-      _r.dataset.fontsize = pref("fontsize", "normal");
-      _r.dataset.font = pref("font", "system");
-      _r.dataset.density = pref("density", "comfortable");
-      _r.dataset.glass = pref("glass", "on");
-      _r.dataset.motion = pref("motion", "auto");
-      _r.dataset.themePreset = localStorage.getItem("themePreset") || "";
-      _r.style.setProperty("--radius", pref("radius", "14") + "px");
-      _r.style.setProperty("--glass-blur", pref("glass-blur", "18") + "px");
-      _r.style.setProperty("--bg-art-opacity", Number(pref("bg-intensity", "90")) / 100);
-      const page = pref("page-bg", null);
-      if (page) _r.style.setProperty("--page", page);
-    })();
-  </script>
+       `script-src 'self'` covers a same-origin file unconditionally, with no
+       second copy of anything, so moving the block here removes the whole
+       class rather than one more of its causes. It stays a plain synchronous
+       script element in the head, so it still runs before first paint and the
+       anti-flash guarantee is unchanged. -->
+  <script src="/theme-boot.js?v=0.1.8"></script>
 </head>
 <body>
   <!-- The very first thing in <body>, on purpose: painted before any data
@@ -268,7 +226,7 @@
     <div class="card glass command-palette-card">
       <div class="command-palette-bar">
         <span class="command-palette-icon"><i class="ph ph-magic-wand" aria-hidden="true"></i></span>
-        <input id="command-palette-input" class="command-palette-input" type="text" placeholder="Ask the agent to do something… (Ctrl+Shift+K to open, Esc to close)"
+        <input id="command-palette-input" class="command-palette-input" type="text" placeholder="Ask the agent to do something… (Ctrl+Shift+A to open, Esc to close)"
           aria-label="Ask the agent to do something">
       </div>
       <div id="command-palette-results" class="command-palette-results">
@@ -2042,6 +2000,14 @@ Link to another note with [[its first few words]]."></textarea>
                 title="More actions for this document"
                 aria-label="More actions for this document"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
               <div class="doc-dock-menu-list">
+                <!-- The same Connections dialog a note's own ⋯ menu opens
+                     (REDESIGN.md §R7.3). A document's joins were split three
+                     ways before it: attached notes came back inside
+                     `GET /documents/{id}`, its references had their own
+                     endpoint, and the images it embeds were listed nowhere
+                     at all. -->
+                <button id="doc-connections" class="ghost small doc-dock-menu-item" type="button"
+                  title="Notes, references and files joined to this document"><i class="ph ph-graph ph-lead" aria-hidden="true"></i> Connections</button>
                 <button id="doc-export-md" class="ghost small doc-dock-menu-item" type="button"
                   title="Download as a .md file"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Download as .md</button>
                 <button id="doc-export-pdf" class="ghost small doc-dock-menu-item" type="button"
@@ -5359,6 +5325,32 @@ Link to another note with [[its first few words]]."></textarea>
       </div>
       <p id="history-status" class="status" role="status"></p>
       <div id="history-list"></div>
+    </div>
+  </div>
+
+  <!-- The Connections block — REDESIGN.md §R7.3 item 1.
+
+       Every join listed here already existed; none of them were ever in one
+       place. Links were chips on the card, documents were a second row of
+       chips, boards were surfaced nowhere at all, and the images a note
+       embeds could only be found by reading its markdown. So "what is this
+       note joined to?" — the question a backlinking notebook exists to
+       answer — had no single answer anywhere in the app.
+
+       A dialog rather than a permanent panel on the card: the card's own
+       measured problem (§36B.3) was that link chips out-shouted the note
+       they belonged to, and a five-group block pinned under every card
+       would be that failure again, larger. -->
+  <div id="connections-overlay" class="modal-overlay hidden" role="dialog"
+    aria-modal="true" aria-labelledby="connections-title">
+    <div class="card modal-card" id="connections-card">
+      <div class="row space-between">
+        <h2 id="connections-title"><i class="ph ph-graph ph-lead" aria-hidden="true"></i> Connections</h2>
+        <button id="connections-close" class="ghost small">Close</button>
+      </div>
+      <p id="connections-subject" class="muted"></p>
+      <p id="connections-status" class="status" role="status"></p>
+      <div id="connections-list"></div>
     </div>
   </div>
 

@@ -3506,3 +3506,47 @@ summary:not(.icon-only):not(.icon-button) {
   flex: 0 0 auto;
   white-space: nowrap;
 }
+
+/* --- the Connections dialog (REDESIGN.md §R7.3) ------------------------------- */
+/* Five groups of one-line rows, and the thing that makes it readable is that
+   a group heading and its rows are visibly one unit — a flat list of fifteen
+   rows with five grey labels loose among them is the "everything at equal
+   weight" failure this app has already measured once (§36B.3).
+
+   The rows are buttons because they navigate, and `.connection-row` overrides
+   `button.small`'s centring rather than adding a new button class: a row of
+   text that starts at a different x than the row above it is the single
+   thing that made this dialog's first draft read as noise. */
+#connections-card {
+  max-width: 44rem;
+  width: min(44rem, 92vw);
+}
+
+.connection-group+.connection-group {
+  margin-top: var(--space-6);
+}
+
+.connection-heading {
+  margin: 0 0 var(--space-2);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.connection-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+button.connection-row {
+  justify-content: flex-start;
+  text-align: left;
+  width: 100%;
+  /* A preview is a clip of another note's first line and can still be long
+     at this width; wrapping it would make one row three lines tall and lose
+     the scannable left edge the group heading sets up. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

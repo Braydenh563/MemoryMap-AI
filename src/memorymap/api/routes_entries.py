@@ -35,11 +35,14 @@ from memorymap.core import deps, vault
 from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_suggestions)
     Bookmark,
     Document,
+    DocumentLink,
     EmbeddingRecord,
     Entry,
     EntryBookmark,
     EntryLink,
     EntryRevision,
+    MediaUpload,
+    WhiteboardNode,
 )
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
@@ -1342,6 +1345,123 @@ def remove_entry_title(entry_id: int, session: Session = Depends(get_session)) -
         session.commit()
         session.refresh(entry)
     return _to_out(session, entry)
+
+
+@router.get("/{entry_id}/connections")
+def entry_connections(entry_id: int, session: Session = Depends(get_session)) -> dict:
+    """Everything this note is joined to, in one place and grouped by kind.
+
+    Asked for by way of Kortex's Connections block: *"I should be able to
+    seamlessly utilise, flick, link, manage, create and search between
+    multiple features"*. Every one of these joins already existed in the
+    database — `EntryLink` both ways, `DocumentLink`, `WhiteboardNode`,
+    `/media/<name>` references in the body — but each was surfaced (if at
+    all) somewhere different: links as chips on the card, documents as a
+    separate list, boards nowhere at all. A note could be on three boards
+    and referenced by two documents and show none of it.
+
+    Direction is kept, not merged. "This note points at that one" and "that
+    one points at this" are different facts, and a merged list can state
+    neither.
+    """
+    entry = _existing_entry(session, entry_id)
+    outgoing: list[dict] = []
+    incoming: list[dict] = []
+    for link, other in manager.links_for_entry(session, entry):
+        if other.is_deleted:
+            continue
+        row = {
+            "link_id": link.id,
+            "id": other.id,
+            # A private note's text never leaves the vault for a list like
+            # this: the *fact* of the connection is not secret, its content
+            # is. Same rule as the Library's own file-usage chips.
+            "preview": (
+                "Private note" if other.is_private else _connection_label(other)
+            ),
+            "is_private": bool(other.is_private),
+            "reason": link.reason,
+            "reason_confidence": link.reason_confidence,
+        }
+        (outgoing if link.source_entry_id == entry.id else incoming).append(row)
+
+    documents = [
+        {"id": doc.id, "title": doc.title, "file_type": doc.file_type}
+        for doc in session.scalars(
+            select(Document)
+            .join(DocumentLink, DocumentLink.document_id == Document.id)
+            .where(DocumentLink.entry_id == entry.id)
+            .order_by(Document.title)
+        )
+    ]
+
+    # A board is itself a note (`WhiteboardNode.board_id` points at an
+    # entry), and `board_id IS NULL` is the unnamed scratch board every
+    # notebook starts with — so the title has to be resolved per row rather
+    # than joined, and NULL is a real board, not a missing one.
+    boards: list[dict] = []
+    seen_boards: set[int | None] = set()
+    for node in session.scalars(
+        select(WhiteboardNode).where(WhiteboardNode.entry_id == entry.id)
+    ):
+        if node.board_id in seen_boards:
+            continue
+        seen_boards.add(node.board_id)
+        title = "Whiteboard"
+        if node.board_id is not None:
+            board = session.get(Entry, node.board_id)
+            if board is None:
+                continue
+            title = manager.extract_title(manager.readable_content(board)) or "Untitled board"
+        boards.append({"id": node.board_id, "title": title, "node_id": node.id})
+
+    files = _connected_files(session, manager.readable_content(entry))
+
+    return {
+        "outgoing": outgoing,
+        "incoming": incoming,
+        "documents": documents,
+        "boards": boards,
+        "files": files,
+        "total": len(outgoing) + len(incoming) + len(documents) + len(boards) + len(files),
+    }
+
+
+def _connection_label(entry) -> str:  # noqa: ANN001
+    """What one note is called on another note's Connections list.
+
+    A note's own leading `# Heading` is what it calls itself, so that is the
+    label when it wrote one — `_preview` alone hands back "# Connections probe
+    B\noven temperatures", which renders on a single-line row as the hash, the
+    title and the first line of the body run together.
+    """
+    text = manager.readable_content(entry)
+    return manager.extract_title(text) or _preview(text, 80)
+
+
+def _connected_files(session: Session, text: str) -> list[dict]:
+    """The uploads a body of markdown actually references, as cards.
+
+    `referenced_names` is the same parse the media garbage collector uses to
+    decide what is *not* an orphan, so a file listed here and a file the GC
+    spares are guaranteed to be the same set — there is no second regex to
+    drift out of step with it.
+    """
+    from memorymap.core.media_gc import referenced_names
+
+    names = referenced_names(text)
+    if not names:
+        return []
+    rows = session.scalars(select(MediaUpload).where(MediaUpload.filename.in_(names)))
+    return [
+        {
+            "name": media.filename,
+            "original_name": media.original_name,
+            "url": f"/media/{media.filename}",
+            "caption": media.caption or "",
+        }
+        for media in rows
+    ]
 
 
 @router.post("/{entry_id}/links", response_model=EntryOut)

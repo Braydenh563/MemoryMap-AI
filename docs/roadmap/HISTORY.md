@@ -5378,3 +5378,63 @@ and pans correctly afterward. Not attempted: persisting a pinned node's
 new position when it is later dragged to reposition it — currently
 updates only in memory, a smaller and separate gap from "never
 persisted at all," which is what this closes.
+
+## §91 — the Connections block, and two shortcut/CSP bugs it sat next to
+
+**The Connections block (REDESIGN.md §R7.3 item 1, ROADMAP.md item 5).** Every
+join it lists already existed in the database and none of them were ever in one
+place: `EntryLink` in both directions was chips on the note card, `DocumentLink`
+was a second row of chips, `WhiteboardNode` was surfaced *nowhere at all* (a
+note could be a card on three boards and show none of them), and the uploads a
+note embeds could only be found by reading its markdown. `GET
+/entries/{id}/connections` and `GET /documents/{id}/connections` answer it in
+one request; the dialog opens from the note ⋯ menu and the document ⋯ menu.
+
+Two properties are load-bearing and are what `tests/test_connections_block.py`
+is actually for. **Direction is kept, not merged** — `links_for_entry` has
+always returned both directions in one list, so "this note points at that one"
+and "that one points at this" were indistinguishable, and a Connections block
+that cannot state which way round a link goes is not one. **A private note
+contributes the fact of the connection and never its text** — proven by
+reverting the guard, which turns the test's assertion into
+`assert 'SECRET diary line' == 'Private note'`.
+
+Verified in Chromium at 1440×900 and 390×844: three rows on one left edge
+(389px), no clipping, the document row lands on `tab-documents` with the right
+document open, Escape closes, the ⋯ `<details>` closes behind the dialog, the
+empty state renders, and at 390px the card is 342px wide with no horizontal
+page overflow. No page errors at either width.
+
+**Ctrl+Shift+K opened two things at once** (reported). The agent bar bound its
+chord in a `document.addEventListener` of its own rather than in
+`DEFAULT_SHORTCUTS`. It collided with the navigation palette on Ctrl+K once
+already; that fix moved it to Ctrl+Shift+K, which `quickSketch` had held all
+along — one silent collision swapped for another, both found by a person
+pressing keys. It is now `askAgent: "Ctrl+Shift+A"` **in the registry**, and
+`tests/test_frontend_shortcuts.py` fails the build on a duplicate chord, on a
+shortcut with no action, and on the agent bar growing its own binding back.
+Verified live: Ctrl+Shift+K opens the sketch pad only, Ctrl+Shift+A the agent
+bar only.
+
+**`[browser/csp] blocked script-src-elem: inline`, again** (reported, from the
+desktop app on :8000). `CspForPage` had already fixed the stale-server cause by
+recomputing the hash when index.html changes, and the report came back anyway.
+Rather than hunt a fourth cause, the failure class is gone: the anti-flash theme
+bootstrap moved out of the page into `frontend/theme-boot.js`, which
+`script-src 'self'` covers unconditionally, so there is no second copy of the
+script to disagree with the first. The page now carries **no inline script at
+all**, and `test_static_freshness.py::test_the_page_has_no_inline_script_left`
+holds it that way. Verified: the served CSP is now `script-src 'self'` with no
+hash, and a reload with `themePreset=terminal` applies dark/carbon/mono/compact
+and `--radius: 2px` before paint, with no CSP console errors.
+
+That move also exposed a real hole in `inline_script_hashes`: it is a regex, so
+a comment that merely *writes out* a script tag opens a match and the pattern
+then runs to the next `</script`, swallowing the real tags between. index.html's
+own new comment did exactly that — a phantom hash, and the tag it described
+hidden behind it. Comments are stripped before the scan now. A phantom hash is
+harmless; a real inline script hidden by one would be served unhashed and
+refused, which is the failure the module exists to prevent.
+
+**Could not be verified here:** the user's own instance on :8000. The CSP fix is
+structural rather than a reproduction of their exact state.

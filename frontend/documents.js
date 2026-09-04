@@ -2087,6 +2087,14 @@ try {
 } catch {
   setDocView("source");
 }
+$("doc-connections").addEventListener("click", () => {
+  if (!currentDoc) return;
+  // Closes the ⋯ disclosure first: it is a `<details>`, so it stays open
+  // behind the dialog otherwise, and it is the same width as the dialog's
+  // own left edge.
+  $("doc-dock-menu")?.removeAttribute("open");
+  openConnections("documents", currentDoc.id, currentDoc.title || "This document");
+});
 $("doc-export-md").addEventListener("click", exportDocumentMarkdown);
 $("doc-export-pdf").addEventListener("click", exportDocumentPdf);
 $("doc-delete").addEventListener("click", deleteCurrentDocument);

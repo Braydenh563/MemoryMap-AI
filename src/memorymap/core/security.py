@@ -118,13 +118,21 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
 
 # --- Content-Security-Policy ------------------------------------------------
 
-# The one inline <script> in index.html applies the theme before first paint,
-# and has to stay inline — app.js loads at the end of the body, far too late to
-# stop the flash. So it is allowed by the hash of its own contents, computed
-# from the file at startup rather than written down here. Written down, it
-# would be wrong the first time anyone edited the block (which the roadmap
-# already expects: the theme table in it is kept in step with THEME_PRESETS by
-# hand), and a stale hash fails as a blank unstyled page.
+# **index.html has no inline script any more, and this machinery is what is
+# left of the reason it does not.** The anti-flash theme bootstrap used to be
+# an inline block here, allowed by the hash of its own contents. That worked,
+# and it kept going wrong in the field: a hash is a second copy of the script,
+# and any path that pairs one version of the page with the other version's
+# header refuses it — reported as "[browser/csp] blocked script-src-elem:
+# inline", which lands as the app opening in its default look with the saved
+# theme never applied. The block now lives in `frontend/theme-boot.js`, which
+# `script-src 'self'` covers unconditionally, and
+# `test_static_freshness.py::test_the_page_has_no_inline_script_left` holds
+# the page that way.
+#
+# This is kept rather than deleted because it is what makes that rule safe to
+# rely on: if an inline block ever comes back, it is hashed and works, instead
+# of being silently refused.
 # Two loosenesses here were flagged by CodeQL (`py/bad-tag-filter`), and the
 # *reported* risk does not apply while the real bug does — worth writing down
 # so the next person does not re-litigate it.
@@ -148,6 +156,7 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
 #
 # `\s*` in both places closes them. It is still not an HTML parser and is not
 # trying to be; it is a deliberately narrow reader of one known file.
+_HTML_COMMENT = re.compile(rb"<!--.*?-->", re.DOTALL)
 _INLINE_SCRIPT = re.compile(
     rb"<script(?![^>]*\ssrc\s*=)[^>]*>(.*?)</script(?:\s+[^>]*)?>", re.DOTALL | re.IGNORECASE
 )
@@ -159,6 +168,17 @@ def inline_script_hashes(html_path: Path) -> list[str]:
         html = html_path.read_bytes()
     except OSError:
         return []
+    # **Comments first, and this is not tidiness.** `_INLINE_SCRIPT` is a
+    # regex, so a comment that merely *mentions* a script tag opens a match
+    # for it — and because the pattern then runs to the next `</script`, it
+    # swallows the real tags in between. Caught live: a comment added above
+    # the head's own `<script src=…>` (explaining why the theme bootstrap is
+    # a file rather than an inline block) produced one phantom hash and, in
+    # doing so, hid the tag it was written about. A phantom hash is harmless
+    # on its own; a real inline script hidden by one would be served with no
+    # hash at all and refused by the browser, which is the exact failure this
+    # module exists to prevent.
+    html = _HTML_COMMENT.sub(b"", html)
     hashes = []
     for body in _INLINE_SCRIPT.findall(html):
         digest = hashlib.sha256(body).digest()

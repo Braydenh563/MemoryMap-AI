@@ -2021,21 +2021,13 @@ async function openConnections(kind, id, subject) {
   }
   function fileRow(file) {
     const name = file.original_name || file.name;
-    // Same three steps the palette's own file jump takes, and for the same
-    // reason it takes them: clicking the sub-tab runs its active class,
-    // aria-selected and lazy load, and the gallery filters on filename, so
-    // filling its search is what "take me to it" means for a file.
-    return row(`ph:image ${name}`, `Find “${name}” in the Library`, () => {
-      switchTab("library");
-      document
-        .querySelector('#library-subtabs button[data-target="library-view-media"]')
-        ?.click();
-      const search = $("library-images-search");
-      if (search) {
-        search.value = name;
-        search.dispatchEvent(new Event("input", { bubbles: true }));
-      }
-    });
+    // `focusLibraryFile` (library.js) rather than the three steps this used
+    // to take inline: the media view is two sub-tabs now, so which one to
+    // click depends on whether the file is an image, and that decision
+    // belongs in one place.
+    return row(`ph:image ${name}`, `Find “${name}” in the Library`, () =>
+      focusLibraryFile(name, file.url || file.name)
+    );
   }
 
   let shown = 0;
@@ -9540,23 +9532,12 @@ function chatAttachmentStrip(attachments) {
       const actions = document.createElement("div");
       actions.className = "msg-attachment-actions";
       actions.appendChild(
-        smallButton("ph:image Library", `Find “${item.name}” in your library`, () => {
-          switchTab("library");
-          // Clicking the real sub-tab button rather than calling a switcher:
-          // `#library-subtabs`'s own click handler is what sets the active
-          // class, the aria-selected state and the lazy load for that view,
-          // and re-implementing three of those here is how they drift.
-          document
-            .querySelector('#library-subtabs button[data-target="library-view-media"]')
-            ?.click();
-          // The gallery filters on filename, so typing the name into its own
-          // search is what "take me to it" means here.
-          const search = $("library-images-search");
-          if (search) {
-            search.value = item.name;
-            filterLibraryImagesGallery();
-          }
-        })
+        smallButton("ph:image Library", `Find “${item.name}” in your library`, () =>
+          // One helper, because the media view is two sub-tabs now and a PDF
+          // has to land on Files rather than on Images. See
+          // `focusLibraryFile` in library.js.
+          focusLibraryFile(item.name, item.url || item.name)
+        )
       );
       figure.appendChild(actions);
       strip.appendChild(figure);
@@ -19093,24 +19074,10 @@ function paletteMatches(query) {
     .map((m) => ({
       group: "Files",
       label: `ph:image ${m.original_name || "Untitled file"}`,
-      run: () => {
-        switchTab("library");
-        // Click the sub-tab rather than reaching for a view-switching
-        // function: `#library-subtabs`'s own handler sets the active class,
-        // the aria-selected state and that view's lazy load, and this app
-        // already learned once that re-implementing three of those is how
-        // they drift (see the identical call in the graph's file jump).
-        document
-          .querySelector('#library-subtabs button[data-target="library-view-media"]')
-          ?.click();
-        // The gallery filters on filename, so putting the name in its own
-        // search is what "take me to it" means for a file.
-        const search = $("library-images-search");
-        if (search) {
-          search.value = m.original_name || "";
-          search.dispatchEvent(new Event("input", { bubbles: true }));
-        }
-      },
+      // `focusLibraryFile` picks Images or Files from the url — the media
+      // view is two sub-tabs now, and a `[data-target="library-view-media"]`
+      // query matches both.
+      run: () => focusLibraryFile(m.original_name || "", m.url || ""),
     }));
 
   // Boards and maps. `id` is null for the default board — passed through as
@@ -27392,56 +27359,132 @@ cmdPaletteOverlay.addEventListener("click", (e) => {
   }
 });
 
-cmdPaletteInput.addEventListener("keydown", async (e) => {
+//: **The agent bar keeps a conversation, and says so.** Reported: "the popup
+//: agent needs more features, capability, and learnability, there's no way to
+//: clear the chat and start over, idk what it can do, and even if it works".
+//: Every one of those was true of the same handler:
+//:
+//: - It sent `history: []` on every turn, so a follow-up ("now file that as a
+//:   note") could not refer to the answer above it. It was a series of
+//:   unrelated one-shot questions in a window that looked like a chat.
+//: - There was no way to clear it, so the only reset was reloading the app.
+//: - Its whole affordance was "Press Enter to send", which says nothing about
+//:   what it can be asked to *do*.
+//: - Every failure came out as "Error communicating with agent." — the one
+//:   message that guarantees "idk if it even works", and it threw away
+//:   `err.message`, which is exactly where `describe_http_error`'s diagnosis
+//:   of a failing model arrives.
+const cmdPaletteTurns = [];
+let cmdPaletteRun = null;
+
+function cmdPaletteReset() {
+  cmdPaletteTurns.length = 0;
+  cmdPaletteResults.replaceChildren();
+  $("command-palette-intro")?.classList.remove("hidden");
+  $("command-palette-status").textContent = "";
+}
+
+function cmdPaletteBusy(busy) {
+  cmdPaletteInput.disabled = busy;
+  $("command-palette-stop")?.classList.toggle("hidden", !busy);
+  $("command-palette-clear")?.classList.toggle("hidden", busy);
+  $("command-palette-status").textContent = busy ? "Working…" : "";
+  if (!busy) cmdPaletteInput.focus();
+}
+
+async function cmdPaletteAsk(text) {
+  $("command-palette-intro")?.classList.add("hidden");
+
+  const userMsg = document.createElement("div");
+  userMsg.className = "msg user";
+  userMsg.textContent = text;
+  cmdPaletteResults.appendChild(userMsg);
+
+  const agentMsg = document.createElement("div");
+  agentMsg.className = "msg assistant";
+  agentMsg.appendChild(typingDots());
+  cmdPaletteResults.appendChild(agentMsg);
+  cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
+
+  // Was hand-rolled against `/chat` (the non-streaming endpoint, a single
+  // JSON object) as though it were the NDJSON `/chat/stream` shape — so
+  // `msg.type` was never "content" and this never actually rendered an
+  // answer at all (a "feature that never ran once", CLAUDE.md's own
+  // category for this). It also built the answer with
+  // `innerHTML = answerText.replace(...)` and no escaping — a real,
+  // reachable XSS the moment the parsing bug above was fixed, since a
+  // model can echo a note's own text back verbatim. Fixed by reusing this
+  // file's one real streaming client (`streamChat`) and its one safe
+  // renderer (`renderMarkdown`, DOM nodes only, never innerHTML) instead
+  // of a second, parallel, broken implementation of both.
+  let answerRaw = "";
+  let answered = false;
+  cmdPaletteRun = new AbortController();
+  cmdPaletteBusy(true);
+  try {
+    await streamChat({
+      question: text,
+      // The same window the Ask box uses, and for the same reason: enough
+      // for a follow-up to mean something, short enough that a small local
+      // model is not re-reading a transcript every turn.
+      history: cmdPaletteTurns.slice(-MAX_CLIENT_HISTORY),
+      useTools: true, // the palette is meant to act on the notebook, like Chat
+      signal: cmdPaletteRun.signal,
+      onMeta: () => {},
+      onThinking: () => {},
+      onTool: (event) => {
+        // Something visible while a tool runs, so a long silence reads as
+        // work rather than as nothing happening.
+        $("command-palette-status").textContent = event?.label
+          ? `Running ${event.label}…`
+          : "Working…";
+      },
+      onAnswer: (delta) => {
+        answered = true;
+        answerRaw += delta;
+        renderMarkdown(agentMsg, answerRaw);
+        cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
+      },
+    });
+    if (!answered) agentMsg.textContent = "(no answer)";
+    else cmdPaletteTurns.push({ question: text, answer: answerRaw });
+  } catch (err) {
+    if (err?.name === "AbortError") {
+      agentMsg.textContent = answerRaw || "(stopped)";
+    } else {
+      // The message, not a euphemism for it. A failing model's real reason
+      // arrives here (see `describe_http_error` in ai/ollama_client.py) and
+      // "Error communicating with agent." threw all of it away.
+      agentMsg.textContent = err?.message || "The agent could not be reached.";
+      agentMsg.classList.add("error");
+    }
+  } finally {
+    cmdPaletteRun = null;
+    cmdPaletteBusy(false);
+  }
+}
+
+cmdPaletteInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && cmdPaletteInput.value.trim()) {
     const text = cmdPaletteInput.value.trim();
     cmdPaletteInput.value = "";
+    cmdPaletteAsk(text);
+  }
+});
 
-    // Create user bubble
-    const userMsg = document.createElement("div");
-    userMsg.className = "msg user";
-    userMsg.textContent = text;
-    cmdPaletteResults.appendChild(userMsg);
-
-    // Create agent thinking bubble
-    const agentMsg = document.createElement("div");
-    agentMsg.className = "msg assistant";
-    agentMsg.appendChild(typingDots());
-    cmdPaletteResults.appendChild(agentMsg);
-    cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
-
-    // Was hand-rolled against `/chat` (the non-streaming endpoint, a single
-    // JSON object) as though it were the NDJSON `/chat/stream` shape — so
-    // `msg.type` was never "content" and this never actually rendered an
-    // answer at all (a "feature that never ran once", CLAUDE.md's own
-    // category for this). It also built the answer with
-    // `innerHTML = answerText.replace(...)` and no escaping — a real,
-    // reachable XSS the moment the parsing bug above was fixed, since a
-    // model can echo a note's own text back verbatim. Fixed by reusing this
-    // file's one real streaming client (`streamChat`) and its one safe
-    // renderer (`renderMarkdown`, DOM nodes only, never innerHTML) instead
-    // of a second, parallel, broken implementation of both.
-    let answerRaw = "";
-    let answered = false;
-    try {
-      await streamChat({
-        question: text,
-        history: [],
-        useTools: true, // the palette is meant to act on the notebook, like Chat
-        onMeta: () => {},
-        onThinking: () => {},
-        onAnswer: (delta) => {
-          answered = true;
-          answerRaw += delta;
-          renderMarkdown(agentMsg, answerRaw);
-          cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
-        },
-      });
-      if (!answered) agentMsg.textContent = "(no answer)";
-    } catch (err) {
-      agentMsg.textContent = "Error communicating with agent.";
-      agentMsg.classList.add("error");
-    }
+$("command-palette-clear")?.addEventListener("click", cmdPaletteReset);
+$("command-palette-stop")?.addEventListener("click", () => cmdPaletteRun?.abort());
+$("command-palette-intro")?.addEventListener("click", (e) => {
+  const example = e.target.closest("[data-example]");
+  if (!example) return;
+  cmdPaletteInput.value = example.dataset.example;
+  cmdPaletteInput.focus();
+  // A complete question runs; a stem ("Make a note: ") is left for the user
+  // to finish, with the caret already after it.
+  if (example.dataset.example.trim().endsWith("?")) {
+    const text = cmdPaletteInput.value.trim();
+    cmdPaletteInput.value = "";
+    cmdPaletteAsk(text);
   }
 });
 

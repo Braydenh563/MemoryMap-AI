@@ -830,11 +830,37 @@ def test_http_error_names_the_memory_case():
     assert "smaller quantisation" in message
 
 
-def test_http_error_falls_back_to_the_status_line_when_the_body_is_empty():
-    """No body, nothing to add — the old message is still the best available,
-    so this must not manufacture a diagnosis it does not have."""
+def test_an_empty_500_body_still_says_something_useful():
+    """**The case that kept being reported**, verbatim:
+
+        Tool chat with 'hf.co/…/Gemma-4-E2B-…:Q4_K_M' failed: 500 Server
+        Error: Internal Server Error for url: http://localhost:11434/api/chat
+
+    An earlier version of this test asserted the message *was* exactly that
+    transport line, on the reasoning that with no body there is nothing to
+    add. That reasoning was wrong: the app still knows which model was
+    asked, that a local server answered 5xx, and that 500s on `/api/chat`
+    come overwhelmingly from a model that would not load or ran out of
+    memory. Naming those, and pointing at Ollama's own log for the real
+    text, is not a manufactured diagnosis — it is what is left to say.
+
+    The raw error still has to be in there. Replacing the server's own words
+    with a guess is the thing this function must never do.
+    """
     message = describe_http_error(_http_error(500, payload={}), "m")
-    assert message == "Chat with 'm' failed: 500 Server Error: for url: /api/chat"
+    assert "500 Server Error: for url: /api/chat" in message
+    assert "Ollama's own log" in message
+    assert "could not be loaded" in message
+    assert "'m'" in message
+
+
+def test_a_4xx_with_no_body_gets_no_invented_advice():
+    """The 5xx guidance above is specific to 5xx. A 4xx with an empty body
+    means the request was refused, not that a model failed to load, and
+    saying "check your GGUF" there would send the user the wrong way."""
+    message = describe_http_error(_http_error(400, payload={}), "m")
+    assert message == "Chat with 'm' failed: 400 Server Error: for url: /api/chat"
+    assert "Ollama's own log" not in message
 
 
 def test_http_error_reads_a_non_json_body():

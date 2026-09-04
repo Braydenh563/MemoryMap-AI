@@ -1235,6 +1235,24 @@ const LIBRARY_CREATE_BY_KIND = {
     label: "ph:graph New concept map",
     run: () => createConceptMap(),
   },
+  // Reported directly: "in the library 'all' subtab, the files section has
+  // the general create button and not an upload button." It did — `file` had
+  // no entry here, so it fell through to the "＋ Create" picker, which asks
+  // you what you want to make when the answer for a file is never "make".
+  //
+  // It opens the Files sub-tab first and then the picker, so the upload
+  // lands somewhere you are already looking rather than on a screen you
+  // then have to go and find. That click also sets the file input's own
+  // `accept` (see `setLibraryMediaKind`).
+  file: {
+    label: "ph:upload-simple Upload a file",
+    run: () => {
+      document
+        .querySelector('#library-subtabs button[data-media-kind="files"]')
+        ?.click();
+      $("library-images-upload-input")?.click();
+    },
+  },
 };
 
 // **BACKLOG §105 item 1, built**: "Everything" and every kind with no
@@ -2024,6 +2042,92 @@ function stopLibraryImagesPoll() {
 //: the *url* rather than a stored mime: `MediaUpload` has never carried one
 //: (it stores a filename and nothing about content type), and the extension
 //: is what the allowlist that let the file in already validated.
+//: **What counts as an image**, in one place. The gallery tile code already
+//: had this test inline (a PDF rendered as an `<img>` decodes to nothing and
+//: the tile deletes itself — see `filterLibraryImagesGallery`), and the
+//: Images/Files split needs exactly the same answer. Two copies of it would
+//: be two chances for a `.heic` to be an image in one and a file in the other.
+function isImageUrl(url) {
+  return /\.(png|jpe?g|gif|webp|avif|bmp|ico|svg)$/i.test(url || "");
+}
+
+//: Which of the two media sub-tabs is showing. Not persisted: it is a place
+//: in the Library, and the sub-tab strip already says which one you are on.
+let libraryMediaKind = "images";
+
+const LIBRARY_MEDIA_COPY = {
+  images: {
+    title: "Images",
+    icon: "ph ph-images-square ph-lead",
+    emptyTitle: "No images yet",
+    emptyBody: "Paste, drop, or attach one to a note and it shows up here.",
+    search: "Search filenames, captions and text found in images…",
+    noMatch: "No images match your search.",
+  },
+  files: {
+    title: "Files",
+    icon: "ph ph-file-text ph-lead",
+    emptyTitle: "No files yet",
+    emptyBody:
+      "Drop a PDF or a document into a note, or use Upload above, and it shows up here.",
+    search: "Search filenames and text found in files…",
+    noMatch: "No files match your search.",
+  },
+};
+
+function setLibraryMediaKind(kind) {
+  libraryMediaKind = kind === "files" ? "files" : "images";
+  const copy = LIBRARY_MEDIA_COPY[libraryMediaKind];
+  const title = $("library-media-title");
+  if (title) title.textContent = copy.title;
+  const icon = $("library-media-empty-icon");
+  if (icon) icon.className = copy.icon;
+  const emptyTitle = $("library-media-empty-title");
+  if (emptyTitle) emptyTitle.textContent = copy.emptyTitle;
+  const emptyBody = $("library-media-empty-body");
+  if (emptyBody) emptyBody.textContent = copy.emptyBody;
+  const search = $("library-images-search");
+  if (search) search.placeholder = copy.search;
+  const noMatch = $("library-images-no-match");
+  if (noMatch) noMatch.textContent = copy.noMatch;
+  // The upload button offers what this sub-tab is *for*. It still accepts
+  // both — a person who picks a PDF on the Images tab gets the PDF, it just
+  // appears under Files — because refusing a file the app can store would be
+  // worse than filing it somewhere they then have to look.
+  const input = $("library-images-upload-input");
+  if (input) {
+    input.accept =
+      libraryMediaKind === "files"
+        ? "application/pdf,text/plain,text/markdown,text/csv,application/json"
+        : "image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/x-icon";
+  }
+}
+
+//: **One way to jump to a stored file**, used by the palette, the graph and
+//: the Connections dialog. It exists because the media view became *two*
+//: sub-tabs: `querySelector('[data-target="library-view-media"]')` now
+//: matches both and returns Images, so every one of those jumps would have
+//: landed a PDF on the Images tab and shown "no match".
+//:
+//: The sub-tab is clicked rather than switched by hand for the same reason
+//: those call sites already clicked it: the strip's own handler owns the
+//: active class, the aria-selected state and the lazy render, and this app
+//: has already learned once that re-implementing three of those is how they
+//: drift.
+function focusLibraryFile(name, url) {
+  switchTab("library");
+  const kind = isImageUrl(url) ? "images" : "files";
+  document
+    .querySelector(`#library-subtabs button[data-media-kind="${kind}"]`)
+    ?.click();
+  const search = $("library-images-search");
+  if (search) {
+    search.value = name || "";
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+}
+window.focusLibraryFile = focusLibraryFile;
+
 function mediaFileIcon(url) {
   const ext = url.split(".").pop().split(/[?#]/)[0].toLowerCase();
   const map = {
@@ -2065,16 +2169,24 @@ function filterLibraryImagesGallery() {
   const noMatch = $("library-images-no-match");
   if (!grid) return;
   const query = ($("library-images-search")?.value || "").trim().toLowerCase();
+  // Kind first, then the search box. Both the "nothing here" and the "nothing
+  // matches" states below are about *this* sub-tab, so the count they test
+  // has to be the kind-filtered one — otherwise a notebook holding only PDFs
+  // would show the Images tab as "no match for your search" with an empty
+  // search box.
+  const ofKind = libraryImagesCache.filter((i) =>
+    libraryMediaKind === "files" ? !isImageUrl(i.url) : isImageUrl(i.url)
+  );
   const images = query
-    ? libraryImagesCache.filter(
+    ? ofKind.filter(
         (i) =>
           (i.original_name || "").toLowerCase().includes(query) ||
           (i.ocr_text || "").toLowerCase().includes(query) ||
           (i.caption || "").toLowerCase().includes(query)
       )
-    : libraryImagesCache;
+    : ofKind;
   grid.replaceChildren();
-  if (!libraryImagesCache.length) {
+  if (!ofKind.length) {
     empty?.classList.remove("hidden");
     noMatch?.classList.add("hidden");
     return;
@@ -2096,7 +2208,7 @@ function filterLibraryImagesGallery() {
     // non-image `/media/…` url and hands it to the document viewer. Only the
     // tile was missing, so this gives a non-image its own tile instead of an
     // image that cannot exist.
-    const isImage = /\.(png|jpe?g|gif|webp|avif|bmp|ico|svg)$/i.test(image.url);
+    const isImage = isImageUrl(image.url);
     const img = document.createElement(isImage ? "img" : "div");
     if (isImage) {
       img.src = mediaSrc(image.url);
@@ -3037,6 +3149,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         if (targetId === "library-view-media") {
+          setLibraryMediaKind(btn.dataset.mediaKind);
           renderLibraryImagesGallery();
           startLibraryImagesPoll();
         } else {

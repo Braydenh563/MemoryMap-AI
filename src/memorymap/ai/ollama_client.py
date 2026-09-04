@@ -87,6 +87,33 @@ def describe_http_error(exc: requests.HTTPError, model: str) -> str:
     detail = detail[:400]
 
     if not detail:
+        # **An empty body is the case that keeps being reported**, and the
+        # bare transport line is the least useful thing this function can
+        # say. Reported verbatim, from a custom HF GGUF:
+        #
+        #     Tool chat with 'hf.co/…/Gemma-4-E2B-…:Q4_K_M' failed:
+        #     500 Server Error: Internal Server Error for url:
+        #     http://localhost:11434/api/chat
+        #
+        # Ollama usually puts a reason in `{"error": …}`, and the branches
+        # below read it — but when the runner dies mid-request the body can
+        # come back empty, and then the user is told only that something
+        # went wrong somewhere. The app knows more than that: it knows which
+        # model was asked, that the failure was a 5xx from a local server,
+        # and (because 500s on this path are dominated by two causes) what
+        # is worth checking first.
+        #
+        # Still no guessing about *which* it was — the raw error stays in
+        # the text, exactly as the docstring above requires.
+        if isinstance(status, int) and status >= 500:
+            return (
+                f"Chat with '{model}' failed: Ollama returned {status} and no "
+                "reason. That is almost always the model itself — either it "
+                "could not be loaded (a GGUF built for a newer llama.cpp than "
+                "this Ollama, or a truncated download) or it ran out of "
+                "memory partway through. Ollama's own log has the real "
+                f"message. Original error: {exc}"
+            )
         return f"Chat with '{model}' failed: {exc}"
 
     lowered = detail.lower()

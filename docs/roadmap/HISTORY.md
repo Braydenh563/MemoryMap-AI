@@ -5493,3 +5493,65 @@ on expand and exactly back on collapse.
 **One test moved rather than changed:** `test_the_prepaint_theme_table_matches_app_js`
 reads `theme-boot.js` now. It failed with "the table has moved", which was
 true — §91 moved it — and is what the test is for.
+
+## §93 — the agent bar, the Library's Images/Files split, and a 500 with no body
+
+**The popup agent bar.** Reported: "the popup agent needs more features,
+capability, and learnability, there's no way to clear the chat and start over,
+idk what it can do, and even if it works." All four were true of one handler:
+
+- It sent `history: []` every turn, so a follow-up could not refer to the
+  answer above it. It looked like a chat and behaved as a series of unrelated
+  one-shot questions. It keeps a conversation now, with the same
+  `MAX_CLIENT_HISTORY` window the Ask box uses.
+- No way to clear it — the only reset was reloading the app. "Start over" now.
+- Its entire affordance was "Press Enter to send", which says how to work the
+  box and nothing about what the box is for. Replaced with one sentence naming
+  what it can actually do and four clickable examples.
+- Every failure surfaced as "Error communicating with agent." — a message that
+  guarantees "idk if it even works" — and it discarded `err.message`, which is
+  exactly where a failing model's diagnosis arrives. The real text shows now.
+
+Also added a Stop button and a busy state, sampled live at 50ms: input
+disabled, Stop shown, "Working…", and all three cleared afterwards.
+
+**A 500 with an empty body.** Reported verbatim from a custom HF GGUF:
+`Tool chat with 'hf.co/…/Gemma-4-E2B-…:Q4_K_M' failed: 500 Server Error`.
+`describe_http_error` reads Ollama's `{"error": …}` and had a deliberate
+fallback: with no body, say nothing extra. That reasoning was wrong. The app
+still knows which model was asked, that a *local* server answered 5xx, and that
+500s on `/api/chat` are dominated by a model that would not load or ran out of
+memory — and it can point at Ollama's own log for the real text. The raw error
+is still carried, and a 4xx with no body gets none of this guidance, since
+"check your GGUF" would send the user the wrong way.
+
+**Not reproduced:** the user's own failing model. There is no Ollama in this
+sandbox; every provider test here runs against a fake transport. What changed
+is what the app says when that happens, not the model.
+
+**The Library is Images and Files, two sub-tabs.** Asked for directly. Both open
+the same section and the same gallery — the split is a filter, not a second copy
+— because the search, lightbox, usage chips, rename and delete are identical
+whichever kind a file is. The `isImage` test the tile code already carried (a
+PDF rendered as an `<img>` decodes to nothing and the tile deletes itself) is
+now one shared helper, so a `.heic` cannot be an image in one place and a file
+in another.
+
+That split broke three existing jumps, and the breakage is worth recording
+because it is invisible: `querySelector('[data-target="library-view-media"]')`
+now matches *two* buttons and returns Images, so every "find this file in the
+Library" action would have landed a PDF on the Images tab and shown "no match".
+One `focusLibraryFile(name, url)` picks the sub-tab from the url; the palette,
+the chat attachment strip and the Connections dialog all call it.
+
+**The All view's Files chip** showed "＋ Create" — the picker that asks what you
+want to *make*, when the answer for a file is never "make". It says "Upload a
+file" now, opens the Files sub-tab, and then the picker.
+
+**Sketches in the gallery — already true, and checked rather than assumed.**
+Drove it end to end: opened the sketch pad, drew a stroke, saved, and found
+`sketch-2026-09-04-07-54-08.png` in the Images tab under a "sketch" search.
+Quick sketches have gone through `/media/upload` since captioning/OCR was added
+for them, so they are ordinary uploads. What is *not* in the gallery is a
+whiteboard freehand sketch (`WhiteboardSketch`) — that is stroke data on a
+board, not a stored image, and putting it there would mean rasterising it.

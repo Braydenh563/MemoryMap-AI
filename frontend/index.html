@@ -226,11 +226,35 @@
     <div class="card glass command-palette-card">
       <div class="command-palette-bar">
         <span class="command-palette-icon"><i class="ph ph-magic-wand" aria-hidden="true"></i></span>
-        <input id="command-palette-input" class="command-palette-input" type="text" placeholder="Ask the agent to do something… (Ctrl+Shift+A to open, Esc to close)"
+        <input id="command-palette-input" class="command-palette-input" type="text" placeholder="Ask the agent to do something…"
           aria-label="Ask the agent to do something">
       </div>
-      <div id="command-palette-results" class="command-palette-results">
-        <p class="muted command-palette-hint">Press Enter to send.</p>
+      <div id="command-palette-results" class="command-palette-results"></div>
+      <!-- **What it can do, said out loud.** Reported: "the popup agent needs
+           more features, capability, and learnability… idk what it can do, and
+           even if it works". It had one line — "Press Enter to send" — which
+           answers neither question. These are real examples, clickable so
+           trying one costs nothing; they are replaced by the conversation the
+           moment there is one, and come back when it is cleared. -->
+      <div id="command-palette-intro" class="command-palette-intro">
+        <p class="muted">
+          It can read and search your notes, write and file new ones, set
+          reminders, and answer from what you have written — the same tools
+          the Chat tab uses. It remembers this conversation until you clear it.
+        </p>
+        <div class="command-palette-examples">
+          <button type="button" class="ghost small" data-example="What did I write about this week?">What did I write about this week?</button>
+          <button type="button" class="ghost small" data-example="Make a note: ">Make a note…</button>
+          <button type="button" class="ghost small" data-example="Remind me to ">Remind me to…</button>
+          <button type="button" class="ghost small" data-example="Find my notes about ">Find my notes about…</button>
+        </div>
+      </div>
+      <div class="command-palette-foot">
+        <span id="command-palette-status" class="muted text-sm" role="status"></span>
+        <button type="button" id="command-palette-clear" class="ghost small"
+          title="Forget this conversation and start over"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Start over</button>
+        <button type="button" id="command-palette-stop" class="ghost small hidden"
+          title="Stop the answer being written"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
       </div>
     </div>
   </div>
@@ -2342,7 +2366,15 @@ Link to another note with [[its first few words]]."></textarea>
       <button role="tab" aria-selected="true" data-target="library-view-documents" class="active">All</button>
       <button role="tab" aria-selected="false" data-target="library-view-docs">Documents</button>
       <button role="tab" aria-selected="false" data-target="library-view-whiteboard">Boards &amp; maps</button>
-      <button role="tab" aria-selected="false" data-target="library-view-media">Files &amp; Images</button>
+      <!-- **Two sub-tabs, not one.** Asked for directly: "I want the images
+           and files to be in a separate section. I want files to have their
+           own subtab separate from the images." Both open the same section
+           and the same gallery — the split is a filter on what it lists, not
+           a second copy of it — because everything else about a stored file
+           (the search, the lightbox, usage chips, rename, delete) is
+           identical whichever kind it is. -->
+      <button role="tab" aria-selected="false" data-target="library-view-media" data-media-kind="images">Images</button>
+      <button role="tab" aria-selected="false" data-target="library-view-media" data-media-kind="files">Files</button>
       <button role="tab" aria-selected="false" data-target="library-view-skills">AI Skills</button>
       <button role="tab" aria-selected="false" data-target="library-view-links">Links</button>
       <button role="tab" aria-selected="false" data-target="library-view-contents">Contents</button>
@@ -3090,7 +3122,7 @@ Link to another note with [[its first few words]]."></textarea>
   <div id="library-view-media" class="library-view-section hidden">
     <section class="card glass">
       <div class="row space-between library-head">
-        <h2>Files &amp; Images</h2>
+        <h2 id="library-media-title">Images</h2>
         <div class="row">
           <button id="library-images-upload" class="small" type="button"><i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Upload</button>
           <input id="library-images-upload-input" aria-label="Choose images or PDFs to upload" title="Choose images or PDFs to upload" type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/x-icon,application/pdf" multiple class="hidden">
@@ -3113,11 +3145,11 @@ Link to another note with [[its first few words]]."></textarea>
         aria-label="Search the image gallery">
       <div id="library-images-grid" class="library-image-grid"></div>
       <div id="library-images-empty" class="empty-state hidden">
-        <span class="empty-icon" aria-hidden="true"><i class="ph ph-images-square ph-lead" aria-hidden="true"></i></span>
-        <p class="empty-title">No images yet</p>
-        <p>Paste, drop, or attach one to a note and it shows up here.</p>
+        <span class="empty-icon" aria-hidden="true"><i id="library-media-empty-icon" class="ph ph-images-square ph-lead" aria-hidden="true"></i></span>
+        <p class="empty-title" id="library-media-empty-title">No images yet</p>
+        <p id="library-media-empty-body">Paste, drop, or attach one to a note and it shows up here.</p>
       </div>
-      <p id="library-images-no-match" class="muted hidden">No images match your search.</p>
+      <p id="library-images-no-match" class="muted hidden">Nothing here matches your search.</p>
     </section>
   </div>
 

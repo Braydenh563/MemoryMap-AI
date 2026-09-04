@@ -958,10 +958,35 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   overflow-y: auto;
 }
 
-.command-palette-hint {
-  margin: 0;
-  text-align: center;
-  font-size: var(--text-lg);
+/* Replaced the single centred "Press Enter to send." line. That sentence
+   told a reader how to operate the box and nothing about what the box is
+   for, which is the half that was reported missing. */
+.command-palette-intro {
+  padding: 0 var(--space-6) var(--space-4);
+}
+
+.command-palette-intro p {
+  margin: 0 0 var(--space-3);
+}
+
+.command-palette-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.command-palette-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-6);
+  border-top: 1px solid var(--border);
+}
+
+/* The status pushes the buttons right; Stop takes Start-over's place while
+   a turn is running, so the row never changes length. */
+.command-palette-foot > #command-palette-status {
+  margin-right: auto;
 }
 
 /* The agent activity monitor. */

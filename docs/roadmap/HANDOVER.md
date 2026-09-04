@@ -9481,3 +9481,108 @@ that did not respond to the pointer at all — every button now does. They take
 one border step toward the accent on hover, deliberately not a background
 change, which would fight the recessed inset that says "type here". Verified
 on `#question` and `#ask-mode-select`.
+
+## Session: the tab-strip revert, and five bugs found by measuring
+
+### The one to read first: affordance is not "give everything a surface"
+
+An audit found eleven interactive elements with no background, no border and
+no shadow *at rest*, and the fix that followed gave every one of them a faint
+ground. It was reverted within minutes — "no no! go back! you just broke
+something", with a screenshot of a header of seven grey pills and a sub-tab
+row of six more beneath it. The same blanket rule had also filled every icon
+in the bottom status bar.
+
+The rule that came out of it, and it is now written into the CSS:
+
+> A **lone** control with no ground gets one. A control that is **one of a
+> labelled set**, where selection is carried by fill, does not.
+
+A tab strip is the one place where the *absence* of a surface is the design:
+the selected tab is the only filled thing in the row, and that contrast is
+what makes the current tab findable. The same goes for the status bar and the
+whiteboard toolbars, all now excluded by name in `07-whiteboard-misc.css`.
+
+Re-run under that rule the audit returns **two** real findings, not eleven —
+and six of the original nine were a **probe fault**: the graph's toggles draw
+their whole track in `::after`, which `getComputedStyle` on the element alone
+never sees. That is the third time this session a too-wide probe invented
+work. **Sample pseudo-elements, and scope the query to the thing being
+judged.**
+
+### Four bugs a measurement found and reading could not
+
+1. **A percentage `max-width` on a grid item resolves against its own track.**
+   `.entry-list.is-rows .entry-meta` had `max-width: min(45%, 26rem)`, and the
+   track was sized *from* that item — so the lane was pinned to 45% of its own
+   natural width at every viewport. Measured: track 179px, item 80.6px,
+   scrollWidth 179, the date collapsed to **0px** and the actions strip parked
+   outside the box. That was "the collapsed view of notes is completely
+   visually broken". The cap belongs on the track (`fit-content(26rem)`),
+   where it is not circular.
+
+2. **`display: contents` defeats a `> *` selector.** `.entry-meta-end` is
+   `display: contents`, so the real flex items are its *children* — which
+   `.entry-meta > *` never matched, selector matching being on the DOM. The
+   date was a shrinkable item beside a 148px actions strip and shrank to zero.
+
+3. **Programmatic `select.value = …` fires no event.** All 51 enhanced selects
+   showed a stale label, because every "load the settings into the form" path
+   assigns directly. The Timeline's View control read "Grid" while the
+   timeline underneath rendered the *line* view. Fixed by shadowing `value`,
+   `selectedIndex` and `disabled` on the instance with accessors that call the
+   prototype's and then re-sync.
+
+4. **Hover and checked were the same colour.** `.check-row:hover` and
+   `.check-row:has(input:checked)` both resolved to `--accent-soft`, so an
+   unchecked option under the pointer was pixel-identical to a chosen one —
+   measured on the About tab, `checked: false` returning the same
+   `rgba(79, 109, 245, 0.14)` as the checked row beside it. Worst in a radio
+   group, where the pointer sits on the option you are comparing against the
+   one already selected.
+
+### A token declared on an element is invisible everywhere else
+
+`--header-control-h` was declared on the header, so every use of it outside
+the header resolved to nothing and the `min-height` reading it was **dropped
+as invalid** — measured that way on the Web-search row before it moved. It is
+now the root token `--control-h-lg`, which the header reads too. Same shape as
+the `APPEARANCE_DEFAULTS` bug in CLAUDE.md: *a value that is invalid where it
+is used, not where it is set.*
+
+### "Squished together" was a grouping problem, not a spacing one
+
+Settings → Web search put three buttons and a 339px run of status prose in one
+flex row. Every item in a `.row` defaults to `flex: 0 1 auto`, so the prose
+won: the buttons were compressed below their content width, their labels
+wrapped, and the three came out **61px, 43px and 28px tall side by side**. No
+height was wrong anywhere — they held different numbers of wrapped lines. The
+fix is about what may shrink (`.button-row`, `.field-row`), not about heights.
+
+The About tab was the same diagnosis: seven controls in one flat stack where
+nothing said which button acted on which switch. More space would only spread
+seven ungrouped things further apart. `.setting-subhead` and
+`.setting-dependent` say it instead.
+
+### The AI was not broken; the error message was
+
+Every Ollama 500 reached the user as `Chat with 'x' failed: 500 Server Error
+for url: …`. **Ollama puts the diagnosis in the response body** as
+`{"error": …}`, and `str(HTTPError)` never reads it — so a failed model load,
+an out-of-memory and an incompatible GGUF were indistinguishable.
+`describe_http_error` quotes the server and adds advice for the three that
+actually happen locally. If a model failure is reported again, the message now
+carries the answer.
+
+### Still open
+
+The document editor, the Contents sub-tab, the Capture and Write-with-AI
+sub-tabs, the chat interface's odysseus-inspired affordances (context meter,
+fork, rewrite/explain), the graph note popup, the whiteboard's control panels,
+and concept-map/graph integration. The Documents and Boards & maps sub-tabs
+now have real previews; the rest of that list has not been started.
+
+**Not verified this session:** how any of this looks on the user's own
+machine. Everything above was measured against Chromium at 1440x900 in the
+sandbox with one seeded profile. The Ollama fix in particular is tested
+against a fake response object — no real Ollama was ever contacted.

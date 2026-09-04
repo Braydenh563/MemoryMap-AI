@@ -630,6 +630,18 @@ Link to another note with [[its first few words]]."></textarea>
                  the same ask. -->
             <button id="entry-attach-existing" class="ghost" type="button"
               title="Attach an image already in your library" aria-label="Attach an image already in your library"><i class="ph ph-images-square ph-lead" aria-hidden="true"></i> From library</button>
+            <!-- Sketch, Dictate and Improve moved up here from the "File
+                 under" row. They are the same family as Attach and From
+                 library — three more ways to *put something into* this note —
+                 whereas the row below is where you file it and commit it.
+                 Splitting the panel that way is what makes Save findable: it
+                 was the fifth of six controls in a row that also held a
+                 label, a dropdown and three tools, so the one irreversible
+                 action on the screen looked exactly like the four reversible
+                 ones beside it. -->
+            <button id="sketch-btn" class="ghost" type="button" title="Draw a quick sketch and save it as a note" aria-label="Open the sketch pad"><i class="ph ph-palette ph-lead" aria-hidden="true"></i> Sketch</button>
+            <button id="mic-note" class="ghost" type="button" title="Dictate a note (local Whisper)" aria-label="Dictate a note"><i class="ph ph-microphone ph-lead" aria-hidden="true"></i> Dictate</button>
+            <button id="improve-btn" class="ghost" type="button" title="Let the AI proofread or rewrite this before you save" aria-label="Improve writing with AI"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Improve</button>
           </div>
           <!-- Files waiting to go onto this note when it saves. Reported
                directly: "when I uplaod pdfs to a note, they are in pure md
@@ -641,10 +653,13 @@ Link to another note with [[its first few words]]."></textarea>
                401 page with no way back. Empty and hidden until something
                is staged; `renderCaptureFiles` fills it. -->
           <div id="entry-file-strip" class="file-strip hidden" aria-label="Files attached to this note"></div>
-          <div class="row capture-field-row">
+          <!-- File it, then commit it — and the commit pair sits at the far
+               end, after a spacer, so "Save" is the last thing on the row and
+               the only filled button in the panel. -->
+          <div class="row capture-field-row capture-commit-row">
             <label for="entry-category" class="muted capture-field-label">File under</label>
             <select id="entry-category"></select>
-            <button id="save-btn">Save</button>
+            <span class="capture-commit-spacer"></span>
             <!-- Reported live: "no option to save a note as a draft in the
                  capture section" — true before this. is_draft: true already
                  existed as a note field (the text-selection popup, the
@@ -657,9 +672,7 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="save-draft-btn" class="ghost"
               title="Save without filing it yet — find it later under Drafts in the sidebar"
               aria-label="Save as draft">Save as draft</button>
-            <button id="improve-btn" class="ghost" title="Let the AI proofread or rewrite this before you save" aria-label="Improve writing with AI"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Improve</button>
-            <button id="sketch-btn" class="ghost" title="Draw a quick sketch and save it as a note" aria-label="Open the sketch pad"><i class="ph ph-palette ph-lead" aria-hidden="true"></i> Sketch</button>
-            <button id="mic-note" class="ghost" title="Dictate a note (local Whisper)" aria-label="Dictate a note"><i class="ph ph-microphone" aria-hidden="true"></i></button>
+            <button id="save-btn"><i class="ph ph-check ph-lead" aria-hidden="true"></i> Save</button>
           </div>
           <p><span id="save-status" class="status" role="status"></span></p>
         </section>

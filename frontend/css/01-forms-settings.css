@@ -1691,7 +1691,12 @@ progress {
    `.bookmark-row`/`.outline-link` already use elsewhere in this app. */
 .contents-outline {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  /* `auto-fit`, not `auto-fill`. `auto-fill` keeps the empty tracks it
+     created, so three categories in a 1400px-wide panel sat in the first
+     three of five columns with the right-hand 40% of the card blank.
+     `auto-fit` collapses the empty tracks and the three columns share the
+     width. */
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
   gap: var(--space-5);
   margin-top: var(--space-4);
 }
@@ -1732,6 +1737,17 @@ progress {
   overflow-x: hidden;
 }
 
+/* Only when this list actually overflows — set from JS after layout, because
+   CSS cannot ask whether a box is scrollable. Two cues, because one was not
+   enough to stop this reading as clipped: the last visible row fades out, so
+   the cut is obviously the start of more content rather than the end of the
+   list, and the scrollbar is drawn rather than left to the platform's
+   draw-on-scroll overlay. */
+.contents-list.is-scrollable {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 2rem), transparent);
+  scrollbar-color: var(--border) transparent;
+}
+
 .contents-list li a {
   display: block;
   padding: var(--space-2);
@@ -1739,6 +1755,12 @@ progress {
   color: var(--ink);
   white-space: normal;
   overflow-wrap: anywhere;
+  /* No underline. These are the app's own list rows, and nothing else in it
+     underlines a row — the browser's default made the whole outline read as
+     a page of hyperlinks rather than as a list of the user's notes. The
+     hover ground below is what says these are clickable, the same as every
+     other row in the app. */
+  text-decoration: none;
 }
 
 .contents-list li a:hover,

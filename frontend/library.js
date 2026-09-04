@@ -3480,5 +3480,20 @@ async function renderContents() {
     }
     section.appendChild(list);
     outline.appendChild(section);
+    // **Say when there is more below the fold.** The list is capped at a
+    // height and scrolls, which is right — a category with 36 notes must not
+    // make its column 36 rows tall — but the only cue was the platform's own
+    // overlay scrollbar, which does not draw until you scroll. A heading
+    // reading "UNCATEGORISED (25)" above five visible rows and a sixth
+    // sliced in half therefore reads as broken rather than as scrollable.
+    //
+    // Measured after layout rather than guessed: the class only goes on when
+    // this particular list actually overflows, so a category of three notes
+    // gets no fade at the bottom of empty space. `requestAnimationFrame`
+    // because `scrollHeight` is meaningless until the browser has laid the
+    // list out.
+    requestAnimationFrame(() => {
+      list.classList.toggle("is-scrollable", list.scrollHeight > list.clientHeight + 2);
+    });
   }
 }

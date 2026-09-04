@@ -4669,9 +4669,20 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
         d3.drag()
           .on("start", (event) => event.sourceEvent.stopPropagation())
           .on("drag", function (event) {
-            const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-            live.x += event.dx / transform.k;
-            live.y += event.dy / transform.k;
+            // No `/ transform.k` here — unlike the HTML-element card/object
+            // drags elsewhere in this file, this circle's drag container
+            // (its parent `<g>`, d3-drag's default) sits *inside* the zoomed
+            // `#wb-overlay-zoom-group`. d3.pointer() resolves SVG coordinates
+            // through the element's `getScreenCTM()`, which already folds in
+            // every ancestor transform — so `event.dx`/`dy` arrive pre-divided
+            // by the zoom scale. Dividing again here shrank every frame's
+            // movement by a second factor of the zoom level: reported
+            // directly ("when I drag the whiteboard links, it goes off my
+            // cursor"), and confirmed live — at 2x zoom the handle trailed
+            // the cursor by exactly half the dragged distance, growing every
+            // frame, matching a `1/k` double-division exactly.
+            live.x += event.dx;
+            live.y += event.dy;
             d3.select(this).attr("cx", live.x).attr("cy", live.y);
             const previewPts = end === "source" ? [live, endpoints[other]] : [endpoints[other], live];
             const previewD = wbLinkPathD(parsed.type, previewPts[0], previewPts[1], wbLinkCaps(parsed), parsed.width);

@@ -606,6 +606,17 @@ class MediaUploadOut(BaseModel):
     #: is already here, and a byte count would cost one `stat` per row on
     #: every gallery load for a number nobody asked for.
     created_at: str = ""
+    #: **Where this file is actually used** — one entry per note, document or
+    #: board that references it, as `{kind, id, label}`. The gallery showed a
+    #: thumbnail, a filename and two empty prompts and could not answer the
+    #: only question anyone brings to it: what is this attached to? Empty
+    #: means genuinely unreferenced (the same condition the orphan check uses
+    #: — both read `media_gc.referenced_names`, so they cannot disagree).
+    used_by: list[dict] = []
+    #: True when a locked private note made the usage scan incomplete, so an
+    #: empty `used_by` means "could not check" rather than "not used". The UI
+    #: must not call a file unused on this basis.
+    usage_incomplete: bool = False
 
 
 @router.get("/media", response_model=list[MediaUploadOut])
@@ -615,9 +626,15 @@ def list_media(session: Session = Depends(get_session)) -> list[MediaUploadOut]:
     the same convention the Library's own sort defaults to.
     """
     uploads = session.query(MediaUpload).order_by(MediaUpload.created_at.desc()).all()
+    # One scan for the whole gallery rather than one per file: `usage_map`
+    # walks each table once and inverts the result, so this stays a single
+    # pass no matter how many uploads there are.
+    used, usage_incomplete = media_gc.usage_map(session)
     return [
         MediaUploadOut(
             id=u.id,
+            used_by=used.get(u.filename, []),
+            usage_incomplete=usage_incomplete,
             url=f"/media/{u.filename}",
             original_name=u.original_name,
             ocr_text=u.ocr_text or "",

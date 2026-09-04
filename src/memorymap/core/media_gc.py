@@ -93,6 +93,55 @@ def _conversation_referenced_ids(session: Session) -> set[int]:
     return ids
 
 
+def usage_map(session: Session) -> tuple[dict[str, list[dict]], bool]:
+    """The reverse of `_referenced_filenames`: filename -> where it is used.
+
+    The Library's Files & Images tab showed a thumbnail, a filename and two
+    empty prompts, and nothing about what the file was *for* — so a gallery of
+    sixty uploads could not answer the only question anyone brings to it,
+    which is "where did this come from and what is it attached to?". Reported
+    as the Files tab needing to be "properly integrated" rather than
+    redesigned.
+
+    Built from `referenced_names` rather than a second scanner, so this and
+    the orphan check can never disagree about what "referenced" means — an
+    important property, because a file this says is used and the GC says is
+    orphaned would be a file the GC deletes out from under a live note.
+
+    Returns `(map, skipped_private)`. `skipped_private` carries the same
+    meaning it does for the orphan pass: a locked private note could not be
+    read, so the answer is incomplete rather than negative, and the UI says so
+    instead of claiming a file is unused.
+    """
+    from memorymap.core import crypto, vault
+
+    used: dict[str, list[dict]] = {}
+    skipped_private = False
+
+    def note(name: str, kind: str, ident, label: str) -> None:
+        used.setdefault(name, []).append(
+            {"kind": kind, "id": ident, "label": (label or "").strip()[:80] or "Untitled"}
+        )
+
+    for obj in session.scalars(select(WhiteboardObject).where(WhiteboardObject.kind == "image")):
+        for name in referenced_names(obj.data):
+            note(name, "board", obj.board_id, "Whiteboard")
+
+    for doc in session.scalars(select(Document)):
+        for name in referenced_names(doc.content):
+            note(name, "document", doc.id, doc.title)
+
+    for entry in session.scalars(select(Entry).where(Entry.is_deleted == False)):  # noqa: E712
+        if entry.is_private and crypto.is_encrypted(entry.content) and vault.key() is None:
+            skipped_private = True
+            continue
+        content = manager.readable_content(entry)
+        for name in referenced_names(content):
+            note(name, "note", entry.id, (content or "").lstrip("# ").splitlines()[0] if content else "")
+
+    return used, skipped_private
+
+
 def find_orphaned_media(session: Session) -> tuple[list[MediaUpload], bool]:
     """Uploads no live note, document, whiteboard object or saved chat turn
     still points at.

@@ -157,3 +157,72 @@ def test_orphans_route_is_not_shadowed_by_the_upload_id_route(ai_client):
 
     delete_response = ai_client.delete("/media/orphans")
     assert delete_response.status_code == 200
+
+
+# --- the reverse question: where is this file used? -------------------------
+#
+# The Library's Files & Images gallery showed a thumbnail, a filename and two
+# empty prompts, and could not answer the only question anyone brings to it —
+# what is this attached to? `usage_map` inverts the orphan scan to answer it.
+# It shares `referenced_names` with that scan deliberately: a file the gallery
+# called "used" while the collector called it orphaned would be a file deleted
+# out from under a live note.
+
+
+def test_usage_map_names_the_note_a_file_is_used_in(ai_client):
+    uploaded = _upload(ai_client)
+    ai_client.post("/entries", json={"content": f"# Lecture notes\nsee ![img]({uploaded['url']})"})
+
+    listed = ai_client.get("/media").json()
+    row = next(m for m in listed if m["url"] == uploaded["url"])
+    assert [u["kind"] for u in row["used_by"]] == ["note"]
+    assert "Lecture notes" in row["used_by"][0]["label"]
+    assert row["usage_incomplete"] is False
+
+
+def test_usage_map_names_the_document_a_file_is_used_in(ai_client):
+    uploaded = _upload(ai_client)
+    ai_client.post("/documents", json={"title": "Thesis", "content": f"![i]({uploaded['url']})"})
+
+    listed = ai_client.get("/media").json()
+    row = next(m for m in listed if m["url"] == uploaded["url"])
+    assert [(u["kind"], u["label"]) for u in row["used_by"]] == [("document", "Thesis")]
+
+
+def test_a_file_used_in_two_places_reports_both(ai_client):
+    uploaded = _upload(ai_client)
+    ai_client.post("/entries", json={"content": f"one ![i]({uploaded['url']})"})
+    ai_client.post("/documents", json={"title": "Two", "content": f"![i]({uploaded['url']})"})
+
+    listed = ai_client.get("/media").json()
+    row = next(m for m in listed if m["url"] == uploaded["url"])
+    assert sorted(u["kind"] for u in row["used_by"]) == ["document", "note"]
+
+
+def test_an_unused_file_reports_no_usage(ai_client):
+    """And says so as an empty list rather than omitting the field, so the UI
+    can tell "not used" from "not checked" — which is the distinction that
+    stops it inviting someone to delete a file that a locked private note is
+    still using."""
+    uploaded = _upload(ai_client)
+
+    listed = ai_client.get("/media").json()
+    row = next(m for m in listed if m["url"] == uploaded["url"])
+    assert row["used_by"] == []
+    assert row["usage_incomplete"] is False
+
+
+def test_usage_and_the_orphan_check_agree(ai_client):
+    """The property that matters most: anything with usage must not be
+    orphaned, and anything orphaned must have no usage."""
+    used = _upload(ai_client, "used.png")
+    unused = _upload(ai_client, "unused.png")
+    ai_client.post("/entries", json={"content": f"![i]({used['url']})"})
+
+    listed = {m["url"]: m for m in ai_client.get("/media").json()}
+    orphan_urls = {o["url"] for o in ai_client.get("/media/orphans").json()["orphans"]}
+
+    assert listed[used["url"]]["used_by"] != []
+    assert used["url"] not in orphan_urls
+    assert listed[unused["url"]]["used_by"] == []
+    assert unused["url"] in orphan_urls

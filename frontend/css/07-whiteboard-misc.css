@@ -3416,3 +3416,37 @@ summary:not(.icon-only):not(.icon-button) {
   color: var(--error);
   border-color: var(--error);
 }
+
+/* --- a file says what it is attached to ----------------------------------
+   The Files & Images gallery could not answer the one question anyone brings
+   to it: what is this file for? A thumbnail, a filename and two empty
+   prompts is a wall of anonymous rectangles at sixty uploads, and the only
+   route from a file back to its note was searching for the filename by hand.
+
+   The usage row is deliberately quiet — a lead-in and chips, not a second
+   caption competing with the real one. It wraps rather than scrolls, because
+   unlike the collapsed note row's chip lane this is the last row of a card
+   with room below it. */
+.library-image-usage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.library-image-usage-lead {
+  flex: 0 0 auto;
+}
+
+/* A chip that goes somewhere. Capped so one long note title cannot push the
+   rest of the row out of the card, with the full text still in the title. */
+.library-image-usage-chip {
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}

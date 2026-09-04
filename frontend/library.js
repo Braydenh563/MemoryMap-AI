@@ -2920,7 +2920,69 @@ function filterLibraryImagesGallery() {
     fields.className = "library-image-fields";
     fields.append(captionField, visionField, ocrField);
 
-    fig.append(img, actions, cap, fields);
+    // **Where this file is actually used.** Asked for as the Files tab being
+    // "properly integrated" rather than just redesigned — and it was the one
+    // question the gallery could not answer. A card showed a thumbnail, a
+    // filename and two empty prompts, so a wall of sixty uploads told you
+    // nothing about what any of them were for, and getting from a file to the
+    // note it belongs to meant searching for it by name.
+    //
+    // Each chip opens the thing that references the file, so the gallery is a
+    // way *into* the notebook rather than a dead end. Server-side
+    // (`media_gc.usage_map`), built from the same `referenced_names` the
+    // orphan collector uses — if the two disagreed, a file this called "used"
+    // could be one the collector deletes.
+    const usage = document.createElement("div");
+    usage.className = "library-image-usage";
+    const links = Array.isArray(image.used_by) ? image.used_by : [];
+    if (links.length) {
+      const lead = document.createElement("span");
+      lead.className = "muted text-sm library-image-usage-lead";
+      lead.textContent = links.length === 1 ? "Used in" : `Used in ${links.length} places`;
+      usage.appendChild(lead);
+      for (const use of links.slice(0, 4)) {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "chip chip-interactive library-image-usage-chip";
+        const icon = { note: "ph:note", document: "ph:file-text", board: "ph:squares-four" }[use.kind] || "ph:link";
+        setLabel(chip, `${icon} ${use.label}`);
+        chip.title = `Open the ${use.kind} this file is used in`;
+        chip.addEventListener("click", (event) => {
+          event.stopPropagation();
+          if (use.kind === "note") {
+            switchTab("notes");
+            flashEntry(use.id);
+          } else if (use.kind === "document") {
+            switchTab("documents");
+            openDocument(use.id);
+          } else if (use.kind === "board") {
+            openWhiteboardBoard(use.id ?? null);
+          }
+        });
+        usage.appendChild(chip);
+      }
+      if (links.length > 4) {
+        const more = document.createElement("span");
+        more.className = "muted text-sm";
+        more.textContent = `+${links.length - 4} more`;
+        usage.appendChild(more);
+      }
+    } else if (image.usage_incomplete) {
+      // Not the same claim as "unused", and the difference matters: a locked
+      // private note could not be read, so this file may well be in use.
+      // Saying "not used anywhere" here would invite deleting something live.
+      const note = document.createElement("span");
+      note.className = "muted text-sm";
+      note.textContent = "Usage unknown — a locked private note could not be checked";
+      usage.appendChild(note);
+    } else {
+      const note = document.createElement("span");
+      note.className = "muted text-sm";
+      note.textContent = "Not used in any note, document or board yet";
+      usage.appendChild(note);
+    }
+
+    fig.append(img, actions, cap, usage, fields);
     grid.appendChild(fig);
   }
 }

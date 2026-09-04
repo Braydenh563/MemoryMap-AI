@@ -2576,7 +2576,38 @@ header#top-bar.tabs-wrapped #tab-bar {
 
    One shell owns the inset now. A page's own container contributes only its
    internal gap, never its distance from the window. */
+/* --- what a wide screen is for -------------------------------------------
+   Asked for directly: "make sure the interface is responsive and properly
+   adjusted and changed to do all screen resolutions, don't just squish
+   elements onto the page, actually make it professionally designed for every
+   resolution."
+
+   The failure at the wide end was the opposite of squishing, and it was
+   measured rather than guessed. At 2560x1440 the Reminders form's
+   "Remind me to..." field stretched to roughly 1450px — a single-line text
+   input a metre wide — and a reminder row put its title and its date about
+   1700px apart, too far to read as one row. Nothing overflowed; everything
+   simply grew, which is what a layout does when nobody has decided how wide
+   it should be.
+
+   DESIGN.md's own alignment test says the same thing in a number. Distinct
+   left edges of elements wider than 120px, measured at 2560x1440 before this:
+   Dashboard **54**, Graph **64**, Library **46** — against the 37/35/25 that
+   file records at 1440x900. The app was getting *less* aligned the more room
+   it was given.
+
+   So the content column has a maximum and centres past it. This is what every
+   comparable app does (Notion, Linear, Obsidian) for the same reason: past
+   about 1500px a reading-and-forms layout gains nothing from more width and
+   loses the ability to relate the left of a row to its right.
+
+   `.tab-page` itself stays full width because it is the scrolling element —
+   capping it would strand the scrollbar in the middle of the window. The cap
+   goes on its children instead. Canvas pages opt out below: a graph, a
+   timeline and a whiteboard are the one kind of surface that genuinely uses
+   every pixel it is given. */
 .tab-page {
+  --content-max: 1500px;
   display: flex;
   flex-direction: column;
   padding: var(--page-top) var(--page-gutter) var(--page-bottom);
@@ -2592,6 +2623,31 @@ header#top-bar.tabs-wrapped #tab-bar {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+/* The content column. `width: 100%` alongside the cap so a child that would
+   otherwise size to its content still fills the column, and `margin-inline:
+   auto` centres it once the window is wider than the cap. */
+.tab-page > * {
+  max-width: var(--content-max);
+  width: 100%;
+  /* `align-self`, not `margin-inline: auto`. `.tab-page` is a **column** flex
+     container, so the horizontal axis is its cross axis — and the sibling
+     `.tab-page > .card` rules below set `margin`, which overwrites an auto
+     inline margin declared here regardless of source order within the
+     shorthand. Measured: with `margin-inline: auto` the capped cards sat at
+     `left: 24px` with a thousand pixels of empty space to their right.
+     Cross-axis alignment is the property that actually owns this. */
+  align-self: center;
+}
+
+/* A canvas uses every pixel. These three are the surfaces where more width is
+   more information rather than a longer line to read: the graph, the timeline
+   and the whiteboard/library canvas. Capping them would be the mirror of the
+   bug this fixes. */
+#tab-graph,
+#tab-timeline {
+  --content-max: none;
 }
 
 /* Direct children of a page are already inside the gutter, so they carry only

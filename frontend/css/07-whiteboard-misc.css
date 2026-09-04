@@ -3766,9 +3766,33 @@ summary:not(.icon-only):not(.icon-button) {
      gallery ("Sketch on SD board 1788528271333"). */
   max-width: min(16rem, 100%);
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
+}
+
+/* **`text-overflow` has to go on the text, not on the chip.** Reported: "the
+   text in the used in tokens are cut off", with a screenshot of a chip whose
+   label was sliced at *both* ends — "ome ideas for features I h".
+
+   `.chip` is `inline-flex`, and `text-overflow` does nothing on a flex
+   container: its children are flex items, so the label was never a line box
+   that could ellipsise. It just got clipped by `overflow: hidden` instead,
+   and clipped symmetrically, which is the same shape as the `.timeline-dot`
+   bug this file already records — a centred child losing an equal slice off
+   each side rather than ending in an ellipsis.
+
+   `setLabel` already wraps the text in `.ph-text` (app.js), so the fix is to
+   put the rule where the text actually is, and to stop the icon shrinking
+   with it. */
+.library-image-usage-chip > .ph-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.library-image-usage-chip > .ph-lead {
+  flex: 0 0 auto;
 }
 
 /* --- a narrow measure for prose, wide chrome around it -------------------

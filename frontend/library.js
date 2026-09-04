@@ -2243,6 +2243,28 @@ async function renderLibraryImagesGallery() {
   // `/media/{name}.ext` row — would silently call every attachment a "file"
   // regardless of its real mime.
   const attachments = await apiJson("/files/gallery", { silent: true }).catch(() => []);
+  // **These two loops are load-bearing and were once silently lost.**
+  // Reported: "none of the images and sketches are in the images library
+  // subtab at all and all the files are in the files subtab" — and that is
+  // exactly what an unset `_isImage` produces, because the kind filter below
+  // reads `!i._isImage` for Files: `undefined` is falsy, so every single row
+  // in the notebook satisfied "is a file" and none satisfied "is an image".
+  // Nothing threw and nothing logged; the Images tab just rendered its empty
+  // state on a notebook full of pictures. The comment above survived the edit
+  // that dropped the code it describes, which is the only reason this was
+  // findable by reading — so if this ever needs changing again, change both.
+  for (const item of images || []) item._isImage = isImageUrl(item.url);
+  for (const item of attachments || []) {
+    item._isImage = (item.mime || "").startsWith("image/");
+    item._isAttachment = true;
+    // Never OCR'd, captioned or read by a vision model unless the analyse
+    // step has run — explicit empty strings, the same never-null convention
+    // `MediaUploadOut` uses, so the search filter and the lightbox can read
+    // these without a branch for which kind of row they have.
+    item.ocr_text = item.ocr_text || "";
+    item.caption = item.caption || "";
+    item.vision_ocr_text = item.vision_ocr_text || "";
+  }
   libraryImagesCache = [...(images || []), ...(attachments || [])];
   if (!images && !attachments?.length) {
     grid.replaceChildren();

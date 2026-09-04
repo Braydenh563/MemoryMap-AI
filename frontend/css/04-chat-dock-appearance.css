@@ -2987,6 +2987,15 @@ label.setting-check,
   flex: 1 1 auto;
   min-height: 12rem;
   resize: vertical;
+  /* **The cap that stops the drag leaving the pane.** Reported: "the
+     documents source view can be extended out of the panels." `resize:
+     vertical` with no ceiling means the handle can be dragged to any height
+     at all, and the editor is inside a fixed-height app shell — so past the
+     pane's own height the textarea grows straight out through the bottom of
+     the card, taking the status line and the hint with it. 100% is the pane
+     `flex: 1 1 auto` already sized it against, so the handle still works
+     over the whole range that fits and stops exactly where the panel does. */
+  max-height: 100%;
   font-family: var(--mono, ui-monospace, monospace);
   font-size: 0.92rem;
   line-height: 1.6;

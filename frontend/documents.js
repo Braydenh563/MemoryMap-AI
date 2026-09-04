@@ -2087,6 +2087,50 @@ try {
 } catch {
   setDocView("source");
 }
+
+//: **The reading measure, opted out of.** Reported: "idk why the document
+//: rendered views are so thin??" — measured at 736px inside a 1132px pane,
+//: which is the 72ch cap in the CSS doing exactly what it was written to do.
+//: A measure is right for reading a finished page and wrong for a wide table,
+//: a code-heavy file, or simply wanting the window you have. The cap stays the
+//: default; this is the way out of it.
+//:
+//: The class goes on the tab rather than on each pane so Split's two halves
+//: can never disagree, and it is remembered because it is a preference about
+//: how you read, not a place you are.
+const DOC_WIDTH_KEY = "doc-full-width";
+
+function applyDocWidth(wide) {
+  const tab = $("tab-documents");
+  const button = $("doc-width-toggle");
+  tab?.classList.toggle("doc-wide", wide);
+  if (button) {
+    button.setAttribute("aria-pressed", String(wide));
+    button.title = wide
+      ? "Back to a comfortable reading width"
+      : "Use the full width of the pane";
+    button.setAttribute("aria-label", button.title);
+  }
+}
+
+function setDocWidth(wide) {
+  try {
+    localStorage.setItem(DOC_WIDTH_KEY, wide ? "wide" : "measure");
+  } catch {
+    // A private window can refuse storage; the mode still applies for now.
+  }
+  applyDocWidth(wide);
+}
+
+$("doc-width-toggle")?.addEventListener("click", () =>
+  setDocWidth(!$("tab-documents")?.classList.contains("doc-wide"))
+);
+
+try {
+  applyDocWidth(localStorage.getItem(DOC_WIDTH_KEY) === "wide");
+} catch {
+  applyDocWidth(false);
+}
 $("doc-connections").addEventListener("click", () => {
   if (!currentDoc) return;
   // Closes the ⋯ disclosure first: it is a `<details>`, so it stays open

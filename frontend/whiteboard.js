@@ -6153,24 +6153,72 @@ async function renderLibraryBoardsGallery() {
     // shipped once as silently-dead markup (CLAUDE.md, "a policy silently
     // refusing the work"). An empty board draws nothing and keeps its
     // "Empty board" line, which says more than a blank rectangle would.
-    const points = Array.isArray(board.preview_points) ? board.preview_points : [];
-    if (points.length) {
+    const items = Array.isArray(board.preview_items) ? board.preview_items : [];
+    if (items.length) {
       const NS = "http://www.w3.org/2000/svg";
       const map = document.createElementNS(NS, "svg");
       map.setAttribute("class", "board-minimap");
       map.setAttribute("viewBox", "0 0 100 56");
       map.setAttribute("preserveAspectRatio", "none");
       map.setAttribute("aria-hidden", "true");
-      for (const [nx, ny] of points) {
+      for (const item of items) {
+        const nx = 3 + (Number(item.x) || 0) * 88;
+        const ny = 3 + (Number(item.y) || 0) * 44;
+        if (item.kind === "sketch") {
+          // A sketch is strokes, and the thumbnail does not have them — the
+          // board's stroke data is the one thing `preview_items` deliberately
+          // does not ship. A squiggle says "something drawn here", which is
+          // the fact that was missing entirely: a sketch-only board used to
+          // preview as an empty rectangle beside a line reading "2 sketches".
+          const mark = document.createElementNS(NS, "path");
+          mark.setAttribute("class", "board-minimap-sketch");
+          mark.setAttribute(
+            "d",
+            `M${nx} ${ny + 5} q2.5 -5 5 0 t5 0`
+          );
+          map.appendChild(mark);
+          continue;
+        }
         const dot = document.createElementNS(NS, "rect");
+        dot.setAttribute("class", item.kind === "card" ? "board-minimap-card" : "board-minimap-object");
         // Inset by the dot's own size so a card at the extreme edge of the
         // board is drawn inside the thumbnail rather than half outside it.
-        dot.setAttribute("x", String(3 + nx * 88));
-        dot.setAttribute("y", String(3 + ny * 44));
+        dot.setAttribute("x", String(nx));
+        dot.setAttribute("y", String(ny));
         dot.setAttribute("width", "9");
         dot.setAttribute("height", "6");
         dot.setAttribute("rx", "1.5");
         map.appendChild(dot);
+        // **What the card says**, which is the whole reason this stopped
+        // being a list of bare points. Reported as "the whiteboard preview is
+        // poor", and the screenshot was three boards named "Cloud computing"
+        // showing three identical arrangements of blank grey rectangles —
+        // a picture that could not tell them apart, which is what a preview
+        // is for. Two or three words at this scale is a texture rather than
+        // readable text, and that is enough: two boards with different notes
+        // on them stop looking the same.
+        if (item.label) {
+          const text = document.createElementNS(NS, "text");
+          text.setAttribute("class", "board-minimap-label");
+          // **Which side of the block the label sits on.** Drawn always to
+          // the right in the first version, and looking at the result showed
+          // the problem immediately: a card at the far right of a board is at
+          // nx ≈ 91 in a 100-wide viewBox, so its label ran straight off the
+          // edge and came out sliced mid-word ("Cloud computi"). Past the
+          // halfway mark it hangs off the left of the block instead, which is
+          // the same amount of room from the other direction.
+          const rightHalf = nx > 50;
+          text.setAttribute("x", String(rightHalf ? nx - 1.5 : nx + 10.5));
+          text.setAttribute("y", String(ny + 4.4));
+          if (rightHalf) text.setAttribute("text-anchor", "end");
+          // An ellipsis rather than a bare slice: "Connections prob" reads as
+          // broken, "Connections pro…" reads as shortened. Sixteen characters
+          // is what fits beside a block at this scale before it starts
+          // colliding with the next one.
+          text.textContent =
+            item.label.length > 16 ? `${item.label.slice(0, 15).trimEnd()}…` : item.label;
+          map.appendChild(text);
+        }
       }
       card.append(top, title, map, meta);
     } else {

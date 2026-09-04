@@ -3386,7 +3386,37 @@ summary:not(.icon-only):not(.icon-button) {
   opacity: 0.55;
 }
 
-.library-board-card:hover .board-minimap rect {
+/* An object (an image, a shape, a text box) is on the board but is not a
+   note, so it reads as a quieter block rather than as a card. */
+.board-minimap-object {
+  opacity: 0.3;
+}
+
+/* Strokes, as a stroke. Drawn rather than filled because a sketch has no
+   box — a filled rectangle here would claim it was a card. */
+.board-minimap-sketch {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  opacity: 0.7;
+}
+
+/* **The label is the point of the preview, so it gets the real ink** and the
+   blocks behind it drop back. At this scale (a 100x56 viewBox scaled into a
+   ~300px card) three or four words are a texture rather than reading matter,
+   which is exactly what distinguishes two boards at a glance. It is clipped
+   in the data, not here — `preview_items` carries at most 28 characters — so
+   there is no ellipsis to draw and nothing to overflow. */
+.board-minimap-label {
+  fill: var(--ink);
+  opacity: 0.75;
+  font-size: 4.2px;
+  font-family: inherit;
+}
+
+.library-board-card:hover .board-minimap rect,
+.library-board-card:hover .board-minimap path {
   opacity: 0.8;
 }
 
@@ -3603,6 +3633,28 @@ summary:not(.icon-only):not(.icon-button) {
   max-width: 72ch;
 }
 
+/* **The measure, opted out of.** Reported: "idk why the document rendered
+   views are so thin??" — measured at 736px inside a 1132px pane, which is
+   the 72ch cap above doing exactly what it was written to do.
+
+   The cap is not wrong; being the only option was. A measure is right for
+   reading a finished page and wrong for a wide table, a code-heavy file, or
+   simply wanting the window you paid for. `#doc-width-toggle` puts
+   `.doc-wide` on the tab and this releases it, for every pane at once so
+   the two halves of Split never disagree. The default is unchanged. */
+/* The `:not(.doc-split-pane)` is carried through deliberately, and it is a
+   specificity fix rather than a copy of the selector above: `#doc-preview`
+   alone is (1,0,0) and `#doc-preview:not(.doc-split-pane)` is (1,1,0), so a
+   tidy `.doc-wide #doc-preview` at (0,2,0) loses to *both* — measured, the
+   toggle flipped its own aria-pressed and moved the preview not one pixel. */
+.doc-wide .doc-source-wrap:not(.doc-split-pane) #doc-content,
+.doc-wide #doc-live:not(.doc-split-pane),
+.doc-wide #doc-preview:not(.doc-split-pane),
+.doc-wide #doc-live,
+.doc-wide #doc-preview {
+  max-width: none;
+}
+
 /* The tools filter sits above a fifty-one item list, so it stays put while
    the list under it scrolls — a filter you have to scroll back up to reach is
    a filter people use once. */
@@ -3663,4 +3715,45 @@ button.connection-row {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+
+/* --- the document toolbar's two folds ------------------------------------- */
+/* `.doc-dock-menu` already carries the popup's own positioning and list
+   styling (it is the document ⋯ menu's class); these three rules only make
+   the *summary* read as one more toolbar button rather than as the taller
+   icon-button that menu uses in the header row. */
+.doc-toolbar > .doc-toolbar-menu {
+  display: inline-flex;
+}
+
+.doc-toolbar-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* Small enough to read as "there is more here" and not as a second glyph
+   competing with the group's own icon. */
+.doc-toolbar-menu-caret {
+  font-size: 0.7em;
+  opacity: 0.7;
+}
+
+/* The colour menu holds two <select>s beside two buttons; without this they
+   size to their own widest option and the menu is twice as wide as it needs
+   to be. */
+.doc-toolbar-menu .doc-dock-menu-list {
+  min-width: 12rem;
+}
+
+.doc-toolbar-menu .md-colour-select {
+  width: 100%;
+}
+
+/* Pressed = wide. It is a mode, so it holds its state visibly rather than
+   being a button you press and cannot tell you pressed. */
+.doc-toolbar-width[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
 }

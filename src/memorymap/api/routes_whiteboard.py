@@ -274,17 +274,27 @@ class BoardOut(BaseModel):
     sketch_count: int
     object_count: int = 0
     #: A miniature of where things actually sit on this board: up to
-    #: `PREVIEW_POINTS` `[x, y]` pairs, each normalised into 0..1 against the
-    #: board's own bounding box. The Library's board cards showed an icon, a
-    #: title and a count of cards, which is the same three facts for every
-    #: board anyone has ever drawn — reported as the Boards & maps sub-tab
-    #: being "boring" and wanting previews.
+    #: Up to `PREVIEW_POINTS` items — `{x, y, kind, label}` — each position
+    #: normalised into 0..1 against the board's own bounding box. The
+    #: Library's board cards showed an icon, a title and a count, which is
+    #: the same three facts for every board anyone has ever drawn (reported
+    #: as the Boards & maps sub-tab being "boring" and wanting previews).
+    #:
+    #: **`kind` and `label` are why this replaced a bare list of points**,
+    #: and both came out of looking at the result: reported again as "the
+    #: whiteboard preview is poor", and the screenshot showed why. Every card
+    #: drew as an identical blank grey rectangle, so three different boards
+    #: called "Cloud computing" were indistinguishable — a preview whose only
+    #: information is *how many* things there are and roughly where. And a
+    #: board holding only sketches previewed as nothing at all, because
+    #: sketches were not in the sample; "Default board · 2 sketches" showed
+    #: an empty space where its picture should be.
     #:
     #: Normalised here rather than client-side because the client would then
-    #: need every node's absolute coordinates to compute the bounds, which is
+    #: need every item's absolute coordinates to compute the bounds, which is
     #: the whole board — and a list of twenty boards would ship twenty whole
     #: boards to draw twenty thumbnails.
-    preview_points: list[list[float]] = []
+    preview_items: list[dict] = []
 
 
 class BoardCreate(BaseModel):
@@ -327,16 +337,68 @@ def _preview_points(rows: list[tuple[float, float]]) -> list[list[float]]:
     ]
 
 
-def _board_points(db: Session, board_id: int | None) -> list[list[float]]:
-    """Every card's position on one board, as a thumbnail."""
-    rows = db.execute(
-        select(WhiteboardNode.x, WhiteboardNode.y).where(
-            WhiteboardNode.board_id.is_(None)
-            if board_id is None
-            else WhiteboardNode.board_id == board_id
+#: How much of a card's own text the thumbnail carries. Enough to tell two
+#: boards apart at a glance and no more — the label is drawn at a few pixels
+#: high, so a longer string is only bytes.
+PREVIEW_LABEL_CHARS = 28
+
+
+def _preview_items(rows: list[tuple[float, float, str, str]]) -> list[dict]:
+    """The same normalisation as `_preview_points`, carrying what each item
+    *is* and what it says.
+
+    Sampling happens before normalising and both use one stride, so the
+    labels can never end up attached to the wrong positions — which is the
+    obvious way to break this while every number still looks plausible.
+    """
+    if not rows:
+        return []
+    stride = max(1, len(rows) // PREVIEW_POINTS)
+    sampled = rows[::stride][:PREVIEW_POINTS]
+    points = _preview_points([(x, y) for x, y, _, _ in sampled])
+    return [
+        {"x": nx, "y": ny, "kind": kind, "label": label}
+        for (nx, ny), (_, _, kind, label) in zip(points, sampled, strict=True)
+    ]
+
+
+def _board_preview(db: Session, board_id: int | None) -> list[dict]:
+    """Everything placed on one board, as a thumbnail.
+
+    Cards, sketches *and* objects. Cards alone was the first version and it
+    is why a sketch-only board previewed as an empty rectangle: the count
+    line said "2 sketches" beside a picture of nothing.
+    """
+    from memorymap.entry import manager
+
+    def on(model):
+        return (
+            model.board_id.is_(None) if board_id is None else model.board_id == board_id
         )
-    ).all()
-    return _preview_points([(float(x), float(y)) for x, y in rows])
+
+    rows: list[tuple[float, float, str, str]] = []
+
+    for node in db.scalars(select(WhiteboardNode).where(on(WhiteboardNode))):
+        entry = db.get(Entry, node.entry_id)
+        label = ""
+        if entry is not None and not entry.is_private:
+            # A card *is* a note, so its own title (or first words) is what
+            # is written on it. A private note contributes its position and
+            # nothing else — the same rule the Connections block and the
+            # Library's file-usage chips follow.
+            text = manager.readable_content(entry)
+            label = (manager.extract_title(text) or text.strip().split("\n")[0])[
+                :PREVIEW_LABEL_CHARS
+            ]
+        rows.append((float(node.x), float(node.y), "card", label))
+
+    for sketch in db.scalars(select(WhiteboardSketch).where(on(WhiteboardSketch))):
+        rows.append((float(sketch.x), float(sketch.y), "sketch", ""))
+
+    for obj in db.scalars(select(WhiteboardObject).where(on(WhiteboardObject))):
+        rows.append((float(obj.x), float(obj.y), obj.kind or "object", ""))
+
+    return _preview_items(rows)
 
 
 @router.get("/boards", response_model=list[BoardOut])
@@ -391,7 +453,7 @@ def list_boards(db: Session = Depends(get_session)) -> list[BoardOut]:
             node_count=default_nodes,
             sketch_count=default_sketches,
             object_count=default_objects,
-            preview_points=_board_points(db, None),
+            preview_items=_board_preview(db, None),
         )
     ]
     # `is_board` entries are included even at zero counts — see its own
@@ -418,7 +480,7 @@ def list_boards(db: Session = Depends(get_session)) -> list[BoardOut]:
                     node_count=node_counts.get(entry.id, 0),
                     sketch_count=sketch_counts.get(entry.id, 0),
                     object_count=object_counts.get(entry.id, 0),
-                    preview_points=_board_points(db, entry.id),
+                    preview_items=_board_preview(db, entry.id),
                 )
             )
     return boards
@@ -552,7 +614,7 @@ def duplicate_board(board_id: int, db: Session = Depends(get_session)) -> BoardO
         title=f"{title} (copy)",
         node_count=len(nodes),
         sketch_count=0,
-        preview_points=_board_points(db, copy.id),
+        preview_items=_board_preview(db, copy.id),
     )
 
 

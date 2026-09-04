@@ -5555,3 +5555,56 @@ Quick sketches have gone through `/media/upload` since captioning/OCR was added
 for them, so they are ordinary uploads. What is *not* in the gallery is a
 whiteboard freehand sketch (`WhiteboardSketch`) — that is stroke data on a
 board, not a stored image, and putting it there would mean rasterising it.
+
+## §94 — the documents editor's three defects, and a preview that could not tell two boards apart
+
+**The source pane could be dragged out of the card.** `#doc-content` is
+`resize: vertical` with no ceiling, and the editor lives in a fixed-height app
+shell — so past the pane's own height the textarea grows straight through the
+bottom of the card. Proven both ways: with the cap removed, a 4000px height
+renders 4000px and reaches 4231 against a card bottom of 845; with
+`max-height: 100%` it clamps to 566 and stays inside. The handle still works
+over the whole range that fits.
+
+**"Idk why the document rendered views are so thin??"** They were 736px inside
+a 1132px pane, which is the 72ch measure doing exactly what it was written for.
+The cap is not wrong; being the only option was — a measure is right for
+reading a finished page and wrong for a wide table or a code-heavy file.
+`#doc-width-toggle` releases it for every pane at once (so Split's halves
+cannot disagree) and is remembered. Verified: 736 → 1100 and back, and still
+wide after a reload.
+
+That fix failed once first, and the reason is worth keeping: `.doc-wide
+#doc-preview` is (0,2,0) and loses to both `#doc-preview` (1,0,0) and
+`#doc-preview:not(.doc-split-pane)` (1,1,0). The toggle flipped its own
+`aria-pressed` and moved the preview not one pixel. **An ID in the rule you are
+overriding is worth more than any number of classes in yours.**
+
+**The formatting toolbar wrapped to a second row.** Measured across four
+widths: one row at 1440, two (44 → 77.2px) at 1280 and below — which is where
+this editor actually sits once the chat dock is open. Colour and Insert fold
+into `<details>` menus (the same disclosure the document ⋯ menu uses); 25
+controls become 19 and it holds one row down to 1100. Folded buttons still fire
+— `initMarkdownToolbars` finds them with a descendant query — verified by
+inserting a table from inside the Insert menu.
+
+**"The whiteboard preview is poor."** It was, and looking at it said why in one
+glance. Every card drew as an identical blank rectangle, so three boards all
+named "Cloud computing" showed three indistinguishable arrangements of grey
+blobs — a picture carrying only *how many* and *roughly where*. And a board
+holding only sketches previewed as an **empty box** beside a line reading "2
+sketches", because sketches were never in the sample at all.
+
+`preview_points` (bare `[x, y]`) became `preview_items` (`{x, y, kind, label}`)
+covering cards, sketches and objects. A card carries its note's own title or
+first words; a sketch draws as a squiggle, since the thumbnail deliberately
+does not ship stroke data; an object sits back at lower opacity. A private
+card contributes its position and never its text — same rule as the
+Connections block and the Library's file-usage chips, and there is a test that
+fails if it leaks.
+
+Two things only looking at the render would have found: a label drawn always to
+the right runs off the edge for a card at nx ≈ 91, coming out sliced mid-word
+("Cloud computi") — it hangs off the left past the halfway mark now; and a bare
+16-character slice reads as broken ("Connections prob") where an ellipsis reads
+as shortened.

@@ -973,6 +973,18 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   background: transparent;
   font-size: var(--text-body);
   outline: none;
+  /* Now a `<textarea>` (see index.html), so it needs the three things that
+     stop one reading as a text box bolted into a command bar: no drag-corner
+     (its height is driven by `cmdPaletteGrow`, and a manual resize fights
+     it), the row's own font rather than the browser's monospace textarea
+     default, and a line-height that makes `rows="1"` land on exactly the
+     height the `<input>` it replaced had. */
+  resize: none;
+  font-family: inherit;
+  line-height: 1.45;
+  min-height: 0;
+  /* The grow function caps the height; past that this is what scrolls. */
+  overflow-y: auto;
 }
 
 /* `outline: none` above with no replacement meant the app's own most

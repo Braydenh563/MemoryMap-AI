@@ -867,3 +867,82 @@ def test_http_error_reads_a_non_json_body():
     message = describe_http_error(_http_error(404, text="model 'ghost' not found"), "ghost")
     assert "not found" in message
     assert "Pull it first" in message
+
+
+# --- a model that invents a synonym for a real tool's verb ---------------------
+#
+# Reported with a screenshot of the Ctrl+Shift+A popup agent, and the user's
+# own words: "also no note was made". The model had written its call as plain
+# text — which `extract_text_tool_calls` already recovers — but named it
+# `make_note`, and this app's tool is `create_note`. The salvage dropped it on
+# the one check it could not pass, and the raw JSON was printed to the user as
+# if it were an answer.
+
+_NAMES = {
+    "create_note",
+    "edit_note",
+    "get_note",
+    "delete_note",
+    "search_notes",
+    "list_notes",
+    "tag_note",
+    "link_notes",
+}
+
+
+def test_the_popup_agents_own_dropped_call_now_runs():
+    """Verbatim shape from the screenshot: `make_note`, and `parameters`
+    rather than `arguments` at the top level."""
+    raw = (
+        '{"name": "make_note", "parameters": {"content": "ideation for '
+        'tangible interaction design", "category": "Courses & Study"}}'
+    )
+    calls, cleaned = provider_module.extract_text_tool_calls(raw, _NAMES)
+    assert [c["name"] for c in calls] == ["create_note"]
+    assert calls[0]["arguments"]["category"] == "Courses & Study"
+    # …and the JSON is taken out of what the user is shown.
+    assert cleaned.strip() == ""
+
+
+def test_every_common_invented_verb_lands_on_the_real_tool():
+    for invented in ("make_note", "add_note", "new_note", "save_note", "write_note"):
+        assert provider_module.resolve_tool_name(invented, _NAMES) == "create_note"
+    for invented in ("read_note", "open_note", "fetch_note", "show_note"):
+        assert provider_module.resolve_tool_name(invented, _NAMES) == "get_note"
+    for invented in ("find_notes", "lookup_notes", "query_notes"):
+        assert provider_module.resolve_tool_name(invented, _NAMES) == "search_notes"
+    assert provider_module.resolve_tool_name("remove_note", _NAMES) == "delete_note"
+    assert provider_module.resolve_tool_name("update_note", _NAMES) == "edit_note"
+    assert provider_module.resolve_tool_name("connect_notes", _NAMES) == "link_notes"
+
+
+def test_a_singular_or_plural_slip_still_lands():
+    assert provider_module.resolve_tool_name("create_notes", _NAMES) == "create_note"
+    assert provider_module.resolve_tool_name("find_note", _NAMES) == "search_notes"
+
+
+def test_a_real_name_is_never_rewritten():
+    for real in _NAMES:
+        assert provider_module.resolve_tool_name(real, _NAMES) == real
+
+
+def test_an_invented_capability_is_still_refused():
+    """The line this must not cross: rewriting a *verb* on a tool that exists
+    is a name to fix, but a model asking for something this app cannot do at
+    all has to come back unresolved so the caller refuses it."""
+    for invented in ("send_email", "make_coffee", "delete_everything", "post_tweet"):
+        assert provider_module.resolve_tool_name(invented, _NAMES) == invented
+    calls, cleaned = provider_module.extract_text_tool_calls(
+        '{"name": "send_email", "arguments": {"to": "x"}}', _NAMES
+    )
+    assert calls == []
+    # Not silently swallowed either — it stays in the text.
+    assert "send_email" in cleaned
+
+
+def test_it_never_guesses_between_two_plausible_tools():
+    """`make_note` resolves because exactly one real tool answers to
+    `create_note`. Nothing here may pick between two."""
+    assert provider_module.resolve_tool_name("thing_note", _NAMES) == "thing_note"
+    assert provider_module.resolve_tool_name("", _NAMES) == ""
+    assert provider_module.resolve_tool_name(None, _NAMES) is None

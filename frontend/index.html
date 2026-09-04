@@ -226,8 +226,18 @@
     <div class="card glass command-palette-card">
       <div class="command-palette-bar">
         <span class="command-palette-icon"><i class="ph ph-magic-wand" aria-hidden="true"></i></span>
-        <input id="command-palette-input" class="command-palette-input" type="text" placeholder="Ask the agent to do something…"
-          aria-label="Ask the agent to do something">
+        <!-- A textarea, not an `<input>`. Reported directly: "the input bar
+             in the popup agent isnt multiline". What people actually type at
+             this agent is a paragraph — "Make a note: …" with a sentence of
+             detail after it — and a single-line input scrolls that sideways
+             so you cannot read back what you wrote before sending it. Enter
+             still sends (it is a command bar first); Shift+Enter is the
+             newline, the same contract as the Chat composer. `rows="1"` so
+             it starts exactly the height the old input was and grows from
+             there — see `cmdPaletteGrow` in app.js. -->
+        <textarea id="command-palette-input" class="command-palette-input" rows="1"
+          placeholder="Ask the agent to do something…" enterkeyhint="send"
+          aria-label="Ask the agent to do something"></textarea>
       </div>
       <div id="command-palette-results" class="command-palette-results"></div>
       <!-- **What it can do, said out loud.** Reported: "the popup agent needs

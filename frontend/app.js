@@ -27692,12 +27692,30 @@ async function cmdPaletteAsk(text) {
   }
 }
 
+// The palette's input is a `<textarea>` (see index.html for why), so it has
+// to be told to behave like a command bar rather than a text box: Enter
+// sends, Shift+Enter — and any of the IME/composition states below — insert a
+// newline. `isComposing` matters for anyone typing Japanese, Chinese or Korean:
+// Enter commits the candidate word there, and sending on it would fire the
+// agent at half a sentence every time.
+function cmdPaletteGrow() {
+  // Reset first: without it the box only ever ratchets taller, because
+  // scrollHeight can never come back below a height already set on it.
+  cmdPaletteInput.style.height = "auto";
+  const max = 9 * 16; // ~9rem, then it scrolls — the palette is not an editor
+  cmdPaletteInput.style.height = `${Math.min(cmdPaletteInput.scrollHeight, max)}px`;
+}
+
+cmdPaletteInput.addEventListener("input", cmdPaletteGrow);
+
 cmdPaletteInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && cmdPaletteInput.value.trim()) {
-    const text = cmdPaletteInput.value.trim();
-    cmdPaletteInput.value = "";
-    cmdPaletteAsk(text);
-  }
+  if (e.key !== "Enter" || e.shiftKey || e.isComposing || e.keyCode === 229) return;
+  e.preventDefault(); // or the newline lands in the box we are about to clear
+  if (!cmdPaletteInput.value.trim()) return;
+  const text = cmdPaletteInput.value.trim();
+  cmdPaletteInput.value = "";
+  cmdPaletteGrow();
+  cmdPaletteAsk(text);
 });
 
 $("command-palette-clear")?.addEventListener("click", cmdPaletteReset);
@@ -27706,6 +27724,7 @@ $("command-palette-intro")?.addEventListener("click", (e) => {
   const example = e.target.closest("[data-example]");
   if (!example) return;
   cmdPaletteInput.value = example.dataset.example;
+  cmdPaletteGrow();
   cmdPaletteInput.focus();
   // A complete question runs; a stem ("Make a note: ") is left for the user
   // to finish, with the caret already after it.

@@ -451,6 +451,26 @@ REPEATED_CALL_NOTE = (
     "different tool, or stop and tell the user what you could not do."
 )
 
+# How many times one tool may fail in a turn — with *any* arguments — before
+# it is taken away for the rest of that turn. See `tool_failures` in
+# `run_agent` for the logged loop this exists for. Three is deliberate: two
+# failures is a model correcting itself, which is the behaviour the recovery
+# hints are there to produce and worth allowing; a third means it is not
+# converging and every further round is spent, not invested.
+MAX_TOOL_FAILURES = 3
+
+# How many confirm cards one destructive tool may put in front of the user in
+# a single turn. See the `parked` check in `run_agent`.
+MAX_PARKED_CONFIRMS = 2
+
+TOOL_EXHAUSTED_NOTE = (
+    "This tool has now failed several times in this turn with different "
+    "arguments, so it has been switched off for the rest of this turn. Do "
+    "not call it again — you will get this same message. Either do the job "
+    "with a different tool, or stop now and tell the user plainly what you "
+    "were trying to do and what went wrong."
+)
+
 
 # Write tools whose absence makes a "I saved it" claim a lie (safety net).
 # Defined in the registry, so the settings screen and the skill list can mark
@@ -1035,6 +1055,27 @@ def run_agent(
     # (tool, arguments) pairs that have already failed, so a model looping on
     # the same broken call can be told so rather than burning every round.
     failed_calls: set[tuple[str, str]] = set()
+    # **How many times each tool has failed this turn, regardless of its
+    # arguments.** `failed_calls` above only catches a model repeating the
+    # *identical* call, and the loop this exists for never does that.
+    #
+    # Reported with a live log: the agent called `merge_categories` over and
+    # over, alternating between "There is no category called X" and "X and X
+    # are the same category" — different arguments every round, so the
+    # signature guard never fired once, and the turn burned every round it
+    # had before telling the user nothing. The tool's own error message even
+    # listed the real category names (see `_find_category`), so this is not
+    # fixable by explaining harder: a small model that has misunderstood
+    # *what the tool is for* will keep producing fresh wrong arguments for it
+    # indefinitely. The only thing that ends that is taking the tool away.
+    tool_failures: dict[str, int] = {}
+    # Destructive calls parked for the user's approval this turn, per tool.
+    parked: dict[str, int] = {}
+
+    def _count_failure(tool_name: str) -> int:
+        tool_failures[tool_name] = tool_failures.get(tool_name, 0) + 1
+        return tool_failures[tool_name]
+
     # …and the ones that have already *succeeded*, which is the other half of
     # the same idea: a repeat of a call that worked is not progress either. The
     # model has that result in its context already.
@@ -1216,6 +1257,7 @@ def run_agent(
                 # job is bigger than one step, and the useful answer is "you
                 # are already inside the mechanism you are reaching for".
                 failed_calls.add(signature)
+                _count_failure(name)
                 messages.append(
                     {
                         "role": "tool",
@@ -1246,6 +1288,7 @@ def run_agent(
                     else _RECOVERY_HINTS["not_in_skill"]
                 )
                 failed_calls.add(signature)
+                _count_failure(name)
                 yield {
                     "type": "tool",
                     "label": f"ph:warning {name} isn't part of this skill",
@@ -1272,6 +1315,7 @@ def run_agent(
                     # exist. Recoverable mistakes, not dead turns: hand the
                     # model the reason and let it try again or answer directly.
                     failed_calls.add(signature)
+                    _count_failure(name)
                     messages.append(
                         {
                             "role": "tool",
@@ -1295,6 +1339,35 @@ def run_agent(
                     continue
                 yield handover
                 return
+            elif spec is not None and spec.destructive and parked.get(name, 0) >= MAX_PARKED_CONFIRMS:
+                # **A destructive tool cannot paper the turn with confirm
+                # cards.** Parking one hands the model `AWAITING_CONFIRMATION`
+                # rather than a result, which is honest but is not a *stop*:
+                # a model that has misread the job re-parks the same tool with
+                # fresh arguments, and every round of that is another card in
+                # front of the user for something they never asked for. Two is
+                # enough for a genuine "delete this, and that" turn; past that
+                # the model is guessing, and guessing at destructive calls is
+                # the one place this app should be least willing to keep up.
+                result = {
+                    "error": (
+                        f"{name} is already waiting for the user's approval "
+                        f"{parked[name]} times in this turn. Nothing more can be "
+                        "queued for them."
+                    ),
+                    "what_to_do": (
+                        "Stop. The user has to approve what is already waiting "
+                        "before anything else destructive can be prepared. Tell "
+                        "them what is queued and why, and do not call this tool again."
+                    ),
+                }
+                _count_failure(name)
+                yield {
+                    "type": "tool",
+                    "label": f"ph:prohibit {name.replace('_', ' ')} — too many waiting for approval",
+                    "ok": False,
+                    "error": result["error"],
+                }
             elif spec is not None and spec.destructive:
                 # Park it for the user — never auto-run a destructive tool.
                 # The confirm card is the honest signal, so count it as an
@@ -1302,6 +1375,7 @@ def run_agent(
                 # user can see for themselves that it is waiting on them.
                 did_write = True
                 ran_writes.add(name)
+                parked[name] = parked.get(name, 0) + 1
                 yield {
                     "type": "confirm",
                     "name": name,
@@ -1309,9 +1383,34 @@ def run_agent(
                     "label": tools.confirm_label(name, arguments),
                 }
                 result = AWAITING_CONFIRMATION
+            elif tool_failures.get(name, 0) >= MAX_TOOL_FAILURES:
+                # **The tool is spent for this turn.** Unlike the signature
+                # check just below, this fires however much the arguments
+                # change — which is the whole point, since the loop it was
+                # written for produced fresh wrong arguments every round (see
+                # `tool_failures`). Blocked *before* execution, so a tool that
+                # writes cannot land a change on a fourth guess either.
+                result = {
+                    "error": (
+                        f"{name} has failed {tool_failures[name]} times in this "
+                        "turn and is no longer available for it"
+                    ),
+                    "what_to_do": TOOL_EXHAUSTED_NOTE,
+                }
+                yield {
+                    "type": "tool",
+                    "label": f"ph:prohibit {name.replace('_', ' ')} — stopped after repeated failures",
+                    "ok": False,
+                    "error": result["error"],
+                }
             elif signature in failed_calls:
                 # --- NEW INTERCEPTION: Duplicate Failed Calls ---
                 # The model is looping on a broken call. Intercept before execution.
+                # Counted as a failure too, so a model that alternates between
+                # repeating a call and inventing new arguments for the same
+                # tool still reaches MAX_TOOL_FAILURES rather than ping-ponging
+                # between the two interceptions forever.
+                _count_failure(name)
                 result = {
                     "error": (
                         f"You already called {name} with these exact arguments "
@@ -1429,10 +1528,17 @@ def run_agent(
                     # Hand back advice with the error, not just the error.
                     repeated = signature in failed_calls
                     failed_calls.add(signature)
+                    exhausted = _count_failure(name) >= MAX_TOOL_FAILURES
                     result = {
                         **result,
                         "what_to_do": (
-                            REPEATED_CALL_NOTE
+                            # Said on the failure that *reaches* the cap, not
+                            # only on the blocked call after it — otherwise the
+                            # model spends one more round discovering a rule it
+                            # could have been told here.
+                            TOOL_EXHAUSTED_NOTE
+                            if exhausted
+                            else REPEATED_CALL_NOTE
                             if repeated
                             else _recovery_hint(name, str(result["error"]))
                         ),

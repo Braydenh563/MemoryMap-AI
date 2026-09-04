@@ -3844,7 +3844,21 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
             <div class="settings-group">
               <h3>Which ones it may use</h3>
+              <!-- **A filter, because there are fifty-one of these.** Measured
+                   in the first audit of Settings: this section is 5,708px
+                   tall, by some way the longest scroll in the app, and every
+                   tool is a name plus a paragraph. Finding "web search" among
+                   them meant scrolling past fifty others.
+                   The count beside it answers the other question this list
+                   raises and could not: how many are actually on. -->
+              <div class="row field-row tool-filter-row">
+                <label for="tool-filter" class="muted">Filter</label>
+                <input id="tool-filter" type="search" placeholder="Search tools…"
+                  aria-label="Filter the list of tools" aria-controls="tool-list">
+                <span id="tool-count" class="muted text-sm" role="status"></span>
+              </div>
               <ul id="tool-list" class="entry-list"></ul>
+              <p id="tool-filter-empty" class="muted hidden">No tool matches that.</p>
             </div>
           </section>
 

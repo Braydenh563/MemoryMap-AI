@@ -14026,6 +14026,8 @@ async function renderToolSettings() {
         method: "PUT",
         body: JSON.stringify({ disabled_tools: [...next] }),
       });
+      // The "N of 51 on" count is only true until someone flips one.
+      applyToolFilter();
     });
     const text = document.createElement("span");
     const name = document.createElement("strong");
@@ -14038,9 +14040,53 @@ async function renderToolSettings() {
     desc.textContent = tool.description;
     label.append(check, text);
     li.append(label, desc);
+    // Matched against by the filter below. Stored on the row rather than
+    // re-read from the DOM on every keystroke, and lower-cased once here
+    // instead of once per row per keystroke.
+    li.dataset.search = `${tool.name} ${tool.description || ""}`.toLowerCase().replace(/_/g, " ");
     list.appendChild(li);
   }
+  applyToolFilter();
 }
+
+//: Narrow a fifty-one item list, and say how many are on.
+//:
+//: The first audit of Settings measured this section at **5,708px** — by some
+//: way the longest scroll in the app — with every tool a name plus a
+//: paragraph of description. Finding one meant scrolling past fifty others,
+//: and nothing anywhere answered the question the list actually raises: how
+//: many of these are switched on?
+//:
+//: Filtering hides rows rather than re-rendering them, so a checkbox keeps
+//: its state and its listener while you type. Re-rendering would also lose
+//: focus from the filter field on every keystroke.
+function applyToolFilter() {
+  const list = $("tool-list");
+  const box = $("tool-filter");
+  const count = $("tool-count");
+  const empty = $("tool-filter-empty");
+  if (!list) return;
+  const needle = (box?.value || "").trim().toLowerCase();
+  const rows = [...list.children];
+  let shown = 0;
+  for (const row of rows) {
+    const hit = !needle || (row.dataset.search || "").includes(needle);
+    row.classList.toggle("hidden", !hit);
+    if (hit) shown++;
+  }
+  empty?.classList.toggle("hidden", shown > 0 || !rows.length);
+  if (count) {
+    // Two different questions, so two different answers: with no filter the
+    // useful number is how many are enabled; while filtering it is how many
+    // the search actually found.
+    const on = rows.filter((r) => r.querySelector("input[type=checkbox]")?.checked).length;
+    count.textContent = needle
+      ? `${shown} of ${rows.length}`
+      : `${on} of ${rows.length} on`;
+  }
+}
+
+$("tool-filter")?.addEventListener("input", applyToolFilter);
 
 // --- Wave M: share skills/personas as JSON ------------------------------------------
 

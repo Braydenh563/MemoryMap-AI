@@ -3488,3 +3488,21 @@ summary:not(.icon-only):not(.icon-button) {
      the stricter measure the note cards already use. */
   max-width: 72ch;
 }
+
+/* The tools filter sits above a fifty-one item list, so it stays put while
+   the list under it scrolls — a filter you have to scroll back up to reach is
+   a filter people use once. */
+.tool-filter-row {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--card-bg);
+  padding-block: var(--space-2);
+  margin-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.tool-filter-row #tool-count {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}

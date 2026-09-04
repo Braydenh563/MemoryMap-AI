@@ -1748,7 +1748,20 @@ progress {
   scrollbar-color: var(--border) transparent;
 }
 
+/* The tick beside each note (asked for directly: "in many of the library
+   subtabs… there is no way to multi select"). A row here is a `<li>` holding
+   a checkbox and a link side by side, not a button like the Documents list's
+   own row — so the tick is a plain flex sibling of the link rather than an
+   inline child of it, and the link keeps its full click/hover target. */
+.contents-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .contents-list li a {
+  flex: 1 1 auto;
+  min-width: 0;
   display: block;
   padding: var(--space-2);
   border-radius: var(--radius-md);

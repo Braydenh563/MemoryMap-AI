@@ -3480,11 +3480,219 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
+// --- Multi-select for Boards, Links and Contents (asked for directly: "in
+// many of the library subtabs… there is no way to multi select") ----------
+//
+// The Documents and Files/Images sub-tabs already had this — a tick per
+// item, a count, a bulk Delete — because it shipped with them, bar and all,
+// in index.html. These three sub-tabs did not, so the bar itself (same
+// markup, same `.library-contextbar` class those two already use) is built
+// here at runtime instead of pasting three more near-identical copies into
+// index.html.
+//
+// One shared count/visibility sync, reused by all three selections below —
+// syncLibraryMediaSelectbar/syncLibraryDocsSelectbar above are this same
+// six-line shape typed out twice already; a third and fourth copy is what
+// this generalises instead of repeating again.
+function syncSelectbarCount(idPrefix, n) {
+  const bar = document.getElementById(`${idPrefix}-selectbar`);
+  const count = document.getElementById(`${idPrefix}-selected-count`);
+  if (!bar || !count) return;
+  bar.classList.toggle("hidden", n === 0);
+  count.textContent = `${n} selected`;
+}
+
+//: Builds one `.library-contextbar` — the same element `#library-docs-selectbar`
+//: and `#library-media-selectbar` already are in index.html — so a sub-tab
+//: that never had one gets the identical bar rather than a fourth visual
+//: treatment for "items are selected".
+function createLibrarySelectbar(idPrefix, ariaLabel) {
+  const bar = document.createElement("div");
+  bar.id = `${idPrefix}-selectbar`;
+  bar.className = "library-contextbar hidden";
+  bar.setAttribute("role", "group");
+  bar.setAttribute("aria-label", ariaLabel);
+  const count = document.createElement("span");
+  count.id = `${idPrefix}-selected-count`;
+  count.className = "library-selected-count";
+  const end = document.createElement("span");
+  end.className = "library-contextbar-end";
+  const del = document.createElement("button");
+  del.id = `${idPrefix}-bulk-delete`;
+  del.className = "ghost small";
+  del.type = "button";
+  setLabel(del, "ph:trash Delete");
+  const clear = document.createElement("button");
+  clear.id = `${idPrefix}-clear-selection`;
+  clear.className = "ghost small";
+  clear.type = "button";
+  clear.textContent = "Done";
+  end.append(del, clear);
+  bar.append(count, end);
+  return bar;
+}
+
+// --- Boards & maps: the one sub-tab of the three whose gallery is built by
+// whiteboard.js (renderLibraryBoardsGallery), which this file does not own
+// and does not edit. Its cards carry no id in the DOM — nothing needed one
+// until now — so the tick is grafted on from here via a MutationObserver on
+// the grid whiteboard.js already tears down and rebuilds on every render,
+// rather than by changing what that function builds. -----------------------
+
+//: Keyed by board id (never `null` — the default scratch board is not a real
+//: Entry and cannot be deleted; see attachBoardTick).
+const libraryBoardsSelection = new Map();
+
+//: Re-fetches the exact list `renderLibraryBoardsGallery` just rendered, with
+//: the exact same filter (the search box's current value, the same
+//: `wbLastCreatedBoard` patch-in that function does) so the *n*th tick lines
+//: up with the *n*th card the observer below just saw appended. If the
+//: counts don't match — the grid mutated again while this fetch was in
+//: flight — this bails rather than tick the wrong board; the next mutation
+//: (the very next render) retries it.
+async function syncLibraryBoardsTicks() {
+  const grid = document.getElementById("library-boards-grid");
+  if (!grid) return;
+  const cards = [...grid.querySelectorAll(".library-board-card")];
+  if (!cards.length) {
+    syncSelectbarCount("library-boards", libraryBoardsSelection.size);
+    return;
+  }
+  let boards;
+  try {
+    boards = await apiJson("/whiteboard/boards", { silent: true });
+  } catch {
+    return;
+  }
+  if (!Array.isArray(boards)) return;
+  const created = window.wbLastCreatedBoard;
+  if (created && !boards.some((b) => b.id === created.id)) boards.push({ ...created });
+  const needle = (document.getElementById("library-boards-search")?.value || "").trim().toLowerCase();
+  const shown = needle ? boards.filter((b) => (b.title || "").toLowerCase().includes(needle)) : boards;
+  if (shown.length !== cards.length) return;
+  // A board ticked in an earlier render that no longer exists (deleted from
+  // its own ⋯ menu, or from elsewhere) shouldn't go on counting toward the bar.
+  const liveIds = new Set(shown.filter((b) => b.id !== null).map((b) => b.id));
+  for (const id of [...libraryBoardsSelection.keys()]) {
+    if (!liveIds.has(id)) libraryBoardsSelection.delete(id);
+  }
+  cards.forEach((card, i) => attachBoardTick(card, shown[i]));
+  syncSelectbarCount("library-boards", libraryBoardsSelection.size);
+}
+
+function attachBoardTick(card, board) {
+  const top = card.querySelector(".library-card-top");
+  if (!top) return;
+  const existing = top.querySelector(".library-card-tick");
+  // The default board (id === null) isn't a note and can't be renamed or
+  // deleted — renderLibraryBoardsGallery's own comment says so, right where
+  // it skips giving it a ⋯ menu at all. No tick for the same reason an
+  // activity row gets no tick in the "All" library view: a Delete that can
+  // never do anything is worse than no checkbox.
+  if (board.id === null) {
+    existing?.remove();
+    return;
+  }
+  if (existing) {
+    existing.checked = libraryBoardsSelection.has(board.id);
+    return;
+  }
+  const tick = document.createElement("input");
+  tick.type = "checkbox";
+  tick.className = "library-card-tick";
+  tick.checked = libraryBoardsSelection.has(board.id);
+  tick.setAttribute("aria-label", `Select "${board.title}"`);
+  tick.addEventListener("click", (event) => event.stopPropagation());
+  tick.addEventListener("change", () => {
+    if (tick.checked) libraryBoardsSelection.set(board.id, board);
+    else libraryBoardsSelection.delete(board.id);
+    syncSelectbarCount("library-boards", libraryBoardsSelection.size);
+  });
+  top.insertBefore(tick, top.firstChild);
+}
+
+function clearLibraryBoardsSelection() {
+  libraryBoardsSelection.clear();
+  for (const tick of document.querySelectorAll("#library-boards-grid .library-card-tick")) {
+    tick.checked = false;
+  }
+  syncSelectbarCount("library-boards", 0);
+}
+
+async function bulkDeleteLibraryBoards() {
+  const boards = [...libraryBoardsSelection.values()];
+  if (!boards.length) return;
+  // Same wording renderLibraryBoardsGallery's own per-board Delete already
+  // uses (whiteboard.js) — a board goes through `DELETE /entries/{id}` same
+  // as that single-item menu action, so the two must not promise different
+  // things about whether it comes back.
+  if (
+    !(await confirmDialog(
+      `Delete ${boards.length} board${boards.length === 1 ? "" : "s"}? This cannot be undone.`
+    ))
+  ) {
+    return;
+  }
+  let deleted = 0;
+  for (const board of boards) {
+    try {
+      await apiJson(`/entries/${board.id}`, { method: "DELETE" });
+      deleted++;
+    } catch (err) {
+      toast(err.message, true);
+    }
+  }
+  libraryBoardsSelection.clear();
+  if (deleted) toast(`Deleted ${deleted} board${deleted === 1 ? "" : "s"}.`);
+  const failed = boards.length - deleted;
+  if (failed) toast(`${failed} board${failed === 1 ? "" : "s"} couldn't be deleted.`, true);
+  if (typeof renderLibraryBoardsGallery === "function") renderLibraryBoardsGallery();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  // The bar goes right above the grid it governs, same placement the
+  // Documents/Files sub-tabs' own bars have in index.html.
+  const boardsGrid = document.getElementById("library-boards-grid");
+  if (boardsGrid && !document.getElementById("library-boards-selectbar")) {
+    const bar = createLibrarySelectbar("library-boards", "Actions for the selected boards");
+    boardsGrid.parentNode.insertBefore(bar, boardsGrid);
+    document.getElementById("library-boards-bulk-delete").addEventListener("click", bulkDeleteLibraryBoards);
+    document.getElementById("library-boards-clear-selection").addEventListener("click", clearLibraryBoardsSelection);
+    // whiteboard.js calls `grid.replaceChildren()` then re-appends every
+    // card on each render (a fresh board, a rename, the search box, "+ New
+    // board") — this is the one hook available from outside that file that
+    // fires exactly then, without this file calling into or duplicating
+    // renderLibraryBoardsGallery's own logic.
+    new MutationObserver(() => { syncLibraryBoardsTicks(); }).observe(boardsGrid, { childList: true });
+  }
+
+  const linksList = document.getElementById("bookmark-list");
+  if (linksList && !document.getElementById("library-links-selectbar")) {
+    const bar = createLibrarySelectbar("library-links", "Actions for the selected links");
+    linksList.parentNode.insertBefore(bar, linksList);
+    document.getElementById("library-links-bulk-delete").addEventListener("click", bulkDeleteLibraryLinks);
+    document.getElementById("library-links-clear-selection").addEventListener("click", clearLibraryLinksSelection);
+  }
+
+  const contentsOutline = document.getElementById("contents-outline");
+  if (contentsOutline && !document.getElementById("library-contents-selectbar")) {
+    const bar = createLibrarySelectbar("library-contents", "Actions for the selected notes");
+    contentsOutline.parentNode.insertBefore(bar, contentsOutline);
+    document.getElementById("library-contents-bulk-delete").addEventListener("click", bulkDeleteLibraryContents);
+    document.getElementById("library-contents-clear-selection").addEventListener("click", clearLibraryContentsSelection);
+  }
+});
+
 // --- Links (§30): a bookmark shelf for websites, alongside the notes and
 // documents already linkable to each other via [[wiki links]] ------------
 
 let bookmarksCache = [];
 let bookmarkGroupFilter = null; // null = all groups
+
+//: Which links are ticked, keyed by bookmark id — its own Map so a selection
+//: here can never leak into another sub-tab's bulk delete, the same reasoning
+//: mediaRowKey's own comment gives for libraryMediaSelection.
+const libraryLinksSelection = new Map();
 
 async function renderBookmarks() {
   const list = $("bookmark-list");
@@ -3496,9 +3704,47 @@ async function renderBookmarks() {
     toast(error.message, true);
     return;
   }
+  // A reload can drop a link that was ticked (deleted from its own ⋯, or by
+  // the bulk action just below) — same prune renderLibraryDocuments does for
+  // libraryDocsSelection, and for the same reason: otherwise the bar's count
+  // goes on including a row that no longer exists.
+  const liveLinkIds = new Set(bookmarksCache.map((b) => b.id));
+  for (const id of [...libraryLinksSelection.keys()]) {
+    if (!liveLinkIds.has(id)) libraryLinksSelection.delete(id);
+  }
   empty.classList.toggle("hidden", bookmarksCache.length > 0);
   renderBookmarkGroupChips();
   filterBookmarks();
+  syncSelectbarCount("library-links", libraryLinksSelection.size);
+}
+
+function clearLibraryLinksSelection() {
+  libraryLinksSelection.clear();
+  renderBookmarks();
+}
+
+async function bulkDeleteLibraryLinks() {
+  const links = [...libraryLinksSelection.values()];
+  if (!links.length) return;
+  if (
+    !(await confirmDialog(`Delete ${links.length} selected link${links.length === 1 ? "" : "s"}?`))
+  ) {
+    return;
+  }
+  let deleted = 0;
+  for (const bookmark of links) {
+    try {
+      await apiJson(`/bookmarks/${bookmark.id}`, { method: "DELETE" });
+      deleted++;
+    } catch (err) {
+      toast(err.message, true);
+    }
+  }
+  libraryLinksSelection.clear();
+  if (deleted) toast(`Deleted ${deleted} link${deleted === 1 ? "" : "s"}.`);
+  const failed = links.length - deleted;
+  if (failed) toast(`${failed} link${failed === 1 ? "" : "s"} couldn't be deleted.`, true);
+  renderBookmarks();
 }
 
 function renderBookmarkGroupChips() {
@@ -3556,6 +3802,22 @@ function filterBookmarks() {
 function bookmarkRow(bookmark) {
   const row = document.createElement("div");
   row.className = "bookmark-row";
+
+  // The tick. Same control (and the same `.doc-list-tick` sizing) the
+  // Documents sub-tab's own rows already use, so selecting a link works the
+  // same way selecting a document does.
+  const tick = document.createElement("input");
+  tick.type = "checkbox";
+  tick.className = "doc-list-tick";
+  tick.checked = libraryLinksSelection.has(bookmark.id);
+  tick.setAttribute("aria-label", `Select "${bookmark.title || bookmark.url}"`);
+  tick.addEventListener("click", (event) => event.stopPropagation());
+  tick.addEventListener("change", () => {
+    if (tick.checked) libraryLinksSelection.set(bookmark.id, bookmark);
+    else libraryLinksSelection.delete(bookmark.id);
+    syncSelectbarCount("library-links", libraryLinksSelection.size);
+  });
+  row.appendChild(tick);
 
   const main = document.createElement("div");
   main.className = "bookmark-main";
@@ -3755,6 +4017,45 @@ let contentsMode = "category";
 // the one part of this view that isn't cheap.
 const CONTENTS_GROUP_CAP = 200;
 
+//: Which outline notes are ticked, keyed by entry id — not by (group, entry),
+//: so a note that shows up more than once in "By tag" (one row per tag it
+//: carries) is still one selection, ticked or not, everywhere it appears.
+const libraryContentsSelection = new Map();
+
+function clearLibraryContentsSelection() {
+  libraryContentsSelection.clear();
+  renderContents();
+}
+
+async function bulkDeleteLibraryContents() {
+  const entries = [...libraryContentsSelection.values()];
+  if (!entries.length) return;
+  // Same wording library-bulk-delete (the "All" view) uses for a plain note:
+  // `DELETE /entries/{id}` bins it rather than destroying it outright.
+  if (
+    !(await confirmDialog(
+      `Delete ${entries.length} selected note${entries.length === 1 ? "" : "s"}?\n\n` +
+        "They'll go to the bin."
+    ))
+  ) {
+    return;
+  }
+  let deleted = 0;
+  for (const entry of entries) {
+    try {
+      await apiJson(`/entries/${entry.id}`, { method: "DELETE" });
+      deleted++;
+    } catch (err) {
+      toast(err.message, true);
+    }
+  }
+  libraryContentsSelection.clear();
+  if (deleted) toast(`Deleted ${deleted} note${deleted === 1 ? "" : "s"}.`);
+  const failed = entries.length - deleted;
+  if (failed) toast(`${failed} note${failed === 1 ? "" : "s"} couldn't be deleted.`, true);
+  renderContents();
+}
+
 async function renderContents() {
   const outline = $("contents-outline");
   const empty = $("contents-empty");
@@ -3767,8 +4068,17 @@ async function renderContents() {
   await loadEntries();
 
   const active = allEntries.filter((e) => !e.deleted_at && !e.archived_at);
+  // A reload can drop a note that was ticked (deleted, archived, or edited
+  // out of every visible group) — same prune renderLibraryDocuments does for
+  // libraryDocsSelection, so the bar's count can't go on including a note
+  // that no longer shows anywhere in this outline.
+  const liveEntryIds = new Set(active.map((e) => e.id));
+  for (const id of [...libraryContentsSelection.keys()]) {
+    if (!liveEntryIds.has(id)) libraryContentsSelection.delete(id);
+  }
   outline.replaceChildren();
   empty.classList.toggle("hidden", active.length > 0);
+  syncSelectbarCount("library-contents", libraryContentsSelection.size);
   if (active.length === 0) return;
 
   const groups = new Map();
@@ -3800,6 +4110,30 @@ async function renderContents() {
     list.className = "contents-list";
     for (const entry of members.slice(0, CONTENTS_GROUP_CAP)) {
       const li = document.createElement("li");
+      // The tick. Same control (and the same `.doc-list-tick` sizing) the
+      // Documents sub-tab's own rows already use.
+      const tick = document.createElement("input");
+      tick.type = "checkbox";
+      tick.className = "doc-list-tick";
+      tick.dataset.entryId = String(entry.id);
+      tick.checked = libraryContentsSelection.has(entry.id);
+      tick.setAttribute("aria-label", `Select "${noteLabel(entry, 80)}"`);
+      tick.addEventListener("click", (event) => event.stopPropagation());
+      tick.addEventListener("change", () => {
+        if (tick.checked) libraryContentsSelection.set(entry.id, entry);
+        else libraryContentsSelection.delete(entry.id);
+        // A note with more than one tag shows once per tag in "By tag" —
+        // every tick for this same entry has to move together, or ticking
+        // one occurrence and reading another would say two different things
+        // about the same note.
+        for (const other of outline.querySelectorAll(
+          `input.doc-list-tick[data-entry-id="${entry.id}"]`
+        )) {
+          other.checked = tick.checked;
+        }
+        syncSelectbarCount("library-contents", libraryContentsSelection.size);
+      });
+      li.appendChild(tick);
       const link = document.createElement("a");
       link.href = "#";
       link.textContent = noteLabel(entry, 80);

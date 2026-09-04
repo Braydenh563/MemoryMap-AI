@@ -483,6 +483,79 @@ def create_board(body: BoardCreate, db: Session = Depends(get_session)) -> Board
     return BoardOut(id=entry.id, title=name, node_count=0, sketch_count=0)
 
 
+@router.post("/boards/{board_id}/duplicate", response_model=BoardOut, status_code=201)
+def duplicate_board(board_id: int, db: Session = Depends(get_session)) -> BoardOut:
+    """Copy a board — every card, sketch and object, at the same positions.
+
+    ROADMAP.md item 8 ("managing concept maps"): creating a map works and so
+    do listing and renaming, but duplicating did not exist on either side.
+    It is the one that makes a map reusable — a map you have laid out is a
+    template for the next one, and without this the only way to reuse a shape
+    is to rebuild it card by card.
+
+    **A card is a real note**, which is the app's own premise (see
+    `createConceptMap`) and the reason this is not a shallow row copy: the
+    duplicate gets *new* notes with the same text, so editing a card on the
+    copy cannot rewrite the original's. The alternative — pointing both boards
+    at one set of notes — looks identical the moment it is made and diverges
+    into data loss the first time someone edits the copy.
+
+    Sketches and objects carry no separate identity, so those rows are copied
+    as they are.
+    """
+    # `_require_board` validates and returns nothing, so the Entry is fetched
+    # separately — the title has to come from the board note's own heading,
+    # which is where a board's title lives (see `rename_board`).
+    _require_board(db, board_id)
+    source = deps.get_or_404(db, Entry, board_id, "Board not found")
+    title = extract_title(source.content) or "Untitled board"
+    copy = Entry(content=f"# {title} (copy)", is_board=True)
+    db.add(copy)
+    db.flush()  # the new board needs its id before anything can point at it
+
+    nodes = db.scalars(
+        select(WhiteboardNode).where(_board_filter(WhiteboardNode, board_id))
+    ).all()
+    for node in nodes:
+        original = db.get(Entry, node.entry_id)
+        if original is None:
+            continue  # a stale row: skip rather than copy a dangling card
+        card = Entry(content=original.content, is_private=original.is_private)
+        db.add(card)
+        db.flush()
+        db.add(
+            WhiteboardNode(
+                board_id=copy.id,
+                entry_id=card.id,
+                x=node.x,
+                y=node.y,
+                z=node.z,
+                width=node.width,
+                height=node.height,
+            )
+        )
+
+    for sketch in db.scalars(
+        select(WhiteboardSketch).where(_board_filter(WhiteboardSketch, board_id))
+    ).all():
+        db.add(WhiteboardSketch(board_id=copy.id, data=sketch.data))
+
+    for obj in db.scalars(
+        select(WhiteboardObject).where(_board_filter(WhiteboardObject, board_id))
+    ).all():
+        db.add(WhiteboardObject(board_id=copy.id, kind=obj.kind, data=obj.data))
+
+    db.commit()
+    db.refresh(copy)
+    return BoardOut(
+        id=copy.id,
+        title=f"{title} (copy)",
+        node_count=len(nodes),
+        sketch_count=0,
+        preview_points=_board_points(db, copy.id),
+    )
+
+
 class BoardRename(BaseModel):
     title: str = Field(min_length=1, max_length=100)
 

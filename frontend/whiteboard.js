@@ -6192,6 +6192,22 @@ async function renderLibraryBoardsGallery() {
             }).catch((e) => toast(e.message, true));
             renderLibraryBoardsGallery();
           }),
+          // ROADMAP.md item 8: creating, listing and renaming a map all
+          // worked; duplicating did not exist, and it is the one that makes a
+          // map reusable — a laid-out map is a template for the next one.
+          // The copy is deep server-side (its cards are new notes), so
+          // editing it cannot rewrite the original's.
+          makeMenuItem("ph:copy Duplicate", "Make a copy of this board", async () => {
+            try {
+              const copy = await apiJson(`/whiteboard/boards/${board.id}/duplicate`, {
+                method: "POST",
+              });
+              renderLibraryBoardsGallery();
+              toast(`Copied to “${copy.title}”`);
+            } catch (e) {
+              toast(e.message, true);
+            }
+          }),
           makeMenuItem("ph:trash Delete", "Delete this board", async () => {
             if (!(await confirmDialog(`Delete "${board.title}"? This cannot be undone.`))) return;
             await apiJson(`/entries/${board.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));

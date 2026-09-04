@@ -918,7 +918,10 @@ progress {
    an inline edit is no longer a summary. */
 .entry-list.is-rows li:not(:has(textarea)) {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  /* Third track: `fit-content(26rem)`, not `auto`. See `.entry-meta` below
+     for why the cap moved here — a percentage `max-width` on the item was
+     resolving against this very track. */
+  grid-template-columns: auto minmax(0, 1fr) fit-content(26rem);
   align-items: center;
   column-gap: var(--space-4);
   padding: var(--space-2) var(--space-4);
@@ -993,26 +996,40 @@ progress {
 .entry-list.is-rows .entry-meta {
   margin: 0;
   flex-wrap: nowrap;
-  /* Reported with a screenshot: a note with several tags plus a category,
-     an AI-confidence chip, a time-phrase chip and a date could fill the
-     entire row with metadata and hide the note's own text completely. The
-     grid track this sits in (`grid-template-columns: auto minmax(0, 1fr)
-     auto` above) sized the meta column to its full natural width — with no
-     wrap and nothing to shrink it, that width could exceed what was left
-     after the title, and CSS Grid's own rule is that a `minmax(0, 1fr)`
-     column shrinks toward zero before an `auto` one gives back any space.
-     `max-width` here caps what the meta column can claim, the same "chips
-     don't shrink; the lane scrolls instead" answer #graph-legend already
-     uses for the identical shape — capping the item's own box is what
-     brings the auto *track*'s size down with it, so content keeps its
-     column regardless of how many chips a note happens to carry. */
-  max-width: min(45%, 26rem);
+  /* The cap that keeps a note's metadata from crowding out the note's own
+     text now lives on the *track* (`fit-content(26rem)` in the
+     `grid-template-columns` above), not here.
+
+     It used to be `max-width: min(45%, 26rem)` on this element, and that was
+     a real bug found by measuring rather than reading: **a percentage
+     max-width on a grid item resolves against the track the item is in, and
+     that track was sized from this item.** So `45%` never meant 45% of the
+     row — it meant 45% of this lane's own natural width, at every viewport.
+     Measured on a plain one-category note: track 179px, item 80.6px,
+     scrollWidth 179. The lane was permanently squeezed to under half of
+     itself, with the date collapsed to zero width and the whole actions
+     strip parked outside the visible box. That is what "the collapsed view
+     of notes is completely visually broken" was.
+
+     `fit-content(26rem)` is the same intent stated where it is not
+     circular: a track function sizes against the grid container, so the
+     column takes its content's width up to 26rem and the `minmax(0, 1fr)`
+     content column keeps the rest. */
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
 }
 
-.entry-list.is-rows .entry-meta > * {
+/* Nothing in the lane shrinks — it scrolls instead. `.entry-meta-end` is
+   `display: contents`, so the elements that actually become flex items here
+   are its *children* (the date and the actions strip), which `> *` does not
+   match: selector matching is on the DOM, and `display: contents` only
+   changes box generation. Without the second selector the date was a
+   `flex: 0 1 auto` item next to a 148px actions strip and shrank to exactly
+   0px wide — measured, and visible in a screenshot as a row with no
+   timestamp at all. */
+.entry-list.is-rows .entry-meta > *,
+.entry-list.is-rows .entry-meta > .entry-meta-end > * {
   flex: 0 0 auto;
 }
 

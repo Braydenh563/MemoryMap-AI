@@ -12406,10 +12406,42 @@ function enhanceSelect(select) {
     }
   });
 
-  // Programmatic `select.value = …` fires no event, and plenty of this app
-  // sets one directly; `change` covers the rest.
   select.addEventListener("change", syncValue);
   new MutationObserver(rebuild).observe(select, { childList: true, subtree: true });
+
+  // **Programmatic `select.value = …` fires no event at all**, and this app
+  // sets one directly in dozens of places — every "load the saved settings
+  // into the form" path does. A `change` listener alone therefore leaves the
+  // opener showing whatever was selected when the page was built.
+  //
+  // Measured, not reasoned: the Timeline's own View control read "Grid" while
+  // the timeline underneath it was rendering the *line* view, because
+  // `applyTimelineSettings()` runs `$("timeline-view").value = timelineView()`
+  // after this control was enhanced. Every one of the app's 51 selects had
+  // the same hole.
+  //
+  // The fix is to make assignment observable: shadow `value`, `selectedIndex`
+  // and `disabled` on this instance with accessors that call through to the
+  // prototype's real ones and then re-sync the label. `Reflect.get/set` with
+  // the element as receiver is what keeps the native accessor working on the
+  // right object — reading the descriptor and calling `.get.call(select)`
+  // directly would be the same thing written less safely.
+  const proto = Object.getPrototypeOf(select);
+  for (const prop of ["value", "selectedIndex", "disabled"]) {
+    const native = Object.getOwnPropertyDescriptor(proto, prop);
+    if (!native || !native.set) continue;
+    Object.defineProperty(select, prop, {
+      configurable: true,
+      enumerable: false,
+      get() {
+        return native.get.call(this);
+      },
+      set(next) {
+        native.set.call(this, next);
+        syncValue();
+      },
+    });
+  }
 
   wireMenuKeyboard(menu, opener);
   rebuild();

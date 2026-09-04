@@ -4499,7 +4499,7 @@ Link to another note with [[its first few words]]."></textarea>
             <p id="search-provider-status" class="status" role="status"></p>
 
             <h3>Your SearXNG instance</h3>
-            <div class="row">
+            <div class="row field-row">
               <label for="pref-searxng" class="muted">Address</label>
               <input id="pref-searxng" type="text" maxlength="200"
                 placeholder="http://localhost:8888">
@@ -4532,13 +4532,23 @@ Link to another note with [[its first few words]]."></textarea>
               <!-- Answers "is the port free?" instead of telling people to go
                    and check, which was the only advice a failed start had. -->
               <p class="muted" id="searxng-port"></p>
-              <div class="row">
+              <!-- Buttons on their own row, status underneath. They shared one
+                   flex row before, and the status text ("Installed and ready —
+                   press Start SearXNG.") is long, does not shrink and took
+                   339px of it: the three buttons were squeezed until their
+                   labels wrapped, and measured out at three different heights
+                   in the same row — 95x61, 59x43 and 107x28. That is what
+                   "ui elements are different heights and everything is
+                   squashed together" was, and it is a layout fault, not a
+                   button one, so it is fixed by giving the status line its own
+                   row rather than by pinning heights. -->
+              <div class="row button-row">
                 <button id="searxng-start" class="small"><i class="ph ph-play ph-lead" aria-hidden="true"></i> Start SearXNG</button>
-                <button id="searxng-stop" class="ghost small">■ Stop</button>
+                <button id="searxng-stop" class="ghost small"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
                 <button id="searxng-reinstall" class="ghost small"
                   title="Delete the SearXNG install and set it up again from scratch"><i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i> Reinstall</button>
-                <span id="searxng-host-status" class="status" role="status"></span>
               </div>
+              <p id="searxng-host-status" class="status" role="status"></p>
               <!-- Reported as web search "disabling itself". It was not the
                    setting: SearXNG is a container this app starts on demand,
                    and nothing brought it back after a reboot — so searches
@@ -4549,9 +4559,9 @@ Link to another note with [[its first few words]]."></textarea>
                    Off by default. Starting a container is not something a
                    local-first app should do to a machine unasked, so this is a
                    thing you turn on once and then stop thinking about. -->
-              <label class="muted">
+              <label class="setting-check searxng-autostart-row">
+                <span>Start SearXNG automatically when MemoryMap opens</span>
                 <input type="checkbox" id="searxng-autostart">
-                Start SearXNG automatically when MemoryMap opens
               </label>
               <!-- An install runs for minutes. Without a bar and a live line
                    from the tool itself, slow and stuck look identical. -->

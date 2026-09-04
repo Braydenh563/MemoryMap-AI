@@ -2840,18 +2840,24 @@ input[type="url"]:hover:not(:focus) {
    triangle that sits on the text baseline, in a bar whose other controls all
    use Phosphor carets. Replaced with the app's own caret, rotated when open,
    so the one disclosure in Settings reads like every other expander. */
-.about-whats-new {
+.about-whats-new,
+.settings-section summary,
+.help-accordion > summary {
   list-style: none;
   display: flex;
   align-items: center;
   gap: var(--space-3);
 }
 
-.about-whats-new::-webkit-details-marker {
+.about-whats-new::-webkit-details-marker,
+.settings-section summary::-webkit-details-marker,
+.help-accordion > summary::-webkit-details-marker {
   display: none;
 }
 
-.about-whats-new::before {
+.about-whats-new::before,
+.settings-section summary::before,
+.help-accordion > summary::before {
   content: "";
   flex: 0 0 auto;
   width: 0.5rem;
@@ -2862,7 +2868,9 @@ input[type="url"]:hover:not(:focus) {
   transition: transform var(--motion-fast) ease;
 }
 
-details[open]>.about-whats-new::before {
+details[open] > .about-whats-new::before,
+.settings-section details[open] > summary::before,
+details[open].help-accordion > summary::before {
   transform: rotate(45deg);
 }
 
@@ -2888,33 +2896,43 @@ details[open]>.about-whats-new::before {
    complaint is about the **resting** look. Re-audited by asking the running
    app for every interactive element whose computed style has no background,
    no border and no shadow at rest — genuinely indistinguishable from a run
-   of text — across seven tabs and Settings. Eleven came back, and they are
-   all handled here.
+   of text — across seven tabs and Settings. Eleven came back.
 
-   The tabs are the important ones. An unselected tab was pure text beside an
-   accent-filled selected one, so the row read as one button and six labels.
-   They now carry a faint ground and hairline of their own: enough to say
-   "this is a control", far short of competing with the selected pill, which
-   keeps its solid accent. Same treatment for the sub-tab rows, which had the
-   identical problem one level down. */
-#tab-bar button:not(.active),
-.notes-subtabs button:not(.active),
-[role="tab"]:not(.active):not([aria-selected="true"]) {
-  background: var(--ghost-btn-bg);
-  border: 1px solid var(--ghost-btn-border);
-  box-shadow: var(--shadow-sm);
-}
+   **The tabs are deliberately not among them, and this is the correction to
+   a change that was reverted on sight.** The audit was right that an
+   unselected tab has no ground of its own; the fix that followed from it was
+   wrong. Giving every unselected tab a filled ground and a hairline turned
+   the header into seven grey pills with one accent pill among them, and the
+   sub-tab row into six more directly beneath — reported immediately as "you
+   just broke something", with a screenshot of exactly that.
 
-#tab-bar button:not(.active):hover,
-.notes-subtabs button:not(.active):hover,
-[role="tab"]:not(.active):not([aria-selected="true"]):hover {
-  background: var(--ghost-btn-bg-hover);
-  border-color: var(--ghost-btn-border-hover);
-}
+   A tab strip is the one place where the *absence* of a surface is the
+   design: the selected tab is the only filled thing in the row, and that
+   contrast is what makes the current tab findable at a glance. Adding
+   affordance to the other six spends the whole signal to answer a question
+   ("is this clickable?") that a labelled row inside a bordered strip does
+   not actually raise. Hover and focus already answer it on demand. So the
+   rule is: a *lone* control with no ground gets one; a control that is one
+   of a labelled set, where selection is carried by fill, does not. */
 
-/* A bare icon button anywhere that missed `.ghost` still gets a surface. */
-button.icon-only:not(.ghost):not(.active),
-button.icon-button:not(.ghost):not(.active) {
+/* A bare icon button gets a surface — but only when it is a *lone* control,
+   by the rule stated just above. The exclusions are not cosmetic tidying;
+   each is a strip that was reported broken by this rule in its blanket form:
+
+   - `.status-item` is the bottom status bar. Its icons are a quiet row of
+     glanced-at affordances behind a `backdrop-filter`, and giving each one a
+     grey ground turned a thin bar into eight boxes ("the changes you made to
+     break the bottom status bar icons").
+   - `.tool-btn` / `.wb-tool` are the whiteboard's toolbars, which already
+     carry their own selected/unselected states.
+   - `.seg button` is a segmented control: the segment fill *is* the state.
+
+   In every one of these the control lives inside a bordered, grouped strip
+   that already says "these are buttons", and a per-item ground both competes
+   with the group's own selection fill and doubles the visual weight of a bar
+   that is meant to sit quietly under the app. */
+button.icon-only:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool),
+button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool) {
   background: var(--ghost-btn-bg);
   border: 1px solid var(--ghost-btn-border);
 }
@@ -2940,4 +2958,133 @@ summary:not(.icon-only):not(.icon-button) {
   background: var(--ghost-btn-bg);
   border: 1px solid var(--ghost-btn-border);
   padding: var(--space-2) var(--space-3);
+}
+
+/* --- a settings row where nothing squashes anything else -----------------
+   Reported with a screenshot of Settings → Web search: "ui elements are
+   different heights and everything is squashed together."
+
+   Measured, and it was one cause with two symptoms. A `.row` is a flex line
+   whose items all default to `flex: 0 1 auto` — every item may shrink. In the
+   SearXNG panel that row held three buttons *and* a run of status prose, and
+   the prose won: it claimed 339px, the buttons were compressed below their
+   content width, their labels wrapped to two and three lines, and the three
+   of them came out 61px, 43px and 28px tall side by side. Nothing had a wrong
+   height set anywhere; they were three different heights because they held
+   different numbers of wrapped lines.
+
+   So the fix is about what may shrink, not about heights:
+
+   - `.button-row` — a strip of buttons. None of them shrink, and the row
+     wraps to a second line before any label does. A wrapped row of whole
+     buttons is legible; a row of buttons with wrapped labels is the thing
+     that was reported.
+   - `.field-row` — a label, an input that takes the slack, and a trailing
+     button that keeps its size. The input is the only thing here that
+     *should* absorb the width, and `min-width: 0` is what lets it actually
+     shrink instead of forcing overflow onto its neighbours. */
+.settings-panel .row.button-row,
+.row.button-row {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.row.button-row > button,
+.row.button-row > .chip {
+  flex: 0 0 auto;
+}
+
+.row.field-row {
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.row.field-row > label {
+  flex: 0 0 auto;
+}
+
+.row.field-row > input,
+.row.field-row > select,
+.row.field-row > .select-shell {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.row.field-row > button {
+  flex: 0 0 auto;
+}
+
+/* One height for everything on a field row. Reported directly, and not only
+   here: "the text box message bar in the chat is a different height from the
+   rest of the elements in its row and that is the case for quite a few other
+   search bars / text inputs/boxes and comboboxes."
+
+   The cause is that a text input and a `.small` button are sized by two
+   unrelated rules — the input by its own 16px font plus padding (measured
+   45px here), the button by the small-control scale (28px) — and nothing
+   ever reconciled them, because they are only ever *neighbours*, never
+   parent and child. A row that puts them side by side is the one place that
+   can, so the row states the height and both take it.
+
+   `min-height`, not `height`: a control whose label wraps, or whose font the
+   user has scaled up in Appearance, must still be allowed to grow. And the
+   input keeps its 16px font — matching the button's smaller one would fix
+   the height by reintroducing the iOS zoom-on-focus that 16px exists to
+   avoid. */
+.row.field-row {
+  --field-row-h: var(--control-h-lg);
+}
+
+.row.field-row > input,
+.row.field-row > button,
+.row.field-row > .select-shell > .select-opener {
+  min-height: var(--field-row-h);
+}
+
+.row.field-row > input {
+  padding-block: 0;
+}
+
+/* A status line is prose. It belongs under the controls it reports on, with
+   room to breathe, not wedged into their row — see `.button-row` above. */
+.searxng-host > p.status {
+  margin: var(--space-2) 0 0;
+}
+
+.searxng-host > p.status:empty {
+  margin: 0;
+}
+
+/* The panel's own vertical rhythm. "Everything is squashed together" was
+   also literally true: the card's children sat on 0.4rem margins, so a
+   heading, three paragraphs, a button strip, a checkbox and a progress bar
+   all ran together as one block with no grouping. */
+.searxng-host {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+
+.searxng-host > * {
+  margin: 0;
+}
+
+.searxng-host .row {
+  margin: 0;
+}
+
+.searxng-autostart-row {
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+/* A wall of explanatory text at the full width of a settings dialog is
+   unreadable for the same reason any 120-character measure is. */
+.settings-section > p.muted,
+.searxng-host > p.muted {
+  max-width: 68ch;
 }

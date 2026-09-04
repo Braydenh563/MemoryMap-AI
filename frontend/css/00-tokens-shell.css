@@ -270,6 +270,18 @@ select optgroup {
      two-line control still grows. Not a spacing token, for the reason
      DESIGN.md already gives: a hit target must not move with density. */
   --target-min: 1.75rem;
+  /* The comfortable control height, as opposed to `--target-min`'s floor.
+     This is what a text input, a button and a dropdown opener standing side
+     by side on one row all take, so that a row of mixed control *types* is
+     one row and not a staircase — reported as "ui elements are different
+     heights" with a screenshot of an input at 45px beside a button at 28px.
+
+     It was `--header-control-h`, but that lived on the header element, so
+     every use of it outside the header silently resolved to nothing and the
+     `min-height` that read it was dropped as invalid — measured that way
+     once, on this very row, before it moved here. A shared measurement
+     belongs at the root; the header now reads this token too. */
+  --control-h-lg: 2.25rem;
   /* Reported: "there is too large of a gap ... around the outside of the
      page, it takes up so much space, this is on majority of the pages."
      Measured at 1440px the gutter resolved to 31.7px a side — the 2.2vw
@@ -625,7 +637,7 @@ header#top-bar {
      rather than cramped, still leaves the bar shorter than its 3.7rem
      height, and every control in the bar moves together because they all
      read this one token. */
-  --header-control-h: 2.25rem;
+  --header-control-h: var(--control-h-lg);
   /* Kept `sticky` rather than made `static`: it costs nothing in a
      non-scrolling flex parent, and it means the bar still behaves if this
      layout is ever loaded somewhere the body does scroll. */

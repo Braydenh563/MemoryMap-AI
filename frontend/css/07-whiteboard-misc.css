@@ -1384,7 +1384,22 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   pointer-events: none;
 }
 
-.wb-html-layer {
+/* **The three layers that pan together, and the origin they pan about.**
+   `handleWbZoom` moves all of them with the same CSS `transform` now — the
+   two SVG groups used to take the `transform` *attribute* instead, which is a
+   geometry change the renderer lays out and repaints every frame, so the
+   shapes and links visibly trailed the cards during a pan (reported). Same
+   numbers, one pipeline.
+
+   `transform-origin: 0 0` is what makes that swap correct rather than merely
+   fast. The `transform` attribute has always scaled about the SVG user-space
+   origin; CSS defaults an element's origin to the centre of its own bounding
+   box, which for these groups is wherever their contents happen to sit and
+   moves every time something is added to the board. Without this line a zoom
+   would pivot on a point that drifts as you draw. */
+.wb-html-layer,
+#wb-zoom-group,
+#wb-overlay-zoom-group {
   transform-origin: 0 0;
 }
 

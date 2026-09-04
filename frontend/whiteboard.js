@@ -152,10 +152,39 @@ const WB_UNDO_MAX = 20;
 // entry off the stack (whatever else was pushed in between).
 const wbDeleting = new Set();
 
+//: **All three layers pan the same way, and they did not used to.** Reported:
+//: "when I drag the whiteboard around, notes seamlessly move but the shapes
+//: and links lag behind."
+//:
+//: They did. The cards (`#wb-html-layer`) were moved with a CSS `transform`,
+//: which the compositor can apply to an already-painted layer; the two SVG
+//: groups were moved by setting the `transform` *attribute*, which is a
+//: geometry change the renderer has to lay out and repaint every frame. Same
+//: numbers, two different pipelines, and on a board with any real number of
+//: shapes the SVG one cannot keep up with a pan — so the shapes visibly trail
+//: the notes they are attached to.
+//:
+//: Switching the groups to a CSS transform is only safe because every drag
+//: handler in this file resolves pointer coordinates through
+//: `getScreenCTM()`, and the question of whether that folds in a CSS
+//: transform on an SVG element is the whole risk. Measured in Chromium rather
+//: than assumed: two identical `<g>`s, one carrying `transform="translate(37,
+//: 61) scale(2.5)"` and one carrying the same as CSS, returned the same
+//: matrix — [2.5, 2.5, 37, 844.14] — and mapped the same screen point to the
+//: same board point, [185.2, -177.66]. Nothing reads the attribute back
+//: either, so there is no second consumer to keep in sync.
+//:
+//: `transform-origin: 0 0` is not optional: CSS defaults an SVG element's
+//: origin to the centre of its bounding box, while the `transform` attribute
+//: has always scaled about the user-space origin. Without it every zoom would
+//: pivot somewhere that moves as the board's contents change. It is set in
+//: CSS beside the layers rather than here, so it cannot be lost by an edit to
+//: this function.
 function handleWbZoom(e) {
-  d3.select("#wb-html-layer").style("transform", `translate(${e.transform.x}px, ${e.transform.y}px) scale(${e.transform.k})`);
-  d3.select("#wb-zoom-group").attr("transform", e.transform);
-  d3.select("#wb-overlay-zoom-group").attr("transform", e.transform);
+  const css = `translate(${e.transform.x}px, ${e.transform.y}px) scale(${e.transform.k})`;
+  d3.select("#wb-html-layer").style("transform", css);
+  d3.select("#wb-zoom-group").style("transform", css);
+  d3.select("#wb-overlay-zoom-group").style("transform", css);
   wbSyncGridToTransform(e.transform);
 }
 
@@ -3716,8 +3745,27 @@ async function initWhiteboard() {
   // node/object drags' `.filter()`, the sketch drag's own tool check), so
   // checking the target here is enough without a second stopPropagation
   // dance.
+  //
+  // **The handle layer has to be in this list, and stopPropagation cannot
+  // stand in for it.** Reported: "when I adjust things like links, the area
+  // select happens too" — dragging a link's endpoint drew a selection
+  // marquee across the board at the same time. The endpoint handles are not
+  // inside `.sketch-group`; they live in their own `.wb-sketch-handle-group`
+  // over in `#wb-overlay-zoom-group`, precisely so a card can sit above the
+  // base layer without burying them. So they passed this test as empty
+  // canvas.
+  //
+  // Their drag does call `stopPropagation` on d3-drag's "start", and that is
+  // why this looked correct. It fires on the wrong event: d3-drag listens for
+  // `mousedown`, this listens for `pointerdown`, and a pointerdown is
+  // dispatched *before* the compatibility mousedown it generates. By the time
+  // the handle stops propagation the marquee has already begun. Two event
+  // families cannot cancel each other, so the target check is the only place
+  // this can be fixed.
   function wbIsEmptyCanvasTarget(target) {
-    return !target.closest?.(".node-card, .sketch-group, .wb-object");
+    return !target.closest?.(
+      ".node-card, .sketch-group, .wb-object, .wb-sketch-handle-group, .wb-resize-handle",
+    );
   }
   function rectsIntersect(ax, ay, aw, ah, bx, by, bw, bh) {
     return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;

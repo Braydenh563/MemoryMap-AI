@@ -3438,3 +3438,37 @@ mark.lightbox-hit {
   overflow: hidden;
 }
 
+
+/* --- a stored file that is no longer stored --------------------------------
+   `replaceMissingMedia` (app.js) swaps a failed `/media` or `/files` image for
+   this. Reported with a screenshot of a timeline popup showing the browser's
+   own torn-page glyph and a raw filename, from a photo deleted long after the
+   note that mentions it was written.
+
+   Deliberately quiet and inline rather than a card or a warning: the note is
+   not broken and nothing needs fixing — a file it refers to is simply gone.
+   Sized and coloured like the muted text it sits in so it reads as part of
+   the note, which is also why it flows inline instead of holding an
+   image-shaped hole open where the picture used to be. */
+.media-missing {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  max-width: 100%;
+  padding: var(--space-1) var(--space-3);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  /* The filename is the only part worth reading and can be very long; it
+     truncates rather than pushing the reason off the end of the row. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.media-missing-note {
+  flex: 0 0 auto;
+  opacity: 0.75;
+  font-style: italic;
+}

@@ -141,6 +141,57 @@ function mediaSrc(url) {
   return `${url}${sep}token=${encodeURIComponent(token)}`;
 }
 
+// **A file that is no longer there should say so, not draw a broken frame.**
+//
+// Reported with a screenshot of a timeline popup: "a photo i attached to a
+// note ages ago but deleted still randomly shows itself as a placeholder
+// empty image with the image filename". A note's body keeps the
+// `![name](/media/…)` markdown it was written with, so deleting the upload
+// leaves a live `<img>` pointing at a 404 — and what a browser draws for that
+// is its own torn-page glyph beside the alt text, which is the filename. It
+// looks like the app is broken rather than like the file is gone.
+//
+// One delegated listener rather than an `onerror` at each of the twenty-odd
+// places that build an `<img>`: `error` does not bubble, but it *does*
+// capture, so a single capturing listener on the document sees every image
+// failure in the app — including the ones inside rendered markdown, which no
+// call site here constructs and could not have been given a handler anyway.
+//
+// The note's text is deliberately left alone. Rewriting a person's own words
+// because a file they referenced is missing is a bigger claim than this
+// evidence supports (a media route can 404 for a locked notebook or a
+// half-finished restore too), and it is not reversible. This says what is
+// true — there was an image here and it is not available — in the app's own
+// materials, and leaves the source as the record.
+function replaceMissingMedia(img) {
+  if (img.dataset.mediaMissing) return;
+  img.dataset.mediaMissing = "1";
+  const src = img.getAttribute("src") || "";
+  // Only this app's own stored files. An external image that fails is a
+  // different situation, and the note may well want it back when the network
+  // returns.
+  if (!/^\/(media|files)\//.test(src)) return;
+  const gone = document.createElement("span");
+  gone.className = "media-missing";
+  const name = (img.getAttribute("alt") || "").trim();
+  setLabel(gone, `ph:image-broken ${name || "Image"}`);
+  const note = document.createElement("span");
+  note.className = "media-missing-note";
+  note.textContent = "no longer in this notebook";
+  gone.append(note);
+  gone.title = `${name || "This image"} was removed. The note still mentions it.`;
+  img.replaceWith(gone);
+}
+
+document.addEventListener(
+  "error",
+  (event) => {
+    const img = event.target;
+    if (img instanceof HTMLImageElement) replaceMissingMedia(img);
+  },
+  true,
+);
+
 // A page-load-order bug lived here: this was declared down in the spaces
 // section (appended at the end of the file), and `api()` — called from
 // `initAuth()` at module load, long before that point in the script runs —

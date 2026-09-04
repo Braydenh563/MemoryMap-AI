@@ -969,7 +969,13 @@ body.has-agent-monitor .doc-sidebar .doc-list {
 .command-palette-input {
   flex: 1;
   padding: var(--space-1);
-  border: none;
+  /* `0`, not `none`. `border: none` leaves the width at `medium` and lets the
+     computed 0 hang off the style — so the Appearance rule in
+     00-tokens-shell.css, which forces `border-style` back to `solid`,
+     resurrected it as a 3px grey box round the command bar. Measured here as
+     `3px solid rgb(205, 213, 224)` while this rule read `border: none`. A
+     zero width cannot come back. */
+  border: 0;
   background: transparent;
   font-size: var(--text-body);
   outline: none;

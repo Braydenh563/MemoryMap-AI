@@ -417,9 +417,34 @@ select optgroup {
   --fallback-modal: #ffffff;
 }
 
-/* Base application of Appearance settings */
+/* Base application of Appearance settings.
+
+   **`file` and `hidden` are excluded, and this rule is why a borderless
+   control can grow a 3px border out of nowhere.** `border: none` — whether
+   the app writes it or the browser's own stylesheet does, which it does for
+   `input[type="file"]` — sets the *style* to none and leaves the *width* at
+   its initial `medium`. A computed width of 0 is a consequence of the style,
+   not a stored value. Force the style back to `solid` here, as this rule
+   does, and `medium` reappears: 3px, in whatever colour `border-color`
+   happens to inherit, on an element every stylesheet involved believes has
+   no border.
+
+   Reported as the popup agent's input looking wrong; measured there as
+   `3px solid rgb(205, 213, 224)` while its own rule said `border: none`. A
+   sweep of the seven tabs, the palette and five Settings sections for the
+   3px fingerprint found fifteen elements carrying it — the palette's
+   textarea and the file pickers on the Data settings page being the ones a
+   person can actually see.
+
+   `hidden` never renders, so it is excluded for tidiness rather than effect;
+   `file` is the one that mattered. The list is otherwise unchanged: an
+   element that *does* draw a border still tracks the Appearance setting,
+   which is the whole point of the rule. `.command-palette-input` also stopped
+   saying `border: none` — see 07-whiteboard-misc.css — because a rule that
+   depends on this exclusion list staying correct is a rule waiting to break
+   again. */
 .card,
-input:not([type="color"]):not([type="range"]):not([type="checkbox"]),
+input:not([type="color"]):not([type="range"]):not([type="checkbox"]):not([type="file"]):not([type="hidden"]),
 textarea,
 select,
 .modal,

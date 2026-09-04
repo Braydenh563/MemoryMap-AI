@@ -3336,3 +3336,45 @@ mark.lightbox-hit {
   font-size: var(--text-xs);
   color: var(--muted);
 }
+
+
+/* --- numbered citations inside an answer ---------------------------------
+   Asked for directly: "inline referencing with hyperlinks in ai chat
+   messages would be amazing". Placed by `addInlineCitations` (app.js) from
+   the same per-sentence grounding the "Grounded in" row below the answer
+   already used — the row is the key, these are the references.
+
+   Sized and coloured to read as a reference mark rather than as body text
+   that happens to be a number: smaller, accent-coloured, and raised, with a
+   real hit area so it is clickable on a touch screen without making the
+   line taller (`line-height: 0` on the <sup> keeps it out of the leading). */
+.answer-citation {
+  line-height: 0;
+  margin-left: 0.15em;
+}
+
+.answer-citation-link {
+  display: inline-block;
+  min-width: 1.15em;
+  padding: 0 0.25em;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.7em;
+  font-weight: 700;
+  line-height: 1.5;
+  text-align: center;
+  cursor: pointer;
+}
+
+.answer-citation-link:hover,
+.answer-citation-link:focus-visible {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.answer-citation-link:focus-visible {
+  outline: 2px solid var(--accent-soft);
+  outline-offset: 2px;
+}

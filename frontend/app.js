@@ -7367,8 +7367,94 @@ function clickableResult(entry) {
 // often share a note, and a chip per sentence would repeat itself), the
 // chip's title carrying the actual sentence(s) it backs. Clicking a chip
 // opens that note, same as a search result row already does.
-function renderAnswerGrounding(target, sentences, rawResults) {
+// **Numbered citations in the answer itself.** Asked for directly: "inline
+// referencing with hyperlinks in ai chat messages would be amazing."
+//
+// The data for this already existed and only ever reached a chip row *under*
+// the answer: `ground_answer_sentences` (ai/grounding.py) returns
+// {sentence, note_id} pairs, scored by word overlap against the notes that
+// were actually retrieved — so the app already knows, per sentence, which
+// note backs it. What it did not do was say so where the sentence is, which
+// is the only place the claim and its source are read together.
+//
+// Deliberately conservative about *where* a marker may go: it walks real text
+// nodes and only places one where a grounded sentence is found whole inside a
+// single node. A sentence split across an <em> or a link is skipped rather
+// than reassembled — a citation attached to the wrong half of a sentence is
+// worse than no citation, and the chip row below still lists every source
+// either way, so nothing is lost by skipping.
+function addInlineCitations(answerEl, sentences, rawResults) {
+  if (!answerEl || !sentences || !sentences.length) return;
+  const byId = new Map((rawResults || []).map((entry) => [entry.id, entry]));
+  // One number per note, in the order they are first cited — the numbering a
+  // reader expects, rather than note ids, which mean nothing to anyone.
+  const numberFor = new Map();
+  for (const g of sentences) {
+    if (!numberFor.has(g.note_id)) numberFor.set(g.note_id, numberFor.size + 1);
+  }
+  // Longest first: when one grounded sentence is a prefix of another, marking
+  // the short one first would leave the long one unmatchable.
+  const wanted = [...sentences]
+    .filter((g) => (g.sentence || "").trim().length > 12)
+    .sort((a, b) => (b.sentence || "").length - (a.sentence || "").length);
+  const placed = new Set();
+  const walker = document.createTreeWalker(answerEl, NodeFilter.SHOW_TEXT);
+  const queue = [];
+  while (walker.nextNode()) queue.push(walker.currentNode);
+
+  // A queue rather than a plain loop, because placing a marker *splits* the
+  // text node it was found in. The remainder is a new node that the tree
+  // walker never saw, and a paragraph routinely carries several grounded
+  // sentences — measured: two sentences in one <p> produced exactly one
+  // marker before this, because the first placement ended the node's turn.
+  // Pushing the tail back on is what lets the rest of the paragraph be
+  // scanned for the sentences that are still unplaced.
+  while (queue.length) {
+    const node = queue.shift();
+    if (!node.parentNode || node.parentNode.closest?.(".answer-citation")) continue;
+    for (const g of wanted) {
+      const key = `${g.note_id}:${g.sentence}`;
+      if (placed.has(key)) continue;
+      const text = node.textContent;
+      const at = text.indexOf(g.sentence.trim());
+      if (at === -1) continue;
+      const end = at + g.sentence.trim().length;
+      const tail = node.splitText(end);
+      // Both halves go back on. The tail is the rest of the paragraph, and
+      // the head still holds everything *before* this match — which is where
+      // an earlier sentence in the same paragraph lives. Measured: with only
+      // the tail re-queued, a paragraph whose second sentence was the longer
+      // one (so matched first) never got a marker on its first sentence.
+      queue.unshift(tail);
+      queue.unshift(node);
+      const marker = document.createElement("sup");
+      marker.className = "answer-citation";
+      const link = document.createElement("button");
+      link.type = "button";
+      link.className = "answer-citation-link";
+      const entry = byId.get(g.note_id);
+      const name = noteLabel({ content: entry?.content || "" }, 40);
+      link.textContent = String(numberFor.get(g.note_id));
+      link.title = `Open the note this came from: ${name}`;
+      link.setAttribute("aria-label", `Source ${numberFor.get(g.note_id)}: ${name}`);
+      link.addEventListener("click", (event) => {
+        event.stopPropagation();
+        flashEntry(g.note_id);
+      });
+      marker.appendChild(link);
+      tail.parentNode.insertBefore(marker, tail);
+      placed.add(key);
+      break; // this node is now split; its tail is at the head of the queue
+    }
+  }
+}
+
+function renderAnswerGrounding(target, sentences, rawResults, answerEl = null) {
   if (!target) return;
+  // The markers go in the answer itself; the chip row below is their key.
+  // Both are built from the same `sentences`, so they cannot disagree about
+  // which note is number 2.
+  addInlineCitations(answerEl, sentences, rawResults);
   target.replaceChildren();
   if (!sentences || !sentences.length) {
     target.classList.add("hidden");
@@ -7384,12 +7470,16 @@ function renderAnswerGrounding(target, sentences, rawResults) {
   label.className = "muted answer-grounding-label";
   label.textContent = "Grounded in:";
   target.appendChild(label);
+  let n = 0;
   for (const [noteId, forSentences] of byNote) {
     const entry = byId.get(noteId);
+    n += 1;
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = "chip result-reason-chip result-reason-connected answer-grounding-chip";
-    setLabel(chip, `ph:file-text ${noteLabel({ content: entry?.content || "" }, 30)}`);
+    // Numbered to match the markers `addInlineCitations` puts in the answer —
+    // the row is the key to those, so the two have to count the same way.
+    setLabel(chip, `ph:file-text ${n}. ${noteLabel({ content: entry?.content || "" }, 30)}`);
     chip.title = forSentences.join(" ");
     chip.addEventListener("click", () => flashEntry(noteId));
     target.appendChild(chip);
@@ -7919,7 +8009,12 @@ async function askQuestion(preset) {
         status.textContent = "";
       },
       onGrounding: (event) => {
-        renderAnswerGrounding($("ai-answer-grounding"), event.sentences, groundingRawResults);
+        renderAnswerGrounding(
+          $("ai-answer-grounding"),
+          event.sentences,
+          groundingRawResults,
+          answerBox
+        );
       },
     });
 
@@ -11640,7 +11735,12 @@ async function sendChatMessage(preset, opts = {}) {
       },
       onGrounding: (event) => {
         groundingSentences = event.sentences;
-        renderAnswerGrounding(groundingHolder, event.sentences, meta?.raw_results || []);
+        renderAnswerGrounding(
+          groundingHolder,
+          event.sentences,
+          meta?.raw_results || [],
+          bubble.querySelector(".bubble-answer")
+        );
       },
       onPlan: (event) => {
         clearPending();
@@ -13475,7 +13575,12 @@ async function openConversation(id) {
       // tab was left or the session ended, since nothing rebuilt this on
       // reopen either.
       if (message.sentence_grounding) {
-        renderAnswerGrounding(handles.groundingHolder, message.sentence_grounding, message.raw_results || []);
+        renderAnswerGrounding(
+          handles.groundingHolder,
+          message.sentence_grounding,
+          message.raw_results || [],
+          handles.bubble?.querySelector(".bubble-answer") || null
+        );
       }
       // And the same shape again for the "what to ask next" chips, reported
       // separately: "suggested repsponse continuation prompts in chat doesnt

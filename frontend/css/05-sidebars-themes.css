@@ -2613,7 +2613,25 @@ textarea.autogrow {
   cursor: pointer;
 }
 
+/* A PDF's own first page, laid over the glyph rather than replacing it: the
+   glyph and its extension label stay as the fallback for a file with no
+   pages, and for a page render that fails (the <img> removes itself, and
+   what is underneath is what was always there). Reported: "in the files tab,
+   there is no preview". */
+.library-file-page {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  border-radius: inherit;
+  background: var(--card-bg);
+}
+
 .library-file-thumb {
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;

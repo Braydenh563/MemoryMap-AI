@@ -510,6 +510,32 @@ class Attachment(Base, WorkspaceMixin):
     mime: Mapped[str] = mapped_column(String(100), default="application/octet-stream")
     size: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    #: What this file *says*, so the AI and the Library can both read it.
+    #:
+    #: Asked for directly: "the files tab needs vision model and ocr model
+    #: caption and text extraction. especially for documents containing
+    #: diagrams, images, data or scanned pdfs… the text and analysis needs to
+    #: be accessible to the ai models and modifyable by the user."
+    #:
+    #: `MediaUpload` has carried these four since captioning existed; an
+    #: `Attachment` — which is what a file dropped onto a *note* actually is
+    #: — carried none of them, so a scanned PDF attached to a note was, to
+    #: this app, a filename and some bytes. Same columns, same never-
+    #: distinguished NULL convention ("not run yet, or found nothing"), and
+    #: the same "a person may overwrite any of it" rule; added by the
+    #: additive auto-migrator on existing databases like every other
+    #: backfilled column here.
+    caption: Mapped[str | None] = mapped_column(Text, default=None)
+    caption_model: Mapped[str | None] = mapped_column(String(200), default=None)
+    caption_edited: Mapped[bool] = mapped_column(Boolean, default=False)
+    #: Local Tesseract text for an image, or the extracted/converted text of
+    #: a document (`core/docview.py`) — one column either way, because what
+    #: a reader wants is "the text in this file", not which extractor found it.
+    ocr_text: Mapped[str | None] = mapped_column(Text, default=None)
+    #: A vision model reading the pages, for the case Tesseract cannot serve:
+    #: handwriting, low contrast, a diagram whose meaning is in its layout.
+    vision_ocr_text: Mapped[str | None] = mapped_column(Text, default=None)
+    vision_ocr_model: Mapped[str | None] = mapped_column(String(200), default=None)
 
 
 class Conversation(Base, WorkspaceMixin):

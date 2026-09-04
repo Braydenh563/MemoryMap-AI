@@ -150,8 +150,10 @@ def usage_map(session: Session) -> tuple[dict[str, list[dict]], bool]:
             if entry.is_private:
                 note(name, "note", entry.id, "Private note")
                 continue
-            first_line = (content or "").lstrip("# ").splitlines()
-            note(name, "note", entry.id, first_line[0] if first_line else "")
+            # `plain_label`, not the raw first line: a chip cannot render
+            # markdown, and one that tries shows `# Title ![alt](/media/…)`
+            # verbatim — reported exactly that way.
+            note(name, "note", entry.id, manager.plain_label(content))
 
     return used, skipped_private
 

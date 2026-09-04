@@ -2240,6 +2240,80 @@ dialog::backdrop {
 /* Notes tab → Ask: the question input, the answer-length select and the Ask
    button had the same three-heights-on-one-row mismatch as
    `.capture-field-row` above, same fix. */
+/* --- the Ask box reads as one composer -----------------------------------
+   Asked for directly: "fix and redesign the Ask tab ui to be better and more
+   modern like the other fixes and reimagined ui you did."
+
+   Before this the Ask row was five separate controls floating on a bare
+   card — an input, a select, an icon button and two buttons, each with its
+   own border, none of them visibly part of the same act. This wraps them in
+   one field-shaped surface (the same recipe `.select-opener` and the note
+   composer use), so the whole row reads as the thing you type into, with the
+   input itself losing its own border to become the surface's interior. */
+.ask-composer {
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid color-mix(in srgb, var(--border) 60%, var(--ink) 25%);
+  border-radius: var(--radius-lg);
+  background: var(--input-bg);
+  box-shadow: inset 0 1px 2px var(--field-inset);
+}
+
+.ask-composer:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+.ask-composer-icon {
+  flex: 0 0 auto;
+  margin-left: var(--space-2);
+  color: var(--muted);
+}
+
+/* The interior of the composer, not a field of its own. */
+.ask-composer > #question {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.ask-composer > #question:focus {
+  outline: none;
+}
+
+/* A section head with its own icon, matching every other panel head in the
+   app rather than being a bare <h3> — the "consistent in how it looks" half
+   of the same instruction. */
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* What the tab says before it has been used. `#chat-results` is `hidden`
+   until an answer exists, so without this the whole body of the tab was one
+   input on an empty card. */
+.ask-idle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-6);
+  text-align: center;
+}
+
+.ask-idle .muted {
+  max-width: 46ch;
+  margin: 0;
+}
+
+.ask-idle.hidden {
+  display: none;
+}
+
 .ask-query-row {
   --control-h: 2.5rem;
 }
@@ -3632,6 +3706,23 @@ summary:not(.icon-only):not(.icon-button) {
 
 /* A chip that goes somewhere. Capped so one long note title cannot push the
    rest of the row out of the card, with the full text still in the title. */
+/* The tile's own tick. Top-left, over the thumbnail, the same corner (and
+   the same control) the Documents list puts its own on — asked for directly:
+   "in many of the library subtabs… there is no way to multi select". It sits
+   above the image rather than beside the filename so a wall of thumbnails
+   can be swept through without the eye leaving the grid. */
+.library-tile-tick {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  z-index: 2;
+  cursor: pointer;
+}
+
+.library-image-tile {
+  position: relative;
+}
+
 .library-image-usage-chip {
   /* `min()`, not a flat 16rem: a gallery tile is ~11.5rem wide, so a 16rem
      cap let a long board or note title run straight past the card's own

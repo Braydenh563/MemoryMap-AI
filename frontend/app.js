@@ -7433,6 +7433,7 @@ function renderChatMeta(meta) {
     // notes. "No matching records" would report a failed search that never
     // happened, which is the half of the greeting case that read as broken.
     $("chat-results").classList.remove("hidden");
+  $("ask-idle")?.classList.add("hidden");
     document.querySelector(".chat-half:last-child")?.classList.add("hidden");
     return;
   }
@@ -7481,6 +7482,7 @@ function renderChatMeta(meta) {
     rawList.appendChild(row);
   }
   $("chat-results").classList.remove("hidden");
+  $("ask-idle")?.classList.add("hidden");
 }
 
 // Why a result showed up, as a badge — not a footnote. Reported directly:
@@ -7788,6 +7790,7 @@ function newChat() {
   conversation = [];
   lastQuestion = "";
   $("chat-results").classList.add("hidden");
+  $("ask-idle")?.classList.remove("hidden");
   $("new-chat-btn").classList.add("hidden");
   $("ask-status").textContent = "";
   $("question").value = "";
@@ -8145,6 +8148,7 @@ async function viewAskHistoryTurn(id) {
   }
   document.querySelector(".chat-half:last-child")?.classList.remove("hidden");
   $("chat-results").classList.remove("hidden");
+  $("ask-idle")?.classList.add("hidden");
   $("ask-status").textContent = "";
   show("retry-btn", "copy-btn", "speak-btn", "new-chat-btn");
 }

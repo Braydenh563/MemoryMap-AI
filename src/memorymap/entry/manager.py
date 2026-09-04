@@ -1376,6 +1376,39 @@ def _heading_text(stripped: str) -> str | None:
     return text
 
 
+def plain_label(content: str, limit: int = 80) -> str:
+    """A note's first line as a *person* would read it, for a chip or a card.
+
+    Reported directly: "the used in note links dont render inline md" — a
+    usage chip in the Library's file gallery read
+    `# Leafeon Pokemon image test ![WallpaperEngineOv…`, because the label was
+    the raw first line of markdown. A chip is one line of plain text in a
+    pill; it cannot render markdown and should not try, so the markup is
+    removed rather than displayed.
+
+    Deliberately small and regex-only: this is a label, not a document render.
+    Images lose their alt text entirely (an image is not what the note *says*),
+    links keep their text, and the usual inline emphasis/code markers go.
+    """
+    text = (content or "").strip()
+    if not text:
+        return ""
+    first = ""
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        first = stripped
+        break
+    first = re.sub(r"^#{1,6}\s*", "", first)          # heading markers
+    first = re.sub(r"^[-*+]\s+|^>\s*", "", first)     # list bullet / quote
+    first = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", first)  # images, alt and all
+    first = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", first)  # links keep their text
+    first = re.sub(r"[*_`~]{1,3}", "", first)          # emphasis, code, strike
+    first = re.sub(r"\s+", " ", first).strip()
+    return first[:limit]
+
+
 def extract_title(content: str) -> str | None:
     """A note's own title, if it wrote one — its first line, when that line
     is a Markdown heading. Not a stored field: there is nothing to fall out

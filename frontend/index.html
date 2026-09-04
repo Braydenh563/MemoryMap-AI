@@ -739,7 +739,14 @@ Link to another note with [[its first few words]]."></textarea>
                 title="Clear this conversation and start fresh">New chat</button>
             </span>
           </div>
-          <div class="row ask-query-row">
+          <!-- One surface, not five loose controls on a bare card. The
+               input, the answer-length picker, the tuning button and Ask all
+               live inside a single bordered composer that reads as one thing
+               you type into — the same shape the Chat dock and the note
+               composer already use, so the three places you can type at this
+               app finally look like each other. -->
+          <div class="row ask-query-row ask-composer">
+            <i class="ph ph-sparkle ask-composer-icon" aria-hidden="true"></i>
             <input id="question" type="text"
               placeholder="e.g. What jokes have I saved?"
               aria-label="Ask your notebook a question">
@@ -798,9 +805,21 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="ask-history-more" class="ghost small hidden" type="button">Load more</button>
           </div>
           <p id="ask-status" class="status" role="status"></p>
+          <!-- Shown until the first answer arrives, hidden by `showAskIdle`
+               (app.js) from then on. A tab whose whole body is `hidden` until
+               you use it gives a first-time reader nothing to read — this
+               says what the box does and what it will search. -->
+          <div id="ask-idle" class="ask-idle">
+            <span class="empty-icon" aria-hidden="true"><i class="ph ph-sparkle ph-lead"></i></span>
+            <p class="empty-title">Ask your own notes a question</p>
+            <p class="muted">Answers come from your notebook and cite the notes they
+              came from — nothing leaves this machine. The matching notes appear
+              beside the answer so you can check it against the source.</p>
+          </div>
           <div id="chat-results" class="chat-grid hidden">
             <div class="chat-half">
-              <h3>
+              <h3 class="panel-head">
+                <i class="ph ph-sparkle ph-lead" aria-hidden="true"></i>
                 AI answer <span id="answered-by" class="chip"></span>
                 <span class="answer-actions">
                   <button id="retry-btn" class="ghost small hidden"
@@ -825,7 +844,10 @@ Link to another note with [[its first few words]]."></textarea>
               <div id="ai-answer-grounding" class="answer-grounding hidden"></div>
             </div>
             <div class="chat-half">
-              <h3>Matching records <span id="search-mode" class="chip"></span></h3>
+              <h3 class="panel-head">
+                <i class="ph ph-cards ph-lead" aria-hidden="true"></i>
+                Matching records <span id="search-mode" class="chip"></span>
+              </h3>
               <ul id="raw-results" class="entry-list"></ul>
             </div>
           </div>
@@ -3175,6 +3197,19 @@ Link to another note with [[its first few words]]."></textarea>
       <input id="library-images-search" type="search" class="library-search"
         placeholder="Search filenames, captions and text found in files…"
         aria-label="Search the image gallery">
+      <!-- Multi-select, the same shape the Documents sub-tab already has —
+           asked for directly: "in many of the library subtabs like for imges,
+           files, whiteboards, links etc, there is no way to multi select".
+           Hidden until something is ticked, so a gallery nobody is selecting
+           in looks exactly as it did. -->
+      <div id="library-media-selectbar" class="library-contextbar hidden" role="group"
+        aria-label="Actions for the selected files">
+        <span id="library-media-selected-count" class="library-selected-count"></span>
+        <span class="library-contextbar-end">
+          <button id="library-media-bulk-delete" class="ghost small" type="button"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
+          <button id="library-media-clear-selection" class="ghost small" type="button">Done</button>
+        </span>
+      </div>
       <div id="library-images-grid" class="library-image-grid"></div>
       <div id="library-images-empty" class="empty-state hidden">
         <span class="empty-icon" aria-hidden="true"><i id="library-media-empty-icon" class="ph ph-images-square ph-lead" aria-hidden="true"></i></span>

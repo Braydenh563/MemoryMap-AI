@@ -10,6 +10,8 @@ never as an error — capture and keyword search keep working (plan §4).
 
 from __future__ import annotations
 
+import json
+
 import logging
 import threading
 import time
@@ -20,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
-from memorymap.core.database import EmbeddingRecord, Entry
+from memorymap.core.database import Attachment, Category, EmbeddingRecord, Entry
 
 # The built-in embedding model. It was all-MiniLM-L6-v2 and is not any more,
 # which is exactly why nothing user-facing may hard-code a name: the Models
@@ -200,11 +202,63 @@ def embedding_text(session: Session, entry: Entry) -> str:
 
     media_process = importlib.import_module("memorymap.core.media_process")
 
+    parts: list[str] = [entry.content]
+
+    # **How the note is filed is part of what it is about.** Reported
+    # directly: "I have a whole category called hobbies but basically none
+    # came up in the semantic search." Nothing was broken — the word
+    # "hobbies" appears in the *category*, and a category has never been part
+    # of what gets embedded, so a note about the gym filed under Hobbies had
+    # no more relation to the query "hobbies" than to any other word the note
+    # does not contain. Naming the category and the tags in the embedded text
+    # is what makes "what do I have under hobbies" a question the vectors can
+    # actually answer, and it costs one short line per note.
+    # Queried by id rather than read off a relationship: this app's models
+    # declare foreign keys but no ORM `relationship()` anywhere, so
+    # `entry.category` is not an attribute that exists — a `getattr` version
+    # of this would have returned None forever and quietly indexed nothing.
+    try:
+        labels: list[str] = []
+        if entry.category_id is not None:
+            name = session.scalar(
+                select(Category.name).where(Category.id == entry.category_id)
+            )
+            if name and str(name).lower() not in {"uncategorised", "uncategorized"}:
+                labels.append(str(name))
+        raw_tags = json.loads(entry.tags or "[]")
+        labels += [str(tag) for tag in raw_tags if str(tag).strip()][:12]
+        if labels:
+            parts.append("Filed under: " + ", ".join(labels))
+    except Exception:  # noqa: BLE001 — enrichment must never block an embedding
+        pass
+
+    # What this note's own attached files say. The same reasoning as the
+    # media captions below, for the half of the app that stores files as
+    # `Attachment` rows: a scanned lecture PDF attached to a two-word note
+    # was, to the vectors, a two-word note. Now the caption a vision model
+    # wrote and the text either extractor read are searchable with it.
+    try:
+        attachments = session.scalars(
+            select(Attachment).where(Attachment.entry_id == entry.id)
+        ).all()
+        for attachment in attachments:
+            found = [
+                getattr(attachment, "caption", None),
+                getattr(attachment, "ocr_text", None) or getattr(attachment, "vision_ocr_text", None),
+            ]
+            text = " ".join(str(item).strip() for item in found if item)
+            if text:
+                parts.append(f"{attachment.filename}: {text[:2000]}")
+    except Exception:  # noqa: BLE001
+        pass
+
     try:
         extra = media_process.media_text_for(session, entry.content)
+        if extra:
+            parts.append(extra)
     except Exception:  # noqa: BLE001 — enrichment must never block an embedding
-        return entry.content
-    return f"{entry.content}\n{extra}" if extra else entry.content
+        pass
+    return "\n".join(parts)
 
 
 def vector_to_bytes(vector: np.ndarray) -> bytes:

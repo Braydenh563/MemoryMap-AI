@@ -170,6 +170,20 @@ class AttachmentGalleryOut(BaseModel):
     #: gallery tile's existing "used in" rendering (ROADMAP item 43) needs
     #: no branch for which kind of row it is looking at.
     used_by: list[dict] = []
+    #: What this file says — see `Attachment`'s own docstring for why these
+    #: now exist on an attachment at all. Never null over the wire, the same
+    #: convention `MediaUploadOut` keeps, so the gallery can filter on them
+    #: with a plain substring test.
+    caption: str = ""
+    caption_model: str = ""
+    caption_edited: bool = False
+    ocr_text: str = ""
+    vision_ocr_text: str = ""
+    vision_ocr_model: str = ""
+    #: True when this file has renderable pages (a PDF), so the tile can show
+    #: the first one instead of a generic file glyph — asked for directly:
+    #: "in the files tab, there is no preview".
+    has_pages: bool = False
 
 
 @router.get("/files/gallery", response_model=list[AttachmentGalleryOut])
@@ -203,10 +217,163 @@ def list_attachment_gallery(session: Session = Depends(get_session)) -> list[Att
             original_name=attachment.filename,
             mime=attachment.mime or "application/octet-stream",
             created_at=attachment.created_at.isoformat(),
-            used_by=[{"kind": "note", "id": entry.id, "label": entry.content[:60]}],
+            used_by=[{"kind": "note", "id": entry.id, "label": manager.plain_label(entry.content)}],
+            caption=attachment.caption or "",
+            caption_model=attachment.caption_model or "",
+            caption_edited=bool(attachment.caption_edited),
+            ocr_text=attachment.ocr_text or "",
+            vision_ocr_text=attachment.vision_ocr_text or "",
+            vision_ocr_model=attachment.vision_ocr_model or "",
+            has_pages=Path(attachment.filename).suffix.lower() == ".pdf",
         )
         for attachment, entry in rows
     ]
+
+
+class AttachmentAnalyseBody(BaseModel):
+    """What to read out of a file, or what to store instead of reading it."""
+
+    #: "caption" — a vision model describes it. "ocr" — Tesseract (an image)
+    #: or this app's own document extractor (anything else). "vision" — a
+    #: vision model transcribes the pages, which is the one that answers a
+    #: scanned PDF or a diagram nothing else can read.
+    kind: str = Field(pattern="^(caption|ocr|vision)$")
+    #: Set the value by hand instead of running anything — "the text and
+    #: analysis needs to be… modifyable by the user". `""` clears it back to
+    #: "nothing here", the same as the `/media` endpoints this mirrors.
+    text: str | None = Field(default=None, max_length=200_000)
+    #: Re-run even when there is already a value (a caption is written once
+    #: and left alone otherwise, so nothing an AI wrote and a person read can
+    #: silently change under them).
+    force: bool = False
+
+
+def _attachment_out(session: Session, attachment: Attachment) -> AttachmentGalleryOut:
+    entry = session.get(Entry, attachment.entry_id)
+    return AttachmentGalleryOut(
+        id=attachment.id,
+        url=f"/files/{attachment.id}",
+        original_name=attachment.filename,
+        mime=attachment.mime or "application/octet-stream",
+        created_at=attachment.created_at.isoformat(),
+        used_by=(
+            [{"kind": "note", "id": entry.id, "label": manager.plain_label(entry.content)}]
+            if entry is not None
+            else []
+        ),
+        caption=attachment.caption or "",
+        caption_model=attachment.caption_model or "",
+        caption_edited=bool(attachment.caption_edited),
+        ocr_text=attachment.ocr_text or "",
+        vision_ocr_text=attachment.vision_ocr_text or "",
+        vision_ocr_model=attachment.vision_ocr_model or "",
+        has_pages=Path(attachment.filename).suffix.lower() == ".pdf",
+    )
+
+
+@router.post("/files/{attachment_id}/analyse", response_model=AttachmentGalleryOut)
+def analyse_attachment(
+    attachment_id: int,
+    body: AttachmentAnalyseBody,
+    session: Session = Depends(get_session),
+) -> AttachmentGalleryOut:
+    """Read a note's attached file with the local models, or store a reading
+    typed by hand.
+
+    One endpoint for all three readings rather than three near-identical
+    ones (the `/media` side grew that way and is three copies of the same
+    twenty lines). The split that matters is not caption/ocr/vision, it is
+    *image or document*: an image goes to Tesseract, a document goes through
+    `docview` (the same extractor the file viewer already uses), and the
+    vision path rasterises PDF pages so a scan with no text layer at all
+    still has something a model can look at.
+    """
+    attachment = _existing_attachment(session, attachment_id)
+    path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
+    suffix = Path(attachment.filename).suffix.lower()
+    is_image = suffix in captioning.CAPTION_SUFFIXES
+
+    if body.text is not None:
+        stripped = body.text.strip() or None
+        if body.kind == "caption":
+            attachment.caption = stripped
+            if stripped:
+                attachment.caption_edited = True
+            else:
+                attachment.caption_model = None
+                attachment.caption_edited = False
+        elif body.kind == "ocr":
+            attachment.ocr_text = stripped
+        else:
+            attachment.vision_ocr_text = stripped
+            if not stripped:
+                attachment.vision_ocr_model = None
+        session.commit()
+        return _attachment_out(session, attachment)
+
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="File is missing from disk")
+
+    if body.kind == "ocr":
+        # Tesseract for a picture; this app's own document extractor for
+        # everything else — a .docx or a text-layer PDF has real text in it
+        # that no OCR pass should be guessing at.
+        if is_image:
+            text = ocr.extract_text(path)
+        else:
+            # No `vision_reader` passed on purpose: this is the "read it
+            # locally, no model" path, and the vision kind below is the one
+            # that costs a model round trip. A scan with no text layer comes
+            # back empty here, which is the honest answer and is exactly what
+            # sends the reader to "Read with AI".
+            text = docview.extract(path).text
+        attachment.ocr_text = (text or "").strip() or None
+        session.commit()
+        return _attachment_out(session, attachment)
+
+    # Both remaining kinds need a vision model.
+    if not deps.get_ollama().is_running():
+        raise HTTPException(status_code=409, detail="The AI model isn't running.")
+    model = deps.get_model_manager().resolve_vision_model(deps.get_ollama())
+    if not model:
+        raise HTTPException(
+            status_code=409,
+            detail="No installed model reports it can see images — install or "
+            "pick one in Settings → Models.",
+        )
+    ollama = deps.get_ollama()
+
+    if body.kind == "caption":
+        if not is_image and suffix != ".pdf":
+            raise HTTPException(
+                status_code=415,
+                detail="Only images and PDFs can be described — there is nothing to look at.",
+            )
+        if attachment.caption and not body.force:
+            return _attachment_out(session, attachment)
+        text = (
+            captioning.caption_text(path, model, ollama)
+            if is_image
+            else vision_ocr.pdf_vision_reader(model, ollama).read(path)
+        )
+        attachment.caption = (text or "").strip() or None
+        attachment.caption_model = model if attachment.caption else None
+        attachment.caption_edited = False
+    else:
+        if attachment.vision_ocr_text and not body.force:
+            return _attachment_out(session, attachment)
+        # A PDF is rasterised page by page (`pdf_vision_reader`) — which is
+        # the whole point for a scan, where there is no text layer to read
+        # and Tesseract has already found nothing.
+        text = (
+            vision_ocr.vision_ocr_text(path, model, ollama)
+            if is_image
+            else vision_ocr.pdf_vision_reader(model, ollama).read(path)
+        )
+        attachment.vision_ocr_text = (text or "").strip() or None
+        attachment.vision_ocr_model = model if attachment.vision_ocr_text else None
+    session.commit()
+    return _attachment_out(session, attachment)
 
 
 class AttachedFileTextOut(BaseModel):

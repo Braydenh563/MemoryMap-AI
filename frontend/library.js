@@ -2145,6 +2145,85 @@ function mediaFileKind(url) {
   return (ext || "file").toUpperCase();
 }
 
+//: One call for "read this file with the models", whichever table the row
+//: came from. A `MediaUpload` has three endpoints (`/media/{id}/caption`,
+//: `/ocr`, `/vision-ocr`); an `Attachment` has one that takes the kind
+//: (`/files/{id}/analyse`), because that side was built after it was clear
+//: the three differ only in which column they write. The tile does not care:
+//: it asks for a kind and gets the updated row back either way.
+//:
+//: Asked for directly: "the files tab needs vision model and ocr model
+//: caption and text extraction… the text and analysis needs to be accessible
+//: to the ai models and modifyable by the user."
+async function analyseMediaRow(image, kind, payload = {}) {
+  if (image._isAttachment) {
+    return apiJson(`/files/${image.id}/analyse`, {
+      method: "POST",
+      body: JSON.stringify({ kind: kind === "vision-ocr" ? "vision" : kind, ...payload }),
+    });
+  }
+  return apiJson(`/media/${image.id}/${kind}`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+//: Which gallery tiles are ticked. Media, attachments and sketches live in
+//: three different tables, so a selection is keyed by the row's own kind as
+//: well as its id — `media:12` and `attachment:12` are different files.
+const libraryMediaSelection = new Map();
+
+function mediaRowKey(image) {
+  const kind = image._isSketch ? "sketch" : image._isAttachment ? "attachment" : "media";
+  return `${kind}:${image.id}`;
+}
+
+//: The one place that knows where each kind of row is deleted, so the tile's
+//: own Delete and the bulk bar cannot drift apart.
+function mediaRowDeleteEndpoint(image) {
+  if (image._isSketch) return `/whiteboard/sketches/${image.id}`;
+  if (image._isAttachment) return `/files/${image.id}`;
+  return `/media/${image.id}`;
+}
+
+function syncLibraryMediaSelectbar() {
+  const bar = document.getElementById("library-media-selectbar");
+  const count = document.getElementById("library-media-selected-count");
+  if (!bar || !count) return;
+  const n = libraryMediaSelection.size;
+  bar.classList.toggle("hidden", n === 0);
+  count.textContent = `${n} selected`;
+}
+
+function clearLibraryMediaSelection() {
+  libraryMediaSelection.clear();
+  for (const tick of document.querySelectorAll(".library-tile-tick")) tick.checked = false;
+  syncLibraryMediaSelectbar();
+}
+
+async function bulkDeleteLibraryMedia() {
+  const rows = [...libraryMediaSelection.values()];
+  if (!rows.length) return;
+  if (
+    !(await confirmDialog(
+      `Delete ${rows.length} selected item${rows.length === 1 ? "" : "s"}?\n\n` +
+        'Any note or board still showing one will show a "deleted" placeholder instead.'
+    ))
+  ) {
+    return;
+  }
+  for (const image of rows) {
+    await apiJson(mediaRowDeleteEndpoint(image), { method: "DELETE" }).catch((err) =>
+      toast(err.message, true)
+    );
+    const idx = libraryImagesCache.indexOf(image);
+    if (idx !== -1) libraryImagesCache.splice(idx, 1);
+  }
+  libraryMediaSelection.clear();
+  syncLibraryMediaSelectbar();
+  filterLibraryImagesGallery();
+}
+
 async function renderLibraryImagesGallery() {
   const grid = $("library-images-grid");
   const empty = $("library-images-empty");
@@ -2287,6 +2366,26 @@ function filterLibraryImagesGallery() {
       img.loading = "lazy";
     } else {
       img.className = "library-file-thumb";
+      // **A PDF shows its first page.** Reported: "in the files tab, there
+      // is no preview" — every non-image tile was a glyph and an extension,
+      // which tells you nothing you could not read from the filename. The
+      // page renderer already exists for the viewer (`/files/{id}/pdf-page`,
+      // `/media/pdf-page/{name}`); this is the same call at thumbnail size.
+      // The glyph stays underneath as the fallback for everything without
+      // pages, and for a PDF whose render fails.
+      if (image.has_pages || /\.pdf$/i.test(image.original_name || "")) {
+        const page = document.createElement("img");
+        page.className = "library-file-page";
+        page.loading = "lazy";
+        page.alt = "";
+        page.src = mediaSrc(
+          image._isAttachment
+            ? `/files/${image.id}/pdf-page/0`
+            : `/media/pdf-page/${encodeURIComponent((image.url || "").split("/").pop())}/0`
+        );
+        page.addEventListener("error", () => page.remove());
+        img.appendChild(page);
+      }
       const glyph = document.createElement("i");
       glyph.className = `ph ${mediaFileIcon(image.original_name)}`;
       glyph.setAttribute("aria-hidden", "true");
@@ -2347,6 +2446,21 @@ function filterLibraryImagesGallery() {
         images.indexOf(image)
       );
     });
+    // The tick. Same control the Documents list already uses, so selecting
+    // works the same way wherever you are in the Library.
+    const tick = document.createElement("input");
+    tick.type = "checkbox";
+    tick.className = "library-tile-tick";
+    tick.checked = libraryMediaSelection.has(mediaRowKey(image));
+    tick.setAttribute("aria-label", `Select ${image.original_name}`);
+    tick.addEventListener("click", (event) => event.stopPropagation());
+    tick.addEventListener("change", () => {
+      if (tick.checked) libraryMediaSelection.set(mediaRowKey(image), image);
+      else libraryMediaSelection.delete(mediaRowKey(image));
+      syncLibraryMediaSelectbar();
+    });
+    fig.appendChild(tick);
+
     const del = document.createElement("button");
     del.type = "button";
     del.className = "ghost small icon-button library-image-delete";
@@ -2359,12 +2473,11 @@ function filterLibraryImagesGallery() {
       // different id space from MediaUpload — `DELETE /media/{id}` here
       // would either 404 or, worse, delete an unrelated MediaUpload row
       // that happened to share the same numeric id.
-      const endpoint = image._isSketch
-        ? `/whiteboard/sketches/${image.id}`
-        : image._isAttachment
-          ? `/files/${image.id}`
-          : `/media/${image.id}`;
-      await apiJson(endpoint, { method: "DELETE" }).catch((err) => toast(err.message, true));
+      await apiJson(mediaRowDeleteEndpoint(image), { method: "DELETE" }).catch((err) =>
+        toast(err.message, true)
+      );
+      libraryMediaSelection.delete(mediaRowKey(image));
+      syncLibraryMediaSelectbar();
       const idx = libraryImagesCache.indexOf(image);
       if (idx !== -1) libraryImagesCache.splice(idx, 1);
       filterLibraryImagesGallery();
@@ -2555,10 +2668,7 @@ function filterLibraryImagesGallery() {
         if (next === (image.caption || "")) return cancel();
         finish(next); // optimistic, corrected below if the server refuses it
         try {
-          const updated = await apiJson(`/media/${image.id}/caption`, {
-            method: "POST",
-            body: JSON.stringify({ text: next }),
-          });
+          const updated = await analyseMediaRow(image, "caption", { text: next });
           setCaptionState(updated.caption, {
             caption_model: updated.caption_model,
             caption_edited: updated.caption_edited,
@@ -2601,10 +2711,7 @@ function filterLibraryImagesGallery() {
         // force: true — a manual click is exactly "the user pressed the
         // button to rewrite it", the one case the write-once default
         // (caption_and_store) is meant to defer to.
-        const updated = await apiJson(`/media/${image.id}/caption`, {
-          method: "POST",
-          body: JSON.stringify({ force: true }),
-        });
+        const updated = await analyseMediaRow(image, "caption", { force: true });
         setCaptionState(updated.caption, {
           caption_model: updated.caption_model,
           caption_edited: updated.caption_edited,
@@ -2699,10 +2806,7 @@ function filterLibraryImagesGallery() {
         if (next === (image.ocr_text || "")) return cancel();
         finish(next); // optimistic, corrected below if the server refuses it
         try {
-          const updated = await apiJson(`/media/${image.id}/ocr`, {
-            method: "POST",
-            body: JSON.stringify({ text: next }),
-          });
+          const updated = await analyseMediaRow(image, "ocr", { text: next });
           setOcrState(updated.ocr_text);
         } catch (error) {
           setOcrState(image.ocr_text);
@@ -2745,7 +2849,7 @@ function filterLibraryImagesGallery() {
       const previousOcrText = ocrText.textContent;
       ocrText.replaceChildren(typingDots("Reading text…"));
       try {
-        const updated = await apiJson(`/media/${image.id}/ocr`, { method: "POST" });
+        const updated = await analyseMediaRow(image, "ocr");
         setOcrState(updated.ocr_text);
       } catch (error) {
         ocrText.textContent = previousOcrText;
@@ -2868,10 +2972,7 @@ function filterLibraryImagesGallery() {
         // about text that no longer exists.
         finish(next, next ? previousModel : "");
         try {
-          const updated = await apiJson(`/media/${image.id}/vision-ocr`, {
-            method: "POST",
-            body: JSON.stringify({ text: next }),
-          });
+          const updated = await analyseMediaRow(image, "vision-ocr", { text: next });
           setVisionOcrState(updated.vision_ocr_text, updated.vision_ocr_model);
         } catch (error) {
           setVisionOcrState(previousText, previousModel);
@@ -2905,10 +3006,7 @@ function filterLibraryImagesGallery() {
       try {
         // force: true — a manual click always re-reads, the same "the user
         // pressed the button" reasoning captionBtn's own force:true uses.
-        const updated = await apiJson(`/media/${image.id}/vision-ocr`, {
-          method: "POST",
-          body: JSON.stringify({ force: true }),
-        });
+        const updated = await analyseMediaRow(image, "vision-ocr", { force: true });
         setVisionOcrState(updated.vision_ocr_text, updated.vision_ocr_model);
       } catch (error) {
         // Restores whatever was there before this click — including
@@ -2971,8 +3069,18 @@ function filterLibraryImagesGallery() {
     // MediaUpload row — so for an attachment tile, Delete is the only
     // action offered, same principle as the lightbox's own id-gated actions
     // just above ("a button guaranteed to 404 is worse than no button").
+    // Attachments carry caption/OCR/vision columns of their own now (see
+    // `Attachment` in core/database.py), so they get the same actions as a
+    // MediaUpload row — `analyseMediaRow` routes each one to the right
+    // endpoint. Rename is still MediaUpload-only: an attachment's name is
+    // the note's own file list's business, not the gallery's. A sketch has
+    // no file behind it at all, so it keeps Delete alone.
     menuList.append(
-      ...(image._isAttachment || image._isSketch ? [del] : [rename, captionBtn, visionOcrBtn, ocrBtn, del])
+      ...(image._isSketch
+        ? [del]
+        : image._isAttachment
+          ? [captionBtn, visionOcrBtn, ocrBtn, del]
+          : [rename, captionBtn, visionOcrBtn, ocrBtn, del])
     );
     menu.append(menuButton, menuList);
     // Picking anything closes the menu — on the **capture** phase, which is
@@ -3203,7 +3311,7 @@ function filterLibraryImagesGallery() {
     // menuList comment above for why that id doesn't belong to this row),
     // and a caption box that looks editable but silently 404s on save is
     // worse than a tile with no caption box at all.
-    fig.append(img, actions, cap, usage, ...(image._isAttachment || image._isSketch ? [] : [fields]));
+    fig.append(img, actions, cap, usage, ...(image._isSketch ? [] : [fields]));
     grid.appendChild(fig);
     // The real bounding box, measured once the path is actually in the
     // document. The server sends a `view_box` too, but it can only estimate
@@ -3307,6 +3415,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   $("library-images-refresh")?.addEventListener("click", renderLibraryImagesGallery);
+  $("library-media-bulk-delete")?.addEventListener("click", bulkDeleteLibraryMedia);
+  $("library-media-clear-selection")?.addEventListener("click", clearLibraryMediaSelection);
   $("library-images-search")?.addEventListener("input", filterLibraryImagesGallery);
   $("library-docs-refresh")?.addEventListener("click", renderLibraryDocuments);
   $("library-docs-new")?.addEventListener("click", async () => {

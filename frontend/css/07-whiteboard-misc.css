@@ -3317,3 +3317,30 @@ summary:not(.icon-only):not(.icon-button) {
 #mic-note {
   flex: 0 0 auto;
 }
+
+/* The chat header's model name is a control now, so it has to look like one
+   without becoming a third button competing with Compress/Export/Delete on
+   the same row. A quiet chip: no resting fill (it sits in a subline of
+   metadata, and by the lone-control rule above it is one of a set with
+   `#chat-usage` beside it), an underline-on-hover and a real ground on
+   hover/focus, so it reads as text until you go near it. */
+.chat-model-button {
+  border: 0;
+  background: none;
+  padding: 0 var(--space-2);
+  min-height: var(--target-min);
+  border-radius: var(--radius-md);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-model-button:hover,
+.chat-model-button:focus-visible {
+  background: var(--ghost-btn-bg-hover);
+  color: var(--accent);
+}

@@ -257,8 +257,35 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   refreshModelStatus();
   if (scrollToId) {
     requestAnimationFrame(() => {
-      const target = $(scrollToId);
-      if (!target) return;
+      const found = $(scrollToId);
+      if (!found) return;
+      // **Scroll to what the user can see, not to the element that holds the
+      // value.** Every `<select>` in this app is replaced at runtime by an
+      // opener button plus a menu (`enhanceSelect`), and the native control
+      // is kept only for its value, its label association and the
+      // accessibility tree — as a 1x1 clipped, fully transparent box.
+      //
+      // A deep link that targets a select id therefore scrolled to a point
+      // with no visible control at it, and — worse, because it fails
+      // silently — put the `flash` highlight on an invisible element, so the
+      // "here is the setting you asked for" cue never appeared at all. Found
+      // by measuring: the modal opened on the right section with the select
+      // present and `selectInView: false`.
+      //
+      // `.select-shell` is the wrapper `enhanceSelect` puts around both, so
+      // it is the visible representative of any enhanced select and the
+      // right thing to scroll to and highlight. A select that was never
+      // enhanced has no shell and is its own target, unchanged.
+      const target = found.closest(".select-shell") || found;
+      // A target with no layout box cannot be scrolled to or highlighted, and
+      // trying is a silent no-op that looks like the deep link is broken.
+      // This is a real state, not a defensive guard: several settings are
+      // gated on a backend being present (`#models-config` is hidden outright
+      // when no local model server is detected), so a link into one of them
+      // legitimately lands on a `display: none` control. Opening the section
+      // is still right — it is where the explanation lives — so only the
+      // scroll and flash are skipped.
+      if (!target.getClientRects().length) return;
       const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
       target.classList.remove("flash");

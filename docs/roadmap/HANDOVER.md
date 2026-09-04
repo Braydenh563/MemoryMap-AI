@@ -9574,13 +9574,50 @@ an out-of-memory and an incompatible GGUF were indistinguishable.
 actually happen locally. If a model failure is reported again, the message now
 carries the answer.
 
+### Correction: three of the "missing" chat affordances already existed
+
+**Written down because this is the mistake CLAUDE.md opens with, and this
+session made it.** An earlier draft of this handover listed the chat's
+odysseus-inspired affordances — a context-window meter, fork, and
+rewrite/explain — as still open. Checking the running code before building
+them found:
+
+- **The context meter is built, and is better than what would have replaced
+  it.** BACKLOG.md already marks it Built; `app.js` renders a per-message
+  bar and percentage whose tooltip breaks the turn down into system prompt,
+  tool schemas, history and notes, and tells you past 80% that the next turn
+  starts dropping its own prompt. It only appears once a turn has stats,
+  which is why an empty chat looks like it is missing.
+- **Rewrite/explain exists** as the per-message `.msg-actions` row.
+- **Fork was considered and deliberately not built.** The comment above
+  `refreshFollowupVisibility` explains the reasoning: follow-up chips are
+  shown only on the newest answer precisely *because* chips under an older
+  answer would invite a fork whose reply lands three exchanges away.
+
+Only the model picker was a real gap, and even that one existed — in
+Settings -> Models. The chat header showed the model as dead text whose own
+tooltip said "change it in Settings -> Models", so the app knew what you
+wanted and made you go find it. It is now a button that deep-links to the
+control that already exists, rather than a second picker.
+
+**The lesson is the one already at the top of CLAUDE.md**, restated because
+knowing the rule did not prevent it: the check has to happen before the
+handover claims something is missing, not only before the code is written. A
+wrong "still open" list is worse than no list — it sends the next session to
+rebuild working features.
+
 ### Still open
 
 The document editor, the Contents sub-tab, the Capture and Write-with-AI
-sub-tabs, the chat interface's odysseus-inspired affordances (context meter,
-fork, rewrite/explain), the graph note popup, the whiteboard's control panels,
-and concept-map/graph integration. The Documents and Boards & maps sub-tabs
-now have real previews; the rest of that list has not been started.
+sub-tabs, the graph note popup, the whiteboard's control panels, and
+concept-map/graph integration — plus the Kortex items in REDESIGN.md R7.3
+(a `Connections` block on every note and document, one universal `@` picker,
+typed collapsible blocks), which have their own measurable test there and
+are not started. The Documents and Boards & maps sub-tabs now have real
+previews.
+
+**Responsive layout across resolutions has not been audited at all.** Every
+measurement in this handover was taken at a single 1440x900 viewport.
 
 **Not verified this session:** how any of this looks on the user's own
 machine. Everything above was measured against Chromium at 1440x900 in the

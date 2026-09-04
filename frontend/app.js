@@ -21610,9 +21610,17 @@ function renderChatActiveModelBadge() {
   // The badge itself ellipsis-truncates a long id (a full HuggingFace path
   // easily runs past the header) — the full name is still one hover away.
   badge.title = name
-    ? `The model currently answering in this chat: ${name} — change it in Settings → Models`
+    ? `The model currently answering in this chat: ${name} — click to change it`
     : "";
 }
+
+// One click from "which model is this?" to the control that changes it.
+// `openSettingsModal` already takes a section plus an element to scroll to —
+// the same deep link the Preferences search-relevance group uses — so this
+// needs no new picker, and Settings stays the single place the setting lives.
+$("chat-active-model")?.addEventListener("click", () => {
+  openSettingsModal("models", "chat-model-select");
+});
 
 function renderUtilityModelPicker(status) {
   const names = status.installed_models.map((m) => m.name);

@@ -2885,7 +2885,10 @@ function attachFileTo(entry) {
       // Raw fetch: multipart must NOT get the JSON content-type header.
       const response = await fetch(`/entries/${entry.id}/files`, {
         method: "POST",
-        headers: { "X-Auth-Token": authToken() },
+        // X-Workspace-ID alongside X-Auth-Token: a raw fetch (multipart body,
+        // so it cannot go through api()/apiJson()) does not get either header
+        // for free the way every JSON call in this file does.
+        headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
         body: form,
       });
       if (!response.ok) {
@@ -7498,7 +7501,22 @@ async function streamChat({
   // token-by-token delivery with none of that.
   const response = await fetch("/chat/stream", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Auth-Token": authToken(),
+      // Missing here, this fetch is hand-rolled rather than going through
+      // api()/apiJson() (it needs the raw streaming body, which those don't
+      // expose) — and every one of the app's *other* fetches gets this
+      // header automatically, so it was easy to not notice this one never
+      // did. Reported directly: a space hidden from "All spaces" still
+      // surfaced its notes from Ask's semantic search. The real bug was
+      // wider than that one symptom — with no X-Workspace-ID at all,
+      // get_session() never populates session.info["workspace_id"], so
+      // database.py's workspace filter never runs, and *every* chat or Ask
+      // turn searched every space regardless of which one was active,
+      // hidden or not.
+      "X-Workspace-ID": activeSpaceId(),
+    },
     body: JSON.stringify(body),
     signal,
   });
@@ -18764,7 +18782,10 @@ async function importMarkdown() {
   try {
     const response = await fetch("/import/markdown", {
       method: "POST",
-      headers: { "X-Auth-Token": authToken() }, // browser sets the multipart type
+      // The multipart type still comes from the browser; X-Workspace-ID does
+      // not, and without it an import while a non-default space is active
+      // would silently land the new notes in the default space instead.
+      headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
       body: form,
     });
     if (!response.ok) throw new Error(`Import failed (${response.status})`);
@@ -18796,7 +18817,9 @@ async function importDocument() {
   try {
     const response = await fetch("/import/document", {
       method: "POST",
-      headers: { "X-Auth-Token": authToken() }, // browser sets the multipart type
+      // Same gap as /import/markdown above: without this, the imported
+      // document lands in the default space regardless of which is active.
+      headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
       body: form,
     });
     if (!response.ok) {
@@ -26855,7 +26878,8 @@ async function uploadStagedFiles(entryId) {
     // Raw fetch: multipart must NOT get the JSON content-type header.
     const response = await fetch(`/entries/${entryId}/files`, {
       method: "POST",
-      headers: { "X-Auth-Token": authToken() },
+      // Same gap as the composer's own version of this call, above.
+      headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
       body: form,
     });
     if (!response.ok) {

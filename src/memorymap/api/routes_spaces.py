@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from memorymap.api.schemas import SpaceResponse, SpaceCreate, SpaceUpdate
 from memorymap.core import deps
-from memorymap.core.database import Space, workspace_scoped_models
+from memorymap.core.database import Category, Entry, Space, workspace_scoped_models
 from memorymap.core.deps import get_session, impersonate_workspace
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 router = APIRouter(tags=["Spaces"])
@@ -122,7 +123,49 @@ def delete_space(space_id: str, session: Session = Depends(get_session)):
     # otherwise AND that space's id into every UPDATE below, so deleting
     # "personal" while browsing "work" would silently reassign zero rows.
     with impersonate_workspace(session, "all"):
+        # **Category first, and never by the generic bulk UPDATE below.**
+        # `Category` carries a `(workspace_id, name)` UNIQUE constraint (see
+        # its own docstring) — right for keeping two spaces' categories
+        # apart, and exactly what a blind
+        # `UPDATE categories SET workspace_id='default' WHERE ...` collides
+        # with the moment the space being deleted has ever auto-created a
+        # category "default" already has. That is not a rare category name:
+        # `get_or_create_category`'s own fallback is "Uncategorised", so
+        # this reproduced on the very first delete of *any* space that had
+        # ever filed a note. Reported live as a bare 500 with a SQLite
+        # IntegrityError traceback — this app's own standard for "the
+        # backend crashed, not the browser".
+        #
+        # Every space's categories are the same *kind* of thing even when
+        # they collide by name — "Uni" in one space and "Uni" in another
+        # both mean "notes filed under Uni" — so a name that already exists
+        # in "default" is a merge, not a conflict: repoint every entry that
+        # used the doomed category onto the one already there, then drop
+        # the now-empty duplicate instead of trying to rename it into
+        # existence.
+        existing_by_name = {
+            name: cat_id
+            for cat_id, name in session.execute(
+                select(Category.id, Category.name).where(Category.workspace_id == "default")
+            ).all()
+        }
+        for cat_id, name in session.execute(
+            select(Category.id, Category.name).where(Category.workspace_id == space_id)
+        ).all():
+            target_id = existing_by_name.get(name)
+            if target_id is not None:
+                session.query(Entry).filter_by(category_id=cat_id).update(
+                    {"category_id": target_id}
+                )
+                session.query(Category).filter_by(id=cat_id).delete()
+            else:
+                session.query(Category).filter_by(id=cat_id).update(
+                    {"workspace_id": "default"}
+                )
+
         for model in workspace_scoped_models():
+            if model is Category:
+                continue  # handled above, name collisions and all
             session.query(model).filter_by(workspace_id=space_id).update(
                 {"workspace_id": "default"}
             )

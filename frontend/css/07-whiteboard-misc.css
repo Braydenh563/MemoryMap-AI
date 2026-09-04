@@ -1059,8 +1059,25 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   font-size: var(--text-md);
 }
 
-/* Notes list header and the semantic-search toggle beside the search box. */
+/* Notes list header and the semantic-search toggle beside the search box.
+
+   Asked for directly: "move the ui controls at the top of the all notes
+   subtab panel to the row below the all notes heading text". The panel's nine
+   controls and its heading shared one `.library-toolbar`, a wrapping flex row,
+   so where the heading ended and the toolbar began depended entirely on the
+   window width — at some sizes "All notes" sat inline with Select and the view
+   toggle as though it were another control, at others it happened to be alone.
+   A basis of 100% makes the heading claim its own line always, and the nine
+   controls wrap onto the row beneath it, which is the arrangement asked for
+   and the one that stays put at every width.
+
+   Done here rather than by wrapping the controls in a second element on
+   purpose: `.library-toolbar`'s own sizing rules (`--control-h`, the
+   `button`/`select`/`.seg` height row) are descendant selectors that a new
+   div would silently change the meaning of, and this panel has already been
+   through one round of those rules fighting each other on specificity. */
 .entries-heading {
+  flex: 1 0 100%;
   margin: 0 var(--space-1) 0 0;
 }
 

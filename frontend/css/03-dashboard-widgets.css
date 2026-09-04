@@ -340,11 +340,20 @@
   border-bottom: 1px solid var(--border);
 }
 
-.tool-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
+/* **`.tool-row` is `.setting-check` now, and carries both classes.** Reported
+   directly: "the toggles in the tools it can use settings page are visually
+   different from the rest". They were — measured across every Settings
+   section, all seven `.setting-check` rows put the switch hard right against
+   a straight edge, while all fifty-one tool rows put it first, on the left,
+   so its position tracked nothing and the two pages read as different
+   components doing the same job. `.setting-check`'s own comment records why
+   right is the answer: it was asked for, and it is where every settings
+   screen a person has already used puts it.
+
+   Nothing here re-declares the grid — the row simply joins that rule's
+   selector list by wearing its class. All that is left is the weight of the
+   tool's name, which `.setting-check` has no opinion about. */
+.tool-row>span>strong {
   font-weight: 500;
 }
 
@@ -362,12 +371,13 @@
    its own label's indent didn't: a description that used to line up under
    the tool's name now sits half under the switch instead. 2rem + the row's
    own 0.5rem gap keeps the description flush with the name above it. */
+/* The description now lives inside the label's text column rather than beside
+   the label in the `<li>`, so it no longer needs an indent to clear a switch
+   that is no longer to its left — it starts where the tool's name starts,
+   which is what put it out of line with every other setting's hint before. */
 .tool-desc {
   display: block;
-  /* --space-9 (2rem, the switch's own width) + --space-3 (0.5rem, the row's
-     own gap) rather than a bare 2.5rem: exact, and the scale lint can see
-     it, unlike a literal number it would have to special-case. */
-  margin: var(--space-2) 0 0 calc(var(--space-9) + var(--space-3));
+  margin: var(--space-2) 0 0;
   font-size: 0.8rem;
 }
 

@@ -67,13 +67,40 @@ _MEDIA_REF = re.compile(r"/media/([A-Za-z0-9._-]{1,200})")
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
+#: **Asking and requesting are logged apart, and this is why.** Reported
+#: directly: "tasks that I have put in the agent show in the 'ask' again
+#: section, the things that I will ask the agent are different to what I would
+#: ask if searching in my notebook."
+#:
+#: Every turn through this module used to write one `queried`/`chat` audit row,
+#: so "Ask again" — which reads that log — offered back "tag everything about
+#: the trip" and "delete the draft" as though they were questions about the
+#: notebook. They are instructions, they have already been carried out, and
+#: running one a second time from a chip is at best pointless and at worst a
+#: repeat of an action the user did not mean to repeat.
+#:
+#: The rule the user gave, in their words: "if I was in the chat and using the
+#: 'ask' mode, then those queries should count, but only those, and my previous
+#: requests in the 'ask' subtab in notes should be registered." So the two
+#: reading surfaces — the Notes tab's Ask box (`notes_only`) and the Chat tab
+#: in Ask mode (tools off) — write `chat`; Request mode and the Ctrl+Shift+A
+#: palette, both of which act, write `agent`. Both stay in the audit log, which
+#: is a record of what happened and should not lose the requests; only the
+#: chip row narrows.
+ASK_SURFACE = "chat"
+AGENT_SURFACE = "agent"
+
+
 @router.get("/recent", response_model=list[str])
 def recent_questions(session: Session = Depends(get_session)) -> list[str]:
     """The last 5 distinct questions, newest first (quick access).
-    Read straight from the audit log — no extra bookkeeping."""
+    Read straight from the audit log — no extra bookkeeping.
+
+    Scoped to `ASK_SURFACE`, so an instruction given to the agent is never
+    offered back as something to ask again."""
     rows = session.scalars(
         select(AuditLog)
-        .where(AuditLog.action == "queried", AuditLog.entity_type == "chat")
+        .where(AuditLog.action == "queried", AuditLog.entity_type == ASK_SURFACE)
         .order_by(AuditLog.id.desc())
         .limit(50)
     )
@@ -636,6 +663,7 @@ def _prepare(
     force_notes_intent: bool = False,
     attached_notes_only: bool = False,
     document_ids: list[int] | None = None,
+    surface: str = ASK_SURFACE,
 ) -> dict:
     """The shared first half of both chat endpoints: retrieve entries,
     bump their usage counters, log the question, gather AI settings.
@@ -753,7 +781,7 @@ def _prepare(
     # Every entry this question surfaced counts as "used".
     for entry in entries:
         entry.access_count += 1
-    manager.log_action(session, "queried", "chat", detail=question)
+    manager.log_action(session, "queried", surface, detail=question)
     session.commit()
     logging.getLogger("memorymap.chat").info(
         "chat: %d note(s) via %s search for %r",
@@ -794,6 +822,9 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         body.note_ids,
         attached_notes_only=body.attached_notes_only,
         document_ids=body.document_ids,
+        # This endpoint has no tool loop — it retrieves and answers, nothing
+        # else — so every turn through it is an ask by construction.
+        surface=ASK_SURFACE,
     )
     model_manager = deps.get_model_manager()
     ollama = deps.get_ollama()
@@ -1177,6 +1208,14 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
             force_notes_intent=body.answering_agent,
             attached_notes_only=body.attached_notes_only,
             document_ids=body.document_ids,
+            # Asking vs requesting, decided from what the caller can already
+            # do rather than from a new flag: `notes_only` is the Notes tab's
+            # Ask box, and tools-off is the Chat tab's Ask mode. Anything that
+            # can reach for a tool — Request mode, the palette, a skill or plan
+            # run — is a request. `use_tools` is resolved above, so the saved
+            # preference is accounted for and an unset flag cannot land a
+            # Request turn in the chip row.
+            surface=ASK_SURFACE if (body.notes_only or not use_tools) else AGENT_SURFACE,
         )
         ollama_running = ollama.is_running()
         # In agent mode the model can act even when nothing matched — "save a

@@ -2048,7 +2048,26 @@ function stopLibraryImagesPoll() {
 //: Images/Files split needs exactly the same answer. Two copies of it would
 //: be two chances for a `.heic` to be an image in one and a file in the other.
 function isImageUrl(url) {
-  return /\.(png|jpe?g|gif|webp|avif|bmp|ico|svg)$/i.test(url || "");
+  //: Asked for directly: "make sure all image file types are sorted into the
+  //: image gallery". The list was the eight this app's own upload input
+  //: happened to accept, so anything arriving by another route — dragged from
+  //: a phone export, attached to a note, restored from a backup — was an
+  //: image the Files tab held. `.heic`/`.heif` are what a phone actually
+  //: writes, `.tif`/`.tiff` what a scanner does, and `.jfif` is what some
+  //: Windows tools still save a JPEG as. Widening the test is safe in the
+  //: direction that matters: the gallery already deletes a tile whose `<img>`
+  //: decodes to nothing (`filterLibraryImagesGallery`), so a browser that
+  //: cannot render a HEIC drops it rather than showing a broken frame, while
+  //: one that can shows it where it belongs.
+  //:
+  //: The extension is read up to a `?` or `#` rather than to the end of the
+  //: string, because an Attachment's url can carry a cache-busting query and
+  //: an anchored test called that a non-image. Written as a fixed alternation
+  //: with a single optional group — not a `[…]+$` run, which is the
+  //: polynomial-backtracking shape CodeQL has already caught in this repo.
+  return /\.(png|jpe?g|jfif|gif|webp|avif|bmp|ico|svg|heic|heif|tiff?|apng)(?:[?#]|$)/i.test(
+    url || "",
+  );
 }
 
 //: Which of the two media sub-tabs is showing. Not persisted: it is a place
@@ -2099,7 +2118,7 @@ function setLibraryMediaKind(kind) {
     input.accept =
       libraryMediaKind === "files"
         ? "application/pdf,text/plain,text/markdown,text/csv,application/json"
-        : "image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/x-icon";
+        : "image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/x-icon,image/heic,image/heif,image/tiff,image/apng";
   }
 }
 

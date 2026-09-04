@@ -14640,7 +14640,7 @@ async function renderToolSettings() {
   for (const tool of catalog) {
     const li = document.createElement("li");
     const label = document.createElement("label");
-    label.className = "tool-row";
+    label.className = "tool-row setting-check";
     const check = document.createElement("input");
     check.type = "checkbox";
     check.checked = !disabled.has(tool.name);
@@ -14670,8 +14670,15 @@ async function renderToolSettings() {
     const desc = document.createElement("span");
     desc.className = "muted tool-desc";
     desc.textContent = tool.description;
+    // The description goes *inside* the label's text column, not beside the
+    // label in the <li>. That is what lets this row be `.setting-check`'s
+    // grid — name and description stacked in column one, switch hard right —
+    // instead of a flex row whose switch tracked the length of each name.
+    // It also makes the description part of the control's own hit area, the
+    // way the hint under every other setting already is.
+    text.append(desc);
     label.append(check, text);
-    li.append(label, desc);
+    li.append(label);
     // Matched against by the filter below. Stored on the row rather than
     // re-read from the DOM on every keystroke, and lower-cased once here
     // instead of once per row per keystroke.

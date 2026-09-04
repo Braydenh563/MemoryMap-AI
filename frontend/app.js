@@ -12447,6 +12447,47 @@ function enhanceSelect(select) {
   rebuild();
 }
 
+// **Double-click any slider to put it back to its default.** Asked for
+// directly: "allow the user to double click any slider to reset it to
+// default."
+//
+// One delegated listener rather than fourteen handlers, and no table of
+// default values anywhere — every `<input type="range">` in this app already
+// carries its default in its `value` attribute, and `defaultValue` reflects
+// exactly that attribute rather than whatever the control currently shows.
+// So the default is read from the same place the markup states it, and a
+// slider added later is covered the moment it exists.
+//
+// Both events are dispatched, and both are needed: this app has live
+// handlers on `input` (the graph's gravity/spread redraw as you drag) and
+// commit handlers on `change` (the appearance settings persist there).
+// Firing only one would either leave the screen stale or leave the setting
+// unsaved.
+document.addEventListener("dblclick", (event) => {
+  const slider = event.target;
+  if (!(slider instanceof HTMLInputElement) || slider.type !== "range") return;
+  if (slider.disabled || slider.value === slider.defaultValue) return;
+  slider.value = slider.defaultValue;
+  slider.dispatchEvent(new Event("input", { bubbles: true }));
+  slider.dispatchEvent(new Event("change", { bubbles: true }));
+  toast("Reset to default");
+});
+
+// A control that does something on double-click has to say so somewhere, and
+// the tooltip is where this app already explains its controls. Appended to
+// whatever the slider's own title says rather than replacing it, so the
+// existing explanations survive.
+function annotateSliders(root) {
+  for (const slider of (root || document).querySelectorAll("input[type='range']")) {
+    if (slider.dataset.dblHinted) continue;
+    slider.dataset.dblHinted = "1";
+    const existing = (slider.title || "").trim();
+    slider.title = existing
+      ? `${existing} — double-click to reset`
+      : "Double-click to reset to default";
+  }
+}
+
 function enhanceAllSelects(root) {
   for (const select of (root || document).querySelectorAll("select")) {
     enhanceSelect(select);
@@ -12457,12 +12498,15 @@ function enhanceAllSelects(root) {
 // than asking every render path to remember to call this.
 function watchForSelects() {
   enhanceAllSelects(document);
+  annotateSliders(document);
   new MutationObserver((records) => {
     for (const record of records) {
       for (const node of record.addedNodes) {
         if (node.nodeType !== 1) continue;
         if (node.tagName === "SELECT") enhanceSelect(node);
         else enhanceAllSelects(node);
+        if (node.tagName === "INPUT") annotateSliders(node.parentNode || document);
+        else annotateSliders(node);
       }
     }
   }).observe(document.body, { childList: true, subtree: true });

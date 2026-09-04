@@ -3585,3 +3585,62 @@ html.modal-open body {
   flex: 0 0 auto;
   white-space: nowrap;
 }
+
+/* --- the one generating animation ------------------------------------------
+   Asked for directly: "the subtle glow pulse that happens around the popup
+   agent chat bubble, make that a generating animation and universal across
+   the application and make it more noticeable."
+
+   Before this the app said "I am working" three different ways depending on
+   where you were standing — bouncing dots in one place, a blinking caret in
+   another, a status sentence in a third — and none of them read at a glance
+   from across the room. `.is-generating` is the single answer, and it goes on
+   whichever element is actually producing the output, so what is pulsing is
+   the thing you are waiting for rather than a spinner parked somewhere else.
+
+   Drawn as a ring rather than a fill: the bubble underneath is usually
+   filling with text at the same time, and animating its background would
+   fight the words appearing on it. `box-shadow` spreads outside the border
+   box, so it costs no layout and never nudges the text — which also means the
+   animation runs on the compositor and does not stutter behind a busy main
+   thread, the failure already recorded for the typing dots above.
+
+   "More noticeable" is a real requirement and it is met by the ring's size
+   and the sweep of its opacity, not by making it fast: a hard, quick flash on
+   a surface someone is reading is the kind of motion that has to be turned
+   off. 1.8s is about the pace of a slow breath. */
+@keyframes generating-glow {
+
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent),
+      0 0 var(--space-4) 0 color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--accent) 62%, transparent),
+      0 0 var(--space-9) var(--space-2) color-mix(in srgb, var(--accent) 34%, transparent);
+  }
+}
+
+.is-generating {
+  border-radius: var(--radius-md);
+  animation: generating-glow 1.8s ease-in-out infinite;
+  will-change: box-shadow;
+}
+
+/* Reduced motion does not mean no signal — it means no *movement*. The ring
+   stays, at the animation's bright end, so the surface still says which one
+   is working; only the pulsing stops. Getting this wrong is what left the
+   desktop shell with no generating indicator at all once, since it inherits
+   the OS setting. */
+@media (prefers-reduced-motion: reduce) {
+  .is-generating {
+    animation: none;
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--accent) 62%, transparent),
+      0 0 var(--space-9) var(--space-2) color-mix(in srgb, var(--accent) 34%, transparent);
+  }
+}

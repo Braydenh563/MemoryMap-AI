@@ -8091,7 +8091,7 @@ async function askQuestion(preset) {
         // Same caret the Chat tab's timeline gets, for the same reason — see
         // `.is-streaming` in 01-forms-settings.css. Set here rather than
         // before the request because the dots own the "nothing yet" state.
-        answerBox.classList.add("is-streaming");
+        answerBox.classList.add("is-streaming", "is-generating");
         renderLive(answerRaw); // markdown renders AS it streams (user request)
         status.textContent = "The model is writing…";
       },
@@ -8143,7 +8143,7 @@ async function askQuestion(preset) {
   } finally {
     // Every exit path, including Stop and an error: a caret still blinking on
     // an answer that stopped arriving is worse than never showing one.
-    answerBox.classList.remove("is-streaming");
+    answerBox.classList.remove("is-streaming", "is-generating");
     askController = null;
     setAsking(false);
     // The question used to be cleared here, which left an answer on screen with
@@ -10088,7 +10088,7 @@ function agentTimeline(holder) {
     // so a real node would be destroyed and recreated ~30 times a second (and
     // would land inside whatever block the markdown happened to end with).
     // A pseudo-element is untouched by that and is removed by `finalise`.
-    el.className = "agent-step step-answer bubble-answer is-streaming";
+    el.className = "agent-step step-answer bubble-answer is-streaming is-generating";
     holder.appendChild(el);
     current = {
       kind: "answer",
@@ -10235,6 +10235,12 @@ function agentTimeline(holder) {
           const node = startAnswer();
           node.raw = step.text;
           renderMarkdown(node.body, step.text);
+          //: A replayed answer has already finished. `startAnswer` builds the
+          //: node in its live, mid-stream state, so without this a reloaded
+          //: conversation blinks a caret at the end of every answer in it —
+          //: and, now that the two travel together, pulses the generating ring
+          //: around all of them forever.
+          node.el.classList.remove("is-streaming", "is-generating");
           current = null;
         } else if (step.kind === "tool") {
           //: `step` is passed through, so a replayed tool row keeps the
@@ -10265,7 +10271,7 @@ function agentTimeline(holder) {
       // every exit path this timeline has — a finished turn, an error, and
       // Stop — because a caret left blinking on an answer that stopped
       // arriving is a worse lie than never having shown one.
-      for (const step of answerSteps) step.el.classList.remove("is-streaming");
+      for (const step of answerSteps) step.el.classList.remove("is-streaming", "is-generating");
       foldEarlierThinking();
     },
     // The box to put a message into when the model produced nothing at all.
@@ -28072,7 +28078,10 @@ async function cmdPaletteAsk(text) {
   cmdPaletteResults.appendChild(userMsg);
 
   const agentMsg = document.createElement("div");
-  agentMsg.className = "msg assistant";
+  //: `.is-generating` is the app's one "this is working" signal
+  //: (01-forms-settings.css). It goes on the bubble that is filling, not on a
+  //: spinner parked elsewhere, so what pulses is the thing being waited for.
+  agentMsg.className = "msg assistant is-generating";
   agentMsg.appendChild(typingDots());
   cmdPaletteResults.appendChild(agentMsg);
   cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
@@ -28147,6 +28156,7 @@ async function cmdPaletteAsk(text) {
       agentMsg.classList.add("error");
     }
   } finally {
+    agentMsg.classList.remove("is-generating");
     cmdPaletteRun = null;
     cmdPaletteBusy(false);
   }

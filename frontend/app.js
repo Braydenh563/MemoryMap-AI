@@ -7449,6 +7449,44 @@ function addInlineCitations(answerEl, sentences, rawResults) {
   }
 }
 
+// The "nothing in your notes, but…" row. Sent only on the empty path (see
+// `_related_elsewhere`, routes_chat.py) — a question whose answer lives in a
+// document, a saved chat or a reminder used to end at "I couldn't find any
+// saved notes matching that question", which is true and a dead end.
+//
+// Chips, matching every other "here is something to open" row in this app,
+// each landing on the thing itself rather than on a search for it.
+function renderRelatedElsewhere(target, items) {
+  if (!target || !items || !items.length) return;
+  const row = document.createElement("div");
+  row.className = "answer-related";
+  const label = document.createElement("span");
+  label.className = "muted answer-grounding-label";
+  label.textContent = "Elsewhere in your notebook:";
+  row.appendChild(label);
+  const icons = { document: "ph:file-text", chat: "ph:chat-circle", reminder: "ph:bell" };
+  for (const item of items) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "chip chip-interactive answer-related-chip";
+    setLabel(button, `${icons[item.kind] || "ph:link"} ${item.label || item.kind}`);
+    button.title = `Open this ${item.kind}`;
+    button.addEventListener("click", () => {
+      if (item.kind === "document") {
+        switchTab("documents");
+        openDocument(item.id);
+      } else if (item.kind === "chat") {
+        switchTab("chat");
+        openConversation?.(item.id);
+      } else if (item.kind === "reminder") {
+        switchTab("reminders");
+      }
+    });
+    row.appendChild(button);
+  }
+  target.appendChild(row);
+}
+
 function renderAnswerGrounding(target, sentences, rawResults, answerEl = null) {
   if (!target) return;
   // The markers go in the answer itself; the chip row below is their key.
@@ -7678,6 +7716,7 @@ async function streamChat({
   onHint,
   onStats,
   onGrounding,
+  onRelated,
 }) {
   const body = { question, history: history || [] };
   if (persona) body.persona = persona;
@@ -7831,6 +7870,10 @@ async function streamChat({
       // ROADMAP.md item 36: which retrieved note backs which sentence of a
       // direct-Q&A answer. Only ever sent for that path (routes_chat.py).
       else if (event.type === "grounding" && onGrounding) onGrounding(event);
+      // Sent only when a question found no notes at all — the notebook is
+      // more than its notes, so the answer names what else mentions it
+      // (routes_chat.py's `_related_elsewhere`).
+      else if (event.type === "related" && onRelated) onRelated(event);
       else if (event.type === "error") {
         // The server caught something mid-stream and said so. Surfacing it
         // beats the silent truncation this used to be.
@@ -8007,6 +8050,9 @@ async function askQuestion(preset) {
         hinted = true;
         renderAskHint(answerBox, event);
         status.textContent = "";
+      },
+      onRelated: (event) => {
+        renderRelatedElsewhere($("ai-answer-grounding"), event.items);
       },
       onGrounding: (event) => {
         renderAnswerGrounding(
@@ -11732,6 +11778,9 @@ async function sendChatMessage(preset, opts = {}) {
         status.textContent = "The model is writing…";
         const found = m?.raw_results?.length || 0;
         say(found ? `Read ${found} note${found === 1 ? "" : "s"} — writing…` : "Writing…");
+      },
+      onRelated: (event) => {
+        renderRelatedElsewhere(groundingHolder, event.items);
       },
       onGrounding: (event) => {
         groundingSentences = event.sentences;

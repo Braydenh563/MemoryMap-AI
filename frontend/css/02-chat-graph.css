@@ -3378,3 +3378,28 @@ mark.lightbox-hit {
   outline: 2px solid var(--accent-soft);
   outline-offset: 2px;
 }
+
+
+/* The "Elsewhere in your notebook" row, shown only when a question found no
+   notes at all (`renderRelatedElsewhere`, app.js). Same shape as the
+   "Grounded in" row it sits in place of, so the answer area has one way of
+   offering things to open rather than two. */
+.answer-related {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.answer-related-chip > .ph-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.answer-related-chip {
+  max-width: min(18rem, 100%);
+  overflow: hidden;
+}

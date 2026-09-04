@@ -22,7 +22,7 @@ from itertools import chain
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import (
@@ -47,9 +47,11 @@ from memorymap.core.database import (
     AskTurn,
     AuditLog,
     Category,
+    Conversation,
     Document,
     Entry,
     MediaUpload,
+    Reminder,
 )
 from memorymap.core.deps import get_session
 from memorymap.core.logbuffer import safe_value
@@ -885,6 +887,89 @@ def _save_ask_turn(session: Session, question: str, answer: str, prepared: dict)
     session.commit()
 
 
+# **"Nothing in your notes" should not be the end of the answer.**
+#
+# Asked for directly: "idk if the ai should be able to look for related
+# semantic results for alternate items like reminders, chat sessions, docs etc
+# related to the notes if no notes are found?? like similar items??"
+#
+# Retrieval only ever searched notes, so a question whose answer sits in a
+# document, a saved chat or a reminder came back as a flat "I couldn't find
+# any saved notes matching that question" — true, useless, and on a notebook
+# that has grown documents and chats, misleading about how much the app holds.
+#
+# Keyword matching on purpose rather than embeddings: this runs *only* on the
+# already-empty path, where being slightly less clever costs nothing and
+# another model round trip would just buy a second wait for a second
+# disappointment. Workspace scoping comes from `WorkspaceMixin`, as everywhere.
+_RELATED_LIMIT = 4
+
+
+def _related_elsewhere(session: Session, question: str) -> list[dict]:
+    """Documents, saved chats and reminders matching a question no note answered."""
+    words = re.findall(r"[\w']{3,}", (question or "").lower())[:6]
+    if not words:
+        return []
+    found: list[dict] = []
+
+    def _add(rows, kind: str, label_of, id_of) -> None:
+        for row in rows:
+            if len(found) >= _RELATED_LIMIT:
+                return
+            found.append({"kind": kind, "id": id_of(row), "label": label_of(row)})
+
+    for word in words:
+        if len(found) >= _RELATED_LIMIT:
+            break
+        like = f"%{word}%"
+        _add(
+            session.scalars(
+                select(Document)
+                .where(or_(Document.title.ilike(like), Document.content.ilike(like)))
+                .order_by(Document.updated_at.desc())
+                .limit(_RELATED_LIMIT)
+            ).all(),
+            "document",
+            lambda d: d.title or "Untitled",
+            lambda d: d.id,
+        )
+        _add(
+            session.scalars(
+                select(Conversation)
+                .where(or_(Conversation.title.ilike(like), Conversation.messages.ilike(like)))
+                .order_by(Conversation.updated_at.desc())
+                .limit(_RELATED_LIMIT)
+            ).all(),
+            "chat",
+            lambda c: c.title or "Untitled chat",
+            lambda c: c.id,
+        )
+        _add(
+            session.scalars(
+                select(Reminder)
+                .where(Reminder.text.ilike(like))
+                .order_by(Reminder.due_at.desc())
+                .limit(_RELATED_LIMIT)
+            ).all(),
+            "reminder",
+            lambda r: r.text,
+            lambda r: r.id,
+        )
+    # De-duplicated on (kind, id): one word matching a document's title and
+    # another matching its body would otherwise list it twice.
+    seen: set[tuple[str, int]] = set()
+    unique: list[dict] = []
+    for item in found:
+        key = (item["kind"], item["id"])
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+    return unique[:_RELATED_LIMIT]
+
+
+
+
 @router.post("/stream")
 def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     """NDJSON stream. Line types, in order:
@@ -978,6 +1063,25 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
             # must not stand in for "there's nothing to look at" (same fix
             # as `librarian.answer`'s own guard).
             yield {"type": "answer", "delta": librarian.NO_RESULTS_MESSAGE}
+            # …but the notebook is more than its notes. See
+            # `_related_elsewhere`: a question answered by a document, a saved
+            # chat or a reminder used to end here regardless.
+            related = _related_elsewhere(session, question)
+            if related:
+                kinds = sorted({item["kind"] for item in related})
+                yield {
+                    "type": "answer",
+                    "delta": (
+                        " There "
+                        + ("is" if len(related) == 1 else "are")
+                        + f" {len(related)} other "
+                        + ("item" if len(related) == 1 else "items")
+                        + " that mention it, in your "
+                        + " and ".join(f"{k}s" for k in kinds)
+                        + "."
+                    ),
+                }
+                yield {"type": "related", "items": related}
             return
         elif not ollama_running:
             yield {"type": "answer", "delta": librarian.OFFLINE_MESSAGE}

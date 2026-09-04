@@ -11903,7 +11903,15 @@ async function sendChatMessage(preset, opts = {}) {
       },
       onTool: (event) => {
         clearPending();
-        const label = event.ok ? event.label : `ph:warning ${event.error || event.label}`;
+        //: The fallback strips the failed call's own icon token before
+        //: prefixing the warning one. `setLabel` only resolves a token at the
+        //: start of the string, so `ph:warning ph:books Listed notes` renders
+        //: one warning glyph and then prints "ph:books" as literal text —
+        //: the same defect reported in the palette's status line, one branch
+        //: over and only reachable when a tool fails.
+        const label = event.ok
+          ? event.label
+          : `ph:warning ${(event.error || event.label || "").replace(/^ph:[\w-]+\s*/, "")}`;
         timeline.tool(toolChip(label, event.ok, event));
         toolEvents.push(event); // remember for persistence
         if (event.proposal) {
@@ -28121,9 +28129,17 @@ async function cmdPaletteAsk(text) {
       onTool: (event) => {
         // Something visible while a tool runs, so a long silence reads as
         // work rather than as nothing happening.
-        $("command-palette-status").textContent = event?.label
-          ? `Running ${event.label}…`
-          : "Working…";
+        //: `setLabel`, not `textContent`. A tool event's label carries this
+        //: app's icon token — `ph:books Listed notes (…)` — and `setLabel` is
+        //: the one function that turns that into the glyph. Writing it as text
+        //: printed the token itself: reported with a screenshot reading
+        //: "Running ph:books Listed notes ([\"Thoughts & Ideas\"])…". The label
+        //: has to be composed before the icon is resolved, since the token is
+        //: only recognised at the start of the string.
+        setLabel(
+          $("command-palette-status"),
+          event?.label ? `${event.label} …` : "Working…",
+        );
       },
       onAnswer: (delta) => {
         answered = true;

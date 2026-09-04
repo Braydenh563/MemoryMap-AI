@@ -263,7 +263,15 @@
         <span id="command-palette-status" class="muted text-sm" role="status"></span>
         <button type="button" id="command-palette-clear" class="ghost small"
           title="Forget this conversation and start over"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Start over</button>
-        <button type="button" id="command-palette-stop" class="ghost small hidden"
+        <!-- Not `.ghost`, and that is the whole change. Reported: "the button
+             at the bottom of the popup agent for stop and clear doesnt have
+             the affordance look." Stop is the only action offered while a run
+             is in flight, and it was drawn in the app's *secondary* recipe —
+             a faint outline on a translucent fill, next to a status line, on
+             a dark panel. The bare `button` element is this app's solid,
+             accent-filled, shadowed control; a sole primary action should
+             wear it. `.small` stays so it keeps the row's height. -->
+        <button type="button" id="command-palette-stop" class="small hidden"
           title="Stop the answer being written"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
       </div>
     </div>

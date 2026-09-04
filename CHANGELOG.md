@@ -7,6 +7,55 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+## [0.1.9] — 2026-09-04
+
+### Added
+- **A note's attached files can be read.** An attachment now carries a
+  caption, extracted text and a vision-model transcription of its own —
+  columns `MediaUpload` has always had and `Attachment` never did. One
+  endpoint (`POST /files/{id}/analyse`) covers all three: Tesseract for a
+  picture, the document extractor for a .docx or a text-layer PDF, and a
+  vision model rasterising pages for a scan or a diagram with no text layer
+  at all. Any of the three can be typed over by hand.
+- **Files show a preview.** A PDF tile renders its own first page.
+- **The file gallery multi-selects**, with a count and bulk delete, matching
+  the Documents sub-tab.
+- **A whiteboard selection can be saved straight to the image library** as a
+  PNG, with no file downloaded on the way.
+- **The user has an avatar in chat**, alongside the assistant's emblem.
+- Ask's two panels have real heads, and the tab says what it does before its
+  first use instead of being an input on an empty card.
+
+### Changed
+- **Semantic search knows how a note is filed.** A note's category, its tags
+  and the text of anything attached to it are part of what gets embedded, so
+  "what do I have under hobbies" is a question the vectors can answer.
+  Existing notes need a re-index to benefit; new and edited ones do not.
+- **One help popover for every "?" in the app.** Three different
+  presentations (a floating card, a static bordered paragraph that pushed the
+  page down, and bare inline text) are now one anchored, caret-pointing
+  popover that no card's overflow can clip.
+- The Ask box reads as a single composer rather than five loose controls.
+- Image caption and OCR fields read as fields rather than shouting labels,
+  and the model that wrote a caption is a badge rather than a bare id.
+
+### Fixed
+- **A PDF's pages no longer disappear when you read its text** — pages on one
+  side, the extracted text on the other.
+- **Popup menus clipped in many places, not one.** Every `<select>` in the
+  app now escapes its clipping ancestor; the escape mechanism itself gained
+  the z-index and width fixes that only showed up once it was used inside a
+  modal.
+- **A note's attached PDF never appeared in the Library**, because the
+  gallery only ever queried one of the two file tables.
+- Agent rows printed their icon spec as text ("ph:folder Merged …").
+- Whiteboard link endpoints drifted away from the cursor while zoomed — the
+  zoom scale was applied twice.
+- Usage chips printed raw markdown instead of a readable line.
+- A turn that is still generating now says so for as long as it runs, rather
+  than only until the first stream event.
+
+
 ### Added
 - A formatting toolbar for the Notes composer, matching the document
   editor's: bold, italic, code, lists, links, plus highlight, a highlight

@@ -2114,13 +2114,51 @@ header#top-bar.tabs-wrapped #tab-bar {
   gap: var(--space-1);
 }
 
+/* **A field label, not a heading shouting at you.** Reported with a
+   screenshot: "the ui and tags in the image captions and ocr need a
+   redesign." Uppercase + letter-spaced + semibold is the loudest type in the
+   app, and it was being spent on the word DESCRIPTION above every tile in a
+   grid of twenty — so the labels read as the content and the actual caption
+   read as the fine print. Sentence case, one step down, with a small marker
+   dot doing the work the shouting was doing: it separates the fields at a
+   glance without competing with them. */
 .library-image-field-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   margin: 0;
   font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: 500;
   color: var(--muted);
+}
+
+.library-image-field-label::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 0.3rem;
+  height: 0.3rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+/* Which model wrote it, as a real badge rather than a bare model id dropped
+   under the text — `qwen3-vl:4b` on its own line read as leftover output. */
+.library-image-caption-badge,
+.library-image-ocr-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  align-self: flex-start;
+  max-width: 100%;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--chip-bg);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .library-image-caption {

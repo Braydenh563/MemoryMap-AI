@@ -1753,10 +1753,28 @@
   vertical-align: middle;
 }
 
+/* Both roles line up the same way now that the user has an avatar too — one
+   rule rather than an assistant-only one, so the two columns cannot drift. */
+.msg-role,
 .msg-role-assistant {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+}
+
+/* The user's own mark. The app's accent in the app's own pill shape, sized
+   to the emblem opposite it — a glyph, not a photo: this app has no accounts
+   and never asks who you are. */
+.msg-avatar-user {
+  width: 1.25rem;
+  height: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.8rem;
+  line-height: 1;
 }
 
 /* --- chat polish ------------------------------------------------------------ */
@@ -2559,4 +2577,52 @@ p.graph-help-panel {
 .help-popover.help-popover-above::after {
   top: auto;
   bottom: -5px;
+}
+
+/* --- a turn that is still working says so, for as long as it is ----------
+   Reported: "none of the generating animations work". The dots were real and
+   did animate — they were just evicted by the first stream event of any kind
+   (`meta` arrives almost immediately), so they flashed and the bubble then
+   sat still for however long the model actually took.
+
+   `.is-generating` is set when the turn starts and removed in the `finally`
+   that ends it (app.js), so this signal lasts exactly as long as the work
+   does. A moving accent bar on the bubble's own edge: visible from across
+   the room, costs no layout, and does not fight the per-step placeholders
+   that come and go inside the bubble. */
+.msg.is-generating {
+  position: relative;
+}
+
+.msg.is-generating::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    var(--accent) 0%,
+    color-mix(in srgb, var(--accent) 20%, transparent) 50%,
+    var(--accent) 100%
+  );
+  background-size: 100% 200%;
+  animation: generating-sweep 1.6s linear infinite;
+}
+
+@keyframes generating-sweep {
+  from {
+    background-position: 0 0;
+  }
+
+  to {
+    background-position: 0 -200%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .msg.is-generating::before {
+    animation: none;
+  }
 }

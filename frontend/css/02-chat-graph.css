@@ -2554,6 +2554,60 @@ html {
    being previewed is a document and a 1300px-wide line of body text is not
    readable. Scrolls inside itself so the arrows and the actions bar stay
    put while you read. */
+/* --- reading a scan against its own pages ---------------------------------
+   Reported directly: "when I select to read the text from the document in a
+   pdf, the pdf view disappears entirely. I want the pdf view to be on one
+   side, and the live extracted document text and visuals on the right."
+
+   The text is a *reading* of the pages — by markitdown, Tesseract or a
+   vision model — and hiding the pages to show it removes the only way to
+   check that reading against what is actually printed. Two columns, each
+   scrolling on its own, so a page and the paragraph it produced can be held
+   side by side. Only when there are pages to show: a .docx or a .txt has
+   nothing to put in the left column and keeps the full width. */
+.lightbox-doc.lightbox-doc-split {
+  width: min(76rem, 96vw);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+/* The note spans both columns — it is about the file, not about one pane. */
+.lightbox-doc-split > .lightbox-doc-note {
+  grid-column: 1 / -1;
+}
+
+.lightbox-doc-split > .lightbox-pdf-pages {
+  grid-column: 1;
+  grid-row: 2;
+  max-height: 66vh;
+  overflow: auto;
+}
+
+.lightbox-doc-split > .lightbox-doc-body {
+  grid-column: 2;
+  grid-row: 2;
+  max-height: 66vh;
+  overflow: auto;
+}
+
+/* One column on a narrow window: two 38rem panes do not fit a phone, and a
+   split that squeezes both into unreadable strips is worse than a stack. */
+@media (max-width: 60rem) {
+  .lightbox-doc.lightbox-doc-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lightbox-doc-split > .lightbox-pdf-pages,
+  .lightbox-doc-split > .lightbox-doc-body {
+    grid-column: 1;
+    grid-row: auto;
+    max-height: 40vh;
+  }
+}
+
 .lightbox-doc {
   width: min(52rem, 92vw);
   max-height: 74vh;

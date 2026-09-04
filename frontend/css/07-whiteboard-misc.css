@@ -2270,17 +2270,41 @@ dialog::backdrop {
   color: var(--muted);
 }
 
-/* The interior of the composer, not a field of its own. */
-.ask-composer > #question {
+/* The interior of the composer, not a field of its own. Reported after the
+   first pass ("fix the outline of the chat bar"): the input kept its own
+   border *inside* the composer's border, so the row read as a box in a box.
+   `:focus-visible` and the inset shadow have to go with it — the composer
+   itself carries the focus ring now (`:focus-within` above), which is the
+   whole point of making the row one surface. */
+.ask-composer > #question,
+.ask-composer > #question:focus,
+.ask-composer > #question:focus-visible {
   flex: 1 1 auto;
   min-width: 0;
-  border: none;
+  outline: none;
   background: transparent;
   box-shadow: none;
+  /* `!important` here is not a shortcut, and it is the only way this rule
+     wins. The Appearance system sets `border-style: var(--border-style)
+     !important` on every input in the app (01-forms-settings.css) so a
+     user's chosen border style cannot be defeated by a stray local rule —
+     which is right everywhere except here, where the input is deliberately
+     not a field of its own but the interior of one. An `!important` can
+     only be answered by another; a plain `border: none` measured as a 3px
+     border still sitting there, which is exactly what was reported. */
+  border: none !important;
+  padding-inline: var(--space-3);
+  margin-bottom: 0;
 }
 
-.ask-composer > #question:focus {
-  outline: none;
+/* The answer-length picker was squashed to "Det…" — it is a real choice
+   with real words in it, and an ellipsis where the word "Detailed" should
+   be is not a control anyone can read. A floor wide enough for the longest
+   option, and it stops shrinking with the row. */
+.ask-composer .select-shell,
+.ask-composer > select {
+  flex: 0 0 auto;
+  min-width: 9.5rem;
 }
 
 /* A section head with its own icon, matching every other panel head in the

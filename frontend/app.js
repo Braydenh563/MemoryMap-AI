@@ -3728,14 +3728,23 @@ function openLightbox(items, startIndex = 0) {
     const isPdf = /\.pdf$/i.test(item.filename || name || "");
 
     async function loadExtractedText() {
-      pdfPages.classList.add("hidden");
+      // **The pages stay.** Reported directly: "when I select to read the
+      // text from the document in a pdf, the pdf view disappears entirely. I
+      // want the pdf view to be on one side, and the live extracted document
+      // text and visuals on the right." Reading a scan *against* its pages is
+      // the entire point — the text is a machine's reading of an image, and
+      // hiding the image removes the only way to check it. So for a file
+      // that has rendered pages, this becomes a split: pages left, text
+      // right, both scrolling on their own. Anything without pages (a .docx,
+      // a .txt) still gets the full width, because there is nothing to put
+      // beside it.
+      const hasPages = pdfPages.childElementCount > 0;
+      doc.classList.toggle("lightbox-doc-split", hasPages);
+      pdfPages.classList.toggle("hidden", !hasPages);
       docBody.classList.remove("hidden");
       find.classList.remove("hidden");
-      // Undoes the PDF-pages branch's own showZoomControls(true)/setZoom(1)
-      // when this runs as the "Read text with AI" swap — there is nothing
-      // to zoom in a text view.
-      showZoomControls(false);
-      setZoom(1);
+      showZoomControls(hasPages);
+      if (!hasPages) setZoom(1);
       docBody.textContent = "Reading…";
       let payload = null;
       // See the doc-viewer comment block above `doc`'s own creation: a
@@ -9741,7 +9750,24 @@ function addBubble(role, text, attachments = null) {
 
   const label = document.createElement("div");
   label.className = "msg-role";
-  label.textContent = role === "user" ? "You" : assistantLabel();
+  // **The user gets an avatar too.** Asked for directly: "I feel like the
+  // user needs a little icon in the theme of the application in the chat as
+  // well." The assistant has had one since `addAssistantBubble` started
+  // drawing the app's emblem; a one-sided transcript reads as though only
+  // one participant is really there. Same `.msg-avatar` box, so the two
+  // columns line up down the thread — the app's own accent and glyph rather
+  // than a photo, since this app has no accounts and never asks who you are.
+  if (role === "user") {
+    const avatar = document.createElement("span");
+    avatar.className = "msg-avatar msg-avatar-user";
+    avatar.setAttribute("aria-hidden", "true");
+    setLabel(avatar, "ph:user");
+    const name = document.createElement("span");
+    name.textContent = "You";
+    label.append(avatar, name);
+  } else {
+    label.textContent = assistantLabel();
+  }
   const body = document.createElement("div");
   body.className = "msg-body";
   body.textContent = text;
@@ -11353,6 +11379,20 @@ async function sendChatMessage(preset, opts = {}) {
   pending.appendChild(typingDots());
   stepsHolder.appendChild(pending);
   const clearPending = () => pending.remove();
+  // **The turn is marked as generating for its whole length, not just until
+  // the first event.** Reported as "none of the generating animations work",
+  // and this is the mechanism: `clearPending` above runs on the first event
+  // of *any* kind — including `meta`, which this app emits almost
+  // immediately, well before the model has produced a word. So the dots
+  // appeared for a few hundred milliseconds and then the bubble sat
+  // completely still for however long the model actually took, which reads
+  // as nothing happening at all.
+  //
+  // A class on the bubble, cleared in the `finally` that ends the stream, is
+  // the state that genuinely lasts as long as the work does — every step
+  // that arrives can still evict its own placeholder without taking the
+  // "still working" signal down with it.
+  bubble.classList.add("is-generating");
   let meta = null;
   let toolsActed = false;
   let stats = null;
@@ -11700,6 +11740,10 @@ async function sendChatMessage(preset, opts = {}) {
     }
   } finally {
     clearTimeout(slowLoadTimeout);
+    // Whatever happened — answered, stopped, errored — the turn is no longer
+    // generating, so the signal that says it is has to come down here rather
+    // than on any one success path.
+    bubble.classList.remove("is-generating");
     // Only if it is still ours. Switching away and sending a second message
     // installs a new controller, and this line firing late would null it —
     // leaving Stop wired to nothing while a stream was genuinely running.

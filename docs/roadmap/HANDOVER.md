@@ -1,3 +1,108 @@
+# Handover
+
+## Next session: start here — v0.1.9 shipped, and the full list of what is still asked for
+
+The session that cut v0.1.9 ended on a usage limit mid-stream. Everything
+below is either **done and pushed** or **explicitly still open**, collated
+from the user's own messages so nothing is lost to a condensed transcript.
+
+### Done this round (all live-verified in Chromium, full suite green)
+
+- **Popup menus escape their clipping ancestors app-wide.**
+  `wireEscapedActionMenu` existed with exactly one call site; it is now wired
+  into `enhanceSelect()` (every `<select>` in the app) and the Documents
+  kebab. That exposed two real gaps in the escape itself, both fixed:
+  `.action-menu`'s `z-index: 30` loses to `.modal-overlay`'s 1010 once the
+  menu is a sibling rather than a descendant, and `.select-menu`'s
+  `min-width: 100%` means *the viewport* once fixed-positioned (measured at
+  1440px wide).
+- **A note's attached files are readable by the app and the models.**
+  `Attachment` gained caption/ocr_text/vision_ocr_text/model columns;
+  `POST /files/{id}/analyse` fills them (Tesseract → docview → vision model
+  rasterising PDF pages) and accepts hand-typed text for any of the three.
+  The gallery offers those actions on attachments; `GET /files/gallery` is
+  what put note-attached files in the Library at all.
+- **PDF tiles preview their first page**; the file gallery multi-selects
+  (tick, count, bulk delete, keyed by kind *and* id).
+- **PDF viewer is a split view** — pages one side, extracted text the other.
+  Reading a scan against its own pages is the point; hiding the pages to show
+  the text removed the only way to check the reading.
+- **Semantic search knows how a note is filed.** Category, tags and
+  attachment text are part of `embedding_text` now. **Existing vectors are
+  stale until a re-index** — say so if the user reports it still missing.
+- **One help popover for every "?"** (`wireHelpPopover`), replacing three
+  different presentations.
+- **The Ask tab** is one composer with a real idle state and panel heads.
+- **Chat**: the user has an avatar; a turn marks itself `is-generating` for
+  its whole length rather than until the first stream event (which is what
+  made the animation look like it never ran — `meta` arrives almost
+  immediately and evicted the dots).
+- **Whiteboard**: link endpoints no longer drift from the cursor while zoomed
+  (the zoom scale was divided in twice — d3's SVG pointer already accounts
+  for the ancestor transform); a selection can be saved straight to the image
+  library as a PNG.
+- Board sketches were briefly listed in Images and then **deliberately
+  removed** — the user does not want individual board shapes there; the
+  region-export-to-PNG path above is what they asked for instead.
+- Fixed: agent rows printing `ph:folder …` as text; usage chips printing raw
+  markdown; the Ask input's doubled border (an Appearance `!important` rule);
+  the squashed answer-length picker.
+
+### Still open — the user's own words, in priority order
+
+1. **The chat interface needs a massive redesign** — "look at odysseus and
+   use that as an example". Extension and reimagination, not a polish pass.
+   Only the avatar and the generating signal were touched this round.
+2. **The agent and skill system needs a major redesign** — "the chat, skills,
+   tools and just the whole harness need to be improved", with "a lot more
+   features and info". Includes the **Ctrl+Shift+A popup agent interface**.
+   Note the live log the user pasted: the agent looped on `merge_categories`
+   with "There is no category called X" / "X and X are the same category"
+   several times in a row — the harness does not learn from a failed tool
+   call within a turn. That is a concrete, reproducible starting point.
+3. **The documents editor**, Kortex-style: "the border between base md text
+   editing and the preview altered… elements can be made from slash commands
+   and they appear in rendered boxes that the user can write and modify
+   actively within the document. the user can write a heading and any md and
+   it will render after they finish writing it." Live-render-as-you-type with
+   editable rendered blocks, not a two-pane preview.
+4. **Knowledge management / memory graph**: "I need the app to be the best
+   thing for its namesake, not like all the other cheap second brain stuff."
+   Specifically: "the ai linking of notes and concepts and updating and
+   managing its own understanding of the user's notes and notebook… needs to
+   be majorly improved, fixed, enhanced, streamlined and seamless."
+   The embedding change above is a first step, not the answer.
+5. **Multi-select in the remaining Library sub-tabs** — whiteboards, links,
+   contents. Images/Files and Documents have it; the pattern to copy is
+   `libraryMediaSelection` + `.library-contextbar`.
+6. **App-wide affordance and consistency audit.** "Be really critical… all
+   the ui and ux needs to be consistent in how it looks, how it functions,
+   and where it is placed", and specifically that things must not "look like
+   just text in a box". Toggles/switches (task #39) and control placement
+   (#10) are the named parts still open.
+7. Smaller, still unfixed: the Restart MemoryMap row's text alignment (#40);
+   an empty document's narrow live-view column (#41); the "Add to document"
+   combobox clipping (#42, may already be fixed by the app-wide select
+   escape — **verify before rebuilding**); truncated error text in the agent
+   popup (#46); the gap between the chat sidebar filter and the list (#47);
+   suspected zoom-drift in the sketch move/resize handles (#51 — a probe was
+   written and its own measurement was unreliable, so this is **not** a
+   confirmed bug yet).
+
+### Traps this round paid for
+
+- **A promoted element keeps its original class.** `.help-popover` lost
+  outright to `.graph-help-panel` on source order and rendered with the old
+  `position: absolute; z-index: 30`, underneath the modal it was opened from.
+  It lives at the end of its file for that reason.
+- **This app declares no ORM `relationship()` anywhere.** `entry.category`
+  and `entry.attachments` are not attributes. Code reading them with
+  `getattr` returns None/[] forever and never raises.
+- **`test_style_scale.py` refuses a `var()` fallback for a token that is only
+  ever set from JS.** Declare it on the rule.
+- `pkill -f uvicorn` still kills the session's own shell (exit 144). Kill by
+  a single PID from `pgrep -f`.
+
 # Session handover
 
 ## Latest round — the PDF/AI reversal is built, three more real bugs measured and fixed, three CodeQL notes closed; read the priority list before building anything

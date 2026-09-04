@@ -2473,6 +2473,25 @@ async function wbExportPng(scope) {
   }
 }
 
+//: **Straight into the image library, with no file on disk.** Asked for
+//: directly: "maybe I should be able to highlight a rectangular section
+//: and/or select a bunch of things in a whiteboard and export it to a png
+//: which can then appear in the image library."
+//:
+//: `wbExportPng` above already uploads a copy — but it downloads the file
+//: first, and "put this drawing in my library" and "save this file to my
+//: computer" are different intentions that should not be one button. The
+//: marquee and shift-click already produce the selection this exports; this
+//: is the missing half that turns a region of the board into a real image
+//: the gallery, the captioner and semantic search can all see.
+async function wbSaveToLibrary(scope) {
+  const { svg, width, height } = wbBuildExportSvg(scope);
+  const blob = await wbRasterizeSvg(svg, width, height, "image/png");
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+  await uploadToLibrary(`whiteboard-${scope}-${stamp}.png`, blob);
+  toast("Added to your image library.");
+}
+
 async function wbExportPdf(scope) {
   const { svg, width, height } = wbBuildExportSvg(scope);
   const blob = await wbRasterizeSvg(svg, width, height, "image/png");
@@ -2544,6 +2563,10 @@ function wbExportBoard() {
   // selection-gated control in this toolbar (align/distribute/delete).
   const hasSelection = wbMultiSelection.size > 0 || !!wbSelectedItem;
 
+  addHeading("Save to image library");
+  if (hasSelection) addOption("Just the selection", () => wbSaveToLibrary("selection"));
+  addOption("What's on screen now", () => wbSaveToLibrary("visible"));
+  addOption("The whole board", () => wbSaveToLibrary("whole"));
   addHeading("Image (PNG)");
   if (hasSelection) addOption("Just the selection", () => wbExportPng("selection"));
   addOption("What's on screen now", () => wbExportPng("visible"));

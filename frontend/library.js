@@ -2174,14 +2174,13 @@ async function analyseMediaRow(image, kind, payload = {}) {
 const libraryMediaSelection = new Map();
 
 function mediaRowKey(image) {
-  const kind = image._isSketch ? "sketch" : image._isAttachment ? "attachment" : "media";
+  const kind = image._isAttachment ? "attachment" : "media";
   return `${kind}:${image.id}`;
 }
 
 //: The one place that knows where each kind of row is deleted, so the tile's
 //: own Delete and the bulk bar cannot drift apart.
 function mediaRowDeleteEndpoint(image) {
-  if (image._isSketch) return `/whiteboard/sketches/${image.id}`;
   if (image._isAttachment) return `/files/${image.id}`;
   return `/media/${image.id}`;
 }
@@ -2244,36 +2243,8 @@ async function renderLibraryImagesGallery() {
   // `/media/{name}.ext` row — would silently call every attachment a "file"
   // regardless of its real mime.
   const attachments = await apiJson("/files/gallery", { silent: true }).catch(() => []);
-  // Whiteboard sketches, reported three times as missing from Images. They
-  // are SVG path data, never rasterised (see BoardSketchOut's own docstring,
-  // routes_whiteboard.py) — the tile below draws the path inline rather than
-  // this app inventing a PNG-per-stroke pipeline to keep in sync.
-  const sketches = await apiJson("/whiteboard/sketches/gallery", { silent: true }).catch(() => []);
-  for (const item of sketches || []) {
-    item._isImage = true; // a drawing belongs with the pictures, not the files
-    item._isSketch = true;
-    item.original_name = `Sketch on ${item.board_title}`;
-    item.url = "";
-    item.ocr_text = "";
-    item.caption = "";
-    item.vision_ocr_text = "";
-    item.used_by = [{ kind: "board", id: item.board_id, label: item.board_title }];
-  }
-  for (const item of images || []) item._isImage = isImageUrl(item.url);
-  for (const item of attachments || []) {
-    item._isImage = (item.mime || "").startsWith("image/");
-    item._isAttachment = true;
-    // Never OCR'd, captioned, or read by a vision model — see
-    // AttachmentGalleryOut's own docstring. Explicit empty strings, the
-    // same never-null convention `MediaUploadOut` uses, so every other
-    // reader of this cache (search filter, lightbox) can keep assuming
-    // these fields exist without a branch for which kind of row this is.
-    item.ocr_text = "";
-    item.caption = "";
-    item.vision_ocr_text = "";
-  }
-  libraryImagesCache = [...(images || []), ...(attachments || []), ...(sketches || [])];
-  if (!images && !attachments?.length && !sketches?.length) {
+  libraryImagesCache = [...(images || []), ...(attachments || [])];
+  if (!images && !attachments?.length) {
     grid.replaceChildren();
     empty?.classList.remove("hidden");
     return;
@@ -2338,29 +2309,8 @@ function filterLibraryImagesGallery() {
     // below read `original_name` for the same reason: it carries the real
     // extension on both kinds of row, where the url only does for one.
     const isImage = image._isImage;
-    // A sketch has no file behind it at all — it is drawn here from the same
-    // path data the board draws, so the thumbnail can never go stale and no
-    // PNG has to be generated, stored, or cleaned up. `svg` rather than
-    // `img`, so the rest of this loop's `img`-named variable still holds
-    // "whatever this tile's visual is".
-    const img = image._isSketch
-      ? document.createElementNS("http://www.w3.org/2000/svg", "svg")
-      : document.createElement(isImage ? "img" : "div");
-    if (image._isSketch) {
-      img.setAttribute("class", "library-sketch-thumb");
-      img.setAttribute("viewBox", image.view_box);
-      img.setAttribute("preserveAspectRatio", "xMidYMid meet");
-      img.setAttribute("role", "img");
-      img.setAttribute("aria-label", image.original_name);
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", image.d);
-      path.setAttribute("fill", "none");
-      path.setAttribute("stroke", image.stroke);
-      path.setAttribute("stroke-width", String(image.stroke_width));
-      path.setAttribute("stroke-linecap", "round");
-      path.setAttribute("stroke-linejoin", "round");
-      img.appendChild(path);
-    } else if (isImage) {
+    const img = document.createElement(isImage ? "img" : "div");
+    if (isImage) {
       img.src = mediaSrc(image.url);
       img.alt = image.original_name;
       img.loading = "lazy";
@@ -2413,10 +2363,6 @@ function filterLibraryImagesGallery() {
       // A sketch's "full size" is the board it lives on — there is no file
       // to open in a lightbox, and the board is where it can actually be
       // edited, moved or deleted in context.
-      if (image._isSketch) {
-        openWhiteboardBoard(image.board_id ?? null);
-        return;
-      }
       openLightbox(
         images.map((i) => ({
           filename: i.original_name,
@@ -2430,7 +2376,7 @@ function filterLibraryImagesGallery() {
           // but it names a row in a different table with none of those
           // actions, so it must stay unset here for exactly the reason this
           // comment already gives.
-          id: i._isAttachment || i._isSketch ? undefined : i.id,
+          id: i._isAttachment ? undefined : i.id,
           // Asked for directly: "if clicking on an image to view expand it in
           // the lightbox…can the captions and ocr accompany it somehow??"
           // The tile is the one place these are too small to read.
@@ -3076,11 +3022,9 @@ function filterLibraryImagesGallery() {
     // the note's own file list's business, not the gallery's. A sketch has
     // no file behind it at all, so it keeps Delete alone.
     menuList.append(
-      ...(image._isSketch
-        ? [del]
-        : image._isAttachment
-          ? [captionBtn, visionOcrBtn, ocrBtn, del]
-          : [rename, captionBtn, visionOcrBtn, ocrBtn, del])
+      ...(image._isAttachment
+        ? [captionBtn, visionOcrBtn, ocrBtn, del]
+        : [rename, captionBtn, visionOcrBtn, ocrBtn, del])
     );
     menu.append(menuButton, menuList);
     // Picking anything closes the menu — on the **capture** phase, which is
@@ -3311,29 +3255,8 @@ function filterLibraryImagesGallery() {
     // menuList comment above for why that id doesn't belong to this row),
     // and a caption box that looks editable but silently 404s on save is
     // worse than a tile with no caption box at all.
-    fig.append(img, actions, cap, usage, ...(image._isSketch ? [] : [fields]));
+    fig.append(img, actions, cap, usage, fields);
     grid.appendChild(fig);
-    // The real bounding box, measured once the path is actually in the
-    // document. The server sends a `view_box` too, but it can only estimate
-    // it by pulling numbers out of the path string — and a relative command
-    // (`h 200`, `v 150`) takes *one* number, not an x/y pair, so any path
-    // using them frames wrong. `getBBox()` is the browser's own exact answer
-    // for the geometry it just laid out, so it is right for every command
-    // this app can draw, now and later.
-    if (image._isSketch) {
-      try {
-        const box = img.firstChild.getBBox();
-        const pad = Math.max(image.stroke_width, 1) * 2;
-        if (box.width > 0 || box.height > 0) {
-          img.setAttribute(
-            "viewBox",
-            `${box.x - pad} ${box.y - pad} ${Math.max(box.width + pad * 2, 1)} ${Math.max(box.height + pad * 2, 1)}`
-          );
-        }
-      } catch {
-        /* keep the server's estimate — a tile framed loosely still shows the drawing */
-      }
-    }
   }
 }
 

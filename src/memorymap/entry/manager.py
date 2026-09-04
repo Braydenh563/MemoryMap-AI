@@ -1266,6 +1266,45 @@ def all_categories(session: Session) -> list[dict]:
     return out
 
 
+# **A category's name is part of what its notes embed, so renaming one makes
+# every vector under it stale.**
+#
+# `ai/embeddings.embedding_text` folds the category name and the note's tags
+# into the embedded text — that change is itself the fix for a reported
+# problem ("I have a whole category called hobbies but basically none came up
+# in the semantic search"). The consequence nobody wired up: rename "Games"
+# to "Hobbies", or merge it into an existing "Hobbies", and every note that
+# moved still has a vector built from the *old* name. Semantic search then
+# keeps missing exactly the notes the user just tidied — which is the same
+# symptom again, produced by the fix for it.
+#
+# The vectors are dropped rather than recomputed here. Re-embedding is a model
+# call per note and this runs inside a rename the user is waiting on; dropping
+# is instant, and the search path already treats a missing vector as "fall
+# back to keywords for this note" rather than as an error. They are rebuilt by
+# the next re-index (`POST /models/reindex`, or the periodic backfill), so the
+# worst case is keyword-quality results for those notes until then, instead of
+# semantic results that are quietly wrong.
+def _restale_category_vectors(session: Session, category_id: int) -> int:
+    """Drop the embeddings of every note in a category whose name just
+    changed. Returns how many were dropped."""
+    entry_ids = [
+        row[0]
+        for row in session.execute(
+            select(Entry.id).where(Entry.category_id == category_id)
+        ).all()
+    ]
+    if not entry_ids:
+        return 0
+    dropped = (
+        session.query(EmbeddingRecord)
+        .filter(EmbeddingRecord.entry_id.in_(entry_ids))
+        .delete(synchronize_session=False)
+    )
+    session.commit()
+    return int(dropped or 0)
+
+
 def rename_category(session: Session, category_id: int, new_name: str) -> dict:
     """Rename a category; renaming onto an existing name merges the two.
 
@@ -1288,12 +1327,14 @@ def rename_category(session: Session, category_id: int, new_name: str) -> dict:
         log_action(session, "edited", "category", existing.id, f"merged {category.name} → {new_name}")
         session.delete(category)
         session.commit()
+        _restale_category_vectors(session, existing.id)
         return {"renamed": True, "merged": True, "moved": moved}
 
     old = category.name
     category.name = new_name
     log_action(session, "edited", "category", category.id, f"{old} → {new_name}")
     session.commit()
+    _restale_category_vectors(session, category.id)
     return {"renamed": True, "merged": False, "moved": 0}
 
 

@@ -103,7 +103,14 @@ def page_count(path: Path) -> int:
             finally:
                 document.close()
     except Exception as exc:  # noqa: BLE001 — a viewer must not 500 on a bad file
-        logger.debug("couldn't count pages in %s: %s", path, exc)
+        # `%r`, not `%s`, on `path` throughout this file — flagged by CodeQL
+        # (py/log-injection) even though `path` is always `attachment.stored_name`
+        # (a hash this app generated itself, see routes_files.py), never the
+        # uploaded file's own name. CodeQL can't see that far through the call
+        # chain, and `%r` closes the gap for free either way: repr() escapes
+        # newlines and control characters, so nothing reaching this logger can
+        # forge a second log line no matter where the value came from.
+        logger.debug("couldn't count pages in %r: %s", path, exc)
         return 0
 
 
@@ -117,7 +124,7 @@ def _render_one(page, path: Path, index: int, *, greyscale: bool) -> bytes | Non
     width, height = page.get_size()
     if (width * RENDER_SCALE) * (height * RENDER_SCALE) > MAX_PIXELS:
         logger.info(
-            "skipping page %d of %s: %dx%d at %.1fx exceeds the pixel limit",
+            "skipping page %d of %r: %dx%d at %.1fx exceeds the pixel limit",
             index + 1, path.name, width, height, RENDER_SCALE,
         )
         return None
@@ -170,7 +177,7 @@ def render_pages(path: Path, limit: int = MAX_PAGES) -> list[bytes]:
                 finally:
                     page.close()
     except Exception as exc:  # noqa: BLE001 — see the docstring
-        logger.info("couldn't rasterise %s: %s", path, exc)
+        logger.info("couldn't rasterise %r: %s", path, exc)
         return pages
     finally:
         if document is not None:
@@ -213,7 +220,7 @@ def render_page(path: Path, index: int) -> bytes | None:
             finally:
                 page.close()
     except Exception as exc:  # noqa: BLE001 — a viewer must not 500 on a bad file
-        logger.info("couldn't rasterise page %d of %s: %s", index, path, exc)
+        logger.info("couldn't rasterise page %d of %r: %s", index, path, exc)
         return None
     finally:
         if document is not None:

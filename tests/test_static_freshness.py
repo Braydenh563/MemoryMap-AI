@@ -88,5 +88,31 @@ def test_the_page_has_no_inline_script_left():
     html = re.sub(r"<!--.*?-->", "", index.read_text(encoding="utf-8"), flags=re.DOTALL)
     # `<script>` or `<script type=…>` with no `src` — the opening tag of an
     # inline block. A `<script src=…>` always carries src before the ">".
-    inline = re.findall(r"<script(?![^>]*\bsrc=)[^>]*>", html)
+    #
+    # `re.IGNORECASE`: CodeQL flagged the bare version (py/bad-tag-filter,
+    # "does not match upper case <SCRIPT> tags"), and it was right to. HTML
+    # tag and attribute names are case-insensitive, so a bare regex here
+    # would wave `<SCRIPT>` or `<Script Src=…>` straight through — the
+    # opposite of what a lint guarding "no inline scripts" is for.
+    # index.html is a file this app ships, not user input, so there is no
+    # attacker crafting a case trick past this specific check today — but a
+    # regex that silently mismatches on case is exactly the "zero-match
+    # regex reports the page clean while an inline script sits right there"
+    # failure this file's own docstring already warns about, one line up
+    # from this one.
+    inline = re.findall(r"<script(?![^>]*\bsrc=)[^>]*>", html, flags=re.IGNORECASE)
     assert not inline, f"index.html has inline script blocks again: {inline}"
+
+
+def test_the_inline_scanner_catches_upper_case_script_tags():
+    """CodeQL's actual finding (py/bad-tag-filter), pinned down so the fix
+    above cannot regress silently: HTML tag names are case-insensitive, and
+    `<SCRIPT>`/`<Script Src=…>` are exactly as inline (or exactly as
+    external) as their lower-case spellings. A scanner that only recognises
+    one case is a scanner an inline script can walk straight past."""
+    pattern = re.compile(r"<script(?![^>]*\bsrc=)[^>]*>", flags=re.IGNORECASE)
+    assert pattern.findall("<SCRIPT>alert(1)</SCRIPT>")
+    assert pattern.findall("<Script>alert(1)</Script>")
+    # And the external form, in any case, still counts as external — this
+    # must not start flagging every ordinary <script src> in the page.
+    assert not pattern.findall('<SCRIPT SRC="/app.js"></SCRIPT>')

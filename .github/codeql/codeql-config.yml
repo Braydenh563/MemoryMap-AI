@@ -1,8 +1,12 @@
 # CodeQL config — see .github/workflows/codeql.yml, which points --config-file
 # at this file.
 #
-# `paths-ignore` below excludes exactly one file from analysis, not a query or
-# a whole directory. searxng_settings.py:ensure_settings() writes SearXNG's
+# `paths-ignore` below excludes specific paths from analysis, not any query —
+# every rule still runs everywhere else. The first entry is one file, kept
+# narrow on purpose (see its own paragraph below); the second is a whole
+# directory, for a different reason (see that paragraph too).
+#
+# searxng_settings.py:ensure_settings() writes SearXNG's
 # `secret_key` into its own settings.yml in plaintext (py/clear-text-storage-
 # sensitive-data) — unavoidable, since SearXNG is a separate process that reads
 # that value straight out of its config file at its own startup; there is no
@@ -18,5 +22,24 @@
 # guaranteed-supported mechanism instead. Scoped to one file, not the whole
 # `search/` directory or the query repo-wide, so any *other* file that starts
 # doing something CodeQL should genuinely catch is still covered.
+#
+# `.claude/skills/` — the seven vendored MIT design skills (see
+# .claude/skills/README.md) — is excluded the same way `pyproject.toml`
+# already excludes it from `ruff` (`extend-exclude = [".claude/skills"]`,
+# same rationale, same file). Their Python is Claude Code tooling copied
+# verbatim from an upstream repo, not this app's own source and not part of
+# what ships — it lints and scans with dozens of pre-existing findings
+# (unused imports, imprecise asserts, an uninitialised-variable note, a
+# couple of argument-name mismatches in the vendor's own test suite) that are
+# not this project's to fix line-by-line: patching them piecemeal only means
+# they silently reappear, unpatched, the next time the skill is re-vendored
+# from upstream at a newer commit. Reported directly after CodeQL kept
+# re-flagging the same pre-existing findings on every push to this PR despite
+# none of them being touched: "at least have codeql not register or ignore
+# them if you aren't going to fix the vendored skills." Whole-directory
+# exclusion is the right shape here — unlike the single-file case above,
+# there is no line in `.claude/skills/` this repo's own code depends on
+# CodeQL continuing to watch.
 paths-ignore:
   - src/memorymap/search/searxng_settings.py
+  - .claude/skills

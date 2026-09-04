@@ -3088,3 +3088,103 @@ summary:not(.icon-only):not(.icon-button) {
 .searxng-host > p.muted {
   max-width: 68ch;
 }
+
+/* --- the selection tick, in the app's own language ------------------------
+   The switch rule in `06-timeline-dialogs.css` deliberately does *not* cover
+   these, and it is right not to: a checkbox in a list means "this one is
+   chosen", which is a tick, and a column of switches down the side of a list
+   would read as a column of settings. That decision is kept.
+
+   What was not intended is the consequence. "Not a switch" was implemented as
+   "leave it native", so every selection tick in the app is drawn by the
+   operating system — the same inconsistency the native `<select>` popups had,
+   and it fails the same complaint: a raw OS checkbox on a dark card matches
+   nothing else on screen, and `getComputedStyle` reports it as having no
+   background, no border and no shadow, because the UA shadow tree owns all
+   three.
+
+   So: still a tick, not a switch — a square box, the app's radius, the app's
+   border, filling with the accent and drawing a checkmark when chosen. The
+   accessibility tree, focus and keyboard all stay with the real input. */
+.library-card-tick,
+.select-check,
+.note-picker-list input[type="checkbox"],
+.entry-list input[type="checkbox"]:not(.sr-only),
+.reminder-item input[type="checkbox"]:not(.sr-only) {
+  appearance: none;
+  -webkit-appearance: none;
+  width: var(--target-min);
+  height: var(--target-min);
+  min-width: var(--target-min);
+  min-height: var(--target-min);
+  flex: 0 0 auto;
+  margin: 0;
+  position: relative;
+  border: 1px solid var(--muted);
+  border-radius: calc(var(--radius) * 0.4);
+  background: var(--ghost-btn-bg);
+  box-shadow: inset 0 1px 2px var(--field-inset);
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) ease,
+    border-color var(--motion-fast) ease;
+}
+
+.library-card-tick:hover,
+.select-check:hover,
+.note-picker-list input[type="checkbox"]:not(.sr-only):hover,
+.entry-list input[type="checkbox"]:not(.sr-only):hover,
+.reminder-item input[type="checkbox"]:not(.sr-only):hover {
+  border-color: var(--accent);
+}
+
+.library-card-tick:checked,
+.select-check:checked,
+.note-picker-list input[type="checkbox"]:checked,
+.entry-list input[type="checkbox"]:not(.sr-only):checked,
+.reminder-item input[type="checkbox"]:not(.sr-only):checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* The checkmark: two borders of a box, rotated. Drawn rather than set as a
+   glyph so it needs no font to have loaded and scales with the box. */
+.library-card-tick:checked::after,
+.select-check:checked::after,
+.note-picker-list input[type="checkbox"]:checked::after,
+.entry-list input[type="checkbox"]:not(.sr-only):checked::after,
+.reminder-item input[type="checkbox"]:not(.sr-only):checked::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 0.3em;
+  height: 0.6em;
+  border: solid var(--on-accent);
+  border-width: 0 2px 2px 0;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+/* --- a list of rows reads as a list --------------------------------------
+   The dashboard's category rows are `<button>`s with `background: none;
+   border: none; box-shadow: none` set explicitly, and only a hover ground.
+   That is the right call for the *fill* — three to twenty filled rows inside
+   a widget card would be the same mistake as filling every tab — but with no
+   fill and no separator they are simply three lines of text that happen to
+   respond to the pointer.
+
+   A hairline between rows is what says "list" without claiming each row is a
+   button. Same answer `.entry-list.is-rows` already uses for the same shape,
+   so the two lists of rows in this app are built the same way. */
+.cat-row + .cat-row {
+  border-top: 1px solid var(--border);
+}
+
+.cat-row {
+  padding-block: var(--space-2);
+  border-radius: 0;
+}
+
+.cat-row:first-child {
+  padding-top: 0;
+}

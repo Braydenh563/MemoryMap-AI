@@ -2290,13 +2290,7 @@ mark.global-find-hit.global-find-current {
   /* a flex item defaults to min-height:auto — it must shrink */
 }
 
-@media (max-width: 640px) {
-  .modal-body {
-    grid-template-columns: 1fr;
-    /* Stacked: the nav takes its natural height, the pane scrolls. */
-    grid-template-rows: auto minmax(0, 1fr);
-  }
-}
+
 
 .modal-nav {
   display: flex;
@@ -3394,4 +3388,69 @@ html.modal-open body {
 
 .setting-hint-toggle[aria-expanded="true"] {
   color: var(--accent);
+}
+
+/* **Narrow: the section list becomes a strip, not a column.**
+
+   Stacking it as `auto minmax(0, 1fr)` was right in shape and wrong in
+   practice, because "the nav takes its natural height" is ~700px — it is a
+   seventeen-item vertical list. On a 390x844 phone that left the content row
+   **20 pixels tall**: measured, and visible as a Settings dialog showing every
+   section name and not one setting. You could see the whole menu and open
+   nothing.
+
+   A row of chips that scrolls sideways is the same answer the app's own tab
+   bar already uses when it outgrows its width, so this is a pattern already
+   in the product rather than a new one. The nav is capped to its own single
+   row and the content pane gets everything else. */
+@media (max-width: 640px) {
+  .modal-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .modal-nav {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-2);
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* Nothing in the strip may shrink; it scrolls instead — the same rule the
+       collapsed note row's chip lane needed, for the same reason: a squeezed
+       label is worse than one you scroll to. */
+    flex-wrap: nowrap;
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--border);
+    scrollbar-width: thin;
+  }
+
+  .modal-nav > div {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .modal-nav button,
+  .modal-nav > div > * {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  /* The search field is in the strip too, and as a shrinkable flex item next
+     to seventeen non-shrinking buttons it collapsed to about 30px — a
+     text input too narrow to show one character. It keeps a usable width and
+     scrolls with everything else. */
+  .modal-nav input[type="search"],
+  .modal-nav input[type="text"] {
+    flex: 0 0 12rem;
+    min-width: 12rem;
+  }
+
+  /* The group headings ("THE AI", "YOUR NOTEBOOK", "SYSTEM") are vertical
+     signposts. In a horizontal strip they become interruptions between the
+     things you are scanning, and the sections are few enough to scan without
+     them. */
+  .modal-nav .nav-group-label {
+    display: none;
+  }
 }

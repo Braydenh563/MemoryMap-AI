@@ -2155,8 +2155,21 @@ dialog::backdrop {
   margin-bottom: var(--space-4);
 }
 
+/* **`:not(.menu-item)` is the whole point of this pair of selectors now.**
+   These rules were written for the row's own controls and are descendant
+   selectors, so they also reached every button inside any popup that opens
+   *from* the row — and the "File under" list opens from inside it. Every
+   option in that dropdown was therefore pinned to `--control-h` with
+   `padding-block: 0`: 24px rows with their text hard against the edges,
+   reported with a screenshot ("the text in the options is right up against
+   the edges and the text is wrapped awkwardly").
+
+   This is the same shape as the nav-history menu bug (see CLAUDE.md): a
+   generic control-height rule reaching into a popup and squeezing rows that
+   were never controls in that row. Popup rows all carry `.menu-item`, which
+   is what excludes them here. */
 .capture-field-row select,
-.capture-field-row button {
+.capture-field-row button:not(.menu-item) {
   height: var(--control-h);
   padding-block: 0;
   margin: 0;
@@ -2171,7 +2184,7 @@ dialog::backdrop {
 
 .ask-query-row input,
 .ask-query-row select,
-.ask-query-row button {
+.ask-query-row button:not(.menu-item) {
   height: var(--control-h);
   padding-block: 0;
   margin: 0;
@@ -2617,10 +2630,16 @@ input[type="url"]:hover:not(:focus) {
    notifications, so the one *live* thing on the row looked like more
    chrome. Grouping them inside a single bordered block says they are one
    control; the footnote is now a footnote. */
+/* `margin-top` reported directly: "there is no gap between the remind me to
+   row and the quick set bottom two row elements". Measured before the fix,
+   the gap was exactly zero — `.reminder-form` carries `margin: 0` and this
+   block only ever had a margin *below* it, so its bordered box sat flush
+   against the field row above and read as one run-on control. */
 .reminder-when {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
+  margin-top: var(--space-4);
   margin-bottom: var(--space-3);
   background: color-mix(in srgb, var(--ink) 3%, transparent);
 }
@@ -2775,16 +2794,38 @@ input[type="url"]:hover:not(:focus) {
   color: var(--muted);
 }
 
-/* The popup. Sized to the control it belongs to, capped so a model list with
-   forty entries scrolls instead of running off the screen. */
+/* The popup. At least as wide as the control it belongs to, but **sized to
+   its own longest option** rather than to the control — reported with a
+   screenshot of the note composer's "File under" list, where "Courses &
+   Study", "Thoughts & Ideas" and "+ New category…" each broke across two
+   lines. The opener is a narrow field in a row of fields; the list is a
+   list of names, and there is no reason for one to dictate the other. It
+   opens from `right: 0` inside the shell (`.action-menu`), so the extra
+   width grows leftward into the page rather than off the right edge, and
+   the cap keeps it from crossing the window on a phone.
+
+   Still capped in height so a forty-model list scrolls instead of running
+   off the screen. */
 .select-menu {
   min-width: 100%;
+  width: max-content;
+  max-width: min(24rem, 80vw);
   max-height: 18rem;
   overflow-y: auto;
 }
 
+/* Reported in the same breath: "the text in the options is right up against
+   the edges". The rows inherited `padding: 0 0.8rem` from the menu-item
+   recipe — real side padding but no vertical padding at all, so a name that
+   *did* wrap had its second line hard against the row below. A name long
+   enough to wrap even at the cap above wraps between words, never through
+   one. */
 .select-option {
   width: 100%;
+  padding-block: var(--space-2);
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 /* The current value, so an open list says which one you are on — the one
@@ -2847,6 +2888,30 @@ input[type="url"]:hover:not(:focus) {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  /* Reported: "the cursor shows a text symbol not a mouse pointer".
+     Chrome's UA stylesheet sets no cursor on <summary>, so it inherits
+     `auto` — and `auto` over text renders as an I-beam. Measured
+     `summaryCursor: "auto"` on the Advanced response settings row before
+     this line existed. A disclosure is a control, so it points. */
+  cursor: pointer;
+}
+
+/* Reported in the same breath: "the dropdown text isn't aligned with the
+   arrow". It was three pixels high, and the cause is a margin rather than
+   anything about alignment: the `<h3>` inside these summaries carries the
+   app's heading `margin: 0 0 6px`, and a flex container centres an item's
+   *margin box*, so six pixels of bottom margin lift the visible text three
+   pixels above the caret's centre. Measured: summary centre 908.8, heading
+   centre 905.8. Zeroing the margin is the fix; the row's own height comes
+   from the summary, which does not need it.
+
+   (`.inline-h3`'s `display: inline` is inert here for a related reason — a
+   flex item is blockified — which is why that rule could not have been the
+   thing keeping these on one line.) */
+.about-whats-new > :is(h2, h3, h4),
+.settings-section summary > :is(h2, h3, h4),
+.help-accordion > summary > :is(h2, h3, h4) {
+  margin: 0;
 }
 
 .about-whats-new::-webkit-details-marker,
@@ -2935,6 +3000,30 @@ button.icon-only:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.
 button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool) {
   background: var(--ghost-btn-bg);
   border: 1px solid var(--ghost-btn-border);
+}
+
+/* **The `.seg button` exclusion the comment above promised and the selector
+   never delivered.** It cannot be written as another `:not()` there — the
+   class is on the *parent* — so it is this override instead, and it took a
+   report to notice: "can you make the notes view mode look joined?"
+
+   Measured in dark mode before the fix, the notes list/cards toggle had an
+   inactive button at `rgba(255,255,255,0.14)` with a `0.22` border sitting
+   on a segment container of `rgba(255,255,255,0.07)` — the button's own
+   ground was *stronger than the group's*, so the two buttons read as two
+   separate pills rather than one control with a selected half. Exactly the
+   failure the rule above spends three paragraphs promising to avoid.
+
+   The `:not()` chain is repeated verbatim rather than shortened, and that
+   is not copy-paste: the rule above is (0,5,1), so a tidy
+   `.seg > button.icon-only:not(.active)` at (0,3,1) loses to it and changes
+   nothing — measured, the fill was still there. Matching the chain puts
+   this at (0,6,1), which also keeps it above `.seg button.active`'s own
+   fill, the state this control exists to show. */
+.seg > button.icon-only:not(.active):not(.ghost):not(.status-item):not(.tool-btn):not(.wb-tool),
+.seg > button.icon-button:not(.active):not(.ghost):not(.status-item):not(.tool-btn):not(.wb-tool) {
+  background: transparent;
+  border-color: transparent;
 }
 
 /* The small "×" that detaches a chip: a faint disc, so it reads as a button

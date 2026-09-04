@@ -2951,6 +2951,28 @@ function collapseLongSettingHints(root) {
     // The disclosure order stays correct for a screen reader too — the
     // button now precedes the region its `aria-expanded` describes.
     const parent = hint.parentElement;
+    // **A `.setting-check` row puts the "?" in the right-hand control
+    // cluster, next to the switch, not mid-sentence.** Reported: "the 'keep
+    // the AI on this machine' toggle and '?' icon need to be swapped and
+    // properly aligned." Measured before the change: the label text ran to
+    // x=724, the "?" sat at 732 as a 32px circle, and the switch was at
+    // 1089 — 325 pixels of empty row between two controls that belong to
+    // each other, with the heavier of the two interrupting the sentence.
+    //
+    // `.setting-check` is a grid (04-chat-dock-appearance.css), and its
+    // whole point is that the switches down a group form one straight
+    // right edge. So the button becomes a grid item of its own in the
+    // column beside the switch, rather than a child of the label span.
+    // Every other label shape in Settings is flex or block flow with no
+    // such column, and there the button still needs the wrapping row
+    // below — a bare child of `.setting-check > span` (a flex *column*)
+    // lands on a line of its own under the label, which is what the
+    // previous report about this same row was.
+    const settingCheck = parent.closest(".setting-check");
+    if (settingCheck) {
+      settingCheck.insertBefore(toggle, settingCheck.querySelector("input[type=checkbox]"));
+      continue;
+    }
     const row = document.createElement("span");
     row.className = "setting-hint-row";
     while (parent.firstChild && parent.firstChild !== hint) {

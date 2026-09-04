@@ -5438,3 +5438,58 @@ refused, which is the failure the module exists to prevent.
 
 **Could not be verified here:** the user's own instance on :8000. The CSP fix is
 structural rather than a reproduction of their exact state.
+
+## §92 — an alignment pass over five reported rows, and the rule that kept failing
+
+Six defects reported in one message, all measured before and after. Four of
+them turned out to be **one bug wearing different clothes**: a rule reaching
+somewhere it was never written for.
+
+1. **Settings, "Keep the AI on this machine".** The "?" sat at x=732 as a 32px
+   circle mid-sentence, with the switch 325 pixels further right at 1089.
+   `collapseLongSettingHints` now puts the button in the `.setting-check`
+   grid's own second column, so the two controls that belong together sit
+   together (24px, 10px apart, centres 522.2 / 522.1). Every switch in a group
+   still lands on one right edge — measured, five switches, one distinct x.
+2. **"Advanced response settings".** Its cursor was `auto`, which over text is
+   an I-beam, and its heading sat three pixels above the caret. The offset was
+   not alignment at all: the `<h3>` carries `margin: 0 0 6px` and a flex
+   container centres the *margin box*. Both fixed; centres now identical.
+3. **The "File under" list.** `.capture-field-row button` is a descendant
+   selector, and the dropdown opens from inside that row — so every option was
+   pinned to `--control-h` with `padding-block: 0`: 24px rows, text against the
+   edges. Excluded `.menu-item` there and in `.ask-query-row`, which had the
+   same shape. The menu is also `width: max-content` now, so a long category
+   widens the list (204 → 338px on "Postgraduate Research & Methods") instead
+   of wrapping across two lines; it grows leftward from `right: 0`, so the
+   right edge does not move.
+4. **The Ask history toolbar.** Four heights on one row — 40.38, 32, 28, 28 —
+   with matching centres, which is why it read as mismatched rather than
+   crooked. One declared `--control-h`; all four are 36 now.
+5. **Reminders.** The gap between the "Remind me to" row and the When block was
+   *exactly zero*, measured; it is 7.2px now. And the list bar's two segments
+   centred at 400 while the heading and select centred at 404 — the same
+   margin-box story as (2): `.seg` carries `margin-bottom: 0.5rem` for standing
+   alone. Zeroed for a `.seg` inside a row, kept everywhere else; swept all
+   seven tabs to confirm the standalone strips (`notes-subtabs` 9.6px,
+   `library-subtabs` 18px) still have theirs.
+6. **The notes view toggle "looking joined".** In dark mode the *inactive*
+   button was `rgba(255,255,255,0.14)` on a segment container of
+   `rgba(255,255,255,0.07)` — a button whose own ground was stronger than its
+   group's, so two segments read as two loose pills. The icon-affordance rule's
+   own comment already listed `.seg button` as an exclusion; the selector never
+   had it. Worth noting how the fix failed first: the obvious
+   `.seg > button.icon-only:not(.active)` is (0,3,1) against that rule's
+   (0,5,1) and changed nothing. The `:not()` chain is repeated to reach
+   (0,6,1).
+
+**Also built:** Expand all / Collapse all for the collapsed rows view (asked
+for directly). One button, labelled for the move it will make, hidden in cards
+view where every note is already open. It reads the rendered `<li>`s rather
+than recomputing which notes are visible — filtering, sorting, threading and
+pagination all decide that between them. Verified: 60 rows, list 3452 → 4952px
+on expand and exactly back on collapse.
+
+**One test moved rather than changed:** `test_the_prepaint_theme_table_matches_app_js`
+reads `theme-boot.js` now. It failed with "the table has moved", which was
+true — §91 moved it — and is what the test is for.

@@ -1571,6 +1571,39 @@
   margin-right: auto;
 }
 
+/* **A stray bottom margin reads as a misalignment, and this one was
+   reported.** `.seg` carries `margin-bottom: 0.5rem` for the case it was
+   written for — a segmented control standing on its own above the content
+   it filters. As a flex item in an aligned toolbar that margin is part of
+   the item's *margin box*, and `align-items: center` centres the margin box,
+   so every `.seg` in a row sits four pixels above everything beside it.
+
+   Measured on the reminders list bar (reported with a screenshot: "the
+   elements at the top of the reminders list panel arent aligned"): the two
+   segments centred at 400 while the heading and the page-size select
+   centred at 404. Nothing is crooked; a margin is being centred along with
+   the control.
+
+   Scoped to rows rather than removed from `.seg` outright, so a segmented
+   control that really is standing alone keeps the gap under it. */
+:is(.row, .reminder-listbar, .ask-history-toolbar) > .seg {
+  margin-bottom: 0;
+}
+
+/* One height across the bar, the same way `.ask-query-row` and
+   `.capture-field-row` do it. Before: segments 40px, the page-size select
+   35.59px, the heading 24px. */
+.reminder-listbar {
+  --control-h: 2.5rem;
+}
+
+.reminder-listbar > .seg,
+.reminder-listbar > .select-shell > .select-opener,
+.reminder-listbar > select,
+.reminder-listbar > button:not(.menu-item) {
+  min-height: var(--control-h);
+}
+
 /* Group headings read as section labels with a count pill. */
 .reminder-group-head {
   display: flex;

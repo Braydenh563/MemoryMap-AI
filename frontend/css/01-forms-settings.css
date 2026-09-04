@@ -1942,10 +1942,31 @@ li.link-source {
   background: var(--inner);
 }
 
+/* Reported with a screenshot: "the ui of the control elements in the ask
+   subtab history section arent quite aligned and are differing in height."
+   Measured, and it was four different heights on one row — search 40.38,
+   the "Pinned only" label 32, Clear 28, the close button 28. Their centres
+   already matched, which is why it reads as *mismatched* rather than
+   crooked: it is the sizes that disagree, not the alignment.
+
+   Same fix as `.ask-query-row` and `.capture-field-row`: the strip declares
+   one height and its own controls take it. `:not(.menu-item)` is there from
+   the start this time — the two rules that did not have it were flattening
+   the rows of any popup opened from inside them. */
 .ask-history-toolbar {
+  --control-h: var(--control-h-lg);
   gap: var(--space-3);
   align-items: center;
   margin-bottom: var(--space-3);
+}
+
+.ask-history-toolbar > input,
+.ask-history-toolbar > label,
+.ask-history-toolbar > button:not(.menu-item) {
+  height: var(--control-h);
+  min-height: var(--control-h);
+  padding-block: 0;
+  margin: 0;
 }
 
 #ask-history-search {

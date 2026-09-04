@@ -111,10 +111,16 @@ def test_the_prepaint_theme_table_matches_app_js():
     assert "the table has moved" while the table was sitting right there and
     the two copies agreed perfectly.
     """
-    html = _markup()
+    # **`theme-boot.js`, not index.html.** The block moved out of the page
+    # when the last inline script was removed (the CSP kept refusing it — see
+    # `test_static_freshness.py::test_the_page_has_no_inline_script_left`).
+    # It is still the pre-paint copy and still has to match; only its file
+    # changed. This test read index.html and, once the block left, reported
+    # "the table has moved" — which was true, and is exactly what it is for.
+    boot = (INDEX.parent / "theme-boot.js").read_text(encoding="utf-8")
     settings = (INDEX.parent / "settings.js").read_text(encoding="utf-8")
 
-    inline = set(re.findall(r"^\s{8}(\w+): \{ ", html, re.M))
+    inline = set(re.findall(r"^\s{4}(\w+): \{ ", boot, re.M))
     declared = set(re.findall(r"^  (\w+): \{\n\s+label:", settings, re.M))
 
     assert inline, "the pre-paint theme table wasn't found — has it moved?"

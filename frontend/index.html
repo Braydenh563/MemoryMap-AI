@@ -827,6 +827,15 @@ Link to another note with [[its first few words]]."></textarea>
                 title="Compact rows — more notes on screen" aria-label="Show notes as compact rows"><i class="ph ph-list" aria-hidden="true"></i></button>
               <button type="button" id="notes-view-cards"
                 title="Cards — full preview of each note" aria-label="Show notes as cards" class="icon-only"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
+              <!-- Rows only, and it says which way it will go. A row is a
+                   summary that clips its note to one line, so "open them all
+                   to skim" and "tidy them all away again" are the two things
+                   a reader wants after opening two or three by hand — and
+                   there was no way to do either short of clicking every row
+                   back. Hidden in cards view, where every note is already
+                   open and the button would mean nothing. -->
+              <button type="button" id="notes-expand-all" class="ghost small hidden"
+                title="Open every note in this list" aria-label="Open every note in this list"></button>
             </div>
             <input id="note-search" class="library-search" type="search"
               placeholder="Filter — try tag:work or &quot;exact phrase&quot;"

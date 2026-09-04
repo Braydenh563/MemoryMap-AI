@@ -1514,7 +1514,11 @@ button {
 label.setting-check,
 .setting-check {
   display: grid;
-  grid-template-columns: 1fr auto;
+  /* Three columns, not two: label, the row's "?" when it has one, then the
+     switch. The middle track collapses to zero on the rows with no hint, so
+     every switch in a group still lands on one straight right edge — which
+     is the whole reason this is a grid. */
+  grid-template-columns: 1fr auto auto;
   align-items: center;
   column-gap: 0.6rem;
   padding: 0.5rem 0;
@@ -1528,12 +1532,38 @@ label.setting-check,
   grid-column: 1;
 }
 
-/* Hard right, and level with the label's first line however tall the row
-   grows when its hint is open. */
+/* Hard right, and centred in the row. Note what that means when a hint is
+   open: the switch centres against the whole expanded block, not against
+   the label's first line — measured, and left as it is, because the row is
+   collapsed almost all of the time and that is the state the alignment is
+   judged in. (An earlier version of this comment claimed first-line
+   alignment; `align-self: center` on a grid item spanning the tall row
+   never did that.) */
 .setting-check>input[type="checkbox"] {
+  grid-column: 3;
+  grid-row: 1;
+  align-self: center;
+}
+
+/* The "?" beside the switch rather than mid-sentence. Reported: "the 'keep
+   the AI on this machine' toggle and '?' icon need to be swapped and
+   properly aligned" — measured, the label ended at x=724, the "?" sat at
+   732 as a 32px circle, and the switch was 325 pixels further right.
+   Sized down to sit *with* the switch rather than out-weigh it: the switch
+   is the control, this only explains it. */
+.setting-check>.setting-hint-toggle {
   grid-column: 2;
   grid-row: 1;
   align-self: center;
+  width: 1.5rem;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  min-height: 1.5rem;
+  padding: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .settings-group>.setting-check:first-of-type {

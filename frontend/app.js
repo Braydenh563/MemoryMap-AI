@@ -6085,6 +6085,53 @@ function applyNotesViewMode() {
   $("notes-view-cards")?.classList.toggle("active", notesViewMode === "cards");
   $("notes-view-rows")?.setAttribute("aria-pressed", String(notesViewMode === "rows"));
   $("notes-view-cards")?.setAttribute("aria-pressed", String(notesViewMode === "cards"));
+  updateExpandAllButton();
+}
+
+//: **Expand / collapse every row in the list you are looking at.** Asked for
+//: directly ("on the collapsed note view mode there should be an expand
+//: and/or collapse all button"). One button rather than two, because the
+//: only two states it can be in each have exactly one useful next move.
+//:
+//: It reads the rendered `<li>`s rather than recomputing which notes are
+//: visible. Filtering, sorting, threading and pagination all decide that
+//: between them, and a second implementation of "which notes are on screen"
+//: is a second thing to keep in step — the DOM already holds the answer.
+function listedNoteIds() {
+  return [...document.querySelectorAll("#entry-list > li[data-id]")].map((li) =>
+    Number(li.dataset.id)
+  );
+}
+
+function updateExpandAllButton() {
+  const button = $("notes-expand-all");
+  if (!button) return;
+  // Cards view opens every note by definition, so the control would say
+  // nothing there.
+  button.classList.toggle("hidden", notesViewMode !== "rows");
+  if (notesViewMode !== "rows") return;
+  const ids = listedNoteIds();
+  const anyCollapsed = ids.some((id) => !expandedRows.has(id));
+  setLabel(
+    button,
+    anyCollapsed ? "ph:arrows-out-line-vertical Expand all" : "ph:arrows-in-line-vertical Collapse all"
+  );
+  button.title = anyCollapsed
+    ? "Open every note in this list"
+    : "Close every note back to a single line";
+  button.setAttribute("aria-label", button.title);
+  button.disabled = ids.length === 0;
+}
+
+function toggleExpandAllRows() {
+  const ids = listedNoteIds();
+  if (!ids.length) return;
+  const anyCollapsed = ids.some((id) => !expandedRows.has(id));
+  for (const id of ids) {
+    if (anyCollapsed) expandedRows.add(id);
+    else expandedRows.delete(id);
+  }
+  renderEntries();
 }
 
 function setNotesViewMode(mode) {
@@ -6115,6 +6162,7 @@ function toggleRowExpanded(id) {
   renderEntries();
 }
 
+$("notes-expand-all")?.addEventListener("click", toggleExpandAllRows);
 $("notes-view-rows")?.addEventListener("click", () => setNotesViewMode("rows"));
 $("notes-view-cards")?.addEventListener("click", () => setNotesViewMode("cards"));
 
@@ -6222,6 +6270,11 @@ function renderEntries() {
         // turned out to fit. No-op while the sub-tab is hidden;
         // showNotesSection re-runs it.
         settleNoteClamps();
+        // Expand-all reads the rendered rows, and `applyNotesViewMode` runs
+        // at the *top* of this function — right after `replaceChildren()`,
+        // when the list is empty and the button would read "Expand all
+        // (disabled)" forever. Refreshed here, once the rows exist.
+        updateExpandAllButton();
       },
     }
   );

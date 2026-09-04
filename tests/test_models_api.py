@@ -207,3 +207,65 @@ def test_set_vision_model_persists(ai_client):
     assert deps.get_model_manager().vision_model() == "llama3.2"
     body = ai_client.get("/models/status").json()
     assert body["vision_model"] == "llama3.2"
+
+
+# --- rebuilding the search index on demand ---------------------------------------
+#
+# Until this endpoint existed the *only* way to re-embed a notebook was to
+# switch embedding backend and switch back: `set_embedding_backend` starts a
+# re-index because it has to (vectors from two models cannot be compared), and
+# that side effect was the whole mechanism.
+#
+# A stale index is not always the user's doing, though. `embedding_text` — what
+# a vector is actually built from — has changed in this app to include a note's
+# category, tags and attachment text, so vectors written before that encode
+# less than the same note would today. Reported directly: "I have a whole
+# category called hobbies but basically none came up in the semantic search."
+
+
+def test_a_rebuild_can_be_asked_for_directly(ai_client, fake_embeddings):
+    ai_client.post("/entries", json={"content": "seraphine and warwick", "category": "Hobbies"})
+    ai_client.post("/entries", json={"content": "buy milk and eggs"})
+
+    response = ai_client.post("/models/reindex")
+    assert response.status_code == 200
+    assert response.json()["reindex_started"] is True
+
+    _wait_for(ai_client, lambda b: (b["reindex"] or {}).get("status") == "success")
+
+    session = deps.get_db().session()
+    try:
+        records = list(session.scalars(select(EmbeddingRecord)))
+        assert len(records) == 2
+        assert {r.model_version for r in records} == {"fake:keywords-v1"}
+    finally:
+        session.close()
+
+
+def test_a_rebuild_does_not_change_which_backend_is_in_use(ai_client, fake_embeddings):
+    """It re-embeds with the *current* backend. A rebuild that quietly moved
+    the user to a different one would be a settings change wearing a
+    maintenance button's clothes."""
+    config = deps.get_config()
+    before = (
+        config.get_preference("embedding_backend"),
+        config.get_preference("embedding_model"),
+    )
+    ai_client.post("/entries", json={"content": "something to embed"})
+    assert ai_client.post("/models/reindex").status_code == 200
+    _wait_for(ai_client, lambda b: (b["reindex"] or {}).get("status") == "success")
+    assert (
+        config.get_preference("embedding_backend"),
+        config.get_preference("embedding_model"),
+    ) == before
+
+
+def test_a_second_rebuild_while_one_runs_is_refused(ai_client, fake_embeddings, monkeypatch):
+    """409, not a second thread racing the first over the same rows."""
+    monkeypatch.setattr(
+        "memorymap.api.routes_models.jobs.reindex_status",
+        lambda: {"status": "running", "done": 1, "total": 9},
+    )
+    response = ai_client.post("/models/reindex")
+    assert response.status_code == 409
+    assert "already running" in response.json()["detail"]

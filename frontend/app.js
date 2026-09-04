@@ -22466,11 +22466,72 @@ function renderEmbeddingPicker(status) {
   $("embedding-offline-note").classList.toggle("hidden", !offline);
 }
 
+// **Rebuilding the index had no door of its own.** `#reindex-box` only ever
+// appeared *while* a job was running, and the only thing that could start one
+// was switching embedding backend — a re-index is a side effect there, because
+// vectors from two models cannot be compared.
+//
+// That left a real gap. What a vector is built from (`embedding_text`) has
+// changed in this app: a note's category, tags and attachment text are part of
+// it now. Every vector written before that encodes less than the same note
+// would encode today, and reported directly, that is what it looks like from
+// the outside: "I have a whole category called hobbies but basically none came
+// up in the semantic search." The fix shipped; without a rebuild it never
+// reaches a single existing note.
+//
+// Built here rather than in index.html so the control cannot drift away from
+// the job state it reports on — the button, the progress bar and the "when it
+// is worth doing" sentence are one thing, and they are hidden and shown by the
+// same `renderReindex` that already owns that state.
+function ensureReindexControl() {
+  const box = $("reindex-box");
+  if (!box || box.querySelector("#reindex-start")) return null;
+  const row = document.createElement("div");
+  row.className = "row space-between reindex-action";
+  const blurb = document.createElement("p");
+  blurb.className = "muted text-sm";
+  blurb.id = "reindex-blurb";
+  blurb.textContent =
+    "Rebuilds what semantic search matches on. Worth doing after an update, " +
+    "or if searching stops finding notes you know are there — it re-reads " +
+    "every note with its category, tags and attached text included.";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.id = "reindex-start";
+  button.className = "ghost small";
+  setLabel(button, "ph:arrows-clockwise Rebuild search index");
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    try {
+      await apiJson("/models/reindex", { method: "POST" });
+      toast("Rebuilding the search index…");
+      refreshModelStatus?.();
+    } catch (error) {
+      // A 409 is not a failure to report as one: it means the thing the user
+      // asked for is already happening.
+      toast(error.message, !/already running/i.test(error.message || ""));
+    } finally {
+      button.disabled = false;
+    }
+  });
+  row.append(blurb, button);
+  box.appendChild(row);
+  return row;
+}
+
 function renderReindex(status) {
   const box = $("reindex-box");
   const job = status.reindex;
   const running = job && job.status === "running";
-  box.classList.toggle("hidden", !running);
+  ensureReindexControl();
+  // The box is no longer only a progress readout, so it stays visible — the
+  // heading and the progress bar are what come and go with the job.
+  box.classList.remove("hidden");
+  const heading = box.querySelector("h3");
+  if (heading) heading.textContent = running ? "Re-indexing your notes…" : "Search index";
+  $("reindex-progress").classList.toggle("hidden", !running);
+  $("reindex-label").classList.toggle("hidden", !running);
+  $("reindex-start").classList.toggle("hidden", running);
   if (running) {
     $("reindex-progress").value = job.done;
     $("reindex-progress").max = Math.max(job.total, 1);

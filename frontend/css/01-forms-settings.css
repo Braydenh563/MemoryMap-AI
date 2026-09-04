@@ -3524,3 +3524,26 @@ html.modal-open body {
     display: none;
   }
 }
+
+
+/* The "Rebuild search index" row (built by `ensureReindexControl`, app.js).
+   The explanation takes the space; the button keeps its own size rather than
+   being squeezed by it — measured at 105px wide with its two-word label
+   wrapped onto three lines before this, which is exactly the kind of
+   out-of-proportion control this app has been told to stop shipping. */
+.reindex-action {
+  align-items: center;
+  gap: var(--space-5);
+  margin-top: var(--space-4);
+}
+
+.reindex-action > #reindex-blurb {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+
+.reindex-action > #reindex-start {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}

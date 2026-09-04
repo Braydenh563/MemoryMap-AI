@@ -519,21 +519,37 @@ files into that viewer; nothing else changed.
 > while uploaded to a note that hasnt been saved yet, or chat messages that
 > havent been sent yet etc."*
 
-**Done this session:** non-image files dropped in the note composer stage
-and become real `Attachment`s on save. **Still immediate, and should not
-be:**
+**Done:** non-image files dropped in the note composer stage and become real
+`Attachment`s on save. **Chat attachments now stage too** (`attachImageFiles`
+keeps the `File` and an object URL; `commitStagedImages()` uploads at send).
+Verified against a running server: attaching leaves `/media` at 0 and renders
+a `blob:` thumbnail; committing takes it to 1.
 
-- **Images in the note composer.** They still `POST /media/upload` on drop,
-  so abandoning a draft leaves an orphan on disk. Harder than the non-image
-  case because an image is *inline content* — its markdown needs a URL at
-  the point it was dropped. Suggested shape: insert a placeholder keyed to a
-  staged `File`, render it from an object URL, and rewrite the markdown to
-  the real URL after the upload that Save triggers.
-- **Chat attachments** (`attachImageFiles`) — same treatment, keyed to the
-  unsent message.
-- **The Library's own upload button** is the one place instant upload is
-  correct. It exists (Files & Images → Upload); confirm it is the *only*
-  such path once the two above are staged.
+**The audit this section asked for is done.** Every remaining `/media/upload`
+call site was classified:
+
+| Path | Verdict |
+| --- | --- |
+| Library → Files & Images → Upload | **Correct.** The one place instant upload is the point. |
+| The sketch pad's Save | **Correct.** Pressing Save *is* the commit; there is no draft to abandon. |
+| Chat attachments | **Now staged.** |
+| Note-composer inline images | **The one real gap left.** |
+
+**Why the last one is still open, deliberately.** It is the hard case for the
+reason already noted — an image in the middle of a paragraph is *content*,
+so its markdown needs a URL at the point it was dropped. The shape is known
+(a placeholder keyed to a staged `File`, rendered from an object URL and
+rewritten at save), and `handleFileUpload` already has both halves of the
+scaffolding: a `canStage` guard scoped to `#entry-content`, and an existing
+placeholder-then-rewrite flow for the upload it does today.
+
+What stopped it being done in the same pass as the chat half is the failure
+mode, not the effort. Every path that can save the composer has to rewrite
+the staged markers first; one that does not leaves `staged:`/`blob:` URLs
+inside saved note content — **corrupted notes, which is worse than the
+recoverable orphan it replaces** (orphans already have a collector: Library →
+orphan cleanup, `media_gc.find_orphaned_media`). Do it with a test per save
+path, not as a drive-by.
 
 ### R7.3 Cross-linking everything
 

@@ -9557,6 +9557,11 @@ function typingDots(label = "Thinking…") {
     text.className = "typing-label";
     text.textContent = label;
     text.setAttribute("role", "status");
+    // Even with motion off this can still *say* what is happening — see
+    // `progressLine` below for why that matters here specifically.
+    text.setStatus = (next) => {
+      text.textContent = next;
+    };
     return text;
   }
   const dots = document.createElement("span");
@@ -9564,7 +9569,55 @@ function typingDots(label = "Thinking…") {
   dots.setAttribute("role", "status");
   dots.setAttribute("aria-label", label);
   for (let i = 0; i < 3; i++) dots.appendChild(document.createElement("span"));
+  dots.setStatus = (next) => {
+    dots.setAttribute("aria-label", next);
+  };
   return dots;
+}
+
+// **A working signal that says what it is working on.**
+//
+// Reported repeatedly, and finally with two screenshots: "there is no cycling
+// or rotating thinking or generating animations", over a bubble reading a
+// motionless italic "Thinking…". Two separate things produce that:
+//
+//  - **Reduced motion.** `typingDots` above swaps every animation for one
+//    static word when the OS asks for less motion — and the desktop shell
+//    inherits Windows' own "show animations" setting, which is off on a lot
+//    of machines. The honest fix is not to animate anyway; it is to stop the
+//    non-animated state being *dead*. Changing text is information, not
+//    motion, so it is allowed where a bounce is not.
+//  - **One label for the whole turn.** Even animating, three dots that mean
+//    the same thing from the first millisecond to the last say nothing about
+//    a turn that took eleven seconds and did four different things.
+//
+// So this pairs the indicator with a label that the stream updates as real
+// events arrive: what it is doing now, in the app's own words. Nothing here
+// invents a stage — every string it is given comes from an event that
+// actually happened (see `sendChatMessage`), because a progress line that
+// guesses is worse than one that repeats itself.
+function progressLine(initial = "Thinking…") {
+  const wrap = document.createElement("span");
+  wrap.className = "progress-line";
+  const indicator = typingDots(initial);
+  wrap.appendChild(indicator);
+  // Under reduced motion `typingDots` already *is* the sentence — adding a
+  // second one here is how the digest widget once rendered "Thinking…
+  // Thinking about your week…" (see `typingLine`'s own comment). So the
+  // visible label is only built when the indicator is the animated kind.
+  const separate = !indicator.classList.contains("typing-label");
+  const label = separate ? document.createElement("span") : indicator;
+  if (separate) {
+    label.className = "progress-line-label";
+    label.textContent = initial;
+    wrap.appendChild(label);
+  }
+  wrap.setStatus = (next) => {
+    if (!next || next === label.textContent) return;
+    if (separate) label.textContent = next;
+    indicator.setStatus?.(next);
+  };
+  return wrap;
 }
 
 // "⋯ Thinking about your week…" as one node: animated dots plus the sentence
@@ -11376,9 +11429,20 @@ async function sendChatMessage(preset, opts = {}) {
   // A placeholder until the first event arrives; the first real step evicts it.
   const pending = document.createElement("div");
   pending.className = "agent-step step-pending";
-  pending.appendChild(typingDots());
+  const pendingLine = progressLine("Thinking…");
+  pending.appendChild(pendingLine);
   stepsHolder.appendChild(pending);
-  const clearPending = () => pending.remove();
+  // **The placeholder trails the work instead of vanishing at the first
+  // event.** It used to `.remove()` itself the moment anything arrived —
+  // including `meta`, which this app emits almost immediately — so on a turn
+  // that then spent eleven seconds thinking there was nothing left moving
+  // anywhere in the bubble. Moving it to the end of the steps list keeps one
+  // live "still working" line under whatever has happened so far, and the
+  // `finally` that ends the stream is what actually takes it away.
+  const clearPending = () => stepsHolder.appendChild(pending);
+  // Every string this is given comes from an event that really happened —
+  // see `progressLine` on why it must never invent a stage.
+  const say = (text) => pendingLine.setStatus?.(text);
   // **The turn is marked as generating for its whole length, not just until
   // the first event.** Reported as "none of the generating animations work",
   // and this is the mechanism: `clearPending` above runs on the first event
@@ -11571,6 +11635,8 @@ async function sendChatMessage(preset, opts = {}) {
       onMeta: (m) => {
         meta = m;
         status.textContent = "The model is writing…";
+        const found = m?.raw_results?.length || 0;
+        say(found ? `Read ${found} note${found === 1 ? "" : "s"} — writing…` : "Writing…");
       },
       onGrounding: (event) => {
         groundingSentences = event.sentences;
@@ -11620,6 +11686,7 @@ async function sendChatMessage(preset, opts = {}) {
         clearPending();
         timeline.answer(delta);
         status.textContent = "The model is writing…";
+        say("Writing the answer…");
         chatScrollToEnd();
       },
       onTool: (event) => {
@@ -11635,6 +11702,9 @@ async function sendChatMessage(preset, opts = {}) {
         }
         if (event.ok) toolsActed = true;
         status.textContent = "The model is making changes…";
+        // The tool's own label, so the line under the timeline names the
+        // step that is running rather than a generic "working".
+        say((event.label || "Working…").replace(/^ph:[\w-]+\s*/, ""));
         chatScrollToEnd();
       },
       onConfirm: (event) => {
@@ -11744,6 +11814,9 @@ async function sendChatMessage(preset, opts = {}) {
     // generating, so the signal that says it is has to come down here rather
     // than on any one success path.
     bubble.classList.remove("is-generating");
+    // The one place the trailing progress line is taken down — the turn is
+    // genuinely over here, whether it ended, errored or was aborted.
+    pending.remove();
     // Only if it is still ours. Switching away and sending a second message
     // installs a new controller, and this line firing late would null it —
     // leaving Stop wired to nothing while a stream was genuinely running.

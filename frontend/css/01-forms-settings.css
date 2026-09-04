@@ -3105,7 +3105,21 @@ html.modal-open body {
    rebuilt ~30 times a second. `display: inline-block` with a zero-width
    space as content is what makes it sit on the last text line's baseline
    rather than starting a new one. */
-.is-streaming::after {
+/* **The caret goes at the end of the last line, not under the answer.**
+   Reported directly: "all streaming text has this wierd little dot at the
+   bottom", with a screenshot of a green pill sitting alone below the final
+   paragraph.
+
+   That is exactly what `::after` on the *container* does once the container
+   holds block children: the pseudo-element is the container's last child, so
+   a `<p>` before it forces it onto a line of its own. It only ever looked
+   like a caret while an answer was a single run of text with no markdown in
+   it. Putting it on the last child instead puts it back where a caret
+   belongs — inline, immediately after the last word — and `:not(:has(*))`
+   keeps the plain-text case working for a container with no element children
+   at all. */
+.is-streaming:not(:has(*))::after,
+.is-streaming > :last-child::after {
   content: "\200b";
   display: inline-block;
   width: 0.5rem;
@@ -3128,9 +3142,31 @@ html.modal-open body {
    would take the information away from exactly the people least able to
    infer it from text quietly appearing. */
 @media (prefers-reduced-motion: reduce) {
-  .is-streaming::after {
+
+  .is-streaming:not(:has(*))::after,
+  .is-streaming > :last-child::after {
     animation: none;
   }
+}
+
+/* The animated indicator and the sentence that says what it is doing, on one
+   baseline. See `progressLine` (app.js): the label is what carries the
+   signal when the OS has asked for reduced motion and the dots are gone. */
+.progress-line {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.progress-line-label {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  /* A long tool label must not push the step row wider than the bubble. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .typing-dots {

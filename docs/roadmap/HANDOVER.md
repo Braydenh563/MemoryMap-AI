@@ -1,5 +1,130 @@
 # Handover
 
+## Next session: start here — the harness stops looping, the Images tab is back, and what is still asked for
+
+This round ran against the v0.1.9 handover's own priority list. Everything
+below is **done and pushed** or **explicitly still open**. Read the "still
+open" list before building anything.
+
+### Done this round (tests green, each measured or driven live)
+
+**The agent harness (priority 2 of the last list).**
+- **A tool that keeps failing is taken away for the rest of the turn.** The
+  existing guard keyed on the exact (tool, arguments) pair, and the logged
+  `merge_categories` loop never repeated itself — fresh arguments every round,
+  so it never fired once. Failures are counted per *tool name* now
+  (`MAX_TOOL_FAILURES = 3`), and the message saying so arrives on the failure
+  that reaches the cap rather than a round later. Two failures still pass
+  through untouched: that is a model correcting itself, which the recovery
+  hints exist to produce.
+- **A destructive tool cannot paper a turn with confirm cards**
+  (`MAX_PARKED_CONFIRMS = 2`). Parking hands the model
+  `AWAITING_CONFIRMATION`, which is honest but is not a *stop*.
+- **`make_note` runs `create_note`.** The popup agent printed its own tool
+  call as text and made no note: the text-call salvage worked, but dropped it
+  on `name in tool_names` because there is no `make_note` here.
+  `resolve_tool_name` (ai/provider.py) rewrites a recognised *verb* when
+  exactly one real tool answers, and leaves everything else alone so an
+  invented capability is still refused.
+- The popup agent's input is a `<textarea>`: Enter sends, Shift+Enter
+  newlines, grows 29px → 99px → capped ~9rem then scrolls (measured).
+
+**Retrieval and answers.**
+- **The Ask box has its own brief** (`librarian.ASK_OVERVIEW`), on both the
+  blocking and streaming routes. It was answering like a chat turn because
+  `GROUNDING` is a chat turn's brief — every answer ended by offering to keep
+  going, which the results panel beside it has already answered.
+- **Numbered inline citations in answers.** The per-sentence grounding data
+  existed and only ever reached a chip row *under* the answer. Markers are
+  placed only where a grounded sentence is found whole in one text node — a
+  sentence split across markup is skipped rather than reassembled.
+- **"Nothing in your notes" offers what else mentions it** — documents, saved
+  chats, reminders (`_related_elsewhere`, routes_chat.py). **Only on the
+  non-agent path**: with tools on the turn goes down the agent route and never
+  reaches that branch. Worth knowing before anyone reports it missing in Chat.
+- **`POST /models/reindex`.** Rebuilding the index was previously only a *side
+  effect* of switching embedding backend, so the `embedding_text` change that
+  added category/tags/attachment text reached no existing note. There is now a
+  real control for it in Settings → Models.
+
+**The Library and the UI.**
+- **The Images sub-tab was empty and everything sat in Files.** The two loops
+  setting `_isImage` had been dropped by an earlier edit while the comment
+  describing them survived; `undefined` is falsy, so every row satisfied "is a
+  file". Measured after: Images 4 tiles, Files 9.
+- "Used in" chips were sliced at both ends — `text-overflow` was on `.chip`,
+  which is `inline-flex`, so the label was never a line box that could
+  ellipsise. Moved onto `.ph-text`.
+- The whiteboard's note-library list printed a note's raw markdown
+  (`![A real drawn sket…`); it goes through `notePreviewText` now.
+- **Multi-select in the last three Library sub-tabs** — Boards & maps, Links,
+  Contents — mirroring `libraryMediaSelection` + `.library-contextbar`.
+- Three measured layout defects: the Restart row's centred text (513/505 →
+  502.80 both lines), an empty document's 42px Live pane (→ 748.92px), and the
+  chat sidebar's missing filter gap (0 → 7.2px).
+- **The generating signal says what it is doing.** Two causes were behind "no
+  animations": reduced motion (the desktop shell inherits Windows' animation
+  setting) swaps every animation for one dead word, and one label for a whole
+  turn says nothing anyway. The placeholder is now a progress line updated
+  from real events, and it trails the work instead of vanishing on the first
+  one. The streaming caret moved off the container onto its last child — as a
+  container `::after` it landed *under* the answer once markdown was present,
+  which is the "wierd little dot at the bottom".
+
+### Verified rather than rebuilt (do not re-fix these)
+
+- **#42, the "Add to document" combobox clipping** — fixed by the app-wide
+  select escape. Measured with the composer really open: reparented to
+  `<body>`, `position: fixed`, `z-index: 1020`, box (242,488)-(532,776) inside
+  a 1400x900 viewport.
+- **#46, truncated error text in the agent popup** — does not reproduce.
+  Drove a real failing ask: scrollHeight == clientHeight (126), scrollWidth ==
+  clientWidth (467), `overflow: visible`, no clamp.
+
+### Still open — the user's own words, in priority order
+
+1. **The chat interface needs a massive redesign** — "look at odysseus and use
+   that as an example". Extension and reimagination, not a polish pass. Only
+   the generating signal, the citations and the avatar have been touched.
+2. **The agent and skill system redesign.** The harness half of this round's
+   work is the *reliability* floor, not the feature work: "the chat, skills,
+   tools and just the whole harness need to be improved", with "a lot more
+   features and info", including the Ctrl+Shift+A popup's own interface.
+3. **The documents editor, Kortex-style**: slash commands producing rendered
+   blocks the user can keep editing in place, markdown rendering as they
+   finish writing it — not a two-pane preview.
+4. **Knowledge management / memory graph**: "the ai linking of notes and
+   concepts and updating and managing its own understanding of the user's
+   notes and notebook… needs to be majorly improved". The embedding change and
+   the rebuild button are plumbing for this, not the answer.
+5. **App-wide affordance and consistency audit** — "be really critical", and
+   specifically that things must not "look like just text in a box". Toggle
+   consistency (#39) and control placement (#10) are the named parts.
+6. Smaller: suspected zoom-drift in the sketch move/resize handles (#51 — a
+   probe was written and its own measurement was unreliable, so this is **not**
+   a confirmed bug); the Documents page's broader view/edit redesign (#48).
+
+### Traps this round paid for
+
+- **A comment can outlive the code it describes.** The Images-tab regression
+  was two `for` loops silently dropped from a function whose comment still
+  explained them in detail. Nothing threw. If you change that function, change
+  both.
+- **`text-overflow` does nothing on a flex container.** Its children are flex
+  items; there is no line box to ellipsise, so `overflow: hidden` just clips —
+  symmetrically, which reads as text cut off at both ends.
+- **An `::after` caret on a container is not on the text.** Once the container
+  holds block children it lands after the last one, on its own line.
+- **Splitting a text node ends its turn.** Placing an inline marker splits the
+  node; both halves have to go back on the queue or every earlier sentence in
+  that paragraph is skipped.
+- **The empty-retrieval branch is hard to reach on a real notebook** — hybrid
+  search nearly always returns a weak semantic match. Force it in a test
+  rather than trying to find a query that misses.
+- `pkill -f uvicorn` still kills the session's own shell (exit 144). Kill by a
+  single PID from `pgrep -f`. And restart the server after any Python change —
+  a `Method Not Allowed` on a brand-new endpoint is that, not a routing bug.
+
 ## Next session: start here — v0.1.9 shipped, and the full list of what is still asked for
 
 The session that cut v0.1.9 ended on a usage limit mid-stream. Everything

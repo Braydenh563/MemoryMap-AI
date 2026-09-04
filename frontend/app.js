@@ -18638,18 +18638,36 @@ function closePalette() {
   overlayReturnFocus = null;
 }
 
+//: Read a field that is *supposed* to be a string, without letting one bad
+//: record take the whole palette down with it.
+//:
+//: Not defensive padding — the fix for a real outage. The reminders filter
+//: below read `r.content`, and a reminder has no `content`: its field is
+//: `text`. So `undefined.toLowerCase()` threw, and because the throw happened
+//: partway through `paletteMatches`, **every** group was lost with it — notes,
+//: documents, reminders and conversations alike. The palette silently degraded
+//: to its static command list for anyone with so much as one reminder saved,
+//: and the only trace was an exception in a console nobody has open.
+//:
+//: The field name is fixed below. This helper exists so the *class* of failure
+//: cannot come back: a payload that changes shape again costs one missing
+//: group, not all of them.
+function paletteText(value) {
+  return typeof value === "string" ? value.toLowerCase() : "";
+}
+
 function paletteMatches(query) {
   const lowered = query.trim().toLowerCase();
   const commands = paletteCommands().filter((c) =>
-    c.label.toLowerCase().includes(lowered)
+    paletteText(c.label).includes(lowered)
   );
   if (!lowered) return commands;
 
   // Notes: match body or title.
   const notes = allEntries
     .filter((e) =>
-      e.content.toLowerCase().includes(lowered) ||
-      (e.title && e.title.toLowerCase().includes(lowered))
+      paletteText(e.content).includes(lowered) ||
+      paletteText(e.title).includes(lowered)
     )
     .slice(0, 5)
     .map((e) => ({
@@ -18660,7 +18678,7 @@ function paletteMatches(query) {
 
   // Documents: title search against the in-memory docs list.
   const docMatches = docs
-    .filter((d) => d.title && d.title.toLowerCase().includes(lowered))
+    .filter((d) => paletteText(d.title).includes(lowered))
     .slice(0, 3)
     .map((d) => ({
       group: "Documents",
@@ -18669,18 +18687,20 @@ function paletteMatches(query) {
     }));
 
   // Reminders: search content.
+  // `r.text`, not `r.content` — see `paletteText` above for what the wrong
+  // field name actually cost.
   const reminderMatches = paletteReminders
-    .filter((r) => r.content.toLowerCase().includes(lowered))
+    .filter((r) => paletteText(r.text).includes(lowered))
     .slice(0, 3)
     .map((r) => ({
       group: "Reminders",
-      label: `ph:alarm ${r.content.length > 55 ? r.content.slice(0, 55) + "…" : r.content}`,
+      label: `ph:alarm ${r.text.length > 55 ? r.text.slice(0, 55) + "…" : r.text}`,
       run: () => flashReminder(r.id),
     }));
 
   // Conversations: search title.
   const conversationMatches = paletteConversations
-    .filter((c) => c.title && c.title.toLowerCase().includes(lowered))
+    .filter((c) => paletteText(c.title).includes(lowered))
     .slice(0, 3)
     .map((c) => ({
       group: "Conversations",

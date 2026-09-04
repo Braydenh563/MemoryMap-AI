@@ -3188,3 +3188,47 @@ summary:not(.icon-only):not(.icon-button) {
 .cat-row:first-child {
   padding-top: 0;
 }
+
+/* --- a settings group that says what depends on what ---------------------
+   Reported of the About tab: "the elements are all squished together." They
+   were, but the fix is not more space — it is grouping. The Updates group was
+   seven controls in one flat vertical stack (a switch, a button, a switch, a
+   switch, a button, two status lines) in which nothing said that "Check now"
+   acts on the switch two rows above it, or that "Choose a specific version"
+   belongs to the update channel rather than to the app at large. Adding gaps
+   to that spreads seven ungrouped things further apart; it does not make any
+   of them easier to understand.
+
+   Two devices, both of them standard and neither of them decorative:
+
+   `.setting-subhead` names the decision a run of controls is about, so a
+   group with two decisions in it reads as two.
+
+   `.setting-dependent` indents a control behind the setting it depends on
+   and marks the indent with a rule, which is the plainest possible way to
+   say "this belongs to the thing above". It also tightens the gap above
+   itself: a dependent control sitting the same distance from its parent as
+   from the next unrelated setting is the ambiguity being fixed. */
+.setting-subhead {
+  margin: var(--space-5) 0 var(--space-2);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.setting-subhead:first-of-type {
+  margin-top: var(--space-2);
+}
+
+.settings-group .setting-dependent {
+  margin-top: var(--space-2);
+  margin-left: var(--space-5);
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--border);
+}
+
+.settings-group .setting-dependent:empty {
+  display: none;
+}

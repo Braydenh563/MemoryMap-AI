@@ -5109,11 +5109,12 @@ Link to another note with [[its first few words]]."></textarea>
                    applied. Reported live, screenshot and all: "make the
                    toggle lines and buttons the same as the semantic
                    buttons or the attached image". -->
+              <h4 class="setting-subhead">Finding new versions</h4>
               <label class="check-row">
                 <input type="checkbox" id="pref-update-check">
                 <span>Check GitHub for a newer version</span>
               </label>
-              <div class="row" id="update-check-row">
+              <div class="row button-row setting-dependent" id="update-check-row">
                 <button id="update-check-now" class="ghost small" type="button">Check now</button>
                 <!-- Shown only once a check finds a newer version this app can
                      actually apply itself (the post-login dialog's own
@@ -5132,6 +5133,7 @@ Link to another note with [[its first few words]]."></textarea>
                    someone can want to know a release exists (Settings shows
                    it, the popup mentions it) without ever wanting this app
                    to run an installer by itself. -->
+              <h4 class="setting-subhead">Installing them</h4>
               <label class="check-row">
                 <input type="checkbox" id="pref-auto-update">
                 <span>Update automatically when a new version is found</span>
@@ -5150,12 +5152,20 @@ Link to another note with [[its first few words]]."></textarea>
                 <input type="checkbox" id="pref-update-channel-main">
                 <span>Track the main branch instead of stable releases (not yet available)</span>
               </label>
-              <div class="row" id="update-version-row">
+              <!-- Indented under the two switches it belongs to, for the same
+                   reason `#update-check-row` is: a control that only makes
+                   sense in terms of the setting above it should look like it
+                   depends on that setting. Before this the whole group was one
+                   flat stack of seven controls — two switches, a button, a
+                   switch, a button, a status line — in which nothing said
+                   which button acted on which switch. Reported as the About
+                   tab's "elements are all squished together". -->
+              <div class="row button-row setting-dependent" id="update-version-row">
                 <button id="update-show-versions" class="ghost small" type="button">Choose a specific version…</button>
                 <select id="update-version-select" class="small-select hidden" aria-label="Choose a release to install"></select>
                 <button id="update-install-version" class="small hidden" type="button">Install this version</button>
               </div>
-              <span class="muted" id="update-version-status"></span>
+              <span class="muted setting-dependent" id="update-version-status"></span>
               <!-- Only meaningful running from start.bat/start-desktop.bat, which
                    open a console window behind the app — the packaged installer's
                    build has none to show at all. Shown only in the desktop shell

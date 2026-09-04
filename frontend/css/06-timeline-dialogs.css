@@ -1085,13 +1085,30 @@
   border: 0;
 }
 
+/* **Hover and checked must not be the same colour, and they were.** Both
+   resolved to `--accent-soft`, so an *unchecked* option under the pointer was
+   pixel-identical to a *chosen* one — measured on the About tab, where an
+   option reading `checked: false` returned the same
+   `rgba(79, 109, 245, 0.14)` as the checked one beside it. In a group of
+   radio options that is worse than cosmetic: the pointer is on the option you
+   are considering, which is exactly the one you must be able to tell apart
+   from the option already selected.
+
+   Hover is now a neutral lift — "you are pointing at this" — and the accent
+   is reserved for what it should always have meant on its own: this one is
+   chosen. The accent edge makes that readable without relying on a 14% wash
+   being noticed at all. */
 .check-row:hover {
-  background: var(--accent-soft);
+  background: var(--ghost-btn-bg-hover);
 }
 
 .check-row:has(input:checked) {
   background: var(--accent-soft);
-  border-color: var(--glass-border);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.check-row:has(input:checked):hover {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 /* The whole option is clickable, so its text must not be selectable-dragged

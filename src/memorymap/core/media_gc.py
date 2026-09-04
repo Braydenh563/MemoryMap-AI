@@ -137,7 +137,21 @@ def usage_map(session: Session) -> tuple[dict[str, list[dict]], bool]:
             continue
         content = manager.readable_content(entry)
         for name in referenced_names(content):
-            note(name, "note", entry.id, (content or "").lstrip("# ").splitlines()[0] if content else "")
+            # **A private note contributes the link but never its words.**
+            # The label is rendered in the Library's file gallery, and the
+            # first line of a private note is exactly the kind of thing that
+            # must not appear on a wall of thumbnails anyone glancing at the
+            # screen can read. The app already has this convention: a
+            # document's linked-notes list (`routes_documents._linked_notes`)
+            # sends `is_private` and the UI draws a lock instead of the
+            # preview. Same answer here — the connection is still shown and
+            # still clickable, because knowing *that* a file is in use is what
+            # stops it being deleted; only the wording is withheld.
+            if entry.is_private:
+                note(name, "note", entry.id, "Private note")
+                continue
+            first_line = (content or "").lstrip("# ").splitlines()
+            note(name, "note", entry.id, first_line[0] if first_line else "")
 
     return used, skipped_private
 

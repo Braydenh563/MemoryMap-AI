@@ -9,6 +9,10 @@ treated as unreferenced.
 
 from __future__ import annotations
 
+import pytest
+
+from memorymap.core import vault
+
 
 def _upload(ai_client, name="photo.png"):
     return ai_client.post(
@@ -226,3 +230,46 @@ def test_usage_and_the_orphan_check_agree(ai_client):
     assert used["url"] not in orphan_urls
     assert listed[unused["url"]]["used_by"] == []
     assert unused["url"] in orphan_urls
+
+
+@pytest.fixture
+def open_vault(session):
+    """A note can only be made private once a vault exists — `POST
+    /entries/{id}/privacy` answers 409 otherwise, which is what an earlier
+    version of the test below actually hit. Opened by hand because these tests
+    do not go through setup/unlock, and closed again so the state cannot leak
+    into the next test."""
+    vault.close()
+    vault.create(session, "test-passphrase")
+    session.commit()
+    yield
+    vault.close()
+
+
+def test_a_private_note_contributes_the_link_but_not_its_words(ai_client, session, open_vault):
+    """The label is rendered on a wall of thumbnails in the Library. The first
+    line of a private note must not appear there, even with the vault unlocked
+    and the content perfectly readable to the server.
+
+    The connection itself is still reported: knowing *that* a file is in use is
+    what stops it being deleted as an orphan. Only the wording is withheld —
+    the same answer `routes_documents._linked_notes` already gives a document's
+    linked private notes.
+
+    Getting to this state took two corrections worth recording. `POST /entries`
+    silently ignores an `is_private` field, so the first version of this test
+    asserted against a note that was never private. And privacy needs a vault:
+    without one, `POST /entries/{id}/privacy` returns 409, not 200.
+    """
+    uploaded = _upload(ai_client)
+    entry = ai_client.post(
+        "/entries", json={"content": f"SECRET diary line ![i]({uploaded['url']})"}
+    ).json()
+    marked = ai_client.post(f"/entries/{entry['id']}/privacy", json={"private": True})
+    assert marked.status_code == 200, marked.text
+    assert marked.json()["is_private"] is True
+
+    row = next(m for m in ai_client.get("/media").json() if m["url"] == uploaded["url"])
+    assert [u["kind"] for u in row["used_by"]] == ["note"]
+    assert row["used_by"][0]["label"] == "Private note"
+    assert "SECRET" not in str(row["used_by"])

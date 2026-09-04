@@ -2165,6 +2165,21 @@ async function renderLibraryImagesGallery() {
   // `/media/{name}.ext` row — would silently call every attachment a "file"
   // regardless of its real mime.
   const attachments = await apiJson("/files/gallery", { silent: true }).catch(() => []);
+  // Whiteboard sketches, reported three times as missing from Images. They
+  // are SVG path data, never rasterised (see BoardSketchOut's own docstring,
+  // routes_whiteboard.py) — the tile below draws the path inline rather than
+  // this app inventing a PNG-per-stroke pipeline to keep in sync.
+  const sketches = await apiJson("/whiteboard/sketches/gallery", { silent: true }).catch(() => []);
+  for (const item of sketches || []) {
+    item._isImage = true; // a drawing belongs with the pictures, not the files
+    item._isSketch = true;
+    item.original_name = `Sketch on ${item.board_title}`;
+    item.url = "";
+    item.ocr_text = "";
+    item.caption = "";
+    item.vision_ocr_text = "";
+    item.used_by = [{ kind: "board", id: item.board_id, label: item.board_title }];
+  }
   for (const item of images || []) item._isImage = isImageUrl(item.url);
   for (const item of attachments || []) {
     item._isImage = (item.mime || "").startsWith("image/");
@@ -2178,8 +2193,8 @@ async function renderLibraryImagesGallery() {
     item.caption = "";
     item.vision_ocr_text = "";
   }
-  libraryImagesCache = [...(images || []), ...(attachments || [])];
-  if (!images && !attachments?.length) {
+  libraryImagesCache = [...(images || []), ...(attachments || []), ...(sketches || [])];
+  if (!images && !attachments?.length && !sketches?.length) {
     grid.replaceChildren();
     empty?.classList.remove("hidden");
     return;
@@ -2244,8 +2259,29 @@ function filterLibraryImagesGallery() {
     // below read `original_name` for the same reason: it carries the real
     // extension on both kinds of row, where the url only does for one.
     const isImage = image._isImage;
-    const img = document.createElement(isImage ? "img" : "div");
-    if (isImage) {
+    // A sketch has no file behind it at all — it is drawn here from the same
+    // path data the board draws, so the thumbnail can never go stale and no
+    // PNG has to be generated, stored, or cleaned up. `svg` rather than
+    // `img`, so the rest of this loop's `img`-named variable still holds
+    // "whatever this tile's visual is".
+    const img = image._isSketch
+      ? document.createElementNS("http://www.w3.org/2000/svg", "svg")
+      : document.createElement(isImage ? "img" : "div");
+    if (image._isSketch) {
+      img.setAttribute("class", "library-sketch-thumb");
+      img.setAttribute("viewBox", image.view_box);
+      img.setAttribute("preserveAspectRatio", "xMidYMid meet");
+      img.setAttribute("role", "img");
+      img.setAttribute("aria-label", image.original_name);
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", image.d);
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", image.stroke);
+      path.setAttribute("stroke-width", String(image.stroke_width));
+      path.setAttribute("stroke-linecap", "round");
+      path.setAttribute("stroke-linejoin", "round");
+      img.appendChild(path);
+    } else if (isImage) {
       img.src = mediaSrc(image.url);
       img.alt = image.original_name;
       img.loading = "lazy";
@@ -2275,6 +2311,13 @@ function filterLibraryImagesGallery() {
       if (idx !== -1) images.splice(idx, 1);
     });
     img.addEventListener("click", () => {
+      // A sketch's "full size" is the board it lives on — there is no file
+      // to open in a lightbox, and the board is where it can actually be
+      // edited, moved or deleted in context.
+      if (image._isSketch) {
+        openWhiteboardBoard(image.board_id ?? null);
+        return;
+      }
       openLightbox(
         images.map((i) => ({
           filename: i.original_name,
@@ -2288,7 +2331,7 @@ function filterLibraryImagesGallery() {
           // but it names a row in a different table with none of those
           // actions, so it must stay unset here for exactly the reason this
           // comment already gives.
-          id: i._isAttachment ? undefined : i.id,
+          id: i._isAttachment || i._isSketch ? undefined : i.id,
           // Asked for directly: "if clicking on an image to view expand it in
           // the lightbox…can the captions and ocr accompany it somehow??"
           // The tile is the one place these are too small to read.
@@ -2316,7 +2359,11 @@ function filterLibraryImagesGallery() {
       // different id space from MediaUpload — `DELETE /media/{id}` here
       // would either 404 or, worse, delete an unrelated MediaUpload row
       // that happened to share the same numeric id.
-      const endpoint = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
+      const endpoint = image._isSketch
+        ? `/whiteboard/sketches/${image.id}`
+        : image._isAttachment
+          ? `/files/${image.id}`
+          : `/media/${image.id}`;
       await apiJson(endpoint, { method: "DELETE" }).catch((err) => toast(err.message, true));
       const idx = libraryImagesCache.indexOf(image);
       if (idx !== -1) libraryImagesCache.splice(idx, 1);
@@ -2924,7 +2971,9 @@ function filterLibraryImagesGallery() {
     // MediaUpload row — so for an attachment tile, Delete is the only
     // action offered, same principle as the lightbox's own id-gated actions
     // just above ("a button guaranteed to 404 is worse than no button").
-    menuList.append(...(image._isAttachment ? [del] : [rename, captionBtn, visionOcrBtn, ocrBtn, del]));
+    menuList.append(
+      ...(image._isAttachment || image._isSketch ? [del] : [rename, captionBtn, visionOcrBtn, ocrBtn, del])
+    );
     menu.append(menuButton, menuList);
     // Picking anything closes the menu — on the **capture** phase, which is
     // the whole point. This was a bubble-phase listener with a comment
@@ -3154,8 +3203,29 @@ function filterLibraryImagesGallery() {
     // menuList comment above for why that id doesn't belong to this row),
     // and a caption box that looks editable but silently 404s on save is
     // worse than a tile with no caption box at all.
-    fig.append(img, actions, cap, usage, ...(image._isAttachment ? [] : [fields]));
+    fig.append(img, actions, cap, usage, ...(image._isAttachment || image._isSketch ? [] : [fields]));
     grid.appendChild(fig);
+    // The real bounding box, measured once the path is actually in the
+    // document. The server sends a `view_box` too, but it can only estimate
+    // it by pulling numbers out of the path string — and a relative command
+    // (`h 200`, `v 150`) takes *one* number, not an x/y pair, so any path
+    // using them frames wrong. `getBBox()` is the browser's own exact answer
+    // for the geometry it just laid out, so it is right for every command
+    // this app can draw, now and later.
+    if (image._isSketch) {
+      try {
+        const box = img.firstChild.getBBox();
+        const pad = Math.max(image.stroke_width, 1) * 2;
+        if (box.width > 0 || box.height > 0) {
+          img.setAttribute(
+            "viewBox",
+            `${box.x - pad} ${box.y - pad} ${Math.max(box.width + pad * 2, 1)} ${Math.max(box.height + pad * 2, 1)}`
+          );
+        }
+      } catch {
+        /* keep the server's estimate — a tile framed loosely still shows the drawing */
+      }
+    }
   }
 }
 

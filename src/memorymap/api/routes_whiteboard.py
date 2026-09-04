@@ -528,6 +528,98 @@ def list_images(db: Session = Depends(get_session)) -> list[BoardImageOut]:
     return out
 
 
+class BoardSketchOut(BaseModel):
+    """One drawn sketch, enough for the Library's Images tab to draw it.
+
+    Reported three times: "sketches arent shown in the images library
+    subtab". They never could be — a `WhiteboardSketch` is SVG path data
+    (`core/database.py`), and nothing in this app has ever rasterised one, so
+    there was no image file for a gallery of image files to list.
+
+    Rather than start generating (and then having to re-generate, and keep in
+    sync, and garbage-collect) a PNG per stroke, this hands the gallery the
+    path itself: the tile draws an inline `<svg>` from exactly the same `d`
+    the board draws, so it is never stale by construction and costs no
+    storage at all. `view_box` is computed here rather than in the browser so
+    the tile does not have to parse path data to know how to frame it.
+    """
+
+    id: int
+    board_id: int | None
+    board_title: str
+    #: The SVG path, straight from the sketch's own `data` blob.
+    d: str
+    stroke: str
+    stroke_width: float
+    #: "minX minY width height", already padded for the stroke's own width.
+    view_box: str
+    created_at: str
+
+
+#: A link between two cards is a `WhiteboardSketch` too, but it has no `d` of
+#: its own (it is recomputed from its endpoints every render — see
+#: `wbLinkPathD` in whiteboard.js). It is also not a drawing: nobody thinks
+#: of a connector as something they sketched, so it stays out of a gallery of
+#: sketches even though the row type is shared.
+def _sketch_view_box(path_d: str, stroke_width: float) -> str | None:
+    numbers = [float(n) for n in re.findall(r"-?\d+(?:\.\d+)?", path_d)]
+    xs, ys = numbers[0::2], numbers[1::2]
+    if not xs or not ys:
+        return None
+    pad = max(stroke_width, 1.0) * 2
+    min_x, min_y = min(xs) - pad, min(ys) - pad
+    width = max(max(xs) - min(xs) + pad * 2, 1.0)
+    height = max(max(ys) - min(ys) + pad * 2, 1.0)
+    return f"{min_x:.2f} {min_y:.2f} {width:.2f} {height:.2f}"
+
+
+@router.get("/sketches/gallery", response_model=list[BoardSketchOut])
+def list_sketch_gallery(db: Session = Depends(get_session)) -> list[BoardSketchOut]:
+    """Every drawn sketch across every board, newest first."""
+    sketches = db.scalars(
+        select(WhiteboardSketch).order_by(WhiteboardSketch.created_at.desc())
+    ).all()
+    board_ids = {s.board_id for s in sketches if s.board_id is not None}
+    titles: dict[int | None, str] = {None: "Default board"}
+    if board_ids:
+        for entry in db.scalars(select(Entry).where(Entry.id.in_(board_ids), Entry.is_deleted.is_(False))):
+            titles[entry.id] = extract_title(entry.content) or entry.content.strip()[:40] or f"Note {entry.id}"
+    out: list[BoardSketchOut] = []
+    for sketch in sketches:
+        try:
+            parsed = json.loads(sketch.data)
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(parsed, dict):
+            continue
+        path_d = parsed.get("d")
+        # No `d` means a link (see the note above) or a row this app can no
+        # longer make sense of — either way there is nothing to draw.
+        if not isinstance(path_d, str) or not path_d.strip():
+            continue
+        try:
+            stroke_width = float(parsed.get("width") or 3)
+        except (TypeError, ValueError):
+            stroke_width = 3.0
+        view_box = _sketch_view_box(path_d, stroke_width)
+        if not view_box:
+            continue
+        colour = parsed.get("color")
+        out.append(
+            BoardSketchOut(
+                id=sketch.id,
+                board_id=sketch.board_id,
+                board_title=titles.get(sketch.board_id, f"Note {sketch.board_id}"),
+                d=path_d,
+                stroke=colour if isinstance(colour, str) and colour else "#ffffff",
+                stroke_width=stroke_width,
+                view_box=view_box,
+                created_at=sketch.created_at.isoformat(),
+            )
+        )
+    return out
+
+
 @router.post("/boards", response_model=BoardOut, status_code=201)
 def create_board(body: BoardCreate, db: Session = Depends(get_session)) -> BoardOut:
     """A fresh, empty board — a plain note whose whole job is to be one.

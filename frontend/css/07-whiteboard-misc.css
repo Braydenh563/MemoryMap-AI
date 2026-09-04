@@ -3633,7 +3633,11 @@ summary:not(.icon-only):not(.icon-button) {
 /* A chip that goes somewhere. Capped so one long note title cannot push the
    rest of the row out of the card, with the full text still in the title. */
 .library-image-usage-chip {
-  max-width: 16rem;
+  /* `min()`, not a flat 16rem: a gallery tile is ~11.5rem wide, so a 16rem
+     cap let a long board or note title run straight past the card's own
+     edge — visible on the sketch tiles, whose titles are the longest in the
+     gallery ("Sketch on SD board 1788528271333"). */
+  max-width: min(16rem, 100%);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

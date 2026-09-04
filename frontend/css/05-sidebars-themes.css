@@ -2593,6 +2593,26 @@ textarea.autogrow {
    image tile so the grid stays a grid — a PDF among photos must not make
    the row it is in a different height. See library.js's own comment for why
    these tiles used to delete themselves instead of rendering. */
+/* A whiteboard sketch's thumbnail is the drawing itself, rendered inline from
+   the board's own path data (`BoardSketchOut`, routes_whiteboard.py) rather
+   than a generated PNG — so it needs the same box as the two thumbnails it
+   sits beside in the grid, and nothing else. `padding` keeps a stroke that
+   runs to the edge of its own viewBox off the tile's border; the background
+   matches `.library-file-thumb` so a row of mixed tiles reads as one grid.
+
+   Reported three times ("sketches arent shown in the images library subtab")
+   — see the endpoint's docstring for why drawing the vector beats making a
+   raster copy of it. */
+.library-sketch-thumb {
+  display: block;
+  width: 100%;
+  height: 9rem;
+  padding: var(--space-4);
+  border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
+  background: var(--chip-bg);
+  cursor: pointer;
+}
+
 .library-file-thumb {
   display: flex;
   flex-direction: column;

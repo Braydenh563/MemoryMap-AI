@@ -924,12 +924,27 @@ def build_agent_messages(
         f" The current date and time is {local.replace(second=0, microsecond=0).isoformat()}"
         f" ({local.tzname() or 'local time'})."
     )
+    # **The clock goes last, and that ordering is the whole point.** A
+    # prefix cache (Ollama's, llama.cpp's, every backend that has one) keeps
+    # the tokens *before the first difference* and re-reads everything after
+    # it. Rounding to the minute above stops the clock changing between the
+    # rounds of one turn; putting it at the end of the message stops the
+    # minute it does change from invalidating anything ahead of it. Persona,
+    # grounding and the tools guide — by far the largest part of this prompt,
+    # and the part that is identical turn after turn — now sit in front of
+    # every volatile byte, so they are re-read from cache instead of
+    # re-processed. Asked for directly: "keep the system prompt + persona
+    # byte-identical turn to turn so the cache is reused."
+    #
+    # Everything between them is stable *within* a conversation: the style
+    # hint, the profile and the length hint only change when the user changes
+    # a setting or the mode, which is a new prefix either way.
     messages = [
         {
             "role": "system",
             "content": f"{persona} {AGENT_GROUNDING} "
-            f"{tools_guide(budget.window_tokens if budget else None)}{now_hint} "
-            f"{style_hint}{profile_hint}{librarian.length_hint(mode)}",
+            f"{tools_guide(budget.window_tokens if budget else None)} "
+            f"{style_hint}{profile_hint}{librarian.length_hint(mode)}{now_hint}",
         }
     ]
     past = librarian.history_messages(history)
@@ -1184,6 +1199,12 @@ def run_agent(
     # Say so, once, in the system prompt — but only when the list really was
     # narrowed. On a broad request the model already has everything, and a note
     # explaining that the list is partial would simply be false.
+    #: Appended, so it lands in the same tail as the clock rather than ahead
+    #: of it. The tail of this message is the volatile zone by design (see
+    #: build_agent_messages): whether the list was narrowed is decided per
+    #: turn, so this line cannot be part of the cached head either way, and
+    #: putting it *before* the clock would only push the clock further from
+    #: the end for no gain.
     if focused_only and focus_names is not None and messages:
         messages[0]["content"] += FOCUS_NOTE
     if allowed_tools is None:

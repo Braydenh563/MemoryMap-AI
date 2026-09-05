@@ -281,6 +281,32 @@ Driven live by building a tool row against a real note: the chip pressed,
 fetched, rendered the right text, offered Open/Edit, and closed again with
 `aria-expanded` tracking both ways.
 
+### The selection toolbar (part of #13/#48)
+
+Asked for with a link to Obsidian's editing-toolbar plugin. What that plugin
+actually changes is **where** the buttons are — this app's fixed toolbar
+already has more of them — so a small bar now follows the selection in both
+editing surfaces (`#entry-content`, `#doc-content`), built on the two pieces
+that already existed: `editorCaretPoint` (a textarea has no Range, so the caret
+is measured with a mirror element) and `applyMarkdown` (so nothing new decides
+what `**` means).
+
+Three details worth keeping:
+- The buttons fire on **`mousedown`, prevented** — a `click` moves focus out of
+  the textarea first and the browser drops the selection on the way, so there
+  would be nothing left to wrap.
+- It listens to **`selectionchange`**, the one event that covers drag,
+  shift+arrow, double-click, select-all and undo alike.
+- It goes **below** the line when placing it above would land on the fixed
+  toolbar — measured: on a first-line selection it sat straight on top of the
+  note toolbar and read as two stacked toolbars.
+
+Not done, and this is the remaining bulk of the Obsidian ask: **live preview**.
+Both surfaces are still `<textarea>`s, so "bold a word, click off it, and the
+word shows as bolded" needs the substrate change (a contenteditable rendering
+every block except the one being edited). The toolbar work above does not
+depend on it and does not block it.
+
 ### Still open — all of it top priority, in the user's own words
 
 Ranked by how loudly and how often it was asked for.

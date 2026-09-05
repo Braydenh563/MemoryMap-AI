@@ -786,6 +786,130 @@ document.addEventListener(
 window.addEventListener("resize", () => editorMenuState.open && editorCloseMenu());
 
 // ---------------------------------------------------------------------------
+// The selection toolbar
+// ---------------------------------------------------------------------------
+//
+// Asked for with a link to Obsidian's editing-toolbar plugin: *"pease upgrade
+// the way the toolbar works in everything to be like this obsidian toolbar
+// plugin. Ive used it and it is great."*
+//
+// The thing that plugin actually changes is **where the buttons are**, not
+// which ones exist — this app's fixed toolbar already has more of them. A bar
+// that follows the text you selected puts formatting where you are looking,
+// instead of at the top of a panel you may have scrolled a screen away from.
+//
+// Built on the two pieces that were already here: `editorCaretPoint` (a
+// textarea has no Range, so the caret is measured with a mirror element) and
+// `applyMarkdown` (documents.js), so this adds a *place*, not a second opinion
+// about what `**` means. Nothing here knows any markdown.
+const SELECTION_BAR_ACTIONS = [
+  { md: "bold", label: "ph:text-b", title: "Bold (Ctrl+B)" },
+  { md: "italic", label: "ph:text-italic", title: "Italic (Ctrl+I)" },
+  { md: "strike", label: "ph:text-strikethrough", title: "Strikethrough" },
+  { md: "highlight", label: "ph:highlighter", title: "Highlight" },
+  { md: "code", label: "ph:code", title: "Inline code" },
+  { md: "link", label: "ph:link", title: "Link" },
+  { md: "h2", label: "ph:text-h", title: "Heading" },
+  { md: "quote", label: "ph:quotes", title: "Quote" },
+];
+
+const selectionBarState = { textarea: null };
+
+function selectionBarElement() {
+  let bar = $("selection-bar");
+  if (bar) return bar;
+  //: Built once, lazily, rather than sitting in index.html: it belongs to this
+  //: file's behaviour, and a hidden bar in the markup would be one more thing
+  //: for the id/duplicate-listener lints to police for no gain.
+  bar = document.createElement("div");
+  bar.id = "selection-bar";
+  bar.className = "selection-bar hidden";
+  bar.setAttribute("role", "toolbar");
+  bar.setAttribute("aria-label", "Format the selection");
+  for (const action of SELECTION_BAR_ACTIONS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ghost small icon-button";
+    button.dataset.md = action.md;
+    button.title = action.title;
+    button.setAttribute("aria-label", action.title);
+    setLabel(button, action.label);
+    //: `mousedown`, not `click`, and prevented: a click would first move focus
+    //: out of the textarea, and the browser drops the selection on the way —
+    //: so by the time the handler ran there would be nothing selected to wrap.
+    button.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      const textarea = selectionBarState.textarea;
+      if (!textarea) return;
+      applyMarkdown(action.md, textarea.id);
+      //: Deliberately *not* hidden here. `applyMarkdown` leaves the text it
+      //: wrapped selected, so the bar re-anchors to it on the next
+      //: `selectionchange` — which is what lets bold-then-italic be two
+      //: presses rather than a re-selection between them. Hiding it made the
+      //: bar blink out and straight back in.
+    });
+    bar.appendChild(button);
+  }
+  document.body.appendChild(bar);
+  return bar;
+}
+
+function selectionBarHide() {
+  selectionBarState.textarea = null;
+  $("selection-bar")?.classList.add("hidden");
+}
+
+function selectionBarShow(textarea) {
+  const bar = selectionBarElement();
+  selectionBarState.textarea = textarea;
+  bar.classList.remove("hidden");
+  //: Anchored to the *start* of the selection, which is where the eye is when
+  //: a selection is made left-to-right, and measured after the bar is visible
+  //: so its size is real rather than zero.
+  const { top, left, lineHeight } = editorCaretPoint(textarea);
+  const size = bar.getBoundingClientRect();
+  const margin = 8;
+  const boxTop = textarea.getBoundingClientRect().top;
+  let y = top - size.height - 6;
+  //: **Above the line, unless that means on top of the fixed toolbar.** Every
+  //: editing surface in this app has its own formatting row immediately above
+  //: the textarea, so a selection on the *first* line put this bar straight
+  //: over it — measured, and it read as two toolbars stacked rather than as a
+  //: bar belonging to the selection. Below the line in that case: it covers
+  //: the next line of the note instead, which is text you can scroll to and
+  //: not a control you might press by mistake.
+  if (y < Math.max(margin, boxTop)) y = top + (lineHeight || 20) + 6;
+  const x = Math.max(margin, Math.min(left, window.innerWidth - size.width - margin));
+  bar.style.top = `${Math.round(y)}px`;
+  bar.style.left = `${Math.round(x)}px`;
+}
+
+function selectionBarSync() {
+  const active = document.activeElement;
+  if (!(active instanceof HTMLTextAreaElement) || !(active.id in EDITOR_SURFACES)) {
+    return selectionBarHide();
+  }
+  //: A caret is not a selection. Nothing appears until there is text to act
+  //: on, which is what keeps this from being a bar that hovers over the note
+  //: while you type.
+  if (active.selectionStart === active.selectionEnd) return selectionBarHide();
+  selectionBarShow(active);
+}
+
+//: `selectionchange` is the one event that fires for *every* way a selection
+//: can change — drag, shift+arrow, double-click, select-all, undo — where
+//: mouseup/keyup each miss several. It fires on `document`, not the element.
+document.addEventListener("selectionchange", selectionBarSync);
+//: The bar is positioned in viewport coordinates against a caret that moves
+//: when anything scrolls, so it re-anchors rather than drifting away from the
+//: text it belongs to. Capture, because the scroller is usually a descendant.
+document.addEventListener("scroll", () => selectionBarState.textarea && selectionBarSync(), true);
+window.addEventListener("resize", () => selectionBarState.textarea && selectionBarSync());
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && selectionBarState.textarea) selectionBarHide();
+});
+
+// ---------------------------------------------------------------------------
 // Create-on-miss: a link to something that does not exist yet
 // ---------------------------------------------------------------------------
 

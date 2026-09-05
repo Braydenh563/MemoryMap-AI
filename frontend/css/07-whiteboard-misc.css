@@ -4536,3 +4536,34 @@ button.connection-row {
     display: none;
   }
 }
+
+
+/* The selection toolbar (editor.js). Positioned in viewport coordinates
+   against the caret, so it is `fixed` — an absolutely-positioned bar would be
+   offset by every scrolling ancestor between it and the textarea. */
+.selection-bar {
+  position: fixed;
+  /* 59, one below `.editor-menu`'s 60: when a selection is live *and* the "/"
+     menu is open, the menu is the thing being driven by the keyboard and must
+     win. There are no z-index tokens in this stylesheet — every layer here is
+     a literal, and inventing a token for one rule would be the odd one out. */
+  z-index: 59;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--modal-bg);
+  box-shadow: var(--shadow-lg);
+  /* Backdrop blur, because `--modal-bg` is deliberately 4% see-through (see
+     CLAUDE.md's nav-history story) and this bar sits directly over the densest
+     text in the app — the note it is formatting. */
+  backdrop-filter: blur(8px);
+}
+
+.selection-bar button {
+  /* Round, so the row reads as one connected control rather than eight
+     rectangles — and matching the pill the bar itself is. */
+  border-radius: var(--radius-pill);
+}

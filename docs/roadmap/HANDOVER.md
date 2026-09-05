@@ -1,6 +1,168 @@
 # Handover
 
-## Next session: start here — the harness stops looping, the Images tab is back, and what is still asked for
+## v0.2.0 candidate — start here
+
+This round is large enough that the user called it "even a release 0.2.0". It
+was driven by a long, continuous stream of live reports with screenshots. Two
+things matter more than the list itself:
+
+**1. The recurring defect in this codebase is the enumerated allowlist.**
+Nearly every visual bug found this round had the same shape: a CSS recipe that
+names its members explicitly, and a new caller that never enrolled. The default
+for a non-member is not "unstyled" — it is *the platform control at the
+accessibility floor*, which is the ugliest available outcome, and it arrives
+with no warning, no log and no failing test.
+
+Instances found and fixed this round:
+- `.doc-list-tick` on neither tick recipe → native 28px slabs in the Documents
+  list, the saved-links rows and the Contents page (three surfaces, two
+  separate user reports).
+- `.checkbox-label` not on the switch recipe → the Skills background workers
+  as native checkboxes, despite the code comment claiming "the app's own pill
+  toggle".
+- Then `.checkbox-label` added to the switch recipe's *base* rule only — that
+  recipe repeats its list **six times** (base, `::after`, `:hover`, `:checked`,
+  `:checked::after`, `:disabled`), so the control became a pill with no knob
+  and no state. **If you add a member to one of these lists, add it to all
+  six, with each list's own suffix.**
+- Radios: the `--target-min` floor named them, resurrecting a width on
+  clip-hidden controls; and a dead visible-radio rule out-specified all three
+  rules that hide them.
+
+Before adding a control, grep for the recipe it should belong to and check
+every copy of its selector list. A `getComputedStyle` for `appearance: auto`
+across the app finds the whole class in one sweep — the script pattern is in
+the commits.
+
+**2. `border: none` is a trap here, and so is any label written as text.**
+- `border: none` sets the *style* to none and leaves the *width* at `medium`.
+  The Appearance rule forces `border-style` back to `solid` with `!important`,
+  which resurrects a **3px border** on elements every stylesheet believes are
+  borderless. Fifteen elements were carrying one. Write `border: 0`.
+- Every "some icons still don't render" report has been a label written with
+  `textContent` instead of `setLabel`. A sweep of all 188 icons this app
+  references against the vendored Phosphor set found **zero** genuinely
+  missing. If a `ph:` token shows as text, find the assignment, not the icon.
+
+### Done this round (each measured in Chromium, suite green, pushed)
+
+**Reported bugs, with the measurement that settled each.**
+- Lightbox "find in document" was 40.38px tall against 28px buttons, at 16px
+  type against 13.6px. Its fix had been written once and never applied:
+  `.lightbox-find` is (0,1,0) and loses to `input[type="search"]` at (0,1,1).
+  Scoped to `.lightbox .lightbox-find`; now 28px and 13.6px, matching.
+- A borderless control drawing a 3px border, in 15 places (see above).
+- A deleted photo drew the browser's torn-page glyph and its raw filename in
+  timeline popups. One capturing listener on the document now swaps any failed
+  `/media`/`/files` image for a styled "no longer in this notebook" chip —
+  `error` does not bubble but does capture, which is also the only way to
+  reach images inside rendered markdown. The note's own text is left alone.
+- Whiteboard shapes and links lagged behind notes on a pan: cards moved by CSS
+  transform, the two SVG groups by the `transform` *attribute* — a geometry
+  change relaid out every frame. All three now use the CSS transform. Safe
+  only because `getScreenCTM()` folds in a CSS transform on an SVG element,
+  which was **measured, not assumed**: identical matrices and identical
+  screen→board point mapping.
+- Adjusting a link endpoint also drew a selection marquee. The handles live in
+  `.wb-sketch-handle-group`, which the marquee's "empty canvas" test did not
+  know. Its `stopPropagation` fires on `mousedown`; the marquee listens on
+  `pointerdown`, which is dispatched first — **two event families cannot
+  cancel each other**, so the target check was the only fix.
+- Tool rows rendered as Python `repr` dicts after a reload, and reloaded turns
+  showed *less* than live ones (the steps replay passed two arguments where
+  the live path passes three, dropping the disclosure). Both fixed; six tests.
+- "Girl with bell undefined" in Contents previews: `notePreviewText`'s capture
+  groups were off by two after a `++colour|text++` alternative was added to
+  INLINE_MD. Wrong three ways, one visible — images and links both previewed
+  as "undefined", and `==red|x==` previewed as "red". Five tests pin it,
+  including a canary on the group count.
+- File tiles: the PDF page render pushed the type glyph out of a fixed 9rem
+  `overflow: hidden` box. It covers the tile now, as its own code comment
+  always said it should.
+- Three "model used" badges drawn three ways; the two broken ones had `0`
+  padding above and `6px` below, so `align-items: center` could not save them.
+
+**Asked-for features built.**
+- Popup agent: retrieved notes render as openable chips, and note ids in the
+  prose become links — including the whole list in "notes id 3, 43 and 49",
+  which is the report's own sentence. Only retrieved ids link, so an invented
+  one stays text.
+- Popup agent metadata: search mode, model, persona, token count (marked
+  "(est.)" when the model did not report usage), round count, and a closed
+  Thinking disclosure. None of it was new machinery — `onMeta`, `onStats` and
+  `onThinking` were all wired to `() => {}`.
+- One app-wide generating animation (`.is-generating`), a breathing accent
+  ring on whichever element is producing output. Reduced motion keeps the ring
+  and drops the movement.
+- "Ask again" no longer offers back instructions you already ran: asks and
+  agent requests are logged to separate audit surfaces. Five tests.
+- Files sub-tab preview/filetype toggle, on the same `.seg` control the notes
+  list uses.
+- Tools settings rows moved onto the canonical settings-row grid — 51 rows,
+  switch on the right edge like every other setting.
+- Contents page lost its selection ticks entirely: "it is purely a table of
+  contents". Files, Images, Documents and Links keep their multi-select.
+- Selects normalised to `--text-md` — 300 of them were at body size. The
+  spaces dropdown and the whiteboard's dense property selects are untouched,
+  as asked.
+
+### Still open — all of it top priority, in the user's own words
+
+Ranked by how loudly and how often it was asked for.
+
+1. **The chat interface and the documents editor.** "still need a large
+   redesign and reimagined interface with more features. they feel very fake
+   and just rudimentary, not an actual feature fitting a professional
+   application." Look at odysseus (AGPL, may be borrowed with notices).
+2. **An Obsidian-exact editor.** "I want the text editor to be EXACTLY LIKE
+   OBSIDIAN" — bold a word, click off it, the word renders bold in place;
+   the markup collapses when the caret leaves and returns when it enters.
+   Headings, italics, underlines, highlights, all of it.
+   **Toolbar: copy https://github.com/PKM-er/obsidian-editing-toolbar.git**
+   ("Ive used it and it is great"), in *everything*, not just documents.
+   **START FROM `frontend/editor.js` — the "/" menu already exists.** A
+   previous session nearly rebuilt it from scratch. The question is what is
+   missing from it.
+3. **Kortex-style structured blocks**, in notes AND reminders AND everything:
+   "/" commands producing real collapsible, labelled, in-place-editable boxes.
+   Apple Notes is the second reference.
+4. **Chat as the notebook's handler**: the agent drafts a note, chat shows a
+   real rendered preview, the user edits it in place.
+5. **Markdown file trees and Obsidian vault linking** — called out directly as
+   "the largest gap that is missing right now". Import alone is not the ask;
+   the tree and the cross-linking are.
+6. **OCR / document extraction**, to the shape of Baidu Unlimited-OCR
+   (https://huggingface.co/baidu/Unlimited-OCR). Three panes: the page with
+   typed, coloured region boxes over it; the structured extraction with
+   per-region bounding boxes and types (`text`/`title`/`list`/`table`/
+   `page_number`); and the page reconstructed from those regions. Region-based
+   and typed, **not one blob of text** — that is what makes the side-by-side
+   check possible and lets a table stay a table. Note the standing constraint:
+   no torch, no sentence-transformers, so establish what can run locally
+   before promising this model.
+7. **The app-wide affordance and semiotics pass.** "think ux semiotics and
+   affordances for everything." A control's appearance must signify what it
+   does and how to work it; two controls doing the same job must look the
+   same, two doing different jobs must not. Named example still open: icons in
+   controls that "feel fake and just part of the text", misaligned with it —
+   the "peek" button in Appearance settings.
+8. **Dropdown unification, second pass.** First pass normalised type size.
+   The user likes the notes-tab and documents-subtab dropdowns; the spaces one
+   is to be left alone; everything else should converge.
+9. **Popup agent as an application-wide utility tool** — still missing
+   navigation to grounded *documents and files* (notes are done).
+10. **Library sorting and filtering** across the sub-tabs.
+11. **Favourites** as a parallel pseudo-category for notes.
+12. **Widgets menu and widget editing** redesign; dashboard improvements
+    explicitly lower priority.
+13. Deeper notebook backend: better grouping, better linking, better AI
+    understanding of every feature.
+14. Whiteboard region → PNG export into the image library.
+15. Gap below the badges above "used in" and the captions box.
+
+## The previous round's handover
+
+### Next session: start here — the harness stops looping, the Images tab is back, and what is still asked for
 
 This round ran against the v0.1.9 handover's own priority list. Everything
 below is **done and pushed** or **explicitly still open**. Read the "still

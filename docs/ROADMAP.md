@@ -12,7 +12,29 @@ against a running Ollama/LM Studio. UI claims are now checkable (Chromium is
 in the sandbox); model *behaviour* claims are not — reproduce or say plainly
 you couldn't.
 
-## ► START HERE: the redesign is the priority
+## ► START HERE: the v0.2.0 round
+
+**Read the top of [roadmap/HANDOVER.md](roadmap/HANDOVER.md) before anything
+else.** It opens with the two defect *shapes* that account for nearly every
+visual bug reported this round — the enumerated CSS allowlist that a new
+caller silently falls off, and `border: none` resurrecting a 3px border under
+an `!important` border-style — and then lists what is done and what is still
+asked for, ranked.
+
+The fifteen open items there are all top priority by the user's own
+instruction. In short, and in their words: the chat interface and documents
+editor "still need a large redesign... they feel very fake and just
+rudimentary"; the text editor must be "EXACTLY LIKE OBSIDIAN" (live WYSIWYG
+markdown, plus the obsidian-editing-toolbar plugin's toolbar, in everything);
+Kortex-style structured blocks in notes and reminders too; markdown file trees
+and Obsidian vault linking, "the largest gap that is missing right now";
+region-typed OCR to the shape of Baidu Unlimited-OCR; and an app-wide pass on
+"ux semiotics and affordances for everything".
+
+**Start from `frontend/editor.js` for anything slash-command shaped** — the
+"/" menu already exists and a previous session nearly rebuilt it.
+
+## The earlier redesign brief
 
 A full UX/architecture re-imagining was asked for and is written up in
 **[roadmap/REDESIGN.md](roadmap/REDESIGN.md)** — measured evidence for every

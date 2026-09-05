@@ -1242,7 +1242,8 @@ def _pin_note(session: Session, args: dict) -> dict:
         )
         session.commit()
     result = _note_summary(session, entry)
-    result["label"] = f"ph:push-pin {'Pinned' if pinned else 'Unpinned'} note #{entry.id}"
+    verb = "Added to Favourites" if pinned else "Removed from Favourites"
+    result["label"] = f"ph:star {verb}: note #{entry.id}"
     result["undo"] = {
         "tool": "pin_note",
         "arguments": {"note_id": entry.id, "pinned": not pinned},
@@ -2728,7 +2729,13 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "pin_note",
-            "Pin (or unpin) a note so it floats to the top of lists.",
+            # The tool keeps its name — renaming it would break every saved
+            # skill and every plan that calls it — but the description is what
+            # the model reads, and it now names the feature the user sees.
+            # "Favourites" is a place in the sidebar; "floats to the top" is
+            # the sort. The flag does both, so the sentence says both.
+            "Add a note to Favourites (or remove it). Favourited notes appear "
+            "under Favourites in the sidebar and float to the top of lists.",
             {
                 "type": "object",
                 "properties": {

@@ -1519,13 +1519,24 @@ function entryItem(entry, options = {}) {
     const actions = document.createElement("span");
     actions.className = "entry-actions";
     actions.appendChild(
-      smallButton(entry.pinned ? "ph:push-pin-slash" : "ph:push-pin", entry.pinned ? "Unpin" : "Pin to top", async () => {
-        await api(`/entries/${entry.id}`, {
-          method: "PUT",
-          body: JSON.stringify({ pinned: !entry.pinned }),
-        });
-        await loadEntries();
-      })
+      //: **Star, not pin, and "Favourites", not "pinned".** The flag does two
+      //: things — floats a note to the top of a list *and* collects it into
+      //: the Favourites row in the sidebar — and it was named for only the
+      //: first, so the app showed one concept under two names with two icons.
+      //: Asked for: "make sure the favourites feature is actually integrated
+      //: everywhere." The tooltip keeps the sort behaviour, since that is the
+      //: half a star does not imply on its own.
+      smallButton(
+        entry.pinned ? "ph:star-slash" : "ph:star",
+        entry.pinned ? "Remove from Favourites" : "Add to Favourites (also floats it to the top)",
+        async () => {
+          await api(`/entries/${entry.id}`, {
+            method: "PUT",
+            body: JSON.stringify({ pinned: !entry.pinned }),
+          });
+          await loadEntries();
+        }
+      )
     );
     actions.appendChild(
       smallButton("ph:clipboard", "Copy this note's text", async () => {
@@ -1565,7 +1576,7 @@ function entryItem(entry, options = {}) {
     metaEnd.appendChild(actions);
   }
   if (entry.is_private) meta.insertBefore(chip("ph:lock private"), meta.firstChild);
-  if (entry.pinned) meta.insertBefore(chip("ph:push-pin pinned"), meta.firstChild);
+  if (entry.pinned) meta.insertBefore(chip("ph:star favourite"), meta.firstChild);
   // Set either by the text-selection popup's "Save as draft note" (not yet
   // looked at) or by the Writing Room's "Save as note" (drafted with the AI,
   // however much it was edited before saving) — asked for directly: both
@@ -5276,7 +5287,7 @@ function beginOrCompleteLink(entry) {
 //
 //   tag:work            only notes tagged "work"
 //   cat:recipes         only notes in that category (category: also works)
-//   is:pinned           pinned / private / linked / untagged
+//   is:favourite        favourite (is:pinned too) / private / linked / untagged
 //   tags:<2             fewer than 2 tags — also <=, >, >=, = (or bare N)
 //   -picnic             notes that do NOT mention "picnic"
 //   "exact phrase"      that phrase, verbatim
@@ -5365,7 +5376,13 @@ function matchesSearch(entry) {
     return false;
   }
   for (const flag of query.flags) {
-    if (flag === "pinned" && !entry.pinned) return false;
+    //: `is:favourite` is the name the rest of the app now uses; `is:pinned` is
+    //: kept because it is in this app's own help text, in saved filters people
+    //: already have, and in muscle memory. Two spellings of one flag is a
+    //: smaller cost than breaking a filter somebody saved.
+    if ((flag === "pinned" || flag === "favourite" || flag === "favourites") && !entry.pinned) {
+      return false;
+    }
     if (flag === "private" && !entry.is_private) return false;
     if (flag === "linked" && !(entry.links || []).length) return false;
     if (flag === "untagged" && tags.length) return false;
@@ -6698,7 +6715,7 @@ function renderSidebar() {
   favouriteBadge.className = "count";
   favouriteBadge.textContent = favouriteCount;
   favouriteRow.append(favouriteName, favouriteBadge);
-  favouriteRow.title = "Notes you have pinned";
+  favouriteRow.title = "Notes you have starred — they also float to the top of every list";
   favouriteRow.addEventListener("click", () => {
     favouritesOnly = !favouritesOnly;
     draftsOnly = false;
@@ -19577,7 +19594,7 @@ function paletteCommands() {
     // Filters as commands: the fastest route to "the notes I mean" without
     // remembering the operator syntax.
     ...[
-      ["ph:push-pin Show pinned notes", "is:pinned"],
+      ["ph:star Show favourites", "is:favourite"],
       ["ph:tag Show untagged notes", "is:untagged"],
       ["ph:lock Show private notes", "is:private"],
       ["ph:link Show linked notes", "is:linked"],

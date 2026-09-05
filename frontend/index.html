@@ -2227,9 +2227,13 @@ Link to another note with [[its first few words]]."></textarea>
           <button type="button" data-md="strike" title="Strikethrough"><s>S</s></button>
           <button type="button" data-md="code" title="Inline code">&lt;/&gt;</button>
           <span class="doc-toolbar-sep" aria-hidden="true"></span>
-          <button type="button" data-md="ul" title="Bulleted list">• List</button>
-          <button type="button" data-md="ol" title="Numbered list">1. List</button>
-          <button type="button" data-md="task" title="Task list"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Task</button>
+          <!-- Icons, not "• List" / "1. List" / "Task". A row where three
+               controls carry words and twenty carry glyphs reads as three
+               different toolbars; the names are in the tooltips and the ARIA
+               labels, which is where every other control here keeps them. -->
+          <button type="button" data-md="ul" title="Bulleted list" aria-label="Bulleted list"><i class="ph ph-list-bullets" aria-hidden="true"></i></button>
+          <button type="button" data-md="ol" title="Numbered list" aria-label="Numbered list"><i class="ph ph-list-numbers" aria-hidden="true"></i></button>
+          <button type="button" data-md="task" title="Task list" aria-label="Task list"><i class="ph ph-check-square" aria-hidden="true"></i></button>
           <span class="doc-toolbar-sep" aria-hidden="true"></span>
           <button type="button" data-md="link" title="Link" aria-label="Link"><i class="ph ph-link" aria-hidden="true"></i></button>
           <!-- **Two folds, because twenty-five controls do not fit.** Reported:

@@ -3515,3 +3515,48 @@ label.setting-check,
   border-color: color-mix(in srgb, var(--error) 45%, transparent);
   font-weight: 600;
 }
+
+
+/* **The document's title reads as a title, not as a form field.**
+
+   Asked for as part of "a full clean professional redesign" of the editor.
+   Every editor the user compares this to — Obsidian, Notion, Kortex — shows
+   the title as the first line of the document: large, borderless, with the
+   chrome appearing only when you go to change it. A bordered input above a
+   borderless page says "fill in this form", which is the opposite of what the
+   pane is for.
+
+   The field keeps its box on hover and focus, so it still says plainly that it
+   is editable — the affordance moves to the moment of use rather than being
+   painted permanently over the document's own heading. */
+/* **`input.` and not just `.`, and that prefix is the whole fix.**
+   `input[type="text"]` in 01-forms-settings.css is (0,1,1) and beats a lone
+   class — which is why the *existing* `.doc-title-input` rule a few hundred
+   lines above, setting `font-size: 1.15rem; font-weight: 650`, has never once
+   applied: measured at 16px/400 with both rules in the sheet and matching.
+   An element+class selector ties at (0,1,1) and wins on source order, this
+   file being the later one. */
+input.doc-title-input {
+  border-color: transparent;
+  background: none;
+  font-size: var(--text-h3);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  padding-left: var(--space-2);
+}
+
+input.doc-title-input:hover {
+  border-color: var(--border);
+  background: var(--inner);
+}
+
+input.doc-title-input:focus,
+input.doc-title-input:focus-visible {
+  border-color: var(--accent);
+  background: var(--card);
+}
+
+input.doc-title-input::placeholder {
+  font-weight: 500;
+  color: var(--muted);
+}

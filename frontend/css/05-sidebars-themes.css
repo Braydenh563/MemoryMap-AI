@@ -1188,15 +1188,52 @@ body.resizing-sidebar {
    different control heights in the screenshot that came with "fix/redesign
    the ui, layout, alignment, sizing". The dock is `.doc-dock` now and shares
    only the separator. */
+/* **One row that scrolls, pinned to the top of the editor.**
+
+   Two changes, both about the same thing — a toolbar is furniture, and
+   furniture that moves or grows is furniture you have to look at:
+
+   - `flex-wrap: wrap` let the row become two (and, before the colour selects
+     were sized, four). A second row appears and disappears as the pane is
+     resized, shifting the whole document down by 33px each time. `nowrap`
+     plus a scroller keeps the editor's top edge where it was, and the
+     controls that do not fit are one flick away rather than one reflow.
+   - Sticky, because in a long document the formatting controls are needed
+     where the caret is, not at the top of a page you have scrolled away from.
+     `z-index` above the prose, and an opaque ground so text does not show
+     through it. */
 .doc-toolbar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.25rem;
   padding: 0.4rem 0.4rem;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   background: var(--card);
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  overflow-x: auto;
+  overflow-y: visible;
+  /* A scrolling strip needs its own scrollbar to be unobtrusive: this is
+     chrome, not content. */
+  scrollbar-width: thin;
+}
+
+/* Nothing in the strip may shrink — a squeezed button is a button whose glyph
+   no longer centres, and the row scrolls precisely so it does not have to. */
+.doc-toolbar > * {
+  flex: none;
+}
+
+/* A menu inside a scrolling container would be clipped by it. These are
+   `<details>` popovers positioned against the strip, so the strip is told to
+   let them out — `overflow-y: visible` above does that vertically, and this
+   keeps the popover itself out of the scroll calculation. */
+.doc-toolbar .doc-toolbar-menu[open] .doc-dock-menu-list {
+  position: absolute;
+  z-index: 4;
 }
 
 /* The colour pickers are <select>s, and this app styles form controls as

@@ -2549,14 +2549,29 @@ function mountEditorToolbarExtras(bar) {
   for (const menu of EDITOR_TOOLBAR_MENUS) {
     const details = document.createElement("details");
     details.className = "doc-dock-menu doc-toolbar-menu";
+    //: **Drawn exactly like the two menus written in the markup.** These were
+    //: built with different classes and an icon *plus a word* — "Heading",
+    //: "Block", "More", "Insert" — sitting in a row where every other control
+    //: is a glyph. Four labelled chips among twenty icons is what makes a
+    //: toolbar read as assembled rather than designed, and it is the same
+    //: "two implementations of one control" shape this project keeps paying
+    //: for. The name lives in the tooltip and the ARIA label, where the
+    //: markup's own menus already keep theirs.
     const summary = document.createElement("summary");
+    summary.className = "doc-dock-menu-btn doc-toolbar-menu-btn";
     summary.title = menu.title;
-    setLabel(summary, `${menu.icon} ${menu.label}`);
+    summary.setAttribute("aria-label", `${menu.label} — ${menu.title}`);
+    setLabel(summary, menu.icon);
+    const caret = document.createElement("i");
+    caret.className = "ph ph-caret-down doc-toolbar-menu-caret";
+    caret.setAttribute("aria-hidden", "true");
+    summary.appendChild(caret);
     const body = document.createElement("div");
-    body.className = "doc-dock-menu-body";
+    body.className = "doc-dock-menu-list";
     for (const [md, label] of menu.items) {
       const button = document.createElement("button");
       button.type = "button";
+      button.className = "doc-dock-menu-item";
       button.dataset.md = md;
       button.textContent = label;
       body.appendChild(button);

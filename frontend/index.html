@@ -1106,6 +1106,15 @@ Link to another note with [[its first few words]]."></textarea>
                      heavy it has become, and neither means much alone. -->
                 <span id="chat-turns" class="chat-usage" hidden
                   title="How many exchanges are in this conversation"></span>
+                <!-- **How full the model's window is, for the thread rather
+                     than for one message.** Odysseus keeps this in its chat
+                     header for the reason that matters on a local model: the
+                     per-message meter tells you what one turn cost, and by the
+                     time you read it the *next* turn is the one about to drop
+                     the top of its own prompt. Clicking it opens Compress,
+                     which is the actual remedy. -->
+                <button type="button" id="chat-context" class="chat-usage chat-context-pill" hidden
+                  title="How full the model's context window is"></button>
                 <span id="chat-usage" class="chat-usage" hidden
                   title="Everything this conversation has sent to the model so far"></span>
                 <!-- Shown only once a summary is in use, because a compression

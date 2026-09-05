@@ -9070,10 +9070,15 @@ function assistantLabel() {
 // A hover-reveal row of small actions under a chat bubble. Each action is
 // { label, title, onClick }. onClick gets the click event so buttons can
 // give inline feedback (e.g. a copy tick).
+//: How many actions a message row shows before the rest fold into a ⋯. Five is
+//: what fits beside the shortest message this app produces without the row
+//: being wider than the bubble it belongs to.
+const MSG_ACTIONS_VISIBLE = 5;
+
 function chatMessageActions(actions) {
   const row = document.createElement("div");
   row.className = "msg-actions";
-  for (const action of actions) {
+  const make = (action) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "msg-action";
@@ -9081,9 +9086,87 @@ function chatMessageActions(actions) {
     button.title = action.title;
     button.setAttribute("aria-label", action.title);
     button.addEventListener("click", action.onClick);
-    row.appendChild(button);
+    return button;
+  };
+  //: **The row grew past what a row can hold.** An assistant message now
+  //: offers ten things (copy, regenerate from here, rewrite shorter, explain
+  //: simpler, fork from here, read aloud, save as note, remind me, edit,
+  //: delete) — the Odysseus footer's set plus this app's own capture actions.
+  //: Ten buttons over a two-line answer is not a control row, it is a toolbar
+  //: that happens to be under a message, so the rest go behind the same ⋯ the
+  //: app uses everywhere else for "more actions on this object".
+  for (const action of actions.slice(0, MSG_ACTIONS_VISIBLE)) row.appendChild(make(action));
+  const overflow = actions.slice(MSG_ACTIONS_VISIBLE);
+  if (overflow.length) {
+    row.appendChild(
+      kebabMenu(
+        overflow.map((action) => ({
+          label: `${action.label} ${action.title}`,
+          title: action.title,
+          danger: action.danger,
+          run: () => action.onClick({ currentTarget: null }),
+        })),
+        "More actions for this message"
+      )
+    );
   }
   return row;
+}
+
+//: **One action list for an assistant message, wherever it was built.**
+//:
+//: There were two: the live stream's and the reopened-conversation path's, and
+//: they had already drifted — the replayed one had Edit and no Read aloud, the
+//: live one the reverse, and a bug fixed in one stayed in the other. This is
+//: the same "two implementations of one control" lesson the Library kebab
+//: taught, applied before it costs another round.
+//:
+//: The order is Odysseus's footer order, with this app's own capture actions
+//: after it: what you do to the *answer* first, what you do with it second.
+function assistantMessageActions({ bubble, text, question, onEdit }) {
+  return chatMessageActions([
+    { label: "ph:copy", title: "Copy answer", onClick: (e) => copyToClipboard(text, e.currentTarget) },
+    {
+      label: "ph:arrow-clockwise",
+      title: "Regenerate from here",
+      onClick: () => regenerateFromBubble(bubble),
+    },
+    {
+      label: "ph:scissors",
+      title: "Rewrite this shorter",
+      onClick: () =>
+        rewriteAnswerWith(
+          "Rewrite your last answer to be shorter — keep every fact, cut the padding."
+        ),
+    },
+    {
+      label: "ph:student",
+      title: "Explain it more simply",
+      onClick: () =>
+        rewriteAnswerWith(
+          "Explain your last answer again in plain language, short sentences, no jargon."
+        ),
+    },
+    {
+      label: "ph:git-branch",
+      title: "Fork the conversation from here",
+      onClick: () => forkFromBubble(bubble),
+    },
+    { label: "ph:speaker-high", title: "Read aloud", onClick: () => speakText(text) },
+    {
+      label: "ph:note-pencil",
+      title: "Save this answer as a draft note",
+      onClick: () => saveChatAnswerAsNote(question, text),
+    },
+    { label: "ph:alarm", title: "Set a reminder from this answer", onClick: () => reminderFromChatAnswer(text) },
+    ...(onEdit ? [{ label: "ph:pencil-simple", title: "Edit this answer", onClick: onEdit }] : []),
+    {
+      label: "ph:trash",
+      title: "Delete this message",
+      danger: true,
+      onClick: () => deleteChatTurn(bubble),
+    },
+  ]);
 }
 
 // One-click capture from a chat answer. The text-selection popup's "Save as
@@ -9601,6 +9684,79 @@ function editAndResend(bubble, text) {
 // Re-run the most recent question and REPLACE the previous answer in place
 // (user request: a redo shouldn't stack a second answer below the old one).
 // The original "you" bubble stays; only the assistant bubble is swapped.
+//: **The question a bubble is the answer to.** Walks back through the
+//: transcript rather than trusting an index: bubbles are deleted, edited and
+//: re-ordered, and any stored position goes stale the first time somebody uses
+//: the ⋯ on a message in the middle.
+function questionForBubble(bubble) {
+  let node = bubble;
+  while (node) {
+    node = node.previousElementSibling;
+    if (node && node.classList.contains("msg") && node.classList.contains("user")) {
+      return { bubble: node, text: (node.querySelector(".msg-body")?.textContent || "").trim() };
+    }
+  }
+  return null;
+}
+
+//: **Regenerate from *this* answer, not just the last one.**
+//:
+//: Odysseus's message footer has had this since it shipped, and it is the one
+//: that matters on a long thread: the answer you want re-done is rarely the
+//: newest. Everything after the question is removed first — an answer
+//: regenerated in the middle of a thread that keeps the turns built on the old
+//: one is a transcript that contradicts itself.
+function regenerateFromBubble(bubble) {
+  if (chatController) return toast("Wait for the current answer to finish.");
+  const asked = questionForBubble(bubble);
+  if (!asked) return toast("There is no question above this answer to re-ask.");
+  const host = $("chat-messages");
+  const kept = [...host.children];
+  const from = kept.indexOf(asked.bubble);
+  //: The question stays; everything after it goes, including this answer.
+  for (const node of kept.slice(from + 1)) node.remove();
+  sendChatMessage(asked.text, { skipUserBubble: true, replaceLast: true });
+}
+
+//: **Rewrite the last answer under a standing instruction** — Odysseus's
+//: "shorter" and "simpler" footer actions.
+//:
+//: Sent as a *visible* user turn rather than a hidden system nudge, which is
+//: the one design choice worth stating: this app's whole premise is that you
+//: can read what the model was asked. A hidden instruction that changes an
+//: answer is exactly the thing a local-first notebook should not do.
+function rewriteAnswerWith(instruction) {
+  if (chatController) return toast("Wait for the current answer to finish.");
+  sendChatMessage(instruction);
+}
+
+//: **Fork from this point in the conversation.** The server already copies a
+//: conversation up to a turn (`POST /conversations/{id}/fork`, `up_to`) — this
+//: is the door to it from the message you are actually looking at, which is
+//: where "try a different direction from here" is decided.
+async function forkFromBubble(bubble) {
+  if (!chatConv || chatConv.id === null) {
+    return toast("Nothing to fork yet — ask something first.");
+  }
+  //: Which turn this is: count the assistant bubbles before it. `up_to` is a
+  //: turn index on the server, and a turn is one question and its answer.
+  const bubbles = [...$("chat-messages").querySelectorAll(".msg.assistant")];
+  const index = bubbles.indexOf(bubble);
+  if (index === -1) return;
+  try {
+    const fork = await apiJson(`/conversations/${chatConv.id}/fork`, {
+      method: "POST",
+      body: JSON.stringify({ up_to: index + 1 }),
+    });
+    await loadConversationList();
+    toastAction(`Forked at this message → “${fork.title}”.`, "Open it", () =>
+      openConversation(fork.id)
+    );
+  } catch (error) {
+    toast(error.message || "Couldn't fork from here.", true);
+  }
+}
+
 function regenerateLastAnswer() {
   if (!lastChatQuestion || chatController) return;
   const assistantBubbles = $("chat-messages").querySelectorAll(".msg.assistant");
@@ -10310,6 +10466,38 @@ function renderChatUsage(tokens) {
   renderChatTurnCount();
 }
 
+//: **The conversation-level context meter.**
+//:
+//: Fed from the last turn's `stats` (prompt tokens against the window the turn
+//: was budgeted for — `context_tokens`, which `ollama_client` has always sent).
+//: Thresholds are Odysseus's: quiet under 70%, a warning at 70, a real alarm
+//: at 85, because past about 85 the next turn starts losing the oldest part of
+//: its own prompt and the answer quietly gets worse with nothing on screen
+//: saying why.
+function renderChatContextMeter(stats) {
+  const pill = $("chat-context");
+  if (!pill) return;
+  const used = stats && Number(stats.prompt_tokens);
+  const window = stats && Number(stats.context_tokens);
+  if (!used || !window) {
+    pill.hidden = true;
+    return;
+  }
+  const pct = Math.min(100, Math.round((used / window) * 100));
+  pill.hidden = false;
+  pill.textContent = `${pct}% of window`;
+  pill.classList.toggle("is-warn", pct >= 70 && pct < 85);
+  pill.classList.toggle("is-danger", pct >= 85);
+  const approx = stats.usage_source === "estimated" ? "about " : "";
+  pill.title =
+    `This thread's last turn used ${approx}${compactTokens(used)} of the model's ` +
+    `${compactTokens(window)} context window.` +
+    (pct >= 70
+      ? "\n\nPast ~85% the next turn starts dropping the oldest part of its own " +
+        "prompt. Click to summarise the earlier messages instead."
+      : "\n\nClick to summarise the earlier messages.");
+}
+
 //: How long the thread is, beside what it has cost. Asked for with the header
 //: redesign ("the metadata, model used, chat functions, token usage data and
 //: more"), and it is the fact the two controls next to it are actually about:
@@ -10352,6 +10540,14 @@ function mountChatActionsMenu() {
         },
         { label: "ph:download-simple Export as Markdown", run: click("chat-export") },
         {
+          //: Odysseus's "Save to Documents", which lands better here than it
+          //: does there: this app *has* a Documents tab, and a conversation
+          //: worth keeping is usually worth keeping beside the notes it drew
+          //: on rather than as a file in a downloads folder.
+          label: "ph:file-text Save this chat as a document",
+          run: () => saveChatAsDocument(),
+        },
+        {
           label: "ph:copy Copy the whole transcript",
           run: async () => {
             const text = chatTranscriptText();
@@ -10364,6 +10560,33 @@ function mountChatActionsMenu() {
       "More actions for this conversation"
     )
   );
+}
+
+//: **A conversation, kept as a document.**
+//:
+//: The transcript already exports as a file (`#chat-export`); this keeps it
+//: *inside* the notebook, where it is searchable, linkable and editable like
+//: everything else. Titled after the conversation so the Documents list reads
+//: as a list of conversations rather than of dated blobs.
+async function saveChatAsDocument() {
+  const text = chatTranscriptText();
+  if (!text) return toast("There is nothing to save yet.");
+  const title = ($("chat-title")?.textContent || "Chat").trim();
+  try {
+    const doc = await apiJson("/documents", {
+      method: "POST",
+      body: JSON.stringify({
+        title: `${title} — chat`,
+        content: `# ${title}\n\n${text}\n`,
+      }),
+    });
+    toastAction("Saved to your documents.", "Open it", () => {
+      switchTab("documents");
+      if (typeof openDocument === "function") openDocument(doc.id);
+    });
+  } catch (error) {
+    toast(error.message || "Couldn't save that document.", true);
+  }
 }
 
 //: The transcript as text — the thing a person actually wants when they say
@@ -13614,6 +13837,11 @@ async function sendChatMessage(preset, opts = {}) {
         // is preventing. The turn's real save still happens at the end and
         // overwrites this with the finished version.
         if (event.round) checkpointTurn();
+        //: The header's context meter, updated live rather than at the end of
+        //: the turn: on a long agent run the window fills round by round, and
+        //: the number is only useful while there is still a decision to make
+        //: about it.
+        renderChatContextMeter(event);
         // An agent turn reports once per round, so these accumulate: output
         // tokens and generation time add up, while the prompt size is the
         // largest context the model was given rather than the sum.
@@ -13882,17 +14110,10 @@ async function sendChatMessage(preset, opts = {}) {
     }
     return;
   }
-  // Per-message actions: copy, regenerate, read-aloud, delete (Wave H voices),
-  // save-as-note and add-reminder (one-click capture, ROADMAP.md).
+  // Per-message actions — one shared list with the reopened-conversation path,
+  // see `assistantMessageActions` for why that matters.
   bubble.appendChild(
-    chatMessageActions([
-      { label: "ph:copy", title: "Copy answer", onClick: (e) => copyToClipboard(answerRaw, e.currentTarget) },
-      { label: "ph:arrow-clockwise", title: "Regenerate (replaces this answer)", onClick: () => regenerateLastAnswer() },
-      { label: "ph:speaker-high", title: "Read aloud", onClick: () => speakText(answerRaw) },
-      { label: "ph:note-pencil", title: "Save this answer as a draft note", onClick: () => saveChatAnswerAsNote(question, answerRaw) },
-      { label: "ph:alarm", title: "Set a reminder from this answer", onClick: () => reminderFromChatAnswer(answerRaw) },
-      { label: "ph:trash", title: "Delete this message", onClick: () => deleteChatTurn(bubble) },
-    ])
+    assistantMessageActions({ bubble, text: answerRaw, question })
   );
 
   // Regenerate replaces the last turn; a normal send appends a new one.
@@ -14320,6 +14541,9 @@ function newChatConversation() {
   $("chat-messages").replaceChildren();
   $("chat-title").textContent = "New chat";
   renderChatUsage(0);
+  //: A fresh pane has no turn to measure, so the meter goes away rather than
+  //: keeping the last conversation's number over an empty one.
+  renderChatContextMeter(null);
   renderChatEmptyState();
   loadChatSuggestions();
 }
@@ -15389,6 +15613,11 @@ async function openConversation(id) {
       // model wrote them or what they cost. Turns saved before this stored no
       // stats and correctly get no line, rather than a row of "?"s.
       if (message.stats) {
+        //: A reopened conversation gets its meter back from the last turn that
+        //: recorded one — without this the header says nothing about a thread
+        //: that is already 80% through its window, which is precisely the
+        //: thread you want warned about.
+        renderChatContextMeter(message.stats);
         handles.bubble.appendChild(
           messageMetaLine({
             model: message.stats.model,
@@ -15453,28 +15682,17 @@ async function openConversation(id) {
       }
       const turnIndex = chatConv.turns.length; // index this pair will occupy
       if (message.edited) handles.bubble.appendChild(editedMarker());
+      //: The same list the live stream builds — see `assistantMessageActions`.
+      //: These two paths had already drifted (this one had Edit and no fork or
+      //: rewrite; the live one the reverse), which is how a fix lands on half
+      //: the app's messages.
       handles.bubble.appendChild(
-        chatMessageActions([
-          { label: "ph:copy", title: "Copy answer", onClick: (e) => copyToClipboard(message.content, e.currentTarget) },
-          {
-            label: "ph:pencil-simple",
-            title: "Edit this answer",
-            onClick: () => editChatAnswer(handles, turnIndex, message.content),
-          },
-          // Reported: "no chat message button to retry a response" - true
-          // for any reopened conversation specifically, since this
-          // reconstruction path built its own shorter action list that
-          // never included it, unlike the live-stream render just below
-          // (sendChatMessage's own chatMessageActions call). Same
-          // regenerateLastAnswer() either way - it always targets the
-          // last assistant bubble/lastChatQuestion regardless of which
-          // message's button was clicked, same as it already does live.
-          { label: "ph:arrow-clockwise", title: "Regenerate (replaces this answer)", onClick: () => regenerateLastAnswer() },
-          { label: "ph:speaker-high", title: "Read aloud", onClick: () => speakText(message.content) },
-          { label: "ph:note-pencil", title: "Save this answer as a draft note", onClick: () => saveChatAnswerAsNote(lastQuestionText, message.content) },
-          { label: "ph:alarm", title: "Set a reminder from this answer", onClick: () => reminderFromChatAnswer(message.content) },
-          { label: "ph:trash", title: "Delete this message", onClick: () => deleteChatTurn(handles.bubble) },
-        ])
+        assistantMessageActions({
+          bubble: handles.bubble,
+          text: message.content,
+          question: lastQuestionText,
+          onEdit: () => editChatAnswer(handles, turnIndex, message.content),
+        })
       );
       if (lastQuestionText !== null) {
         chatConv.turns.push({ question: lastQuestionText, answer: message.content });
@@ -26591,6 +26809,10 @@ async function renameCurrentConversation() {
 //: Built once, at boot — the header's ⋯ is the same for every conversation,
 //: unlike a note card's, which is rebuilt per row.
 mountChatActionsMenu();
+
+//: The meter opens the thing that fixes what it is reporting. A number with no
+//: move attached is a number people learn to ignore.
+$("chat-context")?.addEventListener("click", () => $("chat-compress")?.click());
 
 $("chat-title").addEventListener("click", renameCurrentConversation);
 $("chat-title").addEventListener("keydown", (event) => {

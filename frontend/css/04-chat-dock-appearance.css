@@ -3482,3 +3482,36 @@ label.setting-check,
   margin: 0;
   max-width: 12rem;
 }
+
+
+/* The header's context meter. A button, because it does something (opens
+   Compress) — and coloured only when it is telling you something: quiet under
+   70%, amber at 70, red at 85, which is where the next turn starts dropping
+   the oldest part of its own prompt. */
+.chat-context-pill {
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  padding: 0 var(--space-2);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+  height: auto;
+}
+
+.chat-context-pill:hover {
+  border-color: var(--border);
+  color: var(--ink);
+}
+
+.chat-context-pill.is-warn {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 40%, transparent);
+}
+
+.chat-context-pill.is-danger {
+  color: var(--error);
+  border-color: color-mix(in srgb, var(--error) 45%, transparent);
+  font-weight: 600;
+}

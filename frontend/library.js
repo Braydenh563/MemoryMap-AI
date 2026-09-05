@@ -2620,15 +2620,40 @@ function filterLibraryImagesGallery() {
         // name may contain, and it rejects with a reason worth showing.
         finish(next);
         try {
-          const saved = await apiJson(`/media/${image.id}`, {
-            method: "PUT",
-            body: JSON.stringify({ original_name: next }),
-          });
-          image.original_name = saved.original_name;
-          cap.replaceChildren(document.createTextNode(saved.original_name));
-          img.alt = saved.original_name;
-          rename.title = `Rename “${saved.original_name}”`;
-          del.title = `Delete “${saved.original_name}”`;
+          //: **An attachment renames too, through its own route.** Reported:
+          //: "i cant rename or delete files via a kebab button in the files
+          //: subtab." The kebab was there and Delete worked; Rename was
+          //: withheld from `Attachment` rows on the reasoning that "an
+          //: attachment's name is the note's own file list's business". That
+          //: was a judgement about where the name belongs, and the report
+          //: overrules it: a file shown in the Library is a file you expect to
+          //: manage in the Library.
+          //:
+          //: Two tables, two routes, and they take different field names —
+          //: `PUT /files/{id}` wants `filename`, `PUT /media/{id}` wants
+          //: `original_name`. Both already existed and both already enforce
+          //: the workspace and private-note checks; nothing new was needed on
+          //: the server.
+          const saved = await apiJson(
+            image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`,
+            {
+              method: "PUT",
+              body: JSON.stringify(
+                image._isAttachment ? { filename: next } : { original_name: next }
+              ),
+            }
+          );
+          //: `PUT /files/{id}` answers with the whole note (`EntryOut`), not
+          //: the attachment, so the new name is read back from the row rather
+          //: than from a field the response does not have.
+          const savedName = image._isAttachment
+            ? (saved.attachments || []).find((a) => a.id === image.id)?.filename || next
+            : saved.original_name;
+          image.original_name = savedName;
+          cap.replaceChildren(document.createTextNode(savedName));
+          img.alt = savedName;
+          rename.title = `Rename “${savedName}”`;
+          del.title = `Delete “${savedName}”`;
         } catch (error) {
           cap.replaceChildren(document.createTextNode(image.original_name));
           toast(error.message, true);
@@ -3167,11 +3192,9 @@ function filterLibraryImagesGallery() {
     // endpoint. Rename is still MediaUpload-only: an attachment's name is
     // the note's own file list's business, not the gallery's. A sketch has
     // no file behind it at all, so it keeps Delete alone.
-    menuList.append(
-      ...(image._isAttachment
-        ? [captionBtn, visionOcrBtn, ocrBtn, del]
-        : [rename, captionBtn, visionOcrBtn, ocrBtn, del])
-    );
+    //: Rename is in both lists now — see the note in `save` above for why an
+    //: attachment stopped being the exception.
+    menuList.append(rename, captionBtn, visionOcrBtn, ocrBtn, del);
     menu.append(menuButton, menuList);
     // Picking anything closes the menu — on the **capture** phase, which is
     // the whole point. This was a bubble-phase listener with a comment

@@ -3708,26 +3708,32 @@ html.modal-open body {
    "More noticeable" is a real requirement and it is met by the ring's size
    and the sweep of its opacity, not by making it fast: a hard, quick flash on
    a surface someone is reading is the kind of motion that has to be turned
-   off. 1.8s is about the pace of a slow breath. */
+   off. 1.8s is about the pace of a slow breath.
+
+   **Toned down, on a later report:** *"make the animation in the chat more
+   intentional and less in your face than the big pulse generating
+   animation."* The first version was written to answer "make it more
+   noticeable" and overshot — a 36px halo breathing around every message in a
+   thread is a lot of movement for a surface you are trying to read, and once
+   the app had a step group and a working progress line beside it, the halo
+   was the third thing saying the same sentence. The ring is now a hairline
+   that brightens rather than a glow that spreads: the same signal, at the
+   weight of a focus ring instead of a spotlight. */
 @keyframes generating-glow {
 
   0%,
   100% {
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent),
-      0 0 var(--space-4) 0 color-mix(in srgb, var(--accent) 16%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
   }
 
   50% {
-    box-shadow:
-      0 0 0 2px color-mix(in srgb, var(--accent) 62%, transparent),
-      0 0 var(--space-9) var(--space-2) color-mix(in srgb, var(--accent) 34%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent);
   }
 }
 
 .is-generating {
   border-radius: var(--radius-md);
-  animation: generating-glow 1.8s ease-in-out infinite;
+  animation: generating-glow 2.4s ease-in-out infinite;
   will-change: box-shadow;
 }
 
@@ -3739,9 +3745,7 @@ html.modal-open body {
 @media (prefers-reduced-motion: reduce) {
   .is-generating {
     animation: none;
-    box-shadow:
-      0 0 0 2px color-mix(in srgb, var(--accent) 62%, transparent),
-      0 0 var(--space-9) var(--space-2) color-mix(in srgb, var(--accent) 34%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent);
   }
 }
 

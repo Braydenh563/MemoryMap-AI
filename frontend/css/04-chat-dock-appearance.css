@@ -3256,3 +3256,80 @@ label.setting-check,
 .selection-popup .action-menu {
   min-width: 15rem;
 }
+
+/* --- the composer, as one surface -------------------------------------------
+   Reported, of the whole tab: "it currently just looks like a chucked
+   together interface with some chucked together features… very temperamental
+   and basic", with Odysseus and Gemini named as the reference.
+
+   The parts were all right and the *object* was wrong. A bordered text field,
+   a separate strip of nine buttons, and a Send pill sitting beside them are
+   three things; every composer worth copying is **one** — a single rounded
+   surface you type into, with its controls tucked inside its lower edge, and
+   one clearly primary action. That is the whole change here: nothing is
+   removed, nothing is rewired, and the ids are untouched. The dock stops
+   being a toolbar with a box in it and becomes a card.
+
+   Reading order, top to bottom: what you have attached, what you are writing,
+   what happens when you send it. The controls are last because they are
+   *modifiers* — you reach for them when the default is wrong, which is not
+   most messages. */
+.chat-dock {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  background: var(--input-bg);
+  /* The hairline the old dock used to separate itself from the transcript is
+     redundant now that it has a border of its own. */
+  border-top: 1px solid var(--border);
+  transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
+}
+
+/* The whole card takes focus, the way a single field would. This is the
+   affordance that says "these controls belong to this box" without drawing a
+   second border round them. */
+.chat-dock:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* The text row has no border of its own any more — the card is the border.
+   Two nested rounded rectangles is exactly the "panel inside a panel" this
+   app has already been told off for. */
+.chat-dock .chat-composer {
+  margin: 0;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.chat-dock .chat-composer #chat-input {
+  border: 0;
+  background: none;
+  box-shadow: none;
+  padding: var(--space-2);
+  /* Room to grow before the card scrolls: a three-line question is normal and
+     should not need a scrollbar inside a box that could simply be taller. */
+  max-height: 40vh;
+}
+
+.chat-dock .chat-composer #chat-input:focus,
+.chat-dock .chat-composer #chat-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Controls under the text, on their own line, with no rule between them —
+   the gap is the separation, and a hairline inside a card is a seam. */
+.chat-dock .chat-dock-controls {
+  margin-top: var(--space-2);
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* Send is the one primary action in the block, so it is the one filled
+   control. Everything else in the dock is a ghost button, which is what makes
+   this read as primary without needing to be bigger than the row. */
+.chat-dock #chat-send {
+  border-radius: var(--radius-pill);
+  padding-inline: var(--space-5);
+}

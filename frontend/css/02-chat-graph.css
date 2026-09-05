@@ -1957,7 +1957,7 @@ kbd {
 }
 
 :root[data-progress-motion="always"] .is-generating {
-  animation: generating-glow 1.8s ease-in-out infinite !important;
+  animation: generating-glow 2.4s ease-in-out infinite !important;
 }
 
 :root[data-progress-motion="always"] .chip.filing .ph {

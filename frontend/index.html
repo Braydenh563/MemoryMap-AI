@@ -1158,6 +1158,74 @@ Link to another note with [[its first few words]]."></textarea>
                  on its own: every nudge is a button you press, plus a dismiss
                  that stays dismissed for the rest of the draft. -->
             <div id="chat-nudge" class="chat-nudge hidden" role="status" aria-live="polite"></div>
+            <!-- **The box you type in is the top edge of the composer.**
+                 It used to sit *below* the controls, and the comment that put
+                 it there argued you should read the controls on the way to the
+                 box. That was right about the reading order and wrong about
+                 the object: the dock is one surface now, not a toolbar with a
+                 field under it, and every composer the user has open — Gemini,
+                 Perplexity, Claude — puts the text first with its controls
+                 tucked underneath. Nothing moves between reading and typing
+                 either way, because the whole thing is one card that grows
+                 downward. -->
+            <div class="row chat-composer">
+            <div class="note-picker">
+              <button id="attach-note" class="ghost icon-only" type="button"
+                aria-haspopup="dialog" aria-expanded="false"
+                title="Attach notes as references for this question"
+                aria-label="Attach notes"><i class="ph ph-note" aria-hidden="true"></i></button>
+              <div id="note-picker-panel" class="note-picker-panel hidden"
+                role="dialog" aria-label="Choose notes to reference">
+                <input id="note-picker-search" type="search"
+                  placeholder="Search your notes…" aria-label="Search notes to attach">
+                <ul id="note-picker-list" class="note-picker-list"></ul>
+                <div class="row space-between note-picker-foot">
+                  <span id="note-picker-count" class="muted"></span>
+                  <span class="row">
+                    <button id="note-picker-clear" class="ghost small" type="button">Clear</button>
+                    <button id="note-picker-done" class="small" type="button">Done</button>
+                  </span>
+                </div>
+              </div>
+            </div>
+            <!-- Vision-capable models: attach a photo for a model that
+                 declares the "vision" capability (Settings → Models shows
+                 which do). A hidden file input behind a button, same shape
+                 as the note picker beside it. -->
+            <!-- Any file, not just an image. Asked for directly: images land
+                 in the image gallery, anything else becomes a document in the
+                 Documents sub-tab. The id keeps its original name so the CSS
+                 and the layout tests that reference it still resolve — what it
+                 does is what changed, not where it sits. -->
+            <button id="attach-image" class="ghost icon-only" type="button"
+              title="Attach a file — an image for the AI to look at, or a document to read"
+              aria-label="Attach a file"><i class="ph ph-paperclip" aria-hidden="true"></i></button>
+            <!-- Images: every format the gallery stores, `image/*` rather
+                 than a list, so "any image format" really is any. Documents:
+                 the set core/docview.py can extract text from — a file this
+                 does not name is refused by the picker instead of by an error
+                 after the upload. Kept as an exact mirror of docview.py's
+                 VIEWABLE_SUFFIXES (PLAIN_TEXT/MARKDOWN/CODE/CONVERTED) —
+                 test_the_chat_composers_file_picker_matches_what_import_actually_reads
+                 (test_docview.py) pins the two to stay equal. `.cs` was
+                 briefly removed from here (it wasn't in CODE_SUFFIXES) and
+                 restored once CODE_SUFFIXES gained it — every other
+                 mainstream language already here could be attached to a
+                 note, viewed and read by the AI; C# alone could only be
+                 attached. -->
+            <input id="chat-image-input" type="file" class="visually-hidden"
+              accept="image/*,.pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.odt,.rtf,.epub,.txt,.text,.log,.csv,.tsv,.md,.markdown,.html,.htm,.json,.xml,.yaml,.yml,.py,.js,.mjs,.cjs,.ts,.tsx,.jsx,.css,.scss,.java,.c,.h,.cpp,.hpp,.cs,.go,.rs,.rb,.php,.swift,.kt,.r,.sh,.bash,.zsh,.sql,.toml,.ini,.cfg"
+              multiple
+              aria-label="Choose an image to attach">
+            <!-- A textarea, not an input: a three-sentence question used to
+                 scroll sideways inside one line. Enter still sends; Shift+Enter
+                 is a newline, which an <input> could not offer at all. -->
+            <textarea id="chat-input" rows="1" class="autogrow chat-input"
+              placeholder="Ask your notebook anything…"></textarea>
+            <button id="mic-chat" class="ghost icon-only" title="Dictate your question (local Whisper)" aria-label="Dictate your question"><i class="ph ph-microphone" aria-hidden="true"></i></button>
+            <button id="chat-send">Send</button>
+            <button id="chat-stop" class="ghost hidden" title="Stop the answer">Stop</button>
+            </div>
             <!-- One strip, four groups, hairlines between them.
                  It was three stacked rows — skills, then controls, then the
                  composer — which is most of the height of a short
@@ -1288,64 +1356,6 @@ Link to another note with [[its first few words]]."></textarea>
                     tabindex="-1" aria-hidden="true">
                 </div>
               </div>
-            </div>
-            <div class="row chat-composer">
-            <div class="note-picker">
-              <button id="attach-note" class="ghost icon-only" type="button"
-                aria-haspopup="dialog" aria-expanded="false"
-                title="Attach notes as references for this question"
-                aria-label="Attach notes"><i class="ph ph-note" aria-hidden="true"></i></button>
-              <div id="note-picker-panel" class="note-picker-panel hidden"
-                role="dialog" aria-label="Choose notes to reference">
-                <input id="note-picker-search" type="search"
-                  placeholder="Search your notes…" aria-label="Search notes to attach">
-                <ul id="note-picker-list" class="note-picker-list"></ul>
-                <div class="row space-between note-picker-foot">
-                  <span id="note-picker-count" class="muted"></span>
-                  <span class="row">
-                    <button id="note-picker-clear" class="ghost small" type="button">Clear</button>
-                    <button id="note-picker-done" class="small" type="button">Done</button>
-                  </span>
-                </div>
-              </div>
-            </div>
-            <!-- Vision-capable models: attach a photo for a model that
-                 declares the "vision" capability (Settings → Models shows
-                 which do). A hidden file input behind a button, same shape
-                 as the note picker beside it. -->
-            <!-- Any file, not just an image. Asked for directly: images land
-                 in the image gallery, anything else becomes a document in the
-                 Documents sub-tab. The id keeps its original name so the CSS
-                 and the layout tests that reference it still resolve — what it
-                 does is what changed, not where it sits. -->
-            <button id="attach-image" class="ghost icon-only" type="button"
-              title="Attach a file — an image for the AI to look at, or a document to read"
-              aria-label="Attach a file"><i class="ph ph-paperclip" aria-hidden="true"></i></button>
-            <!-- Images: every format the gallery stores, `image/*` rather
-                 than a list, so "any image format" really is any. Documents:
-                 the set core/docview.py can extract text from — a file this
-                 does not name is refused by the picker instead of by an error
-                 after the upload. Kept as an exact mirror of docview.py's
-                 VIEWABLE_SUFFIXES (PLAIN_TEXT/MARKDOWN/CODE/CONVERTED) —
-                 test_the_chat_composers_file_picker_matches_what_import_actually_reads
-                 (test_docview.py) pins the two to stay equal. `.cs` was
-                 briefly removed from here (it wasn't in CODE_SUFFIXES) and
-                 restored once CODE_SUFFIXES gained it — every other
-                 mainstream language already here could be attached to a
-                 note, viewed and read by the AI; C# alone could only be
-                 attached. -->
-            <input id="chat-image-input" type="file" class="visually-hidden"
-              accept="image/*,.pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.odt,.rtf,.epub,.txt,.text,.log,.csv,.tsv,.md,.markdown,.html,.htm,.json,.xml,.yaml,.yml,.py,.js,.mjs,.cjs,.ts,.tsx,.jsx,.css,.scss,.java,.c,.h,.cpp,.hpp,.cs,.go,.rs,.rb,.php,.swift,.kt,.r,.sh,.bash,.zsh,.sql,.toml,.ini,.cfg"
-              multiple
-              aria-label="Choose an image to attach">
-            <!-- A textarea, not an input: a three-sentence question used to
-                 scroll sideways inside one line. Enter still sends; Shift+Enter
-                 is a newline, which an <input> could not offer at all. -->
-            <textarea id="chat-input" rows="1" class="autogrow chat-input"
-              placeholder="Ask your notebook anything…"></textarea>
-            <button id="mic-chat" class="ghost icon-only" title="Dictate your question (local Whisper)" aria-label="Dictate your question"><i class="ph ph-microphone" aria-hidden="true"></i></button>
-            <button id="chat-send">Send</button>
-            <button id="chat-stop" class="ghost hidden" title="Stop the answer">Stop</button>
             </div>
             <!-- Inside the dock, because it is about the message being sent —
                  "Step 3: tag the untagged notes" belongs next to the box that

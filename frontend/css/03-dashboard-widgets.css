@@ -2634,9 +2634,19 @@ p.graph-help-panel {
 .msg.is-generating::before {
   content: "";
   position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
+  /* **Inset by the bubble's own corner radius, on both ends.**
+     Reported: "fix the line on the left side ignoring the chat bubble curved
+     corners." It was `top: 0; bottom: 0; left: 0` — a straight bar down a
+     rounded box, so its ends stuck out past the curve at the top-left and
+     bottom-left and the bubble looked like it had a stray line drawn over it.
+
+     Stopping where the straight part of the edge stops is the fix, and it is
+     also the better mark: the rail now reads as belonging to the bubble
+     rather than as something laid across it. `left: 1px` keeps it clear of
+     the border the bubble already draws. */
+  left: 1px;
+  top: var(--radius-lg);
+  bottom: var(--radius-lg);
   width: 2px;
   border-radius: var(--radius-pill);
   background: linear-gradient(

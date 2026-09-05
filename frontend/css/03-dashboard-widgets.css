@@ -2649,13 +2649,17 @@ p.graph-help-panel {
   bottom: var(--radius-lg);
   width: 2px;
   border-radius: var(--radius-pill);
+  /* Lower-contrast and slower than the first version, on "they are an
+     indicator not a lightshow": the rail travels between 30% and 70% of the
+     accent rather than between transparent and full, so it reads as a soft
+     shift down the edge instead of a bar of light running past. */
   background: linear-gradient(
-    var(--accent) 0%,
-    color-mix(in srgb, var(--accent) 20%, transparent) 50%,
-    var(--accent) 100%
+    color-mix(in srgb, var(--accent) 70%, transparent) 0%,
+    color-mix(in srgb, var(--accent) 30%, transparent) 50%,
+    color-mix(in srgb, var(--accent) 70%, transparent) 100%
   );
   background-size: 100% 200%;
-  animation: generating-sweep 1.6s linear infinite;
+  animation: generating-sweep 2.6s linear infinite;
 }
 
 @keyframes generating-sweep {

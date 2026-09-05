@@ -1511,6 +1511,42 @@ const MD_ACTIONS = {
     insert: "\n| Column | Column |\n| --- | --- |\n| | |\n",
   },
   hr: { insert: "\n---\n" },
+
+  //: **The rest of the Obsidian editing-toolbar's command set**, asked for by
+  //: name: *"I want you to make the toolbar in the notes and documents
+  //: exactly like this but also with the application specific functions, both
+  //: in what tools are there, and how they function"* — PKM-er's
+  //: obsidian-editing-toolbar.
+  //:
+  //: Added to this table rather than to a second one, because this table is
+  //: already the single place that decides what `**` means in this app (see
+  //: its own comment, and editor.js's "/" menu, which reads the same
+  //: dialect). A command that lives anywhere else is a third opinion waiting
+  //: to disagree.
+  h4: { line: "#### " },
+  h5: { line: "##### " },
+  h6: { line: "###### " },
+  //: A callout, not a bare blockquote. `> [!note]` is the syntax Obsidian,
+  //: GitHub and Typora all already render, which is the same portability
+  //: argument editor.js makes for using it in the "/" menu.
+  callout: { block: "> [!note] ", suffix: "\n> ", placeholder: "Title" },
+  //: Asymmetric wrappers: HTML, because markdown has no superscript and
+  //: Obsidian's own toolbar inserts exactly these tags.
+  sup: { pre: "<sup>", post: "</sup>", placeholder: "sup" },
+  sub: { pre: "<sub>", post: "</sub>", placeholder: "sub" },
+  underline: { pre: "<u>", post: "</u>", placeholder: "underlined" },
+  //: `%%…%%` is Obsidian's comment: kept in the file, never rendered.
+  comment: { pre: "%%", post: "%%", placeholder: "note to self" },
+  image: { custom: "image" },
+  //: This app's own link syntax, which is the "application specific
+  //: functions" half of the request — a toolbar for *this* notebook has to
+  //: offer the link that resolves inside it, not only the markdown one.
+  wikilink: { pre: "[[", post: "]]", placeholder: "note name" },
+  footnote: { custom: "footnote" },
+  indent: { custom: "indent" },
+  outdent: { custom: "outdent" },
+  undo: { custom: "undo" },
+  redo: { custom: "redo" },
 };
 
 // `boxId` is what lets the Notes composer reuse this whole table. It used to
@@ -1531,6 +1567,52 @@ function applyMarkdown(kind, boxId = "doc-content") {
   }
   if (action.custom === "clearformat") {
     clearInlineFormatting(box);
+    finishMarkdownEdit(box, boxId);
+    return;
+  }
+  //: **Undo and redo go through the browser's own history, deliberately.**
+  //: A textarea already has one, built from the user's typing *and* from
+  //: `execCommand("insertText")`, and reimplementing it here would give the
+  //: editor a second history that disagrees with Ctrl+Z — the one thing a
+  //: user is certain about in any text box.
+  if (action.custom === "undo" || action.custom === "redo") {
+    box.focus();
+    document.execCommand(action.custom);
+    finishMarkdownEdit(box, boxId);
+    return;
+  }
+  if (action.custom === "indent" || action.custom === "outdent") {
+    shiftDocIndent(box, action.custom === "indent" ? 1 : -1);
+    finishMarkdownEdit(box, boxId);
+    return;
+  }
+  if (action.custom === "image") {
+    //: The selection becomes the *alt text* and the caret lands on the URL,
+    //: which is the part still to be typed — the same split `link` above
+    //: makes. The first version passed the alt text as the body between the
+    //: two markers and produced `![cat](cat)`: a picture whose address was
+    //: its own caption. Caught by running it rather than by reading it.
+    const alt = selected || "image";
+    const url = "https://";
+    box.value = `${value.slice(0, start)}![${alt}](${url})${value.slice(end)}`;
+    const at = start + alt.length + 4;
+    box.setSelectionRange(at, at + url.length);
+    finishMarkdownEdit(box, boxId);
+    return;
+  }
+  if (action.custom === "footnote") {
+    //: A reference *and* its definition, because a footnote marker with
+    //: nothing to point at renders as literal text and reads as a bug.
+    const marker = `[^${docNextFootnote(value)}]`;
+    box.value = `${value.slice(0, start)}${marker}${value.slice(end)}\n\n${marker}: `;
+    const at = box.value.length;
+    box.setSelectionRange(at, at);
+    finishMarkdownEdit(box, boxId);
+    return;
+  }
+  if (action.pre) {
+    const body = selected || action.placeholder || "";
+    insertAround(box, start, end, action.pre, action.post || "", body, action.pre.length);
     finishMarkdownEdit(box, boxId);
     return;
   }
@@ -1564,6 +1646,44 @@ function applyMarkdown(kind, boxId = "doc-content") {
     box.setSelectionRange(at, at);
   }
   finishMarkdownEdit(box, boxId);
+}
+
+//: Wrap a selection in two different markers, leaving the body selected so
+//: the next keystroke replaces a placeholder. `wrapDocSelection` above is the
+//: symmetric case and carries the toggle-off logic that only makes sense when
+//: both ends are the same string.
+function insertAround(box, start, end, pre, post, body, caretOffset) {
+  const value = box.value;
+  box.value = value.slice(0, start) + pre + body + post + value.slice(end);
+  const at = start + caretOffset;
+  box.setSelectionRange(at, at + body.length);
+}
+
+//: Two spaces per level, matching what this app's own markdown renderer and
+//: every list in it already use. Whole lines, so a selection spanning three
+//: bullets indents all three — the behaviour Tab has in Obsidian's editor.
+function shiftDocIndent(box, direction) {
+  const { selectionStart: start, selectionEnd: end, value } = box;
+  const lineStart = value.lastIndexOf("\n", start - 1) + 1;
+  const tail = value.slice(end).indexOf("\n");
+  const lineEnd = tail === -1 ? value.length : end + tail;
+  const block = value.slice(lineStart, lineEnd);
+  const shifted = block
+    .split("\n")
+    .map((line) =>
+      direction > 0 ? `  ${line}` : line.replace(/^ {1,2}/, ""),
+    )
+    .join("\n");
+  box.value = value.slice(0, lineStart) + shifted + value.slice(lineEnd);
+  box.setSelectionRange(lineStart, lineStart + shifted.length);
+}
+
+//: The next free footnote number in this document. Counting the definitions
+//: rather than the references: a reference can appear twice and share one
+//: definition, which is what a footnote is for.
+function docNextFootnote(text) {
+  const used = [...String(text || "").matchAll(/^\[\^(\d+)\]:/gm)].map((m) => Number(m[1]));
+  return used.length ? Math.max(...used) + 1 : 1;
 }
 
 // The bookkeeping every toolbar edit ends with. The document editor has a
@@ -2144,9 +2264,132 @@ $("doc-content").addEventListener("scroll", () => {
 // leaving "green" showing afterwards would claim a state that does not exist.
 const MD_COLOURS = ["yellow", "green", "blue", "pink", "purple", "orange", "red", "grey"];
 
+//: **The rest of the Obsidian toolbar, built once and mounted into both
+//: editors.** Asked for by name (PKM-er/obsidian-editing-toolbar), for the
+//: notes composer *and* the documents editor, "both in what tools are there,
+//: and how they function".
+//:
+//: Rendered from a table rather than written into index.html twice, and that
+//: is the whole point: the two toolbars were already hand-written markup that
+//: happened to agree, and the note one was the shorter of the two by
+//: accident of when it was added. One table means a command added here
+//: appears in both, at the same size, in the same group, with the same
+//: tooltip — which is the thing that actually stops them drifting.
+//:
+//: Folded into `<details>` menus, matching the two the document toolbar
+//: already has: twenty-five controls do not fit on one row, and that measured
+//: fact is recorded in index.html beside the Colour and Insert menus.
+const EDITOR_TOOLBAR_MENUS = [
+  {
+    id: "headings",
+    icon: "ph:text-h",
+    label: "Heading",
+    title: "Headings, from title to smallest",
+    items: [
+      ["h1", "Heading 1"],
+      ["h2", "Heading 2"],
+      ["h3", "Heading 3"],
+      ["h4", "Heading 4"],
+      ["h5", "Heading 5"],
+      ["h6", "Heading 6"],
+    ],
+  },
+  {
+    id: "blocks",
+    icon: "ph:quotes",
+    label: "Block",
+    title: "Quotes, callouts, code and rules",
+    items: [
+      ["quote", "Quote"],
+      ["callout", "Callout"],
+      ["codeblock", "Code block"],
+      ["table", "Table"],
+      ["hr", "Divider"],
+      ["footnote", "Footnote"],
+    ],
+  },
+  {
+    id: "inline",
+    icon: "ph:text-superscript",
+    label: "More",
+    title: "Underline, superscript, subscript and comments",
+    items: [
+      ["underline", "Underline"],
+      ["sup", "Superscript"],
+      ["sub", "Subscript"],
+      ["comment", "Comment (never rendered)"],
+    ],
+  },
+  {
+    id: "insert",
+    icon: "ph:plus-circle",
+    label: "Insert",
+    title: "Links, images and notes",
+    items: [
+      ["wikilink", "Link to a note"],
+      ["image", "Image"],
+      ["ol", "Numbered list"],
+    ],
+  },
+];
+
+//: The buttons that stay on the row, because they are reached mid-sentence
+//: and a menu costs a click every time. Obsidian's own default set makes the
+//: same split.
+const EDITOR_TOOLBAR_BUTTONS = [
+  { md: "outdent", icon: "ph:text-outdent", title: "Outdent" },
+  { md: "indent", icon: "ph:text-indent", title: "Indent" },
+  { md: "undo", icon: "ph:arrow-counter-clockwise", title: "Undo (Ctrl+Z)" },
+  { md: "redo", icon: "ph:arrow-clockwise", title: "Redo (Ctrl+Shift+Z)" },
+];
+
+function mountEditorToolbarExtras(bar) {
+  //: Idempotent: `initMarkdownToolbars` can run again (the note edit form
+  //: builds its own bar per edit), and a second mount would double every
+  //: control. Marked on the element rather than tracked in a set, so a bar
+  //: that is rebuilt from scratch is correctly treated as new.
+  if (bar.dataset.mdExtras === "1") return;
+  bar.dataset.mdExtras = "1";
+  const sep = () => {
+    const el = document.createElement("span");
+    el.className = "doc-toolbar-sep";
+    el.setAttribute("aria-hidden", "true");
+    return el;
+  };
+  bar.appendChild(sep());
+  for (const spec of EDITOR_TOOLBAR_BUTTONS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.md = spec.md;
+    button.title = spec.title;
+    button.setAttribute("aria-label", spec.title);
+    setLabel(button, spec.icon);
+    bar.appendChild(button);
+  }
+  for (const menu of EDITOR_TOOLBAR_MENUS) {
+    const details = document.createElement("details");
+    details.className = "doc-dock-menu doc-toolbar-menu";
+    const summary = document.createElement("summary");
+    summary.title = menu.title;
+    setLabel(summary, `${menu.icon} ${menu.label}`);
+    const body = document.createElement("div");
+    body.className = "doc-dock-menu-body";
+    for (const [md, label] of menu.items) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.md = md;
+      button.textContent = label;
+      body.appendChild(button);
+    }
+    details.append(summary, body);
+    bar.appendChild(details);
+  }
+}
+
 function initMarkdownToolbars() {
   for (const bar of document.querySelectorAll("[data-md-target], #doc-toolbar")) {
     const boxId = bar.dataset.mdTarget || "doc-content";
+    mountEditorToolbarExtras(bar);
     for (const button of bar.querySelectorAll("button[data-md]")) {
       // mousedown-preventDefault keeps the caret in the textarea: without it
       // the click moves focus to the button first and the selection the

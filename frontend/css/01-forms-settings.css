@@ -3345,7 +3345,10 @@ html.modal-open body {
   }
 
   30% {
-    transform: translate3d(0, -0.3rem, 0);
+    /* 0.2rem, not 0.3: "an indicator not a lightshow". At three dots and a
+       1.2s cycle the smaller hop still reads as movement and stops the row
+       from bobbing in the corner of your eye while you read. */
+    transform: translate3d(0, -0.2rem, 0);
     opacity: 1;
   }
 }
@@ -3718,16 +3721,23 @@ html.modal-open body {
    the app had a step group and a working progress line beside it, the halo
    was the third thing saying the same sentence. The ring is now a hairline
    that brightens rather than a glow that spreads: the same signal, at the
-   weight of a focus ring instead of a spotlight. */
+   weight of a focus ring instead of a spotlight.
+
+   **Turned down again**, on: "maybe make the animations a little less heavy,
+   they are an indicator not a lightshow." The travel is 18% to 42% of the
+   accent now — enough to read as breathing at the edge of vision, not enough
+   to pull the eye off the sentence being written. The rule of thumb worth
+   keeping: an indicator is judged by whether you notice it when you look for
+   it, not by whether you notice it when you are not. */
 @keyframes generating-glow {
 
   0%,
   100% {
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
   }
 
   50% {
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 42%, transparent);
   }
 }
 

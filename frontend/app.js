@@ -10962,6 +10962,11 @@ function agentTimeline(holder) {
     //: looking like a running one forever.
     finish() {
       closeGroup();
+      //: Any trailing progress line still in this holder goes with it. The
+      //: turn's own `pending` node is removed by the stream, but a skill run
+      //: replayed into a rebuilt bubble can leave one behind, and a "Writing
+      //: the answer…" under a finished answer is the exact thing reported.
+      for (const stale of holder.querySelectorAll(".step-pending")) stale.remove();
     },
     // Replay a saved run (reopening a conversation).
     replay(steps) {
@@ -13258,9 +13263,18 @@ async function sendChatMessage(preset, opts = {}) {
     // after this line and put the node straight back.
     turnEnded = true;
     pending.remove();
+    //: **Every visual "still working" state comes down here, on every exit.**
+    //:
+    //: Reported with a screenshot of a finished skill run still showing both
+    //: the streaming caret and "Writing the answer…". `finalise()` was called
+    //: on the success path only, so a turn that ended any other way — an
+    //: error, a stop, the round limit — kept the caret blinking on prose that
+    //: had stopped arriving. It is idempotent, so calling it here as well
+    //: costs nothing and closes every path at once, which is the property the
+    //: success-path-only version could never have.
+    timeline.finalise?.();
     //: Whatever step group is still open stops saying "Working" — see
-    //: `agentTimeline.finish`. Here rather than on the success path so a
-    //: stopped or failed turn does not sit claiming to be running.
+    //: `agentTimeline.finish`.
     timeline.finish?.();
     // Only if it is still ours. Switching away and sending a second message
     // installs a new controller, and this line firing late would null it —
@@ -14904,6 +14918,9 @@ async function openConversation(id) {
         }
       }
       handles.timeline.finalise();
+      //: …and the step group, so a replayed turn does not reopen with
+      //: "Working — 3 steps" over a conversation that finished yesterday.
+      handles.timeline.finish?.();
       // Rebuild the metadata line. Reported in IDEAS.md as "chat message
       // metadata disappears on reload": it was only ever built from the live
       // stream, so reopening a chat showed answers with nothing to say which

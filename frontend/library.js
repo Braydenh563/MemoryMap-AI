@@ -2460,6 +2460,8 @@ function ocrRenderRegions(body) {
 async function ocrLoadPage(image, page = 0) {
   ocrWorkspaceCurrent = image;
   ocrWorkspacePage = Math.max(0, page);
+  //: What to reopen, if this window is closed while a read is still running.
+  ocrLastOpened = { image, page: ocrWorkspacePage };
   const img = $("ocr-image");
   //: `_src` is an already-tokened url from a caller that has one (the
   //: lightbox); `url` is the raw path every gallery row carries. Running an
@@ -2548,6 +2550,45 @@ function ocrRailKey(image) {
   return `${image._isAttachment ? "file" : "media"}:${image.id}`;
 }
 
+//: **Closing the window must not lose the reading.**
+//:
+//: Reported twice: *"I start document ocr, but then I close the workspace and
+//: the ocr workspace goes as well so I cant access it again."* The read itself
+//: has survived since `trackOcrRead` shipped — a POST keeps going and writes
+//: its result whatever the browser does — but there was no door back in, which
+//: from the outside is the same thing as losing it.
+//:
+//: So the close is a function rather than a class toggle: it remembers what
+//: was open, and when a read is still running it leaves a notice on screen
+//: with the way back. `toastAction` rather than a plain toast for exactly that
+//: reason — a notice with no button is the thing that was already there.
+let ocrLastOpened = null;
+
+function closeOcrWorkspace() {
+  const overlay = $("ocr-workspace");
+  if (!overlay) return;
+  overlay.classList.add("hidden");
+  const running = ocrReadInFlight(ocrWorkspaceCurrent);
+  if (!running || !ocrLastOpened) return;
+  const { image, page } = ocrLastOpened;
+  toastAction(`${running.label} — it keeps going.`, "Reopen", () => {
+    openOcrWorkspace(image, []);
+    if (page) setTimeout(() => ocrLoadPage(image, page), 150);
+  });
+}
+
+//: Also reachable without closing anything: any surface that knows a read is
+//: in flight can offer the way back through this.
+function reopenOcrWorkspace() {
+  if (!ocrLastOpened) return false;
+  openOcrWorkspace(ocrLastOpened.image, []);
+  if (ocrLastOpened.page) {
+    setTimeout(() => ocrLoadPage(ocrLastOpened.image, ocrLastOpened.page), 150);
+  }
+  return true;
+}
+window.reopenOcrWorkspace = reopenOcrWorkspace;
+
 function openOcrWorkspace(image, images) {
   const overlay = $("ocr-workspace");
   if (!overlay) return;
@@ -2629,33 +2670,118 @@ function ocrFitStage() {
   stage.style.width = `${Math.floor(naturalWidth * scale)}px`;
 }
 
+//: **What "100%" means for a page that was rendered rather than photographed.**
+//:
+//: Reported: *"the document at 100% zoom is still zoomed in and I cant zoom
+//: out."* Both halves were true. A PDF page is rasterised at
+//: `pdfpages.RENDER_SCALE` (2.0 — ~144 DPI, picked so a vision model can read
+//: small type), so the PNG's own pixels are twice the page's nominal size and
+//: "Actual size" was a 200% view wearing a 100% label. And the control was a
+//: two-state segment, so there was no way down from it.
+//:
+//: An image is its own pixels and needs no correction; only a rendered page
+//: does, which is why this is keyed on the file being a PDF rather than on a
+//: number carried in the response.
+const OCR_PDF_RENDER_SCALE = 2;
+//: The steps the ± buttons walk. Wide at the bottom because reading a scan at
+//: 50% is a real thing to want, and fine at the top because the point of
+//: zooming into an OCR page is to check one word.
+const OCR_ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3];
+//: `null` means Fit — the mode, not a number, so resizing the window keeps
+//: fitting rather than freezing at whatever fit happened to be.
+let ocrZoom = null;
+
+function ocrNaturalScale() {
+  return ocrIsPdf(ocrWorkspaceCurrent) ? OCR_PDF_RENDER_SCALE : 1;
+}
+
+function ocrApplyZoom() {
+  const pane = document.querySelector(".ocr-page");
+  const stage = $("ocr-stage");
+  const img = $("ocr-image");
+  const label = $("ocr-zoom-level");
+  if (!pane || !stage || !img) return;
+  if (ocrZoom === null) {
+    pane.classList.add("is-fit");
+    ocrFitStage();
+    if (label) label.textContent = "Fit";
+    return;
+  }
+  pane.classList.remove("is-fit");
+  const natural = img.naturalWidth || 0;
+  if (!natural) return;
+  //: The page's own size on paper is the rendered width divided by the scale
+  //: it was rendered at; the zoom multiplies *that*, so 100% is 100%.
+  stage.style.width = `${Math.round((natural / ocrNaturalScale()) * ocrZoom)}px`;
+  if (label) label.textContent = `${Math.round(ocrZoom * 100)}%`;
+}
+
+function ocrStepZoom(direction) {
+  //: Stepping from Fit starts at whatever Fit currently *is*, so the first
+  //: press changes the picture by one step rather than jumping to 100%.
+  if (ocrZoom === null) {
+    const stage = $("ocr-stage");
+    const img = $("ocr-image");
+    const shown = stage ? stage.getBoundingClientRect().width : 0;
+    const paper = (img?.naturalWidth || 0) / ocrNaturalScale();
+    ocrZoom = paper ? Math.min(3, Math.max(0.25, shown / paper)) : 1;
+  }
+  const steps = OCR_ZOOM_STEPS;
+  const next =
+    direction > 0
+      ? steps.find((step) => step > ocrZoom + 0.001)
+      : [...steps].reverse().find((step) => step < ocrZoom - 0.001);
+  ocrZoom = next ?? ocrZoom;
+  ocrApplyZoom();
+  ocrSyncZoomButtons();
+}
+
+//: The segment and the ± row describe one state, so they are painted from it
+//: rather than each tracking their own idea of what is showing.
+function ocrSyncZoomButtons() {
+  for (const button of document.querySelectorAll("#ocr-zoom button")) {
+    const isFit = button.dataset.ocrZoom === "fit";
+    const on = isFit ? ocrZoom === null : ocrZoom === 1;
+    button.classList.toggle("active", on);
+    button.setAttribute("aria-pressed", String(on));
+  }
+  const out = $("ocr-zoom-out");
+  const zin = $("ocr-zoom-in");
+  if (out) out.disabled = ocrZoom !== null && ocrZoom <= OCR_ZOOM_STEPS[0];
+  if (zin) zin.disabled = ocrZoom !== null && ocrZoom >= OCR_ZOOM_STEPS.at(-1);
+}
+
 function ocrAllText() {
   return ocrWorkspaceRegions.map((region) => region.text).join("\n\n").trim();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  $("ocr-close")?.addEventListener("click", () => $("ocr-workspace").classList.add("hidden"));
+  $("ocr-close")?.addEventListener("click", () => closeOcrWorkspace());
   $("ocr-workspace")?.addEventListener("click", (event) => {
     //: Click the backdrop to close, the card to keep working — the same rule
     //: every other overlay in this app follows.
-    if (event.target === event.currentTarget) event.currentTarget.classList.add("hidden");
+    if (event.target === event.currentTarget) closeOcrWorkspace();
   });
   document.querySelector(".ocr-page")?.classList.add("is-fit");
   for (const button of document.querySelectorAll("#ocr-zoom button")) {
     button.addEventListener("click", () => {
-      const fit = button.dataset.ocrZoom === "fit";
-      document.querySelector(".ocr-page")?.classList.toggle("is-fit", fit);
-      for (const other of document.querySelectorAll("#ocr-zoom button")) {
-        const on = other === button;
-        other.classList.toggle("active", on);
-        other.setAttribute("aria-pressed", String(on));
-      }
-      ocrFitStage();
+      //: Fit is a *mode* (null) and 100% is a number, so both go through the
+      //: one state `ocrApplyZoom` paints from — the old handler toggled a
+      //: class and called the fitter, which is why "Actual size" had no way
+      //: back and no idea what percentage it was showing.
+      ocrZoom = button.dataset.ocrZoom === "fit" ? null : 1;
+      ocrApplyZoom();
+      ocrSyncZoomButtons();
     });
   }
-  $("ocr-image")?.addEventListener("load", ocrFitStage);
+  $("ocr-zoom-in")?.addEventListener("click", () => ocrStepZoom(1));
+  $("ocr-zoom-out")?.addEventListener("click", () => ocrStepZoom(-1));
+  $("ocr-image")?.addEventListener("load", () => {
+    ocrApplyZoom();
+    ocrSyncZoomButtons();
+  });
   window.addEventListener("resize", () => {
-    if (!$("ocr-workspace")?.classList.contains("hidden")) ocrFitStage();
+    if (!$("ocr-workspace")?.classList.contains("hidden")) ocrApplyZoom();
   });
   $("ocr-show-boxes")?.addEventListener("change", (event) => {
     $("ocr-boxes").classList.toggle("is-hidden", !event.currentTarget.checked);

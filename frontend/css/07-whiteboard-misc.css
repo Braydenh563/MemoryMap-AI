@@ -4742,3 +4742,54 @@ button.connection-row {
   flex: 0 0 auto;
   margin-right: var(--space-2);
 }
+
+
+/* The gesture strip on a board that is still being started. Floating over the
+   canvas rather than in the layout: the canvas is the whole pane, and a row
+   that pushed it down would move every card the moment the hint appeared or
+   went. Bottom-centre, out of the way of the toolbar at the top and of the
+   root card that opens in the middle. */
+.wb-gestures {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-5);
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: min(90%, 60rem);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--modal-bg);
+  box-shadow: var(--shadow-md);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  overflow-x: auto;
+}
+
+.wb-gesture {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+.wb-gestures kbd {
+  font-family: var(--mono, ui-monospace, monospace);
+}
+
+
+/* The ± zoom row beside the Fit/100% segment. Tabular figures so stepping
+   through 75% → 100% → 125% does not shuffle the buttons sideways. */
+.ocr-zoom-steps {
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.ocr-zoom-level {
+  min-width: 3.2rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}

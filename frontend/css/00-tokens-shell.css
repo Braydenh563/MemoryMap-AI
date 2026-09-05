@@ -1146,7 +1146,16 @@ header#top-bar.tabs-wrapped #tab-bar {
    from the Notes tab's "work with what I have" — hence bigger units, more
    metadata on each, and the controls at the top instead of down the side. */
 .library-controls {
-  --control-h: 2.2rem;
+  /* **Whole pixels, deliberately.** Reported twice as "weird flickering lines
+     on buttons": 2.2rem is 35.2px, and a control whose height lands on a
+     fraction paints its 1px border across two device pixels — which shimmers
+     as the page scrolls, and shimmers *worse* on a display at 125% or 150%
+     scaling, where 35.2 becomes 44 and 52.8. Measured here at DPR 1: the
+     row's pixels are byte-identical across four frames a second apart while
+     the timer runs, so the flicker is not in the app's own repainting. Whole
+     multiples (2.25rem = 36px, and 36 × 1.25 = 45, × 1.5 = 54, × 2 = 72) take
+     the fractional case away entirely. */
+  --control-h: 2.25rem;
 }
 
 /* **Every Library sub-tab's header row is one height now.** Reported: "the
@@ -1166,7 +1175,7 @@ header#top-bar.tabs-wrapped #tab-bar {
    the same card, and a header at one height above a toolbar at another is the
    same complaint one line further down. One card, one control height. */
 .library-head {
-  --control-h: 2.3rem;
+  --control-h: 2.375rem;
   margin-bottom: var(--space-2);
   /* **One title block height, whatever is beside the title.**
      Reported: the vertical gaps under the sub-tab titles differ from tab to
@@ -1316,7 +1325,7 @@ header#top-bar.tabs-wrapped #tab-bar {
    Not a spacing token: a hit target is a control's own size and must not move
    with the density setting. */
 .library-toolbar {
-  --control-h: 2.3rem;
+  --control-h: 2.375rem;
 }
 
 /* **Every control on a toolbar row, not the four that were remembered.**

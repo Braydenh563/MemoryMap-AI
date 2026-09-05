@@ -4003,3 +4003,56 @@ mark.lightbox-hit {
   color: var(--muted);
   font-size: var(--text-sm);
 }
+
+
+/* **The popup agent's provenance lists.** Reported with a screenshot: chips of
+   whatever width their own text happened to be, wrapping into a ragged block,
+   each truncated at a different point, and the second list's rows a different
+   size from the first's. A fixed grid gives every row one width, so the eye
+   reads down a column instead of hunting, and the truncation lands in one
+   place. Two across at a comfortable width, one across when the popup is
+   narrow — `auto-fill` decides, so there is no breakpoint to keep in step. */
+.cmd-source-block {
+  margin-top: var(--space-3);
+}
+
+.cmd-source-head {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.cmd-source-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--space-1);
+}
+
+.cmd-source-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--inner);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.cmd-source-row:hover,
+.cmd-source-row:focus-visible {
+  border-color: var(--accent);
+  background: var(--chip-bg);
+}
+
+.cmd-source-more {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+}

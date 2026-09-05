@@ -1239,10 +1239,14 @@
   min-width: 0;
 }
 
-/* A separator between groups, drawn on the group rather than between them so
-   it survives any of them being hidden — Web disappears when the online
-   opt-in is off, and a stranded divider is worse than none. */
-.chat-tool-group+.chat-tool-group::before {
+/* **No rule before the mode group.** Reported: "can you remove the divider
+   line before the chat mode switcher in the bottom dock". It was there to
+   separate "what the AI may use" from "how it answers", but the mode group is
+   already pushed to the far end by `margin-left: auto` — a gap that wide
+   separates the two on its own, and a hairline inside it reads as a stray mark
+   rather than as structure. The dividers between the *adjacent* groups stay:
+   those genuinely sit shoulder to shoulder. */
+.chat-tool-group+.chat-tool-group:not(.chat-tool-group-mode):not(.chat-tool-group-end)::before {
   content: "";
   align-self: stretch;
   width: 1px;
@@ -1263,6 +1267,7 @@
   .chat-tool-group+.chat-tool-group::before {
     display: none;
   }
+
 
   .chat-tool-group-end {
     margin-left: 0;

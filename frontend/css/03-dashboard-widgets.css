@@ -335,9 +335,37 @@
    either. Given the same inline padding every settings card uses, so a tool
    row reads as one more card in the list rather than a different kind of
    row. */
+/* **A list, not fifty-three bubbles.** Reported with a screenshot: "the tools
+   it can use toggles … are on separate bubbles and each has a line at the top
+   for some reason". Both were real and both were accidents of two rules
+   meeting:
+
+   - the `li` carried a tinted ground and a radius, which turns a row into a
+     card — fine for six settings, absurd for fifty-three consecutive ones;
+   - and `.setting-check`, which every row also wears, adds `border-top` as
+     its own separator. Inside a bubble that already has a bottom rule, that
+     is a line across the top of every card with nothing above it to separate.
+
+   One hairline between rows, no ground, no radius: the same list shape the
+   rest of Settings uses, which is what "different from the rest" was about. */
 #tool-list li {
   padding: var(--space-3) var(--space-4);
+  /* One hairline per gap: the bottom rule is the separator, and a top rule as
+     well divides every pair of neighbours twice. Measured: both were on. */
+  border-top: 0;
   border-bottom: 1px solid var(--border);
+  background: none;
+  border-radius: 0;
+}
+
+#tool-list li:last-child {
+  border-bottom: 0;
+}
+
+/* The row's own top rule goes with it — the `li` above is the separator now,
+   and two lines between neighbours is one line too many. */
+#tool-list .tool-row {
+  border-top: 0;
 }
 
 /* **`.tool-row` is `.setting-check` now, and carries both classes.** Reported
@@ -2402,7 +2430,7 @@ p.graph-help-panel {
   box-shadow: var(--glass-shadow);
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  --control-h: 1.9rem;
+  --control-h: 1.875rem;
 }
 
 :root[data-glass="off"] .graph-options {

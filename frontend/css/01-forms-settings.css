@@ -514,7 +514,7 @@ input[type="checkbox"] {
    now-shorter box instead of being squeezed against it. */
 .settings-group .row,
 .focus-presets {
-  --control-h: 2.2rem;
+  --control-h: 2.25rem;
 }
 
 .settings-group .row select,

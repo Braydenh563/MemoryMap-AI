@@ -20,7 +20,7 @@
   box-shadow: var(--glass-shadow);
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  --control-h: 1.9rem;
+  --control-h: 1.875rem;
 }
 
 :root[data-glass="off"] .graph-trace {
@@ -747,7 +747,7 @@
      control's size, the same role --radius plays for corners, and snapping it
      to a gap step would make it drift with density in a way a hit target
      should not. */
-  --control-h: 1.9rem;
+  --control-h: 1.875rem;
 }
 
 .chat-dock-controls select,
@@ -2745,7 +2745,7 @@ label.setting-check,
      it is *used*, not where it is set, does its damage nowhere near the code
      that caused it. Same 2.3rem the Library toolbar picks, so a control is
      the same size in both places. */
-  --control-h: 2.3rem;
+  --control-h: 2.375rem;
   gap: var(--space-2);
   flex-wrap: wrap;
   align-items: center;
@@ -3559,4 +3559,28 @@ input.doc-title-input:focus-visible {
 input.doc-title-input::placeholder {
   font-weight: 500;
   color: var(--muted);
+}
+
+
+/* **The turn's status belongs with the turn, not under the box you type in.**
+
+   Reported: "maybe remove the little 'the model is writing' line at the bottom
+   of the chat dock or have it show somewhere else". It is duplicated work as
+   well as clutter — the bubble being written already carries the same words on
+   its own progress line, right where you are reading, and the dock repeated
+   them a screen away. What is left here is the *timer*, which the bubble does
+   not carry and which is the one thing the dock can say better: how long this
+   has been going.
+
+   Not deleted from the DOM: `#chat-status` is written from a dozen places in
+   the stream and is the turn's `role="status"` announcement for a screen
+   reader. Clipped rather than hidden keeps that announcement working while
+   taking the line off the screen. */
+#chat-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

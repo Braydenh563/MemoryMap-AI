@@ -2880,6 +2880,26 @@ Link to another note with [[its first few words]]."></textarea>
     </div>
     <div id="wb-canvas-view" class="hidden">
       <button id="wb-back-to-boards" class="ghost small" type="button">← Boards</button>
+      <!-- **The gestures, on screen, while you still need them.** Reported:
+           "concept maps are unlearnable". The map *creates* well — it opens
+           with a root selected and a toast naming Tab and Enter — but a toast
+           is gone in five seconds and the board then says nothing about the
+           three gestures that are the whole feature. Everything else about a
+           whiteboard is discoverable by pointing at it; these are keys, and a
+           key you were told about once is a key you do not have.
+
+           Shown while a board is small enough to still be starting (see
+           `renderWbGestureHints`), dismissible for good, and reachable again
+           from the board's own ⋯ — the same "teach at the moment it applies,
+           never nag" rule the capture box's own hint follows. -->
+      <div id="wb-gestures" class="wb-gestures hidden" role="note" aria-label="Map gestures">
+        <span class="wb-gesture"><kbd>Tab</kbd> a branch off the selected card</span>
+        <span class="wb-gesture"><kbd>Enter</kbd> a sibling beside it</span>
+        <span class="wb-gesture"><kbd>Delete</kbd> removes the selected card</span>
+        <span class="wb-gesture">Drag a card's edge onto another to link them</span>
+        <button type="button" id="wb-gestures-dismiss" class="ghost small icon-only"
+          title="Got it — hide these" aria-label="Hide the gesture hints"><i class="ph ph-x" aria-hidden="true"></i></button>
+      </div>
     <div class="whiteboard-container" id="whiteboard-container">
       <!-- The SVG layer for drawing, fills the container -->
       <svg id="wb-svg-layer" class="wb-svg-layer">
@@ -3710,11 +3730,27 @@ Link to another note with [[its first few words]]."></textarea>
                sat below the fold with only a scrollbar to say so. Fit is the
                default now — the whole page, always — and Actual size is for
                reading small print, where scrolling is the point. -->
+          <!-- **Real zoom, because "Actual size" is not 100%.** Reported: "the
+               document at 100% zoom is still zoomed in and I cant zoom out".
+               True, and the cause is that a PDF page is *rendered* at
+               `RENDER_SCALE = 2.0` (~144 DPI, chosen so a vision model can
+               read small type) — so the PNG's own pixels are twice the page's
+               nominal size, and "Actual size" showed a 200% view with nothing
+               to take it back down. Fit and a zoom range replace the pair:
+               100% now means the page at its own size, whatever scale it was
+               rasterised at. -->
           <div class="seg seg-compact" id="ocr-zoom" role="group" aria-label="Page size">
             <button type="button" data-ocr-zoom="fit" class="active" aria-pressed="true"
               title="Show the whole page">Fit</button>
             <button type="button" data-ocr-zoom="full" aria-pressed="false"
-              title="Show the page at its own size, and scroll">Actual size</button>
+              title="Show the page at 100% — its own size on paper">100%</button>
+          </div>
+          <div class="row ocr-zoom-steps" role="group" aria-label="Zoom">
+            <button type="button" id="ocr-zoom-out" class="ghost small icon-only"
+              title="Zoom out" aria-label="Zoom out"><i class="ph ph-minus" aria-hidden="true"></i></button>
+            <span id="ocr-zoom-level" class="muted text-sm ocr-zoom-level" role="status">Fit</span>
+            <button type="button" id="ocr-zoom-in" class="ghost small icon-only"
+              title="Zoom in" aria-label="Zoom in"><i class="ph ph-plus" aria-hidden="true"></i></button>
           </div>
           <!-- Only shown for a document whose page can be handed to a vision
                model (a PDF). Reported: "is the document ocr even working??" —

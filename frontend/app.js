@@ -2692,6 +2692,9 @@ function entryOverflowMenu(entry) {
   menu.className = "action-menu hidden";
   menu.setAttribute("role", "menu");
 
+  //: Same square-kebab rule as `kebabMenu` below — this is the *other* ⋯
+  //: builder (note cards, built lazily on first open), and a rule applied to
+  //: one of two implementations of the same control is how they drift.
   const opener = smallButton("⋯", "More actions", () => {
     const willOpen = menu.classList.contains("hidden");
     if (willOpen) {
@@ -2699,6 +2702,7 @@ function entryOverflowMenu(entry) {
       openActionMenu(menu, opener);
     } else closeActionMenus();
   });
+  opener.classList.add("icon-only");
   opener.setAttribute("aria-haspopup", "menu");
   opener.setAttribute("aria-expanded", "false");
 
@@ -15243,6 +15247,15 @@ function kebabMenu(items, ariaLabel) {
     if (willOpen) openActionMenu(menu, opener);
     else closeActionMenus();
   });
+  //: **A kebab is one glyph, so it is square.** Reported: "all the chat header
+  //: buttons [should] be square, there should be no rectangle single icon
+  //: buttons as that is not consistent with the rest of the application."
+  //: Measured in that header: Fork and Compress 28×28, this opener 43×28 — it
+  //: took `.small`'s text padding because the class that squares an icon
+  //: button has to be remembered per button (see the rule's own comment in
+  //: 00-tokens-shell.css) and nobody remembered it here. Set at the source, so
+  //: every ⋯ in the app is square rather than one more thing to remember.
+  opener.classList.add("icon-only");
   opener.setAttribute("aria-haspopup", "menu");
   opener.setAttribute("aria-expanded", "false");
 
@@ -30434,49 +30447,89 @@ function cmdPaletteGoToDocument(id) {
 //: them across the turn and shows them under one heading.
 function cmdPaletteTouchedRow(items) {
   if (!items.length) return null;
-  const row = document.createElement("div");
-  row.className = "row cmd-palette-found";
-  const label = document.createElement("span");
-  label.className = "muted";
-  label.textContent = items.length === 1 ? "Opened:" : `Opened ${items.length} items:`;
-  row.appendChild(label);
-  for (const item of items) {
-    const spec = TOUCHED_KINDS[item.kind] || TOUCHED_KINDS.note;
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "chip result-reason-chip result-reason-connected";
-    setLabel(chip, `${spec.icon} ${item.label || `#${item.id}`}`);
-    chip.title = spec.title;
-    chip.addEventListener("click", () =>
-      item.kind === "document" ? cmdPaletteGoToDocument(item.id) : cmdPaletteGoToNote(item.id),
-    );
-    row.appendChild(chip);
+  //: Same grid as the retrieved-notes block above — these two lists sat under
+  //: one another in different shapes and different chip sizes, which is what
+  //: made the pair read as clutter rather than as provenance.
+  return cmdSourceList(
+    items.length === 1 ? "Opened 1 item" : `Opened ${items.length} items`,
+    items,
+    (item) => {
+      const spec = TOUCHED_KINDS[item.kind] || TOUCHED_KINDS.note;
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "cmd-source-row";
+      const label = String(item.label || `#${item.id}`);
+      setLabel(chip, `${spec.icon} ${label.length > 44 ? `${label.slice(0, 44)}…` : label}`);
+      chip.title = spec.title;
+      chip.addEventListener("click", () =>
+        item.kind === "document" ? cmdPaletteGoToDocument(item.id) : cmdPaletteGoToNote(item.id),
+      );
+      return chip;
+    }
+  );
+}
+
+//: **A list of what was used, not a drift of pills.**
+//:
+//: Reported with a screenshot of "Found in 10 notes" and "Opened 6 items":
+//: *"refine the ui display of these in the popup agent."* They were inline
+//: chips of whatever width their text happened to be, wrapping into a ragged
+//: block — three on one line, two on the next, each truncated at a different
+//: point, and the second list's chips a different size from the first's
+//: because their labels were longer. Nothing lines up, so nothing scans.
+//:
+//: A fixed grid fixes both halves at once: every row is the same width, so the
+//: eye reads down a column instead of hunting, and the truncation lands in one
+//: place. Past `CMD_SOURCE_PREVIEW` the rest fold behind one "show all" —
+//: eleven rows of provenance under a two-line answer is the panel reporting on
+//: itself rather than answering.
+const CMD_SOURCE_PREVIEW = 6;
+
+function cmdSourceList(labelText, items, render) {
+  const block = document.createElement("div");
+  block.className = "cmd-source-block";
+  const head = document.createElement("p");
+  head.className = "muted cmd-source-head";
+  head.textContent = labelText;
+  block.appendChild(head);
+  const grid = document.createElement("div");
+  grid.className = "cmd-source-grid";
+  items.slice(0, CMD_SOURCE_PREVIEW).forEach((item) => grid.appendChild(render(item)));
+  block.appendChild(grid);
+  const rest = items.slice(CMD_SOURCE_PREVIEW);
+  if (rest.length) {
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "link-button cmd-source-more";
+    more.textContent = `Show ${rest.length} more`;
+    more.addEventListener("click", () => {
+      rest.forEach((item) => grid.appendChild(render(item)));
+      more.remove();
+    });
+    block.appendChild(more);
   }
-  return row;
+  return block;
 }
 
 //: The notes this turn actually retrieved, as things you can open.
 function cmdPaletteResultRow(results) {
-  const row = document.createElement("div");
-  row.className = "row cmd-palette-found";
-  const label = document.createElement("span");
-  label.className = "muted";
-  label.textContent = results.length === 1 ? "Found in:" : `Found in ${results.length} notes:`;
-  row.appendChild(label);
-  for (const entry of results) {
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "chip result-reason-chip result-reason-connected";
-    //: `ph:note`, not `ph:file-text` — that glyph means *document* in the
-    //: touched row two lines below this one, and the same picture standing
-    //: for two different objects in one panel is exactly the inconsistency
-    //: the app is being pulled out of.
-    setLabel(chip, `ph:note ${noteLabel({ content: entry.content || "" }, 28)}`);
-    chip.title = `Open this note${entry.category ? ` (${entry.category})` : ""}`;
-    chip.addEventListener("click", () => cmdPaletteGoToNote(entry.id));
-    row.appendChild(chip);
-  }
-  return row;
+  return cmdSourceList(
+    results.length === 1 ? "Found in 1 note" : `Found in ${results.length} notes`,
+    results,
+    (entry) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "cmd-source-row";
+      //: `ph:note`, not `ph:file-text` — that glyph means *document* in the
+      //: touched row below, and the same picture standing for two different
+      //: objects in one panel is exactly the inconsistency this app is being
+      //: pulled out of.
+      setLabel(chip, `ph:note ${noteLabel({ content: entry.content || "" }, 44)}`);
+      chip.title = `Open this note${entry.category ? ` (${entry.category})` : ""}`;
+      chip.addEventListener("click", () => cmdPaletteGoToNote(entry.id));
+      return chip;
+    }
+  );
 }
 
 //: One reference, as a control. Extracted because a list of ids builds several

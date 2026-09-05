@@ -6473,7 +6473,50 @@ async function openWhiteboardBoard(boardId) {
   await fetchWhiteboardState();
   wbScheduleRender();
   wbApplyBgImage();
+  renderWbGestureHints();
 }
+
+//: Where "concept maps are unlearnable" is actually answered.
+//:
+//: The map creates well — a root card, selected, and a toast naming Tab and
+//: Enter. Then the toast goes, and the board says nothing at all about the
+//: three gestures that *are* the feature. Everything else here is discoverable
+//: by pointing at it; these are keys, and a key you were told about once is a
+//: key you do not have.
+//:
+//: Two rules, both from the capture box's own hint: teach at the moment it
+//: applies, and never nag. So it shows while the board is still small enough
+//: to be starting (a map you have built out has taught you these already), and
+//: dismissing it is permanent.
+const WB_GESTURES_DISMISSED = "wbGesturesDismissed";
+//: Up to this many cards still counts as "just started". Four is a root and
+//: three branches — by then you have either used Tab or you are doing
+//: something else with the board.
+const WB_GESTURE_CARD_LIMIT = 4;
+
+function renderWbGestureHints() {
+  const strip = document.getElementById("wb-gestures");
+  if (!strip) return;
+  let dismissed = false;
+  try {
+    dismissed = localStorage.getItem(WB_GESTURES_DISMISSED) === "1";
+  } catch {
+    //: A browser with storage blocked shows the hint every time, which is the
+    //: safe direction to fail in: an extra reminder beats a silent feature.
+  }
+  const cards = (wbState && wbState.nodes ? wbState.nodes.length : 0);
+  strip.classList.toggle("hidden", dismissed || cards > WB_GESTURE_CARD_LIMIT);
+}
+window.renderWbGestureHints = renderWbGestureHints;
+
+document.getElementById("wb-gestures-dismiss")?.addEventListener("click", () => {
+  try {
+    localStorage.setItem(WB_GESTURES_DISMISSED, "1");
+  } catch {
+    /* nothing to persist to — hiding it for this session is still correct */
+  }
+  document.getElementById("wb-gestures")?.classList.add("hidden");
+});
 
 /** A new concept map: a board that opens with a core idea on it, selected
  *  and ready to branch from.

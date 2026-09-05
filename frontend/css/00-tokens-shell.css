@@ -1872,11 +1872,44 @@ header#top-bar.tabs-wrapped #tab-bar {
   -webkit-line-clamp: 4;
 }
 
+/* **Fixed, like the two tracks above it, and for the same reason.** Reported
+   again: "the line view in the library all subtab is broken and elements
+   arent aligned or consistent in position." The title and preview columns
+   were pinned by the rule above; the meta column was not, so its width
+   followed whichever category name a row happened to carry — and the ⋯ after
+   it therefore started at a different x on every row. Half a list view is not
+   a list view.
+
+   Right-aligned inside its own track so the dates line up on their right
+   edge, which is how a column of dates is read. */
 .library-list .library-card-meta {
-  flex: 0 0 auto;
+  flex: 0 0 14rem;
+  justify-content: flex-end;
+  /* **Pushed to the right edge, not merely sized.** Not every kind of row has
+     a preview — an activity entry does, a board does not — and on the rows
+     without one the meta simply slid left into the gap. Measured across eight
+     rows: the ⋯ started at 1369px on rows with a preview and 681px on rows
+     without, which is the "not aligned or consistent in position" report
+     exactly. `margin-left: auto` makes the last two columns hug the right
+     edge whatever came before them, so the fixed track above then puts the ⋯
+     at one x for the whole list. */
+  margin-left: auto;
   margin-top: 0;
   padding-top: 0;
   gap: var(--space-5);
+}
+
+/* **The thumbnail column is reserved even on rows that have no thumbnail.**
+   A picture note draws one and a plain note does not, so with the slot
+   present only sometimes every row with a thumb was indented 3rem further
+   than its neighbours — the last of the four columns that did not line up.
+   `:has()` is the only way to ask "does this row have one", and it is the
+   difference between reserving the space and hard-coding a padding that
+   would then be wrong for the rows that do. */
+.library-list .library-card:not(:has(.library-card-thumb))::before {
+  content: "";
+  flex: 0 0 3rem;
+  order: -1;
 }
 
 .library-list .library-card-thumb {
@@ -3215,4 +3248,42 @@ summary.small.icon-button {
   font-size: var(--text-md);
   line-height: 1.5;
   text-align: center;
+}
+
+/* --- one ⋯ button, everywhere in the Library ---------------------------------
+   Reported: "the ellipse buttons on white backgrounds are hard to see, make
+   sure all the ellipse buttons in the library tabs are the same ui style."
+
+   Both halves have the same cause. The tiles' kebab painted itself with
+   `--modal-bg`, which is deliberately ~4% see-through (see CLAUDE.md's
+   nav-history story) — fine over a dark card, invisible over a white scan or
+   a pale photograph, which is exactly where the Files and Images tiles put
+   it. And because the tile kebab had its own rule while every other Library
+   kebab inherited the plain icon-button look, no two sub-tabs drew the same
+   control.
+
+   One rule for all of them: an opaque chip with a real border, so what is
+   behind it cannot change whether it can be seen. `--modal-bg-opaque` is the
+   same token the command palette and every other floating surface reads text
+   against, and it exists precisely because the translucent one cannot be
+   relied on over unknown content. */
+.library-card-menu > button[aria-haspopup="menu"],
+.library-list .library-card-menu > button[aria-haspopup="menu"],
+.library-image-actions > .menu-wrap > button[aria-haspopup="menu"],
+.library-image-tile .library-image-menu-btn {
+  background: var(--modal-bg-opaque);
+  border: 1px solid var(--border);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+  /* No blur: the point is that the control does not take its appearance from
+     whatever it happens to be sitting on. */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.library-card-menu > button[aria-haspopup="menu"]:hover,
+.library-image-actions > .menu-wrap > button[aria-haspopup="menu"]:hover,
+.library-image-tile .library-image-menu-btn:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  color: var(--accent);
 }

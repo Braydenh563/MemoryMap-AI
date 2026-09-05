@@ -3800,3 +3800,55 @@ select {
   background: var(--accent-soft);
   color: var(--ink);
 }
+
+/* --- the Contents index: the two columns of a row ---------------------------
+   Reported: "the date can get pushed off the edge of the boxes with links in
+   the contents page if the title or note is long making the date get cut
+   off", and separately that the section headings need "padding or
+   redesigning so the text isn't right up against the sides".
+
+   Both are missing rules rather than wrong ones. `.contents-label` and
+   `.contents-meta` had no flex sizing at all, so the browser's default
+   (`flex: 0 1 auto`, shrink permitted, minimum = content) let a long title
+   push the date out of the row and then refuse to shrink itself, because a
+   flex item's automatic minimum is its own content unless `min-width: 0`
+   says otherwise. That one property is the whole fix, and it is the same one
+   `.msg` and `#chat-messages` already carry for the same reason. */
+.contents-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Fixed at the right edge so the eye can run down the column, and never the
+   thing that gets clipped: a date that has been cut in half is worse than no
+   date, because a reader cannot tell which half they are looking at. */
+.contents-meta {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding-left: var(--space-3);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+/* The heading is a full-width button, so without side padding its label sits
+   hard against the section's edge and its count against the other one — the
+   only row on the page that does. Matching the rows below it also means the
+   caret, the title and the count line up down the whole index. */
+.contents-heading {
+  padding-inline: var(--space-2);
+  gap: var(--space-2);
+}
+
+/* A folded section still has to look pressable. Without a ground on hover the
+   heading reads as a label that happens to move a caret — reported as the
+   rows "not working", which is what a control with no feedback looks like
+   whether or not it fired. */
+.contents-heading:hover,
+.contents-heading:focus-visible {
+  background: var(--chip-bg);
+  border-radius: var(--radius-md);
+}

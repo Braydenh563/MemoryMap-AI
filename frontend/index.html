@@ -3415,7 +3415,16 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- The vault's own folders, for notes imported from one. See
                `Entry.source_path`: everything written in this app groups
                under "(written here)" rather than vanishing. -->
-          <button role="tab" aria-selected="false" data-mode="folder" type="button">By folder</button>
+          <!-- **The tooltip is the whole feature for anyone who has not
+               imported a vault.** Reported as a question: "what does it mean
+               by 'sort by folder' in the contents page??" — which is the
+               right question, because on a notebook with nothing imported
+               this tab groups everything under one heading and looks broken.
+               A control has to say what it is for where it is offered; the
+               comment above says it to the next developer and said nothing
+               to the user. -->
+          <button role="tab" aria-selected="false" data-mode="folder" type="button"
+            title="Group by the folders of an imported Obsidian or markdown vault. Notes written in MemoryMap have no folder, so they group under “(written here)”.">By folder</button>
         </div>
         <input id="contents-filter" type="search" placeholder="Filter this index…"
           aria-label="Filter the index by title">

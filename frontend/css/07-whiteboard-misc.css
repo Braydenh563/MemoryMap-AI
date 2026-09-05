@@ -4676,3 +4676,23 @@ button.connection-row {
   color: var(--syntax-keyword);
   font-weight: 600;
 }
+
+/* A note that is a favourite. The star is the same glyph in both states —
+   see `favouriteButton` in app.js for why the "off" version used to be a
+   different icon and why that was the bug — so colour is what carries the
+   state, the way every app the user has ever used shows one.
+
+   `--warn` rather than `--accent`: the accent is user-chosen (Settings →
+   Appearance writes any hex onto it) and a favourite that disappears at a
+   particular accent is the same defect this session already fixed once, in
+   the syntax highlighter. `--warn` is the amber this app already uses and
+   cannot be changed. */
+.entry-actions button.is-favourite {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 40%, transparent);
+  background: var(--warn-soft);
+}
+
+.entry-actions button.is-favourite:hover {
+  border-color: color-mix(in srgb, var(--warn) 60%, transparent);
+}

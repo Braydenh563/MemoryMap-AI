@@ -78,7 +78,11 @@ const DASH_WIDGETS = {
   stats: { title: "ph:chart-bar Stats", description: "Note count, tags, categories and other totals at a glance.", render: renderStatsWidget },
   streak: { title: "ph:flame Streak", description: "How many days in a row you've added or edited a note.", render: renderStreakWidget },
   art: { title: "ph:palette Notebook constellation", description: "A generative starfield: one cluster per category, sized by note count.", render: renderArtWidget },
-  pinned: { title: "ph:push-pin Pinned notes", description: "Notes you've pinned, so they're always one click away.", render: renderPinnedWidget },
+  //: The key stays `pinned` — it is a stored widget id, and renaming it would
+  //: silently drop the widget off every dashboard that has it turned on. Only
+  //: what a person reads changes, which is the half that was inconsistent:
+  //: the sidebar and the note cards call this Favourites.
+  pinned: { title: "ph:star Favourites", description: "Notes you've starred, so they're always one click away.", render: renderPinnedWidget },
   "recent-notes": { title: "ph:clock Recently added", description: "The last few notes you created, newest first.", render: renderRecentNotesWidget },
   "most-used": { title: "ph:flame Most used", description: "The categories and tags you reach for most often.", render: renderMostUsedWidget },
   "most-linked": { title: "ph:link Most-linked notes", description: "The notes with the most connections — the hubs of your notebook.", render: renderMostLinkedWidget },
@@ -1780,7 +1784,7 @@ async function renderPinnedWidget(body) {
   const entries = (
     allEntries.length ? allEntries : await apiJson("/entries", { cacheMs: 4000 })
   ).filter((e) => e.pinned);
-  miniEntryList(body, entries.slice(0, 5), "Pin a note and it shows up here.");
+  miniEntryList(body, entries.slice(0, 5), "Star a note and it shows up here.");
 }
 
 async function renderMostUsedWidget(body) {

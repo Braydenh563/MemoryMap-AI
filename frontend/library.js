@@ -773,9 +773,15 @@ function libraryCard(item) {
   title.title = cleanTitle;
   top.append(icon, title);
   if (item.pinned) {
+    //: **The same flag means two different things here**, and this card is
+    //: the one place both kinds land side by side. A pinned *chat* is kept at
+    //: the top of the list — that is a pin. A pinned *note* is a Favourite:
+    //: one flag that both floats it and collects it into the sidebar's
+    //: Favourites row, renamed everywhere else and missed here.
+    const isChat = item.kind === "chat";
     const pin = document.createElement("span");
-    setLabel(pin, "ph:push-pin");
-    pin.title = "Pinned";
+    setLabel(pin, isChat ? "ph:push-pin" : "ph:star");
+    pin.title = isChat ? "Pinned" : "Favourite";
     top.appendChild(pin);
   }
   card.appendChild(top);

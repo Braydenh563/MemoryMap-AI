@@ -1283,6 +1283,40 @@ function smallButton(label, title, onClick, ghost = true) {
   return button;
 }
 
+//: **The star that says a note is a favourite, in both states.**
+//:
+//: Reported with a screenshot: the active one rendered as an **empty circle**
+//: — no glyph at all. The cause is worth stating because it is a whole class
+//: of bug, not one icon: the off state asked for `ph:star` and the on state
+//: for `ph:star-slash`, and **`star-slash` is not in this app's vendored
+//: Phosphor subset.** A missing glyph in an icon font is not an error — the
+//: character simply has nothing to draw — so it fails silently, looks like a
+//: styling problem, and nothing in the suite could see it. One icon name out
+//: of 176 was wrong and there was no way to know. `tests/test_icon_names.py`
+//: now checks every one against the font.
+//:
+//: The fix is also the better design. A slashed star means "remove", which is
+//: a *verb* on a control whose job is to show *state*; every app the user has
+//: ever used shows a favourite as a star that has changed colour. So both
+//: states draw `ph:star` and the difference is `is-favourite` — plus
+//: `aria-pressed`, which is what makes the state readable without the colour.
+function favouriteButton(entry) {
+  const button = smallButton(
+    "ph:star",
+    entry.pinned ? "Remove from Favourites" : "Add to Favourites (also floats it to the top)",
+    async () => {
+      await api(`/entries/${entry.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ pinned: !entry.pinned }),
+      });
+      await loadEntries();
+    }
+  );
+  button.classList.toggle("is-favourite", Boolean(entry.pinned));
+  button.setAttribute("aria-pressed", String(Boolean(entry.pinned)));
+  return button;
+}
+
 // One entry card, shared by the browse list, chat results, and the bin.
 // "2 hours ago" style, with the exact date kept for the hover tooltip
 // (Wave J). Anything older than a week just shows the date.
@@ -1620,17 +1654,7 @@ function entryItem(entry, options = {}) {
       //: Asked for: "make sure the favourites feature is actually integrated
       //: everywhere." The tooltip keeps the sort behaviour, since that is the
       //: half a star does not imply on its own.
-      smallButton(
-        entry.pinned ? "ph:star-slash" : "ph:star",
-        entry.pinned ? "Remove from Favourites" : "Add to Favourites (also floats it to the top)",
-        async () => {
-          await api(`/entries/${entry.id}`, {
-            method: "PUT",
-            body: JSON.stringify({ pinned: !entry.pinned }),
-          });
-          await loadEntries();
-        }
-      )
+      favouriteButton(entry)
     );
     actions.appendChild(
       smallButton("ph:clipboard", "Copy this note's text", async () => {

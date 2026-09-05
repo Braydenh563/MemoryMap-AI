@@ -1865,13 +1865,15 @@ async function renderGraph() {
     .attr("r", graphNodeRadius)
     .attr("fill", "url(#orb-shine)")
     .attr("pointer-events", "none");
-  // A pin badge, so pinned notes are identifiable at a glance.
+  // A star badge, so favourites are identifiable at a glance. Said as
+  // "Favourite" rather than "Pinned" for the reason the popup's own note
+  // below records: one flag, one name, everywhere.
   nodeGroups
     .filter((d) => d.pinned)
     .append("text")
     .attr("class", "graph-pin-badge")
     .attr("dy", (d) => -graphNodeRadius(d) - 4)
-    .text("Pinned");
+    .text("Favourite");
   // Native tooltip: full preview + category + how connected it is.
   nodeGroups.append("title").text((d) => {
     const links = graphAdjacency.get(d.id)?.size || 0;
@@ -2816,7 +2818,13 @@ function renderGraphPopupInfo(entry, node) {
     ["ph:link", `${(entry.links || []).length} link${(entry.links || []).length === 1 ? "" : "s"}`],
     ["ph:eye", `${entry.access_count || 0} view${entry.access_count === 1 ? "" : "s"}`],
   ];
-  if (entry.pinned) facts.push(["ph:push-pin", "Pinned"]);
+  //: **Star and "Favourite", not pin and "Pinned".** `entry.pinned` is one
+  //: flag with one meaning — it floats a note to the top *and* collects it
+  //: into the sidebar's Favourites row — and app.js's own note cards were
+  //: renamed to say so. The graph and the dashboard were not, so the same
+  //: flag had two names and two icons depending on which screen you were
+  //: looking at. Found while fixing the star button's missing glyph.
+  if (entry.pinned) facts.push(["ph:star", "Favourite"]);
   if (typeof entry.ai_confidence === "number") {
     facts.push(["ph:target", `${entry.ai_confidence}% confident`]);
   }
@@ -2834,12 +2842,16 @@ function renderGraphPopupActions(entry) {
   box.replaceChildren();
 
   box.appendChild(
-    smallButton(entry.pinned ? "ph:push-pin-slash Unpin" : "ph:push-pin Pin", "Pin or unpin this note", async () => {
+    //: One glyph in both states, coloured when it is on — the note cards'
+    //: own rule, and for the reason `favouriteButton` (app.js) records: the
+    //: "off" version used a *different icon*, and one of those was missing
+    //: from the font and drew nothing at all.
+    smallButton("ph:star", entry.pinned ? "Remove from Favourites" : "Add to Favourites", async () => {
       await apiJson(`/entries/${entry.id}`, {
         method: "PUT",
         body: JSON.stringify({ pinned: !entry.pinned }),
       }).catch((e) => toast(e.message, true));
-      toast(entry.pinned ? "Unpinned." : "Pinned.");
+      toast(entry.pinned ? "Removed from Favourites." : "Added to Favourites.");
       closeGraphPopup();
       await loadEntries().catch(() => {});
       renderGraph();

@@ -150,7 +150,39 @@ function authToken() {
 // `require_unlock_media` accepts the token this way for exactly these two
 // routes; every other endpoint stays header-only. A no-op on anything that
 // isn't one of these two paths, so every call site can use it unconditionally.
+//: **Declared up here, and the reason is the `SPACE_ALL` story below.** A
+//: `const` is in the temporal dead zone until its own line runs, and
+//: `mediaSrc` is called during boot — long before the capture composer's own
+//: section of this file is reached. Left where they logically belong (beside
+//: `handleFileUpload`), the very first render would throw
+//: `ReferenceError: Cannot access 'STAGED_URL_PREFIX' before initialization`,
+//: which `node --check` cannot see because the file is syntactically perfect.
+const STAGED_URL_PREFIX = "staged:";
+
+//: Images waiting for a note to exist — the bytes stay in the browser until
+//: Save produces an id. See `handleFileUpload` for the whole arrangement.
+let captureStagedImages = [];
+
+//: The one place that knows the placeholder's shape, so the renderer and the
+//: rewrite cannot disagree about it.
+function stagedImageUrl(key) {
+  return `${STAGED_URL_PREFIX}${key}`;
+}
+
+function stagedImageByUrl(url) {
+  if (typeof url !== "string" || !url.startsWith(STAGED_URL_PREFIX)) return null;
+  const key = url.slice(STAGED_URL_PREFIX.length);
+  return captureStagedImages.find((image) => image.key === key) || null;
+}
+
 function mediaSrc(url) {
+  //: A staged picture has no server url yet; its bytes are a Blob in this
+  //: tab. Resolved here rather than at each `<img>` so every surface that
+  //: renders note markdown — the composer preview, the live view, a widget —
+  //: shows it without knowing staging exists.
+  if (typeof url === "string" && url.startsWith(STAGED_URL_PREFIX)) {
+    return stagedImageByUrl(url)?.objectUrl || url;
+  }
   if (typeof url !== "string" || !/^\/(media|files)\//.test(url)) return url;
   const token = authToken();
   if (!token) return url;
@@ -5611,6 +5643,11 @@ const INLINE_MD_LEGACY =
 // is a protocol-relative link off this origin). Rejects `javascript:`,
 // `data:`, and anything else a pasted note could contain.
 function isRenderableUrl(url) {
+  //: `staged:` is this app's own scheme for a picture whose bytes are still
+  //: in the browser (see `captureStagedImages`) — renderable, because the
+  //: preview draws it from the Blob, and never saved, because the save path
+  //: rewrites every one of them to a real url first.
+  if (typeof url === "string" && url.startsWith(STAGED_URL_PREFIX)) return true;
   return /^https?:\/\//i.test(url) || (url.startsWith("/") && !url.startsWith("//"));
 }
 
@@ -7413,16 +7450,26 @@ async function saveEntry() {
         ? "Filing… (the search AI is still warming up, this first one can take longer)"
         : "Filing… (the AI is reading and categorising your note)";
   try {
+    //: **The pictures go up before the note does.** They were staged as
+    //: `staged:<key>` urls while the note had no id (see `captureStagedImages`);
+    //: this is the moment the user commits, so the bytes are uploaded and every
+    //: placeholder in the text is replaced with the url the upload returned.
+    //: A failure throws out of here and the save stops with the reason — a note
+    //: saved with a dead `staged:` url in it would be a broken picture forever,
+    //: and dropping the picture silently would be worse.
+    const stagedUrls = await commitCaptureImages();
+    const body = rewriteStagedUrls(content, stagedUrls);
     const saved = await apiJson("/entries", {
       method: "POST",
       body: JSON.stringify({
-        content,
+        content: body,
         tags,
         category,
         document_ids: [...captureDocuments],
         defer_filing: deferFiling,
       }),
     });
+    clearStagedImages();
     status.textContent = filedByText(saved);
     if (saved.filing_state === "pending") watchFiling(saved);
     // The note finally has an id, which is the only thing the staged files
@@ -7490,15 +7537,19 @@ async function saveEntryAsDraft() {
   status.classList.remove("error");
   status.textContent = "Saving as draft…";
   try {
+    //: Same commit-then-write order as a full save — a draft is a note with
+    //: an id, so its pictures are real from the same moment.
+    const stagedUrls = await commitCaptureImages();
     const saved = await apiJson("/entries", {
       method: "POST",
       body: JSON.stringify({
-        content,
+        content: rewriteStagedUrls(content, stagedUrls),
         tags,
         document_ids: [...captureDocuments],
         is_draft: true,
       }),
     });
+    clearStagedImages();
     status.textContent = "Saved as a draft — find it later under Drafts in the sidebar.";
     resetCaptureForm(contentBox, titleBox);
     // A draft is still a note with an id, so staged files attach to it the
@@ -27660,10 +27711,24 @@ $("entry-content").addEventListener("input", (e) => {
   $("save-status").querySelector(".jump-to-note")?.remove();
 });
 
+//: A staged picture's bytes live in this tab and nowhere else, so a restored
+//: draft cannot show one — the Blob went with the page that made it. Left in,
+//: the note would carry `![x](staged:img-…)` forever: a dead link that Save
+//: would happily write to disk, since the rewrite only knows about images
+//: staged in *this* session.
+//:
+//: Removed rather than kept-and-warned, because there is nothing the reader
+//: can do about it and nothing to recover — the picture was never uploaded.
+//: The line below says so once, so a vanished screenshot is explained rather
+//: than mysterious.
+const STAGED_IN_DRAFT = /!\[[^\]\n]{0,200}\]\(staged:[^)\n]{1,120}\)\n?/g;
+
 // Restore an unsaved draft on load.
 (() => {
-  const draft = localStorage.getItem("captureDraft");
-  if (!draft) return;
+  const stored = localStorage.getItem("captureDraft");
+  if (!stored) return;
+  const draft = stored.replace(STAGED_IN_DRAFT, "");
+  const lostImages = draft !== stored;
   const box = $("entry-content");
   box.value = draft;
   autoGrow(box); // a long restored draft shouldn't arrive in a one-line box
@@ -27671,6 +27736,17 @@ $("entry-content").addEventListener("input", (e) => {
   renderEntryAttachmentChips();
   const status = $("save-status");
   if (status) status.textContent = "Restored your unsaved draft.";
+  //: A toast rather than the status line for the images, because this runs at
+  //: module load — before the lock screen is even answered — and every status
+  //: line written here is overwritten by the boot sequence that follows.
+  //: Measured: the line came back empty in a driven browser. `toast` queues
+  //: and shows once the app is up, which is when there is somebody to read it.
+  if (lostImages) {
+    toast(
+      "Your restored draft mentioned images that were never uploaded — they " +
+        "could not come back, so those lines were removed.",
+    );
+  }
 })();
 
 $("export-md").addEventListener("click", () => downloadExport("markdown"));
@@ -27947,6 +28023,61 @@ document.addEventListener("paste", async (e) => {
 //: paragraph is content, and it needs to be inline markdown at the point in
 //: the text where it was dropped, not an attachment at the bottom.
 
+//: **Images wait for the note too now.**
+//:
+//: The composer used to `POST /media/upload` the moment a picture was dropped
+//: or pasted, and the comment above explained why that was different from the
+//: files beside it: an image is *content*, it has to land as inline markdown
+//: at the point in the text where it was dropped. That is still true — and it
+//: was never a reason for the file to survive a note nobody saved. Every
+//: abandoned draft with a pasted screenshot left a row in the Library and a
+//: file on disk, which is exactly the leak asked about: "files should only be
+//: staged and not permanently saved while uploaded to a note that hasnt been
+//: saved yet".
+//:
+//: So the markdown goes in immediately, pointing at a `staged:<key>` url the
+//: renderer resolves to the local Blob, and Save swaps every one of those for
+//: the real `/media/...` url the upload returns. The bytes never leave the
+//: browser until there is a note to attach them to.
+//: Swap every `staged:<key>` for the url its upload produced. A pure string
+//: function on purpose: it is the step that decides what gets *saved*, so it
+//: is the step worth being able to test on its own.
+function rewriteStagedUrls(content, urlByKey) {
+  let out = content;
+  for (const [key, url] of Object.entries(urlByKey)) {
+    out = out.split(stagedImageUrl(key)).join(url);
+  }
+  return out;
+}
+
+//: Upload everything staged in the composer and return `{key: url}`. Throws
+//: on the first failure, which is deliberate: Save must not write a note
+//: whose picture is a dead `staged:` url, and it must not silently drop the
+//: picture either — the same rule `commitStagedImages` follows for chat.
+async function commitCaptureImages() {
+  const urlByKey = {};
+  for (const image of captureStagedImages) {
+    const form = new FormData();
+    form.append("file", image.file);
+    const uploaded = await apiJson("/media/upload", {
+      method: "POST",
+      headers: { "X-Auth-Token": authToken() },
+      body: form,
+    });
+    urlByKey[image.key] = uploaded.url;
+  }
+  return urlByKey;
+}
+
+function clearStagedImages() {
+  for (const image of captureStagedImages) {
+    //: An object URL is a document-lifetime reference to the bytes; dropping
+    //: the array alone leaks them for as long as the tab is open.
+    if (image.objectUrl) URL.revokeObjectURL(image.objectUrl);
+  }
+  captureStagedImages = [];
+}
+
 async function uploadStagedFiles(entryId) {
   if (!captureStagedFiles.length) return;
   const staged = captureStagedFiles;
@@ -27996,14 +28127,47 @@ async function handleFileUpload(textarea, files) {
   files = images;
 
   const cursorPosition = textarea.selectionStart;
-  let textToInsert = "";
+  const selectionEnd = textarea.selectionEnd;
+  const originalText = textarea.value;
 
+  //: **The composer stages instead of uploading** — see `captureStagedImages`.
+  //: Everywhere else (the document editor) still uploads inline, because a
+  //: document has an id from the moment it exists and nothing to wait for.
+  //:
+  //: Written before the "Uploading…" placeholder below rather than after it:
+  //: assigning `textarea.value` moves the selection, so a branch that ran
+  //: afterwards and re-sliced against `selectionEnd` would cut the note in a
+  //: different place than it meant to.
+  if (canStage) {
+    let inserted = "";
+    for (const file of files) {
+      const key = `img-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      captureStagedImages.push({
+        key,
+        file,
+        objectUrl: URL.createObjectURL(file),
+        name: file.name,
+      });
+      inserted += `![${file.name}](${stagedImageUrl(key)})\n`;
+    }
+    textarea.value =
+      originalText.slice(0, cursorPosition) + inserted + originalText.slice(selectionEnd);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    const at = cursorPosition + inserted.length;
+    textarea.setSelectionRange(at, at);
+    toast(
+      files.length === 1
+        ? `“${files[0].name}” will be saved with the note.`
+        : `${files.length} images will be saved with the note.`,
+    );
+    return;
+  }
+
+  let textToInsert = "";
   for (const file of files) {
     textToInsert += `![Uploading ${file.name}…]()\n`;
   }
-  
-  const originalText = textarea.value;
-  textarea.value = originalText.substring(0, cursorPosition) + textToInsert + originalText.substring(textarea.selectionEnd);
+  textarea.value = originalText.substring(0, cursorPosition) + textToInsert + originalText.substring(selectionEnd);
   textarea.dispatchEvent(new Event('input', { bubbles: true }));
 
   for (const file of files) {

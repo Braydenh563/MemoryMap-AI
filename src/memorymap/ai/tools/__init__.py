@@ -905,6 +905,10 @@ from .documents import (  # noqa: E402
     _get_document,
     _list_documents,
 )
+from .files import (  # noqa: E402
+    _read_file,
+    _search_files,
+)
 from .whiteboard import (  # noqa: E402
     MAX_DIAGRAM_NODES,
     _add_whiteboard_card,
@@ -2323,6 +2327,44 @@ TOOLS: dict[str, ToolSpec] = {
                 },
             },
             _list_documents,
+        ),
+        ToolSpec(
+            "search_files",
+            "Search the files the user has uploaded — photos, scans, PDFs, "
+            "attachments — by name, by the caption the app wrote for them, or "
+            "by the text read out of them. Use this for anything about a "
+            "picture or a document file: notes are searched separately and "
+            "never contain a file's contents.",
+            {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Words to look for in the name, caption or extracted text",
+                    },
+                    "limit": {"type": "integer", "description": "How many at most"},
+                },
+            },
+            _search_files,
+        ),
+        ToolSpec(
+            "read_file",
+            "Read everything the app knows about one file: its caption and "
+            "the text read out of it. Takes the `kind` and `id` exactly as "
+            "search_files returned them — uploads and attachments are "
+            "different things with their own numbering.",
+            {
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "type": "string",
+                        "description": "'upload' or 'attachment', from search_files",
+                    },
+                    "file_id": {"type": "integer", "description": "The file's id"},
+                },
+                "required": ["kind", "file_id"],
+            },
+            _read_file,
         ),
         ToolSpec(
             "create_document",

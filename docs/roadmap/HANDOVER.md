@@ -389,6 +389,60 @@ command line contains the pattern. The real server (4h old, still serving
 of stale code. Kill by the PID that `ps` shows an `etime` for, and check
 `/health`'s `version` before believing a backend measurement.
 
+### Every file staged now (#12 / REDESIGN §R7.2)
+
+*"files should only be staged and not permanently saved while uploaded to a
+note that hasnt been saved yet."* Note **files** and chat **images** already
+were. Note *images* were the hole: the composer uploaded on drop, because an
+image is content and has to land as inline markdown where it was dropped —
+true, and never a reason for the file to survive a note nobody saved. Every
+abandoned draft with a pasted screenshot left a row in the Library.
+
+The markdown still goes in immediately, pointing at a `staged:<key>` url:
+`mediaSrc` resolves that to the local Blob so every surface previews it without
+knowing staging exists, and Save uploads the bytes and rewrites each
+placeholder to the real url before the note is written. Measured end to end:
+`/media` held 12 rows before the drop, 12 after it, and 13 after Save, with the
+stored note carrying `/media/<name>.png` and the staging list empty.
+
+Two things that had to be got right, both found by driving it:
+
+- **`STAGED_URL_PREFIX` is declared beside `mediaSrc`, not beside the composer
+  code it belongs to.** `mediaSrc` runs during boot, a `const` is in the
+  temporal dead zone until its own line executes, and `node --check` cannot see
+  it — the same shape as the `SPACE_ALL` bug this file already records.
+- **A restored draft cannot show a staged picture** — the Blob went with the
+  page that made it — so the restore strips those lines and says so. In a
+  toast, not the status line: this runs before the lock screen is answered and
+  the boot sequence overwrites the line. Measured: it came back empty.
+
+### The agent can see files now (#63, the "better ai understanding" half)
+
+Asked twice: *"better grouping, better linking, better ai understanding of all
+features??"* Every other part of the app was reachable by the model — notes,
+categories, tags, documents, whiteboards, reminders, past chats, skills — and
+**files were not, at all**. So "what was in that PDF I uploaded?" or "find the
+photo of the whiteboard from March" could not be answered, even though the app
+had already read those files: an upload gets Tesseract text, a caption and a
+vision transcription, and all three sat in the database with nothing able to
+look at them.
+
+`ai/tools/files.py` adds `search_files` and `read_file`. Three things in it are
+worth keeping if it is ever rewritten:
+
+- **Two tables, two id spaces.** A pasted picture is a `MediaUpload`, an
+  attached file is an `Attachment`; every row carries its `kind` and `read_file`
+  refuses a kind it was not given, because id 12 is a different object in each.
+- **A vision transcription beats Tesseract's** when both exist — it reads the
+  handwriting and low-contrast photographs Tesseract cannot — and the caption
+  stays separate, because a description is not a reading.
+- **A private note's attachments are private.** They are excluded from search
+  and refused by `read_file`, the same rule `_require_note` applies everywhere
+  else in that package.
+
+Eleven tests, including the two that matter most: the private-note refusal, and
+that a wrong `kind` cannot silently read the other table's row.
+
 ### Still open — all of it top priority, in the user's own words
 
 Ranked by how loudly and how often it was asked for.

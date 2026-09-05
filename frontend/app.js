@@ -13385,7 +13385,46 @@ async function sendChatMessage(preset, opts = {}) {
       action: { tab: "chat" },
     });
   }
-  if (!stopped && stoppedAtStep !== null && opts.skill && pausedForManual) {
+  //: **A run you stopped can be picked up again.** Reported: "cant continue
+  //: canceled skills??" — and it was exactly that, every resume control below
+  //: was guarded by `!stopped`. The guard belongs on the *notification* above
+  //: (nobody wants to be told ten minutes later about a stop they chose) and
+  //: never belonged on the button: pressing Stop means "not right now", not
+  //: "throw away the six steps that already ran". Resuming a stopped run is
+  //: the same call as resuming one that hit the round limit, and the step it
+  //: reached was already being tracked for the other case.
+  if (stopped && stoppedAtStep !== null && opts.skill) {
+    bubble.appendChild(
+      continueRunControls({
+        label: `ph:play Resume from step ${stoppedAtStep + 1}`,
+        hint: "You stopped this. Earlier steps are not repeated.",
+        onClick: () =>
+          sendChatMessage(`${opts.skill} — from step ${stoppedAtStep + 1}`, {
+            skill: opts.skill,
+            skillInputs: opts.skillInputs || {},
+            skillFromStep: stoppedAtStep,
+            skipPlanMode: true,
+          }),
+      })
+    );
+  } else if (stopped && (opts.skill || toolEvents.length)) {
+    //: A stopped run with no step to name — a plain agent turn, or a skill
+    //: stopped before its first step finished. It still did work worth not
+    //: repeating, so the offer is the same one the round limit gets.
+    bubble.appendChild(
+      continueRunControls({
+        label: "ph:play Resume",
+        hint: "Picks up from what it had already done.",
+        onClick: () =>
+          sendChatMessage(
+            "Continue from where you stopped. Don't redo what you have " +
+              "already done — carry on with what is left, and say when it is " +
+              "all finished.",
+            { useTools: true }
+          ),
+      })
+    );
+  } else if (!stopped && stoppedAtStep !== null && opts.skill && pausedForManual) {
     bubble.appendChild(
       manualPauseControls({
         onContinue: (note) =>

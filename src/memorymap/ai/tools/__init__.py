@@ -640,6 +640,30 @@ def _list_notes(session: Session, args: dict) -> dict:
         from memorymap.core.database import utcnow
 
         filters.append(Entry.created_at >= utcnow() - timedelta(days=since_days))
+    #: **"Tag my untagged notes" is a filter, not a research project.**
+    #:
+    #: Reported after watching a skill run fail twice in a row: *"skills are
+    #: too hard for small ais and things go wrong often"*, with a screenshot of
+    #: the model saying "due to the conversation context budget, I couldn't
+    #: access all of them" and giving up without tagging anything.
+    #:
+    #: That is not a model failing at tagging. It is the app asking a 3B model
+    #: to page through the whole notebook, hold every note's tags in its head,
+    #: subtract one set from another, and only then start working — and to do
+    #: it inside a context budget the app itself enforces. §R5's rule for this
+    #: is the whole point of the section: *do not ask a small model to be
+    #: careful; make it structurally hard for it to be wrong.* One boolean
+    #: turns the enumeration into a query the database was always going to be
+    #: better at.
+    if args.get("untagged"):
+        #: Three shapes for "no tags", and all three are real rows. `tags` is
+        #: a JSON string (`entry/manager.py` writes `json.dumps(tags or [])`),
+        #: so a note saved today is `"[]"`; a row from before that column was
+        #: always written is `NULL`; and one whose tags were cleared by hand
+        #: is `""`. A filter that checked only the shape in front of it would
+        #: be right on a fresh notebook and wrong on a restored backup — the
+        #: same trap `_visible` and the media-usage query already sidestep.
+        filters.append(or_(Entry.tags.is_(None), Entry.tags == "", Entry.tags == "[]"))
 
     query = select(Entry).where(*_visible(*filters))
     rows = list(
@@ -2239,8 +2263,10 @@ TOOLS: dict[str, ToolSpec] = {
         ToolSpec(
             "list_notes",
             "Walk through the user's notes, newest first, optionally filtered "
-            "by category, tag, or age. Returns previews one page at a time — "
-            "check has_more and call again with next_offset to see the rest. "
+            "by category, tag, age, or untagged. Returns previews one page at "
+            "a time — check has_more and call again with next_offset to see "
+            "the rest. Set untagged:true for 'tag my untagged notes' rather "
+            "than listing everything and working out which have none. "
             "Use this for 'go through my X notes' style requests; use "
             "search_notes when you're looking for something specific.",
             {
@@ -2251,6 +2277,10 @@ TOOLS: dict[str, ToolSpec] = {
                         "description": "Only this category (optional)",
                     },
                     "tag": {"type": "string", "description": "Only notes with this tag"},
+                    "untagged": {
+                        "type": "boolean",
+                        "description": "Only notes that have no tags at all",
+                    },
                     "since": {
                         "type": "string",
                         "description": "Only notes from the last N days, or since "

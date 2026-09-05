@@ -310,12 +310,10 @@ function renderDocList() {
     );
     menu.classList.add("doc-item-menu");
     menu.addEventListener("click", (event) => event.stopPropagation());
-    // Same clipping shape as the Library's own Documents-subtab kebab
-    // (library.js, see its comment on this same call) — a scrolling list of
-    // rows with a `position: absolute` popup on the last few. This is the
-    // main Documents tab, a different list element entirely, so it needed
-    // its own call rather than inheriting the Library one's fix.
-    wireEscapedActionMenu(menu);
+    // Same clipping shape as the Library's own Documents-subtab kebab — a
+    // scrolling list of rows with a `position: absolute` popup on the last
+    // few. `kebabMenu()` now escapes every menu it builds, so this list gets
+    // the fix without its own call.
 
     li.append(button, menu);
     list.appendChild(li);

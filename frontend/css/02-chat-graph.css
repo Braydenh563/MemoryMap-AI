@@ -2810,7 +2810,19 @@ html {
 .lightbox-pdf-pages {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  /* **`safe center`, not `center`.** Reported with a screenshot of a lecture
+     slide reading "at-bots and agents" — the left of "chat-bots" scrolled off
+     and unreachable, with a horizontal scrollbar that could not get back to
+     it. A centred flex item wider than its scroll container overflows both
+     ways, and the overflow past the *start* edge is not scrollable in any
+     browser: a scroll container's origin is its left edge and there is no
+     negative scroll.
+
+     The `transform-origin: top left` further down this file fixed the same
+     class of bug for the zoom control and did not reach this, because the
+     page is already wider than the pane at 100% on any window narrower than
+     the slide. Same keyword, same reason, the other axis of the same box. */
+  align-items: safe center;
   gap: var(--space-4);
 }
 

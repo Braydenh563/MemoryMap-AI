@@ -2002,17 +2002,11 @@ async function renderLibraryDocuments() {
     // off."** `.library-view-section` (07-whiteboard-misc.css) is
     // `overflow-y: auto`, and `.action-menu` — the shared kebab menu
     // `kebabMenu()` builds — is `position: absolute`, so it is clipped by
-    // that scroll container the same way `.library-image-menu-list` was
-    // clipped by `#library-view-media`/`#tab-library` earlier this session.
-    // That fix (reparent to `<body>`, position from the button's own rect)
-    // is scoped here rather than folded into `openActionMenu` itself:
-    // `.action-menu` is shared by note cards, chat, the selection popup and
-    // nested submenus, and rewriting the function all of them share is a
-    // much larger, riskier change than fixing the one instance actually
-    // reported. A MutationObserver on the menu's own `hidden` class means
-    // `openActionMenu`/`closeActionMenus` (app.js) are not touched at all —
-    // every other kebab in the app keeps its existing, working behaviour.
-    wireEscapedActionMenu(menu);
+    // The escape-to-<body> fix this list needed (it is clipped by
+    // `#library-view-media`/`#tab-library` the same way
+    // `.library-image-menu-list` was) now lives inside `kebabMenu()` itself,
+    // so there is no call here: wiring it twice installs two
+    // MutationObservers on one menu, which do the same reparent twice.
 
     open.append(top, body, menu);
     item.appendChild(open);
@@ -2301,11 +2295,70 @@ function mediaFileKind(url) {
 let ocrWorkspaceImages = [];
 let ocrWorkspaceCurrent = null;
 let ocrWorkspaceRegions = [];
+//: Which page of a multi-page document is on the stage, and how many there
+//: are. 0/1 for an image, which is a one-page document with no rail.
+let ocrWorkspacePage = 0;
+let ocrWorkspacePages = 1;
 
-function ocrRegionsUrl(image) {
-  return image._isAttachment
+function ocrIsPdf(image) {
+  return Boolean(image) && /\.pdf$/i.test(image.original_name || image.filename || "");
+}
+
+function ocrRegionsUrl(image, page = 0) {
+  const base = image._isAttachment
     ? `/files/${image.id}/ocr-regions`
     : `/media/${image.id}/ocr-regions`;
+  return `${base}?page=${page}`;
+}
+
+//: The rendered picture of one page — an image is itself the page, a PDF has
+//: to be rasterised, and the endpoints for that already exist for the file
+//: viewer and the Files tile.
+function ocrPageImageUrl(image, page = 0) {
+  if (!ocrIsPdf(image)) return image._src || mediaSrc(image.url);
+  return mediaSrc(
+    image._isAttachment
+      ? `/files/${image.id}/pdf-page/${page}`
+      : `/media/pdf-page/${encodeURIComponent((image.url || "").split("/").pop())}/${page}`
+  );
+}
+
+//: **A reading outlives the window that started it.**
+//:
+//: Reported: *"I begin generating ocr for a document, I close the lightbox,
+//: the ocr workspace is gone and its back to what it was, it should have
+//: stayed open and should be openable if an active ocr reading is going on."*
+//:
+//: The request itself never stopped — a POST keeps going and writes its result
+//: whatever the browser does next — but the only evidence it existed lived
+//: inside the window that started it. This is the piece that outlives that
+//: window: a map of file key → the read in flight, which the workspace reads
+//: on open (so reopening mid-read shows the read, not an empty page) and which
+//: any surface can consult to offer a way back in.
+const ocrActiveReads = new Map();
+
+function trackOcrRead(image, label, promise) {
+  const key = ocrRailKey(image);
+  const record = { label, started: Date.now(), promise };
+  ocrActiveReads.set(key, record);
+  const settle = () => {
+    if (ocrActiveReads.get(key) === record) ocrActiveReads.delete(key);
+    //: Re-render only if this file is still the one on the stage. The
+    //: workspace may have been closed, reopened on another page, or never
+    //: opened at all — none of which should make a finished read throw.
+    if (ocrWorkspaceCurrent && ocrRailKey(ocrWorkspaceCurrent) === key) {
+      const overlay = $("ocr-workspace");
+      if (overlay && !overlay.classList.contains("hidden")) {
+        ocrLoadPage(ocrWorkspaceCurrent, ocrWorkspacePage);
+      }
+    }
+  };
+  Promise.resolve(promise).then(settle, settle);
+  return promise;
+}
+
+function ocrReadInFlight(image) {
+  return image ? ocrActiveReads.get(ocrRailKey(image)) || null : null;
 }
 
 function ocrSelectRegion(index) {
@@ -2404,27 +2457,89 @@ function ocrRenderRegions(body) {
   }
 }
 
-async function ocrLoadPage(image) {
+async function ocrLoadPage(image, page = 0) {
   ocrWorkspaceCurrent = image;
+  ocrWorkspacePage = Math.max(0, page);
   const img = $("ocr-image");
   //: `_src` is an already-tokened url from a caller that has one (the
   //: lightbox); `url` is the raw path every gallery row carries. Running an
   //: already-tokened url back through `mediaSrc` appends a second token.
-  img.src = image._src || mediaSrc(image.url);
-  img.alt = `Page: ${image.original_name}`;
+  //: `ocrPageImageUrl` keeps that rule and adds the PDF case, where the
+  //: picture of the page is rendered rather than stored.
+  img.src = ocrPageImageUrl(image, ocrWorkspacePage);
+  img.alt = ocrIsPdf(image)
+    ? `Page ${ocrWorkspacePage + 1} of ${image.original_name}`
+    : `Page: ${image.original_name}`;
+  const activeKey = ocrIsPdf(image) ? `page:${ocrWorkspacePage}` : ocrRailKey(image);
   for (const thumb of document.querySelectorAll("#ocr-rail .ocr-rail-item")) {
-    thumb.classList.toggle("is-active", thumb.dataset.key === ocrRailKey(image));
-    thumb.setAttribute("aria-current", thumb.dataset.key === ocrRailKey(image) ? "true" : "false");
+    const active = thumb.dataset.key === activeKey;
+    thumb.classList.toggle("is-active", active);
+    thumb.setAttribute("aria-current", active ? "true" : "false");
   }
-  $("ocr-message").textContent = "Reading the page…";
+  //: A read started elsewhere and still running is the *first* thing this
+  //: window has to say — otherwise reopening mid-read shows an empty page and
+  //: reads as "it stopped when I closed the window", which is exactly what
+  //: was reported.
+  const running = ocrReadInFlight(image);
+  $("ocr-message").textContent = running
+    ? `${running.label} — this keeps running if you close this window.`
+    : "Reading the page…";
   $("ocr-message").classList.remove("hidden");
   $("ocr-boxes").replaceChildren();
   $("ocr-region-list").replaceChildren();
+  $("ocr-read-page")?.classList.toggle("hidden", !ocrIsPdf(image));
   try {
-    ocrRenderRegions(await apiJson(ocrRegionsUrl(image)));
+    const body = await apiJson(ocrRegionsUrl(image, ocrWorkspacePage));
+    ocrRenderRegions(body);
+    if (ocrIsPdf(image)) ocrBuildPageRail(image, body.pages || 1);
+    //: The in-flight line wins over the "nothing read yet" message the
+    //: backend sends: both are true, and only one of them is about to change.
+    if (ocrReadInFlight(image)) {
+      $("ocr-message").textContent = `${ocrReadInFlight(image).label} — this keeps running if you close this window.`;
+      $("ocr-message").classList.remove("hidden");
+    }
   } catch (error) {
     $("ocr-message").textContent = error.message || "That page could not be read.";
   }
+}
+
+//: One rail item per page of a document, built from the page count the region
+//: response carries rather than from a second request. Thumbnails are the same
+//: rendered-page endpoint at rail size, `loading="lazy"` so a 200-page scan
+//: does not render 200 pages to show three.
+function ocrBuildPageRail(image, pages) {
+  ocrWorkspacePages = Math.max(1, pages || 1);
+  const rail = $("ocr-rail");
+  if (!rail) return;
+  if (rail.dataset.pagesFor === `${ocrRailKey(image)}:${ocrWorkspacePages}`) {
+    for (const thumb of rail.querySelectorAll(".ocr-rail-item")) {
+      const active = thumb.dataset.key === `page:${ocrWorkspacePage}`;
+      thumb.classList.toggle("is-active", active);
+      thumb.setAttribute("aria-current", active ? "true" : "false");
+    }
+    return;
+  }
+  rail.dataset.pagesFor = `${ocrRailKey(image)}:${ocrWorkspacePages}`;
+  rail.replaceChildren();
+  for (let index = 0; index < ocrWorkspacePages; index += 1) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "ocr-rail-item";
+    item.dataset.key = `page:${index}`;
+    const thumb = document.createElement("img");
+    thumb.src = ocrPageImageUrl(image, index);
+    thumb.alt = "";
+    thumb.loading = "lazy";
+    const name = document.createElement("span");
+    name.className = "ocr-rail-name";
+    name.textContent = `Page ${index + 1}`;
+    item.append(thumb, name);
+    item.title = `Page ${index + 1} of ${ocrWorkspacePages}`;
+    item.classList.toggle("is-active", index === ocrWorkspacePage);
+    item.addEventListener("click", () => ocrLoadPage(image, index));
+    rail.appendChild(item);
+  }
+  rail.classList.toggle("hidden", ocrWorkspacePages < 2);
 }
 
 //: Two tables share one rail, and their ids collide — see `_touched_items`
@@ -2436,10 +2551,26 @@ function ocrRailKey(image) {
 function openOcrWorkspace(image, images) {
   const overlay = $("ocr-workspace");
   if (!overlay) return;
+  ocrWorkspacePage = 0;
+  ocrWorkspacePages = 1;
+  const rail = $("ocr-rail");
+  //: A document's rail is its *pages*; a gallery image's rail is the other
+  //: images beside it. Two different lists in one strip, so the page rail is
+  //: built from the region response (which knows the page count) and this
+  //: sibling rail is built here.
+  if (ocrIsPdf(image)) {
+    ocrWorkspaceImages = [];
+    rail.dataset.pagesFor = "";
+    rail.replaceChildren();
+    rail.classList.add("hidden");
+    overlay.classList.remove("hidden");
+    ocrLoadPage(image, 0);
+    return;
+  }
   //: Only images the reader can actually open — the rail is a page list, and
   //: a row that 404s in it is worse than a shorter rail.
   ocrWorkspaceImages = (images || []).filter((row) => row._isImage);
-  const rail = $("ocr-rail");
+  rail.dataset.pagesFor = "";
   rail.replaceChildren();
   for (const row of ocrWorkspaceImages) {
     const item = document.createElement("button");
@@ -2534,6 +2665,58 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!text) return toast("There is nothing to copy yet.", true);
     copyToClipboard(text, event.currentTarget);
   });
+  //: **The document reader.** Tesseract cannot open a PDF at all
+  //: (`core/ocr.py`'s OCR_SUFFIXES), and this project was told directly not to
+  //: depend on it — *"I basically dont want to download tesseract and only
+  //: want to use an ai vision learning and ocr model for images and scanned
+  //: documents."* So the page you are looking at is rasterised server-side and
+  //: handed to the local vision model, one page at a time: a reader who wants
+  //: page 6 should not wait through five pages they have already checked.
+  $("ocr-read-page")?.addEventListener("click", async (event) => {
+    const image = ocrWorkspaceCurrent;
+    if (!image) return;
+    const button = event.currentTarget;
+    const page = ocrWorkspacePage;
+    button.disabled = true;
+    const label = `Reading page ${page + 1} with AI…`;
+    $("ocr-message").textContent = label;
+    $("ocr-message").classList.remove("hidden");
+    //: Announced outside this window as well as in it, because the window can
+    //: be closed while the model works and the read must still be findable.
+    const progress = typeof toastProgress === "function" ? toastProgress(label) : null;
+    const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
+    try {
+      const body = await trackOcrRead(
+        image,
+        label,
+        apiJson(`${base}/ocr-page-read?page=${page}`, { method: "POST" })
+      );
+      const text = (body.text || "").trim();
+      if (text) {
+        //: Rendered like a `stored-text` reading — one region, no boxes —
+        //: because that is honestly what it is: a vision model returns the
+        //: words on the page, not where they sit on it.
+        ocrRenderRegions({
+          regions: [
+            { index: 0, kind: "text", text, confidence: 0, box: { x: 0, y: 0, w: 1, h: 1 } },
+          ],
+          source: "stored-text",
+          message: `Read by ${body.model || "a vision model"} — text only, no page positions.`,
+          pages: ocrWorkspacePages,
+          page,
+        });
+      } else {
+        $("ocr-message").textContent = body.message || "Nothing was read on this page.";
+        $("ocr-message").classList.remove("hidden");
+      }
+      progress?.done(text ? `Read page ${page + 1} of ${image.original_name}.` : body.message || "Nothing was read.");
+    } catch (error) {
+      $("ocr-message").textContent = error.message || "That page could not be read.";
+      progress?.done(error.message || "That page could not be read.", { isError: true });
+    } finally {
+      button.disabled = false;
+    }
+  });
   $("ocr-to-note")?.addEventListener("click", async () => {
     const text = ocrAllText();
     if (!text) return toast("There is nothing to save yet.", true);
@@ -2549,9 +2732,19 @@ document.addEventListener("DOMContentLoaded", () => {
       //: anyone the note is later exported or shared with. The query string
       //: is dropped; `mediaSrc` re-adds a live token whenever the note is
       //: rendered.
-      const raw = ocrWorkspaceCurrent?.url || (ocrWorkspaceCurrent?._src || "").split("?")[0];
+      //: A PDF page has no stored url of its own — the picture is rendered on
+      //: request — so the note points at the page endpoint instead, which
+      //: renders the same page again whenever the note is opened.
+      const raw = ocrIsPdf(ocrWorkspaceCurrent)
+        ? (ocrWorkspaceCurrent._isAttachment
+            ? `/files/${ocrWorkspaceCurrent.id}/pdf-page/${ocrWorkspacePage}`
+            : `/media/pdf-page/${encodeURIComponent((ocrWorkspaceCurrent.url || "").split("/").pop())}/${ocrWorkspacePage}`)
+        : ocrWorkspaceCurrent?.url || (ocrWorkspaceCurrent?._src || "").split("?")[0];
       const picture = raw ? `![${name}](${raw})\n\n` : "";
-      const body = `# Text from ${name}\n\n${picture}${text}`;
+      const heading = ocrIsPdf(ocrWorkspaceCurrent)
+        ? `# Text from ${name}, page ${ocrWorkspacePage + 1}`
+        : `# Text from ${name}`;
+      const body = `${heading}\n\n${picture}${text}`;
       const created = await apiJson("/entries", {
         method: "POST",
         body: JSON.stringify({ content: body }),
@@ -3342,14 +3535,17 @@ function filterLibraryImagesGallery() {
 
     //: The workspace, beside the re-read button. Two different acts: `ph:scan`
     //: *re-reads* the image and replaces the paragraph below; this *opens*
-    //: what was read, region by region, over the page it came from. Only for
-    //: images — the extractor cannot open a PDF (core/ocr.py's OCR_SUFFIXES),
-    //: and a button guaranteed to 415 is worse than no button.
+    //: what was read, region by region, over the page it came from. Offered
+    //: for images and for PDFs: a PDF page is rasterised server-side first
+    //: (`_pdf_regions_for`), so the one window built for reading documents is
+    //: no longer the one window a document cannot be opened in.
     const ocrOpenBtn = document.createElement("button");
     ocrOpenBtn.type = "button";
     ocrOpenBtn.className = "ghost small library-image-menu-item library-image-ocr-open";
     setLabel(ocrOpenBtn, "ph:selection-all See text on the page");
-    ocrOpenBtn.title = `See where each line sits on “${image.original_name}”`;
+    ocrOpenBtn.title = ocrIsPdf(image)
+      ? `Read “${image.original_name}” page by page, beside the page itself`
+      : `See where each line sits on “${image.original_name}”`;
     ocrOpenBtn.addEventListener("click", (event) => {
       event.stopPropagation();
       openOcrWorkspace(image, images);
@@ -3539,9 +3735,13 @@ function filterLibraryImagesGallery() {
       { button: captionBtn, label: "ph:sparkle Describe with AI" },
       { button: visionOcrBtn, label: "ph:text-aa Read text with AI" },
       { button: ocrBtn, label: "ph:scan Read text (Tesseract OCR)" },
-      //: Images only — `extract_regions` refuses anything Tesseract cannot
-      //: open, and a row guaranteed to 415 is worse than a shorter menu.
-      ...(image._isImage ? [{ button: ocrOpenBtn, label: "ph:selection-all See text on the page" }] : []),
+      //: Images and PDFs. Tesseract cannot open a PDF, but the workspace no
+      //: longer needs it to: `_pdf_regions_for` (routes_files.py) rasterises
+      //: the page first and the workspace reads it with the vision model,
+      //: which is what *"is the document ocr even working??"* was about.
+      ...(image._isImage || ocrIsPdf(image)
+        ? [{ button: ocrOpenBtn, label: "ph:selection-all See text on the page" }]
+        : []),
       { button: del, label: "ph:trash Delete", danger: true },
     ];
     //: The row of controls the kebab lives in. Declared here because the

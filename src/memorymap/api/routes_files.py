@@ -12,6 +12,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -1541,6 +1542,89 @@ class OcrRegionsOut(BaseModel):
     #: about where the text is.
     source: str
     message: str = ""
+    #: How many pages this file has, when it is a document the workspace can
+    #: page through (a PDF). 1 for an image — one page, no rail. The page rail
+    #: is built from this rather than from a second request, because the
+    #: workspace needs the count before it can draw anything at all.
+    pages: int = 1
+    #: Which page (0-based) these regions were read from. Echoed rather than
+    #: assumed: `page` is clamped into range server-side, so a workspace that
+    #: asked for page 99 of a 3-page PDF must be told which page it actually
+    #: got.
+    page: int = 0
+
+
+#: **Reading a PDF page is rasterise-then-read, not a second OCR engine.**
+#:
+#: Reported: *"I begin generating ocr for a document… is the document ocr even
+#: working??"* It was not, for the case that matters: `ocr.OCR_SUFFIXES` is
+#: raster formats only, so both region routes below answered a PDF with 415 —
+#: the workspace this feature was asked for ("for the document ocr I want smth
+#: like this", three screenshots of Baidu's Unlimited-OCR) could not open a
+#: document at all. Every piece needed already existed and was never joined up:
+#: `core/pdfpages.py` renders a page to PNG for the lightbox, and
+#: `ocr.extract_regions` reads a PNG.
+def _pdf_regions_for(
+    path: Path, index: int, stored_text: str, stored_label: str
+) -> OcrRegionsOut:
+    if not pdfpages.available():
+        return OcrRegionsOut(
+            width=0,
+            height=0,
+            regions=[],
+            source="none",
+            pages=0,
+            message=(
+                "Reading a PDF page needs the small PDF rasteriser: install "
+                "the “PDF pages” extra in Settings → Optional extras."
+            ),
+        )
+    count = pdfpages.page_count(path)
+    if count <= 0:
+        return OcrRegionsOut(
+            width=0,
+            height=0,
+            regions=[],
+            source="none",
+            pages=0,
+            message="That PDF could not be opened.",
+        )
+    index = max(0, min(index, count - 1))
+    png = pdfpages.render_page(path, index)
+    if not png:
+        return OcrRegionsOut(
+            width=0,
+            height=0,
+            regions=[],
+            source="none",
+            pages=count,
+            page=index,
+            message=f"Page {index + 1} could not be rendered.",
+        )
+    with tempfile.TemporaryDirectory() as tmp:
+        page_path = Path(tmp) / f"page-{index}.png"
+        page_path.write_bytes(png)
+        #: Stored text belongs to the *document*, not to this page. Offering
+        #: the whole file's reading as page 7's fallback would be the app
+        #: stating a guess about where the text came from as a fact — the same
+        #: line `_regions_for`'s own "stored-text" badge exists to hold.
+        out = _regions_for(page_path, stored_text if index == 0 else "", stored_label)
+    out.pages = count
+    out.page = index
+    if out.source == "none":
+        #: Not "install Tesseract": the direct instruction on this feature was
+        #: *"I basically dont want to download tesseract and only want to use
+        #: an ai vision learning and ocr model for images and scanned
+        #: documents"* (pdfpages.py's own docstring quotes it). The workspace
+        #: has a per-page vision read button — point at that, not at a system
+        #: package the user has said they do not want.
+        out.message = (
+            f"Nothing has been read off page {index + 1} yet. "
+            "Use “Read this page with AI” to transcribe it with a vision model."
+        )
+    if out.source == "stored-text":
+        out.message = f"{stored_label} — this is the whole document's reading, not page {index + 1}."
+    return out
 
 
 def _regions_for(path: Path, stored_text: str, stored_label: str) -> OcrRegionsOut:
@@ -1585,14 +1669,17 @@ def _regions_for(path: Path, stored_text: str, stored_label: str) -> OcrRegionsO
 
 
 @router.get("/media/{upload_id}/ocr-regions", response_model=OcrRegionsOut)
-def media_ocr_regions(upload_id: int, session: Session = Depends(get_session)) -> OcrRegionsOut:
+def media_ocr_regions(
+    upload_id: int, page: int = 0, session: Session = Depends(get_session)
+) -> OcrRegionsOut:
     """The page, region by region — what the OCR workspace draws its boxes
     from. Asked for with three screenshots of Baidu's Unlimited-OCR: a page
     beside its regions, each separately readable, instead of one wall of
     text with no way to tell which part of the page a line came from."""
     upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
-    if Path(upload.filename).suffix.lower() not in ocr.OCR_SUFFIXES:
-        raise HTTPException(status_code=415, detail="Only images can be read this way.")
+    suffix = Path(upload.filename).suffix.lower()
+    if suffix not in ocr.OCR_SUFFIXES and suffix != ".pdf":
+        raise HTTPException(status_code=415, detail="Only images and PDFs can be read this way.")
     path = _within_dir(deps.get_config().data_dir / "media", upload.filename)
     if not path.is_file():
         raise HTTPException(status_code=404, detail="That file is no longer on disk.")
@@ -1600,20 +1687,23 @@ def media_ocr_regions(upload_id: int, session: Session = Depends(get_session)) -
     label = (
         f"Read by {upload.vision_ocr_model or 'a vision model'}"
         if upload.vision_ocr_text
-        else "Text already extracted from this image"
+        else "Text already extracted from this file"
     )
+    if suffix == ".pdf":
+        return _pdf_regions_for(path, page, stored, label)
     return _regions_for(path, stored, label)
 
 
 @router.get("/files/{attachment_id}/ocr-regions", response_model=OcrRegionsOut)
 def attachment_ocr_regions(
-    attachment_id: int, session: Session = Depends(get_session)
+    attachment_id: int, page: int = 0, session: Session = Depends(get_session)
 ) -> OcrRegionsOut:
     """`media_ocr_regions`'s sibling for an attached file. Two tables, two
     routes — the same split every other file endpoint in this module has."""
     attachment = _existing_attachment(session, attachment_id)
-    if Path(attachment.filename).suffix.lower() not in ocr.OCR_SUFFIXES:
-        raise HTTPException(status_code=415, detail="Only images can be read this way.")
+    suffix = Path(attachment.filename).suffix.lower()
+    if suffix not in ocr.OCR_SUFFIXES and suffix != ".pdf":
+        raise HTTPException(status_code=415, detail="Only images and PDFs can be read this way.")
     path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
     if not path.is_file():
         raise HTTPException(status_code=404, detail="File is missing from disk")
@@ -1621,9 +1711,95 @@ def attachment_ocr_regions(
     label = (
         f"Read by {attachment.vision_ocr_model or 'a vision model'}"
         if attachment.vision_ocr_text
-        else "Text already extracted from this image"
+        else "Text already extracted from this file"
     )
+    if suffix == ".pdf":
+        return _pdf_regions_for(path, page, stored, label)
     return _regions_for(path, stored, label)
+
+
+class OcrPageReadOut(BaseModel):
+    """One page of a document, read by a vision model."""
+
+    page: int
+    text: str = ""
+    model: str = ""
+    message: str = ""
+
+
+#: **A vision read scoped to the page you are looking at.**
+#:
+#: The existing vision path (`analyse`, kind="vision") reads a whole PDF — up
+#: to `pdfpages.MAX_PAGES` — and stores one blob. That is the right shape for
+#: "what is this document"; it is the wrong shape for the OCR workspace, where
+#: the question is always "what does *this page* say" and a reader who wants
+#: page 6 should not wait through five pages they have already checked.
+#:
+#: Nothing is stored: the workspace shows the reading beside the page and the
+#: reader decides what to keep (Copy, Save to a note, or Save the reading onto
+#: the file through the existing analyse endpoint). Reading is cheap to repeat
+#: and a wrong transcription written onto the row is not.
+def _vision_read_page(path: Path, index: int) -> OcrPageReadOut:
+    if not pdfpages.available():
+        return OcrPageReadOut(
+            page=index,
+            message=(
+                "Reading a PDF page needs the small PDF rasteriser: install "
+                "the “PDF pages” extra in Settings → Optional extras."
+            ),
+        )
+    if not deps.get_ollama().is_running():
+        raise HTTPException(status_code=409, detail="The AI model isn't running.")
+    model = deps.get_model_manager().resolve_vision_model(deps.get_ollama())
+    if not model:
+        raise HTTPException(
+            status_code=409,
+            detail="No installed model reports it can see images — install or "
+            "pick one in Settings → Models.",
+        )
+    count = pdfpages.page_count(path)
+    if count <= 0:
+        return OcrPageReadOut(page=index, message="That PDF could not be opened.")
+    index = max(0, min(index, count - 1))
+    png = pdfpages.render_page(path, index)
+    if not png:
+        return OcrPageReadOut(page=index, message=f"Page {index + 1} could not be rendered.")
+    with tempfile.TemporaryDirectory(prefix="mm-pageocr-") as scratch:
+        page_path = Path(scratch) / f"page-{index}.png"
+        page_path.write_bytes(png)
+        text = vision_ocr.vision_ocr_text(page_path, model, deps.get_ollama()) or ""
+    return OcrPageReadOut(
+        page=index,
+        text=text.strip(),
+        model=model if text.strip() else "",
+        message="" if text.strip() else f"{model} found no text on page {index + 1}.",
+    )
+
+
+@router.post("/files/{attachment_id}/ocr-page-read", response_model=OcrPageReadOut)
+def attachment_ocr_page_read(
+    attachment_id: int, page: int = 0, session: Session = Depends(get_session)
+) -> OcrPageReadOut:
+    attachment = _existing_attachment(session, attachment_id)
+    if Path(attachment.filename).suffix.lower() != ".pdf":
+        raise HTTPException(status_code=415, detail="Only PDF pages are read one at a time.")
+    path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="File is missing from disk")
+    return _vision_read_page(path, page)
+
+
+@router.post("/media/{upload_id}/ocr-page-read", response_model=OcrPageReadOut)
+def media_ocr_page_read(
+    upload_id: int, page: int = 0, session: Session = Depends(get_session)
+) -> OcrPageReadOut:
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    if Path(upload.filename).suffix.lower() != ".pdf":
+        raise HTTPException(status_code=415, detail="Only PDF pages are read one at a time.")
+    path = _within_dir(deps.get_config().data_dir / "media", upload.filename)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="That file is no longer on disk.")
+    return _vision_read_page(path, page)
 
 
 class VisionOcrBody(BaseModel):

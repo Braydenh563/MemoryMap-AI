@@ -3650,6 +3650,13 @@ Link to another note with [[its first few words]]."></textarea>
             <button type="button" data-ocr-zoom="full" aria-pressed="false"
               title="Show the page at its own size, and scroll">Actual size</button>
           </div>
+          <!-- Only shown for a document whose page can be handed to a vision
+               model (a PDF). Reported: "is the document ocr even working??" —
+               it was not: the region routes refused a PDF outright, and the
+               only reader offered was Tesseract, which this project was told
+               directly not to depend on. -->
+          <button id="ocr-read-page" class="ghost small hidden" type="button"
+            title="Transcribe the page you are looking at with a local vision model"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Read this page with AI</button>
           <button id="ocr-copy-all" class="ghost small" type="button"
             title="Copy every region's text, in reading order"><i class="ph ph-copy ph-lead" aria-hidden="true"></i> Copy all</button>
           <button id="ocr-to-note" class="small" type="button"

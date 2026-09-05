@@ -3857,7 +3857,15 @@ function openLightbox(items, startIndex = 0) {
       const name = item.original_name || "this file";
       const progress = toastProgress(`${busyText} ${name}`);
       try {
-        const updated = await apiJson(`/media/${item.id}${endpoint}`, { method: "POST" });
+        //: Registered with the OCR workspace's own in-flight map, so a read
+        //: started here is still findable after this window closes — reported:
+        //: "I close the lightbox, the ocr workspace is gone… it should be
+        //: openable if an active ocr reading is going on."
+        const updated = await (window.trackOcrRead || ((_i, _l, p) => p))(
+          item,
+          `${busyText} ${name}`,
+          apiJson(`/media/${item.id}${endpoint}`, { method: "POST" })
+        );
         applyTo(item, updated);
         //: Only if this lightbox is still the one on screen. `renderInfo`
         //: writes into elements this closure captured, and they are detached
@@ -3929,10 +3937,14 @@ function openLightbox(items, startIndex = 0) {
     //: "where did that line come from" gets asked. Gated on a media id like
     //: every other row here, and on the row being an image the extractor can
     //: open — a menu row guaranteed to 415 is worse than a shorter menu.
-    if (/\.(png|jpe?g|gif|webp|bmp)$/i.test(item.filename || "")) {
+    //: PDFs included since the workspace learned to rasterise a page
+    //: (`_pdf_regions_for`, routes_files.py) — reported as *"is the document
+    //: ocr even working??"*, and it was not: this gate is what kept every
+    //: document out of the one window built to read documents.
+    if (/\.(png|jpe?g|gif|webp|bmp|pdf)$/i.test(item.filename || "")) {
       items.push({
         label: "ph:selection-all See text on the page",
-        title: "Open this image beside the text read from it, region by region",
+        title: "Open this file beside the text read from it, page by page",
         run: async () => {
           //: `close` is this lightbox's own dismiss (defined further down in
           //: `openLightbox`, hoisted and initialised long before any menu row
@@ -3947,7 +3959,7 @@ function openLightbox(items, startIndex = 0) {
               id: item.id,
               _src: item.getUrl ? item.getUrl() : "",
               original_name: item.filename,
-              _isImage: true,
+              _isImage: !/\.pdf$/i.test(item.filename || ""),
             },
             [],
           );
@@ -14797,6 +14809,24 @@ function kebabMenu(items, ariaLabel) {
   }
   wireMenuKeyboard(menu, opener);
   wrap.append(opener, menu);
+  //: **Every ⋯ menu escapes its container, not just the ones somebody
+  //: remembered.** Reported three times across three surfaces — the documents
+  //: list, the gallery, and then the lightbox — always the same shape: the
+  //: menu is `position: absolute` inside an ancestor that scrolls or paints a
+  //: `backdrop-filter`, and either clips it.
+  //:
+  //: `wireEscapedActionMenu` was written to be opted into "for any menu known
+  //: to live inside a scrolling ancestor", and that is the part that keeps
+  //: failing: which ancestors scroll is not knowable from where the menu is
+  //: built, and a caller added next year will not know either. Opting in
+  //: *here* covers every `kebabMenu` at once, which is every ⋯ in the app.
+  //:
+  //: It is still not folded into `openActionMenu`, deliberately: the chat
+  //: dock's popovers, the selection popup and the whiteboard's context menu
+  //: build `.action-menu` by other routes, none of them are clipped, and
+  //: rewriting what they all share to fix this class is the bigger change
+  //: that function's own comment argues against.
+  wireEscapedActionMenu(wrap);
   return wrap;
 }
 

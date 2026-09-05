@@ -3407,6 +3407,21 @@ summary:not(.icon-only):not(.icon-button) {
    accessibility tree, focus and keyboard all stay with the real input. */
 .library-card-tick,
 .select-check,
+/* **`.doc-list-tick` was missing from this list and rendered native.** It is
+   the selection tick for the Documents list, the saved-links rows and the
+   Contents page — three surfaces — and its own rule (04-chat-dock-appearance)
+   sets `flex` and `margin` only. With no `appearance: none` it stayed the
+   platform's checkbox, and the global `--target-min` floor then inflated it to
+   28x28: a large grey slab beside a link title, reported twice with
+   screenshots ("the links are still weirdly centred and visually broken",
+   "the skills library autonomous agent buttons are broken").
+
+   Worth naming the shape, because this is the third time it has bitten: every
+   checkbox rule in this app is an *enumerated allowlist*, and the default for
+   anything not on one is the platform control at the accessibility floor —
+   the ugliest available outcome. A new list that forgets to enrol gets no
+   warning, no log and no failing test; it just looks broken. */
+.doc-list-tick,
 .note-picker-list input[type="checkbox"],
 .entry-list input[type="checkbox"]:not(.sr-only),
 .reminder-item input[type="checkbox"]:not(.sr-only) {
@@ -3431,6 +3446,7 @@ summary:not(.icon-only):not(.icon-button) {
 
 .library-card-tick:hover,
 .select-check:hover,
+.doc-list-tick:hover,
 .note-picker-list input[type="checkbox"]:not(.sr-only):hover,
 .entry-list input[type="checkbox"]:not(.sr-only):hover,
 .reminder-item input[type="checkbox"]:not(.sr-only):hover {
@@ -3439,6 +3455,7 @@ summary:not(.icon-only):not(.icon-button) {
 
 .library-card-tick:checked,
 .select-check:checked,
+.doc-list-tick:checked,
 .note-picker-list input[type="checkbox"]:checked,
 .entry-list input[type="checkbox"]:not(.sr-only):checked,
 .reminder-item input[type="checkbox"]:not(.sr-only):checked {
@@ -3450,6 +3467,7 @@ summary:not(.icon-only):not(.icon-button) {
    glyph so it needs no font to have loaded and scales with the box. */
 .library-card-tick:checked::after,
 .select-check:checked::after,
+.doc-list-tick:checked::after,
 .note-picker-list input[type="checkbox"]:checked::after,
 .entry-list input[type="checkbox"]:not(.sr-only):checked::after,
 .reminder-item input[type="checkbox"]:not(.sr-only):checked::after {

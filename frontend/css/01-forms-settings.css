@@ -1684,10 +1684,22 @@ progress {
   gap: var(--space-3);
 }
 
+/* **`space-between` with a middle child that could not grow is what centred
+   this row.** Reported: "the links are still weirdly centred and visually
+   broken", with a screenshot of a full-width row holding a tick hard left,
+   the title and URL stranded in the middle of the empty space, and the four
+   action buttons hard right — three islands with nothing joining them.
+
+   `space-between` distributes *leftover* space between items, so it only
+   reads correctly when something in the row consumes the slack. Nothing did:
+   `.bookmark-main` had `min-width: 0` but no `flex`, so it stayed at its
+   content width and the row spread all three apart. Letting the title column
+   take the free space puts it back beside its tick, which is where the thing
+   the row is about belongs, and leaves the actions on the right edge on their
+   own. `space-between` then has nothing left to distribute, so it goes. */
 .bookmark-row {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
   gap: var(--space-4);
   padding: var(--space-4);
   border: 1px solid var(--border);
@@ -1695,6 +1707,7 @@ progress {
 }
 
 .bookmark-main {
+  flex: 1 1 auto;
   min-width: 0;
   overflow-wrap: anywhere;
 }

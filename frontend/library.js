@@ -3715,13 +3715,11 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("library-links-clear-selection").addEventListener("click", clearLibraryLinksSelection);
   }
 
-  const contentsOutline = document.getElementById("contents-outline");
-  if (contentsOutline && !document.getElementById("library-contents-selectbar")) {
-    const bar = createLibrarySelectbar("library-contents", "Actions for the selected notes");
-    contentsOutline.parentNode.insertBefore(bar, contentsOutline);
-    document.getElementById("library-contents-bulk-delete").addEventListener("click", bulkDeleteLibraryContents);
-    document.getElementById("library-contents-clear-selection").addEventListener("click", clearLibraryContentsSelection);
-  }
+  //: The Contents outline had a selection bar here. It went with its ticks —
+  //: see the note in the outline builder: a table of contents is for finding
+  //: your place, not for bulk-editing. Nothing could reach the bar any more,
+  //: and a set of actions for a selection that can never be made is worse
+  //: than none.
 });
 
 // --- Links (§30): a bookmark shelf for websites, alongside the notes and
@@ -4058,44 +4056,6 @@ let contentsMode = "category";
 // the one part of this view that isn't cheap.
 const CONTENTS_GROUP_CAP = 200;
 
-//: Which outline notes are ticked, keyed by entry id — not by (group, entry),
-//: so a note that shows up more than once in "By tag" (one row per tag it
-//: carries) is still one selection, ticked or not, everywhere it appears.
-const libraryContentsSelection = new Map();
-
-function clearLibraryContentsSelection() {
-  libraryContentsSelection.clear();
-  renderContents();
-}
-
-async function bulkDeleteLibraryContents() {
-  const entries = [...libraryContentsSelection.values()];
-  if (!entries.length) return;
-  // Same wording library-bulk-delete (the "All" view) uses for a plain note:
-  // `DELETE /entries/{id}` bins it rather than destroying it outright.
-  if (
-    !(await confirmDialog(
-      `Delete ${entries.length} selected note${entries.length === 1 ? "" : "s"}?\n\n` +
-        "They'll go to the bin."
-    ))
-  ) {
-    return;
-  }
-  let deleted = 0;
-  for (const entry of entries) {
-    try {
-      await apiJson(`/entries/${entry.id}`, { method: "DELETE" });
-      deleted++;
-    } catch (err) {
-      toast(err.message, true);
-    }
-  }
-  libraryContentsSelection.clear();
-  if (deleted) toast(`Deleted ${deleted} note${deleted === 1 ? "" : "s"}.`);
-  const failed = entries.length - deleted;
-  if (failed) toast(`${failed} note${failed === 1 ? "" : "s"} couldn't be deleted.`, true);
-  renderContents();
-}
 
 async function renderContents() {
   const outline = $("contents-outline");
@@ -4109,17 +4069,8 @@ async function renderContents() {
   await loadEntries();
 
   const active = allEntries.filter((e) => !e.deleted_at && !e.archived_at);
-  // A reload can drop a note that was ticked (deleted, archived, or edited
-  // out of every visible group) — same prune renderLibraryDocuments does for
-  // libraryDocsSelection, so the bar's count can't go on including a note
-  // that no longer shows anywhere in this outline.
-  const liveEntryIds = new Set(active.map((e) => e.id));
-  for (const id of [...libraryContentsSelection.keys()]) {
-    if (!liveEntryIds.has(id)) libraryContentsSelection.delete(id);
-  }
   outline.replaceChildren();
   empty.classList.toggle("hidden", active.length > 0);
-  syncSelectbarCount("library-contents", libraryContentsSelection.size);
   if (active.length === 0) return;
 
   const groups = new Map();
@@ -4151,30 +4102,18 @@ async function renderContents() {
     list.className = "contents-list";
     for (const entry of members.slice(0, CONTENTS_GROUP_CAP)) {
       const li = document.createElement("li");
-      // The tick. Same control (and the same `.doc-list-tick` sizing) the
-      // Documents sub-tab's own rows already use.
-      const tick = document.createElement("input");
-      tick.type = "checkbox";
-      tick.className = "doc-list-tick";
-      tick.dataset.entryId = String(entry.id);
-      tick.checked = libraryContentsSelection.has(entry.id);
-      tick.setAttribute("aria-label", `Select "${noteLabel(entry, 80)}"`);
-      tick.addEventListener("click", (event) => event.stopPropagation());
-      tick.addEventListener("change", () => {
-        if (tick.checked) libraryContentsSelection.set(entry.id, entry);
-        else libraryContentsSelection.delete(entry.id);
-        // A note with more than one tag shows once per tag in "By tag" —
-        // every tick for this same entry has to move together, or ticking
-        // one occurrence and reading another would say two different things
-        // about the same note.
-        for (const other of outline.querySelectorAll(
-          `input.doc-list-tick[data-entry-id="${entry.id}"]`
-        )) {
-          other.checked = tick.checked;
-        }
-        syncSelectbarCount("library-contents", libraryContentsSelection.size);
-      });
-      li.appendChild(tick);
+      //: **No tick here.** Asked for directly: "the contents page shouldnt have
+      //: radio buttons, it is purely a table of contents." It is right, and it
+      //: is a point about what this page *is* rather than about how the
+      //: control looked: a table of contents is a way to find your place, and
+      //: every row offering to select itself for a bulk delete makes an index
+      //: into a management screen you did not ask to be in.
+      //:
+      //: This does not undo the multi-select asked for across the Library —
+      //: Files, Images, Documents and Links keep theirs. Those are lists of
+      //: things you act on; this is a map of where things are. The selection
+      //: bar above the outline goes with the ticks, since nothing could reach
+      //: it any more.
       const link = document.createElement("a");
       link.href = "#";
       link.textContent = noteLabel(entry, 80);

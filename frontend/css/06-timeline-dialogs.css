@@ -1684,6 +1684,17 @@
 .library-toolbar label>input[type="checkbox"],
 .semantic-toggle input[type="checkbox"],
 .library-sort-check input[type="checkbox"],
+/* The Skills page's background-worker switches ("Run in the background", "Tag
+   notes", "Link related notes"). `workerToggle` in library.js builds them as
+   `.checkbox-label` and its comment says "the app's own pill toggle" — but
+   that class was never on this list, so they fell through to the platform
+   checkbox at the 28px accessibility floor and were reported with a
+   screenshot as broken. They are genuine independent on/off settings, which
+   is what this recipe is for; the selection ticks in
+   07-whiteboard-misc.css are the other answer, for choosing rows rather than
+   switching something on. `.sr-only` stays excluded — that is the variant
+   whose visible control is drawn by a sibling. */
+.checkbox-label>input[type="checkbox"]:not(.sr-only),
 .wb-snap-label input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;

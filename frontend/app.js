@@ -15308,11 +15308,31 @@ function notePreviewText(content) {
     .replace(/\[\[([^[\]]{1,120})\]\]/g, "$1")
     .replace(
       new RegExp(INLINE_MD.source, "g"),
-      // m[6]/m[8] are the image/link *URLs* — only checked for "which branch
+      // m[10]/m[12] are the image/link *URLs* — only checked for "which branch
       // matched", never shown; a preview shows the image's alt text (or a
       // placeholder, since alt is often empty) and a link's own text, not a
       // raw path nobody asked to read.
-      (...m) => m[1] ?? m[2] ?? m[3] ?? m[4] ?? (m[6] !== undefined ? m[5] || "image" : m[7])
+      //
+      // **These indices were off by two and the previous comment named the
+      // wrong groups.** Reported with a screenshot of the Contents page:
+      // "Girl with bell undefined", "Leafeon Pokemon image test undefined" —
+      // notes whose body ends in an image. The `++colour|text++` highlight
+      // alternative was added to INLINE_MD after this replacer was written,
+      // and it introduced two capture groups in the middle of the pattern, so
+      // every index past it shifted by two. Nothing failed loudly: `??` walked
+      // off the end of the branches it knew, the last one returned
+      // `undefined`, and `String.replace` stringified that into the preview.
+      //
+      // It was wrong in three ways at once, and only one of them was visible:
+      // an image previewed as "undefined", a link previewed as "undefined",
+      // and `==red|highlighted==` previewed as "red" — the colour name, because
+      // m[4] is the optional colour group and was being read as the text.
+      // Verified against the live pattern: g1 code, g2 bold, g3 strike,
+      // g4 highlight colour, g5 highlight text, g6 ++colour, g7 ++text,
+      // g8 italic, g9/g10 image alt+url, g11/g12 link text+url.
+      (...m) =>
+        m[1] ?? m[2] ?? m[3] ?? m[5] ?? m[7] ?? m[8] ??
+        (m[10] !== undefined ? m[9] || "image" : m[11])
     );
 }
 

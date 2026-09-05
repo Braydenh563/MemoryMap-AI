@@ -1744,6 +1744,47 @@ let libraryDocsCurrentPage = 1;
 // in the All view's filter row (LIBRARY_KINDS in app.js, _drafts() in
 // routes_library.py) because a draft is a state a note is in, not a separate
 // kind of object.
+//: Sorting for the Documents sub-tab. Same local, no-round-trip approach as
+//: the media gallery and the links list: the page of documents is already in
+//: memory by the time this runs.
+//:
+//: Sorted **before** paging, which is the only order that makes a page mean
+//: anything — sorting a slice would reorder ten rows within a page and leave
+//: the pages themselves in the server's order, so "longest first" would show
+//: the longest of page two rather than the longest there is.
+const LIBRARY_DOC_SORTS = {
+  newest: (a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")),
+  oldest: (a, b) => String(a.updated_at || "").localeCompare(String(b.updated_at || "")),
+  az: (a, b) => String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" }),
+  za: (a, b) => String(b.title || "").localeCompare(String(a.title || ""), undefined, { sensitivity: "base" }),
+  //: A document list has no file size, but it does have a word count — which
+  //: is what "how big is this one" actually means here. The field is `words`
+  //: (routes_documents.py's `_summary`), not `word_count`: reading the wrong
+  //: name would have made every document sort as zero and the order look
+  //: arbitrary rather than broken, which is the failure that hides longest.
+  longest: (a, b) => (Number(b.words) || 0) - (Number(a.words) || 0),
+};
+
+const LIBRARY_DOC_SORT_KEY = "library-docs-sort";
+
+function libraryDocSort() {
+  const stored = localStorage.getItem(LIBRARY_DOC_SORT_KEY);
+  return LIBRARY_DOC_SORTS[stored] ? stored : "newest";
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const select = document.getElementById("library-docs-sort");
+  if (!select) return;
+  select.value = libraryDocSort();
+  select.addEventListener("change", () => {
+    localStorage.setItem(LIBRARY_DOC_SORT_KEY, select.value);
+    //: Back to page one: staying on page four of a list that has just been
+    //: reordered shows a slice of rows nobody asked to look at.
+    libraryDocsCurrentPage = 1;
+    renderLibraryDocuments();
+  });
+});
+
 async function renderLibraryDocuments() {
   const list = document.getElementById("library-docs-list");
   const empty = document.getElementById("library-docs-empty");
@@ -1783,6 +1824,9 @@ async function renderLibraryDocuments() {
   // Sliced after the selection-cleanup above (which has to see every live
   // id, not just the current page) and before the render loop below.
   const pageBar = document.getElementById("library-docs-pagination");
+  //: Before paging — see `LIBRARY_DOC_SORTS`. On a copy, because `docs` may be
+  //: an array another reader holds.
+  docs = [...docs].sort(LIBRARY_DOC_SORTS[libraryDocSort()]);
   if (libraryDocsPageSize === "all" || !docs.length) {
     pageBar?.classList.add("hidden");
   } else {

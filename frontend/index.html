@@ -2588,6 +2588,16 @@ Link to another note with [[its first few words]]."></textarea>
                  protect — plain newest-first, so a straight page-size
                  selector is safe here without the "only paginate one
                  subgroup" carve-out Reminders needed. -->
+            <!-- The fourth Library sub-tab to get the sort control they were
+                 reported as missing. Before the page-size select, so the row
+                 reads in the order it is used: what to show, then how much. -->
+            <select id="library-docs-sort" aria-label="Sort documents" title="Sort documents">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="az">Title A → Z</option>
+              <option value="za">Title Z → A</option>
+              <option value="longest">Longest first</option>
+            </select>
             <select id="library-docs-page-size" aria-label="Documents per page" title="Documents per page">
               <option value="all">All documents</option>
               <option value="25">25 per page</option>

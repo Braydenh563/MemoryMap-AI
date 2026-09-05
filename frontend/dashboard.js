@@ -1179,7 +1179,49 @@ async function renderDashboard() {
 // searchable, browsable list instead of only being reachable by scrolling
 // the live grid in edit mode.
 
-function dashWidgetRow(name, layout) {
+//: **A row here is a widget's *state*, not a pair of verbs.**
+//:
+//: Asked for: "the widgets menu and edit need a redesign". Three things were
+//: wrong, and each is a semiotics problem rather than a styling one:
+//:
+//: 1. Wide was a **flip-label button** — it read "Wide" when narrow and
+//:    "Narrow" when wide. A flip label says what pressing it will do and, at
+//:    rest, says nothing about what the widget *is*; with nineteen rows you
+//:    could not scan the list and see which ones span two columns. It is a
+//:    two-state property, so it is now a toggle that stays pressed, with
+//:    `aria-pressed` for anyone not looking at it.
+//: 2. Remove sat at the same visual weight as Wide, so a destructive action
+//:    and a reversible one looked identical. Remove keeps its own accent.
+//: 3. **Order could only be changed by dragging the live grid** — unreachable
+//:    by keyboard, and invisible from the one screen that lists every widget.
+//:    Each row on the dashboard now carries move-up/move-down.
+function dashWidgetToggle(label, title, pressed, onClick) {
+  const button = smallButton(label, title, onClick);
+  button.setAttribute("aria-pressed", String(pressed));
+  button.classList.toggle("active", pressed);
+  return button;
+}
+
+async function moveDashWidget(name, delta) {
+  const layout = dashLayout();
+  //: Reordered against the *visible* row order, not the full list: moving a
+  //: widget "up" past three hidden ones looks like nothing happening.
+  const visible = layout.order.filter((n) => !layout.hidden.includes(n));
+  const from = visible.indexOf(name);
+  const to = from + delta;
+  if (from < 0 || to < 0 || to >= visible.length) return;
+  visible.splice(to, 0, ...visible.splice(from, 1));
+  //: Hidden widgets keep their relative places by being appended after: they
+  //: are not on the dashboard, so their order is not something the user is
+  //: looking at, and preserving it means un-hiding one puts it back where it
+  //: was rather than at the end.
+  layout.order = [...visible, ...layout.order.filter((n) => layout.hidden.includes(n))];
+  await saveDashLayout(layout);
+  renderDashboard();
+  renderDashWidgetsList($("dash-widgets-search").value);
+}
+
+function dashWidgetRow(name, layout, position = null) {
   const widget = DASH_WIDGETS[name];
   const hidden = layout.hidden.includes(name);
   const isWide = layout.wide.includes(name);
@@ -1204,30 +1246,44 @@ function dashWidgetRow(name, layout) {
 
   const controls = document.createElement("div");
   controls.className = "dash-widget-row-controls entry-actions";
-  controls.appendChild(
-    smallButton(
-      hidden ? "ph:plus Add" : "ph:x Remove",
-      hidden ? "Add this widget to the dashboard" : "Remove this widget from the dashboard",
-      async () => {
-        await toggleDashWidgetHidden(name);
-        renderDashboard();
-        renderDashWidgetsList($("dash-widgets-search").value);
-      }
-    )
-  );
+  if (!hidden && position) {
+    //: Only where they can do something: the first row's "up" and the last
+    //: row's "down" are disabled rather than absent, so the control cluster
+    //: keeps one width and the rows stay aligned down the list.
+    const up = smallButton("ph:arrow-up", "Move up", () => moveDashWidget(name, -1));
+    up.disabled = position.index === 0;
+    const down = smallButton("ph:arrow-down", "Move down", () => moveDashWidget(name, 1));
+    down.disabled = position.index === position.total - 1;
+    for (const button of [up, down]) button.classList.add("icon-button");
+    controls.append(up, down);
+  }
   if (!hidden) {
     controls.appendChild(
-      smallButton(
-        isWide ? "ph:rows Narrow" : "ph:arrows-out-line-horizontal Wide",
-        isWide ? "Show in one column" : "Span two columns",
+      dashWidgetToggle(
+        "ph:arrows-out-line-horizontal Wide",
+        isWide ? "Spanning two columns — press to narrow" : "Span two columns",
+        isWide,
         async () => {
           await toggleDashWidgetWide(name);
           renderDashboard();
           renderDashWidgetsList($("dash-widgets-search").value);
-        }
-      )
+        },
+      ),
     );
   }
+  const onOff = smallButton(
+    hidden ? "ph:plus Add" : "ph:x Remove",
+    hidden ? "Add this widget to the dashboard" : "Remove this widget from the dashboard",
+    async () => {
+      await toggleDashWidgetHidden(name);
+      renderDashboard();
+      renderDashWidgetsList($("dash-widgets-search").value);
+    },
+  );
+  //: The one row that takes something away says so in the app's own danger
+  //: colour, rather than looking like the reversible toggle beside it.
+  if (!hidden) onOff.classList.add("danger");
+  controls.appendChild(onOff);
   row.appendChild(controls);
   return row;
 }
@@ -1245,16 +1301,32 @@ function renderDashWidgetsList(filterText = "") {
     return DASH_WIDGETS[name].title.replace(PH_LABEL, "").toLowerCase().includes(q);
   });
 
-  const addGroup = (label, list) => {
+  const addGroup = (label, list, ordered) => {
     if (!list.length) return;
     const heading = document.createElement("h4");
     heading.className = "dash-widgets-group-label";
     heading.textContent = `${label} (${list.length})`;
     container.appendChild(heading);
-    for (const name of list) container.appendChild(dashWidgetRow(name, layout));
+    list.forEach((name, index) => {
+      //: Position is the *unfiltered* one: with a search term typed, "up"
+      //: still means one place up the dashboard, not one place up the four
+      //: rows that happen to match.
+      const position = ordered
+        ? { index: ordered.indexOf(name), total: ordered.length }
+        : null;
+      container.appendChild(dashWidgetRow(name, layout, position));
+    });
   };
-  addGroup("On your dashboard", names.filter((n) => !layout.hidden.includes(n)));
-  addGroup("Available", names.filter((n) => layout.hidden.includes(n)));
+  //: The dashboard's own order, so the list reads top-to-bottom the way the
+  //: page does — a picker that lists widgets in a different order from the
+  //: thing it is editing makes "move up" unreadable.
+  const onDashboard = layout.order.filter((n) => !layout.hidden.includes(n));
+  addGroup(
+    "On your dashboard",
+    onDashboard.filter((n) => names.includes(n)),
+    onDashboard,
+  );
+  addGroup("Available", names.filter((n) => layout.hidden.includes(n)), null);
 
   if (!names.length) {
     const empty = document.createElement("p");

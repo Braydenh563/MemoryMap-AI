@@ -142,6 +142,145 @@ errors and zero console errors. Worth repeating after UI work — it is the
 cheapest check in this repo and it catches the "feature that never ran once"
 shape CLAUDE.md warns about.
 
+### Third batch — the OCR workspace, the Contents rebuild, and a defect I shipped
+
+Each one measured in Chromium; the suite was green before every push.
+
+- **A document chip opened a note.** `_touched_notes` (the live action lines
+  above) called anything with `id` + `content` a note — and a document result
+  carries `id`, `title` *and* `content*` (`ai/tools/documents.py`), so a
+  document was labelled a note and `flashEntry(id)` jumped to whatever note
+  held that id. Now `_touched_items` tests `title` first, returns
+  `{kind, id, label}`, and de-duplicates on `(kind, id)` because the two
+  tables' ids collide. The chip routes on the kind, with one glyph per kind.
+  **The shape to remember: two id spaces, one field in common.**
+- **A tool row with chips vanished from a reopened chat.** Found while fixing
+  the above. The transcript serialiser walks the DOM and tests
+  `classList.contains("tool-chip")` — an exact token match — so once a row
+  that touched something got wrapped as `.tool-chip-wrap`, the whole call was
+  invisible to it. It now matches the wrapper and reads the step parked on the
+  node (`markToolStep`), which also restores the arguments and result summary
+  a reopened chat had been losing.
+- **The Contents sub-tab is an index, not a masonry of boxes.** Asked for:
+  "cards are overly used and used too much… i want to redesign the contents
+  subtab". Three things were wrong with the boxes and each drove one part of
+  the rebuild: a card claims its contents are one object (a category is a
+  heading, not a thing to click); each box scrolled on its own inside an
+  already-scrolling page (a category of 25 showed five rows and hid twenty);
+  and there was no way to find a row. Now: full-width sections with sticky
+  headings, rows flowing across the width in a responsive grid (3 columns at
+  1440px, measured — 4 truncated half the category names), a filter, a jump
+  bar, per-section folding, Collapse/Expand all, and grouping **by month** as
+  well as by category and tag.
+- **Boards and Skills.** The Whiteboards sub-tab is the fifth and last list to
+  get a sort control (`BoardOut` has no timestamps, so "newest" sorts on id and
+  the default board stays pinned first — the same `wbVisibleBoards` the tick
+  sync uses, so a reorder cannot tick the wrong board). AI Skills was the one
+  sub-tab head still missing `library-head`, which is what sizes its controls.
+- **Cards/Rows now works on Boards too**, on the same stored preference, so
+  "Rows" means rows wherever you set it. Two rules were needed beyond the
+  generic ones: a board card's `.library-card-top` holds only the icon (not the
+  title), and an empty board draws no minimap — so rows started at three
+  different x positions (measured: 107, 155, 189). A fixed leading track and a
+  dashed placeholder rail put every row on one edge (192px, every row).
+- **The OCR workspace (#66).** Asked for with three screenshots of Baidu's
+  Unlimited-OCR. `core/ocr.py` gained `extract_regions`, which groups
+  Tesseract's own `image_to_data` output by block, drops words under 30%
+  confidence, keeps line breaks, and returns boxes **normalised to 0–1** (the
+  overlay sits over an `<img>` scaled to the panel, so pixels would be wrong at
+  every width but one). `GET /media/{id}/ocr-regions` and
+  `/files/{id}/ocr-regions` serve it. The UI is three panes: page rail, the
+  page with clickable region boxes, and the region list (kind, confidence,
+  copy) — one selection shared both ways. Reachable from the gallery kebab and
+  from the lightbox.
+
+  **What could not be verified: Tesseract is not installed in this sandbox**,
+  so the real extractor has never run against this code. The eleven tests
+  drive a *fake* `pytesseract` (grouping, line breaks, the confidence filter,
+  normalisation, the "heading" ratio); the fallback path — no Tesseract, one
+  whole-page region built from stored text, `source: "stored-text"` — is the
+  one that ran live here, and it is what a fresh install will see too. The
+  overlay geometry *was* measured live, by feeding the renderer a
+  Tesseract-shaped answer: three boxes landed at exactly the fractions they
+  named, and clicking a box selected its row.
+
+### Vault import keeps its shape (#74, the "largest gap")
+
+*"kortex and obsidian files and md file trees and being able to link notes and
+obsidian md files and stuff is I think the largest gap that is missing right
+now."*
+
+The importer already read a whole vault — and threw away both the folders and
+**the filename**. The second loss is the one that breaks things: Obsidian's
+`[[wiki links]]` name the *file*, so a vault imported here arrived with every
+internal link pointing at nothing.
+
+- `Entry.source_path` holds the vault-relative path (`Projects/Roadmap.md`),
+  `""` for anything written here. Relative, never absolute: it is a structure,
+  not a location on the machine that did the import.
+- A file with no heading of its own gets `# <filename>` — in a vault the
+  filename *is* the title, and a note with no title cannot be linked to. A file
+  that titled itself is left alone.
+- `find_by_wiki_name` (and `resolveWikiTarget`, its frontend twin) match the
+  vault filename **first and exactly**, before the old opening-words rule: a
+  file called "Index" must not lose to a note that merely opens with the word
+  "index".
+- The Contents index gained a **By folder** mode: the vault's own tree, with
+  notes written in the app grouped under "(written here)" rather than hidden.
+- Settings gained a folder picker (`webkitdirectory`) beside the file picker,
+  posting to the same endpoint. The third argument to `FormData.append` is what
+  carries `webkitRelativePath` — `file.name` is the bare name even three
+  folders down.
+
+Driven live end to end: importing a two-file vault produced sections
+`Projects` / `(vault root)` / `(written here)`, and `[[Roadmap]]` resolved to
+`Projects/Roadmap.md`. Seven tests.
+
+**Still missing for this item:** links *out* — nothing writes a vault back, and
+an imported note has no "reveal in folder"/re-sync. Documents (as opposed to
+notes) have no `source_path` at all, so a vault imported as documents still
+flattens.
+
+### The widgets picker (#75)
+
+*"the widgets menu and edit need a redesign."* Three problems, each a
+semiotics one rather than a styling one:
+
+- **Wide was a flip-label button** — "Wide" when narrow, "Narrow" when wide.
+  A flip label says what pressing it will do and, at rest, says nothing about
+  what the widget *is*, so nineteen rows could not be scanned for which ones
+  span two columns. It is a pressed toggle now (`aria-pressed`, `.active`).
+- **Remove looked exactly like Wide.** A destructive action and a reversible
+  one at the same weight; Remove carries the danger accent now.
+- **Order could only be changed by dragging the live grid** — unreachable by
+  keyboard and invisible from the screen that lists every widget. Each row on
+  the dashboard has move-up/move-down, disabled (not removed) at the ends so
+  the control cluster keeps one width. Measured: every row's controls start at
+  x=818 and end at 1041, and moving row two up reordered and persisted.
+
+The dialog went 34rem → 44rem, because four controls and a description on one
+line at 34rem wrapped every description to three lines — which is what made a
+19-row list a three-screen scroll. Descriptions are one line now.
+
+### Chat previews what it touched (#73, in part)
+
+*"the chat and agent should be the ultimate notebook handler, drafting and
+previewing notes … showing rendered note previews then user can edit."*
+
+A touched-chip could only take you *away* from the conversation: press it and
+you are in the Notes tab, having lost the answer you were reading. The chip now
+opens the note in place — rendered with the app's own markdown renderer, capped
+at 18rem and scrolling, with **Open** and **Edit** under it — and pressing it
+again closes it. Leaving is a decision now, not the only option.
+
+The body is fetched on demand rather than carried in the tool event, which is
+what makes a *replayed* transcript preview the note as it is now, and keeps six
+note bodies out of the message that stores a six-note turn.
+
+Driven live by building a tool row against a real note: the chip pressed,
+fetched, rendered the right text, offered Open/Edit, and closed again with
+`aria-expanded` tracking both ways.
+
 ### Still open — all of it top priority, in the user's own words
 
 Ranked by how loudly and how often it was asked for.

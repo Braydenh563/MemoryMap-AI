@@ -1740,85 +1740,119 @@ progress {
    pass earned: plain headings and a bare link list with no containment
    read as unstyled text, not a designed view. Matches the card language
    `.bookmark-row`/`.outline-link` already use elsewhere in this app. */
+/* The Contents sub-tab, rebuilt as an index rather than a masonry of boxes.
+   See `renderContents` in library.js for the three reasons the boxes went:
+   a card claims its contents are one object, each box scrolled on its own
+   inside an already scrolling page, and there was no way to find a row. */
 .contents-outline {
-  display: grid;
-  /* `auto-fit`, not `auto-fill`. `auto-fill` keeps the empty tracks it
-     created, so three categories in a 1400px-wide panel sat in the first
-     three of five columns with the right-hand 40% of the card blank.
-     `auto-fit` collapses the empty tracks and the three columns share the
-     width. */
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-  gap: var(--space-5);
-  margin-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin-top: var(--space-5);
 }
 
 .contents-section {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
+  /* No border, no card ground. A heading and a rule is what separates one
+     section of an index from the next — the box around it was the thing
+     making twenty headings read as twenty clickable objects. */
+  border: 0;
+  padding: 0;
+  background: none;
+}
+
+/* A button, because folding is an action (see the `aria-expanded` note in
+   library.js). Styled as a heading anyway: full width, left aligned, no
+   control chrome — the caret and the hover rule are the affordance. */
+.contents-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: var(--text-md);
+  font-weight: 600;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  /* Sticky, so the section you are reading keeps saying which section it is
+     — the one thing a long index owes the reader. `--space-9` clears the
+     sub-tab bar above it. */
+  position: sticky;
+  top: 0;
+  z-index: 1;
   background: var(--card-bg);
 }
 
-.contents-heading {
-  margin: 0 0 var(--space-3);
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--border);
-  font-size: var(--text-md);
+.contents-heading:hover,
+.contents-heading:focus-visible {
+  color: var(--ink);
+}
+
+.contents-heading-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The count reads as data, not as a badge to press: no ground, no border,
+   just the app's muted ink at tabular width so the numbers line up. */
+.contents-count {
+  flex: 0 0 auto;
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.contents-caret {
+  flex: 0 0 auto;
+  transition: transform var(--motion-fast) ease;
+}
+
+.contents-section.is-folded .contents-caret {
+  transform: rotate(-90deg);
 }
 
 .contents-list {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  max-height: 14rem;
-  overflow-y: auto;
-  /* Reported directly: a long unbroken filename (an upload's own name, no
-     spaces to wrap on) forced this scrollable box wide instead of tall,
-     which — because only `overflow-y` was set — silently turned
-     `overflow-x` into `auto` too (the CSS spec's own computed-value rule
-     for a box scrollable on one axis alone), adding a horizontal
-     scrollbar and cutting off both the text and its hover highlight at
-     the card's edge instead of wrapping onto a second line. */
-  overflow-x: hidden;
+  /* Rows flow across the width instead of down one narrow column — a
+     1400px panel showing one 22rem column of an index is the "excessive
+     margins" complaint in its other form. Row-major, so reading order is
+     left to right then down, the way an index reads. */
+  display: grid;
+  /* 24rem, not 20: measured at 1440px the narrower track gave four columns
+     and truncated half the category names in the right-hand meta column to
+     "U…". Three wider columns fit the same rows with the meta intact, which
+     is the whole point of having it. */
+  grid-template-columns: repeat(auto-fill, minmax(24rem, 1fr));
+  gap: var(--space-1) var(--space-5);
 }
 
-/* Only when this list actually overflows — set from JS after layout, because
-   CSS cannot ask whether a box is scrollable. Two cues, because one was not
-   enough to stop this reading as clipped: the last visible row fades out, so
-   the cut is obviously the start of more content rather than the end of the
-   list, and the scrollbar is drawn rather than left to the platform's
-   draw-on-scroll overlay. */
-.contents-list.is-scrollable {
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 2rem), transparent);
-  scrollbar-color: var(--border) transparent;
-}
-
-/* The tick beside each note (asked for directly: "in many of the library
-   subtabs… there is no way to multi select"). A row here is a `<li>` holding
-   a checkbox and a link side by side, not a button like the Documents list's
-   own row — so the tick is a plain flex sibling of the link rather than an
-   inline child of it, and the link keeps its full click/hover target. */
 .contents-list li {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  min-width: 0;
 }
 
 .contents-list li a {
   flex: 1 1 auto;
   min-width: 0;
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
   padding: var(--space-2);
   border-radius: var(--radius-md);
   color: var(--ink);
-  white-space: normal;
-  overflow-wrap: anywhere;
   /* No underline. These are the app's own list rows, and nothing else in it
      underlines a row — the browser's default made the whole outline read as
      a page of hyperlinks rather than as a list of the user's notes. The
@@ -1831,6 +1865,39 @@ progress {
 .contents-list li a:focus-visible {
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+.contents-more {
+  padding: var(--space-2);
+}
+
+/* The jump bar: one chip per section, so a long index has a top-level index
+   of its own. Scrolls sideways rather than wrapping to four rows on a
+   notebook with thirty categories. */
+.contents-jump {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding-bottom: var(--space-2);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.contents-jump-chip {
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+
+.contents-controls {
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+/* The filter takes the leftover width the way every other search box in the
+   app does, rather than sitting at its intrinsic size beside a wide gap. */
+#contents-filter {
+  flex: 1 1 12rem;
+  min-width: 8rem;
 }
 
 .bookmark-actions {

@@ -2719,6 +2719,17 @@ Link to another note with [[its first few words]]."></textarea>
               <option value="za">Title Z → A</option>
               <option value="fullest">Most on it</option>
             </select>
+            <!-- The same Cards/Rows switch the All sub-tab has, on the same
+                 stored preference — asked for: "I think cards are overly used
+                 and used too much". Boards are the other card grid in the
+                 Library, and forty of them are far easier to scan as rows.
+                 One preference, not two, so "Rows" means rows wherever you
+                 set it. -->
+            <div class="seg seg-compact library-view" id="library-boards-view" role="group"
+              aria-label="How to show boards">
+              <button data-library-view="grid" type="button" title="Cards" aria-label="Card view"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
+              <button data-library-view="list" type="button" title="Rows" aria-label="Rows"><i class="ph ph-list" aria-hidden="true"></i></button>
+            </div>
             <button id="wb-boards-new" class="small" type="button">＋ New board</button>
             <button id="library-media-refresh" class="ghost small" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
             <button type="button" id="wb-boards-help" class="ghost small graph-help-toggle"
@@ -3367,14 +3378,32 @@ Link to another note with [[its first few words]]."></textarea>
         <h2>Contents</h2>
         <button id="contents-refresh" class="ghost small" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
       </div>
-      <p class="muted">An outline of your notebook — every category and tag,
-        with what's filed under it. For the visual map of how notes link to
-        each other, see the Graph tab.</p>
-      <div class="seg" id="contents-mode" role="tablist">
-        <button role="tab" aria-selected="true" data-mode="category" class="active" type="button">By category</button>
-        <button role="tab" aria-selected="false" data-mode="tag" type="button">By tag</button>
+      <p class="muted">An index of your notebook — by category, by tag, by the
+        month you wrote it, or by the folder it came from if you imported a
+        vault. Filter it, fold a section away, or jump straight to one. For the
+        visual map of how notes link to each other, see the Graph tab.</p>
+      <!-- The controls an index needs and this one did not have: a way to
+           narrow it, a third grouping (a notebook is as often "when did I
+           write that" as "what did I file it under"), and a jump bar, because
+           the fix for a long index is not a scrollbar per section. -->
+      <div class="row contents-controls library-head">
+        <div class="seg" id="contents-mode" role="tablist">
+          <button role="tab" aria-selected="true" data-mode="category" class="active" type="button">By category</button>
+          <button role="tab" aria-selected="false" data-mode="tag" type="button">By tag</button>
+          <button role="tab" aria-selected="false" data-mode="date" type="button">By month</button>
+          <!-- The vault's own folders, for notes imported from one. See
+               `Entry.source_path`: everything written in this app groups
+               under "(written here)" rather than vanishing. -->
+          <button role="tab" aria-selected="false" data-mode="folder" type="button">By folder</button>
+        </div>
+        <input id="contents-filter" type="search" placeholder="Filter this index…"
+          aria-label="Filter the index by title">
+        <button id="contents-collapse" class="ghost small" type="button"
+          title="Collapse or expand every section">Collapse all</button>
       </div>
+      <nav id="contents-jump" class="contents-jump" aria-label="Jump to a section"></nav>
       <div id="contents-outline" class="contents-outline"></div>
+      <p id="contents-no-match" class="muted hidden"></p>
       <div id="contents-empty" class="empty-state hidden">
         <span class="empty-icon" aria-hidden="true"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i></span>
         <p class="empty-title">Nothing to outline yet</p>
@@ -3510,6 +3539,57 @@ Link to another note with [[its first few words]]."></textarea>
        flow, matching `generate_diagram`'s own convention — nothing here is
        saved until "Save notes" is pressed, because this can silently
        multiply one piece of writing into several permanent notes. -->
+  <!-- ======================= OCR WORKSPACE ================================
+       Asked for with three screenshots of Baidu's Unlimited-OCR: "for the
+       document ocr I want smth like this". Three panes, and each one answers
+       a question the old single blob of text could not:
+
+         · the rail says *which page* you are reading (a scan is rarely one
+           image, and the gallery already holds the rest of them);
+         · the middle says *where on the page* a line came from, which is the
+           whole reason a reading can be checked at all;
+         · the right says *what it read*, region by region, so a wrong line is
+           a row you can copy or ignore rather than a wall to re-read.
+
+       Nothing here invents structure the extractor does not have: regions are
+       Tesseract's own blocks, and the only label beyond "text" is "heading",
+       computed from box height. See core/ocr.py's `extract_regions`. -->
+  <div id="ocr-workspace" class="modal-overlay ocr-workspace hidden" role="dialog"
+    aria-modal="true" aria-label="Read text from this image">
+    <div class="card modal-card ocr-card">
+      <div class="row space-between ocr-head">
+        <div class="ocr-headline">
+          <h2>Text on the page</h2>
+          <span id="ocr-source" class="chip ocr-source" hidden></span>
+        </div>
+        <div class="row">
+          <label class="checkbox-label" title="Draw a box around each block the reader found">
+            <input type="checkbox" id="ocr-show-boxes" checked>
+            <i class="ph ph-bounding-box ph-lead" aria-hidden="true"></i> Regions
+          </label>
+          <button id="ocr-copy-all" class="ghost small" type="button"
+            title="Copy every region's text, in reading order"><i class="ph ph-copy ph-lead" aria-hidden="true"></i> Copy all</button>
+          <button id="ocr-to-note" class="small" type="button"
+            title="Save everything read here as a new note"><i class="ph ph-note ph-lead" aria-hidden="true"></i> Save as note</button>
+          <button id="ocr-close" class="ghost small" type="button" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+        </div>
+      </div>
+      <div class="ocr-panes">
+        <nav id="ocr-rail" class="ocr-rail" aria-label="Pages"></nav>
+        <div class="ocr-page">
+          <div id="ocr-stage" class="ocr-stage">
+            <img id="ocr-image" alt="">
+            <div id="ocr-boxes" class="ocr-boxes"></div>
+          </div>
+        </div>
+        <div class="ocr-regions">
+          <p id="ocr-message" class="muted ocr-message" role="status"></p>
+          <ol id="ocr-region-list" class="ocr-region-list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="extract-panel" class="modal-overlay hidden" role="dialog"
     aria-modal="true" aria-label="Extract notes">
     <div class="card modal-card extract-card">
@@ -5070,6 +5150,19 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="row">
                 <input id="import-md-files" aria-label="Choose markdown files to import" title="Choose markdown files to import" type="file" accept=".md,.markdown,.txt" multiple>
                 <button id="import-md" class="small">Import</button>
+              </div>
+              <!-- The same endpoint, pointed at a folder. The picker above
+                   cannot select one, and the path box below only works when
+                   you can type the vault's absolute path from memory — which
+                   is why importing a vault was awkward enough to look
+                   missing. `webkitdirectory` sends every file *with its
+                   relative path*, which is what keeps the tree and the
+                   `[[wiki links]]` (see importMarkdown in app.js). -->
+              <div class="row settings-row-spaced">
+                <input id="import-md-folder" aria-label="Choose a vault folder to import"
+                  title="Choose a whole folder — every .md inside it, with its folders kept"
+                  type="file" webkitdirectory directory multiple>
+                <button id="import-md-folder-btn" class="small">Import folder</button>
               </div>
               <p id="import-md-status" class="status" role="status"></p>
               

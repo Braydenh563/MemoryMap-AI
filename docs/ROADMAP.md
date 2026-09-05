@@ -283,12 +283,9 @@ Items 1–2, below, are the ones with real substance after that.
     including the corrected "model is not stored per turn" premise:
     HISTORY.md §100.
 
-~~12. **The Documents Library sub-tab needs a full visual redesign.**~~
-    **Built.** Full narrative: HISTORY.md §100. Whiteboards' own pass (item
-    9 above) is unrelated code and still open.
+~~12. **The Documents Library sub-tab needs a full visual redesign.**~~ **Built.** Full narrative: HISTORY.md §100.
 
-~~13. **Back/forward navigation still misses most navigation types.**~~
-    **Built, all four cases.** Library's sub-tabs (§88.1 item 7), saved chat
+~~13. **Back/forward navigation still misses most navigation types.**~~ **Built, all four cases.** Library's sub-tabs (§88.1 item 7), saved chat
     conversations (`openConversation`/`newChatConversation` recording a
     `{tab: "chat", section}` entry, restored by `stepTabHistory` — the
     session that built this also had to make `stepTabHistory` `async` and
@@ -537,7 +534,10 @@ same session is in §88.0 so nobody re-fixes it.
    Documents, in order.
 ~~8. **The Documents Library sub-tab needs a visual redesign.**~~ **Built** —
    see the live-list's own item 12, which has the full root cause and fix.
-9. **The Whiteboards Library sub-tab is bland** — same pass.
+~~9. **The Whiteboards Library sub-tab is bland**~~ **Built** — search, sort
+   and a Cards/Rows switch on the Library's one shared view preference. Same pass: Contents rebuilt as a real index (sticky sections, filter, jump bar,
+   folding, by-month grouping) and the three-pane OCR workspace — HANDOVER.md's
+   third batch has both, and what Tesseract's absence here left unverified.
 10. **The graph dock may get too tall and squish the graph.** Now three
     deliberate rows; if it grows again, the answer is an overflow menu rather
     than a fourth row.

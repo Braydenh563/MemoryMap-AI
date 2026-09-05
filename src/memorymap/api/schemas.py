@@ -168,6 +168,10 @@ class EntryOut(BaseModel):
     # Where a web-reader clipping came from, when it was one (BACKLOG §65).
     source_url: str | None = None
     source_title: str | None = None
+    #: Where this note sat in an imported vault (`Projects/Roadmap.md`), or
+    #: "" for one written here. The Contents index groups on it, and the
+    #: wiki-link resolver matches its filename — see `Entry.source_path`.
+    source_path: str = ""
     created_at: datetime
     deleted_at: datetime | None = None  # set only in the recycle-bin view
     archived_at: datetime | None = None  # set only when archived (BACKLOG §30b)

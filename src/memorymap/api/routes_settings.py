@@ -1617,6 +1617,15 @@ def _run_directory_import(directory_path: str):
                 if not body.strip():
                     skipped += 1
                     continue
+                #: **The file's own text, unchanged.** An earlier attempt at
+                #: this prepended `# <filename>` so the note would carry its
+                #: vault name — and three existing tests caught it, rightly:
+                #: an importer that edits what it imports is a data-loss bug
+                #: waiting to be reported, and this app's own rule is that a
+                #: note has no separate title, its opening words *are* its
+                #: name. The filename is preserved on `source_path` instead,
+                #: where `find_by_wiki_name` reads it, so `[[wiki links]]`
+                #: resolve without a single character of the note changing.
                 entry = manager.create_entry(
                     session,
                     body.strip(),
@@ -1624,6 +1633,13 @@ def _run_directory_import(directory_path: str):
                     tags=meta.get("tags") or [],
                     ai_confidence=100 if meta.get("category") else 0,
                 )
+                #: Relative to the vault root, never absolute — see
+                #: `Entry.source_path`. `as_posix` so a vault imported on
+                #: Windows and one imported on Linux group identically.
+                try:
+                    entry.source_path = f.relative_to(p).as_posix()[:500]
+                except ValueError:
+                    entry.source_path = f.name[:500]
                 if meta.get("category"):
                     entry.user_filed = True
                 deps.store_quietly(session, entry)
@@ -1678,6 +1694,11 @@ def import_markdown(
         if not body.strip():
             skipped.append(f"{name}: empty")
             continue
+        #: The path, not the text — see the directory importer above for why
+        #: nothing here rewrites the file's own content. A browser sends the
+        #: relative path as the filename when the picker was a directory
+        #: picker, and the bare name otherwise; both are relative, which is
+        #: the only kind stored.
         entry = manager.create_entry(
             session,
             body.strip(),
@@ -1685,6 +1706,7 @@ def import_markdown(
             tags=meta.get("tags") or [],
             ai_confidence=100 if meta.get("category") else 0,
         )
+        entry.source_path = name.lstrip("/")[:500]
         if meta.get("category"):
             entry.user_filed = True  # the file said where it belongs
             session.commit()

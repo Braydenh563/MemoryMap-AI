@@ -6217,6 +6217,8 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
+window.renderLibraryBoardsGallery = renderLibraryBoardsGallery;
+
 async function renderLibraryBoardsGallery() {
   const grid = $("library-boards-grid");
   const empty = $("library-boards-empty");
@@ -6232,6 +6234,11 @@ async function renderLibraryBoardsGallery() {
   }
   const needle = ($("library-boards-search")?.value || "").trim().toLowerCase();
   const shown = window.wbVisibleBoards(boards, needle);
+  //: `.library-list` is the Library's own rows mode (00-tokens-shell.css) and
+  //: a board card is already a `.library-card`, so this is the whole change:
+  //: the same class the All sub-tab toggles, driven by the same preference.
+  const rowsMode = localStorage.getItem("libraryView") === "list";
+  grid.classList.toggle("library-list", rowsMode);
   grid.replaceChildren();
   if (!shown.length) {
     const isFilteredEmpty = Boolean(needle) && boards.length > 0;
@@ -6367,6 +6374,18 @@ async function renderLibraryBoardsGallery() {
         }
       }
       card.append(top, title, map, meta);
+    } else if (rowsMode) {
+      //: Rows only. An empty board draws nothing in card view *by design*
+      //: (see the comment above — the "Empty board" line says more than a
+      //: blank rectangle would), but in rows view the map is the row's left
+      //: rail: without a placeholder the boards that have one push their
+      //: title 34px further right than the boards that don't, and every row
+      //: starts at a different x. Measured before this existed: 107px, 155px
+      //: and 189px on three consecutive rows.
+      const blank = document.createElement("span");
+      blank.className = "board-minimap board-minimap-blank";
+      blank.setAttribute("aria-hidden", "true");
+      card.append(top, title, blank, meta);
     } else {
       card.append(top, title, meta);
     }

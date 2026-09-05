@@ -1622,6 +1622,35 @@ def find_by_wiki_name(session: Session, name: str) -> Entry | None:
     wanted = (name or "").strip().lower()
     if not wanted:
         return None
+    #: **A vault's links name the file, not the first words.** An imported
+    #: note carries the path it came from (`Entry.source_path`), and Obsidian
+    #: writes `[[Roadmap]]` for `Projects/Roadmap.md` — so without this an
+    #: imported vault resolves almost none of its own links, since the note's
+    #: text starts with the heading the importer wrote, not with the name.
+    #: Tried first and matched exactly: a file called "Index" should not lose
+    #: to a note that merely opens with the word "index".
+    #: Filtered in SQL rather than by loading every imported note: this runs
+    #: once per `[[link]]` per save, and a real vault is thousands of files.
+    #: The `LIKE` can over-match (`Roadmap.md` also matches `My Roadmap.md`,
+    #: and a name containing `%` matches widely), so the stem is checked
+    #: exactly in Python below — the query narrows, it does not decide.
+    vault_clauses = []
+    for suffix in (".md", ".markdown"):
+        vault_clauses.append(Entry.source_path.ilike(f"{wanted}{suffix}"))
+        vault_clauses.append(Entry.source_path.ilike(f"%/{wanted}{suffix}"))
+    vault = session.scalars(
+        select(Entry)
+        .where(
+            Entry.is_deleted == False,  # noqa: E712
+            Entry.is_private == False,  # noqa: E712
+            or_(*vault_clauses),
+        )
+        .order_by(Entry.id)
+    ).all()
+    for entry in vault:
+        stem = (entry.source_path or "").rsplit("/", 1)[-1].lower()
+        if stem.removesuffix(".md").removesuffix(".markdown") == wanted:
+            return entry
     candidates = session.scalars(
         select(Entry)
         .where(

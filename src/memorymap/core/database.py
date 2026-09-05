@@ -341,6 +341,24 @@ class Entry(Base, WorkspaceMixin):
     # stays visible regardless (its counts are still nonzero), so nothing
     # already in someone's board list disappears from this change.
     is_board: Mapped[bool] = mapped_column(Boolean, default=False)
+    #: Where this note came from in an imported vault — a **relative** path
+    #: like `Projects/Roadmap.md`, empty for everything written in this app.
+    #:
+    #: Asked for directly: *"kortex and obsidian files and md file trees and
+    #: being able to link notes and obsidian md files and stuff is I think the
+    #: largest gap that is missing right now."* The importer already read a
+    #: whole vault, and threw its shape away: every file landed as a flat note
+    #: with the folders gone and the **filename gone with them**. That second
+    #: loss is the one that matters, because Obsidian's `[[wiki links]] name
+    #: the file*, so a vault imported here arrived with every internal link
+    #: pointing at nothing.
+    #:
+    #: A relative path, never an absolute one: it is a *structure*, not a
+    #: location on the machine that happened to do the import, and storing
+    #: someone's home directory in a notebook that syncs nowhere is a leak
+    #: with no upside. A scalar `""` default so the additive auto-migrator
+    #: backfills existing rows — "written here", which is what they all are.
+    source_path: Mapped[str] = mapped_column(String(500), default="")
     # ROADMAP §87.1's own audit: "double-click pin exists but is never
     # persisted" — a node held in place with a double-click on the Graph
     # tab (`d.fx`/`d.fy` in graph.js) only ever lived on the in-memory D3

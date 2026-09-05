@@ -1287,6 +1287,123 @@ def ocr_media(
     )
 
 
+class OcrRegionBox(BaseModel):
+    #: Fractions of the image, top-left origin — see `ocr.extract_regions`
+    #: for why these are not pixels.
+    x: float
+    y: float
+    w: float
+    h: float
+
+
+class OcrRegionOut(BaseModel):
+    index: int
+    #: "text" or "heading". Deliberately not "table"/"formula"/"figure":
+    #: Tesseract reports boxes and confidences, and a semantic label guessed
+    #: from box geometry would be a guess presented as a fact.
+    kind: str
+    text: str
+    confidence: float
+    box: OcrRegionBox
+
+
+class OcrRegionsOut(BaseModel):
+    width: int
+    height: int
+    regions: list[OcrRegionOut]
+    #: "tesseract" when the boxes are real, "stored-text" when the OCR stack
+    #: is missing and this is the one already-extracted blob standing in for
+    #: a page of regions, "none" when there is nothing at all. The reader is
+    #: told which — a single region covering the whole page is a *fallback*,
+    #: and drawing it as though Tesseract had found it there would be a lie
+    #: about where the text is.
+    source: str
+    message: str = ""
+
+
+def _regions_for(path: Path, stored_text: str, stored_label: str) -> OcrRegionsOut:
+    """Region extraction with the honest fallback both callers below share."""
+    found = ocr.extract_regions(path)
+    if found is not None:
+        return OcrRegionsOut(
+            width=found["width"],
+            height=found["height"],
+            regions=[OcrRegionOut(**region) for region in found["regions"]],
+            source="tesseract",
+            message="" if found["regions"] else "No text was found on this page.",
+        )
+    text = (stored_text or "").strip()
+    if not text:
+        return OcrRegionsOut(
+            width=0,
+            height=0,
+            regions=[],
+            source="none",
+            message=(
+                "Tesseract isn't installed, so the page can't be split into "
+                "regions. Install it from Settings → AI models to see where "
+                "each line sits on the page."
+            ),
+        )
+    return OcrRegionsOut(
+        width=0,
+        height=0,
+        regions=[
+            OcrRegionOut(
+                index=0,
+                kind="text",
+                text=text,
+                confidence=0.0,
+                box=OcrRegionBox(x=0.0, y=0.0, w=1.0, h=1.0),
+            )
+        ],
+        source="stored-text",
+        message=f"{stored_label} — install Tesseract to see where each line sits on the page.",
+    )
+
+
+@router.get("/media/{upload_id}/ocr-regions", response_model=OcrRegionsOut)
+def media_ocr_regions(upload_id: int, session: Session = Depends(get_session)) -> OcrRegionsOut:
+    """The page, region by region — what the OCR workspace draws its boxes
+    from. Asked for with three screenshots of Baidu's Unlimited-OCR: a page
+    beside its regions, each separately readable, instead of one wall of
+    text with no way to tell which part of the page a line came from."""
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    if Path(upload.filename).suffix.lower() not in ocr.OCR_SUFFIXES:
+        raise HTTPException(status_code=415, detail="Only images can be read this way.")
+    path = _within_dir(deps.get_config().data_dir / "media", upload.filename)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="That file is no longer on disk.")
+    stored = (upload.vision_ocr_text or upload.ocr_text or "")
+    label = (
+        f"Read by {upload.vision_ocr_model or 'a vision model'}"
+        if upload.vision_ocr_text
+        else "Text already extracted from this image"
+    )
+    return _regions_for(path, stored, label)
+
+
+@router.get("/files/{attachment_id}/ocr-regions", response_model=OcrRegionsOut)
+def attachment_ocr_regions(
+    attachment_id: int, session: Session = Depends(get_session)
+) -> OcrRegionsOut:
+    """`media_ocr_regions`'s sibling for an attached file. Two tables, two
+    routes — the same split every other file endpoint in this module has."""
+    attachment = _existing_attachment(session, attachment_id)
+    if Path(attachment.filename).suffix.lower() not in ocr.OCR_SUFFIXES:
+        raise HTTPException(status_code=415, detail="Only images can be read this way.")
+    path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="File is missing from disk")
+    stored = (attachment.vision_ocr_text or attachment.ocr_text or "")
+    label = (
+        f"Read by {attachment.vision_ocr_model or 'a vision model'}"
+        if attachment.vision_ocr_text
+        else "Text already extracted from this image"
+    )
+    return _regions_for(path, stored, label)
+
+
 class VisionOcrBody(BaseModel):
     #: Same "already there and not forced, leave it alone" rule as
     #: `CaptionBody.force` — a manual re-read the user pressed the button

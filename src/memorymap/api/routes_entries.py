@@ -107,6 +107,7 @@ def _to_out(
         is_draft=bool(getattr(entry, "is_draft", False)),
         source_url=getattr(entry, "source_url", None),
         source_title=getattr(entry, "source_title", None),
+        source_path=getattr(entry, "source_path", "") or "",
         created_at=entry.created_at,
         deleted_at=entry.deleted_at if entry.is_deleted else None,
         archived_at=entry.archived_at,

@@ -163,7 +163,10 @@ function libraryKeyOf(item) {
 
 function renderLibraryView() {
   const current = libraryView();
-  for (const button of document.querySelectorAll("#library-view button")) {
+  //: Both switches, because they share one stored preference: a Rows chosen
+  //: on the Boards sub-tab has to come back pressed on the All sub-tab, or
+  //: the two read as unrelated controls that happen to look the same.
+  for (const button of document.querySelectorAll("#library-view button, #library-boards-view button")) {
     const active = button.dataset.libraryView === current;
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", String(active));
@@ -1057,11 +1060,15 @@ $("library-show-binned").addEventListener("change", () => {
   libraryCurrentPage = 1;
   renderLibrary();
 });
-for (const button of document.querySelectorAll("#library-view button")) {
+for (const button of document.querySelectorAll("#library-view button, #library-boards-view button")) {
   button.addEventListener("click", () => {
     localStorage.setItem(LIBRARY_VIEW_KEY, button.dataset.libraryView);
     renderLibraryView();
     renderLibrary();
+    //: The boards gallery lives in whiteboard.js and renders from its own
+    //: fetch; re-rendering it here is what makes the switch take effect on
+    //: the sub-tab you pressed it on rather than on your next visit.
+    window.renderLibraryBoardsGallery?.();
   });
 }
 // The bin's own control, on the bin's own screen.
@@ -2272,6 +2279,234 @@ function mediaFileKind(url) {
 //: Asked for directly: "the files tab needs vision model and ocr model
 //: caption and text extraction… the text and analysis needs to be accessible
 //: to the ai models and modifyable by the user."
+// --- The OCR workspace (three panes) -------------------------------------
+//
+// Asked for with three screenshots of Baidu's Unlimited-OCR: "for the
+// document ocr I want smth like this". The reading this app already did was
+// a paragraph under a thumbnail — you could read it, but not *check* it:
+// nothing said which part of the page a line came from, and a wrong line was
+// a wall of text to re-type rather than a row to fix.
+//
+// The two halves that make it checkable are the overlay and the list, and
+// they are one selection: clicking a box scrolls to its text, clicking a row
+// highlights its box. Boxes are fractions of the image (core/ocr.py), so the
+// overlay is a percentage-positioned layer over the `<img>` and stays right
+// at any panel width — which is why nothing here reads `naturalWidth`.
+let ocrWorkspaceImages = [];
+let ocrWorkspaceCurrent = null;
+let ocrWorkspaceRegions = [];
+
+function ocrRegionsUrl(image) {
+  return image._isAttachment
+    ? `/files/${image.id}/ocr-regions`
+    : `/media/${image.id}/ocr-regions`;
+}
+
+function ocrSelectRegion(index) {
+  for (const box of document.querySelectorAll("#ocr-boxes .ocr-box")) {
+    box.classList.toggle("is-active", Number(box.dataset.index) === index);
+  }
+  for (const row of document.querySelectorAll("#ocr-region-list .ocr-region")) {
+    const active = Number(row.dataset.index) === index;
+    row.classList.toggle("is-active", active);
+    //: `nearest`, not `start`: a row already fully on screen should not jerk
+    //: the list when you click its box.
+    if (active) row.scrollIntoView({ block: "nearest" });
+  }
+}
+
+function ocrRenderRegions(body) {
+  const boxes = $("ocr-boxes");
+  const list = $("ocr-region-list");
+  const message = $("ocr-message");
+  const source = $("ocr-source");
+  boxes.replaceChildren();
+  list.replaceChildren();
+  ocrWorkspaceRegions = body.regions || [];
+
+  //: The badge is not decoration: a single whole-page region drawn from
+  //: stored text is a *fallback*, and letting it look like something the
+  //: reader found there would be a lie about where the text is.
+  const labels = {
+    tesseract: "ph:scan Read on the page",
+    "stored-text": "ph:text-align-left Stored text, no page positions",
+    none: "ph:warning Nothing read yet",
+  };
+  setLabel(source, labels[body.source] || labels.none);
+  source.hidden = false;
+  source.classList.toggle("ocr-source-weak", body.source !== "tesseract");
+  message.textContent = body.message || "";
+  message.classList.toggle("hidden", !body.message);
+
+  const positioned = body.source === "tesseract";
+  for (const region of ocrWorkspaceRegions) {
+    if (positioned) {
+      const box = document.createElement("button");
+      box.type = "button";
+      box.className = `ocr-box ocr-box-${region.kind}`;
+      box.dataset.index = String(region.index);
+      box.style.left = `${region.box.x * 100}%`;
+      box.style.top = `${region.box.y * 100}%`;
+      box.style.width = `${region.box.w * 100}%`;
+      box.style.height = `${region.box.h * 100}%`;
+      box.title = region.text.slice(0, 120);
+      box.setAttribute("aria-label", `Region ${region.index + 1}: ${region.text.slice(0, 60)}`);
+      box.addEventListener("click", () => ocrSelectRegion(region.index));
+      boxes.appendChild(box);
+    }
+
+    const row = document.createElement("li");
+    row.className = "ocr-region";
+    row.dataset.index = String(region.index);
+    const head = document.createElement("div");
+    head.className = "row ocr-region-head";
+    const kind = document.createElement("span");
+    kind.className = `chip ocr-region-kind ocr-region-kind-${region.kind}`;
+    kind.textContent = region.kind === "heading" ? "Heading" : "Text";
+    head.appendChild(kind);
+    if (region.confidence) {
+      //: Confidence is the one number that tells you whether to trust a row,
+      //: so it sits on the row rather than in a tooltip. Rounded to a whole
+      //: percent: a reading is not 87.3% right.
+      const conf = document.createElement("span");
+      conf.className = "muted text-sm ocr-region-conf";
+      conf.textContent = `${Math.round(region.confidence)}%`;
+      conf.title = "How sure the reader was of this block";
+      head.appendChild(conf);
+    }
+    const copy = document.createElement("button");
+    copy.type = "button";
+    copy.className = "ghost small icon-button ocr-region-copy";
+    setLabel(copy, "ph:copy");
+    copy.title = "Copy this region's text";
+    copy.setAttribute("aria-label", copy.title);
+    copy.addEventListener("click", (event) => {
+      event.stopPropagation();
+      copyToClipboard(region.text, event.currentTarget);
+    });
+    head.appendChild(copy);
+    const text = document.createElement("p");
+    text.className = "ocr-region-text";
+    text.textContent = region.text;
+    row.append(head, text);
+    row.addEventListener("click", () => ocrSelectRegion(region.index));
+    list.appendChild(row);
+  }
+  if (!ocrWorkspaceRegions.length && !body.message) {
+    message.textContent = "No text was found on this page.";
+    message.classList.remove("hidden");
+  }
+}
+
+async function ocrLoadPage(image) {
+  ocrWorkspaceCurrent = image;
+  const img = $("ocr-image");
+  //: `_src` is an already-tokened url from a caller that has one (the
+  //: lightbox); `url` is the raw path every gallery row carries. Running an
+  //: already-tokened url back through `mediaSrc` appends a second token.
+  img.src = image._src || mediaSrc(image.url);
+  img.alt = `Page: ${image.original_name}`;
+  for (const thumb of document.querySelectorAll("#ocr-rail .ocr-rail-item")) {
+    thumb.classList.toggle("is-active", thumb.dataset.key === ocrRailKey(image));
+    thumb.setAttribute("aria-current", thumb.dataset.key === ocrRailKey(image) ? "true" : "false");
+  }
+  $("ocr-message").textContent = "Reading the page…";
+  $("ocr-message").classList.remove("hidden");
+  $("ocr-boxes").replaceChildren();
+  $("ocr-region-list").replaceChildren();
+  try {
+    ocrRenderRegions(await apiJson(ocrRegionsUrl(image)));
+  } catch (error) {
+    $("ocr-message").textContent = error.message || "That page could not be read.";
+  }
+}
+
+//: Two tables share one rail, and their ids collide — see `_touched_items`
+//: in ai/agent.py for the same hazard on the same two id spaces.
+function ocrRailKey(image) {
+  return `${image._isAttachment ? "file" : "media"}:${image.id}`;
+}
+
+function openOcrWorkspace(image, images) {
+  const overlay = $("ocr-workspace");
+  if (!overlay) return;
+  //: Only images the reader can actually open — the rail is a page list, and
+  //: a row that 404s in it is worse than a shorter rail.
+  ocrWorkspaceImages = (images || []).filter((row) => row._isImage);
+  const rail = $("ocr-rail");
+  rail.replaceChildren();
+  for (const row of ocrWorkspaceImages) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "ocr-rail-item";
+    item.dataset.key = ocrRailKey(row);
+    const thumb = document.createElement("img");
+    thumb.src = mediaSrc(row.url);
+    thumb.alt = "";
+    thumb.loading = "lazy";
+    const name = document.createElement("span");
+    name.className = "ocr-rail-name";
+    name.textContent = row.original_name;
+    item.append(thumb, name);
+    item.title = row.original_name;
+    item.addEventListener("click", () => ocrLoadPage(row));
+    rail.appendChild(item);
+  }
+  rail.classList.toggle("hidden", ocrWorkspaceImages.length < 2);
+  overlay.classList.remove("hidden");
+  ocrLoadPage(image);
+}
+
+function ocrAllText() {
+  return ocrWorkspaceRegions.map((region) => region.text).join("\n\n").trim();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  $("ocr-close")?.addEventListener("click", () => $("ocr-workspace").classList.add("hidden"));
+  $("ocr-workspace")?.addEventListener("click", (event) => {
+    //: Click the backdrop to close, the card to keep working — the same rule
+    //: every other overlay in this app follows.
+    if (event.target === event.currentTarget) event.currentTarget.classList.add("hidden");
+  });
+  $("ocr-show-boxes")?.addEventListener("change", (event) => {
+    $("ocr-boxes").classList.toggle("is-hidden", !event.currentTarget.checked);
+  });
+  $("ocr-copy-all")?.addEventListener("click", (event) => {
+    const text = ocrAllText();
+    if (!text) return toast("There is nothing to copy yet.", true);
+    copyToClipboard(text, event.currentTarget);
+  });
+  $("ocr-to-note")?.addEventListener("click", async () => {
+    const text = ocrAllText();
+    if (!text) return toast("There is nothing to save yet.", true);
+    try {
+      //: The image goes with the text. A note holding a transcription with no
+      //: picture of what was transcribed cannot be checked later, which is
+      //: the same failure this whole workspace exists to fix.
+      const name = ocrWorkspaceCurrent?.original_name || "image";
+      //: **The token must not go in the note.** A caller that opened the
+      //: workspace from the lightbox hands over an already-tokened `_src`
+      //: (see `ocrLoadPage`), and writing that into a note's markdown would
+      //: store this session's auth token in the notebook — and hand it to
+      //: anyone the note is later exported or shared with. The query string
+      //: is dropped; `mediaSrc` re-adds a live token whenever the note is
+      //: rendered.
+      const raw = ocrWorkspaceCurrent?.url || (ocrWorkspaceCurrent?._src || "").split("?")[0];
+      const picture = raw ? `![${name}](${raw})\n\n` : "";
+      const body = `# Text from ${name}\n\n${picture}${text}`;
+      const created = await apiJson("/entries", {
+        method: "POST",
+        body: JSON.stringify({ content: body }),
+      });
+      toast("Saved as a note.");
+      $("ocr-workspace").classList.add("hidden");
+      flashEntry(created.id);
+    } catch (error) {
+      toast(error.message || "Couldn't save that note.", true);
+    }
+  });
+});
+
 async function analyseMediaRow(image, kind, payload = {}) {
   if (image._isAttachment) {
     return apiJson(`/files/${image.id}/analyse`, {
@@ -3020,6 +3255,21 @@ function filterLibraryImagesGallery() {
       }
     });
 
+    //: The workspace, beside the re-read button. Two different acts: `ph:scan`
+    //: *re-reads* the image and replaces the paragraph below; this *opens*
+    //: what was read, region by region, over the page it came from. Only for
+    //: images — the extractor cannot open a PDF (core/ocr.py's OCR_SUFFIXES),
+    //: and a button guaranteed to 415 is worse than no button.
+    const ocrOpenBtn = document.createElement("button");
+    ocrOpenBtn.type = "button";
+    ocrOpenBtn.className = "ghost small library-image-menu-item library-image-ocr-open";
+    setLabel(ocrOpenBtn, "ph:selection-all See text on the page");
+    ocrOpenBtn.title = `See where each line sits on “${image.original_name}”`;
+    ocrOpenBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openOcrWorkspace(image, images);
+    });
+
     // A vision model's verbatim transcription of any text in the image —
     // the "extractor mode" asked for directly, distinct from `ocr_text`
     // (Tesseract, automatic on upload, shown just above) and from
@@ -3238,7 +3488,14 @@ function filterLibraryImagesGallery() {
     // no file behind it at all, so it keeps Delete alone.
     //: Rename is in both lists now — see the note in `save` above for why an
     //: attachment stopped being the exception.
-    menuList.append(rename, captionBtn, visionOcrBtn, ocrBtn, del);
+    //: Between the two readers and Delete: it is about *what has already been
+    //: read*, so it belongs after the two rows that do the reading and before
+    //: the one destructive row. Images only — `extract_regions` refuses
+    //: anything Tesseract cannot open, and a row guaranteed to 415 is worse
+    //: than a shorter menu.
+    menuList.append(rename, captionBtn, visionOcrBtn, ocrBtn);
+    if (image._isImage) menuList.appendChild(ocrOpenBtn);
+    menuList.appendChild(del);
     menu.append(menuButton, menuList);
     // Picking anything closes the menu — on the **capture** phase, which is
     // the whole point. This was a bubble-phase listener with a comment
@@ -3690,6 +3947,29 @@ document.addEventListener("DOMContentLoaded", () => {
       contentsMode = btn.getAttribute("data-mode");
       renderContents();
     });
+  });
+  //: Debounced like every other search box in this file: the index rebuilds
+  //: from `allEntries` in memory, but a 400-note rebuild on each keystroke is
+  //: still work the typist can feel.
+  let contentsFilterTimer = null;
+  $("contents-filter")?.addEventListener("input", () => {
+    clearTimeout(contentsFilterTimer);
+    contentsFilterTimer = setTimeout(renderContents, 150);
+  });
+  $("contents-collapse")?.addEventListener("click", (event) => {
+    const outline = $("contents-outline");
+    if (!outline) return;
+    //: Reads the sections rather than a flag of its own: the button's job is
+    //: "make them all the same", and whether that means folding or unfolding
+    //: depends on what is on screen right now — which the user may have
+    //: changed one section at a time since the last press.
+    const anyOpen = [...outline.querySelectorAll(".contents-heading")].some(
+      (h) => h.getAttribute("aria-expanded") === "true",
+    );
+    for (const heading of outline.querySelectorAll(".contents-heading")) {
+      if ((heading.getAttribute("aria-expanded") === "true") === anyOpen) heading.click();
+    }
+    event.currentTarget.textContent = anyOpen ? "Expand all" : "Collapse all";
   });
 });
 
@@ -4279,15 +4559,107 @@ function bookmarkRow(bookmark) {
 // endpoint — the same data, grouped differently client-side. -----------
 
 let contentsMode = "category";
+//: Which sections are folded, by their heading. Kept per grouping mode,
+//: because "Uncategorised" collapsed under By category says nothing about a
+//: month of the same name under By month.
+const contentsCollapsed = {
+  category: new Set(),
+  tag: new Set(),
+  date: new Set(),
+  folder: new Set(),
+};
 // A big notebook can have a group with hundreds of notes; nobody scans
-// past this many in one outline section, and rendering them all would be
-// the one part of this view that isn't cheap.
+// past this many in one section, and rendering them all would be the one
+// part of this view that isn't cheap.
 const CONTENTS_GROUP_CAP = 200;
 
+//: **This is an index, not a set of cards.** It used to be a masonry of
+//: bordered boxes, each with its own 14rem scroller — asked for directly:
+//: "I think cards are overly used and used too much… i want to redesign the
+//: contents subtab".
+//:
+//: Three things were wrong with the boxes, and they are the reasons for the
+//: shape below rather than a restyle of the old one:
+//:
+//: 1. **A card is a claim that its contents are one object you can act on.**
+//:    A category is not — it is a heading. Boxes made twenty headings look
+//:    like twenty things to click.
+//: 2. **Each box scrolled on its own.** A category of 25 notes showed five
+//:    rows and hid twenty behind a nested scrollbar inside an already
+//:    scrolling page, which is the one interaction nobody finds by accident.
+//:    Sections are now open to their full height and the *page* scrolls, the
+//:    way an index in a book works.
+//: 3. **There was no way to find anything.** An index of 400 rows without a
+//:    filter or a jump bar is a wall, so both are here now, plus grouping by
+//:    month — half of "where is that note" is *when* you wrote it.
+function contentsGroups(entries) {
+  const groups = new Map();
+  const addTo = (key, entry) => {
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(entry);
+  };
+  if (contentsMode === "tag") {
+    for (const entry of entries) {
+      if (entry.tags && entry.tags.length) for (const tag of entry.tags) addTo(tag, entry);
+      else addTo("(untagged)", entry);
+    }
+  } else if (contentsMode === "folder") {
+    //: The vault's own shape. Asked for directly: "kortex and obsidian files
+    //: and md file trees … is I think the largest gap that is missing right
+    //: now." An imported note carries the path it came from
+    //: (`Entry.source_path`); everything written in this app has none, and
+    //: those group under one heading rather than being hidden — a mode that
+    //: silently drops most of the notebook reads as broken.
+    for (const entry of entries) {
+      const path = entry.source_path || "";
+      const folder = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+      addTo(path ? folder || "(vault root)" : "(written here)", entry);
+    }
+  } else if (contentsMode === "date") {
+    for (const entry of entries) {
+      const when = new Date(entry.created_at || entry.updated_at || Date.now());
+      //: A sortable key ("2026-03") with a readable label built from it, so
+      //: months order by time rather than alphabetically — "April" before
+      //: "January" is the classic version of this bug.
+      const key = Number.isNaN(when.valueOf())
+        ? "Undated"
+        : `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, "0")}`;
+      addTo(key, entry);
+    }
+  } else {
+    for (const entry of entries) addTo(entry.category || "Uncategorised", entry);
+  }
+  return groups;
+}
+
+function contentsSectionLabel(key) {
+  if (contentsMode !== "date" || key === "Undated") return key;
+  const [year, month] = key.split("-");
+  const when = new Date(Number(year), Number(month) - 1, 1);
+  return when.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+}
+
+function contentsOrderedKeys(groups) {
+  const keys = [...groups.keys()];
+  //: Newest month first — an index by time is read from now backwards.
+  if (contentsMode === "date") return keys.sort((a, b) => b.localeCompare(a));
+  //: Folders in path order, with the two synthetic groups last: they are
+  //: where things *aren't* filed, and a tree reads better without them at
+  //: the top.
+  if (contentsMode === "folder") {
+    const synthetic = (key) => (key.startsWith("(") ? 1 : 0);
+    return keys.sort(
+      (a, b) => synthetic(a) - synthetic(b) || a.localeCompare(b),
+    );
+  }
+  return keys.sort((a, b) => a.localeCompare(b));
+}
 
 async function renderContents() {
   const outline = $("contents-outline");
   const empty = $("contents-empty");
+  const jump = $("contents-jump");
+  const noMatch = $("contents-no-match");
   if (!outline) return;
   // Refetched on every visit, not gated behind `entriesEverLoaded` — every
   // sibling Library subtab (Documents, Image Gallery, AI Skills) re-fetches
@@ -4298,36 +4670,68 @@ async function renderContents() {
 
   const active = allEntries.filter((e) => !e.deleted_at && !e.archived_at);
   outline.replaceChildren();
+  jump?.replaceChildren();
   empty.classList.toggle("hidden", active.length > 0);
+  noMatch?.classList.add("hidden");
   if (active.length === 0) return;
 
-  const groups = new Map();
-  const addTo = (key, entry) => {
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(entry);
-  };
-  if (contentsMode === "tag") {
-    for (const entry of active) {
-      if (entry.tags && entry.tags.length) {
-        for (const tag of entry.tags) addTo(tag, entry);
-      } else {
-        addTo("(untagged)", entry);
-      }
+  const needle = ($("contents-filter")?.value || "").trim().toLowerCase();
+  //: The filter reads the same text the row shows. Matching the raw markdown
+  //: instead would hit a note on an image path or a link target the reader
+  //: cannot see in this view, which reads as the filter being broken.
+  const shown = needle
+    ? active.filter((entry) => noteLabel(entry, 200).toLowerCase().includes(needle))
+    : active;
+  if (!shown.length) {
+    if (noMatch) {
+      noMatch.textContent = `Nothing in the index matches “${needle}”.`;
+      noMatch.classList.remove("hidden");
     }
-  } else {
-    for (const entry of active) addTo(entry.category || "Uncategorised", entry);
+    return;
   }
 
-  for (const key of [...groups.keys()].sort((a, b) => a.localeCompare(b))) {
+  const groups = contentsGroups(shown);
+  const folded = contentsCollapsed[contentsMode];
+
+  for (const key of contentsOrderedKeys(groups)) {
     const members = groups.get(key);
-    const section = document.createElement("div");
+    const label = contentsSectionLabel(key);
+    const section = document.createElement("section");
     section.className = "contents-section";
-    const heading = document.createElement("h3");
+    section.id = `contents-sec-${encodeURIComponent(key)}`;
+
+    //: A `<button>` heading, not an `<h3>` with a click handler: folding a
+    //: section is an action, and the thing that performs it has to be
+    //: reachable by keyboard and announce its state. `aria-expanded` is what
+    //: a screen reader reads out; the caret is what everyone else sees.
+    const heading = document.createElement("button");
+    heading.type = "button";
     heading.className = "contents-heading";
-    heading.textContent = `${key} (${members.length})`;
-    section.appendChild(heading);
+    heading.setAttribute("aria-expanded", folded.has(key) ? "false" : "true");
+    const caret = document.createElement("i");
+    caret.className = "ph ph-caret-down contents-caret";
+    caret.setAttribute("aria-hidden", "true");
+    const name = document.createElement("span");
+    name.className = "contents-heading-name";
+    name.textContent = label;
+    const count = document.createElement("span");
+    count.className = "contents-count";
+    count.textContent = members.length;
+    heading.append(caret, name, count);
+
     const list = document.createElement("ul");
     list.className = "contents-list";
+    list.hidden = folded.has(key);
+    heading.addEventListener("click", () => {
+      const nowFolded = !folded.has(key);
+      if (nowFolded) folded.add(key);
+      else folded.delete(key);
+      list.hidden = nowFolded;
+      heading.setAttribute("aria-expanded", nowFolded ? "false" : "true");
+      section.classList.toggle("is-folded", nowFolded);
+    });
+    section.classList.toggle("is-folded", folded.has(key));
+
     for (const entry of members.slice(0, CONTENTS_GROUP_CAP)) {
       const li = document.createElement("li");
       //: **No tick here.** Asked for directly: "the contents page shouldnt have
@@ -4336,12 +4740,6 @@ async function renderContents() {
       //: control looked: a table of contents is a way to find your place, and
       //: every row offering to select itself for a bulk delete makes an index
       //: into a management screen you did not ask to be in.
-      //:
-      //: This does not undo the multi-select asked for across the Library —
-      //: Files, Images, Documents and Links keep theirs. Those are lists of
-      //: things you act on; this is a map of where things are. The selection
-      //: bar above the outline goes with the ticks, since nothing could reach
-      //: it any more.
       const link = document.createElement("a");
       link.href = "#";
       //: **A picture note shows its picture.** Reported: "the contents tab
@@ -4350,12 +4748,6 @@ async function renderContents() {
       //: filename, or as the bare word "image" when the alt text was empty.
       //: In an index whose whole job is helping you recognise a note, that is
       //: the one row shape that cannot do it.
-      //:
-      //: A thumbnail beside the label rather than instead of it: the label
-      //: still carries the note's own words when it has any, and a row that is
-      //: only an image would lose the alignment the rest of the outline reads
-      //: down. Loaded lazily and left to the app's own missing-media handler
-      //: if the file has gone.
       const shot = noteFirstImage(entry.content);
       if (shot) {
         const thumb = document.createElement("img");
@@ -4367,8 +4759,25 @@ async function renderContents() {
       }
       const text = document.createElement("span");
       text.className = "contents-label";
-      text.textContent = noteLabel(entry, 80);
+      //: In folder mode a row is a *file*, so it is named the way the vault
+      //: names it — that is also the name its `[[wiki links]]` use, so the
+      //: index and the links agree about what a note is called.
+      const fileName =
+        contentsMode === "folder" && entry.source_path
+          ? entry.source_path.split("/").pop()
+          : "";
+      text.textContent = fileName || noteLabel(entry, 80);
       link.appendChild(text);
+      //: The right-hand column of an index: what a row is filed under, or
+      //: when it was written when the grouping already answers "under what".
+      //: One value, muted, at a fixed edge — so the eye can run down it.
+      const meta = document.createElement("span");
+      meta.className = "contents-meta";
+      meta.textContent =
+        contentsMode === "category" || contentsMode === "folder"
+          ? relativeTime(entry.updated_at || entry.created_at)
+          : entry.category || "Uncategorised";
+      link.appendChild(meta);
       link.addEventListener("click", (e) => {
         e.preventDefault();
         flashEntry(entry.id);
@@ -4378,26 +4787,29 @@ async function renderContents() {
     }
     if (members.length > CONTENTS_GROUP_CAP) {
       const more = document.createElement("li");
-      more.className = "muted text-sm";
+      more.className = "muted text-sm contents-more";
       more.textContent = `…and ${members.length - CONTENTS_GROUP_CAP} more`;
       list.appendChild(more);
     }
-    section.appendChild(list);
+    section.append(heading, list);
     outline.appendChild(section);
-    // **Say when there is more below the fold.** The list is capped at a
-    // height and scrolls, which is right — a category with 36 notes must not
-    // make its column 36 rows tall — but the only cue was the platform's own
-    // overlay scrollbar, which does not draw until you scroll. A heading
-    // reading "UNCATEGORISED (25)" above five visible rows and a sixth
-    // sliced in half therefore reads as broken rather than as scrollable.
-    //
-    // Measured after layout rather than guessed: the class only goes on when
-    // this particular list actually overflows, so a category of three notes
-    // gets no fade at the bottom of empty space. `requestAnimationFrame`
-    // because `scrollHeight` is meaningless until the browser has laid the
-    // list out.
-    requestAnimationFrame(() => {
-      list.classList.toggle("is-scrollable", list.scrollHeight > list.clientHeight + 2);
-    });
+
+    //: The jump bar. An index long enough to need one is exactly the index
+    //: that had nothing but a scrollbar before.
+    if (jump) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip contents-jump-chip";
+      chip.textContent = `${label} ${members.length}`;
+      chip.title = `Jump to ${label}`;
+      chip.addEventListener("click", () => {
+        //: Unfold before scrolling: jumping to a section that is folded lands
+        //: on a heading with nothing under it, which reads as the jump having
+        //: failed.
+        if (folded.has(key)) heading.click();
+        section.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+      jump.appendChild(chip);
+    }
   }
 }

@@ -2406,7 +2406,11 @@ dialog::backdrop {
    app.js. Wider than the other .space-dialog uses because it holds a
    scrolling list rather than a couple of fields. */
 .dash-widgets-dialog {
-  width: min(34rem, calc(100vw - var(--space-8)));
+  /* Wider since the rows grew move-up/move-down: at 34rem the control
+     cluster (4 buttons) and the description fought over the same line and
+     the descriptions wrapped to three lines each, which is what turned a
+     19-row list into a 3-screen scroll. */
+  width: min(44rem, calc(100vw - var(--space-8)));
 }
 
 #dash-widgets-search {
@@ -2466,10 +2470,30 @@ dialog::backdrop {
 .dash-widget-row-desc {
   margin: var(--space-1) 0 0;
   font-size: var(--text-sm);
+  /* One line. A picker is a list you scan, and nineteen three-line rows is a
+     scroll rather than a list — the full text stays in the widget itself. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+/* A fixed track, not `auto`: a row on the dashboard has four controls and a
+   row in "Available" has one, so an auto cluster put every row's buttons at a
+   different x. Right-aligned inside it, so the last button lines up down the
+   whole list — the same rule as the Library's rows view. */
 .dash-widget-row-controls {
   flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* Disabled at the ends of the list rather than removed — see
+   `dashWidgetRow`: an absent button would change the cluster's width and
+   take the alignment with it. */
+.dash-widget-row-controls button[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* The AI-edit changelog (documents.js's openDocAiHistory) — same
@@ -3584,6 +3608,63 @@ summary:not(.icon-only):not(.icon-button) {
   background: var(--chip-bg);
 }
 
+/* Rows mode. The minimap is `width: 100%` of a card that is now the full
+   width of the panel, and `aspect-ratio` turned that into a 448px-tall
+   "row" (measured). A row's job is to fit forty boards on a screen, so the
+   map becomes a fixed thumbnail at the head of the row — the same size and
+   position `.library-list .library-card-thumb` gives every other kind, so
+   the Library's rows keep one left edge. */
+.library-list .board-minimap {
+  order: -2;
+  flex: 0 0 auto;
+  width: 4.5rem;
+  height: 2.5rem;
+  aspect-ratio: auto;
+  margin: 0;
+}
+
+/* A board card is *not* shaped like the Library's generic card: its
+   `.library-card-top` holds only the tick and the icon, and the title is a
+   sibling rather than a child. The generic rows rule gives that top a fixed
+   22rem track, so the title started 22rem in — and at a different x on every
+   row once a minimap joined it (measured: 405px on one row, 487px on the
+   next). These four rules put the row back in one order with one left edge:
+   thumbnail, icon, title in a fixed track, counts, then the ⋯ menu at the
+   far right. */
+.library-list .library-board-card .library-card-top {
+  /* Fixed, not `auto`: this holds the tick *and* the icon on most rows but
+     only the icon on the default board (which cannot be selected), so an
+     auto track moved the title 48px left on that one row. */
+  flex: 0 0 3.5rem;
+  order: -1;
+}
+
+/* The empty board's stand-in rail — see `board-minimap-blank` in
+   whiteboard.js. A frame, not a filled box: it says "nothing on this board"
+   in the same place a map would say what is. */
+.board-minimap-blank {
+  display: block;
+  border: 1px dashed var(--border);
+  background: none;
+}
+
+.library-list .library-board-card .library-card-title {
+  flex: 0 0 20rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-list .library-board-card .library-card-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.library-list .library-board-card .library-card-menu {
+  margin-left: auto;
+}
+
 .board-minimap rect {
   fill: var(--accent);
   opacity: 0.55;
@@ -4190,15 +4271,268 @@ button.connection-row {
   background: var(--chip-bg);
 }
 
-.contents-list a {
+/* The row's own layout lives with the rest of the index in
+   01-forms-settings.css; what stays here is the label and the meta column
+   beside it, which are what the thumbnail above shares a row with. */
+.contents-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The right-hand column of the index — when it was written, or what it is
+   filed under. Muted and fixed at the row's edge so the eye can run straight
+   down it, and never the thing that decides the row's width: it truncates
+   before the label does. */
+.contents-meta {
+  flex: 0 1 auto;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+
+/* ======================= THE OCR WORKSPACE ==============================
+   Three panes: which page, where on the page, and what it says. See the
+   markup comment in index.html for why each one exists. The card is sized
+   to the viewport rather than to its content because the middle pane holds
+   a photograph — content-sizing it makes the dialog jump between a postcard
+   and a wall depending on which page you clicked. */
+.ocr-card {
+  width: min(96vw, 1500px);
+  height: min(92vh, 1000px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.ocr-headline {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   min-width: 0;
 }
 
-.contents-label {
+.ocr-head h2 {
+  margin: 0;
+}
+
+/* Says which of the two answers you are looking at: boxes the reader found,
+   or one blob of stored text with no positions at all. Weak-ground variant
+   for the fallback, because it is a statement about what is *missing*. */
+.ocr-source-weak {
+  background: var(--chip-bg);
+  color: var(--muted);
+}
+
+.ocr-panes {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr) minmax(18rem, 26rem);
+  gap: var(--space-5);
+}
+
+/* One page per row, thumbnail first — the same rail shape the Library's own
+   rows view uses, so a page list is not a third thing to learn. Hidden
+   entirely for a single page: an index of one is furniture. */
+.ocr-rail {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-right: var(--space-2);
+}
+
+.ocr-rail-item {
+  display: flex;
+  flex-direction: column;
+  /* `min-width: 0` on a flex *item* that is itself a flex container: without
+     it the un-wrappable filename below sets this item's width, and a long
+     upload name (they are timestamps here) pushed the name straight out past
+     the rail's own edge — measured, the ellipsis never fired because there
+     was nothing constraining the box to ellipsise inside. */
+  min-width: 0;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: left;
+}
+
+.ocr-rail-item img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  background: var(--chip-bg);
+}
+
+.ocr-rail-name {
+  max-width: 100%;
+  font-size: var(--text-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ocr-rail-item:hover {
+  border-color: var(--border);
+  color: var(--ink);
+}
+
+.ocr-rail-item.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.ocr-page {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--chip-bg);
+}
+
+/* The overlay's containing block. `position: relative` on a box that shrinks
+   to the image is what makes a percentage box land on the pixels it names —
+   put it on the scroller instead and every region drifts as the pane
+   resizes. */
+.ocr-stage {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.ocr-stage img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.ocr-boxes {
+  position: absolute;
+  inset: 0;
+}
+
+.ocr-boxes.is-hidden {
+  display: none;
+}
+
+/* A button, not a div: a region is clickable, and the thing that reads out
+   "region 3: Invoice total" to a screen reader has to be focusable. No
+   ground of its own — an opaque box over a scan hides the very thing it is
+   pointing at. */
+.ocr-box {
+  position: absolute;
+  padding: 0;
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  cursor: pointer;
+}
+
+.ocr-box:hover,
+.ocr-box:focus-visible {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.ocr-box.is-active {
+  border-width: 2.5px;
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* A heading reads differently, so it is drawn differently — the one place
+   the "kind" is more than a label. */
+.ocr-box-heading {
+  border-style: dashed;
+}
+
+.ocr-regions {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ocr-region-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ocr-region {
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.ocr-region:hover {
+  border-color: var(--accent);
+}
+
+.ocr-region.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.ocr-region-head {
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.ocr-region-conf {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.ocr-region-kind-heading {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* The reading itself: pre-wrap, because the line breaks are data — they are
+   where the reader said one line ended and the next began. */
+.ocr-region-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ocr-message:not(.hidden) {
+  margin: 0;
+}
+
+/* Under 1100px the rail is the first thing to go — which page you are on is
+   answerable from the title, where a line sits on the page is not. */
+@media (max-width: 1100px) {
+  .ocr-panes {
+    grid-template-columns: minmax(0, 1fr) minmax(15rem, 20rem);
+  }
+
+  .ocr-rail {
+    display: none;
+  }
 }

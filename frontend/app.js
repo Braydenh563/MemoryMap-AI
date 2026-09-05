@@ -1609,6 +1609,20 @@ function entryItem(entry, options = {}) {
       "This is a draft — click to publish it as a proper note. It stays where it is either way; only the Drafts filter changes.";
     meta.insertBefore(draftChip, meta.firstChild);
   }
+  //: **Where an imported note came from.** A vault file has a name — the
+  //: thing its `[[wiki links]]` use — and this app has no title field to put
+  //: it in, so without this the name is invisible: the note shows its opening
+  //: words like every other note, and nothing on screen says it is one of a
+  //: thousand files someone imported from a folder.
+  //:
+  //: A chip rather than a heading written into the note: the importer must
+  //: not rewrite the file it imported (see `_run_directory_import` — an
+  //: earlier attempt did, and three tests caught it).
+  if (entry.source_path) {
+    const fileChip = chip(`ph:file-md ${entry.source_path.split("/").pop()}`, "source-path");
+    fileChip.title = `Imported from ${entry.source_path}`;
+    meta.appendChild(fileChip);
+  }
   li.appendChild(meta);
 
   // Attachments (Wave B; images become thumbnails in Wave M).
@@ -3622,6 +3636,37 @@ function openLightbox(items, startIndex = 0) {
           it.text = (u.ocr_text || "").trim();
           it.byline = it.text ? "Text read with Tesseract OCR" : "";
         }),
+      });
+    }
+    //: The other door into the OCR workspace (library.js). The gallery's own
+    //: kebab has it too, and this is the same act from the other surface: the
+    //: lightbox is where you are *looking* at the page, which is exactly when
+    //: "where did that line come from" gets asked. Gated on a media id like
+    //: every other row here, and on the row being an image the extractor can
+    //: open — a menu row guaranteed to 415 is worse than a shorter menu.
+    if (/\.(png|jpe?g|gif|webp|bmp)$/i.test(item.filename || "")) {
+      items.push({
+        label: "ph:selection-all See text on the page",
+        title: "Open this image beside the text read from it, region by region",
+        run: async () => {
+          //: `close` is this lightbox's own dismiss (defined further down in
+          //: `openLightbox`, hoisted and initialised long before any menu row
+          //: can run). The workspace is a modal too, and two stacked overlays
+          //: leave the page behind unreachable.
+          close();
+          //: `_src`, not `url`: the lightbox item already carries a *tokened*
+          //: src (`getUrl` runs it through `mediaSrc`), and letting the
+          //: workspace token it a second time appends a second `?token=`.
+          window.openOcrWorkspace?.(
+            {
+              id: item.id,
+              _src: item.getUrl ? item.getUrl() : "",
+              original_name: item.filename,
+              _isImage: true,
+            },
+            [],
+          );
+        },
       });
     }
     return kebabMenu(
@@ -5968,6 +6013,18 @@ function resolveWikiTarget(name) {
   const needle = String(name || "").trim().toLowerCase();
   if (!needle) return null;
   const entries = typeof allEntries !== "undefined" ? allEntries : [];
+  //: **A vault's links name the file.** An imported note carries the path it
+  //: came from, and Obsidian writes `[[Roadmap]]` for `Projects/Roadmap.md` —
+  //: so this is tried first, and matched exactly: a file called "Index"
+  //: should not lose to a note that merely opens with the word "index". Same
+  //: rule as `find_by_wiki_name` in entry/manager.py, which is what makes the
+  //: link the backend stores and the link this pane draws point at one note.
+  const vaultNote = entries.find((e) => {
+    if (e.is_private || !e.source_path) return false;
+    const stem = e.source_path.split("/").pop().replace(/\.(md|markdown)$/i, "");
+    return stem.toLowerCase() === needle;
+  });
+  if (vaultNote) return { kind: "note", entry: vaultNote };
   const note = entries.find(
     (e) => !e.is_private && (e.content || "").toLowerCase().startsWith(needle)
   );
@@ -10594,24 +10651,114 @@ const TOUCHED_KINDS = {
   },
 };
 
+//: **What the tool touched, shown rather than named.** Asked for: "the chat
+//: and agent should be the ultimate notebook handler, drafting and previewing
+//: notes … showing rendered note previews then user can edit".
+//:
+//: A chip alone could only take you away from the conversation: press it and
+//: you are in the Notes tab, having lost the answer you were reading. So the
+//: chip *opens the thing in place* — rendered with the app's own markdown
+//: renderer, with Open and Edit under it — and pressing it again closes it.
+//: Leaving is now a decision rather than the only option.
+//:
+//: Fetched on demand, never carried in the tool event: a replayed transcript
+//: (a conversation reopened days later) then previews the note as it is now,
+//: not as it was, and a turn that touched six notes does not put six note
+//: bodies into the message that stores it.
+async function toolPreviewBody(item, holder) {
+  holder.replaceChildren(typingDots("Loading…"));
+  try {
+    if (item.kind === "document") {
+      const doc = await apiJson(`/documents/${item.id}`);
+      holder.replaceChildren();
+      const title = document.createElement("strong");
+      title.textContent = doc.title || `Document #${item.id}`;
+      const body = document.createElement("div");
+      body.className = "tool-preview-body";
+      renderMarkdown(body, doc.content || "");
+      holder.append(title, body);
+    } else {
+      const entry = await apiJson(`/entries/${item.id}`);
+      holder.replaceChildren();
+      const body = document.createElement("div");
+      body.className = "tool-preview-body";
+      renderMarkdown(body, entry.content || "");
+      holder.appendChild(body);
+    }
+  } catch (error) {
+    holder.replaceChildren();
+    const failed = document.createElement("p");
+    failed.className = "muted";
+    //: The real reason, not a euphemism: a deleted note and an unreachable
+    //: backend are different problems and only one of them is worth retrying.
+    failed.textContent = error?.message || "That note could not be loaded.";
+    holder.appendChild(failed);
+  }
+}
+
+function toolPreviewPanel(item, spec) {
+  const panel = document.createElement("div");
+  panel.className = "tool-preview";
+  const holder = document.createElement("div");
+  holder.className = "tool-preview-content";
+  const actions = document.createElement("div");
+  actions.className = "row tool-preview-actions";
+  actions.appendChild(
+    smallButton("ph:arrow-square-out Open", spec.title, () => spec.open(item.id)),
+  );
+  if (item.kind !== "document") {
+    actions.appendChild(
+      smallButton("ph:pencil-simple Edit", "Open this note with the editor on", () => {
+        //: The same two steps the note list's own Edit does, in the order that
+        //: works from here: `flashEntry` switches tab and re-renders, and
+        //: `editingId` is what that render reads to open the editor. Set it
+        //: first and the jump would clear it.
+        spec.open(item.id);
+        editingId = item.id;
+        renderEntries();
+      }),
+    );
+  }
+  panel.append(holder, actions);
+  toolPreviewBody(item, holder);
+  return panel;
+}
+
 function toolTouchedRow(touched) {
   if (!Array.isArray(touched) || !touched.length) return null;
   const row = document.createElement("div");
-  row.className = "row tool-touched";
+  row.className = "tool-touched-wrap";
+  const chips = document.createElement("div");
+  chips.className = "row tool-touched";
+  const previews = document.createElement("div");
+  previews.className = "tool-previews";
   for (const item of touched) {
     // Older transcripts (stored before `kind` existed) have notes only.
     const spec = TOUCHED_KINDS[item.kind] || TOUCHED_KINDS.note;
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = "chip result-reason-chip result-reason-connected tool-touched-chip";
+    chip.setAttribute("aria-expanded", "false");
     setLabel(chip, `${spec.icon} ${item.label || `#${item.id}`}`);
-    chip.title = spec.title;
+    chip.title = `${spec.title} — press to preview it here`;
+    let panel = null;
     chip.addEventListener("click", (clickEvent) => {
       clickEvent.stopPropagation();
-      spec.open(item.id);
+      if (panel) {
+        panel.remove();
+        panel = null;
+        chip.setAttribute("aria-expanded", "false");
+        chip.classList.remove("active");
+        return;
+      }
+      panel = toolPreviewPanel(item, spec);
+      previews.appendChild(panel);
+      chip.setAttribute("aria-expanded", "true");
+      chip.classList.add("active");
     });
-    row.appendChild(chip);
+    chips.appendChild(chip);
   }
+  row.append(chips, previews);
   return row;
 }
 
@@ -19511,15 +19658,36 @@ async function importDirectory() {
   }
 }
 
-async function importMarkdown() {
-  const input = $("import-md-files");
+async function importMarkdown(inputId = "import-md-files") {
+  const input = $(inputId);
   const status = $("import-md-status");
   if (!input.files.length) {
-    status.textContent = "Choose one or more .md files first.";
+    status.textContent =
+      inputId === "import-md-folder"
+        ? "Choose a folder first."
+        : "Choose one or more .md files first.";
     return;
   }
   const form = new FormData();
-  for (const file of input.files) form.append("files", file);
+  //: The third argument is the filename the server sees, and `webkitRelativePath`
+  //: is the only place a folder picker puts the path — `file.name` is the bare
+  //: name even when the file came from three folders down. Sending the path is
+  //: what lets an imported vault keep its tree (`Entry.source_path`) and its
+  //: `[[wiki links]]`, which name the file rather than its opening words.
+  //: A vault folder holds far more than markdown (`.obsidian/`, images,
+  //: PDFs), and the picker hands over every one of them — filtering here
+  //: keeps the request from being mostly files the endpoint would reject one
+  //: at a time and report as "skipped".
+  const chosen = [...input.files].filter((file) =>
+    /\.(md|markdown|txt)$/i.test(file.webkitRelativePath || file.name),
+  );
+  if (!chosen.length) {
+    status.textContent = "No markdown files in that folder.";
+    return;
+  }
+  for (const file of chosen) {
+    form.append("files", file, file.webkitRelativePath || file.name);
+  }
   try {
     const response = await fetch("/import/markdown", {
       method: "POST",
@@ -27354,6 +27522,10 @@ $("entry-content").addEventListener("input", (e) => {
 
 $("export-md").addEventListener("click", () => downloadExport("markdown"));
 $("import-md").addEventListener("click", importMarkdown);
+//: The folder picker posts through the same function — the only difference
+//: is which input it reads, so `importMarkdown` takes the id rather than
+//: growing a second copy of the upload/report/refresh sequence.
+$("import-md-folder-btn").addEventListener("click", () => importMarkdown("import-md-folder"));
 $("import-dir")?.addEventListener("click", importDirectory);
 $("export-backup-zip")?.addEventListener("click", () => downloadExport("backup"));
 $("import-document").addEventListener("click", importDocument);

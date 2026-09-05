@@ -3212,38 +3212,48 @@ Link to another note with [[its first few words]]."></textarea>
            text (ROADMAP.md item 30d) — same pattern as the main Library
            search box above, not a server round-trip, since a gallery is
            small enough that a plain substring pass costs nothing. -->
+      <!-- **One toolbar, the same one the other sub-tabs use.** These three
+           controls were loose children of the card, which is why the sort
+           dropdown looked wrong next to the ones in All and Documents —
+           reported directly. `.library-toolbar` is where `--control-h` and the
+           shared `select`/`button`/`.seg` height rule live, so being outside
+           it meant this select was the only one in the Library sized by
+           nothing. Wrapping them also puts search, then order, then how-to-draw
+           in one row in that order, rather than stacked down the card. -->
+      <div class="library-toolbar library-media-toolbar">
       <input id="library-images-search" type="search" class="library-search"
-        placeholder="Search filenames, captions and text found in files…"
-        aria-label="Search the image gallery">
-      <!-- Asked for directly: "make it togglable to change between filetype
-           and previews". A preview tells four similarly-named PDFs apart; a
-           type icon scans a long mixed list faster. Neither is right for
-           everyone, so it is a choice rather than a default someone has to
-           live with.
+          placeholder="Search filenames, captions and text found in files…"
+          aria-label="Search the image gallery">
+        <!-- Asked for directly: "make it togglable to change between filetype
+             and previews". A preview tells four similarly-named PDFs apart; a
+             type icon scans a long mixed list faster. Neither is right for
+             everyone, so it is a choice rather than a default someone has to
+             live with.
 
-           The same `.seg` control the notes list uses for rows-vs-cards, in
-           the same shape and the same place in its toolbar — this app already
-           has a sign for "the same things, drawn a different way", and
-           inventing a second one here would be the inconsistency the rest of
-           this round is removing. -->
-      <!-- Reported: "the library subtabs are missing sorting and filtering
-           options." Measured: none of the six sub-tabs had a sort control at
-           all — only the "All" view did. Same `<select>` shape and the same
-           place in the toolbar as `#note-sort`, which is one of the two the
-           report calls good, so this is the pattern spreading rather than a
-           seventh way of doing it. -->
-      <select id="library-media-sort" aria-label="Sort files" title="Sort files">
-        <option value="newest">Newest first</option>
-        <option value="oldest">Oldest first</option>
-        <option value="az">Name A → Z</option>
-        <option value="za">Name Z → A</option>
-        <option value="largest">Largest first</option>
-      </select>
-      <div class="seg library-media-view" role="group" aria-label="How to show files">
-        <button type="button" id="library-media-view-preview" class="active icon-only"
-          title="Show a preview of each file" aria-label="Show a preview of each file"><i class="ph ph-image" aria-hidden="true"></i></button>
-        <button type="button" id="library-media-view-type" class="icon-only"
-          title="Show each file's type icon" aria-label="Show each file's type icon"><i class="ph ph-file" aria-hidden="true"></i></button>
+             The same `.seg` control the notes list uses for rows-vs-cards, in
+             the same shape and the same place in its toolbar — this app already
+             has a sign for "the same things, drawn a different way", and
+             inventing a second one here would be the inconsistency the rest of
+             this round is removing. -->
+        <!-- Reported: "the library subtabs are missing sorting and filtering
+             options." Measured: none of the six sub-tabs had a sort control at
+             all — only the "All" view did. Same `<select>` shape and the same
+             place in the toolbar as `#note-sort`, which is one of the two the
+             report calls good, so this is the pattern spreading rather than a
+             seventh way of doing it. -->
+        <select id="library-media-sort" aria-label="Sort files" title="Sort files">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="az">Name A → Z</option>
+          <option value="za">Name Z → A</option>
+          <option value="largest">Largest first</option>
+        </select>
+        <div class="seg library-media-view" role="group" aria-label="How to show files">
+          <button type="button" id="library-media-view-preview" class="active icon-only"
+            title="Show a preview of each file" aria-label="Show a preview of each file"><i class="ph ph-image" aria-hidden="true"></i></button>
+          <button type="button" id="library-media-view-type" class="icon-only"
+            title="Show each file's type icon" aria-label="Show each file's type icon"><i class="ph ph-file" aria-hidden="true"></i></button>
+        </div>
       </div>
       <!-- Multi-select, the same shape the Documents sub-tab already has —
            asked for directly: "in many of the library subtabs like for imges,

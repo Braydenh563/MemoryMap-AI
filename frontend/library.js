@@ -2088,6 +2088,15 @@ let libraryMediaView = localStorage.getItem(LIBRARY_MEDIA_VIEW_KEY) === "type" ?
 function applyLibraryMediaView() {
   const grid = document.getElementById("library-images-grid");
   if (grid) grid.classList.toggle("show-file-types", libraryMediaView === "type");
+  //: **Hidden on Images, where it would do nothing.** Reported: "the one in
+  //: the image subtab doesnt do anything" — correct, and it never could. The
+  //: toggle chooses between a file's rendered first page and its type glyph,
+  //: and an image tile is an `<img>` of the picture itself: it has no
+  //: `.library-file-page` to hide and no glyph underneath to reveal. A control
+  //: that is present and inert is worse than one that is absent, because it
+  //: invites the click that teaches you it is broken.
+  const viewToggle = document.querySelector(".library-media-view");
+  viewToggle?.classList.toggle("hidden", libraryMediaKind !== "files");
   const preview = document.getElementById("library-media-view-preview");
   const type = document.getElementById("library-media-view-type");
   preview?.classList.toggle("active", libraryMediaView === "preview");
@@ -2138,6 +2147,9 @@ const LIBRARY_MEDIA_COPY = {
 
 function setLibraryMediaKind(kind) {
   libraryMediaKind = kind === "files" ? "files" : "images";
+  //: The view toggle only means something on Files, so it appears and
+  //: disappears with the sub-tab — see `applyLibraryMediaView`.
+  applyLibraryMediaView();
   const copy = LIBRARY_MEDIA_COPY[libraryMediaKind];
   const title = $("library-media-title");
   if (title) title.textContent = copy.title;

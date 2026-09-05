@@ -2343,6 +2343,47 @@ async function renderLibraryImagesGallery() {
 // filename *and* any OCR text found on the image (ROADMAP.md item 30d), so
 // "what was on that whiteboard photo from March" is answerable by typing
 // a word that was written on it, not just what it happened to be named.
+//: **How the media sub-tabs are ordered.** Reported: "the library subtabs are
+//: missing sorting and filtering options" — and measured, none of the six had
+//: a sort control; only the Library's own "All" view did.
+//:
+//: The comparators live here rather than on the server because the gallery is
+//: already fully in memory (`libraryImagesCache`), so sorting is a local
+//: reorder with no round-trip and no new endpoint. `created_at` is the field
+//: both row shapes carry — a `MediaUpload` and an `Attachment` agree on it
+//: even though they agree on very little else — which is why "newest" is the
+//: default here as it is everywhere else in the app.
+const LIBRARY_MEDIA_SORTS = {
+  newest: (a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")),
+  oldest: (a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")),
+  az: (a, b) =>
+    String(a.original_name || "").localeCompare(String(b.original_name || ""), undefined, {
+      sensitivity: "base",
+    }),
+  za: (a, b) =>
+    String(b.original_name || "").localeCompare(String(a.original_name || ""), undefined, {
+      sensitivity: "base",
+    }),
+  largest: (a, b) => (Number(b.size_bytes) || 0) - (Number(a.size_bytes) || 0),
+};
+
+const LIBRARY_MEDIA_SORT_KEY = "library-media-sort";
+
+function libraryMediaSort() {
+  const stored = localStorage.getItem(LIBRARY_MEDIA_SORT_KEY);
+  return LIBRARY_MEDIA_SORTS[stored] ? stored : "newest";
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const select = document.getElementById("library-media-sort");
+  if (!select) return;
+  select.value = libraryMediaSort();
+  select.addEventListener("change", () => {
+    localStorage.setItem(LIBRARY_MEDIA_SORT_KEY, select.value);
+    filterLibraryImagesGallery();
+  });
+});
+
 function filterLibraryImagesGallery() {
   const grid = $("library-images-grid");
   const empty = $("library-images-empty");
@@ -2357,7 +2398,7 @@ function filterLibraryImagesGallery() {
   const ofKind = libraryImagesCache.filter((i) =>
     libraryMediaKind === "files" ? !i._isImage : i._isImage
   );
-  const images = query
+  const matched = query
     ? ofKind.filter(
         (i) =>
           (i.original_name || "").toLowerCase().includes(query) ||
@@ -2365,6 +2406,12 @@ function filterLibraryImagesGallery() {
           (i.caption || "").toLowerCase().includes(query)
       )
     : ofKind;
+  //: Sorted last, on a copy. A copy because `ofKind` can *be*
+  //: `libraryImagesCache` when nothing is filtered, and sorting in place would
+  //: silently reorder the cache every other reader shares — including the
+  //: lightbox's own "N of M" and its prev/next, which index into the array
+  //: this function hands them.
+  const images = [...matched].sort(LIBRARY_MEDIA_SORTS[libraryMediaSort()]);
   grid.replaceChildren();
   if (!ofKind.length) {
     empty?.classList.remove("hidden");

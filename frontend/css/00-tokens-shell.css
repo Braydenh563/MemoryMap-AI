@@ -2185,6 +2185,14 @@ header#top-bar.tabs-wrapped #tab-bar {
 .library-image-caption-badge,
 .library-image-vision-ocr-badge,
 .library-image-ocr-badge {
+  /* Reported alongside the centring: "there is no gap below the badges for the
+     used in section and the captions text box". The field around these is a
+     `--space-1` stack, which is right for a label sitting on its own value but
+     too tight for a pill following a paragraph — the badge read as another
+     line of the caption rather than as a note about it. A step up separates
+     the annotation from the thing it annotates without loosening the label
+     that belongs tight to its field. */
+  margin-top: var(--space-2);
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
@@ -2231,7 +2239,8 @@ header#top-bar.tabs-wrapped #tab-bar {
    gone — it undid the pill above and pushed this badge's text to the top of
    its own box. See the note on the shared rule. */
 .library-image-caption-badge {
-  margin: 0;
+  margin-inline: 0;
+  margin-bottom: 0;
 }
 
 .library-image-caption-badge.hidden {
@@ -2355,7 +2364,8 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 .library-image-vision-ocr-badge {
-  margin: 0;
+  margin-inline: 0;
+  margin-bottom: 0;
 }
 
 .library-image-vision-ocr-badge.hidden {

@@ -3786,7 +3786,11 @@ summary:not(.icon-only):not(.icon-button) {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-  margin-top: var(--space-2);
+  /* Was `--space-2`, and reported as no gap at all: this section sits under
+     the fields' own badges, and a rule with a top border needs enough room
+     above it to read as a divider rather than as an underline on the badge
+     immediately before it. */
+  margin-top: var(--space-4);
   padding: var(--space-2) var(--space-4) 0;
   margin-bottom: var(--space-3);
   border-top: 1px solid var(--border);

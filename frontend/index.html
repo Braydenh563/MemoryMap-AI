@@ -3226,6 +3226,19 @@ Link to another note with [[its first few words]]."></textarea>
            has a sign for "the same things, drawn a different way", and
            inventing a second one here would be the inconsistency the rest of
            this round is removing. -->
+      <!-- Reported: "the library subtabs are missing sorting and filtering
+           options." Measured: none of the six sub-tabs had a sort control at
+           all — only the "All" view did. Same `<select>` shape and the same
+           place in the toolbar as `#note-sort`, which is one of the two the
+           report calls good, so this is the pattern spreading rather than a
+           seventh way of doing it. -->
+      <select id="library-media-sort" aria-label="Sort files" title="Sort files">
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+        <option value="az">Name A → Z</option>
+        <option value="za">Name Z → A</option>
+        <option value="largest">Largest first</option>
+      </select>
       <div class="seg library-media-view" role="group" aria-label="How to show files">
         <button type="button" id="library-media-view-preview" class="active icon-only"
           title="Show a preview of each file" aria-label="Show a preview of each file"><i class="ph ph-image" aria-hidden="true"></i></button>

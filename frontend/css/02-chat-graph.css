@@ -3877,6 +3877,14 @@ mark.lightbox-hit {
 .chat-source-card {
   display: flex;
   flex-direction: column;
+  /* **Explicit, because something upstream centres flex children.** Measured:
+     the head row rendered 476px wide inside a 274px card, starting 101px to
+     the *left* of it — exactly half the difference, which is the signature of
+     `align-items: center` on a child wider than its container. Centred, the
+     head is sized to its content instead of to the card, so the title never
+     reached the width that would trigger its own ellipsis and the row spilled
+     out of both edges of the card. */
+  align-items: stretch;
   gap: var(--space-1);
   padding: var(--space-2);
   border: 1px solid var(--border);

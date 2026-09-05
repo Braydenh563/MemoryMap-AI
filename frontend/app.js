@@ -11873,7 +11873,15 @@ function chatSourcesFrom({ meta, toolEvents, touched }) {
     //: the preview has to start where the label stopped, or the card prints
     //: the same sentence twice (measured: it did).
     const flat = String(entry.content || "").replace(/\s+/g, " ").trim();
-    const rest = flat.startsWith(label.replace(/…$/, "")) ? flat.slice(label.replace(/…$/, "").length) : flat;
+    const head = label.replace(/…$/, "");
+    //: The label is elided at 60 characters, which usually lands mid-word — so
+    //: the remainder starts mid-word too, and the card read "ling and why it
+    //: matters for gradients." (measured, in a screenshot). Dropping the
+    //: partial first word costs nothing and is the difference between a
+    //: preview and a typo.
+    const rest = flat.startsWith(head)
+      ? flat.slice(head.length).replace(/^\S*\s+/, "")
+      : flat;
     add({
       kind: "note",
       id: entry.id,

@@ -228,6 +228,85 @@ def vision_ocr_and_store(upload_id: int, image_path: Path, force: bool = False) 
         return text
 
 
+def pdf_vision_ocr_and_store(upload_id: int, pdf_path: Path, force: bool = False) -> str | None:
+    """The same job as `vision_ocr_and_store`, for a PDF rather than a picture.
+
+    This exists because of a gap that was invisible from either side.
+    `VISION_OCR_SUFFIXES` is raster-only, so `process_committed_upload` never
+    started a reader for an uploaded PDF — while `pdf_vision_reader` (the half
+    that *can* read one) was only ever reached from a button. The result: file
+    a scanned PDF and nothing at all had read it, so it was unsearchable and
+    the agent could not see a word of it until somebody happened to open it and
+    press a button. Asked for directly: *"make sure all the file and document
+    ocr works with ai ocr models, I dont use tesseract."*
+
+    A PDF that already carries a text layer is left alone: `docview.extract`
+    (no `vision_reader` passed, so no model round trip) reads that layer, and
+    a model asked to transcribe a page whose text is already exact can only
+    make it worse. The model is for scans — the case where there is nothing
+    else.
+    """
+    deps = importlib.import_module("memorymap.core.deps")
+    docview = importlib.import_module("memorymap.core.docview")
+    taskhistory = importlib.import_module("memorymap.core.taskhistory")
+    from memorymap.core.database import MediaUpload
+
+    with deps.get_db().session() as session:
+        upload = session.get(MediaUpload, upload_id)
+        if upload is None:
+            return None  # deleted before this ran
+        if upload.vision_ocr_text and not force:
+            return upload.vision_ocr_text
+        original = upload.original_name
+
+    # Outside the session: both of these are slow (a converter, then a model
+    # per page), and holding a session open across them is how a background
+    # job ends up blocking a request.
+    try:
+        if (docview.extract(pdf_path).text or "").strip():
+            return None  # has a real text layer; nothing for a model to add
+    except Exception:  # noqa: BLE001 — an unreadable PDF just means "try the model"
+        pass
+
+    reader = pdf_reader_or_none()
+    if reader is None:
+        return None  # no model, no rasteriser, or the backend is down
+    try:
+        text = (reader(pdf_path) or "").strip()
+    except Exception:  # noqa: BLE001 — same reasoning as vision_ocr_text's own
+        taskhistory.record("vision_ocr", f"Reading text from {original}", "failed")
+        return None
+
+    model = deps.get_model_manager().resolve_ocr_model(deps.get_ollama()) or ""
+    with deps.get_db().session() as session:
+        upload = session.get(MediaUpload, upload_id)
+        if upload is None:
+            return None
+        upload.vision_ocr_text = text or None
+        upload.vision_ocr_model = model if text else None
+        session.commit()
+    taskhistory.record(
+        "vision_ocr",
+        f"Reading text from {original}",
+        "completed",
+        name=model,
+        detail="no legible text found" if not text else "",
+    )
+    return text or None
+
+
+def pdf_vision_ocr_in_background(upload_id: int, pdf_path: Path) -> None:
+    """Fire-and-forget, exactly as `vision_ocr_in_background` — and more
+    necessary here, since a scan is up to `pdfpages.MAX_PAGES` model round
+    trips rather than one."""
+    threading.Thread(
+        target=pdf_vision_ocr_and_store,
+        args=(upload_id, pdf_path),
+        daemon=True,
+        name="vision-ocr-pdf",
+    ).start()
+
+
 def vision_ocr_in_background(upload_id: int, image_path: Path) -> None:
     """Fire-and-forget: never blocks the `POST /media/upload` response.
     Same shape as `captioning.caption_in_background` — a real model round

@@ -3914,18 +3914,15 @@ function openLightbox(items, startIndex = 0) {
     // `shutil.which` check, so this can just not offer a button that would
     // otherwise silently do nothing, matching how the model-pull panel
     // already hides itself on a backend that can't pull.
-    if (modelStatus && modelStatus.tesseract_available === false) {
-      items.push({
-        label: "ph:scan Read text (Tesseract OCR)",
-        title:
-          "Unavailable — the Tesseract OCR program isn't installed. See INSTALL.md, " +
-          "or use “Read text with AI” instead.",
-        disabled: true,
-        run: async () => {
-          toast("Tesseract isn't installed — see INSTALL.md, or use “Read text with AI”.", true);
-        },
-      });
-    } else {
+    //: And now it is *left out* rather than shown greyed, which is the
+    //: second half of the same report: "make sure all the fila and document
+    //: ocr worfs with ai ocr models, I dont use tesseract." A disabled row
+    //: that can never become enabled (this app never installs the binary, by
+    //: instruction) is a permanent piece of dead chrome in a menu that opens
+    //: on every image — and it sat directly under the row that does the same
+    //: job with a model, which is the one the reader wants. INSTALL.md still
+    //: documents the offline reader for anyone who wants it.
+    if (!modelStatus || modelStatus.tesseract_available !== false) {
       items.push({
         label: "ph:scan Read text (Tesseract OCR)",
         title: "Read the text in this image with Tesseract, a fast local tool — no AI model involved",

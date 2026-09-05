@@ -3860,7 +3860,14 @@ function filterLibraryImagesGallery() {
       { button: rename, label: "ph:pencil-simple Rename" },
       { button: captionBtn, label: "ph:sparkle Describe with AI" },
       { button: visionOcrBtn, label: "ph:text-aa Read text with AI" },
-      { button: ocrBtn, label: "ph:scan Read text (Tesseract OCR)" },
+      //: Left out entirely, not greyed, when the binary is missing — the
+      //: lightbox menu (app.js) does the same, for the same report: "make
+      //: sure all the fila and document ocr worfs with ai ocr models, I dont
+      //: use tesseract." This app never installs that binary (by
+      //: instruction), so a disabled row here can never become enabled.
+      ...(modelStatus && modelStatus.tesseract_available === false
+        ? []
+        : [{ button: ocrBtn, label: "ph:scan Read text (Tesseract OCR)" }]),
       //: Images and PDFs. Tesseract cannot open a PDF, but the workspace no
       //: longer needs it to: `_pdf_regions_for` (routes_files.py) rasterises
       //: the page first and the workspace reads it with the vision model,

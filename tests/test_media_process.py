@@ -47,17 +47,22 @@ def test_process_committed_upload_triggers_all_three_readers_for_an_image(
 def test_process_committed_upload_does_nothing_for_an_unsupported_suffix(
     session, tmp_path, monkeypatch
 ):
-    calls = []
-    monkeypatch.setattr(ocr, "extract_in_background", lambda *a: calls.append("ocr"))
-    monkeypatch.setattr(
-        captioning, "caption_in_background", lambda *a: calls.append("caption")
-    )
-    monkeypatch.setattr(
-        vision_ocr, "vision_ocr_in_background", lambda *a: calls.append("vision_ocr")
-    )
-    upload = _upload(session, filename="scan.pdf")
+    calls: list[str] = []
+    _patch_readers(monkeypatch, calls)
+    upload = _upload(session, filename="notes.zip")
     media_process.process_committed_upload(upload, tmp_path)
     assert calls == []
+
+
+def test_a_pdf_gets_the_vision_reader_and_nothing_else(session, tmp_path, monkeypatch):
+    """The gap this closed: `OCR_SUFFIXES` and `VISION_OCR_SUFFIXES` are both
+    raster-only, so a filed PDF started no reader at all and a scan stayed
+    unsearchable until someone opened it and pressed a button."""
+    calls: list[str] = []
+    _patch_readers(monkeypatch, calls)
+    upload = _upload(session, filename="scan.pdf")
+    media_process.process_committed_upload(upload, tmp_path)
+    assert calls == ["pdf_vision"]
 
 
 def test_process_referenced_uploads_finds_media_by_filename_in_text(
@@ -213,6 +218,9 @@ def _patch_readers(monkeypatch, calls):
     )
     monkeypatch.setattr(
         vision_ocr, "vision_ocr_in_background", lambda *a: calls.append("vision_ocr")
+    )
+    monkeypatch.setattr(
+        vision_ocr, "pdf_vision_ocr_in_background", lambda *a: calls.append("pdf_vision")
     )
 
 

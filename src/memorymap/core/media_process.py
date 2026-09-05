@@ -80,6 +80,13 @@ def process_committed_upload(upload: MediaUpload, media_dir: Path) -> None:
         captioning.caption_in_background(upload.id, path)
     if read_text and suffix in vision_ocr.VISION_OCR_SUFFIXES:
         vision_ocr.vision_ocr_in_background(upload.id, path)
+    # A PDF is neither of the above: `OCR_SUFFIXES` and `VISION_OCR_SUFFIXES`
+    # are both raster-only, so filing a scanned PDF used to start no reader at
+    # all and the file stayed unsearchable until somebody opened it and pressed
+    # a button. `pdf_vision_ocr_and_store` skips PDFs that already have a text
+    # layer, so this costs a model round trip only for the scans that need one.
+    if read_text and suffix == ".pdf":
+        vision_ocr.pdf_vision_ocr_in_background(upload.id, path)
 
 
 def process_referenced_uploads(session: Session, media_dir: Path, text: str) -> None:

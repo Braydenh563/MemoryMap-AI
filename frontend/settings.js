@@ -2833,6 +2833,24 @@ function renderSamplingRows() {
     slider.step = knob.step;
     const readout = document.createElement("output");
     readout.className = "sampling-value";
+    //: **A number you can type, beside the one you can drag.**
+    //:
+    //: Reported: the advanced response settings "don't work". They do — a
+    //: change persists and reaches the model (verified against
+    //: `GET /models/sampling` after a change) — but a slider alone cannot
+    //: express the thing anyone opening this panel came to do: set
+    //: temperature to exactly 0.7 because a model card said so. At a step of
+    //: 0.05 across 0–2 that is a 40-position drag with no way to confirm the
+    //: value except by reading it back, which is indistinguishable from a
+    //: control that ignores you.
+    const number = document.createElement("input");
+    number.type = "number";
+    number.className = "sampling-number";
+    number.id = `sampling-${knob.name}-value`;
+    number.min = knob.min;
+    number.max = knob.max;
+    number.step = knob.step;
+    number.setAttribute("aria-label", `${knob.label} — type an exact value`);
     const reset = document.createElement("button");
     reset.type = "button";
     reset.className = "ghost small icon-button";
@@ -2850,6 +2868,10 @@ function renderSamplingRows() {
         ? (Number(knob.min) + Number(knob.max)) / 2
         : value;
       slider.value = shown;
+      //: Blank rather than the midpoint when nothing is set: a number in the
+      //: box would claim the app had chosen a value it has not.
+      number.value = value === undefined ? "" : String(value);
+      number.placeholder = value === undefined ? "auto" : "";
       readout.textContent = value === undefined ? "backend default" : String(value);
       const from = samplingState.sources[knob.name];
       source.textContent =
@@ -2877,14 +2899,34 @@ function renderSamplingRows() {
       }, 400);
     };
 
-    slider.addEventListener("input", () => {
-      const raw = Number(slider.value);
-      const value = knob.integer ? Math.round(raw) : Number(raw.toFixed(4));
+    //: One place that applies a value, so the slider and the box cannot
+    //: disagree about what "set" means (rounding, the integer knobs, which
+    //: layer the value came from).
+    const applyValue = (raw) => {
+      const clamped = Math.min(Math.max(raw, Number(knob.min)), Number(knob.max));
+      const value = knob.integer ? Math.round(clamped) : Number(clamped.toFixed(4));
       samplingState.overrides[knob.name] = value;
       samplingState.effective[knob.name] = value;
       samplingState.sources[knob.name] = "you";
       paint();
       save();
+    };
+
+    slider.addEventListener("input", () => applyValue(Number(slider.value)));
+    //: `change`, not `input`: typing "0.7" passes through "0." and "0", and
+    //: saving each keystroke would both spam the endpoint and fight the
+    //: caret. An empty box is "back to the model's own value", which is the
+    //: same act as the reset button beside it.
+    number.addEventListener("change", () => {
+      if (number.value.trim() === "") {
+        delete samplingState.overrides[knob.name];
+        paint();
+        save();
+        return;
+      }
+      const raw = Number(number.value);
+      if (Number.isFinite(raw)) applyValue(raw);
+      else paint();
     });
     reset.addEventListener("click", async () => {
       // Deleting the override *is* the reset — there is no separate stored
@@ -2901,7 +2943,7 @@ function renderSamplingRows() {
       await loadSamplingSettings();
     });
 
-    controls.append(slider, readout, reset);
+    controls.append(slider, number, readout, reset);
     row.append(head, help, controls);
     host.appendChild(row);
   }

@@ -3989,3 +3989,18 @@ select {
 .progress-musing {
   grid-column: 2;
 }
+
+
+/* The exact-value box beside each sampling slider. Narrow, because every knob
+   here is a short decimal or a small integer, and `width: 100%` (the base
+   `input` rule) would push the slider out of the row entirely. */
+/* Two classes, not one: `.row input { flex: 1 }` is (0,1,1) and beats a lone
+   class, which is why the first attempt measured 206px wide — a five-character
+   box taking a third of the row. Same specificity trap this file's own
+   `.lightbox-find` comment records. */
+.sampling-controls .sampling-number {
+  flex: none;
+  width: 5.5rem;
+  margin: 0;
+  text-align: right;
+}

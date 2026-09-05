@@ -2715,7 +2715,25 @@ header#top-bar.tabs-wrapped #tab-bar {
    timeline and a whiteboard are the one kind of surface that genuinely uses
    every pixel it is given. */
 .tab-page {
-  --content-max: 1500px;
+  /* **Raised from 1500px, measured.** Reported: "the floating margins around
+     the entire application screen edges and the main content and the gaps
+     between panels and bars seems a bit too large or excessive at times, the
+     ui has had a lot of issues with features being squished to overly and
+     unusable sizes and proportions."
+
+     Those are one problem, not two: space spent on outer chrome is space
+     denied to the panels inside it. Measured on the Notes tab at 1600px, the
+     window gave 50px of margin on *each* side — 18px of real gutter plus 32px
+     of leftover from this cap — and the note list ended up with 74% of the
+     window. At 1920 the leftover alone would have been 210px a side.
+
+     1800px keeps a ceiling, because this app does put prose in the middle
+     column and an unbounded line length is its own unreadability, but it stops
+     a wide monitor paying a wide margin for the privilege. The real gutter
+     (`--page-gutter`) is untouched: 18px of breathing room at the window edge
+     is doing a job, and taking it away is how content ends up against the
+     glass. */
+  --content-max: 1800px;
   display: flex;
   flex-direction: column;
   padding: var(--page-top) var(--page-gutter) var(--page-bottom);

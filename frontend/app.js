@@ -5198,6 +5198,29 @@ async function resolveCategoryChoice(select) {
 }
 
 function beginOrCompleteLink(entry) {
+  //: **A draft and a saved note cannot be connected** — asked for directly,
+  //: and refused by `manager.create_link` whichever route asks. Caught here as
+  //: well so the answer arrives before the click that would fail: starting a
+  //: link from a draft and hunting for a target, only to be told no at the
+  //: end, is the worst order to learn a rule in.
+  //:
+  //: Two drafts are still fine; the rule is that drafts stay separate from the
+  //: notebook, not from each other.
+  if (linkSource !== null && linkSource !== entry.id) {
+    const source = allEntries.find((e) => e.id === linkSource);
+    if (source && Boolean(source.is_draft) !== Boolean(entry.is_draft)) {
+      const draftFirst = Boolean(source.is_draft);
+      linkSource = null;
+      renderEntries();
+      toast(
+        draftFirst
+          ? "A draft can't be linked to a saved note. Save the draft first."
+          : "A saved note can't be linked to a draft. Save the draft first.",
+        true
+      );
+      return;
+    }
+  }
   if (linkSource === null) {
     linkSource = entry.id;
     toast("Now click Link on the entry you want to connect it to (Esc cancels).");

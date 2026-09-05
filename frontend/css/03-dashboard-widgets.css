@@ -2470,8 +2470,17 @@ p.graph-help-panel {
    padding makes it a few pixels taller than a button unless a height is set
    for the whole row. One height for every control in the head, exactly as
    .graph-toolbar does it. */
+/* **`--control-h` was declared here and is not any more.** This rule and the
+   Boards one below each solved the same problem locally — "one height for
+   every control in this header row" — before any rule solved it for all of
+   them, and each picked 2rem independently. `.library-head` now sets 2.3rem
+   for every Library header, matching the toolbar beneath it in the same card;
+   these two id-scoped rules are (1,1,0) and beat it, so the only thing they
+   still did was make the Documents and Boards headers the two that disagreed.
+   Reported exactly that way: "the button elements in the top row of each
+   library subtab are all different sizes and proportions between tabs". The
+   `gap` stays — that is a real local choice, not a copy of a global one. */
 #library-view-docs .library-head {
-  --control-h: 2rem;
   gap: var(--space-2);
 }
 
@@ -2492,8 +2501,9 @@ p.graph-help-panel {
    Same failure as the Documents dock above, unfixed here until now: the
    search input and three buttons in this row had no shared height, so each
    rendered at its own natural size and the row grew to fit the tallest one. */
+/* Same as the Documents rule above: the local `--control-h: 2rem` is gone so
+   this header takes the shared Library height. */
 #wb-boards-landing .library-head {
-  --control-h: 2rem;
   gap: var(--space-2);
 }
 

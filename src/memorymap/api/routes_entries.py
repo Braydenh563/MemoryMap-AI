@@ -1474,6 +1474,14 @@ def create_link(
         session, source, target, reason=body.reason, link_type=body.link_type
     )
     if link is None:
+        # Three refusals share one return value, so the message names the one
+        # that actually applies — "already linked" on a draft/note pair would
+        # send someone hunting for a link that was never allowed to exist.
+        if bool(source.is_draft) != bool(target.is_draft):
+            raise HTTPException(
+                status_code=400,
+                detail="A draft can't be linked to a saved note. Save the draft first.",
+            )
         raise HTTPException(
             status_code=400, detail="Already linked (or tried to link an entry to itself)"
         )

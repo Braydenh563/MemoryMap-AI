@@ -1034,6 +1034,32 @@ def create_link(
     """
     if source.id == target.id:
         return None
+    # **A draft cannot be linked to a committed note.** Asked for directly:
+    # "draft notes shouldnt be able to connect with actual notes, they need to
+    # be separate."
+    #
+    # Drafts are already excluded from every other view in the app — the
+    # sidebar counts, the category lists, the Ask box's retrieval — precisely
+    # because an unfinished note is not part of the notebook yet. A link is the
+    # one thing that was still crossing that line, and it crossed it in the
+    # worst direction: the link outlives the draft's own invisibility, so a
+    # committed note quietly grew an edge to something the reader cannot see
+    # from anywhere else.
+    #
+    # Guarded here rather than in the picker because every route in reaches
+    # this function — the UI's link button, the AI's linking tool, the
+    # auto-linker and the graph — and a rule enforced in one caller is a rule
+    # three other callers do not have.
+    #
+    # Draft-to-draft is allowed, and that is the literal reading of the
+    # request: drafts are to be separate *from real notes*, not from each
+    # other. Two drafts of the same idea are exactly the pair worth connecting
+    # before either is saved. (A link made that way and then half-committed —
+    # one draft saved, the other not — is left alone: it was legitimate when it
+    # was made, and deleting a person's link on their behalf because they
+    # finished one end of it first is a bigger claim than this rule supports.)
+    if bool(source.is_draft) != bool(target.is_draft):
+        return None
     existing = session.scalar(
         select(EntryLink).where(
             or_(

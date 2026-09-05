@@ -97,6 +97,23 @@ let activeCategory = null; // sidebar filter; null = All
 // exclusive with activeCategory: picking one clears the other, same as
 // switching categories already does.
 let draftsOnly = false;
+// **Favourites, as a third sidebar filter over a flag that already existed.**
+// Asked for: "there should be a favourites folder or side parallel category
+// that isnt an actual category but could be treated as one if toggled?? for
+// notes??"
+//
+// Built on `entry.pinned` rather than on a new "starred" column, and that is
+// the whole design decision. `pinned` is already per-note, already persisted,
+// already toggled from a note's own chip, and already searchable as
+// `is:pinned` — a second boolean meaning almost the same thing would be two
+// half-used flags and two places to star something, which is exactly the
+// "everything is different from everything else" this round is undoing. What
+// was missing was never the data; it was the *place*: a row in the sidebar you
+// can click, alongside the categories, the way Drafts already is.
+//
+// So `pinned` keeps its sort meaning (float to the top) and gains a collection
+// meaning (a group you can go to). The same note is in both readings.
+let favouritesOnly = false;
 let linkSource = null; // entry id waiting for its link partner
 let editingId = null; // entry id currently in inline-edit mode
 let inlineAction = null; // {id, kind: "context"|"continue"} open on a card
@@ -6204,9 +6221,11 @@ function paginateNotesForDisplay(items) {
 function orderedNotesForCurrentView() {
   let visible = draftsOnly
     ? allEntries.filter((e) => e.is_draft)
-    : activeCategory
-      ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft)
-      : allEntries.filter((e) => !e.is_draft);
+    : favouritesOnly
+      ? allEntries.filter((e) => e.pinned && !e.is_draft)
+      : activeCategory
+        ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft)
+        : allEntries.filter((e) => !e.is_draft);
   visible = visible.filter(matchesSearch);
 
   const flat = Boolean(noteSearch) || noteSort !== "newest";
@@ -6369,24 +6388,34 @@ function renderEntries() {
   // should only show up in the Drafts filter until saved as a real note.
   let visible = draftsOnly
     ? allEntries.filter((e) => e.is_draft)
-    : activeCategory
-      ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft)
-      : allEntries.filter((e) => !e.is_draft);
+    : favouritesOnly
+      ? allEntries.filter((e) => e.pinned && !e.is_draft)
+      : activeCategory
+        ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft)
+        : allEntries.filter((e) => !e.is_draft);
   visible = visible.filter(matchesSearch);
 
   // "Notes" everywhere else on this tab ("Your notes", "notebook", the
   // status-bar note count) — this heading used to say "entries" (the API's
   // internal name, /entries), the one place on the tab that didn't match
   // (Part C terminology audit).
-  const scope = draftsOnly ? "Drafts" : activeCategory ? `${activeCategory} notes` : "All notes";
+  const scope = draftsOnly
+    ? "Drafts"
+    : favouritesOnly
+      ? "Favourites"
+      : activeCategory
+        ? `${activeCategory} notes`
+        : "All notes";
   // Say how many matched out of how many there are. Without it a filter that
   // hides most of the notebook looks identical to a notebook that's nearly
   // empty, and there's no signal that a filter is even active.
   const total = draftsOnly
     ? allEntries.filter((e) => e.is_draft).length
-    : activeCategory
-      ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft).length
-      : allEntries.filter((e) => !e.is_draft).length;
+    : favouritesOnly
+      ? allEntries.filter((e) => e.pinned && !e.is_draft).length
+      : activeCategory
+        ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft).length
+        : allEntries.filter((e) => !e.is_draft).length;
   $("entries-heading-label").textContent =
     noteSearch && visible.length !== total
       ? `${scope} — ${visible.length} of ${total}`
@@ -6565,6 +6594,7 @@ function renderSidebar() {
     li.addEventListener("click", () => {
       activeCategory = category;
       draftsOnly = false; // exclusive with the Drafts filter below
+      favouritesOnly = false; // and with Favourites, for the same reason
       // The list this filters lives in the "browse" sub-tab, and the sidebar
       // is visible from all four — so picking a category while writing a note
       // or asking a question filtered a list that was `display: none`, and the
@@ -6618,12 +6648,44 @@ function renderSidebar() {
   draftRow.append(draftName, draftBadge);
   draftRow.addEventListener("click", () => {
     draftsOnly = !draftsOnly;
+    favouritesOnly = false;
+    activeCategory = null;
+    showNotesSection("browse");
+    renderSidebar();
+    renderEntries();
+  });
+
+  // **Favourites.** Asked for as "a favourites folder or side parallel category
+  // that isnt an actual category but could be treated as one if toggled" — so
+  // it is built exactly like Drafts directly above: a row where the categories
+  // are, a count, a toggle, and mutually exclusive with the other two filters.
+  // This app already has one pseudo-category, and a second that behaved
+  // differently would be a second sign for the same idea.
+  //
+  // The notes it collects are the pinned ones (see `favouritesOnly`) — no new
+  // flag, no second place to star something.
+  const favouriteCount = allEntries.filter((e) => e.pinned && !e.is_draft).length;
+  const favouriteRow = document.createElement("li");
+  favouriteRow.className = "category-drafts-row";
+  if (favouritesOnly) favouriteRow.classList.add("active");
+  const favouriteName = document.createElement("span");
+  favouriteName.className = "category-name";
+  setLabel(favouriteName, "ph:star Favourites");
+  const favouriteBadge = document.createElement("span");
+  favouriteBadge.className = "count";
+  favouriteBadge.textContent = favouriteCount;
+  favouriteRow.append(favouriteName, favouriteBadge);
+  favouriteRow.title = "Notes you have pinned";
+  favouriteRow.addEventListener("click", () => {
+    favouritesOnly = !favouritesOnly;
+    draftsOnly = false;
     activeCategory = null;
     showNotesSection("browse");
     renderSidebar();
     renderEntries();
   });
   ul.appendChild(draftRow);
+  ul.appendChild(favouriteRow);
 
   for (const [category, count] of [...counts.entries()].sort()) {
     addRow(category, count, category);
@@ -7321,6 +7383,10 @@ function flashEntry(id) {
   // from every other view (user-reported) — otherwise jumping to one from
   // Library's "Open" button would find nothing.
   draftsOnly = allEntries.some((e) => e.id === id && e.is_draft);
+  // Same reason as the line above and the search reset below: a note that is
+  // not pinned is filtered out of Favourites, so jumping to one while that
+  // filter is on would scroll to nothing.
+  favouritesOnly = false;
   // Clear any active filter too: a note that doesn't match the current search
   // is filtered out of the list, so there'd be nothing to scroll to.
   noteSearch = "";

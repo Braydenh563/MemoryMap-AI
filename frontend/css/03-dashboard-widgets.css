@@ -580,8 +580,22 @@
   margin-bottom: var(--space-4);
 }
 
+/* The box and its button are one control, so they are the same height and
+   they sit on the same baseline. Measured before: the input 40.4px tall at
+   y=180.8 and the Search button 28px at y=186.9 — a shorter button floating
+   six pixels down inside a taller field, which is the "slapped on" texture
+   this app keeps being reported for. `align-items: stretch` makes the button
+   take the field's height rather than its own. */
 .web-panel .web-panel-search {
   margin-bottom: var(--space-3);
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.web-panel #web-go {
+  flex: 0 0 auto;
+  align-self: stretch;
 }
 
 /* Recent-search chips (renderWebSearchHistory, app.js) — wraps rather than
@@ -622,6 +636,14 @@
   margin: 0 0 var(--space-3);
 }
 
+/* Two lines by design: "12 results via SearXNG (local)" is the answer, and
+   "nothing left your machine but the query" is the reassurance under it. Glued
+   together with a " · " they wrapped mid-phrase in a narrow panel. */
+.web-answered-detail {
+  display: block;
+  font-size: var(--text-xs);
+}
+
 .web-results {
   /* The panel owns the height now; this takes what is left of it. A second
      max-height here would be a number that has to agree with the one above,
@@ -641,19 +663,20 @@
    which the same reasoning produced), and "📖 Read here" went altogether: the
    title one line above does exactly that. */
 .web-result {
-  /* A grid rather than absolute positioning with a reserved padding: the
-     actions column then sizes itself to its own buttons, and there is no
-     magic number to be wrong when a button is added or its label changes.
-     (The first attempt reserved `padding-right: 4rem`, which the spacing lint
-     rightly rejected — a number off the scale is a number somebody guessed.) */
+  /* Source line, then title, then snippet — with a single kebab spanning all
+     three rows. The old shape reserved a whole stacked column of icon buttons
+     at `opacity: 0`, so every title in a 318px panel wrapped around a column
+     that was showing nothing: 115px per result, five to a full-height panel.
+     One 28px opener costs a fifth of that and holds five actions instead of
+     two. */
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
-    "title   actions"
     "meta    actions"
+    "title   actions"
     "snippet actions";
-  column-gap: var(--space-3);
-  padding: var(--space-4) 0;
+  column-gap: var(--space-2);
+  padding: var(--space-3) 0;
   border-top: 1px solid var(--border);
   min-width: 0;
   overflow-wrap: anywhere;
@@ -673,12 +696,23 @@
   grid-area: snippet;
 }
 
+/* The domain is the part you actually judge a result by, so it carries the
+   weight and the engine names trail after it. */
+.web-result-host {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.web-result-via {
+  color: var(--muted);
+}
+
 .web-result:first-child {
   border-top: none;
 }
 
 .web-result-title {
-  display: block;
+  display: -webkit-box;
   width: 100%;
   text-align: left;
   padding: 0;
@@ -688,7 +722,15 @@
   color: var(--accent);
   font-weight: 650;
   font-size: var(--text-md);
+  line-height: 1.35;
   cursor: pointer;
+  /* Two lines, like the snippet below it. A search result's title is written
+     for a full-width page; in a 318px panel an un-clamped one ran to four
+     lines and buried the next result. */
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .web-result-title:hover {
@@ -716,59 +758,7 @@
 .web-result-actions {
   grid-area: actions;
   align-self: start;
-  /* Column, not row: side by side, two buttons made the "auto" actions
-     column as wide as both combined, squeezing minmax(0, 1fr) — the
-     title/meta/snippet column — down to a sliver in the web panel's own
-     narrow, resizable width. Stacked, the column is only ever as wide as
-     the wider single button (user-reported: "squished the text like crazy"). */
   display: flex;
-  flex-direction: column;
-  /* stretch, not flex-end: the two buttons used to be different widths
-     (a bespoke pill for ↗, the app's standard ghost/small for 💬), so a
-     right-aligned column had a ragged left edge — "better formatted"
-     (user-reported) meant matching widths as much as matching direction. */
-  align-items: stretch;
-  gap: var(--space-1);
-  opacity: 0;
-  transition: opacity var(--motion-fast) ease;
-}
-
-.web-result:hover .web-result-actions,
-.web-result:focus-within .web-result-actions {
-  opacity: 1;
-}
-
-@media (hover: none) {
-
-  /* Touch has no hover, so the actions would be unreachable. */
-  .web-result-actions {
-    opacity: 1;
-  }
-}
-
-/* Matches `button.ghost.small`'s own look (chip-bg, glass border, the app's
-   pill-ish radius) rather than its own one-off pill: it sits stacked right
-   above/below a real `button.ghost.small` (the 💬 ask action) now, and two
-   different radii/paddings/weights in the same two-button column is exactly
-   the "looks assembled" problem the chat dock strip already solved once
-   (see `.chat-dock-controls`'s own comment above). */
-.web-open-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.25rem 0.8rem;
-  border-radius: calc(var(--radius) * 0.7);
-  border: 1px solid var(--glass-border);
-  background: var(--chip-bg);
-  font-size: 0.85rem;
-  font-weight: 500;
-  text-decoration: none;
-  color: var(--ink);
-}
-
-.web-open-link:hover {
-  background: var(--accent-soft);
-  border-color: var(--accent);
 }
 
 /* The reader takes over the column when a page is open: it is a *different

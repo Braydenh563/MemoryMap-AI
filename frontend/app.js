@@ -9929,12 +9929,17 @@ async function refreshWebSearxngStrip() {
   toggle.disabled = false;
   setLabel(
     toggle,
-    running
-      ? "ph:stop-circle Stop"
-      : info.state === "absent"
-        ? "ph:play Install & start"
-        : "ph:play Start"
+    //: "Install & start" wrapped onto its own line in a 318px panel, so a
+    //: two-word chip sat above a full-width button before you had searched
+    //: anything. "Install" says the same thing in the width available — what
+    //: it starts afterwards is not a decision anyone is making here.
+    running ? "ph:stop-circle Stop" : info.state === "absent" ? "ph:play Install" : "ph:play Start"
   );
+  toggle.title = running
+    ? "Stop the local SearXNG instance"
+    : info.state === "absent"
+      ? "Install SearXNG locally and start it — searches then never leave this machine"
+      : "Start the local SearXNG instance";
   toggle.onclick = async () => {
     toggle.disabled = true;
     try {
@@ -9963,16 +9968,19 @@ function buildWebResultRow(result) {
   const row = document.createElement("div");
   row.className = "web-result";
 
-  const title = document.createElement("button");
-  title.type = "button";
-  title.className = "web-result-title";
-  title.textContent = result.title || result.url;
-  title.addEventListener("click", () => openWebReader(result.url));
-  row.appendChild(title);
-
+  //: **Source first, then the headline.** Reported bluntly: "the web search
+  //: features and ui and ux are horrible." Half of that was reading order.
+  //: Every search surface the user compares this to — Google, Perplexity,
+  //: Odysseus's own — puts where a result came from *above* its title,
+  //: because deciding whether to trust a result starts with the domain. This
+  //: had the title first and the domain under it, so the eye landed on
+  //: fifteen words of headline before learning it was from a forum.
   const meta = document.createElement("div");
   meta.className = "web-result-meta muted";
-  meta.textContent = result.domain || "";
+  const host = document.createElement("span");
+  host.className = "web-result-host";
+  host.textContent = result.domain || "";
+  meta.appendChild(host);
   // SearXNG is a metasearch engine, so "via SearXNG" says where the query
   // was assembled rather than who answered it. Naming the upstream engines
   // is what makes a self-hosted instance legible rather than a black box.
@@ -9982,9 +9990,17 @@ function buildWebResultRow(result) {
     via.className = "web-result-via";
     via.textContent = result.via.join(" · ");
     via.title = `Found by ${result.via.join(", ")}`;
-    meta.append(" — ", via);
+    meta.append(document.createTextNode(" · "), via);
   }
   row.appendChild(meta);
+
+  const title = document.createElement("button");
+  title.type = "button";
+  title.className = "web-result-title";
+  title.textContent = result.title || result.url;
+  title.title = `Read “${result.title || result.url}” here, without opening a browser`;
+  title.addEventListener("click", () => openWebReader(result.url));
+  row.appendChild(title);
 
   if (result.snippet) {
     const snippet = document.createElement("div");
@@ -9993,30 +10009,80 @@ function buildWebResultRow(result) {
     row.appendChild(snippet);
   }
 
-  // The actions, in the row's corner and revealed on hover — the same
-  // pattern the note cards use, and for the same reason. Measured before:
-  // three labelled buttons under every result made each one 127px tall, so
-  // barely two and a half results fitted in the panel. **"Read here Read here" is
-  // gone entirely**: the title does exactly that, one line above, which
-  // makes it a button whose whole job was to repeat the thing next to it.
+  //: **One kebab, not a stacked column of icons.** The other half of
+  //: "horrible", and it was measurable: the actions column was `opacity: 0`
+  //: rather than removed, so its width was reserved on *every* row whether or
+  //: not you were hovering — two stacked buttons' worth of it — and every
+  //: title in a 318px panel wrapped to three lines around a column showing
+  //: nothing. Measured at 115px per result, so five fitted in a full-height
+  //: panel.
+  //:
+  //: A kebab is 28px, always visible (so it is reachable by touch and by
+  //: keyboard without a hover), and it is what every other list in this app
+  //: uses. It also has room for words, which is how Bookmark and Save could
+  //: be added at all: as a fourth and fifth icon they would have been two
+  //: more glyphs nobody could tell apart.
   const actions = document.createElement("div");
   actions.className = "web-result-actions";
-  const open = document.createElement("a");
-  open.href = result.url;
-  open.target = "_blank";
-  open.rel = "noopener noreferrer";
-  open.className = "ghost small web-open-link";
-  setLabel(open, "ph:arrow-square-out");
-  open.title = "Open in your browser";
-  open.setAttribute("aria-label", `Open ${result.domain || result.url} in your browser`);
-  actions.appendChild(open);
-  const ask = smallButton("ph:chat-circle", "Open this page and ask the AI about it", () =>
-    askAboutPage(result.url, result.title)
+  const label = result.title || result.domain || result.url;
+  actions.appendChild(
+    kebabMenu(
+      [
+        {
+          label: "ph:book-open-text Read here",
+          title: "Read this page as text, inside MemoryMap",
+          run: () => openWebReader(result.url),
+        },
+        {
+          label: "ph:arrow-square-out Open in browser",
+          title: "Open this page in your own browser",
+          run: () => window.open(result.url, "_blank", "noopener,noreferrer"),
+        },
+        {
+          label: "ph:chat-circle Ask the AI about this",
+          title: "Let the AI fetch this page and answer about it",
+          run: () => askAboutPage(result.url, result.title),
+        },
+        {
+          //: The one integration this panel never had, and the obvious one:
+          //: the app already keeps bookmarks, and "I found something worth
+          //: keeping" is what a search result *is*. Without this the only way
+          //: to keep a result was to copy its URL out and paste it into
+          //: another tab of the same app.
+          label: "ph:bookmark-simple Save as bookmark",
+          title: "Keep this link in your bookmarks",
+          run: () => bookmarkWebResult(result),
+        },
+      ],
+      `Actions for “${label}”`
+    )
   );
-  ask.setAttribute("aria-label", "Ask the AI about this page");
-  actions.appendChild(ask);
   row.appendChild(actions);
   return row;
+}
+
+//: Saves a web result straight into the app's own bookmarks. Reports the
+//: duplicate case rather than silently making a second row: the endpoint
+//: already tells us (`duplicate_of`), and "saved" for something that was
+//: already saved is a small lie that makes the list look wrong later.
+async function bookmarkWebResult(result) {
+  try {
+    const saved = await apiJson("/bookmarks", {
+      method: "POST",
+      body: JSON.stringify({
+        url: result.url,
+        title: (result.title || "").slice(0, 200),
+        note: (result.snippet || "").slice(0, 2000),
+      }),
+    });
+    toast(
+      saved && saved.duplicate_of
+        ? "Already in your bookmarks."
+        : `Bookmarked “${saved.title || saved.url}”.`
+    );
+  } catch (error) {
+    toast(error.message || "Couldn't save that bookmark.", true);
+  }
 }
 
 // Last few distinct web queries, newest first — asked for directly ("missing
@@ -10118,9 +10184,12 @@ async function runWebSearch() {
     : `No results from ${answered.label} — try different words.`;
   status.appendChild(summary);
   if (answered.detail) {
+    //: Its own line, not " · " glued onto the count. In a narrow panel the
+    //: joined version wrapped mid-phrase, so the sentence that explains where
+    //: the query went broke across the fold at an arbitrary word.
     const detail = document.createElement("span");
     detail.className = "web-answered-detail muted";
-    detail.textContent = ` · ${answered.detail}`;
+    detail.textContent = answered.detail;
     status.appendChild(detail);
   }
 
@@ -27447,6 +27516,17 @@ $("web-reader-back").addEventListener("click", () =>
   $("web-reader").classList.add("hidden")
 );
 $("web-reader-save").addEventListener("click", saveWebPageAsNote);
+//: Same act as the result row's own "Save as bookmark", from the other side
+//: of the panel: you often only decide a page is worth keeping after reading
+//: it, and until now that decision had nowhere to go from here.
+$("web-reader-bookmark")?.addEventListener("click", () => {
+  if (!webReaderPage) return;
+  bookmarkWebResult({
+    url: webReaderPage.url,
+    title: webReaderPage.title || webReaderPage.domain || "",
+    snippet: (webReaderPage.text || "").slice(0, 200),
+  });
+});
 $("web-reader-ask").addEventListener("click", () => {
   if (webReaderPage) askAboutPage(webReaderPage.url, webReaderPage.title);
 });

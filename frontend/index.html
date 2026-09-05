@@ -1531,19 +1531,25 @@ Link to another note with [[its first few words]]."></textarea>
             <strong id="web-panel-title"><i class="ph ph-globe ph-lead" aria-hidden="true"></i> Web</strong>
             <button id="web-panel-close" class="ghost small" aria-label="Close web panel"><i class="ph ph-x" aria-hidden="true"></i></button>
           </div>
+          <div class="row web-panel-search">
+            <input id="web-query" type="search" placeholder="Search the web…"
+              aria-label="Search the web">
+            <button id="web-go" class="small">Search</button>
+          </div>
           <!-- Feedforward, not just the after-the-fact "answered by SearXNG"
                line results already carry: whether the private local instance
                is even running is otherwise invisible until a search silently
                falls back to DuckDuckGo. Hidden unless the chosen provider
-               (Settings → Web search) can actually use SearXNG. -->
+               (Settings → Web search) can actually use SearXNG.
+
+               **Under the search box, not above it.** It used to be the first
+               thing in the panel, so opening Web to look something up put an
+               engine's installation state ahead of the box you came to type
+               in. It is context for the search, not the reason for the
+               panel. -->
           <div id="web-searxng-strip" class="row space-between web-panel-searxng hidden">
             <span id="web-searxng-chip" class="chip">Checking…</span>
             <button id="web-searxng-toggle" class="ghost small" type="button"></button>
-          </div>
-          <div class="row web-panel-search">
-            <input id="web-query" type="text" placeholder="Search the web…"
-              aria-label="Search the web">
-            <button id="web-go" class="small">Search</button>
           </div>
           <!-- Recent searches — a way back in, not a permanent fixture: hidden
                the moment there's a query typed or a result on screen. -->
@@ -1554,13 +1560,18 @@ Link to another note with [[its first few words]]."></textarea>
           <div id="web-reader" class="web-reader hidden">
             <div class="row space-between web-reader-head">
               <strong id="web-reader-title"></strong>
-              <button id="web-reader-back" class="ghost small">← Results</button>
+              <button id="web-reader-back" class="ghost small"><i class="ph ph-arrow-left ph-lead" aria-hidden="true"></i> Results</button>
             </div>
             <p class="muted" id="web-reader-source"></p>
             <div class="row web-reader-actions">
               <button id="web-reader-ask" class="ghost small"
                 title="Ask the AI about this page"><i class="ph ph-chat-circle ph-lead" aria-hidden="true"></i> Ask about this</button>
-              <button id="web-reader-save" class="ghost small">＋ Save as note</button>
+              <button id="web-reader-save" class="ghost small"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i> Save as note</button>
+              <!-- The third thing you can do with a page you have just read,
+                   and the one the panel never offered: keep the link. The app
+                   has bookmarks; a page worth reading twice belongs in them. -->
+              <button id="web-reader-bookmark" class="ghost small"
+                title="Keep this link in your bookmarks"><i class="ph ph-bookmark-simple ph-lead" aria-hidden="true"></i> Bookmark</button>
             </div>
             <div id="web-reader-text" class="web-reader-text"></div>
           </div>

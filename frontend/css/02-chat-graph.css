@@ -456,6 +456,23 @@
   display: none !important;
 }
 
+/* **And the HTML attribute needs exactly the same protection.** Reported with
+   a screenshot: "there's an empty bubble in the header next to the model
+   name??" — that was `#chat-context`, a `<button hidden>` measuring 24.8x20px
+   with `display: flex`. The attribute's `display: none` comes from the *user
+   agent* stylesheet, and any author rule beats it: this app sets `display:
+   flex` on every `button`, so **every `<button hidden>` in the app was
+   visible** — an empty pill, an empty ghost button, nothing to click and
+   nothing to explain it. A `<span hidden>` beside it in the same row was
+   correctly invisible, which is why this survived: it only ever showed on the
+   handful of elements that are buttons.
+
+   Measured before and after with getComputedStyle, not read off a screenshot:
+   `hidden: true` with `display: "flex"` is the whole bug in two values. */
+[hidden] {
+  display: none !important;
+}
+
 /* --- Wave G: agentic tools + skills ------------------------------------------ */
 .tools-toggle {
   display: inline-flex;

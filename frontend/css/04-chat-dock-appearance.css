@@ -3478,9 +3478,9 @@ label.setting-check,
    small buttons makes it the whole row — the same trap `.chat-toolbar select`
    already documents one file over. */
 .notif-activity-mode {
-  width: auto;
+  width: 100%;
   margin: 0;
-  max-width: 12rem;
+  min-width: 0;
 }
 
 

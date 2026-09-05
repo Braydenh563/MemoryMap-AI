@@ -178,30 +178,50 @@
           aria-controls="notif-panel"><i class="ph ph-bell" aria-hidden="true"></i></button>
         <div id="notif-panel" class="notif-panel hidden" role="dialog"
           aria-label="Notifications">
+          <!-- **Head: what this is, and the two controls that act on the
+               panel itself.** Reported with a screenshot: the title, a
+               full-width `select`, Mute, Clear and Close were all one row, so
+               the row wrapped and Clear/Close ended up on a second line under
+               a dropdown wider than either of them. Three of those five are
+               not header controls at all — Clear acts on the *list*, and the
+               activity picker is a preference — so they moved to their own
+               bar below, and the head keeps only the title and the two
+               icon-only toggles every panel in this app ends with. -->
           <div class="row space-between notif-head">
-            <strong>Notifications</strong>
-            <span class="row">
-              <!-- **Where the AI's own activity lands.** Asked for directly:
-                   "make an option for agent activity notifications to be
-                   hidden and not show up as toast notifications but somewhere
-                   else." The somewhere else is this panel, which already
-                   records every one of them — the choice is only whether a
-                   toast also flies past. It sits here rather than in Settings
-                   because this is the "somewhere else": the control belongs
-                   beside the place the notices go. -->
-              <label class="visually-hidden" for="notif-activity-mode">Where AI activity is announced</label>
-              <select id="notif-activity-mode" class="ghost small notif-activity-mode"
-                title="Where the AI's own activity is announced">
-                <option value="toasts">Activity: pop up + here</option>
-                <option value="centre">Activity: only here</option>
-              </select>
-              <button id="notif-mute-toggle" class="ghost small" aria-pressed="false"
-                title="Mute notifications except reminders"><i class="ph ph-bell-slash ph-lead" aria-hidden="true"></i> Mute</button>
-              <button id="notif-clear" class="ghost small">Clear</button>
-              <button id="notif-close" class="ghost small" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+            <span class="notif-heading">
+              <strong>Notifications</strong>
+              <span id="notif-unread" class="notif-unread-chip hidden"></span>
+            </span>
+            <span class="row notif-head-actions">
+              <button id="notif-mute-toggle" class="ghost small icon-only" aria-pressed="false"
+                title="Mute notifications except reminders"><i class="ph ph-bell-slash" aria-hidden="true"></i></button>
+              <button id="notif-close" class="ghost small icon-only" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
             </span>
           </div>
           <ul id="notif-list" class="notif-list"></ul>
+          <!-- **The bar that acts on the list and on what reaches you.**
+               Both were in the head and neither belongs there. Grouped
+               because they answer the same question — "what do I want to see"
+               — and separated from the list by a rule so the list ends
+               somewhere.
+
+               **Where the AI's own activity lands.** Asked for directly:
+               "make an option for agent activity notifications to be hidden
+               and not show up as toast notifications but somewhere else." The
+               somewhere else is this panel, which already records every one
+               of them; the choice is only whether a toast also flies past. It
+               sits here rather than in Settings because this *is* the
+               somewhere else — the control belongs beside the place the
+               notices go. -->
+          <div class="notif-tools">
+            <label class="notif-tools-label" for="notif-activity-mode">AI activity</label>
+            <select id="notif-activity-mode" class="ghost small notif-activity-mode"
+              title="Where the AI's own activity is announced">
+              <option value="toasts">Pop-ups + panel</option>
+              <option value="centre">Panel only</option>
+            </select>
+            <button id="notif-clear" class="ghost small notif-clear">Clear all</button>
+          </div>
           <p class="muted notif-foot">
             Nothing fires while MemoryMap is closed — it has no background
             service, by design.

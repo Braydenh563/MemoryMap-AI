@@ -1534,23 +1534,39 @@
 }
 
 .notif-head {
+  /* Two icon-only buttons beside a title now, where five controls of three
+     different widths used to fight for one row — so this no longer needs to
+     wrap to stay on the panel. Reported as Clear and Close landing on a
+     second line under a `select` wider than both; measured before the change
+     at y=88 for the title and y=134 for those two buttons, a genuine second
+     row 46px down. */
   margin-bottom: var(--space-3);
-  /* `.row` (both this one and the button group inside it) is nowrap by
-     default, so "Notifications" plus Mute/Clear/Close never had anywhere
-     to go but past the panel's edge at narrow widths — reported directly,
-     with the close button pushed off and a horizontal scrollbar appearing
-     to reach it. Wrapping, with the button group shrinkable so it can drop
-     to its own line and wrap its own three buttons too if even that's
-     still too narrow. */
-  flex-wrap: wrap;
-  row-gap: var(--space-1);
+  align-items: center;
+  gap: var(--space-3);
 }
 
-.notif-head>.row {
-  flex: 1 1 auto;
+.notif-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   min-width: 0;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+}
+
+/* The unread count, in the panel as well as on the bell. The bell says
+   "something happened"; this says how much, next to the word it qualifies. */
+.notif-unread-chip {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--card);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 1.25rem;
+}
+
+.notif-head-actions {
+  flex: 0 0 auto;
+  gap: var(--space-1);
 }
 
 /* Muted is a state worth seeing at a glance, not just reading in a label —
@@ -1560,14 +1576,64 @@
   border-color: var(--accent);
 }
 
-/* Live-reported: the emoji+label ("🔕 Mute") was just wide enough to not
-   fit on one line at this button's width, and default `white-space: normal`
-   let it wrap — the second line then spilled past the button's own fixed
-   height/border, reading as broken text rather than a two-line button.
-   Confirmed via computed style (`scrollHeight` 35px vs. `clientHeight`
-   30px) before fixing, not guessed from the screenshot alone. */
-#notif-mute-toggle {
+/* The bar under the list: the activity preference on the left, the one
+   destructive-ish action on the right. A rule above it so the list has an end,
+   and `auto` on the middle column so the select takes the slack rather than
+   the label or the button. */
+.notif-tools {
+  display: grid;
+  /* Two rows, not three columns across a 22rem panel. Measured: with Clear
+     all on the same line the picker's value box came back 97px wide against
+     144px of text, so the option it is showing you was permanently
+     ellipsised — a picker that cannot say what it is set to. The label and
+     the picker keep row one to themselves; the button gets row two, right
+     aligned, which is where a list-level action belongs anyway. */
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.notif-clear {
+  grid-column: 1 / -1;
+  justify-self: end;
+}
+
+.notif-tools-label {
+  font-size: var(--text-xs);
+  color: var(--muted);
   white-space: nowrap;
+}
+
+
+/* The empty state: a glyph, a line, and the explanation small underneath —
+   the shape every other empty surface in this app uses. It replaced three
+   lines of muted prose that filled the panel and read as an error. */
+.notif-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-1);
+  padding: var(--space-6) var(--space-4);
+}
+
+.notif-empty-icon {
+  font-size: var(--text-h2);
+  color: var(--muted);
+  opacity: 0.55;
+}
+
+.notif-empty-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.notif-empty-sub {
+  margin: 0;
+  max-width: 18rem;
 }
 
 .notif-list {

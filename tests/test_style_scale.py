@@ -543,3 +543,23 @@ def _rule_block(css: str, selector: str) -> str | None:
                 head = i + 1
         i += 1
     return None
+
+
+def test_the_hidden_attribute_is_enforced_over_the_apps_own_display_rules():
+    """`<button hidden>` must actually be hidden.
+
+    Reported with a screenshot — "there's an empty bubble in the header next
+    to the model name??" — and measured as `hidden: true` with
+    `display: "flex"`, a 24.8x20px pill with nothing in it. The attribute's
+    `display: none` comes from the *user agent* stylesheet, so any author rule
+    beats it, and this app sets `display: flex` on every `button`: every
+    `<button hidden>` in the app was visible. A `<span hidden>` in the same row
+    was correctly invisible, which is why it went unnoticed for so long.
+
+    A lint rather than a behaviour test for the usual reason: nothing in this
+    Python suite can see a rendered DOM, and the rule is one line to keep and
+    a screenshot plus several rounds to rediscover.
+    """
+    block = _rule_block(_stylesheet(), "[hidden]")
+    assert block is not None, "no `[hidden]` rule — see this test's docstring"
+    assert "display" in block and "none" in block and "!important" in block

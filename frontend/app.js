@@ -22862,6 +22862,9 @@ function renderNotifMuteToggle() {
     ? "Stop muting — everything will notify again"
     : "Mute notifications except reminders";
   button.setAttribute("aria-pressed", String(muted));
+  //: Icon-only since the head lost its second row, so the tooltip is no
+  //: longer backed by a visible word — the accessible name has to carry it.
+  button.setAttribute("aria-label", button.title);
   button.classList.toggle("active", muted);
 }
 
@@ -22924,13 +22927,38 @@ async function openNotifications() {
 
   const items = storedNotifications().slice().reverse();
   const readAt = notificationsReadAt();
+  //: The count, beside the word it qualifies. The bell in the header already
+  //: carries it, but the bell is what you clicked to get here — inside the
+  //: panel the number has to say how many of the rows below are new.
+  const chip = $("notif-unread");
+  if (chip) {
+    const unread = items.filter((item) => item.at > readAt).length;
+    chip.textContent = unread > 99 ? "99+" : String(unread);
+    chip.classList.toggle("hidden", unread === 0);
+    chip.title = `${unread} unread`;
+  }
   list.replaceChildren();
+  //: **An empty state, not a paragraph.** Reported with a screenshot: three
+  //: lines of muted prose filled the panel where nothing had happened, which
+  //: reads as an error message rather than as calm. The shape every other
+  //: empty surface in this app uses — a glyph, a short line, and the
+  //: explanation underneath in small text — says the same thing in a glance.
   if (!items.length) {
     const empty = document.createElement("li");
-    empty.className = "muted";
-    empty.textContent =
-      "Nothing yet. Reminders that come due, finished background jobs and " +
-      "runs that stopped early will collect here.";
+    empty.className = "notif-empty";
+    const glyph = document.createElement("span");
+    glyph.className = "notif-empty-icon";
+    setLabel(glyph, "ph:bell-simple");
+    glyph.setAttribute("aria-hidden", "true");
+    const headline = document.createElement("p");
+    headline.className = "notif-empty-title";
+    headline.textContent = "You're all caught up";
+    const sub = document.createElement("p");
+    sub.className = "muted text-sm notif-empty-sub";
+    sub.textContent =
+      "Reminders that come due, finished background jobs and runs that " +
+      "stopped early collect here.";
+    empty.append(glyph, headline, sub);
     list.appendChild(empty);
   }
   for (const item of items) {

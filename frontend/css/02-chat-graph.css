@@ -1973,6 +1973,24 @@ kbd {
   animation: dot-bounce 1.2s infinite ease-in-out !important;
 }
 
+/* **The stagger has to be restated too.** Reported: "the writing dots
+   animation has all the dots jumping up and down at the same time." The
+   `animation` shorthand above resets every longhand it does not mention,
+   including `animation-delay` — and `!important` makes that reset outrank the
+   plain `nth-child` delays in 01-forms-settings.css. So the counter-rule that
+   kept the dots moving also flattened them into one dot in three places.
+
+   This is the cost of the restated-shorthand approach named at the top of
+   this block, arriving exactly where that comment said it would. The delays
+   are the same 0.15s/0.3s the originals use. */
+:root[data-progress-motion="always"] .typing-dots span:nth-child(2) {
+  animation-delay: 0.15s !important;
+}
+
+:root[data-progress-motion="always"] .typing-dots span:nth-child(3) {
+  animation-delay: 0.3s !important;
+}
+
 :root[data-progress-motion="always"] .is-generating {
   animation: generating-glow 2.4s ease-in-out infinite !important;
 }

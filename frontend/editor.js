@@ -156,6 +156,27 @@ function editorApplyAction(textarea, action) {
   }
 }
 
+//: **The shapes `editorApplyAction` does not implement.**
+//:
+//: MD_ACTIONS is bigger than the four shapes above: `custom` (image, footnote,
+//: link, indent, undo…) and `pre`/`post` (the HTML-ish sup/sub/underline/
+//: comment) are both handled by `applyMarkdown` in documents.js and by nothing
+//: here. A "/" command wired straight to one of those through
+//: `editorApplyAction` matches no branch and returns silently — this repo's
+//: "a policy silently refusing the work" shape, and it would have shipped as
+//: three menu rows that do nothing.
+//:
+//: `applyMarkdown` takes a box id and every editor surface has one (including
+//: each live-view block, which is why `docLiveEditor` sets one), so this is a
+//: call rather than a second implementation for the two to drift apart.
+function editorApplyNamed(textarea, kind) {
+  if (typeof applyMarkdown === "function" && textarea.id) {
+    applyMarkdown(kind, textarea.id);
+    return;
+  }
+  editorApplyAction(textarea, (typeof MD_ACTIONS === "object" && MD_ACTIONS[kind]) || {});
+}
+
 // A callout block, ready to type into.
 //
 // Every line of the body needs its own "> " — a blockquote ends at the first
@@ -271,6 +292,44 @@ function editorCommands(context) {
       hint: "## — becomes a jump target",
       keywords: ["heading", "section", "anchor", "title", "h2"],
       run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.h2),
+    },
+    //: **The rest of the block vocabulary.** The toolbar has had these since
+    //: the Obsidian-toolbar pass; the "/" menu had a subset, which makes the
+    //: two disagree about what the editor can do — and "/" is the one people
+    //: reach for once they stop reading the toolbar. Every one of them runs
+    //: the same MD_ACTIONS entry the toolbar button runs, so there is no
+    //: second dialect of the markdown to keep in step.
+    {
+      id: "h1",
+      group: "Blocks & frames",
+      label: "\u{1F5DE}\u{FE0F} Title heading",
+      hint: "#",
+      keywords: ["h1", "title", "heading", "big"],
+      run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.h1),
+    },
+    {
+      id: "h3",
+      group: "Blocks & frames",
+      label: "\u{1F4D1} Sub-heading",
+      hint: "###",
+      keywords: ["h3", "sub", "heading", "small"],
+      run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.h3),
+    },
+    {
+      id: "numbered",
+      group: "Blocks & frames",
+      label: "\u{1F522} Numbered list",
+      hint: "1.",
+      keywords: ["ordered", "numbered", "list", "ol", "steps"],
+      run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.ol),
+    },
+    {
+      id: "quote",
+      group: "Blocks & frames",
+      label: "\u{201C} Quote",
+      hint: ">",
+      keywords: ["quote", "blockquote", "cite"],
+      run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.quote),
     }
   );
 
@@ -301,6 +360,30 @@ function editorCommands(context) {
         editorApplyAction(textarea, { insert: "![[" });
         editorOpenMenu(textarea, "[[");
       },
+    },
+    {
+      id: "image",
+      group: "Links & references",
+      label: "\u{1F5BC}\u{FE0F} Image",
+      hint: "![alt](url) — or paste a file into the editor",
+      keywords: ["image", "picture", "photo", "figure", "screenshot"],
+      run: (textarea) => editorApplyNamed(textarea, "image"),
+    },
+    {
+      id: "footnote",
+      group: "Links & references",
+      label: "\u{1F4CC} Footnote",
+      hint: "[^1] — with its text at the foot",
+      keywords: ["footnote", "reference", "cite", "aside"],
+      run: (textarea) => editorApplyNamed(textarea, "footnote"),
+    },
+    {
+      id: "comment",
+      group: "Links & references",
+      label: "\u{1F576}\u{FE0F} Private comment",
+      hint: "%%…%% — kept in the file, never rendered",
+      keywords: ["comment", "private", "hidden", "todo", "note to self"],
+      run: (textarea) => editorApplyNamed(textarea, "comment"),
     },
     {
       id: "weblink",

@@ -1228,8 +1228,190 @@ function renderDocLive(keepActive = false) {
       block.classList.add("lp-block-empty");
       block.textContent = "";
     }
-    host.appendChild(block);
+    host.appendChild(docLiveRow(block, index, blocks.length));
   });
+}
+
+//: **The block handle — Notion's, in this app's own furniture.**
+//:
+//: Asked for with the editor remake: *"do the documents remake for obsidian,
+//: notion, kortex etc."* The live view already had the Obsidian half (edit the
+//: markdown of the paragraph you clicked, everything else stays rendered).
+//: What it had none of is the Notion half: a document is a *list of blocks*,
+//: and the thing you constantly want is to move one, copy one or delete one
+//: without selecting its text by hand and cutting it.
+//:
+//: The gutter is only visible on hover or focus, because a handle beside every
+//: paragraph all the time turns a page of prose into a form. Keyboard users
+//: get it through the ⋯ menu, which is a real button in the tab order — a
+//: drag-only affordance would put block reordering out of reach entirely.
+function docLiveRow(block, index, total) {
+  const row = document.createElement("div");
+  row.className = "lp-row";
+  row.dataset.index = String(index);
+
+  const gutter = document.createElement("div");
+  gutter.className = "lp-gutter";
+
+  const grip = document.createElement("button");
+  grip.type = "button";
+  grip.className = "ghost small icon-only lp-grip";
+  setLabel(grip, "ph:dots-six-vertical");
+  grip.title = "Drag to move this block";
+  grip.setAttribute("aria-label", `Move block ${index + 1}`);
+  //: The *handle* is draggable, not the block: a draggable block would
+  //: hijack ordinary text selection inside it, which is the first thing
+  //: anyone does in a paragraph.
+  grip.draggable = true;
+  grip.addEventListener("dragstart", (event) => {
+    docLiveDragFrom = index;
+    event.dataTransfer.effectAllowed = "move";
+    //: Firefox refuses to start a drag with no payload set.
+    event.dataTransfer.setData("text/plain", String(index));
+    row.classList.add("is-dragging");
+  });
+  grip.addEventListener("dragend", () => {
+    docLiveDragFrom = null;
+    for (const el of $("doc-live")?.querySelectorAll(".lp-row") || []) {
+      el.classList.remove("is-dragging", "is-drop-before", "is-drop-after");
+    }
+  });
+
+  const menu = kebabMenu(
+    [
+      { label: "ph:arrow-up Move up", disabled: index === 0, run: () => docMoveLiveBlock(index, -1) },
+      {
+        label: "ph:arrow-down Move down",
+        disabled: index >= total - 1,
+        run: () => docMoveLiveBlock(index, 1),
+      },
+      { label: "ph:copy Duplicate", run: () => docDuplicateLiveBlock(index) },
+      {
+        label: "ph:clipboard-text Copy as markdown",
+        run: () => copyToClipboard(docLiveBlocks($("doc-content").value)[index] || ""),
+      },
+      { label: "ph:plus Insert a block below", run: () => docInsertLiveBlock(index) },
+      { label: "ph:trash Delete this block", danger: true, run: () => docDeleteLiveBlock(index) },
+    ],
+    `Actions for block ${index + 1}`
+  );
+  menu.classList.add("lp-block-menu");
+  gutter.append(grip, menu);
+
+  //: The drop target is the whole row, so a block can be dropped anywhere
+  //: along its height rather than only on its own handle. Above or below is
+  //: decided by which half of the row the pointer is in — the same rule every
+  //: list-reordering UI uses, and the reason the marker has two classes.
+  row.addEventListener("dragover", (event) => {
+    if (docLiveDragFrom === null || docLiveDragFrom === index) return;
+    event.preventDefault();
+    const box = row.getBoundingClientRect();
+    const after = event.clientY > box.top + box.height / 2;
+    row.classList.toggle("is-drop-before", !after);
+    row.classList.toggle("is-drop-after", after);
+  });
+  row.addEventListener("dragleave", () => {
+    row.classList.remove("is-drop-before", "is-drop-after");
+  });
+  row.addEventListener("drop", (event) => {
+    if (docLiveDragFrom === null) return;
+    event.preventDefault();
+    const box = row.getBoundingClientRect();
+    const after = event.clientY > box.top + box.height / 2;
+    docMoveLiveBlockTo(docLiveDragFrom, after ? index + 1 : index);
+    docLiveDragFrom = null;
+  });
+
+  row.append(gutter, block);
+  return row;
+}
+
+//: Which block is being dragged, or null. Module-level because the drag starts
+//: on one row's handle and ends on another row entirely.
+let docLiveDragFrom = null;
+
+//: Every block edit is the same three steps — read the blocks, change the
+//: list, write the document back — so they share one helper. Writing
+//: `doc-content` is what makes autosave, the outline, the word count and the
+//: source view all agree: it is the single source of truth this editor was
+//: built around (see `renderDocLive`).
+function docEditLiveBlocks(change) {
+  const source = $("doc-content");
+  if (!source) return;
+  const blocks = docLiveBlocks(source.value);
+  if (!blocks.length) blocks.push("");
+  const next = change(blocks);
+  if (!next) return;
+  source.value = docLiveText(next);
+  markDocDirty();
+  docLiveActive = -1;
+  renderDocLive();
+}
+
+function docMoveLiveBlock(index, delta) {
+  docEditLiveBlocks((blocks) => {
+    const target = index + delta;
+    if (target < 0 || target >= blocks.length) return null;
+    const [moved] = blocks.splice(index, 1);
+    blocks.splice(target, 0, moved);
+    return blocks;
+  });
+}
+
+//: The drop-target version: `to` is a *gap* index, so dropping below the last
+//: block is `blocks.length`. Removing first shifts every later gap down by
+//: one, which is the off-by-one every drag-reorder implementation meets.
+function docMoveLiveBlockTo(from, to) {
+  docEditLiveBlocks((blocks) => {
+    if (from < 0 || from >= blocks.length) return null;
+    const [moved] = blocks.splice(from, 1);
+    blocks.splice(to > from ? to - 1 : to, 0, moved);
+    return blocks;
+  });
+}
+
+function docDuplicateLiveBlock(index) {
+  docEditLiveBlocks((blocks) => {
+    blocks.splice(index + 1, 0, blocks[index] ?? "");
+    return blocks;
+  });
+}
+
+function docInsertLiveBlock(index) {
+  docEditLiveBlocks((blocks) => {
+    blocks.splice(index + 1, 0, "");
+    return blocks;
+  });
+  //: Straight into the new block: an inserted empty paragraph you then have to
+  //: find and click is not an insert, it is a blank line.
+  focusDocLiveBlock(index + 1, "end");
+}
+
+function docDeleteLiveBlock(index) {
+  const blocks = docLiveBlocks($("doc-content")?.value || "");
+  const removed = blocks[index] ?? "";
+  docEditLiveBlocks((list) => {
+    list.splice(index, 1);
+    return list.length ? list : [""];
+  });
+  //: Undoable, through the app's own stack rather than a toast that times
+  //: out — deleting the wrong paragraph of a long document is exactly the
+  //: mistake that needs to still be reversible a minute later.
+  if (typeof pushUndo === "function") {
+    pushUndo(
+      "Delete a block",
+      () =>
+        docEditLiveBlocks((list) => {
+          list.splice(index, 0, removed);
+          return list;
+        }),
+      () =>
+        docEditLiveBlocks((list) => {
+          list.splice(index, 1);
+          return list.length ? list : [""];
+        })
+    );
+  }
 }
 
 function docLiveEditor(source, index) {

@@ -3061,6 +3061,69 @@ label.setting-check,
   min-height: 1.5rem;
 }
 
+/* **A block and its handle.** The gutter is a fixed lane to the left, so the
+   prose keeps one left edge down the whole document whether a handle is
+   showing or not — a gutter that appears *in flow* would shove every
+   paragraph sideways on hover, which is worse than having no handle. */
+.lp-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  align-items: start;
+}
+
+.lp-gutter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  justify-content: flex-end;
+  padding-top: 0.15rem;
+  padding-right: var(--space-1);
+  /* Hidden until wanted: handles beside every paragraph, always, turn a page
+     of prose into a form. `visibility` rather than `display` so the lane keeps
+     its width and nothing moves when they appear. */
+  visibility: hidden;
+}
+
+.lp-row:hover .lp-gutter,
+.lp-row:focus-within .lp-gutter {
+  visibility: visible;
+}
+
+.lp-grip {
+  cursor: grab;
+}
+
+.lp-grip:active {
+  cursor: grabbing;
+}
+
+.lp-row.is-dragging {
+  opacity: 0.5;
+}
+
+/* Where it would land. A line rather than a moving placeholder: the blocks
+   are rendered markdown of any height, and animating a gap between them is
+   both expensive and less precise than a rule the eye can aim at. */
+.lp-row.is-drop-before::before,
+.lp-row.is-drop-after::after {
+  content: "";
+  position: absolute;
+  left: 3rem;
+  right: 0;
+  height: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+}
+
+.lp-row.is-drop-before::before {
+  top: -1px;
+}
+
+.lp-row.is-drop-after::after {
+  bottom: -1px;
+}
+
 /* The block being edited: raw markdown, monospaced so the syntax reads as
    syntax, and marked with the accent so it is obvious which one is live.
    Height is set from content by JS — a fixed height would clip a long

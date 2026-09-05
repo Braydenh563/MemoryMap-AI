@@ -114,7 +114,43 @@ Ranked by how loudly and how often it was asked for.
    redesign and reimagined interface with more features. they feel very fake
    and just rudimentary, not an actual feature fitting a professional
    application." Look at odysseus (AGPL, may be borrowed with notices).
-2. **An Obsidian-exact editor.** "I want the text editor to be EXACTLY LIKE
+2. **An Obsidian-exact editor. Read this before starting it — the blocker is
+   the substrate, not the menu.**
+
+   Both editing surfaces are plain `<textarea>`s: `#entry-content` (notes) and
+   `#doc-content` (documents), which is also exactly what `EDITOR_SURFACES` in
+   `frontend/editor.js` maps. **A textarea holds plain text in one uniform
+   style. It cannot render a word bold in place, at all, ever.** So the ask —
+   "bold a word, click off it, and the word shows as bolded" — is not a missing
+   feature on top of what exists; it is a different editing substrate.
+
+   That reframes the "/" menu question. The menu is *already built and works*
+   (`editorCommands`, `editorOpenMenu`, `editorRunItem`, callouts, collapsible
+   blocks, link search). What it does is splice **markdown source text** into a
+   textarea. Every command in it is fine and should survive; what has to change
+   underneath is what it splices into.
+
+   The two honest options, and neither is small:
+   - **`contenteditable` with a decoration pass.** The Obsidian model: the
+     document is a DOM tree, markup for the block the caret is in is shown as
+     source, and every other block is rendered. Needs caret tracking, an
+     input/beforeinput handler, undo that does not fight the browser's own, and
+     a serialiser back to markdown. This is where Obsidian's CodeMirror 6 does
+     the heavy lifting; there is no bundler here, so it is either hand-rolled
+     or a pinned vendored build.
+   - **A styled overlay behind a transparent textarea.** Far cheaper and
+     genuinely useful for *colouring* markup, but it cannot collapse markers,
+     cannot fold a block, and cannot put a widget inline — so it does not
+     deliver the report and should not be sold as it.
+
+   Whichever is chosen, the toolbar half is separable and can land first:
+   https://github.com/PKM-er/obsidian-editing-toolbar.git, wanted in
+   *everything*, not just documents.
+
+   **Do not start this by rebuilding the slash menu.** A previous session
+   nearly did.
+
+3. **The original Obsidian item, kept for its detail.** "I want the text editor to be EXACTLY LIKE
    OBSIDIAN" — bold a word, click off it, the word renders bold in place;
    the markup collapses when the caret leaves and returns when it enters.
    Headings, italics, underlines, highlights, all of it.

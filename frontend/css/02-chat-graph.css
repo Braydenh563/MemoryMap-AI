@@ -3864,3 +3864,28 @@ mark.lightbox-hit {
 .msg.assistant .bubble-answer > :first-child {
   margin-top: 0;
 }
+
+/* The conversation's name, which is also the control that renames it. It has
+   to look like a heading first — it is the page's title — and reveal that it
+   is pressable on approach, which is the same rule the note titles follow. */
+.chat-title {
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  padding-inline: var(--space-1);
+  margin-inline-start: calc(var(--space-1) * -1);
+  transition: background var(--motion-fast) ease;
+}
+
+.chat-title:hover,
+.chat-title:focus-visible {
+  background: var(--chip-bg);
+}
+
+/* A hint that this is editable, shown only on approach so a heading is a
+   heading at rest. */
+.chat-title:hover::after {
+  content: "\270E";
+  margin-left: var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}

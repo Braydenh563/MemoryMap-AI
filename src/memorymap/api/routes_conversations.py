@@ -510,6 +510,60 @@ def truncate_conversation(
     return {**_summary(conversation), "removed": removed, "conversation_deleted": False}
 
 
+class ForkBody(BaseModel):
+    """Where to cut the copy. Omitted means the whole conversation."""
+
+    #: The turn to keep *up to and including*. Same indexing `truncate` uses —
+    #: one turn is a user message and its answer, so the message slice is
+    #: `(up_to + 1) * 2`. `None` means "all of it", which is the plain
+    #: duplicate case.
+    up_to: int | None = None
+    title: str | None = Field(default=None, max_length=120)
+
+
+@router.post("/{conversation_id}/fork", status_code=201)
+def fork_conversation(
+    conversation_id: int, body: ForkBody, session: Session = Depends(get_session)
+) -> dict:
+    """Copy a conversation, optionally only as far as one turn.
+
+    Asked for directly: *"ability to fork conversations"*. The need is the one
+    every chat interface eventually grows: a thread reaches a good state and
+    you want to try a different direction **without losing the one you have**.
+    Today the only way is to keep asking and then delete what you did not
+    want, which is destructive and cannot be undone.
+
+    A copy rather than a branch pointer, deliberately. Conversations here are
+    one JSON blob per row (see `Conversation`'s own docstring on why that is
+    the right size for a single-user app), and a real branch would mean
+    turning that into a tree with shared ancestry, a merge story and a
+    migration — an enormous amount of machinery so that two threads can share
+    the bytes of the first three messages. Copying is O(one chat) of disk and
+    behaves exactly as a reader expects: the fork is a normal conversation
+    from the moment it exists, and editing it cannot reach back into its
+    parent.
+    """
+    conversation = _existing(session, conversation_id)
+    messages = json.loads(conversation.messages)
+    if body.up_to is not None:
+        #: `max(0, …)` rather than refusing a negative: a fork with nothing in
+        #: it is a new chat, which is a reasonable thing to have asked for and
+        #: a silly thing to return an error about.
+        messages = messages[: max(0, (body.up_to + 1) * 2)]
+    #: The name says where it came from, because a Library listing two
+    #: identically-named chats is the thing that makes forking unusable.
+    title = (body.title or "").strip() or f"{conversation.title} (fork)"
+    fork = Conversation(
+        title=title[:120],
+        messages=json.dumps(messages),
+        workspace_id=conversation.workspace_id,
+    )
+    session.add(fork)
+    session.commit()
+    log_action(session, "created", "conversation", fork.id)
+    return _summary(fork)
+
+
 class FollowupsBody(BaseModel):
     """The "what to ask next" chips a finished turn produced."""
 

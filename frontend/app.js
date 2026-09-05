@@ -26062,6 +26062,59 @@ $("conv-browse-all").addEventListener("click", () => {
   renderLibrary();
 });
 $("chat-export").addEventListener("click", exportChatMarkdown);
+
+//: **Fork: keep this thread, try another direction.** Asked for directly.
+//: The server copies (`POST /conversations/{id}/fork`) rather than branching —
+//: see that route's docstring for why a tree with shared ancestry is the
+//: wrong size of machinery for one JSON blob per chat.
+//:
+//: Only meaningful once something has been said, so the button hides itself
+//: on an empty pane rather than offering to duplicate nothing.
+$("chat-fork").addEventListener("click", async () => {
+  if (!chatConv || chatConv.id === null) {
+    toast("Nothing to fork yet — ask something first.");
+    return;
+  }
+  try {
+    const fork = await apiJson(`/conversations/${chatConv.id}/fork`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    await loadConversationList();
+    toastAction(`Forked to “${fork.title}”.`, "Open it", () => openConversation(fork.id));
+  } catch (error) {
+    toast(error.message || "Couldn't fork this conversation.", true);
+  }
+});
+
+//: Renaming, where the name is. It used to mean leaving the tab and finding
+//: the chat in the Library — for a property whose whole purpose is helping
+//: you recognise the thread you are currently looking at.
+async function renameCurrentConversation() {
+  if (!chatConv || chatConv.id === null) return;
+  const next = await promptDialog("Rename this conversation:", $("chat-title").textContent);
+  if (!next) return;
+  try {
+    await apiJson(`/conversations/${chatConv.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ title: next }),
+    });
+    $("chat-title").textContent = next;
+    loadConversationList();
+  } catch (error) {
+    toast(error.message || "Couldn't rename this conversation.", true);
+  }
+}
+
+$("chat-title").addEventListener("click", renameCurrentConversation);
+$("chat-title").addEventListener("keydown", (event) => {
+  //: Space and Enter, because this is a `<h2 role="button">` and the browser
+  //: only gives those two keys to a real `<button>` for free.
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    renameCurrentConversation();
+  }
+});
 $("chat-delete").addEventListener("click", deleteCurrentChat);
 $("chat-compress").addEventListener("click", compressChatContext);
 $("chat-compress-apply").addEventListener("click", applyCompression);

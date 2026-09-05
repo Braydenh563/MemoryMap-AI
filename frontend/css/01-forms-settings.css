@@ -3852,3 +3852,25 @@ select {
   background: var(--chip-bg);
   border-radius: var(--radius-md);
 }
+
+/* --- one gap under every card heading ---------------------------------------
+   Reported: "the vertical gap between the top row of elements and the title of
+   each subtab in the notes is a different length, same with the library."
+   Measured across three tabs: 10px under "Most used", 22px under "All notes",
+   and 0 under headings that sit inside a header *row* — because a heading
+   beside its controls correctly zeroes its own margin and hands the spacing to
+   the row, and no two of those rows agreed on what the spacing was.
+
+   So the rule is written for both shapes: a bare `<h2>` that is the card's
+   first child, and a first-child row that contains one. `:has()` is what makes
+   the second half possible to say at all — without it there is no way to
+   distinguish "the row that holds this card's title" from "the first row of
+   its content", and the difference is the whole point.
+
+   `--space-5` because that is what `.card h2` already used: this is a rule
+   about making one value apply everywhere, not about choosing a new one. */
+.card > h2:first-child,
+.card > .row:first-child:has(> h2),
+.card > .row:first-child:has(> h3) {
+  margin-bottom: var(--space-5);
+}

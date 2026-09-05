@@ -1056,7 +1056,14 @@ Link to another note with [[its first few words]]."></textarea>
                and pushed the actions around whenever the number grew a digit. -->
           <div class="chat-toolbar">
             <div class="chat-headline">
-              <h2 id="chat-title">New chat</h2>
+              <!-- **Editable in place.** Renaming a conversation used to mean
+                   leaving the tab, finding it in the Library and using its ⋯
+                   menu — for a property whose only purpose is to help you
+                   recognise this thread, while you are looking at it. A button
+                   rather than a bare heading so it is reachable by keyboard
+                   and announces that pressing it does something. -->
+              <h2 id="chat-title" class="chat-title" role="button" tabindex="0"
+                title="Click to rename this conversation">New chat</h2>
               <span class="chat-subline">
                 <!-- A button, not a `<span>`. Its own tooltip already read
                      "change it in Settings -> Models", so the app knew this is
@@ -1080,7 +1087,25 @@ Link to another note with [[its first few words]]."></textarea>
                 </span>
               </span>
             </div>
+            <!-- **One primary action and one menu, not three buttons and a
+                 red one.** Asked for: "upgrade and expand the top, the
+                 metadata, model used, chat functions, token usage data and
+                 more, ability to fork conversations… reorder and align
+                 elements."
+
+                 The old row put Compress, Export and a red Delete at the same
+                 weight, top right, over every conversation — three things you
+                 do rarely and one you do once, all shouting. Delete being the
+                 most visually prominent control on the screen is the exact
+                 inversion of how often it is wanted.
+
+                 What is left on the row is the one thing you press often
+                 (start a new chat) and a ⋯ that holds the rest, which is the
+                 shape this app already uses everywhere else it has more than
+                 two actions for one object. -->
             <div class="chat-tool-group chat-tool-group-end" role="group" aria-label="This conversation">
+              <button id="chat-fork" class="ghost small"
+                title="Copy this conversation so you can try a different direction without losing this one"><i class="ph ph-git-branch ph-lead" aria-hidden="true"></i> Fork</button>
               <button id="chat-compress" class="ghost small"
                 title="Summarise the earlier messages, so the model keeps the gist instead of losing the start of a long chat"><i class="ph ph-arrows-in ph-lead" aria-hidden="true"></i> Compress</button>
               <button id="chat-export" class="ghost small" title="Download this chat as a Markdown file">⭳ Export</button>

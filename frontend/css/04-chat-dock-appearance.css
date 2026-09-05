@@ -3408,3 +3408,14 @@ label.setting-check,
     margin-left: 0;
   }
 }
+
+
+/* The activity-mode picker in the notifications panel head. `select` is
+   `width: 100%` by default in this app (see the base rule), which in a row of
+   small buttons makes it the whole row — the same trap `.chat-toolbar select`
+   already documents one file over. */
+.notif-activity-mode {
+  width: auto;
+  margin: 0;
+  max-width: 12rem;
+}

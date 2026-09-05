@@ -15224,7 +15224,13 @@ async function loadConversationList() {
         });
         if (!named) return;
         if (chatConv.id === conversation.id) $("chat-title").textContent = named.title;
-        toast(named.ai_named ? `Renamed to “${named.title}”.` : "Used the first question as the title.");
+        //: The AI naming a conversation is activity, not something the user
+        //: did — so it obeys the same "pop up, or only in the centre" choice
+        //: as every other thing the AI does on its own.
+        agentActivityNotice(
+          named.ai_named ? `Renamed to “${named.title}”.` : "Used the first question as the title.",
+          { kind: "run" }
+        );
         loadConversationList();
       })
     );
@@ -22633,6 +22639,19 @@ async function toggleNotificationMute() {
   renderNotificationBadge();
 }
 
+$("notif-activity-mode")?.addEventListener("change", async (event) => {
+  const value = event.currentTarget.value === "centre" ? "centre" : "toasts";
+  try {
+    prefsCache = await apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify({ agent_activity_notices: value }),
+    });
+  } catch (error) {
+    toast(error.message || "Couldn't save that.", true);
+  }
+  renderAgentActivityMode();
+});
+
 //: Which icon a kind gets. Colour alone is never the signal (DESIGN.md), and
 //: these read as a list of *kinds* rather than a list of times.
 const NOTIFICATION_ICONS = {
@@ -22648,6 +22667,7 @@ async function openNotifications() {
   const list = $("notif-list");
   panel.classList.remove("hidden");
   renderNotifMuteToggle();
+  renderAgentActivityMode();
 
   // Fold in anything currently overdue on the server. This is what makes the
   // centre honest about time it was not running for: the event log can only
@@ -22900,6 +22920,37 @@ function startReminderWatch() {
 // activity) is what the toggle actually quiets.
 function notificationsMuted() {
   return Boolean(prefsCache && prefsCache.notifications_muted_except_reminders);
+}
+
+//: **Where the AI's own activity is announced.**
+//:
+//: Asked for directly: *"make an option for agent activity notifications to be
+//: hidden and not show up as toast notifications but somewhere else."* The
+//: somewhere else already existed — the notifications centre records every one
+//: of these — so this is only about whether a toast also flies past the corner
+//: of the screen while you are reading something.
+//:
+//: Deliberately not the existing mute: that one suppresses the *record* as
+//: well, so a muted app forgets what it did. This keeps the history and drops
+//: the interruption, which is what was actually asked for.
+function agentActivityQuiet() {
+  return (prefsCache && prefsCache.agent_activity_notices) === "centre";
+}
+
+//: One call for "the AI did something worth mentioning". Always recorded,
+//: shown as a toast only when the reader wants them. Every background-job and
+//: run notice goes through this rather than `toast` directly — a rule that
+//: only some of them followed would be a setting that half works.
+function agentActivityNotice(message, { isError = false, kind = "task", detail = "", action = null } = {}) {
+  recordNotification({ kind: isError ? "error" : kind, title: message, detail, action });
+  if (agentActivityQuiet()) return;
+  toast(message, isError);
+}
+
+function renderAgentActivityMode() {
+  const select = $("notif-activity-mode");
+  if (!select) return;
+  select.value = agentActivityQuiet() ? "centre" : "toasts";
 }
 
 // Asked for directly: "allow popup notifications to be manually closable
@@ -23872,13 +23923,13 @@ function noticeTaskTransitions(running, history) {
     // that just happened rather than a previous run of the same job.
     const ended = history.find((item) => (item.kind || "job") === (task.kind || "job"));
     if (ended && ended.outcome === "failed") {
-      toast(`Failed: ${ended.label || task.label}`, true);
+      agentActivityNotice(`Failed: ${ended.label || task.label}`, { isError: true });
     } else if (ended && ended.outcome === "cancelled") {
       // Not an error and not an achievement — the user stopped it and already
       // knows. Recorded in the centre by renderTaskHistory; no toast.
       continue;
     } else {
-      toast(`Finished: ${(ended && ended.label) || task.label}`);
+      agentActivityNotice(`Finished: ${(ended && ended.label) || task.label}`);
     }
   }
 }

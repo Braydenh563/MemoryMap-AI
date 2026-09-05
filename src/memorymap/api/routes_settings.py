@@ -256,6 +256,16 @@ class PreferencesBody(BaseModel):
     # background jobs, agent runs and general activity while a due reminder
     # still gets through either way.
     notifications_muted_except_reminders: bool | None = None
+    #: Where the AI's own activity is announced: "toasts" (a passing notice
+    #: *and* a row in the notifications centre, the behaviour this app has
+    #: always had) or "centre" (the row only).
+    #:
+    #: Asked for directly: *"make an option for agent activity notifications to
+    #: be hidden and not show up as toast notifications but somewhere else."*
+    #: Distinct from `notifications_muted_except_reminders`, which is a
+    #: blanket mute that also stops the row being recorded — this is about
+    #: *where* an activity notice lands, not whether it happens.
+    agent_activity_notices: str | None = Field(default=None, pattern="^(toasts|centre)$")
     # Agent tools the user has switched off (by tool name).
     disabled_tools: list[str] | None = Field(default=None, max_length=50)
     # Which faster-whisper model size the dictation buttons load. Read by
@@ -447,6 +457,7 @@ def get_preferences() -> dict:
         "notifications_muted_except_reminders": config.get_preference(
             "notifications_muted_except_reminders", False
         ),
+        "agent_activity_notices": config.get_preference("agent_activity_notices", "toasts"),
         # Same shape of bug as the autonomous-prefs block above, on the same
         # checkbox this session already restyled: PUT /preferences has always
         # accepted show_console_on_startup (PreferencesBody's own field), but

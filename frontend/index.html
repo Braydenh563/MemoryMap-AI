@@ -181,6 +181,20 @@
           <div class="row space-between notif-head">
             <strong>Notifications</strong>
             <span class="row">
+              <!-- **Where the AI's own activity lands.** Asked for directly:
+                   "make an option for agent activity notifications to be
+                   hidden and not show up as toast notifications but somewhere
+                   else." The somewhere else is this panel, which already
+                   records every one of them — the choice is only whether a
+                   toast also flies past. It sits here rather than in Settings
+                   because this is the "somewhere else": the control belongs
+                   beside the place the notices go. -->
+              <label class="visually-hidden" for="notif-activity-mode">Where AI activity is announced</label>
+              <select id="notif-activity-mode" class="ghost small notif-activity-mode"
+                title="Where the AI's own activity is announced">
+                <option value="toasts">Activity: pop up + here</option>
+                <option value="centre">Activity: only here</option>
+              </select>
               <button id="notif-mute-toggle" class="ghost small" aria-pressed="false"
                 title="Mute notifications except reminders"><i class="ph ph-bell-slash ph-lead" aria-hidden="true"></i> Mute</button>
               <button id="notif-clear" class="ghost small">Clear</button>

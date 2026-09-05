@@ -18,7 +18,6 @@ import sys
 import types
 from pathlib import Path
 
-import pytest
 
 from memorymap.core import ocr
 
@@ -157,16 +156,33 @@ def test_an_unreadable_image_never_raises(monkeypatch):
     assert ocr.extract_regions(Path("x.png")) is None
 
 
-@pytest.mark.parametrize("suffix", [".txt", ".pdf"])
-def test_the_route_refuses_anything_that_is_not_an_image(client, suffix):
-    """Same 415 the `/ocr` route already gives — Tesseract cannot open a PDF
-    without a rasterisation step this feature does not pull in."""
-    files = {"file": (f"notes{suffix}", b"hello", "application/octet-stream")}
+def test_the_route_refuses_a_file_with_no_pages_and_no_pixels(client):
+    """A .txt has neither an image Tesseract can read nor a page that can be
+    rasterised, so 415 stands for it.
+
+    A **PDF no longer refuses** — see `test_ocr_pdf_regions.py`. That 415 was
+    the whole of "is the document ocr even working??": the rasterisation step
+    this test's older docstring said the feature "does not pull in" had in fact
+    existed since `core/pdfpages.py` was written for the file viewer, and only
+    the join was missing."""
+    files = {"file": ("notes.txt", b"hello", "application/octet-stream")}
     created = client.post("/entries", json={"content": "host note"}).json()
     upload = client.post(f"/entries/{created['id']}/files", files=files)
     assert upload.status_code == 201, upload.text
     attachment_id = upload.json()["attachments"][-1]["id"]
     assert client.get(f"/files/{attachment_id}/ocr-regions").status_code == 415
+
+
+def test_a_pdf_is_read_page_by_page_rather_than_refused(client):
+    """The document case, at the route rather than the helper: a PDF answers
+    200 with a page count, whatever is or is not installed to read it."""
+    created = client.post("/entries", json={"content": "host note"}).json()
+    files = {"file": ("scan.pdf", b"%PDF-1.4\ntrailer<</Root 1 0 R>>", "application/pdf")}
+    upload = client.post(f"/entries/{created['id']}/files", files=files)
+    attachment_id = upload.json()["attachments"][-1]["id"]
+    response = client.get(f"/files/{attachment_id}/ocr-regions")
+    assert response.status_code == 200, response.text
+    assert "pages" in response.json()
 
 
 def test_the_route_falls_back_to_the_text_it_already_has(client, monkeypatch):

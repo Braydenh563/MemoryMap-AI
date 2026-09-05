@@ -515,12 +515,61 @@
   overflow: hidden auto;
 }
 
+/* **The header is a bar, not a row of leftovers.**
+
+   Reported: *"the chat header still needs to be redesigned better, the whole
+   interface needs to be modern. it feels fake with features and ui elements
+   like buttons just slapped on there with no design thought."*
+
+   Three things produce that reading, and all three are here rather than in the
+   markup: the row had no ground of its own (title and buttons floated over the
+   same surface as the transcript, so nothing said where the conversation
+   began), no mark to make the thread an object, and no separation between the
+   header and the first message. A hairline and a slightly recessed ground fix
+   the first and third; `.chat-thread-mark` fixes the second. */
 .chat-toolbar {
   display: flex;
   align-items: center;
   gap: 0.6rem;
   flex-wrap: wrap;
   margin-bottom: 0.6rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+/* The thread's mark. A rounded square rather than a circle — a circle is this
+   app's avatar shape (both message avatars are circles) and this is not a
+   participant, it is the conversation itself. Sized to the two-line block
+   beside it so the header has one optical height rather than three. */
+.chat-thread-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+/* The ⋯ sits with the two icon buttons, so it has to be the same size as
+   them — `kebabMenu`'s own opener is `.ghost.small.icon-only` already, and
+   this only stops the wrapper from adding a line box around it. */
+.chat-actions-menu {
+  display: inline-flex;
+}
+
+/* Facts in a line read as a sentence unless something separates them. A
+   middle dot between the model, the length and the cost is the same
+   separator the sidebar's own "21 min ago · 1 turn" line uses, so the two
+   readings of "how big is this thread" are drawn the same way. */
+.chat-subline > *+*::before {
+  content: "·";
+  margin-right: var(--space-3);
+  color: var(--border);
 }
 
 /* Title and its metadata are one block, so the actions align to the pair

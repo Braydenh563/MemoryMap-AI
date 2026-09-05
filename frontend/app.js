@@ -6348,7 +6348,7 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
           a.href = linkUrl;
           if (/^https?:\/\//i.test(linkUrl)) {
             a.target = "_blank";
-            a.rel = "noopener";
+            a.rel = "noopener noreferrer";
           }
           highlightInto(a, linkText, terms);
           element.appendChild(a);
@@ -6364,7 +6364,7 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
         const a = document.createElement("a");
         a.href = bareUrl;
         a.target = "_blank";
-        a.rel = "noopener";
+        a.rel = "noopener noreferrer";
         highlightInto(a, bareUrl, terms);
         element.appendChild(a);
       } else {
@@ -10307,6 +10307,76 @@ function renderChatUsage(tokens) {
   const total = Number(tokens) || 0;
   el.hidden = total === 0;
   el.textContent = total ? `${formatTokens(total)} tokens` : "";
+  renderChatTurnCount();
+}
+
+//: How long the thread is, beside what it has cost. Asked for with the header
+//: redesign ("the metadata, model used, chat functions, token usage data and
+//: more"), and it is the fact the two controls next to it are actually about:
+//: Compress and Fork are both answers to "this conversation has got long", and
+//: a token count alone does not say that in a unit anyone thinks in.
+function renderChatTurnCount() {
+  const el = $("chat-turns");
+  if (!el) return;
+  const turns = (chatConv && chatConv.turns && chatConv.turns.length) || 0;
+  el.hidden = turns === 0;
+  el.textContent = turns === 1 ? "1 exchange" : `${turns} exchanges`;
+}
+
+//: **The ⋯ that holds everything you do to a whole conversation.**
+//:
+//: Reported: the header "feels fake, with features and ui elements like
+//: buttons just slapped on there with no design thought". Four ghost buttons
+//: of equal weight — one of them a red Delete — sat opposite the title on
+//: every conversation, so the most destructive action in the tab was also one
+//: of its most prominent controls, and the row read as a pile rather than as
+//: a header.
+//:
+//: The rows *click the original buttons*, which is the pattern the Library's
+//: own kebab already uses (library.js): every handler, confirm dialog and
+//: disabled state stays exactly where it was, and this file learns nothing new
+//: about what Export or Delete actually do.
+function mountChatActionsMenu() {
+  const host = $("chat-actions-menu");
+  if (!host || host.childElementCount) return;
+  const click = (id) => () => $(id)?.click();
+  host.appendChild(
+    kebabMenu(
+      [
+        { label: "ph:pencil-simple Rename this chat", run: () => renameCurrentConversation() },
+        { label: "ph:git-branch Fork this chat", title: $("chat-fork")?.title, run: click("chat-fork") },
+        {
+          label: "ph:arrows-in Compress the earlier messages",
+          title: $("chat-compress")?.title,
+          run: click("chat-compress"),
+        },
+        { label: "ph:download-simple Export as Markdown", run: click("chat-export") },
+        {
+          label: "ph:copy Copy the whole transcript",
+          run: async () => {
+            const text = chatTranscriptText();
+            if (!text) return toast("There is nothing to copy yet.");
+            copyToClipboard(text);
+          },
+        },
+        { label: "ph:trash Delete this chat", danger: true, run: click("chat-delete") },
+      ],
+      "More actions for this conversation"
+    )
+  );
+}
+
+//: The transcript as text — the thing a person actually wants when they say
+//: "copy this chat", and previously only reachable by exporting a file.
+function chatTranscriptText() {
+  const parts = [];
+  for (const msg of $("chat-messages")?.querySelectorAll(".msg") || []) {
+    const who = msg.classList.contains("user") ? "You" : assistantLabel();
+    const body = msg.querySelector(".msg-body, .bubble-answer");
+    const text = (body?.innerText || "").trim();
+    if (text) parts.push(`**${who}:** ${text}`);
+  }
+  return parts.join("\n\n");
 }
 
 // --- compressing this conversation's context (§35I) --------------------------
@@ -10571,8 +10641,19 @@ function progressLine(initial = "Thinking…") {
   let at = Math.floor(Math.random() * PROGRESS_MUSINGS.length);
   const showMusing = () => {
     if (!wrap.isConnected) return;
+    //: **They cross-fade rather than cutting.** Reported: *"the thinking
+    //: bubble animation and generating messages that alternate can be better
+    //: designed."* One sentence being replaced by another between two frames
+    //: reads as a glitch — the eye catches the change without reading the
+    //: line. Removing the class, forcing a reflow and adding it back is what
+    //: restarts a CSS transition on an element that is already on screen;
+    //: without the reflow the browser coalesces both writes and nothing
+    //: animates at all.
+    musing.classList.remove("is-shown");
+    void musing.offsetWidth;
     musing.textContent = PROGRESS_MUSINGS[at % PROGRESS_MUSINGS.length];
     musing.hidden = false;
+    musing.classList.add("is-shown");
     at += 1;
   };
   //: Both timers stop themselves once the node is gone — the caller removes
@@ -10589,9 +10670,16 @@ function progressLine(initial = "Thinking…") {
 
   wrap.setStatus = (next) => {
     if (!next || next === label.textContent) return;
+    //: The status changes far more often than the musing does — a tool
+    //: finishing, prose starting — so it gets the same treatment for the same
+    //: reason, one step quieter.
+    label.classList.remove("is-shown");
+    void label.offsetWidth;
     label.textContent = next;
+    label.classList.add("is-shown");
     indicator.setStatus?.(next);
   };
+  label.classList.add("is-shown");
   return wrap;
 }
 
@@ -11135,7 +11223,17 @@ function agentTimeline(holder) {
     },
     // The box to put a message into when the model produced nothing at all.
     ensureAnswerBox() {
-      return (answerSteps.at(-1) || startAnswer()).body;
+      const step = answerSteps.at(-1) || startAnswer();
+      //: **Whatever goes in here is already finished.**
+      //:
+      //: Reported: *"the blinker animation still shows at the end of finished
+      //: responses"* — with a screenshot of the caret blinking after "The
+      //: model finished without writing anything." That message is written by
+      //: the app, after `finalise()` has already run, and `startAnswer` builds
+      //: its node in the live, mid-stream state: a caret on a sentence that
+      //: was never streaming and no later pass to take it down.
+      step.el.classList.remove("is-streaming", "is-generating");
+      return step.body;
     },
     // Editing an answer replaces the model's prose with the user's own, so the
     // separate prose steps collapse into the one block they typed. The
@@ -11184,6 +11282,14 @@ function agentTimeline(holder) {
         } else if (node.classList.contains("step-answer")) {
           const step = answerSteps.find((s) => s.el === node);
           if (step?.raw) out.push({ kind: "answer", text: step.raw });
+        } else if (node.toolStep) {
+          //: **Anything that carried its own saved form is saved**, whatever
+          //: it is drawn as. The class checks below only know the shapes that
+          //: existed when they were written, and a card added later — a
+          //: confirmation, a proposal, a question — was silently dropped from
+          //: the saved turn, which is one half of "a lot of the steps and
+          //: agent process disappears when I come back to it".
+          out.push(node.toolStep);
         } else if (node.classList.contains("tool-chip") || node.classList.contains("tool-chip-wrap")) {
           //: `.tool-chip-wrap` has to be matched as well as `.tool-chip`:
           //: `classList.contains` is an exact token match, so once a row that
@@ -11749,31 +11855,101 @@ const SOURCE_TOOLS = {
 function chatSourcesFrom({ meta, toolEvents, touched }) {
   const seen = new Set();
   const sources = [];
-  const add = (kind, id, label, open) => {
-    const key = `${kind}:${id}`;
-    if (!label || seen.has(key)) return;
+  const add = (source) => {
+    const key = `${source.kind}:${source.id}`;
+    if (!source.label || seen.has(key)) return;
     seen.add(key);
-    sources.push({ kind, id, label, open });
+    sources.push(source);
+  };
+  //: One line of the note itself, so a card says what it *is* rather than
+  //: only what it is called. Asked for: "dropdown previews".
+  const preview = (text) => {
+    const flat = String(text || "").replace(/\s+/g, " ").trim();
+    return flat.length > 180 ? `${flat.slice(0, 180)}…` : flat;
   };
   for (const entry of meta?.raw_results || []) {
-    add("note", entry.id, noteLabel(entry, 60), () => flashEntry(entry.id));
+    const label = noteLabel(entry, 60);
+    //: A note has no title, so its label *is* its opening words — which means
+    //: the preview has to start where the label stopped, or the card prints
+    //: the same sentence twice (measured: it did).
+    const flat = String(entry.content || "").replace(/\s+/g, " ").trim();
+    const rest = flat.startsWith(label.replace(/…$/, "")) ? flat.slice(label.replace(/…$/, "").length) : flat;
+    add({
+      kind: "note",
+      id: entry.id,
+      label,
+      snippet: preview(rest),
+      open: () => flashEntry(entry.id),
+    });
   }
   for (const item of touched || []) {
     const opener = TOUCHED_KINDS[item.kind] || TOUCHED_KINDS.note;
-    add(item.kind === "document" ? "document" : "note", item.id, item.label, () => opener.open(item.id));
+    add({
+      kind: item.kind === "document" ? "document" : "note",
+      id: item.id,
+      label: item.label,
+      snippet: "",
+      open: () => opener.open(item.id),
+    });
   }
   for (const event of toolEvents || []) {
     const kind = SOURCE_TOOLS[event?.tool || event?.name];
     if (!kind || event.ok === false) continue;
-    //: The label a tool wrote for its own row, minus the icon token — it
-    //: already says which file or page this was, and re-deriving it from the
-    //: bounded result would be a second, worse answer to the same question.
+    //: **The real rows, when the backend sent them.** `event.sources`
+    //: (agent.py's `_tool_sources`) carries a title, an address and a line of
+    //: the page for every result a read tool actually consulted — which is
+    //: what a card, a preview and a working link all need and what the prose
+    //: label alone could never provide.
+    const rows = Array.isArray(event.sources) ? event.sources : [];
+    if (rows.length) {
+      for (const row of rows) {
+        add({
+          kind,
+          id: row.url || `${event.tool}-${row.title}`,
+          label: row.title || row.url,
+          snippet: preview(row.snippet),
+          url: row.url || "",
+        });
+      }
+      continue;
+    }
+    //: The fallback for a tool that named no rows: its own label, minus the
+    //: icon token. Still better than dropping the source entirely — it says
+    //: the answer read *something* outside the notebook.
     const label = String(event.label || "").replace(/^ph:[\w-]+\s*/, "");
-    add(kind, `${event.tool || event.name}-${sources.length}`, label, null);
+    add({ kind, id: `${event.tool || event.name}-${sources.length}`, label, snippet: "" });
   }
   return sources;
 }
 
+//: The address a card shows under its title — the host, not the whole URL.
+//: "arxiv.org" is what tells a reader whether to trust a source; the path is
+//: forty characters saying the same thing less legibly.
+function sourceHost(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+//: **The Sources panel — cards, previews and real links.**
+//:
+//: Reported twice: *"improve the ui of the sources as well in the chat"* and
+//: then, specifically, *"ui and usability, what is shown about the sources,
+//: dropdown previews, hyperlinks etc."*
+//:
+//: It was a list of one-line strings: no preview, no address, and — for
+//: anything off the web — nothing clickable at all, because the tool events
+//: never carried a URL to click (fixed in agent.py's `_tool_sources`). What a
+//: reader wants from this panel is the same three things every search result
+//: in the world shows: what it is, where it came from, and enough of it to
+//: judge whether to open it.
+//:
+//: Numbered, because the numbers are what make a citation mean something: a
+//: card is "[3] arxiv.org", so an answer that says "[3]" has somewhere to
+//: point. A web card is a real `<a href>` — middle-click, copy link address
+//: and open-in-new-tab all work, which no button can offer.
 function chatSourcesPanel(input) {
   const sources = chatSourcesFrom(input);
   if (!sources.length) return null;
@@ -11791,34 +11967,62 @@ function chatSourcesPanel(input) {
   const mode = input.meta?.search_mode;
   const how = mode && mode !== "none" ? ` · ${SEARCH_MODE_LABELS[mode] || mode}` : "";
   setLabel(summary, `ph:books Sources — ${counts.join(" · ")}${how}`);
-  summary.title = "What this answer drew on";
+  summary.title = "What this answer drew on — click to see each source";
   details.appendChild(summary);
 
   const body = document.createElement("div");
   body.className = "chat-sources-body";
-  for (const group of CHAT_SOURCE_GROUPS) {
-    const rows = sources.filter((s) => s.kind === group.key);
-    if (!rows.length) continue;
-    const heading = document.createElement("p");
-    heading.className = "chat-sources-group muted";
-    setLabel(heading, `${group.icon} ${rows.length === 1 ? group.one : group.many}`);
-    body.appendChild(heading);
-    for (const source of rows) {
-      //: A row that can be opened is a button; one that cannot is a plain
-      //: line. Drawing both the same way is the affordance mistake this app
-      //: has been told about before — a control that does nothing when
-      //: pressed is worse than no control.
-      const row = document.createElement(source.open ? "button" : "div");
-      row.className = `chat-source-row${source.open ? " is-openable" : ""}`;
-      if (source.open) {
-        row.type = "button";
-        row.title = "Open this";
-        row.addEventListener("click", source.open);
-      }
-      row.textContent = source.label;
-      body.appendChild(row);
+  const grid = document.createElement("div");
+  grid.className = "chat-sources-grid";
+  const icons = Object.fromEntries(CHAT_SOURCE_GROUPS.map((g) => [g.key, g.icon]));
+  sources.forEach((source, index) => {
+    //: Three shapes, one card. A web source is an anchor, a local one that
+    //: can be opened is a button, and one that can be neither is a plain
+    //: block — because a control that does nothing when pressed is worse
+    //: than no control, which this app has been told before.
+    let card;
+    if (source.url) {
+      card = document.createElement("a");
+      card.href = source.url;
+      card.target = "_blank";
+      //: `noopener` is not optional on a target=_blank link to a page this
+      //: app did not write: without it the opened page gets a handle on this
+      //: window and can navigate it.
+      card.rel = "noopener noreferrer";
+      card.title = source.url;
+    } else if (source.open) {
+      card = document.createElement("button");
+      card.type = "button";
+      card.title = "Open this";
+      card.addEventListener("click", source.open);
+    } else {
+      card = document.createElement("div");
     }
-  }
+    card.className = `chat-source-card${source.url || source.open ? " is-openable" : ""}`;
+    const head = document.createElement("span");
+    head.className = "chat-source-head";
+    const number = document.createElement("span");
+    number.className = "chat-source-index";
+    number.textContent = String(index + 1);
+    const title = document.createElement("span");
+    title.className = "chat-source-title";
+    setLabel(title, `${icons[source.kind] || "ph:note"} ${source.label}`);
+    head.append(number, title);
+    card.appendChild(head);
+    if (source.snippet) {
+      const snippet = document.createElement("p");
+      snippet.className = "chat-source-snippet";
+      snippet.textContent = source.snippet;
+      card.appendChild(snippet);
+    }
+    const foot = document.createElement("span");
+    foot.className = "chat-source-foot muted";
+    const group = CHAT_SOURCE_GROUPS.find((g) => g.key === source.kind);
+    foot.textContent = source.url ? sourceHost(source.url) || "the web" : group?.one || source.kind;
+    card.appendChild(foot);
+    grid.appendChild(card);
+  });
+  body.appendChild(grid);
   details.appendChild(body);
   return details;
 }
@@ -13017,6 +13221,22 @@ async function sendChatMessage(preset, opts = {}) {
   let turnEnded = false;
   const clearPending = () => {
     if (turnEnded) return;
+    //: **Only when it is not already last**, and that guard is a bug fix, not
+    //: a micro-optimisation.
+    //:
+    //: Reported: *"while generating the output, the 3 dot animation speeds up
+    //: and freezes."* `onAnswer` calls this on **every streamed delta** — tens
+    //: of times a second — and `appendChild` on a node that is already the
+    //: last child still *removes and re-inserts* it. Blink restarts every CSS
+    //: animation in a re-inserted subtree, so the three dots were being reset
+    //: to frame zero on every token: they never got far enough through their
+    //: 1.4s cycle to look like a cycle, which reads as a stutter that speeds
+    //: up with the token rate and stalls whenever the stream pauses.
+    //:
+    //: Nothing else changes: the node still trails the steps, because the
+    //: only case that actually needs a move is a *new* step having been
+    //: appended after it.
+    if (stepsHolder.lastElementChild === pending) return;
     stepsHolder.appendChild(pending);
   };
   // Every string this is given comes from an event that really happened —
@@ -13318,9 +13538,21 @@ async function sendChatMessage(preset, opts = {}) {
       },
       onAsk: (event) => {
         clearPending();
+        //: **The question is output, not a step.**
+        //:
+        //: Reported: *"the question the agent asked me appeared in the step
+        //: and not the actual output."* A step group folds itself shut into
+        //: "Finished 1 step" the moment prose starts (`startAnswer`), so a
+        //: question filed there is a question that disappears while it is
+        //: still waiting to be answered — and the answer box underneath then
+        //: says the model wrote nothing, which is the screenshot.
+        //:
+        //: `recordsHolder` is the bubble's own output area, under the steps
+        //: and above the sources — where everything else the turn is waiting
+        //: on (a confirmation, a memory proposal's outcome) already lands.
         const card = document.createElement("div");
         renderAgentQuestion(card, event);
-        timeline.tool(card.firstElementChild || card);
+        recordsHolder.appendChild(card.firstElementChild || card);
         status.textContent = "Waiting for your answer…";
         chatAwaitingAgentAnswer = true;
       },
@@ -15154,10 +15386,30 @@ async function openConversation(id) {
           })
         );
       }
-      // Same fix as the metadata line just above, for the "N matching
-      // notes" disclosure: reported as search results "disappearing" on
-      // every reload, since this reconstruction never rebuilt it at all.
-      if (message.raw_results) {
+      //: **The Sources panel is rebuilt, not the thing it replaced.**
+      //:
+      //: Reported: *"a lot of the steps and agent process disappears when I
+      //: leave the chat session and come back to it."* A live turn ends with
+      //: the Sources panel — notes, files and web pages, with previews and
+      //: links — and this path rebuilt the old "N matching notes" disclosure
+      //: instead, which knows nothing about files or the web. So reopening a
+      //: conversation genuinely lost most of what the turn had consulted, and
+      //: what survived was drawn as a different control.
+      //:
+      //: `touched` comes back off the saved tool events, which have carried it
+      //: since the live action line was built — the same rows, from the same
+      //: place, so a reopened panel is the panel and not an approximation.
+      const savedSources = chatSourcesPanel({
+        meta: {
+          raw_results: message.raw_results || [],
+          search_mode: message.search_mode,
+        },
+        toolEvents: message.tools || [],
+        touched: (message.tools || []).flatMap((t) => t.touched || []),
+      });
+      if (savedSources) {
+        handles.recordsHolder.appendChild(savedSources);
+      } else if (message.raw_results) {
         renderRecordsDetails(handles.recordsHolder, {
           raw_results: message.raw_results,
           search_mode: message.search_mode,
@@ -19704,18 +19956,44 @@ function initScrollTopButton() {
   button.setAttribute("aria-label", "Back to top");
   button.addEventListener("click", () => {
     const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    scrollTopTargetEl()?.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" });
+    const target = scrollTopTargetEl();
+    //: **In a chat, the thing you have scrolled away from is the bottom.**
+    //: Reported: *"the back to top button in the chat should be a back to
+    //: bottom instead."* A transcript is written downwards and the newest
+    //: message — the one being streamed — is the last one; sending a reader
+    //: to the top sends them to the oldest question in the thread, which is
+    //: the one place nobody scrolled up to look for.
+    const toBottom = button.dataset.mode === "bottom";
+    target?.scrollTo({
+      top: toBottom ? target.scrollHeight : 0,
+      behavior: smooth ? "smooth" : "auto",
+    });
     // Send focus somewhere sensible rather than leaving it on a button that
     // is about to hide itself.
-    document.querySelector(".tab-page:not(.hidden)")?.focus();
+    if (toBottom) $("chat-input")?.focus();
+    else document.querySelector(".tab-page:not(.hidden)")?.focus();
   });
   document.body.appendChild(button);
 
   const update = () => {
     const tab = localStorage.getItem("activeTab") || "dashboard";
-    const scrollTop = scrollTopTargetEl()?.scrollTop || 0;
-    const show = scrollTop > 400 && !NO_SCROLL_TOP_TABS.has(tab);
-    button.classList.toggle("visible", show);
+    const target = scrollTopTargetEl();
+    const scrollTop = target?.scrollTop || 0;
+    //: Chat flips the button over: it appears when you have scrolled *up*
+    //: away from the newest message, and it takes you back down. 200px rather
+    //: than 400 because a chat pane is shorter than a page and one message
+    //: scrolled past is already enough to lose the live one.
+    const chat = tab === "chat";
+    const fromBottom = target ? target.scrollHeight - target.clientHeight - scrollTop : 0;
+    const show = chat
+      ? fromBottom > 200
+      : scrollTop > 400 && !NO_SCROLL_TOP_TABS.has(tab);
+    button.dataset.mode = chat ? "bottom" : "top";
+    button.textContent = chat ? "↓" : "↑";
+    const label = chat ? "Jump to the newest message" : "Back to top";
+    button.title = label;
+    button.setAttribute("aria-label", label);
+    button.classList.toggle("visible", show && !NO_SCROLL_TOP_TABS.has(tab));
     positionScrollTopForNested(button, tab);
   };
   // Capture, because scroll events do not bubble: the listener has to see them
@@ -26250,6 +26528,10 @@ async function renameCurrentConversation() {
     toast(error.message || "Couldn't rename this conversation.", true);
   }
 }
+
+//: Built once, at boot — the header's ⋯ is the same for every conversation,
+//: unlike a note card's, which is rebuilt per row.
+mountChatActionsMenu();
 
 $("chat-title").addEventListener("click", renameCurrentConversation);
 $("chat-title").addEventListener("keydown", (event) => {

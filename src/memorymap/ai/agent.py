@@ -575,6 +575,83 @@ def _touched_items(result: dict) -> list[dict]:
     return rows
 
 
+#: How many web/file sources one tool call may contribute to the answer's
+#: Sources panel. Five is what `web_search` itself asks the engine for.
+SOURCE_LIMIT = 8
+
+#: How much of a result's own text stands in as a preview. Long enough to tell
+#: whether the source is the one you want, short enough that eight of them do
+#: not become a second answer under the answer.
+SOURCE_SNIPPET_CHARS = 220
+
+
+def _tool_sources(name: str, result: dict) -> list[dict]:
+    """The pages and files one read-only call actually consulted, as
+    ``{title, url, snippet}`` rows for the chat's Sources panel.
+
+    Reported: *"improve the ui of the sources… what is shown about the
+    sources, dropdown previews, hyperlinks etc."* The panel could not show any
+    of that, because none of it was ever sent: a tool event carried a prose
+    label and a bounded `result_summary` blob, so the front end had a sentence
+    where it needed a title, an address and a line of the page.
+
+    Read-only tools only. A write tool's result is a change, and changes are
+    already carried by `change`/`touched` — a source is something the answer
+    *drew on*.
+    """
+    if not isinstance(result, dict) or "error" in result:
+        return []
+    rows: list[dict] = []
+
+    def _clip_text(value: object) -> str:
+        text = " ".join(str(value or "").split())
+        return text[:SOURCE_SNIPPET_CHARS]
+
+    if name == "web_search":
+        for hit in (result.get("results") or [])[:SOURCE_LIMIT]:
+            if not isinstance(hit, dict):
+                continue
+            rows.append(
+                {
+                    "title": _clip_text(hit.get("title")) or str(hit.get("url") or ""),
+                    "url": str(hit.get("url") or ""),
+                    "snippet": _clip_text(hit.get("snippet")),
+                }
+            )
+    elif name == "read_url":
+        rows.append(
+            {
+                "title": _clip_text(result.get("title")) or str(result.get("url") or ""),
+                "url": str(result.get("url") or ""),
+                "snippet": _clip_text(result.get("text")),
+            }
+        )
+    elif name in {"read_file", "search_files"}:
+        matches = result.get("matches") or result.get("results") or []
+        if isinstance(matches, list) and matches:
+            for hit in matches[:SOURCE_LIMIT]:
+                if not isinstance(hit, dict):
+                    continue
+                rows.append(
+                    {
+                        "title": _clip_text(hit.get("path") or hit.get("name")),
+                        "url": "",
+                        "snippet": _clip_text(hit.get("snippet") or hit.get("text")),
+                    }
+                )
+        elif result.get("path") or result.get("name"):
+            rows.append(
+                {
+                    "title": _clip_text(result.get("path") or result.get("name")),
+                    "url": "",
+                    "snippet": _clip_text(result.get("text") or result.get("content")),
+                }
+            )
+    #: A row with nothing to say is not a source. Dropping it here keeps the
+    #: "is there anything to show" test in the front end a length check.
+    return [row for row in rows if row["title"] or row["url"]]
+
+
 MAX_TOOL_FAILURES = 3
 
 # How many confirm cards one destructive tool may put in front of the user in
@@ -1663,10 +1740,21 @@ def run_agent(
                     }
                 event = {
                     "type": "tool",
+                    #: **The tool's own name.** The front end has always tried
+                    #: to read it (`SOURCE_TOOLS[event.tool || event.name]`,
+                    #: app.js) and it was never sent, so every web page and
+                    #: every file this app read was silently missing from the
+                    #: answer's Sources panel — a feature that could not have
+                    #: worked once.
+                    "tool": name,
                     "label": result.get("label") or name,
                     "ok": "error" not in result,
                     "error": result.get("error"),
                     "arguments": arguments,
+                    #: Titles, addresses and one line each of what was read —
+                    #: see `_tool_sources`. This is what the Sources panel
+                    #: draws its cards, previews and links from.
+                    "sources": _tool_sources(name, result),
                     # UI display only — the version fed back to the model as
                     # conversation context is `payload` below, with its own
                     # separate, real token budget (`result_cap`). This is just

@@ -1055,6 +1055,15 @@ Link to another note with [[its first few words]]."></textarea>
                between the title and the buttons, which read as a third button
                and pushed the actions around whenever the number grew a digit. -->
           <div class="chat-toolbar">
+            <!-- **The thread has a face.** Reported: the header "feels fake,
+                 with features and ui elements like buttons just slapped on
+                 there with no design thought". Half of that is this: a bare
+                 string of text with four ghost buttons floating opposite it
+                 is not a header, it is a row of leftovers. Every chat client
+                 the user has open marks the conversation with something —
+                 Gemini, Perplexity, Odysseus all do — because it is what turns
+                 a line of text into an object you are inside of. -->
+            <span class="chat-thread-mark" aria-hidden="true"><i class="ph ph-chats-circle"></i></span>
             <div class="chat-headline">
               <!-- **Editable in place.** Renaming a conversation used to mean
                    leaving the tab, finding it in the Library and using its ⋯
@@ -1075,6 +1084,14 @@ Link to another note with [[its first few words]]."></textarea>
                      one: two controls for one setting is how they drift. -->
                 <button type="button" id="chat-active-model" class="chat-usage chat-model-button" hidden
                   title="The model currently answering in this chat — click to change it"></button>
+                <!-- How long this thread is, beside what it has cost. Asked
+                     for: "upgrade and expand the top, the metadata, model
+                     used, chat functions, token usage data and more". Turns
+                     are the fact people actually reason about when deciding
+                     whether to compress or fork; the token count says how
+                     heavy it has become, and neither means much alone. -->
+                <span id="chat-turns" class="chat-usage" hidden
+                  title="How many exchanges are in this conversation"></span>
                 <span id="chat-usage" class="chat-usage" hidden
                   title="Everything this conversation has sent to the model so far"></span>
                 <!-- Shown only once a summary is in use, because a compression
@@ -1103,12 +1120,34 @@ Link to another note with [[its first few words]]."></textarea>
                  (start a new chat) and a ⋯ that holds the rest, which is the
                  shape this app already uses everywhere else it has more than
                  two actions for one object. -->
+            <!-- **Two shortcuts and a menu, at last.** The comment above has
+                 argued for this shape since the header was built, and the row
+                 underneath it still held four buttons of equal weight with a
+                 red one on the end — which is what "slapped on with no design
+                 thought" is describing.
+
+                 Fork and Compress stay on the row because they are the two
+                 that answer a question you have *while reading* this thread
+                 (try another direction; it is getting long). They are icons
+                 with tooltips rather than icon+label pairs, so the row is a
+                 pair of controls rather than a paragraph of button text
+                 competing with the title beside it. Everything else — rename,
+                 export, copy, delete — is behind the same ⋯ this app uses for
+                 "more actions on this object" everywhere else.
+
+                 `#chat-export` and `#chat-delete` keep their ids and their
+                 handlers and simply stop being visible: the menu rows click
+                 them, which is the pattern the Library's own kebab already
+                 uses. Nothing in app.js has to know this happened. -->
             <div class="chat-tool-group chat-tool-group-end" role="group" aria-label="This conversation">
-              <button id="chat-fork" class="ghost small"
-                title="Copy this conversation so you can try a different direction without losing this one"><i class="ph ph-git-branch ph-lead" aria-hidden="true"></i> Fork</button>
-              <button id="chat-compress" class="ghost small"
-                title="Summarise the earlier messages, so the model keeps the gist instead of losing the start of a long chat"><i class="ph ph-arrows-in ph-lead" aria-hidden="true"></i> Compress</button>
-              <button id="chat-export" class="ghost small" title="Download this chat as a Markdown file">⭳ Export</button>
+              <button id="chat-fork" class="ghost small icon-only"
+                aria-label="Fork this conversation"
+                title="Fork — copy this conversation so you can try a different direction without losing this one"><i class="ph ph-git-branch" aria-hidden="true"></i></button>
+              <button id="chat-compress" class="ghost small icon-only"
+                aria-label="Compress the earlier messages"
+                title="Compress — summarise the earlier messages, so the model keeps the gist instead of losing the start of a long chat"><i class="ph ph-arrows-in" aria-hidden="true"></i></button>
+              <span id="chat-actions-menu" class="chat-actions-menu"></span>
+              <button id="chat-export" class="ghost small visually-hidden" tabindex="-1" title="Download this chat as a Markdown file">⭳ Export</button>
               <!-- The saved-chat list has its own Delete, and deleting a
                    conversation's last turn deletes the conversation with it —
                    but the chat you're looking at right now, including a
@@ -1117,7 +1156,7 @@ Link to another note with [[its first few words]]."></textarea>
                    covers both: a fresh, empty pane resets silently (nothing
                    was ever saved to lose), and a saved one asks first, same
                    as the sidebar's Delete does. -->
-              <button id="chat-delete" class="ghost small danger" title="Delete this conversation"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
+              <button id="chat-delete" class="ghost small danger visually-hidden" tabindex="-1" title="Delete this conversation"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
             </div>
           </div>
           <!-- The summary, before it is used. Editable on purpose: this is

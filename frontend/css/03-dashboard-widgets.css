@@ -1792,15 +1792,23 @@
 /* The user's own mark. The app's accent in the app's own pill shape, sized
    to the emblem opposite it — a glyph, not a photo: this app has no accounts
    and never asks who you are. */
+/* **The user's own mark — and it has to be visible on an accent bubble.**
+   Reported: *"I cant see the user profile icon."* It was `--accent-soft` on
+   `--accent`: a tint of the accent drawn on the accent itself, which is a
+   ~1.1:1 contrast ratio and reads as a slightly different patch of purple.
+   The bubble is a coloured surface, so the mark is drawn the way everything
+   else on a coloured surface in this app is — white, on a white veil, with a
+   white hairline — rather than in the accent it is sitting on. */
 .msg-avatar-user {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.5rem;
+  height: 1.5rem;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: 0.8rem;
+  background: rgb(255 255 255 / 24%);
+  border: 1px solid rgb(255 255 255 / 55%);
+  color: #fff;
+  font-size: 0.85rem;
   line-height: 1;
 }
 

@@ -3270,10 +3270,19 @@ html.modal-open body {
 /* The animated indicator and the sentence that says what it is doing, on one
    baseline. See `progressLine` (app.js): the label is what carries the
    signal when the OS has asked for reduced motion and the dots are gone. */
+/* **Two rows, not one line that happens to wrap.** The musing belongs *under*
+   the status, indented to the status's own column — a second sentence beside
+   the first reads as one long run-on, which is what it did (measured: the two
+   sat side by side, because an `inline-flex` box is shrink-to-fit and a
+   `flex-basis: 100%` child of a shrink-to-fit box never gets its own line).
+   A two-column grid places the indicator once, on the left, spanning nothing:
+   status top-right, musing bottom-right, both starting at the same x. */
 .progress-line {
-  display: inline-flex;
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: var(--space-3);
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
   min-width: 0;
 }
 
@@ -3922,14 +3931,55 @@ select {
    something that is always true about the app. See PROGRESS_MUSINGS in
    app.js for why these are facts rather than flavour text. */
 .progress-musing {
-  flex-basis: 100%;
-  margin-top: var(--space-1);
+  margin-top: 0;
   color: var(--muted);
   font-size: var(--text-sm);
-  opacity: 0.85;
+  /* Each line arrives, rather than replacing the last one between two frames
+     — see `showMusing` (app.js) for why a cut reads as a glitch. It starts
+     from the transition's own "before" state (`opacity: 0`, nudged down) and
+     `.is-shown` is what the class swap turns on. */
+  opacity: 0;
+  transform: translateY(2px);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+  /* Long enough for a sentence, short enough that it never becomes a
+     paragraph competing with the answer it sits above. */
+  max-width: 46ch;
 }
 
-/* The progress row wraps so the musing can take a line of its own. */
-.progress-line {
-  flex-wrap: wrap;
+.progress-musing.is-shown {
+  opacity: 0.85;
+  transform: none;
+}
+
+/* The status itself changes several times a turn (a tool finishing, prose
+   starting), so it fades too — faster, because it is the line you are
+   actually watching. */
+.progress-line-label {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.progress-line-label.is-shown {
+  opacity: 1;
+}
+
+/* Motion off means no fade either: a value that changes is information, but a
+   fade is a gesture. Both lines simply appear. */
+@media (prefers-reduced-motion: reduce) {
+
+  .progress-musing,
+  .progress-line-label {
+    transition: none;
+  }
+}
+
+:root[data-progress-motion="still"] .progress-musing,
+:root[data-progress-motion="still"] .progress-line-label {
+  transition: none;
+}
+
+/* The musing takes the second row of the grid above, in the status's own
+   column — never the indicator's. */
+.progress-musing {
+  grid-column: 2;
 }

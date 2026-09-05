@@ -1168,6 +1168,16 @@ header#top-bar.tabs-wrapped #tab-bar {
 .library-head {
   --control-h: 2.3rem;
   margin-bottom: var(--space-2);
+  /* **One title block height, whatever is beside the title.**
+     Reported: the vertical gaps under the sub-tab titles differ from tab to
+     tab. Measured across all six: the heading sat at y=156 on five and y=154
+     on Links, because this row is as tall as its tallest child and Links is
+     the one sub-tab whose header carries no full-height control — so its title
+     floated 2–3px higher and everything under it followed. A floor equal to
+     the controls' own height makes the block the same on a tab with three
+     buttons and on a tab with none. */
+  min-height: var(--control-h);
+  align-items: center;
 }
 
 /* The sizing rule that used to sit here moved to 07-whiteboard-misc.css. It is
@@ -1309,7 +1319,18 @@ header#top-bar.tabs-wrapped #tab-bar {
   --control-h: 2.3rem;
 }
 
+/* **Every control on a toolbar row, not the four that were remembered.**
+   Reported: the Links sub-tab's filter and sort "aren't aligned". Measured:
+   `#bookmark-search` sat 3px above `#bookmark-sort` — same height, same row,
+   `align-items: center`. The cause is the base `input` rule's
+   `margin-bottom: 6px`, which this rule zeroes for `.library-search` and for
+   nothing else: centring aligns *margin* boxes, so a 6px bottom margin lifts
+   the input by 3px inside a row whose other items have none.
+
+   Checkboxes and radios are excluded: they are not row-height controls, and
+   stretching one to 2.3rem is how a tick box becomes an oval. */
 .library-toolbar .library-search,
+.library-toolbar input:not([type="checkbox"]):not([type="radio"]),
 .library-toolbar select,
 .library-toolbar .seg,
 .library-toolbar button {

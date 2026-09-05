@@ -1720,9 +1720,15 @@ progress {
   margin-top: var(--space-1);
 }
 
-#bookmark-search {
-  margin-bottom: var(--space-3);
-}
+/* **Deleted deliberately, and this comment is the reason.**
+   `#bookmark-search { margin-bottom: var(--space-3) }` dates from when this
+   field sat alone above the list. It now sits in `.library-toolbar`, which is
+   `display: flex; align-items: center` — and centring aligns *margin* boxes,
+   so a 6px bottom margin lifted the input 3px above the sort control beside
+   it. Measured: search at y=291.1, sort at y=294.1, both 36.8px tall. That is
+   the reported "Links sub-tab filter and search aren't aligned", and an ID
+   selector is why the toolbar's own `margin: 0` could not win. The row's
+   `gap` provides the spacing this margin used to. */
 
 .bookmark-attach-picker {
   width: auto;

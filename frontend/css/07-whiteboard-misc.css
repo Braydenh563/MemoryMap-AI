@@ -4257,7 +4257,12 @@ button.connection-row {
    Width comes too, for the circular ones only. `.graph-help-toggle` is a
    2rem circle; giving it a height without a width is how this app has already
    produced a reported oval once (see `.library-toolbar`'s own note). */
+/* Inputs too, not only buttons and selects. Measured on Contents, whose
+   header row carries a filter field: 40px against the row's 37px controls,
+   sitting 2px proud of them. Checkboxes and radios stay out — they are not
+   row-height controls, and stretching one turns a tick box into an oval. */
 .library-head button,
+.library-head input:not([type="checkbox"]):not([type="radio"]),
 .library-head select,
 .library-head .seg {
   height: var(--control-h);

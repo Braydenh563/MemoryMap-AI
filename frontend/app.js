@@ -3840,14 +3840,39 @@ function openLightbox(items, startIndex = 0) {
   // "describe with AI" does.
   let moreMenu = null;
   const buildMoreMenu = (item) => {
+    //: **The job outlives the window that started it.**
+    //:
+    //: Reported: "if i close the lightbox as I am generating ocr, then it
+    //: stops and I have to restart it again." The request never actually
+    //: stopped — a `POST` keeps going and writes its result to the database
+    //: whatever the browser does next — but every trace of it was inside the
+    //: lightbox, so closing that window meant the work became invisible and
+    //: then, on reopening, appeared not to have happened.
+    //:
+    //: Three changes make it true as well as visible: a progress toast that
+    //: lives outside the lightbox, a re-render that is guarded rather than
+    //: assumed (the panel may be gone by now, and writing to it threw), and a
+    //: Library refresh so the gallery behind shows the new text either way.
     const run = (label, busyText, endpoint, applyTo) => async () => {
+      const name = item.original_name || "this file";
+      const progress = toastProgress(`${busyText} ${name}`);
       try {
-        toast(busyText);
         const updated = await apiJson(`/media/${item.id}${endpoint}`, { method: "POST" });
         applyTo(item, updated);
-        renderInfo(item, true);
+        //: Only if this lightbox is still the one on screen. `renderInfo`
+        //: writes into elements this closure captured, and they are detached
+        //: once the overlay closes.
+        if (overlay.isConnected && !overlay.classList.contains("hidden")) renderInfo(item, true);
+        if (typeof loadLibrary === "function") loadLibrary();
+        progress.done(`Finished reading ${name}.`, {
+          actionLabel: "Show it",
+          onAction: () => {
+            switchTab("library");
+            if (typeof renderLibrary === "function") renderLibrary();
+          },
+        });
       } catch (err) {
-        toast(err.message || `Couldn't ${label.toLowerCase()}.`, true);
+        progress.done(err.message || `Couldn't ${label.toLowerCase()}.`, { isError: true });
       }
     };
     const items = [
@@ -10822,7 +10847,14 @@ function agentTimeline(holder) {
     // so a real node would be destroyed and recreated ~30 times a second (and
     // would land inside whatever block the markdown happened to end with).
     // A pseudo-element is untouched by that and is removed by `finalise`.
-    el.className = "agent-step step-answer bubble-answer is-streaming is-generating";
+    //: **No `is-generating` on the answer itself.** Reported: "the text is
+    //: right up against the overly animated borders as well", with a
+    //: screenshot of an answer inside a pulsing ring *inside* a bubble
+    //: already wearing one. Two rings around one sentence is one too many,
+    //: and the inner one is the redundant one: the bubble's rail says the
+    //: turn is working and the caret says this answer is still arriving.
+    //: `is-streaming` stays, because that is the caret.
+    el.className = "agent-step step-answer bubble-answer is-streaming";
     holder.appendChild(el);
     current = {
       kind: "answer",
@@ -22443,6 +22475,55 @@ function toast(message, isError = false, { exempt = false } = {}) {
 // A toast with one action button — used for Undo (Wave J). The button
 // stays until clicked or the toast times out (a bit longer than usual,
 // since the user has to react to it).
+//: **A toast that stays until the work it is announcing finishes.**
+//:
+//: Reported of OCR: *"if i close the lightbox as I am generating ocr, then it
+//: stops and I have to restart it again. also ocr generation is slow and i
+//: dont even know if it is working."* The second half is this function's job.
+//: Every other toast in the app is a 5.5-second notice about something that
+//: already happened; a job that takes thirty seconds needs the opposite — a
+//: notice that persists *while* it happens and then reports what it found.
+//:
+//: Returns a handle rather than a node: the caller finishes the job, and
+//: finishing it is one call rather than a DOM edit at each of its exits.
+function toastProgress(message) {
+  const box = $("toast-box");
+  const note = document.createElement("div");
+  note.className = "toast";
+  const spinner = typingDots(message);
+  const text = document.createElement("span");
+  text.textContent = message;
+  note.append(spinner, text);
+  box.appendChild(note);
+  return {
+    say(next) {
+      text.textContent = next;
+      spinner.setStatus?.(next);
+    },
+    //: `done` swaps the spinner for the outcome and starts the ordinary
+    //: 5.5-second life every other toast has, so a finished job does not
+    //: leave a permanent line on screen.
+    done(finalMessage, { isError = false, actionLabel = null, onAction = null } = {}) {
+      spinner.remove();
+      text.textContent = finalMessage;
+      note.classList.toggle("error", Boolean(isError));
+      if (actionLabel && onAction) {
+        const button = document.createElement("button");
+        button.className = "link-button";
+        button.type = "button";
+        button.textContent = actionLabel;
+        button.addEventListener("click", () => {
+          onAction();
+          note.remove();
+        });
+        note.appendChild(button);
+      }
+      const timer = setTimeout(() => note.remove(), 5500);
+      note.appendChild(toastCloseButton(note, timer));
+    },
+  };
+}
+
 function toastAction(message, actionLabel, onAction) {
   const box = $("toast-box");
   const note = document.createElement("div");

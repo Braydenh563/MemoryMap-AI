@@ -4424,7 +4424,19 @@ button.connection-row {
   overflow: auto;
   display: flex;
   align-items: flex-start;
-  justify-content: center;
+  /* **`safe center`, not `center`.** Reported twice, the second time as "the
+     pdf and file is still cut off to the left when generating ocr". A flex
+     item centred inside a scroll container that is narrower than the item
+     overflows *both* ways — and the left overflow is unreachable, because a
+     scroll container's origin is its left edge and there is no negative
+     scroll to get back to it. So at Actual size the left third of a wide page
+     was not merely off-screen, it could not be scrolled to at all.
+
+     `safe` means "centre while it fits, align to the start when it does not",
+     which is exactly the rule that was wanted and is why the keyword exists.
+     The earlier Fit-mode work made this rare rather than fixing it; Fit is a
+     mode, and Actual size is the one you switch to when you need the pixels. */
+  justify-content: safe center;
   padding: var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -4716,4 +4728,12 @@ button.connection-row {
 
 .entry-actions button.is-favourite:hover {
   border-color: color-mix(in srgb, var(--warn) 60%, transparent);
+}
+
+/* A toast that is announcing work in progress rather than reporting a result.
+   The dots sit before the sentence on the same baseline — see `toastProgress`
+   in app.js for why a long job needed a toast that does not expire. */
+.toast .typing-dots {
+  flex: 0 0 auto;
+  margin-right: var(--space-2);
 }

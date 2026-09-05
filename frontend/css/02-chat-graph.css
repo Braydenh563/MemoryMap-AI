@@ -3848,3 +3848,19 @@ mark.lightbox-hit {
   background: var(--chip-bg);
   color: var(--accent);
 }
+
+/* The answer's own block inside a bubble. Reported: "the text is right up
+   against the overly animated borders as well" — the step had a border and no
+   padding, so every line of prose touched it. Padding on the inside of a
+   border is not decoration; without it the border reads as a crop mark. */
+.msg.assistant .step-answer,
+.msg.assistant .bubble-answer {
+  padding: var(--space-2) var(--space-3);
+}
+
+/* A step group's summary and the answer under it share a left edge, so the
+   answer's own padding must not push its first character out of that column. */
+.msg.assistant .step-answer > :first-child,
+.msg.assistant .bubble-answer > :first-child {
+  margin-top: 0;
+}

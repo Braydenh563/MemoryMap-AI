@@ -14,7 +14,7 @@ import pytest
 
 from memorymap.ai import tools
 from memorymap.ai.tools._common import ToolError
-from memorymap.core.database import Attachment, Entry, MediaUpload
+from memorymap.core.database import Attachment, MediaUpload
 
 
 def _upload(session, name="scan.png", text=None, caption=None):

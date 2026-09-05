@@ -175,6 +175,39 @@ function stagedImageByUrl(url) {
   return captureStagedImages.find((image) => image.key === key) || null;
 }
 
+//: **The one thing staging must never do: reach the database.**
+//:
+//: REDESIGN.md §R7.2 held this feature back for a whole session over exactly
+//: this failure mode, and the wording is worth keeping: every path that can
+//: save the composer has to rewrite the staged markers first, and one that
+//: does not leaves `staged:`/`blob:` URLs inside saved note content —
+//: *corrupted notes, which is worse than the recoverable orphan it replaces*
+//: (orphans already have a collector; a note whose picture is a dead
+//: in-memory key has nothing).
+//:
+//: That section asked for "a test per save path". This is the stronger
+//: version of the same idea and the reason there is no allowlist of save
+//: paths anywhere: rather than enumerate the functions that must remember to
+//: call `rewriteStagedUrls` — an enumeration a future save path joins by
+//: being forgotten — every request in the app passes through `api()`, so the
+//: check lives there and a new save path is covered by existing.
+//:
+//: It throws rather than repairing. A silent fix would hide the bug and ship
+//: a note missing its picture; a throw surfaces in the caller's own error
+//: toast with the note still unsaved in the box, so nothing is lost.
+//:
+//: Matched on the markdown embed shape, not on the bare scheme: a note that
+//: happens to contain the word "staged:" is ordinary prose, while `](staged:`
+//: is a link target this app wrote and never a sentence a person typed.
+const STAGED_IN_BODY = /]\((?:staged|blob):/;
+
+function refuseStagedUrls(body) {
+  if (typeof body !== "string" || !STAGED_IN_BODY.test(body)) return;
+  throw new Error(
+    "That still holds an image that hasn't finished uploading — try saving again in a moment."
+  );
+}
+
 function mediaSrc(url) {
   //: A staged picture has no server url yet; its bytes are a Blob in this
   //: tab. Resolved here rather than at each `<img>` so every surface that
@@ -269,6 +302,7 @@ async function api(path, options = {}) {
   // your current password" — a typo there must show a message beside the
   // field, not throw the user out to the lock screen.
   const { silent, timeoutMs, ownsAuthErrors, ...fetchOptions } = options;
+  refuseStagedUrls(fetchOptions.body);
   // Any write invalidates the read cache above — see clearApiCache().
   if (fetchOptions.method && fetchOptions.method !== "GET") clearApiCache();
   let timer = null;

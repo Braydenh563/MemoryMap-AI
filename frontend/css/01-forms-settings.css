@@ -3657,3 +3657,32 @@ html.modal-open body {
       0 0 var(--space-9) var(--space-2) color-mix(in srgb, var(--accent) 34%, transparent);
   }
 }
+
+/* --- one size for every dropdown -------------------------------------------
+   Reported: "A LOT of the dropdown menus are all different styles and ui and
+   its annoying me across the whole application. I like the look of the ones in
+   the notes tab, and the one in the documents subtab is clean as well, the one
+   in the spaces dropdown I feel should be left as it is."
+
+   Measured across the seven tabs and three Settings sections, the native
+   `<select>`s alone rendered at four different type sizes — 16px, 14.72px,
+   13.6px and 12px — because the shared form-field rule leaves them at
+   `font: inherit` (body size, right for a field you type a paragraph into,
+   too large for a control that names one choice) and only some contexts
+   corrected it. The ones the report singles out as good are the corrected
+   ones: `#note-sort` and `#notes-page-size` in the notes toolbar, and the
+   Documents sub-tab's, all at `--text-md`.
+
+   So `--text-md` becomes the default rather than a correction some places
+   remember to apply. Every context that already set it is unchanged by this;
+   the ones that read as oversized come down to meet them.
+
+   Two deliberate exemptions, both named in the report or by their job:
+   the spaces dropdown, which is to be left as it is, and the whiteboard's
+   property selects, which sit in a dense tool panel and set their own smaller
+   size on purpose. Both already declare a font-size in their own rules, and a
+   declaration beats this one, so neither needs an exception here — which is
+   also why this is a floor for the *default* and not an `!important`. */
+select {
+  font-size: var(--text-md);
+}

@@ -2593,6 +2593,36 @@ textarea.autogrow {
    image tile so the grid stays a grid — a PDF among photos must not make
    the row it is in a different height. See library.js's own comment for why
    these tiles used to delete themselves instead of rendering. */
+/* **The PDF's first page covers the tile; it does not sit on top of it.**
+   Reported with a screenshot: "in the files tab, the file type logo gets cut
+   off and squashed below the preview image". It did. `.library-file-page` had
+   no rule of its own at all, so the rendered page was a plain `<img>` flowing
+   as the first child of a 9rem `overflow: hidden` flex column — pushing the
+   glyph and the "PDF" caption down and off the bottom edge.
+
+   `library.js`'s own comment says what was meant: "The glyph stays underneath
+   as the fallback for everything without pages, and for a PDF whose render
+   fails." Underneath, not above. Taking the page out of flow and letting it
+   fill the tile makes that true — the glyph is still there, still centred,
+   simply covered while there is a page to show, and revealed the moment the
+   render 404s, because the error handler removes the page and nothing else
+   has to change.
+
+   `cover`, not `contain`: a tile is a fixed 9rem box and a portrait page in it
+   would otherwise letterbox into a thin strip with the glyph showing through
+   either side. The top of a document is the part worth seeing, so the crop is
+   anchored there rather than to the middle. */
+.library-file-page {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  background: #fff;
+}
+
 .library-file-thumb {
   position: relative;
   overflow: hidden;
@@ -2678,4 +2708,17 @@ textarea.autogrow {
 .chip.link {
   line-height: 1;
   padding-block: 0;
+}
+
+/* Files shown by type rather than by preview — `setLibraryMediaView`
+   (library.js), asked for as "make it togglable to change between filetype
+   and previews".
+
+   Hiding the page render is the whole switch. The glyph and its caption are
+   already in every tile, centred, and were only ever covered; take the cover
+   away and the type view is simply what the tile looks like underneath. No
+   second markup path, nothing refetched, and a tile cannot end up in a state
+   where neither is showing. */
+.library-image-grid.show-file-types .library-file-page {
+  display: none;
 }

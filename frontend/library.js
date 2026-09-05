@@ -2070,6 +2070,48 @@ function isImageUrl(url) {
   );
 }
 
+//: **Preview art or type icon, the viewer's choice.** Asked for: "make it
+//: togglable to change between filetype and previews".
+//:
+//: Persisted in `localStorage` rather than in preferences: it is a way of
+//: looking at one list, like the notes rows/cards toggle beside it in the same
+//: kind of control, not a setting about the notebook. It also costs no
+//: round-trip, so the grid does not flicker into the wrong mode on load.
+//:
+//: Applied as a class on the grid and resolved entirely in CSS. The tiles
+//: already contain both the page render and the glyph — the render simply
+//: covers the glyph — so switching modes is a matter of whether the cover is
+//: painted, and nothing has to be rebuilt, refetched or re-laid-out.
+const LIBRARY_MEDIA_VIEW_KEY = "library-media-view";
+let libraryMediaView = localStorage.getItem(LIBRARY_MEDIA_VIEW_KEY) === "type" ? "type" : "preview";
+
+function applyLibraryMediaView() {
+  const grid = document.getElementById("library-images-grid");
+  if (grid) grid.classList.toggle("show-file-types", libraryMediaView === "type");
+  const preview = document.getElementById("library-media-view-preview");
+  const type = document.getElementById("library-media-view-type");
+  preview?.classList.toggle("active", libraryMediaView === "preview");
+  preview?.setAttribute("aria-pressed", String(libraryMediaView === "preview"));
+  type?.classList.toggle("active", libraryMediaView === "type");
+  type?.setAttribute("aria-pressed", String(libraryMediaView === "type"));
+}
+
+function setLibraryMediaView(mode) {
+  libraryMediaView = mode === "type" ? "type" : "preview";
+  localStorage.setItem(LIBRARY_MEDIA_VIEW_KEY, libraryMediaView);
+  applyLibraryMediaView();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  document
+    .getElementById("library-media-view-preview")
+    ?.addEventListener("click", () => setLibraryMediaView("preview"));
+  document
+    .getElementById("library-media-view-type")
+    ?.addEventListener("click", () => setLibraryMediaView("type"));
+  applyLibraryMediaView();
+});
+
 //: Which of the two media sub-tabs is showing. Not persisted: it is a place
 //: in the Library, and the sub-tab strip already says which one you are on.
 let libraryMediaKind = "images";
@@ -2246,6 +2288,10 @@ async function renderLibraryImagesGallery() {
   const grid = $("library-images-grid");
   const empty = $("library-images-empty");
   if (!grid) return;
+  //: The grid is rebuilt from scratch on every render, so the view class has
+  //: to be re-applied with it — the toggle is a property of the list, not of
+  //: the tiles that happen to be in it right now.
+  applyLibraryMediaView();
   const images = await apiJson("/media", { silent: true }).catch(() => null);
   // A note's own attached file (`Attachment`, not `MediaUpload`) never came
   // from `/media` at all — reported directly, twice: "a pdf I uplaoded to a

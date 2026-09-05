@@ -3215,6 +3215,23 @@ Link to another note with [[its first few words]]."></textarea>
       <input id="library-images-search" type="search" class="library-search"
         placeholder="Search filenames, captions and text found in files…"
         aria-label="Search the image gallery">
+      <!-- Asked for directly: "make it togglable to change between filetype
+           and previews". A preview tells four similarly-named PDFs apart; a
+           type icon scans a long mixed list faster. Neither is right for
+           everyone, so it is a choice rather than a default someone has to
+           live with.
+
+           The same `.seg` control the notes list uses for rows-vs-cards, in
+           the same shape and the same place in its toolbar — this app already
+           has a sign for "the same things, drawn a different way", and
+           inventing a second one here would be the inconsistency the rest of
+           this round is removing. -->
+      <div class="seg library-media-view" role="group" aria-label="How to show files">
+        <button type="button" id="library-media-view-preview" class="active icon-only"
+          title="Show a preview of each file" aria-label="Show a preview of each file"><i class="ph ph-image" aria-hidden="true"></i></button>
+        <button type="button" id="library-media-view-type" class="icon-only"
+          title="Show each file's type icon" aria-label="Show each file's type icon"><i class="ph ph-file" aria-hidden="true"></i></button>
+      </div>
       <!-- Multi-select, the same shape the Documents sub-tab already has —
            asked for directly: "in many of the library subtabs like for imges,
            files, whiteboards, links etc, there is no way to multi select".

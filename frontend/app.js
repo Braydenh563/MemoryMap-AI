@@ -11592,6 +11592,122 @@ function refreshAfterToolChanges() {
   loadMostUsed();
 }
 
+//: **One Sources panel, the way every serious answer surface has one.**
+//:
+//: Reported: *"semantic search and other used notes dont show up in the chat
+//: and are not accessible"*, and — of the retrieval line — *"if it says read
+//: 9 notes or smth, it should probably show as a better log."*
+//:
+//: The evidence was there and scattered. Retrieved notes went into a
+//: `<details>` whose summary was a sentence; files the agent opened went
+//: nowhere at all, because `search_files`/`read_file` are tools and tool rows
+//: are a log of *actions*, not a list of *sources*; web pages the same. So a
+//: turn that read four files and two notes showed two of the six, under a
+//: heading that did not say the word "sources".
+//:
+//: This is the one place that answers "what is this based on", grouped by
+//: kind with a count per group, every row openable. Perplexity's panel is the
+//: reference and the reason is not fashion: a reader checking an answer wants
+//: the *set* of things it drew on, and a chronological log of calls is the
+//: wrong shape for that question even when it contains the same facts.
+//:
+//: It is built from what already arrived — nothing here re-fetches, and
+//: nothing is invented: a source appears because an event named it.
+const CHAT_SOURCE_GROUPS = [
+  { key: "note", icon: "ph:note", one: "note", many: "notes" },
+  { key: "document", icon: "ph:file-text", one: "document", many: "documents" },
+  { key: "file", icon: "ph:paperclip", one: "file", many: "files" },
+  { key: "web", icon: "ph:globe", one: "web page", many: "web pages" },
+];
+
+//: Which tools produce a *source* rather than a change, and what kind each
+//: one yields. Read off the tool name because that is the only thing the
+//: event carries that says what was consulted — the label is prose and the
+//: result is bounded (§R5 item 4), so neither can be parsed for this.
+const SOURCE_TOOLS = {
+  search_files: "file",
+  read_file: "file",
+  read_url: "web",
+  web_search: "web",
+};
+
+function chatSourcesFrom({ meta, toolEvents, touched }) {
+  const seen = new Set();
+  const sources = [];
+  const add = (kind, id, label, open) => {
+    const key = `${kind}:${id}`;
+    if (!label || seen.has(key)) return;
+    seen.add(key);
+    sources.push({ kind, id, label, open });
+  };
+  for (const entry of meta?.raw_results || []) {
+    add("note", entry.id, noteLabel(entry, 60), () => flashEntry(entry.id));
+  }
+  for (const item of touched || []) {
+    const opener = TOUCHED_KINDS[item.kind] || TOUCHED_KINDS.note;
+    add(item.kind === "document" ? "document" : "note", item.id, item.label, () => opener.open(item.id));
+  }
+  for (const event of toolEvents || []) {
+    const kind = SOURCE_TOOLS[event?.tool || event?.name];
+    if (!kind || event.ok === false) continue;
+    //: The label a tool wrote for its own row, minus the icon token — it
+    //: already says which file or page this was, and re-deriving it from the
+    //: bounded result would be a second, worse answer to the same question.
+    const label = String(event.label || "").replace(/^ph:[\w-]+\s*/, "");
+    add(kind, `${event.tool || event.name}-${sources.length}`, label, null);
+  }
+  return sources;
+}
+
+function chatSourcesPanel(input) {
+  const sources = chatSourcesFrom(input);
+  if (!sources.length) return null;
+  const details = document.createElement("details");
+  details.className = "chat-sources";
+  const summary = document.createElement("summary");
+  summary.className = "chat-sources-summary";
+  //: The heading counts by kind — "4 notes · 2 files" — rather than saying
+  //: "6 sources". A reader deciding whether to open this wants to know what
+  //: is in it, and the breakdown is the same length as the total was.
+  const counts = CHAT_SOURCE_GROUPS.map((g) => {
+    const n = sources.filter((s) => s.kind === g.key).length;
+    return n ? `${n} ${n === 1 ? g.one : g.many}` : null;
+  }).filter(Boolean);
+  const mode = input.meta?.search_mode;
+  const how = mode && mode !== "none" ? ` · ${SEARCH_MODE_LABELS[mode] || mode}` : "";
+  setLabel(summary, `ph:books Sources — ${counts.join(" · ")}${how}`);
+  summary.title = "What this answer drew on";
+  details.appendChild(summary);
+
+  const body = document.createElement("div");
+  body.className = "chat-sources-body";
+  for (const group of CHAT_SOURCE_GROUPS) {
+    const rows = sources.filter((s) => s.kind === group.key);
+    if (!rows.length) continue;
+    const heading = document.createElement("p");
+    heading.className = "chat-sources-group muted";
+    setLabel(heading, `${group.icon} ${rows.length === 1 ? group.one : group.many}`);
+    body.appendChild(heading);
+    for (const source of rows) {
+      //: A row that can be opened is a button; one that cannot is a plain
+      //: line. Drawing both the same way is the affordance mistake this app
+      //: has been told about before — a control that does nothing when
+      //: pressed is worse than no control.
+      const row = document.createElement(source.open ? "button" : "div");
+      row.className = `chat-source-row${source.open ? " is-openable" : ""}`;
+      if (source.open) {
+        row.type = "button";
+        row.title = "Open this";
+        row.addEventListener("click", source.open);
+      }
+      row.textContent = source.label;
+      body.appendChild(row);
+    }
+  }
+  details.appendChild(body);
+  return details;
+}
+
 function renderRecordsDetails(holder, meta) {
   if (!meta.raw_results.length) return;
   const details = document.createElement("details");
@@ -12782,6 +12898,10 @@ async function sendChatMessage(preset, opts = {}) {
   let pausedForManual = false;
   const startedAt = performance.now();
   const toolEvents = []; // {label, ok} — persisted so chips survive a reload
+  //: Everything this turn opened, deduped on kind+id, for the Sources panel.
+  //: A Map rather than an array because a turn that reads the same note twice
+  //: has one source, not two — and `touched` arrives per tool call.
+  const touchedItems = new Map();
   chatController = new AbortController();
   const controller = chatController;
 
@@ -13009,6 +13129,9 @@ async function sendChatMessage(preset, opts = {}) {
           : `ph:warning ${(event.error || event.label || "").replace(/^ph:[\w-]+\s*/, "")}`;
         timeline.tool(toolChip(label, event.ok, event));
         toolEvents.push(event); // remember for persistence
+        for (const item of event.touched || []) {
+          touchedItems.set(`${item.kind}:${item.id}`, item);
+        }
         if (event.proposal) {
           // Asked where it was suggested, not in a settings page nobody opens.
           const card = document.createElement("div");
@@ -13166,7 +13289,17 @@ async function sendChatMessage(preset, opts = {}) {
   timeline.finalise();
   const answerRaw = timeline.text();
   const thinkingRaw = timeline.thinkingText();
-  if (meta) renderRecordsDetails(recordsHolder, meta);
+  //: **The Sources panel replaces the old "N matching notes" disclosure here.**
+  //: It is a superset — it carries the same retrieved notes and adds the
+  //: files and pages the turn read and the things it opened, which had no
+  //: home at all. `renderRecordsDetails` stays for the Ask tab, which has one
+  //: answer rather than a thread and no tool events to fold in.
+  const sourcesPanel = chatSourcesPanel({
+    meta,
+    toolEvents,
+    touched: [...touchedItems.values()],
+  });
+  if (sourcesPanel) recordsHolder.appendChild(sourcesPanel);
   // What this answer cost: model, wall-clock time, tokens, speed.
   const elapsedMs = Math.round(performance.now() - startedAt);
   // A turn that only ran tools still cost time and tokens, so it gets a meta

@@ -3728,3 +3728,88 @@ mark.lightbox-hit {
   padding-left: var(--space-4);
   border-left: 1px solid var(--border);
 }
+
+/* --- the Sources panel -------------------------------------------------------
+   "What this answer drew on", in one place. See `chatSourcesPanel` (app.js)
+   for why the evidence was scattered before and why a log of calls is the
+   wrong shape for the question a reader is actually asking.
+
+   Quiet by default and one line tall: on most turns the answer is the thing
+   being read, and the sources are what you reach for when you doubt it. */
+.chat-sources {
+  margin-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-2);
+}
+
+.chat-sources-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: fit-content;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  list-style: none;
+}
+
+.chat-sources-summary::-webkit-details-marker {
+  display: none;
+}
+
+.chat-sources-summary:hover {
+  background: var(--chip-bg);
+  color: var(--ink);
+}
+
+.chat-sources-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) 0 var(--space-1);
+}
+
+/* One group heading per kind, so "4 notes" and "2 files" are readable as
+   groups rather than as a mixed list you have to sort by eye. */
+.chat-sources-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  text-transform: lowercase;
+}
+
+.chat-sources-group:first-child {
+  margin-top: 0;
+}
+
+/* A row you can open looks like a control; one you cannot looks like text.
+   Drawing both the same way is the affordance mistake this app has already
+   been told about — see `chatSourcesPanel`. */
+.chat-source-row {
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-source-row.is-openable {
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.chat-source-row.is-openable:hover,
+.chat-source-row.is-openable:focus-visible {
+  background: var(--chip-bg);
+  color: var(--accent);
+}

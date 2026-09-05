@@ -2168,7 +2168,22 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 /* Which model wrote it, as a real badge rather than a bare model id dropped
    under the text — `qwen3-vl:4b` on its own line read as leftover output. */
+/* **One badge, three classes, and only one of them was centred.** Reported:
+   "the model used badges in the images library subtab dont have their text
+   centred". Measured, the three said different things: `.ocr-badge` was a
+   correct pill (flex, 3px above and below, 15.5px tall); `.caption-badge` was
+   a pill whose later override reset it to `padding: 0 x x` — nothing above,
+   6px below, so its text sat hard against the top edge; and
+   `.vision-ocr-badge` had neither the pill nor the centring, at 22.8px tall
+   against the others' 15.5px.
+
+   They all say the same kind of thing — which model produced the text beneath
+   them — so they are one object now. Asymmetric vertical padding is the whole
+   defect: `align-items: center` centres the *line box*, and a box with no
+   padding above and 6px below is not centred no matter what the flex
+   alignment says. */
 .library-image-caption-badge,
+.library-image-vision-ocr-badge,
 .library-image-ocr-badge {
   display: inline-flex;
   align-items: center;
@@ -2212,11 +2227,11 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 /* Which model wrote the caption, and whether it's since been edited — a
    quiet byline under the caption text, not a chip competing with it. */
+/* The `display: block` + `padding: 0 x x` override that used to sit here is
+   gone — it undid the pill above and pushed this badge's text to the top of
+   its own box. See the note on the shared rule. */
 .library-image-caption-badge {
-  display: block;
   margin: 0;
-  padding: 0 var(--space-3) var(--space-3);
-  font-size: var(--text-xs);
 }
 
 .library-image-caption-badge.hidden {
@@ -2340,10 +2355,7 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 .library-image-vision-ocr-badge {
-  display: block;
   margin: 0;
-  padding: 0 var(--space-3) var(--space-3);
-  font-size: var(--text-xs);
 }
 
 .library-image-vision-ocr-badge.hidden {

@@ -1781,6 +1781,7 @@
 .library-toolbar label>input[type="checkbox"]::after,
 .semantic-toggle input[type="checkbox"]::after,
 .library-sort-check input[type="checkbox"]::after,
+.checkbox-label>input[type="checkbox"]:not(.sr-only)::after,
 .wb-snap-label input[type="checkbox"]::after {
   content: "";
   position: absolute;
@@ -1803,6 +1804,7 @@
 .library-toolbar label>input[type="checkbox"]:hover,
 .semantic-toggle input[type="checkbox"]:hover,
 .library-sort-check input[type="checkbox"]:hover,
+.checkbox-label>input[type="checkbox"]:not(.sr-only):hover,
 .wb-snap-label input[type="checkbox"]:hover {
   border-color: var(--ink);
 }
@@ -1814,6 +1816,7 @@
 .library-toolbar label>input[type="checkbox"]:checked,
 .semantic-toggle input[type="checkbox"]:checked,
 .library-sort-check input[type="checkbox"]:checked,
+.checkbox-label>input[type="checkbox"]:not(.sr-only):checked,
 .wb-snap-label input[type="checkbox"]:checked {
   background: var(--accent);
   border-color: var(--accent);
@@ -1826,11 +1829,13 @@
 .library-toolbar label>input[type="checkbox"]:checked::after,
 .semantic-toggle input[type="checkbox"]:checked::after,
 .library-sort-check input[type="checkbox"]:checked::after,
+.checkbox-label>input[type="checkbox"]:not(.sr-only):checked::after,
 .wb-snap-label input[type="checkbox"]:checked::after {
   transform: translateY(-50%) translateX(0.85rem);
   background: #fff;
 }
 
+.checkbox-label>input[type="checkbox"]:not(.sr-only):disabled,
 .wb-snap-label input[type="checkbox"]:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -2760,6 +2765,20 @@ aside[data-resizable="1"] {
    search box and buttons, not stacked as their own list. */
 .checkbox-label {
   position: relative;
+  /* **The component lays itself out now, instead of relying on a second class
+     to do it.** Most `.checkbox-label`s in the markup also carry `row
+     align-center`, which is where their flex row and their gap came from — so
+     the one place that used the class on its own (the Skills page's background
+     workers, built by `workerToggle`) rendered its switch jammed against its
+     text with no space between them at all. Reported with a screenshot.
+
+     A control that needs a second class to sit correctly is a control that
+     will be built wrong again. `inline-flex` rather than `flex` keeps it
+     shrink-to-fit, which is what every existing caller already got from
+     `.row`. */
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-pill);
   /* A resting border, not just a hover background: with the native checkbox

@@ -500,6 +500,59 @@ def _result_summary(result: dict) -> str:
     return text
 
 
+#: **What a tool call actually touched, as things the reader can open.**
+#:
+#: Asked for: "is it also possible to have live action lines show on the chat
+#: ui, to show and visually show as the ai accesses specific notes, files and
+#: stuff??"
+#:
+#: The transcript already said *that* a tool ran and, in a disclosure, what it
+#: returned as JSON. What it could not say is *which note* — and a note id in a
+#: blob of JSON is not something a person can act on, the same complaint that
+#: produced the palette's note links.
+#:
+#: Read from the tool's own result rather than from the arguments it was called
+#: with. Arguments are what the model *asked for*, which may be wrong, may be a
+#: search string rather than an id, and may name a note the call then refused.
+#: The result is what happened. A tool that touched nothing contributes
+#: nothing, which is why this returns a list and the UI omits the row when it
+#: is empty.
+#:
+#: Capped, because a `list_notes` over a big notebook would otherwise put fifty
+#: chips under one row and bury the answer beneath its own evidence.
+TOUCHED_LIMIT = 6
+
+
+def _touched_notes(result: dict) -> list[dict]:
+    """The notes a tool result names, as {id, label} for the transcript."""
+    if not isinstance(result, dict):
+        return []
+    rows: list[dict] = []
+    seen: set[int] = set()
+
+    def _take(candidate: object) -> None:
+        if len(rows) >= TOUCHED_LIMIT or not isinstance(candidate, dict):
+            return
+        note_id = candidate.get("id")
+        # `content` is what every note-shaped result carries; anything without
+        # it is some other kind of row that happens to have an id.
+        if not isinstance(note_id, int) or note_id in seen or "content" not in candidate:
+            return
+        seen.add(note_id)
+        label = " ".join(str(candidate.get("content") or "").split())[:60]
+        rows.append({"id": note_id, "label": label or f"note #{note_id}"})
+
+    # The single-note shape (`get_note`, `edit_note`, `pin_note`) is the result
+    # itself; the many-note shapes nest under a handful of stable keys.
+    _take(result)
+    for key in ("notes", "results", "matches", "linked", "created"):
+        value = result.get(key)
+        if isinstance(value, list):
+            for item in value:
+                _take(item)
+    return rows
+
+
 MAX_TOOL_FAILURES = 3
 
 # How many confirm cards one destructive tool may put in front of the user in
@@ -1607,6 +1660,9 @@ def run_agent(
                     # single result (a huge page fetch) from bloating the
                     # SSE event.
                     "result_summary": _result_summary(result),
+                    # The notes this call actually touched, for the chat's
+                    # live action line — see `_touched_notes`.
+                    "touched": _touched_notes(result),
                 }
                 if change:
                     event["change"] = change

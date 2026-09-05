@@ -10560,6 +10560,40 @@ function changeRow(change, options = {}) {
   return row;
 }
 
+//: **The live action line: which notes a tool call actually reached for.**
+//:
+//: Asked for: "is it also possible to have live action lines show on the chat
+//: ui, to show and visually show as the ai accesses specific notes, files and
+//: stuff??"
+//:
+//: The transcript already said *that* a tool ran, and hid what it returned in
+//: a JSON disclosure. What it could not say is *which note* — and an id inside
+//: a blob of JSON is not something a person can act on, which is the same
+//: complaint that produced the command palette's note links.
+//:
+//: The backend reads these from the tool's own result rather than from the
+//: arguments it was called with, so this row says what happened rather than
+//: what the model asked for. Chips open the note, like every other note chip
+//: in this app; nothing renders when a call touched nothing.
+function toolTouchedRow(touched) {
+  if (!Array.isArray(touched) || !touched.length) return null;
+  const row = document.createElement("div");
+  row.className = "row tool-touched";
+  for (const item of touched) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip result-reason-chip result-reason-connected tool-touched-chip";
+    setLabel(chip, `ph:file-text ${item.label || `note #${item.id}`}`);
+    chip.title = "Open this note";
+    chip.addEventListener("click", (clickEvent) => {
+      clickEvent.stopPropagation();
+      flashEntry(item.id);
+    });
+    row.appendChild(chip);
+  }
+  return row;
+}
+
 function toolChip(label, ok = true, event = null) {
   if (event && (event.arguments || event.result_summary)) {
     const details = document.createElement("details");
@@ -10584,12 +10618,28 @@ function toolChip(label, ok = true, event = null) {
       body.appendChild(resPre);
     }
     details.appendChild(body);
+    //: Outside the disclosure on purpose: the whole point is that it is
+    //: visible while the call is happening, without a click.
+    const touched = toolTouchedRow(event.touched);
+    if (touched) {
+      const wrap = document.createElement("div");
+      wrap.className = "tool-chip-wrap";
+      wrap.append(details, touched);
+      return wrap;
+    }
     return details;
   }
 
   const item = document.createElement("div");
   item.className = `tool-chip ${ok ? "" : "tool-chip-error"}`.trim();
   setLabel(item, label);
+  const touched = toolTouchedRow(event?.touched);
+  if (touched) {
+    const wrap = document.createElement("div");
+    wrap.className = "tool-chip-wrap";
+    wrap.append(item, touched);
+    return wrap;
+  }
   return item;
 }
 

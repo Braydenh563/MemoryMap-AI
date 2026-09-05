@@ -1,5 +1,101 @@
 # Handover
 
+## This session — chat, document OCR, the block editor, three alignment defects
+
+Driven live, overnight, from a stream of reports. Read this before the v0.2.0
+section below; it is ahead of it.
+
+**What was reported and what it actually was.** Four of the reports had causes
+that only a measurement could have found, and each is a shape worth carrying:
+
+- *"the 3 dot animation speeds up and freezes."* `onAnswer` calls
+  `clearPending()` on **every streamed delta**, and `appendChild` on a node that
+  is already the last child still removes and re-inserts it — Blink restarts
+  every CSS animation in a re-inserted subtree. Measured: after 30 re-appends
+  the dot sits at exactly `scale(1)` / `opacity: 0.45`, the animation's frame
+  zero, while a guarded loop leaves it mid-cycle. The guard is
+  `if (stepsHolder.lastElementChild === pending) return;`. **Re-appending a node
+  to reorder it is never free.**
+- *"the blinker animation still shows at the end of finished responses."*
+  `ensureAnswerBox()` runs **after** `finalise()` and built its box through
+  `startAnswer`, which sets the live mid-stream state. The app's own "the model
+  finished without writing anything" message therefore blinked a caret forever.
+- *"the question the agent asked me appeared in the step and not the actual
+  output."* The question card was filed through `timeline.tool()`, and a step
+  group folds shut the moment prose starts — so a question **still waiting for
+  an answer** vanished into "Finished 1 step". It goes in `recordsHolder` now.
+- *"the popup buttons below chat bubbles disappear when I try to use them."*
+  `.msg-actions` is `top: calc(100% + 2px)`. Hovering the row keeps `.msg:hover`
+  true (it is a DOM child), but that **2px band belongs to neither box**: the
+  pointer crossing it is over nothing, and the row hides before it arrives. An
+  invisible `::before` bridge, part of the row, spans the gap.
+
+**Document OCR was not working, and the join that was missing already existed.**
+Both `ocr-regions` routes gated on `ocr.OCR_SUFFIXES` (raster formats only —
+Tesseract cannot open a PDF) and answered a document with 415. So the window
+this feature was asked for ("for the document ocr I want smth like this") could
+not open a document at all. `core/pdfpages.py` has rendered a PDF page to PNG
+for the file viewer since it was written, and `ocr.extract_regions` reads a
+PNG; nothing joined them. Now `_pdf_regions_for` rasterises the requested page,
+`?page=` selects it, the response carries `pages`/`page`, and the workspace
+builds a page rail from that. `POST /{files,media}/{id}/ocr-page-read`
+transcribes **one** page with the vision model — page-scoped because a reader
+who wants page 6 should not wait through five they have already checked — and
+stores nothing, because a wrong transcription written onto the row is worse
+than one to repeat. Without Tesseract the message now points at that button
+rather than at a system package this project was told not to depend on.
+
+`trackOcrRead` is the map of reads in flight: a read started in the lightbox
+survives that window closing, and reopening the workspace mid-read says so.
+
+**The chat header is a bar now**, not a title with four ghost buttons opposite
+it ("it feels fake with features and ui elements like buttons just slapped on
+there"). Thread mark, title, `model · exchanges · tokens`, two shortcut
+controls and a ⋯ holding rename/fork/compress/export/copy/delete.
+`#chat-export` and `#chat-delete` keep their ids and handlers — the menu rows
+click them, which is the Library's own pattern.
+
+**Sources are cards** with a citation number, a two-line preview and the host
+name; web sources are real `<a href>`. That needed a backend fix first: the
+tool event never carried `tool`, which `chatSourcesFrom` has always tried to
+read — so **every file and web page this app read was silently missing from the
+panel**, a feature that could not have worked once. `_tool_sources` (agent.py)
+now sends titles, addresses and a line of each result. Reopening a conversation
+rebuilds that same panel instead of the older "N matching notes" disclosure.
+
+**The documents editor gained the Notion half.** The Obsidian half was already
+there (checked first — three sessions in this project have rebuilt existing
+work): live preview, callouts, wiki links, a 53-button toolbar, a "/" menu.
+What was missing is that a document is a *list of blocks*: each live-view block
+now has a hover gutter with a drag handle and a ⋯ (move, duplicate, copy as
+markdown, insert below, delete with undo). Three new "/" commands (image,
+footnote, private comment) needed `editorApplyNamed`, because MD_ACTIONS'
+`custom` and `pre`/`post` shapes are implemented by `applyMarkdown` and not by
+`editorApplyAction` — wired directly they would have been three menu rows that
+silently did nothing.
+
+**Three alignment defects, each with its number.** `#bookmark-search` carried a
+`margin-bottom` and the toolbar centres *margin* boxes, so it sat 3px above the
+sort control (291.1 vs 294.1). `.library-head` is as tall as its tallest child
+and Links has no full-height control, so its heading sat at y=154 against y=156
+everywhere else — a `min-height` fixes all eight sub-tabs at 156. The Contents
+header row's sizing rule named buttons and selects but not inputs, so its
+filter was 40px in a 37px row.
+
+**Agent activity can now be routed to the notifications centre only**
+(`agent_activity_notices`), which is not the existing mute: that suppresses the
+record too, and what was asked for was fewer interruptions, not less history.
+
+**Could not be verified, and say so.** No model runs in this sandbox, so every
+claim about a *streamed* turn is reasoned: the per-page vision read, the
+Sources panel built from a real `web_search`, and the agent-question card in a
+live run were each exercised with synthetic data only. The reported "flickering
+bar under the dashboard timer buttons" **did not reproduce**: with the timer
+running, the toggle's width and the widget body's scroll size were constant
+across four ticks (66.4px; 147/147 and 307/307). It is either already fixed or
+needs the reporter's window size to show.
+
+
 ## v0.2.0 candidate — start here
 
 This round is large enough that the user called it "even a release 0.2.0". It

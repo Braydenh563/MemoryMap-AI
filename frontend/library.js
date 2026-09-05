@@ -4244,7 +4244,31 @@ async function renderContents() {
       //: it any more.
       const link = document.createElement("a");
       link.href = "#";
-      link.textContent = noteLabel(entry, 80);
+      //: **A picture note shows its picture.** Reported: "the contents tab
+      //: doesnt render images". Every row was `noteLabel`, which strips
+      //: markdown down to text — so a note that *is* a photo appeared as its
+      //: filename, or as the bare word "image" when the alt text was empty.
+      //: In an index whose whole job is helping you recognise a note, that is
+      //: the one row shape that cannot do it.
+      //:
+      //: A thumbnail beside the label rather than instead of it: the label
+      //: still carries the note's own words when it has any, and a row that is
+      //: only an image would lose the alignment the rest of the outline reads
+      //: down. Loaded lazily and left to the app's own missing-media handler
+      //: if the file has gone.
+      const shot = noteFirstImage(entry.content);
+      if (shot) {
+        const thumb = document.createElement("img");
+        thumb.className = "contents-thumb";
+        thumb.src = mediaSrc(shot.url);
+        thumb.alt = "";
+        thumb.loading = "lazy";
+        link.appendChild(thumb);
+      }
+      const text = document.createElement("span");
+      text.className = "contents-label";
+      text.textContent = noteLabel(entry, 80);
+      link.appendChild(text);
       link.addEventListener("click", (e) => {
         e.preventDefault();
         flashEntry(entry.id);

@@ -15458,6 +15458,26 @@ function safeMdSlice(text, maxChars) {
 // (dashboard.js) render real markdown instead, via `safeMdSlice` +
 // `renderInlineMarkdown`'s `compact` mode, the same as every other
 // label-sized surface in this app.
+//: **The first image a note actually shows**, for surfaces that want to put a
+//: face on a row rather than a filename. Reported against the Contents tab,
+//: which rendered every note as `noteLabel` text — so a note that *is* a photo
+//: appeared as "20251018_OHR.SilburyHill….jpg", or as the bare word "image"
+//: when the alt text was empty.
+//:
+//: Reads the markdown rather than any stored field, because that is where a
+//: note's images live: pasted, dropped and AI-attached pictures all end up as
+//: `![alt](/media/…)` in the body, and there is no column that mirrors them.
+//:
+//: Only this app's own stored files. An external `https://` image in a note is
+//: skipped on purpose — the CSP blocks it (`img-src 'self' data: blob:`), so a
+//: thumbnail built from one would be a guaranteed broken frame, which is worse
+//: than no thumbnail at all.
+function noteFirstImage(content) {
+  const match = /!\[([^\]\n]{0,200})\]\((\/(?:media|files)\/[^)\n]{1,500})\)/.exec(content || "");
+  if (!match) return null;
+  return { alt: match[1] || "", url: match[2] };
+}
+
 function notePreviewText(content) {
   return (content || "")
     .replace(/^#{1,6}\s+/gm, "")

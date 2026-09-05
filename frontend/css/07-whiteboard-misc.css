@@ -4167,3 +4167,38 @@ button.connection-row {
 .library-head .graph-help-toggle {
   width: var(--control-h);
 }
+
+/* --- a picture note looks like a picture in the Contents outline ------------
+   Reported: "the contents tab doesnt render images". Every row was text from
+   `noteLabel`, which strips markdown — so a note that *is* a photo showed its
+   filename, or the bare word "image" when the alt text was empty. In an index
+   whose whole job is helping you recognise a note, that is the one row shape
+   that cannot do it.
+
+   Beside the label, not instead of it. The label still carries the note's own
+   words when it has any, and a row that were only an image would break the
+   left edge the rest of the outline reads down. Small and fixed-size for the
+   same reason: rows of differing heights stop being a list you can scan. */
+.contents-thumb {
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  /* A dark frame while it loads, so a slow thumbnail is a quiet placeholder
+     rather than a flash of page background in the shape of a hole. */
+  background: var(--chip-bg);
+}
+
+.contents-list a {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.contents-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

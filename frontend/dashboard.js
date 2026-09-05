@@ -1684,6 +1684,23 @@ function firstNoteImage(content) {
   return isRenderableUrl(url) ? { alt, url } : null;
 }
 
+//: **An attached picture is a picture too.** Reported: "the widgets and other
+//: things dont render attached files on notes like the recently added widget
+//: and other areas in the application."
+//:
+//: The gap is in the model, not the markup: an image *embedded* in the note
+//: text is `![](…)` and was found by `firstNoteImage` above, but an image
+//: **attached** to the note (`entry.attachments`, its own table, `/files/{id}`)
+//: appears nowhere in the note's markdown — so a note whose only picture was
+//: attached rather than pasted rendered as a row of text with no picture at
+//: all, in every widget, forever.
+function noteRowImage(entry) {
+  const embedded = firstNoteImage((entry.content || "").replace(/\[\[([^[\]]{1,120})\]\]/g, "$1"));
+  if (embedded) return embedded;
+  const attached = (entry.attachments || []).find((file) => file.is_image);
+  return attached ? { alt: attached.filename || "", url: `/files/${attached.id}` } : null;
+}
+
 function miniEntryList(body, entries, emptyText) {
   if (!entries.length) {
     const p = document.createElement("p");
@@ -1699,7 +1716,7 @@ function miniEntryList(body, entries, emptyText) {
     // The wiki-link unwrap notePreviewText also did — renderInlineMarkdown
     // itself doesn't know `[[...]]`, only the full note-body renderer does.
     const raw = (entry.content || "").replace(/\[\[([^[\]]{1,120})\]\]/g, "$1");
-    const image = firstNoteImage(raw);
+    const image = noteRowImage(entry);
     if (image) {
       li.classList.add("dash-has-thumb");
       const thumb = document.createElement("img");

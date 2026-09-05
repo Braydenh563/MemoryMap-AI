@@ -4398,6 +4398,8 @@ button.connection-row {
 .ocr-page {
   min-width: 0;
   min-height: 0;
+  /* `hidden` in Fit (nothing overflows, so a scrollbar would be furniture),
+     `auto` at Actual size — set on the mode class below rather than here. */
   overflow: auto;
   display: flex;
   align-items: flex-start;
@@ -4416,12 +4418,42 @@ button.connection-row {
   position: relative;
   display: inline-block;
   max-width: 100%;
+  /* A flex item shrinks by default, and this one is inside a centring flex
+     pane: at Actual size the stage was told to be 800px and rendered 757 —
+     the pane had shrunk it to fit, which is the one thing "actual size" must
+     not do. Measured before this line existed. */
+  flex: 0 0 auto;
 }
 
 .ocr-stage img {
   display: block;
   max-width: 100%;
   height: auto;
+}
+
+/* **Fit is sized in JS, not here, and that is deliberate.** A scan is portrait
+   and this pane is landscape, so width alone left the bottom of every page
+   below the fold — reported as the page being "cut off a bit". The obvious CSS
+   answer, `max-height: 100%` on the image, does nothing: a percentage height
+   resolves against the parent's *definite* height, and the stage's height is
+   `auto` (it is sized by the image inside it), so the constraint computes to
+   none. Measured that way first — the image came back 2272px tall in a 724px
+   pane. `object-fit: contain` would fit it, but the painted picture would then
+   be letterboxed inside a box the region overlay is positioned against, and
+   every box would land in the wrong place.
+   So `ocrFitStage` (library.js) measures the pane and sets the stage's width
+   in pixels. The overlay is percentage-positioned inside the stage, so it
+   follows exactly, at any size. */
+/* At Actual size nothing may clamp the page: `.ocr-stage`'s own
+   `max-width: 100%` capped an 800px scan to the pane's 757px, which is
+   neither fit nor actual — measured. */
+.ocr-page:not(.is-fit) .ocr-stage {
+  max-width: none;
+}
+
+.ocr-page:not(.is-fit) .ocr-stage img {
+  max-width: none;
+  width: 100%;
 }
 
 .ocr-boxes {

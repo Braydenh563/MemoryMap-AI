@@ -3753,3 +3753,16 @@ html.modal-open body {
 select {
   font-size: var(--text-md);
 }
+
+
+/* The "worth rebuilding now" line in Settings → Search index. An accent
+   ground rather than a warning colour: nothing is broken, there is simply
+   something useful to do. See `renderReindex` in app.js. */
+.reindex-stale:not(.hidden) {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--ink);
+}

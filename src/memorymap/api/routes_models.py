@@ -185,6 +185,12 @@ def status() -> dict:
         "embedding_warming_failed": embeddings_module.warmup_failed(),
         "embedding_error": embeddings.last_error,
         "reindex": jobs.reindex_status(),
+        #: How many notes have arrived or gone in bulk since the index was
+        #: last rebuilt — asked for as "suggest rebuilding the search index
+        #: upon large changes". The status poll already runs; a second
+        #: endpoint for one integer would be a second thing to keep in step.
+        "index_stale_notes": deps.index_stale_notes(),
+        "index_stale_suggest_at": deps.INDEX_STALE_SUGGEST_AT,
         "pulls": jobs.pull_statuses(),
         # Reported directly: the local-OCR button ("Read text offline") was
         # always shown enabled, so pressing it without the `tesseract` system
@@ -522,11 +528,12 @@ def set_embedding_backend(
     embeddings = deps.get_embeddings()
     embeddings.reset_failure_state()
     jobs.start_reindex(deps.get_db(), embeddings)
+    deps.clear_index_stale()
     return {"reindex_started": True}
 
 
 @router.post("/reindex")
-def rebuild_search_index() -> dict:
+def rebuild_search_index() -> dict:  # noqa: D401 — see the long docstring below
     """Re-embed every note with the current backend, on demand.
 
     **Until now the only way to rebuild the index was to switch embedding
@@ -558,6 +565,10 @@ def rebuild_search_index() -> dict:
     # and look like it did nothing.
     embeddings.reset_failure_state()
     started = jobs.start_reindex(deps.get_db(), embeddings)
+    #: Only on a rebuild that actually started: clearing the backlog for a
+    #: request that was refused would hide the very thing it counts.
+    if started:
+        deps.clear_index_stale()
     return {"reindex_started": bool(started)}
 
 

@@ -1295,12 +1295,80 @@ function docLiveEditor(source, index) {
   return box;
 }
 
+//: **Where the caret lands when you click a rendered block.**
+//:
+//: The rendered text and the markdown behind it are different strings — the
+//: syntax has been consumed by the renderer — so "the 12th character you can
+//: see" is not "the 12th character of the source". This walks the source and
+//: counts only the characters that survive rendering, skipping the markers
+//: that do not, and returns the source offset for a given *visible* offset.
+//:
+//: Deliberately approximate. It is exact for prose and for the marks people
+//: actually click into mid-sentence (emphasis, code, highlight, a heading's
+//: `#`), and it degrades to "somewhere close, in the right paragraph" for the
+//: rest — which is the whole gain over the previous behaviour, where every
+//: click landed at the end of the block regardless of where you aimed.
+function docLiveSourceOffset(source, visibleTarget) {
+  if (visibleTarget <= 0) return 0;
+  let visible = 0;
+  let i = 0;
+  let atLineStart = true;
+  while (i < source.length && visible < visibleTarget) {
+    const rest = source.slice(i);
+    //: Line-leading syntax: heading hashes, quote markers, list bullets.
+    if (atLineStart) {
+      const lead = /^(\s*(?:#{1,6}\s+|>\s?|[-*+]\s+|\d+\.\s+|- \[[ xX]\]\s+))/.exec(rest);
+      if (lead) {
+        i += lead[1].length;
+        atLineStart = false;
+        continue;
+      }
+    }
+    //: Inline markers, longest first so `**` is not read as two `*`.
+    const marker = /^(\*\*|__|~~|==|\[\[|\]\]|`|\*|_)/.exec(rest);
+    if (marker) {
+      i += marker[1].length;
+      continue;
+    }
+    //: A link's target is not visible; its text is.
+    const link = /^\[([^\]]*)\]\([^)]*\)/.exec(rest);
+    if (link) {
+      const inner = Math.min(link[1].length, visibleTarget - visible);
+      if (inner < link[1].length) return i + 1 + inner;
+      visible += link[1].length;
+      i += link[0].length;
+      continue;
+    }
+    atLineStart = source[i] === "\n";
+    visible += 1;
+    i += 1;
+  }
+  return i;
+}
+
+//: How many rendered characters sit before the caret inside this block —
+//: `caretRangeFromPoint` gives the node and offset under the pointer, and
+//: everything before it in the block is what the reader has already passed.
+function docLiveVisibleOffset(block, x, y) {
+  const range = document.caretRangeFromPoint?.(x, y);
+  if (!range || !block.contains(range.startContainer)) return null;
+  const upto = document.createRange();
+  upto.selectNodeContents(block);
+  upto.setEnd(range.startContainer, range.startOffset);
+  return upto.toString().length;
+}
+
 function focusDocLiveBlock(index, caret = "end") {
   docLiveActive = index;
   renderDocLive(true);
   const box = $("doc-live").querySelector(".lp-src");
   if (!box) return;
-  const position = caret === "start" ? 0 : box.value.length;
+  const position =
+    caret === "start"
+      ? 0
+      : typeof caret === "number"
+        ? Math.min(Math.max(caret, 0), box.value.length)
+        : box.value.length;
   box.focus();
   box.setSelectionRange(position, position);
 }
@@ -1321,8 +1389,19 @@ function wireDocLive() {
     // preventDefault stops the browser placing a selection in the block we
     // are about to replace, which otherwise steals focus back from the
     // textarea a moment later.
+    //
+    // Measured *before* the block is replaced, because the rendered nodes the
+    // click landed in are about to be thrown away: the caret went to the end
+    // of the block on every click, wherever you aimed, which is the one thing
+    // that makes a live-preview editor feel like a form rather than a page.
+    const visible = docLiveVisibleOffset(block, event.clientX, event.clientY);
     event.preventDefault();
-    focusDocLiveBlock(Number(block.dataset.index));
+    const index = Number(block.dataset.index);
+    const source = docLiveBlocks($("doc-content").value)[index] ?? "";
+    focusDocLiveBlock(
+      index,
+      visible === null ? "end" : docLiveSourceOffset(source, visible),
+    );
   });
 }
 
@@ -2089,7 +2168,14 @@ $("doc-file-type").addEventListener("change", async (event) => {
 wireDocScrollSync();
 wireDocLive();
 try {
-  setDocView(localStorage.getItem(DOC_VIEW_KEY) || "source");
+  //: **Live is the default now.** Asked for: "I want the text editor to be
+  //: EXACTLY LIKE OBSIDIAN. the user would bold a wor, click off it, and the
+  //: word shows as bolded" — which is what this mode does, and has done for a
+  //: while; it was simply not the view anybody landed in, so the editor read
+  //: as a plain markdown box with a preview button. Obsidian's own default is
+  //: Live Preview for the same reason. A stored choice still wins, so nobody
+  //: who picked Source is moved off it.
+  setDocView(localStorage.getItem(DOC_VIEW_KEY) || "live");
 } catch {
   setDocView("source");
 }

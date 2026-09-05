@@ -504,9 +504,19 @@ def attached_file_pdf_page(attachment_id: int, index: int, session: Session = De
 
 
 @router.delete("/files/{attachment_id}", response_model=EntryOut)
-def delete_file(attachment_id: int, session: Session = Depends(get_session)) -> EntryOut:
+def delete_file(
+    attachment_id: int,
+    strip_references: bool = False,
+    session: Session = Depends(get_session),
+) -> EntryOut:
+    """`strip_references` is `delete_media`'s flag on the other table — same
+    reason, same default. An attached image can be embedded in the note it is
+    attached to (`![](/files/12)`), and deleting the file used to leave that
+    markdown behind forever."""
     attachment = _existing_attachment(session, attachment_id)
     entry = _existing_entry(session, attachment.entry_id)
+    if strip_references:
+        _strip_embeds(session, f"/files/{attachment.id}")
     manager.delete_attachment(session, attachment, deps.get_config().uploads_dir)
     return _to_out(session, entry)
 
@@ -1113,23 +1123,82 @@ def media_pdf_page(filename: str, index: int, session: Session = Depends(get_ses
     return Response(content=png, media_type="image/png", headers={"Cache-Control": "private, max-age=3600"})
 
 
+#: An embed of one stored file: `![alt](/media/name.png)` or
+#: `![alt](/files/12)`, with the optional title markdown allows. Written
+#: against a *literal* url (escaped by the caller), so there is no
+#: user-controlled repetition in it — the shape CodeQL flags as
+#: polynomial-ReDoS is exactly what this avoids.
+def _embed_pattern(url: str) -> re.Pattern[str]:
+    #: Markdown's optional title, in either quote style.
+    title = r"""(?:\s+["'][^"'\n]{0,200}["'])?"""
+    return re.compile(r"!\[[^\]\n]{0,200}\]\(" + re.escape(url) + title + r"\)")
+
+
+def _strip_embeds(session: Session, url: str) -> list[int]:
+    """Remove every `![...](url)` from the notes that hold one.
+
+    Reported directly: *"notes still mention removed images"*. Deleting the
+    file left the markdown behind, so the note rendered a placeholder saying
+    the image was gone — forever, with no way to tidy it but editing the note
+    by hand and knowing what to look for.
+
+    Only the **embed** is removed, never a link: `[see the scan](/media/x.png)`
+    is a sentence the author wrote and would be a hole in their prose if it
+    vanished. And only exact-url matches, so nothing else in the note moves.
+    """
+    pattern = _embed_pattern(url)
+    touched: list[int] = []
+    #: `LIKE` narrows the scan to notes that mention the url at all; the
+    #: regex above decides. A private note is encrypted at rest and its
+    #: content is not readable here, which is also why one cannot embed a
+    #: Library image into one in the first place.
+    rows = session.scalars(
+        select(Entry).where(
+            Entry.is_deleted.is_(False),
+            Entry.is_private.is_(False),
+            Entry.content.contains(url),
+        )
+    ).all()
+    for entry in rows:
+        cleaned = pattern.sub("", entry.content or "")
+        if cleaned == entry.content:
+            continue
+        #: The blank line the embed used to sit on goes with it — otherwise a
+        #: note loses a picture and gains a gap where it was.
+        entry.content = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+        touched.append(entry.id)
+    if touched:
+        session.commit()
+    return touched
+
+
 @router.delete("/media/{upload_id}")
-def delete_media(upload_id: int, session: Session = Depends(get_session)) -> dict:
-    """Removes the file and its tracking row. Asked for directly — an
-    uploaded image "can't be deleted" today, since nothing tracked it at
-    all before `MediaUpload` existed. Any note or whiteboard object still
-    pointing at this url is left as-is; its own `<img>` fails to load and
-    the frontend renders a "this image was deleted" placeholder rather than
-    a broken-image glyph, the same live-reported ask.
+def delete_media(
+    upload_id: int,
+    strip_references: bool = False,
+    session: Session = Depends(get_session),
+) -> dict:
+    """Removes the file and its tracking row.
+
+    `strip_references` also takes the `![...](...)` out of every note that
+    embedded it — asked for after the placeholder shipped: a note that keeps
+    pointing at a file you deleted is a note that renders "this image was
+    removed" for the rest of its life. Off by default, because deleting a
+    file and editing someone's notes are different acts and the second one
+    has to be chosen: the caller asks, the UI offers it in the confirm.
     """
     upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
     media_dir = (deps.get_config().data_dir / "media").resolve()
     candidate = (media_dir / upload.filename).resolve()
+    cleaned: list[int] = []
+    if strip_references:
+        #: Before the row goes: the url is built from `upload.filename`.
+        cleaned = _strip_embeds(session, f"/media/{upload.filename}")
     if candidate.is_relative_to(media_dir):
         candidate.unlink(missing_ok=True)
     session.delete(upload)
     session.commit()
-    return {"status": "ok"}
+    return {"status": "ok", "cleaned_notes": cleaned}
 
 
 class MediaRenameBody(BaseModel):

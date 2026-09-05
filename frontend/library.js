@@ -2457,6 +2457,41 @@ function openOcrWorkspace(image, images) {
   ocrLoadPage(image);
 }
 
+//: **The whole page, in a pane that is the wrong shape for it.** See the
+//: matching CSS comment for why this is not `max-height: 100%`: the stage's
+//: height is `auto`, so a percentage cap against it computes to none, and
+//: `object-fit` would letterbox the picture inside the box the region overlay
+//: is measured against. Setting the stage's *width* keeps the stage exactly
+//: as big as the picture, which is what makes a percentage-positioned box
+//: land on the words it names.
+function ocrFitStage() {
+  const pane = document.querySelector(".ocr-page");
+  const stage = $("ocr-stage");
+  const img = $("ocr-image");
+  if (!pane || !stage || !img) return;
+  const naturalWidth = img.naturalWidth || 0;
+  const naturalHeight = img.naturalHeight || 0;
+  if (!naturalWidth || !naturalHeight) return;
+  if (!pane.classList.contains("is-fit")) {
+    //: Actual size means the page's own pixels. Left to CSS the stage
+    //: shrink-to-fits the pane instead — measured: an 800px-wide scan came
+    //: back 757px wide, which is neither fit nor actual.
+    stage.style.width = `${naturalWidth}px`;
+    return;
+  }
+  //: The pane's *content* box: its padding is not room the picture can use.
+  const style = getComputedStyle(pane);
+  const availableWidth =
+    pane.clientWidth - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight);
+  const availableHeight =
+    pane.clientHeight - Number.parseFloat(style.paddingTop) - Number.parseFloat(style.paddingBottom);
+  if (availableWidth <= 0 || availableHeight <= 0) return;
+  //: Never upscale: a small screenshot blown up to fill the pane is blurry
+  //: and says nothing more than it did at its own size.
+  const scale = Math.min(availableWidth / naturalWidth, availableHeight / naturalHeight, 1);
+  stage.style.width = `${Math.floor(naturalWidth * scale)}px`;
+}
+
 function ocrAllText() {
   return ocrWorkspaceRegions.map((region) => region.text).join("\n\n").trim();
 }
@@ -2467,6 +2502,23 @@ document.addEventListener("DOMContentLoaded", () => {
     //: Click the backdrop to close, the card to keep working — the same rule
     //: every other overlay in this app follows.
     if (event.target === event.currentTarget) event.currentTarget.classList.add("hidden");
+  });
+  document.querySelector(".ocr-page")?.classList.add("is-fit");
+  for (const button of document.querySelectorAll("#ocr-zoom button")) {
+    button.addEventListener("click", () => {
+      const fit = button.dataset.ocrZoom === "fit";
+      document.querySelector(".ocr-page")?.classList.toggle("is-fit", fit);
+      for (const other of document.querySelectorAll("#ocr-zoom button")) {
+        const on = other === button;
+        other.classList.toggle("active", on);
+        other.setAttribute("aria-pressed", String(on));
+      }
+      ocrFitStage();
+    });
+  }
+  $("ocr-image")?.addEventListener("load", ocrFitStage);
+  window.addEventListener("resize", () => {
+    if (!$("ocr-workspace")?.classList.contains("hidden")) ocrFitStage();
   });
   $("ocr-show-boxes")?.addEventListener("change", (event) => {
     $("ocr-boxes").classList.toggle("is-hidden", !event.currentTarget.checked);
@@ -2555,16 +2607,21 @@ function clearLibraryMediaSelection() {
 async function bulkDeleteLibraryMedia() {
   const rows = [...libraryMediaSelection.values()];
   if (!rows.length) return;
-  if (
-    !(await confirmDialog(
-      `Delete ${rows.length} selected item${rows.length === 1 ? "" : "s"}?\n\n` +
-        'Any note or board still showing one will show a "deleted" placeholder instead.'
-    ))
-  ) {
-    return;
-  }
+  const answer = await confirmDialog(
+    `Delete ${rows.length} selected item${rows.length === 1 ? "" : "s"}?\n\n` +
+      'Any note or board still showing one will show a "deleted" placeholder instead.',
+    {
+      checkbox: {
+        label: "Also remove them from the notes that show them",
+        title: "Takes the ![image](…) out of every note that embeds these files. Links to them are left alone.",
+        checked: true,
+      },
+    },
+  );
+  if (!answer.ok) return;
   for (const image of rows) {
-    await apiJson(mediaRowDeleteEndpoint(image), { method: "DELETE" }).catch((err) =>
+    const endpoint = `${mediaRowDeleteEndpoint(image)}${answer.checked ? "?strip_references=true" : ""}`;
+    await apiJson(endpoint, { method: "DELETE" }).catch((err) =>
       toast(err.message, true)
     );
     const idx = libraryImagesCache.indexOf(image);
@@ -2573,6 +2630,7 @@ async function bulkDeleteLibraryMedia() {
   libraryMediaSelection.clear();
   syncLibraryMediaSelectbar();
   filterLibraryImagesGallery();
+  if (answer.checked) loadEntries().catch(() => {});
 }
 
 async function renderLibraryImagesGallery() {
@@ -2839,14 +2897,35 @@ function filterLibraryImagesGallery() {
     setLabel(del, "ph:trash");
     del.addEventListener("click", async (e) => {
       e.stopPropagation();
-      if (!(await confirmDialog(`Delete "${image.original_name}"?\n\nAny note or board still showing it will show a "deleted" placeholder instead.`))) return;
+      //: **The second question, asked once, in the same dialog.** Reported:
+      //: "notes still mention removed images" — deleting the file left every
+      //: `![](…)` behind, so those notes rendered a "this image was removed"
+      //: placeholder for the rest of their lives. Ticked by default because
+      //: a reference to a file that no longer exists is not something anyone
+      //: keeps on purpose; unticking it keeps the old behaviour exactly.
+      const answer = await confirmDialog(
+        `Delete "${image.original_name}"?\n\nAny note or board still showing it will show a "deleted" placeholder instead.`,
+        {
+          checkbox: {
+            label: "Also remove it from the notes that show it",
+            title: "Takes the ![image](…) out of every note that embeds this file. Links to it are left alone.",
+            checked: true,
+          },
+        },
+      );
+      if (!answer.ok) return;
       // An Attachment row (image._isAttachment) lives at a completely
       // different id space from MediaUpload — `DELETE /media/{id}` here
       // would either 404 or, worse, delete an unrelated MediaUpload row
       // that happened to share the same numeric id.
-      await apiJson(mediaRowDeleteEndpoint(image), { method: "DELETE" }).catch((err) =>
+      const endpoint = `${mediaRowDeleteEndpoint(image)}${answer.checked ? "?strip_references=true" : ""}`;
+      await apiJson(endpoint, { method: "DELETE" }).catch((err) =>
         toast(err.message, true)
       );
+      //: The notes on screen are now out of date by exactly the edit the
+      //: server just made, so they are refetched rather than left showing a
+      //: picture that is gone from both the disk and the note.
+      if (answer.checked) loadEntries().catch(() => {});
       libraryMediaSelection.delete(mediaRowKey(image));
       syncLibraryMediaSelectbar();
       const idx = libraryImagesCache.indexOf(image);
@@ -3435,172 +3514,51 @@ function filterLibraryImagesGallery() {
     // the same thing??" — and they nearly did. `ocrBtn` (ph:scan) and
     // `visionOcrBtn` (ph:text-aa) are both "read the text in this image",
     // differing only in *which* reader, which an icon cannot say and a
-    // tooltip only says once you have hovered both. The same report proposed
-    // the fix: "maybe have the button as a 3-dot kebab button with the other
-    // options as a popup menu". A menu row has room for words, so the two
-    // readers are now told apart by name rather than by glyph.
+    // tooltip only says once you have hovered both. A menu row has room for
+    // words, so the two readers are told apart by name rather than by glyph.
     //
-    // The buttons themselves are untouched — same elements, same handlers,
-    // relabelled and re-parented. A rewrite would have been a rewrite of five
-    // working things to change where they sit.
-    setLabel(rename, "ph:pencil-simple Rename");
-    setLabel(captionBtn, "ph:sparkle Describe with AI");
-    setLabel(ocrBtn, "ph:scan Read text (Tesseract OCR)");
-    setLabel(visionOcrBtn, "ph:text-aa Read text with AI");
-    setLabel(del, "ph:trash Delete");
-    for (const button of [rename, captionBtn, ocrBtn, visionOcrBtn, del]) {
-      button.classList.remove("icon-button");
-      button.classList.add("library-image-menu-item");
-    }
-    del.classList.add("danger");
-
+    //: **And it is the app's own kebab now, not a second implementation of
+    //: one.** Reported three times, most recently with two screenshots side
+    //: by side: "the images subtab dropdown menus are still different from the
+    //: ones in the documents and all subtabs". They were — this menu was a
+    //: `<details>` with its own list class, its own outside-click listener,
+    //: its own reparent-to-body escape and its own 40-line placement
+    //: function, while every other menu in the app is `kebabMenu()`. Two
+    //: implementations of one control is exactly how two controls end up
+    //: looking different, and no amount of matching the CSS by hand fixes the
+    //: next difference. All of that is deleted; the five buttons keep their
+    //: handlers and are driven from the shared menu's rows.
+    const menuActions = [
+      { button: rename, label: "ph:pencil-simple Rename" },
+      { button: captionBtn, label: "ph:sparkle Describe with AI" },
+      { button: visionOcrBtn, label: "ph:text-aa Read text with AI" },
+      { button: ocrBtn, label: "ph:scan Read text (Tesseract OCR)" },
+      //: Images only — `extract_regions` refuses anything Tesseract cannot
+      //: open, and a row guaranteed to 415 is worse than a shorter menu.
+      ...(image._isImage ? [{ button: ocrOpenBtn, label: "ph:selection-all See text on the page" }] : []),
+      { button: del, label: "ph:trash Delete", danger: true },
+    ];
+    //: The row of controls the kebab lives in. Declared here because the
+    //: `<details>` version this replaced created it a few lines further down,
+    //: and taking that block out took the declaration with it.
     const actions = document.createElement("div");
     actions.className = "library-image-actions";
-
-    // `<details>` rather than a hand-rolled popup: it opens on click and on
-    // Enter/Space, closes on Escape, and is exposed to a screen reader as a
-    // disclosure — all of it from the browser, none of it from us. The one
-    // thing it does not do is close when you click elsewhere, which is the
-    // single listener below.
-    const menu = document.createElement("details");
-    menu.className = "library-image-menu";
-    const menuButton = document.createElement("summary");
-    menuButton.className = "ghost small icon-button library-image-menu-btn";
-    menuButton.title = `More actions for “${image.original_name}”`;
-    menuButton.setAttribute("aria-label", menuButton.title);
-    setLabel(menuButton, "ph:dots-three");
-    const menuList = document.createElement("div");
-    menuList.className = "library-image-menu-list";
-    // Rename/caption/OCR/vision-OCR are `MediaUpload`-only actions — an
-    // Attachment row has none of that (see AttachmentGalleryOut's own
-    // docstring, routes_files.py), and each of those buttons' handler calls
-    // `/media/{id}/...` with this row's id, which is an Attachment id in a
-    // completely separate id space. Wiring them up regardless would mean a
-    // button that either 404s or, on an id collision, edits an unrelated
-    // MediaUpload row — so for an attachment tile, Delete is the only
-    // action offered, same principle as the lightbox's own id-gated actions
-    // just above ("a button guaranteed to 404 is worse than no button").
-    // Attachments carry caption/OCR/vision columns of their own now (see
-    // `Attachment` in core/database.py), so they get the same actions as a
-    // MediaUpload row — `analyseMediaRow` routes each one to the right
-    // endpoint. Rename is still MediaUpload-only: an attachment's name is
-    // the note's own file list's business, not the gallery's. A sketch has
-    // no file behind it at all, so it keeps Delete alone.
-    //: Rename is in both lists now — see the note in `save` above for why an
-    //: attachment stopped being the exception.
-    //: Between the two readers and Delete: it is about *what has already been
-    //: read*, so it belongs after the two rows that do the reading and before
-    //: the one destructive row. Images only — `extract_regions` refuses
-    //: anything Tesseract cannot open, and a row guaranteed to 415 is worse
-    //: than a shorter menu.
-    menuList.append(rename, captionBtn, visionOcrBtn, ocrBtn);
-    if (image._isImage) menuList.appendChild(ocrOpenBtn);
-    menuList.appendChild(del);
-    menu.append(menuButton, menuList);
-    // Picking anything closes the menu — on the **capture** phase, which is
-    // the whole point. This was a bubble-phase listener with a comment
-    // explaining that each button's own handler should run first, but every
-    // one of those handlers (rename, caption, both OCR buttons, delete)
-    // opens with `event.stopPropagation()` to keep the click off the tile
-    // underneath — so the click never reached this listener and the menu
-    // never closed. Reported directly: the menu stayed open on top of the
-    // rename field it had just opened, covering the thing you were trying to
-    // type into.
-    //
-    // Capturing runs this before those handlers, where nothing can stop it,
-    // and closing the menu does not cancel the click that is still on its
-    // way to the button — so both halves now happen.
-    menuList.addEventListener(
-      "click",
-      () => {
-        menu.open = false;
-      },
-      { capture: true }
+    const menu = kebabMenu(
+      menuActions.map(({ button, label, danger }) => ({
+        label,
+        title: button.title,
+        //: The button's own disabled state carries through as the menu row's
+        //: muted state — `ocrBtn` is disabled when Tesseract is missing, and a
+        //: row that looks live and does nothing is worse than one that says so.
+        disabled: button.disabled,
+        danger,
+        //: `run` clicks the original button, so its handler — rename's inline
+        //: field, the two readers' spinners, delete's confirm — is still the
+        //: one thing that decides what happens.
+        run: () => button.click(),
+      })),
+      `More actions for “${image.original_name}”`,
     );
-    document.addEventListener("click", (event) => {
-      // `menuList` is reparented to <body> while open (see placeMenu), so
-      // `menu.contains()` alone no longer covers a click on the menu's own
-      // rows — it has to be asked about separately or every click inside
-      // the menu reads as a click outside it.
-      if (menu.open && !menu.contains(event.target) && !menuList.contains(event.target)) {
-        menu.open = false;
-      }
-    });
-    // Which edges to flip toward used to be a CSS-only guess (nth-child(3n)
-    // for "last column"), which only held while the grid actually rendered
-    // exactly 3 columns — it's `auto-fill`, so a narrower window silently put
-    // the wrong tiles on the flip side and every other tile's five-row menu
-    // ran off the bottom of the screen with nothing to catch it at all.
-    // Reported directly: "make sure the popup options dont get cut off."
-    // Measured against the real box now, the same way openActionMenu()
-    // (app.js) already does it for every other kebab in the app.
-    // **Re-reported after the clamp below was already in place**, with a
-    // screenshot of the menu cut off dead straight down its left edge — and
-    // a straight vertical cut is a *clipping ancestor*, not a menu that ran
-    // past the window. Measured: the menu's ancestor chain has two of them,
-    // `#library-view-media` (`overflow-x: auto`) and `#tab-library`
-    // (`overflow-x: hidden`). No amount of measuring fixes that, because
-    // `getBoundingClientRect()` reports the box the menu *would* occupy —
-    // it does not know the box is about to be clipped, so a clamp that
-    // keeps the menu inside those bounds still gets scissored by them, and
-    // a clamp measured against the scroll parent has nowhere left to move.
-    //
-    // So the menu stops being `position: absolute` inside that subtree and
-    // becomes `position: fixed`, positioned from the button's own rect
-    // against the viewport — the same escape the whiteboard's context menu
-    // already makes (`wb-ctx-menu`), for the same reason. Nothing can clip
-    // a fixed element to an ancestor's overflow, so the only bound left to
-    // respect is the window, which is what a clamp can actually enforce.
-    // **`position: fixed` alone is not enough, and the reason is worth
-    // recording.** The first attempt at this made the list fixed and
-    // positioned it from the button's rect — and it still landed inside the
-    // clipped box, offset from where it was told to go by 54px on one tile
-    // and 709px on another. A fixed element resolves against the viewport
-    // *unless* an ancestor establishes a containing block for it, which
-    // `transform`, `filter`, `backdrop-filter` and `will-change` all do —
-    // and the tile's own `section.card.glass` carries `backdrop-filter`.
-    // So the coordinates were being resolved against the very element the
-    // menu needed to escape.
-    //
-    // Reparenting to <body> is what actually escapes it: no glass ancestor,
-    // no clipping ancestor, and `fixed` finally means the viewport. Same
-    // move `wbOpenDockedMenu` makes for the same reason.
-    const placeMenu = () => {
-      if (!menu.open) {
-        if (menuList.parentElement === document.body) menu.append(menuList);
-        return;
-      }
-      if (menuList.parentElement !== document.body) document.body.append(menuList);
-      const margin = 8;
-      const anchor = menuButton.getBoundingClientRect();
-      // Default: hung below the button, right edges aligned — the same
-      // placement the absolute version had, just resolved against the
-      // viewport instead of the (clipping) offset parent.
-      menuList.style.left = "0px";
-      menuList.style.top = "0px";
-      const box = menuList.getBoundingClientRect();
-      let left = anchor.right - box.width;
-      let top = anchor.bottom + margin;
-      if (left < margin) left = margin;
-      if (left + box.width > window.innerWidth - margin) {
-        left = Math.max(margin, window.innerWidth - margin - box.width);
-      }
-      // Flip above the button when there is no room below it, and only
-      // then — the menu is five rows tall and a tile near the bottom of
-      // the gallery has none.
-      if (top + box.height > window.innerHeight - margin) {
-        const above = anchor.top - margin - box.height;
-        top = above >= margin ? above : Math.max(margin, window.innerHeight - margin - box.height);
-      }
-      menuList.style.left = `${Math.round(left)}px`;
-      menuList.style.top = `${Math.round(top)}px`;
-    };
-    menu.addEventListener("toggle", placeMenu);
-    // A fixed element does not travel with the content it was opened from,
-    // so a scroll would leave it stranded over the wrong tile. Cheapest
-    // correct answer, and the one the rest of the app uses: close it.
-    window.addEventListener("scroll", () => { if (menu.open) menu.open = false; }, true);
-    window.addEventListener("resize", () => { if (menu.open) menu.open = false; }, { passive: true });
     actions.append(menu);
 
     // **Labelled, and separated.** Reported directly: "I feel the image
@@ -4748,7 +4706,7 @@ async function renderContents() {
       //: filename, or as the bare word "image" when the alt text was empty.
       //: In an index whose whole job is helping you recognise a note, that is
       //: the one row shape that cannot do it.
-      const shot = noteFirstImage(entry.content);
+      const shot = noteAnyImage(entry);
       if (shot) {
         const thumb = document.createElement("img");
         thumb.className = "contents-thumb";

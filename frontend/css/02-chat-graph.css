@@ -2041,6 +2041,14 @@ kbd {
   top: calc(100% + 4px);
   z-index: 30;
   min-width: 12.5rem;
+  /* Wide enough that a row is one line. Measured after the Images gallery's
+     own menu was folded into this one: at a fixed 200px, "Read text
+     (Tesseract OCR)" wrapped to three lines and the menu had rows 40, 64 and
+     88px tall, which reads as a broken list rather than a menu. The rows say
+     `white-space: nowrap` (see `.menu-item` below), so this is the ceiling
+     they are allowed to grow to before one finally wraps. */
+  max-width: min(24rem, calc(100vw - var(--space-8)));
+  width: max-content;
   display: flex;
   flex-direction: column;
   padding: 0.4rem;
@@ -2214,6 +2222,8 @@ kbd {
 }
 
 .menu-item {
+  /* One row, one line — see `.action-menu`'s width note above. */
+  white-space: nowrap;
   background: none;
   border: none;
   box-shadow: none;

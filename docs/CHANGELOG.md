@@ -7,6 +7,54 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-09-05
+
+A long round driven almost entirely by live reports with screenshots. Two
+defect *shapes* account for most of the visual bugs in it, and both are
+written up at the top of `docs/roadmap/HANDOVER.md`: a CSS recipe that names
+its members explicitly and silently drops any control that never enrolled, and
+`border: none`, which leaves the width at `medium` for an `!important`
+border-style rule to resurrect as 3px.
+
+### Added
+- **An OCR workspace.** A page beside its regions: a page rail, the image with
+  a clickable box per block Tesseract found, and the text of each block with
+  its confidence, one selection shared both ways. `core/ocr.py` gained
+  `extract_regions`; `GET /media|files/{id}/ocr-regions` serve it. Fit and
+  Actual size, because a portrait scan in a landscape pane was getting cut off.
+- **A vault keeps its shape when imported.** `Entry.source_path` holds the
+  vault-relative path, `[[wiki links]]` resolve by **filename** (which is what
+  Obsidian links name), the Contents index gained a By-folder mode, and
+  Settings gained a folder picker beside the file picker.
+- **The Contents sub-tab is a real index** — sticky sections, a filter, a jump
+  bar, folding, grouping by category, tag or month — rather than a masonry of
+  boxes with a scroller inside each one.
+- **A selection toolbar** in both editing surfaces, and the note *edit* form
+  (the app's poorest editing surface) gained the toolbar, the "/" menu and the
+  selection bar it never had. Documents now open in Live view.
+- **Live action lines in chat**: each tool call names what it touched, as chips
+  that preview the note in place with Open and Edit.
+- **Sorting on every Library sub-tab**, and a Cards/Rows switch on Boards.
+- **A rebuild-the-search-index suggestion** after a bulk change, rather than a
+  standing notice nobody reads.
+- **Favourites** as a parallel pseudo-category, integrated everywhere.
+
+### Changed
+- The Images/Files gallery kebab is the app's own `kebabMenu()` — it was a
+  second implementation of one control, which is how it drifted three times.
+- The widgets picker shows Wide as a state, marks Remove as destructive, and
+  can be reordered from the keyboard.
+- Deleting a file can take its `![...]()` out of the notes that showed it.
+
+### Fixed
+- A document chip in chat opened a *note* with the same id.
+- A tool row with chips vanished from a reopened conversation.
+- Drafts could link to saved notes.
+- The Files sub-tab's kebab existed but was invisible and unclickable behind
+  the page preview.
+- Attached (not embedded) images never appeared in widget rows.
+
+
 ## [0.1.9] — 2026-09-04
 
 ### Added

@@ -31,14 +31,14 @@
        every later file's var() calls depend on. See
        tests/test_style_scale.py's STYLE_FILES for the list the design-token
        lint reads instead of a single style.css path. -->
-  <link rel="stylesheet" href="/css/00-tokens-shell.css?v=0.1.9">
-  <link rel="stylesheet" href="/css/01-forms-settings.css?v=0.1.9">
-  <link rel="stylesheet" href="/css/02-chat-graph.css?v=0.1.9">
-  <link rel="stylesheet" href="/css/03-dashboard-widgets.css?v=0.1.9">
-  <link rel="stylesheet" href="/css/04-chat-dock-appearance.css?v=0.1.9">
-  <link rel="stylesheet" href="/css/05-sidebars-themes.css?v=0.1.9">
-  <link rel="stylesheet" href="/css/06-timeline-dialogs.css?v=0.1.9">
-  <link rel="stylesheet" href="/css/07-whiteboard-misc.css?v=0.1.9">
+  <link rel="stylesheet" href="/css/00-tokens-shell.css?v=0.2.0">
+  <link rel="stylesheet" href="/css/01-forms-settings.css?v=0.2.0">
+  <link rel="stylesheet" href="/css/02-chat-graph.css?v=0.2.0">
+  <link rel="stylesheet" href="/css/03-dashboard-widgets.css?v=0.2.0">
+  <link rel="stylesheet" href="/css/04-chat-dock-appearance.css?v=0.2.0">
+  <link rel="stylesheet" href="/css/05-sidebars-themes.css?v=0.2.0">
+  <link rel="stylesheet" href="/css/06-timeline-dialogs.css?v=0.2.0">
+  <link rel="stylesheet" href="/css/07-whiteboard-misc.css?v=0.2.0">
   <!-- **Its own file, not an inline block, and that is the point.** The CSP
        allows inline scripts only by sha256 hash, and `create_app` computes
        those hashes from index.html **once at startup**. A server still
@@ -48,7 +48,7 @@
        the loading screen". A guard that exists to report a broken boot must
        not itself be the thing that breaks, and `script-src 'self'` covers a
        same-origin file unconditionally. -->
-  <script src="/boot-guard.js?v=0.1.9"></script>
+  <script src="/boot-guard.js?v=0.2.0"></script>
   <!-- **Its own file for the same reason boot-guard.js is**, and this one
        was reported: "[browser/csp] blocked script-src-elem: inline". The
        policy has no `'unsafe-inline'`, so an inline block has to be named by
@@ -64,7 +64,7 @@
        class rather than one more of its causes. It stays a plain synchronous
        script element in the head, so it still runs before first paint and the
        anti-flash guarantee is unchanged. -->
-  <script src="/theme-boot.js?v=0.1.9"></script>
+  <script src="/theme-boot.js?v=0.2.0"></script>
 </head>
 <body>
   <!-- The very first thing in <body>, on purpose: painted before any data
@@ -2048,9 +2048,14 @@ Link to another note with [[its first few words]]."></textarea>
                    half width each, which is not the same thing as reading the
                    finished page. -->
             <div class="seg seg-compact" id="doc-view-seg" role="group" aria-label="How to view this document">
-              <button type="button" data-doc-view="live"
+              <!-- `active` starts on Live because that is the view a document
+                   opens in now (see setDocView's call site in documents.js).
+                   The pressed state is re-derived on every `setDocView`, so
+                   this only matters for the flash before the first one runs —
+                   which is exactly long enough to be noticed. -->
+              <button type="button" data-doc-view="live" class="active" aria-pressed="true"
                 title="Render as you write; the paragraph you're in shows its markdown"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Live</button>
-              <button type="button" data-doc-view="source" class="active" aria-pressed="true"
+              <button type="button" data-doc-view="source"
                 title="The markdown itself, unrendered"><i class="ph ph-code ph-lead" aria-hidden="true"></i> Source</button>
               <button type="button" data-doc-view="split"
                 title="Show a rendered preview beside the editor"><i class="ph ph-columns ph-lead" aria-hidden="true"></i> Split</button>
@@ -3567,6 +3572,18 @@ Link to another note with [[its first few words]]."></textarea>
             <input type="checkbox" id="ocr-show-boxes" checked>
             <i class="ph ph-bounding-box ph-lead" aria-hidden="true"></i> Regions
           </label>
+          <!-- Reported: "the file documents get cut off a bit when reading
+               them with the ocr workspace". A page is usually portrait and
+               the pane is landscape, so at full width the bottom of the page
+               sat below the fold with only a scrollbar to say so. Fit is the
+               default now — the whole page, always — and Actual size is for
+               reading small print, where scrolling is the point. -->
+          <div class="seg seg-compact" id="ocr-zoom" role="group" aria-label="Page size">
+            <button type="button" data-ocr-zoom="fit" class="active" aria-pressed="true"
+              title="Show the whole page">Fit</button>
+            <button type="button" data-ocr-zoom="full" aria-pressed="false"
+              title="Show the page at its own size, and scroll">Actual size</button>
+          </div>
           <button id="ocr-copy-all" class="ghost small" type="button"
             title="Copy every region's text, in reading order"><i class="ph ph-copy ph-lead" aria-hidden="true"></i> Copy all</button>
           <button id="ocr-to-note" class="small" type="button"
@@ -3885,6 +3902,11 @@ Link to another note with [[its first few words]]."></textarea>
               <h3>Search index</h3>
               <progress id="reindex-progress" class="hidden" value="0" max="1"></progress>
               <p id="reindex-label" class="status hidden"></p>
+              <!-- Shown only when a bulk change has actually happened — see
+                   `mark_index_stale` (core/deps.py). A standing "you should
+                   rebuild" notice is one nobody reads; one that appears the
+                   day you import a vault is one that means something. -->
+              <p id="reindex-stale" class="status reindex-stale hidden" role="status"></p>
               <div class="row space-between reindex-action">
                 <p id="reindex-blurb" class="muted text-sm">Rebuilds what semantic search matches on. Worth doing after an update, or if searching stops finding notes you know are there — it re-reads every note with its category, tags and attached text included.</p>
                 <button id="reindex-start" class="ghost small" type="button">Rebuild search index</button>
@@ -6021,8 +6043,8 @@ Link to another note with [[its first few words]]."></textarea>
        it can safely go first. See frontend/graph.js's own header for the
        full explanation. -->
 
-  <script src="/graph.js?v=0.1.9"></script>
-  <script src="/app.js?v=0.1.9"></script>
+  <script src="/graph.js?v=0.2.0"></script>
+  <script src="/app.js?v=0.2.0"></script>
   <!-- Document editor, split out of app.js (§10 of the app.js-split plan).
        Loaded after app.js and shares its global scope; the two directions
        differ. app.js calls INTO this file (loadDocuments, renderDocStorage,
@@ -6032,14 +6054,14 @@ Link to another note with [[its first few words]]."></textarea>
        `initDocSidebarTabs();` sitting in app.js's own wiring block — moved
        here with the function itself, so this file now calls it on its own
        last line instead of app.js calling it mid-file. -->
-  <script src="/documents.js?v=0.1.9"></script>
+  <script src="/documents.js?v=0.2.0"></script>
   <!-- Whiteboard subsystem, split out of app.js (ROADMAP.md Priority 0 item
        2). Loaded after app.js and shares its global scope; every
        cross-file call between the two happens at runtime (inside a
        function or event listener), never at parse time, so this order is
        not load-bearing for correctness — it just keeps app.js as the
        first, larger script, matching the split's own diff. -->
-  <script src="/whiteboard.js?v=0.1.9"></script>
+  <script src="/whiteboard.js?v=0.2.0"></script>
   <!-- The Library tab, split out of app.js and whiteboard.js both (§88.3 of
        the app.js split plan — documents.js above was the first file, this
        is the second). Loaded after both for the same reason documents.js is
@@ -6054,7 +6076,7 @@ Link to another note with [[its first few words]]."></textarea>
        documents.js's split found that this one checked for and did not
        find (a bare top-level call site left orphaned by a moved
        definition). -->
-  <script src="/library.js?v=0.1.9"></script>
+  <script src="/library.js?v=0.2.0"></script>
   <!-- The editor layer: the "/" command menu, the block frames it inserts, and
        the caret-anchored popup the document editor's [[ autocomplete uses.
        Loaded after app.js for the same reason whiteboard.js is — every
@@ -6062,7 +6084,7 @@ Link to another note with [[its first few words]]."></textarea>
        allEntries from app.js, and MD_ACTIONS/markDocDirty from documents.js
        (loaded above) — all runtime reads inside closures, so this ordering
        relative to documents.js isn't load-bearing either. -->
-  <script src="/editor.js?v=0.1.9"></script>
+  <script src="/editor.js?v=0.2.0"></script>
   <!-- Dashboard: widgets, masonry packing, the generative-art widget (§88.3
        of the app.js-split plan). Loaded after app.js and shares its global
        scope; every cross-file call happens at runtime (inside a function or
@@ -6074,7 +6096,7 @@ Link to another note with [[its first few words]]."></textarea>
        closure) moved here along with the functions they call, the same fix
        documents.js made for `initDocSidebarTabs()` — see dashboard.js's own
        header for the full explanation. -->
-  <script src="/dashboard.js?v=0.1.9"></script>
+  <script src="/dashboard.js?v=0.2.0"></script>
   <!-- Settings: the modal shell, the logs console, and appearance (theme,
        accent, curated palettes, saved looks, the generative background
        preview) — §88.3 of the app.js-split plan, the fourth and LAST file.
@@ -6093,6 +6115,6 @@ Link to another note with [[its first few words]]."></textarea>
        event-listener closure — see this file's own header for the full
        account of what moved, what stayed in app.js and why, and the two
        hazards this ordering fixes. -->
-  <script src="/settings.js?v=0.1.9"></script>
+  <script src="/settings.js?v=0.2.0"></script>
 </body>
 </html>

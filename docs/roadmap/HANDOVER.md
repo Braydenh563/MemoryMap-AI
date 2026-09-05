@@ -307,6 +307,42 @@ word shows as bolded" needs the substrate change (a contenteditable rendering
 every block except the one being edited). The toolbar work above does not
 depend on it and does not block it.
 
+### v0.2.0 bug batch (a new session's reports, with screenshots)
+
+- **The Images/Files kebab is the app's own menu now.** Reported three times.
+  It was a `<details>` with its own list class, its own outside-click listener,
+  its own reparent-to-body escape and its own 40-line placement function — a
+  second implementation of one control, which is *how* it kept drifting. All of
+  it deleted; the five buttons keep their handlers and are driven from
+  `kebabMenu()`'s rows. `.action-menu` grew `width: max-content` and its rows
+  `white-space: nowrap`, because at a fixed 200px "Read text (Tesseract OCR)"
+  wrapped to three lines. Measured after: all three sub-tabs, one class, 40px
+  rows, one font.
+- **The Files kebab existed and could not be seen or clicked.** Two separate
+  causes, both measured: `.library-image-actions` was `opacity: 0` until hover,
+  and `.library-file-page` (`position: absolute; inset: 0; z-index: 1`) painted
+  the PDF preview straight over it. Now visible at 0.6 and above the preview —
+  `elementFromPoint` says all nine tiles hit their own kebab.
+- **Attached images never appeared in widget rows.** The gap was in the model,
+  not the markup: an *embedded* image is `![](…)` in the note text, an
+  *attached* one lives in its own table and appears nowhere in the markdown, so
+  a note whose only picture was attached rendered as text everywhere.
+  `noteRowImage` (dashboard) and `noteAnyImage` (app.js, for the Contents
+  index) fall through to the first image attachment.
+- **A deleted file can take its `![...]()` with it.** Reported: "notes still
+  mention removed images". `strip_references=true` on either delete route
+  removes the *embed* — never a link, which is a sentence the author wrote —
+  and the Library's confirm offers it as a tickbox, ticked. Seven tests.
+- **The OCR workspace fits the page.** Fit is computed in JS, and the CSS
+  comment says why the obvious answer fails: a percentage `max-height` resolves
+  against a parent with a definite height, and the stage's height is `auto`, so
+  the cap computed to none (measured: a 2400px page in a 724px pane). Actual
+  size needed two more measurements — `.ocr-stage`'s own `max-width: 100%`, and
+  a flex item's default shrink, each of which quietly re-fitted the page.
+- **A rebuild-the-index suggestion.** `mark_index_stale` counts notes that
+  arrive or vanish in bulk; Settings says so once the count crosses the
+  threshold the backend sets, and a rebuild clears it. Three tests.
+
 ### Still open — all of it top priority, in the user's own words
 
 Ranked by how loudly and how often it was asked for.

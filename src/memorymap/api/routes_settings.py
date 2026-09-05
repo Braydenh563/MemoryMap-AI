@@ -1651,6 +1651,9 @@ def _run_directory_import(directory_path: str):
         if imported > 0:
             manager.log_action(session, "imported", "data", detail=f"markdown dir x{imported}")
             session.commit()
+            #: A whole vault arriving at once is exactly the "large change"
+            #: the rebuild suggestion exists for — see `mark_index_stale`.
+            deps.mark_index_stale(imported)
 
 @router.post("/import/directory", status_code=202)
 def import_directory(req: ImportDirectoryRequest, background_tasks: BackgroundTasks):
@@ -1714,6 +1717,7 @@ def import_markdown(
         imported += 1
     manager.log_action(session, "imported", "data", detail=f"markdown x{imported}")
     session.commit()
+    deps.mark_index_stale(imported)
     return {"imported": imported, "skipped": skipped}
 
 

@@ -1939,6 +1939,12 @@ header#top-bar.tabs-wrapped #tab-bar {
   position: absolute;
   top: var(--space-2);
   right: var(--space-2);
+  /* Above `.library-file-page`, which is `position: absolute; inset: 0;
+     z-index: 1` and therefore covered this row completely on any file with a
+     rendered first page — measured on the Files sub-tab: four of nine tiles
+     had a kebab in the DOM at opacity 0.6 with a PDF page painted on top of
+     it, which is a control that exists and cannot be clicked. */
+  z-index: 2;
   /* `left` as well as `right`, and wrapping — reported live as *"the popup
      buttons for uploaded images sometimes get cut off in different window
      resolutions and sizes"*, with a screenshot showing the row running off the
@@ -1961,7 +1967,9 @@ header#top-bar.tabs-wrapped #tab-bar {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--space-2);
-  opacity: 0;
+  /* See the visibility rule further down: this used to be 0, so the kebab did
+     not exist until the pointer found it. */
+  opacity: 0.6;
   transition: opacity var(--motion-base) ease;
 }
 
@@ -2038,13 +2046,22 @@ header#top-bar.tabs-wrapped #tab-bar {
   box-shadow: var(--glass-shadow);
 }
 
+/* **Visible before you hover it.** Reported: "there is no elipse button on
+   files in the files library subtab" — there is, on every tile, and it was at
+   `opacity: 0` until the pointer happened to land on the tile. A control
+   nobody can see is a control nobody has: the whole point of a kebab is that
+   it *says* there is more here. Faded rather than full strength so a wall of
+   thumbnails is still thumbnails, and full on hover/focus as before.
+   (`:has(...[open])` went with the `<details>` menu it was written for — the
+   gallery uses the app's own `kebabMenu` now, whose open state lives on a
+   `.action-menu` sibling, and the row no longer fades at all.) */
+.library-image-actions {
+  opacity: 0.6;
+}
+
 .library-image-tile:hover .library-image-actions,
 .library-image-tile:focus-within .library-image-actions,
-.library-image-actions:focus-within,
-/* An open menu outlives the hover that opened it: moving the pointer down
-   the menu leaves the *tile*, and without this the whole thing faded out
-   from under the cursor. */
-.library-image-actions:has(.library-image-menu[open]) {
+.library-image-actions:focus-within {
   opacity: 1;
 }
 

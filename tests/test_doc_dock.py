@@ -127,4 +127,12 @@ def test_every_kebab_uses_the_same_icon():
         assert "dots-three-vertical" not in text, f"{name} uses the vertical kebab"
     assert 'class="ph ph-dots-three"' in sources["index.html"]
     assert '"ph:dots-three"' in sources["app.js"]
-    assert '"ph:dots-three"' in sources["library.js"]
+    #: library.js used to draw its own kebab and is asserted *not* to now: the
+    #: Images/Files gallery menu was a second implementation of one control —
+    #: its own `<details>`, its own list class, its own placement code — which
+    #: is how it drifted from every other menu in the app three times over. It
+    #: calls `kebabMenu()` (app.js) like everything else, so the glyph is
+    #: chosen in exactly one place and this file cannot disagree with it.
+    assert "ph:dots-three" not in sources["library.js"], (
+        "library.js is drawing its own kebab again — use kebabMenu() from app.js"
+    )

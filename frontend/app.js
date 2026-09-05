@@ -975,8 +975,18 @@ function buildSelect(options, selected) {
 // A promise-based dialog fixes that and is better in the browser too — it is
 // styled like the app, it says what the action is in a heading rather than a
 // system font, and the dangerous option can be marked as dangerous.
+//: `checkbox` adds one optional decision to the same dialog — `{label, title,
+//: checked}` — and the promise then resolves to `{ok, checked}` instead of a
+//: bare boolean. Added for "also take this picture out of the notes that show
+//: it", which is a second, *different* act from deleting the file: a
+//: second dialog for it would be a second modal to dismiss, and doing it
+//: silently would be the app editing someone's notes without being asked.
+//:
+//: Callers that pass no checkbox still get a plain boolean, because thirty of
+//: them read the result directly and widening that contract for all of them
+//: would be a rewrite in service of one feature.
 function confirmDialog(message, options = {}) {
-  const { confirmLabel = "OK", cancelLabel = "Cancel", danger = true } = options;
+  const { confirmLabel = "OK", cancelLabel = "Cancel", danger = true, checkbox = null } = options;
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay confirm-overlay";
@@ -998,6 +1008,21 @@ function confirmDialog(message, options = {}) {
     const row = document.createElement("div");
     row.className = "row confirm-actions";
 
+    //: Built before `close`, which reads it.
+    let extra = null;
+    if (checkbox) {
+      const label = document.createElement("label");
+      label.className = "checkbox-label confirm-extra";
+      extra = document.createElement("input");
+      extra.type = "checkbox";
+      extra.checked = Boolean(checkbox.checked);
+      const caption = document.createElement("span");
+      caption.textContent = checkbox.label;
+      label.append(extra, caption);
+      if (checkbox.title) label.title = checkbox.title;
+      card.appendChild(label);
+    }
+
     let settled = false;
     const close = (answer) => {
       if (settled) return;
@@ -1005,7 +1030,7 @@ function confirmDialog(message, options = {}) {
       document.removeEventListener("keydown", onKey, true);
       overlay.remove();
       returnFocus?.focus?.();
-      resolve(answer);
+      resolve(checkbox ? { ok: answer, checked: answer && Boolean(extra?.checked) } : answer);
     };
     const onKey = (event) => {
       // Escape cancels and Enter confirms, but only while this dialog is up —
@@ -1024,7 +1049,10 @@ function confirmDialog(message, options = {}) {
     const go = smallButton(confirmLabel, confirmLabel, () => close(true), false);
     if (danger) go.classList.add("danger");
     row.append(cancel, go);
-    card.append(text, row);
+    //: `insertBefore`, because the checkbox above was appended to the card
+    //: already and the buttons belong under it.
+    card.insertBefore(text, card.firstChild);
+    card.appendChild(row);
     overlay.appendChild(card);
     // Clicking the backdrop cancels, the way every other overlay here behaves.
     overlay.addEventListener("click", (e) => {
@@ -5035,10 +5063,73 @@ function similarNoteRow(entry, other, onLinked) {
   return wrap;
 }
 
+//: **The formatting row the note edit form never had.**
+//:
+//: Editing an existing note is the most common editing action in a notebook,
+//: and it was the app's poorest surface by a distance: a bare three-row
+//: textarea with no toolbar, no "/" menu and no selection bar, while the
+//: composer beside it and the document editor both had all three. That is
+//: most of what *"the editors feel very fake and just rudimentary"* is about.
+//:
+//: The same `data-md` contract the other two toolbars use, wired here rather
+//: than through `initMarkdownToolbars` (documents.js) because that runs once
+//: over the markup at load and this row is built each time a note is opened.
+const NOTE_EDIT_TOOLBAR = [
+  { md: "h2", label: "ph:text-h", title: "Heading" },
+  { md: "bold", label: "ph:text-b", title: "Bold (Ctrl+B)" },
+  { md: "italic", label: "ph:text-italic", title: "Italic (Ctrl+I)" },
+  { md: "strike", label: "ph:text-strikethrough", title: "Strikethrough" },
+  { md: "highlight", label: "ph:highlighter", title: "Highlight" },
+  { md: "code", label: "ph:code", title: "Inline code" },
+  { md: "ul", label: "ph:list-bullets", title: "Bulleted list" },
+  { md: "task", label: "ph:check-square", title: "Task list" },
+  { md: "quote", label: "ph:quotes", title: "Quote" },
+  { md: "link", label: "ph:link", title: "Link" },
+];
+
+function noteEditToolbar(boxId) {
+  const bar = document.createElement("div");
+  bar.className = "doc-toolbar note-edit-toolbar";
+  bar.setAttribute("role", "toolbar");
+  bar.setAttribute("aria-label", "Formatting");
+  for (const action of NOTE_EDIT_TOOLBAR) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.md = action.md;
+    button.title = action.title;
+    button.setAttribute("aria-label", action.title);
+    setLabel(button, action.label);
+    //: mousedown-preventDefault keeps the caret in the textarea — the same
+    //: rule `initMarkdownToolbars` and the selection bar both follow, and for
+    //: the same reason: a click moves focus first and the selection is gone.
+    button.addEventListener("mousedown", (event) => event.preventDefault());
+    button.addEventListener("click", () => applyMarkdown(action.md, boxId));
+    bar.appendChild(button);
+  }
+  return bar;
+}
+
 function renderEditForm(li, entry) {
   const textarea = document.createElement("textarea");
   textarea.rows = 3;
   textarea.value = entry.content;
+  //: A stable id, because three separate features key off one: the "/" menu
+  //: and the `[[` autocomplete (EDITOR_SURFACES in editor.js), the selection
+  //: bar, and this form's own toolbar. Safe to be a constant rather than a
+  //: per-note id: `editingId` allows exactly one open edit form at a time.
+  textarea.id = "entry-edit-content";
+  textarea.className = "note-edit-box";
+  //: Three rows is a form field; a note is prose. Grows with its content the
+  //: way the composer does, up to the same shared ceiling.
+  textarea.addEventListener("input", () => autoGrow(textarea));
+  //: `requestAnimationFrame`, not `queueMicrotask`: a microtask runs before
+  //: the browser has laid anything out, and `autoGrow` reads `scrollHeight`,
+  //: which is 0 on an element that is not yet in the document — measured, the
+  //: box stayed at its three-row height with the note scrolling inside it.
+  //: Also on focus, because a note opened while its list was hidden (a tab
+  //: switch, a filter) is laid out only when it becomes visible.
+  textarea.addEventListener("focus", () => autoGrow(textarea));
+  requestAnimationFrame(() => autoGrow(textarea));
 
   const tagsInput = document.createElement("input");
   tagsInput.type = "text";
@@ -5079,7 +5170,7 @@ function renderEditForm(li, entry) {
     })
   );
 
-  li.append(textarea, tagsInput, categorySelect, row);
+  li.append(noteEditToolbar(textarea.id), textarea, tagsInput, categorySelect, row);
   renderRelatedWhileEditing(li, entry);
   renderNoteBookmarksWhileEditing(li, entry);
 }
@@ -13682,6 +13773,13 @@ function kebabMenu(items, ariaLabel) {
   for (const item of items) {
     const button = document.createElement("button");
     button.className = item.disabled ? "menu-item menu-item-unavailable" : "menu-item";
+    //: A destructive row says so in the app's own danger colour. Added when
+    //: the Images gallery's bespoke menu was folded into this one — it had a
+    //: red Delete and this did not, and losing that on the way in would have
+    //: made the shared control worse than the one it replaced.
+    //: `menu-danger`, the class this menu's own stylesheet already defines —
+    //: not the generic `danger`, which is written for buttons with a ground.
+    if (item.danger) button.classList.add("menu-danger");
     button.setAttribute("role", "menuitem");
     setLabel(button, item.label);
     button.title = item.title;
@@ -15660,6 +15758,18 @@ function safeMdSlice(text, maxChars) {
 //: skipped on purpose — the CSP blocks it (`img-src 'self' data: blob:`), so a
 //: thumbnail built from one would be a guaranteed broken frame, which is worse
 //: than no thumbnail at all.
+//: A note's picture, wherever it lives — the markdown, or the attachments
+//: table. See `noteRowImage` in dashboard.js for the report behind this: an
+//: *attached* image appears nowhere in the note's text, so every surface that
+//: looked for `![](…)` alone showed nothing for a note whose only picture was
+//: attached rather than pasted.
+function noteAnyImage(entry) {
+  const embedded = noteFirstImage(entry?.content);
+  if (embedded) return embedded;
+  const attached = (entry?.attachments || []).find((file) => file.is_image);
+  return attached ? { alt: attached.filename || "", url: `/files/${attached.id}` } : null;
+}
+
 function noteFirstImage(content) {
   const match = /!\[([^\]\n]{0,200})\]\((\/(?:media|files)\/[^)\n]{1,500})\)/.exec(content || "");
   if (!match) return null;
@@ -23145,6 +23255,24 @@ function renderReindex(status) {
     $("reindex-progress").value = job.done;
     $("reindex-progress").max = Math.max(job.total, 1);
     $("reindex-label").textContent = `${job.done} of ${job.total} notes re-indexed`;
+  }
+  //: **Say when it is actually worth doing.** Asked for: "suggest rebuilding
+  //: the search index upon large changes". The backend counts notes that
+  //: arrived or vanished in bulk (`mark_index_stale`); this is the only place
+  //: that counter is ever shown, and it says nothing at all until the count
+  //: crosses the threshold the same module sets — a permanent nudge is
+  //: furniture, and a nudge after every third note is noise.
+  const stale = Number(status.index_stale_notes || 0);
+  const threshold = Number(status.index_stale_suggest_at || 20);
+  const staleLine = $("reindex-stale");
+  if (staleLine) {
+    const worth = !running && stale >= threshold;
+    staleLine.classList.toggle("hidden", !worth);
+    if (worth) {
+      staleLine.textContent =
+        `${stale} notes have been added or removed in bulk since the last rebuild — ` +
+        "semantic search may be missing them.";
+    }
   }
 }
 

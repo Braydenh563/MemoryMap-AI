@@ -3299,8 +3299,23 @@ Link to another note with [[its first few words]]."></textarea>
         <datalist id="bookmark-group-options"></datalist>
         <button type="submit" class="small">＋ Add</button>
       </form>
-      <input id="bookmark-search" type="search" class="library-search"
-        placeholder="Search saved links…" aria-label="Search saved links">
+      <!-- Same shape and same place as the Notes and Files sort controls —
+           the Library sub-tabs were reported as "missing sorting and filtering
+           options", and this is the third of them to get one. Wrapped in a
+           `.library-toolbar` so the select takes the shared control height
+           rather than being the one dropdown in the Library sized by nothing,
+           which is exactly how the Files sort went wrong first time. -->
+      <div class="library-toolbar library-links-toolbar">
+        <input id="bookmark-search" type="search" class="library-search"
+          placeholder="Search saved links…" aria-label="Search saved links">
+        <select id="bookmark-sort" aria-label="Sort links" title="Sort links">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="az">Title A → Z</option>
+          <option value="za">Title Z → A</option>
+          <option value="site">By site</option>
+        </select>
+      </div>
       <div id="bookmark-group-chips" class="row bookmark-group-chips"></div>
       <div id="bookmark-list" class="bookmark-list"></div>
       <div id="bookmark-empty" class="empty-state hidden">

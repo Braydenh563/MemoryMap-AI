@@ -3945,6 +3945,54 @@ function renderBookmarkGroupChips() {
   }
 }
 
+//: Sorting for the Links sub-tab — the Library's sub-tabs were reported as
+//: "missing sorting and filtering options", and this is the same local,
+//: no-round-trip approach the media gallery uses: the list is already in
+//: memory, so ordering it is a reorder rather than a request.
+//:
+//: "By site" is the one order here that is not a copy of the media set, and it
+//: is the one a list of links actually wants: hostname first, then title
+//: within a host, so everything from one place reads as a block.
+const BOOKMARK_SORTS = {
+  newest: (a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")),
+  oldest: (a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")),
+  az: (a, b) => String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" }),
+  za: (a, b) => String(b.title || "").localeCompare(String(a.title || ""), undefined, { sensitivity: "base" }),
+  site: (a, b) => {
+    const host = (url) => {
+      //: A stored link can be anything somebody pasted, so a URL that will not
+      //: parse sorts by its own raw text rather than throwing the whole list
+      //: into an exception.
+      try {
+        return new URL(url).hostname.replace(/^www\./, "");
+      } catch {
+        return String(url || "");
+      }
+    };
+    return (
+      host(a.url).localeCompare(host(b.url), undefined, { sensitivity: "base" }) ||
+      String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" })
+    );
+  },
+};
+
+const BOOKMARK_SORT_KEY = "library-links-sort";
+
+function bookmarkSort() {
+  const stored = localStorage.getItem(BOOKMARK_SORT_KEY);
+  return BOOKMARK_SORTS[stored] ? stored : "newest";
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const select = document.getElementById("bookmark-sort");
+  if (!select) return;
+  select.value = bookmarkSort();
+  select.addEventListener("change", () => {
+    localStorage.setItem(BOOKMARK_SORT_KEY, select.value);
+    filterBookmarks();
+  });
+});
+
 function filterBookmarks() {
   const list = $("bookmark-list");
   const noMatch = $("bookmark-no-match");
@@ -3960,7 +4008,10 @@ function filterBookmarks() {
     );
   });
   list.replaceChildren();
-  for (const bookmark of visible) {
+  //: On a copy, for the reason the media gallery's own sort records: `visible`
+  //: can be the cache itself when nothing is filtered, and sorting in place
+  //: would reorder the array every other reader shares.
+  for (const bookmark of [...visible].sort(BOOKMARK_SORTS[bookmarkSort()])) {
     list.appendChild(bookmarkRow(bookmark));
   }
   noMatch?.classList.toggle("hidden", !(bookmarksCache.length > 0 && visible.length === 0));

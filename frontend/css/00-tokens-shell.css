@@ -2397,12 +2397,22 @@ header#top-bar.tabs-wrapped #tab-bar {
    always-visible, click-to-edit shape as .library-image-caption, asked for
    directly ("allow the user to access, view, and edit OCR extracted
    text"). */
+/* **Expanded means readable, not endless.** Reported of the Files sub-tab:
+   the card is the wrong shape for long OCR text. A photo's reading is a line
+   or two; a *document*'s is the whole document, and "Show more" on that turns
+   one tile into a page of unformatted text with every other file pushed off
+   screen. Past a screenful it scrolls inside itself instead — the same answer
+   `.tool-chip-result` already gives the same problem one tab over. The clamped
+   state is unaffected: `max-height` only bites once the text is longer than
+   the box, which is exactly the case being fixed. */
 .library-image-ocr {
   margin: 0;
   padding: 0 var(--space-3) var(--space-3);
   white-space: pre-wrap;
   cursor: text;
   overflow-wrap: anywhere;
+  max-height: 18rem;
+  overflow-y: auto;
 }
 
 .library-image-ocr-empty {

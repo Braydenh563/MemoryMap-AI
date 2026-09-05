@@ -136,6 +136,12 @@ Fixed and measured:
   disclosure so they read while a long turn runs. Taken from the result, never
   the arguments. Nine tests.
 
+**A live error sweep found nothing.** All seven tabs, all seven Library
+sub-tabs, Settings and the command palette, driven in Chromium: zero page
+errors and zero console errors. Worth repeating after UI work — it is the
+cheapest check in this repo and it catches the "feature that never ran once"
+shape CLAUDE.md warns about.
+
 ### Still open — all of it top priority, in the user's own words
 
 Ranked by how loudly and how often it was asked for.
@@ -212,9 +218,23 @@ Ranked by how loudly and how often it was asked for.
    same, two doing different jobs must not. Named example still open: icons in
    controls that "feel fake and just part of the text", misaligned with it —
    the "peek" button in Appearance settings.
-8. **Dropdown unification, second pass.** First pass normalised type size.
-   The user likes the notes-tab and documents-subtab dropdowns; the spaces one
-   is to be left alone; everything else should converge.
+8. **Dropdown unification — measured, and mostly done.** Re-swept after the
+   type-size pass: **450 of the app's native selects now share one treatment**
+   (13.6px, same fill, border, radius and shadow — the notes/documents look the
+   report singles out as good), differing only in padding. What remains is
+   three deliberate groups, and the judgement for each is recorded here so the
+   next session does not "fix" them:
+   - 40 at 12.8px and transparent are `select-native-hidden` — the real
+     `<select>` behind a custom opener, never seen.
+   - 30 are the chat persona/skill/response-mode pills (999px radius). A
+     different component for a different job, not a stray style.
+   - 20 are the reminder form at 0.92rem. That form sets one size for its
+     inputs, selects *and* buttons together and is internally coherent;
+     changing only its select would trade an app-wide inconsistency for an
+     in-form one. Left deliberately — revisit only as part of a whole-form
+     pass.
+
+   The spaces dropdown is untouched, as asked.
 9. **Popup agent as an application-wide utility tool** — still missing
    navigation to grounded *documents and files* (notes are done).
 10. **Library sorting and filtering** across the sub-tabs.

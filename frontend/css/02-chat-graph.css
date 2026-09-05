@@ -1995,6 +1995,18 @@ kbd {
   animation: generating-glow 2.4s ease-in-out infinite !important;
 }
 
+/* …except a chat bubble, which uses the rail instead — see
+   `.msg.is-generating` in 03-dashboard-widgets.css. Without this the
+   counter-rule above would put the ring back on exactly the surface the ring
+   was removed from. */
+:root[data-progress-motion="always"] .msg.is-generating {
+  animation: none !important;
+}
+
+:root[data-progress-motion="always"] .msg.is-generating::before {
+  animation: generating-sweep 2.6s linear infinite !important;
+}
+
 :root[data-progress-motion="always"] .chip.filing .ph {
   animation: chip-filing-spin 1.1s linear infinite !important;
 }

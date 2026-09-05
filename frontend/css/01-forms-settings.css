@@ -3287,10 +3287,48 @@ html.modal-open body {
   min-width: 0;
 }
 
+/* **The app's own mark, not three generic dots.** Asked for: "can you add to
+   the thinking dots animation with a themed animation unique to the
+   application?"
+
+   MemoryMap's emblem is a small constellation — nodes joined by edges, which
+   is what a notebook of linked notes looks like from above. So the indicator
+   is that: three nodes on a hairline edge, with the signal travelling along
+   the edge and lighting each node as it passes. It is the same three elements
+   the dots always were (no new DOM, so every caller and the stepped
+   reduced-motion variant keep working), read as a graph rather than as a
+   loading spinner borrowed from somewhere else.
+
+   The edge is a `::before` on the row, positioned behind the nodes, so a node
+   that is "off" still reads as sitting on a line rather than floating. */
 .typing-dots {
+  position: relative;
   display: inline-flex;
-  gap: 0.25rem;
+  align-items: center;
+  gap: var(--space-1);
   padding: 0.25rem 0;
+}
+
+.typing-dots::before {
+  content: "";
+  position: absolute;
+  left: 0.22rem;
+  right: 0.22rem;
+  top: 50%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 35%, transparent),
+    color-mix(in srgb, var(--accent) 10%, transparent)
+  );
+  /* Behind the nodes, and never in the way of a pointer. */
+  z-index: 0;
+  pointer-events: none;
+}
+
+.typing-dots span {
+  position: relative;
+  z-index: 1;
 }
 
 .typing-dots span {
@@ -3304,7 +3342,6 @@ html.modal-open body {
      whenever the background art or a streaming answer kept that thread
      busy (user-reported "glitchy thinking dots"). */
   will-change: transform, opacity;
-  transform: translateZ(0);
 }
 
 .typing-dots span:nth-child(2) {
@@ -3340,15 +3377,19 @@ html.modal-open body {
   0%,
   60%,
   100% {
-    transform: translate3d(0, 0, 0);
-    opacity: 0.4;
+    transform: scale(1);
+    opacity: 0.45;
   }
 
   30% {
-    /* 0.2rem, not 0.3: "an indicator not a lightshow". At three dots and a
-       1.2s cycle the smaller hop still reads as movement and stops the row
-       from bobbing in the corner of your eye while you read. */
-    transform: translate3d(0, -0.2rem, 0);
+    /* **A node lighting up, not a ball bouncing.** The hop is gone: with the
+       edge drawn behind them (see `.typing-dots::before`) a dot that jumps
+       off the line stops reading as a node on a graph, which is the whole
+       point of the themed version. What travels is brightness and a hair of
+       scale — the signal moving along the edge — which is also the quieter
+       answer to "an indicator not a lightshow". */
+    transform: scale(1.35);
+    background: var(--accent);
     opacity: 1;
   }
 }
@@ -3873,4 +3914,22 @@ select {
 .card > .row:first-child:has(> h2),
 .card > .row:first-child:has(> h3) {
   margin-bottom: var(--space-5);
+}
+
+/* The line shown under a status while a long turn is running. Quieter than
+   the status above it and in a different voice, because it is making a
+   different kind of claim: the label says what is happening now, this says
+   something that is always true about the app. See PROGRESS_MUSINGS in
+   app.js for why these are facts rather than flavour text. */
+.progress-musing {
+  flex-basis: 100%;
+  margin-top: var(--space-1);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  opacity: 0.85;
+}
+
+/* The progress row wraps so the musing can take a line of its own. */
+.progress-line {
+  flex-wrap: wrap;
 }

@@ -10495,6 +10495,46 @@ function typingDots(label = "Thinking…") {
 // invents a stage — every string it is given comes from an event that
 // actually happened (see `sendChatMessage`), because a progress line that
 // guesses is worse than one that repeats itself.
+//: **Short lines shown while you wait — and every one of them is true.**
+//:
+//: Asked for: *"add some generated short sentence musings while the thinking
+//: dots are showing."* The obvious reading is flavour text, and the obvious
+//: implementation is a model writing whimsy about what it is doing. This
+//: file's own rule forbids that, and the rule is right: `progressLine` must
+//: never invent a stage, because a progress line that guesses is worse than
+//: one that repeats itself. A cheerful invented sentence next to a real
+//: status label is precisely a guess wearing a status label's clothes.
+//:
+//: So these are the honest version of the same idea, and they are better than
+//: whimsy would have been: facts about *this app* that a person waiting for a
+//: local model has time to read and reason to want. A wait is the one moment
+//: the interface has someone's attention with nothing to do — spending it on
+//: the thing the app most needs to teach (what it is doing with your notes,
+//: and where they are going, which is nowhere) is worth more than a joke.
+//:
+//: They are deliberately not model-generated: a fixed list cannot hallucinate
+//: a claim about privacy, and privacy claims are the one kind this app must
+//: never get wrong.
+const PROGRESS_MUSINGS = [
+  "Everything here runs on your machine — nothing is sent anywhere.",
+  "Your notes are plain markdown on disk. You can read them without this app.",
+  "Searching uses meaning and keywords together, then merges the two rankings.",
+  "A note you never tagged is still findable — the links between notes count too.",
+  "Private notes are held back from the AI, even when it asks for them.",
+  "Ask mode reads. Request mode can change things, and says so before it does.",
+  "Long answers are slower on a small model, not stuck.",
+  "Every tool call the AI makes is listed under the answer, with what it touched.",
+  "Type [[ in any note to link to another one.",
+  "Select text anywhere you can edit and ask the AI about just that passage.",
+];
+
+//: How long to wait before showing one. A turn that finishes in a second
+//: should never flash a sentence nobody had time to read.
+const MUSING_DELAY_MS = 2500;
+//: And how long each stays. Long enough to read twice, short enough that a
+//: minute-long wait is not one sentence.
+const MUSING_ROTATE_MS = 7000;
+
 function progressLine(initial = "Thinking…") {
   const wrap = document.createElement("span");
   wrap.className = "progress-line";
@@ -10509,6 +10549,32 @@ function progressLine(initial = "Thinking…") {
   label.className = "progress-line-label";
   label.textContent = initial;
   wrap.appendChild(label);
+  //: The musing sits under the status, in its own quieter voice, and never
+  //: replaces it: the label says what is happening, this says something true
+  //: about the app. Two separate claims, drawn differently on purpose.
+  const musing = document.createElement("span");
+  musing.className = "progress-musing";
+  musing.hidden = true;
+  wrap.appendChild(musing);
+  let at = Math.floor(Math.random() * PROGRESS_MUSINGS.length);
+  const showMusing = () => {
+    if (!wrap.isConnected) return;
+    musing.textContent = PROGRESS_MUSINGS[at % PROGRESS_MUSINGS.length];
+    musing.hidden = false;
+    at += 1;
+  };
+  //: Both timers stop themselves once the node is gone — the caller removes
+  //: the progress line, it does not know these exist. Same discipline as the
+  //: stepped dots' own interval.
+  const first = setTimeout(() => {
+    showMusing();
+    const rotate = setInterval(() => {
+      if (!wrap.isConnected) return clearInterval(rotate);
+      showMusing();
+    }, MUSING_ROTATE_MS);
+  }, MUSING_DELAY_MS);
+  wrap.addEventListener("remove", () => clearTimeout(first));
+
   wrap.setStatus = (next) => {
     if (!next || next === label.textContent) return;
     label.textContent = next;

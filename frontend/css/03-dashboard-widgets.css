@@ -2627,8 +2627,22 @@ p.graph-help-panel {
    does. A moving accent bar on the bubble's own edge: visible from across
    the room, costs no layout, and does not fight the per-step placeholders
    that come and go inside the bubble. */
+/* **In the transcript, the rail is the whole signal.** The generating ring
+   (`.is-generating`, 01-forms-settings.css) is the app-wide "this is working"
+   mark and it stays that everywhere else — the palette's single bubble, a
+   widget, a card. Here it is one signal too many: a thread is a column of
+   messages, and a ring breathing around the one at the bottom while a rail
+   travels down its edge and a caret blinks in its text is three things saying
+   the same sentence at a reader trying to read the fourth.
+
+   Reported twice, and the second time as the rule to design to: "make the
+   animation in the chat more intentional and less in your face", then "they
+   are an indicator not a lightshow". One mark, at the edge, away from the
+   words. */
 .msg.is-generating {
   position: relative;
+  animation: none;
+  box-shadow: var(--shadow-sm);
 }
 
 .msg.is-generating::before {

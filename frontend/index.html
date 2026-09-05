@@ -2318,6 +2318,19 @@ Link to another note with [[its first few words]]."></textarea>
           <button type="button" id="doc-width-toggle" class="doc-toolbar-width"
             title="Use the full width of the pane" aria-pressed="false"
             aria-label="Use the full width of the pane"><i class="ph ph-arrows-out-line-horizontal" aria-hidden="true"></i></button>
+          <!-- **Focus mode.** The one thing Obsidian, Notion and Kortex all
+               offer that this editor never did: a way to make everything but
+               the page disappear. Asked for as part of "the ultimate editor" —
+               full width solves a different problem (how much of the pane the
+               text uses); this solves the one about the tab bar, the sidebar
+               and the document list still sitting there while you are trying
+               to write. Same `position: fixed` overlay pattern as the
+               whiteboard's and graph's own full-screen toggles, so a person
+               who has learned one already knows this one — including Esc to
+               leave it. -->
+          <button type="button" id="doc-focus-toggle" class="doc-toolbar-width"
+            title="Focus mode — hide everything but the page (Esc to leave)" aria-pressed="false"
+            aria-label="Focus mode — hide everything but the page"><i class="ph ph-frame-corners" aria-hidden="true"></i></button>
         </div>
         <!-- A textarea's own content is never in the DOM as searchable text
              (that's why the browser's native Ctrl+F can't reach into one),

@@ -4793,3 +4793,37 @@ button.connection-row {
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
+
+
+/* --- Documents: focus mode --------------------------------------------------
+   Same `position: fixed` overlay pattern as the whiteboard's and graph's own
+   full-screen toggles (see `#library-view-whiteboard.wb-fullscreen` above),
+   so a person who has learned one of this app's full-screen toggles already
+   knows this one. It sits on `#tab-documents` itself rather than `.doc-main`:
+   the goal is a page with nothing else visible, and a fixed child inside a
+   statically-positioned tab page would still show the tab bar around its
+   edges. */
+#tab-documents.doc-focus {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  width: 100vw !important;
+  height: 100vh !important;
+  margin: 0;
+  padding: var(--space-6);
+  background: var(--bg);
+}
+
+/* The sidebar is the other half of "everything but the page" — recent
+   documents and the outline are for finding your place, not for the moment
+   you are already writing. */
+#tab-documents.doc-focus .doc-sidebar {
+  display: none;
+}
+
+#tab-documents.doc-focus .doc-main {
+  border: 0;
+  box-shadow: none;
+  max-width: 60rem;
+  margin: 0 auto;
+}

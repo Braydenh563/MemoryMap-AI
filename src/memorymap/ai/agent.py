@@ -240,7 +240,10 @@ COMPACT_TOOLS_GUIDE = (
 #: a well-behaved model treats the list as exhaustive, which is exactly the
 #: behaviour that makes a narrow guess expensive.
 #:
-#: One sentence, because it is on every round of every focused turn.
+#: One sentence, because it is on every round of every focused turn — and it
+#: is appended to the system message, joining the clock in its volatile tail
+#: (see build_agent_messages): narrowed-or-not is decided per turn, so this
+#: can never be part of the prefix-cached head wherever it is put.
 FOCUS_NOTE = (
     " The tools listed were picked from the wording of the request and are a "
     "suggestion, not a limit: if the right one is not there, call it by name "
@@ -1199,12 +1202,6 @@ def run_agent(
     # Say so, once, in the system prompt — but only when the list really was
     # narrowed. On a broad request the model already has everything, and a note
     # explaining that the list is partial would simply be false.
-    #: Appended, so it lands in the same tail as the clock rather than ahead
-    #: of it. The tail of this message is the volatile zone by design (see
-    #: build_agent_messages): whether the list was narrowed is decided per
-    #: turn, so this line cannot be part of the cached head either way, and
-    #: putting it *before* the clock would only push the clock further from
-    #: the end for no gain.
     if focused_only and focus_names is not None and messages:
         messages[0]["content"] += FOCUS_NOTE
     if allowed_tools is None:

@@ -2707,6 +2707,50 @@ try {
 } catch {
   applyDocWidth(false);
 }
+
+//: **Focus mode.** Asked for as part of "the ultimate editor" — every editor
+//: this app is compared to (Obsidian, Notion, Kortex) has a way to make the
+//: tab bar, the sidebar and the document list disappear, and this one never
+//: did. Not remembered across sessions on purpose: full width is a standing
+//: preference about how you read; this is a mode for right now, and opening
+//: the app back into a chrome-less page with no visible way out would be its
+//: own bug.
+function toggleDocFocus(force) {
+  const tab = $("tab-documents");
+  if (!tab) return;
+  const on = typeof force === "boolean" ? force : !tab.classList.contains("doc-focus");
+  tab.classList.toggle("doc-focus", on);
+  const button = $("doc-focus-toggle");
+  if (button) {
+    button.setAttribute("aria-pressed", String(on));
+    button.title = on
+      ? "Leave focus mode (Esc)"
+      : "Focus mode — hide everything but the page (Esc to leave)";
+    button.setAttribute("aria-label", button.title);
+    const icon = button.querySelector("i");
+    if (icon) icon.className = on ? "ph ph-arrows-in" : "ph ph-frame-corners";
+  }
+  if (on) $("doc-content")?.focus();
+}
+
+$("doc-focus-toggle")?.addEventListener("click", () => toggleDocFocus());
+
+//: Escape leaves it — the same convention the whiteboard's and graph's own
+//: full-screen toggles use. Capture phase, and checked against the class
+//: first, so this never swallows an Escape meant for something opened over
+//: the page (the AI panel, a confirm dialog, the find bar) — closing focus
+//: mode underneath one of those instead of the dialog itself would be
+//: surprising.
+document.addEventListener(
+  "keydown",
+  (event) => {
+    if (event.key !== "Escape") return;
+    if (!$("tab-documents")?.classList.contains("doc-focus")) return;
+    toggleDocFocus(false);
+  },
+  true
+);
+
 $("doc-connections").addEventListener("click", () => {
   if (!currentDoc) return;
   // Closes the ⋯ disclosure first: it is a `<details>`, so it stays open

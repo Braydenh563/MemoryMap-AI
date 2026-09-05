@@ -1273,22 +1273,7 @@ Link to another note with [[its first few words]]."></textarea>
                    checkbox itself stays, hidden, because it is the thing the
                    rest of the app reads and stores. -->
               <div class="chat-tool-group" role="group" aria-label="What the AI may use">
-                <div class="seg seg-compact" id="chat-mode-seg" role="group" aria-label="Chat mode">
-                  <!-- Named for the difference between them rather than for
-                       the machinery. "Chat" and "Agent" describe how the app
-                       is built; "Ask" and "Request" describe what you get —
-                       one reads your notes and answers, the other goes and
-                       does something to them. The Librarian is already this
-                       app's own voice (it has a Librarian persona and an
-                       `ai/librarian` module), so the pair reads as one idea
-                       instead of as two settings. -->
-                  <button data-chat-mode="chat" type="button"
-                    title="Ask the Librarian about your notes. It reads and answers; it never changes anything."
-                    aria-label="Ask the Librarian"><i class="ph ph-chat-circle ph-lead" aria-hidden="true"></i> Ask<span class="chat-mode-long"> the Librarian</span></button>
-                  <button data-chat-mode="agent" type="button"
-                    title="Request something of the Librarian. It can use tools — search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first."
-                    aria-label="Request the Librarian"><i class="ph ph-robot ph-lead" aria-hidden="true"></i> Request<span class="chat-mode-long"> the Librarian</span></button>
-                </div>
+                
                 <label class="muted tools-toggle checkbox-label agent-toggle hidden"
                   title="Agent mode: the AI can use tools — search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first.">
                   <input type="checkbox" id="tools-toggle">
@@ -1310,6 +1295,36 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="chat-plan" class="ghost small" type="button"
                   title="Plan this request first — the Librarian draws the steps and shows them before it starts"><i class="ph ph-compass ph-lead" aria-hidden="true"></i> Plan</button>
               </div>
+
+              <!-- **Right-hand group: what kind of answer, and how it answers.**
+                   Asked for: "in the bottom dock, maybe have skills, plan and
+                   web on the left, with the mode select and settings on the
+                   right."
+
+                   It is also the better split on its own terms. The left-hand
+                   group is *capabilities* — things the assistant may reach for
+                   on this message. The right-hand pair is *mode*: which of two
+                   assistants you are talking to, and the settings for how it
+                   replies. Capabilities are per-message and change often;
+                   mode is a stance and changes rarely, which is why it sits
+                   opposite rather than mixed in with them. -->
+              <div class="chat-tool-group chat-tool-group-mode" role="group" aria-label="How it answers">
+                <div class="seg seg-compact" id="chat-mode-seg" role="group" aria-label="Chat mode">
+                  <!-- Named for the difference between them rather than for
+                       the machinery. "Chat" and "Agent" describe how the app
+                       is built; "Ask" and "Request" describe what you get —
+                       one reads your notes and answers, the other goes and
+                       does something to them. The Librarian is already this
+                       app's own voice (it has a Librarian persona and an
+                       `ai/librarian` module), so the pair reads as one idea
+                       instead of as two settings. -->
+                  <button data-chat-mode="chat" type="button"
+                    title="Ask the Librarian about your notes. It reads and answers; it never changes anything."
+                    aria-label="Ask the Librarian"><i class="ph ph-chat-circle ph-lead" aria-hidden="true"></i> Ask<span class="chat-mode-long"> the Librarian</span></button>
+                  <button data-chat-mode="agent" type="button"
+                    title="Request something of the Librarian. It can use tools — search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first."
+                    aria-label="Request the Librarian"><i class="ph ph-robot ph-lead" aria-hidden="true"></i> Request<span class="chat-mode-long"> the Librarian</span></button>
+                </div>
 
               <!-- How the answer comes out: who is speaking, and how hard they
                    work at it (§37C density pass). These change far less often
@@ -1382,6 +1397,7 @@ Link to another note with [[its first few words]]."></textarea>
                 </div>
               </div>
             </div>
+              </div>
             <!-- Inside the dock, because it is about the message being sent —
                  "Step 3: tag the untagged notes" belongs next to the box that
                  asked for it, not at the bottom of a card you have scrolled

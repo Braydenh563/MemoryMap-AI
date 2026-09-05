@@ -3333,3 +3333,29 @@ label.setting-check,
   border-radius: var(--radius-pill);
   padding-inline: var(--space-5);
 }
+
+/* **Capabilities left, mode right.** Asked for: "in the bottom dock, maybe
+   have skills, plan and web on the left, with the mode select and settings on
+   the right."
+
+   It is also the better split on its own terms, which is why it is worth a
+   rule rather than a reorder. The left group is what the assistant may *reach
+   for* on this message — a skill to run, the web, a planning pass — and those
+   change message to message. The right pair is *which assistant you are
+   talking to* and how it replies, which is a stance you set once and leave.
+   Putting a per-message choice and a per-session one in the same run of
+   buttons is what made the strip read as nine equal things. */
+.chat-dock-controls .chat-tool-group-mode {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* The strip wraps in whole groups on a narrow window; when it does, the mode
+   group must not keep a margin that would strand it on a line of its own. */
+@media (max-width: 60rem) {
+  .chat-dock-controls .chat-tool-group-mode {
+    margin-left: 0;
+  }
+}

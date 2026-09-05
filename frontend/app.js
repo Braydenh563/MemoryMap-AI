@@ -12378,6 +12378,39 @@ async function attachChatFiles(files) {
   if (documents.length) await importChatDocuments(documents);
 }
 
+//: The suffixes `/media/upload` accepts (`MEDIA_SUFFIXES`, routes_files.py).
+//: Kept as a literal rather than fetched: it is a fallback path that must not
+//: itself need a round trip to decide whether it can run.
+const MEDIA_FALLBACK_SUFFIXES = /\.(png|jpe?g|gif|webp|avif|bmp|ico|pdf)$/i;
+
+async function keepUnreadableChatFile(file, error) {
+  if (!MEDIA_FALLBACK_SUFFIXES.test(file.name || "")) return false;
+  const form = new FormData();
+  form.append("file", file);
+  form.append("direct", "true");
+  try {
+    await apiJson("/media/upload", {
+      method: "POST",
+      headers: { "X-Auth-Token": authToken() },
+      body: form,
+    });
+  } catch {
+    return false;
+  }
+  //: Both halves, because either alone is misleading: "saved to your Library"
+  //: without the reason looks like the import worked, and the reason without
+  //: the destination looks like the file was lost.
+  toastAction(
+    `Kept “${file.name}” in your Library — ${error?.message || "its text could not be read"}`,
+    "Show it",
+    () => {
+      switchTab("library");
+      if (typeof renderLibrary === "function") renderLibrary();
+    },
+  );
+  return true;
+}
+
 async function importChatDocuments(files) {
   const made = [];
   for (const file of files) {
@@ -12394,7 +12427,23 @@ async function importChatDocuments(files) {
       });
       made.push(document);
     } catch (error) {
-      toast(error.message || `Couldn't read "${file.name}".`, true);
+      //: **A file the app cannot read is still a file worth keeping.**
+      //:
+      //: Reported: *"make sure the file upload and staging as chips works
+      //: because I tried to upload two pdf files and nothing showed up."*
+      //: Nothing showed up because `/documents/import` answers 422 for a PDF
+      //: whose text cannot be extracted — which on an install without
+      //: markitdown is *every* PDF — and a 422 became one toast that expired.
+      //: So the paperclip advertised PDFs, refused them, and left no trace.
+      //:
+      //: REDESIGN.md §R7.2's reversal is the rule here and it is explicit:
+      //: PDFs and documents must be viewable, downloadable and manageable
+      //: **without any AI model in the loop**. Failing to read a PDF's words
+      //: is not a reason to throw the PDF away. So the bytes go to
+      //: `/media/upload` — the Library's own store, which takes PDFs — and
+      //: the user is told where it went and why the text is missing.
+      const kept = await keepUnreadableChatFile(file, error);
+      if (!kept) toast(error.message || `Couldn't read "${file.name}".`, true);
     }
   }
   if (!made.length) return;
@@ -29846,6 +29895,38 @@ async function cmdPaletteAsk(text) {
   const userMsg = document.createElement("div");
   userMsg.className = "msg user";
   userMsg.textContent = text;
+  //: **The same three actions the Chat tab's own bubbles carry.** Reported:
+  //: *"I cant copy edit or resend any messages in the popup agent. it still
+  //: lacks a lot of features."* The palette had none of them — a question you
+  //: mistyped could only be retyped from memory, and an answer could only be
+  //: selected by hand.
+  //:
+  //: `chatMessageActions` is the Chat tab's own row, reused rather than
+  //: rebuilt: the palette is supposed to be the same assistant in a smaller
+  //: window, and two different action rows for one idea is how they drift.
+  //: Edit puts the text back in the box rather than opening an editor —
+  //: there is one input here and it is right below, so the shortest path to
+  //: "ask that again, differently" is to hand it back.
+  userMsg.appendChild(
+    chatMessageActions([
+      { label: "ph:copy", title: "Copy", onClick: (e) => copyToClipboard(text, e.currentTarget) },
+      {
+        label: "ph:pencil-simple",
+        title: "Edit and ask again",
+        onClick: () => {
+          cmdPaletteInput.value = text;
+          cmdPaletteInput.focus();
+          cmdPaletteInput.setSelectionRange(text.length, text.length);
+          autoGrow(cmdPaletteInput);
+        },
+      },
+      {
+        label: "ph:arrow-clockwise",
+        title: "Ask this again",
+        onClick: () => cmdPaletteAsk(text),
+      },
+    ])
+  );
   cmdPaletteResults.appendChild(userMsg);
 
   const agentMsg = document.createElement("div");
@@ -29855,6 +29936,23 @@ async function cmdPaletteAsk(text) {
   agentMsg.className = "msg assistant is-generating";
   agentMsg.appendChild(typingDots());
   cmdPaletteResults.appendChild(agentMsg);
+  //: The answer's own row, added now and reading `answerRaw` at click time —
+  //: the text does not exist yet, and binding a copy of an empty string is
+  //: how "Copy" ends up copying nothing on a fast answer.
+  agentMsg.appendChild(
+    chatMessageActions([
+      {
+        label: "ph:copy",
+        title: "Copy this answer",
+        onClick: (e) => copyToClipboard(answerRaw, e.currentTarget),
+      },
+      {
+        label: "ph:arrow-clockwise",
+        title: "Ask again for a different answer",
+        onClick: () => cmdPaletteAsk(text),
+      },
+    ])
+  );
   cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
 
   // Was hand-rolled against `/chat` (the non-streaming endpoint, a single

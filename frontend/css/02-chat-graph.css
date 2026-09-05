@@ -126,11 +126,31 @@
    to clicking one. Taking the row out of flow entirely is the only version
    with neither the gap nor the shift.
 
-   The corner is chosen per role because that is where each bubble's header
-   row *isn't*: the assistant's label sits left, the user's is right-aligned. */
+   **They sit under the bubble now, not over its corner**, and that is a
+   reported fix rather than a preference: *"the ui element buttons are broken
+   in the user bubbles"*, with a screenshot of two buttons printed across the
+   word "YOU" and a third clipped off the edge. Over-the-corner only works
+   while the bubble is wider than the row and the corner is empty, and a
+   two-character message ("hi") is neither — the row was wider than the whole
+   bubble.
+
+   Below and outside is the arrangement every chat client settled on for the
+   same reason, and it keeps both properties the comment above was written to
+   protect: still `position: absolute`, so there is no gap when unhovered and
+   nothing shifts when the pointer arrives; still per-role, aligned to the
+   edge its own bubble is anchored to. */
 .msg-actions {
   position: absolute;
-  top: 0.3rem;
+  top: calc(100% + 2px);
+  /* **Exempt from the bubble's own width cap.** `.msg > *` sets
+     `max-width: 100%` so nothing inside a bubble can be wider than it — right
+     for content, wrong for a row that is deliberately out of flow. On a
+     two-character message that cap squeezed three buttons into the width of
+     the word "hi" and clipped the third, which is the other half of what the
+     screenshot showed. Measured: `scrollWidth` 3px past `clientWidth` before
+     this line, equal after. */
+  max-width: none;
+  width: max-content;
   display: flex;
   gap: 0.25rem;
   padding: 0.15rem;
@@ -146,11 +166,12 @@
 }
 
 .msg.assistant .msg-actions {
-  right: 0.4rem;
+  left: 0;
 }
 
+/* Flush with the right edge of a bubble that is itself flush right. */
 .msg.user .msg-actions {
-  left: 0.4rem;
+  right: 0;
 }
 
 .msg:hover .msg-actions,
@@ -183,19 +204,15 @@
   transition: background var(--motion-fast) ease;
 }
 
-.msg.user .msg-action {
-  background: rgba(255, 255, 255, 0.18);
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.35);
-}
+/* One style for both roles. The user's used to be translucent white because
+   the row sat *on* an accent-filled bubble; below it, both rows sit on the
+   page and a white-on-page button is invisible in a light theme. */
 
 .msg-action:hover {
   background: var(--accent-soft);
 }
 
-.msg.user .msg-action:hover {
-  background: rgba(255, 255, 255, 0.32);
-}
+
 
 /* Touch devices can't hover — keep the actions visible there. */
 @media (hover: none) {

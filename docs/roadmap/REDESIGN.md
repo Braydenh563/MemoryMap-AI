@@ -512,15 +512,20 @@ files into that viewer; nothing else changed.
    edited in place; a PDF or .docx cannot, and the honest reason is worth
    putting in the UI rather than leaving as a dead end — the viewer returns
    *extracted text*, which has already stopped being a .docx.
-3. **Syntax highlighting with language auto-detection**, per odysseus's
-   `HLJS_TO_DROPDOWN` map.
+3. **Syntax highlighting with language auto-detection. Built** — written
+   in-repo rather than from odysseus's `HLJS_TO_DROPDOWN` map, because there
+   is no CDN to load highlight.js from and no bundler to vendor it with. See
+   HANDOVER.md, including the user-chosen-accent trap it hit.
 4. **An HTML preview pane. Built** — and the `blob:` route this item
    assumed turned out to be the wrong one: a `blob:` document inherits its
    creator's CSP, so the framed page loses its own styling. It is served
    from `/files/{id}/html-preview` with a policy of its own instead. See
    HANDOVER.md.
-5. **Export.** Per-format, from the same place the file is viewed.
-6. **A file opens in the editor from the Library**, not only in a lightbox.
+5. **Export. Built** — "Export text" beside Save, named after what the
+   extracted text *is* rather than the file it came from.
+6. **A file opens in the editor from the Library. Already true** — the
+   Files tiles have always passed `/files/{id}` to the lightbox, and with
+   item 2 the lightbox *is* the editor. Nothing was built for this.
 
 ### R7.2 Stage every file until the thing it belongs to is committed
 

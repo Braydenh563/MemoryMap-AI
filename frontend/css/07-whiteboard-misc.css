@@ -4652,3 +4652,27 @@ button.connection-row {
   border-radius: var(--radius-md);
   background: #fff;
 }
+
+/* Syntax highlighting in the file viewer (REDESIGN.md §R7.1 item 3).
+   Existing semantic tokens rather than a new syntax palette: each already
+   carries a light and a dark value, so the code follows the theme without a
+   second set of colours to keep in step — and `tests/test_style_scale.py` has
+   nothing new to police. Comments recede, strings and numbers separate from
+   identifiers, keywords carry the structure. */
+.lightbox-doc-pre .tok-comment {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.lightbox-doc-pre .tok-string {
+  color: var(--ok);
+}
+
+.lightbox-doc-pre .tok-number {
+  color: var(--warn);
+}
+
+.lightbox-doc-pre .tok-keyword {
+  color: var(--syntax-keyword);
+  font-weight: 600;
+}

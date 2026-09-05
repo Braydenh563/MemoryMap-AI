@@ -10795,3 +10795,56 @@ nothing may frame MemoryMap.
 probe's `<script>` refused by the sandbox (`document.title` untouched, no
 element it would have inserted), the toggle returning the frame to
 `about:blank`, and zero page errors.
+
+### The rest of §R7.1: highlighting, export, and item 6 turning out to be done
+
+**Item 3, syntax highlighting.** Written here rather than pulled in: this app
+is offline by construction — no CDN to load highlight.js from, no bundler to
+vendor it with, and a 900 KB library shipped for one panel would be the
+largest asset in the project. Four token classes cover what makes code
+readable at a glance (comments recede, strings and numbers separate from
+identifiers, keywords carry the structure), across six language families
+picked off the file extension, with a `generic` profile so a `.conf` nobody
+thought about still gets strings and comments.
+
+Measured on a Python file: comments, strings, `42`, and `def/if/is/return`
+all tokenised correctly, with the plain text intact between them.
+
+**Two things it had to get right, and one it got wrong first.**
+
+- *Injection.* A file's own text is exactly the untrusted input a
+  markup-assembling highlighter turns into an injection, and this app's CSP
+  would not stop a same-origin one. Every node is built with
+  `createTextNode`/`textContent`. Driven live with a `.js` file containing
+  `<img src=x onerror="window.__PWNED=1">` and `<b id="pwned">`: no element
+  appeared, no global was set, the text rendered verbatim.
+- *ReDoS.* CI runs CodeQL, which has caught a real polynomial-ReDoS written in
+  this repo. The string rules use the `[^"\\\n]|\\.` shape whose alternatives
+  are disjoint on their first character, and nothing nests a quantifier.
+- **The one it got wrong:** keywords first used `var(--accent)`. Settings →
+  Appearance writes *any hex* onto `--accent`, so on a profile whose accent
+  was `#cdd5e0` keywords measured `rgb(205, 213, 224)` — near-invisible
+  against the code. Caught by reading the computed colour rather than looking
+  at the screenshot, where it reads as "slightly pale". Keywords now have
+  `--syntax-keyword`, declared in all three palettes; strings, numbers and
+  comments reuse `--ok`, `--warn` and `--muted`, none of which the user can
+  change.
+
+**Item 5, export.** Save hands back the file as it is on disk. **Export text**
+hands back what the viewer is showing — which for a scanned PDF or a .docx is
+the only readable form of it the app has, and until now could be reached only
+by selecting the whole pane and copying. The extension follows the extracted
+`kind`, not the source file's: `report.pdf` exports as `report.md`, never as
+something still claiming to be a PDF. It hides while a file is being edited,
+because the saved text and the draft on screen disagree. Verified through a
+real browser download: `export-probe.md`, content byte-identical.
+
+**Item 6 was already true.** "A file opens in the editor from the Library"
+was on the list; the Library's Files sub-tab passes each tile's `/files/{id}`
+url to the lightbox, `showDocument` sniffs the attachment id out of it, and
+with Edit now living there the lightbox *is* the editor. Driven end to end:
+clicking a `.md` tile in Files gave Copy text / Save / **Edit** with the
+file's rendered body. Nothing was built for this row — worth recording, since
+it is the seventh time this project has found a listed gap already closed.
+
+**§R7.1 is now complete**, all six items. ROADMAP row 2 closes with it.

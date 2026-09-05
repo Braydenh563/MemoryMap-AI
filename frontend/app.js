@@ -3675,6 +3675,11 @@ function openLightbox(items, startIndex = 0) {
     editFileBtn.classList.toggle("hidden", on);
     saveFileBtn.classList.toggle("hidden", !on);
     cancelEditBtn.classList.toggle("hidden", !on);
+    //: Export hands back what was *saved*; while a draft is open in the box
+    //: the two disagree, and a file exported mid-edit would silently be the
+    //: version before the changes on screen.
+    if (on) exportTextBtn.classList.add("hidden");
+    else if (lightboxExtractedText) exportTextBtn.classList.remove("hidden");
     if (on) docEdit.focus();
   }
 
@@ -3716,6 +3721,33 @@ function openLightbox(items, startIndex = 0) {
     setLightboxEditing(false);
   });
   cancelEditBtn.classList.add("hidden");
+
+  //: **Exporting the *text*, which is a different thing from Save** (§R7.1
+  //: item 5, "export, per-format, from the same place the file is viewed").
+  //: Save hands back the file as it is on disk — the .pdf, the .docx. This
+  //: hands back what the viewer is showing, which for a scanned PDF or a Word
+  //: file is the only readable form of it the app has, and until now could be
+  //: reached only by selecting the whole pane and copying.
+  //:
+  //: The extension follows `kind`, not the source file's: markdown text saved
+  //: as `report.pdf.md` is honest about being neither a PDF nor a plain
+  //: transcript, and opens in the right thing.
+  let lightboxExtractedText = null;
+  const exportTextBtn = actionBtn("ph:export Export text", "Save the extracted text as a file", async (button) => {
+    if (!lightboxExtractedText) return;
+    button.disabled = true;
+    try {
+      const { name, kind, text } = lightboxExtractedText;
+      const stem = (name || "document").replace(/\.[^./\\]+$/, "") || "document";
+      const extension = kind === "markdown" ? "md" : "txt";
+      await saveFile(`${stem}.${extension}`, new Blob([text], { type: "text/plain" }));
+    } catch (error) {
+      toast(error.message || "Couldn't export that text.", true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+  exportTextBtn.classList.add("hidden");
 
   //: Whether the preview frame is currently showing something.
   let docPreviewOn = false;
@@ -4075,6 +4107,8 @@ function openLightbox(items, startIndex = 0) {
     setLightboxEditing(false);
     editFileBtn.classList.add("hidden");
     lightboxPreviewSource = null;
+    lightboxExtractedText = null;
+    exportTextBtn.classList.add("hidden");
     clearDocPreview();
     previewHtmlBtn.classList.add("hidden");
     clearFind();
@@ -4144,6 +4178,14 @@ function openLightbox(items, startIndex = 0) {
       //: which is right for how the source renders and says nothing about
       //: whether the file is a page. A .py is code too and has nothing to
       //: preview.
+      if (body.trim()) {
+        lightboxExtractedText = {
+          name: item.filename || name || "document",
+          kind: payload.kind,
+          text: body,
+        };
+        exportTextBtn.classList.remove("hidden");
+      }
       if (attachmentId && /\.html?$/i.test(item.filename || name || "") && body.trim()) {
         lightboxPreviewSource = `/files/${attachmentId}/html-preview`;
         previewHtmlBtn.classList.remove("hidden");
@@ -4176,7 +4218,14 @@ function openLightbox(items, startIndex = 0) {
         const pre = document.createElement("pre");
         pre.className = "lightbox-doc-pre";
         const code = document.createElement("code");
-        code.textContent = body;
+        if (payload.kind === "code") {
+          //: §R7.1 item 3. `highlightCodeInto` (editor.js) picks the language
+          //: off the filename and builds spans with `textContent`, so a file
+          //: cannot inject markup by being written to look like markup.
+          highlightCodeInto(code, body, item.filename || name || "");
+        } else {
+          code.textContent = body;
+        }
         pre.appendChild(code);
         docBody.appendChild(pre);
       }
@@ -4309,6 +4358,8 @@ function openLightbox(items, startIndex = 0) {
     setLightboxEditing(false);
     editFileBtn.classList.add("hidden");
     lightboxPreviewSource = null;
+    lightboxExtractedText = null;
+    exportTextBtn.classList.add("hidden");
     clearDocPreview();
     previewHtmlBtn.classList.add("hidden");
     find.classList.add("hidden");

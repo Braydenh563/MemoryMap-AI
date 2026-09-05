@@ -1249,3 +1249,108 @@ async function offerToCreateWikiTarget(name) {
     toast(error.message || "Could not create that.", true);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Syntax highlighting for the file viewer (REDESIGN.md §R7.1 item 3)
+// ---------------------------------------------------------------------------
+//
+// **Written here rather than pulled in.** This app is offline by construction
+// — there is no CDN to load highlight.js from and no bundler to vendor it
+// with, and a 900 KB library shipped for one panel would be the largest
+// single asset in the project. Four token classes cover what makes code
+// readable at a glance: comments recede, strings and numbers stand out from
+// identifiers, keywords carry the structure. That is most of the value of a
+// full grammar for none of the weight.
+//
+// **The colours are existing semantic tokens, not new ones.** `--muted` for
+// comments, `--ok` for strings, `--warn` for numbers, `--accent` for
+// keywords — each already has a light and a dark value, so this follows the
+// theme for free and adds nothing for `tests/test_style_scale.py` to police.
+//
+// **Every pattern here is linear.** CI runs CodeQL, which has caught a real
+// polynomial-ReDoS in this repo before; the string rules use the
+// `[^"\\\n]|\\.` shape whose alternatives are disjoint on their first
+// character, and nothing nests a quantifier inside a quantifier.
+
+//: What a suffix is written in. The value is the profile name below; a suffix
+//: that is missing gets `generic`, which still finds strings, numbers and
+//: both comment styles — worth having for a `.conf` nobody thought about.
+const CODE_LANGUAGES = {
+  js: "c", mjs: "c", cjs: "c", ts: "c", tsx: "c", jsx: "c", java: "c",
+  c: "c", h: "c", cpp: "c", hpp: "c", cs: "c", go: "c", rs: "c", swift: "c",
+  kt: "c", php: "c", scss: "c", css: "css",
+  py: "hash", rb: "hash", sh: "hash", bash: "hash", zsh: "hash",
+  yaml: "hash", yml: "hash", toml: "hash", ini: "hash", cfg: "hash", r: "hash",
+  sql: "sql", json: "json", html: "markup", htm: "markup", xml: "markup",
+};
+
+//: Keywords worth colouring, per family. Deliberately not exhaustive: a
+//: keyword list that tries to be complete is a maintenance burden that buys
+//: nothing — what the eye uses is the *shape* of the control flow, and these
+//: are the words that carry it.
+const CODE_KEYWORDS = {
+  c: "abstract async await break case catch class const continue default delete do else enum export extends false final finally for from function goto if implements import in instanceof interface let new null package private protected public return static struct super switch this throw throws true try typeof var void while yield",
+  hash: "and as assert async await break case class continue def del elif else end except false finally for from global if import in is lambda module nil none not or pass raise return self true try unless until while with yield",
+  sql: "add all alter and as asc between by case create delete desc distinct drop else exists from group having in inner insert into is join left limit not null on or order outer right select set table then union update values where",
+  json: "true false null",
+  css: "important media import supports keyframes from to and not only",
+  markup: "",
+  generic: "false null true",
+};
+
+//: One scanner, built once per family. Order inside the alternation *is* the
+//: precedence: comments and strings first, so a `#` inside a string or the
+//: word `if` inside a comment is not re-coloured as something else.
+const codeScanners = new Map();
+
+function codeScanner(family) {
+  if (codeScanners.has(family)) return codeScanners.get(family);
+  const lineComment =
+    family === "hash" ? "#[^\\n]*" : family === "sql" ? "--[^\\n]*" : "\\/\\/[^\\n]*";
+  const parts = [];
+  if (family === "markup") parts.push("(?<comment><!--[\\s\\S]*?-->)");
+  else parts.push(`(?<comment>\\/\\*[\\s\\S]*?\\*\\/|${lineComment})`);
+  parts.push('(?<string>"(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\'|`(?:[^`\\\\]|\\\\.)*`)');
+  parts.push("(?<number>\\b\\d[\\d_]*(?:\\.\\d+)?(?:[eE][+-]?\\d+)?\\b)");
+  const words = (CODE_KEYWORDS[family] || CODE_KEYWORDS.generic).trim().split(/\s+/);
+  if (words.length && words[0]) parts.push(`(?<keyword>\\b(?:${words.join("|")})\\b)`);
+  const scanner = new RegExp(parts.join("|"), "g");
+  codeScanners.set(family, scanner);
+  return scanner;
+}
+
+//: Which family a filename is in. Extension only — content sniffing guesses
+//: wrong on short files and there is nothing to gain: a file this app can
+//: view arrived with a suffix it recognised (`docview.CODE_SUFFIXES`).
+function codeFamilyFor(filename) {
+  const suffix = /\.([a-z0-9]+)$/i.exec(String(filename || ""));
+  return CODE_LANGUAGES[(suffix?.[1] || "").toLowerCase()] || "generic";
+}
+
+//: Fills `target` with the highlighted source. Text nodes and `<span>`s
+//: built with `textContent`, never `innerHTML` — a file's own text is exactly
+//: the untrusted input a markup-assembling highlighter turns into an
+//: injection, and this app's CSP would not save a same-origin one.
+function highlightCodeInto(target, text, filename) {
+  const scanner = codeScanner(codeFamilyFor(filename));
+  scanner.lastIndex = 0;
+  const source = String(text ?? "");
+  let at = 0;
+  let match;
+  while ((match = scanner.exec(source)) !== null) {
+    //: A zero-length match would loop forever. None of the patterns above can
+    //: produce one, and this costs nothing to be certain of.
+    if (match.index === scanner.lastIndex) {
+      scanner.lastIndex++;
+      continue;
+    }
+    if (match.index > at) target.appendChild(document.createTextNode(source.slice(at, match.index)));
+    const kind = Object.keys(match.groups).find((name) => match.groups[name] !== undefined);
+    const span = document.createElement("span");
+    span.className = `tok-${kind}`;
+    span.textContent = match[0];
+    target.appendChild(span);
+    at = match.index + match[0].length;
+  }
+  if (at < source.length) target.appendChild(document.createTextNode(source.slice(at)));
+}

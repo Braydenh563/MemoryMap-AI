@@ -215,3 +215,76 @@ def test_the_app_may_frame_blobs_and_itself_but_nothing_else():
     assert "frame-ancestors 'none'" in policy, (
         "the other direction is unchanged: nothing may frame MemoryMap"
     )
+
+
+# --- Syntax highlighting and text export (§R7.1 items 3 and 5) --------------
+
+
+def _editor_js() -> str:
+    return (Path(__file__).resolve().parents[1] / "frontend" / "editor.js").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_the_highlighter_builds_nodes_and_never_markup():
+    """A file's own text is exactly the untrusted input a markup-assembling
+    highlighter turns into an injection, and this app's CSP would not stop a
+    same-origin one. Driven live with a .js file containing
+    `<img src=x onerror=…>` and `<b id="pwned">`: no element appeared, no
+    global was set, and the text rendered verbatim."""
+    editor = _editor_js()
+    body = editor[editor.index("function highlightCodeInto(") :]
+    assert "innerHTML" not in body, (
+        "spans are built with textContent — an innerHTML here is the bug"
+    )
+    assert "document.createTextNode" in body and "span.textContent" in body
+
+
+def test_the_highlighter_cannot_loop_on_a_zero_length_match():
+    editor = _editor_js()
+    body = editor[editor.index("function highlightCodeInto(") :]
+    assert "scanner.lastIndex++" in body, (
+        "a zero-length match with a /g regex is an infinite loop; none of the "
+        "patterns can produce one and this makes that not matter"
+    )
+
+
+def test_no_syntax_pattern_nests_a_quantifier():
+    """CI runs CodeQL, which has caught a real polynomial-ReDoS in code
+    written in this repo. The string rules use the `[^"\\\\\\n]|\\\\.` shape,
+    whose alternatives are disjoint on their first character."""
+    editor = _editor_js()
+    body = editor[editor.index("function codeScanner(") : editor.index("function codeFamilyFor(")]
+    assert ")+*" not in body and ")**" not in body and ")++" not in body
+
+
+def test_keywords_do_not_use_the_user_chosen_accent():
+    """Settings → Appearance writes any hex onto `--accent`, so a keyword
+    painted with it can be set to a colour with no contrast against the code
+    behind it. Found on a profile whose accent was #cdd5e0: keywords measured
+    `rgb(205, 213, 224)` against near-white text. Strings, numbers and
+    comments reuse `--ok`, `--warn` and `--muted`, none of which are settable."""
+    css_dir = Path(__file__).resolve().parents[1] / "frontend" / "css"
+    misc = (css_dir / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    rule = misc[misc.index(".lightbox-doc-pre .tok-keyword") :][:200]
+    assert "var(--syntax-keyword)" in rule
+    assert "var(--accent)" not in rule
+    tokens = (css_dir / "00-tokens-shell.css").read_text(encoding="utf-8")
+    assert tokens.count("--syntax-keyword:") == 3, (
+        "light, the manual dark toggle, and the OS-default dark block — CSS "
+        "has no variables-for-variables, which is why that file already "
+        "carries the dark palette twice"
+    )
+
+
+def test_export_names_the_file_after_what_the_text_is():
+    """Save hands back the file as it is on disk; Export text hands back what
+    the viewer is showing, which for a scanned PDF is the only readable form
+    of it the app has. `report.pdf` exports as `report.md` or `report.txt`
+    depending on `kind` — never as something claiming to still be a PDF."""
+    app = (Path(__file__).resolve().parents[1] / "frontend" / "app.js").read_text(
+        encoding="utf-8"
+    )
+    body = app[app.index("const exportTextBtn = actionBtn(") :][:900]
+    assert 'kind === "markdown" ? "md" : "txt"' in body
+    assert "replace(" in body, "the source file's own extension is stripped first"

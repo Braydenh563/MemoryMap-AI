@@ -144,6 +144,14 @@ select optgroup {
   --muted: #5b6472;
   --accent: #4f6df5;
   --accent-soft: rgba(79, 109, 245, 0.14);
+  /* Syntax highlighting in the file viewer (REDESIGN.md §R7.1 item 3). Its
+     own token rather than `--accent`, and that is not a style preference: the
+     accent is *user-chosen* (Settings → Appearance writes any hex onto
+     `--accent`), so a keyword painted with it can be set to a colour with no
+     contrast against the code behind it. Measured on a profile whose accent
+     was `#cdd5e0`, which is what caught this. Strings, numbers and comments
+     reuse `--ok`, `--warn` and `--muted`, none of which the user can change. */
+  --syntax-keyword: #7c3aed;
   --warn: #9a5b04;
   --warn-soft: rgba(245, 189, 79, 0.25);
   --ok: #10653c;
@@ -473,6 +481,9 @@ select,
   --muted: #9aa1ad;
   --accent: #8b9df8;
   --accent-soft: rgba(123, 144, 247, 0.20);
+  /* See the light value: a token of its own because `--accent` is
+     user-chosen and a keyword must stay readable whatever they pick. */
+  --syntax-keyword: #c4a5ff;
   --warn: #fbbf24;
   --warn-soft: rgba(251, 191, 36, 0.16);
   --ok: #4ade80;
@@ -508,6 +519,9 @@ select,
     --muted: #9aa1ad;
     --accent: #8b9df8;
     --accent-soft: rgba(123, 144, 247, 0.20);
+    /* The third copy, for the OS-default dark path — CSS has no
+       variables-for-variables, which is why this block exists at all. */
+    --syntax-keyword: #c4a5ff;
     --warn: #fbbf24;
     --warn-soft: rgba(251, 191, 36, 0.16);
     --ok: #4ade80;

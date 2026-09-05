@@ -53,6 +53,14 @@ session:
 
 ## What is open right now — start here
 
+**The overnight round is in [roadmap/HANDOVER.md](roadmap/HANDOVER.md)'s first
+section — read it before this list.** Built there, do not rebuild: document OCR
+through the workspace (PDFs rasterised page by page, plus a per-page vision
+read), the chat header/sources/message redesign, Notion block handles in the
+documents live view, `agent_activity_notices`, and typed values in the advanced
+response settings. Still open from it: concept-map learnability, the whiteboard
+rethink, more dashboard widgets, Files cards for long OCR text.
+
 Six sessions of finished narrative used to sit above this line. It has moved
 to [roadmap/HISTORY.md](roadmap/HISTORY.md)'s "§80 to §86" index, because a
 live work plan should open with what is *live* — and because this file has a
@@ -750,12 +758,8 @@ demand. This session's graph-toolbar work is (d); the pane system is (c).
 
 ### 88.3 The app.js split — done
 
-All four files (documents.js, library.js, dashboard.js, settings.js) are
-split out of app.js (~28,460 → ~21,720 lines) and verified live in Chromium
-with zero console errors. Full narrative — line ranges, the four hazards
-found and how each was fixed, the rules that made it safe — moved to
-[HISTORY.md's own §88.3 entry](roadmap/HISTORY.md#883--the-appjs-split-full-narrative-moved-from-roadmapmd-now-complete)
-now that it's finished.
+Four files split out, verified live, narrative in
+[HISTORY.md §88.3](roadmap/HISTORY.md#883--the-appjs-split-full-narrative-moved-from-roadmapmd-now-complete).
 
 ### 88.4 Context, memory and harness engineering — an analysis
 
@@ -769,12 +773,8 @@ each round. Conversations can be compressed (§35I). Tools are a fixed registry
 in `ai/tools/`. There is a "what the AI remembers" surface (§39B).
 
 **Corrected — items 1 and 2 below were already built by a prior session
-(`search_manager.py`, commits `be53bd5`/`03b9a3e`/`a399926`, dated before
-this analysis was last read as current) when this list was drafted, and
-this section was never updated to say so. Checked directly rather than
-trusted, per this file's own repeated rule, and confirmed via `git log`
-that the code predates the session that found it stale — not a
-same-session miss like a couple of others this file records elsewhere.**
+(`search_manager.py`, commits `be53bd5`/`03b9a3e`/`a399926`), and this section
+was never updated to say so. Checked directly, per this file's own rule.**
 
 **What's actually still a gap, in order of value:**
 

@@ -1772,6 +1772,23 @@
   gap: 0.4rem;
 }
 
+/* **The user's own row reads right-to-left, and this is the rule that makes
+   it.** Reported from a screenshot: "the 'you' for the user needs to be on
+   the right, not left" — the bubble was already right-aligned and the label
+   inside it was not. `.msg.user .msg-role` had `text-align: right`, which
+   does nothing at all here: the rule above makes this a flex container, and
+   a flex container packs its items to the start no matter what
+   `text-align` says. Two rules disagreeing, and the older one silently won.
+
+   `row-reverse` rather than `justify-content: flex-end` because it does both
+   jobs at once: the items pack to the right *and* the avatar ends up
+   outermost, mirroring the assistant's own avatar on the far left. The
+   thread then has a mark at each edge and the names facing inward, which is
+   the shape every chat client the user has open uses. */
+.msg.user .msg-role {
+  flex-direction: row-reverse;
+}
+
 /* The user's own mark. The app's accent in the app's own pill shape, sized
    to the emblem opposite it — a glyph, not a photo: this app has no accounts
    and never asks who you are. */
@@ -2645,4 +2662,24 @@ p.graph-help-panel {
   .msg.is-generating::before {
     animation: none;
   }
+}
+
+/* **The flickering bar under some widgets.**
+   Reported: "there's a weird flickering bar or set of horizontal lines that
+   pops up at the bottom of some elements in the application like buttons in
+   the timer on the dashboard." It is a horizontal scrollbar appearing and
+   disappearing, not a rendering fault — the focus timer's digits change width
+   every second, so its row's content crosses the container's width once a
+   second and the browser adds, then removes, a scrollbar. A 15px bar blinking
+   at 1Hz is exactly what was described.
+
+   `clip` rather than `hidden`: it suppresses the scrollbar without making the
+   element a scroll container, so nothing inside it can be scrolled out of
+   reach and a focused control still scrolls into view through its real
+   ancestor. Widget bodies are a fixed-width column by design — anything that
+   genuinely needs more room (a table, a code block) already scrolls inside
+   itself. */
+.dash-body,
+.dash-body .row {
+  overflow-x: clip;
 }

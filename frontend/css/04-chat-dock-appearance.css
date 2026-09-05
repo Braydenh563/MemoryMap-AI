@@ -500,7 +500,19 @@
      panel used to force it down to 4rem — it is a column of its own now and
      has stopped competing for this height. */
   min-height: 6rem;
-  overflow-y: auto;
+  /* **Two axes, said explicitly, because the default is not "no scrollbar".**
+     Reported from a screenshot: "there is also a horizontal scroll on the
+     chat message section??" — and this is the whole mechanism. Setting
+     `overflow-y` alone leaves `overflow-x` at `visible`, and CSS refuses that
+     combination: a `visible` axis paired with a scrolling one is computed to
+     `auto`. So the column silently gained a horizontal scrollbar the moment
+     anything inside it was a pixel too wide, which for a row of follow-up
+     chips or a pasted URL is most turns.
+
+     Clipping here is safe because the things that genuinely need the room
+     already scroll inside themselves — see `.msg > *`'s own comment in
+     02-chat-graph.css, which caps them for exactly that reason. */
+  overflow: hidden auto;
 }
 
 .chat-toolbar {

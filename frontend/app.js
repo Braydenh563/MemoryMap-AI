@@ -10366,19 +10366,48 @@ function reducedMotionWanted() {
 // sentence beside the indicator pass theirs in — the weekly digest used to
 // append " Thinking about your week…" next to the default, and it rendered as
 // "Thinking… Thinking about your week…" (user-reported).
+//: **Progress is feedback, not decoration, and it gets its own switch.**
+//:
+//: Reported three times, the last with a screenshot of a frozen italic
+//: "Thinking…": *"the thinking and writing animation is completely broken,
+//: doesn't move"*, and then the instruction that settles the design —
+//: *"make them happen even if animations are stalled, or make them paused
+//: separately to the rest like the background art."*
+//:
+//: The background art already has exactly that shape (`bg-motion`: auto /
+//: moving / still), so this follows it rather than inventing a second idea.
+//: The difference is the **default**: the art defaults to `auto` because it
+//: is decoration, and this defaults to `always` because a progress indicator
+//: that has stopped is indistinguishable from an app that has hung. Turning
+//: off "animations and transitions" is a statement about chrome; it was
+//: never a request to be left unable to tell whether the model is working.
+//:
+//: The OS's own `prefers-reduced-motion` is still honoured under `auto`, and
+//: `alive()` below is what stops that meaning *dead* — see its own comment.
+function progressMotionWanted() {
+  const choice = document.documentElement.dataset.progressMotion || "always";
+  if (choice === "still") return false;
+  //: **"Always" means always, including through the platform setting**, by
+  //: direct instruction: *"make sure the animations run even with prefer
+  //: reduced motion on, like the rotating generated logos."* My first pass
+  //: exempted the OS setting on accessibility grounds and was overruled — it
+  //: is the user's own app, the choice is theirs, and it is one select away
+  //: from `auto`, which does respect the platform. The CSS counter-rule in
+  //: 02-chat-graph.css carries the same decision for the same reason.
+  if (choice === "always") return true;
+  return !reducedMotionWanted();
+}
+
+//: How long each of the three dots takes to step, when it is stepping rather
+//: than bouncing. One second reads as deliberate rather than as a stutter.
+const PROGRESS_STEP_MS = 1000;
+
+// `label` is the reduced-motion fallback: with animations off the dots can't
+// convey "working", so a word has to. Callers that already print their own
+// sentence beside the indicator pass theirs in — the weekly digest used to
+// append " Thinking about your week…" next to the default, and it rendered as
+// "Thinking… Thinking about your week…" (user-reported).
 function typingDots(label = "Thinking…") {
-  if (reducedMotionWanted()) {
-    const text = document.createElement("span");
-    text.className = "typing-label";
-    text.textContent = label;
-    text.setAttribute("role", "status");
-    // Even with motion off this can still *say* what is happening — see
-    // `progressLine` below for why that matters here specifically.
-    text.setStatus = (next) => {
-      text.textContent = next;
-    };
-    return text;
-  }
   const dots = document.createElement("span");
   dots.className = "typing-dots";
   dots.setAttribute("role", "status");
@@ -10387,6 +10416,36 @@ function typingDots(label = "Thinking…") {
   dots.setStatus = (next) => {
     dots.setAttribute("aria-label", next);
   };
+  if (progressMotionWanted()) return dots;
+
+  //: **Motion is off, so this steps instead of moving.**
+  //:
+  //: The old answer was to replace the dots with one static italic word, and
+  //: that is the thing the user photographed and called broken — correctly,
+  //: because a sentence that never changes is exactly what a *hung* app also
+  //: shows. Reduced motion means no *movement*; a value that changes is
+  //: information, and information is still allowed.
+  //:
+  //: So the dots stay, nothing translates or fades, and the highlight moves
+  //: from one to the next once a second by swapping a class. The element is
+  //: in the same place from frame to frame — there is no animation to make
+  //: anyone unwell — and it is unmistakably alive.
+  dots.classList.add("typing-dots-stepped");
+  let at = 0;
+  const children = [...dots.children];
+  const tick = () => {
+    children.forEach((dot, i) => dot.classList.toggle("is-on", i === at));
+    at = (at + 1) % children.length;
+  };
+  tick();
+  const timer = setInterval(() => {
+    //: Stops itself once the node is gone. A `setInterval` that outlives its
+    //: element is a leak that grows with every turn of a long conversation,
+    //: and nothing else would ever clear this one — the caller removes the
+    //: node, it does not know an interval exists.
+    if (!dots.isConnected) return clearInterval(timer);
+    tick();
+  }, PROGRESS_STEP_MS);
   return dots;
 }
 
@@ -10416,20 +10475,18 @@ function progressLine(initial = "Thinking…") {
   wrap.className = "progress-line";
   const indicator = typingDots(initial);
   wrap.appendChild(indicator);
-  // Under reduced motion `typingDots` already *is* the sentence — adding a
-  // second one here is how the digest widget once rendered "Thinking…
-  // Thinking about your week…" (see `typingLine`'s own comment). So the
-  // visible label is only built when the indicator is the animated kind.
-  const separate = !indicator.classList.contains("typing-label");
-  const label = separate ? document.createElement("span") : indicator;
-  if (separate) {
-    label.className = "progress-line-label";
-    label.textContent = initial;
-    wrap.appendChild(label);
-  }
+  //: The dots are always dots now — stepped rather than bouncing when motion
+  //: is off — so the label is always its own node. It used to be *replaced*
+  //: by the indicator under reduced motion, which is how the digest widget
+  //: once rendered "Thinking… Thinking about your week…", and is also how
+  //: the whole indicator became one frozen italic word.
+  const label = document.createElement("span");
+  label.className = "progress-line-label";
+  label.textContent = initial;
+  wrap.appendChild(label);
   wrap.setStatus = (next) => {
     if (!next || next === label.textContent) return;
-    if (separate) label.textContent = next;
+    label.textContent = next;
     indicator.setStatus?.(next);
   };
   return wrap;
@@ -10441,11 +10498,8 @@ function progressLine(initial = "Thinking…") {
 // "Thinking… Thinking about your week…" in the digest widget.
 function typingLine(label) {
   const wrap = document.createElement("span");
-  const indicator = typingDots(label);
-  wrap.appendChild(indicator);
-  if (!indicator.classList.contains("typing-label")) {
-    wrap.append(` ${label}`);
-  }
+  wrap.appendChild(typingDots(label));
+  wrap.append(` ${label}`);
   return wrap;
 }
 
@@ -12587,7 +12641,25 @@ async function sendChatMessage(preset, opts = {}) {
   // anywhere in the bubble. Moving it to the end of the steps list keeps one
   // live "still working" line under whatever has happened so far, and the
   // `finally` that ends the stream is what actually takes it away.
-  const clearPending = () => stepsHolder.appendChild(pending);
+  //: **The trailing line cannot come back once the turn is over**, and that
+  //: is the whole of this flag.
+  //:
+  //: Reported with two screenshots: *"'writing the answer' gets stuck below
+  //: the message once finished"* — including on a bubble whose own timer had
+  //: stopped, so the turn had genuinely ended. `clearPending` *appends* the
+  //: node, and appending a node that has already been removed **puts it
+  //: back**. The `finally` at the end of the stream removes it; any callback
+  //: still queued behind that — a last answer delta, a trailing tool event —
+  //: then re-attached it, with nothing left to take it down a second time.
+  //:
+  //: A flag rather than a re-check of `pending.isConnected`: the point is
+  //: that the turn is over, not that the node happens to be detached right
+  //: now, and saying so is what stops the next person re-introducing it.
+  let turnEnded = false;
+  const clearPending = () => {
+    if (turnEnded) return;
+    stepsHolder.appendChild(pending);
+  };
   // Every string this is given comes from an event that really happened —
   // see `progressLine` on why it must never invent a stage.
   const say = (text) => pendingLine.setStatus?.(text);
@@ -12979,7 +13051,10 @@ async function sendChatMessage(preset, opts = {}) {
     // than on any one success path.
     bubble.classList.remove("is-generating");
     // The one place the trailing progress line is taken down — the turn is
-    // genuinely over here, whether it ended, errored or was aborted.
+    // genuinely over here, whether it ended, errored or was aborted. The flag
+    // goes up *first*: see `clearPending` for the callback that used to run
+    // after this line and put the node straight back.
+    turnEnded = true;
     pending.remove();
     // Only if it is still ours. Switching away and sending a second message
     // installs a new controller, and this line firing late would null it —
@@ -29451,6 +29526,20 @@ async function cmdPaletteAsk(text) {
         for (const item of event?.touched || []) {
           touched.set(`${item.kind}:${item.id}`, item);
         }
+        //: **The rest of the app has to hear about it too.**
+        //:
+        //: Reported: *"the popup agent made a note, but there was no way to
+        //: go to it, it didn't appear in the notes tab and only appeared in
+        //: the library."* Both halves are this one line. The Chat tab has
+        //: called `loadEntries()` on a change event since it was built; the
+        //: palette never did, so `allEntries` — which the Notes tab renders
+        //: from, and which the palette's own chips resolve titles against —
+        //: still held the notebook as it was before the agent wrote to it.
+        //: The Library looked correct only because it re-fetches when opened.
+        //:
+        //: Not awaited: this runs mid-stream and the answer must keep
+        //: arriving while the list refreshes behind it.
+        if ((event?.changes || []).length) loadEntries();
       },
       onAnswer: (delta) => {
         answered = true;

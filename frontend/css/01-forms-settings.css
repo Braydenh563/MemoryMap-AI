@@ -3315,6 +3315,26 @@ html.modal-open body {
   animation-delay: 0.3s;
 }
 
+/* **The stepped variant: alive without moving.**
+   Built by `typingDots` (app.js) when progress motion is off — see its
+   comment for why "reduced motion" must not mean a frozen italic word, which
+   is what a user photographed and called broken. Nothing translates, nothing
+   fades in or out: a class moves from one dot to the next once a second, so
+   the only thing that changes is a colour. That is a value changing, not a
+   gesture, and it is the one signal available that a hung app cannot fake. */
+.typing-dots-stepped span {
+  animation: none;
+  will-change: auto;
+  background: var(--border);
+  /* No transition either — a fade is movement's quieter cousin, and the point
+     of this variant is that there is none. */
+  transition: none;
+}
+
+.typing-dots-stepped span.is-on {
+  background: var(--accent);
+}
+
 @keyframes dot-bounce {
 
   0%,

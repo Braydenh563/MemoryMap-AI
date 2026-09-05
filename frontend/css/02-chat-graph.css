@@ -99,7 +99,11 @@
 
 .msg.user .msg-role {
   color: rgba(255, 255, 255, 0.85);
-  text-align: right;
+  /* The right-hand alignment is `flex-direction: row-reverse` in
+     03-dashboard-widgets.css, not `text-align` — this is a flex container,
+     and `text-align: right` sat here doing nothing while the label rendered
+     on the left. Kept as a pointer rather than deleted silently: the wrong
+     property looks so obviously correct that it is worth naming once. */
 }
 
 .msg-body {
@@ -1910,6 +1914,74 @@ kbd {
   animation-iteration-count: 1 !important;
   transition-duration: 0.001ms !important;
   scroll-behavior: auto !important;
+}
+
+/* **The exception: things that say work is happening.**
+   ==================================================================
+   Instructed directly, twice: "make them happen even if animations are
+   stalled, or make them paused separately to the rest like the background
+   art", then "make sure the animations run even with prefer reduced motion
+   on, like the rotating generated logos."
+
+   The blanket above is what actually froze them — a `*` selector with
+   `!important` outranks anything written for one element, so no amount of
+   care in `typingDots` (app.js) could have kept the dots moving. This is the
+   counter-rule, and it needs both higher specificity (0,2,1 against the
+   blanket's 0,1,1) and `!important` of its own to win.
+
+   **The list is deliberate and it is the whole contract.** These are the
+   animations that report *progress* — a spinner, a pulse, a shimmer, a glow
+   that means "still working". Everything else in the app stays governed by
+   the setting, because everything else is decoration. A new progress
+   animation has to be added here, and that is the intended cost: the
+   alternative is a rule that quietly exempts things nobody meant to exempt.
+
+   Governed by `progress-motion` (Settings → Appearance), which defaults to
+   "always" — see APPEARANCE_DEFAULTS in settings.js for why a spinner is not
+   chrome. Choosing "Still" removes the attribute's value from this selector
+   and the blanket takes over again, which is what that option means.
+
+   **Each rule restates its animation shorthand, and that duplication is
+   deliberate.** There is no way to say "undo the !important above" — CSS has
+   no keyword that restores a longhand a `*` rule has already forced, so the
+   only thing that wins is naming the animation again. Keeping the pairs next
+   to each other in one block is the mitigation: a duration changed in one
+   place and not the other is visible here rather than three files away.
+
+   `@media (prefers-reduced-motion: reduce)` blocks elsewhere in the
+   stylesheet still stop these individually; the instruction was explicit
+   that progress should move anyway, so those are overridden by the
+   `!important` here too. */
+:root[data-progress-motion="always"] .typing-dots span {
+  animation: dot-bounce 1.2s infinite ease-in-out !important;
+}
+
+:root[data-progress-motion="always"] .is-generating {
+  animation: generating-glow 1.8s ease-in-out infinite !important;
+}
+
+:root[data-progress-motion="always"] .chip.filing .ph {
+  animation: chip-filing-spin 1.1s linear infinite !important;
+}
+
+:root[data-progress-motion="always"] .spinner {
+  animation: chip-spin 0.7s linear infinite !important;
+}
+
+:root[data-progress-motion="always"] .entry-list li.skeleton {
+  animation: shimmer 1.2s linear infinite !important;
+}
+
+:root[data-progress-motion="always"] button.recording {
+  animation: pulse-rec 1.2s ease-in-out infinite !important;
+}
+
+:root[data-progress-motion="always"] .shortcut-list kbd.capturing {
+  animation: pulse-capture 1s ease-in-out infinite !important;
+}
+
+:root[data-progress-motion="always"] .is-streaming > :last-child::after {
+  animation: answer-caret 1s steps(2, start) infinite !important;
 }
 
 .accent-swatches {

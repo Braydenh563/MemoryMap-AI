@@ -1010,7 +1010,28 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   gap: var(--space-3);
   max-height: 25rem;
   padding: var(--space-6);
-  overflow-y: auto;
+  /* Both axes named: `overflow-y` alone leaves x at `visible`, which CSS
+     computes to `auto` beside a scrolling axis — a second, horizontal bar
+     nobody asked for. Same trap as #chat-messages. */
+  overflow: hidden auto;
+  /* **The "weird bar on the right that doesn't fit the curved edges".**
+     Reported with a screenshot. This pane is the card's last child and it
+     scrolls, so a full-width platform scrollbar ran straight past the card's
+     rounded bottom corner. Rounding the pane's own bottom corners puts the
+     track inside the curve, and a thin, tinted bar reads as part of the
+     panel rather than as a stray line drawn over it.
+
+     The card is deliberately *not* given `overflow: hidden` to solve this —
+     it holds menus that must escape their container, and clipping them is
+     the "popups are getting clipped again" report one screenshot earlier. */
+  border-bottom-left-radius: var(--radius-lg);
+  border-bottom-right-radius: var(--radius-lg);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  /* The space is reserved whether or not the bar is showing, so an answer
+     arriving does not shift every line left by 15px as it crosses the
+     scroll threshold. */
+  scrollbar-gutter: stable;
 }
 
 /* Replaced the single centred "Press Enter to send." line. That sentence

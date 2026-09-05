@@ -1076,6 +1076,21 @@ const APPEARANCE_DEFAULTS = {
   // anybody got. One declaration, matching the <option> list and the hint
   // text that explains what "auto" means.
   "bg-motion": "auto", // auto | moving | still
+  //: **Progress indicators, separate from everything above, and defaulting
+  //: to "always" on purpose.** The background art's own key is the shape this
+  //: copies; the *default* is what differs, and the reason is the whole point
+  //: of the setting. Reported with a screenshot of a frozen "Thinking…":
+  //: "the thinking and writing animation is completely broken, doesn't move."
+  //: The app's Reduce motion had turned it into one static italic word —
+  //: which is also exactly what a hung app shows, so the setting had made the
+  //: interface unable to tell the user whether anything was happening.
+  //:
+  //: Turning off "animations and transitions" is a statement about chrome. A
+  //: spinner is not chrome. "always" keeps progress moving through this app's
+  //: own Reduce motion; the *operating system's* accessibility setting is
+  //: still obeyed (see `progressMotionWanted` in app.js), and the indicator
+  //: steps through a colour rather than freezing when it is.
+  "progress-motion": "always", // always | auto | still
   "bg-intensity": "90",
   radius: "14", // global corner rounding, px
   "glass-blur": "18", // frosted-glass blur strength, px
@@ -1713,6 +1728,7 @@ function applyAppearance() {
   root.style.setProperty("--glass-sheen-strength", Number(appearancePref("glass-sheen-strength")) / 100);
   root.dataset.themePreset = activeThemePreset();
   root.dataset.motion = appearancePref("motion");
+  root.dataset.progressMotion = appearancePref("progress-motion");
   root.style.setProperty("--bg-art-opacity", Number(appearancePref("bg-intensity")) / 100);
   // Cards thin out slightly while the art is on, so it reads through the page
   // rather than only in the margins.
@@ -1913,6 +1929,8 @@ function renderAppearance() {
   $("bg-art-toggle").checked = bgArtOn();
   $("bg-style-row").classList.toggle("hidden", !bgArtOn());
   $("bg-intensity-row").classList.toggle("hidden", !bgArtOn());
+  $("progress-motion").value = appearancePref("progress-motion");
+  renderProgressMotionHint();
   $("bg-motion").value = appearancePref("bg-motion");
   $("bg-motion-row").classList.toggle("hidden", !bgArtOn());
   renderBgMotionHint();
@@ -1959,6 +1977,26 @@ function renderAppearance() {
 // A frozen background with no explanation reads as a broken app — which is
 // how it was reported. Say which setting is holding it still, and that
 // "Moving" will override it.
+//: The one case where this setting is *not* in charge, said where the choice
+//: is made rather than left to be discovered. "Always move" overrides this
+//: app's own Reduce motion; it deliberately does not override the operating
+//: system's, which can be on for a medical reason. `typingDots` still steps
+//: the dots through a colour there, so the indicator is never dead.
+function renderProgressMotionHint() {
+  const hint = $("progress-motion-hint");
+  if (!hint) return;
+  const osReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const choice = appearancePref("progress-motion");
+  let text = "";
+  if (choice === "always" && osReduced) {
+    text = "Moving anyway — your system asks for reduced motion, and this setting overrides it. Choose Auto to follow the system instead.";
+  } else if (choice === "still") {
+    text = "Held still. The dots step through a colour once a second so you can still tell work is happening.";
+  }
+  hint.textContent = text;
+  hint.classList.toggle("hidden", !text);
+}
+
 function renderBgMotionHint() {
   const hint = $("bg-motion-hint");
   if (!hint) return;
@@ -2101,7 +2139,7 @@ function renderPaletteGrid() {
 
 function resetAppearance() {
   for (const key of [
-    "fontsize", "font", "density", "glass", "motion", "bg-intensity", "accent",
+    "fontsize", "font", "density", "glass", "motion", "progress-motion", "bg-intensity", "accent",
     "contrast", "bgArt", "theme", "radius", "glass-blur", "glass-opacity",
     "glass-sheen", "glass-sheen-strength", "bg-style", "bg-motion", "palette", "themePreset",
     "accent-custom", "page-bg", "custom-css", "zoom",
@@ -2580,6 +2618,11 @@ $("page-bg-clear").addEventListener("click", () => {
 $("bg-art-style").addEventListener("change", (e) => {
   localStorage.setItem("bg-style", e.target.value);
   if (bgArtOn()) startBgArt();
+});
+$("progress-motion").addEventListener("change", (e) => {
+  localStorage.setItem("progress-motion", e.target.value);
+  document.documentElement.dataset.progressMotion = e.target.value;
+  renderProgressMotionHint();
 });
 $("bg-motion").addEventListener("change", (e) => {
   localStorage.setItem("bg-motion", e.target.value);

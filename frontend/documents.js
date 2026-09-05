@@ -1175,6 +1175,32 @@ function docLiveText(blocks) {
   return blocks.filter((b) => b.trim() !== "" || blocks.length === 1).join("\n\n");
 }
 
+//: **A live-view block's offsets, in the document's own coordinates.**
+//:
+//: The live view is the default document view, and each of its paragraphs is
+//: its own `.lp-src` textarea — so a selection made there has offsets inside
+//: *that block*, which are meaningless to anything holding the document. The
+//: chat's selection context (REDESIGN.md §R7.1 item 1) needs the document's,
+//: or it reports "line 2" for a paragraph two thirds of the way down.
+//:
+//: Derived from the block list rather than searched for, because a document
+//: with two identical paragraphs would make `indexOf` pick the wrong one. The
+//: search is only the fallback, and returning `null` when even that misses is
+//: deliberate: the caller says "position unknown" rather than claiming a
+//: number it guessed.
+function docLiveBlockOffset(box) {
+  const source = $("doc-content");
+  if (!source || !(box instanceof HTMLTextAreaElement)) return null;
+  const index = Number(box.dataset.index);
+  if (!Number.isInteger(index)) return null;
+  const blocks = docLiveBlocks(source.value);
+  const prefix = docLiveText(blocks.slice(0, index));
+  const base = prefix ? prefix.length + 2 : 0;
+  if (source.value.slice(base, base + box.value.length) === box.value) return base;
+  const found = source.value.indexOf(box.value);
+  return found === -1 ? null : found;
+}
+
 function renderDocLive(keepActive = false) {
   const host = $("doc-live");
   if (!host || docView !== "live") return;
@@ -1213,6 +1239,14 @@ function docLiveEditor(source, index) {
   box.className = "lp-src";
   box.value = source;
   box.dataset.index = String(index);
+  //: **An id, because the formatting actions address a box by id.**
+  //: `applyMarkdown(kind, boxId)` and everything under it does `$(boxId)`, so
+  //: a textarea without one is a silent no-op — the selection bar would draw
+  //: its eight buttons over a live-view paragraph and none of them would do
+  //: anything. That is this repo's "a policy silently refusing the work"
+  //: shape, and it costs nothing to avoid: one live view exists at a time and
+  //: the index is unique within it.
+  box.id = `doc-live-block-${index}`;
   box.spellcheck = true;
   box.setAttribute("aria-label", "Editing this paragraph's markdown");
 
@@ -1611,8 +1645,20 @@ function wrapDocSelection(marker, placeholder = "", boxId = "doc-content") {
   box.selectionStart = start + marker.length;
   box.selectionEnd = start + marker.length + selected.length;
   box.focus();
-  markDocDirty();
-  renderDocPreview();
+  //: **`finishMarkdownEdit`, not `markDocDirty()` + `renderDocPreview()`.**
+  //: Both toggle-off branches above already end this way; this branch — the
+  //: one that actually *applies* formatting, and so the one that runs almost
+  //: every time — did the doc-content half inline instead, which quietly did
+  //: the wrong thing for every other box: it marked the *document* dirty and
+  //: never told the box's own listeners anything had changed.
+  //:
+  //: Found when the selection bar started appearing over live-view
+  //: paragraphs. Bold visibly wrapped the words in the block and the document
+  //: underneath never received them — measured, `input` fired 0 times, and
+  //: dispatching one by hand synced it immediately. The same call was wrong
+  //: for the note edit box for exactly as long, where it marked a document
+  //: dirty that the user was not editing.
+  finishMarkdownEdit(box, boxId);
 }
 
 async function exportDocumentMarkdown() {

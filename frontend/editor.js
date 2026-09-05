@@ -900,6 +900,14 @@ const SELECTION_BAR_ACTIONS = [
   { md: "link", label: "ph:link", title: "Link" },
   { md: "h2", label: "ph:text-h", title: "Heading" },
   { md: "quote", label: "ph:quotes", title: "Quote" },
+  //: **Not a formatting action, and it says so with a rule beside it.**
+  //: REDESIGN.md §R7.1 item 1, quoted from the request: *"able to highlight
+  //: text and say something in the chat and the agent gets the context of
+  //: what is highlighted and cursor position."* It is the highest ratio of
+  //: "feels capable" to work in that whole section, and this bar is already
+  //: the thing on screen the moment a selection exists — a second control
+  //: somewhere else would be a second thing to find.
+  { ask: true, label: "ph:chat-teardrop-text", title: "Ask the AI about this selection" },
 ];
 
 const selectionBarState = { textarea: null };
@@ -916,10 +924,19 @@ function selectionBarElement() {
   bar.setAttribute("role", "toolbar");
   bar.setAttribute("aria-label", "Format the selection");
   for (const action of SELECTION_BAR_ACTIONS) {
+    if (action.ask) {
+      //: A hairline, so "ask about this" does not read as a ninth way to
+      //: change the text. Same separator the chat dock's control strip uses
+      //: between its own groups.
+      const rule = document.createElement("span");
+      rule.className = "selection-bar-rule";
+      rule.setAttribute("aria-hidden", "true");
+      bar.appendChild(rule);
+    }
     const button = document.createElement("button");
     button.type = "button";
     button.className = "ghost small icon-button";
-    button.dataset.md = action.md;
+    if (action.md) button.dataset.md = action.md;
     button.title = action.title;
     button.setAttribute("aria-label", action.title);
     setLabel(button, action.label);
@@ -930,6 +947,11 @@ function selectionBarElement() {
       event.preventDefault();
       const textarea = selectionBarState.textarea;
       if (!textarea) return;
+      if (action.ask) {
+        askAboutSelection(textarea);
+        selectionBarHide();
+        return;
+      }
       applyMarkdown(action.md, textarea.id);
       //: Deliberately *not* hidden here. `applyMarkdown` leaves the text it
       //: wrapped selected, so the bar re-anchors to it on the next
@@ -973,9 +995,19 @@ function selectionBarShow(textarea) {
   bar.style.left = `${Math.round(x)}px`;
 }
 
+//: A `.lp-src` block is one paragraph of the document's live view — the
+//: *default* document view, and each paragraph is its own textarea with no id
+//: (see `docLiveEditor`). Keyed by class rather than added to
+//: `EDITOR_SURFACES` because there is one of them per paragraph, and that map
+//: is an id-to-context table by construction.
+function isEditorSurface(node) {
+  if (!(node instanceof HTMLTextAreaElement)) return false;
+  return node.id in EDITOR_SURFACES || node.classList.contains("lp-src");
+}
+
 function selectionBarSync() {
   const active = document.activeElement;
-  if (!(active instanceof HTMLTextAreaElement) || !(active.id in EDITOR_SURFACES)) {
+  if (!isEditorSurface(active)) {
     return selectionBarHide();
   }
   //: A caret is not a selection. Nothing appears until there is text to act
@@ -997,6 +1029,102 @@ window.addEventListener("resize", () => selectionBarState.textarea && selectionB
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && selectionBarState.textarea) selectionBarHide();
 });
+
+//: How much text either side of the selection travels with it. Enough that a
+//: pronoun in the selection ("why does *it* do that?") has an antecedent, and
+//: small enough that a selection made in a 40,000-character document does not
+//: quietly become the whole document — the harness budgets tool *results*
+//: (§R5 item 4) but the question itself is not a tool result, so nothing else
+//: would bound this.
+const SELECTION_CONTEXT_MARGIN = 240;
+
+//: Where the selection sits, in a form the model can be told about and the
+//: app can re-check later. `line`/`column` are 1-based because that is what
+//: every editor in the world shows the user, and the number is going into a
+//: chip they read.
+function selectionContextFrom(textarea) {
+  //: **A live-view block reports itself in the document's coordinates.** Its
+  //: own offsets start at zero for every paragraph, so left alone this would
+  //: tell the model "line 2" for the last paragraph of a long document — and
+  //: `revalidateSelection` would then check those offsets against the wrong
+  //: textarea entirely, since the block is replaced whenever it re-renders.
+  //: Translating here means everything downstream sees one surface.
+  if (textarea.classList.contains("lp-src")) {
+    const source = $("doc-content");
+    const base = typeof docLiveBlockOffset === "function" ? docLiveBlockOffset(textarea) : null;
+    if (source && base !== null) {
+      return selectionOffsets(
+        source,
+        base + textarea.selectionStart,
+        base + textarea.selectionEnd
+      );
+    }
+    //: The block could not be located in the document — it is mid-edit, or two
+    //: paragraphs are identical and neither the index nor the search settled
+    //: it. Still a *document* selection, and saying so matters: falling
+    //: through to the line below would label a document "the note you're
+    //: writing" and report a line number counted from the top of the
+    //: paragraph. The offsets are the block's own, which
+    //: `revalidateSelection` will find do not match `doc-content` — so it
+    //: reports the position as unknown, which is the truth.
+    return { ...selectionOffsets(textarea, textarea.selectionStart, textarea.selectionEnd),
+      surfaceId: "doc-content", kind: "document" };
+  }
+  return selectionOffsets(textarea, textarea.selectionStart, textarea.selectionEnd);
+}
+
+function selectionOffsets(textarea, start, end) {
+  const value = textarea.value;
+  const text = value.slice(start, end);
+  const upToCaret = value.slice(0, end);
+  const line = upToCaret.split("\n").length;
+  const column = end - (upToCaret.lastIndexOf("\n") + 1) + 1;
+  return {
+    surfaceId: textarea.id,
+    kind: EDITOR_SURFACES[textarea.id] || "note",
+    start,
+    end,
+    text,
+    line,
+    column,
+    before: value.slice(Math.max(0, start - SELECTION_CONTEXT_MARGIN), start),
+    after: value.slice(end, end + SELECTION_CONTEXT_MARGIN),
+  };
+}
+
+//: The label on the chip, and the only place that knows which surface belongs
+//: to which thing. `entry-content` deliberately has no id: it is a note being
+//: written that does not exist yet, and a selection from it is still worth
+//: asking about — the text is what matters, not a row in the database.
+function selectionContextSource(surfaceId) {
+  if (surfaceId === "doc-content") {
+    const doc = typeof currentDoc !== "undefined" ? currentDoc : null;
+    return { title: doc?.title || "this document", entityKind: "document", entityId: doc?.id ?? null };
+  }
+  if (surfaceId === "entry-edit-content") {
+    const entry =
+      typeof allEntries !== "undefined" && typeof editingId !== "undefined"
+        ? allEntries.find((e) => e.id === editingId)
+        : null;
+    return {
+      title: entry ? noteLabel(entry, 40) : "this note",
+      entityKind: "note",
+      entityId: entry?.id ?? null,
+    };
+  }
+  return { title: "the note you're writing", entityKind: "note", entityId: null };
+}
+
+function askAboutSelection(textarea) {
+  //: The *resolved* surface, not the textarea that was focused: a live-view
+  //: block reports itself as `doc-content` (see `selectionContextFrom`), and
+  //: looking the label up by the block's own id would call a document "the
+  //: note you're writing".
+  const where = selectionContextFrom(textarea);
+  const context = { ...where, ...selectionContextSource(where.surfaceId) };
+  if (!context.text.trim()) return;
+  attachSelectionContext(context);
+}
 
 // ---------------------------------------------------------------------------
 // Create-on-miss: a link to something that does not exist yet

@@ -492,22 +492,33 @@ files into that viewer; nothing else changed.
 
 **What is missing, in build order:**
 
-1. **Selection → chat context.** The highest ratio of "feels capable" to
+1. **Selection → chat context. Built.** See HANDOVER.md's selection-context
+   section: the bar action, the four re-validation outcomes, the live-view
+   offset translation, and the `wrapDocSelection` bug it surfaced. What
+   follows is the specification it was built to, kept as written.
+
+   The highest ratio of "feels capable" to
    work in the whole list. Odysseus's `getSelectionContext()`
    (`static/js/document.js`, AGPL — this project is AGPL-3.0 so it may come
    in with notices; see [ANALYSIS.md](ANALYSIS.md)) is the shape to port,
    including the part that matters: it **re-validates offsets before
    shipping them**, so the model never receives text from a region the user
    is no longer looking at. Add cursor position alongside.
-2. **Editing a file, not only viewing it.** Text and code files can be
+2. **Editing a file, not only viewing it. Built** — `docview.editability`
+   decides, and its four refusals are written to be shown. See HANDOVER.md.
+   The specification, as written:
+
+   Text and code files can be
    edited in place; a PDF or .docx cannot, and the honest reason is worth
    putting in the UI rather than leaving as a dead end — the viewer returns
    *extracted text*, which has already stopped being a .docx.
 3. **Syntax highlighting with language auto-detection**, per odysseus's
    `HLJS_TO_DROPDOWN` map.
-4. **An HTML preview pane.** Must be an iframe, which needs
-   `frame-src 'self' blob:` added to the CSP in `core/security.py` — it is
-   absent today so a blob iframe is blocked with no visible error.
+4. **An HTML preview pane. Built** — and the `blob:` route this item
+   assumed turned out to be the wrong one: a `blob:` document inherits its
+   creator's CSP, so the framed page loses its own styling. It is served
+   from `/files/{id}/html-preview` with a policy of its own instead. See
+   HANDOVER.md.
 5. **Export.** Per-format, from the same place the file is viewed.
 6. **A file opens in the editor from the Library**, not only in a lightbox.
 

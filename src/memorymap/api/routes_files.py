@@ -394,6 +394,14 @@ class AttachedFileTextOut(BaseModel):
     #: file has no viewer yet" and "install markitdown" are both answers, and
     #: a 4xx would make the viewer show a failure for a file that is fine.
     message: str = ""
+    #: Whether this file may be saved back over (`docview.editability`). True
+    #: only where the text *is* the file — .md, .txt, .csv, code — so a .docx
+    #: never is, and neither is a file too long to have been shown in full.
+    editable: bool = False
+    #: Why not, when `editable` is False. Written to be shown next to a
+    #: disabled Edit button: §R7.1 item 2 asks for the honest reason in the UI
+    #: rather than a control that does nothing.
+    edit_message: str = ""
 
 
 @router.get("/files/{attachment_id}/text", response_model=AttachedFileTextOut)
@@ -423,6 +431,7 @@ def attached_file_text(
     # and a vision model are both present; every other file returns before it
     # is consulted.
     viewed = docview.extract(path, vision_reader=vision_ocr.pdf_reader_or_none())
+    editable, edit_message = docview.editability(path, viewed)
     return AttachedFileTextOut(
         filename=attachment.filename,
         kind=viewed.kind,
@@ -430,6 +439,56 @@ def attached_file_text(
         text=viewed.text,
         truncated=viewed.truncated,
         message=viewed.message,
+        editable=editable,
+        edit_message=edit_message,
+    )
+
+
+class FileTextIn(BaseModel):
+    """The edited text of a file, on its way back to disk."""
+
+    text: str
+
+
+@router.put("/files/{attachment_id}/text", response_model=AttachedFileTextOut)
+def save_attached_file_text(
+    attachment_id: int, payload: FileTextIn, session: Session = Depends(get_session)
+) -> AttachedFileTextOut:
+    """Save an edited text file back over itself.
+
+    **This does not widen the read-only rule above; it draws the line where
+    the rule's own reason stops applying.** That reason is that extraction is
+    one-way — text pulled out of a .docx is not a .docx. For a .md, a .txt, a
+    .csv or a source file, "extraction" is `bytes.decode()`: the text *is* the
+    file, and writing it back is lossless. `docview.editability` owns which is
+    which, so this route and the viewer cannot disagree about it.
+
+    Re-checked here rather than trusting the `editable` flag the GET returned:
+    a client is not the authority on what may be overwritten, and the file can
+    have been replaced between the two calls.
+    """
+    attachment = _existing_attachment(session, attachment_id)
+    path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
+    viewed = docview.extract(path)
+    editable, edit_message = docview.editability(path, viewed)
+    if not editable:
+        raise HTTPException(status_code=409, detail=edit_message)
+    docview.write_text_file(path, payload.text)
+    #: The row's `size` is what the Library shows beside the name, so it has to
+    #: follow the file rather than stay at whatever was uploaded. Nothing here
+    #: touches the semantic index: that indexes *notes*, and a file's text has
+    #: never been in it — `search_files` reads the file itself.
+    attachment.size = path.stat().st_size
+    session.commit()
+    saved = docview.extract(path)
+    return AttachedFileTextOut(
+        filename=attachment.filename,
+        kind=saved.kind,
+        source=saved.source,
+        text=saved.text,
+        truncated=saved.truncated,
+        message=saved.message,
+        editable=True,
     )
 
 
@@ -501,6 +560,89 @@ def attached_file_pdf_page(attachment_id: int, index: int, session: Session = De
     if png is None:
         raise HTTPException(status_code=404, detail="That page doesn't exist.")
     return Response(content=png, media_type="image/png", headers={"Cache-Control": "private, max-age=3600"})
+
+
+#: The policy the HTML preview's own response carries, and every token in it
+#: is load-bearing.
+#:
+#: **Why a response of its own rather than a `blob:` iframe.** The first
+#: version built a Blob in the browser and framed it — and a `blob:` document
+#: inherits its creator's CSP, so the app's `style-src 'self'` applied to the
+#: framed page and **the page's own `<style>` block was refused.** Measured in
+#: Chromium: "Refused to apply inline style", and `background-color` came back
+#: `rgba(0, 0, 0, 0)` on a page that sets `#eef`. A preview that strips the
+#: file's styling is not a preview of that file, and relaxing the *app's*
+#: `style-src` to fix it would trade the notebook's own protection for a
+#: viewer feature. A same-origin HTTP response carries its own policy instead,
+#: and this is it.
+#:
+#: - `sandbox` (no tokens): opaque origin, no scripts, no forms, no
+#:   navigation, no storage. This is what makes serving a file this app did
+#:   not write safe to render at all.
+#: - `script-src 'none'`: belt and braces beside the sandbox.
+#: - `style-src 'unsafe-inline'`: the whole point — a page's own `<style>`
+#:   and `style=` attributes. Harmless inside an opaque, scriptless frame.
+#: - `img-src data:`: inline images only. **No `'self'`**, so a page cannot
+#:   probe this app's own endpoints by pointing an `<img>` at them.
+#: - `default-src 'none'` catches everything unlisted: no fetch, no fonts, no
+#:   frames, no media, nothing off the network.
+#: - `frame-ancestors 'self'`: **named explicitly, and it has to be.**
+#:   `default-src 'none'` covers `frame-ancestors` too, so without this line
+#:   the response forbids *being framed at all* and the pane renders
+#:   `chrome-error://`. Measured, after the first version shipped with only
+#:   `default-src 'none'`. The matching `X-Frame-Options: SAMEORIGIN` below
+#:   is for the same reason: the app's middleware `setdefault`s `DENY` on
+#:   every response, which a route that knows better may override.
+HTML_PREVIEW_CSP = (
+    "sandbox; default-src 'none'; script-src 'none'; "
+    "style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; "
+    "frame-ancestors 'self'"
+)
+
+
+@media_router.get("/files/{attachment_id}/html-preview")
+def attached_file_html_preview(
+    attachment_id: int, session: Session = Depends(get_session)
+) -> Response:
+    """Render an attached .html file, for the viewer's preview pane.
+
+    **This is the one exception to "nothing new is ever served inline", and it
+    is narrow enough to state exactly.** `core/docview.py`'s docstring gives
+    the rule and its reason: an inline viewer is a script host, and widening a
+    file-serving endpoint's allowlist would inherit that problem once per type
+    added. Here the response is `sandbox`ed with `script-src 'none'`, so it is
+    the opposite of a script host — and it serves .html *only*, one suffix,
+    checked below rather than by an allowlist that can be widened later.
+
+    What is sent is the file's own text, read through `docview.extract` — the
+    same clip and the same forgiving decode every other reader in the app
+    gets, so a 40 MB file cannot be handed to the browser whole.
+
+    On `media_router` because an `<iframe src>` is a declarative load and
+    cannot attach a header: `require_unlock_media` is the gate that accepts
+    the token as a query parameter, the same way `<img src>` already does.
+    """
+    attachment = _existing_attachment(session, attachment_id)
+    if Path(attachment.filename).suffix.lower() not in {".html", ".htm"}:
+        raise HTTPException(status_code=404, detail="Not an HTML file.")
+    path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="File is missing from disk")
+    viewed = docview.extract(path)
+    return Response(
+        content=viewed.text,
+        media_type="text/html; charset=utf-8",
+        headers={
+            "Content-Security-Policy": HTML_PREVIEW_CSP,
+            # The middleware `setdefault`s DENY; this is the one response in
+            # the app that is *meant* to be framed, by the app itself.
+            "X-Frame-Options": "SAMEORIGIN",
+            # No sniffing past the type we declared, and no caching of one
+            # notebook's file into another view.
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, no-store",
+        },
+    )
 
 
 @router.delete("/files/{attachment_id}", response_model=EntryOut)
@@ -1014,6 +1156,14 @@ def media_text(filename: str, session: Session = Depends(get_session)) -> Attach
     lightbox actually hold, had no way to reach it. So this is the same
     extraction pointed at `media/` instead of `uploads/`.
 
+    **There is no `PUT` beside this one, and that is not an oversight.** Its
+    sibling `save_attached_file_text` exists because a note's attachment can
+    be a .md, a .txt or a source file. A `/media/` upload cannot: `MEDIA_SUFFIXES`
+    is images and PDF, so `editable` here is always False and a save route
+    would be a feature that never ran once — the shape CLAUDE.md names. The
+    flag and its message are still returned, so the viewer can say *why*
+    rather than silently omitting Edit.
+
     Deliberately returns **text, never the file**, for the reason
     `read_file_text` above states at length and `media_file` at the bottom of
     this module explains: what this sends has already stopped being a .docx,
@@ -1033,6 +1183,7 @@ def media_text(filename: str, session: Session = Depends(get_session)) -> Attach
     # a vision model are both present; every other file returns before it is
     # consulted.
     viewed = docview.extract(path, vision_reader=vision_ocr.pdf_reader_or_none())
+    editable, edit_message = docview.editability(path, viewed)
     return AttachedFileTextOut(
         filename=upload.original_name,
         kind=viewed.kind,
@@ -1040,6 +1191,8 @@ def media_text(filename: str, session: Session = Depends(get_session)) -> Attach
         text=viewed.text,
         truncated=viewed.truncated,
         message=viewed.message,
+        editable=editable,
+        edit_message=edit_message,
     )
 
 

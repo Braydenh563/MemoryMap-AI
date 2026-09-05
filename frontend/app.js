@@ -3658,6 +3658,116 @@ function openLightbox(items, startIndex = 0) {
   });
   readWithAiBtn.classList.add("hidden");
 
+  //: **Edit / Save / Cancel for a text file** — §R7.1 item 2. Set by
+  //: `showDocument` for whichever file is open; null while the lightbox is
+  //: showing a picture or a PDF's pages, which is what keeps these three
+  //: buttons from acting on the file that happened to be open before.
+  let lightboxEditTarget = null;
+
+  function setLightboxEditing(on) {
+    docEdit.classList.toggle("hidden", !on);
+    docBody.classList.toggle("hidden", on);
+    //: Find-in-document searches the *rendered* body, so it has nothing to
+    //: work on while the source is showing — and leaving it up would offer a
+    //: search that silently matches nothing.
+    find.classList.toggle("hidden", on);
+    findCount.classList.add("hidden");
+    editFileBtn.classList.toggle("hidden", on);
+    saveFileBtn.classList.toggle("hidden", !on);
+    cancelEditBtn.classList.toggle("hidden", !on);
+    if (on) docEdit.focus();
+  }
+
+  const editFileBtn = actionBtn("ph:pencil-simple Edit", "Edit this file's text", () => {
+    if (!lightboxEditTarget) return;
+    docEdit.value = lightboxEditTarget.text;
+    setLightboxEditing(true);
+  });
+  editFileBtn.classList.add("hidden");
+
+  const saveFileBtn = actionBtn("ph:check Save changes", "Save this text back over the file", async (button) => {
+    if (!lightboxEditTarget) return;
+    button.disabled = true;
+    try {
+      const saved = await apiJson(lightboxEditTarget.url, {
+        method: "PUT",
+        body: JSON.stringify({ text: docEdit.value }),
+      });
+      //: Re-rendered from what the server wrote back, not from what was
+      //: typed. They are the same today; if they ever differ — a normalised
+      //: line ending, a file the OS rewrote — the reader should be looking at
+      //: the file, not at the draft of it.
+      lightboxEditTarget.text = saved.text || "";
+      setLightboxEditing(false);
+      lightboxLoadExtractedText?.();
+      toast("Saved.");
+    } catch (error) {
+      //: A 409 is the server declining to overwrite (`docview.editability`),
+      //: and its `detail` is written to be read by a person — so it is shown
+      //: rather than replaced with a generic failure.
+      toast(error.message || "Couldn't save that file.", true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+  saveFileBtn.classList.add("hidden");
+
+  const cancelEditBtn = actionBtn("ph:x Cancel", "Discard these changes", () => {
+    setLightboxEditing(false);
+  });
+  cancelEditBtn.classList.add("hidden");
+
+  //: Whether the preview frame is currently showing something.
+  let docPreviewOn = false;
+
+  function clearDocPreview() {
+    docPreviewOn = false;
+    docFrame.classList.add("hidden");
+    //: `about:blank` rather than leaving the last file loaded: an iframe that
+    //: still holds a document keeps rendering it, and paging to the next file
+    //: would show the previous one's page for as long as the new fetch takes.
+    docFrame.src = "about:blank";
+    previewHtmlBtn.setAttribute("aria-pressed", "false");
+    setLabel(previewHtmlBtn, "ph:browser Preview");
+  }
+
+  const previewHtmlBtn = actionBtn("ph:browser Preview", "Render this HTML file (scripts are not run)", () => {
+    if (docPreviewOn) {
+      clearDocPreview();
+      docBody.classList.remove("hidden");
+      find.classList.remove("hidden");
+      return;
+    }
+    if (!lightboxPreviewSource) return;
+    //: **A server URL, not a `blob:` from the text we already have.** The
+    //: first version did the obvious thing and built a Blob — and a `blob:`
+    //: document inherits its creator's CSP, so this app's `style-src 'self'`
+    //: applied to the framed page and refused the page's *own* `<style>`
+    //: block. Measured: "Refused to apply inline style", and a page setting
+    //: `background:#eef` rendered transparent. `/files/{id}/html-preview`
+    //: carries its own policy (`HTML_PREVIEW_CSP`, routes_files.py) —
+    //: sandboxed, scriptless, and allowed to style itself.
+    docFrame.src = mediaSrc(lightboxPreviewSource);
+    docPreviewOn = true;
+    docFrame.classList.remove("hidden");
+    docBody.classList.add("hidden");
+    //: Find-in-document reads the rendered *source* listing; the frame is a
+    //: separate document this page deliberately cannot reach into.
+    find.classList.add("hidden");
+    findCount.classList.add("hidden");
+    previewHtmlBtn.setAttribute("aria-pressed", "true");
+    setLabel(previewHtmlBtn, "ph:code Show source");
+  });
+  previewHtmlBtn.classList.add("hidden");
+  previewHtmlBtn.setAttribute("aria-pressed", "false");
+
+  //: The URL the preview frame would load, set by `showDocument` only for a
+  //: file that is actually HTML *and* is a real attachment (a `/media/`
+  //: upload is never HTML — `MEDIA_SUFFIXES` is images and PDF — and a native
+  //: document has no file behind it at all). Null the rest of the time, which
+  //: is what keeps the button from framing the file viewed before this one.
+  let lightboxPreviewSource = null;
+
   // **The AI/manage actions — gated on a media id, and only ever visible
   // when one is present.** Reported directly, and left open on purpose the
   // first time this bar was built: rename, describe with AI, read text (two
@@ -3843,7 +3953,31 @@ function openLightbox(items, startIndex = 0) {
   const pdfPages = document.createElement("div");
   pdfPages.className = "lightbox-pdf-pages hidden";
   bindPan(pdfPages);
-  doc.append(docNote, docBody, pdfPages);
+  //: **Editing a file in place** (REDESIGN.md §R7.1 item 2, and the request:
+  //: *"all the files should be managable, viewable and editable in the
+  //: library and document/file/text editor"*). A plain textarea over the
+  //: file's own text, and only ever for the files where that text *is* the
+  //: file — `docview.editability` decides, server-side, and the route
+  //: re-checks rather than trusting the flag it sent.
+  const docEdit = document.createElement("textarea");
+  docEdit.className = "lightbox-doc-edit hidden";
+  docEdit.spellcheck = false;
+  docEdit.setAttribute("aria-label", "Edit this file's text");
+  //: **The HTML preview pane** (§R7.1 item 4, from the odysseus comparison:
+  //: *"viewing html and other code"*). An .html file is the one type where
+  //: the source and the thing it describes are both worth looking at, and
+  //: showing only the source is showing half the file.
+  //:
+  //: `sandbox` with **no** `allow-` tokens, and that is the whole security
+  //: story: no scripts, no forms, no same-origin, no top-level navigation.
+  //: The page renders as layout and can do nothing else — which is what makes
+  //: it safe to point at a file nobody in this notebook wrote. `core/security`
+  //: allows `frame-src blob:` for this; the sandbox is what bounds it.
+  const docFrame = document.createElement("iframe");
+  docFrame.className = "lightbox-doc-frame hidden";
+  docFrame.setAttribute("sandbox", "");
+  docFrame.setAttribute("title", "Preview of this HTML file");
+  doc.append(docNote, docBody, docEdit, docFrame, pdfPages);
   doc.addEventListener("click", (e) => e.stopPropagation());
   stage.appendChild(doc);
 
@@ -3932,6 +4066,17 @@ function openLightbox(items, startIndex = 0) {
     pdfPages.classList.add("hidden");
     docNote.classList.add("hidden");
     readWithAiBtn.classList.add("hidden");
+    //: A new file, so any half-finished edit of the previous one goes with
+    //: it. Cleared *before* the fetch rather than after: the two buttons are
+    //: on screen the whole time it is in flight, and Save on a stale target
+    //: would write one file's text over another's.
+    lightboxEditTarget = null;
+    docEdit.value = "";
+    setLightboxEditing(false);
+    editFileBtn.classList.add("hidden");
+    lightboxPreviewSource = null;
+    clearDocPreview();
+    previewHtmlBtn.classList.add("hidden");
     clearFind();
     find.classList.remove("hidden");
 
@@ -3987,9 +4132,37 @@ function openLightbox(items, startIndex = 0) {
       }
       docBody.replaceChildren();
       const body = payload.text || "";
+      //: **Decided before the empty-body return below, not after it.** A
+      //: .docx on an install without markitdown extracts to nothing, so that
+      //: return fires — and the read-only reason, which is exactly what such
+      //: a file needs to say, used to be computed past it and never shown.
+      //: Measured: the note read only "Importing documents needs the optional
+      //: markitdown package", with no word about editing at all.
+      //:
+      //: **Preview is offered only for HTML**, and keyed off the *filename*
+      //: rather than the extracted kind: docview reports `.html` as "code",
+      //: which is right for how the source renders and says nothing about
+      //: whether the file is a page. A .py is code too and has nothing to
+      //: preview.
+      if (attachmentId && /\.html?$/i.test(item.filename || name || "") && body.trim()) {
+        lightboxPreviewSource = `/files/${attachmentId}/html-preview`;
+        previewHtmlBtn.classList.remove("hidden");
+      }
+      const editNotes = [];
+      if (item.kind && item.text != null) {
+        editFileBtn.classList.add("hidden");
+      } else if (payload.editable) {
+        lightboxEditTarget = { url: textUrl, text: body };
+        editFileBtn.classList.remove("hidden");
+      } else {
+        editFileBtn.classList.add("hidden");
+        if (payload.edit_message) editNotes.push(`Read-only — ${payload.edit_message}`);
+      }
       if (!body.trim()) {
-        docNote.textContent =
-          payload.message || "There's no readable text in this file.";
+        docNote.textContent = [
+          payload.message || "There's no readable text in this file.",
+          ...editNotes,
+        ].join(" · ");
         docNote.classList.remove("hidden");
         return;
       }
@@ -4016,6 +4189,11 @@ function openLightbox(items, startIndex = 0) {
       else if (payload.source === "converted") notes.push("Converted for preview");
       if (payload.truncated) notes.push("Long file — showing the beginning only");
       if (payload.message) notes.push(payload.message);
+      //: **The reason a file cannot be edited, shown where it is read.** §R7.1
+      //: item 2 asked for the honest reason in the UI rather than a control
+      //: that quietly does nothing. Computed above, beside the button it
+      //: belongs to; pushed here so it reads as one line with the rest.
+      notes.push(...editNotes);
       docNote.textContent = notes.join(" · ");
       docNote.classList.toggle("hidden", !notes.length);
     }
@@ -4124,6 +4302,15 @@ function openLightbox(items, startIndex = 0) {
       return;
     }
     doc.classList.add("hidden");
+    //: A picture has no text to edit, and leaving Edit/Save on the bar after
+    //: paging from a .md to a .png would offer to write the note's markdown
+    //: over an image. Cleared with the target, not just hidden.
+    lightboxEditTarget = null;
+    setLightboxEditing(false);
+    editFileBtn.classList.add("hidden");
+    lightboxPreviewSource = null;
+    clearDocPreview();
+    previewHtmlBtn.classList.add("hidden");
     find.classList.add("hidden");
     findCount.classList.add("hidden");
     showZoomControls(true);
@@ -11912,6 +12099,126 @@ function renderDocumentAttachments() {
   }
 }
 
+//: **The passage the user is looking at**, carried from an editing surface to
+//: the chat composer. REDESIGN.md §R7.1 item 1, and the request behind it:
+//: *"able to highlight text and say something in the chat and the agent gets
+//: the context of what is highlighted and cursor position."*
+//:
+//: One at a time, replaced rather than appended, and that is the difference
+//: between this and the three attachment lists above. A selection is *where
+//: you are*, not a thing you collect: selecting a second passage means you
+//: changed your mind about the first, and a stack of them would send the
+//: model four regions of four documents to reconcile.
+let attachedSelection = null;
+
+//: What `askAboutSelection` (editor.js) calls. Attaching switches to the chat
+//: and puts the caret in the box, because the whole gesture is "select, ask" —
+//: leaving the user on the note with a chip they cannot see would be the same
+//: number of clicks as before with an extra step of confusion.
+function attachSelectionContext(context) {
+  attachedSelection = context;
+  renderSelectionAttachment();
+  switchTab("chat");
+  const input = $("chat-input");
+  if (input) {
+    input.focus();
+    autoGrow(input);
+  }
+  announce(`Selection from ${context.title} attached to your next message.`);
+}
+
+function clearSelectionAttachment() {
+  attachedSelection = null;
+  renderSelectionAttachment();
+}
+
+function renderSelectionAttachment() {
+  const box = $("chat-selection-attachment");
+  if (!box) return;
+  box.replaceChildren();
+  box.classList.toggle("hidden", !attachedSelection);
+  if (!attachedSelection) return;
+  const chipEl = document.createElement("span");
+  chipEl.className = "chip attachment-chip";
+  //: The full passage on hover. A chip can only show a few words of it, and
+  //: "which selection is this?" is the one question it has to answer.
+  chipEl.title = attachedSelection.text;
+  const label = document.createElement("span");
+  const words = attachedSelection.text.replace(/\s+/g, " ").trim();
+  const shown = words.length > 42 ? `${words.slice(0, 41)}…` : words;
+  setLabel(label, `ph:text-aa ${attachedSelection.title} · line ${attachedSelection.line}: “${shown}”`);
+  const remove = document.createElement("button");
+  remove.className = "attachment-remove";
+  remove.type = "button";
+  remove.textContent = "✕";
+  remove.title = "Don't send this selection with your message";
+  remove.setAttribute("aria-label", remove.title);
+  remove.addEventListener("click", () => {
+    clearSelectionAttachment();
+    announce("Selection removed.");
+  });
+  chipEl.append(label, remove);
+  box.appendChild(chipEl);
+}
+
+//: **Re-validated at send, not trusted from when it was attached.** This is
+//: the part of odysseus's `getSelectionContext()` worth porting exactly
+//: (`static/js/document.js`, AGPL — this project is AGPL-3.0, see
+//: ANALYSIS.md): between selecting a passage and pressing send, the user can
+//: type above it, undo, or edit the note entirely, and stored offsets then
+//: point at *different words*. Sending those would hand the model text from a
+//: region the user is no longer looking at, attributed to a line number that
+//: is now someone else's line — wrong in the most confusing possible way.
+//:
+//: Three outcomes, and each is said plainly to the model rather than papered
+//: over: the offsets still hold; the passage moved (found elsewhere, so the
+//: line number is recomputed); or the passage is gone from the surface, in
+//: which case the text is still sent — the user asked about it — but with no
+//: position claimed at all.
+function revalidateSelection(context) {
+  const surface = document.getElementById(context.surfaceId);
+  if (!(surface instanceof HTMLTextAreaElement)) {
+    //: The note was closed or the document navigated away from. Nothing to
+    //: check against, so nothing is claimed.
+    return { ...context, position: "unknown" };
+  }
+  const value = surface.value;
+  if (value.slice(context.start, context.end) === context.text) {
+    return { ...context, position: "exact" };
+  }
+  const found = value.indexOf(context.text);
+  if (found === -1) return { ...context, position: "gone" };
+  const upToCaret = value.slice(0, found + context.text.length);
+  return {
+    ...context,
+    start: found,
+    end: found + context.text.length,
+    line: upToCaret.split("\n").length,
+    column: upToCaret.length - (upToCaret.lastIndexOf("\n") + 1) + 1,
+    position: "moved",
+  };
+}
+
+//: What the model is actually told. Terse on purpose — it rides on every
+//: message that carries a selection, and the tool schemas are already the
+//: dominant fixed cost of a round (§R5 item 1).
+function selectionContextBlock(context) {
+  const where =
+    context.position === "gone" || context.position === "unknown"
+      ? `${context.title} (the user has since edited it, so this passage may no longer be there)`
+      : `${context.title}, line ${context.line}, column ${context.column}`;
+  const parts = [`The user has selected this passage in ${where}:`, "", context.text, ""];
+  const around = [context.before, context.after].some((t) => (t || "").trim());
+  if (around) {
+    parts.push(
+      "Immediately around it, for context only — do not treat it as the question:",
+      "",
+      `…${context.before}⟦selection⟧${context.after}…`
+    );
+  }
+  return parts.join("\n");
+}
+
 function attachedNotes() {
   return attachedNoteIds
     .map((id) => allEntries.find((e) => e.id === id))
@@ -12059,8 +12366,23 @@ async function sendChatMessage(preset, opts = {}) {
   // The user's own words go in the bubble; the planning instruction is appended
   // for the model only. `displayText` already exists for exactly this.
   const planned = opts.plan || opts.skipPlanMode ? null : applyPlanMode(typed);
-  const question = planned || typed;
+  let question = planned || typed;
   if (planned && !opts.displayText) opts = { ...opts, displayText: typed };
+  //: **The selection joins the question here, and only for the model.** It is
+  //: appended after Plan mode's own rewrite for the same reason that rewrite
+  //: exists at all: `displayText` is what the user said, and showing them a
+  //: block of their own note quoted back at them under their question would
+  //: read as the app putting words in their mouth. The chip above the box is
+  //: what tells them it is going.
+  //:
+  //: Re-validated at this moment rather than reused from when it was attached
+  //: — see `revalidateSelection` for what changes in between and why sending
+  //: stale offsets is the worst of the three outcomes.
+  const sentSelection = attachedSelection ? revalidateSelection(attachedSelection) : null;
+  if (sentSelection) {
+    if (!opts.displayText) opts = { ...opts, displayText: typed };
+    question = `${question}\n\n${selectionContextBlock(sentSelection)}`;
+  }
   lastChatQuestion = question;
 
   // Consumed once: this send — button click or free-typed reply alike — is
@@ -12136,9 +12458,14 @@ async function sendChatMessage(preset, opts = {}) {
     attachedNoteIds = [];
     attachedImages = [];
     attachedDocuments = [];
+    //: Cleared with the rest, and for the same stated reason: a selection that
+    //: rode along on every later question would be the app answering about a
+    //: paragraph the user stopped talking about three messages ago.
+    attachedSelection = null;
     renderAttachments();
     renderImageAttachments();
     renderDocumentAttachments();
+    renderSelectionAttachment();
     closeNotePicker();
   }
 

@@ -4599,3 +4599,56 @@ button.connection-row {
      rectangles — and matching the pill the bar itself is. */
   border-radius: var(--radius-pill);
 }
+
+/* The hairline between the eight formatting buttons and "ask about this".
+   It is not a ninth way to change the text, and a gap alone did not say so —
+   the bar's own `gap: var(--space-1)` is the same distance between every
+   pair, so an extra one reads as a slightly wider gap rather than as a
+   boundary. Same 1px rule the chat dock's control strip uses between groups. */
+.selection-bar-rule {
+  flex: 0 0 auto;
+  width: 1px;
+  align-self: stretch;
+  margin-inline: var(--space-1);
+  background: var(--border);
+}
+
+/* Editing a text file in the lightbox (REDESIGN.md §R7.1 item 2). It stands
+   in for `.lightbox-doc-body`, so it takes the same box: same padding, same
+   scrolling, same width. Monospaced because everything editable here is
+   either code or plain text, and a proportional font hides the alignment
+   that is most of what makes those readable. */
+.lightbox-doc-edit {
+  width: 100%;
+  /* A definite height, not `flex: 1 1 auto`: `.lightbox-doc` is a plain
+     scrolling block (max-height 74vh, overflow auto), so a flexible textarea
+     has nothing to flex against and sizes to its own rows — measured at 52px
+     for a three-line file, with its own scrollbar inside that. 60vh sits
+     inside the panel's own 74vh less its padding. Editing and the PDF split
+     never coexist (a PDF is never editable), so this needs no grid case. */
+  height: 60vh;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  resize: none;
+  overflow: auto;
+}
+
+/* The HTML preview pane (REDESIGN.md §R7.1 item 4). Same box as
+   `.lightbox-doc-edit` beside it, and for the same reason: `.lightbox-doc` is
+   a scrolling block rather than a flex column, so a definite height is what
+   makes this fill the panel instead of collapsing to a default iframe's
+   150px. White ground on purpose — a page written to be read on white must
+   not be given this app's dark surface and left with black text on it. */
+.lightbox-doc-frame {
+  width: 100%;
+  height: 60vh;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: #fff;
+}

@@ -10593,3 +10593,205 @@ ROADMAP #2 (the document/file editor — the largest single gap), #4 (the
 pane-based shell — the largest remaining piece), #5's remaining half (the
 universal `@` picker inside composers), #7 (Settings and the whiteboard's
 panel layout, neither measured), #9 (the backend list).
+
+## Session: selection → chat context (ROADMAP #2's first item)
+
+### What it does
+
+Select text anywhere you can edit — the capture composer, the note edit box,
+or any paragraph of a document's live view — and the selection bar now ends
+with **Ask the AI about this selection**, behind a hairline so it does not
+read as a ninth way to change the text. Pressing it switches to the chat,
+puts the caret in the box, and shows a chip: *Selection probe · line 5:
+“The third paragraph mentions”*. Type a question and the passage goes with
+it, framed for the model with its title, line, column, and a window of
+surrounding text explicitly marked *for context only — do not treat it as
+the question*.
+
+The chip is one at a time, replaced rather than appended, and that is the
+difference between it and the three attachment lists beside it. A selection
+is *where you are*, not a thing you collect: selecting a second passage means
+you changed your mind about the first.
+
+### The part worth porting exactly: re-validate before shipping
+
+§R7.1 names this as the bit of odysseus's `getSelectionContext()` that
+matters, and it is right. Between selecting a passage and pressing send, the
+user can type above it, undo, or rewrite the note. Stored offsets then point
+at *different words* — and sending those hands the model text from a region
+the user is no longer looking at, attributed to a line number that is now
+someone else's line. Wrong in the most confusing possible way.
+
+So `revalidateSelection` runs at send, not at attach, and has four outcomes,
+each said plainly rather than papered over. **All four measured in Chromium**,
+in one pass: `exact` → insert a line above → `moved` (line 2 became line 3,
+column recomputed) → replace the text → `gone` → remove the textarea →
+`unknown`. `gone` and `unknown` still send the passage, because the user
+asked about it, but stop claiming a position at all.
+
+### The live view needed two fixes before it could join
+
+The live view is the **default** document view and each paragraph is its own
+`.lp-src` textarea, so this was not an optional surface.
+
+1. **Offsets are per-block.** A selection in the last paragraph of a long
+   document reports as "line 2" unless it is translated.
+   `docLiveBlockOffset` derives the block's base from the block list rather
+   than searching for it — a document with two identical paragraphs makes
+   `indexOf` pick the wrong one — and falls back to a search, then to `null`,
+   at which point the caller says "position unknown" rather than guessing.
+   Measured: base 55, `matchesDocument: true`, line 5 column 29.
+2. **The blocks had no `id`.** `applyMarkdown(kind, boxId)` and everything
+   under it resolves the box with `$(boxId)`, so the bar would have drawn
+   eight formatting buttons over a live-view paragraph and none of them would
+   have done anything — this repo's "a policy silently refusing the work"
+   shape. One id per block fixes it.
+
+### And a real bug that only showed up because of them
+
+With the id in place, Bold visibly wrapped the words in the block **and the
+document underneath never received them.** Measured before theorising: the
+block's own `input` listener fired **0** times, and dispatching one by hand
+synced the document immediately.
+
+`wrapDocSelection` has three exits. Both *toggle-off* branches ended with
+`finishMarkdownEdit(box, boxId)`, which dispatches `input` for any box that
+is not `doc-content`. The branch that **applies** formatting — the one that
+runs almost every time — did the doc-content half inline instead:
+`markDocDirty(); renderDocPreview();`. Correct for `doc-content`, silently
+wrong for every other box, and it had been that way for the note edit box
+too, where it marked a *document* dirty that the user was not editing. All
+three exits now end the same way; `tests/test_selection_context.py` counts
+them.
+
+### What was measured, and what was not
+
+Driven in Chromium against the running app: the bar appearing over a
+live-view paragraph (9 buttons), Bold changing both the block and the
+document (`synced: true`), the chip's text and that it is not clipped
+(`scrollWidth === clientWidth`), the chat tab becoming active with
+`chat-input` focused, all four re-validation outcomes, and zero page errors
+across the run.
+
+**Not verified:** what a model does with the block — there is no local model
+in this sandbox, so the framing is reasoned from the harness's own rules
+(§R5), not observed. The block's wording is a first draft in that sense.
+
+## Session: editing a file in place (ROADMAP #2's second item)
+
+### The line this draws, and why it is not a widening
+
+`core/docview.py` has said since it was written that the file viewer is
+read-only, and its reason is correct: extraction is one-way, and text pulled
+out of a .docx is not a .docx. This does not overturn that — it draws the line
+where the *reason* stops applying. For a `.md`, a `.txt`, a `.csv` or a source
+file, "extraction" is `bytes.decode()`: the text **is** the file, and writing
+it back is lossless. §R7.1 item 2 asked for exactly this, with the honest
+reason in the UI where a file cannot be edited rather than a dead end.
+
+`docview.editability(path, viewed)` is the single place that decides, so the
+route and the viewer cannot drift apart. It refuses four ways, and each
+message is written to be *shown*:
+
+| Case | What the user is told |
+| --- | --- |
+| .docx / .pdf / .pptx | "isn't the text pulled out of it… formatting, images and layout are not in what you can see here" |
+| An unknown type | "There's no editor for .xyz files yet." |
+| **Longer than `MAX_VIEW_CHARS`** | "saving would drop everything past the end of what you can read here" |
+| Missing on disk | "That file is missing." |
+
+The third is the one that protects data rather than honesty: the editor was
+only ever shown the first 400,000 characters, so saving what it holds would
+delete the rest. `PUT /files/{id}/text` re-checks all four rather than
+trusting the `editable` flag the GET sent — a client is not the authority on
+what may be overwritten, and the file can change between the two calls.
+
+### The media route that would never have run
+
+The first version added `PUT /media/text/{filename}` alongside it, for
+symmetry. It was deleted before shipping: `MEDIA_SUFFIXES` is images and PDF,
+so a `/media/` upload is **never** editable and that route could not have run
+once — the shape CLAUDE.md names. Text and code files reach the app as
+`Attachment`s (`POST /entries/{id}/files`), which is the route that does
+exist. The GET still returns `editable`/`edit_message` so the viewer says
+*why* rather than silently omitting Edit, and `media_text`'s docstring records
+that the missing PUT is deliberate.
+
+### Measured in Chromium, end to end
+
+- The .md attachment: `editable: true`, **Edit** appears in the lightbox bar,
+  pressing it swaps the rendered body for a monospaced textarea
+  (`bodyHidden: true`, `ui-monospace`), Save writes `# After edit…` to disk
+  and the panel re-renders from what the *server* returned, not from the
+  draft.
+- The .docx attachment: no Edit button, and the note line carries the reason
+  in full, unclipped.
+- Zero page errors across the run.
+
+**One layout bug, found by measuring rather than looking.** The textarea came
+out **52px tall with its own scrollbar** for a three-line file: `.lightbox-doc`
+is a plain scrolling block, not a flex column, so `flex: 1 1 auto` had nothing
+to flex against. A definite `height: 60vh` fixes it — 540px measured, no inner
+scroll.
+
+**And one ordering bug the same probe caught.** A .docx on an install without
+markitdown extracts to *nothing*, so the viewer's "no readable text" branch
+returns early — and the read-only reason was computed past that return. The
+files that most needed the explanation were the only ones never getting it.
+The reason is now computed beside the button it belongs to, before the return;
+`tests/test_file_editing.py` asserts the order.
+
+### What is left of ROADMAP #2
+
+Items 3–6 of §R7.1: syntax highlighting with language detection, an HTML
+preview pane (needs `frame-src 'self' blob:` in `core/security.py` — absent
+today, so a blob iframe is blocked with no visible error), per-format export,
+and opening a file in the editor from the Library rather than only in a
+lightbox.
+
+### The HTML preview pane (§R7.1 item 4), and the two blocks it hit
+
+An `.html` file is the one type where the source and the thing it describes
+are both worth looking at, so the viewer now has a **Preview / Show source**
+toggle for one. It renders in an `<iframe sandbox="">` — no `allow-` tokens
+at all, which means no scripts, no forms, no same-origin, no navigation. That
+sandbox, not the CSP, is what makes it safe to render a page nobody in this
+notebook wrote.
+
+**Two things blocked it, and both were invisible until measured.**
+
+1. **A `blob:` frame inherits its creator's CSP.** The obvious build — make a
+   Blob from the text already fetched, point the iframe at it — renders the
+   page *unstyled*: the app's `style-src 'self'` applied to the framed
+   document and refused its own `<style>` block. Chromium said "Refused to
+   apply inline style", and `getComputedStyle(document.body).backgroundColor`
+   came back `rgba(0, 0, 0, 0)` on a page that sets `#eef`. A preview that
+   strips the file's styling is not a preview of that file, and relaxing the
+   *app's* `style-src` to fix it would trade the notebook's own protection for
+   a viewer feature.
+
+   So the frame loads `GET /files/{id}/html-preview`, a same-origin response
+   that carries its own policy — `sandbox; default-src 'none'; script-src
+   'none'; style-src 'unsafe-inline'; img-src data:` — where
+   `'unsafe-inline'` is harmless because the document is opaque and
+   scriptless, and `img-src data:` deliberately omits `'self'` so a framed
+   page cannot probe this app's endpoints with an `<img>`.
+
+2. **`default-src 'none'` covers `frame-ancestors`**, so the first version of
+   that policy forbade the response being framed *at all* and the pane
+   rendered `chrome-error://`. The app's middleware also `setdefault`s
+   `X-Frame-Options: DENY` on every response. Both are overridden on this one
+   route — `frame-ancestors 'self'` and `X-Frame-Options: SAMEORIGIN` — and
+   `tests/test_file_editing.py` asserts each token with the reason attached.
+
+This is the single stated exception to `core/docview.py`'s "nothing new is
+ever served to the browser inline", and it stays single by construction: one
+suffix, checked in the route, not an allowlist that grows. `frame-src 'self'
+blob:` is in the app's own CSP; `frame-ancestors 'none'` is unchanged, so
+nothing may frame MemoryMap.
+
+**Measured, after the fix:** `background-color: rgb(238, 238, 255)` and
+`h1` colour `rgb(187, 0, 0)` — the page's own stylesheet applied — with the
+probe's `<script>` refused by the sandbox (`document.title` untouched, no
+element it would have inserted), the toggle returning the frame to
+`about:blank`, and zero page errors.

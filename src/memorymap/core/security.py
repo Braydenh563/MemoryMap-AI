@@ -223,6 +223,20 @@ def build_csp(script_hashes: list[str]) -> str:
         # Nothing may frame MemoryMap: clickjacking a notebook that is already
         # unlocked is the cheapest attack on it.
         "frame-ancestors": "'none'",
+        # **What MemoryMap may frame — the other direction, and it is narrow.**
+        # `blob:` only, for the HTML preview pane (REDESIGN.md §R7.1 item 4):
+        # the viewer builds a Blob from a file's own text and points an iframe
+        # at it. Without this the directive falls back to `default-src 'self'`
+        # and the frame is blocked with nothing logged, which is exactly the
+        # "policy silently refusing the work" shape this project has been
+        # bitten by before.
+        #
+        # It is safe *because of the sandbox on the iframe*, not because of
+        # this line: `sandbox=""` with no `allow-` tokens means no scripts, no
+        # forms, no same-origin, no top-level navigation — an .html file the
+        # user did not write renders as layout and nothing else. The CSP
+        # allows the frame to exist; the sandbox decides what it may do.
+        "frame-src": "'self' blob:",
     }
     return "; ".join(f"{name} {value}" for name, value in directives.items())
 

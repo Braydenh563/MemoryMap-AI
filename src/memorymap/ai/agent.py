@@ -523,29 +523,51 @@ def _result_summary(result: dict) -> str:
 TOUCHED_LIMIT = 6
 
 
-def _touched_notes(result: dict) -> list[dict]:
-    """The notes a tool result names, as {id, label} for the transcript."""
+def _touched_kind(candidate: dict) -> str | None:
+    """Which kind of thing a result row is, or None if it is not one.
+
+    **The order matters and is the whole correctness of this function.** A
+    document result carries `id`, `title` *and* `content` (see
+    ai/tools/documents.py), so a check for `content` alone calls a document a
+    note — and the UI would then open the *note* with that id, which is a
+    different object entirely, or nothing at all. `title` is what only a
+    document has; `content` is what a note has and a document also has. So
+    document is tested first, and note is the fallback.
+    """
+    if "title" in candidate:
+        return "document"
+    if "content" in candidate:
+        return "note"
+    return None
+
+
+def _touched_items(result: dict) -> list[dict]:
+    """What a tool result names, as {kind, id, label} for the transcript."""
     if not isinstance(result, dict):
         return []
     rows: list[dict] = []
-    seen: set[int] = set()
+    seen: set[tuple[str, int]] = set()
 
     def _take(candidate: object) -> None:
         if len(rows) >= TOUCHED_LIMIT or not isinstance(candidate, dict):
             return
-        note_id = candidate.get("id")
-        # `content` is what every note-shaped result carries; anything without
-        # it is some other kind of row that happens to have an id.
-        if not isinstance(note_id, int) or note_id in seen or "content" not in candidate:
+        item_id = candidate.get("id")
+        if not isinstance(item_id, int):
             return
-        seen.add(note_id)
-        label = " ".join(str(candidate.get("content") or "").split())[:60]
-        rows.append({"id": note_id, "label": label or f"note #{note_id}"})
+        kind = _touched_kind(candidate)
+        if kind is None or (kind, item_id) in seen:
+            return
+        seen.add((kind, item_id))
+        # A document is known by its title; a note has none, so its opening
+        # words stand in for one — the same thing `noteLabel` shows in a list.
+        source = candidate.get("title") if kind == "document" else candidate.get("content")
+        label = " ".join(str(source or "").split())[:60]
+        rows.append({"kind": kind, "id": item_id, "label": label or f"{kind} #{item_id}"})
 
-    # The single-note shape (`get_note`, `edit_note`, `pin_note`) is the result
-    # itself; the many-note shapes nest under a handful of stable keys.
+    # The single-item shape (`get_note`, `edit_note`, `read_document`) is the
+    # result itself; the many-item shapes nest under a handful of stable keys.
     _take(result)
-    for key in ("notes", "results", "matches", "linked", "created"):
+    for key in ("notes", "documents", "results", "matches", "linked", "created"):
         value = result.get(key)
         if isinstance(value, list):
             for item in value:
@@ -1660,9 +1682,9 @@ def run_agent(
                     # single result (a huge page fetch) from bloating the
                     # SSE event.
                     "result_summary": _result_summary(result),
-                    # The notes this call actually touched, for the chat's
-                    # live action line — see `_touched_notes`.
-                    "touched": _touched_notes(result),
+                    # What this call actually touched, for the chat's live
+                    # action line — see `_touched_items`.
+                    "touched": _touched_items(result),
                 }
                 if change:
                     event["change"] = change

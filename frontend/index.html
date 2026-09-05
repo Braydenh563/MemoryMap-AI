@@ -2648,7 +2648,13 @@ Link to another note with [[its first few words]]."></textarea>
       <div class="skills-split">
         <main>
           <section id="library-skills-section" class="card glass">
-          <div class="row space-between">
+          <!-- `library-head` was missing here and nowhere else, which is the
+               measurable half of "the button elements in the top row of each
+               library subtab are all different sizes and proportions between
+               tabs": that class is what pins `--control-h` for a sub-tab
+               header, so Skills' buttons were sized by the generic rule and
+               came out a different height from every other sub-tab's. -->
+          <div class="row space-between library-head">
             <h2>AI Skill Library</h2>
             <span class="row">
               <button id="skills-add-new" class="small">+ New Skill</button>
@@ -2700,6 +2706,19 @@ Link to another note with [[its first few words]]."></textarea>
                  already returns every board in one small array. -->
             <input id="library-boards-search" type="search" placeholder="Search boards…"
               aria-label="Search boards by title">
+            <!-- The fifth and last sub-tab to get the sort control they were
+                 reported as missing. Same order as Documents — what to show
+                 (search), then how to order it — so the row reads the same way
+                 on whichever sub-tab you land on. `BoardOut` has no
+                 timestamps; see BOARD_SORTS in whiteboard.js for what
+                 "Newest first" is measuring. -->
+            <select id="library-boards-sort" aria-label="Sort boards" title="Sort boards">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="az">Title A → Z</option>
+              <option value="za">Title Z → A</option>
+              <option value="fullest">Most on it</option>
+            </select>
             <button id="wb-boards-new" class="small" type="button">＋ New board</button>
             <button id="library-media-refresh" class="ghost small" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
             <button type="button" id="wb-boards-help" class="ghost small graph-help-toggle"

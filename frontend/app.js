@@ -10421,12 +10421,18 @@ function agentTimeline(holder) {
         } else if (node.classList.contains("step-answer")) {
           const step = answerSteps.find((s) => s.el === node);
           if (step?.raw) out.push({ kind: "answer", text: step.raw });
-        } else if (node.classList.contains("tool-chip")) {
-          out.push({
-            kind: "tool",
-            label: node.textContent,
-            ok: !node.classList.contains("tool-chip-error"),
-          });
+        } else if (node.classList.contains("tool-chip") || node.classList.contains("tool-chip-wrap")) {
+          //: `.tool-chip-wrap` has to be matched as well as `.tool-chip`:
+          //: `classList.contains` is an exact token match, so once a row that
+          //: touched something got wrapped with its chips, this branch stopped
+          //: seeing it at all and the call vanished from the reopened chat.
+          out.push(
+            node.toolStep || {
+              kind: "tool",
+              label: node.textContent,
+              ok: !node.classList.contains("tool-chip-error"),
+            },
+          );
         }
       }
       return out;
@@ -10575,26 +10581,61 @@ function changeRow(change, options = {}) {
 //: arguments it was called with, so this row says what happened rather than
 //: what the model asked for. Chips open the note, like every other note chip
 //: in this app; nothing renders when a call touched nothing.
+// Notes and documents share an id space only by accident — id 12 is a
+// different object in each table — so the chip has to carry the kind the
+// backend decided (`_touched_kind`) and route on it. Clicking a document
+// chip through `flashEntry` would open an unrelated note, or nothing.
+const TOUCHED_KINDS = {
+  note: { icon: "ph:note", title: "Open this note", open: (id) => flashEntry(id) },
+  document: {
+    icon: "ph:file-text",
+    title: "Open this document",
+    open: (id) => openDocumentFromNote(id),
+  },
+};
+
 function toolTouchedRow(touched) {
   if (!Array.isArray(touched) || !touched.length) return null;
   const row = document.createElement("div");
   row.className = "row tool-touched";
   for (const item of touched) {
+    // Older transcripts (stored before `kind` existed) have notes only.
+    const spec = TOUCHED_KINDS[item.kind] || TOUCHED_KINDS.note;
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = "chip result-reason-chip result-reason-connected tool-touched-chip";
-    setLabel(chip, `ph:file-text ${item.label || `note #${item.id}`}`);
-    chip.title = "Open this note";
+    setLabel(chip, `${spec.icon} ${item.label || `#${item.id}`}`);
+    chip.title = spec.title;
     chip.addEventListener("click", (clickEvent) => {
       clickEvent.stopPropagation();
-      flashEntry(item.id);
+      spec.open(item.id);
     });
     row.appendChild(chip);
   }
   return row;
 }
 
+//: What `serialise` needs to write this row back out, parked on the node
+//: itself. The transcript is rebuilt by walking the DOM, and a chip's
+//: arguments, result summary and touched items have no representation there —
+//: scraping `textContent` recovered the label and lost everything else, so a
+//: reopened conversation showed less of itself the second time you looked at
+//: it. Stored as a property rather than a `data-` attribute because a result
+//: summary runs to 4000 characters and does not belong in an attribute.
+function markToolStep(node, step) {
+  node.toolStep = step;
+  return node;
+}
+
 function toolChip(label, ok = true, event = null) {
+  const step = {
+    kind: "tool",
+    label,
+    ok,
+    arguments: event?.arguments || null,
+    result_summary: event?.result_summary || null,
+    touched: event?.touched || null,
+  };
   if (event && (event.arguments || event.result_summary)) {
     const details = document.createElement("details");
     details.className = `tool-chip ${ok ? "" : "tool-chip-error"}`.trim();
@@ -10625,9 +10666,9 @@ function toolChip(label, ok = true, event = null) {
       const wrap = document.createElement("div");
       wrap.className = "tool-chip-wrap";
       wrap.append(details, touched);
-      return wrap;
+      return markToolStep(wrap, step);
     }
-    return details;
+    return markToolStep(details, step);
   }
 
   const item = document.createElement("div");
@@ -10638,9 +10679,9 @@ function toolChip(label, ok = true, event = null) {
     const wrap = document.createElement("div");
     wrap.className = "tool-chip-wrap";
     wrap.append(item, touched);
-    return wrap;
+    return markToolStep(wrap, step);
   }
-  return item;
+  return markToolStep(item, step);
 }
 
 // A destructive tool call parked for approval (Wave G). Nothing has
@@ -28261,6 +28302,45 @@ function cmdPaletteGoToNote(id) {
   flashEntry(id);
 }
 
+//: The same gesture for a document. Notes and documents share an id space
+//: only by accident — id 12 is a different object in each table — so this
+//: cannot be folded into the note case: sending a document id through
+//: `flashEntry` opens an unrelated note, silently.
+function cmdPaletteGoToDocument(id) {
+  cmdPaletteOverlay.classList.add("hidden");
+  openDocumentFromNote(id);
+}
+
+//: What the *tools* opened, as opposed to what retrieval found. The report
+//: this answers: "no way to actually find and navigate to the things it
+//: found". Retrieval's row (`cmdPaletteResultRow`) only ever covers notes the
+//: semantic search returned; a turn that read a document, edited a note or
+//: followed a link touched things that row never mentions. The backend already
+//: names them per tool call (`_touched_items`), so the palette accumulates
+//: them across the turn and shows them under one heading.
+function cmdPaletteTouchedRow(items) {
+  if (!items.length) return null;
+  const row = document.createElement("div");
+  row.className = "row cmd-palette-found";
+  const label = document.createElement("span");
+  label.className = "muted";
+  label.textContent = items.length === 1 ? "Opened:" : `Opened ${items.length} items:`;
+  row.appendChild(label);
+  for (const item of items) {
+    const spec = TOUCHED_KINDS[item.kind] || TOUCHED_KINDS.note;
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip result-reason-chip result-reason-connected";
+    setLabel(chip, `${spec.icon} ${item.label || `#${item.id}`}`);
+    chip.title = spec.title;
+    chip.addEventListener("click", () =>
+      item.kind === "document" ? cmdPaletteGoToDocument(item.id) : cmdPaletteGoToNote(item.id),
+    );
+    row.appendChild(chip);
+  }
+  return row;
+}
+
 //: The notes this turn actually retrieved, as things you can open.
 function cmdPaletteResultRow(results) {
   const row = document.createElement("div");
@@ -28273,7 +28353,11 @@ function cmdPaletteResultRow(results) {
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = "chip result-reason-chip result-reason-connected";
-    setLabel(chip, `ph:file-text ${noteLabel({ content: entry.content || "" }, 28)}`);
+    //: `ph:note`, not `ph:file-text` — that glyph means *document* in the
+    //: touched row two lines below this one, and the same picture standing
+    //: for two different objects in one panel is exactly the inconsistency
+    //: the app is being pulled out of.
+    setLabel(chip, `ph:note ${noteLabel({ content: entry.content || "" }, 28)}`);
     chip.title = `Open this note${entry.category ? ` (${entry.category})` : ""}`;
     chip.addEventListener("click", () => cmdPaletteGoToNote(entry.id));
     row.appendChild(chip);
@@ -28381,6 +28465,9 @@ async function cmdPaletteAsk(text) {
   let answerRaw = "";
   let answered = false;
   let found = [];
+  //: Keyed on kind *and* id, because a note 3 and a document 3 are two
+  //: different things and both may be touched in one turn.
+  const touched = new Map();
   let meta = null;
   let stats = null;
   let thinkingRaw = "";
@@ -28436,6 +28523,9 @@ async function cmdPaletteAsk(text) {
           $("command-palette-status"),
           event?.label ? `${event.label} …` : "Working…",
         );
+        for (const item of event?.touched || []) {
+          touched.set(`${item.kind}:${item.id}`, item);
+        }
       },
       onAnswer: (delta) => {
         answered = true;
@@ -28449,13 +28539,22 @@ async function cmdPaletteAsk(text) {
       //: Linked once, at the end, rather than on every delta: mid-stream the
       //: text can be "note id 4" on its way to "note id 43", and a link built
       //: from that half-arrived number would point at the wrong note.
-      cmdPaletteLinkNotes(agentMsg, found);
+      //: Retrieval's notes *and* the notes tools opened: an `edit_note` turn
+      //: retrieves nothing, so "note id 43" in its answer had no link at all.
+      cmdPaletteLinkNotes(agentMsg, [
+        ...found,
+        ...[...touched.values()].filter((item) => item.kind === "note"),
+      ]);
       cmdPaletteTurns.push({ question: text, answer: answerRaw });
     }
     //: Below the answer, and always when there were results — the model's
     //: prose is free to summarise or to leave a note out, but what retrieval
     //: found should not depend on whether it got a mention.
     if (found.length) cmdPaletteResults.appendChild(cmdPaletteResultRow(found));
+    //: Under retrieval's row, not instead of it: "what I searched" and "what I
+    //: opened" are different claims, and a turn can have one without the other.
+    const touchedRow = cmdPaletteTouchedRow([...touched.values()]);
+    if (touchedRow) cmdPaletteResults.appendChild(touchedRow);
     //: Reasoning above the evidence, evidence above the accounting — the same
     //: order the Chat tab reads in, so moving between the two surfaces does
     //: not mean learning a second layout.

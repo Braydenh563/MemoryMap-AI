@@ -6161,6 +6161,62 @@ function wbShowBoardsLanding() {
   renderLibraryBoardsGallery();
 }
 
+//: Sorting for the Whiteboards sub-tab, the fifth and last list to get it
+//: ("the library subtabs are missing sorting and filtering options").
+//:
+//: `BoardOut` (routes_whiteboard.py) carries no timestamps at all, so there is
+//: no honest "newest first" here — a board's `id` is the only thing that
+//: orders by age, and it does, because a board *is* an Entry and entry ids
+//: rise with creation. Named "Newest first" rather than "Highest id" because
+//: that is what it means to the person reading it.
+//:
+//: The default board (`id === null`) is pinned first under every sort. It is
+//: the one board that always exists and cannot be renamed or deleted — the
+//: gallery already treats it as a fixed landmark (no tick, no ⋯ menu), and a
+//: sort that shuffled it into the middle of the list would take that away.
+const BOARD_SORTS = {
+  newest: (a, b) => (b.id || 0) - (a.id || 0),
+  oldest: (a, b) => (a.id || 0) - (b.id || 0),
+  az: (a, b) => String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" }),
+  za: (a, b) => String(b.title || "").localeCompare(String(a.title || ""), undefined, { sensitivity: "base" }),
+  fullest: (a, b) => boardItemCount(b) - boardItemCount(a),
+};
+
+const BOARD_SORT_KEY = "library-boards-sort";
+
+function boardItemCount(board) {
+  return (board.node_count || 0) + (board.sketch_count || 0) + (board.object_count || 0);
+}
+
+function boardSort() {
+  const stored = localStorage.getItem(BOARD_SORT_KEY);
+  return BOARD_SORTS[stored] ? stored : "newest";
+}
+
+//: On `window` because `syncLibraryBoardsTicks` (library.js) rebuilds this
+//: same list to line the *n*th checkbox up with the *n*th card. Its own
+//: comment says it must apply "the exact same filter"; a sort is now part of
+//: that, and a second copy of this function would tick the wrong boards the
+//: first time the two drifted.
+window.wbVisibleBoards = function wbVisibleBoards(boards, needle) {
+  const shown = needle
+    ? boards.filter((b) => String(b.title || "").toLowerCase().includes(needle))
+    : [...boards];
+  shown.sort(BOARD_SORTS[boardSort()]);
+  const fixed = shown.filter((b) => b.id === null);
+  return fixed.length ? [...fixed, ...shown.filter((b) => b.id !== null)] : shown;
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+  const select = $("library-boards-sort");
+  if (!select) return;
+  select.value = boardSort();
+  select.addEventListener("change", () => {
+    localStorage.setItem(BOARD_SORT_KEY, select.value);
+    renderLibraryBoardsGallery();
+  });
+});
+
 async function renderLibraryBoardsGallery() {
   const grid = $("library-boards-grid");
   const empty = $("library-boards-empty");
@@ -6175,7 +6231,7 @@ async function renderLibraryBoardsGallery() {
     boards.push({ ...created, node_count: 0, sketch_count: 0, object_count: 0 });
   }
   const needle = ($("library-boards-search")?.value || "").trim().toLowerCase();
-  const shown = needle ? boards.filter((b) => b.title.toLowerCase().includes(needle)) : boards;
+  const shown = window.wbVisibleBoards(boards, needle);
   grid.replaceChildren();
   if (!shown.length) {
     const isFilteredEmpty = Boolean(needle) && boards.length > 0;

@@ -3781,7 +3781,12 @@ async function syncLibraryBoardsTicks() {
   const created = window.wbLastCreatedBoard;
   if (created && !boards.some((b) => b.id === created.id)) boards.push({ ...created });
   const needle = (document.getElementById("library-boards-search")?.value || "").trim().toLowerCase();
-  const shown = needle ? boards.filter((b) => (b.title || "").toLowerCase().includes(needle)) : boards;
+  //: The gallery's own filter *and* sort, not a second copy of the filter —
+  //: see `wbVisibleBoards` (whiteboard.js). Ordering is part of "the exact
+  //: same filter" this function's comment above requires: the counts still
+  //: match under a reorder, so a private copy would silently tick the wrong
+  //: boards rather than bail.
+  const shown = window.wbVisibleBoards(boards, needle);
   if (shown.length !== cards.length) return;
   // A board ticked in an earlier render that no longer exists (deleted from
   // its own ⋯ menu, or from elsewhere) shouldn't go on counting toward the bar.

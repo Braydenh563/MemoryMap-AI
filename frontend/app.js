@@ -10727,6 +10727,59 @@ function agentTimeline(holder) {
   const thinkingSteps = [];
   const record = []; // a serialisable copy, for persistence
 
+  //: **The step group — Perplexity's "Finished 5 steps", in this app's own
+  //: words.** Asked for directly: *"I want the steps of the ai to show like
+  //: perplexity's steps."*
+  //:
+  //: Before this, every tool call was a chip appended straight into the
+  //: bubble, so a turn that made six calls pushed its own answer six rows
+  //: down and the transcript read as a pile of machinery with prose
+  //: somewhere in it. Grouping them behind one line that says how many
+  //: there were — open while they are happening, closed once the answer
+  //: starts — inverts that: the work is visible as it happens, and
+  //: afterwards it is one line you can open.
+  //:
+  //: A *new* group starts after each answer, rather than one group per turn.
+  //: Order is the point of a timeline: calls the model made after writing a
+  //: paragraph belong under that paragraph, and folding them back into the
+  //: first group would claim they happened before it.
+  let group = null;
+
+  const groupSummary = (entry) => {
+    const n = entry.count;
+    const word = n === 1 ? "step" : "steps";
+    setLabel(
+      entry.summary,
+      entry.done ? `ph:check-circle Finished ${n} ${word}` : `ph:circle-notch Working — ${n} ${word}`,
+    );
+  };
+
+  const ensureGroup = () => {
+    if (group) return group;
+    const el = document.createElement("details");
+    el.className = "agent-step agent-step-group";
+    el.open = true;
+    const summary = document.createElement("summary");
+    summary.className = "agent-step-group-summary";
+    const body = document.createElement("div");
+    body.className = "agent-step-group-body";
+    el.append(summary, body);
+    holder.appendChild(el);
+    group = { el, summary, body, count: 0, done: false };
+    groupSummary(group);
+    return group;
+  };
+
+  //: Closed and relabelled, not removed. The steps stay reachable — that is
+  //: the difference between a summary and a spinner that ate the evidence.
+  const closeGroup = () => {
+    if (!group) return;
+    group.done = true;
+    groupSummary(group);
+    group.el.open = false;
+    group = null;
+  };
+
   const foldEarlierThinking = () => {
     // Reasoning that has produced output is finished — collapse it so the
     // answer isn't buried under it, but leave it there to reopen.
@@ -10750,6 +10803,10 @@ function agentTimeline(holder) {
 
   const startAnswer = () => {
     foldEarlierThinking();
+    //: The steps that led here fold up as the prose begins, which is exactly
+    //: what Perplexity does and why its answers read as answers rather than
+    //: as logs. Anything the model does *after* this opens a fresh group.
+    closeGroup();
     const el = document.createElement("div");
     // **`is-streaming` is the only thing on screen that says the answer is
     // still arriving.** Reported directly: "there are no animations for chat
@@ -10890,11 +10947,21 @@ function agentTimeline(holder) {
       step.raw += delta;
       step.render(step.raw);
     },
-    // A tool call is its own small step between the prose around it.
+    // A tool call is a row inside the current step group — see `ensureGroup`.
     tool(node) {
       foldEarlierThinking();
-      holder.appendChild(node);
+      const entry = ensureGroup();
+      entry.body.appendChild(node);
+      entry.count += 1;
+      groupSummary(entry);
       current = null; // whatever comes next begins a fresh step
+    },
+    //: The turn is over: whatever group is still open stops saying "Working".
+    //: Called from the stream's `finally`, so it runs on an error and an
+    //: abort too — a group left mid-sentence is how a stopped turn ends up
+    //: looking like a running one forever.
+    finish() {
+      closeGroup();
     },
     // Replay a saved run (reopening a conversation).
     replay(steps) {
@@ -10978,7 +11045,17 @@ function agentTimeline(holder) {
     // The timeline in the order it happened, for saving with the turn.
     serialise() {
       const out = [];
-      for (const node of holder.children) {
+      //: **Groups are walked into, not over.** Tool rows used to be direct
+      //: children of the holder; they are inside a `<details>` now, and a
+      //: loop over `holder.children` alone would have silently stopped
+      //: saving every tool call — the exact shape of the `.tool-chip-wrap`
+      //: regression this function's own comment below already records.
+      const walk = (parent) => {
+      for (const node of parent.children) {
+        if (node.classList.contains("agent-step-group")) {
+          walk(node.querySelector(".agent-step-group-body") || node);
+          continue;
+        }
         if (node.classList.contains("step-plan")) {
           const entry = plans.find((p) => p.el === node);
           // The states go with it, so reopening a chat shows how far the run
@@ -11006,6 +11083,8 @@ function agentTimeline(holder) {
           );
         }
       }
+      };
+      walk(holder);
       return out;
     },
   };
@@ -13056,6 +13135,10 @@ async function sendChatMessage(preset, opts = {}) {
     // after this line and put the node straight back.
     turnEnded = true;
     pending.remove();
+    //: Whatever step group is still open stops saying "Working" — see
+    //: `agentTimeline.finish`. Here rather than on the success path so a
+    //: stopped or failed turn does not sit claiming to be running.
+    timeline.finish?.();
     // Only if it is still ours. Switching away and sending a second message
     // installs a new controller, and this line firing late would null it —
     // leaving Stop wired to nothing while a stream was genuinely running.

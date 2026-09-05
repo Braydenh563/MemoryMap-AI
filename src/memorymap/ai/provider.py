@@ -695,6 +695,77 @@ def _balanced_json_objects(text: str) -> list[tuple[int, int, str]]:
     return found
 
 
+# Verbs a model reaches for when it has forgotten the tool's real name, mapped
+# to the verb this app actually uses. Reported with a screenshot of the popup
+# agent: the model emitted, as plain text, `{"name": "make_note",
+# "parameters": {...}}` — and **no note was made**. The text-call salvage
+# below was already working; it dropped this one on the only check it could
+# not pass, `name in tool_names`, because there is no `make_note`. There is
+# `create_note`.
+#
+# A small model inventing a synonym for a verb is not the same failure as it
+# inventing a whole capability, and the two deserve different answers: the
+# first is a name to fix, the second is a refusal. So this only ever rewrites
+# the *verb* of an otherwise real tool name, and only when exactly one real
+# tool comes back — never a guess between `create_note` and `edit_note`.
+_VERB_SYNONYMS = {
+    "make": "create",
+    "add": "create",
+    "new": "create",
+    "save": "create",
+    "write": "create",
+    "insert": "create",
+    "store": "create",
+    "read": "get",
+    "open": "get",
+    "fetch": "get",
+    "show": "get",
+    "view": "get",
+    "load": "get",
+    "find": "search",
+    "lookup": "search",
+    "query": "search",
+    "remove": "delete",
+    "destroy": "delete",
+    "erase": "delete",
+    "update": "edit",
+    "change": "edit",
+    "modify": "edit",
+    "rewrite": "edit",
+    "label": "tag",
+    "connect": "link",
+    "disconnect": "unlink",
+}
+
+
+def resolve_tool_name(name: object, tool_names: set[str]) -> object:
+    """A real tool name for what the model wrote, or what it wrote unchanged.
+
+    Only the verb is ever rewritten, and only to a single unambiguous match —
+    see `_VERB_SYNONYMS`. Anything this cannot resolve is returned untouched
+    so the caller's own `name in tool_names` check still refuses it.
+    """
+    if not isinstance(name, str) or name in tool_names:
+        return name
+    cleaned = re.sub(r"[^a-z0-9_]+", "_", name.strip().lower()).strip("_")
+    if not cleaned:
+        return name
+    if cleaned in tool_names:
+        return cleaned
+    head, _, rest = cleaned.partition("_")
+    if not rest:
+        return name
+    swapped = f"{_VERB_SYNONYMS.get(head, head)}_{rest}"
+    if swapped in tool_names:
+        return swapped
+    # Same noun, singular/plural swapped: `create_notes` for `create_note`,
+    # `list_note` for `list_notes`. Cheap, and a real thing small models do.
+    for candidate in (swapped.rstrip("s"), f"{swapped}s"):
+        if candidate in tool_names:
+            return candidate
+    return name
+
+
 def extract_text_tool_calls(
     content: str, tool_names: set[str]
 ) -> tuple[list[dict], str]:
@@ -727,6 +798,7 @@ def extract_text_tool_calls(
             # Accept {"name","arguments"} and OpenAI-ish {"function":{...}}.
             fn = item.get("function") if isinstance(item.get("function"), dict) else item
             name = fn.get("name") if isinstance(fn, dict) else None
+            name = resolve_tool_name(name, tool_names)
             if name in tool_names:
                 args = fn.get("arguments") or fn.get("parameters") or {}
                 if isinstance(args, str):

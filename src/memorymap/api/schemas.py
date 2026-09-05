@@ -24,11 +24,15 @@ class SpaceUpdate(BaseModel):
     # blank out the other with None (see routes_spaces.update_space).
     name: str | None = Field(default=None, min_length=1)
     icon: str | None = Field(default=None, min_length=1)
+    #: None means "leave as it is", the same convention as the two above.
+    hidden_from_all: bool | None = None
 
 class SpaceResponse(BaseModel):
     id: str
     name: str
     icon: str
+    #: True when this space's contents are kept out of "All spaces".
+    hidden_from_all: bool = False
     
     class Config:
         from_attributes = True
@@ -57,6 +61,18 @@ class EntryCreate(BaseModel):
     # falls back.
     source_url: str | None = Field(default=None, max_length=2000)
     source_title: str | None = Field(default=None, max_length=300)
+    #: Save now, decide the category later on a background thread.
+    #:
+    #: Filing asks a local model, which on a small machine is seconds, and
+    #: it used to happen *inside* this request — so the composer stayed
+    #: disabled behind "Filing…" for the whole of it. With this set the
+    #: response comes back as soon as the note is on disk, carrying
+    #: `filing_state: "pending"`; the caller polls `GET /entries/{id}/filing`
+    #: (or just reloads the list) to find out where it landed.
+    #:
+    #: Ignored when `category` or `parent_id` decides the category anyway —
+    #: there is nothing to defer in either case.
+    defer_filing: bool = False
 
 
 class EntryUpdate(BaseModel):
@@ -83,6 +99,16 @@ class LinkOut(BaseModel):
     # 0..1, set only when `reason` above came from embedding similarity
     # rather than from a person or the AI saying it — see EntryLink.reason_confidence.
     reason_confidence: float | None = None
+    #: "out" when this note is the link's source, "in" when it is the target.
+    #:
+    #: `links_for_entry` has always returned both directions merged into one
+    #: list, so a note could show what it was connected to but never which
+    #: way round — and "this note points at that one" and "that one points at
+    #: this" are different facts. Asked for by way of Kortex's own
+    #: Connections block, which shows every link with an in/out arrow.
+    #: Defaults to "out" so an older client (or a caller that doesn't care)
+    #: reads exactly as it did before this field existed.
+    direction: str = "out"
 
 
 class AttachmentOut(BaseModel):
@@ -139,9 +165,19 @@ class EntryOut(BaseModel):
     is_private: bool = False
     # Captured from the text-selection popup, not yet reviewed.
     is_draft: bool = False
+    #: A whiteboard/concept map, which is an Entry like any other (see
+    #: `Entry.is_board`). The frontend had no way to tell one from a note at
+    #: all, so a board could not be offered as a link target, filtered out of
+    #: a note list, or labelled as what it is — every surface either treated
+    #: it as a note or hard-coded a second fetch of `/whiteboard/boards`.
+    is_board: bool = False
     # Where a web-reader clipping came from, when it was one (BACKLOG §65).
     source_url: str | None = None
     source_title: str | None = None
+    #: Where this note sat in an imported vault (`Projects/Roadmap.md`), or
+    #: "" for one written here. The Contents index groups on it, and the
+    #: wiki-link resolver matches its filename — see `Entry.source_path`.
+    source_path: str = ""
     created_at: datetime
     deleted_at: datetime | None = None  # set only in the recycle-bin view
     archived_at: datetime | None = None  # set only when archived (BACKLOG §30b)
@@ -155,5 +191,8 @@ class EntryOut(BaseModel):
     # How this entry was filed — only present on the create response:
     # 'semantic-match' | 'llm' | 'user' | 'thread' | 'none'
     filed_by: str | None = None
+    # 'done' | 'pending' | 'failed' — see Entry.filing_state. A note saved
+    # with `defer_filing` comes back 'pending' and settles later.
+    filing_state: str = "done"
     # Near-duplicate warning — only present on the create response.
     similar: SimilarOut | None = None

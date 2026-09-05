@@ -185,6 +185,12 @@ def status() -> dict:
         "embedding_warming_failed": embeddings_module.warmup_failed(),
         "embedding_error": embeddings.last_error,
         "reindex": jobs.reindex_status(),
+        #: How many notes have arrived or gone in bulk since the index was
+        #: last rebuilt — asked for as "suggest rebuilding the search index
+        #: upon large changes". The status poll already runs; a second
+        #: endpoint for one integer would be a second thing to keep in step.
+        "index_stale_notes": deps.index_stale_notes(),
+        "index_stale_suggest_at": deps.INDEX_STALE_SUGGEST_AT,
         "pulls": jobs.pull_statuses(),
         # Reported directly: the local-OCR button ("Read text offline") was
         # always shown enabled, so pressing it without the `tesseract` system
@@ -522,7 +528,48 @@ def set_embedding_backend(
     embeddings = deps.get_embeddings()
     embeddings.reset_failure_state()
     jobs.start_reindex(deps.get_db(), embeddings)
+    deps.clear_index_stale()
     return {"reindex_started": True}
+
+
+@router.post("/reindex")
+def rebuild_search_index() -> dict:  # noqa: D401 — see the long docstring below
+    """Re-embed every note with the current backend, on demand.
+
+    **Until now the only way to rebuild the index was to switch embedding
+    backend and switch back.** `set_embedding_backend` above starts a
+    re-index because it must — vectors from two models cannot be compared —
+    and that side effect was the *whole* mechanism: nothing else in the app
+    could ask for one.
+
+    That matters because a stale index is not always the user's doing. What a
+    note's vector is built from is `embedding_text`, and this app has changed
+    it: a note's category, tags and attachment text are part of it now, so
+    every vector written before that change encodes less than the same note
+    would encode today. Reported directly, and it is exactly the shape that
+    produces: *"I have a whole category called hobbies but basically none
+    came up in the semantic search."* The fix for that shipped; without a way
+    to rebuild, it reaches nobody's existing notes.
+
+    Deliberately cheap to offer and safe to run: re-embedding is idempotent,
+    the job is the same one `set_embedding_backend` starts, and while it runs
+    semantic search falls back to keywords rather than comparing mismatched
+    vectors (§6.5). A 409 rather than a second job if one is already going.
+    """
+    current = jobs.reindex_status()
+    if current is not None and current["status"] == "running":
+        raise HTTPException(status_code=409, detail="A re-index is already running")
+    embeddings = deps.get_embeddings()
+    # Same reset as the backend switch: a cached failure from an earlier run
+    # would otherwise make a deliberate rebuild sit behind the retry cooldown
+    # and look like it did nothing.
+    embeddings.reset_failure_state()
+    started = jobs.start_reindex(deps.get_db(), embeddings)
+    #: Only on a rebuild that actually started: clearing the backlog for a
+    #: request that was refused would hide the very thing it counts.
+    if started:
+        deps.clear_index_stale()
+    return {"reindex_started": bool(started)}
 
 
 @router.post("/delete")

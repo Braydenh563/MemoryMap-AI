@@ -318,6 +318,30 @@ def _run_optimization() -> None:
         # confirm a change to a note's visibility, but a tag is the same kind
         # of low-stakes, reversible mark `_tag_note` already makes for a
         # person who asks for one directly.
+        # ANALYSIS.md §60 item 2. Its own preference and its own pass, not
+        # part of the agent turn below: this reads *conversations*, not
+        # notes, and the agent's job list is written in terms of notes.
+        if _cancel.is_set():
+            logger.info("stopped before passive capture — someone quit this pass")
+            return
+
+        if config.get_preference("auto_capture_enabled", False):
+            try:
+                from memorymap.ai.passive_capture import capture_pass
+
+                db = deps.get_db()
+                with db.session() as session:
+                    captured = capture_pass(
+                        session,
+                        deps.get_model_manager(),
+                        deps.get_ollama(),
+                        config,
+                    )
+                if captured:
+                    logger.info("passive capture: wrote %d draft(s)", captured)
+            except Exception as exc:  # noqa: BLE001 — top of a worker thread
+                logger.error("passive capture failed: %s", exc, exc_info=True)
+
         if _cancel.is_set():
             logger.info("stopped before stale/orphaned review — someone quit this pass")
             return

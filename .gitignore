@@ -11,6 +11,11 @@ __pycache__/
 data/
 uploads/
 *.db
+# ...but `data/` above matches at any depth, and the vendored design skills in
+# .claude/skills each ship their corpus in a folder of that name — the CSVs the
+# skills exist to search. Without this negation they are silently untracked and
+# every one of those skills is dead on a fresh clone.
+!.claude/skills/**/data/
 
 # Tooling caches
 .pytest_cache/

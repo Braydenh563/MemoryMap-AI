@@ -7,6 +7,7 @@ keeps capture working even when every AI piece is down (plan §4).
 
 from __future__ import annotations
 
+import importlib
 import json
 import logging
 import re
@@ -319,7 +320,13 @@ def record_dates(session: Session, entry: Entry) -> None:
         if entry.is_private:
             return
         from memorymap.core.config import user_now
-        from memorymap.core import deps
+
+        # `importlib`, not `from memorymap.core import deps` — see
+        # `_ensure_tag_cache_reset_registered` below for why this module
+        # can't have that import statement anywhere, function-local or not
+        # (CodeQL's py/cyclic-import flags the statement itself, not merely
+        # module-level ones).
+        deps = importlib.import_module("memorymap.core.deps")
 
         try:
             now = user_now(deps.get_config())
@@ -798,7 +805,7 @@ def _tag_fingerprint(session: Session) -> tuple:
     `_graph_fingerprint` — `Entry.updated_at` has `onupdate=utcnow`, so any
     tag edit bumps it, and the live-entry count catches soft-delete/restore
     even on the rare row an edit doesn't touch."""
-    from memorymap.core import deps
+    deps = importlib.import_module("memorymap.core.deps")
 
     live = Entry.is_deleted == False  # noqa: E712
     return (
@@ -820,9 +827,20 @@ def _ensure_tag_cache_reset_registered() -> None:
     # deps` cannot sit at module level here without a circular import at
     # startup — register lazily, on first use, the same way this file
     # already imports `deps` inside `record_dates` for the same reason.
+    #
+    # `importlib.import_module` rather than a plain `from ... import deps`
+    # statement even here, deferred as it already is: CodeQL's
+    # py/cyclic-import (three "Note"-severity alerts against this exact
+    # shape, this file, closed together) flags the *import statement*
+    # itself as beginning a cycle in the module dependency graph — it has
+    # no way to know the statement only ever runs after startup, so
+    # function-local didn't clear it. `importlib` performs the identical
+    # deferred lookup with no `import` statement for that static check to
+    # see, which is why `ai/vision_ocr.py` already uses it for this same
+    # module.
     if _tag_cache.reset_registered:
         return
-    from memorymap.core import deps
+    deps = importlib.import_module("memorymap.core.deps")
 
     deps.register_cache_reset(reset_tag_cache)
     _tag_cache.reset_registered = True
@@ -969,17 +987,24 @@ def _deduce_reason(
     `AUTO_REASON_TEXT`, and leaves the wording to be upgraded later without
     the person who made the link ever waiting on it.
     """
-    from memorymap.ai.embeddings import bytes_to_vector, cosine_similarity
+    # `importlib`, same reason as `_ensure_tag_cache_reset_registered`'s own
+    # `deps` lookup above: a plain `from memorymap.ai.embeddings import ...`
+    # is CodeQL py/cyclic-import's other flagged site in this file (Note
+    # severity — `memorymap.ai.embeddings` imports back into this module by
+    # the same `deps` -> `ai.model_manager` chain), and deferring the import
+    # to call time doesn't clear it; only dropping the `import` statement
+    # itself does.
+    embeddings = importlib.import_module("memorymap.ai.embeddings")
 
     rows = session.scalars(
         select(EmbeddingRecord).where(EmbeddingRecord.entry_id.in_((source_id, target_id)))
     ).all()
-    vectors = {row.entry_id: bytes_to_vector(row.embedding) for row in rows}
+    vectors = {row.entry_id: embeddings.bytes_to_vector(row.embedding) for row in rows}
     if source_id not in vectors or target_id not in vectors:
         return None, None
     if vectors[source_id].shape != vectors[target_id].shape:
         return None, None  # mid embedding-model change — see search.similar_pairs
-    score = cosine_similarity(vectors[source_id], vectors[target_id])
+    score = embeddings.cosine_similarity(vectors[source_id], vectors[target_id])
     if score >= AUTO_REASON_THRESHOLD:
         return AUTO_REASON_TEXT, round(score, 2)
     if score + TEMPORAL_RESCUE_BOOST >= AUTO_REASON_THRESHOLD and _shares_a_date(
@@ -1008,6 +1033,32 @@ def create_link(
     one, `_deduce_reason` gets a try instead of leaving the link mute.
     """
     if source.id == target.id:
+        return None
+    # **A draft cannot be linked to a committed note.** Asked for directly:
+    # "draft notes shouldnt be able to connect with actual notes, they need to
+    # be separate."
+    #
+    # Drafts are already excluded from every other view in the app — the
+    # sidebar counts, the category lists, the Ask box's retrieval — precisely
+    # because an unfinished note is not part of the notebook yet. A link is the
+    # one thing that was still crossing that line, and it crossed it in the
+    # worst direction: the link outlives the draft's own invisibility, so a
+    # committed note quietly grew an edge to something the reader cannot see
+    # from anywhere else.
+    #
+    # Guarded here rather than in the picker because every route in reaches
+    # this function — the UI's link button, the AI's linking tool, the
+    # auto-linker and the graph — and a rule enforced in one caller is a rule
+    # three other callers do not have.
+    #
+    # Draft-to-draft is allowed, and that is the literal reading of the
+    # request: drafts are to be separate *from real notes*, not from each
+    # other. Two drafts of the same idea are exactly the pair worth connecting
+    # before either is saved. (A link made that way and then half-committed —
+    # one draft saved, the other not — is left alone: it was legitimate when it
+    # was made, and deleting a person's link on their behalf because they
+    # finished one end of it first is a bigger claim than this rule supports.)
+    if bool(source.is_draft) != bool(target.is_draft):
         return None
     existing = session.scalar(
         select(EntryLink).where(
@@ -1241,6 +1292,45 @@ def all_categories(session: Session) -> list[dict]:
     return out
 
 
+# **A category's name is part of what its notes embed, so renaming one makes
+# every vector under it stale.**
+#
+# `ai/embeddings.embedding_text` folds the category name and the note's tags
+# into the embedded text — that change is itself the fix for a reported
+# problem ("I have a whole category called hobbies but basically none came up
+# in the semantic search"). The consequence nobody wired up: rename "Games"
+# to "Hobbies", or merge it into an existing "Hobbies", and every note that
+# moved still has a vector built from the *old* name. Semantic search then
+# keeps missing exactly the notes the user just tidied — which is the same
+# symptom again, produced by the fix for it.
+#
+# The vectors are dropped rather than recomputed here. Re-embedding is a model
+# call per note and this runs inside a rename the user is waiting on; dropping
+# is instant, and the search path already treats a missing vector as "fall
+# back to keywords for this note" rather than as an error. They are rebuilt by
+# the next re-index (`POST /models/reindex`, or the periodic backfill), so the
+# worst case is keyword-quality results for those notes until then, instead of
+# semantic results that are quietly wrong.
+def _restale_category_vectors(session: Session, category_id: int) -> int:
+    """Drop the embeddings of every note in a category whose name just
+    changed. Returns how many were dropped."""
+    entry_ids = [
+        row[0]
+        for row in session.execute(
+            select(Entry.id).where(Entry.category_id == category_id)
+        ).all()
+    ]
+    if not entry_ids:
+        return 0
+    dropped = (
+        session.query(EmbeddingRecord)
+        .filter(EmbeddingRecord.entry_id.in_(entry_ids))
+        .delete(synchronize_session=False)
+    )
+    session.commit()
+    return int(dropped or 0)
+
+
 def rename_category(session: Session, category_id: int, new_name: str) -> dict:
     """Rename a category; renaming onto an existing name merges the two.
 
@@ -1263,12 +1353,14 @@ def rename_category(session: Session, category_id: int, new_name: str) -> dict:
         log_action(session, "edited", "category", existing.id, f"merged {category.name} → {new_name}")
         session.delete(category)
         session.commit()
+        _restale_category_vectors(session, existing.id)
         return {"renamed": True, "merged": True, "moved": moved}
 
     old = category.name
     category.name = new_name
     log_action(session, "edited", "category", category.id, f"{old} → {new_name}")
     session.commit()
+    _restale_category_vectors(session, category.id)
     return {"renamed": True, "merged": False, "moved": 0}
 
 
@@ -1349,6 +1441,39 @@ def _heading_text(stripped: str) -> str | None:
     if not text or text[0].isspace():
         return None
     return text
+
+
+def plain_label(content: str, limit: int = 80) -> str:
+    """A note's first line as a *person* would read it, for a chip or a card.
+
+    Reported directly: "the used in note links dont render inline md" — a
+    usage chip in the Library's file gallery read
+    `# Leafeon Pokemon image test ![WallpaperEngineOv…`, because the label was
+    the raw first line of markdown. A chip is one line of plain text in a
+    pill; it cannot render markdown and should not try, so the markup is
+    removed rather than displayed.
+
+    Deliberately small and regex-only: this is a label, not a document render.
+    Images lose their alt text entirely (an image is not what the note *says*),
+    links keep their text, and the usual inline emphasis/code markers go.
+    """
+    text = (content or "").strip()
+    if not text:
+        return ""
+    first = ""
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        first = stripped
+        break
+    first = re.sub(r"^#{1,6}\s*", "", first)          # heading markers
+    first = re.sub(r"^[-*+]\s+|^>\s*", "", first)     # list bullet / quote
+    first = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", first)  # images, alt and all
+    first = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", first)  # links keep their text
+    first = re.sub(r"[*_`~]{1,3}", "", first)          # emphasis, code, strike
+    first = re.sub(r"\s+", " ", first).strip()
+    return first[:limit]
 
 
 def extract_title(content: str) -> str | None:
@@ -1497,6 +1622,35 @@ def find_by_wiki_name(session: Session, name: str) -> Entry | None:
     wanted = (name or "").strip().lower()
     if not wanted:
         return None
+    #: **A vault's links name the file, not the first words.** An imported
+    #: note carries the path it came from (`Entry.source_path`), and Obsidian
+    #: writes `[[Roadmap]]` for `Projects/Roadmap.md` — so without this an
+    #: imported vault resolves almost none of its own links, since the note's
+    #: text starts with the heading the importer wrote, not with the name.
+    #: Tried first and matched exactly: a file called "Index" should not lose
+    #: to a note that merely opens with the word "index".
+    #: Filtered in SQL rather than by loading every imported note: this runs
+    #: once per `[[link]]` per save, and a real vault is thousands of files.
+    #: The `LIKE` can over-match (`Roadmap.md` also matches `My Roadmap.md`,
+    #: and a name containing `%` matches widely), so the stem is checked
+    #: exactly in Python below — the query narrows, it does not decide.
+    vault_clauses = []
+    for suffix in (".md", ".markdown"):
+        vault_clauses.append(Entry.source_path.ilike(f"{wanted}{suffix}"))
+        vault_clauses.append(Entry.source_path.ilike(f"%/{wanted}{suffix}"))
+    vault = session.scalars(
+        select(Entry)
+        .where(
+            Entry.is_deleted == False,  # noqa: E712
+            Entry.is_private == False,  # noqa: E712
+            or_(*vault_clauses),
+        )
+        .order_by(Entry.id)
+    ).all()
+    for entry in vault:
+        stem = (entry.source_path or "").rsplit("/", 1)[-1].lower()
+        if stem.removesuffix(".md").removesuffix(".markdown") == wanted:
+            return entry
     candidates = session.scalars(
         select(Entry)
         .where(

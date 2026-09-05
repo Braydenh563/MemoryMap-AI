@@ -12,20 +12,22 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import uuid
 from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import captioning, vision_ocr
 from memorymap.api.routes_entries import _existing_entry, _to_out
 from memorymap.api.schemas import EntryOut
-from memorymap.core import deps, docview, media_gc, media_process, ocr
-from memorymap.core.database import Attachment, MediaUpload
+from memorymap.core import deps, docview, media_gc, media_process, ocr, pdfpages
+from memorymap.core.database import Attachment, Entry, MediaUpload
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
 
@@ -133,6 +135,248 @@ def download_file(attachment_id: int, session: Session = Depends(get_session)) -
     return FileResponse(path, filename=attachment.filename, media_type=attachment.mime)
 
 
+class AttachmentGalleryOut(BaseModel):
+    """One note's own file, shaped for the Library's Images/Files gallery —
+    not `MediaUploadOut`: an `Attachment` has never been OCR'd, captioned, or
+    read by a vision model (those are `MediaUpload`-only features, see that
+    model's own docstring), so reusing that shape would mean either faking
+    fields that don't apply or leaving the gallery to guess why they're
+    always empty. This is deliberately the smaller, honest set of what an
+    attachment actually has.
+
+    Reported directly, and root-caused rather than patched around: "a pdf I
+    uplaoded to a note doesnt show in the libary" / "my uploaded pdf file
+    isnt shown in the library files subtab". `renderLibraryImagesGallery()`
+    (library.js) has only ever called `GET /media`, which is `MediaUpload`
+    rows — a file attached to a note through the composer or note editor
+    (`POST /entries/{id}/files`, this file, above) is an `Attachment` row
+    instead, a completely different table, and so never appeared no matter
+    how the gallery itself was styled or filtered.
+    """
+
+    id: int
+    #: `/files/{id}` — token-gated the same way as `/media/{name}`, see
+    #: `mediaSrc()` (app.js) and `require_unlock_media` (routes_auth.py).
+    #: Deliberately has no file extension (an attachment is served by id,
+    #: not by stored name), which is why the gallery classifies Images vs.
+    #: Files from `mime` here rather than sniffing the url the way it does
+    #: for a `MediaUpload` row's `/media/{name}.ext`.
+    url: str
+    original_name: str
+    mime: str
+    created_at: str
+    #: The one note this file hangs on — an attachment's "used in", where a
+    #: `MediaUpload` row can be referenced from several places at once.
+    #: Shaped as a single-item `used_by` list rather than a new field so the
+    #: gallery tile's existing "used in" rendering (ROADMAP item 43) needs
+    #: no branch for which kind of row it is looking at.
+    used_by: list[dict] = []
+    #: What this file says — see `Attachment`'s own docstring for why these
+    #: now exist on an attachment at all. Never null over the wire, the same
+    #: convention `MediaUploadOut` keeps, so the gallery can filter on them
+    #: with a plain substring test.
+    caption: str = ""
+    caption_model: str = ""
+    caption_edited: bool = False
+    ocr_text: str = ""
+    vision_ocr_text: str = ""
+    vision_ocr_model: str = ""
+    #: True when this file has renderable pages (a PDF), so the tile can show
+    #: the first one instead of a generic file glyph — asked for directly:
+    #: "in the files tab, there is no preview".
+    has_pages: bool = False
+
+
+@router.get("/files/gallery", response_model=list[AttachmentGalleryOut])
+def list_attachment_gallery(session: Session = Depends(get_session)) -> list[AttachmentGalleryOut]:
+    """Every note-attached file the Library's gallery may show — the
+    `Attachment` half of what `GET /media` (this file, `list_media`) already
+    covers for `MediaUpload` rows. See `AttachmentGalleryOut` for why this is
+    a separate, smaller shape rather than folded into that endpoint.
+
+    Same privacy rule as the Library's own overview list (`_images()` in
+    routes_library.py): a private note's attachment is as private as the
+    note, so it is excluded here rather than shown in a browsing surface the
+    note itself is hidden from. Workspace scoping comes for free from
+    `Attachment`'s own `WorkspaceMixin` — the ambient session filter already
+    applies before this query ever runs, the same as every other
+    workspace-scoped read in this app.
+    """
+    rows = session.execute(
+        select(Attachment, Entry)
+        .join(Entry, Attachment.entry_id == Entry.id)
+        .where(
+            Entry.is_deleted == False,  # noqa: E712
+            Entry.is_private == False,  # noqa: E712
+        )
+        .order_by(Attachment.created_at.desc())
+    ).all()
+    return [
+        AttachmentGalleryOut(
+            id=attachment.id,
+            url=f"/files/{attachment.id}",
+            original_name=attachment.filename,
+            mime=attachment.mime or "application/octet-stream",
+            created_at=attachment.created_at.isoformat(),
+            used_by=[{"kind": "note", "id": entry.id, "label": manager.plain_label(entry.content)}],
+            caption=attachment.caption or "",
+            caption_model=attachment.caption_model or "",
+            caption_edited=bool(attachment.caption_edited),
+            ocr_text=attachment.ocr_text or "",
+            vision_ocr_text=attachment.vision_ocr_text or "",
+            vision_ocr_model=attachment.vision_ocr_model or "",
+            has_pages=Path(attachment.filename).suffix.lower() == ".pdf",
+        )
+        for attachment, entry in rows
+    ]
+
+
+class AttachmentAnalyseBody(BaseModel):
+    """What to read out of a file, or what to store instead of reading it."""
+
+    #: "caption" — a vision model describes it. "ocr" — Tesseract (an image)
+    #: or this app's own document extractor (anything else). "vision" — a
+    #: vision model transcribes the pages, which is the one that answers a
+    #: scanned PDF or a diagram nothing else can read.
+    kind: str = Field(pattern="^(caption|ocr|vision)$")
+    #: Set the value by hand instead of running anything — "the text and
+    #: analysis needs to be… modifyable by the user". `""` clears it back to
+    #: "nothing here", the same as the `/media` endpoints this mirrors.
+    text: str | None = Field(default=None, max_length=200_000)
+    #: Re-run even when there is already a value (a caption is written once
+    #: and left alone otherwise, so nothing an AI wrote and a person read can
+    #: silently change under them).
+    force: bool = False
+
+
+def _attachment_out(session: Session, attachment: Attachment) -> AttachmentGalleryOut:
+    entry = session.get(Entry, attachment.entry_id)
+    return AttachmentGalleryOut(
+        id=attachment.id,
+        url=f"/files/{attachment.id}",
+        original_name=attachment.filename,
+        mime=attachment.mime or "application/octet-stream",
+        created_at=attachment.created_at.isoformat(),
+        used_by=(
+            [{"kind": "note", "id": entry.id, "label": manager.plain_label(entry.content)}]
+            if entry is not None
+            else []
+        ),
+        caption=attachment.caption or "",
+        caption_model=attachment.caption_model or "",
+        caption_edited=bool(attachment.caption_edited),
+        ocr_text=attachment.ocr_text or "",
+        vision_ocr_text=attachment.vision_ocr_text or "",
+        vision_ocr_model=attachment.vision_ocr_model or "",
+        has_pages=Path(attachment.filename).suffix.lower() == ".pdf",
+    )
+
+
+@router.post("/files/{attachment_id}/analyse", response_model=AttachmentGalleryOut)
+def analyse_attachment(
+    attachment_id: int,
+    body: AttachmentAnalyseBody,
+    session: Session = Depends(get_session),
+) -> AttachmentGalleryOut:
+    """Read a note's attached file with the local models, or store a reading
+    typed by hand.
+
+    One endpoint for all three readings rather than three near-identical
+    ones (the `/media` side grew that way and is three copies of the same
+    twenty lines). The split that matters is not caption/ocr/vision, it is
+    *image or document*: an image goes to Tesseract, a document goes through
+    `docview` (the same extractor the file viewer already uses), and the
+    vision path rasterises PDF pages so a scan with no text layer at all
+    still has something a model can look at.
+    """
+    attachment = _existing_attachment(session, attachment_id)
+    path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
+    suffix = Path(attachment.filename).suffix.lower()
+    is_image = suffix in captioning.CAPTION_SUFFIXES
+
+    if body.text is not None:
+        stripped = body.text.strip() or None
+        if body.kind == "caption":
+            attachment.caption = stripped
+            if stripped:
+                attachment.caption_edited = True
+            else:
+                attachment.caption_model = None
+                attachment.caption_edited = False
+        elif body.kind == "ocr":
+            attachment.ocr_text = stripped
+        else:
+            attachment.vision_ocr_text = stripped
+            if not stripped:
+                attachment.vision_ocr_model = None
+        session.commit()
+        return _attachment_out(session, attachment)
+
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="File is missing from disk")
+
+    if body.kind == "ocr":
+        # Tesseract for a picture; this app's own document extractor for
+        # everything else — a .docx or a text-layer PDF has real text in it
+        # that no OCR pass should be guessing at.
+        if is_image:
+            text = ocr.extract_text(path)
+        else:
+            # No `vision_reader` passed on purpose: this is the "read it
+            # locally, no model" path, and the vision kind below is the one
+            # that costs a model round trip. A scan with no text layer comes
+            # back empty here, which is the honest answer and is exactly what
+            # sends the reader to "Read with AI".
+            text = docview.extract(path).text
+        attachment.ocr_text = (text or "").strip() or None
+        session.commit()
+        return _attachment_out(session, attachment)
+
+    # Both remaining kinds need a vision model.
+    if not deps.get_ollama().is_running():
+        raise HTTPException(status_code=409, detail="The AI model isn't running.")
+    model = deps.get_model_manager().resolve_vision_model(deps.get_ollama())
+    if not model:
+        raise HTTPException(
+            status_code=409,
+            detail="No installed model reports it can see images — install or "
+            "pick one in Settings → Models.",
+        )
+    ollama = deps.get_ollama()
+
+    if body.kind == "caption":
+        if not is_image and suffix != ".pdf":
+            raise HTTPException(
+                status_code=415,
+                detail="Only images and PDFs can be described — there is nothing to look at.",
+            )
+        if attachment.caption and not body.force:
+            return _attachment_out(session, attachment)
+        text = (
+            captioning.caption_text(path, model, ollama)
+            if is_image
+            else vision_ocr.pdf_vision_reader(model, ollama).read(path)
+        )
+        attachment.caption = (text or "").strip() or None
+        attachment.caption_model = model if attachment.caption else None
+        attachment.caption_edited = False
+    else:
+        if attachment.vision_ocr_text and not body.force:
+            return _attachment_out(session, attachment)
+        # A PDF is rasterised page by page (`pdf_vision_reader`) — which is
+        # the whole point for a scan, where there is no text layer to read
+        # and Tesseract has already found nothing.
+        text = (
+            vision_ocr.vision_ocr_text(path, model, ollama)
+            if is_image
+            else vision_ocr.pdf_vision_reader(model, ollama).read(path)
+        )
+        attachment.vision_ocr_text = (text or "").strip() or None
+        attachment.vision_ocr_model = model if attachment.vision_ocr_text else None
+    session.commit()
+    return _attachment_out(session, attachment)
+
+
 class AttachedFileTextOut(BaseModel):
     """One attached file, read as text for the in-app viewer."""
 
@@ -151,6 +395,14 @@ class AttachedFileTextOut(BaseModel):
     #: file has no viewer yet" and "install markitdown" are both answers, and
     #: a 4xx would make the viewer show a failure for a file that is fine.
     message: str = ""
+    #: Whether this file may be saved back over (`docview.editability`). True
+    #: only where the text *is* the file — .md, .txt, .csv, code — so a .docx
+    #: never is, and neither is a file too long to have been shown in full.
+    editable: bool = False
+    #: Why not, when `editable` is False. Written to be shown next to a
+    #: disabled Edit button: §R7.1 item 2 asks for the honest reason in the UI
+    #: rather than a control that does nothing.
+    edit_message: str = ""
 
 
 @router.get("/files/{attachment_id}/text", response_model=AttachedFileTextOut)
@@ -180,6 +432,7 @@ def attached_file_text(
     # and a vision model are both present; every other file returns before it
     # is consulted.
     viewed = docview.extract(path, vision_reader=vision_ocr.pdf_reader_or_none())
+    editable, edit_message = docview.editability(path, viewed)
     return AttachedFileTextOut(
         filename=attachment.filename,
         kind=viewed.kind,
@@ -187,13 +440,226 @@ def attached_file_text(
         text=viewed.text,
         truncated=viewed.truncated,
         message=viewed.message,
+        editable=editable,
+        edit_message=edit_message,
+    )
+
+
+class FileTextIn(BaseModel):
+    """The edited text of a file, on its way back to disk."""
+
+    text: str
+
+
+@router.put("/files/{attachment_id}/text", response_model=AttachedFileTextOut)
+def save_attached_file_text(
+    attachment_id: int, payload: FileTextIn, session: Session = Depends(get_session)
+) -> AttachedFileTextOut:
+    """Save an edited text file back over itself.
+
+    **This does not widen the read-only rule above; it draws the line where
+    the rule's own reason stops applying.** That reason is that extraction is
+    one-way — text pulled out of a .docx is not a .docx. For a .md, a .txt, a
+    .csv or a source file, "extraction" is `bytes.decode()`: the text *is* the
+    file, and writing it back is lossless. `docview.editability` owns which is
+    which, so this route and the viewer cannot disagree about it.
+
+    Re-checked here rather than trusting the `editable` flag the GET returned:
+    a client is not the authority on what may be overwritten, and the file can
+    have been replaced between the two calls.
+    """
+    attachment = _existing_attachment(session, attachment_id)
+    path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
+    viewed = docview.extract(path)
+    editable, edit_message = docview.editability(path, viewed)
+    if not editable:
+        raise HTTPException(status_code=409, detail=edit_message)
+    docview.write_text_file(path, payload.text)
+    #: The row's `size` is what the Library shows beside the name, so it has to
+    #: follow the file rather than stay at whatever was uploaded. Nothing here
+    #: touches the semantic index: that indexes *notes*, and a file's text has
+    #: never been in it — `search_files` reads the file itself.
+    attachment.size = path.stat().st_size
+    session.commit()
+    saved = docview.extract(path)
+    return AttachedFileTextOut(
+        filename=attachment.filename,
+        kind=saved.kind,
+        source=saved.source,
+        text=saved.text,
+        truncated=saved.truncated,
+        message=saved.message,
+        editable=True,
+    )
+
+
+class PdfInfoOut(BaseModel):
+    #: Whether the matching pdf-page endpoint can serve anything for this
+    #: file — `media_pdf_page` for a `/media/` upload, `attached_file_pdf_page`
+    #: for a note's own attachment. Moved up here, ahead of both `pdf-info`
+    #: endpoints that return it: a FastAPI route decorator's `response_model`
+    #: evaluates at import time, not lazily like a `from __future__ import
+    #: annotations` type hint, so this has to exist before either decorator
+    #: runs rather than merely before either function is called.
+    available: bool
+    #: Real page count, or 0 when `available` is False.
+    pages: int
+    #: Why `available` is False, for a caller that wants to say so rather
+    #: than just hide the button. "" when `available` is True.
+    message: str = ""
+
+
+@router.get("/files/{attachment_id}/pdf-info", response_model=PdfInfoOut)
+def attached_file_pdf_info(attachment_id: int, session: Session = Depends(get_session)) -> PdfInfoOut:
+    """`media_pdf_info`'s sibling for a note's own attached PDF (the
+    `Attachment` model, `uploads_dir` — a different file and a different
+    table from a `/media/` upload, which is why this is a second endpoint
+    rather than one that takes either id). See that docstring for why this
+    exists apart from `attached_file_text` at all."""
+    attachment = _existing_attachment(session, attachment_id)
+    if Path(attachment.filename).suffix.lower() != ".pdf":
+        raise HTTPException(status_code=422, detail="Not a PDF.")
+    path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="File is missing from disk")
+    if not pdfpages.available():
+        return PdfInfoOut(
+            available=False,
+            pages=0,
+            message=(
+                "Viewing PDF pages needs a small rasteriser: install "
+                "“Read scanned PDFs” in Settings → Extras."
+            ),
+        )
+    count = pdfpages.page_count(path)
+    if count == 0:
+        return PdfInfoOut(
+            available=False,
+            pages=0,
+            message=(
+                "This PDF couldn't be opened. It may be corrupted, "
+                "password-protected, or saved in a way this app's reader "
+                "doesn't support."
+            ),
+        )
+    return PdfInfoOut(available=True, pages=count)
+
+
+@media_router.get("/files/{attachment_id}/pdf-page/{index}")
+def attached_file_pdf_page(attachment_id: int, index: int, session: Session = Depends(get_session)) -> Response:
+    """`media_pdf_page`'s sibling for an attached PDF — see that docstring
+    for why this is always a freshly rendered PNG, never the file's own
+    bytes. On `media_router`, same reason: loaded via `mediaSrc()`-tokened
+    `<img src>`, not `apiJson`."""
+    attachment = _existing_attachment(session, attachment_id)
+    if Path(attachment.filename).suffix.lower() != ".pdf":
+        raise HTTPException(status_code=404, detail="Not a PDF.")
+    path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="File is missing from disk")
+    png = pdfpages.render_page(path, index)
+    if png is None:
+        raise HTTPException(status_code=404, detail="That page doesn't exist.")
+    return Response(content=png, media_type="image/png", headers={"Cache-Control": "private, max-age=3600"})
+
+
+#: The policy the HTML preview's own response carries, and every token in it
+#: is load-bearing.
+#:
+#: **Why a response of its own rather than a `blob:` iframe.** The first
+#: version built a Blob in the browser and framed it — and a `blob:` document
+#: inherits its creator's CSP, so the app's `style-src 'self'` applied to the
+#: framed page and **the page's own `<style>` block was refused.** Measured in
+#: Chromium: "Refused to apply inline style", and `background-color` came back
+#: `rgba(0, 0, 0, 0)` on a page that sets `#eef`. A preview that strips the
+#: file's styling is not a preview of that file, and relaxing the *app's*
+#: `style-src` to fix it would trade the notebook's own protection for a
+#: viewer feature. A same-origin HTTP response carries its own policy instead,
+#: and this is it.
+#:
+#: - `sandbox` (no tokens): opaque origin, no scripts, no forms, no
+#:   navigation, no storage. This is what makes serving a file this app did
+#:   not write safe to render at all.
+#: - `script-src 'none'`: belt and braces beside the sandbox.
+#: - `style-src 'unsafe-inline'`: the whole point — a page's own `<style>`
+#:   and `style=` attributes. Harmless inside an opaque, scriptless frame.
+#: - `img-src data:`: inline images only. **No `'self'`**, so a page cannot
+#:   probe this app's own endpoints by pointing an `<img>` at them.
+#: - `default-src 'none'` catches everything unlisted: no fetch, no fonts, no
+#:   frames, no media, nothing off the network.
+#: - `frame-ancestors 'self'`: **named explicitly, and it has to be.**
+#:   `default-src 'none'` covers `frame-ancestors` too, so without this line
+#:   the response forbids *being framed at all* and the pane renders
+#:   `chrome-error://`. Measured, after the first version shipped with only
+#:   `default-src 'none'`. The matching `X-Frame-Options: SAMEORIGIN` below
+#:   is for the same reason: the app's middleware `setdefault`s `DENY` on
+#:   every response, which a route that knows better may override.
+HTML_PREVIEW_CSP = (
+    "sandbox; default-src 'none'; script-src 'none'; "
+    "style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; "
+    "frame-ancestors 'self'"
+)
+
+
+@media_router.get("/files/{attachment_id}/html-preview")
+def attached_file_html_preview(
+    attachment_id: int, session: Session = Depends(get_session)
+) -> Response:
+    """Render an attached .html file, for the viewer's preview pane.
+
+    **This is the one exception to "nothing new is ever served inline", and it
+    is narrow enough to state exactly.** `core/docview.py`'s docstring gives
+    the rule and its reason: an inline viewer is a script host, and widening a
+    file-serving endpoint's allowlist would inherit that problem once per type
+    added. Here the response is `sandbox`ed with `script-src 'none'`, so it is
+    the opposite of a script host — and it serves .html *only*, one suffix,
+    checked below rather than by an allowlist that can be widened later.
+
+    What is sent is the file's own text, read through `docview.extract` — the
+    same clip and the same forgiving decode every other reader in the app
+    gets, so a 40 MB file cannot be handed to the browser whole.
+
+    On `media_router` because an `<iframe src>` is a declarative load and
+    cannot attach a header: `require_unlock_media` is the gate that accepts
+    the token as a query parameter, the same way `<img src>` already does.
+    """
+    attachment = _existing_attachment(session, attachment_id)
+    if Path(attachment.filename).suffix.lower() not in {".html", ".htm"}:
+        raise HTTPException(status_code=404, detail="Not an HTML file.")
+    path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="File is missing from disk")
+    viewed = docview.extract(path)
+    return Response(
+        content=viewed.text,
+        media_type="text/html; charset=utf-8",
+        headers={
+            "Content-Security-Policy": HTML_PREVIEW_CSP,
+            # The middleware `setdefault`s DENY; this is the one response in
+            # the app that is *meant* to be framed, by the app itself.
+            "X-Frame-Options": "SAMEORIGIN",
+            # No sniffing past the type we declared, and no caching of one
+            # notebook's file into another view.
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, no-store",
+        },
     )
 
 
 @router.delete("/files/{attachment_id}", response_model=EntryOut)
-def delete_file(attachment_id: int, session: Session = Depends(get_session)) -> EntryOut:
+def delete_file(
+    attachment_id: int,
+    strip_references: bool = False,
+    session: Session = Depends(get_session),
+) -> EntryOut:
+    """`strip_references` is `delete_media`'s flag on the other table — same
+    reason, same default. An attached image can be embedded in the note it is
+    attached to (`![](/files/12)`), and deleting the file used to leave that
+    markdown behind forever."""
     attachment = _existing_attachment(session, attachment_id)
     entry = _existing_entry(session, attachment.entry_id)
+    if strip_references:
+        _strip_embeds(session, f"/files/{attachment.id}")
     manager.delete_attachment(session, attachment, deps.get_config().uploads_dir)
     return _to_out(session, entry)
 
@@ -335,6 +801,27 @@ def _within_exports(exports: Path, name: str) -> Path:
     candidate = os.path.realpath(os.path.join(base, name))
     if not candidate.startswith(base):
         raise HTTPException(status_code=422, detail="That filename can't be used.") from None
+    return Path(candidate)
+
+
+def _within_dir(base_dir: Path, name: str) -> Path:
+    """`_within_exports`'s own containment check, generalised to any base
+    directory — the PDF-page endpoints' `_media_upload_path` and the two
+    attachment `pdf-page`/`pdf-info` routes each build a path from a name
+    that traces back to a request parameter (via a DB round trip, but
+    CodeQL's `py/path-injection` tracks the taint through the query filter
+    regardless), the same shape `_within_exports` already exists to close.
+    Kept as its own function rather than reusing `_within_exports` directly:
+    that one is precision-tuned to the exact guard shape CodeQL's
+    `Path::SafeAccessCheck` recognises (see its own long comment on how many
+    equivalent-looking forms it rejected) and duplicating the same five
+    lines here is safer than risking that tuning by generalising its name
+    or signature for a second, differently-named caller.
+    """
+    base = os.path.realpath(str(base_dir))
+    candidate = os.path.realpath(os.path.join(base, name))
+    if not candidate.startswith(base):
+        raise HTTPException(status_code=422, detail="That file can't be used.") from None
     return Path(candidate)
 
 
@@ -515,6 +1002,17 @@ class MediaUploadOut(BaseModel):
     #: is already here, and a byte count would cost one `stat` per row on
     #: every gallery load for a number nobody asked for.
     created_at: str = ""
+    #: **Where this file is actually used** — one entry per note, document or
+    #: board that references it, as `{kind, id, label}`. The gallery showed a
+    #: thumbnail, a filename and two empty prompts and could not answer the
+    #: only question anyone brings to it: what is this attached to? Empty
+    #: means genuinely unreferenced (the same condition the orphan check uses
+    #: — both read `media_gc.referenced_names`, so they cannot disagree).
+    used_by: list[dict] = []
+    #: True when a locked private note made the usage scan incomplete, so an
+    #: empty `used_by` means "could not check" rather than "not used". The UI
+    #: must not call a file unused on this basis.
+    usage_incomplete: bool = False
 
 
 @router.get("/media", response_model=list[MediaUploadOut])
@@ -524,9 +1022,15 @@ def list_media(session: Session = Depends(get_session)) -> list[MediaUploadOut]:
     the same convention the Library's own sort defaults to.
     """
     uploads = session.query(MediaUpload).order_by(MediaUpload.created_at.desc()).all()
+    # One scan for the whole gallery rather than one per file: `usage_map`
+    # walks each table once and inverts the result, so this stays a single
+    # pass no matter how many uploads there are.
+    used, usage_incomplete = media_gc.usage_map(session)
     return [
         MediaUploadOut(
             id=u.id,
+            used_by=used.get(u.filename, []),
+            usage_incomplete=usage_incomplete,
             url=f"/media/{u.filename}",
             original_name=u.original_name,
             ocr_text=u.ocr_text or "",
@@ -653,6 +1157,14 @@ def media_text(filename: str, session: Session = Depends(get_session)) -> Attach
     lightbox actually hold, had no way to reach it. So this is the same
     extraction pointed at `media/` instead of `uploads/`.
 
+    **There is no `PUT` beside this one, and that is not an oversight.** Its
+    sibling `save_attached_file_text` exists because a note's attachment can
+    be a .md, a .txt or a source file. A `/media/` upload cannot: `MEDIA_SUFFIXES`
+    is images and PDF, so `editable` here is always False and a save route
+    would be a feature that never ran once — the shape CLAUDE.md names. The
+    flag and its message are still returned, so the viewer can say *why*
+    rather than silently omitting Edit.
+
     Deliberately returns **text, never the file**, for the reason
     `read_file_text` above states at length and `media_file` at the bottom of
     this module explains: what this sends has already stopped being a .docx,
@@ -672,6 +1184,7 @@ def media_text(filename: str, session: Session = Depends(get_session)) -> Attach
     # a vision model are both present; every other file returns before it is
     # consulted.
     viewed = docview.extract(path, vision_reader=vision_ocr.pdf_reader_or_none())
+    editable, edit_message = docview.editability(path, viewed)
     return AttachedFileTextOut(
         filename=upload.original_name,
         kind=viewed.kind,
@@ -679,26 +1192,167 @@ def media_text(filename: str, session: Session = Depends(get_session)) -> Attach
         text=viewed.text,
         truncated=viewed.truncated,
         message=viewed.message,
+        editable=editable,
+        edit_message=edit_message,
     )
 
 
+def _media_upload_path(session: Session, filename: str) -> tuple[MediaUpload, Path]:
+    upload = session.query(MediaUpload).filter(MediaUpload.filename == filename).first()
+    if not upload:
+        raise HTTPException(status_code=404, detail="No upload by that name.")
+    path = _within_dir(deps.get_config().data_dir / "media", upload.filename)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="That file is no longer on disk.")
+    return upload, path
+
+
+@router.get("/media/pdf-info/{filename}", response_model=PdfInfoOut)
+def media_pdf_info(filename: str, session: Session = Depends(get_session)) -> PdfInfoOut:
+    """Page count for `pdf_page` below to page through — deliberately its
+    own round trip rather than folded into `media_text`'s response, so the
+    lightbox can show real PDF pages **without ever calling `media_text` (and
+    therefore without markitdown or a vision model in the loop at all)**.
+    That split is the point: viewing a PDF like a PDF and *reading* it with
+    AI are two different questions (`docview.py`'s module docstring answers
+    the second one at length), and until now this app only had an answer for
+    the second — a scanned lecture PDF got stuck on the AI extraction path
+    with no way to just look at the pages, direct instruction: "pdfs and
+    documents should be viewable, accessible and manageable without the ai,
+    even if the ai cant read them."
+    """
+    if Path(filename).suffix.lower() != ".pdf":
+        raise HTTPException(status_code=422, detail="Not a PDF.")
+    _upload, path = _media_upload_path(session, filename)
+    if not pdfpages.available():
+        return PdfInfoOut(
+            available=False,
+            pages=0,
+            message=(
+                "Viewing PDF pages needs a small rasteriser: install "
+                "“Read scanned PDFs” in Settings → Extras."
+            ),
+        )
+    count = pdfpages.page_count(path)
+    if count == 0:
+        return PdfInfoOut(
+            available=False,
+            pages=0,
+            message=(
+                "This PDF couldn't be opened. It may be corrupted, "
+                "password-protected, or saved in a way this app's reader "
+                "doesn't support."
+            ),
+        )
+    return PdfInfoOut(available=True, pages=count)
+
+
+@media_router.get("/media/pdf-page/{filename}/{index}")
+def media_pdf_page(filename: str, index: int, session: Session = Depends(get_session)) -> Response:
+    """One page of an uploaded PDF, rasterised to a PNG — the actual pixels
+    a `<img>` in the lightbox loads, one per page, so a PDF scrolls like a
+    PDF. On `media_router` rather than `router`: this is loaded the same
+    declarative way `/media/{filename}` already is (`mediaSrc()` in app.js
+    appends the unlock token as a query param for exactly these routes,
+    since a plain `<img src>` cannot carry a header), not fetched with
+    `apiJson` the way `media_pdf_info` above is.
+
+    Always a **freshly rendered PNG**, never the PDF's own bytes — the
+    security reasoning `get_media`'s own docstring gives for refusing to
+    serve a PDF inline (a script host, from a folder not guaranteed to hold
+    only what this app wrote) does not apply to pixels this process drew
+    itself. A rasterised page cannot carry a PDF action, an embedded script,
+    or anything else a PDF's own structure can.
+    """
+    if Path(filename).suffix.lower() != ".pdf":
+        raise HTTPException(status_code=404, detail="Not a PDF.")
+    _upload, path = _media_upload_path(session, filename)
+    png = pdfpages.render_page(path, index)
+    if png is None:
+        raise HTTPException(status_code=404, detail="That page doesn't exist.")
+    # Regenerated on every request rather than cached to disk: ~20ms/page
+    # (measured, pdfpages.py's own docstring) and this app has no existing
+    # per-file render cache to hang a second one off. `Cache-Control`
+    # still lets the *browser* avoid re-fetching a page it already has.
+    return Response(content=png, media_type="image/png", headers={"Cache-Control": "private, max-age=3600"})
+
+
+#: An embed of one stored file: `![alt](/media/name.png)` or
+#: `![alt](/files/12)`, with the optional title markdown allows. Written
+#: against a *literal* url (escaped by the caller), so there is no
+#: user-controlled repetition in it — the shape CodeQL flags as
+#: polynomial-ReDoS is exactly what this avoids.
+def _embed_pattern(url: str) -> re.Pattern[str]:
+    #: Markdown's optional title, in either quote style.
+    title = r"""(?:\s+["'][^"'\n]{0,200}["'])?"""
+    return re.compile(r"!\[[^\]\n]{0,200}\]\(" + re.escape(url) + title + r"\)")
+
+
+def _strip_embeds(session: Session, url: str) -> list[int]:
+    """Remove every `![...](url)` from the notes that hold one.
+
+    Reported directly: *"notes still mention removed images"*. Deleting the
+    file left the markdown behind, so the note rendered a placeholder saying
+    the image was gone — forever, with no way to tidy it but editing the note
+    by hand and knowing what to look for.
+
+    Only the **embed** is removed, never a link: `[see the scan](/media/x.png)`
+    is a sentence the author wrote and would be a hole in their prose if it
+    vanished. And only exact-url matches, so nothing else in the note moves.
+    """
+    pattern = _embed_pattern(url)
+    touched: list[int] = []
+    #: `LIKE` narrows the scan to notes that mention the url at all; the
+    #: regex above decides. A private note is encrypted at rest and its
+    #: content is not readable here, which is also why one cannot embed a
+    #: Library image into one in the first place.
+    rows = session.scalars(
+        select(Entry).where(
+            Entry.is_deleted.is_(False),
+            Entry.is_private.is_(False),
+            Entry.content.contains(url),
+        )
+    ).all()
+    for entry in rows:
+        cleaned = pattern.sub("", entry.content or "")
+        if cleaned == entry.content:
+            continue
+        #: The blank line the embed used to sit on goes with it — otherwise a
+        #: note loses a picture and gains a gap where it was.
+        entry.content = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+        touched.append(entry.id)
+    if touched:
+        session.commit()
+    return touched
+
+
 @router.delete("/media/{upload_id}")
-def delete_media(upload_id: int, session: Session = Depends(get_session)) -> dict:
-    """Removes the file and its tracking row. Asked for directly — an
-    uploaded image "can't be deleted" today, since nothing tracked it at
-    all before `MediaUpload` existed. Any note or whiteboard object still
-    pointing at this url is left as-is; its own `<img>` fails to load and
-    the frontend renders a "this image was deleted" placeholder rather than
-    a broken-image glyph, the same live-reported ask.
+def delete_media(
+    upload_id: int,
+    strip_references: bool = False,
+    session: Session = Depends(get_session),
+) -> dict:
+    """Removes the file and its tracking row.
+
+    `strip_references` also takes the `![...](...)` out of every note that
+    embedded it — asked for after the placeholder shipped: a note that keeps
+    pointing at a file you deleted is a note that renders "this image was
+    removed" for the rest of its life. Off by default, because deleting a
+    file and editing someone's notes are different acts and the second one
+    has to be chosen: the caller asks, the UI offers it in the confirm.
     """
     upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
     media_dir = (deps.get_config().data_dir / "media").resolve()
     candidate = (media_dir / upload.filename).resolve()
+    cleaned: list[int] = []
+    if strip_references:
+        #: Before the row goes: the url is built from `upload.filename`.
+        cleaned = _strip_embeds(session, f"/media/{upload.filename}")
     if candidate.is_relative_to(media_dir):
         candidate.unlink(missing_ok=True)
     session.delete(upload)
     session.commit()
-    return {"status": "ok"}
+    return {"status": "ok", "cleaned_notes": cleaned}
 
 
 class MediaRenameBody(BaseModel):
@@ -854,6 +1508,298 @@ def ocr_media(
         vision_ocr_text=upload.vision_ocr_text or "",
         vision_ocr_model=upload.vision_ocr_model or "",
     )
+
+
+class OcrRegionBox(BaseModel):
+    #: Fractions of the image, top-left origin — see `ocr.extract_regions`
+    #: for why these are not pixels.
+    x: float
+    y: float
+    w: float
+    h: float
+
+
+class OcrRegionOut(BaseModel):
+    index: int
+    #: "text" or "heading". Deliberately not "table"/"formula"/"figure":
+    #: Tesseract reports boxes and confidences, and a semantic label guessed
+    #: from box geometry would be a guess presented as a fact.
+    kind: str
+    text: str
+    confidence: float
+    box: OcrRegionBox
+
+
+class OcrRegionsOut(BaseModel):
+    width: int
+    height: int
+    regions: list[OcrRegionOut]
+    #: "tesseract" when the boxes are real, "stored-text" when the OCR stack
+    #: is missing and this is the one already-extracted blob standing in for
+    #: a page of regions, "none" when there is nothing at all. The reader is
+    #: told which — a single region covering the whole page is a *fallback*,
+    #: and drawing it as though Tesseract had found it there would be a lie
+    #: about where the text is.
+    source: str
+    message: str = ""
+    #: How many pages this file has, when it is a document the workspace can
+    #: page through (a PDF). 1 for an image — one page, no rail. The page rail
+    #: is built from this rather than from a second request, because the
+    #: workspace needs the count before it can draw anything at all.
+    pages: int = 1
+    #: Which page (0-based) these regions were read from. Echoed rather than
+    #: assumed: `page` is clamped into range server-side, so a workspace that
+    #: asked for page 99 of a 3-page PDF must be told which page it actually
+    #: got.
+    page: int = 0
+
+
+#: **Reading a PDF page is rasterise-then-read, not a second OCR engine.**
+#:
+#: Reported: *"I begin generating ocr for a document… is the document ocr even
+#: working??"* It was not, for the case that matters: `ocr.OCR_SUFFIXES` is
+#: raster formats only, so both region routes below answered a PDF with 415 —
+#: the workspace this feature was asked for ("for the document ocr I want smth
+#: like this", three screenshots of Baidu's Unlimited-OCR) could not open a
+#: document at all. Every piece needed already existed and was never joined up:
+#: `core/pdfpages.py` renders a page to PNG for the lightbox, and
+#: `ocr.extract_regions` reads a PNG.
+def _pdf_regions_for(
+    path: Path, index: int, stored_text: str, stored_label: str
+) -> OcrRegionsOut:
+    if not pdfpages.available():
+        return OcrRegionsOut(
+            width=0,
+            height=0,
+            regions=[],
+            source="none",
+            pages=0,
+            message=(
+                "Reading a PDF page needs the small PDF rasteriser: install "
+                "the “PDF pages” extra in Settings → Optional extras."
+            ),
+        )
+    count = pdfpages.page_count(path)
+    if count <= 0:
+        return OcrRegionsOut(
+            width=0,
+            height=0,
+            regions=[],
+            source="none",
+            pages=0,
+            message="That PDF could not be opened.",
+        )
+    index = max(0, min(index, count - 1))
+    png = pdfpages.render_page(path, index)
+    if not png:
+        return OcrRegionsOut(
+            width=0,
+            height=0,
+            regions=[],
+            source="none",
+            pages=count,
+            page=index,
+            message=f"Page {index + 1} could not be rendered.",
+        )
+    with tempfile.TemporaryDirectory() as tmp:
+        page_path = Path(tmp) / f"page-{index}.png"
+        page_path.write_bytes(png)
+        #: Stored text belongs to the *document*, not to this page. Offering
+        #: the whole file's reading as page 7's fallback would be the app
+        #: stating a guess about where the text came from as a fact — the same
+        #: line `_regions_for`'s own "stored-text" badge exists to hold.
+        out = _regions_for(page_path, stored_text if index == 0 else "", stored_label)
+    out.pages = count
+    out.page = index
+    if out.source == "none":
+        #: Not "install Tesseract": the direct instruction on this feature was
+        #: *"I basically dont want to download tesseract and only want to use
+        #: an ai vision learning and ocr model for images and scanned
+        #: documents"* (pdfpages.py's own docstring quotes it). The workspace
+        #: has a per-page vision read button — point at that, not at a system
+        #: package the user has said they do not want.
+        out.message = (
+            f"Nothing has been read off page {index + 1} yet. "
+            "Use “Read this page with AI” to transcribe it with a vision model."
+        )
+    if out.source == "stored-text":
+        out.message = f"{stored_label} — this is the whole document's reading, not page {index + 1}."
+    return out
+
+
+def _regions_for(path: Path, stored_text: str, stored_label: str) -> OcrRegionsOut:
+    """Region extraction with the honest fallback both callers below share."""
+    found = ocr.extract_regions(path)
+    if found is not None:
+        return OcrRegionsOut(
+            width=found["width"],
+            height=found["height"],
+            regions=[OcrRegionOut(**region) for region in found["regions"]],
+            source="tesseract",
+            message="" if found["regions"] else "No text was found on this page.",
+        )
+    text = (stored_text or "").strip()
+    if not text:
+        return OcrRegionsOut(
+            width=0,
+            height=0,
+            regions=[],
+            source="none",
+            message=(
+                "Tesseract isn't installed, so the page can't be split into "
+                "regions. Install it from Settings → AI models to see where "
+                "each line sits on the page."
+            ),
+        )
+    return OcrRegionsOut(
+        width=0,
+        height=0,
+        regions=[
+            OcrRegionOut(
+                index=0,
+                kind="text",
+                text=text,
+                confidence=0.0,
+                box=OcrRegionBox(x=0.0, y=0.0, w=1.0, h=1.0),
+            )
+        ],
+        source="stored-text",
+        message=f"{stored_label} — install Tesseract to see where each line sits on the page.",
+    )
+
+
+@router.get("/media/{upload_id}/ocr-regions", response_model=OcrRegionsOut)
+def media_ocr_regions(
+    upload_id: int, page: int = 0, session: Session = Depends(get_session)
+) -> OcrRegionsOut:
+    """The page, region by region — what the OCR workspace draws its boxes
+    from. Asked for with three screenshots of Baidu's Unlimited-OCR: a page
+    beside its regions, each separately readable, instead of one wall of
+    text with no way to tell which part of the page a line came from."""
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    suffix = Path(upload.filename).suffix.lower()
+    if suffix not in ocr.OCR_SUFFIXES and suffix != ".pdf":
+        raise HTTPException(status_code=415, detail="Only images and PDFs can be read this way.")
+    path = _within_dir(deps.get_config().data_dir / "media", upload.filename)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="That file is no longer on disk.")
+    stored = (upload.vision_ocr_text or upload.ocr_text or "")
+    label = (
+        f"Read by {upload.vision_ocr_model or 'a vision model'}"
+        if upload.vision_ocr_text
+        else "Text already extracted from this file"
+    )
+    if suffix == ".pdf":
+        return _pdf_regions_for(path, page, stored, label)
+    return _regions_for(path, stored, label)
+
+
+@router.get("/files/{attachment_id}/ocr-regions", response_model=OcrRegionsOut)
+def attachment_ocr_regions(
+    attachment_id: int, page: int = 0, session: Session = Depends(get_session)
+) -> OcrRegionsOut:
+    """`media_ocr_regions`'s sibling for an attached file. Two tables, two
+    routes — the same split every other file endpoint in this module has."""
+    attachment = _existing_attachment(session, attachment_id)
+    suffix = Path(attachment.filename).suffix.lower()
+    if suffix not in ocr.OCR_SUFFIXES and suffix != ".pdf":
+        raise HTTPException(status_code=415, detail="Only images and PDFs can be read this way.")
+    path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="File is missing from disk")
+    stored = (attachment.vision_ocr_text or attachment.ocr_text or "")
+    label = (
+        f"Read by {attachment.vision_ocr_model or 'a vision model'}"
+        if attachment.vision_ocr_text
+        else "Text already extracted from this file"
+    )
+    if suffix == ".pdf":
+        return _pdf_regions_for(path, page, stored, label)
+    return _regions_for(path, stored, label)
+
+
+class OcrPageReadOut(BaseModel):
+    """One page of a document, read by a vision model."""
+
+    page: int
+    text: str = ""
+    model: str = ""
+    message: str = ""
+
+
+#: **A vision read scoped to the page you are looking at.**
+#:
+#: The existing vision path (`analyse`, kind="vision") reads a whole PDF — up
+#: to `pdfpages.MAX_PAGES` — and stores one blob. That is the right shape for
+#: "what is this document"; it is the wrong shape for the OCR workspace, where
+#: the question is always "what does *this page* say" and a reader who wants
+#: page 6 should not wait through five pages they have already checked.
+#:
+#: Nothing is stored: the workspace shows the reading beside the page and the
+#: reader decides what to keep (Copy, Save to a note, or Save the reading onto
+#: the file through the existing analyse endpoint). Reading is cheap to repeat
+#: and a wrong transcription written onto the row is not.
+def _vision_read_page(path: Path, index: int) -> OcrPageReadOut:
+    if not pdfpages.available():
+        return OcrPageReadOut(
+            page=index,
+            message=(
+                "Reading a PDF page needs the small PDF rasteriser: install "
+                "the “PDF pages” extra in Settings → Optional extras."
+            ),
+        )
+    if not deps.get_ollama().is_running():
+        raise HTTPException(status_code=409, detail="The AI model isn't running.")
+    model = deps.get_model_manager().resolve_vision_model(deps.get_ollama())
+    if not model:
+        raise HTTPException(
+            status_code=409,
+            detail="No installed model reports it can see images — install or "
+            "pick one in Settings → Models.",
+        )
+    count = pdfpages.page_count(path)
+    if count <= 0:
+        return OcrPageReadOut(page=index, message="That PDF could not be opened.")
+    index = max(0, min(index, count - 1))
+    png = pdfpages.render_page(path, index)
+    if not png:
+        return OcrPageReadOut(page=index, message=f"Page {index + 1} could not be rendered.")
+    with tempfile.TemporaryDirectory(prefix="mm-pageocr-") as scratch:
+        page_path = Path(scratch) / f"page-{index}.png"
+        page_path.write_bytes(png)
+        text = vision_ocr.vision_ocr_text(page_path, model, deps.get_ollama()) or ""
+    return OcrPageReadOut(
+        page=index,
+        text=text.strip(),
+        model=model if text.strip() else "",
+        message="" if text.strip() else f"{model} found no text on page {index + 1}.",
+    )
+
+
+@router.post("/files/{attachment_id}/ocr-page-read", response_model=OcrPageReadOut)
+def attachment_ocr_page_read(
+    attachment_id: int, page: int = 0, session: Session = Depends(get_session)
+) -> OcrPageReadOut:
+    attachment = _existing_attachment(session, attachment_id)
+    if Path(attachment.filename).suffix.lower() != ".pdf":
+        raise HTTPException(status_code=415, detail="Only PDF pages are read one at a time.")
+    path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="File is missing from disk")
+    return _vision_read_page(path, page)
+
+
+@router.post("/media/{upload_id}/ocr-page-read", response_model=OcrPageReadOut)
+def media_ocr_page_read(
+    upload_id: int, page: int = 0, session: Session = Depends(get_session)
+) -> OcrPageReadOut:
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    if Path(upload.filename).suffix.lower() != ".pdf":
+        raise HTTPException(status_code=415, detail="Only PDF pages are read one at a time.")
+    path = _within_dir(deps.get_config().data_dir / "media", upload.filename)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="That file is no longer on disk.")
+    return _vision_read_page(path, page)
 
 
 class VisionOcrBody(BaseModel):

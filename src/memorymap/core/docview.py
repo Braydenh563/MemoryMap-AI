@@ -163,6 +163,69 @@ def _read_text_file(path: Path) -> str:
     return path.read_bytes().decode("utf-8", errors="replace")
 
 
+#: **The files this app may write back**, and the reason the set is smaller
+#: than `VIEWABLE_SUFFIXES` is the module docstring's own: extraction is
+#: one-way. For these, though, "extraction" is `bytes.decode()` — the text
+#: *is* the file — so writing it back is lossless, and refusing to would be
+#: refusing the request rather than protecting anything. §R7.1 item 2:
+#: *"all the files should be managable, viewable and editable in the library
+#: and document/file/text editor"*, with the honest reason in the UI where a
+#: file cannot be, rather than a dead end.
+EDITABLE_SUFFIXES = PLAIN_TEXT_SUFFIXES | MARKDOWN_SUFFIXES | CODE_SUFFIXES
+
+
+def editability(path: Path, viewed: ViewedFile) -> tuple[bool, str]:
+    """May this file be edited in place, and if not, what does the user get told?
+
+    Answered here rather than at the route, because every fact it turns on —
+    which suffixes are text, what `source` means, what `truncated` means —
+    is defined in this module. A route deciding it independently would be a
+    second copy of the format table, and the two would drift.
+
+    The message is written to be *shown*, not logged. A viewer that greys out
+    Edit with no explanation is the dead end §R7.1 named; one that says "a
+    .docx is not the text pulled out of it" teaches the thing that is actually
+    true about the file.
+    """
+    suffix = path.suffix.lower()
+    if suffix not in EDITABLE_SUFFIXES:
+        if suffix in CONVERTED_SUFFIXES:
+            return False, (
+                f"A {suffix} file isn't the text pulled out of it. Saving this back "
+                "would replace the document with a plain-text copy — its formatting, "
+                "images and layout are not in what you can see here. Import it to a "
+                "document if you want a version you can edit."
+            )
+        return False, f"There's no editor for {suffix or 'this kind of'} files yet."
+    if not path.is_file():
+        return False, "That file is missing."
+    if viewed.truncated:
+        return False, (
+            f"This file is longer than the {MAX_VIEW_CHARS:,} characters shown, so "
+            "saving would drop everything past the end of what you can read here."
+        )
+    if viewed.source != "file":
+        # Belt and braces: a text suffix always yields source="file" today, and
+        # if that ever stops being true this refuses rather than overwrites.
+        return False, "This text was read out of the file rather than being the file."
+    return True, ""
+
+
+def write_text_file(path: Path, text: str) -> None:
+    """Save edited text back over a text file.
+
+    UTF-8 with no BOM, and `newline=""` so the text is written exactly as the
+    editor produced it rather than having "\n" translated by the platform —
+    a Windows round trip would otherwise turn every line ending into "\r\n"
+    on save and grow the file a little each time.
+
+    Callers must have asked `editability` first; this does not re-check,
+    because the route needs the message anyway and a second check here would
+    be a second place to keep the rule.
+    """
+    path.write_text(text, encoding="utf-8", newline="")
+
+
 def extract(path: Path, vision_reader=None) -> ViewedFile:
     """One file's text, ready to render.
 
@@ -227,10 +290,30 @@ def _extract_converted(path: Path, suffix: str, vision_reader) -> ViewedFile:
             text=text, kind="markdown", source="converted", truncated=truncated
         )
 
-    # Nothing usable came out. Two different reasons, and they need two
-    # different messages — "install markitdown" is unhelpful advice for a
-    # scanned page, and "this looks like a scan" is wrong when the converter
-    # was simply not there.
+    # Nothing usable came out. Before assuming "probably a scan", find out
+    # whether PDFium can even open the file — a corrupted, truncated or
+    # encrypted PDF fails here with zero pages, which looks identical to a
+    # real scan to every check above it but needs a completely different
+    # message: no vision model on earth reads a file that can't be decoded
+    # at all. This was a real misdiagnosis, caught from a user's own log —
+    # `pdfpages.render_pages` logged "Failed to load document (PDFium: Data
+    # format error)" while the viewer told them to go install a vision model.
+    if suffix == ".pdf" and pdfpages.available() and pdfpages.page_count(path) == 0:
+        return ViewedFile(
+            text="",
+            kind="plain",
+            source="converted",
+            message=(
+                "This PDF couldn't be opened. It may be corrupted, "
+                "password-protected, or saved in a way this app's reader "
+                "doesn't support — re-exporting or re-saving it from its "
+                "original source usually fixes this."
+            ),
+        )
+
+    # Two different reasons, and they need two different messages —
+    # "install markitdown" is unhelpful advice for a scanned page, and "this
+    # looks like a scan" is wrong when the converter was simply not there.
     if suffix == ".pdf" and vision_reader is not None:
         read = ""
         try:

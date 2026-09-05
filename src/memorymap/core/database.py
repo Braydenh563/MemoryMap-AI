@@ -29,6 +29,7 @@ from sqlalchemy import (
     String,
     Text,
     TypeDecorator,
+    UniqueConstraint,
     create_engine,
     event,
 )
@@ -94,6 +95,19 @@ class Space(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     icon: Mapped[str] = mapped_column(String, nullable=False, default="ph-circles-four")
+    #: Keep this space's contents out of "All spaces".
+    #:
+    #: Asked for directly: "how do I hide a specific space's notes and
+    #: images/documents etc, all the content from the 'all spaces' space if I
+    #: wish??" There was no way — `Space` carried only id/name/icon, and
+    #: "all" simply switched the workspace filter off, so it showed
+    #: everything with no exclusion path at all.
+    #:
+    #: **A view filter, not a privacy boundary.** The space stays completely
+    #: usable when selected directly; this only decides whether its rows join
+    #: the everything-view. Anything that must actually be unreadable is what
+    #: the private-note vault is for.
+    hidden_from_all: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
 
 
 
@@ -133,6 +147,25 @@ def _add_workspace_filter(execute_state):
                     include_aliases=True
                 )
             )
+        elif workspace_id == "all":
+            # "All spaces" means every space that has not opted out. A space
+            # marked `hidden_from_all` stays fully usable when it is selected
+            # directly; it just does not pour its notes, files and boards
+            # into the everything-view.
+            #
+            # The ids are resolved once per request by `get_session` and
+            # cached in `session.info` rather than queried here: this handler
+            # runs for *every* statement, so a query inside it would both
+            # multiply the work and re-enter this same event.
+            hidden = execute_state.session.info.get("hidden_workspaces")
+            if hidden:
+                execute_state.statement = execute_state.statement.options(
+                    with_loader_criteria(
+                        WorkspaceMixin,
+                        lambda cls: cls.workspace_id.notin_(hidden),
+                        include_aliases=True
+                    )
+                )
 
 @event.listens_for(Session, "before_flush")
 def _set_workspace(session, flush_context, instances):
@@ -172,10 +205,29 @@ class Vault(Base):
 
 
 class Category(Base, WorkspaceMixin):
+    """A filing category. **Unique per space, not globally.**
+
+    The `unique=True` this used to carry on `name` alone predates spaces, and
+    it made two spaces genuinely unable to coexist: the moment a note in one
+    space needed a category another space already had — "Uni", "Work",
+    "Ideas", every ordinary name — `get_or_create_category` looked it up
+    under the *current* space's filter, found nothing, inserted, and hit a
+    global UNIQUE. Reproduced as a **500 on `POST /entries`**: creating a
+    note in a second space simply failed, which is as close to "spaces do not
+    work" as a bug gets.
+
+    Two categories with the same name in two spaces are two different
+    categories — that is the entire point of a space — so the constraint
+    moves to the pair. Within one space the old guarantee is unchanged.
+    """
+
     __tablename__ = "categories"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "name", name="uq_categories_workspace_name"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(100), unique=True)
+    name: Mapped[str] = mapped_column(String(100))
     description: Mapped[str | None] = mapped_column(Text, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
@@ -192,6 +244,34 @@ class Entry(Base, WorkspaceMixin):
     tags: Mapped[str] = mapped_column(Text, default="[]")
     # 0–100. How sure the AI was when it filed this (0 = no AI involved).
     ai_confidence: Mapped[int] = mapped_column(Integer, default=0)
+    #: Where this note is in the filing queue: `done` (the only state a note
+    #: filed synchronously is ever in), `pending` (saved, category not
+    #: decided yet), or `failed` (the background pass raised and gave up —
+    #: the note keeps whatever category it was created with).
+    #:
+    #: This exists because filing used to be part of *saving*. `POST
+    #: /entries` ran `janitor.categorise` inline, which asks a local model,
+    #: so the composer sat disabled behind a spinner for as long as that
+    #: took — reported as "the making of new notes was slow and annoying...
+    #: I feel like the note panels should disappear while filing and
+    #: continuing in the backend". A scalar string default so the additive
+    #: auto-migrator backfills every existing row to `done`, which is
+    #: exactly right: every note written before this column existed was
+    #: filed before its POST returned.
+    filing_state: Mapped[str] = mapped_column(String(10), default="done")
+    #: The note this one turned out to be a near-duplicate of, found by the
+    #: same background pass that files it. Only ever set on a deferred save:
+    #: a synchronous one still returns its `similar` in the create response,
+    #: because it has already paid for the search by then. NULL is the
+    #: overwhelmingly common case and means "no duplicate, or not looked for
+    #: yet" — the two are not worth distinguishing, since a warning nobody
+    #: has been shown yet and a warning there is nothing to show lead to
+    #: exactly the same UI.
+    #:
+    #: Not a ForeignKey on purpose: the note it points at can be deleted,
+    #: and an advisory pointer going stale must never take a `DELETE` down
+    #: with it. `filing_status` resolves it and shrugs when it is gone.
+    filing_similar_id: Mapped[int | None] = mapped_column(Integer, default=None)
     # Bumped every time this entry is opened or returned by a chat
     # question — feeds the "most used" dashboard.
     access_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -261,6 +341,24 @@ class Entry(Base, WorkspaceMixin):
     # stays visible regardless (its counts are still nonzero), so nothing
     # already in someone's board list disappears from this change.
     is_board: Mapped[bool] = mapped_column(Boolean, default=False)
+    #: Where this note came from in an imported vault — a **relative** path
+    #: like `Projects/Roadmap.md`, empty for everything written in this app.
+    #:
+    #: Asked for directly: *"kortex and obsidian files and md file trees and
+    #: being able to link notes and obsidian md files and stuff is I think the
+    #: largest gap that is missing right now."* The importer already read a
+    #: whole vault, and threw its shape away: every file landed as a flat note
+    #: with the folders gone and the **filename gone with them**. That second
+    #: loss is the one that matters, because Obsidian's `[[wiki links]] name
+    #: the file*, so a vault imported here arrived with every internal link
+    #: pointing at nothing.
+    #:
+    #: A relative path, never an absolute one: it is a *structure*, not a
+    #: location on the machine that happened to do the import, and storing
+    #: someone's home directory in a notebook that syncs nowhere is a leak
+    #: with no upside. A scalar `""` default so the additive auto-migrator
+    #: backfills existing rows — "written here", which is what they all are.
+    source_path: Mapped[str] = mapped_column(String(500), default="")
     # ROADMAP §87.1's own audit: "double-click pin exists but is never
     # persisted" — a node held in place with a double-click on the Graph
     # tab (`d.fx`/`d.fy` in graph.js) only ever lived on the in-memory D3
@@ -416,7 +514,7 @@ class EmbeddingRecord(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
-class Attachment(Base):
+class Attachment(Base, WorkspaceMixin):
     """A file the user attached to an entry. The bytes live in
     the uploads/ folder under a random stored_name; the original
     filename is kept for downloads."""
@@ -430,6 +528,32 @@ class Attachment(Base):
     mime: Mapped[str] = mapped_column(String(100), default="application/octet-stream")
     size: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    #: What this file *says*, so the AI and the Library can both read it.
+    #:
+    #: Asked for directly: "the files tab needs vision model and ocr model
+    #: caption and text extraction. especially for documents containing
+    #: diagrams, images, data or scanned pdfs… the text and analysis needs to
+    #: be accessible to the ai models and modifyable by the user."
+    #:
+    #: `MediaUpload` has carried these four since captioning existed; an
+    #: `Attachment` — which is what a file dropped onto a *note* actually is
+    #: — carried none of them, so a scanned PDF attached to a note was, to
+    #: this app, a filename and some bytes. Same columns, same never-
+    #: distinguished NULL convention ("not run yet, or found nothing"), and
+    #: the same "a person may overwrite any of it" rule; added by the
+    #: additive auto-migrator on existing databases like every other
+    #: backfilled column here.
+    caption: Mapped[str | None] = mapped_column(Text, default=None)
+    caption_model: Mapped[str | None] = mapped_column(String(200), default=None)
+    caption_edited: Mapped[bool] = mapped_column(Boolean, default=False)
+    #: Local Tesseract text for an image, or the extracted/converted text of
+    #: a document (`core/docview.py`) — one column either way, because what
+    #: a reader wants is "the text in this file", not which extractor found it.
+    ocr_text: Mapped[str | None] = mapped_column(Text, default=None)
+    #: A vision model reading the pages, for the case Tesseract cannot serve:
+    #: handwriting, low contrast, a diagram whose meaning is in its layout.
+    vision_ocr_text: Mapped[str | None] = mapped_column(Text, default=None)
+    vision_ocr_model: Mapped[str | None] = mapped_column(String(200), default=None)
 
 
 class Conversation(Base, WorkspaceMixin):
@@ -562,7 +686,7 @@ class DocumentBookmark(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
-class Reminder(Base):
+class Reminder(Base, WorkspaceMixin):
     """A reminder, optionally attached to an entry."""
 
     __tablename__ = "reminders"
@@ -706,7 +830,7 @@ class DocumentAiEdit(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
-class WhiteboardNode(Base):
+class WhiteboardNode(Base, WorkspaceMixin):
     """A note card placed on the whiteboard canvas."""
 
     __tablename__ = "whiteboard_nodes"
@@ -736,7 +860,7 @@ class WhiteboardNode(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
 
-class WhiteboardSketch(Base):
+class WhiteboardSketch(Base, WorkspaceMixin):
     """A freehand sketch placed on the whiteboard canvas."""
 
     __tablename__ = "whiteboard_sketches"
@@ -753,7 +877,7 @@ class WhiteboardSketch(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
 
-class WhiteboardObject(Base):
+class WhiteboardObject(Base, WorkspaceMixin):
     """A freeform item on the whiteboard that isn't tied to a note: a pasted/
     dropped/uploaded image, or a text box — the two things asked for
     directly ("I want the whiteboard to basically be like OneNote and
@@ -786,7 +910,7 @@ class WhiteboardObject(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
 
-class MediaUpload(Base):
+class MediaUpload(Base, WorkspaceMixin):
     """Every file `/media/upload` has ever produced — an image pasted or
     dropped into a *note's* own markdown, unlike a whiteboard image object
     (`WhiteboardObject`), had no row tracking it at all: nothing could list
@@ -1045,6 +1169,8 @@ class DatabaseManager:
 
         Base.metadata.create_all(self.engine)  # creates missing tables only
         self._add_missing_columns()
+        self._rebuild_categories_unique_constraint()
+        self._backfill_inherited_workspaces()
         self._ensure_fts5()
         self._ensure_indexes()
         # See _ensure_alembic_baseline's own docstring for why this is
@@ -1200,6 +1326,161 @@ class DatabaseManager:
             for name, definition in self._INDEXES:
                 connection.exec_driver_sql(
                     f"CREATE INDEX IF NOT EXISTS {name} ON {definition}"
+                )
+
+    #: Rows whose space has to be *inherited* rather than defaulted, as
+    #: `(table, parent-id column, parent table)`. See
+    #: `_backfill_inherited_workspaces` for why a plain DEFAULT is wrong here.
+    _WORKSPACE_INHERITANCE = (
+        ("attachments", "entry_id", "entries"),
+        ("reminders", "entry_id", "entries"),
+        ("whiteboard_nodes", "board_id", "entries"),
+        ("whiteboard_sketches", "board_id", "entries"),
+        ("whiteboard_objects", "board_id", "entries"),
+    )
+
+    def _rebuild_categories_unique_constraint(self) -> None:
+        """Move `categories.name`'s UNIQUE from the column to (space, name).
+
+        `create_all` never touches an existing table and `_add_missing_columns`
+        only ever *adds* columns, so an existing database keeps whatever
+        constraints it was built with — and the one this replaces made a
+        second space unusable. `get_or_create_category` looks a name up under
+        the current space's filter; in another space it finds nothing, tries
+        to insert, and hits a UNIQUE that spans every space at once.
+        Reproduced as a **500 on `POST /entries`** the first time a note in a
+        new space wanted a category name the default space already had —
+        which for ordinary names ("Work", "Ideas", "Uni") is immediately.
+
+        SQLite cannot drop a constraint, so this is the standard rebuild:
+        make the table with the right shape, copy every row, swap the names.
+        Guarded on actually finding the old single-column unique index, so it
+        runs exactly once per database and is a no-op on a fresh one (where
+        `create_all` has already built the correct shape) and on every
+        startup after the first.
+
+        Never allowed to stop the app from starting, the same rule
+        `_ensure_alembic_baseline` follows: a database that somehow cannot be
+        rebuilt still opens, with the old constraint and the old limitation,
+        rather than not opening at all.
+        """
+        try:
+            with self.engine.begin() as connection:
+                tables = {
+                    row[0]
+                    for row in connection.exec_driver_sql(
+                        "SELECT name FROM sqlite_master WHERE type='table'"
+                    ).fetchall()
+                }
+                if "categories" not in tables:
+                    return
+                stale = None
+                for index in connection.exec_driver_sql(
+                    "PRAGMA index_list('categories')"
+                ).fetchall():
+                    name, unique = index[1], index[2]
+                    if not unique:
+                        continue
+                    columns = [
+                        row[2]
+                        for row in connection.exec_driver_sql(
+                            f"PRAGMA index_info('{name}')"
+                        ).fetchall()
+                    ]
+                    if columns == ["name"]:
+                        stale = name
+                        break
+                if stale is None:
+                    return  # already the composite constraint, or never had one
+
+                _logger.info("rebuilding categories to scope its unique name per space")
+                connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+                connection.exec_driver_sql(
+                    'CREATE TABLE "categories_rebuilt" ('
+                    " id INTEGER NOT NULL PRIMARY KEY,"
+                    " name VARCHAR(100) NOT NULL,"
+                    " description TEXT,"
+                    " created_at DATETIME,"
+                    " workspace_id VARCHAR DEFAULT 'default' NOT NULL,"
+                    " CONSTRAINT uq_categories_workspace_name UNIQUE (workspace_id, name)"
+                    ")"
+                )
+                connection.exec_driver_sql(
+                    'INSERT INTO "categories_rebuilt" '
+                    " (id, name, description, created_at, workspace_id)"
+                    " SELECT id, name, description, created_at,"
+                    "        COALESCE(workspace_id, 'default') FROM categories"
+                )
+                connection.exec_driver_sql('DROP TABLE "categories"')
+                connection.exec_driver_sql(
+                    'ALTER TABLE "categories_rebuilt" RENAME TO "categories"'
+                )
+                connection.exec_driver_sql(
+                    "CREATE INDEX IF NOT EXISTS ix_categories_workspace_id"
+                    " ON categories (workspace_id)"
+                )
+                connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+        except Exception:
+            _logger.warning(
+                "couldn't rebuild the categories table; spaces will still share "
+                "one category namespace on this database",
+                exc_info=True,
+            )
+
+    def _backfill_inherited_workspaces(self) -> None:
+        """Give a newly-scoped child row the space its parent note is in.
+
+        These six tables (the five here plus `media_uploads`) had no
+        `workspace_id` at all until this ran, which is why an image uploaded
+        inside a class-specific space showed up in the main space's gallery
+        and a reminder written in one space appeared in every other —
+        reported directly, and reproduced before this was written.
+
+        Adding the column is the easy half. `_add_missing_columns` backfills
+        it with the model default, `'default'`, and for a *parentless* row
+        (a `media_uploads` row, a whiteboard object on the shared
+        board_id-NULL board) that is the honest answer: it really was
+        visible everywhere before, and the main space is where it belongs
+        now.
+
+        For a row that hangs off a note it is actively wrong. An attachment
+        on a note in space `uni` stamped `'default'` does not merely land in
+        the wrong gallery — the workspace loader criteria then filter it out
+        of its *own note*, so a user in `uni` opens the note they attached it
+        to and the file is gone. That is data loss as far as anyone using it
+        can tell. So each of these inherits from its parent note instead,
+        and only a row with no parent keeps the default.
+
+        Idempotent by construction: it only touches rows still sitting at
+        `'default'` whose parent says otherwise, so a second startup is a
+        no-op, and a row a user has deliberately moved is never dragged back.
+        """
+        with self.engine.begin() as connection:
+            tables = {
+                row[0]
+                for row in connection.exec_driver_sql(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            if "entries" not in tables:
+                return
+            for table, fk, parent in self._WORKSPACE_INHERITANCE:
+                if table not in tables:
+                    continue
+                columns = {
+                    row[1]
+                    for row in connection.exec_driver_sql(
+                        f'PRAGMA table_info("{table}")'
+                    ).fetchall()
+                }
+                if "workspace_id" not in columns or fk not in columns:
+                    continue
+                connection.exec_driver_sql(
+                    f'UPDATE "{table}" SET workspace_id = ('
+                    f'  SELECT p.workspace_id FROM "{parent}" p WHERE p.id = "{table}".{fk}'
+                    f") WHERE {fk} IS NOT NULL AND workspace_id = 'default'"
+                    f'   AND EXISTS (SELECT 1 FROM "{parent}" p WHERE p.id = "{table}".{fk}'
+                    f"              AND p.workspace_id <> 'default')"
                 )
 
     def _add_missing_columns(self) -> None:

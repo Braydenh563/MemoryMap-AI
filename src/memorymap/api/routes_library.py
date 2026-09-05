@@ -488,6 +488,11 @@ _ENTITY_WORDS = {
     "document": "a document",
     "conversation": "a chat",
     "chat": "a chat",
+    #: routes_chat.py's AGENT_SURFACE. A turn that could reach for a tool is
+    #: logged apart from a plain question so the "Ask again" chips only offer
+    #: back things worth asking again; the log itself still keeps both, and
+    #: this is what stops the new one reading as "Asked a agent".
+    "agent": "the agent",
     "reminder": "a reminder",
     "skill": "a skill",
     "tag": "a tag",

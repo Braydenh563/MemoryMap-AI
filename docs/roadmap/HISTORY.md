@@ -5378,3 +5378,326 @@ and pans correctly afterward. Not attempted: persisting a pinned node's
 new position when it is later dragged to reposition it — currently
 updates only in memory, a smaller and separate gap from "never
 persisted at all," which is what this closes.
+
+## §91 — the Connections block, and two shortcut/CSP bugs it sat next to
+
+**The Connections block (REDESIGN.md §R7.3 item 1, ROADMAP.md item 5).** Every
+join it lists already existed in the database and none of them were ever in one
+place: `EntryLink` in both directions was chips on the note card, `DocumentLink`
+was a second row of chips, `WhiteboardNode` was surfaced *nowhere at all* (a
+note could be a card on three boards and show none of them), and the uploads a
+note embeds could only be found by reading its markdown. `GET
+/entries/{id}/connections` and `GET /documents/{id}/connections` answer it in
+one request; the dialog opens from the note ⋯ menu and the document ⋯ menu.
+
+Two properties are load-bearing and are what `tests/test_connections_block.py`
+is actually for. **Direction is kept, not merged** — `links_for_entry` has
+always returned both directions in one list, so "this note points at that one"
+and "that one points at this" were indistinguishable, and a Connections block
+that cannot state which way round a link goes is not one. **A private note
+contributes the fact of the connection and never its text** — proven by
+reverting the guard, which turns the test's assertion into
+`assert 'SECRET diary line' == 'Private note'`.
+
+Verified in Chromium at 1440×900 and 390×844: three rows on one left edge
+(389px), no clipping, the document row lands on `tab-documents` with the right
+document open, Escape closes, the ⋯ `<details>` closes behind the dialog, the
+empty state renders, and at 390px the card is 342px wide with no horizontal
+page overflow. No page errors at either width.
+
+**Ctrl+Shift+K opened two things at once** (reported). The agent bar bound its
+chord in a `document.addEventListener` of its own rather than in
+`DEFAULT_SHORTCUTS`. It collided with the navigation palette on Ctrl+K once
+already; that fix moved it to Ctrl+Shift+K, which `quickSketch` had held all
+along — one silent collision swapped for another, both found by a person
+pressing keys. It is now `askAgent: "Ctrl+Shift+A"` **in the registry**, and
+`tests/test_frontend_shortcuts.py` fails the build on a duplicate chord, on a
+shortcut with no action, and on the agent bar growing its own binding back.
+Verified live: Ctrl+Shift+K opens the sketch pad only, Ctrl+Shift+A the agent
+bar only.
+
+**`[browser/csp] blocked script-src-elem: inline`, again** (reported, from the
+desktop app on :8000). `CspForPage` had already fixed the stale-server cause by
+recomputing the hash when index.html changes, and the report came back anyway.
+Rather than hunt a fourth cause, the failure class is gone: the anti-flash theme
+bootstrap moved out of the page into `frontend/theme-boot.js`, which
+`script-src 'self'` covers unconditionally, so there is no second copy of the
+script to disagree with the first. The page now carries **no inline script at
+all**, and `test_static_freshness.py::test_the_page_has_no_inline_script_left`
+holds it that way. Verified: the served CSP is now `script-src 'self'` with no
+hash, and a reload with `themePreset=terminal` applies dark/carbon/mono/compact
+and `--radius: 2px` before paint, with no CSP console errors.
+
+That move also exposed a real hole in `inline_script_hashes`: it is a regex, so
+a comment that merely *writes out* a script tag opens a match and the pattern
+then runs to the next `</script`, swallowing the real tags between. index.html's
+own new comment did exactly that — a phantom hash, and the tag it described
+hidden behind it. Comments are stripped before the scan now. A phantom hash is
+harmless; a real inline script hidden by one would be served unhashed and
+refused, which is the failure the module exists to prevent.
+
+**Could not be verified here:** the user's own instance on :8000. The CSP fix is
+structural rather than a reproduction of their exact state.
+
+## §92 — an alignment pass over five reported rows, and the rule that kept failing
+
+Six defects reported in one message, all measured before and after. Four of
+them turned out to be **one bug wearing different clothes**: a rule reaching
+somewhere it was never written for.
+
+1. **Settings, "Keep the AI on this machine".** The "?" sat at x=732 as a 32px
+   circle mid-sentence, with the switch 325 pixels further right at 1089.
+   `collapseLongSettingHints` now puts the button in the `.setting-check`
+   grid's own second column, so the two controls that belong together sit
+   together (24px, 10px apart, centres 522.2 / 522.1). Every switch in a group
+   still lands on one right edge — measured, five switches, one distinct x.
+2. **"Advanced response settings".** Its cursor was `auto`, which over text is
+   an I-beam, and its heading sat three pixels above the caret. The offset was
+   not alignment at all: the `<h3>` carries `margin: 0 0 6px` and a flex
+   container centres the *margin box*. Both fixed; centres now identical.
+3. **The "File under" list.** `.capture-field-row button` is a descendant
+   selector, and the dropdown opens from inside that row — so every option was
+   pinned to `--control-h` with `padding-block: 0`: 24px rows, text against the
+   edges. Excluded `.menu-item` there and in `.ask-query-row`, which had the
+   same shape. The menu is also `width: max-content` now, so a long category
+   widens the list (204 → 338px on "Postgraduate Research & Methods") instead
+   of wrapping across two lines; it grows leftward from `right: 0`, so the
+   right edge does not move.
+4. **The Ask history toolbar.** Four heights on one row — 40.38, 32, 28, 28 —
+   with matching centres, which is why it read as mismatched rather than
+   crooked. One declared `--control-h`; all four are 36 now.
+5. **Reminders.** The gap between the "Remind me to" row and the When block was
+   *exactly zero*, measured; it is 7.2px now. And the list bar's two segments
+   centred at 400 while the heading and select centred at 404 — the same
+   margin-box story as (2): `.seg` carries `margin-bottom: 0.5rem` for standing
+   alone. Zeroed for a `.seg` inside a row, kept everywhere else; swept all
+   seven tabs to confirm the standalone strips (`notes-subtabs` 9.6px,
+   `library-subtabs` 18px) still have theirs.
+6. **The notes view toggle "looking joined".** In dark mode the *inactive*
+   button was `rgba(255,255,255,0.14)` on a segment container of
+   `rgba(255,255,255,0.07)` — a button whose own ground was stronger than its
+   group's, so two segments read as two loose pills. The icon-affordance rule's
+   own comment already listed `.seg button` as an exclusion; the selector never
+   had it. Worth noting how the fix failed first: the obvious
+   `.seg > button.icon-only:not(.active)` is (0,3,1) against that rule's
+   (0,5,1) and changed nothing. The `:not()` chain is repeated to reach
+   (0,6,1).
+
+**Also built:** Expand all / Collapse all for the collapsed rows view (asked
+for directly). One button, labelled for the move it will make, hidden in cards
+view where every note is already open. It reads the rendered `<li>`s rather
+than recomputing which notes are visible — filtering, sorting, threading and
+pagination all decide that between them. Verified: 60 rows, list 3452 → 4952px
+on expand and exactly back on collapse.
+
+**One test moved rather than changed:** `test_the_prepaint_theme_table_matches_app_js`
+reads `theme-boot.js` now. It failed with "the table has moved", which was
+true — §91 moved it — and is what the test is for.
+
+## §93 — the agent bar, the Library's Images/Files split, and a 500 with no body
+
+**The popup agent bar.** Reported: "the popup agent needs more features,
+capability, and learnability, there's no way to clear the chat and start over,
+idk what it can do, and even if it works." All four were true of one handler:
+
+- It sent `history: []` every turn, so a follow-up could not refer to the
+  answer above it. It looked like a chat and behaved as a series of unrelated
+  one-shot questions. It keeps a conversation now, with the same
+  `MAX_CLIENT_HISTORY` window the Ask box uses.
+- No way to clear it — the only reset was reloading the app. "Start over" now.
+- Its entire affordance was "Press Enter to send", which says how to work the
+  box and nothing about what the box is for. Replaced with one sentence naming
+  what it can actually do and four clickable examples.
+- Every failure surfaced as "Error communicating with agent." — a message that
+  guarantees "idk if it even works" — and it discarded `err.message`, which is
+  exactly where a failing model's diagnosis arrives. The real text shows now.
+
+Also added a Stop button and a busy state, sampled live at 50ms: input
+disabled, Stop shown, "Working…", and all three cleared afterwards.
+
+**A 500 with an empty body.** Reported verbatim from a custom HF GGUF:
+`Tool chat with 'hf.co/…/Gemma-4-E2B-…:Q4_K_M' failed: 500 Server Error`.
+`describe_http_error` reads Ollama's `{"error": …}` and had a deliberate
+fallback: with no body, say nothing extra. That reasoning was wrong. The app
+still knows which model was asked, that a *local* server answered 5xx, and that
+500s on `/api/chat` are dominated by a model that would not load or ran out of
+memory — and it can point at Ollama's own log for the real text. The raw error
+is still carried, and a 4xx with no body gets none of this guidance, since
+"check your GGUF" would send the user the wrong way.
+
+**Not reproduced:** the user's own failing model. There is no Ollama in this
+sandbox; every provider test here runs against a fake transport. What changed
+is what the app says when that happens, not the model.
+
+**The Library is Images and Files, two sub-tabs.** Asked for directly. Both open
+the same section and the same gallery — the split is a filter, not a second copy
+— because the search, lightbox, usage chips, rename and delete are identical
+whichever kind a file is. The `isImage` test the tile code already carried (a
+PDF rendered as an `<img>` decodes to nothing and the tile deletes itself) is
+now one shared helper, so a `.heic` cannot be an image in one place and a file
+in another.
+
+That split broke three existing jumps, and the breakage is worth recording
+because it is invisible: `querySelector('[data-target="library-view-media"]')`
+now matches *two* buttons and returns Images, so every "find this file in the
+Library" action would have landed a PDF on the Images tab and shown "no match".
+One `focusLibraryFile(name, url)` picks the sub-tab from the url; the palette,
+the chat attachment strip and the Connections dialog all call it.
+
+**The All view's Files chip** showed "＋ Create" — the picker that asks what you
+want to *make*, when the answer for a file is never "make". It says "Upload a
+file" now, opens the Files sub-tab, and then the picker.
+
+**Sketches in the gallery — already true, and checked rather than assumed.**
+Drove it end to end: opened the sketch pad, drew a stroke, saved, and found
+`sketch-2026-09-04-07-54-08.png` in the Images tab under a "sketch" search.
+Quick sketches have gone through `/media/upload` since captioning/OCR was added
+for them, so they are ordinary uploads. What is *not* in the gallery is a
+whiteboard freehand sketch (`WhiteboardSketch`) — that is stroke data on a
+board, not a stored image, and putting it there would mean rasterising it.
+
+## §94 — the documents editor's three defects, and a preview that could not tell two boards apart
+
+**The source pane could be dragged out of the card.** `#doc-content` is
+`resize: vertical` with no ceiling, and the editor lives in a fixed-height app
+shell — so past the pane's own height the textarea grows straight through the
+bottom of the card. Proven both ways: with the cap removed, a 4000px height
+renders 4000px and reaches 4231 against a card bottom of 845; with
+`max-height: 100%` it clamps to 566 and stays inside. The handle still works
+over the whole range that fits.
+
+**"Idk why the document rendered views are so thin??"** They were 736px inside
+a 1132px pane, which is the 72ch measure doing exactly what it was written for.
+The cap is not wrong; being the only option was — a measure is right for
+reading a finished page and wrong for a wide table or a code-heavy file.
+`#doc-width-toggle` releases it for every pane at once (so Split's halves
+cannot disagree) and is remembered. Verified: 736 → 1100 and back, and still
+wide after a reload.
+
+That fix failed once first, and the reason is worth keeping: `.doc-wide
+#doc-preview` is (0,2,0) and loses to both `#doc-preview` (1,0,0) and
+`#doc-preview:not(.doc-split-pane)` (1,1,0). The toggle flipped its own
+`aria-pressed` and moved the preview not one pixel. **An ID in the rule you are
+overriding is worth more than any number of classes in yours.**
+
+**The formatting toolbar wrapped to a second row.** Measured across four
+widths: one row at 1440, two (44 → 77.2px) at 1280 and below — which is where
+this editor actually sits once the chat dock is open. Colour and Insert fold
+into `<details>` menus (the same disclosure the document ⋯ menu uses); 25
+controls become 19 and it holds one row down to 1100. Folded buttons still fire
+— `initMarkdownToolbars` finds them with a descendant query — verified by
+inserting a table from inside the Insert menu.
+
+**"The whiteboard preview is poor."** It was, and looking at it said why in one
+glance. Every card drew as an identical blank rectangle, so three boards all
+named "Cloud computing" showed three indistinguishable arrangements of grey
+blobs — a picture carrying only *how many* and *roughly where*. And a board
+holding only sketches previewed as an **empty box** beside a line reading "2
+sketches", because sketches were never in the sample at all.
+
+`preview_points` (bare `[x, y]`) became `preview_items` (`{x, y, kind, label}`)
+covering cards, sketches and objects. A card carries its note's own title or
+first words; a sketch draws as a squiggle, since the thumbnail deliberately
+does not ship stroke data; an object sits back at lower opacity. A private
+card contributes its position and never its text — same rule as the
+Connections block and the Library's file-usage chips, and there is a test that
+fails if it leaks.
+
+Two things only looking at the render would have found: a label drawn always to
+the right runs off the edge for a card at nx ≈ 91, coming out sliced mid-word
+("Cloud computi") — it hangs off the left past the halfway mark now; and a bare
+16-character slice reads as broken ("Connections prob") where an ellipsis reads
+as shortened.
+
+## §95 — collapsible blocks, and the one feature the odysseus read said was missing
+
+**Typed collapsible blocks (REDESIGN.md §R7.3 item 3), the last piece of that
+section.** Asked for again directly: *"I want the structured note features and
+elements from kortex with the slash commands to be rendered and easier for the
+user to use."*
+
+Checking first was worth it, and is why this is small: the slash menu, `[[`
+linking, callouts, embeds, tables and checklists **all already existed and all
+already rendered**. What did not exist was folding. `> [!note]-` (closed) and
+`> [!note]+` (open, but foldable) now render as a `<details>` with the head as
+its `<summary>`; a plain `> [!note]` renders exactly as it always did, which is
+§R7.3's own constraint — a marker, so storage and export do not change and old
+notes are unaffected. Obsidian's spelling rather than a new one, because the
+people who want this have met it there.
+
+One slash command rather than eight foldable variants: a live browser check has
+already caught this menu once for pushing Links and Templates below the fold,
+and "fold this away" is the ask, not "fold this away, in orange". Verified in
+Chromium: all three forms render as expected, the closed one opens on click,
+and typing `/fold` offers it.
+
+**Passive capture from chat (ANALYSIS.md §60 item 2).** The odysseus read's own
+one-line answer to "any features overlooked?" was this one: *"nothing in this
+app turns an offhand mention in ordinary chat into a filed note"* — a strange
+gap for an app whose pitch is "a local AI files your notes". It is now a fifth
+opt-in background-librarian job, `auto_capture_enabled`, exactly where that
+analysis said it belonged.
+
+Three decisions carry it, and each has a test that fails if it breaks:
+
+- **Drafts, never notes.** ANALYSIS.md's own caution: a background job that
+  mis-files something nobody asked to capture is a worse failure than one that
+  misses something. A draft is kept off the notes list, out of the Library's
+  main view and off the graph.
+- **A fingerprint short-circuit**, written *before* the model call rather than
+  after — a crash between the two would otherwise re-offer the same turns.
+  Odysseus's own comment records 30–120s per call before they added one.
+- **The user's words, not the assistant's.** Capturing an answer the model
+  wrote would fill the notebook with the model quoting itself back.
+
+**A promise corrected before it shipped.** The first draft of the Settings copy
+said a capture stays "out of search, out of the graph and out of the AI's own
+context". Checked instead of assumed: only the graph, the Library list and the
+notes list filter drafts — `search_manager` and the AI's retrieved context do
+not. That is a pre-existing property of drafts generally (the text-selection
+popup makes them too), not something this job introduced, but the wording next
+to the toggle now promises only what actually holds.
+
+Verified live: the toggle round-trips checkbox → PUT → config → GET, and the
+row renders with its long hint collapsed behind the "?" like its neighbours.
+
+**And one thing found by measuring the Chat tab, which is what "make the chat
+tab more like odysseus" turned into.** ANALYSIS.md §60's own verdict is that
+odysseus's UI is not a model worth copying (*"the backend is bigger, not
+better-organised, by its own audit"*), and its one real feature gap is the
+passive capture above. So the Chat tab got the same treatment every other
+screen has had this session — measured against this app's own standards — and
+that found a genuine bug.
+
+**The Agent Activity panel was 38% see-through, over the chat sidebar.** It
+carries `card glass`, and the translucency lives in the `--card` token, not in
+any rule about this panel. `position: fixed` puts it over the sidebar, so the
+sidebar's own text rendered *through* it. Measured on a row inside the panel
+where only sidebar text lies underneath: 63 distinct colours with a brightest
+of **(74,79,86)** before, 12 with a brightest of **(21,24,29)** after — while
+the rows carrying the panel's own log text still reach (240,242,245) in both,
+which is how you can tell the right layer was removed.
+
+This is the `--modal-bg` lesson in CLAUDE.md and worse: that was 4%
+see-through over a form and cost six rounds of "fixed"/"still broken"; this was
+38% over a scrolling wall of small monospace.
+
+The fix took three attempts and the two failures are the useful part:
+
+1. `.agent-monitor { background: var(--card) }` — loses to `.card.glass` at
+   (0,2,0). Alpha unchanged at 0.62.
+2. `.agent-monitor.card.glass { background: var(--card) }` — right
+   specificity, still nothing, because **`--card` *is* the transparency**. The
+   rule set the panel to exactly what it already was.
+3. `background-color: var(--page)` — invalid, computing to `rgba(0,0,0,0)`,
+   because **`--page` is a `linear-gradient`, not a colour**. A rule that looks
+   right, parses, and does nothing.
+
+What works is two background *image* layers: the card's tint as a one-stop
+gradient over the page's own gradient.
+
+**Found and deliberately not changed:** open, that panel also covers the
+composer's Skills button. That is a placement decision rather than a defect in
+what was reported, and moving a `position: fixed` panel without measuring it
+across window heights is how this session's other regressions were made.
+Recorded here rather than guessed at.

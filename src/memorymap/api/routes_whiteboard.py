@@ -273,10 +273,132 @@ class BoardOut(BaseModel):
     node_count: int
     sketch_count: int
     object_count: int = 0
+    #: A miniature of where things actually sit on this board: up to
+    #: Up to `PREVIEW_POINTS` items — `{x, y, kind, label}` — each position
+    #: normalised into 0..1 against the board's own bounding box. The
+    #: Library's board cards showed an icon, a title and a count, which is
+    #: the same three facts for every board anyone has ever drawn (reported
+    #: as the Boards & maps sub-tab being "boring" and wanting previews).
+    #:
+    #: **`kind` and `label` are why this replaced a bare list of points**,
+    #: and both came out of looking at the result: reported again as "the
+    #: whiteboard preview is poor", and the screenshot showed why. Every card
+    #: drew as an identical blank grey rectangle, so three different boards
+    #: called "Cloud computing" were indistinguishable — a preview whose only
+    #: information is *how many* things there are and roughly where. And a
+    #: board holding only sketches previewed as nothing at all, because
+    #: sketches were not in the sample; "Default board · 2 sketches" showed
+    #: an empty space where its picture should be.
+    #:
+    #: Normalised here rather than client-side because the client would then
+    #: need every item's absolute coordinates to compute the bounds, which is
+    #: the whole board — and a list of twenty boards would ship twenty whole
+    #: boards to draw twenty thumbnails.
+    preview_items: list[dict] = []
 
 
 class BoardCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
+
+
+#: The most points a board's thumbnail carries. A minimap is a shape, not a
+#: census: past a few dozen dots the picture stops distinguishing boards and
+#: starts being noise, and the payload grows with every card anyone adds.
+PREVIEW_POINTS = 40
+
+
+def _preview_points(rows: list[tuple[float, float]]) -> list[list[float]]:
+    """Normalise raw board coordinates into 0..1 for a thumbnail.
+
+    Evenly sampled rather than truncated: `rows[:40]` of a 300-card board is
+    whatever 40 cards were inserted first, which is not the board's shape.
+    A stride keeps the sample spread across the whole board.
+
+    A board whose content is a single point, or a perfectly straight row of
+    cards, has zero extent on at least one axis — hence the guard, which
+    centres that axis instead of dividing by zero.
+    """
+    if not rows:
+        return []
+    stride = max(1, len(rows) // PREVIEW_POINTS)
+    sampled = rows[::stride][:PREVIEW_POINTS]
+    xs = [x for x, _ in sampled]
+    ys = [y for _, y in sampled]
+    min_x, max_x = min(xs), max(xs)
+    min_y, max_y = min(ys), max(ys)
+    span_x = max_x - min_x
+    span_y = max_y - min_y
+    return [
+        [
+            round((x - min_x) / span_x, 3) if span_x else 0.5,
+            round((y - min_y) / span_y, 3) if span_y else 0.5,
+        ]
+        for x, y in sampled
+    ]
+
+
+#: How much of a card's own text the thumbnail carries. Enough to tell two
+#: boards apart at a glance and no more — the label is drawn at a few pixels
+#: high, so a longer string is only bytes.
+PREVIEW_LABEL_CHARS = 28
+
+
+def _preview_items(rows: list[tuple[float, float, str, str]]) -> list[dict]:
+    """The same normalisation as `_preview_points`, carrying what each item
+    *is* and what it says.
+
+    Sampling happens before normalising and both use one stride, so the
+    labels can never end up attached to the wrong positions — which is the
+    obvious way to break this while every number still looks plausible.
+    """
+    if not rows:
+        return []
+    stride = max(1, len(rows) // PREVIEW_POINTS)
+    sampled = rows[::stride][:PREVIEW_POINTS]
+    points = _preview_points([(x, y) for x, y, _, _ in sampled])
+    return [
+        {"x": nx, "y": ny, "kind": kind, "label": label}
+        for (nx, ny), (_, _, kind, label) in zip(points, sampled, strict=True)
+    ]
+
+
+def _board_preview(db: Session, board_id: int | None) -> list[dict]:
+    """Everything placed on one board, as a thumbnail.
+
+    Cards, sketches *and* objects. Cards alone was the first version and it
+    is why a sketch-only board previewed as an empty rectangle: the count
+    line said "2 sketches" beside a picture of nothing.
+    """
+    from memorymap.entry import manager
+
+    def on(model):
+        return (
+            model.board_id.is_(None) if board_id is None else model.board_id == board_id
+        )
+
+    rows: list[tuple[float, float, str, str]] = []
+
+    for node in db.scalars(select(WhiteboardNode).where(on(WhiteboardNode))):
+        entry = db.get(Entry, node.entry_id)
+        label = ""
+        if entry is not None and not entry.is_private:
+            # A card *is* a note, so its own title (or first words) is what
+            # is written on it. A private note contributes its position and
+            # nothing else — the same rule the Connections block and the
+            # Library's file-usage chips follow.
+            text = manager.readable_content(entry)
+            label = (manager.extract_title(text) or text.strip().split("\n")[0])[
+                :PREVIEW_LABEL_CHARS
+            ]
+        rows.append((float(node.x), float(node.y), "card", label))
+
+    for sketch in db.scalars(select(WhiteboardSketch).where(on(WhiteboardSketch))):
+        rows.append((float(sketch.x), float(sketch.y), "sketch", ""))
+
+    for obj in db.scalars(select(WhiteboardObject).where(on(WhiteboardObject))):
+        rows.append((float(obj.x), float(obj.y), obj.kind or "object", ""))
+
+    return _preview_items(rows)
 
 
 @router.get("/boards", response_model=list[BoardOut])
@@ -331,6 +453,7 @@ def list_boards(db: Session = Depends(get_session)) -> list[BoardOut]:
             node_count=default_nodes,
             sketch_count=default_sketches,
             object_count=default_objects,
+            preview_items=_board_preview(db, None),
         )
     ]
     # `is_board` entries are included even at zero counts — see its own
@@ -357,6 +480,7 @@ def list_boards(db: Session = Depends(get_session)) -> list[BoardOut]:
                     node_count=node_counts.get(entry.id, 0),
                     sketch_count=sketch_counts.get(entry.id, 0),
                     object_count=object_counts.get(entry.id, 0),
+                    preview_items=_board_preview(db, entry.id),
                 )
             )
     return boards
@@ -419,6 +543,79 @@ def create_board(body: BoardCreate, db: Session = Depends(get_session)) -> Board
     db.commit()
     db.refresh(entry)
     return BoardOut(id=entry.id, title=name, node_count=0, sketch_count=0)
+
+
+@router.post("/boards/{board_id}/duplicate", response_model=BoardOut, status_code=201)
+def duplicate_board(board_id: int, db: Session = Depends(get_session)) -> BoardOut:
+    """Copy a board — every card, sketch and object, at the same positions.
+
+    ROADMAP.md item 8 ("managing concept maps"): creating a map works and so
+    do listing and renaming, but duplicating did not exist on either side.
+    It is the one that makes a map reusable — a map you have laid out is a
+    template for the next one, and without this the only way to reuse a shape
+    is to rebuild it card by card.
+
+    **A card is a real note**, which is the app's own premise (see
+    `createConceptMap`) and the reason this is not a shallow row copy: the
+    duplicate gets *new* notes with the same text, so editing a card on the
+    copy cannot rewrite the original's. The alternative — pointing both boards
+    at one set of notes — looks identical the moment it is made and diverges
+    into data loss the first time someone edits the copy.
+
+    Sketches and objects carry no separate identity, so those rows are copied
+    as they are.
+    """
+    # `_require_board` validates and returns nothing, so the Entry is fetched
+    # separately — the title has to come from the board note's own heading,
+    # which is where a board's title lives (see `rename_board`).
+    _require_board(db, board_id)
+    source = deps.get_or_404(db, Entry, board_id, "Board not found")
+    title = extract_title(source.content) or "Untitled board"
+    copy = Entry(content=f"# {title} (copy)", is_board=True)
+    db.add(copy)
+    db.flush()  # the new board needs its id before anything can point at it
+
+    nodes = db.scalars(
+        select(WhiteboardNode).where(_board_filter(WhiteboardNode, board_id))
+    ).all()
+    for node in nodes:
+        original = db.get(Entry, node.entry_id)
+        if original is None:
+            continue  # a stale row: skip rather than copy a dangling card
+        card = Entry(content=original.content, is_private=original.is_private)
+        db.add(card)
+        db.flush()
+        db.add(
+            WhiteboardNode(
+                board_id=copy.id,
+                entry_id=card.id,
+                x=node.x,
+                y=node.y,
+                z=node.z,
+                width=node.width,
+                height=node.height,
+            )
+        )
+
+    for sketch in db.scalars(
+        select(WhiteboardSketch).where(_board_filter(WhiteboardSketch, board_id))
+    ).all():
+        db.add(WhiteboardSketch(board_id=copy.id, data=sketch.data))
+
+    for obj in db.scalars(
+        select(WhiteboardObject).where(_board_filter(WhiteboardObject, board_id))
+    ).all():
+        db.add(WhiteboardObject(board_id=copy.id, kind=obj.kind, data=obj.data))
+
+    db.commit()
+    db.refresh(copy)
+    return BoardOut(
+        id=copy.id,
+        title=f"{title} (copy)",
+        node_count=len(nodes),
+        sketch_count=0,
+        preview_items=_board_preview(db, copy.id),
+    )
 
 
 class BoardRename(BaseModel):

@@ -304,6 +304,18 @@ def get_session(request: Request = None) -> Iterator[Session]:
         workspace_id = request.headers.get("X-Workspace-ID")
         if workspace_id:
             session.info["workspace_id"] = workspace_id
+            # Resolved here, once, because the statement-level filter in
+            # database.py runs for every query and must not issue one of its
+            # own (it would re-enter that same event). Only "all" needs it.
+            if workspace_id == "all":
+                from memorymap.core.database import Space
+
+                session.info["hidden_workspaces"] = [
+                    row[0]
+                    for row in session.query(Space.id)
+                    .filter(Space.hidden_from_all.is_(True))
+                    .all()
+                ]
     try:
         yield session
     finally:
@@ -362,6 +374,44 @@ def store_quietly(session: Session, entry: Entry) -> bool:
             exc_info=True,
         )
         return False
+
+#: How many notes have to arrive or vanish at once before the app says the
+#: search index is worth rebuilding. Twenty is roughly "an import or a restore
+#: happened", not "you had a productive afternoon" — a suggestion that fires
+#: on ordinary use is a suggestion people learn to ignore.
+INDEX_STALE_SUGGEST_AT = 20
+
+
+def mark_index_stale(count: int) -> None:
+    """Record that `count` notes changed outside the one-note-at-a-time path.
+
+    Asked for directly: *"suggest rebuilding the search index upon large
+    changes."* A note saved through the app embeds itself as it goes
+    (`store_quietly` above); a note that arrives by bulk import or comes back
+    from a backup restore does not always, and nothing anywhere said so — the
+    only symptom was semantic search quietly missing things it should have
+    found.
+
+    A counter rather than a boolean, because "3 notes" and "1,400 notes" are
+    different situations and only one of them is worth interrupting anybody
+    for. Kept in preferences (not the database) so a restore cannot roll the
+    fact of the restore back over itself.
+    """
+    if count <= 0:
+        return
+    config = get_config()
+    current = int(config.get_preference("index_stale_notes", 0) or 0)
+    config.set_preference("index_stale_notes", current + count)
+
+
+def clear_index_stale() -> None:
+    """Called when a rebuild starts: the backlog it was counting is gone."""
+    get_config().set_preference("index_stale_notes", 0)
+
+
+def index_stale_notes() -> int:
+    return int(get_config().get_preference("index_stale_notes", 0) or 0)
+
 
 @contextmanager
 def impersonate_workspace(session: Session, workspace_id: str):

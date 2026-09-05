@@ -97,6 +97,23 @@ let activeCategory = null; // sidebar filter; null = All
 // exclusive with activeCategory: picking one clears the other, same as
 // switching categories already does.
 let draftsOnly = false;
+// **Favourites, as a third sidebar filter over a flag that already existed.**
+// Asked for: "there should be a favourites folder or side parallel category
+// that isnt an actual category but could be treated as one if toggled?? for
+// notes??"
+//
+// Built on `entry.pinned` rather than on a new "starred" column, and that is
+// the whole design decision. `pinned` is already per-note, already persisted,
+// already toggled from a note's own chip, and already searchable as
+// `is:pinned` — a second boolean meaning almost the same thing would be two
+// half-used flags and two places to star something, which is exactly the
+// "everything is different from everything else" this round is undoing. What
+// was missing was never the data; it was the *place*: a row in the sidebar you
+// can click, alongside the categories, the way Drafts already is.
+//
+// So `pinned` keeps its sort meaning (float to the top) and gains a collection
+// meaning (a group you can go to). The same note is in both readings.
+let favouritesOnly = false;
 let linkSource = null; // entry id waiting for its link partner
 let editingId = null; // entry id currently in inline-edit mode
 let inlineAction = null; // {id, kind: "context"|"continue"} open on a card
@@ -133,13 +150,129 @@ function authToken() {
 // `require_unlock_media` accepts the token this way for exactly these two
 // routes; every other endpoint stays header-only. A no-op on anything that
 // isn't one of these two paths, so every call site can use it unconditionally.
+//: **Declared up here, and the reason is the `SPACE_ALL` story below.** A
+//: `const` is in the temporal dead zone until its own line runs, and
+//: `mediaSrc` is called during boot — long before the capture composer's own
+//: section of this file is reached. Left where they logically belong (beside
+//: `handleFileUpload`), the very first render would throw
+//: `ReferenceError: Cannot access 'STAGED_URL_PREFIX' before initialization`,
+//: which `node --check` cannot see because the file is syntactically perfect.
+const STAGED_URL_PREFIX = "staged:";
+
+//: Images waiting for a note to exist — the bytes stay in the browser until
+//: Save produces an id. See `handleFileUpload` for the whole arrangement.
+let captureStagedImages = [];
+
+//: The one place that knows the placeholder's shape, so the renderer and the
+//: rewrite cannot disagree about it.
+function stagedImageUrl(key) {
+  return `${STAGED_URL_PREFIX}${key}`;
+}
+
+function stagedImageByUrl(url) {
+  if (typeof url !== "string" || !url.startsWith(STAGED_URL_PREFIX)) return null;
+  const key = url.slice(STAGED_URL_PREFIX.length);
+  return captureStagedImages.find((image) => image.key === key) || null;
+}
+
+//: **The one thing staging must never do: reach the database.**
+//:
+//: REDESIGN.md §R7.2 held this feature back for a whole session over exactly
+//: this failure mode, and the wording is worth keeping: every path that can
+//: save the composer has to rewrite the staged markers first, and one that
+//: does not leaves `staged:`/`blob:` URLs inside saved note content —
+//: *corrupted notes, which is worse than the recoverable orphan it replaces*
+//: (orphans already have a collector; a note whose picture is a dead
+//: in-memory key has nothing).
+//:
+//: That section asked for "a test per save path". This is the stronger
+//: version of the same idea and the reason there is no allowlist of save
+//: paths anywhere: rather than enumerate the functions that must remember to
+//: call `rewriteStagedUrls` — an enumeration a future save path joins by
+//: being forgotten — every request in the app passes through `api()`, so the
+//: check lives there and a new save path is covered by existing.
+//:
+//: It throws rather than repairing. A silent fix would hide the bug and ship
+//: a note missing its picture; a throw surfaces in the caller's own error
+//: toast with the note still unsaved in the box, so nothing is lost.
+//:
+//: Matched on the markdown embed shape, not on the bare scheme: a note that
+//: happens to contain the word "staged:" is ordinary prose, while `](staged:`
+//: is a link target this app wrote and never a sentence a person typed.
+const STAGED_IN_BODY = /]\((?:staged|blob):/;
+
+function refuseStagedUrls(body) {
+  if (typeof body !== "string" || !STAGED_IN_BODY.test(body)) return;
+  throw new Error(
+    "That still holds an image that hasn't finished uploading — try saving again in a moment."
+  );
+}
+
 function mediaSrc(url) {
+  //: A staged picture has no server url yet; its bytes are a Blob in this
+  //: tab. Resolved here rather than at each `<img>` so every surface that
+  //: renders note markdown — the composer preview, the live view, a widget —
+  //: shows it without knowing staging exists.
+  if (typeof url === "string" && url.startsWith(STAGED_URL_PREFIX)) {
+    return stagedImageByUrl(url)?.objectUrl || url;
+  }
   if (typeof url !== "string" || !/^\/(media|files)\//.test(url)) return url;
   const token = authToken();
   if (!token) return url;
   const sep = url.includes("?") ? "&" : "?";
   return `${url}${sep}token=${encodeURIComponent(token)}`;
 }
+
+// **A file that is no longer there should say so, not draw a broken frame.**
+//
+// Reported with a screenshot of a timeline popup: "a photo i attached to a
+// note ages ago but deleted still randomly shows itself as a placeholder
+// empty image with the image filename". A note's body keeps the
+// `![name](/media/…)` markdown it was written with, so deleting the upload
+// leaves a live `<img>` pointing at a 404 — and what a browser draws for that
+// is its own torn-page glyph beside the alt text, which is the filename. It
+// looks like the app is broken rather than like the file is gone.
+//
+// One delegated listener rather than an `onerror` at each of the twenty-odd
+// places that build an `<img>`: `error` does not bubble, but it *does*
+// capture, so a single capturing listener on the document sees every image
+// failure in the app — including the ones inside rendered markdown, which no
+// call site here constructs and could not have been given a handler anyway.
+//
+// The note's text is deliberately left alone. Rewriting a person's own words
+// because a file they referenced is missing is a bigger claim than this
+// evidence supports (a media route can 404 for a locked notebook or a
+// half-finished restore too), and it is not reversible. This says what is
+// true — there was an image here and it is not available — in the app's own
+// materials, and leaves the source as the record.
+function replaceMissingMedia(img) {
+  if (img.dataset.mediaMissing) return;
+  img.dataset.mediaMissing = "1";
+  const src = img.getAttribute("src") || "";
+  // Only this app's own stored files. An external image that fails is a
+  // different situation, and the note may well want it back when the network
+  // returns.
+  if (!/^\/(media|files)\//.test(src)) return;
+  const gone = document.createElement("span");
+  gone.className = "media-missing";
+  const name = (img.getAttribute("alt") || "").trim();
+  setLabel(gone, `ph:image-broken ${name || "Image"}`);
+  const note = document.createElement("span");
+  note.className = "media-missing-note";
+  note.textContent = "no longer in this notebook";
+  gone.append(note);
+  gone.title = `${name || "This image"} was removed. The note still mentions it.`;
+  img.replaceWith(gone);
+}
+
+document.addEventListener(
+  "error",
+  (event) => {
+    const img = event.target;
+    if (img instanceof HTMLImageElement) replaceMissingMedia(img);
+  },
+  true,
+);
 
 // A page-load-order bug lived here: this was declared down in the spaces
 // section (appended at the end of the file), and `api()` — called from
@@ -169,6 +302,7 @@ async function api(path, options = {}) {
   // your current password" — a typo there must show a message beside the
   // field, not throw the user out to the lock screen.
   const { silent, timeoutMs, ownsAuthErrors, ...fetchOptions } = options;
+  refuseStagedUrls(fetchOptions.body);
   // Any write invalidates the read cache above — see clearApiCache().
   if (fetchOptions.method && fetchOptions.method !== "GET") clearApiCache();
   let timer = null;
@@ -318,6 +452,59 @@ async function submitLockForm() {
   }
 }
 
+//: **The containers that hold the user's own words**, cleared when the
+//: notebook locks. Enumerated explicitly rather than derived, because this is
+//: a privacy boundary and a reviewer should be able to read exactly what is
+//: purged without running anything.
+//:
+//: Static UI text (the Settings panels, the capture form's own labels) is
+//: deliberately not here — it belongs to the app, not to the user, and
+//: clearing markup that `startApp()` does not rebuild would break the app on
+//: unlock.
+const LOCK_PURGE_IDS = [
+  "entry-list", // notes
+  "chat-messages", // the conversation
+  "library-grid", // files and images
+  "library-docs-list", // documents
+  "timeline-scroll", // the timeline
+  "reminder-list-card", // reminders
+  "graph-svg", // node labels are note titles
+  "palette-list", // whatever was last searched for
+  "doc-live",
+  "doc-preview",
+];
+
+//: Empty everything the lock screen is covering.
+//:
+//: **The lock overlay was a visual cover, not a purge**, and the roadmap
+//: ranked auditing it first precisely because it is this app's only privacy
+//: boundary. Measured with the notebook locked: `#entry-list` still held 61
+//: notes and 3,431 characters of their text, `#library-grid` 5,089, the
+//: documents list 6,422 — all of it one devtools click, one screen reader,
+//: or one browser extension away from being read.
+//:
+//: The server side was already right (every endpoint answers 401 while
+//: locked, verified in the same audit), so this closes the client half.
+//:
+//: Safe because unlocking runs `startApp()`, which re-fetches and re-renders
+//: all of it. The codebase already reasons this way elsewhere —
+//: `hideBootSplash` removes itself from the DOM rather than leaving a hidden
+//: overlay, on the same principle that nothing should sit over the viewport
+//: invisibly.
+function purgeLockedContent() {
+  for (const id of LOCK_PURGE_IDS) {
+    const el = document.getElementById(id);
+    if (el) el.replaceChildren();
+  }
+  // A textarea's text lives in `.value`, which `replaceChildren` never
+  // touches — the document editor would otherwise keep the whole document
+  // readable behind the lock screen.
+  for (const id of ["doc-content", "doc-title", "entry-input", "chat-input"]) {
+    const field = document.getElementById(id);
+    if (field && "value" in field) field.value = "";
+  }
+}
+
 async function lockNow() {
   try {
     await api("/auth/lock", { method: "POST" });
@@ -325,6 +512,7 @@ async function lockNow() {
     /* locking locally regardless */
   }
   localStorage.removeItem("token");
+  purgeLockedContent();
   showLockScreen(false);
 }
 
@@ -853,8 +1041,18 @@ function buildSelect(options, selected) {
 // A promise-based dialog fixes that and is better in the browser too — it is
 // styled like the app, it says what the action is in a heading rather than a
 // system font, and the dangerous option can be marked as dangerous.
+//: `checkbox` adds one optional decision to the same dialog — `{label, title,
+//: checked}` — and the promise then resolves to `{ok, checked}` instead of a
+//: bare boolean. Added for "also take this picture out of the notes that show
+//: it", which is a second, *different* act from deleting the file: a
+//: second dialog for it would be a second modal to dismiss, and doing it
+//: silently would be the app editing someone's notes without being asked.
+//:
+//: Callers that pass no checkbox still get a plain boolean, because thirty of
+//: them read the result directly and widening that contract for all of them
+//: would be a rewrite in service of one feature.
 function confirmDialog(message, options = {}) {
-  const { confirmLabel = "OK", cancelLabel = "Cancel", danger = true } = options;
+  const { confirmLabel = "OK", cancelLabel = "Cancel", danger = true, checkbox = null } = options;
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay confirm-overlay";
@@ -876,6 +1074,21 @@ function confirmDialog(message, options = {}) {
     const row = document.createElement("div");
     row.className = "row confirm-actions";
 
+    //: Built before `close`, which reads it.
+    let extra = null;
+    if (checkbox) {
+      const label = document.createElement("label");
+      label.className = "checkbox-label confirm-extra";
+      extra = document.createElement("input");
+      extra.type = "checkbox";
+      extra.checked = Boolean(checkbox.checked);
+      const caption = document.createElement("span");
+      caption.textContent = checkbox.label;
+      label.append(extra, caption);
+      if (checkbox.title) label.title = checkbox.title;
+      card.appendChild(label);
+    }
+
     let settled = false;
     const close = (answer) => {
       if (settled) return;
@@ -883,7 +1096,7 @@ function confirmDialog(message, options = {}) {
       document.removeEventListener("keydown", onKey, true);
       overlay.remove();
       returnFocus?.focus?.();
-      resolve(answer);
+      resolve(checkbox ? { ok: answer, checked: answer && Boolean(extra?.checked) } : answer);
     };
     const onKey = (event) => {
       // Escape cancels and Enter confirms, but only while this dialog is up —
@@ -902,7 +1115,10 @@ function confirmDialog(message, options = {}) {
     const go = smallButton(confirmLabel, confirmLabel, () => close(true), false);
     if (danger) go.classList.add("danger");
     row.append(cancel, go);
-    card.append(text, row);
+    //: `insertBefore`, because the checkbox above was appended to the card
+    //: already and the buttons belong under it.
+    card.insertBefore(text, card.firstChild);
+    card.appendChild(row);
     overlay.appendChild(card);
     // Clicking the backdrop cancels, the way every other overlay here behaves.
     overlay.addEventListener("click", (e) => {
@@ -1067,6 +1283,40 @@ function smallButton(label, title, onClick, ghost = true) {
   return button;
 }
 
+//: **The star that says a note is a favourite, in both states.**
+//:
+//: Reported with a screenshot: the active one rendered as an **empty circle**
+//: — no glyph at all. The cause is worth stating because it is a whole class
+//: of bug, not one icon: the off state asked for `ph:star` and the on state
+//: for `ph:star-slash`, and **`star-slash` is not in this app's vendored
+//: Phosphor subset.** A missing glyph in an icon font is not an error — the
+//: character simply has nothing to draw — so it fails silently, looks like a
+//: styling problem, and nothing in the suite could see it. One icon name out
+//: of 176 was wrong and there was no way to know. `tests/test_icon_names.py`
+//: now checks every one against the font.
+//:
+//: The fix is also the better design. A slashed star means "remove", which is
+//: a *verb* on a control whose job is to show *state*; every app the user has
+//: ever used shows a favourite as a star that has changed colour. So both
+//: states draw `ph:star` and the difference is `is-favourite` — plus
+//: `aria-pressed`, which is what makes the state readable without the colour.
+function favouriteButton(entry) {
+  const button = smallButton(
+    "ph:star",
+    entry.pinned ? "Remove from Favourites" : "Add to Favourites (also floats it to the top)",
+    async () => {
+      await api(`/entries/${entry.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ pinned: !entry.pinned }),
+      });
+      await loadEntries();
+    }
+  );
+  button.classList.toggle("is-favourite", Boolean(entry.pinned));
+  button.setAttribute("aria-pressed", String(Boolean(entry.pinned)));
+  return button;
+}
+
 // One entry card, shared by the browse list, chat results, and the bin.
 // "2 hours ago" style, with the exact date kept for the hover tooltip
 // (Wave J). Anything older than a week just shows the date.
@@ -1075,11 +1325,87 @@ function entryItem(entry, options = {}) {
   const li = document.createElement("li");
   li.dataset.id = entry.id;
   if (entry.id === linkSource) li.classList.add("link-source");
+  // An opened-out row renders as the full card — see `expandedRows`. The
+  // class does nothing in card view, where every note is already this shape.
+  if (expandedRows.has(entry.id)) li.classList.add("row-expanded");
 
   if (editingId === entry.id && options.actions) {
     renderEditForm(li, entry);
     return li;
   }
+
+  // The row's own open/close control. Rendered always but only *shown* in
+  // rows view (CSS), rather than branched on `notesViewMode` here — the
+  // view can change without a re-render, and a control that exists only in
+  // the mode it was rendered in would go missing on the toggle.
+  //
+  // A direct child of `<li>` now, not of `.entry-meta` — direct instruction:
+  // *"move the note collapse button on the compact rows view to the
+  // permanent left, make sure the button keeps its position even when
+  // expanded."* `.entry-meta` sits in the row's third grid column while
+  // collapsed (title/content/meta side by side) and becomes a bottom-of-card
+  // block once expanded (`li.row-expanded` drops the grid for `block`), so a
+  // button living inside it visibly jumped from the row's right edge to the
+  // card's bottom on every expand. Pinned absolutely to the card's own
+  // top-left corner instead (`.row-expand` in 01-forms-settings.css), which
+  // neither of those two layouts moves — it is positioned against `<li>`
+  // itself, not against whichever of its children currently holds it.
+  {
+    const open = expandedRows.has(entry.id);
+    const expand = document.createElement("button");
+    expand.type = "button";
+    expand.className = "ghost small icon-only row-expand";
+    setLabel(expand, open ? "ph:caret-up" : "ph:caret-down");
+    expand.title = open ? "Show less of this note" : "Show the whole note here";
+    expand.setAttribute("aria-label", expand.title);
+    expand.setAttribute("aria-expanded", String(open));
+    expand.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleRowExpanded(entry.id);
+    });
+    li.appendChild(expand);
+  }
+
+  // Click anywhere on a collapsed/expanded row's own body to toggle it,
+  // same as the button — direct instruction: "if the user clicks on the
+  // main body of the note and not an element on the collapsed row view, it
+  // will expand or collapse without the user having to click the button."
+  // Scoped to rows view only (`.entry-list.is-rows`, checked live rather
+  // than cached — the view can change after this card was built) and
+  // skipped whenever the click landed on something that already has its
+  // own job: a link, a button, an image, selectable text, the checkbox.
+  // `closest("a, button, input, .chip, img")` is the same "don't swallow a
+  // click meant for something else" guard the rest of this file already
+  // uses for row-level handlers.
+  li.addEventListener("click", (event) => {
+    if (event.target.closest("a, button, input, textarea, .chip, img, .unlink")) return;
+    if (window.getSelection()?.toString()) return; // a text selection, not a click
+    // **In select mode the whole card is the checkbox.** Direct instruction:
+    // "when I have selected on the 'select' button in the notes tab, I want
+    // to be able to click on the whole body of the note to select it, not
+    // the select radiobutton in the corner." Asking someone to hit a 16px
+    // box in the corner of a card they are already pointing at is the
+    // slowest possible way to tick twenty notes, and every list that has a
+    // batch mode (Finder, Gmail, Photos) lets the row itself carry it.
+    //
+    // Checked before the rows-view guard below, and in every view: the
+    // expand-on-click behaviour is a *rows* affordance, but selecting is
+    // what the card means while this mode is on, so it takes precedence
+    // wherever it is shown.
+    if (selectMode && options.actions) {
+      const check = li.querySelector(".select-check");
+      if (check) {
+        check.checked = !check.checked;
+        // `change` does not fire for a programmatic `.checked`, and the
+        // checkbox's own listener is the single place that owns the set.
+        check.dispatchEvent(new Event("change", { bubbles: true }));
+        li.classList.toggle("is-selected", check.checked);
+      }
+      return;
+    }
+    if (!li.closest(".entry-list.is-rows")) return;
+    toggleRowExpanded(entry.id);
+  });
 
   // Batch select mode (Wave M): a checkbox leads each card.
   if (options.actions && selectMode) {
@@ -1091,10 +1417,14 @@ function entryItem(entry, options = {}) {
     check.addEventListener("change", () => {
       if (check.checked) selectedIds.add(entry.id);
       else selectedIds.delete(entry.id);
+      // The card carries the selected look, so it has to follow the box
+      // whichever of the two was actually clicked.
+      li.classList.toggle("is-selected", check.checked);
       updateBatchCount();
     });
     li.appendChild(check);
     li.classList.add("selectable");
+    li.classList.toggle("is-selected", check.checked);
   }
 
   // A note's own leading `# Heading` becomes its title (asked for directly).
@@ -1160,11 +1490,47 @@ function entryItem(entry, options = {}) {
       toggle.textContent = label();
     });
     li.appendChild(toggle);
+    // **Then check whether it was actually needed.** Reported: "a show
+    // more/less button appears when it isnt needed sometimes", and
+    // "notes shouldnt be truncated".
+    //
+    // `isLong` above is a character and line count, not a measurement, and
+    // the comment there explains why: this list renders inside a
+    // `display: none` sub-tab where every measured height comes back 0 —
+    // the trap that has caught four features in this codebase. But a count
+    // is a guess, and it is wrong in both directions: a note of 700 short
+    // words wrapped narrow really is long, while 700 characters of one
+    // paragraph in a wide card is three lines that fit with room to spare,
+    // and gets a "Show more" that expands nothing.
+    //
+    // So: guess first so the markup is right when it cannot be measured,
+    // then measure on the next frame and take the control back off when the
+    // text was never clipped. `requestAnimationFrame` is after layout, and
+    // `clientHeight` of 0 (still hidden) fails the comparison and changes
+    // nothing — which is exactly the conservative behaviour that trap
+    // wants.
+    requestAnimationFrame(() => {
+      if (!content.isConnected || expandedNotes.has(entry.id)) return;
+      if (content.clientHeight > 0 && content.scrollHeight <= content.clientHeight + 2) {
+        content.classList.remove("entry-clamped");
+        toggle.remove();
+      }
+    });
   }
 
   const meta = document.createElement("div");
   meta.className = "entry-meta";
-  meta.appendChild(chip(entry.category));
+  // A note saved with filing deferred is in its holding category, not its
+  // real one, and saying "Uncategorised" for the second or two before the
+  // background pass lands reads as the AI having failed. Say what is
+  // actually happening instead.
+  if (entry.filing_state === "pending") {
+    const filing = chip("ph:circle-notch Filing…", "filing");
+    filing.title = "The AI is deciding where this note goes. It's already saved.";
+    meta.appendChild(filing);
+  } else {
+    meta.appendChild(chip(entry.category));
+  }
   for (const tag of entry.tags) meta.appendChild(chip(tag, "tag"));
 
   // "AI 0% — check this" is a warning about the AI's filing, and it only makes
@@ -1202,7 +1568,7 @@ function entryItem(entry, options = {}) {
       // you are already looking at.
       const unlink = document.createElement("span");
       unlink.className = "unlink";
-      unlink.textContent = "×";
+      setLabel(unlink, "ph:x"); // raw "×" glyph vs Phosphor icon font mismatch mis-centers the icon
       unlink.title = `Detach from “${doc.title}” — the note stays`;
       unlink.addEventListener("click", async (event) => {
         event.stopPropagation(); // the chip itself opens the document
@@ -1281,13 +1647,14 @@ function entryItem(entry, options = {}) {
     const actions = document.createElement("span");
     actions.className = "entry-actions";
     actions.appendChild(
-      smallButton(entry.pinned ? "ph:push-pin-slash" : "ph:push-pin", entry.pinned ? "Unpin" : "Pin to top", async () => {
-        await api(`/entries/${entry.id}`, {
-          method: "PUT",
-          body: JSON.stringify({ pinned: !entry.pinned }),
-        });
-        await loadEntries();
-      })
+      //: **Star, not pin, and "Favourites", not "pinned".** The flag does two
+      //: things — floats a note to the top of a list *and* collects it into
+      //: the Favourites row in the sidebar — and it was named for only the
+      //: first, so the app showed one concept under two names with two icons.
+      //: Asked for: "make sure the favourites feature is actually integrated
+      //: everywhere." The tooltip keeps the sort behaviour, since that is the
+      //: half a star does not imply on its own.
+      favouriteButton(entry)
     );
     actions.appendChild(
       smallButton("ph:clipboard", "Copy this note's text", async () => {
@@ -1327,7 +1694,7 @@ function entryItem(entry, options = {}) {
     metaEnd.appendChild(actions);
   }
   if (entry.is_private) meta.insertBefore(chip("ph:lock private"), meta.firstChild);
-  if (entry.pinned) meta.insertBefore(chip("ph:push-pin pinned"), meta.firstChild);
+  if (entry.pinned) meta.insertBefore(chip("ph:star favourite"), meta.firstChild);
   // Set either by the text-selection popup's "Save as draft note" (not yet
   // looked at) or by the Writing Room's "Save as note" (drafted with the AI,
   // however much it was edited before saving) — asked for directly: both
@@ -1360,6 +1727,20 @@ function entryItem(entry, options = {}) {
       "This is a draft — click to publish it as a proper note. It stays where it is either way; only the Drafts filter changes.";
     meta.insertBefore(draftChip, meta.firstChild);
   }
+  //: **Where an imported note came from.** A vault file has a name — the
+  //: thing its `[[wiki links]]` use — and this app has no title field to put
+  //: it in, so without this the name is invisible: the note shows its opening
+  //: words like every other note, and nothing on screen says it is one of a
+  //: thousand files someone imported from a folder.
+  //:
+  //: A chip rather than a heading written into the note: the importer must
+  //: not rewrite the file it imported (see `_run_directory_import` — an
+  //: earlier attempt did, and three tests caught it).
+  if (entry.source_path) {
+    const fileChip = chip(`ph:file-md ${entry.source_path.split("/").pop()}`, "source-path");
+    fileChip.title = `Imported from ${entry.source_path}`;
+    meta.appendChild(fileChip);
+  }
   li.appendChild(meta);
 
   // Attachments (Wave B; images become thumbnails in Wave M).
@@ -1370,7 +1751,7 @@ function entryItem(entry, options = {}) {
       const removeButton = () => {
         const remove = document.createElement("span");
         remove.className = "unlink";
-        remove.textContent = "×";
+        setLabel(remove, "ph:x"); // raw "×" glyph vs Phosphor icon font mismatch mis-centers the icon
         remove.title = "Remove this file";
         remove.addEventListener("click", async (e) => {
           e.stopPropagation();
@@ -1404,10 +1785,30 @@ function entryItem(entry, options = {}) {
         if (options.actions) wrap.appendChild(removeButton());
         fileRow.appendChild(wrap);
       } else {
+        // Opens the lightbox's document viewer, not a download — this used
+        // to go straight to `downloadAttachment`, the one file surface that
+        // never got the fileCard treatment §... unified everywhere else.
+        // Reported directly: "I tried to open and view a file i attached to
+        // a note, instead it just downloaded it." `mediaSrc()` already knows
+        // how to token-gate a `/files/{id}` url the same way it does
+        // `/media/{name}`; `show()` below is what learned to read one.
         const fileChip = chip(`ph:file-text ${attachment.filename}`, "link", () =>
-          downloadAttachment(attachment)
+          openLightbox(
+            [{ filename: attachment.filename, getUrl: () => mediaSrc(`/files/${attachment.id}`) }],
+            0
+          )
         );
-        fileChip.title = `Download (${Math.max(1, Math.round(attachment.size / 1024))} KB)`;
+        fileChip.title = `${attachment.filename} — ${Math.max(1, Math.round(attachment.size / 1024))} KB`;
+        const downloadBtn = document.createElement("span");
+        downloadBtn.className = "unlink";
+        setLabel(downloadBtn, "ph:download-simple");
+        downloadBtn.title = `Save “${attachment.filename}” to disk`;
+        downloadBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          downloadAttachment(attachment);
+        });
+        makeUnlinkAccessible(downloadBtn);
+        fileChip.appendChild(downloadBtn);
         if (options.actions) fileChip.appendChild(removeButton());
         fileRow.appendChild(fileChip);
       }
@@ -1459,7 +1860,21 @@ function entryItem(entry, options = {}) {
         flashEntry(link.entry_id);
       };
       const linkChip = chip("", "link", goToLinkedNote);
-      linkChip.appendChild(setLabel(document.createElement("span"), "ph:arrows-left-right"));
+      // **Which way the link points.** Every link used to draw the same
+      // bidirectional glyph, because the API merged both directions into one
+      // list and never said which was which — so a note could show what it
+      // was connected to and never whether it had reached out or been
+      // reached for. Those are different facts, and telling them apart is
+      // most of what a Connections list is for (asked for by way of
+      // Kortex's own, which arrows every row).
+      const outgoing = link.direction !== "in";
+      linkChip.classList.add(outgoing ? "link-out" : "link-in");
+      linkChip.appendChild(
+        setLabel(
+          document.createElement("span"),
+          outgoing ? "ph:arrow-up-right" : "ph:arrow-down-left"
+        )
+      );
     linkChip.appendChild(document.createTextNode(" "));
       const linkPreview = document.createElement("span");
       renderInlineMarkdown(linkPreview, short, [], true);
@@ -1469,9 +1884,10 @@ function entryItem(entry, options = {}) {
           ? `${link.reason} (${Math.round(link.reason_confidence * 100)}% confidence, deduced)`
           : link.reason
         : null;
+      const wayRound = outgoing ? "This note links to" : "Links to this note";
       linkChip.title = reasonNote
-        ? `Go to note: ${label}\nReason: ${reasonNote}`
-        : `Go to note: ${label}`;
+        ? `${wayRound}: ${label}\nReason: ${reasonNote}`
+        : `${wayRound}: ${label}`;
       if (options.actions) {
         const editReason = document.createElement("span");
         editReason.className = "unlink reason-edit";
@@ -1499,7 +1915,13 @@ function entryItem(entry, options = {}) {
         if (link.reason) {
           const clearReason = document.createElement("span");
           clearReason.className = "unlink reason-clear";
-          clearReason.textContent = "⊘";
+          // A Phosphor icon, not the "⊘" character: that glyph comes from
+          // the system font and sits at a different vertical offset than
+          // Phosphor's — .ph's `vertical-align: -0.12em` tuning (and the
+          // flex centring around it) only lines up glyphs sharing one font.
+          // Mixing "⊘"/"×" with a Phosphor pencil icon here is exactly what
+          // made these three actions look vertically staggered.
+          setLabel(clearReason, "ph:prohibit");
           clearReason.title = "Remove this link's reason";
           clearReason.addEventListener("click", async (e) => {
             e.stopPropagation();
@@ -1514,7 +1936,10 @@ function entryItem(entry, options = {}) {
 
         const unlink = document.createElement("span");
         unlink.className = "unlink";
-        unlink.textContent = "×";
+        // Phosphor's "x", not the "×" character — see the reason-clear icon
+        // above for why: a mixed-font row of action icons never lines up,
+        // no matter how the flex box around each one is centred.
+        setLabel(unlink, "ph:x");
         unlink.title = "Remove this link";
         unlink.addEventListener("click", async () => {
           const otherId = link.entry_id;
@@ -1605,6 +2030,124 @@ function nearestScrollParent(el) {
   }
   return document.documentElement;
 }
+
+// **One help popover, for every "?" in the app.** Reported directly, with a
+// screenshot of Settings' own Search-relevance hint: "the search relevance
+// '?' popup tooltip is completely different from all other tooltips like it,
+// same with the 'keep the ai on this machine' tooltip… all the ui and ux
+// needs to be consistent in how it looks, how it functions, and where it is
+// placed."
+//
+// It genuinely was three different things wearing the same "?" icon:
+//   1. `.graph-help-panel` — a floating glass card (Graph, Timeline, three
+//      Library sub-tabs).
+//   2. the same class inside `.settings-section`, where a CSS override made
+//      it `position: static` — so it was not a popover at all, it was a
+//      bordered paragraph that shoved the rest of the form down the page.
+//      That is the "just text in a box" in the screenshot.
+//   3. `.setting-hint` — Settings' own long hints, which expanded inline
+//      with no surface, border or shadow whatsoever.
+//
+// This makes all three the same control: a real popover, lifted to <body> so
+// no card's `overflow` or `backdrop-filter` can clip it (the same escape
+// `wireEscapedActionMenu` above makes, for the same reason), anchored under
+// its own trigger with a caret pointing back at it, and closed the three
+// ways every other popover here closes.
+function placeHelpPopover(panel, trigger) {
+  const margin = 8;
+  const anchor = trigger.getBoundingClientRect();
+  panel.style.left = "0px";
+  panel.style.top = "0px";
+  const box = panel.getBoundingClientRect();
+  // Centred on the trigger, then pulled inside the window — a "?" sitting in
+  // a right-hand control cluster would otherwise open half off-screen.
+  let left = anchor.left + anchor.width / 2 - box.width / 2;
+  left = Math.min(Math.max(left, margin), Math.max(margin, window.innerWidth - margin - box.width));
+  let top = anchor.bottom + 10;
+  let above = false;
+  if (top + box.height > window.innerHeight - margin) {
+    const room = anchor.top - 10 - box.height;
+    if (room >= margin) {
+      top = room;
+      above = true;
+    } else {
+      top = Math.max(margin, window.innerHeight - margin - box.height);
+    }
+  }
+  panel.style.left = `${Math.round(left)}px`;
+  panel.style.top = `${Math.round(top)}px`;
+  panel.classList.toggle("help-popover-above", above);
+  // The caret is positioned against the panel, but it has to point at the
+  // trigger — which is only the panel's own centre when nothing clamped it.
+  const caretX = Math.min(Math.max(anchor.left + anchor.width / 2 - left, 14), Math.max(box.width - 14, 14));
+  panel.style.setProperty("--help-caret-x", `${Math.round(caretX)}px`);
+}
+
+//: Every open popover this session, so a second one closes the first and
+//: nothing is left stranded at <body> after a tab switch.
+const openHelpPopovers = new Set();
+
+function closeHelpPopovers() {
+  for (const entry of [...openHelpPopovers]) entry.close();
+}
+
+function wireHelpPopover(trigger, panel) {
+  if (!trigger || !panel || panel.dataset.helpPopover) return;
+  panel.dataset.helpPopover = "1";
+  let homeParent = null;
+  let homeNext = null;
+  const entry = {
+    close() {
+      if (!openHelpPopovers.has(entry)) return;
+      openHelpPopovers.delete(entry);
+      panel.classList.add("hidden");
+      panel.classList.remove("help-popover", "help-popover-above");
+      panel.style.left = "";
+      panel.style.top = "";
+      if (homeParent) homeParent.insertBefore(panel, homeNext);
+      trigger.setAttribute("aria-expanded", "false");
+    },
+  };
+  const open = () => {
+    closeHelpPopovers();
+    homeParent = panel.parentElement;
+    homeNext = panel.nextSibling;
+    document.body.appendChild(panel);
+    panel.classList.remove("hidden");
+    // `.setting-hint`'s own collapsed state is a max-height animation, not a
+    // `hidden` class — an inline hint has to be un-collapsed as well, or the
+    // popover opens at zero height.
+    panel.classList.remove("is-collapsed");
+    panel.classList.add("help-popover");
+    trigger.setAttribute("aria-expanded", "true");
+    openHelpPopovers.add(entry);
+    placeHelpPopover(panel, trigger);
+  };
+  trigger.addEventListener("click", (event) => {
+    // These triggers live inside <label>s often enough that a bare click
+    // would toggle the setting they explain.
+    event.preventDefault();
+    event.stopPropagation();
+    if (openHelpPopovers.has(entry)) entry.close();
+    else open();
+  });
+  panel.addEventListener("click", (event) => event.stopPropagation());
+  document.addEventListener("click", (event) => {
+    if (!openHelpPopovers.has(entry)) return;
+    if (panel.contains(event.target) || trigger.contains(event.target)) return;
+    entry.close();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") entry.close();
+  });
+  window.addEventListener("resize", () => {
+    if (openHelpPopovers.has(entry)) placeHelpPopover(panel, trigger);
+  }, { passive: true });
+  // A popover is anchored to a rect that scrolls away underneath it; every
+  // other floating thing in this app closes rather than chasing it.
+  window.addEventListener("scroll", () => entry.close(), true);
+}
+window.wireHelpPopover = wireHelpPopover;
 
 function openActionMenu(menu, opener) {
   closeActionMenus(); // only one open at a time
@@ -1718,6 +2261,134 @@ function wireEscapedActionMenu(wrap) {
     { passive: true }
   );
 }
+
+// The Connections block (REDESIGN.md §R7.3 item 1), for a note or a document.
+//
+// `kind` is "entries" or "documents" — the two API prefixes, used verbatim
+// as the path segment rather than mapped through a lookup, because a third
+// kind would need a third endpoint anyway and a two-entry map is a place for
+// them to disagree.
+//
+// Direction is the whole point of the first two groups. `links_for_entry`
+// has always returned both directions merged, so a note could show what it
+// was connected to and never which way round — and "this note points at that
+// one" and "that one points at this" are different facts. Everything else on
+// this dialog is a join that existed in the database and was surfaced
+// nowhere: the boards a note is a card on, and the uploads its markdown
+// embeds.
+async function openConnections(kind, id, subject) {
+  const overlay = $("connections-overlay");
+  const list = $("connections-list");
+  const status = $("connections-status");
+  status.classList.remove("error");
+  status.textContent = "Loading…";
+  list.replaceChildren();
+  $("connections-subject").textContent = subject || "";
+  overlay.classList.remove("hidden");
+  $("connections-close").focus();
+
+  let data;
+  try {
+    data = await apiJson(`/${kind}/${id}/connections`);
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+    return;
+  }
+  status.textContent = "";
+
+  // Each group is [heading, rows, how to open one]. Built as data rather
+  // than five near-identical blocks of DOM code: the groups differ only in
+  // their label field and their click target, and writing that out five
+  // times is how one of them quietly loses its keyboard handling.
+  const groups =
+    kind === "entries"
+      ? [
+          ["ph:arrow-up-right This note links to", data.outgoing, noteRow],
+          ["ph:arrow-down-left Notes that link here", data.incoming, noteRow],
+          ["ph:file-text In these documents", data.documents, docRow],
+          ["ph:squares-four On these boards", data.boards, boardRow],
+          ["ph:image Files it uses", data.files, fileRow],
+        ]
+      : [
+          ["ph:note Notes attached", data.notes, noteRow],
+          ["ph:bookmark-simple References", data.bookmarks, bookmarkRow],
+          ["ph:image Files it uses", data.files, fileRow],
+        ];
+
+  function row(label, title, onOpen) {
+    const item = smallButton(label, title, () => {
+      overlay.classList.add("hidden");
+      onOpen();
+    });
+    item.classList.add("connection-row");
+    return item;
+  }
+  function noteRow(link) {
+    // A private note contributes the fact of the connection and not its
+    // words — the server sends "Private note" as the preview, and the flag
+    // is what lets this say so rather than showing a label that reads like
+    // a real (empty-looking) note title.
+    const label = link.is_private ? "ph:lock Private note" : `ph:note ${link.preview}`;
+    const why = link.reason ? `\nWhy: ${link.reason}` : "";
+    return row(label, `Open this note${why}`, () => flashEntry(link.id));
+  }
+  function docRow(doc) {
+    return row(`ph:file-text ${doc.title}`, `Open “${doc.title}”`, () =>
+      openDocumentFromNote(doc.id)
+    );
+  }
+  function boardRow(board) {
+    return row(`ph:squares-four ${board.title}`, `Open “${board.title}”`, () =>
+      openWhiteboardBoard(board.id ?? null)
+    );
+  }
+  function bookmarkRow(mark) {
+    return row(`ph:bookmark-simple ${mark.title || mark.url}`, `Open ${mark.url}`, () =>
+      window.open(mark.url, "_blank", "noopener,noreferrer")
+    );
+  }
+  function fileRow(file) {
+    const name = file.original_name || file.name;
+    // `focusLibraryFile` (library.js) rather than the three steps this used
+    // to take inline: the media view is two sub-tabs now, so which one to
+    // click depends on whether the file is an image, and that decision
+    // belongs in one place.
+    return row(`ph:image ${name}`, `Find “${name}” in the Library`, () =>
+      focusLibraryFile(name, file.url || file.name)
+    );
+  }
+
+  let shown = 0;
+  for (const [heading, rows, build] of groups) {
+    if (!rows || !rows.length) continue;
+    shown += rows.length;
+    const section = document.createElement("div");
+    section.className = "connection-group";
+    const head = document.createElement("p");
+    head.className = "muted connection-heading";
+    setLabel(head, `${heading} (${rows.length})`);
+    section.appendChild(head);
+    const holder = document.createElement("div");
+    holder.className = "connection-rows";
+    for (const item of rows) holder.appendChild(build(item));
+    section.appendChild(holder);
+    list.appendChild(section);
+  }
+  if (!shown) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent =
+      kind === "entries"
+        ? "Nothing is joined to this note yet. Link it to another note, attach it to a document, or drop it on a whiteboard."
+        : "Nothing is joined to this document yet. Attach a note or a reference to it.";
+    list.appendChild(empty);
+  }
+}
+
+$("connections-close")?.addEventListener("click", () =>
+  $("connections-overlay").classList.add("hidden")
+);
 
 // The ⋯ overflow menu on each note card (Wave L rework).
 // Earlier versions of one note, with a way back to any of them.
@@ -2021,6 +2692,9 @@ function entryOverflowMenu(entry) {
   menu.className = "action-menu hidden";
   menu.setAttribute("role", "menu");
 
+  //: Same square-kebab rule as `kebabMenu` below — this is the *other* ⋯
+  //: builder (note cards, built lazily on first open), and a rule applied to
+  //: one of two implementations of the same control is how they drift.
   const opener = smallButton("⋯", "More actions", () => {
     const willOpen = menu.classList.contains("hidden");
     if (willOpen) {
@@ -2028,6 +2702,7 @@ function entryOverflowMenu(entry) {
       openActionMenu(menu, opener);
     } else closeActionMenus();
   });
+  opener.classList.add("icon-only");
   opener.setAttribute("aria-haspopup", "menu");
   opener.setAttribute("aria-expanded", "false");
 
@@ -2058,12 +2733,49 @@ function entryOverflowMenu(entry) {
     // grouping below saves. Everything else groups into three side flyouts —
     // asked for directly, to cut what had grown into a 15-item flat list.
     const topLevel = [
+      // Direct instruction: a way into multi-select from the row itself,
+      // not only the toolbar's own "Select" button — which is real and
+      // already works, but requires knowing it exists and is above the
+      // list rather than on the note someone actually wants to start
+      // selecting from. Reuses that exact same mode (`enterSelectMode`,
+      // `selectedIds`) rather than inventing a second one, and seeds it
+      // with this note already checked, so choosing "Select" here is a
+      // head start rather than an empty selection identical to the
+      // toolbar button's own.
+      {
+        label: "ph:check-square Select",
+        title: "Start selecting multiple notes, beginning with this one",
+        run: () => {
+          enterSelectMode();
+          selectedIds.add(entry.id);
+          updateBatchCount();
+          renderEntries();
+        },
+      },
       {
         label: entry.is_private ? "ph:lock-open Make readable" : "ph:lock Make private",
         title: entry.is_private
           ? "Decrypt this note so search and the AI can use it again"
           : "Encrypt this note at rest, and keep it out of search and the AI",
         run: () => toggleEntryPrivacy(entry),
+      },
+      {
+        // Sits above History because it is the more common question by far:
+        // "what else is this about?" is asked of a note every time it is
+        // read, and "what did it used to say?" only when something looks
+        // wrong.
+        label: "ph:graph Connections",
+        title: "Everything this note is joined to — links both ways, documents, boards and files",
+        // The note's own title when it wrote one, and its first words
+        // otherwise — `notePreviewText` alone hands back both lines of a
+        // titled note ("Probe A\nrelates to sourdough"), which reads as
+        // two sentences jammed together on one line of the dialog.
+        run: () =>
+          openConnections(
+            "entries",
+            entry.id,
+            entry.title || notePreviewText(entry.content).split("\n")[0].slice(0, 80)
+          ),
       },
       {
         label: "ph:clock-counter-clockwise History",
@@ -2506,7 +3218,10 @@ function attachFileTo(entry) {
       // Raw fetch: multipart must NOT get the JSON content-type header.
       const response = await fetch(`/entries/${entry.id}/files`, {
         method: "POST",
-        headers: { "X-Auth-Token": authToken() },
+        // X-Workspace-ID alongside X-Auth-Token: a raw fetch (multipart body,
+        // so it cannot go through api()/apiJson()) does not get either header
+        // for free the way every JSON call in this file does.
+        headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
         body: form,
       });
       if (!response.ok) {
@@ -2539,7 +3254,7 @@ async function attachFromLibrary(entry) {
     return;
   }
   if (!images.length) {
-    toast("Nothing in the Library gallery yet — upload one from Library → Image Gallery first.", true);
+    toast("Nothing in the Library gallery yet — upload one from Library → Files & Images first.", true);
     return;
   }
 
@@ -2786,12 +3501,24 @@ function openLightbox(items, startIndex = 0) {
   const ZOOM_MAX = 6;
   const zoomLabel = document.createElement("span");
   zoomLabel.className = "muted lightbox-zoom-label";
+  // A single image is the usual target; a PDF shown as pages (pdfPages,
+  // below) is a second one, added when PDFs stopped being AI-text-only —
+  // "or zoom. a lot of controls are missing," reported live once pages
+  // started rendering. Same zoom state and the same three buttons drive
+  // both; only which element the transform lands on, and which container's
+  // scroll resets on "Fit", differ.
+  const zoomTarget = () => (!pdfPages.classList.contains("hidden") ? pdfPages : img);
+  const scrollTarget = () => (!pdfPages.classList.contains("hidden") ? doc : stage);
   const applyZoom = () => {
-    img.style.transform = zoom === 1 ? "" : `scale(${zoom})`;
-    // Only grab-able once there is something to pan to.
-    img.classList.toggle("zoomed", zoom > 1);
+    const target = zoomTarget();
+    target.style.transform = zoom === 1 ? "" : `scale(${zoom})`;
+    // Set on the stage too — a multi-page column has no single element
+    // whose own hover state would otherwise flip the grab cursor.
+    target.classList.toggle("zoomed", zoom > 1);
+    stage.classList.toggle("zoomed", zoom > 1);
     zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
-    if (zoom === 1) stage.scrollTo({ left: 0, top: 0 });
+    // Only grab-able once there is something to pan to.
+    if (zoom === 1) scrollTarget().scrollTo({ left: 0, top: 0 });
   };
   const setZoom = (next) => {
     zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(next * 100) / 100));
@@ -2826,9 +3553,28 @@ function openLightbox(items, startIndex = 0) {
   // Wheel-to-zoom, because that is what every image viewer does and a person
   // who has zoomed once will try it. Non-passive so the page behind cannot
   // scroll out from under the picture mid-zoom.
+  //
+  // **Only while an image is actually showing.** Reported live, from a real
+  // multi-page PDF: "it crashed when I tried to view a pdf and i couldnt
+  // scroll." Not a crash — `stage` is the shared container for both the
+  // picture view and `.lightbox-doc` (text, and now PDF pages), and this
+  // handler used to call `preventDefault()` on every wheel event over it
+  // unconditionally, regardless of which one was showing. Over a scrolling
+  // multi-page PDF that blocked the browser's own scroll on every tick
+  // while doing nothing visible in return — `setZoom` only ever touches the
+  // single `<img>` element's transform, which isn't part of the document
+  // view at all. `doc.classList.contains("hidden")` is the same check
+  // `show()` already uses to know which of the two is current.
   stage.addEventListener(
     "wheel",
     (e) => {
+      // A browser reports a trackpad pinch gesture as a wheel event with
+      // ctrlKey set — the same convention Chrome/Firefox use for
+      // Maps/Docs/Figma-style pinch-to-zoom — so it still reaches zoom even
+      // while the document view owns plain scroll below. Plain wheel/two-
+      // finger scroll over a document (not pinch) is left alone entirely.
+      if (!doc.classList.contains("hidden") && !e.ctrlKey) return;
+      if (!doc.classList.contains("hidden") && pdfPages.classList.contains("hidden")) return; // plain text: nothing to zoom
       e.preventDefault();
       setZoom(zoom + (e.deltaY < 0 ? 0.25 : -0.25));
     },
@@ -2838,33 +3584,54 @@ function openLightbox(items, startIndex = 0) {
   // Drag to pan, once zoomed. The scrollbars already pan the stage, but a
   // magnified picture with `cursor: grab` on it that does not actually drag
   // is an affordance telling a lie — every image viewer drags here.
+  //
+  // Bound to both `img` and `pdfPages`, panning whichever container
+  // `scrollTarget()` says actually scrolls (`stage` for the image, `doc`
+  // for PDF pages) — reported live: "when zooming in on docs or images etc
+  // in the lightbox, i cant drag to adjust the zoom position." This only
+  // ever panned `stage.scroll{Left,Top}` via listeners on `img` alone, the
+  // same single-target gap `zoomTarget()`/`scrollTarget()` above already
+  // exist to close for zoom and Fit; drag never got the same treatment when
+  // PDF pages gained their own zoomable, independently-scrolling view.
   let panning = null;
-  img.addEventListener("pointerdown", (e) => {
+  const startPan = (el) => (e) => {
     if (zoom === 1) return;
     e.preventDefault();
-    panning = { x: e.clientX, y: e.clientY, left: stage.scrollLeft, top: stage.scrollTop };
-    img.setPointerCapture(e.pointerId);
-    img.style.cursor = "grabbing";
-  });
-  img.addEventListener("pointermove", (e) => {
+    const scroller = scrollTarget();
+    panning = { x: e.clientX, y: e.clientY, left: scroller.scrollLeft, top: scroller.scrollTop };
+    el.setPointerCapture(e.pointerId);
+    el.style.cursor = "grabbing";
+  };
+  const movePan = (e) => {
     if (!panning) return;
-    stage.scrollLeft = panning.left - (e.clientX - panning.x);
-    stage.scrollTop = panning.top - (e.clientY - panning.y);
-  });
-  const endPan = (e) => {
+    const scroller = scrollTarget();
+    scroller.scrollLeft = panning.left - (e.clientX - panning.x);
+    scroller.scrollTop = panning.top - (e.clientY - panning.y);
+  };
+  const endPan = (el) => (e) => {
     if (!panning) return;
     panning = null;
-    img.style.cursor = "";
-    if (e.pointerId !== undefined && img.hasPointerCapture(e.pointerId)) {
-      img.releasePointerCapture(e.pointerId);
+    el.style.cursor = "";
+    if (e.pointerId !== undefined && el.hasPointerCapture(e.pointerId)) {
+      el.releasePointerCapture(e.pointerId);
     }
   };
-  img.addEventListener("pointerup", endPan);
-  img.addEventListener("pointercancel", endPan);
-  // A drag that ends on the image must not also read as a click on the
+  // A drag that ends on the picture must not also read as a click on the
   // backdrop, which closes the dialog — panning to the edge of a picture
   // and having the whole thing vanish is the bug this prevents.
-  img.addEventListener("click", (e) => e.stopPropagation());
+  //
+  // `pdfPages` doesn't exist yet at this point in `openLightbox` (it's
+  // built further down, alongside the rest of the document view) — wiring
+  // it up here throws a temporal-dead-zone ReferenceError the instant the
+  // lightbox opens. `bindPan`, called once `pdfPages` is actually in scope.
+  const bindPan = (el) => {
+    el.addEventListener("pointerdown", startPan(el));
+    el.addEventListener("pointermove", movePan);
+    el.addEventListener("pointerup", endPan(el));
+    el.addEventListener("pointercancel", endPan(el));
+    el.addEventListener("click", (e) => e.stopPropagation());
+  };
+  bindPan(img);
 
   // Copy the text the app read out of the picture. Hidden unless this item
   // actually has some — an enabled button that copies "" is a lie.
@@ -2909,6 +3676,158 @@ function openLightbox(items, startIndex = 0) {
     }
   });
 
+  // Only shown while a PDF is displayed as pages (see showDocument) — swaps
+  // to the AI-extracted-text view on demand, rather than automatically. A
+  // PDF's *pages* render with zero AI involvement; reading its words with a
+  // model is a deliberate, opt-in second step, not something a user has to
+  // sit through just to look at their own document.
+  const readWithAiBtn = actionBtn("ph:sparkle Read text with AI", "Extract this PDF's text with the local AI", () => {
+    lightboxLoadExtractedText?.();
+  });
+  readWithAiBtn.classList.add("hidden");
+
+  //: **Edit / Save / Cancel for a text file** — §R7.1 item 2. Set by
+  //: `showDocument` for whichever file is open; null while the lightbox is
+  //: showing a picture or a PDF's pages, which is what keeps these three
+  //: buttons from acting on the file that happened to be open before.
+  let lightboxEditTarget = null;
+
+  function setLightboxEditing(on) {
+    docEdit.classList.toggle("hidden", !on);
+    docBody.classList.toggle("hidden", on);
+    //: Find-in-document searches the *rendered* body, so it has nothing to
+    //: work on while the source is showing — and leaving it up would offer a
+    //: search that silently matches nothing.
+    find.classList.toggle("hidden", on);
+    findCount.classList.add("hidden");
+    editFileBtn.classList.toggle("hidden", on);
+    saveFileBtn.classList.toggle("hidden", !on);
+    cancelEditBtn.classList.toggle("hidden", !on);
+    //: Export hands back what was *saved*; while a draft is open in the box
+    //: the two disagree, and a file exported mid-edit would silently be the
+    //: version before the changes on screen.
+    if (on) exportTextBtn.classList.add("hidden");
+    else if (lightboxExtractedText) exportTextBtn.classList.remove("hidden");
+    if (on) docEdit.focus();
+  }
+
+  const editFileBtn = actionBtn("ph:pencil-simple Edit", "Edit this file's text", () => {
+    if (!lightboxEditTarget) return;
+    docEdit.value = lightboxEditTarget.text;
+    setLightboxEditing(true);
+  });
+  editFileBtn.classList.add("hidden");
+
+  const saveFileBtn = actionBtn("ph:check Save changes", "Save this text back over the file", async (button) => {
+    if (!lightboxEditTarget) return;
+    button.disabled = true;
+    try {
+      const saved = await apiJson(lightboxEditTarget.url, {
+        method: "PUT",
+        body: JSON.stringify({ text: docEdit.value }),
+      });
+      //: Re-rendered from what the server wrote back, not from what was
+      //: typed. They are the same today; if they ever differ — a normalised
+      //: line ending, a file the OS rewrote — the reader should be looking at
+      //: the file, not at the draft of it.
+      lightboxEditTarget.text = saved.text || "";
+      setLightboxEditing(false);
+      lightboxLoadExtractedText?.();
+      toast("Saved.");
+    } catch (error) {
+      //: A 409 is the server declining to overwrite (`docview.editability`),
+      //: and its `detail` is written to be read by a person — so it is shown
+      //: rather than replaced with a generic failure.
+      toast(error.message || "Couldn't save that file.", true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+  saveFileBtn.classList.add("hidden");
+
+  const cancelEditBtn = actionBtn("ph:x Cancel", "Discard these changes", () => {
+    setLightboxEditing(false);
+  });
+  cancelEditBtn.classList.add("hidden");
+
+  //: **Exporting the *text*, which is a different thing from Save** (§R7.1
+  //: item 5, "export, per-format, from the same place the file is viewed").
+  //: Save hands back the file as it is on disk — the .pdf, the .docx. This
+  //: hands back what the viewer is showing, which for a scanned PDF or a Word
+  //: file is the only readable form of it the app has, and until now could be
+  //: reached only by selecting the whole pane and copying.
+  //:
+  //: The extension follows `kind`, not the source file's: markdown text saved
+  //: as `report.pdf.md` is honest about being neither a PDF nor a plain
+  //: transcript, and opens in the right thing.
+  let lightboxExtractedText = null;
+  const exportTextBtn = actionBtn("ph:export Export text", "Save the extracted text as a file", async (button) => {
+    if (!lightboxExtractedText) return;
+    button.disabled = true;
+    try {
+      const { name, kind, text } = lightboxExtractedText;
+      const stem = (name || "document").replace(/\.[^./\\]+$/, "") || "document";
+      const extension = kind === "markdown" ? "md" : "txt";
+      await saveFile(`${stem}.${extension}`, new Blob([text], { type: "text/plain" }));
+    } catch (error) {
+      toast(error.message || "Couldn't export that text.", true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+  exportTextBtn.classList.add("hidden");
+
+  //: Whether the preview frame is currently showing something.
+  let docPreviewOn = false;
+
+  function clearDocPreview() {
+    docPreviewOn = false;
+    docFrame.classList.add("hidden");
+    //: `about:blank` rather than leaving the last file loaded: an iframe that
+    //: still holds a document keeps rendering it, and paging to the next file
+    //: would show the previous one's page for as long as the new fetch takes.
+    docFrame.src = "about:blank";
+    previewHtmlBtn.setAttribute("aria-pressed", "false");
+    setLabel(previewHtmlBtn, "ph:browser Preview");
+  }
+
+  const previewHtmlBtn = actionBtn("ph:browser Preview", "Render this HTML file (scripts are not run)", () => {
+    if (docPreviewOn) {
+      clearDocPreview();
+      docBody.classList.remove("hidden");
+      find.classList.remove("hidden");
+      return;
+    }
+    if (!lightboxPreviewSource) return;
+    //: **A server URL, not a `blob:` from the text we already have.** The
+    //: first version did the obvious thing and built a Blob — and a `blob:`
+    //: document inherits its creator's CSP, so this app's `style-src 'self'`
+    //: applied to the framed page and refused the page's *own* `<style>`
+    //: block. Measured: "Refused to apply inline style", and a page setting
+    //: `background:#eef` rendered transparent. `/files/{id}/html-preview`
+    //: carries its own policy (`HTML_PREVIEW_CSP`, routes_files.py) —
+    //: sandboxed, scriptless, and allowed to style itself.
+    docFrame.src = mediaSrc(lightboxPreviewSource);
+    docPreviewOn = true;
+    docFrame.classList.remove("hidden");
+    docBody.classList.add("hidden");
+    //: Find-in-document reads the rendered *source* listing; the frame is a
+    //: separate document this page deliberately cannot reach into.
+    find.classList.add("hidden");
+    findCount.classList.add("hidden");
+    previewHtmlBtn.setAttribute("aria-pressed", "true");
+    setLabel(previewHtmlBtn, "ph:code Show source");
+  });
+  previewHtmlBtn.classList.add("hidden");
+  previewHtmlBtn.setAttribute("aria-pressed", "false");
+
+  //: The URL the preview frame would load, set by `showDocument` only for a
+  //: file that is actually HTML *and* is a real attachment (a `/media/`
+  //: upload is never HTML — `MEDIA_SUFFIXES` is images and PDF — and a native
+  //: document has no file behind it at all). Null the rest of the time, which
+  //: is what keeps the button from framing the file viewed before this one.
+  let lightboxPreviewSource = null;
+
   // **The AI/manage actions — gated on a media id, and only ever visible
   // when one is present.** Reported directly, and left open on purpose the
   // first time this bar was built: rename, describe with AI, read text (two
@@ -2925,14 +3844,47 @@ function openLightbox(items, startIndex = 0) {
   // "describe with AI" does.
   let moreMenu = null;
   const buildMoreMenu = (item) => {
+    //: **The job outlives the window that started it.**
+    //:
+    //: Reported: "if i close the lightbox as I am generating ocr, then it
+    //: stops and I have to restart it again." The request never actually
+    //: stopped — a `POST` keeps going and writes its result to the database
+    //: whatever the browser does next — but every trace of it was inside the
+    //: lightbox, so closing that window meant the work became invisible and
+    //: then, on reopening, appeared not to have happened.
+    //:
+    //: Three changes make it true as well as visible: a progress toast that
+    //: lives outside the lightbox, a re-render that is guarded rather than
+    //: assumed (the panel may be gone by now, and writing to it threw), and a
+    //: Library refresh so the gallery behind shows the new text either way.
     const run = (label, busyText, endpoint, applyTo) => async () => {
+      const name = item.original_name || "this file";
+      const progress = toastProgress(`${busyText} ${name}`);
       try {
-        toast(busyText);
-        const updated = await apiJson(`/media/${item.id}${endpoint}`, { method: "POST" });
+        //: Registered with the OCR workspace's own in-flight map, so a read
+        //: started here is still findable after this window closes — reported:
+        //: "I close the lightbox, the ocr workspace is gone… it should be
+        //: openable if an active ocr reading is going on."
+        const updated = await (window.trackOcrRead || ((_i, _l, p) => p))(
+          item,
+          `${busyText} ${name}`,
+          apiJson(`/media/${item.id}${endpoint}`, { method: "POST" })
+        );
         applyTo(item, updated);
-        renderInfo(item, true);
+        //: Only if this lightbox is still the one on screen. `renderInfo`
+        //: writes into elements this closure captured, and they are detached
+        //: once the overlay closes.
+        if (overlay.isConnected && !overlay.classList.contains("hidden")) renderInfo(item, true);
+        if (typeof loadLibrary === "function") loadLibrary();
+        progress.done(`Finished reading ${name}.`, {
+          actionLabel: "Show it",
+          onAction: () => {
+            switchTab("library");
+            if (typeof renderLibrary === "function") renderLibrary();
+          },
+        });
       } catch (err) {
-        toast(err.message || `Couldn't ${label.toLowerCase()}.`, true);
+        progress.done(err.message || `Couldn't ${label.toLowerCase()}.`, { isError: true });
       }
     };
     const items = [
@@ -2962,18 +3914,15 @@ function openLightbox(items, startIndex = 0) {
     // `shutil.which` check, so this can just not offer a button that would
     // otherwise silently do nothing, matching how the model-pull panel
     // already hides itself on a backend that can't pull.
-    if (modelStatus && modelStatus.tesseract_available === false) {
-      items.push({
-        label: "ph:scan Read text (Tesseract OCR)",
-        title:
-          "Unavailable — the Tesseract OCR program isn't installed. See INSTALL.md, " +
-          "or use “Read text with AI” instead.",
-        disabled: true,
-        run: async () => {
-          toast("Tesseract isn't installed — see INSTALL.md, or use “Read text with AI”.", true);
-        },
-      });
-    } else {
+    //: And now it is *left out* rather than shown greyed, which is the
+    //: second half of the same report: "make sure all the fila and document
+    //: ocr worfs with ai ocr models, I dont use tesseract." A disabled row
+    //: that can never become enabled (this app never installs the binary, by
+    //: instruction) is a permanent piece of dead chrome in a menu that opens
+    //: on every image — and it sat directly under the row that does the same
+    //: job with a model, which is the one the reader wants. INSTALL.md still
+    //: documents the offline reader for anyone who wants it.
+    if (!modelStatus || modelStatus.tesseract_available !== false) {
       items.push({
         label: "ph:scan Read text (Tesseract OCR)",
         title: "Read the text in this image with Tesseract, a fast local tool — no AI model involved",
@@ -2981,6 +3930,41 @@ function openLightbox(items, startIndex = 0) {
           it.text = (u.ocr_text || "").trim();
           it.byline = it.text ? "Text read with Tesseract OCR" : "";
         }),
+      });
+    }
+    //: The other door into the OCR workspace (library.js). The gallery's own
+    //: kebab has it too, and this is the same act from the other surface: the
+    //: lightbox is where you are *looking* at the page, which is exactly when
+    //: "where did that line come from" gets asked. Gated on a media id like
+    //: every other row here, and on the row being an image the extractor can
+    //: open — a menu row guaranteed to 415 is worse than a shorter menu.
+    //: PDFs included since the workspace learned to rasterise a page
+    //: (`_pdf_regions_for`, routes_files.py) — reported as *"is the document
+    //: ocr even working??"*, and it was not: this gate is what kept every
+    //: document out of the one window built to read documents.
+    if (/\.(png|jpe?g|gif|webp|bmp|pdf)$/i.test(item.filename || "")) {
+      items.push({
+        label: "ph:selection-all See text on the page",
+        title: "Open this file beside the text read from it, page by page",
+        run: async () => {
+          //: `close` is this lightbox's own dismiss (defined further down in
+          //: `openLightbox`, hoisted and initialised long before any menu row
+          //: can run). The workspace is a modal too, and two stacked overlays
+          //: leave the page behind unreachable.
+          close();
+          //: `_src`, not `url`: the lightbox item already carries a *tokened*
+          //: src (`getUrl` runs it through `mediaSrc`), and letting the
+          //: workspace token it a second time appends a second `?token=`.
+          window.openOcrWorkspace?.(
+            {
+              id: item.id,
+              _src: item.getUrl ? item.getUrl() : "",
+              original_name: item.filename,
+              _isImage: !/\.pdf$/i.test(item.filename || ""),
+            },
+            [],
+          );
+        },
       });
     }
     return kebabMenu(
@@ -3054,7 +4038,40 @@ function openLightbox(items, startIndex = 0) {
   docBody.className = "lightbox-doc-body";
   const docNote = document.createElement("p");
   docNote.className = "muted lightbox-doc-note hidden";
-  doc.append(docNote, docBody);
+  // A PDF's actual pages, rasterised server-side — direct instruction, after
+  // the AI-extraction path alone left a scanned PDF stuck on "Reading…"
+  // forever: "pdfs and documents should be viewable, accessible and
+  // manageable without the ai, even if the ai cant read them." Plain
+  // <img>s, one per page, in their own scrolling column so a PDF scrolls
+  // like a PDF — no script, no PDF renderer, no AI in this path at all.
+  const pdfPages = document.createElement("div");
+  pdfPages.className = "lightbox-pdf-pages hidden";
+  bindPan(pdfPages);
+  //: **Editing a file in place** (REDESIGN.md §R7.1 item 2, and the request:
+  //: *"all the files should be managable, viewable and editable in the
+  //: library and document/file/text editor"*). A plain textarea over the
+  //: file's own text, and only ever for the files where that text *is* the
+  //: file — `docview.editability` decides, server-side, and the route
+  //: re-checks rather than trusting the flag it sent.
+  const docEdit = document.createElement("textarea");
+  docEdit.className = "lightbox-doc-edit hidden";
+  docEdit.spellcheck = false;
+  docEdit.setAttribute("aria-label", "Edit this file's text");
+  //: **The HTML preview pane** (§R7.1 item 4, from the odysseus comparison:
+  //: *"viewing html and other code"*). An .html file is the one type where
+  //: the source and the thing it describes are both worth looking at, and
+  //: showing only the source is showing half the file.
+  //:
+  //: `sandbox` with **no** `allow-` tokens, and that is the whole security
+  //: story: no scripts, no forms, no same-origin, no top-level navigation.
+  //: The page renders as layout and can do nothing else — which is what makes
+  //: it safe to point at a file nobody in this notebook wrote. `core/security`
+  //: allows `frame-src blob:` for this; the sandbox is what bounds it.
+  const docFrame = document.createElement("iframe");
+  docFrame.className = "lightbox-doc-frame hidden";
+  docFrame.setAttribute("sandbox", "");
+  docFrame.setAttribute("title", "Preview of this HTML file");
+  doc.append(docNote, docBody, docEdit, docFrame, pdfPages);
   doc.addEventListener("click", (e) => e.stopPropagation());
   stage.appendChild(doc);
 
@@ -3127,75 +4144,213 @@ function openLightbox(items, startIndex = 0) {
   // reaches the lightbox is offered to the document reader instead.
   const IMAGE_SUFFIXES = /\.(png|jpe?g|gif|webp|avif|bmp|ico|svg)$/i;
 
-  async function showDocument(item, name) {
+  // Reassigned on every `showDocument` call — see `readWithAiBtn` above,
+  // which is the only caller. A closure rather than a stored url string so
+  // the "Read with AI" button always re-derives from whichever item and
+  // text-endpoint are current, the same way `show(i)` already recomputes
+  // everything else per item rather than caching it.
+  let lightboxLoadExtractedText = null;
+
+  async function showDocument(item, name, attachmentId) {
     img.classList.add("hidden");
     broken.classList.add("hidden");
     doc.classList.remove("hidden");
     docBody.replaceChildren();
+    pdfPages.replaceChildren();
+    pdfPages.classList.add("hidden");
     docNote.classList.add("hidden");
+    readWithAiBtn.classList.add("hidden");
+    //: A new file, so any half-finished edit of the previous one goes with
+    //: it. Cleared *before* the fetch rather than after: the two buttons are
+    //: on screen the whole time it is in flight, and Save on a stale target
+    //: would write one file's text over another's.
+    lightboxEditTarget = null;
+    docEdit.value = "";
+    setLightboxEditing(false);
+    editFileBtn.classList.add("hidden");
+    lightboxPreviewSource = null;
+    lightboxExtractedText = null;
+    exportTextBtn.classList.add("hidden");
+    clearDocPreview();
+    previewHtmlBtn.classList.add("hidden");
     clearFind();
     find.classList.remove("hidden");
-    docBody.textContent = "Reading…";
-    let payload = null;
-    // **A native MemoryMap document already has its content** — asked for
-    // directly: "make a way to view documents in the documents tab in the
-    // lightbox." The Library's Documents list holds real `Document` rows,
-    // not uploads, and their body comes back whole from `GET /documents/
-    // {id}`; there is nothing to *extract*, so going through
-    // `/media/text` (which exists for files that started life as something
-    // other than markdown) would be asking the server to do work it
-    // already did. A caller that already knows its own kind and text — set
-    // by the Documents list's own "Preview" action below — skips the fetch
-    // entirely.
-    if (item.kind && item.text != null) {
-      payload = { kind: item.kind, text: item.text, source: item.source || "file" };
-    } else {
-      try {
-        payload = await apiJson(`/media/text/${encodeURIComponent(name)}`);
-      } catch {
-        payload = null;
+
+    // A native MemoryMap document (the Documents list) or a real Attachment
+    // row each has its own text/info endpoint; a `/media/` upload has a
+    // third. All three converge on the same `AttachedFileTextOut` shape, so
+    // everything past this point reads one variable rather than branching
+    // three ways again and again.
+    const textUrl = attachmentId
+      ? `/files/${attachmentId}/text`
+      : `/media/text/${encodeURIComponent(name)}`;
+    const isPdf = /\.pdf$/i.test(item.filename || name || "");
+
+    async function loadExtractedText() {
+      // **The pages stay.** Reported directly: "when I select to read the
+      // text from the document in a pdf, the pdf view disappears entirely. I
+      // want the pdf view to be on one side, and the live extracted document
+      // text and visuals on the right." Reading a scan *against* its pages is
+      // the entire point — the text is a machine's reading of an image, and
+      // hiding the image removes the only way to check it. So for a file
+      // that has rendered pages, this becomes a split: pages left, text
+      // right, both scrolling on their own. Anything without pages (a .docx,
+      // a .txt) still gets the full width, because there is nothing to put
+      // beside it.
+      const hasPages = pdfPages.childElementCount > 0;
+      doc.classList.toggle("lightbox-doc-split", hasPages);
+      pdfPages.classList.toggle("hidden", !hasPages);
+      docBody.classList.remove("hidden");
+      find.classList.remove("hidden");
+      showZoomControls(hasPages);
+      if (!hasPages) setZoom(1);
+      docBody.textContent = "Reading…";
+      let payload = null;
+      // See the doc-viewer comment block above `doc`'s own creation: a
+      // native document already has its text, set by the Documents list's
+      // "Preview" action — nothing to fetch.
+      if (item.kind && item.text != null) {
+        payload = { kind: item.kind, text: item.text, source: item.source || "file" };
+      } else {
+        try {
+          payload = await apiJson(textUrl);
+        } catch {
+          payload = null;
+        }
       }
+      if (!payload) {
+        docBody.textContent = "";
+        docNote.textContent =
+          "This file can't be previewed here. Use Save to open it in another app.";
+        docNote.classList.remove("hidden");
+        find.classList.add("hidden");
+        return;
+      }
+      docBody.replaceChildren();
+      const body = payload.text || "";
+      //: **Decided before the empty-body return below, not after it.** A
+      //: .docx on an install without markitdown extracts to nothing, so that
+      //: return fires — and the read-only reason, which is exactly what such
+      //: a file needs to say, used to be computed past it and never shown.
+      //: Measured: the note read only "Importing documents needs the optional
+      //: markitdown package", with no word about editing at all.
+      //:
+      //: **Preview is offered only for HTML**, and keyed off the *filename*
+      //: rather than the extracted kind: docview reports `.html` as "code",
+      //: which is right for how the source renders and says nothing about
+      //: whether the file is a page. A .py is code too and has nothing to
+      //: preview.
+      if (body.trim()) {
+        lightboxExtractedText = {
+          name: item.filename || name || "document",
+          kind: payload.kind,
+          text: body,
+        };
+        exportTextBtn.classList.remove("hidden");
+      }
+      if (attachmentId && /\.html?$/i.test(item.filename || name || "") && body.trim()) {
+        lightboxPreviewSource = `/files/${attachmentId}/html-preview`;
+        previewHtmlBtn.classList.remove("hidden");
+      }
+      const editNotes = [];
+      if (item.kind && item.text != null) {
+        editFileBtn.classList.add("hidden");
+      } else if (payload.editable) {
+        lightboxEditTarget = { url: textUrl, text: body };
+        editFileBtn.classList.remove("hidden");
+      } else {
+        editFileBtn.classList.add("hidden");
+        if (payload.edit_message) editNotes.push(`Read-only — ${payload.edit_message}`);
+      }
+      if (!body.trim()) {
+        docNote.textContent = [
+          payload.message || "There's no readable text in this file.",
+          ...editNotes,
+        ].join(" · ");
+        docNote.classList.remove("hidden");
+        return;
+      }
+      if (payload.kind === "markdown") {
+        // The same renderer documents and chat use, so a previewed .md
+        // looks like the same app rather than a second idea of markdown.
+        renderMarkdown(docBody, body);
+      } else {
+        // Code and plain text keep their own whitespace, which is most of
+        // what makes them readable.
+        const pre = document.createElement("pre");
+        pre.className = "lightbox-doc-pre";
+        const code = document.createElement("code");
+        if (payload.kind === "code") {
+          //: §R7.1 item 3. `highlightCodeInto` (editor.js) picks the language
+          //: off the filename and builds spans with `textContent`, so a file
+          //: cannot inject markup by being written to look like markup.
+          highlightCodeInto(code, body, item.filename || name || "");
+        } else {
+          code.textContent = body;
+        }
+        pre.appendChild(code);
+        docBody.appendChild(pre);
+      }
+      // `source` is shown, not just logged: text a vision model
+      // transcribed off a scanned page is a *reading* of the file, and
+      // presenting it identically to text read out of a .txt would state a
+      // guess as fact.
+      const notes = [];
+      if (payload.source === "vision-ocr") notes.push("Text read off the page by a vision model");
+      else if (payload.source === "converted") notes.push("Converted for preview");
+      if (payload.truncated) notes.push("Long file — showing the beginning only");
+      if (payload.message) notes.push(payload.message);
+      //: **The reason a file cannot be edited, shown where it is read.** §R7.1
+      //: item 2 asked for the honest reason in the UI rather than a control
+      //: that quietly does nothing. Computed above, beside the button it
+      //: belongs to; pushed here so it reads as one line with the rest.
+      notes.push(...editNotes);
+      docNote.textContent = notes.join(" · ");
+      docNote.classList.toggle("hidden", !notes.length);
     }
-    if (!payload) {
-      docBody.textContent = "";
-      docNote.textContent =
-        "This file can't be previewed here. Use Save to open it in another app.";
-      docNote.classList.remove("hidden");
-      find.classList.add("hidden");
-      return;
+    lightboxLoadExtractedText = loadExtractedText;
+
+    // A native document is markdown from the database — there is no PDF
+    // underneath it to rasterise, so it always takes the text path above.
+    if (isPdf && !item.kind) {
+      const infoUrl = attachmentId ? `/files/${attachmentId}/pdf-info` : `/media/pdf-info/${encodeURIComponent(name)}`;
+      const pageUrl = (i) =>
+        attachmentId ? `/files/${attachmentId}/pdf-page/${i}` : `/media/pdf-page/${encodeURIComponent(name)}/${i}`;
+      let info = null;
+      try {
+        info = await apiJson(infoUrl);
+      } catch {
+        info = null;
+      }
+      if (info && info.available && info.pages > 0) {
+        docBody.classList.add("hidden");
+        find.classList.add("hidden"); // nothing here is text to search yet
+        readWithAiBtn.classList.remove("hidden");
+        pdfPages.classList.remove("hidden");
+        // Zoom, same as the image view — reported live once pages actually
+        // rendered: "or zoom. a lot of controls are missing." `setZoom(1)`
+        // resets any leftover magnification from a previously viewed item;
+        // `zoomTarget()`/`applyZoom` (above) already know to scale
+        // `pdfPages` rather than `img` while this view is the one showing.
+        showZoomControls(true);
+        setZoom(1);
+        for (let i = 0; i < info.pages; i++) {
+          const pageImg = document.createElement("img");
+          pageImg.className = "lightbox-pdf-page";
+          pageImg.loading = "lazy";
+          pageImg.alt = `Page ${i + 1} of ${info.pages}`;
+          pageImg.src = mediaSrc(pageUrl(i));
+          pdfPages.appendChild(pageImg);
+        }
+        return;
+      }
+      // pdfpages isn't installed, or this particular file can't be opened —
+      // `info.message` already says which. Fall through to the AI-text path
+      // below, which gives the same honest message (docview.py's own
+      // "couldn't be opened" vs. "probably a scan" split) rather than a
+      // second, differently-worded dead end.
     }
-    docBody.replaceChildren();
-    const body = payload.text || "";
-    if (!body.trim()) {
-      docNote.textContent =
-        payload.message || "There's no readable text in this file.";
-      docNote.classList.remove("hidden");
-      return;
-    }
-    if (payload.kind === "markdown") {
-      // The same renderer documents and chat use, so a previewed .md looks
-      // like the same app rather than a second idea of what markdown is.
-      renderMarkdown(docBody, body);
-    } else {
-      // Code and plain text keep their own whitespace, which is most of
-      // what makes them readable.
-      const pre = document.createElement("pre");
-      pre.className = "lightbox-doc-pre";
-      const code = document.createElement("code");
-      code.textContent = body;
-      pre.appendChild(code);
-      docBody.appendChild(pre);
-    }
-    // `source` is shown, not just logged: text a vision model transcribed
-    // off a scanned page is a *reading* of the file, and presenting it
-    // identically to text read out of a .txt would state a guess as fact.
-    const notes = [];
-    if (payload.source === "vision-ocr") notes.push("Text read off the page by a vision model");
-    else if (payload.source === "converted") notes.push("Converted for preview");
-    if (payload.truncated) notes.push("Long file — showing the beginning only");
-    if (payload.message) notes.push(payload.message);
-    docNote.textContent = notes.join(" · ");
-    docNote.classList.toggle("hidden", !notes.length);
+    await loadExtractedText();
   }
 
   async function show(i) {
@@ -3214,12 +4369,36 @@ function openLightbox(items, startIndex = 0) {
     // caller returns.
     const rawUrl = await Promise.resolve(item.getUrl()).catch(() => "");
     const name = (/\/media\/([^/?#]+)/.exec(rawUrl || "") || [])[1] || "";
+    // A note's own attached file (the `Attachment` model, `/files/{id}`) —
+    // distinct from a `/media/{name}` upload, and until now the only file
+    // shape the lightbox's document viewer could not read at all: it went
+    // straight to a download instead. Same token-gated url shape `mediaSrc`
+    // already handles; `showDocument` below is what learned to use it.
     const looksLikeImage =
       IMAGE_SUFFIXES.test(item.filename || "") || IMAGE_SUFFIXES.test(name);
+    // A note's own attached file (the `Attachment` model, `/files/{id}`) —
+    // distinct from a `/media/{name}` upload, and until now the only file
+    // shape the lightbox's document viewer could not read at all: it went
+    // straight to a download instead. Same token-gated url shape `mediaSrc`
+    // already handles; `showDocument` below is what learned to use it.
+    //
+    // Gated on `!looksLikeImage`, matching the `name` case just below it —
+    // the comment here used to claim this was "only ever set for a
+    // non-image /files/{id}", true only because nothing had ever opened an
+    // *image* attachment through this lightbox yet. The Library gallery's
+    // own Attachment rows (`renderLibraryImagesGallery`, library.js) changed
+    // that: a photo attached to a note now reaches this same code path, and
+    // without this guard it fell into the document viewer below — no PDF
+    // pages, no image to show, `isPdf` false, straight to `loadExtractedText`
+    // asking `/files/{id}/text` for a picture, "no readable text in this
+    // file" for what should have been a plain zoomable image.
+    const attachmentId = name || looksLikeImage
+      ? ""
+      : (/\/files\/(\d+)(?:[/?#]|$)/.exec(rawUrl || "") || [])[1] || "";
     // A native document (item.kind already set — see showDocument) has no
     // `/media/...` url to sniff at all; a caller that already declares
     // itself a document skips the filename guess entirely.
-    if (item.kind || (name && !looksLikeImage)) {
+    if (item.kind || attachmentId || (name && !looksLikeImage)) {
       overlay.setAttribute("aria-label", item.filename || "Document preview");
       meta.textContent =
         items.length > 1
@@ -3229,11 +4408,22 @@ function openLightbox(items, startIndex = 0) {
       setZoom(1);
       showZoomControls(false);
       syncMoreMenu(item);
-      await showDocument(item, name);
+      await showDocument(item, name, attachmentId);
       hydrate(index, item, true);
       return;
     }
     doc.classList.add("hidden");
+    //: A picture has no text to edit, and leaving Edit/Save on the bar after
+    //: paging from a .md to a .png would offer to write the note's markdown
+    //: over an image. Cleared with the target, not just hidden.
+    lightboxEditTarget = null;
+    setLightboxEditing(false);
+    editFileBtn.classList.add("hidden");
+    lightboxPreviewSource = null;
+    lightboxExtractedText = null;
+    exportTextBtn.classList.add("hidden");
+    clearDocPreview();
+    previewHtmlBtn.classList.add("hidden");
     find.classList.add("hidden");
     findCount.classList.add("hidden");
     showZoomControls(true);
@@ -4239,10 +5429,73 @@ function similarNoteRow(entry, other, onLinked) {
   return wrap;
 }
 
+//: **The formatting row the note edit form never had.**
+//:
+//: Editing an existing note is the most common editing action in a notebook,
+//: and it was the app's poorest surface by a distance: a bare three-row
+//: textarea with no toolbar, no "/" menu and no selection bar, while the
+//: composer beside it and the document editor both had all three. That is
+//: most of what *"the editors feel very fake and just rudimentary"* is about.
+//:
+//: The same `data-md` contract the other two toolbars use, wired here rather
+//: than through `initMarkdownToolbars` (documents.js) because that runs once
+//: over the markup at load and this row is built each time a note is opened.
+const NOTE_EDIT_TOOLBAR = [
+  { md: "h2", label: "ph:text-h", title: "Heading" },
+  { md: "bold", label: "ph:text-b", title: "Bold (Ctrl+B)" },
+  { md: "italic", label: "ph:text-italic", title: "Italic (Ctrl+I)" },
+  { md: "strike", label: "ph:text-strikethrough", title: "Strikethrough" },
+  { md: "highlight", label: "ph:highlighter", title: "Highlight" },
+  { md: "code", label: "ph:code", title: "Inline code" },
+  { md: "ul", label: "ph:list-bullets", title: "Bulleted list" },
+  { md: "task", label: "ph:check-square", title: "Task list" },
+  { md: "quote", label: "ph:quotes", title: "Quote" },
+  { md: "link", label: "ph:link", title: "Link" },
+];
+
+function noteEditToolbar(boxId) {
+  const bar = document.createElement("div");
+  bar.className = "doc-toolbar note-edit-toolbar";
+  bar.setAttribute("role", "toolbar");
+  bar.setAttribute("aria-label", "Formatting");
+  for (const action of NOTE_EDIT_TOOLBAR) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.md = action.md;
+    button.title = action.title;
+    button.setAttribute("aria-label", action.title);
+    setLabel(button, action.label);
+    //: mousedown-preventDefault keeps the caret in the textarea — the same
+    //: rule `initMarkdownToolbars` and the selection bar both follow, and for
+    //: the same reason: a click moves focus first and the selection is gone.
+    button.addEventListener("mousedown", (event) => event.preventDefault());
+    button.addEventListener("click", () => applyMarkdown(action.md, boxId));
+    bar.appendChild(button);
+  }
+  return bar;
+}
+
 function renderEditForm(li, entry) {
   const textarea = document.createElement("textarea");
   textarea.rows = 3;
   textarea.value = entry.content;
+  //: A stable id, because three separate features key off one: the "/" menu
+  //: and the `[[` autocomplete (EDITOR_SURFACES in editor.js), the selection
+  //: bar, and this form's own toolbar. Safe to be a constant rather than a
+  //: per-note id: `editingId` allows exactly one open edit form at a time.
+  textarea.id = "entry-edit-content";
+  textarea.className = "note-edit-box";
+  //: Three rows is a form field; a note is prose. Grows with its content the
+  //: way the composer does, up to the same shared ceiling.
+  textarea.addEventListener("input", () => autoGrow(textarea));
+  //: `requestAnimationFrame`, not `queueMicrotask`: a microtask runs before
+  //: the browser has laid anything out, and `autoGrow` reads `scrollHeight`,
+  //: which is 0 on an element that is not yet in the document — measured, the
+  //: box stayed at its three-row height with the note scrolling inside it.
+  //: Also on focus, because a note opened while its list was hidden (a tab
+  //: switch, a filter) is laid out only when it becomes visible.
+  textarea.addEventListener("focus", () => autoGrow(textarea));
+  requestAnimationFrame(() => autoGrow(textarea));
 
   const tagsInput = document.createElement("input");
   tagsInput.type = "text";
@@ -4283,7 +5536,7 @@ function renderEditForm(li, entry) {
     })
   );
 
-  li.append(textarea, tagsInput, categorySelect, row);
+  li.append(noteEditToolbar(textarea.id), textarea, tagsInput, categorySelect, row);
   renderRelatedWhileEditing(li, entry);
   renderNoteBookmarksWhileEditing(li, entry);
 }
@@ -4368,7 +5621,7 @@ async function renderNoteBookmarksWhileEditing(li, entry) {
         bmChip.title = bookmark.url;
         const detach = document.createElement("span");
         detach.className = "unlink";
-        detach.textContent = "×";
+        setLabel(detach, "ph:x"); // raw "×" glyph vs Phosphor icon font mismatch mis-centers the icon
         detach.title = "Remove this reference";
         detach.setAttribute("aria-label", `Remove reference to ${bookmark.title || bookmark.url}`);
         detach.addEventListener("click", async (e) => {
@@ -4458,6 +5711,29 @@ async function resolveCategoryChoice(select) {
 }
 
 function beginOrCompleteLink(entry) {
+  //: **A draft and a saved note cannot be connected** — asked for directly,
+  //: and refused by `manager.create_link` whichever route asks. Caught here as
+  //: well so the answer arrives before the click that would fail: starting a
+  //: link from a draft and hunting for a target, only to be told no at the
+  //: end, is the worst order to learn a rule in.
+  //:
+  //: Two drafts are still fine; the rule is that drafts stay separate from the
+  //: notebook, not from each other.
+  if (linkSource !== null && linkSource !== entry.id) {
+    const source = allEntries.find((e) => e.id === linkSource);
+    if (source && Boolean(source.is_draft) !== Boolean(entry.is_draft)) {
+      const draftFirst = Boolean(source.is_draft);
+      linkSource = null;
+      renderEntries();
+      toast(
+        draftFirst
+          ? "A draft can't be linked to a saved note. Save the draft first."
+          : "A saved note can't be linked to a draft. Save the draft first.",
+        true
+      );
+      return;
+    }
+  }
   if (linkSource === null) {
     linkSource = entry.id;
     toast("Now click Link on the entry you want to connect it to (Esc cancels).");
@@ -4513,7 +5789,7 @@ function beginOrCompleteLink(entry) {
 //
 //   tag:work            only notes tagged "work"
 //   cat:recipes         only notes in that category (category: also works)
-//   is:pinned           pinned / private / linked / untagged
+//   is:favourite        favourite (is:pinned too) / private / linked / untagged
 //   tags:<2             fewer than 2 tags — also <=, >, >=, = (or bare N)
 //   -picnic             notes that do NOT mention "picnic"
 //   "exact phrase"      that phrase, verbatim
@@ -4602,7 +5878,13 @@ function matchesSearch(entry) {
     return false;
   }
   for (const flag of query.flags) {
-    if (flag === "pinned" && !entry.pinned) return false;
+    //: `is:favourite` is the name the rest of the app now uses; `is:pinned` is
+    //: kept because it is in this app's own help text, in saved filters people
+    //: already have, and in muscle memory. Two spellings of one flag is a
+    //: smaller cost than breaking a filter somebody saved.
+    if ((flag === "pinned" || flag === "favourite" || flag === "favourites") && !entry.pinned) {
+      return false;
+    }
     if (flag === "private" && !entry.is_private) return false;
     if (flag === "linked" && !(entry.links || []).length) return false;
     if (flag === "untagged" && tags.length) return false;
@@ -4695,6 +5977,11 @@ const INLINE_MD_LEGACY =
 // is a protocol-relative link off this origin). Rejects `javascript:`,
 // `data:`, and anything else a pasted note could contain.
 function isRenderableUrl(url) {
+  //: `staged:` is this app's own scheme for a picture whose bytes are still
+  //: in the browser (see `captureStagedImages`) — renderable, because the
+  //: preview draws it from the Blob, and never saved, because the save path
+  //: rewrites every one of them to a real url first.
+  if (typeof url === "string" && url.startsWith(STAGED_URL_PREFIX)) return true;
   return /^https?:\/\//i.test(url) || (url.startsWith("/") && !url.startsWith("//"));
 }
 
@@ -4719,6 +6006,100 @@ function attachmentIconClass(url) {
   if (!url.startsWith("/media/")) return null;
   const ext = url.split(".").pop().split(/[?#]/)[0].toLowerCase();
   return ATTACHMENT_ICONS[ext] || "ph-file";
+}
+
+//: Extensions the file card labels by name rather than by the generic
+//: "File" — the type is the second most useful thing about a file after
+//: what it is called, and "PDF · Open" reads as a thing you can do where
+//: "myfile.pdf" alone reads as text that happens to end in .pdf.
+const FILE_KIND_LABELS = {
+  pdf: "PDF", doc: "Word", docx: "Word", odt: "Document", rtf: "Document",
+  xls: "Sheet", xlsx: "Sheet", ods: "Sheet", csv: "CSV",
+  ppt: "Slides", pptx: "Slides", odp: "Slides",
+  txt: "Text", md: "Markdown", markdown: "Markdown",
+  json: "JSON", xml: "XML", yaml: "YAML", yml: "YAML",
+  html: "HTML", htm: "HTML", css: "CSS",
+  js: "Code", ts: "Code", jsx: "Code", tsx: "Code", py: "Code", java: "Code",
+  c: "Code", h: "Code", cpp: "Code", hpp: "Code", cs: "Code", go: "Code",
+  rs: "Code", rb: "Code", php: "Code", sh: "Code", sql: "SQL",
+  swift: "Code", kt: "Code",
+  zip: "Archive", mp3: "Audio", wav: "Audio", m4a: "Audio",
+  mp4: "Video", mov: "Video", webm: "Video",
+};
+
+function fileKindLabel(url) {
+  const ext = url.split(".").pop().split(/[?#]/)[0].toLowerCase();
+  return FILE_KIND_LABELS[ext] || "File";
+}
+
+/** A file attached to a note, rendered as something you can see and act on.
+ *
+ * Three affordances, and each one is a thing that was missing rather than a
+ * flourish: **open** (the card itself, into the lightbox's document viewer —
+ * the fix for the 401 dead end described at the call site), **save** (the
+ * only way to get the bytes out, since a plain link cannot authenticate),
+ * and the **type and name**, so a note full of files reads as a list of
+ * files instead of a paragraph of blue text.
+ *
+ * Deliberately not a `<a>` at all. An anchor to `/media/…` is the bug; an
+ * anchor with a token in the query string would put an unlock credential
+ * into anything that logs or copies a URL. A button that fetches with the
+ * header, like every other call in this app, has neither problem.
+ */
+/** The one-line form of `fileCard`, for a surface too small for a card. */
+function fileChip(name, url) {
+  const label = name && name !== url ? name : url.split("/").pop();
+  const chipEl = document.createElement("span");
+  chipEl.className = "chip file-chip";
+  setLabel(chipEl, `${(attachmentIconClass(url) || "ph-file").replace("ph-", "ph:")} ${label}`);
+  chipEl.title = `${fileKindLabel(url)} — ${label}`;
+  return chipEl;
+}
+
+function fileCard(name, url) {
+  const label = name && name !== url ? name : url.split("/").pop();
+  const card = document.createElement("span");
+  card.className = "file-card";
+
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "file-card-open";
+  open.title = `Open “${label}”`;
+  const icon = document.createElement("i");
+  icon.className = `ph ${attachmentIconClass(url) || "ph-file"} file-card-icon`;
+  icon.setAttribute("aria-hidden", "true");
+  const text = document.createElement("span");
+  text.className = "file-card-text";
+  const nameEl = document.createElement("span");
+  nameEl.className = "file-card-name";
+  nameEl.textContent = label;
+  const kindEl = document.createElement("span");
+  kindEl.className = "file-card-kind";
+  kindEl.textContent = fileKindLabel(url);
+  text.append(nameEl, kindEl);
+  open.append(icon, text);
+  open.addEventListener("click", () => {
+    openLightbox([{ filename: label, getUrl: () => mediaSrc(url) }], 0);
+  });
+
+  const save = document.createElement("button");
+  save.type = "button";
+  save.className = "ghost small icon-only file-card-save";
+  setLabel(save, "ph:download-simple");
+  save.title = `Save “${label}” to disk`;
+  save.setAttribute("aria-label", save.title);
+  save.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    try {
+      const response = await api(url);
+      await saveFile(label, await response.blob());
+    } catch (error) {
+      toast(error.message || `Couldn't save “${label}”.`, true);
+    }
+  });
+
+  card.append(open, save);
+  return card;
 }
 
 // LaTeX escapes that models reach for when they want a symbol (§35H).
@@ -4884,7 +6265,7 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
         const dismissBtn = document.createElement("span");
         dismissBtn.className = "unlink";
         dismissBtn.title = "Remove image from note";
-        dismissBtn.textContent = "×";
+        setLabel(dismissBtn, "ph:x"); // raw "×" glyph vs Phosphor icon font mismatch mis-centers the icon
         // `match` is one `let` binding reused by every pass of the while
         // loop above (a `while` reassigns it, unlike a `for (let x of …)`'s
         // fresh-per-iteration binding) — every dismiss button's closure
@@ -4920,7 +6301,7 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
           const dismiss = document.createElement("span");
           dismiss.className = "unlink";
           dismiss.title = "Dismiss";
-          dismiss.textContent = "×";
+          setLabel(dismiss, "ph:x"); // raw "×" glyph vs Phosphor icon font mismatch mis-centers the icon
           dismiss.addEventListener("click", (e) => { e.stopPropagation(); placeholder.remove(); });
           makeUnlinkAccessible(dismiss);
           placeholder.appendChild(dismiss);
@@ -4935,21 +6316,44 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
     }
     if (linkUrl !== undefined) {
       if (isRenderableUrl(linkUrl)) {
-        const a = document.createElement("a");
-        a.href = linkUrl;
-        if (/^https?:\/\//i.test(linkUrl)) {
-          a.target = "_blank";
-          a.rel = "noopener";
-        }
         const iconClass = attachmentIconClass(linkUrl);
         if (iconClass) {
-          const icon = document.createElement("i");
-          icon.className = `ph ${iconClass} attachment-link-icon`;
-          icon.setAttribute("aria-hidden", "true");
-          a.appendChild(icon);
+          // **A file, not a link — and this fixes a dead end, not just the
+          // looks.** Reported directly: "once I uploaded two files into a
+          // note, they became hyperlinked text, I clicked on them, and it
+          // took me to a black fode screen with some text about needing to
+          // unlock first… there was no way for me to go back except for
+          // closing the application entirely."
+          //
+          // That is exactly what an `<a href="/media/x.pdf">` does here. A
+          // plain navigation carries no `X-Auth-Token` header — only
+          // `apiJson` and `mediaSrc` attach one — so the browser leaves the
+          // single-page app, gets the unlock guard's 401 JSON body, and
+          // renders it with its own JSON viewer. The app is gone, and in the
+          // desktop shell there is no back button to bring it back.
+          //
+          // The lightbox already reads this exact file: `show()` sniffs a
+          // `/media/…` url that is not an image and hands it to the document
+          // viewer, which renders PDFs, Office files, code and plain text
+          // through `/media/text`. Nothing routed a note's own files to it —
+          // that missing wire is the whole bug.
+          // `compact` is the same label-sized-surface case the image branch
+          // above uses it for: a dashboard preview row or a link chip has
+          // room for a line of text, not a two-line card with its own
+          // buttons. The name and the type still say what it is.
+          element.appendChild(
+            compact ? fileChip(linkText, linkUrl) : fileCard(linkText, linkUrl)
+          );
+        } else {
+          const a = document.createElement("a");
+          a.href = linkUrl;
+          if (/^https?:\/\//i.test(linkUrl)) {
+            a.target = "_blank";
+            a.rel = "noopener noreferrer";
+          }
+          highlightInto(a, linkText, terms);
+          element.appendChild(a);
         }
-        highlightInto(a, linkText, terms);
-        element.appendChild(a);
       } else {
         element.appendChild(document.createTextNode(match[0]));
       }
@@ -4961,7 +6365,7 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
         const a = document.createElement("a");
         a.href = bareUrl;
         a.target = "_blank";
-        a.rel = "noopener";
+        a.rel = "noopener noreferrer";
         highlightInto(a, bareUrl, terms);
         element.appendChild(a);
       } else {
@@ -5071,6 +6475,18 @@ function resolveWikiTarget(name) {
   const needle = String(name || "").trim().toLowerCase();
   if (!needle) return null;
   const entries = typeof allEntries !== "undefined" ? allEntries : [];
+  //: **A vault's links name the file.** An imported note carries the path it
+  //: came from, and Obsidian writes `[[Roadmap]]` for `Projects/Roadmap.md` —
+  //: so this is tried first, and matched exactly: a file called "Index"
+  //: should not lose to a note that merely opens with the word "index". Same
+  //: rule as `find_by_wiki_name` in entry/manager.py, which is what makes the
+  //: link the backend stores and the link this pane draws point at one note.
+  const vaultNote = entries.find((e) => {
+    if (e.is_private || !e.source_path) return false;
+    const stem = e.source_path.split("/").pop().replace(/\.(md|markdown)$/i, "");
+    return stem.toLowerCase() === needle;
+  });
+  if (vaultNote) return { kind: "note", entry: vaultNote };
   const note = entries.find(
     (e) => !e.is_private && (e.content || "").toLowerCase().startsWith(needle)
   );
@@ -5364,9 +6780,11 @@ function paginateNotesForDisplay(items) {
 function orderedNotesForCurrentView() {
   let visible = draftsOnly
     ? allEntries.filter((e) => e.is_draft)
-    : activeCategory
-      ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft)
-      : allEntries.filter((e) => !e.is_draft);
+    : favouritesOnly
+      ? allEntries.filter((e) => e.pinned && !e.is_draft)
+      : activeCategory
+        ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft)
+        : allEntries.filter((e) => !e.is_draft);
   visible = visible.filter(matchesSearch);
 
   const flat = Boolean(noteSearch) || noteSort !== "newest";
@@ -5407,34 +6825,156 @@ function resolveNotePage(id) {
   return Math.floor(index / Number(notesPageSize)) + 1;
 }
 
+//: Rows or cards.
+//:
+//: **Cards is the default, by direct instruction** — "maybe make the cards
+//: notes view default" — after rows shipped as the default first. Rows
+//: exist because a two-line note was a 111px card plus a 10px gap, so a
+//: 900px window showed five notes; they fit twelve. But density is not the
+//: only thing a list of notes is for, and a card shows the note rather than
+//: a clipped line of it. Both are one click apart, and a row expands in
+//: place (see `row-expanded` below), so the compact view is no longer a
+//: view that *withholds* things.
+//:
+//: **The choice is remembered**, also asked for directly. localStorage
+//: rather than a server preference: it is a property of this screen on this
+//: machine, the same family as the expanded/collapsed sets above, and a
+//: round trip to change how a list looks would be the wrong trade. Read as
+//: "rows only if rows was explicitly chosen", so a profile that has never
+//: touched the toggle gets cards.
+let notesViewMode = localStorage.getItem("notesViewMode") === "rows" ? "rows" : "cards";
+
+function applyNotesViewMode() {
+  const list = $("entry-list");
+  if (list) list.classList.toggle("is-rows", notesViewMode === "rows");
+  $("notes-view-rows")?.classList.toggle("active", notesViewMode === "rows");
+  $("notes-view-cards")?.classList.toggle("active", notesViewMode === "cards");
+  $("notes-view-rows")?.setAttribute("aria-pressed", String(notesViewMode === "rows"));
+  $("notes-view-cards")?.setAttribute("aria-pressed", String(notesViewMode === "cards"));
+  updateExpandAllButton();
+}
+
+//: **Expand / collapse every row in the list you are looking at.** Asked for
+//: directly ("on the collapsed note view mode there should be an expand
+//: and/or collapse all button"). One button rather than two, because the
+//: only two states it can be in each have exactly one useful next move.
+//:
+//: It reads the rendered `<li>`s rather than recomputing which notes are
+//: visible. Filtering, sorting, threading and pagination all decide that
+//: between them, and a second implementation of "which notes are on screen"
+//: is a second thing to keep in step — the DOM already holds the answer.
+function listedNoteIds() {
+  return [...document.querySelectorAll("#entry-list > li[data-id]")].map((li) =>
+    Number(li.dataset.id)
+  );
+}
+
+function updateExpandAllButton() {
+  const button = $("notes-expand-all");
+  if (!button) return;
+  // Cards view opens every note by definition, so the control would say
+  // nothing there.
+  button.classList.toggle("hidden", notesViewMode !== "rows");
+  if (notesViewMode !== "rows") return;
+  const ids = listedNoteIds();
+  const anyCollapsed = ids.some((id) => !expandedRows.has(id));
+  setLabel(
+    button,
+    anyCollapsed ? "ph:arrows-out-line-vertical Expand all" : "ph:arrows-in-line-vertical Collapse all"
+  );
+  button.title = anyCollapsed
+    ? "Open every note in this list"
+    : "Close every note back to a single line";
+  button.setAttribute("aria-label", button.title);
+  button.disabled = ids.length === 0;
+}
+
+function toggleExpandAllRows() {
+  const ids = listedNoteIds();
+  if (!ids.length) return;
+  const anyCollapsed = ids.some((id) => !expandedRows.has(id));
+  for (const id of ids) {
+    if (anyCollapsed) expandedRows.add(id);
+    else expandedRows.delete(id);
+  }
+  renderEntries();
+}
+
+function setNotesViewMode(mode) {
+  notesViewMode = mode === "cards" ? "cards" : "rows";
+  localStorage.setItem("notesViewMode", notesViewMode);
+  applyNotesViewMode();
+}
+
+//: Which rows the reader has opened out. Asked for directly: "I think the
+//: compact cards need to be expandable to show all the note details and
+//: features."
+//:
+//: A row is a summary — it clips the body to one line and hides images, file
+//: cards and link chips, which is what makes twelve of them fit. That is the
+//: right default and the wrong dead end: wanting to *see* one of them should
+//: not mean switching the whole list to cards and losing your place. An
+//: expanded row drops back to the full card layout in place, so one note can
+//: be open inside an otherwise compact list.
+//:
+//: Not persisted, deliberately. It is a reading position, not a preference —
+//: coming back to a list with six notes arbitrarily open would be worse than
+//: coming back to a tidy one.
+const expandedRows = new Set();
+
+function toggleRowExpanded(id) {
+  if (expandedRows.has(id)) expandedRows.delete(id);
+  else expandedRows.add(id);
+  renderEntries();
+}
+
+$("notes-expand-all")?.addEventListener("click", toggleExpandAllRows);
+$("notes-view-rows")?.addEventListener("click", () => setNotesViewMode("rows"));
+$("notes-view-cards")?.addEventListener("click", () => setNotesViewMode("cards"));
+
 function renderEntries() {
   const list = $("entry-list");
   const empty = $("empty-message");
   const noMatch = $("no-match-message");
   list.replaceChildren();
+  // Re-applied on every render, not just on a click: `replaceChildren`
+  // above leaves the class alone, but a later render that rebuilt the <ul>
+  // itself would not — and this failing silently would look like the
+  // toggle not working rather than a class being dropped.
+  applyNotesViewMode();
 
   // Drafts stay out of All/category views entirely — user-reported: they
   // should only show up in the Drafts filter until saved as a real note.
   let visible = draftsOnly
     ? allEntries.filter((e) => e.is_draft)
-    : activeCategory
-      ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft)
-      : allEntries.filter((e) => !e.is_draft);
+    : favouritesOnly
+      ? allEntries.filter((e) => e.pinned && !e.is_draft)
+      : activeCategory
+        ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft)
+        : allEntries.filter((e) => !e.is_draft);
   visible = visible.filter(matchesSearch);
 
   // "Notes" everywhere else on this tab ("Your notes", "notebook", the
   // status-bar note count) — this heading used to say "entries" (the API's
   // internal name, /entries), the one place on the tab that didn't match
   // (Part C terminology audit).
-  const scope = draftsOnly ? "Drafts" : activeCategory ? `${activeCategory} notes` : "All notes";
+  const scope = draftsOnly
+    ? "Drafts"
+    : favouritesOnly
+      ? "Favourites"
+      : activeCategory
+        ? `${activeCategory} notes`
+        : "All notes";
   // Say how many matched out of how many there are. Without it a filter that
   // hides most of the notebook looks identical to a notebook that's nearly
   // empty, and there's no signal that a filter is even active.
   const total = draftsOnly
     ? allEntries.filter((e) => e.is_draft).length
-    : activeCategory
-      ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft).length
-      : allEntries.filter((e) => !e.is_draft).length;
+    : favouritesOnly
+      ? allEntries.filter((e) => e.pinned && !e.is_draft).length
+      : activeCategory
+        ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft).length
+        : allEntries.filter((e) => !e.is_draft).length;
   $("entries-heading-label").textContent =
     noteSearch && visible.length !== total
       ? `${scope} — ${visible.length} of ${total}`
@@ -5506,6 +7046,11 @@ function renderEntries() {
         // turned out to fit. No-op while the sub-tab is hidden;
         // showNotesSection re-runs it.
         settleNoteClamps();
+        // Expand-all reads the rendered rows, and `applyNotesViewMode` runs
+        // at the *top* of this function — right after `replaceChildren()`,
+        // when the list is empty and the button would read "Expand all
+        // (disabled)" forever. Refreshed here, once the rows exist.
+        updateExpandAllButton();
       },
     }
   );
@@ -5608,6 +7153,7 @@ function renderSidebar() {
     li.addEventListener("click", () => {
       activeCategory = category;
       draftsOnly = false; // exclusive with the Drafts filter below
+      favouritesOnly = false; // and with Favourites, for the same reason
       // The list this filters lives in the "browse" sub-tab, and the sidebar
       // is visible from all four — so picking a category while writing a note
       // or asking a question filtered a list that was `display: none`, and the
@@ -5661,12 +7207,44 @@ function renderSidebar() {
   draftRow.append(draftName, draftBadge);
   draftRow.addEventListener("click", () => {
     draftsOnly = !draftsOnly;
+    favouritesOnly = false;
+    activeCategory = null;
+    showNotesSection("browse");
+    renderSidebar();
+    renderEntries();
+  });
+
+  // **Favourites.** Asked for as "a favourites folder or side parallel category
+  // that isnt an actual category but could be treated as one if toggled" — so
+  // it is built exactly like Drafts directly above: a row where the categories
+  // are, a count, a toggle, and mutually exclusive with the other two filters.
+  // This app already has one pseudo-category, and a second that behaved
+  // differently would be a second sign for the same idea.
+  //
+  // The notes it collects are the pinned ones (see `favouritesOnly`) — no new
+  // flag, no second place to star something.
+  const favouriteCount = allEntries.filter((e) => e.pinned && !e.is_draft).length;
+  const favouriteRow = document.createElement("li");
+  favouriteRow.className = "category-drafts-row";
+  if (favouritesOnly) favouriteRow.classList.add("active");
+  const favouriteName = document.createElement("span");
+  favouriteName.className = "category-name";
+  setLabel(favouriteName, "ph:star Favourites");
+  const favouriteBadge = document.createElement("span");
+  favouriteBadge.className = "count";
+  favouriteBadge.textContent = favouriteCount;
+  favouriteRow.append(favouriteName, favouriteBadge);
+  favouriteRow.title = "Notes you have starred — they also float to the top of every list";
+  favouriteRow.addEventListener("click", () => {
+    favouritesOnly = !favouritesOnly;
+    draftsOnly = false;
     activeCategory = null;
     showNotesSection("browse");
     renderSidebar();
     renderEntries();
   });
   ul.appendChild(draftRow);
+  ul.appendChild(favouriteRow);
 
   for (const [category, count] of [...counts.entries()].sort()) {
     addRow(category, count, category);
@@ -5819,7 +7397,55 @@ function offerJumpToNewNote(saved, status) {
   status.append(" ", jump);
 }
 
+// A deferred note's filing runs after its POST returns, so the composer has
+// to find out where it landed some other way. It polls this one endpoint —
+// three fields, no joins — on a widening interval, because the answer
+// arrives either in well under a second (a semantic match, no model call)
+// or in however long the local model takes, and a fixed 250ms poll would
+// spend most of its requests on the gap between those two.
+//
+// Giving up is deliberately quiet. The note is already saved and already in
+// the list; the only thing a timeout costs is the toast, and a notebook
+// whose model has gone away should not accumulate error messages for notes
+// that saved perfectly well.
+const FILING_POLL_STEPS = [400, 600, 900, 1400, 2000, 3000, 4000, 6000, 8000];
+
+async function watchFiling(entry) {
+  for (const wait of FILING_POLL_STEPS) {
+    await new Promise((r) => setTimeout(r, wait));
+    let status;
+    try {
+      status = await apiJson(`/entries/${entry.id}/filing`, { silent: true });
+    } catch {
+      return; // deleted, or the server went away — nothing to report
+    }
+    if (status.filing_state === "pending") continue;
+    if (status.filing_state === "failed") {
+      toast(`Saved, but the AI couldn't file it — it's in “${status.category}”.`, true);
+    } else {
+      toastAction(
+        `Filed under “${status.category}” (${status.ai_confidence}% sure).`,
+        "Go to it",
+        () => flashEntry(entry.id)
+      );
+      // The near-duplicate search moved into the same background pass, so
+      // this warning arrives here now rather than on the create response.
+      // Still purely informational, still never blocking — the note saved.
+      if (status.similar) {
+        toast(`Heads up: this is close to an existing note — “${status.similar.preview}”`);
+      }
+    }
+    // The card in the list still says "Filing…" and still shows the holding
+    // category until something re-reads it.
+    await loadEntries();
+    return;
+  }
+}
+
 function filedByText(saved) {
+  if (saved.filing_state === "pending") {
+    return "Saved. Filing it in the background — keep writing.";
+  }
   switch (saved.filed_by) {
     case "semantic-match":
       return `Filed under “${saved.category}” (${saved.ai_confidence}% sure) — matched by meaning, no AI call needed`;
@@ -5840,6 +7466,27 @@ function filedByText(saved) {
 // The picker adds; the chips are how you take one back off before saving.
 
 const captureDocuments = new Set();
+
+//: Files waiting to become attachments on a note that does not exist yet.
+//: The long "why staging" explanation lives on `handleFileUpload`, which is
+//: the only thing that fills this.
+//:
+//: **Declared here, ~19,000 lines before its first write, and that is the
+//: fix for a real crash.** It was originally declared next to
+//: `handleFileUpload`, near the end of the file — but `renderCaptureFiles`
+//: reads it, and the draft-restore IIFE calls that at module load time, from
+//: *earlier* in the file. `let` is hoisted into the temporal dead zone
+//: rather than initialised, so that read threw `Cannot access
+//: 'captureStagedFiles' before initialization`, which aborted the rest of
+//: app.js — `initAuth` never ran, the splash never hid, and the app sat on
+//: its loading screen forever. Reported exactly that way, and caught by the
+//: boot guard added the same session, which is the only reason the cause was
+//: visible at all rather than being a silent hang.
+//:
+//: `node --check` does not catch this: it is valid syntax and a runtime
+//: ordering fault. The lesson for anything similar: module-level state read
+//: during load must be declared above every path that runs at load.
+let captureStagedFiles = [];
 
 async function loadCaptureDocuments() {
   const select = $("entry-document");
@@ -6022,6 +7669,12 @@ function resetCaptureForm(contentBox, titleBox) {
   renderCaptureDocuments();
   $("entry-template").value = "";
   clearCaptureTagSuggestions();
+  // NOT cleared here: `captureStagedFiles`. `saveEntry` hands the list to
+  // `uploadStagedFiles`, which takes ownership of it and empties it itself.
+  // Clearing here as well would race that and silently drop the attachments
+  // on every save — the composer resets before the uploads finish, by
+  // design. `saveEntryAsDraft` clears it explicitly instead, below.
+  renderCaptureFiles();
 }
 
 // **Tag suggestions while composing, not just after saving.** Reported
@@ -6111,24 +7764,53 @@ async function saveEntry() {
   const category = await resolveCategoryChoice($("entry-category"));
   if (category === undefined) return;
 
+  // Filing in the background is the default, and the reason is the whole
+  // point of the preference: filing asks a local model, so on a small
+  // machine this form used to sit disabled behind "Filing…" for seconds
+  // per note — reported as "the making of new notes was slow and annoying…
+  // I feel like the note panels should disappear while filing and
+  // continuing in the backend with a popup notification so I dont have to
+  // wait twiddling my thumbs". Choosing a category yourself skips it
+  // either way: there is nothing to wait for.
+  const deferFiling = !category && (prefsCache.background_filing ?? true);
+
   button.disabled = true;
   status.classList.remove("error");
   status.textContent = category
     ? "Saving…"
-    : modelStatus && !modelStatus.embedding_ready
-      ? "Filing… (the search AI is still warming up, this first one can take longer)"
-      : "Filing… (the AI is reading and categorising your note)";
+    : deferFiling
+      ? "Saving…"
+      : modelStatus && !modelStatus.embedding_ready
+        ? "Filing… (the search AI is still warming up, this first one can take longer)"
+        : "Filing… (the AI is reading and categorising your note)";
   try {
+    //: **The pictures go up before the note does.** They were staged as
+    //: `staged:<key>` urls while the note had no id (see `captureStagedImages`);
+    //: this is the moment the user commits, so the bytes are uploaded and every
+    //: placeholder in the text is replaced with the url the upload returned.
+    //: A failure throws out of here and the save stops with the reason — a note
+    //: saved with a dead `staged:` url in it would be a broken picture forever,
+    //: and dropping the picture silently would be worse.
+    const stagedUrls = await commitCaptureImages();
+    const body = rewriteStagedUrls(content, stagedUrls);
     const saved = await apiJson("/entries", {
       method: "POST",
       body: JSON.stringify({
-        content,
+        content: body,
         tags,
         category,
         document_ids: [...captureDocuments],
+        defer_filing: deferFiling,
       }),
     });
+    clearStagedImages();
     status.textContent = filedByText(saved);
+    if (saved.filing_state === "pending") watchFiling(saved);
+    // The note finally has an id, which is the only thing the staged files
+    // were ever waiting for. Not awaited: the composer is already clear and
+    // the toasts report per file — making Save wait on N uploads would put
+    // back exactly the blocking this session removed from filing.
+    uploadStagedFiles(saved.id);
     if (saved.similar) {
       // Duplicate detection (Wave B) — informational, never blocking.
       toast(
@@ -6189,17 +7871,26 @@ async function saveEntryAsDraft() {
   status.classList.remove("error");
   status.textContent = "Saving as draft…";
   try {
-    await apiJson("/entries", {
+    //: Same commit-then-write order as a full save — a draft is a note with
+    //: an id, so its pictures are real from the same moment.
+    const stagedUrls = await commitCaptureImages();
+    const saved = await apiJson("/entries", {
       method: "POST",
       body: JSON.stringify({
-        content,
+        content: rewriteStagedUrls(content, stagedUrls),
         tags,
         document_ids: [...captureDocuments],
         is_draft: true,
       }),
     });
+    clearStagedImages();
     status.textContent = "Saved as a draft — find it later under Drafts in the sidebar.";
     resetCaptureForm(contentBox, titleBox);
+    // A draft is still a note with an id, so staged files attach to it the
+    // same way. Doing this here rather than in `resetCaptureForm` is what
+    // keeps that function from having to know which of its two callers has
+    // already taken the list — see its own comment.
+    uploadStagedFiles(saved.id);
     await loadEntries();
   } catch (error) {
     status.textContent = error.message;
@@ -6265,6 +7956,10 @@ function flashEntry(id) {
   // from every other view (user-reported) — otherwise jumping to one from
   // Library's "Open" button would find nothing.
   draftsOnly = allEntries.some((e) => e.id === id && e.is_draft);
+  // Same reason as the line above and the search reset below: a note that is
+  // not pinned is filtered out of Favourites, so jumping to one while that
+  // filter is on would scroll to nothing.
+  favouritesOnly = false;
   // Clear any active filter too: a note that doesn't match the current search
   // is filtered out of the list, so there'd be nothing to scroll to.
   noteSearch = "";
@@ -6362,8 +8057,132 @@ function clickableResult(entry) {
 // often share a note, and a chip per sentence would repeat itself), the
 // chip's title carrying the actual sentence(s) it backs. Clicking a chip
 // opens that note, same as a search result row already does.
-function renderAnswerGrounding(target, sentences, rawResults) {
+// **Numbered citations in the answer itself.** Asked for directly: "inline
+// referencing with hyperlinks in ai chat messages would be amazing."
+//
+// The data for this already existed and only ever reached a chip row *under*
+// the answer: `ground_answer_sentences` (ai/grounding.py) returns
+// {sentence, note_id} pairs, scored by word overlap against the notes that
+// were actually retrieved — so the app already knows, per sentence, which
+// note backs it. What it did not do was say so where the sentence is, which
+// is the only place the claim and its source are read together.
+//
+// Deliberately conservative about *where* a marker may go: it walks real text
+// nodes and only places one where a grounded sentence is found whole inside a
+// single node. A sentence split across an <em> or a link is skipped rather
+// than reassembled — a citation attached to the wrong half of a sentence is
+// worse than no citation, and the chip row below still lists every source
+// either way, so nothing is lost by skipping.
+function addInlineCitations(answerEl, sentences, rawResults) {
+  if (!answerEl || !sentences || !sentences.length) return;
+  const byId = new Map((rawResults || []).map((entry) => [entry.id, entry]));
+  // One number per note, in the order they are first cited — the numbering a
+  // reader expects, rather than note ids, which mean nothing to anyone.
+  const numberFor = new Map();
+  for (const g of sentences) {
+    if (!numberFor.has(g.note_id)) numberFor.set(g.note_id, numberFor.size + 1);
+  }
+  // Longest first: when one grounded sentence is a prefix of another, marking
+  // the short one first would leave the long one unmatchable.
+  const wanted = [...sentences]
+    .filter((g) => (g.sentence || "").trim().length > 12)
+    .sort((a, b) => (b.sentence || "").length - (a.sentence || "").length);
+  const placed = new Set();
+  const walker = document.createTreeWalker(answerEl, NodeFilter.SHOW_TEXT);
+  const queue = [];
+  while (walker.nextNode()) queue.push(walker.currentNode);
+
+  // A queue rather than a plain loop, because placing a marker *splits* the
+  // text node it was found in. The remainder is a new node that the tree
+  // walker never saw, and a paragraph routinely carries several grounded
+  // sentences — measured: two sentences in one <p> produced exactly one
+  // marker before this, because the first placement ended the node's turn.
+  // Pushing the tail back on is what lets the rest of the paragraph be
+  // scanned for the sentences that are still unplaced.
+  while (queue.length) {
+    const node = queue.shift();
+    if (!node.parentNode || node.parentNode.closest?.(".answer-citation")) continue;
+    for (const g of wanted) {
+      const key = `${g.note_id}:${g.sentence}`;
+      if (placed.has(key)) continue;
+      const text = node.textContent;
+      const at = text.indexOf(g.sentence.trim());
+      if (at === -1) continue;
+      const end = at + g.sentence.trim().length;
+      const tail = node.splitText(end);
+      // Both halves go back on. The tail is the rest of the paragraph, and
+      // the head still holds everything *before* this match — which is where
+      // an earlier sentence in the same paragraph lives. Measured: with only
+      // the tail re-queued, a paragraph whose second sentence was the longer
+      // one (so matched first) never got a marker on its first sentence.
+      queue.unshift(tail);
+      queue.unshift(node);
+      const marker = document.createElement("sup");
+      marker.className = "answer-citation";
+      const link = document.createElement("button");
+      link.type = "button";
+      link.className = "answer-citation-link";
+      const entry = byId.get(g.note_id);
+      const name = noteLabel({ content: entry?.content || "" }, 40);
+      link.textContent = String(numberFor.get(g.note_id));
+      link.title = `Open the note this came from: ${name}`;
+      link.setAttribute("aria-label", `Source ${numberFor.get(g.note_id)}: ${name}`);
+      link.addEventListener("click", (event) => {
+        event.stopPropagation();
+        flashEntry(g.note_id);
+      });
+      marker.appendChild(link);
+      tail.parentNode.insertBefore(marker, tail);
+      placed.add(key);
+      break; // this node is now split; its tail is at the head of the queue
+    }
+  }
+}
+
+// The "nothing in your notes, but…" row. Sent only on the empty path (see
+// `_related_elsewhere`, routes_chat.py) — a question whose answer lives in a
+// document, a saved chat or a reminder used to end at "I couldn't find any
+// saved notes matching that question", which is true and a dead end.
+//
+// Chips, matching every other "here is something to open" row in this app,
+// each landing on the thing itself rather than on a search for it.
+function renderRelatedElsewhere(target, items) {
+  if (!target || !items || !items.length) return;
+  const row = document.createElement("div");
+  row.className = "answer-related";
+  const label = document.createElement("span");
+  label.className = "muted answer-grounding-label";
+  label.textContent = "Elsewhere in your notebook:";
+  row.appendChild(label);
+  const icons = { document: "ph:file-text", chat: "ph:chat-circle", reminder: "ph:bell" };
+  for (const item of items) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "chip chip-interactive answer-related-chip";
+    setLabel(button, `${icons[item.kind] || "ph:link"} ${item.label || item.kind}`);
+    button.title = `Open this ${item.kind}`;
+    button.addEventListener("click", () => {
+      if (item.kind === "document") {
+        switchTab("documents");
+        openDocument(item.id);
+      } else if (item.kind === "chat") {
+        switchTab("chat");
+        openConversation?.(item.id);
+      } else if (item.kind === "reminder") {
+        switchTab("reminders");
+      }
+    });
+    row.appendChild(button);
+  }
+  target.appendChild(row);
+}
+
+function renderAnswerGrounding(target, sentences, rawResults, answerEl = null) {
   if (!target) return;
+  // The markers go in the answer itself; the chip row below is their key.
+  // Both are built from the same `sentences`, so they cannot disagree about
+  // which note is number 2.
+  addInlineCitations(answerEl, sentences, rawResults);
   target.replaceChildren();
   if (!sentences || !sentences.length) {
     target.classList.add("hidden");
@@ -6379,12 +8198,16 @@ function renderAnswerGrounding(target, sentences, rawResults) {
   label.className = "muted answer-grounding-label";
   label.textContent = "Grounded in:";
   target.appendChild(label);
+  let n = 0;
   for (const [noteId, forSentences] of byNote) {
     const entry = byId.get(noteId);
+    n += 1;
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = "chip result-reason-chip result-reason-connected answer-grounding-chip";
-    setLabel(chip, `ph:file-text ${noteLabel({ content: entry?.content || "" }, 30)}`);
+    // Numbered to match the markers `addInlineCitations` puts in the answer —
+    // the row is the key to those, so the two have to count the same way.
+    setLabel(chip, `ph:file-text ${n}. ${noteLabel({ content: entry?.content || "" }, 30)}`);
     chip.title = forSentences.join(" ");
     chip.addEventListener("click", () => flashEntry(noteId));
     target.appendChild(chip);
@@ -6437,6 +8260,7 @@ function renderChatMeta(meta) {
     // notes. "No matching records" would report a failed search that never
     // happened, which is the half of the greeting case that read as broken.
     $("chat-results").classList.remove("hidden");
+  $("ask-idle")?.classList.add("hidden");
     document.querySelector(".chat-half:last-child")?.classList.add("hidden");
     return;
   }
@@ -6485,6 +8309,7 @@ function renderChatMeta(meta) {
     rawList.appendChild(row);
   }
   $("chat-results").classList.remove("hidden");
+  $("ask-idle")?.classList.add("hidden");
 }
 
 // Why a result showed up, as a badge — not a footnote. Reported directly:
@@ -6581,6 +8406,7 @@ async function streamChat({
   onHint,
   onStats,
   onGrounding,
+  onRelated,
 }) {
   const body = { question, history: history || [] };
   if (persona) body.persona = persona;
@@ -6638,7 +8464,22 @@ async function streamChat({
   // token-by-token delivery with none of that.
   const response = await fetch("/chat/stream", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Auth-Token": authToken(),
+      // Missing here, this fetch is hand-rolled rather than going through
+      // api()/apiJson() (it needs the raw streaming body, which those don't
+      // expose) — and every one of the app's *other* fetches gets this
+      // header automatically, so it was easy to not notice this one never
+      // did. Reported directly: a space hidden from "All spaces" still
+      // surfaced its notes from Ask's semantic search. The real bug was
+      // wider than that one symptom — with no X-Workspace-ID at all,
+      // get_session() never populates session.info["workspace_id"], so
+      // database.py's workspace filter never runs, and *every* chat or Ask
+      // turn searched every space regardless of which one was active,
+      // hidden or not.
+      "X-Workspace-ID": activeSpaceId(),
+    },
     body: JSON.stringify(body),
     signal,
   });
@@ -6719,6 +8560,10 @@ async function streamChat({
       // ROADMAP.md item 36: which retrieved note backs which sentence of a
       // direct-Q&A answer. Only ever sent for that path (routes_chat.py).
       else if (event.type === "grounding" && onGrounding) onGrounding(event);
+      // Sent only when a question found no notes at all — the notebook is
+      // more than its notes, so the answer names what else mentions it
+      // (routes_chat.py's `_related_elsewhere`).
+      else if (event.type === "related" && onRelated) onRelated(event);
       else if (event.type === "error") {
         // The server caught something mid-stream and said so. Surfacing it
         // beats the silent truncation this used to be.
@@ -6777,6 +8622,7 @@ function newChat() {
   conversation = [];
   lastQuestion = "";
   $("chat-results").classList.add("hidden");
+  $("ask-idle")?.classList.remove("hidden");
   $("new-chat-btn").classList.add("hidden");
   $("ask-status").textContent = "";
   $("question").value = "";
@@ -6881,6 +8727,10 @@ async function askQuestion(preset) {
       onAnswer: (delta) => {
         if (thinkingBox.open) thinkingBox.open = false; // reasoning done → tuck away
         answerRaw += delta;
+        // Same caret the Chat tab's timeline gets, for the same reason — see
+        // `.is-streaming` in 01-forms-settings.css. Set here rather than
+        // before the request because the dots own the "nothing yet" state.
+        answerBox.classList.add("is-streaming", "is-generating");
         renderLive(answerRaw); // markdown renders AS it streams (user request)
         status.textContent = "The model is writing…";
       },
@@ -6891,8 +8741,16 @@ async function askQuestion(preset) {
         renderAskHint(answerBox, event);
         status.textContent = "";
       },
+      onRelated: (event) => {
+        renderRelatedElsewhere($("ai-answer-grounding"), event.items);
+      },
       onGrounding: (event) => {
-        renderAnswerGrounding($("ai-answer-grounding"), event.sentences, groundingRawResults);
+        renderAnswerGrounding(
+          $("ai-answer-grounding"),
+          event.sentences,
+          groundingRawResults,
+          answerBox
+        );
       },
     });
 
@@ -6922,6 +8780,9 @@ async function askQuestion(preset) {
       status.classList.add("error");
     }
   } finally {
+    // Every exit path, including Stop and an error: a caret still blinking on
+    // an answer that stopped arriving is worse than never showing one.
+    answerBox.classList.remove("is-streaming", "is-generating");
     askController = null;
     setAsking(false);
     // The question used to be cleared here, which left an answer on screen with
@@ -7127,6 +8988,7 @@ async function viewAskHistoryTurn(id) {
   }
   document.querySelector(".chat-half:last-child")?.classList.remove("hidden");
   $("chat-results").classList.remove("hidden");
+  $("ask-idle")?.classList.add("hidden");
   $("ask-status").textContent = "";
   show("retry-btn", "copy-btn", "speak-btn", "new-chat-btn");
 }
@@ -7209,10 +9071,15 @@ function assistantLabel() {
 // A hover-reveal row of small actions under a chat bubble. Each action is
 // { label, title, onClick }. onClick gets the click event so buttons can
 // give inline feedback (e.g. a copy tick).
+//: How many actions a message row shows before the rest fold into a ⋯. Five is
+//: what fits beside the shortest message this app produces without the row
+//: being wider than the bubble it belongs to.
+const MSG_ACTIONS_VISIBLE = 5;
+
 function chatMessageActions(actions) {
   const row = document.createElement("div");
   row.className = "msg-actions";
-  for (const action of actions) {
+  const make = (action) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "msg-action";
@@ -7220,9 +9087,87 @@ function chatMessageActions(actions) {
     button.title = action.title;
     button.setAttribute("aria-label", action.title);
     button.addEventListener("click", action.onClick);
-    row.appendChild(button);
+    return button;
+  };
+  //: **The row grew past what a row can hold.** An assistant message now
+  //: offers ten things (copy, regenerate from here, rewrite shorter, explain
+  //: simpler, fork from here, read aloud, save as note, remind me, edit,
+  //: delete) — the Odysseus footer's set plus this app's own capture actions.
+  //: Ten buttons over a two-line answer is not a control row, it is a toolbar
+  //: that happens to be under a message, so the rest go behind the same ⋯ the
+  //: app uses everywhere else for "more actions on this object".
+  for (const action of actions.slice(0, MSG_ACTIONS_VISIBLE)) row.appendChild(make(action));
+  const overflow = actions.slice(MSG_ACTIONS_VISIBLE);
+  if (overflow.length) {
+    row.appendChild(
+      kebabMenu(
+        overflow.map((action) => ({
+          label: `${action.label} ${action.title}`,
+          title: action.title,
+          danger: action.danger,
+          run: () => action.onClick({ currentTarget: null }),
+        })),
+        "More actions for this message"
+      )
+    );
   }
   return row;
+}
+
+//: **One action list for an assistant message, wherever it was built.**
+//:
+//: There were two: the live stream's and the reopened-conversation path's, and
+//: they had already drifted — the replayed one had Edit and no Read aloud, the
+//: live one the reverse, and a bug fixed in one stayed in the other. This is
+//: the same "two implementations of one control" lesson the Library kebab
+//: taught, applied before it costs another round.
+//:
+//: The order is Odysseus's footer order, with this app's own capture actions
+//: after it: what you do to the *answer* first, what you do with it second.
+function assistantMessageActions({ bubble, text, question, onEdit }) {
+  return chatMessageActions([
+    { label: "ph:copy", title: "Copy answer", onClick: (e) => copyToClipboard(text, e.currentTarget) },
+    {
+      label: "ph:arrow-clockwise",
+      title: "Regenerate from here",
+      onClick: () => regenerateFromBubble(bubble),
+    },
+    {
+      label: "ph:scissors",
+      title: "Rewrite this shorter",
+      onClick: () =>
+        rewriteAnswerWith(
+          "Rewrite your last answer to be shorter — keep every fact, cut the padding."
+        ),
+    },
+    {
+      label: "ph:student",
+      title: "Explain it more simply",
+      onClick: () =>
+        rewriteAnswerWith(
+          "Explain your last answer again in plain language, short sentences, no jargon."
+        ),
+    },
+    {
+      label: "ph:git-branch",
+      title: "Fork the conversation from here",
+      onClick: () => forkFromBubble(bubble),
+    },
+    { label: "ph:speaker-high", title: "Read aloud", onClick: () => speakText(text) },
+    {
+      label: "ph:note-pencil",
+      title: "Save this answer as a draft note",
+      onClick: () => saveChatAnswerAsNote(question, text),
+    },
+    { label: "ph:alarm", title: "Set a reminder from this answer", onClick: () => reminderFromChatAnswer(text) },
+    ...(onEdit ? [{ label: "ph:pencil-simple", title: "Edit this answer", onClick: onEdit }] : []),
+    {
+      label: "ph:trash",
+      title: "Delete this message",
+      danger: true,
+      onClick: () => deleteChatTurn(bubble),
+    },
+  ]);
 }
 
 // One-click capture from a chat answer. The text-selection popup's "Save as
@@ -7740,6 +9685,79 @@ function editAndResend(bubble, text) {
 // Re-run the most recent question and REPLACE the previous answer in place
 // (user request: a redo shouldn't stack a second answer below the old one).
 // The original "you" bubble stays; only the assistant bubble is swapped.
+//: **The question a bubble is the answer to.** Walks back through the
+//: transcript rather than trusting an index: bubbles are deleted, edited and
+//: re-ordered, and any stored position goes stale the first time somebody uses
+//: the ⋯ on a message in the middle.
+function questionForBubble(bubble) {
+  let node = bubble;
+  while (node) {
+    node = node.previousElementSibling;
+    if (node && node.classList.contains("msg") && node.classList.contains("user")) {
+      return { bubble: node, text: (node.querySelector(".msg-body")?.textContent || "").trim() };
+    }
+  }
+  return null;
+}
+
+//: **Regenerate from *this* answer, not just the last one.**
+//:
+//: Odysseus's message footer has had this since it shipped, and it is the one
+//: that matters on a long thread: the answer you want re-done is rarely the
+//: newest. Everything after the question is removed first — an answer
+//: regenerated in the middle of a thread that keeps the turns built on the old
+//: one is a transcript that contradicts itself.
+function regenerateFromBubble(bubble) {
+  if (chatController) return toast("Wait for the current answer to finish.");
+  const asked = questionForBubble(bubble);
+  if (!asked) return toast("There is no question above this answer to re-ask.");
+  const host = $("chat-messages");
+  const kept = [...host.children];
+  const from = kept.indexOf(asked.bubble);
+  //: The question stays; everything after it goes, including this answer.
+  for (const node of kept.slice(from + 1)) node.remove();
+  sendChatMessage(asked.text, { skipUserBubble: true, replaceLast: true });
+}
+
+//: **Rewrite the last answer under a standing instruction** — Odysseus's
+//: "shorter" and "simpler" footer actions.
+//:
+//: Sent as a *visible* user turn rather than a hidden system nudge, which is
+//: the one design choice worth stating: this app's whole premise is that you
+//: can read what the model was asked. A hidden instruction that changes an
+//: answer is exactly the thing a local-first notebook should not do.
+function rewriteAnswerWith(instruction) {
+  if (chatController) return toast("Wait for the current answer to finish.");
+  sendChatMessage(instruction);
+}
+
+//: **Fork from this point in the conversation.** The server already copies a
+//: conversation up to a turn (`POST /conversations/{id}/fork`, `up_to`) — this
+//: is the door to it from the message you are actually looking at, which is
+//: where "try a different direction from here" is decided.
+async function forkFromBubble(bubble) {
+  if (!chatConv || chatConv.id === null) {
+    return toast("Nothing to fork yet — ask something first.");
+  }
+  //: Which turn this is: count the assistant bubbles before it. `up_to` is a
+  //: turn index on the server, and a turn is one question and its answer.
+  const bubbles = [...$("chat-messages").querySelectorAll(".msg.assistant")];
+  const index = bubbles.indexOf(bubble);
+  if (index === -1) return;
+  try {
+    const fork = await apiJson(`/conversations/${chatConv.id}/fork`, {
+      method: "POST",
+      body: JSON.stringify({ up_to: index + 1 }),
+    });
+    await loadConversationList();
+    toastAction(`Forked at this message → “${fork.title}”.`, "Open it", () =>
+      openConversation(fork.id)
+    );
+  } catch (error) {
+    toast(error.message || "Couldn't fork from here.", true);
+  }
+}
+
 function regenerateLastAnswer() {
   if (!lastChatQuestion || chatController) return;
   const assistantBubbles = $("chat-messages").querySelectorAll(".msg.assistant");
@@ -7781,6 +9799,18 @@ function renderChatEmptyState() {
     "Ask a question and the AI answers from your saved notes. Turn on “AI can " +
     "make changes” and it can create, tag, link, and organise notes for you too.";
   empty.append(emblem, title, blurb);
+  //: **The starters belong in the empty state, not in a strip above the
+  //: composer.** Measured at 1440px: the welcome was a 326px column of centred
+  //: text in a 1062px pane with four suggestion chips jammed against the
+  //: composer 550px below it — two halves of one invitation, as far apart as
+  //: the layout allowed. `#chat-suggest` still exists and is still filled by
+  //: `loadChatSuggestions`; it is *moved here* while the pane is empty and
+  //: goes back to the dock the moment a message arrives, so nothing else has
+  //: to know where it lives.
+  const suggest = $("chat-suggest");
+  if (suggest && !suggest.classList.contains("hidden")) {
+    empty.appendChild(suggest);
+  }
   box.appendChild(empty);
   // Animated like the ai-mark: a new chat is the AI waiting, and the slow
   // turn says so. Stills itself under Settings → Appearance → reduced motion.
@@ -7788,7 +9818,17 @@ function renderChatEmptyState() {
 }
 
 function clearChatEmptyState() {
-  $("chat-messages").querySelector(".chat-empty")?.remove();
+  const empty = $("chat-messages").querySelector(".chat-empty");
+  if (!empty) return;
+  //: The chips are on loan from the dock (see `chatEmptyState`), so they go
+  //: home before the welcome is thrown away — removing them with it would
+  //: lose the element every other caller still holds by id.
+  const suggest = empty.querySelector("#chat-suggest");
+  if (suggest) {
+    suggest.classList.add("hidden");
+    document.querySelector(".chat-dock")?.prepend(suggest);
+  }
+  empty.remove();
 }
 
 // --- web panel: search + reader view ----------------------------------------
@@ -7889,12 +9929,17 @@ async function refreshWebSearxngStrip() {
   toggle.disabled = false;
   setLabel(
     toggle,
-    running
-      ? "ph:stop-circle Stop"
-      : info.state === "absent"
-        ? "ph:play Install & start"
-        : "ph:play Start"
+    //: "Install & start" wrapped onto its own line in a 318px panel, so a
+    //: two-word chip sat above a full-width button before you had searched
+    //: anything. "Install" says the same thing in the width available — what
+    //: it starts afterwards is not a decision anyone is making here.
+    running ? "ph:stop-circle Stop" : info.state === "absent" ? "ph:play Install" : "ph:play Start"
   );
+  toggle.title = running
+    ? "Stop the local SearXNG instance"
+    : info.state === "absent"
+      ? "Install SearXNG locally and start it — searches then never leave this machine"
+      : "Start the local SearXNG instance";
   toggle.onclick = async () => {
     toggle.disabled = true;
     try {
@@ -7923,16 +9968,19 @@ function buildWebResultRow(result) {
   const row = document.createElement("div");
   row.className = "web-result";
 
-  const title = document.createElement("button");
-  title.type = "button";
-  title.className = "web-result-title";
-  title.textContent = result.title || result.url;
-  title.addEventListener("click", () => openWebReader(result.url));
-  row.appendChild(title);
-
+  //: **Source first, then the headline.** Reported bluntly: "the web search
+  //: features and ui and ux are horrible." Half of that was reading order.
+  //: Every search surface the user compares this to — Google, Perplexity,
+  //: Odysseus's own — puts where a result came from *above* its title,
+  //: because deciding whether to trust a result starts with the domain. This
+  //: had the title first and the domain under it, so the eye landed on
+  //: fifteen words of headline before learning it was from a forum.
   const meta = document.createElement("div");
   meta.className = "web-result-meta muted";
-  meta.textContent = result.domain || "";
+  const host = document.createElement("span");
+  host.className = "web-result-host";
+  host.textContent = result.domain || "";
+  meta.appendChild(host);
   // SearXNG is a metasearch engine, so "via SearXNG" says where the query
   // was assembled rather than who answered it. Naming the upstream engines
   // is what makes a self-hosted instance legible rather than a black box.
@@ -7942,9 +9990,17 @@ function buildWebResultRow(result) {
     via.className = "web-result-via";
     via.textContent = result.via.join(" · ");
     via.title = `Found by ${result.via.join(", ")}`;
-    meta.append(" — ", via);
+    meta.append(document.createTextNode(" · "), via);
   }
   row.appendChild(meta);
+
+  const title = document.createElement("button");
+  title.type = "button";
+  title.className = "web-result-title";
+  title.textContent = result.title || result.url;
+  title.title = `Read “${result.title || result.url}” here, without opening a browser`;
+  title.addEventListener("click", () => openWebReader(result.url));
+  row.appendChild(title);
 
   if (result.snippet) {
     const snippet = document.createElement("div");
@@ -7953,30 +10009,80 @@ function buildWebResultRow(result) {
     row.appendChild(snippet);
   }
 
-  // The actions, in the row's corner and revealed on hover — the same
-  // pattern the note cards use, and for the same reason. Measured before:
-  // three labelled buttons under every result made each one 127px tall, so
-  // barely two and a half results fitted in the panel. **"Read here Read here" is
-  // gone entirely**: the title does exactly that, one line above, which
-  // makes it a button whose whole job was to repeat the thing next to it.
+  //: **One kebab, not a stacked column of icons.** The other half of
+  //: "horrible", and it was measurable: the actions column was `opacity: 0`
+  //: rather than removed, so its width was reserved on *every* row whether or
+  //: not you were hovering — two stacked buttons' worth of it — and every
+  //: title in a 318px panel wrapped to three lines around a column showing
+  //: nothing. Measured at 115px per result, so five fitted in a full-height
+  //: panel.
+  //:
+  //: A kebab is 28px, always visible (so it is reachable by touch and by
+  //: keyboard without a hover), and it is what every other list in this app
+  //: uses. It also has room for words, which is how Bookmark and Save could
+  //: be added at all: as a fourth and fifth icon they would have been two
+  //: more glyphs nobody could tell apart.
   const actions = document.createElement("div");
   actions.className = "web-result-actions";
-  const open = document.createElement("a");
-  open.href = result.url;
-  open.target = "_blank";
-  open.rel = "noopener noreferrer";
-  open.className = "ghost small web-open-link";
-  setLabel(open, "ph:arrow-square-out");
-  open.title = "Open in your browser";
-  open.setAttribute("aria-label", `Open ${result.domain || result.url} in your browser`);
-  actions.appendChild(open);
-  const ask = smallButton("ph:chat-circle", "Open this page and ask the AI about it", () =>
-    askAboutPage(result.url, result.title)
+  const label = result.title || result.domain || result.url;
+  actions.appendChild(
+    kebabMenu(
+      [
+        {
+          label: "ph:book-open-text Read here",
+          title: "Read this page as text, inside MemoryMap",
+          run: () => openWebReader(result.url),
+        },
+        {
+          label: "ph:arrow-square-out Open in browser",
+          title: "Open this page in your own browser",
+          run: () => window.open(result.url, "_blank", "noopener,noreferrer"),
+        },
+        {
+          label: "ph:chat-circle Ask the AI about this",
+          title: "Let the AI fetch this page and answer about it",
+          run: () => askAboutPage(result.url, result.title),
+        },
+        {
+          //: The one integration this panel never had, and the obvious one:
+          //: the app already keeps bookmarks, and "I found something worth
+          //: keeping" is what a search result *is*. Without this the only way
+          //: to keep a result was to copy its URL out and paste it into
+          //: another tab of the same app.
+          label: "ph:bookmark-simple Save as bookmark",
+          title: "Keep this link in your bookmarks",
+          run: () => bookmarkWebResult(result),
+        },
+      ],
+      `Actions for “${label}”`
+    )
   );
-  ask.setAttribute("aria-label", "Ask the AI about this page");
-  actions.appendChild(ask);
   row.appendChild(actions);
   return row;
+}
+
+//: Saves a web result straight into the app's own bookmarks. Reports the
+//: duplicate case rather than silently making a second row: the endpoint
+//: already tells us (`duplicate_of`), and "saved" for something that was
+//: already saved is a small lie that makes the list look wrong later.
+async function bookmarkWebResult(result) {
+  try {
+    const saved = await apiJson("/bookmarks", {
+      method: "POST",
+      body: JSON.stringify({
+        url: result.url,
+        title: (result.title || "").slice(0, 200),
+        note: (result.snippet || "").slice(0, 2000),
+      }),
+    });
+    toast(
+      saved && saved.duplicate_of
+        ? "Already in your bookmarks."
+        : `Bookmarked “${saved.title || saved.url}”.`
+    );
+  } catch (error) {
+    toast(error.message || "Couldn't save that bookmark.", true);
+  }
 }
 
 // Last few distinct web queries, newest first — asked for directly ("missing
@@ -8078,9 +10184,12 @@ async function runWebSearch() {
     : `No results from ${answered.label} — try different words.`;
   status.appendChild(summary);
   if (answered.detail) {
+    //: Its own line, not " · " glued onto the count. In a narrow panel the
+    //: joined version wrapped mid-phrase, so the sentence that explains where
+    //: the query went broke across the fold at an arbitrary word.
     const detail = document.createElement("span");
     detail.className = "web-answered-detail muted";
-    detail.textContent = ` · ${answered.detail}`;
+    detail.textContent = answered.detail;
     status.appendChild(detail);
   }
 
@@ -8424,6 +10533,143 @@ function renderChatUsage(tokens) {
   const total = Number(tokens) || 0;
   el.hidden = total === 0;
   el.textContent = total ? `${formatTokens(total)} tokens` : "";
+  renderChatTurnCount();
+}
+
+//: **The conversation-level context meter.**
+//:
+//: Fed from the last turn's `stats` (prompt tokens against the window the turn
+//: was budgeted for — `context_tokens`, which `ollama_client` has always sent).
+//: Thresholds are Odysseus's: quiet under 70%, a warning at 70, a real alarm
+//: at 85, because past about 85 the next turn starts losing the oldest part of
+//: its own prompt and the answer quietly gets worse with nothing on screen
+//: saying why.
+function renderChatContextMeter(stats) {
+  const pill = $("chat-context");
+  if (!pill) return;
+  const used = stats && Number(stats.prompt_tokens);
+  const window = stats && Number(stats.context_tokens);
+  if (!used || !window) {
+    pill.hidden = true;
+    return;
+  }
+  const pct = Math.min(100, Math.round((used / window) * 100));
+  pill.hidden = false;
+  pill.textContent = `${pct}% of window`;
+  pill.classList.toggle("is-warn", pct >= 70 && pct < 85);
+  pill.classList.toggle("is-danger", pct >= 85);
+  const approx = stats.usage_source === "estimated" ? "about " : "";
+  pill.title =
+    `This thread's last turn used ${approx}${compactTokens(used)} of the model's ` +
+    `${compactTokens(window)} context window.` +
+    (pct >= 70
+      ? "\n\nPast ~85% the next turn starts dropping the oldest part of its own " +
+        "prompt. Click to summarise the earlier messages instead."
+      : "\n\nClick to summarise the earlier messages.");
+}
+
+//: How long the thread is, beside what it has cost. Asked for with the header
+//: redesign ("the metadata, model used, chat functions, token usage data and
+//: more"), and it is the fact the two controls next to it are actually about:
+//: Compress and Fork are both answers to "this conversation has got long", and
+//: a token count alone does not say that in a unit anyone thinks in.
+function renderChatTurnCount() {
+  const el = $("chat-turns");
+  if (!el) return;
+  const turns = (chatConv && chatConv.turns && chatConv.turns.length) || 0;
+  el.hidden = turns === 0;
+  el.textContent = turns === 1 ? "1 exchange" : `${turns} exchanges`;
+}
+
+//: **The ⋯ that holds everything you do to a whole conversation.**
+//:
+//: Reported: the header "feels fake, with features and ui elements like
+//: buttons just slapped on there with no design thought". Four ghost buttons
+//: of equal weight — one of them a red Delete — sat opposite the title on
+//: every conversation, so the most destructive action in the tab was also one
+//: of its most prominent controls, and the row read as a pile rather than as
+//: a header.
+//:
+//: The rows *click the original buttons*, which is the pattern the Library's
+//: own kebab already uses (library.js): every handler, confirm dialog and
+//: disabled state stays exactly where it was, and this file learns nothing new
+//: about what Export or Delete actually do.
+function mountChatActionsMenu() {
+  const host = $("chat-actions-menu");
+  if (!host || host.childElementCount) return;
+  const click = (id) => () => $(id)?.click();
+  host.appendChild(
+    kebabMenu(
+      [
+        { label: "ph:pencil-simple Rename this chat", run: () => renameCurrentConversation() },
+        { label: "ph:git-branch Fork this chat", title: $("chat-fork")?.title, run: click("chat-fork") },
+        {
+          label: "ph:arrows-in Compress the earlier messages",
+          title: $("chat-compress")?.title,
+          run: click("chat-compress"),
+        },
+        { label: "ph:download-simple Export as Markdown", run: click("chat-export") },
+        {
+          //: Odysseus's "Save to Documents", which lands better here than it
+          //: does there: this app *has* a Documents tab, and a conversation
+          //: worth keeping is usually worth keeping beside the notes it drew
+          //: on rather than as a file in a downloads folder.
+          label: "ph:file-text Save this chat as a document",
+          run: () => saveChatAsDocument(),
+        },
+        {
+          label: "ph:copy Copy the whole transcript",
+          run: async () => {
+            const text = chatTranscriptText();
+            if (!text) return toast("There is nothing to copy yet.");
+            copyToClipboard(text);
+          },
+        },
+        { label: "ph:trash Delete this chat", danger: true, run: click("chat-delete") },
+      ],
+      "More actions for this conversation"
+    )
+  );
+}
+
+//: **A conversation, kept as a document.**
+//:
+//: The transcript already exports as a file (`#chat-export`); this keeps it
+//: *inside* the notebook, where it is searchable, linkable and editable like
+//: everything else. Titled after the conversation so the Documents list reads
+//: as a list of conversations rather than of dated blobs.
+async function saveChatAsDocument() {
+  const text = chatTranscriptText();
+  if (!text) return toast("There is nothing to save yet.");
+  const title = ($("chat-title")?.textContent || "Chat").trim();
+  try {
+    const doc = await apiJson("/documents", {
+      method: "POST",
+      body: JSON.stringify({
+        title: `${title} — chat`,
+        content: `# ${title}\n\n${text}\n`,
+      }),
+    });
+    toastAction("Saved to your documents.", "Open it", () => {
+      switchTab("documents");
+      if (typeof openDocument === "function") openDocument(doc.id);
+    });
+  } catch (error) {
+    toast(error.message || "Couldn't save that document.", true);
+  }
+}
+
+//: The transcript as text — the thing a person actually wants when they say
+//: "copy this chat", and previously only reachable by exporting a file.
+function chatTranscriptText() {
+  const parts = [];
+  for (const msg of $("chat-messages")?.querySelectorAll(".msg") || []) {
+    const who = msg.classList.contains("user") ? "You" : assistantLabel();
+    const body = msg.querySelector(".msg-body, .bubble-answer");
+    const text = (body?.innerText || "").trim();
+    if (text) parts.push(`**${who}:** ${text}`);
+  }
+  return parts.join("\n\n");
 }
 
 // --- compressing this conversation's context (§35I) --------------------------
@@ -8520,20 +10766,214 @@ function reducedMotionWanted() {
 // sentence beside the indicator pass theirs in — the weekly digest used to
 // append " Thinking about your week…" next to the default, and it rendered as
 // "Thinking… Thinking about your week…" (user-reported).
+//: **Progress is feedback, not decoration, and it gets its own switch.**
+//:
+//: Reported three times, the last with a screenshot of a frozen italic
+//: "Thinking…": *"the thinking and writing animation is completely broken,
+//: doesn't move"*, and then the instruction that settles the design —
+//: *"make them happen even if animations are stalled, or make them paused
+//: separately to the rest like the background art."*
+//:
+//: The background art already has exactly that shape (`bg-motion`: auto /
+//: moving / still), so this follows it rather than inventing a second idea.
+//: The difference is the **default**: the art defaults to `auto` because it
+//: is decoration, and this defaults to `always` because a progress indicator
+//: that has stopped is indistinguishable from an app that has hung. Turning
+//: off "animations and transitions" is a statement about chrome; it was
+//: never a request to be left unable to tell whether the model is working.
+//:
+//: The OS's own `prefers-reduced-motion` is still honoured under `auto`, and
+//: `alive()` below is what stops that meaning *dead* — see its own comment.
+function progressMotionWanted() {
+  const choice = document.documentElement.dataset.progressMotion || "always";
+  if (choice === "still") return false;
+  //: **"Always" means always, including through the platform setting**, by
+  //: direct instruction: *"make sure the animations run even with prefer
+  //: reduced motion on, like the rotating generated logos."* My first pass
+  //: exempted the OS setting on accessibility grounds and was overruled — it
+  //: is the user's own app, the choice is theirs, and it is one select away
+  //: from `auto`, which does respect the platform. The CSS counter-rule in
+  //: 02-chat-graph.css carries the same decision for the same reason.
+  if (choice === "always") return true;
+  return !reducedMotionWanted();
+}
+
+//: How long each of the three dots takes to step, when it is stepping rather
+//: than bouncing. One second reads as deliberate rather than as a stutter.
+const PROGRESS_STEP_MS = 1000;
+
+// `label` is the reduced-motion fallback: with animations off the dots can't
+// convey "working", so a word has to. Callers that already print their own
+// sentence beside the indicator pass theirs in — the weekly digest used to
+// append " Thinking about your week…" next to the default, and it rendered as
+// "Thinking… Thinking about your week…" (user-reported).
 function typingDots(label = "Thinking…") {
-  if (reducedMotionWanted()) {
-    const text = document.createElement("span");
-    text.className = "typing-label";
-    text.textContent = label;
-    text.setAttribute("role", "status");
-    return text;
-  }
   const dots = document.createElement("span");
   dots.className = "typing-dots";
   dots.setAttribute("role", "status");
   dots.setAttribute("aria-label", label);
   for (let i = 0; i < 3; i++) dots.appendChild(document.createElement("span"));
+  dots.setStatus = (next) => {
+    dots.setAttribute("aria-label", next);
+  };
+  if (progressMotionWanted()) return dots;
+
+  //: **Motion is off, so this steps instead of moving.**
+  //:
+  //: The old answer was to replace the dots with one static italic word, and
+  //: that is the thing the user photographed and called broken — correctly,
+  //: because a sentence that never changes is exactly what a *hung* app also
+  //: shows. Reduced motion means no *movement*; a value that changes is
+  //: information, and information is still allowed.
+  //:
+  //: So the dots stay, nothing translates or fades, and the highlight moves
+  //: from one to the next once a second by swapping a class. The element is
+  //: in the same place from frame to frame — there is no animation to make
+  //: anyone unwell — and it is unmistakably alive.
+  dots.classList.add("typing-dots-stepped");
+  let at = 0;
+  const children = [...dots.children];
+  const tick = () => {
+    children.forEach((dot, i) => dot.classList.toggle("is-on", i === at));
+    at = (at + 1) % children.length;
+  };
+  tick();
+  const timer = setInterval(() => {
+    //: Stops itself once the node is gone. A `setInterval` that outlives its
+    //: element is a leak that grows with every turn of a long conversation,
+    //: and nothing else would ever clear this one — the caller removes the
+    //: node, it does not know an interval exists.
+    if (!dots.isConnected) return clearInterval(timer);
+    tick();
+  }, PROGRESS_STEP_MS);
   return dots;
+}
+
+// **A working signal that says what it is working on.**
+//
+// Reported repeatedly, and finally with two screenshots: "there is no cycling
+// or rotating thinking or generating animations", over a bubble reading a
+// motionless italic "Thinking…". Two separate things produce that:
+//
+//  - **Reduced motion.** `typingDots` above swaps every animation for one
+//    static word when the OS asks for less motion — and the desktop shell
+//    inherits Windows' own "show animations" setting, which is off on a lot
+//    of machines. The honest fix is not to animate anyway; it is to stop the
+//    non-animated state being *dead*. Changing text is information, not
+//    motion, so it is allowed where a bounce is not.
+//  - **One label for the whole turn.** Even animating, three dots that mean
+//    the same thing from the first millisecond to the last say nothing about
+//    a turn that took eleven seconds and did four different things.
+//
+// So this pairs the indicator with a label that the stream updates as real
+// events arrive: what it is doing now, in the app's own words. Nothing here
+// invents a stage — every string it is given comes from an event that
+// actually happened (see `sendChatMessage`), because a progress line that
+// guesses is worse than one that repeats itself.
+//: **Short lines shown while you wait — and every one of them is true.**
+//:
+//: Asked for: *"add some generated short sentence musings while the thinking
+//: dots are showing."* The obvious reading is flavour text, and the obvious
+//: implementation is a model writing whimsy about what it is doing. This
+//: file's own rule forbids that, and the rule is right: `progressLine` must
+//: never invent a stage, because a progress line that guesses is worse than
+//: one that repeats itself. A cheerful invented sentence next to a real
+//: status label is precisely a guess wearing a status label's clothes.
+//:
+//: So these are the honest version of the same idea, and they are better than
+//: whimsy would have been: facts about *this app* that a person waiting for a
+//: local model has time to read and reason to want. A wait is the one moment
+//: the interface has someone's attention with nothing to do — spending it on
+//: the thing the app most needs to teach (what it is doing with your notes,
+//: and where they are going, which is nowhere) is worth more than a joke.
+//:
+//: They are deliberately not model-generated: a fixed list cannot hallucinate
+//: a claim about privacy, and privacy claims are the one kind this app must
+//: never get wrong.
+const PROGRESS_MUSINGS = [
+  "Everything here runs on your machine — nothing is sent anywhere.",
+  "Your notes are plain markdown on disk. You can read them without this app.",
+  "Searching uses meaning and keywords together, then merges the two rankings.",
+  "A note you never tagged is still findable — the links between notes count too.",
+  "Private notes are held back from the AI, even when it asks for them.",
+  "Ask mode reads. Request mode can change things, and says so before it does.",
+  "Long answers are slower on a small model, not stuck.",
+  "Every tool call the AI makes is listed under the answer, with what it touched.",
+  "Type [[ in any note to link to another one.",
+  "Select text anywhere you can edit and ask the AI about just that passage.",
+];
+
+//: How long to wait before showing one. A turn that finishes in a second
+//: should never flash a sentence nobody had time to read.
+const MUSING_DELAY_MS = 2500;
+//: And how long each stays. Long enough to read twice, short enough that a
+//: minute-long wait is not one sentence.
+const MUSING_ROTATE_MS = 7000;
+
+function progressLine(initial = "Thinking…") {
+  const wrap = document.createElement("span");
+  wrap.className = "progress-line";
+  const indicator = typingDots(initial);
+  wrap.appendChild(indicator);
+  //: The dots are always dots now — stepped rather than bouncing when motion
+  //: is off — so the label is always its own node. It used to be *replaced*
+  //: by the indicator under reduced motion, which is how the digest widget
+  //: once rendered "Thinking… Thinking about your week…", and is also how
+  //: the whole indicator became one frozen italic word.
+  const label = document.createElement("span");
+  label.className = "progress-line-label";
+  label.textContent = initial;
+  wrap.appendChild(label);
+  //: The musing sits under the status, in its own quieter voice, and never
+  //: replaces it: the label says what is happening, this says something true
+  //: about the app. Two separate claims, drawn differently on purpose.
+  const musing = document.createElement("span");
+  musing.className = "progress-musing";
+  musing.hidden = true;
+  wrap.appendChild(musing);
+  let at = Math.floor(Math.random() * PROGRESS_MUSINGS.length);
+  const showMusing = () => {
+    if (!wrap.isConnected) return;
+    //: **They cross-fade rather than cutting.** Reported: *"the thinking
+    //: bubble animation and generating messages that alternate can be better
+    //: designed."* One sentence being replaced by another between two frames
+    //: reads as a glitch — the eye catches the change without reading the
+    //: line. Removing the class, forcing a reflow and adding it back is what
+    //: restarts a CSS transition on an element that is already on screen;
+    //: without the reflow the browser coalesces both writes and nothing
+    //: animates at all.
+    musing.classList.remove("is-shown");
+    void musing.offsetWidth;
+    musing.textContent = PROGRESS_MUSINGS[at % PROGRESS_MUSINGS.length];
+    musing.hidden = false;
+    musing.classList.add("is-shown");
+    at += 1;
+  };
+  //: Both timers stop themselves once the node is gone — the caller removes
+  //: the progress line, it does not know these exist. Same discipline as the
+  //: stepped dots' own interval.
+  const first = setTimeout(() => {
+    showMusing();
+    const rotate = setInterval(() => {
+      if (!wrap.isConnected) return clearInterval(rotate);
+      showMusing();
+    }, MUSING_ROTATE_MS);
+  }, MUSING_DELAY_MS);
+  wrap.addEventListener("remove", () => clearTimeout(first));
+
+  wrap.setStatus = (next) => {
+    if (!next || next === label.textContent) return;
+    //: The status changes far more often than the musing does — a tool
+    //: finishing, prose starting — so it gets the same treatment for the same
+    //: reason, one step quieter.
+    label.classList.remove("is-shown");
+    void label.offsetWidth;
+    label.textContent = next;
+    label.classList.add("is-shown");
+    indicator.setStatus?.(next);
+  };
+  label.classList.add("is-shown");
+  return wrap;
 }
 
 // "⋯ Thinking about your week…" as one node: animated dots plus the sentence
@@ -8542,11 +10982,8 @@ function typingDots(label = "Thinking…") {
 // "Thinking… Thinking about your week…" in the digest widget.
 function typingLine(label) {
   const wrap = document.createElement("span");
-  const indicator = typingDots(label);
-  wrap.appendChild(indicator);
-  if (!indicator.classList.contains("typing-label")) {
-    wrap.append(` ${label}`);
-  }
+  wrap.appendChild(typingDots(label));
+  wrap.append(` ${label}`);
   return wrap;
 }
 
@@ -8665,23 +11102,12 @@ function chatAttachmentStrip(attachments) {
       const actions = document.createElement("div");
       actions.className = "msg-attachment-actions";
       actions.appendChild(
-        smallButton("ph:image Library", `Find “${item.name}” in your library`, () => {
-          switchTab("library");
-          // Clicking the real sub-tab button rather than calling a switcher:
-          // `#library-subtabs`'s own click handler is what sets the active
-          // class, the aria-selected state and the lazy load for that view,
-          // and re-implementing three of those here is how they drift.
-          document
-            .querySelector('#library-subtabs button[data-target="library-view-media"]')
-            ?.click();
-          // The gallery filters on filename, so typing the name into its own
-          // search is what "take me to it" means here.
-          const search = $("library-images-search");
-          if (search) {
-            search.value = item.name;
-            filterLibraryImagesGallery();
-          }
-        })
+        smallButton("ph:image Library", `Find “${item.name}” in your library`, () =>
+          // One helper, because the media view is two sub-tabs now and a PDF
+          // has to land on Files rather than on Images. See
+          // `focusLibraryFile` in library.js.
+          focusLibraryFile(item.name, item.url || item.name)
+        )
       );
       figure.appendChild(actions);
       strip.appendChild(figure);
@@ -8730,7 +11156,24 @@ function addBubble(role, text, attachments = null) {
 
   const label = document.createElement("div");
   label.className = "msg-role";
-  label.textContent = role === "user" ? "You" : assistantLabel();
+  // **The user gets an avatar too.** Asked for directly: "I feel like the
+  // user needs a little icon in the theme of the application in the chat as
+  // well." The assistant has had one since `addAssistantBubble` started
+  // drawing the app's emblem; a one-sided transcript reads as though only
+  // one participant is really there. Same `.msg-avatar` box, so the two
+  // columns line up down the thread — the app's own accent and glyph rather
+  // than a photo, since this app has no accounts and never asks who you are.
+  if (role === "user") {
+    const avatar = document.createElement("span");
+    avatar.className = "msg-avatar msg-avatar-user";
+    avatar.setAttribute("aria-hidden", "true");
+    setLabel(avatar, "ph:user");
+    const name = document.createElement("span");
+    name.textContent = "You";
+    label.append(avatar, name);
+  } else {
+    label.textContent = assistantLabel();
+  }
   const body = document.createElement("div");
   body.className = "msg-body";
   body.textContent = text;
@@ -8741,7 +11184,7 @@ function addBubble(role, text, attachments = null) {
   if (role === "user") {
     bubble.appendChild(
       chatMessageActions([
-        { label: "⧉", title: "Copy", onClick: (e) => copyToClipboard(text, e.currentTarget) },
+        { label: "ph:copy", title: "Copy", onClick: (e) => copyToClipboard(text, e.currentTarget) },
         { label: "ph:pencil-simple", title: "Edit this question", onClick: () => editAndResend(bubble, text) },
         { label: "ph:trash", title: "Delete this message", onClick: () => removeChatBubble(bubble) },
       ])
@@ -8768,6 +11211,59 @@ function agentTimeline(holder) {
   const thinkingSteps = [];
   const record = []; // a serialisable copy, for persistence
 
+  //: **The step group — Perplexity's "Finished 5 steps", in this app's own
+  //: words.** Asked for directly: *"I want the steps of the ai to show like
+  //: perplexity's steps."*
+  //:
+  //: Before this, every tool call was a chip appended straight into the
+  //: bubble, so a turn that made six calls pushed its own answer six rows
+  //: down and the transcript read as a pile of machinery with prose
+  //: somewhere in it. Grouping them behind one line that says how many
+  //: there were — open while they are happening, closed once the answer
+  //: starts — inverts that: the work is visible as it happens, and
+  //: afterwards it is one line you can open.
+  //:
+  //: A *new* group starts after each answer, rather than one group per turn.
+  //: Order is the point of a timeline: calls the model made after writing a
+  //: paragraph belong under that paragraph, and folding them back into the
+  //: first group would claim they happened before it.
+  let group = null;
+
+  const groupSummary = (entry) => {
+    const n = entry.count;
+    const word = n === 1 ? "step" : "steps";
+    setLabel(
+      entry.summary,
+      entry.done ? `ph:check-circle Finished ${n} ${word}` : `ph:circle-notch Working — ${n} ${word}`,
+    );
+  };
+
+  const ensureGroup = () => {
+    if (group) return group;
+    const el = document.createElement("details");
+    el.className = "agent-step agent-step-group";
+    el.open = true;
+    const summary = document.createElement("summary");
+    summary.className = "agent-step-group-summary";
+    const body = document.createElement("div");
+    body.className = "agent-step-group-body";
+    el.append(summary, body);
+    holder.appendChild(el);
+    group = { el, summary, body, count: 0, done: false };
+    groupSummary(group);
+    return group;
+  };
+
+  //: Closed and relabelled, not removed. The steps stay reachable — that is
+  //: the difference between a summary and a spinner that ate the evidence.
+  const closeGroup = () => {
+    if (!group) return;
+    group.done = true;
+    groupSummary(group);
+    group.el.open = false;
+    group = null;
+  };
+
   const foldEarlierThinking = () => {
     // Reasoning that has produced output is finished — collapse it so the
     // answer isn't buried under it, but leave it there to reopen.
@@ -8791,8 +11287,33 @@ function agentTimeline(holder) {
 
   const startAnswer = () => {
     foldEarlierThinking();
+    //: The steps that led here fold up as the prose begins, which is exactly
+    //: what Perplexity does and why its answers read as answers rather than
+    //: as logs. Anything the model does *after* this opens a fresh group.
+    closeGroup();
     const el = document.createElement("div");
-    el.className = "agent-step step-answer bubble-answer";
+    // **`is-streaming` is the only thing on screen that says the answer is
+    // still arriving.** Reported directly: "there are no animations for chat
+    // generation." The typing dots that run before the first token are
+    // removed the moment one arrives (`clearPending`), and from then until
+    // the turn ends the text simply grows — no caret, no cursor, nothing.
+    // Every chat interface has this affordance because without it a slow
+    // local model producing a token a second is indistinguishable from a
+    // finished short answer.
+    //
+    // A class plus a CSS `::after`, not an appended element: the answer body
+    // is re-rendered from scratch on every frame by `liveMarkdownRenderer`,
+    // so a real node would be destroyed and recreated ~30 times a second (and
+    // would land inside whatever block the markdown happened to end with).
+    // A pseudo-element is untouched by that and is removed by `finalise`.
+    //: **No `is-generating` on the answer itself.** Reported: "the text is
+    //: right up against the overly animated borders as well", with a
+    //: screenshot of an answer inside a pulsing ring *inside* a bubble
+    //: already wearing one. Two rings around one sentence is one too many,
+    //: and the inner one is the redundant one: the bubble's rail says the
+    //: turn is working and the caret says this answer is still arriving.
+    //: `is-streaming` stays, because that is the caret.
+    el.className = "agent-step step-answer bubble-answer is-streaming";
     holder.appendChild(el);
     current = {
       kind: "answer",
@@ -8917,11 +11438,26 @@ function agentTimeline(holder) {
       step.raw += delta;
       step.render(step.raw);
     },
-    // A tool call is its own small step between the prose around it.
+    // A tool call is a row inside the current step group — see `ensureGroup`.
     tool(node) {
       foldEarlierThinking();
-      holder.appendChild(node);
+      const entry = ensureGroup();
+      entry.body.appendChild(node);
+      entry.count += 1;
+      groupSummary(entry);
       current = null; // whatever comes next begins a fresh step
+    },
+    //: The turn is over: whatever group is still open stops saying "Working".
+    //: Called from the stream's `finally`, so it runs on an error and an
+    //: abort too — a group left mid-sentence is how a stopped turn ends up
+    //: looking like a running one forever.
+    finish() {
+      closeGroup();
+      //: Any trailing progress line still in this holder goes with it. The
+      //: turn's own `pending` node is removed by the stream, but a skill run
+      //: replayed into a rebuilt bubble can leave one behind, and a "Writing
+      //: the answer…" under a finished answer is the exact thing reported.
+      for (const stale of holder.querySelectorAll(".step-pending")) stale.remove();
     },
     // Replay a saved run (reopening a conversation).
     replay(steps) {
@@ -8939,9 +11475,21 @@ function agentTimeline(holder) {
           const node = startAnswer();
           node.raw = step.text;
           renderMarkdown(node.body, step.text);
+          //: A replayed answer has already finished. `startAnswer` builds the
+          //: node in its live, mid-stream state, so without this a reloaded
+          //: conversation blinks a caret at the end of every answer in it —
+          //: and, now that the two travel together, pulses the generating ring
+          //: around all of them forever.
+          node.el.classList.remove("is-streaming", "is-generating");
           current = null;
         } else if (step.kind === "tool") {
-          this.tool(toolChip(step.label, step.ok !== false));
+          //: `step` is passed through, so a replayed tool row keeps the
+          //: arguments/result disclosure the live one had. Without it a
+          //: reloaded conversation silently lost what each call actually did
+          //: — the same turn showed less of itself the second time you looked
+          //: at it, which is the shape behind "tools render fine in the chat
+          //: initially but then I come back to them after reloading".
+          this.tool(toolChip(step.label, step.ok !== false, step));
         }
       }
     },
@@ -8959,11 +11507,26 @@ function agentTimeline(holder) {
     // Re-render each prose step properly once streaming has finished.
     finalise() {
       for (const step of answerSteps) renderMarkdown(step.body, step.raw);
+      // The caret goes out with the stream that justified it. Called from
+      // every exit path this timeline has — a finished turn, an error, and
+      // Stop — because a caret left blinking on an answer that stopped
+      // arriving is a worse lie than never having shown one.
+      for (const step of answerSteps) step.el.classList.remove("is-streaming", "is-generating");
       foldEarlierThinking();
     },
     // The box to put a message into when the model produced nothing at all.
     ensureAnswerBox() {
-      return (answerSteps.at(-1) || startAnswer()).body;
+      const step = answerSteps.at(-1) || startAnswer();
+      //: **Whatever goes in here is already finished.**
+      //:
+      //: Reported: *"the blinker animation still shows at the end of finished
+      //: responses"* — with a screenshot of the caret blinking after "The
+      //: model finished without writing anything." That message is written by
+      //: the app, after `finalise()` has already run, and `startAnswer` builds
+      //: its node in the live, mid-stream state: a caret on a sentence that
+      //: was never streaming and no later pass to take it down.
+      step.el.classList.remove("is-streaming", "is-generating");
+      return step.body;
     },
     // Editing an answer replaces the model's prose with the user's own, so the
     // separate prose steps collapse into the one block they typed. The
@@ -8988,7 +11551,17 @@ function agentTimeline(holder) {
     // The timeline in the order it happened, for saving with the turn.
     serialise() {
       const out = [];
-      for (const node of holder.children) {
+      //: **Groups are walked into, not over.** Tool rows used to be direct
+      //: children of the holder; they are inside a `<details>` now, and a
+      //: loop over `holder.children` alone would have silently stopped
+      //: saving every tool call — the exact shape of the `.tool-chip-wrap`
+      //: regression this function's own comment below already records.
+      const walk = (parent) => {
+      for (const node of parent.children) {
+        if (node.classList.contains("agent-step-group")) {
+          walk(node.querySelector(".agent-step-group-body") || node);
+          continue;
+        }
         if (node.classList.contains("step-plan")) {
           const entry = plans.find((p) => p.el === node);
           // The states go with it, so reopening a chat shows how far the run
@@ -9002,14 +11575,30 @@ function agentTimeline(holder) {
         } else if (node.classList.contains("step-answer")) {
           const step = answerSteps.find((s) => s.el === node);
           if (step?.raw) out.push({ kind: "answer", text: step.raw });
-        } else if (node.classList.contains("tool-chip")) {
-          out.push({
-            kind: "tool",
-            label: node.textContent,
-            ok: !node.classList.contains("tool-chip-error"),
-          });
+        } else if (node.toolStep) {
+          //: **Anything that carried its own saved form is saved**, whatever
+          //: it is drawn as. The class checks below only know the shapes that
+          //: existed when they were written, and a card added later — a
+          //: confirmation, a proposal, a question — was silently dropped from
+          //: the saved turn, which is one half of "a lot of the steps and
+          //: agent process disappears when I come back to it".
+          out.push(node.toolStep);
+        } else if (node.classList.contains("tool-chip") || node.classList.contains("tool-chip-wrap")) {
+          //: `.tool-chip-wrap` has to be matched as well as `.tool-chip`:
+          //: `classList.contains` is an exact token match, so once a row that
+          //: touched something got wrapped with its chips, this branch stopped
+          //: seeing it at all and the call vanished from the reopened chat.
+          out.push(
+            node.toolStep || {
+              kind: "tool",
+              label: node.textContent,
+              ok: !node.classList.contains("tool-chip-error"),
+            },
+          );
         }
       }
+      };
+      walk(holder);
       return out;
     },
   };
@@ -9066,7 +11655,12 @@ function changeRow(change, options = {}) {
   row.className = "skill-change";
   const label = document.createElement("span");
   label.className = "skill-change-label";
-  label.textContent = change.label || change.tool;
+  // `setLabel`, not `.textContent`: a tool's own `label` carries this app's
+  // "ph:icon-name Rest of the text" convention (see `_merge_categories` and
+  // friends in ai/tools/categories.py, which write exactly that shape), and
+  // assigning it raw printed the icon spec as visible text — reported with
+  // a screenshot of three agent rows all reading "ph:folder Merged …".
+  setLabel(label, change.label || change.tool);
   row.appendChild(label);
 
   if (change.note_id && change.tool === "delete_note") {
@@ -9123,7 +11717,7 @@ function changeRow(change, options = {}) {
         });
         if (result && result.error) throw new Error(result.error);
         row.classList.add("skill-change-undone");
-        label.textContent = `${change.label || change.tool} — undone`;
+        setLabel(label, `${change.label || change.tool} — undone`);
         undo.remove();
         loadEntries();
       } catch (error) {
@@ -9136,7 +11730,166 @@ function changeRow(change, options = {}) {
   return row;
 }
 
+//: **The live action line: which notes a tool call actually reached for.**
+//:
+//: Asked for: "is it also possible to have live action lines show on the chat
+//: ui, to show and visually show as the ai accesses specific notes, files and
+//: stuff??"
+//:
+//: The transcript already said *that* a tool ran, and hid what it returned in
+//: a JSON disclosure. What it could not say is *which note* — and an id inside
+//: a blob of JSON is not something a person can act on, which is the same
+//: complaint that produced the command palette's note links.
+//:
+//: The backend reads these from the tool's own result rather than from the
+//: arguments it was called with, so this row says what happened rather than
+//: what the model asked for. Chips open the note, like every other note chip
+//: in this app; nothing renders when a call touched nothing.
+// Notes and documents share an id space only by accident — id 12 is a
+// different object in each table — so the chip has to carry the kind the
+// backend decided (`_touched_kind`) and route on it. Clicking a document
+// chip through `flashEntry` would open an unrelated note, or nothing.
+const TOUCHED_KINDS = {
+  note: { icon: "ph:note", title: "Open this note", open: (id) => flashEntry(id) },
+  document: {
+    icon: "ph:file-text",
+    title: "Open this document",
+    open: (id) => openDocumentFromNote(id),
+  },
+};
+
+//: **What the tool touched, shown rather than named.** Asked for: "the chat
+//: and agent should be the ultimate notebook handler, drafting and previewing
+//: notes … showing rendered note previews then user can edit".
+//:
+//: A chip alone could only take you away from the conversation: press it and
+//: you are in the Notes tab, having lost the answer you were reading. So the
+//: chip *opens the thing in place* — rendered with the app's own markdown
+//: renderer, with Open and Edit under it — and pressing it again closes it.
+//: Leaving is now a decision rather than the only option.
+//:
+//: Fetched on demand, never carried in the tool event: a replayed transcript
+//: (a conversation reopened days later) then previews the note as it is now,
+//: not as it was, and a turn that touched six notes does not put six note
+//: bodies into the message that stores it.
+async function toolPreviewBody(item, holder) {
+  holder.replaceChildren(typingDots("Loading…"));
+  try {
+    if (item.kind === "document") {
+      const doc = await apiJson(`/documents/${item.id}`);
+      holder.replaceChildren();
+      const title = document.createElement("strong");
+      title.textContent = doc.title || `Document #${item.id}`;
+      const body = document.createElement("div");
+      body.className = "tool-preview-body";
+      renderMarkdown(body, doc.content || "");
+      holder.append(title, body);
+    } else {
+      const entry = await apiJson(`/entries/${item.id}`);
+      holder.replaceChildren();
+      const body = document.createElement("div");
+      body.className = "tool-preview-body";
+      renderMarkdown(body, entry.content || "");
+      holder.appendChild(body);
+    }
+  } catch (error) {
+    holder.replaceChildren();
+    const failed = document.createElement("p");
+    failed.className = "muted";
+    //: The real reason, not a euphemism: a deleted note and an unreachable
+    //: backend are different problems and only one of them is worth retrying.
+    failed.textContent = error?.message || "That note could not be loaded.";
+    holder.appendChild(failed);
+  }
+}
+
+function toolPreviewPanel(item, spec) {
+  const panel = document.createElement("div");
+  panel.className = "tool-preview";
+  const holder = document.createElement("div");
+  holder.className = "tool-preview-content";
+  const actions = document.createElement("div");
+  actions.className = "row tool-preview-actions";
+  actions.appendChild(
+    smallButton("ph:arrow-square-out Open", spec.title, () => spec.open(item.id)),
+  );
+  if (item.kind !== "document") {
+    actions.appendChild(
+      smallButton("ph:pencil-simple Edit", "Open this note with the editor on", () => {
+        //: The same two steps the note list's own Edit does, in the order that
+        //: works from here: `flashEntry` switches tab and re-renders, and
+        //: `editingId` is what that render reads to open the editor. Set it
+        //: first and the jump would clear it.
+        spec.open(item.id);
+        editingId = item.id;
+        renderEntries();
+      }),
+    );
+  }
+  panel.append(holder, actions);
+  toolPreviewBody(item, holder);
+  return panel;
+}
+
+function toolTouchedRow(touched) {
+  if (!Array.isArray(touched) || !touched.length) return null;
+  const row = document.createElement("div");
+  row.className = "tool-touched-wrap";
+  const chips = document.createElement("div");
+  chips.className = "row tool-touched";
+  const previews = document.createElement("div");
+  previews.className = "tool-previews";
+  for (const item of touched) {
+    // Older transcripts (stored before `kind` existed) have notes only.
+    const spec = TOUCHED_KINDS[item.kind] || TOUCHED_KINDS.note;
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip result-reason-chip result-reason-connected tool-touched-chip";
+    chip.setAttribute("aria-expanded", "false");
+    setLabel(chip, `${spec.icon} ${item.label || `#${item.id}`}`);
+    chip.title = `${spec.title} — press to preview it here`;
+    let panel = null;
+    chip.addEventListener("click", (clickEvent) => {
+      clickEvent.stopPropagation();
+      if (panel) {
+        panel.remove();
+        panel = null;
+        chip.setAttribute("aria-expanded", "false");
+        chip.classList.remove("active");
+        return;
+      }
+      panel = toolPreviewPanel(item, spec);
+      previews.appendChild(panel);
+      chip.setAttribute("aria-expanded", "true");
+      chip.classList.add("active");
+    });
+    chips.appendChild(chip);
+  }
+  row.append(chips, previews);
+  return row;
+}
+
+//: What `serialise` needs to write this row back out, parked on the node
+//: itself. The transcript is rebuilt by walking the DOM, and a chip's
+//: arguments, result summary and touched items have no representation there —
+//: scraping `textContent` recovered the label and lost everything else, so a
+//: reopened conversation showed less of itself the second time you looked at
+//: it. Stored as a property rather than a `data-` attribute because a result
+//: summary runs to 4000 characters and does not belong in an attribute.
+function markToolStep(node, step) {
+  node.toolStep = step;
+  return node;
+}
+
 function toolChip(label, ok = true, event = null) {
+  const step = {
+    kind: "tool",
+    label,
+    ok,
+    arguments: event?.arguments || null,
+    result_summary: event?.result_summary || null,
+    touched: event?.touched || null,
+  };
   if (event && (event.arguments || event.result_summary)) {
     const details = document.createElement("details");
     details.className = `tool-chip ${ok ? "" : "tool-chip-error"}`.trim();
@@ -9160,13 +11913,29 @@ function toolChip(label, ok = true, event = null) {
       body.appendChild(resPre);
     }
     details.appendChild(body);
-    return details;
+    //: Outside the disclosure on purpose: the whole point is that it is
+    //: visible while the call is happening, without a click.
+    const touched = toolTouchedRow(event.touched);
+    if (touched) {
+      const wrap = document.createElement("div");
+      wrap.className = "tool-chip-wrap";
+      wrap.append(details, touched);
+      return markToolStep(wrap, step);
+    }
+    return markToolStep(details, step);
   }
 
   const item = document.createElement("div");
   item.className = `tool-chip ${ok ? "" : "tool-chip-error"}`.trim();
   setLabel(item, label);
-  return item;
+  const touched = toolTouchedRow(event?.touched);
+  if (touched) {
+    const wrap = document.createElement("div");
+    wrap.className = "tool-chip-wrap";
+    wrap.append(item, touched);
+    return markToolStep(wrap, step);
+  }
+  return markToolStep(item, step);
 }
 
 // A destructive tool call parked for approval (Wave G). Nothing has
@@ -9335,6 +12104,228 @@ function refreshAfterToolChanges() {
   loadEntries().catch(() => {});
   loadReminders().catch(() => {});
   loadMostUsed();
+}
+
+//: **One Sources panel, the way every serious answer surface has one.**
+//:
+//: Reported: *"semantic search and other used notes dont show up in the chat
+//: and are not accessible"*, and — of the retrieval line — *"if it says read
+//: 9 notes or smth, it should probably show as a better log."*
+//:
+//: The evidence was there and scattered. Retrieved notes went into a
+//: `<details>` whose summary was a sentence; files the agent opened went
+//: nowhere at all, because `search_files`/`read_file` are tools and tool rows
+//: are a log of *actions*, not a list of *sources*; web pages the same. So a
+//: turn that read four files and two notes showed two of the six, under a
+//: heading that did not say the word "sources".
+//:
+//: This is the one place that answers "what is this based on", grouped by
+//: kind with a count per group, every row openable. Perplexity's panel is the
+//: reference and the reason is not fashion: a reader checking an answer wants
+//: the *set* of things it drew on, and a chronological log of calls is the
+//: wrong shape for that question even when it contains the same facts.
+//:
+//: It is built from what already arrived — nothing here re-fetches, and
+//: nothing is invented: a source appears because an event named it.
+const CHAT_SOURCE_GROUPS = [
+  { key: "note", icon: "ph:note", one: "note", many: "notes" },
+  { key: "document", icon: "ph:file-text", one: "document", many: "documents" },
+  { key: "file", icon: "ph:paperclip", one: "file", many: "files" },
+  { key: "web", icon: "ph:globe", one: "web page", many: "web pages" },
+];
+
+//: Which tools produce a *source* rather than a change, and what kind each
+//: one yields. Read off the tool name because that is the only thing the
+//: event carries that says what was consulted — the label is prose and the
+//: result is bounded (§R5 item 4), so neither can be parsed for this.
+const SOURCE_TOOLS = {
+  search_files: "file",
+  read_file: "file",
+  read_url: "web",
+  web_search: "web",
+};
+
+function chatSourcesFrom({ meta, toolEvents, touched }) {
+  const seen = new Set();
+  const sources = [];
+  const add = (source) => {
+    const key = `${source.kind}:${source.id}`;
+    if (!source.label || seen.has(key)) return;
+    seen.add(key);
+    sources.push(source);
+  };
+  //: One line of the note itself, so a card says what it *is* rather than
+  //: only what it is called. Asked for: "dropdown previews".
+  const preview = (text) => {
+    const flat = String(text || "").replace(/\s+/g, " ").trim();
+    return flat.length > 180 ? `${flat.slice(0, 180)}…` : flat;
+  };
+  for (const entry of meta?.raw_results || []) {
+    const label = noteLabel(entry, 60);
+    //: A note has no title, so its label *is* its opening words — which means
+    //: the preview has to start where the label stopped, or the card prints
+    //: the same sentence twice (measured: it did).
+    const flat = String(entry.content || "").replace(/\s+/g, " ").trim();
+    const head = label.replace(/…$/, "");
+    //: The label is elided at 60 characters, which usually lands mid-word — so
+    //: the remainder starts mid-word too, and the card read "ling and why it
+    //: matters for gradients." (measured, in a screenshot). Dropping the
+    //: partial first word costs nothing and is the difference between a
+    //: preview and a typo.
+    const rest = flat.startsWith(head)
+      ? flat.slice(head.length).replace(/^\S*\s+/, "")
+      : flat;
+    add({
+      kind: "note",
+      id: entry.id,
+      label,
+      snippet: preview(rest),
+      open: () => flashEntry(entry.id),
+    });
+  }
+  for (const item of touched || []) {
+    const opener = TOUCHED_KINDS[item.kind] || TOUCHED_KINDS.note;
+    add({
+      kind: item.kind === "document" ? "document" : "note",
+      id: item.id,
+      label: item.label,
+      snippet: "",
+      open: () => opener.open(item.id),
+    });
+  }
+  for (const event of toolEvents || []) {
+    const kind = SOURCE_TOOLS[event?.tool || event?.name];
+    if (!kind || event.ok === false) continue;
+    //: **The real rows, when the backend sent them.** `event.sources`
+    //: (agent.py's `_tool_sources`) carries a title, an address and a line of
+    //: the page for every result a read tool actually consulted — which is
+    //: what a card, a preview and a working link all need and what the prose
+    //: label alone could never provide.
+    const rows = Array.isArray(event.sources) ? event.sources : [];
+    if (rows.length) {
+      for (const row of rows) {
+        add({
+          kind,
+          id: row.url || `${event.tool}-${row.title}`,
+          label: row.title || row.url,
+          snippet: preview(row.snippet),
+          url: row.url || "",
+        });
+      }
+      continue;
+    }
+    //: The fallback for a tool that named no rows: its own label, minus the
+    //: icon token. Still better than dropping the source entirely — it says
+    //: the answer read *something* outside the notebook.
+    const label = String(event.label || "").replace(/^ph:[\w-]+\s*/, "");
+    add({ kind, id: `${event.tool || event.name}-${sources.length}`, label, snippet: "" });
+  }
+  return sources;
+}
+
+//: The address a card shows under its title — the host, not the whole URL.
+//: "arxiv.org" is what tells a reader whether to trust a source; the path is
+//: forty characters saying the same thing less legibly.
+function sourceHost(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+//: **The Sources panel — cards, previews and real links.**
+//:
+//: Reported twice: *"improve the ui of the sources as well in the chat"* and
+//: then, specifically, *"ui and usability, what is shown about the sources,
+//: dropdown previews, hyperlinks etc."*
+//:
+//: It was a list of one-line strings: no preview, no address, and — for
+//: anything off the web — nothing clickable at all, because the tool events
+//: never carried a URL to click (fixed in agent.py's `_tool_sources`). What a
+//: reader wants from this panel is the same three things every search result
+//: in the world shows: what it is, where it came from, and enough of it to
+//: judge whether to open it.
+//:
+//: Numbered, because the numbers are what make a citation mean something: a
+//: card is "[3] arxiv.org", so an answer that says "[3]" has somewhere to
+//: point. A web card is a real `<a href>` — middle-click, copy link address
+//: and open-in-new-tab all work, which no button can offer.
+function chatSourcesPanel(input) {
+  const sources = chatSourcesFrom(input);
+  if (!sources.length) return null;
+  const details = document.createElement("details");
+  details.className = "chat-sources";
+  const summary = document.createElement("summary");
+  summary.className = "chat-sources-summary";
+  //: The heading counts by kind — "4 notes · 2 files" — rather than saying
+  //: "6 sources". A reader deciding whether to open this wants to know what
+  //: is in it, and the breakdown is the same length as the total was.
+  const counts = CHAT_SOURCE_GROUPS.map((g) => {
+    const n = sources.filter((s) => s.kind === g.key).length;
+    return n ? `${n} ${n === 1 ? g.one : g.many}` : null;
+  }).filter(Boolean);
+  const mode = input.meta?.search_mode;
+  const how = mode && mode !== "none" ? ` · ${SEARCH_MODE_LABELS[mode] || mode}` : "";
+  setLabel(summary, `ph:books Sources — ${counts.join(" · ")}${how}`);
+  summary.title = "What this answer drew on — click to see each source";
+  details.appendChild(summary);
+
+  const body = document.createElement("div");
+  body.className = "chat-sources-body";
+  const grid = document.createElement("div");
+  grid.className = "chat-sources-grid";
+  const icons = Object.fromEntries(CHAT_SOURCE_GROUPS.map((g) => [g.key, g.icon]));
+  sources.forEach((source, index) => {
+    //: Three shapes, one card. A web source is an anchor, a local one that
+    //: can be opened is a button, and one that can be neither is a plain
+    //: block — because a control that does nothing when pressed is worse
+    //: than no control, which this app has been told before.
+    let card;
+    if (source.url) {
+      card = document.createElement("a");
+      card.href = source.url;
+      card.target = "_blank";
+      //: `noopener` is not optional on a target=_blank link to a page this
+      //: app did not write: without it the opened page gets a handle on this
+      //: window and can navigate it.
+      card.rel = "noopener noreferrer";
+      card.title = source.url;
+    } else if (source.open) {
+      card = document.createElement("button");
+      card.type = "button";
+      card.title = "Open this";
+      card.addEventListener("click", source.open);
+    } else {
+      card = document.createElement("div");
+    }
+    card.className = `chat-source-card${source.url || source.open ? " is-openable" : ""}`;
+    const head = document.createElement("span");
+    head.className = "chat-source-head";
+    const number = document.createElement("span");
+    number.className = "chat-source-index";
+    number.textContent = String(index + 1);
+    const title = document.createElement("span");
+    title.className = "chat-source-title";
+    setLabel(title, `${icons[source.kind] || "ph:note"} ${source.label}`);
+    head.append(number, title);
+    card.appendChild(head);
+    if (source.snippet) {
+      const snippet = document.createElement("p");
+      snippet.className = "chat-source-snippet";
+      snippet.textContent = source.snippet;
+      card.appendChild(snippet);
+    }
+    const foot = document.createElement("span");
+    foot.className = "chat-source-foot muted";
+    const group = CHAT_SOURCE_GROUPS.find((g) => g.key === source.kind);
+    foot.textContent = source.url ? sourceHost(source.url) || "the web" : group?.one || source.kind;
+    card.appendChild(foot);
+    grid.appendChild(card);
+  });
+  body.appendChild(grid);
+  details.appendChild(body);
+  return details;
 }
 
 function renderRecordsDetails(holder, meta) {
@@ -9842,7 +12833,10 @@ function renderImageAttachments() {
     // (04-chat-dock-appearance.css) rather than inventing a second one.
     chipEl.className = "chip attachment-chip attachment-chip-image";
     const thumb = document.createElement("img");
-    thumb.src = mediaSrc(image.url); // a plain <img> never attaches X-Auth-Token
+    // A staged image has no server url yet — its bytes are local, so the
+    // object URL is what draws it. `mediaSrc` is still right for one already
+    // uploaded: a plain <img> never attaches X-Auth-Token.
+    thumb.src = image.objectUrl || mediaSrc(image.url);
     thumb.alt = "";
     const remove = document.createElement("button");
     remove.className = "attachment-remove";
@@ -9851,21 +12845,20 @@ function renderImageAttachments() {
     remove.title = "Remove this image";
     remove.setAttribute("aria-label", remove.title);
     remove.addEventListener("click", async () => {
-      attachedImages = attachedImages.filter((img) => img.id !== image.id);
+      attachedImages = attachedImages.filter((img) => img.key !== image.key);
+      // An object URL is a document-lifetime reference to a Blob: dropping the
+      // array entry alone leaks the image's bytes for as long as the tab is
+      // open.
+      if (image.objectUrl) URL.revokeObjectURL(image.objectUrl);
       renderImageAttachments();
       announce(`Removed image. ${attachedImages.length} image(s) attached.`);
-      // Reported directly: an image attached then removed before the message
-      // was ever sent stayed uploaded and showed up in the Library gallery —
-      // this only detached it from the composer, same as it did before, and
-      // never told the server the upload was abandoned. Same delete-on-remove
-      // fix already applied to the note composer's own image chips
-      // (renderEntryAttachmentChips): nothing else could reference this
-      // upload yet, since the message carrying it was never sent.
-      try {
-        await apiJson(`/media/${image.id}`, { method: "DELETE" });
-      } catch (err) {
-        console.error("Couldn't delete the abandoned upload", err);
-      }
+      // Nothing to tell the server about: a staged image has never been
+      // uploaded (see `attachImageFiles`). The delete call that used to live
+      // here existed because attaching uploaded immediately, so removing had
+      // to clean up after it — staging removes the need rather than the
+      // symptom. An image that *is* already on the server (a regenerate
+      // re-using an earlier message's attachments) keeps its id and is left
+      // alone, because the sent message still references it.
     });
     chipEl.append(thumb, remove);
     box.appendChild(chipEl);
@@ -9879,31 +12872,58 @@ async function attachImageFiles(files) {
   // picker already does with unresolved wiki-links.
   const room = 4 - attachedImages.length;
   for (const file of Array.from(files).slice(0, Math.max(0, room))) {
-    const form = new FormData();
-    form.append("file", file);
-    try {
-      // No explicit Content-Type: the browser sets its own multipart
-      // boundary for a FormData body, and `api()`'s default JSON header
-      // would be wrong here — the same reason the editor's own image-drop
-      // upload (app.js, ~line 27615) overrides headers rather than merging.
-      const uploaded = await apiJson("/media/upload", {
-        method: "POST",
-        headers: { "X-Auth-Token": authToken() },
-        body: form,
-      });
-      // The filename comes along now: the bubble drawn on send needs a label
-      // for the "find it in the Library" button, and after the composer is
-      // cleared there is nowhere left to look it up from.
-      attachedImages.push({
-        id: uploaded.id,
-        url: uploaded.url,
-        name: uploaded.filename || file.name,
-      });
-    } catch (error) {
-      toast(error.message || `Couldn't attach "${file.name}".`, true);
-    }
+    // **Staged, not uploaded.** REDESIGN.md R7.2, asked for directly: "files
+    // should only be staged and not permanently saved while uploaded to a
+    // note that hasnt been saved yet, or chat messages that havent been sent
+    // yet."
+    //
+    // Attaching used to `POST /media/upload` immediately, so an image
+    // attached to a message that was never sent stayed on disk and in the
+    // Library gallery forever. Removing the chip cleaned up after itself, but
+    // *abandoning* the draft — closing the tab, switching conversation,
+    // walking away — did not, and that is the common case rather than the
+    // rare one.
+    //
+    // The bytes stay in the browser until `commitStagedImages()` runs on
+    // send. The thumbnail renders from an object URL, so the preview costs no
+    // round trip and the server learns nothing about a message that may never
+    // exist.
+    attachedImages.push({
+      key: `staged-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      file,
+      objectUrl: URL.createObjectURL(file),
+      name: file.name,
+    });
   }
   renderImageAttachments();
+}
+
+//: Upload whatever is still staged, and return the attachment list with real
+//: ids. Called at the moment a message is actually sent — the point where the
+//: user has committed to it and the server needs to know.
+//:
+//: A failure here has to stop the send rather than drop the picture quietly:
+//: a message that arrives without the image it was written about is worse
+//: than one that refuses to send and says why.
+async function commitStagedImages() {
+  for (const image of attachedImages) {
+    if (image.id) continue; // already on the server (a regenerate re-uses these)
+    const form = new FormData();
+    form.append("file", image.file);
+    // No explicit Content-Type: the browser sets its own multipart boundary
+    // for a FormData body, and `api()`'s default JSON header would be wrong
+    // here — the same reason the editor's own image-drop upload overrides
+    // headers rather than merging.
+    const uploaded = await apiJson("/media/upload", {
+      method: "POST",
+      headers: { "X-Auth-Token": authToken() },
+      body: form,
+    });
+    image.id = uploaded.id;
+    image.url = uploaded.url;
+    image.name = uploaded.filename || image.name;
+  }
+  return attachedImages;
 }
 
 // --- one attach button, two destinations ---------------------------------------
@@ -9941,6 +12961,39 @@ async function attachChatFiles(files) {
   if (documents.length) await importChatDocuments(documents);
 }
 
+//: The suffixes `/media/upload` accepts (`MEDIA_SUFFIXES`, routes_files.py).
+//: Kept as a literal rather than fetched: it is a fallback path that must not
+//: itself need a round trip to decide whether it can run.
+const MEDIA_FALLBACK_SUFFIXES = /\.(png|jpe?g|gif|webp|avif|bmp|ico|pdf)$/i;
+
+async function keepUnreadableChatFile(file, error) {
+  if (!MEDIA_FALLBACK_SUFFIXES.test(file.name || "")) return false;
+  const form = new FormData();
+  form.append("file", file);
+  form.append("direct", "true");
+  try {
+    await apiJson("/media/upload", {
+      method: "POST",
+      headers: { "X-Auth-Token": authToken() },
+      body: form,
+    });
+  } catch {
+    return false;
+  }
+  //: Both halves, because either alone is misleading: "saved to your Library"
+  //: without the reason looks like the import worked, and the reason without
+  //: the destination looks like the file was lost.
+  toastAction(
+    `Kept “${file.name}” in your Library — ${error?.message || "its text could not be read"}`,
+    "Show it",
+    () => {
+      switchTab("library");
+      if (typeof renderLibrary === "function") renderLibrary();
+    },
+  );
+  return true;
+}
+
 async function importChatDocuments(files) {
   const made = [];
   for (const file of files) {
@@ -9957,7 +13010,23 @@ async function importChatDocuments(files) {
       });
       made.push(document);
     } catch (error) {
-      toast(error.message || `Couldn't read "${file.name}".`, true);
+      //: **A file the app cannot read is still a file worth keeping.**
+      //:
+      //: Reported: *"make sure the file upload and staging as chips works
+      //: because I tried to upload two pdf files and nothing showed up."*
+      //: Nothing showed up because `/documents/import` answers 422 for a PDF
+      //: whose text cannot be extracted — which on an install without
+      //: markitdown is *every* PDF — and a 422 became one toast that expired.
+      //: So the paperclip advertised PDFs, refused them, and left no trace.
+      //:
+      //: REDESIGN.md §R7.2's reversal is the rule here and it is explicit:
+      //: PDFs and documents must be viewable, downloadable and manageable
+      //: **without any AI model in the loop**. Failing to read a PDF's words
+      //: is not a reason to throw the PDF away. So the bytes go to
+      //: `/media/upload` — the Library's own store, which takes PDFs — and
+      //: the user is told where it went and why the text is missing.
+      const kept = await keepUnreadableChatFile(file, error);
+      if (!kept) toast(error.message || `Couldn't read "${file.name}".`, true);
     }
   }
   if (!made.length) return;
@@ -10021,6 +13090,126 @@ function renderDocumentAttachments() {
     chipEl.append(label, remove);
     box.appendChild(chipEl);
   }
+}
+
+//: **The passage the user is looking at**, carried from an editing surface to
+//: the chat composer. REDESIGN.md §R7.1 item 1, and the request behind it:
+//: *"able to highlight text and say something in the chat and the agent gets
+//: the context of what is highlighted and cursor position."*
+//:
+//: One at a time, replaced rather than appended, and that is the difference
+//: between this and the three attachment lists above. A selection is *where
+//: you are*, not a thing you collect: selecting a second passage means you
+//: changed your mind about the first, and a stack of them would send the
+//: model four regions of four documents to reconcile.
+let attachedSelection = null;
+
+//: What `askAboutSelection` (editor.js) calls. Attaching switches to the chat
+//: and puts the caret in the box, because the whole gesture is "select, ask" —
+//: leaving the user on the note with a chip they cannot see would be the same
+//: number of clicks as before with an extra step of confusion.
+function attachSelectionContext(context) {
+  attachedSelection = context;
+  renderSelectionAttachment();
+  switchTab("chat");
+  const input = $("chat-input");
+  if (input) {
+    input.focus();
+    autoGrow(input);
+  }
+  announce(`Selection from ${context.title} attached to your next message.`);
+}
+
+function clearSelectionAttachment() {
+  attachedSelection = null;
+  renderSelectionAttachment();
+}
+
+function renderSelectionAttachment() {
+  const box = $("chat-selection-attachment");
+  if (!box) return;
+  box.replaceChildren();
+  box.classList.toggle("hidden", !attachedSelection);
+  if (!attachedSelection) return;
+  const chipEl = document.createElement("span");
+  chipEl.className = "chip attachment-chip";
+  //: The full passage on hover. A chip can only show a few words of it, and
+  //: "which selection is this?" is the one question it has to answer.
+  chipEl.title = attachedSelection.text;
+  const label = document.createElement("span");
+  const words = attachedSelection.text.replace(/\s+/g, " ").trim();
+  const shown = words.length > 42 ? `${words.slice(0, 41)}…` : words;
+  setLabel(label, `ph:text-aa ${attachedSelection.title} · line ${attachedSelection.line}: “${shown}”`);
+  const remove = document.createElement("button");
+  remove.className = "attachment-remove";
+  remove.type = "button";
+  remove.textContent = "✕";
+  remove.title = "Don't send this selection with your message";
+  remove.setAttribute("aria-label", remove.title);
+  remove.addEventListener("click", () => {
+    clearSelectionAttachment();
+    announce("Selection removed.");
+  });
+  chipEl.append(label, remove);
+  box.appendChild(chipEl);
+}
+
+//: **Re-validated at send, not trusted from when it was attached.** This is
+//: the part of odysseus's `getSelectionContext()` worth porting exactly
+//: (`static/js/document.js`, AGPL — this project is AGPL-3.0, see
+//: ANALYSIS.md): between selecting a passage and pressing send, the user can
+//: type above it, undo, or edit the note entirely, and stored offsets then
+//: point at *different words*. Sending those would hand the model text from a
+//: region the user is no longer looking at, attributed to a line number that
+//: is now someone else's line — wrong in the most confusing possible way.
+//:
+//: Three outcomes, and each is said plainly to the model rather than papered
+//: over: the offsets still hold; the passage moved (found elsewhere, so the
+//: line number is recomputed); or the passage is gone from the surface, in
+//: which case the text is still sent — the user asked about it — but with no
+//: position claimed at all.
+function revalidateSelection(context) {
+  const surface = document.getElementById(context.surfaceId);
+  if (!(surface instanceof HTMLTextAreaElement)) {
+    //: The note was closed or the document navigated away from. Nothing to
+    //: check against, so nothing is claimed.
+    return { ...context, position: "unknown" };
+  }
+  const value = surface.value;
+  if (value.slice(context.start, context.end) === context.text) {
+    return { ...context, position: "exact" };
+  }
+  const found = value.indexOf(context.text);
+  if (found === -1) return { ...context, position: "gone" };
+  const upToCaret = value.slice(0, found + context.text.length);
+  return {
+    ...context,
+    start: found,
+    end: found + context.text.length,
+    line: upToCaret.split("\n").length,
+    column: upToCaret.length - (upToCaret.lastIndexOf("\n") + 1) + 1,
+    position: "moved",
+  };
+}
+
+//: What the model is actually told. Terse on purpose — it rides on every
+//: message that carries a selection, and the tool schemas are already the
+//: dominant fixed cost of a round (§R5 item 1).
+function selectionContextBlock(context) {
+  const where =
+    context.position === "gone" || context.position === "unknown"
+      ? `${context.title} (the user has since edited it, so this passage may no longer be there)`
+      : `${context.title}, line ${context.line}, column ${context.column}`;
+  const parts = [`The user has selected this passage in ${where}:`, "", context.text, ""];
+  const around = [context.before, context.after].some((t) => (t || "").trim());
+  if (around) {
+    parts.push(
+      "Immediately around it, for context only — do not treat it as the question:",
+      "",
+      `…${context.before}⟦selection⟧${context.after}…`
+    );
+  }
+  return parts.join("\n");
 }
 
 function attachedNotes() {
@@ -10170,8 +13359,23 @@ async function sendChatMessage(preset, opts = {}) {
   // The user's own words go in the bubble; the planning instruction is appended
   // for the model only. `displayText` already exists for exactly this.
   const planned = opts.plan || opts.skipPlanMode ? null : applyPlanMode(typed);
-  const question = planned || typed;
+  let question = planned || typed;
   if (planned && !opts.displayText) opts = { ...opts, displayText: typed };
+  //: **The selection joins the question here, and only for the model.** It is
+  //: appended after Plan mode's own rewrite for the same reason that rewrite
+  //: exists at all: `displayText` is what the user said, and showing them a
+  //: block of their own note quoted back at them under their question would
+  //: read as the app putting words in their mouth. The chip above the box is
+  //: what tells them it is going.
+  //:
+  //: Re-validated at this moment rather than reused from when it was attached
+  //: — see `revalidateSelection` for what changes in between and why sending
+  //: stale offsets is the worst of the three outcomes.
+  const sentSelection = attachedSelection ? revalidateSelection(attachedSelection) : null;
+  if (sentSelection) {
+    if (!opts.displayText) opts = { ...opts, displayText: typed };
+    question = `${question}\n\n${selectionContextBlock(sentSelection)}`;
+  }
   lastChatQuestion = question;
 
   // Consumed once: this send — button click or free-typed reply alike — is
@@ -10179,6 +13383,23 @@ async function sendChatMessage(preset, opts = {}) {
   // is an ordinary message again.
   const answeringAgent = opts.answeringAgent ?? chatAwaitingAgentAnswer;
   chatAwaitingAgentAnswer = false;
+
+  // **Staged images become real uploads here**, at the moment the message is
+  // actually committed — see `attachImageFiles` for why nothing was uploaded
+  // when they were attached.
+  //
+  // Before the snapshot below, because that snapshot reads `img.id` and a
+  // staged image has none until this runs. A failure stops the send and says
+  // so: a message arriving without the picture it was written about is worse
+  // than one that refuses and explains.
+  if (!opts.imageMediaIds) {
+    try {
+      await commitStagedImages();
+    } catch (error) {
+      toast(error.message || "Couldn't upload the attached image.", true);
+      return;
+    }
+  }
 
   // Snapshot the attachments for this message. A regenerate re-uses the same
   // ones; a fresh send clears them, so they don't silently ride along on
@@ -10218,12 +13439,26 @@ async function sendChatMessage(preset, opts = {}) {
     lastChatAttachments = sentAttachments;
     lastChatImageAttachments = attachedImages.slice();
     lastChatDocumentAttachments = attachedDocuments.slice();
+    // The staged bytes are on the server now, so the local Blob references
+    // are dead weight — an object URL lives as long as the document unless it
+    // is revoked, and a chat session sending several images would hold every
+    // one of them in memory for the life of the tab. The upload's real url is
+    // what the sent bubble draws from, so nothing on screen depends on these.
+    for (const image of attachedImages) {
+      if (image.objectUrl) URL.revokeObjectURL(image.objectUrl);
+      image.objectUrl = null;
+    }
     attachedNoteIds = [];
     attachedImages = [];
     attachedDocuments = [];
+    //: Cleared with the rest, and for the same stated reason: a selection that
+    //: rode along on every later question would be the app answering about a
+    //: paragraph the user stopped talking about three messages ago.
+    attachedSelection = null;
     renderAttachments();
     renderImageAttachments();
     renderDocumentAttachments();
+    renderSelectionAttachment();
     closeNotePicker();
   }
 
@@ -10260,9 +13495,68 @@ async function sendChatMessage(preset, opts = {}) {
   // A placeholder until the first event arrives; the first real step evicts it.
   const pending = document.createElement("div");
   pending.className = "agent-step step-pending";
-  pending.appendChild(typingDots());
+  const pendingLine = progressLine("Thinking…");
+  pending.appendChild(pendingLine);
   stepsHolder.appendChild(pending);
-  const clearPending = () => pending.remove();
+  // **The placeholder trails the work instead of vanishing at the first
+  // event.** It used to `.remove()` itself the moment anything arrived —
+  // including `meta`, which this app emits almost immediately — so on a turn
+  // that then spent eleven seconds thinking there was nothing left moving
+  // anywhere in the bubble. Moving it to the end of the steps list keeps one
+  // live "still working" line under whatever has happened so far, and the
+  // `finally` that ends the stream is what actually takes it away.
+  //: **The trailing line cannot come back once the turn is over**, and that
+  //: is the whole of this flag.
+  //:
+  //: Reported with two screenshots: *"'writing the answer' gets stuck below
+  //: the message once finished"* — including on a bubble whose own timer had
+  //: stopped, so the turn had genuinely ended. `clearPending` *appends* the
+  //: node, and appending a node that has already been removed **puts it
+  //: back**. The `finally` at the end of the stream removes it; any callback
+  //: still queued behind that — a last answer delta, a trailing tool event —
+  //: then re-attached it, with nothing left to take it down a second time.
+  //:
+  //: A flag rather than a re-check of `pending.isConnected`: the point is
+  //: that the turn is over, not that the node happens to be detached right
+  //: now, and saying so is what stops the next person re-introducing it.
+  let turnEnded = false;
+  const clearPending = () => {
+    if (turnEnded) return;
+    //: **Only when it is not already last**, and that guard is a bug fix, not
+    //: a micro-optimisation.
+    //:
+    //: Reported: *"while generating the output, the 3 dot animation speeds up
+    //: and freezes."* `onAnswer` calls this on **every streamed delta** — tens
+    //: of times a second — and `appendChild` on a node that is already the
+    //: last child still *removes and re-inserts* it. Blink restarts every CSS
+    //: animation in a re-inserted subtree, so the three dots were being reset
+    //: to frame zero on every token: they never got far enough through their
+    //: 1.4s cycle to look like a cycle, which reads as a stutter that speeds
+    //: up with the token rate and stalls whenever the stream pauses.
+    //:
+    //: Nothing else changes: the node still trails the steps, because the
+    //: only case that actually needs a move is a *new* step having been
+    //: appended after it.
+    if (stepsHolder.lastElementChild === pending) return;
+    stepsHolder.appendChild(pending);
+  };
+  // Every string this is given comes from an event that really happened —
+  // see `progressLine` on why it must never invent a stage.
+  const say = (text) => pendingLine.setStatus?.(text);
+  // **The turn is marked as generating for its whole length, not just until
+  // the first event.** Reported as "none of the generating animations work",
+  // and this is the mechanism: `clearPending` above runs on the first event
+  // of *any* kind — including `meta`, which this app emits almost
+  // immediately, well before the model has produced a word. So the dots
+  // appeared for a few hundred milliseconds and then the bubble sat
+  // completely still for however long the model actually took, which reads
+  // as nothing happening at all.
+  //
+  // A class on the bubble, cleared in the `finally` that ends the stream, is
+  // the state that genuinely lasts as long as the work does — every step
+  // that arrives can still evict its own placeholder without taking the
+  // "still working" signal down with it.
+  bubble.classList.add("is-generating");
   let meta = null;
   let toolsActed = false;
   let stats = null;
@@ -10289,6 +13583,10 @@ async function sendChatMessage(preset, opts = {}) {
   let pausedForManual = false;
   const startedAt = performance.now();
   const toolEvents = []; // {label, ok} — persisted so chips survive a reload
+  //: Everything this turn opened, deduped on kind+id, for the Sources panel.
+  //: A Map rather than an array because a turn that reads the same note twice
+  //: has one source, not two — and `touched` arrives per tool call.
+  const touchedItems = new Map();
   chatController = new AbortController();
   const controller = chatController;
 
@@ -10441,10 +13739,20 @@ async function sendChatMessage(preset, opts = {}) {
       onMeta: (m) => {
         meta = m;
         status.textContent = "The model is writing…";
+        const found = m?.raw_results?.length || 0;
+        say(found ? `Read ${found} note${found === 1 ? "" : "s"} — writing…` : "Writing…");
+      },
+      onRelated: (event) => {
+        renderRelatedElsewhere(groundingHolder, event.items);
       },
       onGrounding: (event) => {
         groundingSentences = event.sentences;
-        renderAnswerGrounding(groundingHolder, event.sentences, meta?.raw_results || []);
+        renderAnswerGrounding(
+          groundingHolder,
+          event.sentences,
+          meta?.raw_results || [],
+          bubble.querySelector(".bubble-answer")
+        );
       },
       onPlan: (event) => {
         clearPending();
@@ -10490,13 +13798,25 @@ async function sendChatMessage(preset, opts = {}) {
         clearPending();
         timeline.answer(delta);
         status.textContent = "The model is writing…";
+        say("Writing the answer…");
         chatScrollToEnd();
       },
       onTool: (event) => {
         clearPending();
-        const label = event.ok ? event.label : `ph:warning ${event.error || event.label}`;
+        //: The fallback strips the failed call's own icon token before
+        //: prefixing the warning one. `setLabel` only resolves a token at the
+        //: start of the string, so `ph:warning ph:books Listed notes` renders
+        //: one warning glyph and then prints "ph:books" as literal text —
+        //: the same defect reported in the palette's status line, one branch
+        //: over and only reachable when a tool fails.
+        const label = event.ok
+          ? event.label
+          : `ph:warning ${(event.error || event.label || "").replace(/^ph:[\w-]+\s*/, "")}`;
         timeline.tool(toolChip(label, event.ok, event));
         toolEvents.push(event); // remember for persistence
+        for (const item of event.touched || []) {
+          touchedItems.set(`${item.kind}:${item.id}`, item);
+        }
         if (event.proposal) {
           // Asked where it was suggested, not in a settings page nobody opens.
           const card = document.createElement("div");
@@ -10505,6 +13825,9 @@ async function sendChatMessage(preset, opts = {}) {
         }
         if (event.ok) toolsActed = true;
         status.textContent = "The model is making changes…";
+        // The tool's own label, so the line under the timeline names the
+        // step that is running rather than a generic "working".
+        say((event.label || "Working…").replace(/^ph:[\w-]+\s*/, ""));
         chatScrollToEnd();
       },
       onConfirm: (event) => {
@@ -10516,9 +13839,21 @@ async function sendChatMessage(preset, opts = {}) {
       },
       onAsk: (event) => {
         clearPending();
+        //: **The question is output, not a step.**
+        //:
+        //: Reported: *"the question the agent asked me appeared in the step
+        //: and not the actual output."* A step group folds itself shut into
+        //: "Finished 1 step" the moment prose starts (`startAnswer`), so a
+        //: question filed there is a question that disappears while it is
+        //: still waiting to be answered — and the answer box underneath then
+        //: says the model wrote nothing, which is the screenshot.
+        //:
+        //: `recordsHolder` is the bubble's own output area, under the steps
+        //: and above the sources — where everything else the turn is waiting
+        //: on (a confirmation, a memory proposal's outcome) already lands.
         const card = document.createElement("div");
         renderAgentQuestion(card, event);
-        timeline.tool(card.firstElementChild || card);
+        recordsHolder.appendChild(card.firstElementChild || card);
         status.textContent = "Waiting for your answer…";
         chatAwaitingAgentAnswer = true;
       },
@@ -10572,6 +13907,11 @@ async function sendChatMessage(preset, opts = {}) {
         // is preventing. The turn's real save still happens at the end and
         // overwrites this with the finished version.
         if (event.round) checkpointTurn();
+        //: The header's context meter, updated live rather than at the end of
+        //: the turn: on a long agent run the window fills round by round, and
+        //: the number is only useful while there is still a decision to make
+        //: about it.
+        renderChatContextMeter(event);
         // An agent turn reports once per round, so these accumulate: output
         // tokens and generation time add up, while the prompt size is the
         // largest context the model was given rather than the sum.
@@ -10610,6 +13950,29 @@ async function sendChatMessage(preset, opts = {}) {
     }
   } finally {
     clearTimeout(slowLoadTimeout);
+    // Whatever happened — answered, stopped, errored — the turn is no longer
+    // generating, so the signal that says it is has to come down here rather
+    // than on any one success path.
+    bubble.classList.remove("is-generating");
+    // The one place the trailing progress line is taken down — the turn is
+    // genuinely over here, whether it ended, errored or was aborted. The flag
+    // goes up *first*: see `clearPending` for the callback that used to run
+    // after this line and put the node straight back.
+    turnEnded = true;
+    pending.remove();
+    //: **Every visual "still working" state comes down here, on every exit.**
+    //:
+    //: Reported with a screenshot of a finished skill run still showing both
+    //: the streaming caret and "Writing the answer…". `finalise()` was called
+    //: on the success path only, so a turn that ended any other way — an
+    //: error, a stop, the round limit — kept the caret blinking on prose that
+    //: had stopped arriving. It is idempotent, so calling it here as well
+    //: costs nothing and closes every path at once, which is the property the
+    //: success-path-only version could never have.
+    timeline.finalise?.();
+    //: Whatever step group is still open stops saying "Working" — see
+    //: `agentTimeline.finish`.
+    timeline.finish?.();
     // Only if it is still ours. Switching away and sending a second message
     // installs a new controller, and this line firing late would null it —
     // leaving Stop wired to nothing while a stream was genuinely running.
@@ -10637,7 +14000,17 @@ async function sendChatMessage(preset, opts = {}) {
   timeline.finalise();
   const answerRaw = timeline.text();
   const thinkingRaw = timeline.thinkingText();
-  if (meta) renderRecordsDetails(recordsHolder, meta);
+  //: **The Sources panel replaces the old "N matching notes" disclosure here.**
+  //: It is a superset — it carries the same retrieved notes and adds the
+  //: files and pages the turn read and the things it opened, which had no
+  //: home at all. `renderRecordsDetails` stays for the Ask tab, which has one
+  //: answer rather than a thread and no tool events to fold in.
+  const sourcesPanel = chatSourcesPanel({
+    meta,
+    toolEvents,
+    touched: [...touchedItems.values()],
+  });
+  if (sourcesPanel) recordsHolder.appendChild(sourcesPanel);
   // What this answer cost: model, wall-clock time, tokens, speed.
   const elapsedMs = Math.round(performance.now() - startedAt);
   // A turn that only ran tools still cost time and tokens, so it gets a meta
@@ -10677,7 +14050,46 @@ async function sendChatMessage(preset, opts = {}) {
       action: { tab: "chat" },
     });
   }
-  if (!stopped && stoppedAtStep !== null && opts.skill && pausedForManual) {
+  //: **A run you stopped can be picked up again.** Reported: "cant continue
+  //: canceled skills??" — and it was exactly that, every resume control below
+  //: was guarded by `!stopped`. The guard belongs on the *notification* above
+  //: (nobody wants to be told ten minutes later about a stop they chose) and
+  //: never belonged on the button: pressing Stop means "not right now", not
+  //: "throw away the six steps that already ran". Resuming a stopped run is
+  //: the same call as resuming one that hit the round limit, and the step it
+  //: reached was already being tracked for the other case.
+  if (stopped && stoppedAtStep !== null && opts.skill) {
+    bubble.appendChild(
+      continueRunControls({
+        label: `ph:play Resume from step ${stoppedAtStep + 1}`,
+        hint: "You stopped this. Earlier steps are not repeated.",
+        onClick: () =>
+          sendChatMessage(`${opts.skill} — from step ${stoppedAtStep + 1}`, {
+            skill: opts.skill,
+            skillInputs: opts.skillInputs || {},
+            skillFromStep: stoppedAtStep,
+            skipPlanMode: true,
+          }),
+      })
+    );
+  } else if (stopped && (opts.skill || toolEvents.length)) {
+    //: A stopped run with no step to name — a plain agent turn, or a skill
+    //: stopped before its first step finished. It still did work worth not
+    //: repeating, so the offer is the same one the round limit gets.
+    bubble.appendChild(
+      continueRunControls({
+        label: "ph:play Resume",
+        hint: "Picks up from what it had already done.",
+        onClick: () =>
+          sendChatMessage(
+            "Continue from where you stopped. Don't redo what you have " +
+              "already done — carry on with what is left, and say when it is " +
+              "all finished.",
+            { useTools: true }
+          ),
+      })
+    );
+  } else if (!stopped && stoppedAtStep !== null && opts.skill && pausedForManual) {
     bubble.appendChild(
       manualPauseControls({
         onContinue: (note) =>
@@ -10768,17 +14180,10 @@ async function sendChatMessage(preset, opts = {}) {
     }
     return;
   }
-  // Per-message actions: copy, regenerate, read-aloud, delete (Wave H voices),
-  // save-as-note and add-reminder (one-click capture, ROADMAP.md).
+  // Per-message actions — one shared list with the reopened-conversation path,
+  // see `assistantMessageActions` for why that matters.
   bubble.appendChild(
-    chatMessageActions([
-      { label: "⧉", title: "Copy answer", onClick: (e) => copyToClipboard(answerRaw, e.currentTarget) },
-      { label: "ph:arrow-clockwise", title: "Regenerate (replaces this answer)", onClick: () => regenerateLastAnswer() },
-      { label: "ph:speaker-high", title: "Read aloud", onClick: () => speakText(answerRaw) },
-      { label: "ph:note-pencil", title: "Save this answer as a draft note", onClick: () => saveChatAnswerAsNote(question, answerRaw) },
-      { label: "ph:alarm", title: "Set a reminder from this answer", onClick: () => reminderFromChatAnswer(answerRaw) },
-      { label: "ph:trash", title: "Delete this message", onClick: () => deleteChatTurn(bubble) },
-    ])
+    assistantMessageActions({ bubble, text: answerRaw, question })
   );
 
   // Regenerate replaces the last turn; a normal send appends a new one.
@@ -11206,6 +14611,9 @@ function newChatConversation() {
   $("chat-messages").replaceChildren();
   $("chat-title").textContent = "New chat";
   renderChatUsage(0);
+  //: A fresh pane has no turn to measure, so the meter goes away rather than
+  //: keeping the last conversation's number over an empty one.
+  renderChatContextMeter(null);
   renderChatEmptyState();
   loadChatSuggestions();
 }
@@ -11287,23 +14695,71 @@ function layoutIsStacked() {
   return window.matchMedia(STACKED_LAYOUT).matches;
 }
 
-function applySidebarWidth(aside, width) {
+//: The most of the window a sidebar may take. Reported directly: "the ui
+//: needs to seemlessly adapt and perfect itself on any resolution and not
+//: just be squashed but still fit somehow."
+//:
+//: Measured before this existed: the sidebar was its saved pixel width at
+//: *every* viewport — 260px at 1920 (14% of the window, fine) and 260px at
+//: 820 (32%, leaving the notes column 459px). The sidebar never gave up a
+//: pixel, so the content absorbed the entire difference. That is the
+//: "squashed but still fit somehow" feeling, and its cause is a stored
+//: absolute width applied to a relative space.
+//:
+//: A stylesheet `clamp()` cannot fix it: the width is written as an inline
+//: `grid-template-columns` on the parent (below), and an inline style beats
+//: every rule. So the cap belongs here, where the number is decided.
+const SIDEBAR_VIEWPORT_SHARE = 0.24;
+
+//: What the sidebar may actually occupy right now — the user's own width
+//: where there is room for it, less where there is not, never below the
+//: floor a category name needs to stay readable.
+function sidebarFittedWidth(saved) {
+  const cap = Math.max(SIDEBAR_MIN, Math.round(window.innerWidth * SIDEBAR_VIEWPORT_SHARE));
+  return Math.min(saved, cap);
+}
+
+function applySidebarWidth(aside, width, { remember = true } = {}) {
   const clamped = Math.min(Math.max(Math.round(width), SIDEBAR_MIN), SIDEBAR_MAX);
-  localStorage.setItem(`sidebarWidth:${aside.id}`, String(clamped));
+  // **The user's choice is stored, the fitted width is applied**, and the
+  // split matters: storing the fitted one would mean dragging a window
+  // narrow permanently shrank a preference the user set on a wide screen,
+  // with no way to notice it had happened. Widening the window restores it.
+  // `remember: false` is for the re-fit on resize, which is the app
+  // reacting rather than the user choosing.
+  if (remember) localStorage.setItem(`sidebarWidth:${aside.id}`, String(clamped));
   aside.style.setProperty("--saved-width", `${clamped}px`);
-  
+
   if (layoutIsStacked()) {
     aside.parentElement.style.removeProperty("grid-template-columns");
     return clamped;
   }
-  
+
   if (aside.classList.contains("sidebar-collapsed")) {
     aside.parentElement.style.gridTemplateColumns = `48px minmax(0, 1fr)`;
   } else {
-    aside.parentElement.style.gridTemplateColumns = `${clamped}px minmax(0, 1fr)`;
+    aside.parentElement.style.gridTemplateColumns = `${sidebarFittedWidth(clamped)}px minmax(0, 1fr)`;
   }
   return clamped;
 }
+
+//: Re-fit every sidebar as the window changes size, not only when it crosses
+//: the one stacking breakpoint below. Without this the cap above would apply
+//: at load and then go stale the moment anyone resized a window — which is
+//: the normal way a desktop app is used, and exactly the case the report was
+//: about. `remember: false`: this is not the user choosing a width.
+let sidebarRefitTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(sidebarRefitTimer);
+  sidebarRefitTimer = setTimeout(() => {
+    for (const id of ["sidebar", "chat-sidebar", "doc-sidebar"]) {
+      const aside = document.getElementById(id);
+      if (aside?.dataset.resizable) {
+        applySidebarWidth(aside, sidebarWidth(id, sidebarDefault(id)), { remember: false });
+      }
+    }
+  }, 120);
+});
 
 // Rotating a phone, or dragging a desktop window narrow, crosses the
 // threshold without reloading — so re-decide then too.
@@ -11555,6 +15011,295 @@ function makeMenuItem(label, title, run) {
   return { label, title, run };
 }
 
+// The same menu as `kebabMenu`, with a worded opener instead of a "⋯".
+//
+// Reported: "a lot of the dropdown menus aren't the same ui style??" — and
+// they were not, because some of them were not this component at all. A
+// native `<select>` used as an action list is drawn by the operating system:
+// it cannot take the app's padding, radius, hover or icons, which is exactly
+// the "tight and right up against the edge of the text" the report describes.
+// A `<select>` is the right control for *choosing a value in a form*; an
+// action that happens the moment you pick it is a menu, and now uses the
+// app's own one.
+function labelledMenu(label, items, ariaLabel) {
+  const wrap = document.createElement("span");
+  wrap.className = "menu-wrap";
+
+  const menu = document.createElement("div");
+  menu.className = "action-menu hidden";
+  menu.setAttribute("role", "menu");
+
+  const opener = document.createElement("button");
+  opener.type = "button";
+  opener.className = "ghost small";
+  setLabel(opener, label);
+  opener.title = ariaLabel;
+  opener.setAttribute("aria-label", ariaLabel);
+  opener.setAttribute("aria-haspopup", "menu");
+  opener.setAttribute("aria-expanded", "false");
+  opener.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const willOpen = menu.classList.contains("hidden");
+    if (willOpen) openActionMenu(menu, opener);
+    else closeActionMenus();
+  });
+
+  for (const item of items) {
+    const button = document.createElement("button");
+    button.className = "menu-item";
+    button.setAttribute("role", "menuitem");
+    setLabel(button, item.label);
+    button.title = item.title;
+    button.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      closeActionMenus();
+      await item.run();
+    });
+    menu.appendChild(button);
+  }
+  wireMenuKeyboard(menu, opener);
+  wrap.append(opener, menu);
+  return wrap;
+}
+
+// --- every <select> in the app wears the app's own menu ---------------------
+//
+// **The last surface the stylesheet could not reach.** Reported repeatedly,
+// and finally with a screenshot of the model picker: a native `<select>`
+// popup is drawn by the operating system, not the page. It ignores the
+// app's palette, radius, padding, hover and icons entirely — which is why
+// dropdowns looked like a different program, why their text sat "right up
+// against the edge", and why no amount of CSS on `select` ever fixed it.
+// `select` itself is styled (the closed control matches); only the *popup*
+// was out of reach, and there is no CSS that reaches it.
+//
+// So the popup is replaced rather than restyled. The real `<select>` stays
+// in the DOM and stays the source of truth: every `.value` read, `.options`
+// write and `change` listener in the rest of the app keeps working
+// untouched, which is what makes this safe to apply everywhere at once
+// instead of rewriting dozens of call sites. The visible control is a
+// button plus a `role="listbox"`, using the same `openActionMenu` /
+// `closeActionMenus` plumbing as every other menu here, so it inherits
+// their positioning, flip-when-clipped and click-away behaviour for free.
+//
+// Selects are repopulated all over this app (models, categories, personas),
+// often long after first render, so a MutationObserver re-reads the options
+// rather than trusting a one-time build.
+const SELECT_ENHANCED = "data-enhanced-select";
+
+function enhanceSelect(select) {
+  if (!select || select.hasAttribute(SELECT_ENHANCED)) return;
+  // A multi-select is a different control with different semantics, and
+  // nothing in this app uses one; leave it to the browser rather than
+  // guessing at a listbox that supports multiple selection.
+  if (select.multiple || select.size > 1) return;
+  if (select.closest("[data-no-select-enhance]")) return;
+  select.setAttribute(SELECT_ENHANCED, "1");
+
+  const shell = document.createElement("span");
+  shell.className = "select-shell";
+
+  const opener = document.createElement("button");
+  opener.type = "button";
+  opener.className = "select-opener";
+  opener.setAttribute("aria-haspopup", "listbox");
+  opener.setAttribute("aria-expanded", "false");
+
+  const valueText = document.createElement("span");
+  valueText.className = "select-value";
+  const caret = document.createElement("i");
+  caret.className = "ph ph-caret-down select-caret";
+  caret.setAttribute("aria-hidden", "true");
+  opener.append(valueText, caret);
+
+  const menu = document.createElement("div");
+  menu.className = "action-menu select-menu hidden";
+  menu.setAttribute("role", "listbox");
+
+  select.parentNode.insertBefore(shell, select);
+  shell.append(select, opener, menu);
+  // Reported repeatedly, on different selects, as the same shape: the
+  // model picker (Settings) and the note editor's category picker both
+  // spilled off the edge of whatever scrolling/backdrop-filter ancestor
+  // they opened inside — ".modal-content" for the first, the note card's
+  // own stacking context for the second. `wireEscapedActionMenu` (this
+  // file, above) already exists for exactly this — it was built for the
+  // Library's Documents kebab and reparents an open menu to <body>,
+  // positioning it from the opener's own rect so no ancestor's overflow or
+  // stacking context can clip it — but it was only ever wired to that one
+  // menu. Every one of this app's 51+ selects shares the same
+  // `.select-menu`/`openActionMenu` shape, so wiring it here once covers
+  // all of them instead of chasing each report to a different select.
+  wireEscapedActionMenu(shell);
+
+  // The native control keeps doing its job (form value, validation, the
+  // label association) but stops being what you see or tab to — the opener
+  // carries the keyboard now.
+  select.classList.add("select-native-hidden");
+  select.tabIndex = -1;
+  select.setAttribute("aria-hidden", "true");
+
+  const label =
+    select.getAttribute("aria-label") ||
+    select.title ||
+    "Choose an option";
+  opener.setAttribute("aria-label", label);
+  opener.title = select.title || label;
+
+  const syncValue = () => {
+    const chosen = select.options[select.selectedIndex];
+    valueText.textContent = chosen ? chosen.textContent.trim() : "";
+    opener.disabled = select.disabled;
+    for (const row of menu.querySelectorAll("[role='option']")) {
+      const on = row.dataset.value === select.value;
+      row.setAttribute("aria-selected", String(on));
+      row.classList.toggle("is-chosen", on);
+    }
+  };
+
+  const rebuild = () => {
+    menu.replaceChildren();
+    for (const option of select.options) {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "menu-item select-option";
+      row.setAttribute("role", "option");
+      row.dataset.value = option.value;
+      row.textContent = option.textContent.trim();
+      if (option.disabled) row.setAttribute("aria-disabled", "true");
+      row.addEventListener("click", (event) => {
+        event.stopPropagation();
+        closeActionMenus();
+        if (option.disabled || select.value === option.value) return;
+        select.value = option.value;
+        syncValue();
+        // The app listens on the real control, so the real control is what
+        // announces the change.
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      menu.appendChild(row);
+    }
+    syncValue();
+  };
+
+  opener.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (select.disabled) return;
+    if (menu.classList.contains("hidden")) {
+      rebuild();
+      openActionMenu(menu, opener);
+      menu.querySelector(".is-chosen")?.focus();
+    } else {
+      closeActionMenus();
+    }
+  });
+
+  select.addEventListener("change", syncValue);
+  new MutationObserver(rebuild).observe(select, { childList: true, subtree: true });
+
+  // **Programmatic `select.value = …` fires no event at all**, and this app
+  // sets one directly in dozens of places — every "load the saved settings
+  // into the form" path does. A `change` listener alone therefore leaves the
+  // opener showing whatever was selected when the page was built.
+  //
+  // Measured, not reasoned: the Timeline's own View control read "Grid" while
+  // the timeline underneath it was rendering the *line* view, because
+  // `applyTimelineSettings()` runs `$("timeline-view").value = timelineView()`
+  // after this control was enhanced. Every one of the app's 51 selects had
+  // the same hole.
+  //
+  // The fix is to make assignment observable: shadow `value`, `selectedIndex`
+  // and `disabled` on this instance with accessors that call through to the
+  // prototype's real ones and then re-sync the label. `Reflect.get/set` with
+  // the element as receiver is what keeps the native accessor working on the
+  // right object — reading the descriptor and calling `.get.call(select)`
+  // directly would be the same thing written less safely.
+  const proto = Object.getPrototypeOf(select);
+  for (const prop of ["value", "selectedIndex", "disabled"]) {
+    const native = Object.getOwnPropertyDescriptor(proto, prop);
+    if (!native || !native.set) continue;
+    Object.defineProperty(select, prop, {
+      configurable: true,
+      enumerable: false,
+      get() {
+        return native.get.call(this);
+      },
+      set(next) {
+        native.set.call(this, next);
+        syncValue();
+      },
+    });
+  }
+
+  wireMenuKeyboard(menu, opener);
+  rebuild();
+}
+
+// **Double-click any slider to put it back to its default.** Asked for
+// directly: "allow the user to double click any slider to reset it to
+// default."
+//
+// One delegated listener rather than fourteen handlers, and no table of
+// default values anywhere — every `<input type="range">` in this app already
+// carries its default in its `value` attribute, and `defaultValue` reflects
+// exactly that attribute rather than whatever the control currently shows.
+// So the default is read from the same place the markup states it, and a
+// slider added later is covered the moment it exists.
+//
+// Both events are dispatched, and both are needed: this app has live
+// handlers on `input` (the graph's gravity/spread redraw as you drag) and
+// commit handlers on `change` (the appearance settings persist there).
+// Firing only one would either leave the screen stale or leave the setting
+// unsaved.
+document.addEventListener("dblclick", (event) => {
+  const slider = event.target;
+  if (!(slider instanceof HTMLInputElement) || slider.type !== "range") return;
+  if (slider.disabled || slider.value === slider.defaultValue) return;
+  slider.value = slider.defaultValue;
+  slider.dispatchEvent(new Event("input", { bubbles: true }));
+  slider.dispatchEvent(new Event("change", { bubbles: true }));
+  toast("Reset to default");
+});
+
+// A control that does something on double-click has to say so somewhere, and
+// the tooltip is where this app already explains its controls. Appended to
+// whatever the slider's own title says rather than replacing it, so the
+// existing explanations survive.
+function annotateSliders(root) {
+  for (const slider of (root || document).querySelectorAll("input[type='range']")) {
+    if (slider.dataset.dblHinted) continue;
+    slider.dataset.dblHinted = "1";
+    const existing = (slider.title || "").trim();
+    slider.title = existing
+      ? `${existing} — double-click to reset`
+      : "Double-click to reset to default";
+  }
+}
+
+function enhanceAllSelects(root) {
+  for (const select of (root || document).querySelectorAll("select")) {
+    enhanceSelect(select);
+  }
+}
+
+// New selects appear whenever a panel renders, so watch for them rather
+// than asking every render path to remember to call this.
+function watchForSelects() {
+  enhanceAllSelects(document);
+  annotateSliders(document);
+  new MutationObserver((records) => {
+    for (const record of records) {
+      for (const node of record.addedNodes) {
+        if (node.nodeType !== 1) continue;
+        if (node.tagName === "SELECT") enhanceSelect(node);
+        else enhanceAllSelects(node);
+        if (node.tagName === "INPUT") annotateSliders(node.parentNode || document);
+        else annotateSliders(node);
+      }
+    }
+  }).observe(document.body, { childList: true, subtree: true });
+}
+
 function kebabMenu(items, ariaLabel) {
   const wrap = document.createElement("span");
   wrap.className = "menu-wrap";
@@ -11568,12 +15313,28 @@ function kebabMenu(items, ariaLabel) {
     if (willOpen) openActionMenu(menu, opener);
     else closeActionMenus();
   });
+  //: **A kebab is one glyph, so it is square.** Reported: "all the chat header
+  //: buttons [should] be square, there should be no rectangle single icon
+  //: buttons as that is not consistent with the rest of the application."
+  //: Measured in that header: Fork and Compress 28×28, this opener 43×28 — it
+  //: took `.small`'s text padding because the class that squares an icon
+  //: button has to be remembered per button (see the rule's own comment in
+  //: 00-tokens-shell.css) and nobody remembered it here. Set at the source, so
+  //: every ⋯ in the app is square rather than one more thing to remember.
+  opener.classList.add("icon-only");
   opener.setAttribute("aria-haspopup", "menu");
   opener.setAttribute("aria-expanded", "false");
 
   for (const item of items) {
     const button = document.createElement("button");
     button.className = item.disabled ? "menu-item menu-item-unavailable" : "menu-item";
+    //: A destructive row says so in the app's own danger colour. Added when
+    //: the Images gallery's bespoke menu was folded into this one — it had a
+    //: red Delete and this did not, and losing that on the way in would have
+    //: made the shared control worse than the one it replaced.
+    //: `menu-danger`, the class this menu's own stylesheet already defines —
+    //: not the generic `danger`, which is written for buttons with a ground.
+    if (item.danger) button.classList.add("menu-danger");
     button.setAttribute("role", "menuitem");
     setLabel(button, item.label);
     button.title = item.title;
@@ -11591,6 +15352,24 @@ function kebabMenu(items, ariaLabel) {
   }
   wireMenuKeyboard(menu, opener);
   wrap.append(opener, menu);
+  //: **Every ⋯ menu escapes its container, not just the ones somebody
+  //: remembered.** Reported three times across three surfaces — the documents
+  //: list, the gallery, and then the lightbox — always the same shape: the
+  //: menu is `position: absolute` inside an ancestor that scrolls or paints a
+  //: `backdrop-filter`, and either clips it.
+  //:
+  //: `wireEscapedActionMenu` was written to be opted into "for any menu known
+  //: to live inside a scrolling ancestor", and that is the part that keeps
+  //: failing: which ancestors scroll is not knowable from where the menu is
+  //: built, and a caller added next year will not know either. Opting in
+  //: *here* covers every `kebabMenu` at once, which is every ⋯ in the app.
+  //:
+  //: It is still not folded into `openActionMenu`, deliberately: the chat
+  //: dock's popovers, the selection popup and the whiteboard's context menu
+  //: build `.action-menu` by other routes, none of them are clipped, and
+  //: rewriting what they all share to fix this class is the bigger change
+  //: that function's own comment argues against.
+  wireEscapedActionMenu(wrap);
   return wrap;
 }
 
@@ -11756,7 +15535,13 @@ async function loadConversationList() {
         });
         if (!named) return;
         if (chatConv.id === conversation.id) $("chat-title").textContent = named.title;
-        toast(named.ai_named ? `Renamed to “${named.title}”.` : "Used the first question as the title.");
+        //: The AI naming a conversation is activity, not something the user
+        //: did — so it obeys the same "pop up, or only in the centre" choice
+        //: as every other thing the AI does on its own.
+        agentActivityNotice(
+          named.ai_named ? `Renamed to “${named.title}”.` : "Used the first question as the title.",
+          { kind: "run" }
+        );
         loadConversationList();
       })
     );
@@ -11898,12 +15683,20 @@ async function openConversation(id) {
         }
       }
       handles.timeline.finalise();
+      //: …and the step group, so a replayed turn does not reopen with
+      //: "Working — 3 steps" over a conversation that finished yesterday.
+      handles.timeline.finish?.();
       // Rebuild the metadata line. Reported in IDEAS.md as "chat message
       // metadata disappears on reload": it was only ever built from the live
       // stream, so reopening a chat showed answers with nothing to say which
       // model wrote them or what they cost. Turns saved before this stored no
       // stats and correctly get no line, rather than a row of "?"s.
       if (message.stats) {
+        //: A reopened conversation gets its meter back from the last turn that
+        //: recorded one — without this the header says nothing about a thread
+        //: that is already 80% through its window, which is precisely the
+        //: thread you want warned about.
+        renderChatContextMeter(message.stats);
         handles.bubble.appendChild(
           messageMetaLine({
             model: message.stats.model,
@@ -11915,10 +15708,30 @@ async function openConversation(id) {
           })
         );
       }
-      // Same fix as the metadata line just above, for the "N matching
-      // notes" disclosure: reported as search results "disappearing" on
-      // every reload, since this reconstruction never rebuilt it at all.
-      if (message.raw_results) {
+      //: **The Sources panel is rebuilt, not the thing it replaced.**
+      //:
+      //: Reported: *"a lot of the steps and agent process disappears when I
+      //: leave the chat session and come back to it."* A live turn ends with
+      //: the Sources panel — notes, files and web pages, with previews and
+      //: links — and this path rebuilt the old "N matching notes" disclosure
+      //: instead, which knows nothing about files or the web. So reopening a
+      //: conversation genuinely lost most of what the turn had consulted, and
+      //: what survived was drawn as a different control.
+      //:
+      //: `touched` comes back off the saved tool events, which have carried it
+      //: since the live action line was built — the same rows, from the same
+      //: place, so a reopened panel is the panel and not an approximation.
+      const savedSources = chatSourcesPanel({
+        meta: {
+          raw_results: message.raw_results || [],
+          search_mode: message.search_mode,
+        },
+        toolEvents: message.tools || [],
+        touched: (message.tools || []).flatMap((t) => t.touched || []),
+      });
+      if (savedSources) {
+        handles.recordsHolder.appendChild(savedSources);
+      } else if (message.raw_results) {
         renderRecordsDetails(handles.recordsHolder, {
           raw_results: message.raw_results,
           search_mode: message.search_mode,
@@ -11931,7 +15744,12 @@ async function openConversation(id) {
       // tab was left or the session ended, since nothing rebuilt this on
       // reopen either.
       if (message.sentence_grounding) {
-        renderAnswerGrounding(handles.groundingHolder, message.sentence_grounding, message.raw_results || []);
+        renderAnswerGrounding(
+          handles.groundingHolder,
+          message.sentence_grounding,
+          message.raw_results || [],
+          handles.bubble?.querySelector(".bubble-answer") || null
+        );
       }
       // And the same shape again for the "what to ask next" chips, reported
       // separately: "suggested repsponse continuation prompts in chat doesnt
@@ -11943,28 +15761,17 @@ async function openConversation(id) {
       }
       const turnIndex = chatConv.turns.length; // index this pair will occupy
       if (message.edited) handles.bubble.appendChild(editedMarker());
+      //: The same list the live stream builds — see `assistantMessageActions`.
+      //: These two paths had already drifted (this one had Edit and no fork or
+      //: rewrite; the live one the reverse), which is how a fix lands on half
+      //: the app's messages.
       handles.bubble.appendChild(
-        chatMessageActions([
-          { label: "⧉", title: "Copy answer", onClick: (e) => copyToClipboard(message.content, e.currentTarget) },
-          {
-            label: "ph:pencil-simple",
-            title: "Edit this answer",
-            onClick: () => editChatAnswer(handles, turnIndex, message.content),
-          },
-          // Reported: "no chat message button to retry a response" - true
-          // for any reopened conversation specifically, since this
-          // reconstruction path built its own shorter action list that
-          // never included it, unlike the live-stream render just below
-          // (sendChatMessage's own chatMessageActions call). Same
-          // regenerateLastAnswer() either way - it always targets the
-          // last assistant bubble/lastChatQuestion regardless of which
-          // message's button was clicked, same as it already does live.
-          { label: "ph:arrow-clockwise", title: "Regenerate (replaces this answer)", onClick: () => regenerateLastAnswer() },
-          { label: "ph:speaker-high", title: "Read aloud", onClick: () => speakText(message.content) },
-          { label: "ph:note-pencil", title: "Save this answer as a draft note", onClick: () => saveChatAnswerAsNote(lastQuestionText, message.content) },
-          { label: "ph:alarm", title: "Set a reminder from this answer", onClick: () => reminderFromChatAnswer(message.content) },
-          { label: "ph:trash", title: "Delete this message", onClick: () => deleteChatTurn(handles.bubble) },
-        ])
+        assistantMessageActions({
+          bubble: handles.bubble,
+          text: message.content,
+          question: lastQuestionText,
+          onEdit: () => editChatAnswer(handles, turnIndex, message.content),
+        })
       );
       if (lastQuestionText !== null) {
         chatConv.turns.push({ question: lastQuestionText, answer: message.content });
@@ -12020,6 +15827,9 @@ async function loadChatSuggestions() {
     const chipEl = chip(question, "", () => sendChatMessage(question));
     box.appendChild(chipEl);
   }
+  //: They arrive after the welcome was drawn, so the welcome takes them now.
+  const empty = $("chat-messages").querySelector(".chat-empty");
+  if (empty && !empty.contains(box)) empty.appendChild(box);
   // These chips arrive after the tab is drawn and are a row or two of height
   // the composer's fit was measured without.
   refitComposer();
@@ -12942,7 +16752,7 @@ async function renderToolSettings() {
   for (const tool of catalog) {
     const li = document.createElement("li");
     const label = document.createElement("label");
-    label.className = "tool-row";
+    label.className = "tool-row setting-check";
     const check = document.createElement("input");
     check.type = "checkbox";
     check.checked = !disabled.has(tool.name);
@@ -12960,6 +16770,8 @@ async function renderToolSettings() {
         method: "PUT",
         body: JSON.stringify({ disabled_tools: [...next] }),
       });
+      // The "N of 51 on" count is only true until someone flips one.
+      applyToolFilter();
     });
     const text = document.createElement("span");
     const name = document.createElement("strong");
@@ -12970,11 +16782,62 @@ async function renderToolSettings() {
     const desc = document.createElement("span");
     desc.className = "muted tool-desc";
     desc.textContent = tool.description;
+    // The description goes *inside* the label's text column, not beside the
+    // label in the <li>. That is what lets this row be `.setting-check`'s
+    // grid — name and description stacked in column one, switch hard right —
+    // instead of a flex row whose switch tracked the length of each name.
+    // It also makes the description part of the control's own hit area, the
+    // way the hint under every other setting already is.
+    text.append(desc);
     label.append(check, text);
-    li.append(label, desc);
+    li.append(label);
+    // Matched against by the filter below. Stored on the row rather than
+    // re-read from the DOM on every keystroke, and lower-cased once here
+    // instead of once per row per keystroke.
+    li.dataset.search = `${tool.name} ${tool.description || ""}`.toLowerCase().replace(/_/g, " ");
     list.appendChild(li);
   }
+  applyToolFilter();
 }
+
+//: Narrow a fifty-one item list, and say how many are on.
+//:
+//: The first audit of Settings measured this section at **5,708px** — by some
+//: way the longest scroll in the app — with every tool a name plus a
+//: paragraph of description. Finding one meant scrolling past fifty others,
+//: and nothing anywhere answered the question the list actually raises: how
+//: many of these are switched on?
+//:
+//: Filtering hides rows rather than re-rendering them, so a checkbox keeps
+//: its state and its listener while you type. Re-rendering would also lose
+//: focus from the filter field on every keystroke.
+function applyToolFilter() {
+  const list = $("tool-list");
+  const box = $("tool-filter");
+  const count = $("tool-count");
+  const empty = $("tool-filter-empty");
+  if (!list) return;
+  const needle = (box?.value || "").trim().toLowerCase();
+  const rows = [...list.children];
+  let shown = 0;
+  for (const row of rows) {
+    const hit = !needle || (row.dataset.search || "").includes(needle);
+    row.classList.toggle("hidden", !hit);
+    if (hit) shown++;
+  }
+  empty?.classList.toggle("hidden", shown > 0 || !rows.length);
+  if (count) {
+    // Two different questions, so two different answers: with no filter the
+    // useful number is how many are enabled; while filtering it is how many
+    // the search actually found.
+    const on = rows.filter((r) => r.querySelector("input[type=checkbox]")?.checked).length;
+    count.textContent = needle
+      ? `${shown} of ${rows.length}`
+      : `${on} of ${rows.length} on`;
+  }
+}
+
+$("tool-filter")?.addEventListener("input", applyToolFilter);
 
 // --- Wave M: share skills/personas as JSON ------------------------------------------
 
@@ -13097,23 +16960,29 @@ function updateBatchCount() {
   $("batch-count").textContent = `${n} selected`;
 }
 
+// **One step, not three.** This used to be a `<select>` of categories beside
+// a separate "Move" button: you picked a category, which did nothing, then
+// pressed Move — and pressing Move without having picked produced an error
+// toast ("Pick a category to move them to"). A menu whose items *are* the
+// categories removes the second control and the failure state with it:
+// choosing a category is the move. It also puts the list in the app's own
+// menu styling instead of the operating system's select popup.
 function fillBatchCategories() {
-  const select = $("batch-category");
-  select.replaceChildren();
-  const placeholder = document.createElement("option");
-  placeholder.value = "";
-  placeholder.textContent = "Move to…";
-  select.appendChild(placeholder);
-  for (const name of [...new Set(allEntries.map((e) => e.category))].sort()) {
-    const option = document.createElement("option");
-    option.value = name;
-    option.textContent = name;
-    select.appendChild(option);
-  }
-  const fresh = document.createElement("option");
-  fresh.value = "__new__";
-  fresh.textContent = "＋ New category…";
-  select.appendChild(fresh);
+  const host = $("batch-category-host");
+  if (!host) return;
+  const names = [...new Set(allEntries.map((e) => e.category))].filter(Boolean).sort();
+  const items = names.map((name) =>
+    makeMenuItem(`ph:folder ${name}`, `Move the selected notes to ${name}`, () =>
+      batchMove(name)
+    )
+  );
+  items.push(
+    makeMenuItem("ph:plus New category…", "Move them to a category you name now", async () => {
+      const category = await promptDialog("New category name:", "", { confirmLabel: "Move" });
+      if (category) await batchMove(category);
+    })
+  );
+  host.replaceChildren(labelledMenu("ph:folder-open Move to", items, "Move selected notes to a category"));
 }
 
 function enterSelectMode() {
@@ -13140,18 +17009,10 @@ function batchSelection() {
   return ids;
 }
 
-async function batchMove() {
+async function batchMove(category) {
   const ids = batchSelection();
   if (!ids.length) return;
-  let category = $("batch-category").value;
-  if (!category) {
-    toast("Pick a category to move them to.", true);
-    return;
-  }
-  if (category === "__new__") {
-    category = await promptDialog("New category name:", "", { confirmLabel: "Move" });
-    if (!category) return;
-  }
+  if (!category) return;
   for (const id of ids) {
     await apiJson(`/entries/${id}`, {
       method: "PUT",
@@ -13482,17 +17343,69 @@ function safeMdSlice(text, maxChars) {
 // (dashboard.js) render real markdown instead, via `safeMdSlice` +
 // `renderInlineMarkdown`'s `compact` mode, the same as every other
 // label-sized surface in this app.
+//: **The first image a note actually shows**, for surfaces that want to put a
+//: face on a row rather than a filename. Reported against the Contents tab,
+//: which rendered every note as `noteLabel` text — so a note that *is* a photo
+//: appeared as "20251018_OHR.SilburyHill….jpg", or as the bare word "image"
+//: when the alt text was empty.
+//:
+//: Reads the markdown rather than any stored field, because that is where a
+//: note's images live: pasted, dropped and AI-attached pictures all end up as
+//: `![alt](/media/…)` in the body, and there is no column that mirrors them.
+//:
+//: Only this app's own stored files. An external `https://` image in a note is
+//: skipped on purpose — the CSP blocks it (`img-src 'self' data: blob:`), so a
+//: thumbnail built from one would be a guaranteed broken frame, which is worse
+//: than no thumbnail at all.
+//: A note's picture, wherever it lives — the markdown, or the attachments
+//: table. See `noteRowImage` in dashboard.js for the report behind this: an
+//: *attached* image appears nowhere in the note's text, so every surface that
+//: looked for `![](…)` alone showed nothing for a note whose only picture was
+//: attached rather than pasted.
+function noteAnyImage(entry) {
+  const embedded = noteFirstImage(entry?.content);
+  if (embedded) return embedded;
+  const attached = (entry?.attachments || []).find((file) => file.is_image);
+  return attached ? { alt: attached.filename || "", url: `/files/${attached.id}` } : null;
+}
+
+function noteFirstImage(content) {
+  const match = /!\[([^\]\n]{0,200})\]\((\/(?:media|files)\/[^)\n]{1,500})\)/.exec(content || "");
+  if (!match) return null;
+  return { alt: match[1] || "", url: match[2] };
+}
+
 function notePreviewText(content) {
   return (content || "")
     .replace(/^#{1,6}\s+/gm, "")
     .replace(/\[\[([^[\]]{1,120})\]\]/g, "$1")
     .replace(
       new RegExp(INLINE_MD.source, "g"),
-      // m[6]/m[8] are the image/link *URLs* — only checked for "which branch
+      // m[10]/m[12] are the image/link *URLs* — only checked for "which branch
       // matched", never shown; a preview shows the image's alt text (or a
       // placeholder, since alt is often empty) and a link's own text, not a
       // raw path nobody asked to read.
-      (...m) => m[1] ?? m[2] ?? m[3] ?? m[4] ?? (m[6] !== undefined ? m[5] || "image" : m[7])
+      //
+      // **These indices were off by two and the previous comment named the
+      // wrong groups.** Reported with a screenshot of the Contents page:
+      // "Girl with bell undefined", "Leafeon Pokemon image test undefined" —
+      // notes whose body ends in an image. The `++colour|text++` highlight
+      // alternative was added to INLINE_MD after this replacer was written,
+      // and it introduced two capture groups in the middle of the pattern, so
+      // every index past it shifted by two. Nothing failed loudly: `??` walked
+      // off the end of the branches it knew, the last one returned
+      // `undefined`, and `String.replace` stringified that into the preview.
+      //
+      // It was wrong in three ways at once, and only one of them was visible:
+      // an image previewed as "undefined", a link previewed as "undefined",
+      // and `==red|highlighted==` previewed as "red" — the colour name, because
+      // m[4] is the optional colour group and was being read as the text.
+      // Verified against the live pattern: g1 code, g2 bold, g3 strike,
+      // g4 highlight colour, g5 highlight text, g6 ++colour, g7 ++text,
+      // g8 italic, g9/g10 image alt+url, g11/g12 link text+url.
+      (...m) =>
+        m[1] ?? m[2] ?? m[3] ?? m[5] ?? m[7] ?? m[8] ??
+        (m[10] !== undefined ? m[9] || "image" : m[11])
     );
 }
 
@@ -14342,17 +18255,36 @@ function mdHeadingId(text, taken) {
 // A `.callout` element for a run of blockquote lines, or null when the quote
 // is an ordinary one (no `[!kind]` marker) or nesting is already too deep.
 function mdCalloutElement(quoted, depth) {
-  const callout = quoted.length && quoted[0].match(/^\s*\[!(\w+)\]\s*(.*)$/);
+  // **The `-`/`+` after the marker is the fold flag** — REDESIGN.md §R7.3
+  // item 3, Kortex's "typed collapsible blocks", asked for again directly:
+  // "I want the structured note features and elements from kortex with the
+  // slash commands to be rendered and easier for the user to use."
+  //
+  // It is deliberately Obsidian's own spelling rather than a new one: people
+  // who want this feature have almost certainly met it there, and it is a
+  // *marker*, so §R7.3's constraint holds exactly — storage and export do not
+  // change, and a plain `> [!note]` in a note written last year still renders
+  // as the same open box it always did.
+  //
+  //     > [!note]-  collapsed, click to open
+  //     > [!note]+  a real fold, but open to begin with
+  //     > [!note]   not foldable at all, unchanged
+  const callout = quoted.length && quoted[0].match(/^\s*\[!(\w+)\]([-+])?\s*(.*)$/);
   if (!callout || depth >= MD_MAX_DEPTH) return null;
 
   const kind = callout[1].toLowerCase();
+  const fold = callout[2] || "";
   const meta = (typeof CALLOUT_KINDS !== "undefined" && CALLOUT_KINDS[kind]) || null;
-  const box = document.createElement("div");
+  // `<details>`/`<summary>` rather than a div and a click handler: the
+  // browser gives the open/close, the keyboard operation and the ARIA for
+  // free, which is the same reason every other disclosure in this app is one.
+  const box = document.createElement(fold ? "details" : "div");
+  if (fold === "+") box.open = true;
   // An unrecognised kind still renders as a box rather than as literal
   // "[!whatever]" text — a typo should look slightly wrong, not broken.
-  box.className = `callout callout-${meta ? kind : "note"}`;
+  box.className = `callout callout-${meta ? kind : "note"}${fold ? " callout-foldable" : ""}`;
 
-  const head = document.createElement("p");
+  const head = document.createElement(fold ? "summary" : "p");
   head.className = "callout-head";
   const icon = document.createElement("span");
   icon.setAttribute("aria-hidden", "true");
@@ -14360,7 +18292,7 @@ function mdCalloutElement(quoted, depth) {
   head.appendChild(icon);
   const title = document.createElement("span");
   // The title after the marker wins; failing that, the kind's own name.
-  title.textContent = callout[2].trim() || (meta ? meta.label : kind);
+  title.textContent = callout[3].trim() || (meta ? meta.label : kind);
   head.appendChild(title);
   box.appendChild(head);
 
@@ -15302,12 +19234,41 @@ function renderTimelineBranch(body) {
       const taken = placed
         .filter((p) => Math.abs(p.cx - n.cx) < minDistance)
         .map((p) => p._dy);
-      // Try dy offsets: 0, 15, -15, 30, -30...
+      // Try dy offsets: 0, 15, -15, 30, -30... but **bounded**, and then
+      // sideways.
+      //
+      // Unbounded, this resolver answers a busy minute by stacking straight
+      // up and down for as long as it takes. Seen in the running app on one
+      // ordinary day's notes: twelve notes sharing a timestamp came out as a
+      // 240px column of touching dots that filled its whole lane, read as
+      // beads on a string rather than as points on a line, and pushed the
+      // next band most of the way down the chart. The single-day line view is
+      // the common case, not an edge case — it is what "what did I do today"
+      // looks like — so this is the shape it has to be good at.
+      //
+      // Six slots up and down is as tall as a cluster can get before it stops
+      // reading as one moment; past that the overflow goes *sideways* by one
+      // dot width and starts a fresh column. A run of notes a second apart
+      // then draws as a compact block a few dots wide instead of a tower, and
+      // no dot is ever hidden behind another either way.
       const step = TIMELINE_DOT_R * 1.5;
+      const MAX_STACK_SLOTS = 6;
       let offsetIdx = 0;
       let dy = 0;
       while (taken.includes(dy)) {
         offsetIdx++;
+        if (offsetIdx > MAX_STACK_SLOTS) {
+          n.cx += minDistance;
+          offsetIdx = 0;
+          dy = 0;
+          taken.length = 0;
+          taken.push(
+            ...placed
+              .filter((p) => Math.abs(p.cx - n.cx) < minDistance)
+              .map((p) => p._dy)
+          );
+          continue;
+        }
         const sign = offsetIdx % 2 === 0 ? 1 : -1;
         dy = Math.ceil(offsetIdx / 2) * step * sign;
       }
@@ -15542,6 +19503,23 @@ function renderTimelineBranch(body) {
   // A handful of date ticks along the spine — an unlabelled line reads as a
   // decoration, not an axis.
   const tickGroup = svg.append("g").attr("class", "timeline-branch-ticks");
+  const [axisFrom, axisTo] = scale.domain();
+  const spanMs = Math.abs(axisTo - axisFrom);
+  // **The label's resolution has to follow the axis's span.** It was always
+  // `{month, day}`, and d3 chooses tick *positions* by span — so a day's
+  // worth of notes got hour ticks that all printed the same date, and the
+  // axis read "Sep 3 · Sep 3 · Sep 3 · Sep 3 · Sep 3 · Sep 3": six labels
+  // carrying no information at all, above notes that were genuinely hours
+  // apart. Seen in the running app; the line view of a single busy day is
+  // the common case, not the edge case, because that is what "what did I do
+  // today" looks like.
+  const DAY_MS = 86400000;
+  const tickFormat =
+    spanMs < 2 * DAY_MS
+      ? { hour: "numeric", minute: "2-digit" }
+      : spanMs < 200 * DAY_MS
+        ? { month: "short", day: "numeric" }
+        : { month: "short", year: "numeric" };
   for (const tick of scale.ticks(Math.min(6, notes.length))) {
     const x = scale(tick);
     tickGroup
@@ -15555,7 +19533,24 @@ function renderTimelineBranch(body) {
       .attr("x", x)
       .attr("y", spineY - 10)
       .attr("text-anchor", "middle")
-      .text(tick.toLocaleDateString(undefined, { month: "short", day: "numeric" }));
+      .text(tick.toLocaleString(undefined, tickFormat));
+  }
+  // With time-of-day ticks the day itself is no longer written anywhere, so
+  // it goes once at the start of the axis rather than six times along it.
+  if (spanMs < 2 * DAY_MS) {
+    tickGroup
+      .append("text")
+      .attr("class", "timeline-branch-axis-caption")
+      .attr("x", scale.range()[0])
+      .attr("y", spineY - 26)
+      .attr("text-anchor", "start")
+      .text(
+        axisFrom.toLocaleDateString(undefined, {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+        })
+      );
   }
 }
 
@@ -16272,18 +20267,44 @@ function initScrollTopButton() {
   button.setAttribute("aria-label", "Back to top");
   button.addEventListener("click", () => {
     const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    scrollTopTargetEl()?.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" });
+    const target = scrollTopTargetEl();
+    //: **In a chat, the thing you have scrolled away from is the bottom.**
+    //: Reported: *"the back to top button in the chat should be a back to
+    //: bottom instead."* A transcript is written downwards and the newest
+    //: message — the one being streamed — is the last one; sending a reader
+    //: to the top sends them to the oldest question in the thread, which is
+    //: the one place nobody scrolled up to look for.
+    const toBottom = button.dataset.mode === "bottom";
+    target?.scrollTo({
+      top: toBottom ? target.scrollHeight : 0,
+      behavior: smooth ? "smooth" : "auto",
+    });
     // Send focus somewhere sensible rather than leaving it on a button that
     // is about to hide itself.
-    document.querySelector(".tab-page:not(.hidden)")?.focus();
+    if (toBottom) $("chat-input")?.focus();
+    else document.querySelector(".tab-page:not(.hidden)")?.focus();
   });
   document.body.appendChild(button);
 
   const update = () => {
     const tab = localStorage.getItem("activeTab") || "dashboard";
-    const scrollTop = scrollTopTargetEl()?.scrollTop || 0;
-    const show = scrollTop > 400 && !NO_SCROLL_TOP_TABS.has(tab);
-    button.classList.toggle("visible", show);
+    const target = scrollTopTargetEl();
+    const scrollTop = target?.scrollTop || 0;
+    //: Chat flips the button over: it appears when you have scrolled *up*
+    //: away from the newest message, and it takes you back down. 200px rather
+    //: than 400 because a chat pane is shorter than a page and one message
+    //: scrolled past is already enough to lose the live one.
+    const chat = tab === "chat";
+    const fromBottom = target ? target.scrollHeight - target.clientHeight - scrollTop : 0;
+    const show = chat
+      ? fromBottom > 200
+      : scrollTop > 400 && !NO_SCROLL_TOP_TABS.has(tab);
+    button.dataset.mode = chat ? "bottom" : "top";
+    button.textContent = chat ? "↓" : "↑";
+    const label = chat ? "Jump to the newest message" : "Back to top";
+    button.title = label;
+    button.setAttribute("aria-label", label);
+    button.classList.toggle("visible", show && !NO_SCROLL_TOP_TABS.has(tab));
     positionScrollTopForNested(button, tab);
   };
   // Capture, because scroll events do not bubble: the listener has to see them
@@ -16828,12 +20849,14 @@ async function renderPrefs() {
 function renderAutonomousSettings() {
   $("pref-autonomous-tasks").checked = Boolean(prefsCache.autonomous_tasks_enabled);
   $("pref-ai-first-filing").checked = prefsCache.ai_first_filing ?? true;
+  $("pref-background-filing").checked = prefsCache.background_filing ?? true;
   $("pref-auto-caption-images").checked = prefsCache.auto_caption_images ?? true;
   $("pref-auto-read-image-text").checked = prefsCache.auto_read_image_text ?? true;
   $("pref-auto-tag").checked = prefsCache.auto_tag_enabled ?? true;
   $("pref-auto-link").checked = prefsCache.auto_link_enabled ?? true;
   $("pref-auto-dedupe").checked = prefsCache.auto_dedupe_enabled ?? true;
   $("pref-auto-stale-review").checked = Boolean(prefsCache.auto_stale_review_enabled);
+  $("pref-auto-capture").checked = Boolean(prefsCache.auto_capture_enabled);
   $("pref-autonomous-interval").value = prefsCache.autonomous_tasks_interval_hours || 6;
   $("pref-autonomous-model").value = prefsCache.autonomous_tasks_model || "";
   $("pref-battery-mode").checked = Boolean(prefsCache.battery_efficient_mode);
@@ -17370,19 +21393,43 @@ async function importDirectory() {
   }
 }
 
-async function importMarkdown() {
-  const input = $("import-md-files");
+async function importMarkdown(inputId = "import-md-files") {
+  const input = $(inputId);
   const status = $("import-md-status");
   if (!input.files.length) {
-    status.textContent = "Choose one or more .md files first.";
+    status.textContent =
+      inputId === "import-md-folder"
+        ? "Choose a folder first."
+        : "Choose one or more .md files first.";
     return;
   }
   const form = new FormData();
-  for (const file of input.files) form.append("files", file);
+  //: The third argument is the filename the server sees, and `webkitRelativePath`
+  //: is the only place a folder picker puts the path — `file.name` is the bare
+  //: name even when the file came from three folders down. Sending the path is
+  //: what lets an imported vault keep its tree (`Entry.source_path`) and its
+  //: `[[wiki links]]`, which name the file rather than its opening words.
+  //: A vault folder holds far more than markdown (`.obsidian/`, images,
+  //: PDFs), and the picker hands over every one of them — filtering here
+  //: keeps the request from being mostly files the endpoint would reject one
+  //: at a time and report as "skipped".
+  const chosen = [...input.files].filter((file) =>
+    /\.(md|markdown|txt)$/i.test(file.webkitRelativePath || file.name),
+  );
+  if (!chosen.length) {
+    status.textContent = "No markdown files in that folder.";
+    return;
+  }
+  for (const file of chosen) {
+    form.append("files", file, file.webkitRelativePath || file.name);
+  }
   try {
     const response = await fetch("/import/markdown", {
       method: "POST",
-      headers: { "X-Auth-Token": authToken() }, // browser sets the multipart type
+      // The multipart type still comes from the browser; X-Workspace-ID does
+      // not, and without it an import while a non-default space is active
+      // would silently land the new notes in the default space instead.
+      headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
       body: form,
     });
     if (!response.ok) throw new Error(`Import failed (${response.status})`);
@@ -17414,7 +21461,9 @@ async function importDocument() {
   try {
     const response = await fetch("/import/document", {
       method: "POST",
-      headers: { "X-Auth-Token": authToken() }, // browser sets the multipart type
+      // Same gap as /import/markdown above: without this, the imported
+      // document lands in the default space regardless of which is active.
+      headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
       body: form,
     });
     if (!response.ok) {
@@ -17559,7 +21608,7 @@ function paletteCommands() {
     // Filters as commands: the fastest route to "the notes I mean" without
     // remembering the operator syntax.
     ...[
-      ["ph:push-pin Show pinned notes", "is:pinned"],
+      ["ph:star Show favourites", "is:favourite"],
       ["ph:tag Show untagged notes", "is:untagged"],
       ["ph:lock Show private notes", "is:private"],
       ["ph:link Show linked notes", "is:linked"],
@@ -17599,6 +21648,13 @@ function paletteCommands() {
 
 let paletteReminders = [];
 let paletteConversations = [];
+//: Files and boards, so the palette resolves every kind of thing this app
+//: holds rather than four of six. REDESIGN.md R7.3 asks for exactly this —
+//: "one universal picker... resolving notes, documents, files and maps
+//: alike" — and it is the difference between a jump-to-note box and the way
+//: you actually move around the app.
+let paletteMedia = [];
+let paletteBoards = [];
 
 async function openPalette() {
   overlayReturnFocus = document.activeElement;
@@ -17611,6 +21667,8 @@ async function openPalette() {
   // Background fetch of Reminders and Conversations for the palette to search.
   apiJson("/reminders", { silent: true }).then(res => { paletteReminders = res || []; }).catch(() => { paletteReminders = []; });
   apiJson("/conversations", { silent: true }).then(res => { paletteConversations = res || []; }).catch(() => { paletteConversations = []; });
+  apiJson("/media", { silent: true }).then(res => { paletteMedia = res || []; }).catch(() => { paletteMedia = []; });
+  apiJson("/whiteboard/boards", { silent: true }).then(res => { paletteBoards = res || []; }).catch(() => { paletteBoards = []; });
 }
 
 function closePalette() {
@@ -17619,18 +21677,36 @@ function closePalette() {
   overlayReturnFocus = null;
 }
 
+//: Read a field that is *supposed* to be a string, without letting one bad
+//: record take the whole palette down with it.
+//:
+//: Not defensive padding — the fix for a real outage. The reminders filter
+//: below read `r.content`, and a reminder has no `content`: its field is
+//: `text`. So `undefined.toLowerCase()` threw, and because the throw happened
+//: partway through `paletteMatches`, **every** group was lost with it — notes,
+//: documents, reminders and conversations alike. The palette silently degraded
+//: to its static command list for anyone with so much as one reminder saved,
+//: and the only trace was an exception in a console nobody has open.
+//:
+//: The field name is fixed below. This helper exists so the *class* of failure
+//: cannot come back: a payload that changes shape again costs one missing
+//: group, not all of them.
+function paletteText(value) {
+  return typeof value === "string" ? value.toLowerCase() : "";
+}
+
 function paletteMatches(query) {
   const lowered = query.trim().toLowerCase();
   const commands = paletteCommands().filter((c) =>
-    c.label.toLowerCase().includes(lowered)
+    paletteText(c.label).includes(lowered)
   );
   if (!lowered) return commands;
 
   // Notes: match body or title.
   const notes = allEntries
     .filter((e) =>
-      e.content.toLowerCase().includes(lowered) ||
-      (e.title && e.title.toLowerCase().includes(lowered))
+      paletteText(e.content).includes(lowered) ||
+      paletteText(e.title).includes(lowered)
     )
     .slice(0, 5)
     .map((e) => ({
@@ -17641,7 +21717,7 @@ function paletteMatches(query) {
 
   // Documents: title search against the in-memory docs list.
   const docMatches = docs
-    .filter((d) => d.title && d.title.toLowerCase().includes(lowered))
+    .filter((d) => paletteText(d.title).includes(lowered))
     .slice(0, 3)
     .map((d) => ({
       group: "Documents",
@@ -17650,18 +21726,20 @@ function paletteMatches(query) {
     }));
 
   // Reminders: search content.
+  // `r.text`, not `r.content` — see `paletteText` above for what the wrong
+  // field name actually cost.
   const reminderMatches = paletteReminders
-    .filter((r) => r.content.toLowerCase().includes(lowered))
+    .filter((r) => paletteText(r.text).includes(lowered))
     .slice(0, 3)
     .map((r) => ({
       group: "Reminders",
-      label: `ph:alarm ${r.content.length > 55 ? r.content.slice(0, 55) + "…" : r.content}`,
+      label: `ph:alarm ${r.text.length > 55 ? r.text.slice(0, 55) + "…" : r.text}`,
       run: () => flashReminder(r.id),
     }));
 
   // Conversations: search title.
   const conversationMatches = paletteConversations
-    .filter((c) => c.title && c.title.toLowerCase().includes(lowered))
+    .filter((c) => paletteText(c.title).includes(lowered))
     .slice(0, 3)
     .map((c) => ({
       group: "Conversations",
@@ -17669,7 +21747,47 @@ function paletteMatches(query) {
       run: () => loadChatHistory(c.id),
     }));
 
-  return [...commands, ...notes, ...docMatches, ...reminderMatches, ...conversationMatches];
+  // Files: matched on the name you gave the file and on its caption, because
+  // "the screenshot of the timetable" is how people remember an image, not
+  // `a3f9c2.png`. Opens the Library's Files tab, which is where the file's own
+  // metadata and its usage links live.
+  const mediaMatches = paletteMedia
+    .filter(
+      (m) =>
+        paletteText(m.original_name).includes(lowered) ||
+        paletteText(m.caption).includes(lowered)
+    )
+    .slice(0, 3)
+    .map((m) => ({
+      group: "Files",
+      label: `ph:image ${m.original_name || "Untitled file"}`,
+      // `focusLibraryFile` picks Images or Files from the url — the media
+      // view is two sub-tabs now, and a `[data-target="library-view-media"]`
+      // query matches both.
+      run: () => focusLibraryFile(m.original_name || "", m.url || ""),
+    }));
+
+  // Boards and maps. `id` is null for the default board — passed through as
+  // null rather than skipped, because the default board is the one most
+  // people actually draw on.
+  const boardMatches = paletteBoards
+    .filter((b) => paletteText(b.title).includes(lowered))
+    .slice(0, 3)
+    .map((b) => ({
+      group: "Boards & maps",
+      label: `ph:squares-four ${b.title || "Untitled board"}`,
+      run: () => openWhiteboardBoard(b.id ?? null),
+    }));
+
+  return [
+    ...commands,
+    ...notes,
+    ...docMatches,
+    ...mediaMatches,
+    ...boardMatches,
+    ...reminderMatches,
+    ...conversationMatches,
+  ];
 }
 
 function renderPalette(query) {
@@ -18813,6 +22931,9 @@ function renderNotifMuteToggle() {
     ? "Stop muting — everything will notify again"
     : "Mute notifications except reminders";
   button.setAttribute("aria-pressed", String(muted));
+  //: Icon-only since the head lost its second row, so the tooltip is no
+  //: longer backed by a visible word — the accessible name has to carry it.
+  button.setAttribute("aria-label", button.title);
   button.classList.toggle("active", muted);
 }
 
@@ -18825,6 +22946,19 @@ async function toggleNotificationMute() {
   renderNotifMuteToggle();
   renderNotificationBadge();
 }
+
+$("notif-activity-mode")?.addEventListener("change", async (event) => {
+  const value = event.currentTarget.value === "centre" ? "centre" : "toasts";
+  try {
+    prefsCache = await apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify({ agent_activity_notices: value }),
+    });
+  } catch (error) {
+    toast(error.message || "Couldn't save that.", true);
+  }
+  renderAgentActivityMode();
+});
 
 //: Which icon a kind gets. Colour alone is never the signal (DESIGN.md), and
 //: these read as a list of *kinds* rather than a list of times.
@@ -18841,6 +22975,7 @@ async function openNotifications() {
   const list = $("notif-list");
   panel.classList.remove("hidden");
   renderNotifMuteToggle();
+  renderAgentActivityMode();
 
   // Fold in anything currently overdue on the server. This is what makes the
   // centre honest about time it was not running for: the event log can only
@@ -18861,13 +22996,38 @@ async function openNotifications() {
 
   const items = storedNotifications().slice().reverse();
   const readAt = notificationsReadAt();
+  //: The count, beside the word it qualifies. The bell in the header already
+  //: carries it, but the bell is what you clicked to get here — inside the
+  //: panel the number has to say how many of the rows below are new.
+  const chip = $("notif-unread");
+  if (chip) {
+    const unread = items.filter((item) => item.at > readAt).length;
+    chip.textContent = unread > 99 ? "99+" : String(unread);
+    chip.classList.toggle("hidden", unread === 0);
+    chip.title = `${unread} unread`;
+  }
   list.replaceChildren();
+  //: **An empty state, not a paragraph.** Reported with a screenshot: three
+  //: lines of muted prose filled the panel where nothing had happened, which
+  //: reads as an error message rather than as calm. The shape every other
+  //: empty surface in this app uses — a glyph, a short line, and the
+  //: explanation underneath in small text — says the same thing in a glance.
   if (!items.length) {
     const empty = document.createElement("li");
-    empty.className = "muted";
-    empty.textContent =
-      "Nothing yet. Reminders that come due, finished background jobs and " +
-      "runs that stopped early will collect here.";
+    empty.className = "notif-empty";
+    const glyph = document.createElement("span");
+    glyph.className = "notif-empty-icon";
+    setLabel(glyph, "ph:bell-simple");
+    glyph.setAttribute("aria-hidden", "true");
+    const headline = document.createElement("p");
+    headline.className = "notif-empty-title";
+    headline.textContent = "You're all caught up";
+    const sub = document.createElement("p");
+    sub.className = "muted text-sm notif-empty-sub";
+    sub.textContent =
+      "Reminders that come due, finished background jobs and runs that " +
+      "stopped early collect here.";
+    empty.append(glyph, headline, sub);
     list.appendChild(empty);
   }
   for (const item of items) {
@@ -19095,6 +23255,37 @@ function notificationsMuted() {
   return Boolean(prefsCache && prefsCache.notifications_muted_except_reminders);
 }
 
+//: **Where the AI's own activity is announced.**
+//:
+//: Asked for directly: *"make an option for agent activity notifications to be
+//: hidden and not show up as toast notifications but somewhere else."* The
+//: somewhere else already existed — the notifications centre records every one
+//: of these — so this is only about whether a toast also flies past the corner
+//: of the screen while you are reading something.
+//:
+//: Deliberately not the existing mute: that one suppresses the *record* as
+//: well, so a muted app forgets what it did. This keeps the history and drops
+//: the interruption, which is what was actually asked for.
+function agentActivityQuiet() {
+  return (prefsCache && prefsCache.agent_activity_notices) === "centre";
+}
+
+//: One call for "the AI did something worth mentioning". Always recorded,
+//: shown as a toast only when the reader wants them. Every background-job and
+//: run notice goes through this rather than `toast` directly — a rule that
+//: only some of them followed would be a setting that half works.
+function agentActivityNotice(message, { isError = false, kind = "task", detail = "", action = null } = {}) {
+  recordNotification({ kind: isError ? "error" : kind, title: message, detail, action });
+  if (agentActivityQuiet()) return;
+  toast(message, isError);
+}
+
+function renderAgentActivityMode() {
+  const select = $("notif-activity-mode");
+  if (!select) return;
+  select.value = agentActivityQuiet() ? "centre" : "toasts";
+}
+
 // Asked for directly: "allow popup notifications to be manually closable
 // with an x button if the user wants them gone faster". A toast that has
 // already been read is just something left to wait out otherwise — the
@@ -19130,6 +23321,55 @@ function toast(message, isError = false, { exempt = false } = {}) {
 // A toast with one action button — used for Undo (Wave J). The button
 // stays until clicked or the toast times out (a bit longer than usual,
 // since the user has to react to it).
+//: **A toast that stays until the work it is announcing finishes.**
+//:
+//: Reported of OCR: *"if i close the lightbox as I am generating ocr, then it
+//: stops and I have to restart it again. also ocr generation is slow and i
+//: dont even know if it is working."* The second half is this function's job.
+//: Every other toast in the app is a 5.5-second notice about something that
+//: already happened; a job that takes thirty seconds needs the opposite — a
+//: notice that persists *while* it happens and then reports what it found.
+//:
+//: Returns a handle rather than a node: the caller finishes the job, and
+//: finishing it is one call rather than a DOM edit at each of its exits.
+function toastProgress(message) {
+  const box = $("toast-box");
+  const note = document.createElement("div");
+  note.className = "toast";
+  const spinner = typingDots(message);
+  const text = document.createElement("span");
+  text.textContent = message;
+  note.append(spinner, text);
+  box.appendChild(note);
+  return {
+    say(next) {
+      text.textContent = next;
+      spinner.setStatus?.(next);
+    },
+    //: `done` swaps the spinner for the outcome and starts the ordinary
+    //: 5.5-second life every other toast has, so a finished job does not
+    //: leave a permanent line on screen.
+    done(finalMessage, { isError = false, actionLabel = null, onAction = null } = {}) {
+      spinner.remove();
+      text.textContent = finalMessage;
+      note.classList.toggle("error", Boolean(isError));
+      if (actionLabel && onAction) {
+        const button = document.createElement("button");
+        button.className = "link-button";
+        button.type = "button";
+        button.textContent = actionLabel;
+        button.addEventListener("click", () => {
+          onAction();
+          note.remove();
+        });
+        note.appendChild(button);
+      }
+      const timer = setTimeout(() => note.remove(), 5500);
+      note.appendChild(toastCloseButton(note, timer));
+    },
+  };
+}
+
 function toastAction(message, actionLabel, onAction) {
   const box = $("toast-box");
   const note = document.createElement("div");
@@ -20016,13 +24256,13 @@ function noticeTaskTransitions(running, history) {
     // that just happened rather than a previous run of the same job.
     const ended = history.find((item) => (item.kind || "job") === (task.kind || "job"));
     if (ended && ended.outcome === "failed") {
-      toast(`Failed: ${ended.label || task.label}`, true);
+      agentActivityNotice(`Failed: ${ended.label || task.label}`, { isError: true });
     } else if (ended && ended.outcome === "cancelled") {
       // Not an error and not an achievement — the user stopped it and already
       // knows. Recorded in the centre by renderTaskHistory; no toast.
       continue;
     } else {
-      toast(`Finished: ${(ended && ended.label) || task.label}`);
+      agentActivityNotice(`Finished: ${(ended && ended.label) || task.label}`);
     }
   }
 }
@@ -20591,9 +24831,17 @@ function renderChatActiveModelBadge() {
   // The badge itself ellipsis-truncates a long id (a full HuggingFace path
   // easily runs past the header) — the full name is still one hover away.
   badge.title = name
-    ? `The model currently answering in this chat: ${name} — change it in Settings → Models`
+    ? `The model currently answering in this chat: ${name} — click to change it`
     : "";
 }
+
+// One click from "which model is this?" to the control that changes it.
+// `openSettingsModal` already takes a section plus an element to scroll to —
+// the same deep link the Preferences search-relevance group uses — so this
+// needs no new picker, and Settings stays the single place the setting lives.
+$("chat-active-model")?.addEventListener("click", () => {
+  openSettingsModal("models", "chat-model-select");
+});
 
 function renderUtilityModelPicker(status) {
   const names = status.installed_models.map((m) => m.name);
@@ -20712,15 +24960,66 @@ function renderEmbeddingPicker(status) {
   $("embedding-offline-note").classList.toggle("hidden", !offline);
 }
 
+// The button lives in index.html (see `#reindex-box`) rather than being built
+// here: `test_frontend_ids.py` refuses an id this file looks up that the
+// markup never declares, and it is right to — a control that exists only in
+// JS is one nobody can find by reading the page.
+function wireReindexButton() {
+  const button = $("reindex-start");
+  if (!button || button.dataset.wired === "1") return;
+  button.dataset.wired = "1";
+  setLabel(button, "ph:arrows-clockwise Rebuild search index");
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    try {
+      await apiJson("/models/reindex", { method: "POST" });
+      toast("Rebuilding the search index…");
+      refreshModelStatus?.();
+    } catch (error) {
+      // A 409 is not a failure to report as one: it means the thing the user
+      // asked for is already happening.
+      toast(error.message, !/already running/i.test(error.message || ""));
+    } finally {
+      button.disabled = false;
+    }
+  });
+}
+
 function renderReindex(status) {
   const box = $("reindex-box");
   const job = status.reindex;
   const running = job && job.status === "running";
-  box.classList.toggle("hidden", !running);
+  wireReindexButton();
+  // The box is no longer only a progress readout, so it stays visible — the
+  // heading and the progress bar are what come and go with the job.
+  box.classList.remove("hidden");
+  const heading = box.querySelector("h3");
+  if (heading) heading.textContent = running ? "Re-indexing your notes…" : "Search index";
+  $("reindex-progress").classList.toggle("hidden", !running);
+  $("reindex-label").classList.toggle("hidden", !running);
+  $("reindex-start").classList.toggle("hidden", running);
   if (running) {
     $("reindex-progress").value = job.done;
     $("reindex-progress").max = Math.max(job.total, 1);
     $("reindex-label").textContent = `${job.done} of ${job.total} notes re-indexed`;
+  }
+  //: **Say when it is actually worth doing.** Asked for: "suggest rebuilding
+  //: the search index upon large changes". The backend counts notes that
+  //: arrived or vanished in bulk (`mark_index_stale`); this is the only place
+  //: that counter is ever shown, and it says nothing at all until the count
+  //: crosses the threshold the same module sets — a permanent nudge is
+  //: furniture, and a nudge after every third note is noise.
+  const stale = Number(status.index_stale_notes || 0);
+  const threshold = Number(status.index_stale_suggest_at || 20);
+  const staleLine = $("reindex-stale");
+  if (staleLine) {
+    const worth = !running && stale >= threshold;
+    staleLine.classList.toggle("hidden", !worth);
+    if (worth) {
+      staleLine.textContent =
+        `${stale} notes have been added or removed in bulk since the last rebuild — ` +
+        "semantic search may be missing them.";
+    }
   }
 }
 
@@ -21678,6 +25977,15 @@ function renderEmblem(holder, size = 34, { animate = false } = {}) {
 }
 
 // Every emblem currently on the page, keyed by element id and size.
+// Every slot animates — direct instruction, after the onboarding and About
+// emblems were caught sitting still: "whenever the generated p5.js node
+// graph logo shows, make sure it is never static and always rotating."
+// `renderEmblem` already respects Settings → Appearance's motion switch
+// (and only that switch, not the OS-level prefers-reduced-motion hint —
+// see its own comment), so `animate: true` here doesn't reintroduce motion
+// for anyone who asked this app to hold still; it only removes the extra,
+// per-slot "hold this one still anyway" that had nothing to do with that
+// preference.
 const EMBLEM_SLOTS = [
   // Not the top bar any more: that is the favicon now, so the app's icon in
   // the tab strip and the mark above it are the same thing. The generated
@@ -21685,10 +25993,10 @@ const EMBLEM_SLOTS = [
   // where the AI is doing something — asked for as "kinda like an ai symbol".
   ["ai-mark", 24, true],
   ["lock-emblem", 76, true],
-  ["onboarding-emblem", 64, false],
+  ["onboarding-emblem", 64, true],
   ["chat-empty-emblem", 52, true],
-  ["graph-empty-emblem", 52, false],
-  ["about-emblem", 44, false],
+  ["graph-empty-emblem", 52, true],
+  ["about-emblem", 44, true],
 ];
 
 function renderBrandLogo() {
@@ -22106,6 +26414,9 @@ $("pref-autonomous-tasks").addEventListener("change", (e) => {
   toggleAutonomousPanel();
   setPreference("autonomous_tasks_enabled", e.target.checked);
 });
+$("pref-background-filing").addEventListener("change", (e) =>
+  setPreference("background_filing", e.target.checked)
+);
 $("pref-ai-first-filing").addEventListener("change", (e) =>
   setPreference("ai_first_filing", e.target.checked)
 );
@@ -22126,6 +26437,9 @@ $("pref-auto-dedupe").addEventListener("change", (e) =>
 );
 $("pref-auto-stale-review").addEventListener("change", (e) =>
   setPreference("auto_stale_review_enabled", e.target.checked)
+);
+$("pref-auto-capture").addEventListener("change", (e) =>
+  setPreference("auto_capture_enabled", e.target.checked)
 );
 $("pref-battery-mode").addEventListener("change", (e) => {
   setPreference("battery_efficient_mode", e.target.checked);
@@ -22295,25 +26609,7 @@ $("draft-discard").addEventListener("click", async () => {
 // ways every other popover in this app closes. One shared wiring function
 // rather than five copies of the same three listeners.
 function initHelpToggle(buttonId, panelId) {
-  const button = $(buttonId);
-  const panel = $(panelId);
-  if (!button || !panel) return;
-  button.addEventListener("click", (event) => {
-    event.stopPropagation();
-    const open = panel.classList.toggle("hidden") === false;
-    button.setAttribute("aria-expanded", String(open));
-  });
-  document.addEventListener("click", (event) => {
-    if (panel.classList.contains("hidden")) return;
-    if (panel.contains(event.target) || event.target === button) return;
-    panel.classList.add("hidden");
-    button.setAttribute("aria-expanded", "false");
-  });
-  document.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape" || panel.classList.contains("hidden")) return;
-    panel.classList.add("hidden");
-    button.setAttribute("aria-expanded", "false");
-  });
+  wireHelpPopover($(buttonId), $(panelId));
 }
 initHelpToggle("draft-help", "draft-intro");
 initHelpToggle("search-relevance-help", "search-relevance-intro");
@@ -22573,6 +26869,67 @@ $("conv-browse-all").addEventListener("click", () => {
   renderLibrary();
 });
 $("chat-export").addEventListener("click", exportChatMarkdown);
+
+//: **Fork: keep this thread, try another direction.** Asked for directly.
+//: The server copies (`POST /conversations/{id}/fork`) rather than branching —
+//: see that route's docstring for why a tree with shared ancestry is the
+//: wrong size of machinery for one JSON blob per chat.
+//:
+//: Only meaningful once something has been said, so the button hides itself
+//: on an empty pane rather than offering to duplicate nothing.
+$("chat-fork").addEventListener("click", async () => {
+  if (!chatConv || chatConv.id === null) {
+    toast("Nothing to fork yet — ask something first.");
+    return;
+  }
+  try {
+    const fork = await apiJson(`/conversations/${chatConv.id}/fork`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    await loadConversationList();
+    toastAction(`Forked to “${fork.title}”.`, "Open it", () => openConversation(fork.id));
+  } catch (error) {
+    toast(error.message || "Couldn't fork this conversation.", true);
+  }
+});
+
+//: Renaming, where the name is. It used to mean leaving the tab and finding
+//: the chat in the Library — for a property whose whole purpose is helping
+//: you recognise the thread you are currently looking at.
+async function renameCurrentConversation() {
+  if (!chatConv || chatConv.id === null) return;
+  const next = await promptDialog("Rename this conversation:", $("chat-title").textContent);
+  if (!next) return;
+  try {
+    await apiJson(`/conversations/${chatConv.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ title: next }),
+    });
+    $("chat-title").textContent = next;
+    loadConversationList();
+  } catch (error) {
+    toast(error.message || "Couldn't rename this conversation.", true);
+  }
+}
+
+//: Built once, at boot — the header's ⋯ is the same for every conversation,
+//: unlike a note card's, which is rebuilt per row.
+mountChatActionsMenu();
+
+//: The meter opens the thing that fixes what it is reporting. A number with no
+//: move attached is a number people learn to ignore.
+$("chat-context")?.addEventListener("click", () => $("chat-compress")?.click());
+
+$("chat-title").addEventListener("click", renameCurrentConversation);
+$("chat-title").addEventListener("keydown", (event) => {
+  //: Space and Enter, because this is a `<h2 role="button">` and the browser
+  //: only gives those two keys to a real `<button>` for free.
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    renameCurrentConversation();
+  }
+});
 $("chat-delete").addEventListener("click", deleteCurrentChat);
 $("chat-compress").addEventListener("click", compressChatContext);
 $("chat-compress-apply").addEventListener("click", applyCompression);
@@ -22756,6 +27113,27 @@ $("graph-refresh").addEventListener("click", () => {
   renderGraph();
 });
 $("graph-export-png")?.addEventListener("click", exportGraphPng);
+// Direct instruction: "I want to be able to unroot and reset the graph to
+// free float if I want with a button." One request releases every pinned
+// node at once (routes_graph.py's unpin_all_nodes) rather than tracking
+// each one down to double-click it individually; renderGraph() afterwards
+// re-fetches from /graph, which is what actually clears fx/fy — the same
+// path #graph-refresh already uses, so a freshly unpinned layout settles
+// through the ordinary simulation rather than a special-cased one.
+$("graph-unpin-all")?.addEventListener("click", async () => {
+  try {
+    const result = await apiJson("/graph/unpin-all", { method: "POST" });
+    graphHighlightIds = null;
+    await renderGraph();
+    toast(
+      result.unpinned
+        ? `${result.unpinned} note${result.unpinned === 1 ? "" : "s"} released — the layout can move freely again.`
+        : "Nothing was pinned."
+    );
+  } catch (error) {
+    toast(error.message || "Couldn't unpin the graph.", true);
+  }
+});
 $("graph-similarity").addEventListener("change", renderGraph);
 $("graph-entities")?.addEventListener("change", renderGraph);
 $("graph-documents")?.addEventListener("change", renderGraph);
@@ -22823,6 +27201,29 @@ $("graph-highlight-clear").addEventListener("click", () => {
   toast("Highlight cleared.");
 });
 $("graph-trace-clear").addEventListener("click", () => clearTrace());
+// The legend's own collapse — asked for twice: "the categories toggle line
+// needs to be collapsible or redesigned." A fixed row taken from the
+// canvas whether or not anyone reads it; collapsing it reclaims that row
+// entirely. Persisted like the graph's other view preferences
+// (graph-colour, right above) rather than reset every visit.
+(() => {
+  const row = document.querySelector(".graph-legend-row");
+  const toggle = $("graph-legend-toggle");
+  if (!row || !toggle) return;
+  const apply = (collapsed) => {
+    row.classList.toggle("legend-collapsed", collapsed);
+    toggle.setAttribute("aria-expanded", String(!collapsed));
+    toggle.title = collapsed ? "Show the legend" : "Hide the legend";
+    toggle.setAttribute("aria-label", toggle.title);
+    setLabel(toggle, collapsed ? "ph:caret-down" : "ph:caret-up");
+  };
+  apply(localStorage.getItem("graphLegendCollapsed") === "1");
+  toggle.addEventListener("click", () => {
+    const collapsed = !row.classList.contains("legend-collapsed");
+    apply(collapsed);
+    localStorage.setItem("graphLegendCollapsed", collapsed ? "1" : "0");
+  });
+})();
 // What the colours mean, remembered like the layout is — it is a property of
 // how you read your notebook, not of one visit.
 $("graph-colour").addEventListener("change", (event) => {
@@ -22896,6 +27297,22 @@ function toggleGraphFullscreen() {
   const card = $("graph-card");
   if (card) {
     const isFull = card.classList.toggle("graph-fullscreen");
+    // The single zoom-cluster button now does both jobs a separate "Close
+    // Full Screen" toolbar button used to split between them — asked for
+    // directly: "move the close full screen button in the graph to be next
+    // to the new graph button or smth so it isnt making an extra row." That
+    // second button (`#graph-fullscreen-close`, toolbar) called this exact
+    // same function and existed only because this one gave no sign it also
+    // exits — so rather than relocate a redundant second button, this one
+    // now says which of its two jobs it will do next.
+    const fsBtn = $("graph-fullscreen");
+    if (fsBtn) {
+      fsBtn.title = isFull ? "Exit full screen" : "Full screen";
+      fsBtn.setAttribute("aria-label", fsBtn.title);
+      fsBtn.setAttribute("aria-pressed", String(isFull));
+      const icon = fsBtn.querySelector("i");
+      if (icon) icon.className = isFull ? "ph ph-arrows-in" : "ph ph-frame-corners";
+    }
     // Trigger a resize event to ensure D3 SVG rescales properly
     window.dispatchEvent(new Event('resize'));
     if (graphNodesRef && graphNodesRef.length) {
@@ -22921,13 +27338,11 @@ function toggleGraphFullscreen() {
 }
 
 $("graph-fullscreen")?.addEventListener("click", toggleGraphFullscreen);
-$("graph-fullscreen-close")?.addEventListener("click", toggleGraphFullscreen);
 
 // Wave M: batch operations + skill/persona sharing.
 $("select-btn").addEventListener("click", () =>
   selectMode ? exitSelectMode() : enterSelectMode()
 );
-$("batch-move").addEventListener("click", batchMove);
 $("batch-tag").addEventListener("click", batchTag);
 $("batch-delete").addEventListener("click", batchDelete);
 $("batch-cancel").addEventListener("click", exitSelectMode);
@@ -23101,6 +27516,17 @@ $("web-reader-back").addEventListener("click", () =>
   $("web-reader").classList.add("hidden")
 );
 $("web-reader-save").addEventListener("click", saveWebPageAsNote);
+//: Same act as the result row's own "Save as bookmark", from the other side
+//: of the panel: you often only decide a page is worth keeping after reading
+//: it, and until now that decision had nowhere to go from here.
+$("web-reader-bookmark")?.addEventListener("click", () => {
+  if (!webReaderPage) return;
+  bookmarkWebResult({
+    url: webReaderPage.url,
+    title: webReaderPage.title || webReaderPage.domain || "",
+    snippet: (webReaderPage.text || "").slice(0, 200),
+  });
+});
 $("web-reader-ask").addEventListener("click", () => {
   if (webReaderPage) askAboutPage(webReaderPage.url, webReaderPage.title);
 });
@@ -23843,6 +28269,30 @@ $("ask-history-search").addEventListener("input", () => {
   askHistorySearchDebounce = setTimeout(() => loadAskHistoryPage(true), 200);
 });
 $("lock-btn").addEventListener("click", lockNow);
+
+// **Locking has to reach every open tab, not just the one you clicked in.**
+//
+// The lock audit found this one by opening a second tab, which ROADMAP.md had
+// named as an unchecked avenue. Locking in tab A cleared tab A and dropped the
+// shared token — so the API correctly refused tab B — but tab B kept showing
+// all 61 notes with no lock screen at all, indefinitely. Lock the notebook,
+// walk away from a shared machine, and everything is still on screen in the
+// window behind.
+//
+// `storage` fires in *other* tabs of the same origin when a key changes, which
+// is exactly the signal wanted: the tab that did the locking has already
+// handled itself, and no polling or cross-tab channel is needed. A `null`
+// `newValue` is the removal specifically (`localStorage.clear()` also arrives
+// with a null `key`, and is treated the same way — the token is gone either
+// way).
+window.addEventListener("storage", (event) => {
+  if (event.storageArea !== localStorage) return;
+  if (event.key !== null && event.key !== "token") return;
+  if (localStorage.getItem("token")) return; // a sign-in elsewhere, not a lock
+  if (!$("lock-overlay").classList.contains("hidden")) return; // already locked
+  purgeLockedContent();
+  showLockScreen(false);
+});
 $("lock-submit").addEventListener("click", submitLockForm);
 $("lock-password").addEventListener("keydown", (e) => {
   if (e.key === "Enter") submitLockForm();
@@ -23864,7 +28314,34 @@ $("entry-content").addEventListener("input", () => {
 // Moving the caret with the mouse or arrows can leave the fragment behind.
 $("entry-content").addEventListener("click", () => renderWikiSuggest($("entry-content")));
 $("entry-content").addEventListener("blur", () => setTimeout(hideWikiSuggest, 120));
+//: True while the notebook is locked — the unlock overlay is up and nothing
+//: behind it may be reached.
+//:
+//: **This is a privacy hole, not a polish item.** Reported directly: "I can
+//: use keyboard shortcuts to access features even when locked out… like the
+//: meeting notes popup." The global handler below had no lock check of any
+//: kind, so every shortcut worked behind the lock screen: the command
+//: palette (which lists and opens notes by title), "/" to focus search, the
+//: `g`-then-letter tab jumps, the meeting recorder, all of it. The lock
+//: screen is the only privacy boundary this app has, and the keyboard walked
+//: straight past it.
+//:
+//: Read off the DOM rather than a flag, deliberately: the overlay's own
+//: `hidden` class is what every other part of the app already treats as the
+//: truth about being locked, and a second source of truth is how a boundary
+//: like this drifts back open.
+function notebookLocked() {
+  const overlay = document.getElementById("lock-overlay");
+  return Boolean(overlay) && !overlay.classList.contains("hidden");
+}
+
 document.addEventListener("keydown", (e) => {
+  // **Before anything else.** A locked notebook answers no shortcut — not a
+  // chorded one, not a bare one, not a tab jump. Typing is untouched: this
+  // returns before any shortcut is *dispatched*, so the password field still
+  // receives every keystroke, and Enter still submits it through the form's
+  // own handler rather than this one.
+  if (notebookLocked()) return;
   // Rebinding swallows everything while it's listening.
   if (captureShortcutKey(e)) {
     e.preventDefault();
@@ -23926,6 +28403,10 @@ document.addEventListener("keydown", (e) => {
   }
   if (e.key === "Escape" && !$("improve-overlay").classList.contains("hidden")) {
     closeImprove();
+    return;
+  }
+  if (e.key === "Escape" && !$("connections-overlay").classList.contains("hidden")) {
+    $("connections-overlay").classList.add("hidden");
     return;
   }
   if (e.key === "Escape" && !$("history-overlay").classList.contains("hidden")) {
@@ -24347,6 +28828,16 @@ const DEFAULT_SHORTCUTS = {
   stopAI: { keys: "Ctrl+.", label: "Stop the answer being written" },
   agentMode: { keys: "Ctrl+Shift+G", label: "Turn agent mode on or off" },
   quickSketch: { keys: "Ctrl+Shift+K", label: "Open the quick sketch pad" },
+  // **The agent bar's chord, declared here rather than bound loose.** It was
+  // moved off Ctrl+K once already, to settle a collision with the navigation
+  // palette — onto Ctrl+Shift+K, which `quickSketch` above had held all
+  // along, so the fix swapped one silent collision for another and the sketch
+  // pad and the agent bar both opened on one press (reported). The cause both
+  // times was the same: this chord lived in a `document.addEventListener` of
+  // its own, where nothing could see it. In the registry it is checked against
+  // every other chord by `test_frontend_shortcuts.py`, appears in the
+  // shortcuts help, and can be rebound like all the rest.
+  askAgent: { keys: "Ctrl+Shift+A", label: "Ask the agent anything" },
   whiteboard: { keys: "Ctrl+Shift+B", label: "Open the whiteboard" },
   settings: { keys: "Ctrl+,", label: "Open settings" },
   attachNote: { keys: "Ctrl+Shift+P", label: "Clip a note to your next question" },
@@ -24494,6 +28985,7 @@ function runShortcut(id) {
       toggle.dispatchEvent(new Event("change", { bubbles: true }));
     },
     quickSketch: openSketch,
+    askAgent: toggleAgentPalette,
     whiteboard: () => switchTab("whiteboard"),
     settings: () => openSettingsModal(),
     attachNote: () => {
@@ -24858,6 +29350,95 @@ function renderEntryAttachmentChips() {
     chip.append(img, label, chipActions);
     box.appendChild(chip);
   }
+  renderCaptureFiles();
+}
+
+/** The strip above, for files that are not images.
+ *
+ * The chip strip it sits under only ever matched image syntax
+ * (`![name](/media/…)`), because it was written to show thumbnails. A PDF
+ * or a spreadsheet is inserted with *link* syntax (`[name](/media/…)`) by
+ * `handleFileUpload`, so it matched nothing and the composer showed no sign
+ * a file had been attached at all — reported directly: "when I uplaod pdfs
+ * to a note, they are in pure md with no visual card allowing me to delete
+ * the files."
+ *
+ * Rendered *from the note's own text* rather than from a separate staging
+ * list, and that is the design rather than an economy. The markdown is
+ * where the attachment actually lives — it is what gets saved, what the AI
+ * reads, and what survives an export. A parallel list of "staged files"
+ * would be a second source of truth that a single edit to the textarea
+ * could put out of sync, and removing a card would have to reconcile the
+ * two. Here, removing a card *is* deleting that line, which is the only
+ * thing removal could honestly mean.
+ */
+function renderCaptureFiles() {
+  const strip = $("entry-file-strip");
+  const textarea = $("entry-content");
+  if (!strip || !textarea) return;
+  // Link syntax only. The negative lookbehind is what keeps images out:
+  // `![x](/media/y.png)` also ends in `[x](/media/y.png)`, so without it
+  // every image would appear twice, once as a thumbnail chip and once here.
+  const pattern = /(?<!!)\[([^\]]{0,200})\]\((\/media\/[^)\s]{1,500})\)/g;
+  const matches = [...textarea.value.matchAll(pattern)];
+  strip.replaceChildren();
+  strip.classList.toggle("hidden", matches.length === 0 && captureStagedFiles.length === 0);
+
+  // Files not yet uploaded, because this note has no id to attach them to.
+  // Rendered from the staging list rather than from the note text — they are
+  // deliberately *not* in the text (see `captureStagedFiles`), so there is no
+  // markdown to read them out of, and removing one is dropping it from the
+  // list rather than deleting anything on disk.
+  for (const file of captureStagedFiles) {
+    const card = fileCard(file.name, `/media/${file.name}`);
+    card.classList.add("file-card-staged");
+    const pending = document.createElement("span");
+    pending.className = "file-card-kind file-card-pending";
+    pending.textContent = "attaches on save";
+    card.querySelector(".file-card-text")?.appendChild(pending);
+    // A staged file has no url yet, so there is nothing to open or download.
+    card.querySelector(".file-card-open")?.setAttribute("disabled", "true");
+    card.querySelector(".file-card-save")?.remove();
+    const drop = document.createElement("button");
+    drop.type = "button";
+    drop.className = "ghost small icon-only file-card-remove";
+    setLabel(drop, "ph:x");
+    drop.title = `Don't attach “${file.name}”`;
+    drop.setAttribute("aria-label", drop.title);
+    drop.addEventListener("click", () => {
+      captureStagedFiles = captureStagedFiles.filter((f) => f !== file);
+      renderCaptureFiles();
+    });
+    card.appendChild(drop);
+    strip.appendChild(card);
+  }
+
+  for (const match of matches) {
+    const [full, name, url] = match;
+    const card = fileCard(name, url);
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "ghost small icon-only file-card-remove";
+    setLabel(remove, "ph:x");
+    remove.title = `Remove “${name || url}” from this note`;
+    remove.setAttribute("aria-label", remove.title);
+    remove.addEventListener("click", async () => {
+      textarea.value = textarea.value.replace(full, "").replace(/\n{3,}/g, "\n\n");
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      // Same reasoning as the image chip's own remove, directly above: a
+      // file attached to a note that has never been saved cannot be
+      // referenced from anywhere else yet, so detaching the markdown and
+      // leaving the bytes in data/media would only ever produce an orphan.
+      try {
+        const upload = await resolveMediaUploadByUrl(url);
+        if (upload) await apiJson(`/media/${upload.id}`, { method: "DELETE" });
+      } catch (err) {
+        console.error("Couldn't delete the underlying upload", err);
+      }
+    });
+    card.appendChild(remove);
+    strip.appendChild(card);
+  }
 }
 
 $("entry-content").addEventListener("input", (e) => {
@@ -24873,10 +29454,24 @@ $("entry-content").addEventListener("input", (e) => {
   $("save-status").querySelector(".jump-to-note")?.remove();
 });
 
+//: A staged picture's bytes live in this tab and nowhere else, so a restored
+//: draft cannot show one — the Blob went with the page that made it. Left in,
+//: the note would carry `![x](staged:img-…)` forever: a dead link that Save
+//: would happily write to disk, since the rewrite only knows about images
+//: staged in *this* session.
+//:
+//: Removed rather than kept-and-warned, because there is nothing the reader
+//: can do about it and nothing to recover — the picture was never uploaded.
+//: The line below says so once, so a vanished screenshot is explained rather
+//: than mysterious.
+const STAGED_IN_DRAFT = /!\[[^\]\n]{0,200}\]\(staged:[^)\n]{1,120}\)\n?/g;
+
 // Restore an unsaved draft on load.
 (() => {
-  const draft = localStorage.getItem("captureDraft");
-  if (!draft) return;
+  const stored = localStorage.getItem("captureDraft");
+  if (!stored) return;
+  const draft = stored.replace(STAGED_IN_DRAFT, "");
+  const lostImages = draft !== stored;
   const box = $("entry-content");
   box.value = draft;
   autoGrow(box); // a long restored draft shouldn't arrive in a one-line box
@@ -24884,10 +29479,25 @@ $("entry-content").addEventListener("input", (e) => {
   renderEntryAttachmentChips();
   const status = $("save-status");
   if (status) status.textContent = "Restored your unsaved draft.";
+  //: A toast rather than the status line for the images, because this runs at
+  //: module load — before the lock screen is even answered — and every status
+  //: line written here is overwritten by the boot sequence that follows.
+  //: Measured: the line came back empty in a driven browser. `toast` queues
+  //: and shows once the app is up, which is when there is somebody to read it.
+  if (lostImages) {
+    toast(
+      "Your restored draft mentioned images that were never uploaded — they " +
+        "could not come back, so those lines were removed.",
+    );
+  }
 })();
 
 $("export-md").addEventListener("click", () => downloadExport("markdown"));
 $("import-md").addEventListener("click", importMarkdown);
+//: The folder picker posts through the same function — the only difference
+//: is which input it reads, so `importMarkdown` takes the id rather than
+//: growing a second copy of the upload/report/refresh sequence.
+$("import-md-folder-btn").addEventListener("click", () => importMarkdown("import-md-folder"));
 $("import-dir")?.addEventListener("click", importDirectory);
 $("export-backup-zip")?.addEventListener("click", () => downloadExport("backup"));
 $("import-document").addEventListener("click", importDocument);
@@ -25135,16 +29745,172 @@ document.addEventListener("paste", async (e) => {
   await handleFileUpload(e.target, files);
 });
 
+//: Files waiting to become attachments on a note that does not exist yet.
+//:
+//: **Why staging rather than uploading immediately.** `/media/upload` — the
+//: only endpoint the composer could reach — accepts nine image types and
+//: `.pdf`, and that allowlist is not paranoia to widen: `/media/{name}`
+//: serves inline from the app's own origin, so an `.html` or `.svg` landing
+//: there is stored XSS, and the AI can write to that folder too. So a
+//: `.docx`, a `.txt` or a code file dropped into the composer got a 415 and
+//: a red toast, while **the same file attached fine to an already-saved
+//: note** through `POST /entries/{id}/files`, whose allowlist covers about
+//: sixty types precisely because attachments are served as downloads.
+//:
+//: The difference was never the file. It was that the composer has no note
+//: id yet. So the file waits here until Save produces one, and then takes
+//: the attachment path it should have taken all along — which also gets it
+//: a real row, a card with a delete button, and a place in the Library.
+//:
+//: Images are deliberately *not* staged: an image in the middle of a
+//: paragraph is content, and it needs to be inline markdown at the point in
+//: the text where it was dropped, not an attachment at the bottom.
+
+//: **Images wait for the note too now.**
+//:
+//: The composer used to `POST /media/upload` the moment a picture was dropped
+//: or pasted, and the comment above explained why that was different from the
+//: files beside it: an image is *content*, it has to land as inline markdown
+//: at the point in the text where it was dropped. That is still true — and it
+//: was never a reason for the file to survive a note nobody saved. Every
+//: abandoned draft with a pasted screenshot left a row in the Library and a
+//: file on disk, which is exactly the leak asked about: "files should only be
+//: staged and not permanently saved while uploaded to a note that hasnt been
+//: saved yet".
+//:
+//: So the markdown goes in immediately, pointing at a `staged:<key>` url the
+//: renderer resolves to the local Blob, and Save swaps every one of those for
+//: the real `/media/...` url the upload returns. The bytes never leave the
+//: browser until there is a note to attach them to.
+//: Swap every `staged:<key>` for the url its upload produced. A pure string
+//: function on purpose: it is the step that decides what gets *saved*, so it
+//: is the step worth being able to test on its own.
+function rewriteStagedUrls(content, urlByKey) {
+  let out = content;
+  for (const [key, url] of Object.entries(urlByKey)) {
+    out = out.split(stagedImageUrl(key)).join(url);
+  }
+  return out;
+}
+
+//: Upload everything staged in the composer and return `{key: url}`. Throws
+//: on the first failure, which is deliberate: Save must not write a note
+//: whose picture is a dead `staged:` url, and it must not silently drop the
+//: picture either — the same rule `commitStagedImages` follows for chat.
+async function commitCaptureImages() {
+  const urlByKey = {};
+  for (const image of captureStagedImages) {
+    const form = new FormData();
+    form.append("file", image.file);
+    const uploaded = await apiJson("/media/upload", {
+      method: "POST",
+      headers: { "X-Auth-Token": authToken() },
+      body: form,
+    });
+    urlByKey[image.key] = uploaded.url;
+  }
+  return urlByKey;
+}
+
+function clearStagedImages() {
+  for (const image of captureStagedImages) {
+    //: An object URL is a document-lifetime reference to the bytes; dropping
+    //: the array alone leaks them for as long as the tab is open.
+    if (image.objectUrl) URL.revokeObjectURL(image.objectUrl);
+  }
+  captureStagedImages = [];
+}
+
+async function uploadStagedFiles(entryId) {
+  if (!captureStagedFiles.length) return;
+  const staged = captureStagedFiles;
+  captureStagedFiles = [];
+  renderCaptureFiles();
+  let failures = 0;
+  for (const file of staged) {
+    const form = new FormData();
+    form.append("file", file);
+    // Raw fetch: multipart must NOT get the JSON content-type header.
+    const response = await fetch(`/entries/${entryId}/files`, {
+      method: "POST",
+      // Same gap as the composer's own version of this call, above.
+      headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
+      body: form,
+    });
+    if (!response.ok) {
+      failures++;
+      const detail = await response.json().catch(() => ({}));
+      toast(detail.detail || `${file.name}: couldn't attach (${response.status})`, true);
+    }
+  }
+  // Only mentioned when it worked; a failure already said so, per file, and
+  // "attached 2 files" under two error toasts would be the app arguing with
+  // itself.
+  if (failures < staged.length) await loadEntries();
+}
+
 async function handleFileUpload(textarea, files) {
+  // The capture composer is the one place that can stage: it is the only
+  // textarea whose content becomes a note with an id a moment later. A
+  // document's own editor writes into a document, which has no attachment
+  // table, so it keeps the inline-markdown path for everything.
+  const canStage = textarea.id === "entry-content";
+  const images = canStage ? files.filter((f) => f.type.startsWith("image/")) : files;
+  const others = canStage ? files.filter((f) => !f.type.startsWith("image/")) : [];
+  if (others.length) {
+    captureStagedFiles.push(...others);
+    renderCaptureFiles();
+    toast(
+      others.length === 1
+        ? `“${others[0].name}” will be attached when you save.`
+        : `${others.length} files will be attached when you save.`
+    );
+  }
+  if (!images.length) return;
+  files = images;
+
   const cursorPosition = textarea.selectionStart;
+  const selectionEnd = textarea.selectionEnd;
+  const originalText = textarea.value;
+
+  //: **The composer stages instead of uploading** — see `captureStagedImages`.
+  //: Everywhere else (the document editor) still uploads inline, because a
+  //: document has an id from the moment it exists and nothing to wait for.
+  //:
+  //: Written before the "Uploading…" placeholder below rather than after it:
+  //: assigning `textarea.value` moves the selection, so a branch that ran
+  //: afterwards and re-sliced against `selectionEnd` would cut the note in a
+  //: different place than it meant to.
+  if (canStage) {
+    let inserted = "";
+    for (const file of files) {
+      const key = `img-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      captureStagedImages.push({
+        key,
+        file,
+        objectUrl: URL.createObjectURL(file),
+        name: file.name,
+      });
+      inserted += `![${file.name}](${stagedImageUrl(key)})\n`;
+    }
+    textarea.value =
+      originalText.slice(0, cursorPosition) + inserted + originalText.slice(selectionEnd);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    const at = cursorPosition + inserted.length;
+    textarea.setSelectionRange(at, at);
+    toast(
+      files.length === 1
+        ? `“${files[0].name}” will be saved with the note.`
+        : `${files.length} images will be saved with the note.`,
+    );
+    return;
+  }
+
   let textToInsert = "";
-  
   for (const file of files) {
     textToInsert += `![Uploading ${file.name}…]()\n`;
   }
-  
-  const originalText = textarea.value;
-  textarea.value = originalText.substring(0, cursorPosition) + textToInsert + originalText.substring(textarea.selectionEnd);
+  textarea.value = originalText.substring(0, cursorPosition) + textToInsert + originalText.substring(selectionEnd);
   textarea.dispatchEvent(new Event('input', { bubbles: true }));
 
   for (const file of files) {
@@ -25266,6 +30032,15 @@ function renderStatusBarSettings() {
   const box = $("status-bar-items");
   if (!box) return;
   const hidden = hiddenStatusSlots();
+  // The clock's own row lives inside this same container now (index.html) —
+  // moved there so it wraps as one more compact chip alongside STATUS_SLOTS'
+  // instead of stretching full-width as a lone sibling after the flex box.
+  // `replaceChildren()` below is only ever meant to clear the *generated*
+  // rows this loop is about to rebuild; without pulling the static clock
+  // label out first, it would delete that markup along with them on every
+  // call and silently orphan `#status-bar-clock-toggle` for the rest of
+  // this function.
+  const clockLabel = document.getElementById("status-bar-clock-toggle")?.closest("label");
   box.replaceChildren();
   for (const slot of STATUS_SLOTS) {
     const label = document.createElement("label");
@@ -25288,6 +30063,10 @@ function renderStatusBarSettings() {
     label.append(box_, text);
     box.appendChild(label);
   }
+  // Put the clock's row back — see the comment above `clockLabel`'s
+  // declaration. Appended last, so it reads as the odd one out it actually
+  // is (off by default) without visually separating from its siblings.
+  if (clockLabel) box.appendChild(clockLabel);
   // The clock's own opt-in toggle — not one of STATUS_SLOTS above (it is
   // off by default, so it is rendered and wired separately rather than
   // joining a loop that assumes every entry starts visible).
@@ -25589,27 +30368,21 @@ const cmdPaletteOverlay = $("command-palette-overlay");
 const cmdPaletteInput = $("command-palette-input");
 const cmdPaletteResults = $("command-palette-results");
 
-document.addEventListener("keydown", (e) => {
-  // Real bug, found live while testing an unrelated command-palette change:
-  // this "ask the agent anything" overlay and the *other*, separately-built
-  // navigation palette (`openPalette`, `#palette-overlay`, wired to Ctrl+K
-  // at the shortcut dispatcher and in the shortcuts help text) both bound
-  // the identical Ctrl+K keydown on `document`, independently, neither
-  // aware the other existed. Both toggled open at once, and since this
-  // overlay sits later in the DOM it silently ate every click meant for the
-  // "real" one underneath — a fully built, previously-fixed feature (see
-  // this handler's own XSS-fix comment below) made unusable by a shortcut
-  // collision, not by anything wrong in either implementation. Ctrl+Shift+K
-  // here, Ctrl+K stays with the older/more-integrated navigation palette.
-  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "k") {
-    e.preventDefault();
-    if (cmdPaletteOverlay.classList.contains("hidden")) {
-      cmdPaletteOverlay.classList.remove("hidden");
-      cmdPaletteInput.focus();
-    } else {
-      cmdPaletteOverlay.classList.add("hidden");
-    }
+// Opened and closed by `runShortcut("askAgent")` — see DEFAULT_SHORTCUTS.
+// This deliberately has no `document.addEventListener` chord of its own:
+// binding one here is what let this overlay collide with the navigation
+// palette on Ctrl+K, and then with the sketch pad on Ctrl+Shift+K, twice
+// without anything noticing.
+function toggleAgentPalette() {
+  if (cmdPaletteOverlay.classList.contains("hidden")) {
+    cmdPaletteOverlay.classList.remove("hidden");
+    cmdPaletteInput.focus();
+  } else {
+    cmdPaletteOverlay.classList.add("hidden");
   }
+}
+
+document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !cmdPaletteOverlay.classList.contains("hidden")) {
     cmdPaletteOverlay.classList.add("hidden");
   }
@@ -25621,56 +30394,572 @@ cmdPaletteOverlay.addEventListener("click", (e) => {
   }
 });
 
-cmdPaletteInput.addEventListener("keydown", async (e) => {
-  if (e.key === "Enter" && cmdPaletteInput.value.trim()) {
-    const text = cmdPaletteInput.value.trim();
-    cmdPaletteInput.value = "";
+//: **The agent bar keeps a conversation, and says so.** Reported: "the popup
+//: agent needs more features, capability, and learnability, there's no way to
+//: clear the chat and start over, idk what it can do, and even if it works".
+//: Every one of those was true of the same handler:
+//:
+//: - It sent `history: []` on every turn, so a follow-up ("now file that as a
+//:   note") could not refer to the answer above it. It was a series of
+//:   unrelated one-shot questions in a window that looked like a chat.
+//: - There was no way to clear it, so the only reset was reloading the app.
+//: - Its whole affordance was "Press Enter to send", which says nothing about
+//:   what it can be asked to *do*.
+//: - Every failure came out as "Error communicating with agent." — the one
+//:   message that guarantees "idk if it even works", and it threw away
+//:   `err.message`, which is exactly where `describe_http_error`'s diagnosis
+//:   of a failing model arrives.
+const cmdPaletteTurns = [];
+let cmdPaletteRun = null;
 
-    // Create user bubble
-    const userMsg = document.createElement("div");
-    userMsg.className = "msg user";
-    userMsg.textContent = text;
-    cmdPaletteResults.appendChild(userMsg);
+function cmdPaletteReset() {
+  cmdPaletteTurns.length = 0;
+  cmdPaletteResults.replaceChildren();
+  $("command-palette-intro")?.classList.remove("hidden");
+  $("command-palette-status").textContent = "";
+}
 
-    // Create agent thinking bubble
-    const agentMsg = document.createElement("div");
-    agentMsg.className = "msg assistant";
-    agentMsg.appendChild(typingDots());
-    cmdPaletteResults.appendChild(agentMsg);
-    cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
+function cmdPaletteBusy(busy) {
+  cmdPaletteInput.disabled = busy;
+  $("command-palette-stop")?.classList.toggle("hidden", !busy);
+  $("command-palette-clear")?.classList.toggle("hidden", busy);
+  $("command-palette-status").textContent = busy ? "Working…" : "";
+  if (!busy) cmdPaletteInput.focus();
+}
 
-    // Was hand-rolled against `/chat` (the non-streaming endpoint, a single
-    // JSON object) as though it were the NDJSON `/chat/stream` shape — so
-    // `msg.type` was never "content" and this never actually rendered an
-    // answer at all (a "feature that never ran once", CLAUDE.md's own
-    // category for this). It also built the answer with
-    // `innerHTML = answerText.replace(...)` and no escaping — a real,
-    // reachable XSS the moment the parsing bug above was fixed, since a
-    // model can echo a note's own text back verbatim. Fixed by reusing this
-    // file's one real streaming client (`streamChat`) and its one safe
-    // renderer (`renderMarkdown`, DOM nodes only, never innerHTML) instead
-    // of a second, parallel, broken implementation of both.
-    let answerRaw = "";
-    let answered = false;
-    try {
-      await streamChat({
-        question: text,
-        history: [],
-        useTools: true, // the palette is meant to act on the notebook, like Chat
-        onMeta: () => {},
-        onThinking: () => {},
-        onAnswer: (delta) => {
-          answered = true;
-          answerRaw += delta;
-          renderMarkdown(agentMsg, answerRaw);
-          cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
+//: **The palette says what it did, the way the Chat tab does.** Reported:
+//: "the popup agent is still missing many things like the semantic search,
+//: token count, thinking boxes, metadata, persona used, model used... the
+//: popup agent should be an application wide utility tool."
+//:
+//: Every one of those already arrives on the stream — `onMeta` carries the
+//: search mode and what answered, `onStats` the model and the token counts,
+//: `onThinking` the reasoning — and the palette wired all three to `() => {}`.
+//: So this is not new machinery; it is the same events the Chat tab reads,
+//: rendered in the one surface that was throwing them away.
+//:
+//: A quiet footer rather than the Chat tab's full panel, on purpose: the
+//: palette is a 600px overlay you open on top of whatever you were doing, and
+//: reproducing a side panel in it would make the answer harder to read, not
+//: better evidenced. Each fact is a chip, so the row wraps and stays one line
+//: tall when there is little to say.
+function cmdPaletteMetaRow({ meta, stats, persona }) {
+  const facts = [];
+  if (meta?.search_mode && meta.search_mode !== "none") {
+    facts.push([
+      "ph:magnifying-glass",
+      SEARCH_MODE_LABELS[meta.search_mode] || meta.search_mode,
+      "How your notes were searched for this answer",
+    ]);
+  }
+  const model = stats?.model || meta?.answered_by;
+  if (model) facts.push(["ph:cpu", model, "The model that answered"]);
+  if (persona) facts.push(["ph:user-circle", persona, "The persona that answered"]);
+  const tokens = (stats?.prompt_tokens || 0) + (stats?.output_tokens || 0);
+  if (tokens) {
+    //: `usage_source` is the difference between a measured count and a guess,
+    //: and reporting a guess as a measurement is the dishonest way round —
+    //: the same reason the Chat tab's own accumulator propagates it.
+    const estimated = stats.usage_source === "estimated";
+    facts.push([
+      "ph:coins",
+      `${formatTokens(tokens)} tokens${estimated ? " (est.)" : ""}`,
+      estimated
+        ? "Estimated — this model did not report its own usage"
+        : "Counted by the model",
+    ]);
+  }
+  if (stats?.round > 1) {
+    facts.push(["ph:arrows-clockwise", `${stats.round} rounds`, "Tool rounds this turn took"]);
+  }
+  if (!facts.length) return null;
+  const row = document.createElement("div");
+  row.className = "row cmd-palette-meta";
+  for (const [icon, text, title] of facts) {
+    const item = document.createElement("span");
+    item.className = "chip tag cmd-palette-fact";
+    setLabel(item, `${icon} ${text}`);
+    item.title = title;
+    row.appendChild(item);
+  }
+  return row;
+}
+
+//: The model's reasoning, closed. It is long, it is not the answer, and the
+//: palette is the smallest surface in the app — but hiding it entirely is what
+//: made this window feel like it was doing something it would not explain.
+function cmdPaletteThinkingBox(text) {
+  const box = document.createElement("details");
+  box.className = "tool-chip cmd-palette-thinking";
+  const summary = document.createElement("summary");
+  setLabel(summary, "ph:brain Thinking");
+  box.appendChild(summary);
+  const body = document.createElement("div");
+  body.className = "tool-chip-body";
+  const pre = document.createElement("pre");
+  pre.className = "tool-chip-result";
+  pre.textContent = text;
+  body.appendChild(pre);
+  box.appendChild(body);
+  return box;
+}
+
+//: **What the agent found has to be reachable, not recited.** Reported with a
+//: screenshot of the palette answering "You can find your notes about gaming
+//: in notes id 3, 43 and 49": *"i have no clue what the notes numbers are,
+//: there are no links to notes, no way to actually find and navigate to the
+//: things it found, there is no semantic search results that appear."*
+//:
+//: Every word of that was a fair reading of what the code did. `onMeta` — the
+//: event carrying `raw_results`, the notes retrieval actually surfaced — was
+//: wired to `() => {}` here, so the one surface that knew which notes the turn
+//: had found threw them away and left the model to describe them in prose. A
+//: row id is the app's internal handle; printing it at a person is the same
+//: mistake as the audit log's raw `entity_type`, and worse, because there is
+//: nothing they can do with it.
+//:
+//: Two halves, and both are needed. The row below the answer is the *result
+//: set* — it exists even when the model's prose forgets to mention a note, and
+//: it is the semantic search result the report says is missing. The linkifier
+//: is for the prose itself: a model that says "note id 43" is naming something
+//: real, so that phrase becomes the button that opens it rather than a number
+//: to go hunting for.
+const CMD_NOTE_REF = /\bnotes?\s*(?:id|#)?\s*(\d{1,7})\b/gi;
+
+//: Opening a note means leaving the palette — it is an overlay over the app it
+//: is about to navigate. Closing it first is what makes "find it" and "go to
+//: it" one gesture instead of a jump that happens behind a panel.
+function cmdPaletteGoToNote(id) {
+  cmdPaletteOverlay.classList.add("hidden");
+  flashEntry(id);
+}
+
+//: The same gesture for a document. Notes and documents share an id space
+//: only by accident — id 12 is a different object in each table — so this
+//: cannot be folded into the note case: sending a document id through
+//: `flashEntry` opens an unrelated note, silently.
+function cmdPaletteGoToDocument(id) {
+  cmdPaletteOverlay.classList.add("hidden");
+  openDocumentFromNote(id);
+}
+
+//: What the *tools* opened, as opposed to what retrieval found. The report
+//: this answers: "no way to actually find and navigate to the things it
+//: found". Retrieval's row (`cmdPaletteResultRow`) only ever covers notes the
+//: semantic search returned; a turn that read a document, edited a note or
+//: followed a link touched things that row never mentions. The backend already
+//: names them per tool call (`_touched_items`), so the palette accumulates
+//: them across the turn and shows them under one heading.
+function cmdPaletteTouchedRow(items) {
+  if (!items.length) return null;
+  //: Same grid as the retrieved-notes block above — these two lists sat under
+  //: one another in different shapes and different chip sizes, which is what
+  //: made the pair read as clutter rather than as provenance.
+  return cmdSourceList(
+    items.length === 1 ? "Opened 1 item" : `Opened ${items.length} items`,
+    items,
+    (item) => {
+      const spec = TOUCHED_KINDS[item.kind] || TOUCHED_KINDS.note;
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "cmd-source-row";
+      const label = String(item.label || `#${item.id}`);
+      setLabel(chip, `${spec.icon} ${label.length > 44 ? `${label.slice(0, 44)}…` : label}`);
+      chip.title = spec.title;
+      chip.addEventListener("click", () =>
+        item.kind === "document" ? cmdPaletteGoToDocument(item.id) : cmdPaletteGoToNote(item.id),
+      );
+      return chip;
+    }
+  );
+}
+
+//: **A list of what was used, not a drift of pills.**
+//:
+//: Reported with a screenshot of "Found in 10 notes" and "Opened 6 items":
+//: *"refine the ui display of these in the popup agent."* They were inline
+//: chips of whatever width their text happened to be, wrapping into a ragged
+//: block — three on one line, two on the next, each truncated at a different
+//: point, and the second list's chips a different size from the first's
+//: because their labels were longer. Nothing lines up, so nothing scans.
+//:
+//: A fixed grid fixes both halves at once: every row is the same width, so the
+//: eye reads down a column instead of hunting, and the truncation lands in one
+//: place. Past `CMD_SOURCE_PREVIEW` the rest fold behind one "show all" —
+//: eleven rows of provenance under a two-line answer is the panel reporting on
+//: itself rather than answering.
+const CMD_SOURCE_PREVIEW = 6;
+
+function cmdSourceList(labelText, items, render) {
+  const block = document.createElement("div");
+  block.className = "cmd-source-block";
+  const head = document.createElement("p");
+  head.className = "muted cmd-source-head";
+  head.textContent = labelText;
+  block.appendChild(head);
+  const grid = document.createElement("div");
+  grid.className = "cmd-source-grid";
+  items.slice(0, CMD_SOURCE_PREVIEW).forEach((item) => grid.appendChild(render(item)));
+  block.appendChild(grid);
+  const rest = items.slice(CMD_SOURCE_PREVIEW);
+  if (rest.length) {
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "link-button cmd-source-more";
+    more.textContent = `Show ${rest.length} more`;
+    more.addEventListener("click", () => {
+      rest.forEach((item) => grid.appendChild(render(item)));
+      more.remove();
+    });
+    block.appendChild(more);
+  }
+  return block;
+}
+
+//: The notes this turn actually retrieved, as things you can open.
+function cmdPaletteResultRow(results) {
+  return cmdSourceList(
+    results.length === 1 ? "Found in 1 note" : `Found in ${results.length} notes`,
+    results,
+    (entry) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "cmd-source-row";
+      //: `ph:note`, not `ph:file-text` — that glyph means *document* in the
+      //: touched row below, and the same picture standing for two different
+      //: objects in one panel is exactly the inconsistency this app is being
+      //: pulled out of.
+      setLabel(chip, `ph:note ${noteLabel({ content: entry.content || "" }, 44)}`);
+      chip.title = `Open this note${entry.category ? ` (${entry.category})` : ""}`;
+      chip.addEventListener("click", () => cmdPaletteGoToNote(entry.id));
+      return chip;
+    }
+  );
+}
+
+//: One reference, as a control. Extracted because a list of ids builds several
+//: of these and they must be identical — a note you can open should not look
+//: like two different things in the same sentence.
+function cmdNoteLink(text, id) {
+  const link = document.createElement("button");
+  link.type = "button";
+  link.className = "cmd-note-link";
+  link.textContent = text;
+  link.title = "Open this note";
+  link.addEventListener("click", () => cmdPaletteGoToNote(id));
+  return link;
+}
+
+//: Turns "note id 43" in the rendered answer into a button that opens note 43.
+//:
+//: Walks text nodes and splits them, the same shape `addInlineCitations` uses
+//: for the Ask box's citation markers — and for the same reason: the answer is
+//: already safe DOM built by `renderMarkdown`, and going back to a string to
+//: regex over it would be re-introducing the innerHTML this function's own
+//: neighbourhood was fixed to stop using. Only ids the turn actually retrieved
+//: are linked, so a model inventing "note id 900" leaves plain text behind
+//: rather than a button that goes nowhere.
+function cmdPaletteLinkNotes(root, results) {
+  const known = new Set((results || []).map((entry) => entry.id));
+  if (!known.size) return;
+  const queue = [root];
+  while (queue.length) {
+    const node = queue.shift();
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      if (node.classList?.contains("cmd-note-link")) continue;
+      queue.unshift(...node.childNodes);
+      continue;
+    }
+    if (node.nodeType !== Node.TEXT_NODE) continue;
+    CMD_NOTE_REF.lastIndex = 0;
+    const match = CMD_NOTE_REF.exec(node.textContent);
+    if (!match) continue;
+    const id = Number(match[1]);
+    if (!known.has(id)) continue;
+    const tail = node.splitText(match.index);
+    const rest = tail.splitText(match[0].length);
+    tail.replaceWith(cmdNoteLink(match[0], id));
+    //: **The rest of the list, which is where the report actually lands.** A
+    //: model writes "notes id 3, 43 and 49" — one phrase naming the id, then
+    //: bare numbers. Linking only the head leaves two of the three notes as
+    //: unreachable digits, which is the complaint verbatim. So after a match,
+    //: keep eating `, 43` / ` and 49` for as long as the next number is one
+    //: this turn actually retrieved. An unknown id ends the run rather than
+    //: being skipped over: past it the numbers are no longer reliably part of
+    //: this list, and guessing is how "$150 to $68" in the very next sentence
+    //: of that screenshot would have become two note links.
+    let cursor = rest;
+    for (;;) {
+      const more = /^(\s*(?:,|and|,\s*and)\s*)(\d{1,7})\b/i.exec(cursor.textContent);
+      if (!more) break;
+      const nextId = Number(more[2]);
+      if (!known.has(nextId)) break;
+      const numStart = cursor.splitText(more[1].length);
+      const after = numStart.splitText(more[2].length);
+      numStart.replaceWith(cmdNoteLink(more[2], nextId));
+      cursor = after;
+    }
+    //: `cursor` carries everything after the run, including any further
+    //: mentions in the same sentence — re-queueing it is what stops the first
+    //: reference in a paragraph being the only one that becomes a link.
+    queue.unshift(cursor);
+  }
+}
+
+async function cmdPaletteAsk(text) {
+  $("command-palette-intro")?.classList.add("hidden");
+
+  const userMsg = document.createElement("div");
+  userMsg.className = "msg user";
+  userMsg.textContent = text;
+  //: **The same three actions the Chat tab's own bubbles carry.** Reported:
+  //: *"I cant copy edit or resend any messages in the popup agent. it still
+  //: lacks a lot of features."* The palette had none of them — a question you
+  //: mistyped could only be retyped from memory, and an answer could only be
+  //: selected by hand.
+  //:
+  //: `chatMessageActions` is the Chat tab's own row, reused rather than
+  //: rebuilt: the palette is supposed to be the same assistant in a smaller
+  //: window, and two different action rows for one idea is how they drift.
+  //: Edit puts the text back in the box rather than opening an editor —
+  //: there is one input here and it is right below, so the shortest path to
+  //: "ask that again, differently" is to hand it back.
+  userMsg.appendChild(
+    chatMessageActions([
+      { label: "ph:copy", title: "Copy", onClick: (e) => copyToClipboard(text, e.currentTarget) },
+      {
+        label: "ph:pencil-simple",
+        title: "Edit and ask again",
+        onClick: () => {
+          cmdPaletteInput.value = text;
+          cmdPaletteInput.focus();
+          cmdPaletteInput.setSelectionRange(text.length, text.length);
+          autoGrow(cmdPaletteInput);
         },
-      });
-      if (!answered) agentMsg.textContent = "(no answer)";
-    } catch (err) {
-      agentMsg.textContent = "Error communicating with agent.";
+      },
+      {
+        label: "ph:arrow-clockwise",
+        title: "Ask this again",
+        onClick: () => cmdPaletteAsk(text),
+      },
+    ])
+  );
+  cmdPaletteResults.appendChild(userMsg);
+
+  const agentMsg = document.createElement("div");
+  //: `.is-generating` is the app's one "this is working" signal
+  //: (01-forms-settings.css). It goes on the bubble that is filling, not on a
+  //: spinner parked elsewhere, so what pulses is the thing being waited for.
+  agentMsg.className = "msg assistant is-generating";
+  agentMsg.appendChild(typingDots());
+  cmdPaletteResults.appendChild(agentMsg);
+  //: The answer's own row, added now and reading `answerRaw` at click time —
+  //: the text does not exist yet, and binding a copy of an empty string is
+  //: how "Copy" ends up copying nothing on a fast answer.
+  agentMsg.appendChild(
+    chatMessageActions([
+      {
+        label: "ph:copy",
+        title: "Copy this answer",
+        onClick: (e) => copyToClipboard(answerRaw, e.currentTarget),
+      },
+      {
+        label: "ph:arrow-clockwise",
+        title: "Ask again for a different answer",
+        onClick: () => cmdPaletteAsk(text),
+      },
+    ])
+  );
+  cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
+
+  // Was hand-rolled against `/chat` (the non-streaming endpoint, a single
+  // JSON object) as though it were the NDJSON `/chat/stream` shape — so
+  // `msg.type` was never "content" and this never actually rendered an
+  // answer at all (a "feature that never ran once", CLAUDE.md's own
+  // category for this). It also built the answer with
+  // `innerHTML = answerText.replace(...)` and no escaping — a real,
+  // reachable XSS the moment the parsing bug above was fixed, since a
+  // model can echo a note's own text back verbatim. Fixed by reusing this
+  // file's one real streaming client (`streamChat`) and its one safe
+  // renderer (`renderMarkdown`, DOM nodes only, never innerHTML) instead
+  // of a second, parallel, broken implementation of both.
+  let answerRaw = "";
+  let answered = false;
+  let found = [];
+  //: Keyed on kind *and* id, because a note 3 and a document 3 are two
+  //: different things and both may be touched in one turn.
+  const touched = new Map();
+  let meta = null;
+  let stats = null;
+  let thinkingRaw = "";
+  cmdPaletteRun = new AbortController();
+  cmdPaletteBusy(true);
+  try {
+    await streamChat({
+      question: text,
+      // The same window the Ask box uses, and for the same reason: enough
+      // for a follow-up to mean something, short enough that a small local
+      // model is not re-reading a transcript every turn.
+      history: cmdPaletteTurns.slice(-MAX_CLIENT_HISTORY),
+      useTools: true, // the palette is meant to act on the notebook, like Chat
+      signal: cmdPaletteRun.signal,
+      //: `raw_results` is the notes retrieval surfaced for this turn. It used
+      //: to be discarded here, which is why the palette could only describe
+      //: what it found and never show it.
+      onMeta: (event) => {
+        meta = event;
+        found = event?.raw_results || [];
+      },
+      //: Accumulated, not rendered per delta: the box is closed, so there is
+      //: nothing on screen to keep up to date, and re-rendering a <pre> on
+      //: every token would be work nobody can see.
+      onThinking: (delta) => {
+        thinkingRaw += delta;
+      },
+      //: An agent turn reports once per round. Same accumulation the Chat tab
+      //: does — output tokens add up, the prompt is the largest one sent, and
+      //: one estimated round makes the whole figure an estimate.
+      onStats: (event) => {
+        if (!stats) {
+          stats = { ...event };
+          return;
+        }
+        stats.model = event.model || stats.model;
+        stats.prompt_tokens = Math.max(stats.prompt_tokens || 0, event.prompt_tokens || 0);
+        stats.output_tokens = (stats.output_tokens || 0) + (event.output_tokens || 0);
+        stats.round = Math.max(stats.round || 0, event.round || 0);
+        if (event.usage_source === "estimated") stats.usage_source = "estimated";
+      },
+      onTool: (event) => {
+        // Something visible while a tool runs, so a long silence reads as
+        // work rather than as nothing happening.
+        //: `setLabel`, not `textContent`. A tool event's label carries this
+        //: app's icon token — `ph:books Listed notes (…)` — and `setLabel` is
+        //: the one function that turns that into the glyph. Writing it as text
+        //: printed the token itself: reported with a screenshot reading
+        //: "Running ph:books Listed notes ([\"Thoughts & Ideas\"])…". The label
+        //: has to be composed before the icon is resolved, since the token is
+        //: only recognised at the start of the string.
+        setLabel(
+          $("command-palette-status"),
+          event?.label ? `${event.label} …` : "Working…",
+        );
+        for (const item of event?.touched || []) {
+          touched.set(`${item.kind}:${item.id}`, item);
+        }
+        //: **The rest of the app has to hear about it too.**
+        //:
+        //: Reported: *"the popup agent made a note, but there was no way to
+        //: go to it, it didn't appear in the notes tab and only appeared in
+        //: the library."* Both halves are this one line. The Chat tab has
+        //: called `loadEntries()` on a change event since it was built; the
+        //: palette never did, so `allEntries` — which the Notes tab renders
+        //: from, and which the palette's own chips resolve titles against —
+        //: still held the notebook as it was before the agent wrote to it.
+        //: The Library looked correct only because it re-fetches when opened.
+        //:
+        //: Not awaited: this runs mid-stream and the answer must keep
+        //: arriving while the list refreshes behind it.
+        if ((event?.changes || []).length) loadEntries();
+      },
+      onAnswer: (delta) => {
+        answered = true;
+        answerRaw += delta;
+        renderMarkdown(agentMsg, answerRaw);
+        cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
+      },
+    });
+    if (!answered) agentMsg.textContent = "(no answer)";
+    else {
+      //: Linked once, at the end, rather than on every delta: mid-stream the
+      //: text can be "note id 4" on its way to "note id 43", and a link built
+      //: from that half-arrived number would point at the wrong note.
+      //: Retrieval's notes *and* the notes tools opened: an `edit_note` turn
+      //: retrieves nothing, so "note id 43" in its answer had no link at all.
+      cmdPaletteLinkNotes(agentMsg, [
+        ...found,
+        ...[...touched.values()].filter((item) => item.kind === "note"),
+      ]);
+      cmdPaletteTurns.push({ question: text, answer: answerRaw });
+    }
+    //: Below the answer, and always when there were results — the model's
+    //: prose is free to summarise or to leave a note out, but what retrieval
+    //: found should not depend on whether it got a mention.
+    if (found.length) cmdPaletteResults.appendChild(cmdPaletteResultRow(found));
+    //: Under retrieval's row, not instead of it: "what I searched" and "what I
+    //: opened" are different claims, and a turn can have one without the other.
+    const touchedRow = cmdPaletteTouchedRow([...touched.values()]);
+    if (touchedRow) cmdPaletteResults.appendChild(touchedRow);
+    //: Reasoning above the evidence, evidence above the accounting — the same
+    //: order the Chat tab reads in, so moving between the two surfaces does
+    //: not mean learning a second layout.
+    if (thinkingRaw.trim()) {
+      agentMsg.prepend(cmdPaletteThinkingBox(thinkingRaw.trim()));
+    }
+    const metaRow = cmdPaletteMetaRow({
+      meta,
+      stats,
+      persona: (prefsCache && prefsCache.active_persona) || null,
+    });
+    if (metaRow) cmdPaletteResults.appendChild(metaRow);
+    cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
+  } catch (err) {
+    if (err?.name === "AbortError") {
+      agentMsg.textContent = answerRaw || "(stopped)";
+    } else {
+      // The message, not a euphemism for it. A failing model's real reason
+      // arrives here (see `describe_http_error` in ai/ollama_client.py) and
+      // "Error communicating with agent." threw all of it away.
+      agentMsg.textContent = err?.message || "The agent could not be reached.";
       agentMsg.classList.add("error");
     }
+  } finally {
+    agentMsg.classList.remove("is-generating");
+    cmdPaletteRun = null;
+    cmdPaletteBusy(false);
+  }
+}
+
+// The palette's input is a `<textarea>` (see index.html for why), so it has
+// to be told to behave like a command bar rather than a text box: Enter
+// sends, Shift+Enter — and any of the IME/composition states below — insert a
+// newline. `isComposing` matters for anyone typing Japanese, Chinese or Korean:
+// Enter commits the candidate word there, and sending on it would fire the
+// agent at half a sentence every time.
+function cmdPaletteGrow() {
+  // Reset first: without it the box only ever ratchets taller, because
+  // scrollHeight can never come back below a height already set on it.
+  cmdPaletteInput.style.height = "auto";
+  const max = 9 * 16; // ~9rem, then it scrolls — the palette is not an editor
+  cmdPaletteInput.style.height = `${Math.min(cmdPaletteInput.scrollHeight, max)}px`;
+}
+
+cmdPaletteInput.addEventListener("input", cmdPaletteGrow);
+
+cmdPaletteInput.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" || e.shiftKey || e.isComposing || e.keyCode === 229) return;
+  e.preventDefault(); // or the newline lands in the box we are about to clear
+  if (!cmdPaletteInput.value.trim()) return;
+  const text = cmdPaletteInput.value.trim();
+  cmdPaletteInput.value = "";
+  cmdPaletteGrow();
+  cmdPaletteAsk(text);
+});
+
+$("command-palette-clear")?.addEventListener("click", cmdPaletteReset);
+$("command-palette-stop")?.addEventListener("click", () => cmdPaletteRun?.abort());
+$("command-palette-intro")?.addEventListener("click", (e) => {
+  const example = e.target.closest("[data-example]");
+  if (!example) return;
+  cmdPaletteInput.value = example.dataset.example;
+  cmdPaletteGrow();
+  cmdPaletteInput.focus();
+  // A complete question runs; a stem ("Make a note: ") is left for the user
+  // to finish, with the caret already after it.
+  if (example.dataset.example.trim().endsWith("?")) {
+    const text = cmdPaletteInput.value.trim();
+    cmdPaletteInput.value = "";
+    cmdPaletteAsk(text);
   }
 });
 
@@ -25737,7 +31026,7 @@ function spaceIconPicker(container, hiddenInput) {
   }
 }
 
-function spaceMenuOption({ id, name, icon, deletable }) {
+function spaceMenuOption({ id, name, icon, deletable, hiddenFromAll }) {
   const option = document.createElement("button");
   option.type = "button";
   option.className = "space-option";
@@ -25768,6 +31057,23 @@ function spaceMenuOption({ id, name, icon, deletable }) {
     // trip the row's own switch-to-this-space handler and reload the page out
     // from under the dialog that was about to open.
     for (const [glyphName, title, run] of [
+      // Keep this space out of "All spaces", or put it back. Asked for
+      // directly: "how do I hide a specific space's notes and
+      // images/documents etc, all the content from the 'all spaces' space if
+      // I wish??" It lives on the space's own row because that is where a
+      // person is when they think it — not buried in Settings, which is the
+      // other place it could have gone and a worse one.
+      //
+      // The glyph carries the state (an open eye means visible, a struck-out
+      // one means hidden), and the title says what pressing it will do,
+      // which is the pair every other toggle in this app uses.
+      [
+        hiddenFromAll ? "ph-eye-slash" : "ph-eye",
+        hiddenFromAll
+          ? "Hidden from All spaces — show it there again"
+          : "Hide this space's contents from All spaces",
+        () => toggleSpaceHidden(id, !hiddenFromAll),
+      ],
       ["ph-pencil-simple", "Rename this space", () => openSpaceEdit(id, name, icon)],
       ["ph-trash", "Delete this space", () => openSpaceDelete(id)],
     ]) {
@@ -25798,6 +31104,29 @@ function spaceMenuOption({ id, name, icon, deletable }) {
   return option;
 }
 
+// Flip a space in or out of the everything-view. A view filter, not a
+// privacy boundary — the space stays completely usable when selected.
+async function toggleSpaceHidden(id, hidden) {
+  try {
+    await apiJson(`/spaces/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ hidden_from_all: hidden }),
+    });
+    await loadSpaces();
+    renderSpaceMenu();
+    toast(
+      hidden
+        ? "Hidden from All spaces. It still opens normally when you pick it."
+        : "Showing in All spaces again."
+    );
+    // The everything-view's contents just changed under whatever is on
+    // screen, so it has to be re-read rather than left stale.
+    if (activeSpaceId() === SPACE_ALL) await loadEntries();
+  } catch (error) {
+    toast(error.message || "Couldn't change that space.", true);
+  }
+}
+
 function renderSpaceMenu() {
   const menu = $("space-menu");
   if (!menu) return;
@@ -25817,6 +31146,7 @@ function renderSpaceMenu() {
       // "default" is where a deleted space's notes go, so it cannot itself be
       // deleted — the server refuses it too, but offering a button that always
       // errors is not a UI.
+      hiddenFromAll: Boolean(space.hidden_from_all),
       deletable: space.id !== "default",
     }));
   }
@@ -26111,3 +31441,8 @@ async function renderTemplateSettings() {
 $("template-add")?.addEventListener("click", addTemplate);
 $("template-cancel")?.addEventListener("click", stopEditingTemplate);
 
+
+// Upgrade every dropdown in the app, and keep upgrading the ones that
+// appear later. Last line of the file on purpose: by here every panel this
+// script builds up front exists, and the observer inside covers the rest.
+watchForSelects();

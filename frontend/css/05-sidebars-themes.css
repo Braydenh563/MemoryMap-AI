@@ -302,6 +302,106 @@ button.ai-unavailable {
   margin-right: var(--space-1);
 }
 
+/* A file attached to a note. Replaces the bare `<a href="/media/…">` that
+   used to render here, which navigated the whole app away to a 401 page
+   with no way back — see `fileCard` in app.js for the full account.
+
+   `inline-flex`, not `block`: this is produced by the inline-markdown
+   renderer and can legitimately sit mid-sentence. Stacked one per line is
+   the common case and falls out of the flow anyway, because a note that
+   attaches files puts each on its own line. */
+.file-card {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0;
+  max-width: 100%;
+  margin: var(--space-2) var(--space-2) var(--space-2) 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--chip-bg);
+  overflow: hidden;
+  vertical-align: middle;
+}
+
+.file-card:hover {
+  border-color: var(--accent);
+}
+
+.file-card-open {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  height: auto;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.file-card-open:hover {
+  background: var(--accent-soft);
+}
+
+.file-card-icon {
+  flex: 0 0 auto;
+  font-size: var(--text-h3);
+  color: var(--accent);
+}
+
+.file-card-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+/* The name is the thing being identified, so it gets the ellipsis rather
+   than the row: a long filename must not be allowed to widen the card past
+   the note it sits in. */
+.file-card-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.file-card-kind {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+/* Its own border rather than a gap, so the two halves read as one object
+   with two actions instead of two buttons that happen to be adjacent. */
+.file-card-save,
+.file-card-remove {
+  flex: 0 0 auto;
+  align-self: stretch;
+  height: auto;
+  border: 0;
+  border-left: 1px solid var(--border);
+  border-radius: 0;
+}
+
+/* The composer's own list of attached files. A wrapping row rather than a
+   grid: there are usually one or two, and a grid would leave an empty
+   column beside a single file. */
+.file-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* Inside the strip each card is its own row item, so the inline margin the
+   in-note version needs (it can sit mid-sentence) would double the gap. */
+.file-strip .file-card {
+  margin: 0;
+}
+
 /* Swapped in for a note's own inline image once its file is gone —
    a closable box instead of a broken-image glyph, asked for directly. */
 .entry-inline-image-deleted {
@@ -684,6 +784,45 @@ mark.text-highlight-grey { background: rgba(148, 163, 184, 0.25); }
   color: var(--callout-accent);
 }
 
+/* --- a callout that folds (REDESIGN.md §R7.3 item 3) -----------------------
+   `> [!note]-` renders as a `<details>` and its head as the `<summary>`, so
+   the open/close, the keyboard operation and the ARIA all come from the
+   browser. What is left to style is the marker: the default `list-item`
+   triangle sits on the baseline in a box whose other disclosures all use the
+   app's own caret, so this is the same caret every other expander uses. */
+.callout-foldable > .callout-head {
+  list-style: none;
+  cursor: pointer;
+}
+
+.callout-foldable > .callout-head::-webkit-details-marker {
+  display: none;
+}
+
+.callout-foldable > .callout-head::after {
+  content: "";
+  flex: 0 0 auto;
+  /* Pushed to the far end rather than sitting against the title: the head is
+     a flex row and the caret is the affordance for the whole row. */
+  margin-left: auto;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--motion-fast) ease;
+}
+
+.callout-foldable[open] > .callout-head::after {
+  transform: rotate(45deg);
+}
+
+/* Closed, the head is the whole box, so the margin under it is a gap with
+   nothing on the other side of it. */
+.callout-foldable:not([open]) > .callout-head {
+  margin-bottom: 0;
+}
+
 /* The body is rendered by renderMarkdown, so it can hold lists, code and
    links. Its first and last children lose their outer margin or the box gains
    a stripe of dead space at each end. */
@@ -1049,15 +1188,52 @@ body.resizing-sidebar {
    different control heights in the screenshot that came with "fix/redesign
    the ui, layout, alignment, sizing". The dock is `.doc-dock` now and shares
    only the separator. */
+/* **One row that scrolls, pinned to the top of the editor.**
+
+   Two changes, both about the same thing — a toolbar is furniture, and
+   furniture that moves or grows is furniture you have to look at:
+
+   - `flex-wrap: wrap` let the row become two (and, before the colour selects
+     were sized, four). A second row appears and disappears as the pane is
+     resized, shifting the whole document down by 33px each time. `nowrap`
+     plus a scroller keeps the editor's top edge where it was, and the
+     controls that do not fit are one flick away rather than one reflow.
+   - Sticky, because in a long document the formatting controls are needed
+     where the caret is, not at the top of a page you have scrolled away from.
+     `z-index` above the prose, and an opaque ground so text does not show
+     through it. */
 .doc-toolbar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.25rem;
   padding: 0.4rem 0.4rem;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   background: var(--card);
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  overflow-x: auto;
+  overflow-y: visible;
+  /* A scrolling strip needs its own scrollbar to be unobtrusive: this is
+     chrome, not content. */
+  scrollbar-width: thin;
+}
+
+/* Nothing in the strip may shrink — a squeezed button is a button whose glyph
+   no longer centres, and the row scrolls precisely so it does not have to. */
+.doc-toolbar > * {
+  flex: none;
+}
+
+/* A menu inside a scrolling container would be clipped by it. These are
+   `<details>` popovers positioned against the strip, so the strip is told to
+   let them out — `overflow-y: visible` above does that vertically, and this
+   keeps the popover itself out of the scroll calculation. */
+.doc-toolbar .doc-toolbar-menu[open] .doc-dock-menu-list {
+  position: absolute;
+  z-index: 4;
 }
 
 /* The colour pickers are <select>s, and this app styles form controls as
@@ -2296,7 +2472,11 @@ textarea.autogrow {
    the exception belongs here where the conflict is, not there where it
    wouldn't be seen. */
 .header-controls button:not(.ai-status) {
-  height: 2rem;
+  /* The token, not a repeat of its value — raising --header-control-h has
+     to move these with the tabs, or the bar goes ragged the moment it
+     changes ("the buttons and spaces elements in the top bar are too
+     small"). */
+  height: var(--header-control-h);
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -2444,4 +2624,138 @@ textarea.autogrow {
   margin-bottom: var(--space-2);
   background: none;
   border-color: var(--border);
+}
+
+/* A non-image upload's tile in the Library gallery. Same footprint as an
+   image tile so the grid stays a grid — a PDF among photos must not make
+   the row it is in a different height. See library.js's own comment for why
+   these tiles used to delete themselves instead of rendering. */
+/* **The PDF's first page covers the tile; it does not sit on top of it.**
+   Reported with a screenshot: "in the files tab, the file type logo gets cut
+   off and squashed below the preview image". It did. `.library-file-page` had
+   no rule of its own at all, so the rendered page was a plain `<img>` flowing
+   as the first child of a 9rem `overflow: hidden` flex column — pushing the
+   glyph and the "PDF" caption down and off the bottom edge.
+
+   `library.js`'s own comment says what was meant: "The glyph stays underneath
+   as the fallback for everything without pages, and for a PDF whose render
+   fails." Underneath, not above. Taking the page out of flow and letting it
+   fill the tile makes that true — the glyph is still there, still centred,
+   simply covered while there is a page to show, and revealed the moment the
+   render 404s, because the error handler removes the page and nothing else
+   has to change.
+
+   `cover`, not `contain`: a tile is a fixed 9rem box and a portrait page in it
+   would otherwise letterbox into a thin strip with the glyph showing through
+   either side. The top of a document is the part worth seeing, so the crop is
+   anchored there rather than to the middle. */
+.library-file-page {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  background: #fff;
+}
+
+.library-file-thumb {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  /* Matched to `.library-image-tile img`'s own 9rem, not chosen: a tile
+     that is taller than the photos beside it makes its whole grid row
+     taller and the gallery stops reading as a grid. */
+  height: 9rem;
+  border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
+  background: var(--chip-bg);
+  color: var(--accent);
+  font-size: var(--text-display);
+  cursor: pointer;
+}
+
+.library-file-thumb-kind {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  letter-spacing: 0.06em;
+}
+
+/* A file staged in the composer: chosen, not yet uploaded, because the note
+   it belongs to has no id until Save. Dimmed rather than hidden — it is a
+   real commitment the user has made and should be able to see and undo. */
+.file-card-staged {
+  border-style: dashed;
+}
+
+.file-card-staged .file-card-open {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.file-card-pending {
+  color: var(--accent);
+}
+
+/* Direction on a link chip. Colour is deliberately *not* the only signal —
+   the arrow glyph carries it, and DESIGN.md's contrast rule (and WCAG's
+   "don't convey information by colour alone") both say so. The tint is a
+   second, faster read for someone scanning a well-linked note. */
+.chip.link.link-in {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
+/* The × that detaches a link, and the pencil that edits its reason. Measured
+   at 10x18 — under half of WCAG 2.2 AA's 24px floor, and the fiddliest
+   target left in the notes list. The glyph stays its size; the box around it
+   grows to something a trackpad can actually land on. */
+.unlink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--target-min);
+  min-height: var(--target-min);
+  /* **Zero the inherited line box.** Reported with a screenshot right after
+     the target floor landed: "the linked notes buttons arent aligned". The
+     chip is an `inline-flex` row with `align-items: center`, which centres
+     its children's *boxes* — but each of these had inherited the chip's own
+     0.75rem line-height on top of a 28px box, so the glyph sat low inside a
+     box that was itself correctly centred. Two different vertical
+     alignments, one visible offset.
+
+     `line-height: 1` makes the glyph fill its own box, and the flex
+     centring above then puts it where it belongs. The 28px target is
+     untouched — the box stays the size a finger needs, the ink just sits in
+     the middle of it. */
+  line-height: 1;
+  /* The floor grows the row it sits in unless the chip is told it may stay
+     shorter than its tallest child's *minimum*. Without this the whole link
+     chip inflated to 28px tall, which is a third taller than every other
+     chip in the same strip. */
+  align-self: center;
+}
+
+/* A chip carrying action buttons is a row of boxes, not a line of text, so
+   its own line-height must not decide anyone's height. */
+.chip.link {
+  line-height: 1;
+  padding-block: 0;
+}
+
+/* Files shown by type rather than by preview — `setLibraryMediaView`
+   (library.js), asked for as "make it togglable to change between filetype
+   and previews".
+
+   Hiding the page render is the whole switch. The glyph and its caption are
+   already in every tile, centred, and were only ever covered; take the cover
+   away and the type view is simply what the tile looks like underneath. No
+   second markup path, nothing refetched, and a tile cannot end up in a state
+   where neither is showing. */
+.library-image-grid.show-file-types .library-file-page {
+  display: none;
 }

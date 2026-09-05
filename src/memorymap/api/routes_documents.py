@@ -89,12 +89,60 @@ class AiEditBody(BaseModel):
     verb: Literal["edit", "write", "remove"] = "edit"
 
 
+#: How much of a document's opening the list view gets. Long enough for three
+#: lines at the card's width, short enough that listing 200 documents does not
+#: ship 200 whole documents to draw a list — which is the reason `_summary`
+#: withholds `content` in the first place.
+PREVIEW_CHARS = 240
+
+
+def _preview(content: str) -> str:
+    """The opening of a document, flattened to one run of prose.
+
+    The Library's document list showed a title, a word count and a date and
+    nothing else, so telling four similarly-named drafts apart meant opening
+    each one. Reported as the Documents sub-tab being "boring" and wanting
+    previews.
+
+    Markdown structure is stripped rather than rendered: a preview that begins
+    with `# ` or `- ` spends its first characters on syntax, and a heading is
+    usually a restatement of the title that is already on the card. Blank
+    lines collapse for the same reason — three lines of preview should be
+    three lines of the document's words.
+    """
+    lines = []
+    for raw in content.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        # Leading markdown syntax only — a `#` inside a sentence stays.
+        line = line.lstrip("#>-*+ \t")
+        if line:
+            lines.append(line)
+        if sum(len(part) for part in lines) > PREVIEW_CHARS:
+            break
+    text = " ".join(lines)
+    if len(text) <= PREVIEW_CHARS:
+        return text
+    # Cut at a word boundary, not mid-word. A hard slice ended the first
+    # rendered preview on "a different kind of de", which reads as the text
+    # being broken rather than as there being more of it. The ellipsis is what
+    # says "there is more"; without it a clean cut just looks like a document
+    # that stops.
+    cut = text[:PREVIEW_CHARS]
+    space = cut.rfind(" ")
+    if space > PREVIEW_CHARS // 2:
+        cut = cut[:space]
+    return cut.rstrip(" ,;:-") + "\u2026"
+
+
 def _summary(document: Document) -> dict:
     return {
         "id": document.id,
         "title": document.title,
         "updated_at": document.updated_at.isoformat(),
         "words": len(document.content.split()),
+        "preview": _preview(document.content),
         # Normalised on the way out as well as in: a row written before this
         # column existed, or by a restore from an older backup, can hold
         # anything at all, and the editor picks its whole mode from this.
@@ -420,6 +468,37 @@ def detach_note(
     document = _existing(session, document_id)
     unlink_document(session, document.id, entry_id)
     return _full(document, session)
+
+
+@router.get("/{document_id}/connections")
+def document_connections(document_id: int, session: Session = Depends(get_session)) -> dict:
+    """The same Connections block a note gets, for a document.
+
+    A document's joins were split across three places before this: attached
+    notes came back inside `GET /documents/{id}`, bookmarks had their own
+    endpoint, and the images a document embeds were listed nowhere — you
+    could only find them by reading the markdown. One shape, one request.
+    """
+    from memorymap.api.routes_entries import _connected_files
+
+    document = _existing(session, document_id)
+    bookmarks = [
+        {"id": row.id, "title": row.title, "url": row.url}
+        for row in session.scalars(
+            select(Bookmark)
+            .join(DocumentBookmark, DocumentBookmark.bookmark_id == Bookmark.id)
+            .where(DocumentBookmark.document_id == document.id)
+            .order_by(Bookmark.title)
+        )
+    ]
+    notes = _linked_notes(session, document.id)
+    files = _connected_files(session, document.content)
+    return {
+        "notes": notes,
+        "bookmarks": bookmarks,
+        "files": files,
+        "total": len(notes) + len(bookmarks) + len(files),
+    }
 
 
 @router.get("/{document_id}/export.md")

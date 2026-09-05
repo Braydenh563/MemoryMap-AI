@@ -26,11 +26,16 @@ import json
 from pathlib import Path
 
 import pytest
+import requests
 
 from fakes_http import FakeResponse, sse
 
 from memorymap.ai import provider as provider_module
-from memorymap.ai.ollama_client import OllamaClient, OllamaError
+from memorymap.ai.ollama_client import (
+    OllamaClient,
+    OllamaError,
+    describe_http_error,
+)
 from memorymap.ai.openai_client import OpenAICompatClient
 from memorymap.ai.provider import (
     ProviderError,
@@ -779,3 +784,165 @@ def test_the_probe_asks_without_tools_and_caps_the_reply(ollama, capture_post):
     sent = capture_post.sent[-1]["json"]
     assert "tools" not in sent
     assert sent["options"]["num_predict"] == 1
+
+
+class _FakeErrorResponse:
+    """Just enough of a `requests.Response` for `describe_http_error`."""
+
+    def __init__(self, status_code, payload=None, text=""):
+        self.status_code = status_code
+        self._payload = payload
+        self.text = text
+
+    def json(self):
+        if self._payload is None:
+            raise ValueError("no json")
+        return self._payload
+
+
+def _http_error(status_code, payload=None, text=""):
+    exc = requests.HTTPError(f"{status_code} Server Error: for url: /api/chat")
+    exc.response = _FakeErrorResponse(status_code, payload, text)
+    return exc
+
+
+def test_http_error_quotes_what_ollama_actually_said():
+    """Reported as "the AI is broken", and the only evidence was
+    `ProviderError: Chat with 'x' failed: 500 Server Error`. Ollama puts the
+    diagnosis in the body and `str(HTTPError)` never reads it, so every 500
+    looked the same whatever had gone wrong."""
+    message = describe_http_error(
+        _http_error(500, {"error": "llama runner process has terminated: exit status 2"}),
+        "my-custom-gguf",
+    )
+    assert "llama runner process has terminated" in message
+    assert "could not load the model file" in message
+    # The bare status line is what this replaces; it must not be all there is.
+    assert message != "Chat with 'my-custom-gguf' failed: 500 Server Error"
+
+
+def test_http_error_names_the_memory_case():
+    message = describe_http_error(
+        _http_error(500, {"error": "model requires more system memory than is available"}),
+        "big-model",
+    )
+    assert "more system memory" in message
+    assert "smaller quantisation" in message
+
+
+def test_an_empty_500_body_still_says_something_useful():
+    """**The case that kept being reported**, verbatim:
+
+        Tool chat with 'hf.co/…/Gemma-4-E2B-…:Q4_K_M' failed: 500 Server
+        Error: Internal Server Error for url: http://localhost:11434/api/chat
+
+    An earlier version of this test asserted the message *was* exactly that
+    transport line, on the reasoning that with no body there is nothing to
+    add. That reasoning was wrong: the app still knows which model was
+    asked, that a local server answered 5xx, and that 500s on `/api/chat`
+    come overwhelmingly from a model that would not load or ran out of
+    memory. Naming those, and pointing at Ollama's own log for the real
+    text, is not a manufactured diagnosis — it is what is left to say.
+
+    The raw error still has to be in there. Replacing the server's own words
+    with a guess is the thing this function must never do.
+    """
+    message = describe_http_error(_http_error(500, payload={}), "m")
+    assert "500 Server Error: for url: /api/chat" in message
+    assert "Ollama's own log" in message
+    assert "could not be loaded" in message
+    assert "'m'" in message
+
+
+def test_a_4xx_with_no_body_gets_no_invented_advice():
+    """The 5xx guidance above is specific to 5xx. A 4xx with an empty body
+    means the request was refused, not that a model failed to load, and
+    saying "check your GGUF" there would send the user the wrong way."""
+    message = describe_http_error(_http_error(400, payload={}), "m")
+    assert message == "Chat with 'm' failed: 400 Server Error: for url: /api/chat"
+    assert "Ollama's own log" not in message
+
+
+def test_http_error_reads_a_non_json_body():
+    message = describe_http_error(_http_error(404, text="model 'ghost' not found"), "ghost")
+    assert "not found" in message
+    assert "Pull it first" in message
+
+
+# --- a model that invents a synonym for a real tool's verb ---------------------
+#
+# Reported with a screenshot of the Ctrl+Shift+A popup agent, and the user's
+# own words: "also no note was made". The model had written its call as plain
+# text — which `extract_text_tool_calls` already recovers — but named it
+# `make_note`, and this app's tool is `create_note`. The salvage dropped it on
+# the one check it could not pass, and the raw JSON was printed to the user as
+# if it were an answer.
+
+_NAMES = {
+    "create_note",
+    "edit_note",
+    "get_note",
+    "delete_note",
+    "search_notes",
+    "list_notes",
+    "tag_note",
+    "link_notes",
+}
+
+
+def test_the_popup_agents_own_dropped_call_now_runs():
+    """Verbatim shape from the screenshot: `make_note`, and `parameters`
+    rather than `arguments` at the top level."""
+    raw = (
+        '{"name": "make_note", "parameters": {"content": "ideation for '
+        'tangible interaction design", "category": "Courses & Study"}}'
+    )
+    calls, cleaned = provider_module.extract_text_tool_calls(raw, _NAMES)
+    assert [c["name"] for c in calls] == ["create_note"]
+    assert calls[0]["arguments"]["category"] == "Courses & Study"
+    # …and the JSON is taken out of what the user is shown.
+    assert cleaned.strip() == ""
+
+
+def test_every_common_invented_verb_lands_on_the_real_tool():
+    for invented in ("make_note", "add_note", "new_note", "save_note", "write_note"):
+        assert provider_module.resolve_tool_name(invented, _NAMES) == "create_note"
+    for invented in ("read_note", "open_note", "fetch_note", "show_note"):
+        assert provider_module.resolve_tool_name(invented, _NAMES) == "get_note"
+    for invented in ("find_notes", "lookup_notes", "query_notes"):
+        assert provider_module.resolve_tool_name(invented, _NAMES) == "search_notes"
+    assert provider_module.resolve_tool_name("remove_note", _NAMES) == "delete_note"
+    assert provider_module.resolve_tool_name("update_note", _NAMES) == "edit_note"
+    assert provider_module.resolve_tool_name("connect_notes", _NAMES) == "link_notes"
+
+
+def test_a_singular_or_plural_slip_still_lands():
+    assert provider_module.resolve_tool_name("create_notes", _NAMES) == "create_note"
+    assert provider_module.resolve_tool_name("find_note", _NAMES) == "search_notes"
+
+
+def test_a_real_name_is_never_rewritten():
+    for real in _NAMES:
+        assert provider_module.resolve_tool_name(real, _NAMES) == real
+
+
+def test_an_invented_capability_is_still_refused():
+    """The line this must not cross: rewriting a *verb* on a tool that exists
+    is a name to fix, but a model asking for something this app cannot do at
+    all has to come back unresolved so the caller refuses it."""
+    for invented in ("send_email", "make_coffee", "delete_everything", "post_tweet"):
+        assert provider_module.resolve_tool_name(invented, _NAMES) == invented
+    calls, cleaned = provider_module.extract_text_tool_calls(
+        '{"name": "send_email", "arguments": {"to": "x"}}', _NAMES
+    )
+    assert calls == []
+    # Not silently swallowed either — it stays in the text.
+    assert "send_email" in cleaned
+
+
+def test_it_never_guesses_between_two_plausible_tools():
+    """`make_note` resolves because exactly one real tool answers to
+    `create_note`. Nothing here may pick between two."""
+    assert provider_module.resolve_tool_name("thing_note", _NAMES) == "thing_note"
+    assert provider_module.resolve_tool_name("", _NAMES) == ""
+    assert provider_module.resolve_tool_name(None, _NAMES) is None

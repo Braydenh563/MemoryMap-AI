@@ -203,9 +203,30 @@
   border-radius: var(--radius-md);
 }
 
+/* Hovering an unselected segment did nothing at all — measured: transparent
+   background, no border, no shadow, muted text, and no `:hover` rule
+   anywhere. Next to the accent-filled selected segment, "Tree / Radial /
+   Arc" read as three plain words rather than three things you can press,
+   which is the "shapes with text in them" report in its purest form. A flat
+   *resting* state is right for a segmented control (that is what makes the
+   selected one legible), so the fix is the missing feedback, not a resting
+   fill: the surface appears under the pointer, and the label goes to full
+   --ink so the hovered option looks as real as the selected one. */
+.seg button:not(.active):hover {
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
+}
+
 .seg button.active {
   background: var(--accent);
   color: #fff;
+}
+
+/* `.seg`'s own `margin-bottom` is for a segmented control sitting above the
+   thing it filters (the dashboard's, which is what it was written for). In
+   a toolbar row it just pushes this one control off the shared baseline. */
+.notes-view-toggle {
+  margin-bottom: 0;
 }
 
 /* Text size scales the root font (rem-based layout follows). Composed with
@@ -307,29 +328,84 @@
   accent-color: var(--accent);
 }
 
+/* **Zero horizontal padding**, reported directly with a screenshot: "the
+   text in the cards goes right against the right [edge]" — measured at
+   `padding: 8px 0px`, so a row's own description ran flush to both the
+   card's left rule and its right edge with nothing to separate it from
+   either. Given the same inline padding every settings card uses, so a tool
+   row reads as one more card in the list rather than a different kind of
+   row. */
+/* **A list, not fifty-three bubbles.** Reported with a screenshot: "the tools
+   it can use toggles … are on separate bubbles and each has a line at the top
+   for some reason". Both were real and both were accidents of two rules
+   meeting:
+
+   - the `li` carried a tinted ground and a radius, which turns a row into a
+     card — fine for six settings, absurd for fifty-three consecutive ones;
+   - and `.setting-check`, which every row also wears, adds `border-top` as
+     its own separator. Inside a bubble that already has a bottom rule, that
+     is a line across the top of every card with nothing above it to separate.
+
+   One hairline between rows, no ground, no radius: the same list shape the
+   rest of Settings uses, which is what "different from the rest" was about. */
 #tool-list li {
-  padding: 0.5rem 0;
+  padding: var(--space-3) var(--space-4);
+  /* One hairline per gap: the bottom rule is the separator, and a top rule as
+     well divides every pair of neighbours twice. Measured: both were on. */
+  border-top: 0;
   border-bottom: 1px solid var(--border);
+  background: none;
+  border-radius: 0;
 }
 
-.tool-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
+#tool-list li:last-child {
+  border-bottom: 0;
+}
+
+/* The row's own top rule goes with it — the `li` above is the separator now,
+   and two lines between neighbours is one line too many. */
+#tool-list .tool-row {
+  border-top: 0;
+}
+
+/* **`.tool-row` is `.setting-check` now, and carries both classes.** Reported
+   directly: "the toggles in the tools it can use settings page are visually
+   different from the rest". They were — measured across every Settings
+   section, all seven `.setting-check` rows put the switch hard right against
+   a straight edge, while all fifty-one tool rows put it first, on the left,
+   so its position tracked nothing and the two pages read as different
+   components doing the same job. `.setting-check`'s own comment records why
+   right is the answer: it was asked for, and it is where every settings
+   screen a person has already used puts it.
+
+   Nothing here re-declares the grid — the row simply joins that rule's
+   selector list by wearing its class. All that is left is the weight of the
+   tool's name, which `.setting-check` has no opinion about. */
+.tool-row>span>strong {
   font-weight: 500;
 }
 
-.tool-row input {
-  width: 1.15rem;
-  height: 1.15rem;
-  margin: 0;
-  accent-color: var(--accent);
-}
+/* Sizing for this checkbox now comes from the shared toggle-switch recipe
+   (06-timeline-dialogs.css, `.tool-row input[type="checkbox"]` was added to
+   its selector list) — reported directly, with a screenshot, as "visually
+   broken": this was a bare native checkbox (a tick in a small square) next
+   to every other on/off setting in the app rendering as a pill switch, the
+   one place in Settings that hadn't been converted. Nothing left to say
+   here beyond the gap the switch sits in; `appearance: none` in that shared
+   rule makes `accent-color` inert, so it is gone rather than dead weight. */
 
+/* The switch is 2rem wide now (was 1.15rem) — reported once already, for
+   the identical reason, when the whiteboard's snap-to-grid switch grew and
+   its own label's indent didn't: a description that used to line up under
+   the tool's name now sits half under the switch instead. 2rem + the row's
+   own 0.5rem gap keeps the description flush with the name above it. */
+/* The description now lives inside the label's text column rather than beside
+   the label in the `<li>`, so it no longer needs an indent to clear a switch
+   that is no longer to its left — it starts where the tool's name starts,
+   which is what put it out of line with every other setting's hint before. */
 .tool-desc {
   display: block;
-  margin: 0.25rem 0 0 1.65rem;
+  margin: var(--space-2) 0 0;
   font-size: 0.8rem;
 }
 
@@ -504,8 +580,22 @@
   margin-bottom: var(--space-4);
 }
 
+/* The box and its button are one control, so they are the same height and
+   they sit on the same baseline. Measured before: the input 40.4px tall at
+   y=180.8 and the Search button 28px at y=186.9 — a shorter button floating
+   six pixels down inside a taller field, which is the "slapped on" texture
+   this app keeps being reported for. `align-items: stretch` makes the button
+   take the field's height rather than its own. */
 .web-panel .web-panel-search {
   margin-bottom: var(--space-3);
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.web-panel #web-go {
+  flex: 0 0 auto;
+  align-self: stretch;
 }
 
 /* Recent-search chips (renderWebSearchHistory, app.js) — wraps rather than
@@ -546,6 +636,14 @@
   margin: 0 0 var(--space-3);
 }
 
+/* Two lines by design: "12 results via SearXNG (local)" is the answer, and
+   "nothing left your machine but the query" is the reassurance under it. Glued
+   together with a " · " they wrapped mid-phrase in a narrow panel. */
+.web-answered-detail {
+  display: block;
+  font-size: var(--text-xs);
+}
+
 .web-results {
   /* The panel owns the height now; this takes what is left of it. A second
      max-height here would be a number that has to agree with the one above,
@@ -565,19 +663,20 @@
    which the same reasoning produced), and "📖 Read here" went altogether: the
    title one line above does exactly that. */
 .web-result {
-  /* A grid rather than absolute positioning with a reserved padding: the
-     actions column then sizes itself to its own buttons, and there is no
-     magic number to be wrong when a button is added or its label changes.
-     (The first attempt reserved `padding-right: 4rem`, which the spacing lint
-     rightly rejected — a number off the scale is a number somebody guessed.) */
+  /* Source line, then title, then snippet — with a single kebab spanning all
+     three rows. The old shape reserved a whole stacked column of icon buttons
+     at `opacity: 0`, so every title in a 318px panel wrapped around a column
+     that was showing nothing: 115px per result, five to a full-height panel.
+     One 28px opener costs a fifth of that and holds five actions instead of
+     two. */
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
-    "title   actions"
     "meta    actions"
+    "title   actions"
     "snippet actions";
-  column-gap: var(--space-3);
-  padding: var(--space-4) 0;
+  column-gap: var(--space-2);
+  padding: var(--space-3) 0;
   border-top: 1px solid var(--border);
   min-width: 0;
   overflow-wrap: anywhere;
@@ -597,12 +696,23 @@
   grid-area: snippet;
 }
 
+/* The domain is the part you actually judge a result by, so it carries the
+   weight and the engine names trail after it. */
+.web-result-host {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.web-result-via {
+  color: var(--muted);
+}
+
 .web-result:first-child {
   border-top: none;
 }
 
 .web-result-title {
-  display: block;
+  display: -webkit-box;
   width: 100%;
   text-align: left;
   padding: 0;
@@ -612,7 +722,15 @@
   color: var(--accent);
   font-weight: 650;
   font-size: var(--text-md);
+  line-height: 1.35;
   cursor: pointer;
+  /* Two lines, like the snippet below it. A search result's title is written
+     for a full-width page; in a 318px panel an un-clamped one ran to four
+     lines and buried the next result. */
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .web-result-title:hover {
@@ -640,59 +758,7 @@
 .web-result-actions {
   grid-area: actions;
   align-self: start;
-  /* Column, not row: side by side, two buttons made the "auto" actions
-     column as wide as both combined, squeezing minmax(0, 1fr) — the
-     title/meta/snippet column — down to a sliver in the web panel's own
-     narrow, resizable width. Stacked, the column is only ever as wide as
-     the wider single button (user-reported: "squished the text like crazy"). */
   display: flex;
-  flex-direction: column;
-  /* stretch, not flex-end: the two buttons used to be different widths
-     (a bespoke pill for ↗, the app's standard ghost/small for 💬), so a
-     right-aligned column had a ragged left edge — "better formatted"
-     (user-reported) meant matching widths as much as matching direction. */
-  align-items: stretch;
-  gap: var(--space-1);
-  opacity: 0;
-  transition: opacity var(--motion-fast) ease;
-}
-
-.web-result:hover .web-result-actions,
-.web-result:focus-within .web-result-actions {
-  opacity: 1;
-}
-
-@media (hover: none) {
-
-  /* Touch has no hover, so the actions would be unreachable. */
-  .web-result-actions {
-    opacity: 1;
-  }
-}
-
-/* Matches `button.ghost.small`'s own look (chip-bg, glass border, the app's
-   pill-ish radius) rather than its own one-off pill: it sits stacked right
-   above/below a real `button.ghost.small` (the 💬 ask action) now, and two
-   different radii/paddings/weights in the same two-button column is exactly
-   the "looks assembled" problem the chat dock strip already solved once
-   (see `.chat-dock-controls`'s own comment above). */
-.web-open-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.25rem 0.8rem;
-  border-radius: calc(var(--radius) * 0.7);
-  border: 1px solid var(--glass-border);
-  background: var(--chip-bg);
-  font-size: 0.85rem;
-  font-weight: 500;
-  text-decoration: none;
-  color: var(--ink);
-}
-
-.web-open-link:hover {
-  background: var(--accent-soft);
-  border-color: var(--accent);
 }
 
 /* The reader takes over the column when a page is open: it is a *different
@@ -1550,6 +1616,39 @@
   margin-right: auto;
 }
 
+/* **A stray bottom margin reads as a misalignment, and this one was
+   reported.** `.seg` carries `margin-bottom: 0.5rem` for the case it was
+   written for — a segmented control standing on its own above the content
+   it filters. As a flex item in an aligned toolbar that margin is part of
+   the item's *margin box*, and `align-items: center` centres the margin box,
+   so every `.seg` in a row sits four pixels above everything beside it.
+
+   Measured on the reminders list bar (reported with a screenshot: "the
+   elements at the top of the reminders list panel arent aligned"): the two
+   segments centred at 400 while the heading and the page-size select
+   centred at 404. Nothing is crooked; a margin is being centred along with
+   the control.
+
+   Scoped to rows rather than removed from `.seg` outright, so a segmented
+   control that really is standing alone keeps the gap under it. */
+:is(.row, .reminder-listbar, .ask-history-toolbar) > .seg {
+  margin-bottom: 0;
+}
+
+/* One height across the bar, the same way `.ask-query-row` and
+   `.capture-field-row` do it. Before: segments 40px, the page-size select
+   35.59px, the heading 24px. */
+.reminder-listbar {
+  --control-h: 2.5rem;
+}
+
+.reminder-listbar > .seg,
+.reminder-listbar > .select-shell > .select-opener,
+.reminder-listbar > select,
+.reminder-listbar > button:not(.menu-item) {
+  min-height: var(--control-h);
+}
+
 /* Group headings read as section labels with a count pill. */
 .reminder-group-head {
   display: flex;
@@ -1682,10 +1781,53 @@
   vertical-align: middle;
 }
 
+/* Both roles line up the same way now that the user has an avatar too — one
+   rule rather than an assistant-only one, so the two columns cannot drift. */
+.msg-role,
 .msg-role-assistant {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+}
+
+/* **The user's own row reads right-to-left, and this is the rule that makes
+   it.** Reported from a screenshot: "the 'you' for the user needs to be on
+   the right, not left" — the bubble was already right-aligned and the label
+   inside it was not. `.msg.user .msg-role` had `text-align: right`, which
+   does nothing at all here: the rule above makes this a flex container, and
+   a flex container packs its items to the start no matter what
+   `text-align` says. Two rules disagreeing, and the older one silently won.
+
+   `row-reverse` rather than `justify-content: flex-end` because it does both
+   jobs at once: the items pack to the right *and* the avatar ends up
+   outermost, mirroring the assistant's own avatar on the far left. The
+   thread then has a mark at each edge and the names facing inward, which is
+   the shape every chat client the user has open uses. */
+.msg.user .msg-role {
+  flex-direction: row-reverse;
+}
+
+/* The user's own mark. The app's accent in the app's own pill shape, sized
+   to the emblem opposite it — a glyph, not a photo: this app has no accounts
+   and never asks who you are. */
+/* **The user's own mark — and it has to be visible on an accent bubble.**
+   Reported: *"I cant see the user profile icon."* It was `--accent-soft` on
+   `--accent`: a tint of the accent drawn on the accent itself, which is a
+   ~1.1:1 contrast ratio and reads as a slightly different patch of purple.
+   The bubble is a coloured surface, so the mark is drawn the way everything
+   else on a coloured surface in this app is — white, on a white veil, with a
+   white hairline — rather than in the accent it is sitting on. */
+.msg-avatar-user {
+  width: 1.5rem;
+  height: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 24%);
+  border: 1px solid rgb(255 255 255 / 55%);
+  color: #fff;
+  font-size: 0.85rem;
+  line-height: 1;
 }
 
 /* --- chat polish ------------------------------------------------------------ */
@@ -2107,6 +2249,30 @@
   border-radius: 50%;
 }
 
+/* **Every "?" in the app is this button.** Direct instruction: "make sure
+   all the tooltip question mark buttons across the application are
+   consistent." They were not, and it was measurable rather than a matter of
+   taste — of the twelve in the DOM, nine carried `.graph-help-toggle` and
+   rendered as 32px circles, while the Settings hint toggle rendered 43x28
+   with a 9.8px radius (a wide rounded rect, photographed in the report) and
+   the whiteboard's help button was a third shape again. The size/shape half
+   of the recipe is shared here; `margin-left: auto` deliberately stays
+   above, on `.graph-help-toggle` alone, because pushing the button to the
+   end of the row is a *toolbar* behaviour — doing it to the Settings one
+   would fling it to the far edge of the row, away from the label it
+   explains. */
+.setting-hint-toggle,
+#wb-help-btn {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
 .graph-help-panel {
   position: absolute;
   top: 3.5rem;
@@ -2254,7 +2420,7 @@ p.graph-help-panel {
   box-shadow: var(--glass-shadow);
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  --control-h: 1.9rem;
+  --control-h: 1.875rem;
 }
 
 :root[data-glass="off"] .graph-options {
@@ -2347,8 +2513,17 @@ p.graph-help-panel {
    padding makes it a few pixels taller than a button unless a height is set
    for the whole row. One height for every control in the head, exactly as
    .graph-toolbar does it. */
+/* **`--control-h` was declared here and is not any more.** This rule and the
+   Boards one below each solved the same problem locally — "one height for
+   every control in this header row" — before any rule solved it for all of
+   them, and each picked 2rem independently. `.library-head` now sets 2.3rem
+   for every Library header, matching the toolbar beneath it in the same card;
+   these two id-scoped rules are (1,1,0) and beat it, so the only thing they
+   still did was make the Documents and Boards headers the two that disagreed.
+   Reported exactly that way: "the button elements in the top row of each
+   library subtab are all different sizes and proportions between tabs". The
+   `gap` stays — that is a real local choice, not a copy of a global one. */
 #library-view-docs .library-head {
-  --control-h: 2rem;
   gap: var(--space-2);
 }
 
@@ -2369,8 +2544,9 @@ p.graph-help-panel {
    Same failure as the Documents dock above, unfixed here until now: the
    search input and three buttons in this row had no shared height, so each
    rendered at its own natural size and the row grew to fit the tallest one. */
+/* Same as the Documents rule above: the local `--control-h: 2rem` is gone so
+   this header takes the shared Library height. */
 #wb-boards-landing .library-head {
-  --control-h: 2rem;
   gap: var(--space-2);
 }
 
@@ -2384,4 +2560,180 @@ p.graph-help-panel {
   width: 14rem;
   max-width: 100%;
   margin: 0;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Placed at the end of this file on purpose. A panel keeps its original class
+   (`.graph-help-panel`, `.setting-hint`) when `wireHelpPopover` promotes it,
+   and those rules carry the same single-class specificity as these — so
+   whichever is written later wins. Written first, this block lost, and the
+   popover silently rendered with the old `position: absolute; z-index: 30`:
+   measured at (8, 10) and painted underneath the settings modal it was
+   opened from. Keep it last.
+   ------------------------------------------------------------------------ */
+/* --- the app's one help popover ------------------------------------------
+   Every "?" in this app now opens this, wherever it lives: the Graph and
+   Timeline panels, the Library sub-tabs, and Settings' own hints — which
+   until now were three different presentations of the same idea (a floating
+   glass card, a static bordered paragraph that pushed the form down, and
+   plain inline text with no surface at all). Reported as exactly that: "the
+   search relevance '?' popup tooltip is completely different from all other
+   tooltips like it".
+
+   `position: fixed` and lifted to <body> by `wireHelpPopover` (app.js), so a
+   card's `overflow` or `backdrop-filter` cannot clip it — the same escape
+   the action menus make. The caret is what stops it reading as "just text in
+   a box": it ties the panel to the control that opened it, which is the
+   affordance an unanchored rectangle is missing. */
+.help-popover {
+  position: fixed;
+  z-index: 1020;
+  width: min(26rem, calc(100vw - var(--space-8)));
+  max-height: min(24rem, 70vh);
+  overflow-y: auto;
+  padding: var(--space-4);
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  /* Beats `.setting-hint.is-collapsed`'s own max-height:0 for a Settings
+     hint being shown through this component rather than inline. */
+  margin: 0;
+  line-height: 1.5;
+  /* Declared here, overwritten per-open by `placeHelpPopover` (app.js) with
+     the trigger's own centre. Declared rather than left to a `var()`
+     fallback so `test_style_scale.py` can tell a real token from a typo. */
+  --help-caret-x: 50%;
+}
+
+/* The caret. Two squares rotated 45° — the back one carries the border, the
+   front one covers the join so the panel's own edge reads as continuous. */
+.help-popover::before,
+.help-popover::after {
+  content: "";
+  position: absolute;
+  left: var(--help-caret-x);
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  transform: rotate(45deg);
+}
+
+.help-popover::before {
+  top: -6px;
+  background: var(--glass-border);
+}
+
+.help-popover::after {
+  top: -5px;
+  background: var(--modal-bg);
+}
+
+.help-popover.help-popover-above::before {
+  top: auto;
+  bottom: -6px;
+}
+
+.help-popover.help-popover-above::after {
+  top: auto;
+  bottom: -5px;
+}
+
+/* --- a turn that is still working says so, for as long as it is ----------
+   Reported: "none of the generating animations work". The dots were real and
+   did animate — they were just evicted by the first stream event of any kind
+   (`meta` arrives almost immediately), so they flashed and the bubble then
+   sat still for however long the model actually took.
+
+   `.is-generating` is set when the turn starts and removed in the `finally`
+   that ends it (app.js), so this signal lasts exactly as long as the work
+   does. A moving accent bar on the bubble's own edge: visible from across
+   the room, costs no layout, and does not fight the per-step placeholders
+   that come and go inside the bubble. */
+/* **In the transcript, the rail is the whole signal.** The generating ring
+   (`.is-generating`, 01-forms-settings.css) is the app-wide "this is working"
+   mark and it stays that everywhere else — the palette's single bubble, a
+   widget, a card. Here it is one signal too many: a thread is a column of
+   messages, and a ring breathing around the one at the bottom while a rail
+   travels down its edge and a caret blinks in its text is three things saying
+   the same sentence at a reader trying to read the fourth.
+
+   Reported twice, and the second time as the rule to design to: "make the
+   animation in the chat more intentional and less in your face", then "they
+   are an indicator not a lightshow". One mark, at the edge, away from the
+   words. */
+.msg.is-generating {
+  position: relative;
+  animation: none;
+  box-shadow: var(--shadow-sm);
+}
+
+.msg.is-generating::before {
+  content: "";
+  position: absolute;
+  /* **Inset by the bubble's own corner radius, on both ends.**
+     Reported: "fix the line on the left side ignoring the chat bubble curved
+     corners." It was `top: 0; bottom: 0; left: 0` — a straight bar down a
+     rounded box, so its ends stuck out past the curve at the top-left and
+     bottom-left and the bubble looked like it had a stray line drawn over it.
+
+     Stopping where the straight part of the edge stops is the fix, and it is
+     also the better mark: the rail now reads as belonging to the bubble
+     rather than as something laid across it. `left: 1px` keeps it clear of
+     the border the bubble already draws. */
+  left: 1px;
+  top: var(--radius-lg);
+  bottom: var(--radius-lg);
+  width: 2px;
+  border-radius: var(--radius-pill);
+  /* Lower-contrast and slower than the first version, on "they are an
+     indicator not a lightshow": the rail travels between 30% and 70% of the
+     accent rather than between transparent and full, so it reads as a soft
+     shift down the edge instead of a bar of light running past. */
+  background: linear-gradient(
+    color-mix(in srgb, var(--accent) 70%, transparent) 0%,
+    color-mix(in srgb, var(--accent) 30%, transparent) 50%,
+    color-mix(in srgb, var(--accent) 70%, transparent) 100%
+  );
+  background-size: 100% 200%;
+  animation: generating-sweep 2.6s linear infinite;
+}
+
+@keyframes generating-sweep {
+  from {
+    background-position: 0 0;
+  }
+
+  to {
+    background-position: 0 -200%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .msg.is-generating::before {
+    animation: none;
+  }
+}
+
+/* **The flickering bar under some widgets.**
+   Reported: "there's a weird flickering bar or set of horizontal lines that
+   pops up at the bottom of some elements in the application like buttons in
+   the timer on the dashboard." It is a horizontal scrollbar appearing and
+   disappearing, not a rendering fault — the focus timer's digits change width
+   every second, so its row's content crosses the container's width once a
+   second and the browser adds, then removes, a scrollbar. A 15px bar blinking
+   at 1Hz is exactly what was described.
+
+   `clip` rather than `hidden`: it suppresses the scrollbar without making the
+   element a scroll container, so nothing inside it can be scrolled out of
+   reach and a focused control still scrolls into view through its real
+   ancestor. Widget bodies are a fixed-width column by design — anything that
+   genuinely needs more room (a table, a code block) already scrolls inside
+   itself. */
+.dash-body,
+.dash-body .row {
+  overflow-x: clip;
 }

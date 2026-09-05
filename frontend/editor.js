@@ -36,6 +36,11 @@
 // and the menu filters rather than offering something that would no-op.
 const EDITOR_SURFACES = {
   "entry-content": "note",
+  //: The note *edit* form (app.js's `renderEditForm`), which had none of this
+  //: until now — the one editing surface in the app with no "/" menu, no
+  //: toolbar and no selection bar. One id, because `editingId` allows exactly
+  //: one open edit form at a time.
+  "entry-edit-content": "note",
   "doc-content": "document",
 };
 
@@ -151,16 +156,37 @@ function editorApplyAction(textarea, action) {
   }
 }
 
+//: **The shapes `editorApplyAction` does not implement.**
+//:
+//: MD_ACTIONS is bigger than the four shapes above: `custom` (image, footnote,
+//: link, indent, undo…) and `pre`/`post` (the HTML-ish sup/sub/underline/
+//: comment) are both handled by `applyMarkdown` in documents.js and by nothing
+//: here. A "/" command wired straight to one of those through
+//: `editorApplyAction` matches no branch and returns silently — this repo's
+//: "a policy silently refusing the work" shape, and it would have shipped as
+//: three menu rows that do nothing.
+//:
+//: `applyMarkdown` takes a box id and every editor surface has one (including
+//: each live-view block, which is why `docLiveEditor` sets one), so this is a
+//: call rather than a second implementation for the two to drift apart.
+function editorApplyNamed(textarea, kind) {
+  if (typeof applyMarkdown === "function" && textarea.id) {
+    applyMarkdown(kind, textarea.id);
+    return;
+  }
+  editorApplyAction(textarea, (typeof MD_ACTIONS === "object" && MD_ACTIONS[kind]) || {});
+}
+
 // A callout block, ready to type into.
 //
 // Every line of the body needs its own "> " — a blockquote ends at the first
 // line that does not start with one, so a two-line callout written without the
 // prefix on line two silently becomes a one-line callout followed by a
 // paragraph. Getting that wrong is invisible until it renders.
-function calloutTemplate(kind) {
+function calloutTemplate(kind, fold = "") {
   const meta = CALLOUT_KINDS[kind] || CALLOUT_KINDS.note;
   return {
-    block: `\n> [!${kind}] ${meta.label}\n> `,
+    block: `\n> [!${kind}]${fold} ${meta.label}\n> `,
     suffix: "\n",
     placeholder: "What matters about this?",
   };
@@ -192,6 +218,26 @@ function editorCommands(context) {
       run: (textarea) => editorApplyAction(textarea, calloutTemplate(kind)),
     });
   }
+
+  // **Typed collapsible blocks** — REDESIGN.md §R7.3 item 3, and the last
+  // piece of it. Asked for directly: "I want the structured note features and
+  // elements from kortex with the slash commands to be rendered and easier
+  // for the user to use."
+  //
+  // One command rather than eight more (a foldable variant of every callout
+  // kind would double this menu, which a live browser check already caught
+  // once as pushing Links and Templates below the fold). The kind is easy to
+  // change afterwards — it is one word in the text — and "fold this away" is
+  // the thing being asked for, not "fold this away, in orange".
+  commands.push({
+    id: "callout-fold",
+    primary: true,
+    group: "Blocks & frames",
+    label: "\u{1F4C1} Collapsible section",
+    hint: "> [!note]- — folded until clicked",
+    keywords: ["fold", "collapse", "collapsible", "toggle", "details", "section", "hide"],
+    run: (textarea) => editorApplyAction(textarea, calloutTemplate("note", "-")),
+  });
 
   commands.push(
     {
@@ -246,6 +292,44 @@ function editorCommands(context) {
       hint: "## — becomes a jump target",
       keywords: ["heading", "section", "anchor", "title", "h2"],
       run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.h2),
+    },
+    //: **The rest of the block vocabulary.** The toolbar has had these since
+    //: the Obsidian-toolbar pass; the "/" menu had a subset, which makes the
+    //: two disagree about what the editor can do — and "/" is the one people
+    //: reach for once they stop reading the toolbar. Every one of them runs
+    //: the same MD_ACTIONS entry the toolbar button runs, so there is no
+    //: second dialect of the markdown to keep in step.
+    {
+      id: "h1",
+      group: "Blocks & frames",
+      label: "\u{1F5DE}\u{FE0F} Title heading",
+      hint: "#",
+      keywords: ["h1", "title", "heading", "big"],
+      run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.h1),
+    },
+    {
+      id: "h3",
+      group: "Blocks & frames",
+      label: "\u{1F4D1} Sub-heading",
+      hint: "###",
+      keywords: ["h3", "sub", "heading", "small"],
+      run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.h3),
+    },
+    {
+      id: "numbered",
+      group: "Blocks & frames",
+      label: "\u{1F522} Numbered list",
+      hint: "1.",
+      keywords: ["ordered", "numbered", "list", "ol", "steps"],
+      run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.ol),
+    },
+    {
+      id: "quote",
+      group: "Blocks & frames",
+      label: "\u{201C} Quote",
+      hint: ">",
+      keywords: ["quote", "blockquote", "cite"],
+      run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.quote),
     }
   );
 
@@ -276,6 +360,30 @@ function editorCommands(context) {
         editorApplyAction(textarea, { insert: "![[" });
         editorOpenMenu(textarea, "[[");
       },
+    },
+    {
+      id: "image",
+      group: "Links & references",
+      label: "\u{1F5BC}\u{FE0F} Image",
+      hint: "![alt](url) — or paste a file into the editor",
+      keywords: ["image", "picture", "photo", "figure", "screenshot"],
+      run: (textarea) => editorApplyNamed(textarea, "image"),
+    },
+    {
+      id: "footnote",
+      group: "Links & references",
+      label: "\u{1F4CC} Footnote",
+      hint: "[^1] — with its text at the foot",
+      keywords: ["footnote", "reference", "cite", "aside"],
+      run: (textarea) => editorApplyNamed(textarea, "footnote"),
+    },
+    {
+      id: "comment",
+      group: "Links & references",
+      label: "\u{1F576}\u{FE0F} Private comment",
+      hint: "%%…%% — kept in the file, never rendered",
+      keywords: ["comment", "private", "hidden", "todo", "note to self"],
+      run: (textarea) => editorApplyNamed(textarea, "comment"),
     },
     {
       id: "weblink",
@@ -543,7 +651,72 @@ function editorLinkMatches(needle) {
     }))
     .filter((item) => item.value);
 
-  return [...notes, ...documents];
+  //: **Files and images**, the third and fourth kinds. They are not wiki-link
+  //: targets — there is no name to resolve, only a url — so each carries the
+  //: markdown it wants inserted (`item.markdown`, handled in `editorRunItem`):
+  //: an embed for a picture, a plain link for anything else.
+  const files = (editorFileCache || [])
+    .filter((file) => !query || (file.original_name || "").toLowerCase().includes(query))
+    .slice(0, 4)
+    .map((file) => ({
+      id: `file-${file._isAttachment ? "a" : "m"}-${file.id}`,
+      group: file._isImage ? "Images" : "Files",
+      label: file.original_name || "File",
+      hint: file._isImage ? "image" : "file",
+      markdown: `${file._isImage ? "!" : ""}[${(file.original_name || "file").replace(/[[\]]/g, "")}](${file.url})`,
+    }));
+
+  //: **Boards.** A board *is* an Entry (`is_board`), so it is already in
+  //: `allEntries` — but it is filtered out of the notes list above by the
+  //: same rule that keeps boards out of the note list everywhere else, and a
+  //: notebook with boards had no way to link to one at all.
+  const boards = (typeof allEntries !== "undefined" ? allEntries : [])
+    .filter((e) => e.is_board && !e.is_private)
+    .filter((e) => !query || (e.content || "").toLowerCase().includes(query))
+    .slice(0, 3)
+    .map((entry) => ({
+      id: `board-${entry.id}`,
+      group: "Boards",
+      label: noteLabel(entry, 60),
+      hint: "board",
+      value: (entry.content || "")
+        .split("\n")[0]
+        .replace(/\[\[|\]\]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 60),
+    }))
+    .filter((item) => item.value);
+
+  return [...notes, ...documents, ...boards, ...files];
+}
+
+//: The Library's own gallery payload, fetched once per menu session the same
+//: way documents are — `/media` and `/files/gallery` are two calls, and doing
+//: them per keystroke would put a request behind every letter typed.
+let editorFileCache = null;
+
+async function editorLoadFiles() {
+  if (editorFileCache && editorFileCache.length) return;
+  const [media, attachments] = await Promise.all([
+    apiJson("/media", { silent: true }).catch(() => []),
+    apiJson("/files/gallery", { silent: true }).catch(() => []),
+  ]);
+  const rows = [
+    ...(Array.isArray(media) ? media : []).map((row) => ({ ...row, _isAttachment: false })),
+    ...(Array.isArray(attachments) ? attachments : []).map((row) => ({
+      ...row,
+      _isAttachment: true,
+      url: `/files/${row.id}`,
+    })),
+  ];
+  //: `_isImage` decides embed-or-link, and it is decided here once rather
+  //: than by each caller re-sniffing the extension — the same split
+  //: `library.js` makes for the gallery.
+  editorFileCache = rows.map((row) => ({
+    ...row,
+    _isImage: /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif|tiff?)$/i.test(row.original_name || ""),
+  }));
 }
 
 // Documents are fetched once per menu session rather than per keystroke.
@@ -611,7 +784,17 @@ function editorRunItem(position) {
   }
   editorCloseMenu();
 
-  if (item.value !== undefined) {
+  if (item.markdown !== undefined) {
+    //: **A file is not a `[[wiki link]]`.** Wiki links resolve by *name*
+    //: against notes and documents; an image or an attachment has a url and
+    //: no name to resolve, so an item like that carries the markdown it wants
+    //: inserted and the opening `[[` the trigger left behind is removed
+    //: first. Asked for as "cross-link everything: notes, documents, files,
+    //: maps from anywhere" — the picker covered two of the four.
+    const at = textarea.selectionStart;
+    const open = trigger === "[[" ? at - trigger.length : at;
+    editorSplice(textarea, open, at, item.markdown, null);
+  } else if (item.value !== undefined) {
     // A link target: close the brackets and step past them.
     const at = textarea.selectionStart;
     editorSplice(textarea, at, at, `${item.value}]]`, null);
@@ -697,6 +880,15 @@ document.addEventListener("input", (event) => {
               editorDocumentCache = [];
             });
         }
+        //: Files and images the same way: the menu opens on what is already
+        //: in memory and gains the rest a moment later, rather than making
+        //: the first keystroke wait on two requests.
+        if (editorFileCache === null) {
+          editorFileCache = [];
+          editorLoadFiles().then(() => {
+            if (editorMenuState.open) editorRefreshMenu();
+          });
+        }
       }
       editorOpenMenu(textarea, trigger);
       return;
@@ -764,6 +956,258 @@ document.addEventListener(
 );
 
 window.addEventListener("resize", () => editorMenuState.open && editorCloseMenu());
+
+// ---------------------------------------------------------------------------
+// The selection toolbar
+// ---------------------------------------------------------------------------
+//
+// Asked for with a link to Obsidian's editing-toolbar plugin: *"pease upgrade
+// the way the toolbar works in everything to be like this obsidian toolbar
+// plugin. Ive used it and it is great."*
+//
+// The thing that plugin actually changes is **where the buttons are**, not
+// which ones exist — this app's fixed toolbar already has more of them. A bar
+// that follows the text you selected puts formatting where you are looking,
+// instead of at the top of a panel you may have scrolled a screen away from.
+//
+// Built on the two pieces that were already here: `editorCaretPoint` (a
+// textarea has no Range, so the caret is measured with a mirror element) and
+// `applyMarkdown` (documents.js), so this adds a *place*, not a second opinion
+// about what `**` means. Nothing here knows any markdown.
+const SELECTION_BAR_ACTIONS = [
+  { md: "bold", label: "ph:text-b", title: "Bold (Ctrl+B)" },
+  { md: "italic", label: "ph:text-italic", title: "Italic (Ctrl+I)" },
+  { md: "strike", label: "ph:text-strikethrough", title: "Strikethrough" },
+  { md: "highlight", label: "ph:highlighter", title: "Highlight" },
+  { md: "code", label: "ph:code", title: "Inline code" },
+  { md: "link", label: "ph:link", title: "Link" },
+  { md: "h2", label: "ph:text-h", title: "Heading" },
+  { md: "quote", label: "ph:quotes", title: "Quote" },
+  //: **Not a formatting action, and it says so with a rule beside it.**
+  //: REDESIGN.md §R7.1 item 1, quoted from the request: *"able to highlight
+  //: text and say something in the chat and the agent gets the context of
+  //: what is highlighted and cursor position."* It is the highest ratio of
+  //: "feels capable" to work in that whole section, and this bar is already
+  //: the thing on screen the moment a selection exists — a second control
+  //: somewhere else would be a second thing to find.
+  { ask: true, label: "ph:chat-teardrop-text", title: "Ask the AI about this selection" },
+];
+
+const selectionBarState = { textarea: null };
+
+function selectionBarElement() {
+  let bar = $("selection-bar");
+  if (bar) return bar;
+  //: Built once, lazily, rather than sitting in index.html: it belongs to this
+  //: file's behaviour, and a hidden bar in the markup would be one more thing
+  //: for the id/duplicate-listener lints to police for no gain.
+  bar = document.createElement("div");
+  bar.id = "selection-bar";
+  bar.className = "selection-bar hidden";
+  bar.setAttribute("role", "toolbar");
+  bar.setAttribute("aria-label", "Format the selection");
+  for (const action of SELECTION_BAR_ACTIONS) {
+    if (action.ask) {
+      //: A hairline, so "ask about this" does not read as a ninth way to
+      //: change the text. Same separator the chat dock's control strip uses
+      //: between its own groups.
+      const rule = document.createElement("span");
+      rule.className = "selection-bar-rule";
+      rule.setAttribute("aria-hidden", "true");
+      bar.appendChild(rule);
+    }
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ghost small icon-button";
+    if (action.md) button.dataset.md = action.md;
+    button.title = action.title;
+    button.setAttribute("aria-label", action.title);
+    setLabel(button, action.label);
+    //: `mousedown`, not `click`, and prevented: a click would first move focus
+    //: out of the textarea, and the browser drops the selection on the way —
+    //: so by the time the handler ran there would be nothing selected to wrap.
+    button.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      const textarea = selectionBarState.textarea;
+      if (!textarea) return;
+      if (action.ask) {
+        askAboutSelection(textarea);
+        selectionBarHide();
+        return;
+      }
+      applyMarkdown(action.md, textarea.id);
+      //: Deliberately *not* hidden here. `applyMarkdown` leaves the text it
+      //: wrapped selected, so the bar re-anchors to it on the next
+      //: `selectionchange` — which is what lets bold-then-italic be two
+      //: presses rather than a re-selection between them. Hiding it made the
+      //: bar blink out and straight back in.
+    });
+    bar.appendChild(button);
+  }
+  document.body.appendChild(bar);
+  return bar;
+}
+
+function selectionBarHide() {
+  selectionBarState.textarea = null;
+  $("selection-bar")?.classList.add("hidden");
+}
+
+function selectionBarShow(textarea) {
+  const bar = selectionBarElement();
+  selectionBarState.textarea = textarea;
+  bar.classList.remove("hidden");
+  //: Anchored to the *start* of the selection, which is where the eye is when
+  //: a selection is made left-to-right, and measured after the bar is visible
+  //: so its size is real rather than zero.
+  const { top, left, lineHeight } = editorCaretPoint(textarea);
+  const size = bar.getBoundingClientRect();
+  const margin = 8;
+  const boxTop = textarea.getBoundingClientRect().top;
+  let y = top - size.height - 6;
+  //: **Above the line, unless that means on top of the fixed toolbar.** Every
+  //: editing surface in this app has its own formatting row immediately above
+  //: the textarea, so a selection on the *first* line put this bar straight
+  //: over it — measured, and it read as two toolbars stacked rather than as a
+  //: bar belonging to the selection. Below the line in that case: it covers
+  //: the next line of the note instead, which is text you can scroll to and
+  //: not a control you might press by mistake.
+  if (y < Math.max(margin, boxTop)) y = top + (lineHeight || 20) + 6;
+  const x = Math.max(margin, Math.min(left, window.innerWidth - size.width - margin));
+  bar.style.top = `${Math.round(y)}px`;
+  bar.style.left = `${Math.round(x)}px`;
+}
+
+//: A `.lp-src` block is one paragraph of the document's live view — the
+//: *default* document view, and each paragraph is its own textarea with no id
+//: (see `docLiveEditor`). Keyed by class rather than added to
+//: `EDITOR_SURFACES` because there is one of them per paragraph, and that map
+//: is an id-to-context table by construction.
+function isEditorSurface(node) {
+  if (!(node instanceof HTMLTextAreaElement)) return false;
+  return node.id in EDITOR_SURFACES || node.classList.contains("lp-src");
+}
+
+function selectionBarSync() {
+  const active = document.activeElement;
+  if (!isEditorSurface(active)) {
+    return selectionBarHide();
+  }
+  //: A caret is not a selection. Nothing appears until there is text to act
+  //: on, which is what keeps this from being a bar that hovers over the note
+  //: while you type.
+  if (active.selectionStart === active.selectionEnd) return selectionBarHide();
+  selectionBarShow(active);
+}
+
+//: `selectionchange` is the one event that fires for *every* way a selection
+//: can change — drag, shift+arrow, double-click, select-all, undo — where
+//: mouseup/keyup each miss several. It fires on `document`, not the element.
+document.addEventListener("selectionchange", selectionBarSync);
+//: The bar is positioned in viewport coordinates against a caret that moves
+//: when anything scrolls, so it re-anchors rather than drifting away from the
+//: text it belongs to. Capture, because the scroller is usually a descendant.
+document.addEventListener("scroll", () => selectionBarState.textarea && selectionBarSync(), true);
+window.addEventListener("resize", () => selectionBarState.textarea && selectionBarSync());
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && selectionBarState.textarea) selectionBarHide();
+});
+
+//: How much text either side of the selection travels with it. Enough that a
+//: pronoun in the selection ("why does *it* do that?") has an antecedent, and
+//: small enough that a selection made in a 40,000-character document does not
+//: quietly become the whole document — the harness budgets tool *results*
+//: (§R5 item 4) but the question itself is not a tool result, so nothing else
+//: would bound this.
+const SELECTION_CONTEXT_MARGIN = 240;
+
+//: Where the selection sits, in a form the model can be told about and the
+//: app can re-check later. `line`/`column` are 1-based because that is what
+//: every editor in the world shows the user, and the number is going into a
+//: chip they read.
+function selectionContextFrom(textarea) {
+  //: **A live-view block reports itself in the document's coordinates.** Its
+  //: own offsets start at zero for every paragraph, so left alone this would
+  //: tell the model "line 2" for the last paragraph of a long document — and
+  //: `revalidateSelection` would then check those offsets against the wrong
+  //: textarea entirely, since the block is replaced whenever it re-renders.
+  //: Translating here means everything downstream sees one surface.
+  if (textarea.classList.contains("lp-src")) {
+    const source = $("doc-content");
+    const base = typeof docLiveBlockOffset === "function" ? docLiveBlockOffset(textarea) : null;
+    if (source && base !== null) {
+      return selectionOffsets(
+        source,
+        base + textarea.selectionStart,
+        base + textarea.selectionEnd
+      );
+    }
+    //: The block could not be located in the document — it is mid-edit, or two
+    //: paragraphs are identical and neither the index nor the search settled
+    //: it. Still a *document* selection, and saying so matters: falling
+    //: through to the line below would label a document "the note you're
+    //: writing" and report a line number counted from the top of the
+    //: paragraph. The offsets are the block's own, which
+    //: `revalidateSelection` will find do not match `doc-content` — so it
+    //: reports the position as unknown, which is the truth.
+    return { ...selectionOffsets(textarea, textarea.selectionStart, textarea.selectionEnd),
+      surfaceId: "doc-content", kind: "document" };
+  }
+  return selectionOffsets(textarea, textarea.selectionStart, textarea.selectionEnd);
+}
+
+function selectionOffsets(textarea, start, end) {
+  const value = textarea.value;
+  const text = value.slice(start, end);
+  const upToCaret = value.slice(0, end);
+  const line = upToCaret.split("\n").length;
+  const column = end - (upToCaret.lastIndexOf("\n") + 1) + 1;
+  return {
+    surfaceId: textarea.id,
+    kind: EDITOR_SURFACES[textarea.id] || "note",
+    start,
+    end,
+    text,
+    line,
+    column,
+    before: value.slice(Math.max(0, start - SELECTION_CONTEXT_MARGIN), start),
+    after: value.slice(end, end + SELECTION_CONTEXT_MARGIN),
+  };
+}
+
+//: The label on the chip, and the only place that knows which surface belongs
+//: to which thing. `entry-content` deliberately has no id: it is a note being
+//: written that does not exist yet, and a selection from it is still worth
+//: asking about — the text is what matters, not a row in the database.
+function selectionContextSource(surfaceId) {
+  if (surfaceId === "doc-content") {
+    const doc = typeof currentDoc !== "undefined" ? currentDoc : null;
+    return { title: doc?.title || "this document", entityKind: "document", entityId: doc?.id ?? null };
+  }
+  if (surfaceId === "entry-edit-content") {
+    const entry =
+      typeof allEntries !== "undefined" && typeof editingId !== "undefined"
+        ? allEntries.find((e) => e.id === editingId)
+        : null;
+    return {
+      title: entry ? noteLabel(entry, 40) : "this note",
+      entityKind: "note",
+      entityId: entry?.id ?? null,
+    };
+  }
+  return { title: "the note you're writing", entityKind: "note", entityId: null };
+}
+
+function askAboutSelection(textarea) {
+  //: The *resolved* surface, not the textarea that was focused: a live-view
+  //: block reports itself as `doc-content` (see `selectionContextFrom`), and
+  //: looking the label up by the block's own id would call a document "the
+  //: note you're writing".
+  const where = selectionContextFrom(textarea);
+  const context = { ...where, ...selectionContextSource(where.surfaceId) };
+  if (!context.text.trim()) return;
+  attachSelectionContext(context);
+}
 
 // ---------------------------------------------------------------------------
 // Create-on-miss: a link to something that does not exist yet
@@ -887,4 +1331,109 @@ async function offerToCreateWikiTarget(name) {
   } catch (error) {
     toast(error.message || "Could not create that.", true);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Syntax highlighting for the file viewer (REDESIGN.md §R7.1 item 3)
+// ---------------------------------------------------------------------------
+//
+// **Written here rather than pulled in.** This app is offline by construction
+// — there is no CDN to load highlight.js from and no bundler to vendor it
+// with, and a 900 KB library shipped for one panel would be the largest
+// single asset in the project. Four token classes cover what makes code
+// readable at a glance: comments recede, strings and numbers stand out from
+// identifiers, keywords carry the structure. That is most of the value of a
+// full grammar for none of the weight.
+//
+// **The colours are existing semantic tokens, not new ones.** `--muted` for
+// comments, `--ok` for strings, `--warn` for numbers, `--accent` for
+// keywords — each already has a light and a dark value, so this follows the
+// theme for free and adds nothing for `tests/test_style_scale.py` to police.
+//
+// **Every pattern here is linear.** CI runs CodeQL, which has caught a real
+// polynomial-ReDoS in this repo before; the string rules use the
+// `[^"\\\n]|\\.` shape whose alternatives are disjoint on their first
+// character, and nothing nests a quantifier inside a quantifier.
+
+//: What a suffix is written in. The value is the profile name below; a suffix
+//: that is missing gets `generic`, which still finds strings, numbers and
+//: both comment styles — worth having for a `.conf` nobody thought about.
+const CODE_LANGUAGES = {
+  js: "c", mjs: "c", cjs: "c", ts: "c", tsx: "c", jsx: "c", java: "c",
+  c: "c", h: "c", cpp: "c", hpp: "c", cs: "c", go: "c", rs: "c", swift: "c",
+  kt: "c", php: "c", scss: "c", css: "css",
+  py: "hash", rb: "hash", sh: "hash", bash: "hash", zsh: "hash",
+  yaml: "hash", yml: "hash", toml: "hash", ini: "hash", cfg: "hash", r: "hash",
+  sql: "sql", json: "json", html: "markup", htm: "markup", xml: "markup",
+};
+
+//: Keywords worth colouring, per family. Deliberately not exhaustive: a
+//: keyword list that tries to be complete is a maintenance burden that buys
+//: nothing — what the eye uses is the *shape* of the control flow, and these
+//: are the words that carry it.
+const CODE_KEYWORDS = {
+  c: "abstract async await break case catch class const continue default delete do else enum export extends false final finally for from function goto if implements import in instanceof interface let new null package private protected public return static struct super switch this throw throws true try typeof var void while yield",
+  hash: "and as assert async await break case class continue def del elif else end except false finally for from global if import in is lambda module nil none not or pass raise return self true try unless until while with yield",
+  sql: "add all alter and as asc between by case create delete desc distinct drop else exists from group having in inner insert into is join left limit not null on or order outer right select set table then union update values where",
+  json: "true false null",
+  css: "important media import supports keyframes from to and not only",
+  markup: "",
+  generic: "false null true",
+};
+
+//: One scanner, built once per family. Order inside the alternation *is* the
+//: precedence: comments and strings first, so a `#` inside a string or the
+//: word `if` inside a comment is not re-coloured as something else.
+const codeScanners = new Map();
+
+function codeScanner(family) {
+  if (codeScanners.has(family)) return codeScanners.get(family);
+  const lineComment =
+    family === "hash" ? "#[^\\n]*" : family === "sql" ? "--[^\\n]*" : "\\/\\/[^\\n]*";
+  const parts = [];
+  if (family === "markup") parts.push("(?<comment><!--[\\s\\S]*?-->)");
+  else parts.push(`(?<comment>\\/\\*[\\s\\S]*?\\*\\/|${lineComment})`);
+  parts.push('(?<string>"(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\'|`(?:[^`\\\\]|\\\\.)*`)');
+  parts.push("(?<number>\\b\\d[\\d_]*(?:\\.\\d+)?(?:[eE][+-]?\\d+)?\\b)");
+  const words = (CODE_KEYWORDS[family] || CODE_KEYWORDS.generic).trim().split(/\s+/);
+  if (words.length && words[0]) parts.push(`(?<keyword>\\b(?:${words.join("|")})\\b)`);
+  const scanner = new RegExp(parts.join("|"), "g");
+  codeScanners.set(family, scanner);
+  return scanner;
+}
+
+//: Which family a filename is in. Extension only — content sniffing guesses
+//: wrong on short files and there is nothing to gain: a file this app can
+//: view arrived with a suffix it recognised (`docview.CODE_SUFFIXES`).
+function codeFamilyFor(filename) {
+  const suffix = /\.([a-z0-9]+)$/i.exec(String(filename || ""));
+  return CODE_LANGUAGES[(suffix?.[1] || "").toLowerCase()] || "generic";
+}
+
+//: Fills `target` with the highlighted source. Text nodes and `<span>`s
+//: built with `textContent`, never `innerHTML` — a file's own text is exactly
+//: the untrusted input a markup-assembling highlighter turns into an
+//: injection, and this app's CSP would not save a same-origin one.
+function highlightCodeInto(target, text, filename) {
+  const scanner = codeScanner(codeFamilyFor(filename));
+  scanner.lastIndex = 0;
+  const source = String(text ?? "");
+  let at = 0;
+  let match;
+  while ((match = scanner.exec(source)) !== null) {
+    //: A zero-length match would loop forever. None of the patterns above can
+    //: produce one, and this costs nothing to be certain of.
+    if (match.index === scanner.lastIndex) {
+      scanner.lastIndex++;
+      continue;
+    }
+    if (match.index > at) target.appendChild(document.createTextNode(source.slice(at, match.index)));
+    const kind = Object.keys(match.groups).find((name) => match.groups[name] !== undefined);
+    const span = document.createElement("span");
+    span.className = `tok-${kind}`;
+    span.textContent = match[0];
+    target.appendChild(span);
+    at = match.index + match[0].length;
+  }
+  if (at < source.length) target.appendChild(document.createTextNode(source.slice(at)));
 }

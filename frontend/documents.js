@@ -310,6 +310,10 @@ function renderDocList() {
     );
     menu.classList.add("doc-item-menu");
     menu.addEventListener("click", (event) => event.stopPropagation());
+    // Same clipping shape as the Library's own Documents-subtab kebab — a
+    // scrolling list of rows with a `position: absolute` popup on the last
+    // few. `kebabMenu()` now escapes every menu it builds, so this list gets
+    // the fix without its own call.
 
     li.append(button, menu);
     list.appendChild(li);
@@ -1169,6 +1173,32 @@ function docLiveText(blocks) {
   return blocks.filter((b) => b.trim() !== "" || blocks.length === 1).join("\n\n");
 }
 
+//: **A live-view block's offsets, in the document's own coordinates.**
+//:
+//: The live view is the default document view, and each of its paragraphs is
+//: its own `.lp-src` textarea — so a selection made there has offsets inside
+//: *that block*, which are meaningless to anything holding the document. The
+//: chat's selection context (REDESIGN.md §R7.1 item 1) needs the document's,
+//: or it reports "line 2" for a paragraph two thirds of the way down.
+//:
+//: Derived from the block list rather than searched for, because a document
+//: with two identical paragraphs would make `indexOf` pick the wrong one. The
+//: search is only the fallback, and returning `null` when even that misses is
+//: deliberate: the caller says "position unknown" rather than claiming a
+//: number it guessed.
+function docLiveBlockOffset(box) {
+  const source = $("doc-content");
+  if (!source || !(box instanceof HTMLTextAreaElement)) return null;
+  const index = Number(box.dataset.index);
+  if (!Number.isInteger(index)) return null;
+  const blocks = docLiveBlocks(source.value);
+  const prefix = docLiveText(blocks.slice(0, index));
+  const base = prefix ? prefix.length + 2 : 0;
+  if (source.value.slice(base, base + box.value.length) === box.value) return base;
+  const found = source.value.indexOf(box.value);
+  return found === -1 ? null : found;
+}
+
 function renderDocLive(keepActive = false) {
   const host = $("doc-live");
   if (!host || docView !== "live") return;
@@ -1198,8 +1228,190 @@ function renderDocLive(keepActive = false) {
       block.classList.add("lp-block-empty");
       block.textContent = "";
     }
-    host.appendChild(block);
+    host.appendChild(docLiveRow(block, index, blocks.length));
   });
+}
+
+//: **The block handle — Notion's, in this app's own furniture.**
+//:
+//: Asked for with the editor remake: *"do the documents remake for obsidian,
+//: notion, kortex etc."* The live view already had the Obsidian half (edit the
+//: markdown of the paragraph you clicked, everything else stays rendered).
+//: What it had none of is the Notion half: a document is a *list of blocks*,
+//: and the thing you constantly want is to move one, copy one or delete one
+//: without selecting its text by hand and cutting it.
+//:
+//: The gutter is only visible on hover or focus, because a handle beside every
+//: paragraph all the time turns a page of prose into a form. Keyboard users
+//: get it through the ⋯ menu, which is a real button in the tab order — a
+//: drag-only affordance would put block reordering out of reach entirely.
+function docLiveRow(block, index, total) {
+  const row = document.createElement("div");
+  row.className = "lp-row";
+  row.dataset.index = String(index);
+
+  const gutter = document.createElement("div");
+  gutter.className = "lp-gutter";
+
+  const grip = document.createElement("button");
+  grip.type = "button";
+  grip.className = "ghost small icon-only lp-grip";
+  setLabel(grip, "ph:dots-six-vertical");
+  grip.title = "Drag to move this block";
+  grip.setAttribute("aria-label", `Move block ${index + 1}`);
+  //: The *handle* is draggable, not the block: a draggable block would
+  //: hijack ordinary text selection inside it, which is the first thing
+  //: anyone does in a paragraph.
+  grip.draggable = true;
+  grip.addEventListener("dragstart", (event) => {
+    docLiveDragFrom = index;
+    event.dataTransfer.effectAllowed = "move";
+    //: Firefox refuses to start a drag with no payload set.
+    event.dataTransfer.setData("text/plain", String(index));
+    row.classList.add("is-dragging");
+  });
+  grip.addEventListener("dragend", () => {
+    docLiveDragFrom = null;
+    for (const el of $("doc-live")?.querySelectorAll(".lp-row") || []) {
+      el.classList.remove("is-dragging", "is-drop-before", "is-drop-after");
+    }
+  });
+
+  const menu = kebabMenu(
+    [
+      { label: "ph:arrow-up Move up", disabled: index === 0, run: () => docMoveLiveBlock(index, -1) },
+      {
+        label: "ph:arrow-down Move down",
+        disabled: index >= total - 1,
+        run: () => docMoveLiveBlock(index, 1),
+      },
+      { label: "ph:copy Duplicate", run: () => docDuplicateLiveBlock(index) },
+      {
+        label: "ph:clipboard-text Copy as markdown",
+        run: () => copyToClipboard(docLiveBlocks($("doc-content").value)[index] || ""),
+      },
+      { label: "ph:plus Insert a block below", run: () => docInsertLiveBlock(index) },
+      { label: "ph:trash Delete this block", danger: true, run: () => docDeleteLiveBlock(index) },
+    ],
+    `Actions for block ${index + 1}`
+  );
+  menu.classList.add("lp-block-menu");
+  gutter.append(grip, menu);
+
+  //: The drop target is the whole row, so a block can be dropped anywhere
+  //: along its height rather than only on its own handle. Above or below is
+  //: decided by which half of the row the pointer is in — the same rule every
+  //: list-reordering UI uses, and the reason the marker has two classes.
+  row.addEventListener("dragover", (event) => {
+    if (docLiveDragFrom === null || docLiveDragFrom === index) return;
+    event.preventDefault();
+    const box = row.getBoundingClientRect();
+    const after = event.clientY > box.top + box.height / 2;
+    row.classList.toggle("is-drop-before", !after);
+    row.classList.toggle("is-drop-after", after);
+  });
+  row.addEventListener("dragleave", () => {
+    row.classList.remove("is-drop-before", "is-drop-after");
+  });
+  row.addEventListener("drop", (event) => {
+    if (docLiveDragFrom === null) return;
+    event.preventDefault();
+    const box = row.getBoundingClientRect();
+    const after = event.clientY > box.top + box.height / 2;
+    docMoveLiveBlockTo(docLiveDragFrom, after ? index + 1 : index);
+    docLiveDragFrom = null;
+  });
+
+  row.append(gutter, block);
+  return row;
+}
+
+//: Which block is being dragged, or null. Module-level because the drag starts
+//: on one row's handle and ends on another row entirely.
+let docLiveDragFrom = null;
+
+//: Every block edit is the same three steps — read the blocks, change the
+//: list, write the document back — so they share one helper. Writing
+//: `doc-content` is what makes autosave, the outline, the word count and the
+//: source view all agree: it is the single source of truth this editor was
+//: built around (see `renderDocLive`).
+function docEditLiveBlocks(change) {
+  const source = $("doc-content");
+  if (!source) return;
+  const blocks = docLiveBlocks(source.value);
+  if (!blocks.length) blocks.push("");
+  const next = change(blocks);
+  if (!next) return;
+  source.value = docLiveText(next);
+  markDocDirty();
+  docLiveActive = -1;
+  renderDocLive();
+}
+
+function docMoveLiveBlock(index, delta) {
+  docEditLiveBlocks((blocks) => {
+    const target = index + delta;
+    if (target < 0 || target >= blocks.length) return null;
+    const [moved] = blocks.splice(index, 1);
+    blocks.splice(target, 0, moved);
+    return blocks;
+  });
+}
+
+//: The drop-target version: `to` is a *gap* index, so dropping below the last
+//: block is `blocks.length`. Removing first shifts every later gap down by
+//: one, which is the off-by-one every drag-reorder implementation meets.
+function docMoveLiveBlockTo(from, to) {
+  docEditLiveBlocks((blocks) => {
+    if (from < 0 || from >= blocks.length) return null;
+    const [moved] = blocks.splice(from, 1);
+    blocks.splice(to > from ? to - 1 : to, 0, moved);
+    return blocks;
+  });
+}
+
+function docDuplicateLiveBlock(index) {
+  docEditLiveBlocks((blocks) => {
+    blocks.splice(index + 1, 0, blocks[index] ?? "");
+    return blocks;
+  });
+}
+
+function docInsertLiveBlock(index) {
+  docEditLiveBlocks((blocks) => {
+    blocks.splice(index + 1, 0, "");
+    return blocks;
+  });
+  //: Straight into the new block: an inserted empty paragraph you then have to
+  //: find and click is not an insert, it is a blank line.
+  focusDocLiveBlock(index + 1, "end");
+}
+
+function docDeleteLiveBlock(index) {
+  const blocks = docLiveBlocks($("doc-content")?.value || "");
+  const removed = blocks[index] ?? "";
+  docEditLiveBlocks((list) => {
+    list.splice(index, 1);
+    return list.length ? list : [""];
+  });
+  //: Undoable, through the app's own stack rather than a toast that times
+  //: out — deleting the wrong paragraph of a long document is exactly the
+  //: mistake that needs to still be reversible a minute later.
+  if (typeof pushUndo === "function") {
+    pushUndo(
+      "Delete a block",
+      () =>
+        docEditLiveBlocks((list) => {
+          list.splice(index, 0, removed);
+          return list;
+        }),
+      () =>
+        docEditLiveBlocks((list) => {
+          list.splice(index, 1);
+          return list.length ? list : [""];
+        })
+    );
+  }
 }
 
 function docLiveEditor(source, index) {
@@ -1207,6 +1419,14 @@ function docLiveEditor(source, index) {
   box.className = "lp-src";
   box.value = source;
   box.dataset.index = String(index);
+  //: **An id, because the formatting actions address a box by id.**
+  //: `applyMarkdown(kind, boxId)` and everything under it does `$(boxId)`, so
+  //: a textarea without one is a silent no-op — the selection bar would draw
+  //: its eight buttons over a live-view paragraph and none of them would do
+  //: anything. That is this repo's "a policy silently refusing the work"
+  //: shape, and it costs nothing to avoid: one live view exists at a time and
+  //: the index is unique within it.
+  box.id = `doc-live-block-${index}`;
   box.spellcheck = true;
   box.setAttribute("aria-label", "Editing this paragraph's markdown");
 
@@ -1289,12 +1509,80 @@ function docLiveEditor(source, index) {
   return box;
 }
 
+//: **Where the caret lands when you click a rendered block.**
+//:
+//: The rendered text and the markdown behind it are different strings — the
+//: syntax has been consumed by the renderer — so "the 12th character you can
+//: see" is not "the 12th character of the source". This walks the source and
+//: counts only the characters that survive rendering, skipping the markers
+//: that do not, and returns the source offset for a given *visible* offset.
+//:
+//: Deliberately approximate. It is exact for prose and for the marks people
+//: actually click into mid-sentence (emphasis, code, highlight, a heading's
+//: `#`), and it degrades to "somewhere close, in the right paragraph" for the
+//: rest — which is the whole gain over the previous behaviour, where every
+//: click landed at the end of the block regardless of where you aimed.
+function docLiveSourceOffset(source, visibleTarget) {
+  if (visibleTarget <= 0) return 0;
+  let visible = 0;
+  let i = 0;
+  let atLineStart = true;
+  while (i < source.length && visible < visibleTarget) {
+    const rest = source.slice(i);
+    //: Line-leading syntax: heading hashes, quote markers, list bullets.
+    if (atLineStart) {
+      const lead = /^(\s*(?:#{1,6}\s+|>\s?|[-*+]\s+|\d+\.\s+|- \[[ xX]\]\s+))/.exec(rest);
+      if (lead) {
+        i += lead[1].length;
+        atLineStart = false;
+        continue;
+      }
+    }
+    //: Inline markers, longest first so `**` is not read as two `*`.
+    const marker = /^(\*\*|__|~~|==|\[\[|\]\]|`|\*|_)/.exec(rest);
+    if (marker) {
+      i += marker[1].length;
+      continue;
+    }
+    //: A link's target is not visible; its text is.
+    const link = /^\[([^\]]*)\]\([^)]*\)/.exec(rest);
+    if (link) {
+      const inner = Math.min(link[1].length, visibleTarget - visible);
+      if (inner < link[1].length) return i + 1 + inner;
+      visible += link[1].length;
+      i += link[0].length;
+      continue;
+    }
+    atLineStart = source[i] === "\n";
+    visible += 1;
+    i += 1;
+  }
+  return i;
+}
+
+//: How many rendered characters sit before the caret inside this block —
+//: `caretRangeFromPoint` gives the node and offset under the pointer, and
+//: everything before it in the block is what the reader has already passed.
+function docLiveVisibleOffset(block, x, y) {
+  const range = document.caretRangeFromPoint?.(x, y);
+  if (!range || !block.contains(range.startContainer)) return null;
+  const upto = document.createRange();
+  upto.selectNodeContents(block);
+  upto.setEnd(range.startContainer, range.startOffset);
+  return upto.toString().length;
+}
+
 function focusDocLiveBlock(index, caret = "end") {
   docLiveActive = index;
   renderDocLive(true);
   const box = $("doc-live").querySelector(".lp-src");
   if (!box) return;
-  const position = caret === "start" ? 0 : box.value.length;
+  const position =
+    caret === "start"
+      ? 0
+      : typeof caret === "number"
+        ? Math.min(Math.max(caret, 0), box.value.length)
+        : box.value.length;
   box.focus();
   box.setSelectionRange(position, position);
 }
@@ -1315,8 +1603,19 @@ function wireDocLive() {
     // preventDefault stops the browser placing a selection in the block we
     // are about to replace, which otherwise steals focus back from the
     // textarea a moment later.
+    //
+    // Measured *before* the block is replaced, because the rendered nodes the
+    // click landed in are about to be thrown away: the caret went to the end
+    // of the block on every click, wherever you aimed, which is the one thing
+    // that makes a live-preview editor feel like a form rather than a page.
+    const visible = docLiveVisibleOffset(block, event.clientX, event.clientY);
     event.preventDefault();
-    focusDocLiveBlock(Number(block.dataset.index));
+    const index = Number(block.dataset.index);
+    const source = docLiveBlocks($("doc-content").value)[index] ?? "";
+    focusDocLiveBlock(
+      index,
+      visible === null ? "end" : docLiveSourceOffset(source, visible),
+    );
   });
 }
 
@@ -1392,6 +1691,42 @@ const MD_ACTIONS = {
     insert: "\n| Column | Column |\n| --- | --- |\n| | |\n",
   },
   hr: { insert: "\n---\n" },
+
+  //: **The rest of the Obsidian editing-toolbar's command set**, asked for by
+  //: name: *"I want you to make the toolbar in the notes and documents
+  //: exactly like this but also with the application specific functions, both
+  //: in what tools are there, and how they function"* — PKM-er's
+  //: obsidian-editing-toolbar.
+  //:
+  //: Added to this table rather than to a second one, because this table is
+  //: already the single place that decides what `**` means in this app (see
+  //: its own comment, and editor.js's "/" menu, which reads the same
+  //: dialect). A command that lives anywhere else is a third opinion waiting
+  //: to disagree.
+  h4: { line: "#### " },
+  h5: { line: "##### " },
+  h6: { line: "###### " },
+  //: A callout, not a bare blockquote. `> [!note]` is the syntax Obsidian,
+  //: GitHub and Typora all already render, which is the same portability
+  //: argument editor.js makes for using it in the "/" menu.
+  callout: { block: "> [!note] ", suffix: "\n> ", placeholder: "Title" },
+  //: Asymmetric wrappers: HTML, because markdown has no superscript and
+  //: Obsidian's own toolbar inserts exactly these tags.
+  sup: { pre: "<sup>", post: "</sup>", placeholder: "sup" },
+  sub: { pre: "<sub>", post: "</sub>", placeholder: "sub" },
+  underline: { pre: "<u>", post: "</u>", placeholder: "underlined" },
+  //: `%%…%%` is Obsidian's comment: kept in the file, never rendered.
+  comment: { pre: "%%", post: "%%", placeholder: "note to self" },
+  image: { custom: "image" },
+  //: This app's own link syntax, which is the "application specific
+  //: functions" half of the request — a toolbar for *this* notebook has to
+  //: offer the link that resolves inside it, not only the markdown one.
+  wikilink: { pre: "[[", post: "]]", placeholder: "note name" },
+  footnote: { custom: "footnote" },
+  indent: { custom: "indent" },
+  outdent: { custom: "outdent" },
+  undo: { custom: "undo" },
+  redo: { custom: "redo" },
 };
 
 // `boxId` is what lets the Notes composer reuse this whole table. It used to
@@ -1412,6 +1747,52 @@ function applyMarkdown(kind, boxId = "doc-content") {
   }
   if (action.custom === "clearformat") {
     clearInlineFormatting(box);
+    finishMarkdownEdit(box, boxId);
+    return;
+  }
+  //: **Undo and redo go through the browser's own history, deliberately.**
+  //: A textarea already has one, built from the user's typing *and* from
+  //: `execCommand("insertText")`, and reimplementing it here would give the
+  //: editor a second history that disagrees with Ctrl+Z — the one thing a
+  //: user is certain about in any text box.
+  if (action.custom === "undo" || action.custom === "redo") {
+    box.focus();
+    document.execCommand(action.custom);
+    finishMarkdownEdit(box, boxId);
+    return;
+  }
+  if (action.custom === "indent" || action.custom === "outdent") {
+    shiftDocIndent(box, action.custom === "indent" ? 1 : -1);
+    finishMarkdownEdit(box, boxId);
+    return;
+  }
+  if (action.custom === "image") {
+    //: The selection becomes the *alt text* and the caret lands on the URL,
+    //: which is the part still to be typed — the same split `link` above
+    //: makes. The first version passed the alt text as the body between the
+    //: two markers and produced `![cat](cat)`: a picture whose address was
+    //: its own caption. Caught by running it rather than by reading it.
+    const alt = selected || "image";
+    const url = "https://";
+    box.value = `${value.slice(0, start)}![${alt}](${url})${value.slice(end)}`;
+    const at = start + alt.length + 4;
+    box.setSelectionRange(at, at + url.length);
+    finishMarkdownEdit(box, boxId);
+    return;
+  }
+  if (action.custom === "footnote") {
+    //: A reference *and* its definition, because a footnote marker with
+    //: nothing to point at renders as literal text and reads as a bug.
+    const marker = `[^${docNextFootnote(value)}]`;
+    box.value = `${value.slice(0, start)}${marker}${value.slice(end)}\n\n${marker}: `;
+    const at = box.value.length;
+    box.setSelectionRange(at, at);
+    finishMarkdownEdit(box, boxId);
+    return;
+  }
+  if (action.pre) {
+    const body = selected || action.placeholder || "";
+    insertAround(box, start, end, action.pre, action.post || "", body, action.pre.length);
     finishMarkdownEdit(box, boxId);
     return;
   }
@@ -1445,6 +1826,44 @@ function applyMarkdown(kind, boxId = "doc-content") {
     box.setSelectionRange(at, at);
   }
   finishMarkdownEdit(box, boxId);
+}
+
+//: Wrap a selection in two different markers, leaving the body selected so
+//: the next keystroke replaces a placeholder. `wrapDocSelection` above is the
+//: symmetric case and carries the toggle-off logic that only makes sense when
+//: both ends are the same string.
+function insertAround(box, start, end, pre, post, body, caretOffset) {
+  const value = box.value;
+  box.value = value.slice(0, start) + pre + body + post + value.slice(end);
+  const at = start + caretOffset;
+  box.setSelectionRange(at, at + body.length);
+}
+
+//: Two spaces per level, matching what this app's own markdown renderer and
+//: every list in it already use. Whole lines, so a selection spanning three
+//: bullets indents all three — the behaviour Tab has in Obsidian's editor.
+function shiftDocIndent(box, direction) {
+  const { selectionStart: start, selectionEnd: end, value } = box;
+  const lineStart = value.lastIndexOf("\n", start - 1) + 1;
+  const tail = value.slice(end).indexOf("\n");
+  const lineEnd = tail === -1 ? value.length : end + tail;
+  const block = value.slice(lineStart, lineEnd);
+  const shifted = block
+    .split("\n")
+    .map((line) =>
+      direction > 0 ? `  ${line}` : line.replace(/^ {1,2}/, ""),
+    )
+    .join("\n");
+  box.value = value.slice(0, lineStart) + shifted + value.slice(lineEnd);
+  box.setSelectionRange(lineStart, lineStart + shifted.length);
+}
+
+//: The next free footnote number in this document. Counting the definitions
+//: rather than the references: a reference can appear twice and share one
+//: definition, which is what a footnote is for.
+function docNextFootnote(text) {
+  const used = [...String(text || "").matchAll(/^\[\^(\d+)\]:/gm)].map((m) => Number(m[1]));
+  return used.length ? Math.max(...used) + 1 : 1;
 }
 
 // The bookkeeping every toolbar edit ends with. The document editor has a
@@ -1526,8 +1945,20 @@ function wrapDocSelection(marker, placeholder = "", boxId = "doc-content") {
   box.selectionStart = start + marker.length;
   box.selectionEnd = start + marker.length + selected.length;
   box.focus();
-  markDocDirty();
-  renderDocPreview();
+  //: **`finishMarkdownEdit`, not `markDocDirty()` + `renderDocPreview()`.**
+  //: Both toggle-off branches above already end this way; this branch — the
+  //: one that actually *applies* formatting, and so the one that runs almost
+  //: every time — did the doc-content half inline instead, which quietly did
+  //: the wrong thing for every other box: it marked the *document* dirty and
+  //: never told the box's own listeners anything had changed.
+  //:
+  //: Found when the selection bar started appearing over live-view
+  //: paragraphs. Bold visibly wrapped the words in the block and the document
+  //: underneath never received them — measured, `input` fired 0 times, and
+  //: dispatching one by hand synced it immediately. The same call was wrong
+  //: for the note edit box for exactly as long, where it marked a document
+  //: dirty that the user was not editing.
+  finishMarkdownEdit(box, boxId);
 }
 
 async function exportDocumentMarkdown() {
@@ -2013,9 +2444,147 @@ $("doc-content").addEventListener("scroll", () => {
 // leaving "green" showing afterwards would claim a state that does not exist.
 const MD_COLOURS = ["yellow", "green", "blue", "pink", "purple", "orange", "red", "grey"];
 
+//: **The rest of the Obsidian toolbar, built once and mounted into both
+//: editors.** Asked for by name (PKM-er/obsidian-editing-toolbar), for the
+//: notes composer *and* the documents editor, "both in what tools are there,
+//: and how they function".
+//:
+//: Rendered from a table rather than written into index.html twice, and that
+//: is the whole point: the two toolbars were already hand-written markup that
+//: happened to agree, and the note one was the shorter of the two by
+//: accident of when it was added. One table means a command added here
+//: appears in both, at the same size, in the same group, with the same
+//: tooltip — which is the thing that actually stops them drifting.
+//:
+//: Folded into `<details>` menus, matching the two the document toolbar
+//: already has: twenty-five controls do not fit on one row, and that measured
+//: fact is recorded in index.html beside the Colour and Insert menus.
+const EDITOR_TOOLBAR_MENUS = [
+  {
+    id: "headings",
+    icon: "ph:text-h",
+    label: "Heading",
+    title: "Headings, from title to smallest",
+    items: [
+      ["h1", "Heading 1"],
+      ["h2", "Heading 2"],
+      ["h3", "Heading 3"],
+      ["h4", "Heading 4"],
+      ["h5", "Heading 5"],
+      ["h6", "Heading 6"],
+    ],
+  },
+  {
+    id: "blocks",
+    icon: "ph:quotes",
+    label: "Block",
+    title: "Quotes, callouts, code and rules",
+    items: [
+      ["quote", "Quote"],
+      ["callout", "Callout"],
+      ["codeblock", "Code block"],
+      ["table", "Table"],
+      ["hr", "Divider"],
+      ["footnote", "Footnote"],
+    ],
+  },
+  {
+    id: "inline",
+    icon: "ph:text-superscript",
+    label: "More",
+    title: "Underline, superscript, subscript and comments",
+    items: [
+      ["underline", "Underline"],
+      ["sup", "Superscript"],
+      ["sub", "Subscript"],
+      ["comment", "Comment (never rendered)"],
+    ],
+  },
+  {
+    id: "insert",
+    icon: "ph:plus-circle",
+    label: "Insert",
+    title: "Links, images and notes",
+    items: [
+      ["wikilink", "Link to a note"],
+      ["image", "Image"],
+      ["ol", "Numbered list"],
+    ],
+  },
+];
+
+//: The buttons that stay on the row, because they are reached mid-sentence
+//: and a menu costs a click every time. Obsidian's own default set makes the
+//: same split.
+const EDITOR_TOOLBAR_BUTTONS = [
+  { md: "outdent", icon: "ph:text-outdent", title: "Outdent" },
+  { md: "indent", icon: "ph:text-indent", title: "Indent" },
+  { md: "undo", icon: "ph:arrow-counter-clockwise", title: "Undo (Ctrl+Z)" },
+  { md: "redo", icon: "ph:arrow-clockwise", title: "Redo (Ctrl+Shift+Z)" },
+];
+
+function mountEditorToolbarExtras(bar) {
+  //: Idempotent: `initMarkdownToolbars` can run again (the note edit form
+  //: builds its own bar per edit), and a second mount would double every
+  //: control. Marked on the element rather than tracked in a set, so a bar
+  //: that is rebuilt from scratch is correctly treated as new.
+  if (bar.dataset.mdExtras === "1") return;
+  bar.dataset.mdExtras = "1";
+  const sep = () => {
+    const el = document.createElement("span");
+    el.className = "doc-toolbar-sep";
+    el.setAttribute("aria-hidden", "true");
+    return el;
+  };
+  bar.appendChild(sep());
+  for (const spec of EDITOR_TOOLBAR_BUTTONS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.md = spec.md;
+    button.title = spec.title;
+    button.setAttribute("aria-label", spec.title);
+    setLabel(button, spec.icon);
+    bar.appendChild(button);
+  }
+  for (const menu of EDITOR_TOOLBAR_MENUS) {
+    const details = document.createElement("details");
+    details.className = "doc-dock-menu doc-toolbar-menu";
+    //: **Drawn exactly like the two menus written in the markup.** These were
+    //: built with different classes and an icon *plus a word* — "Heading",
+    //: "Block", "More", "Insert" — sitting in a row where every other control
+    //: is a glyph. Four labelled chips among twenty icons is what makes a
+    //: toolbar read as assembled rather than designed, and it is the same
+    //: "two implementations of one control" shape this project keeps paying
+    //: for. The name lives in the tooltip and the ARIA label, where the
+    //: markup's own menus already keep theirs.
+    const summary = document.createElement("summary");
+    summary.className = "doc-dock-menu-btn doc-toolbar-menu-btn";
+    summary.title = menu.title;
+    summary.setAttribute("aria-label", `${menu.label} — ${menu.title}`);
+    setLabel(summary, menu.icon);
+    const caret = document.createElement("i");
+    caret.className = "ph ph-caret-down doc-toolbar-menu-caret";
+    caret.setAttribute("aria-hidden", "true");
+    summary.appendChild(caret);
+    const body = document.createElement("div");
+    body.className = "doc-dock-menu-list";
+    for (const [md, label] of menu.items) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "doc-dock-menu-item";
+      button.dataset.md = md;
+      button.textContent = label;
+      body.appendChild(button);
+    }
+    details.append(summary, body);
+    bar.appendChild(details);
+  }
+}
+
 function initMarkdownToolbars() {
   for (const bar of document.querySelectorAll("[data-md-target], #doc-toolbar")) {
     const boxId = bar.dataset.mdTarget || "doc-content";
+    mountEditorToolbarExtras(bar);
     for (const button of bar.querySelectorAll("button[data-md]")) {
       // mousedown-preventDefault keeps the caret in the textarea: without it
       // the click moves focus to the button first and the selection the
@@ -2083,10 +2652,113 @@ $("doc-file-type").addEventListener("change", async (event) => {
 wireDocScrollSync();
 wireDocLive();
 try {
-  setDocView(localStorage.getItem(DOC_VIEW_KEY) || "source");
+  //: **Live is the default now.** Asked for: "I want the text editor to be
+  //: EXACTLY LIKE OBSIDIAN. the user would bold a wor, click off it, and the
+  //: word shows as bolded" — which is what this mode does, and has done for a
+  //: while; it was simply not the view anybody landed in, so the editor read
+  //: as a plain markdown box with a preview button. Obsidian's own default is
+  //: Live Preview for the same reason. A stored choice still wins, so nobody
+  //: who picked Source is moved off it.
+  setDocView(localStorage.getItem(DOC_VIEW_KEY) || "live");
 } catch {
   setDocView("source");
 }
+
+//: **The reading measure, opted out of.** Reported: "idk why the document
+//: rendered views are so thin??" — measured at 736px inside a 1132px pane,
+//: which is the 72ch cap in the CSS doing exactly what it was written to do.
+//: A measure is right for reading a finished page and wrong for a wide table,
+//: a code-heavy file, or simply wanting the window you have. The cap stays the
+//: default; this is the way out of it.
+//:
+//: The class goes on the tab rather than on each pane so Split's two halves
+//: can never disagree, and it is remembered because it is a preference about
+//: how you read, not a place you are.
+const DOC_WIDTH_KEY = "doc-full-width";
+
+function applyDocWidth(wide) {
+  const tab = $("tab-documents");
+  const button = $("doc-width-toggle");
+  tab?.classList.toggle("doc-wide", wide);
+  if (button) {
+    button.setAttribute("aria-pressed", String(wide));
+    button.title = wide
+      ? "Back to a comfortable reading width"
+      : "Use the full width of the pane";
+    button.setAttribute("aria-label", button.title);
+  }
+}
+
+function setDocWidth(wide) {
+  try {
+    localStorage.setItem(DOC_WIDTH_KEY, wide ? "wide" : "measure");
+  } catch {
+    // A private window can refuse storage; the mode still applies for now.
+  }
+  applyDocWidth(wide);
+}
+
+$("doc-width-toggle")?.addEventListener("click", () =>
+  setDocWidth(!$("tab-documents")?.classList.contains("doc-wide"))
+);
+
+try {
+  applyDocWidth(localStorage.getItem(DOC_WIDTH_KEY) === "wide");
+} catch {
+  applyDocWidth(false);
+}
+
+//: **Focus mode.** Asked for as part of "the ultimate editor" — every editor
+//: this app is compared to (Obsidian, Notion, Kortex) has a way to make the
+//: tab bar, the sidebar and the document list disappear, and this one never
+//: did. Not remembered across sessions on purpose: full width is a standing
+//: preference about how you read; this is a mode for right now, and opening
+//: the app back into a chrome-less page with no visible way out would be its
+//: own bug.
+function toggleDocFocus(force) {
+  const tab = $("tab-documents");
+  if (!tab) return;
+  const on = typeof force === "boolean" ? force : !tab.classList.contains("doc-focus");
+  tab.classList.toggle("doc-focus", on);
+  const button = $("doc-focus-toggle");
+  if (button) {
+    button.setAttribute("aria-pressed", String(on));
+    button.title = on
+      ? "Leave focus mode (Esc)"
+      : "Focus mode — hide everything but the page (Esc to leave)";
+    button.setAttribute("aria-label", button.title);
+    const icon = button.querySelector("i");
+    if (icon) icon.className = on ? "ph ph-arrows-in" : "ph ph-frame-corners";
+  }
+  if (on) $("doc-content")?.focus();
+}
+
+$("doc-focus-toggle")?.addEventListener("click", () => toggleDocFocus());
+
+//: Escape leaves it — the same convention the whiteboard's and graph's own
+//: full-screen toggles use. Capture phase, and checked against the class
+//: first, so this never swallows an Escape meant for something opened over
+//: the page (the AI panel, a confirm dialog, the find bar) — closing focus
+//: mode underneath one of those instead of the dialog itself would be
+//: surprising.
+document.addEventListener(
+  "keydown",
+  (event) => {
+    if (event.key !== "Escape") return;
+    if (!$("tab-documents")?.classList.contains("doc-focus")) return;
+    toggleDocFocus(false);
+  },
+  true
+);
+
+$("doc-connections").addEventListener("click", () => {
+  if (!currentDoc) return;
+  // Closes the ⋯ disclosure first: it is a `<details>`, so it stays open
+  // behind the dialog otherwise, and it is the same width as the dialog's
+  // own left edge.
+  $("doc-dock-menu")?.removeAttribute("open");
+  openConnections("documents", currentDoc.id, currentDoc.title || "This document");
+});
 $("doc-export-md").addEventListener("click", exportDocumentMarkdown);
 $("doc-export-pdf").addEventListener("click", exportDocumentPdf);
 $("doc-delete").addEventListener("click", deleteCurrentDocument);

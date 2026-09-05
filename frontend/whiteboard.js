@@ -44,7 +44,49 @@
 // Whiteboard sub-tab.
 
 // ======================= WHITEBOARD LOGIC =======================
-let wbZoom = d3.zoom().scaleExtent([0.1, 4]).on("zoom", handleWbZoom);
+// **Held-space panning, middle-mouse panning, and wheel zoom from every
+// tool.** Reported directly: "the whiteboard is really annoying to use with
+// the tools, I'm constantly having to switch between tools to select and move
+// around."
+//
+// That was structural rather than a missing shortcut. Panning *was* a tool —
+// you pressed V to pan and S to select — and `selectWbTool` disabled the zoom
+// behaviour outright for every other tool (`container.on(".zoom", null)`),
+// which also took **wheel zoom** with it. So while drawing you could neither
+// scroll the canvas nor zoom it without first changing tool and then changing
+// back.
+//
+// Every drawing app people already know (Figma, Excalidraw, tldraw) solves
+// this the same way, and it is a filter rather than a mode: the zoom
+// behaviour stays attached at all times, and decides per-event whether a
+// gesture is a pan. Held space or the middle mouse button pans from *any*
+// tool; a plain left-drag only pans when Pan is genuinely the active tool, so
+// drawing, the marquee and lasso are untouched.
+let wbSpaceHeld = false;
+
+function wbZoomFilter(event) {
+  // Wheel: always. Zooming is a way of looking, not an edit, and there is no
+  // tool for which "you may not zoom right now" is the correct answer.
+  if (event.type === "wheel") return true;
+  // Middle button pans from anywhere. `buttons` rather than `button` because
+  // mousemove reports the held set, and the drag half of the gesture needs to
+  // pass the filter too.
+  if (event.button === 1 || (event.buttons & 4) === 4) return true;
+  // Touch: only in Pan. A finger drag while a brush is selected is a stroke,
+  // and stealing it for a pan would make the board undrawable on a tablet.
+  if (event.type.startsWith("touch")) return window.currentTool === "pan";
+  // Left button: Pan tool, or space held down.
+  if (event.button === 0 || event.buttons === 1 || event.buttons === 0) {
+    return window.currentTool === "pan" || wbSpaceHeld;
+  }
+  return false;
+}
+
+let wbZoom = d3
+  .zoom()
+  .scaleExtent([0.1, 4])
+  .filter(wbZoomFilter)
+  .on("zoom", handleWbZoom);
 let wbState = { nodes: [], sketches: [], objects: [] };
 let wbHintForcedOpen = false; // the "?" help button's override — see renderWhiteboard
 let wbInitialized = false;
@@ -110,10 +152,39 @@ const WB_UNDO_MAX = 20;
 // entry off the stack (whatever else was pushed in between).
 const wbDeleting = new Set();
 
+//: **All three layers pan the same way, and they did not used to.** Reported:
+//: "when I drag the whiteboard around, notes seamlessly move but the shapes
+//: and links lag behind."
+//:
+//: They did. The cards (`#wb-html-layer`) were moved with a CSS `transform`,
+//: which the compositor can apply to an already-painted layer; the two SVG
+//: groups were moved by setting the `transform` *attribute*, which is a
+//: geometry change the renderer has to lay out and repaint every frame. Same
+//: numbers, two different pipelines, and on a board with any real number of
+//: shapes the SVG one cannot keep up with a pan — so the shapes visibly trail
+//: the notes they are attached to.
+//:
+//: Switching the groups to a CSS transform is only safe because every drag
+//: handler in this file resolves pointer coordinates through
+//: `getScreenCTM()`, and the question of whether that folds in a CSS
+//: transform on an SVG element is the whole risk. Measured in Chromium rather
+//: than assumed: two identical `<g>`s, one carrying `transform="translate(37,
+//: 61) scale(2.5)"` and one carrying the same as CSS, returned the same
+//: matrix — [2.5, 2.5, 37, 844.14] — and mapped the same screen point to the
+//: same board point, [185.2, -177.66]. Nothing reads the attribute back
+//: either, so there is no second consumer to keep in sync.
+//:
+//: `transform-origin: 0 0` is not optional: CSS defaults an SVG element's
+//: origin to the centre of its bounding box, while the `transform` attribute
+//: has always scaled about the user-space origin. Without it every zoom would
+//: pivot somewhere that moves as the board's contents change. It is set in
+//: CSS beside the layers rather than here, so it cannot be lost by an edit to
+//: this function.
 function handleWbZoom(e) {
-  d3.select("#wb-html-layer").style("transform", `translate(${e.transform.x}px, ${e.transform.y}px) scale(${e.transform.k})`);
-  d3.select("#wb-zoom-group").attr("transform", e.transform);
-  d3.select("#wb-overlay-zoom-group").attr("transform", e.transform);
+  const css = `translate(${e.transform.x}px, ${e.transform.y}px) scale(${e.transform.k})`;
+  d3.select("#wb-html-layer").style("transform", css);
+  d3.select("#wb-zoom-group").style("transform", css);
+  d3.select("#wb-overlay-zoom-group").style("transform", css);
   wbSyncGridToTransform(e.transform);
 }
 
@@ -596,6 +667,41 @@ function wbNearestAnchor(kind, item, px, py, thresholdPx = 16) {
 //: centre toward `(towardX, towardY)` crosses the box's own border. This is
 //: what a "floating" end actually resolves to each render — aimed at the
 //: other end's real point, not always the other shape's centre.
+//: **Which edge an endpoint sits on, as an outward unit vector.** This is
+//: what makes a connector leave a card perpendicular to the side it is
+//: attached to, instead of always leaving horizontally.
+//:
+//: Reported directly: "links don't change in their direction based off the
+//: edge they are connected to and where the other end is coming from." Two
+//: separate faults produced that, and this function is the input to both
+//: fixes (see `wbLinkPathD`).
+//:
+//: Snapped to one axis rather than used as a raw radial vector: a connector
+//: that leaves a rectangle at 37 degrees because that is where the anchor
+//: happens to be reads as sloppy, where one that leaves squarely off the top
+//: edge reads as deliberate. The dominant axis is chosen by comparing the
+//: offset from centre against the box's own half-extents, so a wide, short
+//: card still resolves its short edges correctly.
+function wbEdgeNormal(box, pt) {
+  if (!box || !pt) return null;
+  const halfW = (box.maxX - box.minX) / 2 || 1;
+  const halfH = (box.maxY - box.minY) / 2 || 1;
+  const dx = (pt.x - (box.minX + box.maxX) / 2) / halfW;
+  const dy = (pt.y - (box.minY + box.maxY) / 2) / halfH;
+  if (!dx && !dy) return null;
+  if (Math.abs(dx) >= Math.abs(dy)) return { x: Math.sign(dx) || 1, y: 0 };
+  return { x: 0, y: Math.sign(dy) || 1 };
+}
+
+//: Attach a direction to an endpoint without changing its shape, so every
+//: existing `wbLinkPathD(type, endpoints.source, …)` call site keeps working
+//: and simply gains the better curve. An endpoint with no direction (a free
+//: dangling point, or the live drag preview) falls back to the old
+//: behaviour.
+function wbWithDir(pt, dir) {
+  return dir ? { x: pt.x, y: pt.y, dir } : pt;
+}
+
 function wbBoxRayIntersection(box, towardX, towardY) {
   const cx = (box.minX + box.maxX) / 2, cy = (box.minY + box.maxY) / 2;
   const dx = towardX - cx, dy = towardY - cy;
@@ -619,9 +725,11 @@ function wbLinkEndpoints(sourceItem, sourceAnchor, targetItem, targetAnchor) {
   const targetCenter = { x: (targetBox.minX + targetBox.maxX) / 2, y: (targetBox.minY + targetBox.maxY) / 2 };
   const fixedSource = wbAnchorPoint("node", sourceItem, sourceAnchor);
   const fixedTarget = wbAnchorPoint("node", targetItem, targetAnchor);
+  const source = fixedSource || wbBoxRayIntersection(sourceBox, (fixedTarget || targetCenter).x, (fixedTarget || targetCenter).y);
+  const target = fixedTarget || wbBoxRayIntersection(targetBox, (fixedSource || sourceCenter).x, (fixedSource || sourceCenter).y);
   return {
-    source: fixedSource || wbBoxRayIntersection(sourceBox, (fixedTarget || targetCenter).x, (fixedTarget || targetCenter).y),
-    target: fixedTarget || wbBoxRayIntersection(targetBox, (fixedSource || sourceCenter).x, (fixedSource || sourceCenter).y),
+    source: wbWithDir(source, wbEdgeNormal(sourceBox, source)),
+    target: wbWithDir(target, wbEdgeNormal(targetBox, target)),
   };
 }
 
@@ -653,9 +761,13 @@ function wbResolveLinkEndpoints(parsed) {
   const targetFixed = targetNode ? wbAnchorPoint("node", targetNode, parsed.targetAnchor) : parsed.targetPoint;
   const targetCenter = targetBox && { x: (targetBox.minX + targetBox.maxX) / 2, y: (targetBox.minY + targetBox.maxY) / 2 };
   const sourceCenter = sourceBox && { x: (sourceBox.minX + sourceBox.maxX) / 2, y: (sourceBox.minY + sourceBox.maxY) / 2 };
+  const source = sourceFixed || wbBoxRayIntersection(sourceBox, (targetFixed || targetCenter).x, (targetFixed || targetCenter).y);
+  const target = targetFixed || wbBoxRayIntersection(targetBox, (sourceFixed || sourceCenter).x, (sourceFixed || sourceCenter).y);
+  // Only a card end has an edge to leave perpendicular to. A free dangling
+  // point has no box, so it keeps the plain chord behaviour.
   return {
-    source: sourceFixed || wbBoxRayIntersection(sourceBox, (targetFixed || targetCenter).x, (targetFixed || targetCenter).y),
-    target: targetFixed || wbBoxRayIntersection(targetBox, (sourceFixed || sourceCenter).x, (sourceFixed || sourceCenter).y),
+    source: wbWithDir(source, sourceBox && wbEdgeNormal(sourceBox, source)),
+    target: wbWithDir(target, targetBox && wbEdgeNormal(targetBox, target)),
   };
 }
 
@@ -687,20 +799,69 @@ function wbLinkCaps(parsed) {
 //: a straight link and a reasonable approximation for a curved one (the
 //: curve's own tangent at the endpoint, not attempted — this app's curves
 //: are gentle enough that the difference is small).
+//: **A curved link leaves and enters along the edge it is attached to, and
+//: its arrowheads point along the curve rather than along the chord.**
+//:
+//: Reported: "links don't change in their direction based off the edge they
+//: are connected to and where the other end is coming from." That was two
+//: faults in this one function, and both are visible on any two cards that
+//: are not side by side:
+//:
+//: 1. **The curve was hardcoded horizontal.** The control points offset the
+//:    endpoints in `x` only (`sPt.x + dx/2, sPt.y`), so every curved link
+//:    left its source heading sideways and entered its target heading
+//:    sideways — whichever edge each end was actually anchored to. Two cards
+//:    stacked vertically got an S-bend that bulged out to the side and
+//:    re-entered, instead of a short curve leaving the bottom edge and
+//:    arriving at the top one.
+//: 2. **The arrowhead angle was the chord**, `atan2` between the two
+//:    endpoints — not the tangent of the curve it is drawn on. On any link
+//:    with real curvature the head pointed visibly off the line it ended.
+//:
+//: Both now derive from each end's outward edge normal (`wbEdgeNormal`,
+//: attached to the endpoint by `wbWithDir`). The control point is pushed
+//: along that normal, so the curve leaves perpendicular to its edge; and
+//: because a cubic Bezier's tangent at an endpoint is the direction to its
+//: adjacent control point, the cap angle is read from that same control
+//: point and therefore always agrees with the drawn curve.
+//:
+//: The offset is proportional to the distance between the ends and clamped:
+//: unclamped, two distant cards produced a control point far outside the
+//: board and a curve that swung wide of both; a fixed offset made a short
+//: link between adjacent cards loop absurdly. An endpoint with no direction
+//: — a free dangling point, or the live drag preview — keeps the original
+//: horizontal behaviour, which is correct for a point with no edge.
 function wbLinkPathD(type, sPt, tPt, caps, width) {
-  const base = type === "link-straight"
+  const straight = type === "link-straight";
+  const dx = tPt.x - sPt.x;
+  const dy = tPt.y - sPt.y;
+  const span = Math.hypot(dx, dy);
+  // Enough to read as a deliberate curve, never enough to swing wide.
+  const reach = Math.max(24, Math.min(span * 0.4, 160));
+  const c1 = sPt.dir
+    ? { x: sPt.x + sPt.dir.x * reach, y: sPt.y + sPt.dir.y * reach }
+    : { x: sPt.x + dx / 2, y: sPt.y };
+  const c2 = tPt.dir
+    ? { x: tPt.x + tPt.dir.x * reach, y: tPt.y + tPt.dir.y * reach }
+    : { x: tPt.x - dx / 2, y: tPt.y };
+  const base = straight
     ? `M ${sPt.x} ${sPt.y} L ${tPt.x} ${tPt.y}`
-    : (() => {
-        const dx = tPt.x - sPt.x;
-        return `M ${sPt.x} ${sPt.y} C ${sPt.x + dx / 2} ${sPt.y}, ${tPt.x - dx / 2} ${tPt.y}, ${tPt.x} ${tPt.y}`;
-      })();
+    : `M ${sPt.x} ${sPt.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${tPt.x} ${tPt.y}`;
   const startCap = caps?.startCap || "none", endCap = caps?.endCap || "none";
   if (startCap === "none" && endCap === "none") return base;
   const headLen = (width || 3) * 4 + 6;
-  const angle = Math.atan2(tPt.y - sPt.y, tPt.x - sPt.x);
+  // On a straight link the chord *is* the tangent. On a curve, the tangent at
+  // an end is the direction to that end's own control point — pointing away
+  // from the shape, so the head is rotated by PI to point back into it.
+  const endAngle = straight
+    ? Math.atan2(dy, dx)
+    : Math.atan2(tPt.y - c2.y, tPt.x - c2.x);
+  const startAngle = straight
+    ? Math.atan2(dy, dx) + Math.PI
+    : Math.atan2(sPt.y - c1.y, sPt.x - c1.x);
   let d = base;
-  if (endCap !== "none") d += " " + wbCapPath(endCap, tPt.x, tPt.y, angle, headLen);
-  if (startCap !== "none") d += " " + wbCapPath(startCap, sPt.x, sPt.y, angle + Math.PI, headLen);
+  if (endCap !== "none") d += " " + wbCapPath(endCap, tPt.x, tPt.y, endAngle, headLen);
+  if (startCap !== "none") d += " " + wbCapPath(startCap, sPt.x, sPt.y, startAngle, headLen);
   return d;
 }
 
@@ -1210,6 +1371,12 @@ async function wbMindMapAddCard(parentId, x, y) {
   });
   wbState.sketches.push(sketchRes);
 
+  // The card about to render reads its text out of `allEntries`, which was
+  // fetched before this note existed. Without this the new branch renders
+  // as a placeholder and never resolves — see the `!entry` branch in the
+  // card renderer.
+  await loadEntries();
+
   const map = wbMindMapEnsureMap(parentId);
   map.parentOf.set(nodeRes.id, parentId);
   if (!map.childrenOf.has(parentId)) map.childrenOf.set(parentId, []);
@@ -1218,7 +1385,84 @@ async function wbMindMapAddCard(parentId, x, y) {
 
   selectWbItem("node", nodeRes.id);
   wbScheduleRender();
+  // **A new branch is an empty thought, so it opens ready to be typed.**
+  // Before this it was a card reading "New branch" and nothing else: the
+  // gesture created a node and then left you to find the way to name it,
+  // which is the difference between a mind-mapping tool and a diagram
+  // editor. `wbScheduleRender` is async, so this waits for the card to
+  // exist rather than assuming it does.
+  requestAnimationFrame(() => wbEditNodeText(nodeRes.id));
   return nodeRes;
+}
+
+/** Put a card into edit mode with its text selected.
+ *
+ *  A concept map is written by typing, so the node a branch gesture just
+ *  created has to be typeable *now* — not after finding a menu. Selecting
+ *  the placeholder means the first keystroke replaces it, which is what
+ *  makes `Tab, type, Tab, type` a fluent way to work rather than a sequence
+ *  of edits.
+ */
+function wbEditNodeText(nodeId) {
+  const node = wbState.nodes.find((n) => n.id === nodeId);
+  if (!node) return;
+  const card = document.querySelector(`.node-card[data-id="${nodeId}"]`);
+  const content = card?.querySelector(".wb-card-content");
+  if (!content) return;
+  const entry = allEntries.find((e) => e.id === node.entry_id);
+  const original = entry?.content || "";
+
+  const box = document.createElement("textarea");
+  box.className = "wb-card-editor";
+  box.value = original;
+  content.replaceChildren(box);
+  box.focus();
+  box.select();
+
+  let settled = false;
+  const finish = async (save) => {
+    if (settled) return;
+    settled = true;
+    const text = box.value.trim();
+    const keep = save && text ? text : original;
+    if (save && text && text !== original) {
+      try {
+        await apiJson(`/entries/${node.entry_id}`, {
+          method: "PUT",
+          body: JSON.stringify({ content: text }),
+        });
+        // The card reads its text out of `allEntries`; without this the next
+        // render would use the old content and the edit would look discarded.
+        await loadEntries();
+      } catch (err) {
+        toast(err.message || "Couldn't save that.", true);
+      }
+    }
+    // **Put the text back by hand, not by re-rendering.** Found live: after
+    // saving, the textarea was still on the card. `wbScheduleRender` runs a
+    // d3 data join, and card *content* is only built in the `enter`
+    // selection — an existing card keeps whatever DOM it already has, which
+    // here was the editor. So the edit saved correctly to the server and
+    // looked like it had done nothing, which is the worst of both.
+    content.replaceChildren();
+    renderMarkdown(content, keep);
+    wbScheduleRender();
+  };
+
+  // Enter commits, Shift+Enter is a real newline — the convention for a
+  // single-idea field. Escape abandons. Blur commits, because clicking away
+  // to the next card is the most common way to finish one.
+  box.addEventListener("keydown", (event) => {
+    event.stopPropagation(); // Tab/Enter here are text, not branch gestures
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      finish(true);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      finish(false);
+    }
+  });
+  box.addEventListener("blur", () => finish(true));
 }
 
 //: Tab — a new child of the selected card, at "the next open radial slot":
@@ -1231,7 +1475,14 @@ async function wbMindMapAddChild(parentId) {
   const map = wbMindMapEnsureMap(parentId);
   const existing = (map.childrenOf.get(parentId) || []).length;
   const slots = Math.max(existing + 1, 3);
-  const angle = (existing / slots) * 2 * Math.PI - Math.PI / 2;
+  // **Fan out sideways first, not upwards.** The offset used to be
+  // `-Math.PI / 2` — straight up — so the very first branch off a root card
+  // landed one full ring *above* it. Driven live: a map created at the
+  // canvas centre put its first Tab branch off the top edge, clipped and
+  // half unreadable, which is a bad first impression of the one gesture the
+  // whole feature turns on. Sideways is also how every mind-mapping tool
+  // fans a first child, because a page is wider than it is tall.
+  const angle = (existing / slots) * 2 * Math.PI;
   const parentBox = wbItemBBox("node", parent);
   const cx = (parentBox.minX + parentBox.maxX) / 2, cy = (parentBox.minY + parentBox.maxY) / 2;
   const w = parent.width || WB_CARD_DEFAULT_SIZE.w, h = parent.height || WB_CARD_DEFAULT_SIZE.h;
@@ -2251,6 +2502,25 @@ async function wbExportPng(scope) {
   }
 }
 
+//: **Straight into the image library, with no file on disk.** Asked for
+//: directly: "maybe I should be able to highlight a rectangular section
+//: and/or select a bunch of things in a whiteboard and export it to a png
+//: which can then appear in the image library."
+//:
+//: `wbExportPng` above already uploads a copy — but it downloads the file
+//: first, and "put this drawing in my library" and "save this file to my
+//: computer" are different intentions that should not be one button. The
+//: marquee and shift-click already produce the selection this exports; this
+//: is the missing half that turns a region of the board into a real image
+//: the gallery, the captioner and semantic search can all see.
+async function wbSaveToLibrary(scope) {
+  const { svg, width, height } = wbBuildExportSvg(scope);
+  const blob = await wbRasterizeSvg(svg, width, height, "image/png");
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+  await uploadToLibrary(`whiteboard-${scope}-${stamp}.png`, blob);
+  toast("Added to your image library.");
+}
+
 async function wbExportPdf(scope) {
   const { svg, width, height } = wbBuildExportSvg(scope);
   const blob = await wbRasterizeSvg(svg, width, height, "image/png");
@@ -2322,6 +2592,10 @@ function wbExportBoard() {
   // selection-gated control in this toolbar (align/distribute/delete).
   const hasSelection = wbMultiSelection.size > 0 || !!wbSelectedItem;
 
+  addHeading("Save to image library");
+  if (hasSelection) addOption("Just the selection", () => wbSaveToLibrary("selection"));
+  addOption("What's on screen now", () => wbSaveToLibrary("visible"));
+  addOption("The whole board", () => wbSaveToLibrary("whole"));
   addHeading("Image (PNG)");
   if (hasSelection) addOption("Just the selection", () => wbExportPng("selection"));
   addOption("What's on screen now", () => wbExportPng("visible"));
@@ -2351,6 +2625,14 @@ async function initWhiteboard() {
   document.getElementById("wb-zoom-in").addEventListener("click", () => container.transition().call(wbZoom.scaleBy, 1.2));
   document.getElementById("wb-zoom-out").addEventListener("click", () => container.transition().call(wbZoom.scaleBy, 0.8));
   document.getElementById("wb-zoom-fit").addEventListener("click", () => container.transition().call(wbZoom.transform, d3.zoomIdentity));
+
+  // **An arrow, not the function directly.** `addEventListener` passes the
+  // click event as the first argument, which would land in
+  // `toggleWhiteboardFullscreen`'s own `force` parameter — a `MouseEvent` is
+  // truthy, so `force === undefined` was never true and the toggle could
+  // only ever turn full screen *on*. Reported as "I cant exit full screen
+  // mode in the whiteboard".
+  document.getElementById("wb-fullscreen")?.addEventListener("click", () => toggleWhiteboardFullscreen());
   
   // Sidebar toggling
   const setWbLibraryOpen = (open) => {
@@ -2979,11 +3261,14 @@ async function initWhiteboard() {
         b.classList.toggle("active", b.dataset.tool === tool);
       });
     }
-    if (tool !== "pan") {
-      container.on(".zoom", null); // disable zoom-drag so it can't fight drawing
-    } else {
-      container.call(wbZoom).on("dblclick.zoom", null);
-    }
+    // The zoom behaviour stays attached for every tool. It used to be
+    // detached for all but Pan so a drag could not fight drawing — but
+    // `wbZoomFilter` (top of file) now makes that decision per event, and
+    // detaching also removed **wheel zoom**, so you could not zoom or scroll
+    // the canvas while any drawing tool was selected without switching tool
+    // and switching back. That was a large part of the reported "constantly
+    // having to switch between tools".
+    container.call(wbZoom).on("dblclick.zoom", null);
     // The toggle shows whichever shape is actually active (and reads as
     // "on" the same way any other tool button does) instead of a fixed
     // icon — picking "circle" from the menu should look exactly like
@@ -3230,11 +3515,38 @@ async function initWhiteboard() {
     b: "bucket",
     x: "delete",
   };
+  // Held space = pan, from whatever tool you are holding. The flag is read by
+  // `wbZoomFilter`; nothing about the active tool changes, so releasing space
+  // puts you back exactly where you were rather than in a different mode.
+  //
+  // The cursor changes with it, because a modifier that alters what a drag
+  // does has to say so before the drag — a grab cursor is how every canvas
+  // app signals this, and without it "space does something" is a secret.
+  const wbCanvasEl = () => document.getElementById("whiteboard-container");
+  function wbSetSpaceHeld(held) {
+    if (wbSpaceHeld === held) return;
+    wbSpaceHeld = held;
+    const el = wbCanvasEl();
+    if (el) el.classList.toggle("wb-space-pan", held);
+  }
+  document.addEventListener("keyup", (e) => {
+    if (e.code === "Space") wbSetSpaceHeld(false);
+  });
+  // A board left while space is down would otherwise stay stuck in pan.
+  window.addEventListener("blur", () => wbSetSpaceHeld(false));
+
   document.addEventListener("keydown", (e) => {
     const view = document.getElementById("library-view-whiteboard");
     if (!view || view.classList.contains("hidden")) return;
     const tag = (document.activeElement?.tagName || "").toLowerCase();
     if (tag === "input" || tag === "textarea" || document.activeElement?.isContentEditable) return;
+    if (e.code === "Space") {
+      // preventDefault so the page does not scroll under the board, and so a
+      // focused toolbar button is not "clicked" by the space that is panning.
+      e.preventDefault();
+      wbSetSpaceHeld(true);
+      return;
+    }
     if (e.key === "Escape") {
       clearWbSelection();
       selectWbTool("pan");
@@ -3433,8 +3745,27 @@ async function initWhiteboard() {
   // node/object drags' `.filter()`, the sketch drag's own tool check), so
   // checking the target here is enough without a second stopPropagation
   // dance.
+  //
+  // **The handle layer has to be in this list, and stopPropagation cannot
+  // stand in for it.** Reported: "when I adjust things like links, the area
+  // select happens too" — dragging a link's endpoint drew a selection
+  // marquee across the board at the same time. The endpoint handles are not
+  // inside `.sketch-group`; they live in their own `.wb-sketch-handle-group`
+  // over in `#wb-overlay-zoom-group`, precisely so a card can sit above the
+  // base layer without burying them. So they passed this test as empty
+  // canvas.
+  //
+  // Their drag does call `stopPropagation` on d3-drag's "start", and that is
+  // why this looked correct. It fires on the wrong event: d3-drag listens for
+  // `mousedown`, this listens for `pointerdown`, and a pointerdown is
+  // dispatched *before* the compatibility mousedown it generates. By the time
+  // the handle stops propagation the marquee has already begun. Two event
+  // families cannot cancel each other, so the target check is the only place
+  // this can be fixed.
   function wbIsEmptyCanvasTarget(target) {
-    return !target.closest?.(".node-card, .sketch-group, .wb-object");
+    return !target.closest?.(
+      ".node-card, .sketch-group, .wb-object, .wb-sketch-handle-group, .wb-resize-handle",
+    );
   }
   function rectsIntersect(ax, ay, aw, ah, bx, by, bw, bh) {
     return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
@@ -3907,8 +4238,16 @@ function renderWbLibrary() {
   for (const entry of allEntries) {
     const li = document.createElement("li");
     li.className = "wb-library-item";
-    const text = entry.content || entry.preview || "";
+    // `notePreviewText` (app.js), not the raw body. Reported with a
+    // screenshot of this very list: a sketch note read "A real drawn sketch
+    // ![A real drawn sket…", because its drawing lives in the note as inline
+    // `![alt](/media/…)` markdown and this printed it verbatim. Every other
+    // list of notes in the app already goes through this helper — the
+    // whiteboard's own card renderer two hundred lines up included — so this
+    // was the last place a note's markdown leaked into a label.
+    const text = notePreviewText(entry.content || entry.preview || "");
     li.textContent = text ? (text.length > 40 ? text.substring(0, 40) + "…" : text) : entry.id;
+    li.title = text || String(entry.id);
     li.draggable = true;
     li.addEventListener("dragstart", (e) => {
       e.dataTransfer.setData("text/plain", entry.id);
@@ -4409,9 +4748,20 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
         d3.drag()
           .on("start", (event) => event.sourceEvent.stopPropagation())
           .on("drag", function (event) {
-            const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-            live.x += event.dx / transform.k;
-            live.y += event.dy / transform.k;
+            // No `/ transform.k` here — unlike the HTML-element card/object
+            // drags elsewhere in this file, this circle's drag container
+            // (its parent `<g>`, d3-drag's default) sits *inside* the zoomed
+            // `#wb-overlay-zoom-group`. d3.pointer() resolves SVG coordinates
+            // through the element's `getScreenCTM()`, which already folds in
+            // every ancestor transform — so `event.dx`/`dy` arrive pre-divided
+            // by the zoom scale. Dividing again here shrank every frame's
+            // movement by a second factor of the zoom level: reported
+            // directly ("when I drag the whiteboard links, it goes off my
+            // cursor"), and confirmed live — at 2x zoom the handle trailed
+            // the cursor by exactly half the dragged distance, growing every
+            // frame, matching a `1/k` double-division exactly.
+            live.x += event.dx;
+            live.y += event.dy;
             d3.select(this).attr("cx", live.x).attr("cy", live.y);
             const previewPts = end === "source" ? [live, endpoints[other]] : [endpoints[other], live];
             const previewD = wbLinkPathD(parsed.type, previewPts[0], previewPts[1], wbLinkCaps(parsed), parsed.width);
@@ -5044,7 +5394,16 @@ function renderWhiteboard() {
     const card = d3.select(this);
     const entry = entriesById.get(String(d.entry_id));
     if (!entry) {
-      card.append("div").attr("class", "wb-card-content").node().textContent = "Loading…";
+      // **"Loading…" with nothing loading.** `entriesById` is built from
+      // `allEntries`, the app's in-memory note list — so a card whose note
+      // was created *after* the last `loadEntries()` said "Loading…"
+      // forever, because nothing here ever fetched it. Every path that
+      // creates a note and immediately places it now refreshes that list
+      // first (`wbMindMapAddCard`, `createConceptMap`), which is the real
+      // fix; this branch is the honest fallback for the case that remains:
+      // a card pointing at a note that has actually been deleted.
+      card.append("div").attr("class", "wb-card-content muted").node().textContent =
+        "This note is no longer here";
       return;
     }
     // A sketch's actual content is a file attachment, not text — never
@@ -5793,10 +6152,72 @@ function wbShowCanvasView() {
 }
 
 function wbShowBoardsLanding() {
+  // First, because the boards list lives inside the element full screen
+  // pins to the viewport — see `wbLeaveFullscreen` for what that looked
+  // like when it was left on.
+  wbLeaveFullscreen();
   $("wb-canvas-view")?.classList.add("hidden");
   $("wb-boards-landing")?.classList.remove("hidden");
   renderLibraryBoardsGallery();
 }
+
+//: Sorting for the Whiteboards sub-tab, the fifth and last list to get it
+//: ("the library subtabs are missing sorting and filtering options").
+//:
+//: `BoardOut` (routes_whiteboard.py) carries no timestamps at all, so there is
+//: no honest "newest first" here — a board's `id` is the only thing that
+//: orders by age, and it does, because a board *is* an Entry and entry ids
+//: rise with creation. Named "Newest first" rather than "Highest id" because
+//: that is what it means to the person reading it.
+//:
+//: The default board (`id === null`) is pinned first under every sort. It is
+//: the one board that always exists and cannot be renamed or deleted — the
+//: gallery already treats it as a fixed landmark (no tick, no ⋯ menu), and a
+//: sort that shuffled it into the middle of the list would take that away.
+const BOARD_SORTS = {
+  newest: (a, b) => (b.id || 0) - (a.id || 0),
+  oldest: (a, b) => (a.id || 0) - (b.id || 0),
+  az: (a, b) => String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" }),
+  za: (a, b) => String(b.title || "").localeCompare(String(a.title || ""), undefined, { sensitivity: "base" }),
+  fullest: (a, b) => boardItemCount(b) - boardItemCount(a),
+};
+
+const BOARD_SORT_KEY = "library-boards-sort";
+
+function boardItemCount(board) {
+  return (board.node_count || 0) + (board.sketch_count || 0) + (board.object_count || 0);
+}
+
+function boardSort() {
+  const stored = localStorage.getItem(BOARD_SORT_KEY);
+  return BOARD_SORTS[stored] ? stored : "newest";
+}
+
+//: On `window` because `syncLibraryBoardsTicks` (library.js) rebuilds this
+//: same list to line the *n*th checkbox up with the *n*th card. Its own
+//: comment says it must apply "the exact same filter"; a sort is now part of
+//: that, and a second copy of this function would tick the wrong boards the
+//: first time the two drifted.
+window.wbVisibleBoards = function wbVisibleBoards(boards, needle) {
+  const shown = needle
+    ? boards.filter((b) => String(b.title || "").toLowerCase().includes(needle))
+    : [...boards];
+  shown.sort(BOARD_SORTS[boardSort()]);
+  const fixed = shown.filter((b) => b.id === null);
+  return fixed.length ? [...fixed, ...shown.filter((b) => b.id !== null)] : shown;
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+  const select = $("library-boards-sort");
+  if (!select) return;
+  select.value = boardSort();
+  select.addEventListener("change", () => {
+    localStorage.setItem(BOARD_SORT_KEY, select.value);
+    renderLibraryBoardsGallery();
+  });
+});
+
+window.renderLibraryBoardsGallery = renderLibraryBoardsGallery;
 
 async function renderLibraryBoardsGallery() {
   const grid = $("library-boards-grid");
@@ -5812,7 +6233,12 @@ async function renderLibraryBoardsGallery() {
     boards.push({ ...created, node_count: 0, sketch_count: 0, object_count: 0 });
   }
   const needle = ($("library-boards-search")?.value || "").trim().toLowerCase();
-  const shown = needle ? boards.filter((b) => b.title.toLowerCase().includes(needle)) : boards;
+  const shown = window.wbVisibleBoards(boards, needle);
+  //: `.library-list` is the Library's own rows mode (00-tokens-shell.css) and
+  //: a board card is already a `.library-card`, so this is the whole change:
+  //: the same class the All sub-tab toggles, driven by the same preference.
+  const rowsMode = localStorage.getItem("libraryView") === "list";
+  grid.classList.toggle("library-list", rowsMode);
   grid.replaceChildren();
   if (!shown.length) {
     const isFilteredEmpty = Boolean(needle) && boards.length > 0;
@@ -5868,7 +6294,101 @@ async function renderLibraryBoardsGallery() {
     meta.className = "muted library-card-meta";
     meta.textContent = parts.length ? parts.join(" · ") : "Empty board";
 
-    card.append(top, title, meta);
+    // **A thumbnail of the board itself**, rather than the same icon on every
+    // card. Asked for directly: the Boards & maps sub-tab is "boring and
+    // should probably have previews". `preview_points` is up to 40 of the
+    // board's card positions, already normalised into 0..1 against the
+    // board's own bounds by `routes_whiteboard._preview_points` — so this
+    // draws the real layout without the client ever holding the board.
+    //
+    // Built as inline SVG with attributes rather than a `style` string: this
+    // app's CSP rejects inline styles outright, and thirty-five of them
+    // shipped once as silently-dead markup (CLAUDE.md, "a policy silently
+    // refusing the work"). An empty board draws nothing and keeps its
+    // "Empty board" line, which says more than a blank rectangle would.
+    const items = Array.isArray(board.preview_items) ? board.preview_items : [];
+    if (items.length) {
+      const NS = "http://www.w3.org/2000/svg";
+      const map = document.createElementNS(NS, "svg");
+      map.setAttribute("class", "board-minimap");
+      map.setAttribute("viewBox", "0 0 100 56");
+      map.setAttribute("preserveAspectRatio", "none");
+      map.setAttribute("aria-hidden", "true");
+      for (const item of items) {
+        const nx = 3 + (Number(item.x) || 0) * 88;
+        const ny = 3 + (Number(item.y) || 0) * 44;
+        if (item.kind === "sketch") {
+          // A sketch is strokes, and the thumbnail does not have them — the
+          // board's stroke data is the one thing `preview_items` deliberately
+          // does not ship. A squiggle says "something drawn here", which is
+          // the fact that was missing entirely: a sketch-only board used to
+          // preview as an empty rectangle beside a line reading "2 sketches".
+          const mark = document.createElementNS(NS, "path");
+          mark.setAttribute("class", "board-minimap-sketch");
+          mark.setAttribute(
+            "d",
+            `M${nx} ${ny + 5} q2.5 -5 5 0 t5 0`
+          );
+          map.appendChild(mark);
+          continue;
+        }
+        const dot = document.createElementNS(NS, "rect");
+        dot.setAttribute("class", item.kind === "card" ? "board-minimap-card" : "board-minimap-object");
+        // Inset by the dot's own size so a card at the extreme edge of the
+        // board is drawn inside the thumbnail rather than half outside it.
+        dot.setAttribute("x", String(nx));
+        dot.setAttribute("y", String(ny));
+        dot.setAttribute("width", "9");
+        dot.setAttribute("height", "6");
+        dot.setAttribute("rx", "1.5");
+        map.appendChild(dot);
+        // **What the card says**, which is the whole reason this stopped
+        // being a list of bare points. Reported as "the whiteboard preview is
+        // poor", and the screenshot was three boards named "Cloud computing"
+        // showing three identical arrangements of blank grey rectangles —
+        // a picture that could not tell them apart, which is what a preview
+        // is for. Two or three words at this scale is a texture rather than
+        // readable text, and that is enough: two boards with different notes
+        // on them stop looking the same.
+        if (item.label) {
+          const text = document.createElementNS(NS, "text");
+          text.setAttribute("class", "board-minimap-label");
+          // **Which side of the block the label sits on.** Drawn always to
+          // the right in the first version, and looking at the result showed
+          // the problem immediately: a card at the far right of a board is at
+          // nx ≈ 91 in a 100-wide viewBox, so its label ran straight off the
+          // edge and came out sliced mid-word ("Cloud computi"). Past the
+          // halfway mark it hangs off the left of the block instead, which is
+          // the same amount of room from the other direction.
+          const rightHalf = nx > 50;
+          text.setAttribute("x", String(rightHalf ? nx - 1.5 : nx + 10.5));
+          text.setAttribute("y", String(ny + 4.4));
+          if (rightHalf) text.setAttribute("text-anchor", "end");
+          // An ellipsis rather than a bare slice: "Connections prob" reads as
+          // broken, "Connections pro…" reads as shortened. Sixteen characters
+          // is what fits beside a block at this scale before it starts
+          // colliding with the next one.
+          text.textContent =
+            item.label.length > 16 ? `${item.label.slice(0, 15).trimEnd()}…` : item.label;
+          map.appendChild(text);
+        }
+      }
+      card.append(top, title, map, meta);
+    } else if (rowsMode) {
+      //: Rows only. An empty board draws nothing in card view *by design*
+      //: (see the comment above — the "Empty board" line says more than a
+      //: blank rectangle would), but in rows view the map is the row's left
+      //: rail: without a placeholder the boards that have one push their
+      //: title 34px further right than the boards that don't, and every row
+      //: starts at a different x. Measured before this existed: 107px, 155px
+      //: and 189px on three consecutive rows.
+      const blank = document.createElement("span");
+      blank.className = "board-minimap board-minimap-blank";
+      blank.setAttribute("aria-hidden", "true");
+      card.append(top, title, blank, meta);
+    } else {
+      card.append(top, title, meta);
+    }
 
     // The default (id === null) scratch board isn't a note and can't be
     // renamed or deleted the way a real board (a plain Entry — see
@@ -5884,6 +6404,22 @@ async function renderLibraryBoardsGallery() {
               body: JSON.stringify({ title: next }),
             }).catch((e) => toast(e.message, true));
             renderLibraryBoardsGallery();
+          }),
+          // ROADMAP.md item 8: creating, listing and renaming a map all
+          // worked; duplicating did not exist, and it is the one that makes a
+          // map reusable — a laid-out map is a template for the next one.
+          // The copy is deep server-side (its cards are new notes), so
+          // editing it cannot rewrite the original's.
+          makeMenuItem("ph:copy Duplicate", "Make a copy of this board", async () => {
+            try {
+              const copy = await apiJson(`/whiteboard/boards/${board.id}/duplicate`, {
+                method: "POST",
+              });
+              renderLibraryBoardsGallery();
+              toast(`Copied to “${copy.title}”`);
+            } catch (e) {
+              toast(e.message, true);
+            }
           }),
           makeMenuItem("ph:trash Delete", "Delete this board", async () => {
             if (!(await confirmDialog(`Delete "${board.title}"? This cannot be undone.`))) return;
@@ -5902,6 +6438,30 @@ async function renderLibraryBoardsGallery() {
   }
 }
 
+//: Leaving the canvas has to leave full screen with it.
+//:
+//: Reported: "if i am still in whiteboard fullscreen and press the back to
+//: boards button, the ui is broken." It was: `wb-fullscreen` pins
+//: `#library-view-whiteboard` to `position: fixed; inset: 0` at z-index
+//: 1000, and the *boards list* lives inside that same element — so going
+//: back left the list covering the entire window, over the app header, the
+//: Library sub-tabs and everything else, with no visible way out because the
+//: control that turns it off is on the canvas you just left.
+//:
+//: Called from every exit rather than only from the back button: the board
+//: picker, a board card and the Library sub-tabs can all take you off the
+//: canvas too, and each would have had the same bug.
+function wbLeaveFullscreen() {
+  document.getElementById("library-view-whiteboard")?.classList.remove("wb-fullscreen");
+  const button = document.getElementById("wb-fullscreen");
+  if (button) {
+    button.classList.remove("is-on");
+    button.title = "Full screen (Esc to leave)";
+    const icon = button.querySelector("i");
+    if (icon) icon.className = "ph ph-arrows-out";
+  }
+}
+
 // Jump to the real whiteboard canvas with a specific board loaded.
 async function openWhiteboardBoard(boardId) {
   switchTab("library");
@@ -5913,4 +6473,179 @@ async function openWhiteboardBoard(boardId) {
   await fetchWhiteboardState();
   wbScheduleRender();
   wbApplyBgImage();
+  renderWbGestureHints();
 }
+
+//: Where "concept maps are unlearnable" is actually answered.
+//:
+//: The map creates well — a root card, selected, and a toast naming Tab and
+//: Enter. Then the toast goes, and the board says nothing at all about the
+//: three gestures that *are* the feature. Everything else here is discoverable
+//: by pointing at it; these are keys, and a key you were told about once is a
+//: key you do not have.
+//:
+//: Two rules, both from the capture box's own hint: teach at the moment it
+//: applies, and never nag. So it shows while the board is still small enough
+//: to be starting (a map you have built out has taught you these already), and
+//: dismissing it is permanent.
+const WB_GESTURES_DISMISSED = "wbGesturesDismissed";
+//: Up to this many cards still counts as "just started". Four is a root and
+//: three branches — by then you have either used Tab or you are doing
+//: something else with the board.
+const WB_GESTURE_CARD_LIMIT = 4;
+
+function renderWbGestureHints() {
+  const strip = document.getElementById("wb-gestures");
+  if (!strip) return;
+  let dismissed = false;
+  try {
+    dismissed = localStorage.getItem(WB_GESTURES_DISMISSED) === "1";
+  } catch {
+    //: A browser with storage blocked shows the hint every time, which is the
+    //: safe direction to fail in: an extra reminder beats a silent feature.
+  }
+  const cards = (wbState && wbState.nodes ? wbState.nodes.length : 0);
+  strip.classList.toggle("hidden", dismissed || cards > WB_GESTURE_CARD_LIMIT);
+}
+window.renderWbGestureHints = renderWbGestureHints;
+
+document.getElementById("wb-gestures-dismiss")?.addEventListener("click", () => {
+  try {
+    localStorage.setItem(WB_GESTURES_DISMISSED, "1");
+  } catch {
+    /* nothing to persist to — hiding it for this session is still correct */
+  }
+  document.getElementById("wb-gestures")?.classList.add("hidden");
+});
+
+/** A new concept map: a board that opens with a core idea on it, selected
+ *  and ready to branch from.
+ *
+ *  Asked for directly: "I want ways to make custom knowledge graphs that are
+ *  like mindmaps where I can add and remove nodes, move them around, change
+ *  how they connect and reasons, and just make my own thought process map",
+ *  and on where it belongs, "I should be able to make and manage map graphs
+ *  (maybe in library??)".
+ *
+ *  **Deliberately not a new canvas.** Everything a concept map needs already
+ *  exists on the whiteboard — freely placed cards whose positions persist, a
+ *  link tool, `Tab` for a new branch off the selected card and `Enter` for a
+ *  sibling, "Arrange as mind map" to re-tidy, pan/zoom, undo, spaces,
+ *  export. A parallel implementation would have been a second set of all of
+ *  that, immediately behind on every fix either one got.
+ *
+ *  So what this adds is the three things that were actually missing, and
+ *  they are all about *entry*:
+ *
+ *  1. **A name.** Nothing in the app said the words "concept map", so the
+ *     feature was reachable only through a button called "New board" on a
+ *     tab called Whiteboards. A feature nobody can name is a feature nobody
+ *     finds — reported as missing while fully built.
+ *  2. **A root.** An empty board is a blank rectangle; `Tab` and `Enter` do
+ *     nothing until something is selected, so the one gesture that makes
+ *     this a mind map was unreachable from the state the board opens in.
+ *  3. **The gestures, said out loud, once**, at the moment they apply.
+ *
+ *  The map is a board, so a concept map exported to the whiteboard is a
+ *  concept map — which closes the "maybe with a way to export that into a
+ *  visual diagram on the whiteboard" half of the ask by construction rather
+ *  than by building an exporter.
+ */
+async function createConceptMap() {
+  const name = await promptDialog("What is this map about?", "");
+  if (!name || !name.trim()) return;
+  const title = name.trim();
+  try {
+    const board = await apiJson("/whiteboard/boards", {
+      method: "POST",
+      body: JSON.stringify({ name: title }),
+    });
+    // The root idea is a real note, the same as every other card on a board.
+    // That is the app's own premise rather than a shortcut: an idea here *is*
+    // a short note, which is what lets a map node carry tags, links, search
+    // and everything else a note has. `defer_filing` keeps the AI's
+    // categorisation off the critical path — the map should open now.
+    const root = await apiJson("/entries", {
+      method: "POST",
+      body: JSON.stringify({ content: `# ${title}`, tags: [], defer_filing: true }),
+    });
+    await apiJson("/whiteboard/nodes", {
+      method: "POST",
+      body: JSON.stringify({
+        entry_id: root.id,
+        board_id: board.id,
+        // Centre of the default view. The board opens unzoomed and unpanned,
+        // so this is where the middle of the canvas is.
+        x: 400,
+        y: 260,
+        z: 1,
+      }),
+    });
+    window.wbLastCreatedBoard = board;
+    // Same reason as `wbMindMapAddCard`: the root card reads its text out of
+    // `allEntries`, and this note is newer than the last fetch.
+    await loadEntries();
+    await openWhiteboardBoard(board.id);
+    // Selected, because `Tab`/`Enter` act on the selection and an unselected
+    // root leaves the map's whole point one undiscoverable click away.
+    const placed = wbState.nodes.find((n) => n.entry_id === root.id);
+    if (placed) selectWbItem("node", placed.id);
+    toast(`“${title}” — press Tab for a branch, Enter for a sibling.`);
+  } catch (err) {
+    toast(err.message || "Couldn't create that map.", true);
+  }
+}
+window.createConceptMap = createConceptMap;
+
+/** Full screen for the board — asked for directly ("the whiteboard
+ *  definately needs a fullscreen mode because it feels too squished").
+ *
+ *  Measured before building: the canvas is 1376x676 inside a 1440x900
+ *  window, so a quarter of the height is the app header, the Library
+ *  sub-tab bar and the status bar. None of those help while drawing.
+ *
+ *  The class goes on `#library-view-whiteboard`, not on `#wb-canvas-view`.
+ *  That looks like the wrong element and is not: `#wb-canvas-view` is a
+ *  wrapper whose children are all absolutely positioned, so it measures
+ *  **0px tall** — giving it `position: fixed; inset: 0` would size it, but
+ *  the board would then be sized by a parent that had not been, which is
+ *  the shape of bug this file already has a comment about further down.
+ *  `#library-view-whiteboard` is the element that actually carries the
+ *  board's height today, so it is the one to promote.
+ *
+ *  Escape leaves, matching every other full-screen surface in the app.
+ */
+function toggleWhiteboardFullscreen(force) {
+  const host = document.getElementById("library-view-whiteboard");
+  if (!host) return;
+  // Only a real boolean forces a state; anything else (notably a DOM event
+  // arriving from a listener registered by reference) means "toggle". Belt
+  // and braces with the arrow at the call site — this one is what makes the
+  // function safe to pass around at all.
+  const on =
+    typeof force === "boolean" ? force : !host.classList.contains("wb-fullscreen");
+  host.classList.toggle("wb-fullscreen", on);
+  const button = document.getElementById("wb-fullscreen");
+  if (button) {
+    button.classList.toggle("is-on", on);
+    button.title = on ? "Leave full screen (Esc)" : "Full screen (Esc to leave)";
+    const icon = button.querySelector("i");
+    if (icon) icon.className = on ? "ph ph-arrows-in" : "ph ph-arrows-out";
+  }
+  // d3's zoom reads the container's size when it clamps a pan, and the
+  // floating panels are positioned against it — neither notices a class
+  // change on an ancestor on its own.
+  window.dispatchEvent(new Event("resize"));
+}
+
+// Escape leaves full screen. Capture phase and a check that we are actually
+// in it, so this never swallows an Escape meant for a dialog opened *over*
+// the board (the properties panel's own inputs, a confirm) — those are the
+// common case and closing the whole board instead would be maddening.
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  const host = document.getElementById("library-view-whiteboard");
+  if (!host || !host.classList.contains("wb-fullscreen")) return;
+  if (document.querySelector(".modal-overlay:not(.hidden), .lightbox")) return;
+  toggleWhiteboardFullscreen(false);
+});

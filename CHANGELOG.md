@@ -7,6 +7,103 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-09-05
+
+A long round driven almost entirely by live reports with screenshots. Two
+defect *shapes* account for most of the visual bugs in it, and both are
+written up at the top of `docs/roadmap/HANDOVER.md`: a CSS recipe that names
+its members explicitly and silently drops any control that never enrolled, and
+`border: none`, which leaves the width at `medium` for an `!important`
+border-style rule to resurrect as 3px.
+
+### Added
+- **An OCR workspace.** A page beside its regions: a page rail, the image with
+  a clickable box per block Tesseract found, and the text of each block with
+  its confidence, one selection shared both ways. `core/ocr.py` gained
+  `extract_regions`; `GET /media|files/{id}/ocr-regions` serve it. Fit and
+  Actual size, because a portrait scan in a landscape pane was getting cut off.
+- **A vault keeps its shape when imported.** `Entry.source_path` holds the
+  vault-relative path, `[[wiki links]]` resolve by **filename** (which is what
+  Obsidian links name), the Contents index gained a By-folder mode, and
+  Settings gained a folder picker beside the file picker.
+- **The Contents sub-tab is a real index** — sticky sections, a filter, a jump
+  bar, folding, grouping by category, tag or month — rather than a masonry of
+  boxes with a scroller inside each one.
+- **A selection toolbar** in both editing surfaces, and the note *edit* form
+  (the app's poorest editing surface) gained the toolbar, the "/" menu and the
+  selection bar it never had. Documents now open in Live view.
+- **Live action lines in chat**: each tool call names what it touched, as chips
+  that preview the note in place with Open and Edit.
+- **Sorting on every Library sub-tab**, and a Cards/Rows switch on Boards.
+- **A rebuild-the-search-index suggestion** after a bulk change, rather than a
+  standing notice nobody reads.
+- **Favourites** as a parallel pseudo-category, integrated everywhere.
+
+### Changed
+- The Images/Files gallery kebab is the app's own `kebabMenu()` — it was a
+  second implementation of one control, which is how it drifted three times.
+- The widgets picker shows Wide as a state, marks Remove as destructive, and
+  can be reordered from the keyboard.
+- Deleting a file can take its `![...]()` out of the notes that showed it.
+
+### Fixed
+- A document chip in chat opened a *note* with the same id.
+- A tool row with chips vanished from a reopened conversation.
+- Drafts could link to saved notes.
+- The Files sub-tab's kebab existed but was invisible and unclickable behind
+  the page preview.
+- Attached (not embedded) images never appeared in widget rows.
+
+
+## [0.1.9] — 2026-09-04
+
+### Added
+- **A note's attached files can be read.** An attachment now carries a
+  caption, extracted text and a vision-model transcription of its own —
+  columns `MediaUpload` has always had and `Attachment` never did. One
+  endpoint (`POST /files/{id}/analyse`) covers all three: Tesseract for a
+  picture, the document extractor for a .docx or a text-layer PDF, and a
+  vision model rasterising pages for a scan or a diagram with no text layer
+  at all. Any of the three can be typed over by hand.
+- **Files show a preview.** A PDF tile renders its own first page.
+- **The file gallery multi-selects**, with a count and bulk delete, matching
+  the Documents sub-tab.
+- **A whiteboard selection can be saved straight to the image library** as a
+  PNG, with no file downloaded on the way.
+- **The user has an avatar in chat**, alongside the assistant's emblem.
+- Ask's two panels have real heads, and the tab says what it does before its
+  first use instead of being an input on an empty card.
+
+### Changed
+- **Semantic search knows how a note is filed.** A note's category, its tags
+  and the text of anything attached to it are part of what gets embedded, so
+  "what do I have under hobbies" is a question the vectors can answer.
+  Existing notes need a re-index to benefit; new and edited ones do not.
+- **One help popover for every "?" in the app.** Three different
+  presentations (a floating card, a static bordered paragraph that pushed the
+  page down, and bare inline text) are now one anchored, caret-pointing
+  popover that no card's overflow can clip.
+- The Ask box reads as a single composer rather than five loose controls.
+- Image caption and OCR fields read as fields rather than shouting labels,
+  and the model that wrote a caption is a badge rather than a bare id.
+
+### Fixed
+- **A PDF's pages no longer disappear when you read its text** — pages on one
+  side, the extracted text on the other.
+- **Popup menus clipped in many places, not one.** Every `<select>` in the
+  app now escapes its clipping ancestor; the escape mechanism itself gained
+  the z-index and width fixes that only showed up once it was used inside a
+  modal.
+- **A note's attached PDF never appeared in the Library**, because the
+  gallery only ever queried one of the two file tables.
+- Agent rows printed their icon spec as text ("ph:folder Merged …").
+- Whiteboard link endpoints drifted away from the cursor while zoomed — the
+  zoom scale was applied twice.
+- Usage chips printed raw markdown instead of a readable line.
+- A turn that is still generating now says so for as long as it runs, rather
+  than only until the first stream event.
+
+
 ### Added
 - A formatting toolbar for the Notes composer, matching the document
   editor's: bold, italic, code, lists, links, plus highlight, a highlight

@@ -199,6 +199,11 @@ function updatePeekAvailability(section) {
 async function openSettingsModal(section = "models", scrollToId = null) {
   overlayReturnFocus = document.activeElement;
   $("settings-modal").classList.remove("hidden");
+  // Runs on open rather than once at load: several sections are built
+  // lazily, and a pass that ran before they existed would leave exactly the
+  // rows a user is most likely to be reading uncollapsed. Idempotent, so
+  // reopening costs nothing.
+  collapseLongSettingHints();
   $("settings-close").focus();
   $("about-version").textContent = `Version ${
     (await apiJson("/health").catch(() => ({ version: "?" }))).version
@@ -252,8 +257,35 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   refreshModelStatus();
   if (scrollToId) {
     requestAnimationFrame(() => {
-      const target = $(scrollToId);
-      if (!target) return;
+      const found = $(scrollToId);
+      if (!found) return;
+      // **Scroll to what the user can see, not to the element that holds the
+      // value.** Every `<select>` in this app is replaced at runtime by an
+      // opener button plus a menu (`enhanceSelect`), and the native control
+      // is kept only for its value, its label association and the
+      // accessibility tree — as a 1x1 clipped, fully transparent box.
+      //
+      // A deep link that targets a select id therefore scrolled to a point
+      // with no visible control at it, and — worse, because it fails
+      // silently — put the `flash` highlight on an invisible element, so the
+      // "here is the setting you asked for" cue never appeared at all. Found
+      // by measuring: the modal opened on the right section with the select
+      // present and `selectInView: false`.
+      //
+      // `.select-shell` is the wrapper `enhanceSelect` puts around both, so
+      // it is the visible representative of any enhanced select and the
+      // right thing to scroll to and highlight. A select that was never
+      // enhanced has no shell and is its own target, unchanged.
+      const target = found.closest(".select-shell") || found;
+      // A target with no layout box cannot be scrolled to or highlighted, and
+      // trying is a silent no-op that looks like the deep link is broken.
+      // This is a real state, not a defensive guard: several settings are
+      // gated on a backend being present (`#models-config` is hidden outright
+      // when no local model server is detected), so a link into one of them
+      // legitimately lands on a `display: none` control. Opening the section
+      // is still right — it is where the explanation lives — so only the
+      // scroll and flash are skipped.
+      if (!target.getClientRects().length) return;
       const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
       target.classList.remove("flash");
@@ -282,6 +314,24 @@ async function openSettingsModal(section = "models", scrollToId = null) {
 // and only when the settings panel is opened — it is several thousand words
 // and nobody is waiting for it at startup.
 let changelogLoaded = false;
+//: **The changelog renders when it is opened, not when Settings is.**
+//:
+//: Measured during the first audit of Settings (ROADMAP.md item 7 — it had
+//: never been measured): `#changelog-body` held **21,452 words across ~505
+//: paragraphs**, laid out on every single open of Settings -> About, while
+//: the `<details>` around it showed 47 pixels of that. It is not a visual
+//: problem — the fold clips it, and the panel reads as compact — which is
+//: exactly why it went unnoticed. It is DOM weight and layout work for
+//: content nobody has asked to see yet.
+//:
+//: The fetch stays eager, because its answer decides whether the control is
+//: shown at all: a packaged build may not ship the file, and offering a
+//: disclosure that opens onto nothing is worse than not offering one. Only
+//: the render is deferred, since that is the expensive half.
+//:
+//: `toggle` rather than `click`: a `<details>` can also be opened by the
+//: keyboard, by find-in-page, and programmatically, and `toggle` is the one
+//: event that fires for all of them.
 async function loadChangelog() {
   if (changelogLoaded) return;
   const fold = $("changelog-fold");
@@ -296,7 +346,15 @@ async function loadChangelog() {
   }
   changelogLoaded = true;
   fold.classList.remove("hidden");
-  renderMarkdown(body, data.markdown);
+  const paint = () => {
+    if (fold.dataset.rendered) return;
+    fold.dataset.rendered = "1";
+    renderMarkdown(body, data.markdown);
+  };
+  if (fold.open) paint(); // already open from a previous visit
+  fold.addEventListener("toggle", () => {
+    if (fold.open) paint();
+  });
 }
 
 // --- finding a setting (§36B) ------------------------------------------------------
@@ -1018,6 +1076,21 @@ const APPEARANCE_DEFAULTS = {
   // anybody got. One declaration, matching the <option> list and the hint
   // text that explains what "auto" means.
   "bg-motion": "auto", // auto | moving | still
+  //: **Progress indicators, separate from everything above, and defaulting
+  //: to "always" on purpose.** The background art's own key is the shape this
+  //: copies; the *default* is what differs, and the reason is the whole point
+  //: of the setting. Reported with a screenshot of a frozen "Thinking…":
+  //: "the thinking and writing animation is completely broken, doesn't move."
+  //: The app's Reduce motion had turned it into one static italic word —
+  //: which is also exactly what a hung app shows, so the setting had made the
+  //: interface unable to tell the user whether anything was happening.
+  //:
+  //: Turning off "animations and transitions" is a statement about chrome. A
+  //: spinner is not chrome. "always" keeps progress moving through this app's
+  //: own Reduce motion; the *operating system's* accessibility setting is
+  //: still obeyed (see `progressMotionWanted` in app.js), and the indicator
+  //: steps through a colour rather than freezing when it is.
+  "progress-motion": "always", // always | auto | still
   "bg-intensity": "90",
   radius: "14", // global corner rounding, px
   "glass-blur": "18", // frosted-glass blur strength, px
@@ -1655,6 +1728,7 @@ function applyAppearance() {
   root.style.setProperty("--glass-sheen-strength", Number(appearancePref("glass-sheen-strength")) / 100);
   root.dataset.themePreset = activeThemePreset();
   root.dataset.motion = appearancePref("motion");
+  root.dataset.progressMotion = appearancePref("progress-motion");
   root.style.setProperty("--bg-art-opacity", Number(appearancePref("bg-intensity")) / 100);
   // Cards thin out slightly while the art is on, so it reads through the page
   // rather than only in the margins.
@@ -1855,6 +1929,8 @@ function renderAppearance() {
   $("bg-art-toggle").checked = bgArtOn();
   $("bg-style-row").classList.toggle("hidden", !bgArtOn());
   $("bg-intensity-row").classList.toggle("hidden", !bgArtOn());
+  $("progress-motion").value = appearancePref("progress-motion");
+  renderProgressMotionHint();
   $("bg-motion").value = appearancePref("bg-motion");
   $("bg-motion-row").classList.toggle("hidden", !bgArtOn());
   renderBgMotionHint();
@@ -1901,6 +1977,26 @@ function renderAppearance() {
 // A frozen background with no explanation reads as a broken app — which is
 // how it was reported. Say which setting is holding it still, and that
 // "Moving" will override it.
+//: The one case where this setting is *not* in charge, said where the choice
+//: is made rather than left to be discovered. "Always move" overrides this
+//: app's own Reduce motion; it deliberately does not override the operating
+//: system's, which can be on for a medical reason. `typingDots` still steps
+//: the dots through a colour there, so the indicator is never dead.
+function renderProgressMotionHint() {
+  const hint = $("progress-motion-hint");
+  if (!hint) return;
+  const osReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const choice = appearancePref("progress-motion");
+  let text = "";
+  if (choice === "always" && osReduced) {
+    text = "Moving anyway — your system asks for reduced motion, and this setting overrides it. Choose Auto to follow the system instead.";
+  } else if (choice === "still") {
+    text = "Held still. The dots step through a colour once a second so you can still tell work is happening.";
+  }
+  hint.textContent = text;
+  hint.classList.toggle("hidden", !text);
+}
+
 function renderBgMotionHint() {
   const hint = $("bg-motion-hint");
   if (!hint) return;
@@ -2043,7 +2139,7 @@ function renderPaletteGrid() {
 
 function resetAppearance() {
   for (const key of [
-    "fontsize", "font", "density", "glass", "motion", "bg-intensity", "accent",
+    "fontsize", "font", "density", "glass", "motion", "progress-motion", "bg-intensity", "accent",
     "contrast", "bgArt", "theme", "radius", "glass-blur", "glass-opacity",
     "glass-sheen", "glass-sheen-strength", "bg-style", "bg-motion", "palette", "themePreset",
     "accent-custom", "page-bg", "custom-css", "zoom",
@@ -2523,6 +2619,11 @@ $("bg-art-style").addEventListener("change", (e) => {
   localStorage.setItem("bg-style", e.target.value);
   if (bgArtOn()) startBgArt();
 });
+$("progress-motion").addEventListener("change", (e) => {
+  localStorage.setItem("progress-motion", e.target.value);
+  document.documentElement.dataset.progressMotion = e.target.value;
+  renderProgressMotionHint();
+});
 $("bg-motion").addEventListener("change", (e) => {
   localStorage.setItem("bg-motion", e.target.value);
   // Still vs moving is decided in setup, so the sketch has to be rebuilt.
@@ -2732,6 +2833,24 @@ function renderSamplingRows() {
     slider.step = knob.step;
     const readout = document.createElement("output");
     readout.className = "sampling-value";
+    //: **A number you can type, beside the one you can drag.**
+    //:
+    //: Reported: the advanced response settings "don't work". They do — a
+    //: change persists and reaches the model (verified against
+    //: `GET /models/sampling` after a change) — but a slider alone cannot
+    //: express the thing anyone opening this panel came to do: set
+    //: temperature to exactly 0.7 because a model card said so. At a step of
+    //: 0.05 across 0–2 that is a 40-position drag with no way to confirm the
+    //: value except by reading it back, which is indistinguishable from a
+    //: control that ignores you.
+    const number = document.createElement("input");
+    number.type = "number";
+    number.className = "sampling-number";
+    number.id = `sampling-${knob.name}-value`;
+    number.min = knob.min;
+    number.max = knob.max;
+    number.step = knob.step;
+    number.setAttribute("aria-label", `${knob.label} — type an exact value`);
     const reset = document.createElement("button");
     reset.type = "button";
     reset.className = "ghost small icon-button";
@@ -2749,6 +2868,10 @@ function renderSamplingRows() {
         ? (Number(knob.min) + Number(knob.max)) / 2
         : value;
       slider.value = shown;
+      //: Blank rather than the midpoint when nothing is set: a number in the
+      //: box would claim the app had chosen a value it has not.
+      number.value = value === undefined ? "" : String(value);
+      number.placeholder = value === undefined ? "auto" : "";
       readout.textContent = value === undefined ? "backend default" : String(value);
       const from = samplingState.sources[knob.name];
       source.textContent =
@@ -2776,14 +2899,34 @@ function renderSamplingRows() {
       }, 400);
     };
 
-    slider.addEventListener("input", () => {
-      const raw = Number(slider.value);
-      const value = knob.integer ? Math.round(raw) : Number(raw.toFixed(4));
+    //: One place that applies a value, so the slider and the box cannot
+    //: disagree about what "set" means (rounding, the integer knobs, which
+    //: layer the value came from).
+    const applyValue = (raw) => {
+      const clamped = Math.min(Math.max(raw, Number(knob.min)), Number(knob.max));
+      const value = knob.integer ? Math.round(clamped) : Number(clamped.toFixed(4));
       samplingState.overrides[knob.name] = value;
       samplingState.effective[knob.name] = value;
       samplingState.sources[knob.name] = "you";
       paint();
       save();
+    };
+
+    slider.addEventListener("input", () => applyValue(Number(slider.value)));
+    //: `change`, not `input`: typing "0.7" passes through "0." and "0", and
+    //: saving each keystroke would both spam the endpoint and fight the
+    //: caret. An empty box is "back to the model's own value", which is the
+    //: same act as the reset button beside it.
+    number.addEventListener("change", () => {
+      if (number.value.trim() === "") {
+        delete samplingState.overrides[knob.name];
+        paint();
+        save();
+        return;
+      }
+      const raw = Number(number.value);
+      if (Number.isFinite(raw)) applyValue(raw);
+      else paint();
     });
     reset.addEventListener("click", async () => {
       // Deleting the override *is* the reset — there is no separate stored
@@ -2800,7 +2943,7 @@ function renderSamplingRows() {
       await loadSamplingSettings();
     });
 
-    controls.append(slider, readout, reset);
+    controls.append(slider, number, readout, reset);
     row.append(head, help, controls);
     host.appendChild(row);
   }
@@ -2818,3 +2961,109 @@ $("sampling-reset")?.addEventListener("click", async () => {
   }
   await loadSamplingSettings();
 });
+
+
+// --- settings rows: one shape, and the prose out of the way ------------------
+//
+// Reported: "there is often a spacing issue between elements and excessive
+// paragraph texts in places", with a screenshot of Settings, and later
+// "fix and reimagine the ui design for the settings pages".
+//
+// Measured before this: **six paragraphs over 160 characters, the longest
+// 385**, and setting rows at 22px, 37px and 91px — a four-fold height spread
+// decided entirely by whether a row happened to carry an explanation. A list
+// whose items are three different sizes is not a list you can scan, and the
+// scan is the whole job of a settings page: find the one switch you came for.
+//
+// The prose itself is good and worth keeping — it explains *consequences*,
+// which is exactly what a settings hint should do and what most apps omit.
+// So it is not cut; it is collapsed. Every row is the same height at rest,
+// with a hint one click away on the rows that have one.
+//
+// Long ones only. A six-word hint costs nothing to read and hiding it behind
+// a control would be more chrome than text — the threshold is where a hint
+// stops being a label's tail and starts being a paragraph.
+const SETTINGS_HINT_INLINE_CHARS = 90;
+
+function collapseLongSettingHints(root) {
+  const scope = root || document.getElementById("settings-modal");
+  if (!scope) return;
+  // Any depth, not `label > small`: most hints sit inside a `<span>` that
+  // wraps the label's text, so a direct-child selector matched none of the
+  // twenty-three that exist. Checked live rather than assumed — the first
+  // version of this ran, found nothing, and changed no measurement.
+  for (const hint of scope.querySelectorAll("label small.muted")) {
+    if (hint.dataset.collapsible) continue;
+    const text = (hint.textContent || "").trim();
+    if (text.length <= SETTINGS_HINT_INLINE_CHARS) continue;
+    hint.dataset.collapsible = "1";
+    hint.classList.add("setting-hint", "is-collapsed");
+
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "ghost small setting-hint-toggle";
+    setLabel(toggle, "ph:question");
+    // The label text, so the control says which setting it explains rather
+    // than being one of a column of identical "?"s to a screen reader.
+    const label = (hint.parentElement.textContent || "")
+      .replace(text, "")
+      .trim()
+      .slice(0, 60);
+    toggle.title = `What does “${label}” do?`;
+    toggle.setAttribute("aria-label", toggle.title);
+    toggle.setAttribute("aria-expanded", "false");
+    // The same popover every other "?" in this app opens (app.js), rather
+    // than this control's own inline expand — reported directly: "the search
+    // relevance '?' popup tooltip is completely different from all other
+    // tooltips like it, same with the 'keep the ai on this machine' tooltip".
+    // `wireHelpPopover` handles the click (including the preventDefault a
+    // hint living inside a <label> needs, or opening it would toggle the very
+    // setting it explains), the placement, and all three ways it closes.
+    wireHelpPopover(toggle, hint);
+    // **On the label's own line, not under it.** Reported with a
+    // screenshot ("the 'keep the ai on this machine' line in settings needs
+    // visual fixing and alignment"): this used to be
+    // `hint.insertAdjacentElement("afterend", toggle)`, which made the
+    // button a sibling of the label text inside `.setting-check > span` —
+    // and that span is a flex *column*, so every element child becomes its
+    // own row. The "?" sat on a line of its own beneath the setting it
+    // explains, which reads as a broken row rather than a control.
+    //
+    // Wrapping the label's leading nodes and the button together in one
+    // flex row fixes it structurally instead of fighting the column with
+    // margins: text and "?" share a line, the hint still opens underneath.
+    // The disclosure order stays correct for a screen reader too — the
+    // button now precedes the region its `aria-expanded` describes.
+    const parent = hint.parentElement;
+    // **A `.setting-check` row puts the "?" in the right-hand control
+    // cluster, next to the switch, not mid-sentence.** Reported: "the 'keep
+    // the AI on this machine' toggle and '?' icon need to be swapped and
+    // properly aligned." Measured before the change: the label text ran to
+    // x=724, the "?" sat at 732 as a 32px circle, and the switch was at
+    // 1089 — 325 pixels of empty row between two controls that belong to
+    // each other, with the heavier of the two interrupting the sentence.
+    //
+    // `.setting-check` is a grid (04-chat-dock-appearance.css), and its
+    // whole point is that the switches down a group form one straight
+    // right edge. So the button becomes a grid item of its own in the
+    // column beside the switch, rather than a child of the label span.
+    // Every other label shape in Settings is flex or block flow with no
+    // such column, and there the button still needs the wrapping row
+    // below — a bare child of `.setting-check > span` (a flex *column*)
+    // lands on a line of its own under the label, which is what the
+    // previous report about this same row was.
+    const settingCheck = parent.closest(".setting-check");
+    if (settingCheck) {
+      settingCheck.insertBefore(toggle, settingCheck.querySelector("input[type=checkbox]"));
+      continue;
+    }
+    const row = document.createElement("span");
+    row.className = "setting-hint-row";
+    while (parent.firstChild && parent.firstChild !== hint) {
+      row.appendChild(parent.firstChild);
+    }
+    row.appendChild(toggle);
+    parent.insertBefore(row, hint);
+  }
+}
+window.collapseLongSettingHints = collapseLongSettingHints;

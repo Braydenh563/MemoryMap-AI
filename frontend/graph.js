@@ -43,6 +43,7 @@ let graphSimulation = null; // stopped before every rebuild
 let graphHiddenCategories = new Set(); // legend toggles (Wave M)
 let graphNodeSelection = null; // live d3 selections, for search-highlight
 let graphEdgeSelection = null;
+let graphLabelSelection = null; // the label layer's per-node <g> wrappers
 // Refs kept so the on-screen zoom buttons can drive the same behaviour as
 // scroll-zoom, and hover-highlight can look up a node's neighbours.
 let graphSvg = null;
@@ -103,6 +104,14 @@ function settleNoteClamps() {
     }
   }
 }
+
+//: The largest a node can get, from `graphNodeRadius` below: its 9px base
+//: plus the 12px ceiling on the centrality bonus (the access bonus caps
+//: lower, and `Math.max` takes one or the other, never both). Named because
+//: the world-size calculation needs to reserve room for the worst case
+//: rather than the average, and a literal there would drift the moment
+//: either cap below changed.
+const GRAPH_NODE_MAX_RADIUS = 21;
 
 function graphNodeRadius(node) {
   // A category heading in a tree layout is a fixed size — it has no access
@@ -1473,8 +1482,33 @@ async function renderGraph() {
   // drift the clamp exists to stop is still bounded. Zoom-to-fit means a
   // larger world is only ever a smaller starting zoom, never lost notes.
   const GRAPH_WORLD_SCALE = 1.8;
-  const worldW = width * GRAPH_WORLD_SCALE;
-  const worldH = height * GRAPH_WORLD_SCALE;
+  // **The world is sized by how many notes there are, not by the shape of
+  // the window.** Reported again after the 1.8x-the-frame version above:
+  // "the graph nodes seem to be stuck in an invisible rectangular box", with
+  // a screenshot showing them packed against a straight edge.
+  //
+  // Multiplying the frame was the right idea and the wrong axis. A graph box
+  // is wide and short, so `height * 1.8` on a full-screen map is a few
+  // hundred pixels of vertical room — and every node claims a collide radius
+  // of roughly 50px plus 24 of padding. Past about twenty notes the walls,
+  // not the forces, are what the layout settles against, and what settles
+  // between outward repulsion and a wall is a rectangle. The frame's aspect
+  // ratio has nothing to do with how much room a given number of notes
+  // needs, which is why tying the two kept reproducing this.
+  //
+  // So: a **square** world whose side grows with sqrt(count) — area scales
+  // linearly with the number of notes, which is the honest relationship —
+  // floored at the old frame-derived size so a small notebook is unchanged.
+  // Square, because a circular blob is what these forces actually produce
+  // and a square is the smallest box that never squashes one.
+  //
+  // A bigger world costs nothing on screen: zoom-to-fit frames whatever the
+  // nodes end up occupying, so this only ever changes their arrangement.
+  const perNode = 2 * (GRAPH_NODE_MAX_RADIUS + 28);
+  const roomy = Math.sqrt(Math.max(nodes.length, 1)) * perNode * 1.6;
+  const worldSide = Math.max(roomy, width * GRAPH_WORLD_SCALE, height * GRAPH_WORLD_SCALE);
+  const worldW = worldSide;
+  const worldH = worldSide;
   const worldLeft = (width - worldW) / 2;
   const worldTop = (height - worldH) / 2;
   const worldRight = worldLeft + worldW;
@@ -1620,6 +1654,10 @@ async function renderGraph() {
           // Remembered here and restored at "end" below, the same care
           // `graphDragPinned` already gives every *other* node.
           d.wasPinnedBeforeThisDrag = d.fx != null;
+          // Where this gesture began, so "end" can tell a placement from a
+          // bare click — see its own comment.
+          d.dragStartX = d.x;
+          d.dragStartY = d.y;
           d.fx = d.x;
           d.fy = d.y;
           // **Everything else stands still for the length of the drag.**
@@ -1655,7 +1693,11 @@ async function renderGraph() {
           graphDropTarget = graphNodeUnder(d, event);
           nodeGroups.classed("graph-drop-target", (other) => other === graphDropTarget);
         })
-        .on("end", (event, d) => {
+        // A regular function, not an arrow: `d3.select(this)` below needs the
+        // dragged node's own element, and d3 supplies it as `this`. An arrow
+        // would silently close over the module scope instead and the
+        // held-look would be applied to nothing.
+        .on("end", function (event, d) {
           if (!event.active) graphSimulation?.alphaTarget(0);
           // **The note that was lit, not the one under the cursor now.**
           // Dragging reheats the simulation, so every other node is still
@@ -1679,12 +1721,52 @@ async function renderGraph() {
           }
           graphDragPinned = [];
           if (tree) return; // a laid-out tree keeps its shape
-          // Only release *this* node if the drag itself was what pinned
-          // it — a real double-click hold must survive its own two
-          // constituent clicks, not just survive some *other* drag.
-          if (!d.wasPinnedBeforeThisDrag) {
+
+          // **Dragging a note places it, and it stays placed.** Reported
+          // directly: "the way connections are made feels more annoying and
+          // manual", "the main graph view, while cool to look at, is soooooo
+          // annoying to use", "the gravity and separation in the main graph
+          // view are annoying".
+          //
+          // This line used to be `d.fx = null; d.fy = null` — the node you
+          // had just dragged somewhere was handed straight back to the
+          // simulation, which pulled it off to wherever the forces wanted it.
+          // Holding a note where you put it required a *double-click*, a
+          // gesture nothing on screen mentions. So the honest description of
+          // the old behaviour is: the one obvious way to arrange the map did
+          // not arrange it, and the way that did was invisible.
+          //
+          // A drag is an intentional placement — the most deliberate gesture
+          // in the whole view — so it is treated as one. Double-click keeps
+          // its meaning and becomes the *inverse*: hand this note back to
+          // the layout. That is a better pairing than the old one anyway,
+          // because "let go of this" is the rarer action and the one worth
+          // hiding behind a second gesture.
+          //
+          // A drag that never moved is not a placement. d3-drag fires
+          // start/end on a bare click (the bug the "start" handler above
+          // documents at length), and pinning every note anyone clicked on
+          // would freeze the map by accident.
+          const movedFar =
+            Math.abs(d.x - d.dragStartX) > 2 || Math.abs(d.y - d.dragStartY) > 2;
+          if (!movedFar && !d.wasPinnedBeforeThisDrag) {
             d.fx = null;
             d.fy = null;
+          } else if (movedFar && !d.isGroup) {
+            // Same persistence the double-click pin has always used, so a
+            // map you arranged is still arranged after a reload — which is
+            // most of what "make my own thought process map" means.
+            d3.select(this).classed("graph-held", true);
+            d.graph_pin_x = d.fx;
+            d.graph_pin_y = d.fy;
+            apiJson(`/graph/pin/${d.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ x: d.graph_pin_x, y: d.graph_pin_y }),
+            }).catch(() => {
+              // Best-effort, exactly as the double-click path already is: the
+              // in-memory placement above has already taken effect, so a
+              // failed save costs the reload and nothing else.
+            });
           }
           delete d.wasPinnedBeforeThisDrag;
         })
@@ -1783,13 +1865,15 @@ async function renderGraph() {
     .attr("r", graphNodeRadius)
     .attr("fill", "url(#orb-shine)")
     .attr("pointer-events", "none");
-  // A pin badge, so pinned notes are identifiable at a glance.
+  // A star badge, so favourites are identifiable at a glance. Said as
+  // "Favourite" rather than "Pinned" for the reason the popup's own note
+  // below records: one flag, one name, everywhere.
   nodeGroups
     .filter((d) => d.pinned)
     .append("text")
     .attr("class", "graph-pin-badge")
     .attr("dy", (d) => -graphNodeRadius(d) - 4)
-    .text("Pinned");
+    .text("Favourite");
   // Native tooltip: full preview + category + how connected it is.
   nodeGroups.append("title").text((d) => {
     const links = graphAdjacency.get(d.id)?.size || 0;
@@ -1933,8 +2017,16 @@ async function renderGraph() {
           ? " — categories around the centre; replies branch off the note they answer."
           : layoutKind === "arc"
             ? " — one line, filed left to right; arcs below show what answers what."
-            : " — bigger, brighter notes are the ones you use most.";
-  $("graph-stats").textContent = parts.join(" · ") + shape;
+            : "";
+  // The shape sentence is an *explanation*, and it was costing a full row
+  // above the canvas on every layout — reported as the graph "feeling
+  // squashed on my screen due to the top dock". Counts stay on the line
+  // because they are facts about this notebook that change; the sentence
+  // that describes how a layout works is the same every time you read it,
+  // so it moves to the line's own tooltip, next to the "?" that already
+  // exists for exactly this kind of thing.
+  $("graph-stats").textContent = parts.join(" · ");
+  $("graph-stats").title = shape ? shape.replace(/^\s*—\s*/, "") : "";
 
   // Hover-highlight (spotlight a note's connections). Uses the same dimming
   // pipeline as search so the two never fight each other.
@@ -2094,6 +2186,7 @@ async function renderGraph() {
   // query that's already typed.
   graphNodeSelection = nodeGroups;
   graphEdgeSelection = edgeLines;
+  graphLabelSelection = labelGroups;
   // The pickers describe the map, so they are refilled with it — and the trace
   // is redrawn, because a refresh (a new note, a new link, a layout change)
   // must not silently drop the answer on screen.
@@ -2468,6 +2561,11 @@ function applyGraphHighlight() {
     (d) => isSearchActive && searchOk(d)
   );
   graphNodeSelection.classed("graph-focus", (d) => d.id === graphHoveredId);
+  // Labels live in their own layer, a sibling of the node circles rather
+  // than nested inside them (graphNodeSelection above), so a hovered node
+  // can't reveal its label through a CSS descendant selector — it has to
+  // be told directly which label is its own.
+  graphLabelSelection.classed("graph-focus", (d) => d.id === graphHoveredId);
   graphEdgeSelection.classed("graph-dim", (d) => {
     const s = idOf(d.source);
     const t = idOf(d.target);
@@ -2720,7 +2818,13 @@ function renderGraphPopupInfo(entry, node) {
     ["ph:link", `${(entry.links || []).length} link${(entry.links || []).length === 1 ? "" : "s"}`],
     ["ph:eye", `${entry.access_count || 0} view${entry.access_count === 1 ? "" : "s"}`],
   ];
-  if (entry.pinned) facts.push(["ph:push-pin", "Pinned"]);
+  //: **Star and "Favourite", not pin and "Pinned".** `entry.pinned` is one
+  //: flag with one meaning — it floats a note to the top *and* collects it
+  //: into the sidebar's Favourites row — and app.js's own note cards were
+  //: renamed to say so. The graph and the dashboard were not, so the same
+  //: flag had two names and two icons depending on which screen you were
+  //: looking at. Found while fixing the star button's missing glyph.
+  if (entry.pinned) facts.push(["ph:star", "Favourite"]);
   if (typeof entry.ai_confidence === "number") {
     facts.push(["ph:target", `${entry.ai_confidence}% confident`]);
   }
@@ -2738,12 +2842,16 @@ function renderGraphPopupActions(entry) {
   box.replaceChildren();
 
   box.appendChild(
-    smallButton(entry.pinned ? "ph:push-pin-slash Unpin" : "ph:push-pin Pin", "Pin or unpin this note", async () => {
+    //: One glyph in both states, coloured when it is on — the note cards'
+    //: own rule, and for the reason `favouriteButton` (app.js) records: the
+    //: "off" version used a *different icon*, and one of those was missing
+    //: from the font and drew nothing at all.
+    smallButton("ph:star", entry.pinned ? "Remove from Favourites" : "Add to Favourites", async () => {
       await apiJson(`/entries/${entry.id}`, {
         method: "PUT",
         body: JSON.stringify({ pinned: !entry.pinned }),
       }).catch((e) => toast(e.message, true));
-      toast(entry.pinned ? "Unpinned." : "Pinned.");
+      toast(entry.pinned ? "Removed from Favourites." : "Added to Favourites.");
       closeGraphPopup();
       await loadEntries().catch(() => {});
       renderGraph();
@@ -2795,7 +2903,11 @@ function renderGraphPopupActions(entry) {
   const tracingFrom = Boolean(traceFromNode);
   box.appendChild(
     smallButton(
-      tracingFrom ? "ph:path Trace to here" : "ph:path Trace from here",
+      // "Trace from here" was the one label too long for its cell in the
+      // three-column action grid, so it ellipsised to "Trace from he…".
+      // The icon and the tooltip carry the rest; a button that cannot show
+      // its own label is worse than a shorter one.
+      tracingFrom ? "ph:path Trace to" : "ph:path Trace",
       tracingFrom
         ? "Find how this note connects to the one you started from"
         : "Start tracing a path from this note",

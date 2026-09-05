@@ -146,15 +146,6 @@ const LIBRARY_KINDS = [
 //: somewhere — the same test the status bar had to pass, for the same reason:
 //: a number you cannot act on is decoration, and a management screen made of
 //: decoration is a dashboard nobody opens twice.
-const LIBRARY_OVERVIEW_TILES = [
-  { key: "notes", icon: "ph:note-pencil", label: "notes", kind: "note" },
-  { key: "documents", icon: "ph:file-text", label: "documents", kind: "document" },
-  { key: "chats", icon: "ph:chat-circle", label: "chats", kind: "chat" },
-  { key: "tags", icon: "ph:tag", label: "tags", kind: "tag" },
-  { key: "shelved", icon: "ph:archive", label: "archived", kind: "shelved" },
-  { key: "binned", icon: "ph:trash", label: "in the bin", kind: "archived" },
-];
-
 //: What is ticked. Ids alone would collide — a tag's id 3 and a note's id 3 are
 //: different things — so the key is kind + id, and it survives a re-render
 //: because it is not read off the DOM.
@@ -172,7 +163,10 @@ function libraryKeyOf(item) {
 
 function renderLibraryView() {
   const current = libraryView();
-  for (const button of document.querySelectorAll("#library-view button")) {
+  //: Both switches, because they share one stored preference: a Rows chosen
+  //: on the Boards sub-tab has to come back pressed on the All sub-tab, or
+  //: the two read as unrelated controls that happen to look the same.
+  for (const button of document.querySelectorAll("#library-view button, #library-boards-view button")) {
     const active = button.dataset.libraryView === current;
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", String(active));
@@ -194,38 +188,25 @@ async function loadLibrary() {
   renderLibrary();
 }
 
+/** The one line of the old overview strip that was not already on screen.
+ *
+ *  The strip used to be six stat tiles above the filter chips —
+ *  notes / documents / chats / tags / archived / in the bin — each showing a
+ *  count and, on click, setting `libraryKind`. Six of the chips directly
+ *  below it are the same six filters, with the same counts, doing the same
+ *  thing. Measured: 61px of duplicate control, in a screen that already put
+ *  344px of chrome above its first item, and reported as "half the screen
+ *  is taken up by poor ui choices or structuring."
+ *
+ *  Removing the tiles loses nothing: every filter they offered is still one
+ *  click away in the row underneath, still labelled, still counted. What the
+ *  chips never carried is the prose — how much disk the attachments take and
+ *  how much writing is in the documents — so that stays, as one quiet line.
+ */
 function renderLibraryOverview() {
   const box = $("library-overview");
   if (!box) return;
   box.replaceChildren();
-  for (const tile of LIBRARY_OVERVIEW_TILES) {
-    const value = libraryOverview[tile.key] || 0;
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "library-stat" + (libraryKind === tile.kind ? " active" : "");
-    const icon = document.createElement("span");
-    icon.className = "library-stat-icon";
-    setLabel(icon, tile.icon);
-    icon.setAttribute("aria-hidden", "true");
-    const number = document.createElement("strong");
-    number.className = "library-stat-value";
-    number.textContent = value;
-    const label = document.createElement("span");
-    label.className = "library-stat-label";
-    setLabel(label, tile.label);
-    button.append(icon, number, label);
-    button.title = `Show ${tile.label}`;
-    // Every tile is a filter. That is what stops it being decoration.
-    button.addEventListener("click", () => {
-      libraryKind = tile.kind;
-      if (tile.kind === "archived") $("library-show-binned").checked = true;
-      libraryCurrentPage = 1; // a filter switch can move an item off whatever page it was on
-      renderLibraryOverview();
-      renderLibraryFilters();
-      renderLibrary();
-    });
-    box.appendChild(button);
-  }
   // One line of plain prose about the things that are not counts: how much
   // disk the attachments take, and how much writing is in the documents.
   const note = document.createElement("p");
@@ -792,9 +773,15 @@ function libraryCard(item) {
   title.title = cleanTitle;
   top.append(icon, title);
   if (item.pinned) {
+    //: **The same flag means two different things here**, and this card is
+    //: the one place both kinds land side by side. A pinned *chat* is kept at
+    //: the top of the list — that is a pin. A pinned *note* is a Favourite:
+    //: one flag that both floats it and collects it into the sidebar's
+    //: Favourites row, renamed everywhere else and missed here.
+    const isChat = item.kind === "chat";
     const pin = document.createElement("span");
-    setLabel(pin, "ph:push-pin");
-    pin.title = "Pinned";
+    setLabel(pin, isChat ? "ph:push-pin" : "ph:star");
+    pin.title = isChat ? "Pinned" : "Favourite";
     top.appendChild(pin);
   }
   card.appendChild(top);
@@ -1079,11 +1066,15 @@ $("library-show-binned").addEventListener("change", () => {
   libraryCurrentPage = 1;
   renderLibrary();
 });
-for (const button of document.querySelectorAll("#library-view button")) {
+for (const button of document.querySelectorAll("#library-view button, #library-boards-view button")) {
   button.addEventListener("click", () => {
     localStorage.setItem(LIBRARY_VIEW_KEY, button.dataset.libraryView);
     renderLibraryView();
     renderLibrary();
+    //: The boards gallery lives in whiteboard.js and renders from its own
+    //: fetch; re-rendering it here is what makes the switch take effect on
+    //: the sub-tab you pressed it on rather than on your next visit.
+    window.renderLibraryBoardsGallery?.();
   });
 }
 // The bin's own control, on the bin's own screen.
@@ -1233,6 +1224,48 @@ const LIBRARY_CREATE_BY_KIND = {
     label: "⏺ Transcribe audio",
     run: () => openMeetingRecorder(),
   },
+  // Asked for directly: "I want ways to make custom knowledge graphs that are
+  // like mindmaps where I can add and remove nodes, move them around, change
+  // how they connect and reasons, and just make my own thought process map"
+  // — and, on where it should live, "I should be able to make and manage map
+  // graphs (maybe in library??)".
+  //
+  // **This is a board, not a third canvas**, and that is the whole design
+  // decision. The whiteboard already has every part of a concept map:
+  // freely-placed cards whose positions persist, a link tool, Tab for a new
+  // branch and Enter for a new sibling off the selected card, "Arrange as
+  // mind map" to re-tidy, pan/zoom, undo, spaces, and export. What it did
+  // not have was a *name* — nothing in the app said "concept map", so the
+  // one feature the user was asking for was sitting behind a button called
+  // "New board" on a tab called Whiteboards, which is why they reported it
+  // missing. See `createConceptMap` for what the entry point adds on top.
+  //
+  // It also answers the deferred half of the ask — "maybe with a way to
+  // export that into a visual diagram on the whiteboard" — by construction:
+  // the map *is* a whiteboard, so it exports through the export button that
+  // is already there.
+  map: {
+    label: "ph:graph New concept map",
+    run: () => createConceptMap(),
+  },
+  // Reported directly: "in the library 'all' subtab, the files section has
+  // the general create button and not an upload button." It did — `file` had
+  // no entry here, so it fell through to the "＋ Create" picker, which asks
+  // you what you want to make when the answer for a file is never "make".
+  //
+  // It opens the Files sub-tab first and then the picker, so the upload
+  // lands somewhere you are already looking rather than on a screen you
+  // then have to go and find. That click also sets the file input's own
+  // `accept` (see `setLibraryMediaKind`).
+  file: {
+    label: "ph:upload-simple Upload a file",
+    run: () => {
+      document
+        .querySelector('#library-subtabs button[data-media-kind="files"]')
+        ?.click();
+      $("library-images-upload-input")?.click();
+    },
+  },
 };
 
 // **BACKLOG §105 item 1, built**: "Everything" and every kind with no
@@ -1272,7 +1305,7 @@ function openLibraryCreatePicker() {
     }
   };
 
-  for (const kind of ["note", "document", "chat", "meeting"]) {
+  for (const kind of ["note", "document", "map", "chat", "meeting"]) {
     const entry = LIBRARY_CREATE_BY_KIND[kind];
     const button = smallButton(entry.label, entry.label, () => {
       close();
@@ -1724,6 +1757,47 @@ let libraryDocsCurrentPage = 1;
 // in the All view's filter row (LIBRARY_KINDS in app.js, _drafts() in
 // routes_library.py) because a draft is a state a note is in, not a separate
 // kind of object.
+//: Sorting for the Documents sub-tab. Same local, no-round-trip approach as
+//: the media gallery and the links list: the page of documents is already in
+//: memory by the time this runs.
+//:
+//: Sorted **before** paging, which is the only order that makes a page mean
+//: anything — sorting a slice would reorder ten rows within a page and leave
+//: the pages themselves in the server's order, so "longest first" would show
+//: the longest of page two rather than the longest there is.
+const LIBRARY_DOC_SORTS = {
+  newest: (a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")),
+  oldest: (a, b) => String(a.updated_at || "").localeCompare(String(b.updated_at || "")),
+  az: (a, b) => String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" }),
+  za: (a, b) => String(b.title || "").localeCompare(String(a.title || ""), undefined, { sensitivity: "base" }),
+  //: A document list has no file size, but it does have a word count — which
+  //: is what "how big is this one" actually means here. The field is `words`
+  //: (routes_documents.py's `_summary`), not `word_count`: reading the wrong
+  //: name would have made every document sort as zero and the order look
+  //: arbitrary rather than broken, which is the failure that hides longest.
+  longest: (a, b) => (Number(b.words) || 0) - (Number(a.words) || 0),
+};
+
+const LIBRARY_DOC_SORT_KEY = "library-docs-sort";
+
+function libraryDocSort() {
+  const stored = localStorage.getItem(LIBRARY_DOC_SORT_KEY);
+  return LIBRARY_DOC_SORTS[stored] ? stored : "newest";
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const select = document.getElementById("library-docs-sort");
+  if (!select) return;
+  select.value = libraryDocSort();
+  select.addEventListener("change", () => {
+    localStorage.setItem(LIBRARY_DOC_SORT_KEY, select.value);
+    //: Back to page one: staying on page four of a list that has just been
+    //: reordered shows a slice of rows nobody asked to look at.
+    libraryDocsCurrentPage = 1;
+    renderLibraryDocuments();
+  });
+});
+
 async function renderLibraryDocuments() {
   const list = document.getElementById("library-docs-list");
   const empty = document.getElementById("library-docs-empty");
@@ -1763,6 +1837,9 @@ async function renderLibraryDocuments() {
   // Sliced after the selection-cleanup above (which has to see every live
   // id, not just the current page) and before the render loop below.
   const pageBar = document.getElementById("library-docs-pagination");
+  //: Before paging — see `LIBRARY_DOC_SORTS`. On a copy, because `docs` may be
+  //: an array another reader holds.
+  docs = [...docs].sort(LIBRARY_DOC_SORTS[libraryDocSort()]);
   if (libraryDocsPageSize === "all" || !docs.length) {
     pageBar?.classList.add("hidden");
   } else {
@@ -1844,6 +1921,19 @@ async function renderLibraryDocuments() {
     meta.textContent = [words, when].filter(Boolean).join(" · ");
     body.append(title, meta);
 
+    // The document's own opening, which is the thing that actually tells four
+    // similarly-named drafts apart — a title, a word count and a date do not.
+    // Asked for directly: the Documents sub-tab is "boring and should probably
+    // have previews". Served by the list endpoint as a flattened 240-character
+    // snippet (`routes_documents._preview`) rather than by shipping every
+    // document's full text to draw a list.
+    if (doc.preview) {
+      const preview = document.createElement("span");
+      preview.className = "doc-list-preview";
+      preview.textContent = doc.preview;
+      body.append(preview);
+    }
+
     // Same three actions `libraryActions()` gives a document's card in the
     // "All" view — kept as its own copy rather than calling that function
     // directly, because its `reload` is hard-coded to `loadLibrary()` (the
@@ -1912,17 +2002,11 @@ async function renderLibraryDocuments() {
     // off."** `.library-view-section` (07-whiteboard-misc.css) is
     // `overflow-y: auto`, and `.action-menu` — the shared kebab menu
     // `kebabMenu()` builds — is `position: absolute`, so it is clipped by
-    // that scroll container the same way `.library-image-menu-list` was
-    // clipped by `#library-view-media`/`#tab-library` earlier this session.
-    // That fix (reparent to `<body>`, position from the button's own rect)
-    // is scoped here rather than folded into `openActionMenu` itself:
-    // `.action-menu` is shared by note cards, chat, the selection popup and
-    // nested submenus, and rewriting the function all of them share is a
-    // much larger, riskier change than fixing the one instance actually
-    // reported. A MutationObserver on the menu's own `hidden` class means
-    // `openActionMenu`/`closeActionMenus` (app.js) are not touched at all —
-    // every other kebab in the app keeps its existing, working behaviour.
-    wireEscapedActionMenu(menu);
+    // The escape-to-<body> fix this list needed (it is clipped by
+    // `#library-view-media`/`#tab-library` the same way
+    // `.library-image-menu-list` was) now lives inside `kebabMenu()` itself,
+    // so there is no call here: wiring it twice installs two
+    // MutationObservers on one menu, which do the same reparent twice.
 
     open.append(top, body, menu);
     item.appendChild(open);
@@ -2005,13 +2089,923 @@ function stopLibraryImagesPoll() {
   libraryImagesPollTimer = null;
 }
 
+//: Icon and type label for a non-image upload's tile. Deliberately reads
+//: the *url* rather than a stored mime: `MediaUpload` has never carried one
+//: (it stores a filename and nothing about content type), and the extension
+//: is what the allowlist that let the file in already validated.
+//: **What counts as an image**, in one place. The gallery tile code already
+//: had this test inline (a PDF rendered as an `<img>` decodes to nothing and
+//: the tile deletes itself — see `filterLibraryImagesGallery`), and the
+//: Images/Files split needs exactly the same answer. Two copies of it would
+//: be two chances for a `.heic` to be an image in one and a file in the other.
+function isImageUrl(url) {
+  //: Asked for directly: "make sure all image file types are sorted into the
+  //: image gallery". The list was the eight this app's own upload input
+  //: happened to accept, so anything arriving by another route — dragged from
+  //: a phone export, attached to a note, restored from a backup — was an
+  //: image the Files tab held. `.heic`/`.heif` are what a phone actually
+  //: writes, `.tif`/`.tiff` what a scanner does, and `.jfif` is what some
+  //: Windows tools still save a JPEG as. Widening the test is safe in the
+  //: direction that matters: the gallery already deletes a tile whose `<img>`
+  //: decodes to nothing (`filterLibraryImagesGallery`), so a browser that
+  //: cannot render a HEIC drops it rather than showing a broken frame, while
+  //: one that can shows it where it belongs.
+  //:
+  //: The extension is read up to a `?` or `#` rather than to the end of the
+  //: string, because an Attachment's url can carry a cache-busting query and
+  //: an anchored test called that a non-image. Written as a fixed alternation
+  //: with a single optional group — not a `[…]+$` run, which is the
+  //: polynomial-backtracking shape CodeQL has already caught in this repo.
+  return /\.(png|jpe?g|jfif|gif|webp|avif|bmp|ico|svg|heic|heif|tiff?|apng)(?:[?#]|$)/i.test(
+    url || "",
+  );
+}
+
+//: **Preview art or type icon, the viewer's choice.** Asked for: "make it
+//: togglable to change between filetype and previews".
+//:
+//: Persisted in `localStorage` rather than in preferences: it is a way of
+//: looking at one list, like the notes rows/cards toggle beside it in the same
+//: kind of control, not a setting about the notebook. It also costs no
+//: round-trip, so the grid does not flicker into the wrong mode on load.
+//:
+//: Applied as a class on the grid and resolved entirely in CSS. The tiles
+//: already contain both the page render and the glyph — the render simply
+//: covers the glyph — so switching modes is a matter of whether the cover is
+//: painted, and nothing has to be rebuilt, refetched or re-laid-out.
+const LIBRARY_MEDIA_VIEW_KEY = "library-media-view";
+let libraryMediaView = localStorage.getItem(LIBRARY_MEDIA_VIEW_KEY) === "type" ? "type" : "preview";
+
+function applyLibraryMediaView() {
+  const grid = document.getElementById("library-images-grid");
+  if (grid) grid.classList.toggle("show-file-types", libraryMediaView === "type");
+  //: **Hidden on Images, where it would do nothing.** Reported: "the one in
+  //: the image subtab doesnt do anything" — correct, and it never could. The
+  //: toggle chooses between a file's rendered first page and its type glyph,
+  //: and an image tile is an `<img>` of the picture itself: it has no
+  //: `.library-file-page` to hide and no glyph underneath to reveal. A control
+  //: that is present and inert is worse than one that is absent, because it
+  //: invites the click that teaches you it is broken.
+  const viewToggle = document.querySelector(".library-media-view");
+  viewToggle?.classList.toggle("hidden", libraryMediaKind !== "files");
+  const preview = document.getElementById("library-media-view-preview");
+  const type = document.getElementById("library-media-view-type");
+  preview?.classList.toggle("active", libraryMediaView === "preview");
+  preview?.setAttribute("aria-pressed", String(libraryMediaView === "preview"));
+  type?.classList.toggle("active", libraryMediaView === "type");
+  type?.setAttribute("aria-pressed", String(libraryMediaView === "type"));
+}
+
+function setLibraryMediaView(mode) {
+  libraryMediaView = mode === "type" ? "type" : "preview";
+  localStorage.setItem(LIBRARY_MEDIA_VIEW_KEY, libraryMediaView);
+  applyLibraryMediaView();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  document
+    .getElementById("library-media-view-preview")
+    ?.addEventListener("click", () => setLibraryMediaView("preview"));
+  document
+    .getElementById("library-media-view-type")
+    ?.addEventListener("click", () => setLibraryMediaView("type"));
+  applyLibraryMediaView();
+});
+
+//: Which of the two media sub-tabs is showing. Not persisted: it is a place
+//: in the Library, and the sub-tab strip already says which one you are on.
+let libraryMediaKind = "images";
+
+const LIBRARY_MEDIA_COPY = {
+  images: {
+    title: "Images",
+    icon: "ph ph-images-square ph-lead",
+    emptyTitle: "No images yet",
+    emptyBody: "Paste, drop, or attach one to a note and it shows up here.",
+    search: "Search filenames, captions and text found in images…",
+    noMatch: "No images match your search.",
+  },
+  files: {
+    title: "Files",
+    icon: "ph ph-file-text ph-lead",
+    emptyTitle: "No files yet",
+    emptyBody:
+      "Drop a PDF or a document into a note, or use Upload above, and it shows up here.",
+    search: "Search filenames and text found in files…",
+    noMatch: "No files match your search.",
+  },
+};
+
+function setLibraryMediaKind(kind) {
+  libraryMediaKind = kind === "files" ? "files" : "images";
+  //: The view toggle only means something on Files, so it appears and
+  //: disappears with the sub-tab — see `applyLibraryMediaView`.
+  applyLibraryMediaView();
+  const copy = LIBRARY_MEDIA_COPY[libraryMediaKind];
+  const title = $("library-media-title");
+  if (title) title.textContent = copy.title;
+  const icon = $("library-media-empty-icon");
+  if (icon) icon.className = copy.icon;
+  const emptyTitle = $("library-media-empty-title");
+  if (emptyTitle) emptyTitle.textContent = copy.emptyTitle;
+  const emptyBody = $("library-media-empty-body");
+  if (emptyBody) emptyBody.textContent = copy.emptyBody;
+  const search = $("library-images-search");
+  if (search) search.placeholder = copy.search;
+  const noMatch = $("library-images-no-match");
+  if (noMatch) noMatch.textContent = copy.noMatch;
+  // The upload button offers what this sub-tab is *for*. It still accepts
+  // both — a person who picks a PDF on the Images tab gets the PDF, it just
+  // appears under Files — because refusing a file the app can store would be
+  // worse than filing it somewhere they then have to look.
+  const input = $("library-images-upload-input");
+  if (input) {
+    input.accept =
+      libraryMediaKind === "files"
+        ? "application/pdf,text/plain,text/markdown,text/csv,application/json"
+        : "image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/x-icon,image/heic,image/heif,image/tiff,image/apng";
+  }
+}
+
+//: **One way to jump to a stored file**, used by the palette, the graph and
+//: the Connections dialog. It exists because the media view became *two*
+//: sub-tabs: `querySelector('[data-target="library-view-media"]')` now
+//: matches both and returns Images, so every one of those jumps would have
+//: landed a PDF on the Images tab and shown "no match".
+//:
+//: The sub-tab is clicked rather than switched by hand for the same reason
+//: those call sites already clicked it: the strip's own handler owns the
+//: active class, the aria-selected state and the lazy render, and this app
+//: has already learned once that re-implementing three of those is how they
+//: drift.
+function focusLibraryFile(name, url) {
+  switchTab("library");
+  const kind = isImageUrl(url) ? "images" : "files";
+  document
+    .querySelector(`#library-subtabs button[data-media-kind="${kind}"]`)
+    ?.click();
+  const search = $("library-images-search");
+  if (search) {
+    search.value = name || "";
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+}
+window.focusLibraryFile = focusLibraryFile;
+
+function mediaFileIcon(url) {
+  const ext = url.split(".").pop().split(/[?#]/)[0].toLowerCase();
+  const map = {
+    pdf: "ph-file-pdf", doc: "ph-file-doc", docx: "ph-file-doc",
+    xls: "ph-file-xls", xlsx: "ph-file-xls", csv: "ph-file-csv",
+    ppt: "ph-file-ppt", pptx: "ph-file-ppt",
+    txt: "ph-file-text", md: "ph-file-md", json: "ph-file-code",
+    zip: "ph-file-archive",
+  };
+  return map[ext] || "ph-file";
+}
+
+function mediaFileKind(url) {
+  const ext = url.split(".").pop().split(/[?#]/)[0].toLowerCase();
+  return (ext || "file").toUpperCase();
+}
+
+//: One call for "read this file with the models", whichever table the row
+//: came from. A `MediaUpload` has three endpoints (`/media/{id}/caption`,
+//: `/ocr`, `/vision-ocr`); an `Attachment` has one that takes the kind
+//: (`/files/{id}/analyse`), because that side was built after it was clear
+//: the three differ only in which column they write. The tile does not care:
+//: it asks for a kind and gets the updated row back either way.
+//:
+//: Asked for directly: "the files tab needs vision model and ocr model
+//: caption and text extraction… the text and analysis needs to be accessible
+//: to the ai models and modifyable by the user."
+// --- The OCR workspace (three panes) -------------------------------------
+//
+// Asked for with three screenshots of Baidu's Unlimited-OCR: "for the
+// document ocr I want smth like this". The reading this app already did was
+// a paragraph under a thumbnail — you could read it, but not *check* it:
+// nothing said which part of the page a line came from, and a wrong line was
+// a wall of text to re-type rather than a row to fix.
+//
+// The two halves that make it checkable are the overlay and the list, and
+// they are one selection: clicking a box scrolls to its text, clicking a row
+// highlights its box. Boxes are fractions of the image (core/ocr.py), so the
+// overlay is a percentage-positioned layer over the `<img>` and stays right
+// at any panel width — which is why nothing here reads `naturalWidth`.
+let ocrWorkspaceImages = [];
+let ocrWorkspaceCurrent = null;
+let ocrWorkspaceRegions = [];
+//: Which page of a multi-page document is on the stage, and how many there
+//: are. 0/1 for an image, which is a one-page document with no rail.
+let ocrWorkspacePage = 0;
+let ocrWorkspacePages = 1;
+
+function ocrIsPdf(image) {
+  return Boolean(image) && /\.pdf$/i.test(image.original_name || image.filename || "");
+}
+
+function ocrRegionsUrl(image, page = 0) {
+  const base = image._isAttachment
+    ? `/files/${image.id}/ocr-regions`
+    : `/media/${image.id}/ocr-regions`;
+  return `${base}?page=${page}`;
+}
+
+//: The rendered picture of one page — an image is itself the page, a PDF has
+//: to be rasterised, and the endpoints for that already exist for the file
+//: viewer and the Files tile.
+function ocrPageImageUrl(image, page = 0) {
+  if (!ocrIsPdf(image)) return image._src || mediaSrc(image.url);
+  return mediaSrc(
+    image._isAttachment
+      ? `/files/${image.id}/pdf-page/${page}`
+      : `/media/pdf-page/${encodeURIComponent((image.url || "").split("/").pop())}/${page}`
+  );
+}
+
+//: **A reading outlives the window that started it.**
+//:
+//: Reported: *"I begin generating ocr for a document, I close the lightbox,
+//: the ocr workspace is gone and its back to what it was, it should have
+//: stayed open and should be openable if an active ocr reading is going on."*
+//:
+//: The request itself never stopped — a POST keeps going and writes its result
+//: whatever the browser does next — but the only evidence it existed lived
+//: inside the window that started it. This is the piece that outlives that
+//: window: a map of file key → the read in flight, which the workspace reads
+//: on open (so reopening mid-read shows the read, not an empty page) and which
+//: any surface can consult to offer a way back in.
+const ocrActiveReads = new Map();
+
+function trackOcrRead(image, label, promise) {
+  const key = ocrRailKey(image);
+  const record = { label, started: Date.now(), promise };
+  ocrActiveReads.set(key, record);
+  const settle = () => {
+    if (ocrActiveReads.get(key) === record) ocrActiveReads.delete(key);
+    //: Re-render only if this file is still the one on the stage. The
+    //: workspace may have been closed, reopened on another page, or never
+    //: opened at all — none of which should make a finished read throw.
+    if (ocrWorkspaceCurrent && ocrRailKey(ocrWorkspaceCurrent) === key) {
+      const overlay = $("ocr-workspace");
+      if (overlay && !overlay.classList.contains("hidden")) {
+        ocrLoadPage(ocrWorkspaceCurrent, ocrWorkspacePage);
+      }
+    }
+  };
+  Promise.resolve(promise).then(settle, settle);
+  return promise;
+}
+
+function ocrReadInFlight(image) {
+  return image ? ocrActiveReads.get(ocrRailKey(image)) || null : null;
+}
+
+function ocrSelectRegion(index) {
+  for (const box of document.querySelectorAll("#ocr-boxes .ocr-box")) {
+    box.classList.toggle("is-active", Number(box.dataset.index) === index);
+  }
+  for (const row of document.querySelectorAll("#ocr-region-list .ocr-region")) {
+    const active = Number(row.dataset.index) === index;
+    row.classList.toggle("is-active", active);
+    //: `nearest`, not `start`: a row already fully on screen should not jerk
+    //: the list when you click its box.
+    if (active) row.scrollIntoView({ block: "nearest" });
+  }
+}
+
+function ocrRenderRegions(body) {
+  const boxes = $("ocr-boxes");
+  const list = $("ocr-region-list");
+  const message = $("ocr-message");
+  const source = $("ocr-source");
+  boxes.replaceChildren();
+  list.replaceChildren();
+  ocrWorkspaceRegions = body.regions || [];
+
+  //: The badge is not decoration: a single whole-page region drawn from
+  //: stored text is a *fallback*, and letting it look like something the
+  //: reader found there would be a lie about where the text is.
+  const labels = {
+    tesseract: "ph:scan Read on the page",
+    "stored-text": "ph:text-align-left Stored text, no page positions",
+    none: "ph:warning Nothing read yet",
+  };
+  setLabel(source, labels[body.source] || labels.none);
+  source.hidden = false;
+  source.classList.toggle("ocr-source-weak", body.source !== "tesseract");
+  message.textContent = body.message || "";
+  message.classList.toggle("hidden", !body.message);
+
+  const positioned = body.source === "tesseract";
+  for (const region of ocrWorkspaceRegions) {
+    if (positioned) {
+      const box = document.createElement("button");
+      box.type = "button";
+      box.className = `ocr-box ocr-box-${region.kind}`;
+      box.dataset.index = String(region.index);
+      box.style.left = `${region.box.x * 100}%`;
+      box.style.top = `${region.box.y * 100}%`;
+      box.style.width = `${region.box.w * 100}%`;
+      box.style.height = `${region.box.h * 100}%`;
+      box.title = region.text.slice(0, 120);
+      box.setAttribute("aria-label", `Region ${region.index + 1}: ${region.text.slice(0, 60)}`);
+      box.addEventListener("click", () => ocrSelectRegion(region.index));
+      boxes.appendChild(box);
+    }
+
+    const row = document.createElement("li");
+    row.className = "ocr-region";
+    row.dataset.index = String(region.index);
+    const head = document.createElement("div");
+    head.className = "row ocr-region-head";
+    const kind = document.createElement("span");
+    kind.className = `chip ocr-region-kind ocr-region-kind-${region.kind}`;
+    kind.textContent = region.kind === "heading" ? "Heading" : "Text";
+    head.appendChild(kind);
+    if (region.confidence) {
+      //: Confidence is the one number that tells you whether to trust a row,
+      //: so it sits on the row rather than in a tooltip. Rounded to a whole
+      //: percent: a reading is not 87.3% right.
+      const conf = document.createElement("span");
+      conf.className = "muted text-sm ocr-region-conf";
+      conf.textContent = `${Math.round(region.confidence)}%`;
+      conf.title = "How sure the reader was of this block";
+      head.appendChild(conf);
+    }
+    const copy = document.createElement("button");
+    copy.type = "button";
+    copy.className = "ghost small icon-button ocr-region-copy";
+    setLabel(copy, "ph:copy");
+    copy.title = "Copy this region's text";
+    copy.setAttribute("aria-label", copy.title);
+    copy.addEventListener("click", (event) => {
+      event.stopPropagation();
+      copyToClipboard(region.text, event.currentTarget);
+    });
+    head.appendChild(copy);
+    const text = document.createElement("p");
+    text.className = "ocr-region-text";
+    text.textContent = region.text;
+    row.append(head, text);
+    row.addEventListener("click", () => ocrSelectRegion(region.index));
+    list.appendChild(row);
+  }
+  if (!ocrWorkspaceRegions.length && !body.message) {
+    message.textContent = "No text was found on this page.";
+    message.classList.remove("hidden");
+  }
+}
+
+async function ocrLoadPage(image, page = 0) {
+  ocrWorkspaceCurrent = image;
+  ocrWorkspacePage = Math.max(0, page);
+  //: What to reopen, if this window is closed while a read is still running.
+  ocrLastOpened = { image, page: ocrWorkspacePage };
+  const img = $("ocr-image");
+  //: `_src` is an already-tokened url from a caller that has one (the
+  //: lightbox); `url` is the raw path every gallery row carries. Running an
+  //: already-tokened url back through `mediaSrc` appends a second token.
+  //: `ocrPageImageUrl` keeps that rule and adds the PDF case, where the
+  //: picture of the page is rendered rather than stored.
+  img.src = ocrPageImageUrl(image, ocrWorkspacePage);
+  img.alt = ocrIsPdf(image)
+    ? `Page ${ocrWorkspacePage + 1} of ${image.original_name}`
+    : `Page: ${image.original_name}`;
+  const activeKey = ocrIsPdf(image) ? `page:${ocrWorkspacePage}` : ocrRailKey(image);
+  for (const thumb of document.querySelectorAll("#ocr-rail .ocr-rail-item")) {
+    const active = thumb.dataset.key === activeKey;
+    thumb.classList.toggle("is-active", active);
+    thumb.setAttribute("aria-current", active ? "true" : "false");
+  }
+  //: A read started elsewhere and still running is the *first* thing this
+  //: window has to say — otherwise reopening mid-read shows an empty page and
+  //: reads as "it stopped when I closed the window", which is exactly what
+  //: was reported.
+  const running = ocrReadInFlight(image);
+  $("ocr-message").textContent = running
+    ? `${running.label} — this keeps running if you close this window.`
+    : "Reading the page…";
+  $("ocr-message").classList.remove("hidden");
+  $("ocr-boxes").replaceChildren();
+  $("ocr-region-list").replaceChildren();
+  $("ocr-read-page")?.classList.toggle("hidden", !ocrIsPdf(image));
+  try {
+    const body = await apiJson(ocrRegionsUrl(image, ocrWorkspacePage));
+    ocrRenderRegions(body);
+    if (ocrIsPdf(image)) ocrBuildPageRail(image, body.pages || 1);
+    //: The in-flight line wins over the "nothing read yet" message the
+    //: backend sends: both are true, and only one of them is about to change.
+    if (ocrReadInFlight(image)) {
+      $("ocr-message").textContent = `${ocrReadInFlight(image).label} — this keeps running if you close this window.`;
+      $("ocr-message").classList.remove("hidden");
+    }
+  } catch (error) {
+    $("ocr-message").textContent = error.message || "That page could not be read.";
+  }
+}
+
+//: One rail item per page of a document, built from the page count the region
+//: response carries rather than from a second request. Thumbnails are the same
+//: rendered-page endpoint at rail size, `loading="lazy"` so a 200-page scan
+//: does not render 200 pages to show three.
+function ocrBuildPageRail(image, pages) {
+  ocrWorkspacePages = Math.max(1, pages || 1);
+  const rail = $("ocr-rail");
+  if (!rail) return;
+  if (rail.dataset.pagesFor === `${ocrRailKey(image)}:${ocrWorkspacePages}`) {
+    for (const thumb of rail.querySelectorAll(".ocr-rail-item")) {
+      const active = thumb.dataset.key === `page:${ocrWorkspacePage}`;
+      thumb.classList.toggle("is-active", active);
+      thumb.setAttribute("aria-current", active ? "true" : "false");
+    }
+    return;
+  }
+  rail.dataset.pagesFor = `${ocrRailKey(image)}:${ocrWorkspacePages}`;
+  rail.replaceChildren();
+  for (let index = 0; index < ocrWorkspacePages; index += 1) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "ocr-rail-item";
+    item.dataset.key = `page:${index}`;
+    const thumb = document.createElement("img");
+    thumb.src = ocrPageImageUrl(image, index);
+    thumb.alt = "";
+    thumb.loading = "lazy";
+    const name = document.createElement("span");
+    name.className = "ocr-rail-name";
+    name.textContent = `Page ${index + 1}`;
+    item.append(thumb, name);
+    item.title = `Page ${index + 1} of ${ocrWorkspacePages}`;
+    item.classList.toggle("is-active", index === ocrWorkspacePage);
+    item.addEventListener("click", () => ocrLoadPage(image, index));
+    rail.appendChild(item);
+  }
+  rail.classList.toggle("hidden", ocrWorkspacePages < 2);
+}
+
+//: Two tables share one rail, and their ids collide — see `_touched_items`
+//: in ai/agent.py for the same hazard on the same two id spaces.
+function ocrRailKey(image) {
+  return `${image._isAttachment ? "file" : "media"}:${image.id}`;
+}
+
+//: **Closing the window must not lose the reading.**
+//:
+//: Reported twice: *"I start document ocr, but then I close the workspace and
+//: the ocr workspace goes as well so I cant access it again."* The read itself
+//: has survived since `trackOcrRead` shipped — a POST keeps going and writes
+//: its result whatever the browser does — but there was no door back in, which
+//: from the outside is the same thing as losing it.
+//:
+//: So the close is a function rather than a class toggle: it remembers what
+//: was open, and when a read is still running it leaves a notice on screen
+//: with the way back. `toastAction` rather than a plain toast for exactly that
+//: reason — a notice with no button is the thing that was already there.
+let ocrLastOpened = null;
+
+function closeOcrWorkspace() {
+  const overlay = $("ocr-workspace");
+  if (!overlay) return;
+  overlay.classList.add("hidden");
+  const running = ocrReadInFlight(ocrWorkspaceCurrent);
+  if (!running || !ocrLastOpened) return;
+  const { image, page } = ocrLastOpened;
+  toastAction(`${running.label} — it keeps going.`, "Reopen", () => {
+    openOcrWorkspace(image, []);
+    if (page) setTimeout(() => ocrLoadPage(image, page), 150);
+  });
+}
+
+//: Also reachable without closing anything: any surface that knows a read is
+//: in flight can offer the way back through this.
+function reopenOcrWorkspace() {
+  if (!ocrLastOpened) return false;
+  openOcrWorkspace(ocrLastOpened.image, []);
+  if (ocrLastOpened.page) {
+    setTimeout(() => ocrLoadPage(ocrLastOpened.image, ocrLastOpened.page), 150);
+  }
+  return true;
+}
+window.reopenOcrWorkspace = reopenOcrWorkspace;
+
+function openOcrWorkspace(image, images) {
+  const overlay = $("ocr-workspace");
+  if (!overlay) return;
+  ocrWorkspacePage = 0;
+  ocrWorkspacePages = 1;
+  const rail = $("ocr-rail");
+  //: A document's rail is its *pages*; a gallery image's rail is the other
+  //: images beside it. Two different lists in one strip, so the page rail is
+  //: built from the region response (which knows the page count) and this
+  //: sibling rail is built here.
+  if (ocrIsPdf(image)) {
+    ocrWorkspaceImages = [];
+    rail.dataset.pagesFor = "";
+    rail.replaceChildren();
+    rail.classList.add("hidden");
+    overlay.classList.remove("hidden");
+    ocrLoadPage(image, 0);
+    return;
+  }
+  //: Only images the reader can actually open — the rail is a page list, and
+  //: a row that 404s in it is worse than a shorter rail.
+  ocrWorkspaceImages = (images || []).filter((row) => row._isImage);
+  rail.dataset.pagesFor = "";
+  rail.replaceChildren();
+  for (const row of ocrWorkspaceImages) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "ocr-rail-item";
+    item.dataset.key = ocrRailKey(row);
+    const thumb = document.createElement("img");
+    thumb.src = mediaSrc(row.url);
+    thumb.alt = "";
+    thumb.loading = "lazy";
+    const name = document.createElement("span");
+    name.className = "ocr-rail-name";
+    name.textContent = row.original_name;
+    item.append(thumb, name);
+    item.title = row.original_name;
+    item.addEventListener("click", () => ocrLoadPage(row));
+    rail.appendChild(item);
+  }
+  rail.classList.toggle("hidden", ocrWorkspaceImages.length < 2);
+  overlay.classList.remove("hidden");
+  ocrLoadPage(image);
+}
+
+//: **The whole page, in a pane that is the wrong shape for it.** See the
+//: matching CSS comment for why this is not `max-height: 100%`: the stage's
+//: height is `auto`, so a percentage cap against it computes to none, and
+//: `object-fit` would letterbox the picture inside the box the region overlay
+//: is measured against. Setting the stage's *width* keeps the stage exactly
+//: as big as the picture, which is what makes a percentage-positioned box
+//: land on the words it names.
+function ocrFitStage() {
+  const pane = document.querySelector(".ocr-page");
+  const stage = $("ocr-stage");
+  const img = $("ocr-image");
+  if (!pane || !stage || !img) return;
+  const naturalWidth = img.naturalWidth || 0;
+  const naturalHeight = img.naturalHeight || 0;
+  if (!naturalWidth || !naturalHeight) return;
+  if (!pane.classList.contains("is-fit")) {
+    //: Actual size means the page's own pixels. Left to CSS the stage
+    //: shrink-to-fits the pane instead — measured: an 800px-wide scan came
+    //: back 757px wide, which is neither fit nor actual.
+    stage.style.width = `${naturalWidth}px`;
+    return;
+  }
+  //: The pane's *content* box: its padding is not room the picture can use.
+  const style = getComputedStyle(pane);
+  const availableWidth =
+    pane.clientWidth - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight);
+  const availableHeight =
+    pane.clientHeight - Number.parseFloat(style.paddingTop) - Number.parseFloat(style.paddingBottom);
+  if (availableWidth <= 0 || availableHeight <= 0) return;
+  //: Never upscale: a small screenshot blown up to fill the pane is blurry
+  //: and says nothing more than it did at its own size.
+  const scale = Math.min(availableWidth / naturalWidth, availableHeight / naturalHeight, 1);
+  stage.style.width = `${Math.floor(naturalWidth * scale)}px`;
+}
+
+//: **What "100%" means for a page that was rendered rather than photographed.**
+//:
+//: Reported: *"the document at 100% zoom is still zoomed in and I cant zoom
+//: out."* Both halves were true. A PDF page is rasterised at
+//: `pdfpages.RENDER_SCALE` (2.0 — ~144 DPI, picked so a vision model can read
+//: small type), so the PNG's own pixels are twice the page's nominal size and
+//: "Actual size" was a 200% view wearing a 100% label. And the control was a
+//: two-state segment, so there was no way down from it.
+//:
+//: An image is its own pixels and needs no correction; only a rendered page
+//: does, which is why this is keyed on the file being a PDF rather than on a
+//: number carried in the response.
+const OCR_PDF_RENDER_SCALE = 2;
+//: The steps the ± buttons walk. Wide at the bottom because reading a scan at
+//: 50% is a real thing to want, and fine at the top because the point of
+//: zooming into an OCR page is to check one word.
+const OCR_ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3];
+//: `null` means Fit — the mode, not a number, so resizing the window keeps
+//: fitting rather than freezing at whatever fit happened to be.
+let ocrZoom = null;
+
+function ocrNaturalScale() {
+  return ocrIsPdf(ocrWorkspaceCurrent) ? OCR_PDF_RENDER_SCALE : 1;
+}
+
+function ocrApplyZoom() {
+  const pane = document.querySelector(".ocr-page");
+  const stage = $("ocr-stage");
+  const img = $("ocr-image");
+  const label = $("ocr-zoom-level");
+  if (!pane || !stage || !img) return;
+  if (ocrZoom === null) {
+    pane.classList.add("is-fit");
+    ocrFitStage();
+    if (label) label.textContent = "Fit";
+    return;
+  }
+  pane.classList.remove("is-fit");
+  const natural = img.naturalWidth || 0;
+  if (!natural) return;
+  //: The page's own size on paper is the rendered width divided by the scale
+  //: it was rendered at; the zoom multiplies *that*, so 100% is 100%.
+  stage.style.width = `${Math.round((natural / ocrNaturalScale()) * ocrZoom)}px`;
+  if (label) label.textContent = `${Math.round(ocrZoom * 100)}%`;
+}
+
+function ocrStepZoom(direction) {
+  //: Stepping from Fit starts at whatever Fit currently *is*, so the first
+  //: press changes the picture by one step rather than jumping to 100%.
+  if (ocrZoom === null) {
+    const stage = $("ocr-stage");
+    const img = $("ocr-image");
+    const shown = stage ? stage.getBoundingClientRect().width : 0;
+    const paper = (img?.naturalWidth || 0) / ocrNaturalScale();
+    ocrZoom = paper ? Math.min(3, Math.max(0.25, shown / paper)) : 1;
+  }
+  const steps = OCR_ZOOM_STEPS;
+  const next =
+    direction > 0
+      ? steps.find((step) => step > ocrZoom + 0.001)
+      : [...steps].reverse().find((step) => step < ocrZoom - 0.001);
+  ocrZoom = next ?? ocrZoom;
+  ocrApplyZoom();
+  ocrSyncZoomButtons();
+}
+
+//: The segment and the ± row describe one state, so they are painted from it
+//: rather than each tracking their own idea of what is showing.
+function ocrSyncZoomButtons() {
+  for (const button of document.querySelectorAll("#ocr-zoom button")) {
+    const isFit = button.dataset.ocrZoom === "fit";
+    const on = isFit ? ocrZoom === null : ocrZoom === 1;
+    button.classList.toggle("active", on);
+    button.setAttribute("aria-pressed", String(on));
+  }
+  const out = $("ocr-zoom-out");
+  const zin = $("ocr-zoom-in");
+  if (out) out.disabled = ocrZoom !== null && ocrZoom <= OCR_ZOOM_STEPS[0];
+  if (zin) zin.disabled = ocrZoom !== null && ocrZoom >= OCR_ZOOM_STEPS.at(-1);
+}
+
+function ocrAllText() {
+  return ocrWorkspaceRegions.map((region) => region.text).join("\n\n").trim();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  $("ocr-close")?.addEventListener("click", () => closeOcrWorkspace());
+  $("ocr-workspace")?.addEventListener("click", (event) => {
+    //: Click the backdrop to close, the card to keep working — the same rule
+    //: every other overlay in this app follows.
+    if (event.target === event.currentTarget) closeOcrWorkspace();
+  });
+  document.querySelector(".ocr-page")?.classList.add("is-fit");
+  for (const button of document.querySelectorAll("#ocr-zoom button")) {
+    button.addEventListener("click", () => {
+      //: Fit is a *mode* (null) and 100% is a number, so both go through the
+      //: one state `ocrApplyZoom` paints from — the old handler toggled a
+      //: class and called the fitter, which is why "Actual size" had no way
+      //: back and no idea what percentage it was showing.
+      ocrZoom = button.dataset.ocrZoom === "fit" ? null : 1;
+      ocrApplyZoom();
+      ocrSyncZoomButtons();
+    });
+  }
+  $("ocr-zoom-in")?.addEventListener("click", () => ocrStepZoom(1));
+  $("ocr-zoom-out")?.addEventListener("click", () => ocrStepZoom(-1));
+  $("ocr-image")?.addEventListener("load", () => {
+    ocrApplyZoom();
+    ocrSyncZoomButtons();
+  });
+  window.addEventListener("resize", () => {
+    if (!$("ocr-workspace")?.classList.contains("hidden")) ocrApplyZoom();
+  });
+  $("ocr-show-boxes")?.addEventListener("change", (event) => {
+    $("ocr-boxes").classList.toggle("is-hidden", !event.currentTarget.checked);
+  });
+  $("ocr-copy-all")?.addEventListener("click", (event) => {
+    const text = ocrAllText();
+    if (!text) return toast("There is nothing to copy yet.", true);
+    copyToClipboard(text, event.currentTarget);
+  });
+  //: **The document reader.** Tesseract cannot open a PDF at all
+  //: (`core/ocr.py`'s OCR_SUFFIXES), and this project was told directly not to
+  //: depend on it — *"I basically dont want to download tesseract and only
+  //: want to use an ai vision learning and ocr model for images and scanned
+  //: documents."* So the page you are looking at is rasterised server-side and
+  //: handed to the local vision model, one page at a time: a reader who wants
+  //: page 6 should not wait through five pages they have already checked.
+  $("ocr-read-page")?.addEventListener("click", async (event) => {
+    const image = ocrWorkspaceCurrent;
+    if (!image) return;
+    const button = event.currentTarget;
+    const page = ocrWorkspacePage;
+    button.disabled = true;
+    const label = `Reading page ${page + 1} with AI…`;
+    $("ocr-message").textContent = label;
+    $("ocr-message").classList.remove("hidden");
+    //: Announced outside this window as well as in it, because the window can
+    //: be closed while the model works and the read must still be findable.
+    const progress = typeof toastProgress === "function" ? toastProgress(label) : null;
+    const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
+    try {
+      const body = await trackOcrRead(
+        image,
+        label,
+        apiJson(`${base}/ocr-page-read?page=${page}`, { method: "POST" })
+      );
+      const text = (body.text || "").trim();
+      if (text) {
+        //: Rendered like a `stored-text` reading — one region, no boxes —
+        //: because that is honestly what it is: a vision model returns the
+        //: words on the page, not where they sit on it.
+        ocrRenderRegions({
+          regions: [
+            { index: 0, kind: "text", text, confidence: 0, box: { x: 0, y: 0, w: 1, h: 1 } },
+          ],
+          source: "stored-text",
+          message: `Read by ${body.model || "a vision model"} — text only, no page positions.`,
+          pages: ocrWorkspacePages,
+          page,
+        });
+      } else {
+        $("ocr-message").textContent = body.message || "Nothing was read on this page.";
+        $("ocr-message").classList.remove("hidden");
+      }
+      progress?.done(text ? `Read page ${page + 1} of ${image.original_name}.` : body.message || "Nothing was read.");
+    } catch (error) {
+      $("ocr-message").textContent = error.message || "That page could not be read.";
+      progress?.done(error.message || "That page could not be read.", { isError: true });
+    } finally {
+      button.disabled = false;
+    }
+  });
+  $("ocr-to-note")?.addEventListener("click", async () => {
+    const text = ocrAllText();
+    if (!text) return toast("There is nothing to save yet.", true);
+    try {
+      //: The image goes with the text. A note holding a transcription with no
+      //: picture of what was transcribed cannot be checked later, which is
+      //: the same failure this whole workspace exists to fix.
+      const name = ocrWorkspaceCurrent?.original_name || "image";
+      //: **The token must not go in the note.** A caller that opened the
+      //: workspace from the lightbox hands over an already-tokened `_src`
+      //: (see `ocrLoadPage`), and writing that into a note's markdown would
+      //: store this session's auth token in the notebook — and hand it to
+      //: anyone the note is later exported or shared with. The query string
+      //: is dropped; `mediaSrc` re-adds a live token whenever the note is
+      //: rendered.
+      //: A PDF page has no stored url of its own — the picture is rendered on
+      //: request — so the note points at the page endpoint instead, which
+      //: renders the same page again whenever the note is opened.
+      const raw = ocrIsPdf(ocrWorkspaceCurrent)
+        ? (ocrWorkspaceCurrent._isAttachment
+            ? `/files/${ocrWorkspaceCurrent.id}/pdf-page/${ocrWorkspacePage}`
+            : `/media/pdf-page/${encodeURIComponent((ocrWorkspaceCurrent.url || "").split("/").pop())}/${ocrWorkspacePage}`)
+        : ocrWorkspaceCurrent?.url || (ocrWorkspaceCurrent?._src || "").split("?")[0];
+      const picture = raw ? `![${name}](${raw})\n\n` : "";
+      const heading = ocrIsPdf(ocrWorkspaceCurrent)
+        ? `# Text from ${name}, page ${ocrWorkspacePage + 1}`
+        : `# Text from ${name}`;
+      const body = `${heading}\n\n${picture}${text}`;
+      const created = await apiJson("/entries", {
+        method: "POST",
+        body: JSON.stringify({ content: body }),
+      });
+      toast("Saved as a note.");
+      $("ocr-workspace").classList.add("hidden");
+      flashEntry(created.id);
+    } catch (error) {
+      toast(error.message || "Couldn't save that note.", true);
+    }
+  });
+});
+
+async function analyseMediaRow(image, kind, payload = {}) {
+  if (image._isAttachment) {
+    return apiJson(`/files/${image.id}/analyse`, {
+      method: "POST",
+      body: JSON.stringify({ kind: kind === "vision-ocr" ? "vision" : kind, ...payload }),
+    });
+  }
+  return apiJson(`/media/${image.id}/${kind}`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+//: Which gallery tiles are ticked. Media, attachments and sketches live in
+//: three different tables, so a selection is keyed by the row's own kind as
+//: well as its id — `media:12` and `attachment:12` are different files.
+const libraryMediaSelection = new Map();
+
+function mediaRowKey(image) {
+  const kind = image._isAttachment ? "attachment" : "media";
+  return `${kind}:${image.id}`;
+}
+
+//: The one place that knows where each kind of row is deleted, so the tile's
+//: own Delete and the bulk bar cannot drift apart.
+function mediaRowDeleteEndpoint(image) {
+  if (image._isAttachment) return `/files/${image.id}`;
+  return `/media/${image.id}`;
+}
+
+function syncLibraryMediaSelectbar() {
+  const bar = document.getElementById("library-media-selectbar");
+  const count = document.getElementById("library-media-selected-count");
+  if (!bar || !count) return;
+  const n = libraryMediaSelection.size;
+  bar.classList.toggle("hidden", n === 0);
+  count.textContent = `${n} selected`;
+}
+
+function clearLibraryMediaSelection() {
+  libraryMediaSelection.clear();
+  for (const tick of document.querySelectorAll(".library-tile-tick")) tick.checked = false;
+  syncLibraryMediaSelectbar();
+}
+
+async function bulkDeleteLibraryMedia() {
+  const rows = [...libraryMediaSelection.values()];
+  if (!rows.length) return;
+  const answer = await confirmDialog(
+    `Delete ${rows.length} selected item${rows.length === 1 ? "" : "s"}?\n\n` +
+      'Any note or board still showing one will show a "deleted" placeholder instead.',
+    {
+      checkbox: {
+        label: "Also remove them from the notes that show them",
+        title: "Takes the ![image](…) out of every note that embeds these files. Links to them are left alone.",
+        checked: true,
+      },
+    },
+  );
+  if (!answer.ok) return;
+  for (const image of rows) {
+    const endpoint = `${mediaRowDeleteEndpoint(image)}${answer.checked ? "?strip_references=true" : ""}`;
+    await apiJson(endpoint, { method: "DELETE" }).catch((err) =>
+      toast(err.message, true)
+    );
+    const idx = libraryImagesCache.indexOf(image);
+    if (idx !== -1) libraryImagesCache.splice(idx, 1);
+  }
+  libraryMediaSelection.clear();
+  syncLibraryMediaSelectbar();
+  filterLibraryImagesGallery();
+  if (answer.checked) loadEntries().catch(() => {});
+}
+
 async function renderLibraryImagesGallery() {
   const grid = $("library-images-grid");
   const empty = $("library-images-empty");
   if (!grid) return;
+  //: The grid is rebuilt from scratch on every render, so the view class has
+  //: to be re-applied with it — the toggle is a property of the list, not of
+  //: the tiles that happen to be in it right now.
+  applyLibraryMediaView();
   const images = await apiJson("/media", { silent: true }).catch(() => null);
-  libraryImagesCache = images || [];
-  if (!images) {
+  // A note's own attached file (`Attachment`, not `MediaUpload`) never came
+  // from `/media` at all — reported directly, twice: "a pdf I uplaoded to a
+  // note doesnt show in the libary" and "my uploaded pdf file isnt shown in
+  // the library files subtab". `GET /files/gallery` (routes_files.py) is the
+  // same rows the note editor's own attachment list already shows, reshaped
+  // for this gallery — see its own docstring for why it's a separate,
+  // smaller shape rather than pretending an attachment has OCR/captions.
+  //
+  // `_isImage`/`_isAttachment` are set here, once, rather than making every
+  // later call site re-derive them: an attachment's `.url` is `/files/{id}`
+  // with no extension (served by id, not by stored filename), so the
+  // extension-sniffing `isImageUrl()` below — which is exactly right for a
+  // `/media/{name}.ext` row — would silently call every attachment a "file"
+  // regardless of its real mime.
+  const attachments = await apiJson("/files/gallery", { silent: true }).catch(() => []);
+  // **These two loops are load-bearing and were once silently lost.**
+  // Reported: "none of the images and sketches are in the images library
+  // subtab at all and all the files are in the files subtab" — and that is
+  // exactly what an unset `_isImage` produces, because the kind filter below
+  // reads `!i._isImage` for Files: `undefined` is falsy, so every single row
+  // in the notebook satisfied "is a file" and none satisfied "is an image".
+  // Nothing threw and nothing logged; the Images tab just rendered its empty
+  // state on a notebook full of pictures. The comment above survived the edit
+  // that dropped the code it describes, which is the only reason this was
+  // findable by reading — so if this ever needs changing again, change both.
+  for (const item of images || []) item._isImage = isImageUrl(item.url);
+  for (const item of attachments || []) {
+    item._isImage = (item.mime || "").startsWith("image/");
+    item._isAttachment = true;
+    // Never OCR'd, captioned or read by a vision model unless the analyse
+    // step has run — explicit empty strings, the same never-null convention
+    // `MediaUploadOut` uses, so the search filter and the lightbox can read
+    // these without a branch for which kind of row they have.
+    item.ocr_text = item.ocr_text || "";
+    item.caption = item.caption || "";
+    item.vision_ocr_text = item.vision_ocr_text || "";
+  }
+  libraryImagesCache = [...(images || []), ...(attachments || [])];
+  if (!images && !attachments?.length) {
     grid.replaceChildren();
     empty?.classList.remove("hidden");
     return;
@@ -2023,22 +3017,77 @@ async function renderLibraryImagesGallery() {
 // filename *and* any OCR text found on the image (ROADMAP.md item 30d), so
 // "what was on that whiteboard photo from March" is answerable by typing
 // a word that was written on it, not just what it happened to be named.
+//: **How the media sub-tabs are ordered.** Reported: "the library subtabs are
+//: missing sorting and filtering options" — and measured, none of the six had
+//: a sort control; only the Library's own "All" view did.
+//:
+//: The comparators live here rather than on the server because the gallery is
+//: already fully in memory (`libraryImagesCache`), so sorting is a local
+//: reorder with no round-trip and no new endpoint. `created_at` is the field
+//: both row shapes carry — a `MediaUpload` and an `Attachment` agree on it
+//: even though they agree on very little else — which is why "newest" is the
+//: default here as it is everywhere else in the app.
+const LIBRARY_MEDIA_SORTS = {
+  newest: (a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")),
+  oldest: (a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")),
+  az: (a, b) =>
+    String(a.original_name || "").localeCompare(String(b.original_name || ""), undefined, {
+      sensitivity: "base",
+    }),
+  za: (a, b) =>
+    String(b.original_name || "").localeCompare(String(a.original_name || ""), undefined, {
+      sensitivity: "base",
+    }),
+  largest: (a, b) => (Number(b.size_bytes) || 0) - (Number(a.size_bytes) || 0),
+};
+
+const LIBRARY_MEDIA_SORT_KEY = "library-media-sort";
+
+function libraryMediaSort() {
+  const stored = localStorage.getItem(LIBRARY_MEDIA_SORT_KEY);
+  return LIBRARY_MEDIA_SORTS[stored] ? stored : "newest";
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const select = document.getElementById("library-media-sort");
+  if (!select) return;
+  select.value = libraryMediaSort();
+  select.addEventListener("change", () => {
+    localStorage.setItem(LIBRARY_MEDIA_SORT_KEY, select.value);
+    filterLibraryImagesGallery();
+  });
+});
+
 function filterLibraryImagesGallery() {
   const grid = $("library-images-grid");
   const empty = $("library-images-empty");
   const noMatch = $("library-images-no-match");
   if (!grid) return;
   const query = ($("library-images-search")?.value || "").trim().toLowerCase();
-  const images = query
-    ? libraryImagesCache.filter(
+  // Kind first, then the search box. Both the "nothing here" and the "nothing
+  // matches" states below are about *this* sub-tab, so the count they test
+  // has to be the kind-filtered one — otherwise a notebook holding only PDFs
+  // would show the Images tab as "no match for your search" with an empty
+  // search box.
+  const ofKind = libraryImagesCache.filter((i) =>
+    libraryMediaKind === "files" ? !i._isImage : i._isImage
+  );
+  const matched = query
+    ? ofKind.filter(
         (i) =>
           (i.original_name || "").toLowerCase().includes(query) ||
           (i.ocr_text || "").toLowerCase().includes(query) ||
           (i.caption || "").toLowerCase().includes(query)
       )
-    : libraryImagesCache;
+    : ofKind;
+  //: Sorted last, on a copy. A copy because `ofKind` can *be*
+  //: `libraryImagesCache` when nothing is filtered, and sorting in place would
+  //: silently reorder the cache every other reader shares — including the
+  //: lightbox's own "N of M" and its prev/next, which index into the array
+  //: this function hands them.
+  const images = [...matched].sort(LIBRARY_MEDIA_SORTS[libraryMediaSort()]);
   grid.replaceChildren();
-  if (!libraryImagesCache.length) {
+  if (!ofKind.length) {
     empty?.classList.remove("hidden");
     noMatch?.classList.add("hidden");
     return;
@@ -2048,10 +3097,63 @@ function filterLibraryImagesGallery() {
   for (const image of images) {
     const fig = document.createElement("figure");
     fig.className = "library-image-tile";
-    const img = document.createElement("img");
-    img.src = mediaSrc(image.url);
-    img.alt = image.original_name;
-    img.loading = "lazy";
+    // **A PDF is not an image, and rendering one as an <img> is why files
+    // "dont appear anywhere".** Reported directly, and this is the whole
+    // mechanism: every `/media/upload` row was rendered into an `<img
+    // src="/media/…">` regardless of type, so a PDF failed to decode, the
+    // `error` handler below fired, and the tile *deleted itself* — silently,
+    // with no message, from the only screen that lists uploads at all. The
+    // file was on disk and in the database the entire time.
+    //
+    // The gallery already knew how to open one: the lightbox sniffs a
+    // non-image `/media/…` url and hands it to the document viewer. Only the
+    // tile was missing, so this gives a non-image its own tile instead of an
+    // image that cannot exist.
+    // `image._isImage` (set in renderLibraryImagesGallery), not
+    // `isImageUrl(image.url)`: an Attachment row's url is `/files/{id}` —
+    // served by id, no file extension at all — so the url-sniffing test
+    // that works for a `/media/{name}.ext` row would call every attached
+    // PDF a "file" with no icon or label. `mediaFileIcon`/`mediaFileKind`
+    // below read `original_name` for the same reason: it carries the real
+    // extension on both kinds of row, where the url only does for one.
+    const isImage = image._isImage;
+    const img = document.createElement(isImage ? "img" : "div");
+    if (isImage) {
+      img.src = mediaSrc(image.url);
+      img.alt = image.original_name;
+      img.loading = "lazy";
+    } else {
+      img.className = "library-file-thumb";
+      // **A PDF shows its first page.** Reported: "in the files tab, there
+      // is no preview" — every non-image tile was a glyph and an extension,
+      // which tells you nothing you could not read from the filename. The
+      // page renderer already exists for the viewer (`/files/{id}/pdf-page`,
+      // `/media/pdf-page/{name}`); this is the same call at thumbnail size.
+      // The glyph stays underneath as the fallback for everything without
+      // pages, and for a PDF whose render fails.
+      if (image.has_pages || /\.pdf$/i.test(image.original_name || "")) {
+        const page = document.createElement("img");
+        page.className = "library-file-page";
+        page.loading = "lazy";
+        page.alt = "";
+        page.src = mediaSrc(
+          image._isAttachment
+            ? `/files/${image.id}/pdf-page/0`
+            : `/media/pdf-page/${encodeURIComponent((image.url || "").split("/").pop())}/0`
+        );
+        page.addEventListener("error", () => page.remove());
+        img.appendChild(page);
+      }
+      const glyph = document.createElement("i");
+      glyph.className = `ph ${mediaFileIcon(image.original_name)}`;
+      glyph.setAttribute("aria-hidden", "true");
+      const kind = document.createElement("span");
+      kind.className = "library-file-thumb-kind";
+      kind.textContent = mediaFileKind(image.original_name);
+      img.append(glyph, kind);
+      img.setAttribute("role", "img");
+      img.setAttribute("aria-label", `${mediaFileKind(image.original_name)} — ${image.original_name}`);
+    }
     img.addEventListener("error", () => {
       fig.remove();
       // Every tile's click handler closes over this same `images` array by
@@ -2066,15 +3168,23 @@ function filterLibraryImagesGallery() {
       if (idx !== -1) images.splice(idx, 1);
     });
     img.addEventListener("click", () => {
+      // A sketch's "full size" is the board it lives on — there is no file
+      // to open in a lightbox, and the board is where it can actually be
+      // edited, moved or deleted in context.
       openLightbox(
         images.map((i) => ({
           filename: i.original_name,
           getUrl: () => mediaSrc(i.url),
-          // The one caller with a real media row, so the lightbox's id-
-          // gated actions (rename/describe/OCR/delete) only ever appear
+          // The one caller with a real *MediaUpload* row, so the lightbox's
+          // id-gated actions (rename/describe/OCR/delete) only ever appear
           // here — every other caller has a url and nothing else, and a
-          // button guaranteed to 404 is worse than no button.
-          id: i.id,
+          // button guaranteed to 404 is worse than no button. `i._isAttachment`
+          // (Attachment rows this gallery also lists now, see
+          // renderLibraryImagesGallery) is the same case: `i.id` is real,
+          // but it names a row in a different table with none of those
+          // actions, so it must stay unset here for exactly the reason this
+          // comment already gives.
+          id: i._isAttachment ? undefined : i.id,
           // Asked for directly: "if clicking on an image to view expand it in
           // the lightbox…can the captions and ocr accompany it somehow??"
           // The tile is the one place these are too small to read.
@@ -2090,6 +3200,21 @@ function filterLibraryImagesGallery() {
         images.indexOf(image)
       );
     });
+    // The tick. Same control the Documents list already uses, so selecting
+    // works the same way wherever you are in the Library.
+    const tick = document.createElement("input");
+    tick.type = "checkbox";
+    tick.className = "library-tile-tick";
+    tick.checked = libraryMediaSelection.has(mediaRowKey(image));
+    tick.setAttribute("aria-label", `Select ${image.original_name}`);
+    tick.addEventListener("click", (event) => event.stopPropagation());
+    tick.addEventListener("change", () => {
+      if (tick.checked) libraryMediaSelection.set(mediaRowKey(image), image);
+      else libraryMediaSelection.delete(mediaRowKey(image));
+      syncLibraryMediaSelectbar();
+    });
+    fig.appendChild(tick);
+
     const del = document.createElement("button");
     del.type = "button";
     del.className = "ghost small icon-button library-image-delete";
@@ -2097,8 +3222,37 @@ function filterLibraryImagesGallery() {
     setLabel(del, "ph:trash");
     del.addEventListener("click", async (e) => {
       e.stopPropagation();
-      if (!(await confirmDialog(`Delete "${image.original_name}"?\n\nAny note or board still showing it will show a "deleted" placeholder instead.`))) return;
-      await apiJson(`/media/${image.id}`, { method: "DELETE" }).catch((err) => toast(err.message, true));
+      //: **The second question, asked once, in the same dialog.** Reported:
+      //: "notes still mention removed images" — deleting the file left every
+      //: `![](…)` behind, so those notes rendered a "this image was removed"
+      //: placeholder for the rest of their lives. Ticked by default because
+      //: a reference to a file that no longer exists is not something anyone
+      //: keeps on purpose; unticking it keeps the old behaviour exactly.
+      const answer = await confirmDialog(
+        `Delete "${image.original_name}"?\n\nAny note or board still showing it will show a "deleted" placeholder instead.`,
+        {
+          checkbox: {
+            label: "Also remove it from the notes that show it",
+            title: "Takes the ![image](…) out of every note that embeds this file. Links to it are left alone.",
+            checked: true,
+          },
+        },
+      );
+      if (!answer.ok) return;
+      // An Attachment row (image._isAttachment) lives at a completely
+      // different id space from MediaUpload — `DELETE /media/{id}` here
+      // would either 404 or, worse, delete an unrelated MediaUpload row
+      // that happened to share the same numeric id.
+      const endpoint = `${mediaRowDeleteEndpoint(image)}${answer.checked ? "?strip_references=true" : ""}`;
+      await apiJson(endpoint, { method: "DELETE" }).catch((err) =>
+        toast(err.message, true)
+      );
+      //: The notes on screen are now out of date by exactly the edit the
+      //: server just made, so they are refetched rather than left showing a
+      //: picture that is gone from both the disk and the note.
+      if (answer.checked) loadEntries().catch(() => {});
+      libraryMediaSelection.delete(mediaRowKey(image));
+      syncLibraryMediaSelectbar();
       const idx = libraryImagesCache.indexOf(image);
       if (idx !== -1) libraryImagesCache.splice(idx, 1);
       filterLibraryImagesGallery();
@@ -2149,15 +3303,40 @@ function filterLibraryImagesGallery() {
         // name may contain, and it rejects with a reason worth showing.
         finish(next);
         try {
-          const saved = await apiJson(`/media/${image.id}`, {
-            method: "PUT",
-            body: JSON.stringify({ original_name: next }),
-          });
-          image.original_name = saved.original_name;
-          cap.replaceChildren(document.createTextNode(saved.original_name));
-          img.alt = saved.original_name;
-          rename.title = `Rename “${saved.original_name}”`;
-          del.title = `Delete “${saved.original_name}”`;
+          //: **An attachment renames too, through its own route.** Reported:
+          //: "i cant rename or delete files via a kebab button in the files
+          //: subtab." The kebab was there and Delete worked; Rename was
+          //: withheld from `Attachment` rows on the reasoning that "an
+          //: attachment's name is the note's own file list's business". That
+          //: was a judgement about where the name belongs, and the report
+          //: overrules it: a file shown in the Library is a file you expect to
+          //: manage in the Library.
+          //:
+          //: Two tables, two routes, and they take different field names —
+          //: `PUT /files/{id}` wants `filename`, `PUT /media/{id}` wants
+          //: `original_name`. Both already existed and both already enforce
+          //: the workspace and private-note checks; nothing new was needed on
+          //: the server.
+          const saved = await apiJson(
+            image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`,
+            {
+              method: "PUT",
+              body: JSON.stringify(
+                image._isAttachment ? { filename: next } : { original_name: next }
+              ),
+            }
+          );
+          //: `PUT /files/{id}` answers with the whole note (`EntryOut`), not
+          //: the attachment, so the new name is read back from the row rather
+          //: than from a field the response does not have.
+          const savedName = image._isAttachment
+            ? (saved.attachments || []).find((a) => a.id === image.id)?.filename || next
+            : saved.original_name;
+          image.original_name = savedName;
+          cap.replaceChildren(document.createTextNode(savedName));
+          img.alt = savedName;
+          rename.title = `Rename “${savedName}”`;
+          del.title = `Delete “${savedName}”`;
         } catch (error) {
           cap.replaceChildren(document.createTextNode(image.original_name));
           toast(error.message, true);
@@ -2289,10 +3468,7 @@ function filterLibraryImagesGallery() {
         if (next === (image.caption || "")) return cancel();
         finish(next); // optimistic, corrected below if the server refuses it
         try {
-          const updated = await apiJson(`/media/${image.id}/caption`, {
-            method: "POST",
-            body: JSON.stringify({ text: next }),
-          });
+          const updated = await analyseMediaRow(image, "caption", { text: next });
           setCaptionState(updated.caption, {
             caption_model: updated.caption_model,
             caption_edited: updated.caption_edited,
@@ -2335,10 +3511,7 @@ function filterLibraryImagesGallery() {
         // force: true — a manual click is exactly "the user pressed the
         // button to rewrite it", the one case the write-once default
         // (caption_and_store) is meant to defer to.
-        const updated = await apiJson(`/media/${image.id}/caption`, {
-          method: "POST",
-          body: JSON.stringify({ force: true }),
-        });
+        const updated = await analyseMediaRow(image, "caption", { force: true });
         setCaptionState(updated.caption, {
           caption_model: updated.caption_model,
           caption_edited: updated.caption_edited,
@@ -2433,10 +3606,7 @@ function filterLibraryImagesGallery() {
         if (next === (image.ocr_text || "")) return cancel();
         finish(next); // optimistic, corrected below if the server refuses it
         try {
-          const updated = await apiJson(`/media/${image.id}/ocr`, {
-            method: "POST",
-            body: JSON.stringify({ text: next }),
-          });
+          const updated = await analyseMediaRow(image, "ocr", { text: next });
           setOcrState(updated.ocr_text);
         } catch (error) {
           setOcrState(image.ocr_text);
@@ -2479,7 +3649,7 @@ function filterLibraryImagesGallery() {
       const previousOcrText = ocrText.textContent;
       ocrText.replaceChildren(typingDots("Reading text…"));
       try {
-        const updated = await apiJson(`/media/${image.id}/ocr`, { method: "POST" });
+        const updated = await analyseMediaRow(image, "ocr");
         setOcrState(updated.ocr_text);
       } catch (error) {
         ocrText.textContent = previousOcrText;
@@ -2487,6 +3657,24 @@ function filterLibraryImagesGallery() {
       } finally {
         ocrBtn.disabled = modelStatus && modelStatus.tesseract_available === false;
       }
+    });
+
+    //: The workspace, beside the re-read button. Two different acts: `ph:scan`
+    //: *re-reads* the image and replaces the paragraph below; this *opens*
+    //: what was read, region by region, over the page it came from. Offered
+    //: for images and for PDFs: a PDF page is rasterised server-side first
+    //: (`_pdf_regions_for`), so the one window built for reading documents is
+    //: no longer the one window a document cannot be opened in.
+    const ocrOpenBtn = document.createElement("button");
+    ocrOpenBtn.type = "button";
+    ocrOpenBtn.className = "ghost small library-image-menu-item library-image-ocr-open";
+    setLabel(ocrOpenBtn, "ph:selection-all See text on the page");
+    ocrOpenBtn.title = ocrIsPdf(image)
+      ? `Read “${image.original_name}” page by page, beside the page itself`
+      : `See where each line sits on “${image.original_name}”`;
+    ocrOpenBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openOcrWorkspace(image, images);
     });
 
     // A vision model's verbatim transcription of any text in the image —
@@ -2602,10 +3790,7 @@ function filterLibraryImagesGallery() {
         // about text that no longer exists.
         finish(next, next ? previousModel : "");
         try {
-          const updated = await apiJson(`/media/${image.id}/vision-ocr`, {
-            method: "POST",
-            body: JSON.stringify({ text: next }),
-          });
+          const updated = await analyseMediaRow(image, "vision-ocr", { text: next });
           setVisionOcrState(updated.vision_ocr_text, updated.vision_ocr_model);
         } catch (error) {
           setVisionOcrState(previousText, previousModel);
@@ -2639,10 +3824,7 @@ function filterLibraryImagesGallery() {
       try {
         // force: true — a manual click always re-reads, the same "the user
         // pressed the button" reasoning captionBtn's own force:true uses.
-        const updated = await apiJson(`/media/${image.id}/vision-ocr`, {
-          method: "POST",
-          body: JSON.stringify({ force: true }),
-        });
+        const updated = await analyseMediaRow(image, "vision-ocr", { force: true });
         setVisionOcrState(updated.vision_ocr_text, updated.vision_ocr_model);
       } catch (error) {
         // Restores whatever was there before this click — including
@@ -2660,148 +3842,62 @@ function filterLibraryImagesGallery() {
     // the same thing??" — and they nearly did. `ocrBtn` (ph:scan) and
     // `visionOcrBtn` (ph:text-aa) are both "read the text in this image",
     // differing only in *which* reader, which an icon cannot say and a
-    // tooltip only says once you have hovered both. The same report proposed
-    // the fix: "maybe have the button as a 3-dot kebab button with the other
-    // options as a popup menu". A menu row has room for words, so the two
-    // readers are now told apart by name rather than by glyph.
+    // tooltip only says once you have hovered both. A menu row has room for
+    // words, so the two readers are told apart by name rather than by glyph.
     //
-    // The buttons themselves are untouched — same elements, same handlers,
-    // relabelled and re-parented. A rewrite would have been a rewrite of five
-    // working things to change where they sit.
-    setLabel(rename, "ph:pencil-simple Rename");
-    setLabel(captionBtn, "ph:sparkle Describe with AI");
-    setLabel(ocrBtn, "ph:scan Read text (Tesseract OCR)");
-    setLabel(visionOcrBtn, "ph:text-aa Read text with AI");
-    setLabel(del, "ph:trash Delete");
-    for (const button of [rename, captionBtn, ocrBtn, visionOcrBtn, del]) {
-      button.classList.remove("icon-button");
-      button.classList.add("library-image-menu-item");
-    }
-    del.classList.add("danger");
-
+    //: **And it is the app's own kebab now, not a second implementation of
+    //: one.** Reported three times, most recently with two screenshots side
+    //: by side: "the images subtab dropdown menus are still different from the
+    //: ones in the documents and all subtabs". They were — this menu was a
+    //: `<details>` with its own list class, its own outside-click listener,
+    //: its own reparent-to-body escape and its own 40-line placement
+    //: function, while every other menu in the app is `kebabMenu()`. Two
+    //: implementations of one control is exactly how two controls end up
+    //: looking different, and no amount of matching the CSS by hand fixes the
+    //: next difference. All of that is deleted; the five buttons keep their
+    //: handlers and are driven from the shared menu's rows.
+    const menuActions = [
+      { button: rename, label: "ph:pencil-simple Rename" },
+      { button: captionBtn, label: "ph:sparkle Describe with AI" },
+      { button: visionOcrBtn, label: "ph:text-aa Read text with AI" },
+      //: Left out entirely, not greyed, when the binary is missing — the
+      //: lightbox menu (app.js) does the same, for the same report: "make
+      //: sure all the fila and document ocr worfs with ai ocr models, I dont
+      //: use tesseract." This app never installs that binary (by
+      //: instruction), so a disabled row here can never become enabled.
+      ...(modelStatus && modelStatus.tesseract_available === false
+        ? []
+        : [{ button: ocrBtn, label: "ph:scan Read text (Tesseract OCR)" }]),
+      //: Images and PDFs. Tesseract cannot open a PDF, but the workspace no
+      //: longer needs it to: `_pdf_regions_for` (routes_files.py) rasterises
+      //: the page first and the workspace reads it with the vision model,
+      //: which is what *"is the document ocr even working??"* was about.
+      ...(image._isImage || ocrIsPdf(image)
+        ? [{ button: ocrOpenBtn, label: "ph:selection-all See text on the page" }]
+        : []),
+      { button: del, label: "ph:trash Delete", danger: true },
+    ];
+    //: The row of controls the kebab lives in. Declared here because the
+    //: `<details>` version this replaced created it a few lines further down,
+    //: and taking that block out took the declaration with it.
     const actions = document.createElement("div");
     actions.className = "library-image-actions";
-
-    // `<details>` rather than a hand-rolled popup: it opens on click and on
-    // Enter/Space, closes on Escape, and is exposed to a screen reader as a
-    // disclosure — all of it from the browser, none of it from us. The one
-    // thing it does not do is close when you click elsewhere, which is the
-    // single listener below.
-    const menu = document.createElement("details");
-    menu.className = "library-image-menu";
-    const menuButton = document.createElement("summary");
-    menuButton.className = "ghost small icon-button library-image-menu-btn";
-    menuButton.title = `More actions for “${image.original_name}”`;
-    menuButton.setAttribute("aria-label", menuButton.title);
-    setLabel(menuButton, "ph:dots-three");
-    const menuList = document.createElement("div");
-    menuList.className = "library-image-menu-list";
-    menuList.append(rename, captionBtn, visionOcrBtn, ocrBtn, del);
-    menu.append(menuButton, menuList);
-    // Picking anything closes the menu — on the **capture** phase, which is
-    // the whole point. This was a bubble-phase listener with a comment
-    // explaining that each button's own handler should run first, but every
-    // one of those handlers (rename, caption, both OCR buttons, delete)
-    // opens with `event.stopPropagation()` to keep the click off the tile
-    // underneath — so the click never reached this listener and the menu
-    // never closed. Reported directly: the menu stayed open on top of the
-    // rename field it had just opened, covering the thing you were trying to
-    // type into.
-    //
-    // Capturing runs this before those handlers, where nothing can stop it,
-    // and closing the menu does not cancel the click that is still on its
-    // way to the button — so both halves now happen.
-    menuList.addEventListener(
-      "click",
-      () => {
-        menu.open = false;
-      },
-      { capture: true }
+    const menu = kebabMenu(
+      menuActions.map(({ button, label, danger }) => ({
+        label,
+        title: button.title,
+        //: The button's own disabled state carries through as the menu row's
+        //: muted state — `ocrBtn` is disabled when Tesseract is missing, and a
+        //: row that looks live and does nothing is worse than one that says so.
+        disabled: button.disabled,
+        danger,
+        //: `run` clicks the original button, so its handler — rename's inline
+        //: field, the two readers' spinners, delete's confirm — is still the
+        //: one thing that decides what happens.
+        run: () => button.click(),
+      })),
+      `More actions for “${image.original_name}”`,
     );
-    document.addEventListener("click", (event) => {
-      // `menuList` is reparented to <body> while open (see placeMenu), so
-      // `menu.contains()` alone no longer covers a click on the menu's own
-      // rows — it has to be asked about separately or every click inside
-      // the menu reads as a click outside it.
-      if (menu.open && !menu.contains(event.target) && !menuList.contains(event.target)) {
-        menu.open = false;
-      }
-    });
-    // Which edges to flip toward used to be a CSS-only guess (nth-child(3n)
-    // for "last column"), which only held while the grid actually rendered
-    // exactly 3 columns — it's `auto-fill`, so a narrower window silently put
-    // the wrong tiles on the flip side and every other tile's five-row menu
-    // ran off the bottom of the screen with nothing to catch it at all.
-    // Reported directly: "make sure the popup options dont get cut off."
-    // Measured against the real box now, the same way openActionMenu()
-    // (app.js) already does it for every other kebab in the app.
-    // **Re-reported after the clamp below was already in place**, with a
-    // screenshot of the menu cut off dead straight down its left edge — and
-    // a straight vertical cut is a *clipping ancestor*, not a menu that ran
-    // past the window. Measured: the menu's ancestor chain has two of them,
-    // `#library-view-media` (`overflow-x: auto`) and `#tab-library`
-    // (`overflow-x: hidden`). No amount of measuring fixes that, because
-    // `getBoundingClientRect()` reports the box the menu *would* occupy —
-    // it does not know the box is about to be clipped, so a clamp that
-    // keeps the menu inside those bounds still gets scissored by them, and
-    // a clamp measured against the scroll parent has nowhere left to move.
-    //
-    // So the menu stops being `position: absolute` inside that subtree and
-    // becomes `position: fixed`, positioned from the button's own rect
-    // against the viewport — the same escape the whiteboard's context menu
-    // already makes (`wb-ctx-menu`), for the same reason. Nothing can clip
-    // a fixed element to an ancestor's overflow, so the only bound left to
-    // respect is the window, which is what a clamp can actually enforce.
-    // **`position: fixed` alone is not enough, and the reason is worth
-    // recording.** The first attempt at this made the list fixed and
-    // positioned it from the button's rect — and it still landed inside the
-    // clipped box, offset from where it was told to go by 54px on one tile
-    // and 709px on another. A fixed element resolves against the viewport
-    // *unless* an ancestor establishes a containing block for it, which
-    // `transform`, `filter`, `backdrop-filter` and `will-change` all do —
-    // and the tile's own `section.card.glass` carries `backdrop-filter`.
-    // So the coordinates were being resolved against the very element the
-    // menu needed to escape.
-    //
-    // Reparenting to <body> is what actually escapes it: no glass ancestor,
-    // no clipping ancestor, and `fixed` finally means the viewport. Same
-    // move `wbOpenDockedMenu` makes for the same reason.
-    const placeMenu = () => {
-      if (!menu.open) {
-        if (menuList.parentElement === document.body) menu.append(menuList);
-        return;
-      }
-      if (menuList.parentElement !== document.body) document.body.append(menuList);
-      const margin = 8;
-      const anchor = menuButton.getBoundingClientRect();
-      // Default: hung below the button, right edges aligned — the same
-      // placement the absolute version had, just resolved against the
-      // viewport instead of the (clipping) offset parent.
-      menuList.style.left = "0px";
-      menuList.style.top = "0px";
-      const box = menuList.getBoundingClientRect();
-      let left = anchor.right - box.width;
-      let top = anchor.bottom + margin;
-      if (left < margin) left = margin;
-      if (left + box.width > window.innerWidth - margin) {
-        left = Math.max(margin, window.innerWidth - margin - box.width);
-      }
-      // Flip above the button when there is no room below it, and only
-      // then — the menu is five rows tall and a tile near the bottom of
-      // the gallery has none.
-      if (top + box.height > window.innerHeight - margin) {
-        const above = anchor.top - margin - box.height;
-        top = above >= margin ? above : Math.max(margin, window.innerHeight - margin - box.height);
-      }
-      menuList.style.left = `${Math.round(left)}px`;
-      menuList.style.top = `${Math.round(top)}px`;
-    };
-    menu.addEventListener("toggle", placeMenu);
-    // A fixed element does not travel with the content it was opened from,
-    // so a scroll would leave it stranded over the wrong tile. Cheapest
-    // correct answer, and the one the rest of the app uses: close it.
-    window.addEventListener("scroll", () => { if (menu.open) menu.open = false; }, true);
-    window.addEventListener("resize", () => { if (menu.open) menu.open = false; }, { passive: true });
     actions.append(menu);
 
     // **Labelled, and separated.** Reported directly: "I feel the image
@@ -2858,7 +3954,75 @@ function filterLibraryImagesGallery() {
     fields.className = "library-image-fields";
     fields.append(captionField, visionField, ocrField);
 
-    fig.append(img, actions, cap, fields);
+    // **Where this file is actually used.** Asked for as the Files tab being
+    // "properly integrated" rather than just redesigned — and it was the one
+    // question the gallery could not answer. A card showed a thumbnail, a
+    // filename and two empty prompts, so a wall of sixty uploads told you
+    // nothing about what any of them were for, and getting from a file to the
+    // note it belongs to meant searching for it by name.
+    //
+    // Each chip opens the thing that references the file, so the gallery is a
+    // way *into* the notebook rather than a dead end. Server-side
+    // (`media_gc.usage_map`), built from the same `referenced_names` the
+    // orphan collector uses — if the two disagreed, a file this called "used"
+    // could be one the collector deletes.
+    const usage = document.createElement("div");
+    usage.className = "library-image-usage";
+    const links = Array.isArray(image.used_by) ? image.used_by : [];
+    if (links.length) {
+      const lead = document.createElement("span");
+      lead.className = "muted text-sm library-image-usage-lead";
+      lead.textContent = links.length === 1 ? "Used in" : `Used in ${links.length} places`;
+      usage.appendChild(lead);
+      for (const use of links.slice(0, 4)) {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "chip chip-interactive library-image-usage-chip";
+        const icon = { note: "ph:note", document: "ph:file-text", board: "ph:squares-four" }[use.kind] || "ph:link";
+        setLabel(chip, `${icon} ${use.label}`);
+        chip.title = `Open the ${use.kind} this file is used in`;
+        chip.addEventListener("click", (event) => {
+          event.stopPropagation();
+          if (use.kind === "note") {
+            switchTab("notes");
+            flashEntry(use.id);
+          } else if (use.kind === "document") {
+            switchTab("documents");
+            openDocument(use.id);
+          } else if (use.kind === "board") {
+            openWhiteboardBoard(use.id ?? null);
+          }
+        });
+        usage.appendChild(chip);
+      }
+      if (links.length > 4) {
+        const more = document.createElement("span");
+        more.className = "muted text-sm";
+        more.textContent = `+${links.length - 4} more`;
+        usage.appendChild(more);
+      }
+    } else if (image.usage_incomplete) {
+      // Not the same claim as "unused", and the difference matters: a locked
+      // private note could not be read, so this file may well be in use.
+      // Saying "not used anywhere" here would invite deleting something live.
+      const note = document.createElement("span");
+      note.className = "muted text-sm";
+      note.textContent = "Usage unknown — a locked private note could not be checked";
+      usage.appendChild(note);
+    } else {
+      const note = document.createElement("span");
+      note.className = "muted text-sm";
+      note.textContent = "Not used in any note, document or board yet";
+      usage.appendChild(note);
+    }
+
+    // `fields` (caption/vision-OCR/Tesseract-OCR boxes) is skipped entirely
+    // for an attachment tile, not just emptied — each of those is a
+    // click-to-edit control that saves through `/media/{id}/...` (see the
+    // menuList comment above for why that id doesn't belong to this row),
+    // and a caption box that looks editable but silently 404s on save is
+    // worse than a tile with no caption box at all.
+    fig.append(img, actions, cap, usage, fields);
     grid.appendChild(fig);
   }
 }
@@ -2913,6 +4077,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         if (targetId === "library-view-media") {
+          setLibraryMediaKind(btn.dataset.mediaKind);
           renderLibraryImagesGallery();
           startLibraryImagesPoll();
         } else {
@@ -2940,6 +4105,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   $("library-images-refresh")?.addEventListener("click", renderLibraryImagesGallery);
+  $("library-media-bulk-delete")?.addEventListener("click", bulkDeleteLibraryMedia);
+  $("library-media-clear-selection")?.addEventListener("click", clearLibraryMediaSelection);
   $("library-images-search")?.addEventListener("input", filterLibraryImagesGallery);
   $("library-docs-refresh")?.addEventListener("click", renderLibraryDocuments);
   $("library-docs-new")?.addEventListener("click", async () => {
@@ -3078,6 +4245,235 @@ document.addEventListener("DOMContentLoaded", () => {
       renderContents();
     });
   });
+  //: Debounced like every other search box in this file: the index rebuilds
+  //: from `allEntries` in memory, but a 400-note rebuild on each keystroke is
+  //: still work the typist can feel.
+  let contentsFilterTimer = null;
+  $("contents-filter")?.addEventListener("input", () => {
+    clearTimeout(contentsFilterTimer);
+    contentsFilterTimer = setTimeout(renderContents, 150);
+  });
+  $("contents-collapse")?.addEventListener("click", (event) => {
+    const outline = $("contents-outline");
+    if (!outline) return;
+    //: Reads the sections rather than a flag of its own: the button's job is
+    //: "make them all the same", and whether that means folding or unfolding
+    //: depends on what is on screen right now — which the user may have
+    //: changed one section at a time since the last press.
+    const anyOpen = [...outline.querySelectorAll(".contents-heading")].some(
+      (h) => h.getAttribute("aria-expanded") === "true",
+    );
+    for (const heading of outline.querySelectorAll(".contents-heading")) {
+      if ((heading.getAttribute("aria-expanded") === "true") === anyOpen) heading.click();
+    }
+    event.currentTarget.textContent = anyOpen ? "Expand all" : "Collapse all";
+  });
+});
+
+// --- Multi-select for Boards, Links and Contents (asked for directly: "in
+// many of the library subtabs… there is no way to multi select") ----------
+//
+// The Documents and Files/Images sub-tabs already had this — a tick per
+// item, a count, a bulk Delete — because it shipped with them, bar and all,
+// in index.html. These three sub-tabs did not, so the bar itself (same
+// markup, same `.library-contextbar` class those two already use) is built
+// here at runtime instead of pasting three more near-identical copies into
+// index.html.
+//
+// One shared count/visibility sync, reused by all three selections below —
+// syncLibraryMediaSelectbar/syncLibraryDocsSelectbar above are this same
+// six-line shape typed out twice already; a third and fourth copy is what
+// this generalises instead of repeating again.
+function syncSelectbarCount(idPrefix, n) {
+  const bar = document.getElementById(`${idPrefix}-selectbar`);
+  const count = document.getElementById(`${idPrefix}-selected-count`);
+  if (!bar || !count) return;
+  bar.classList.toggle("hidden", n === 0);
+  count.textContent = `${n} selected`;
+}
+
+//: Builds one `.library-contextbar` — the same element `#library-docs-selectbar`
+//: and `#library-media-selectbar` already are in index.html — so a sub-tab
+//: that never had one gets the identical bar rather than a fourth visual
+//: treatment for "items are selected".
+function createLibrarySelectbar(idPrefix, ariaLabel) {
+  const bar = document.createElement("div");
+  bar.id = `${idPrefix}-selectbar`;
+  bar.className = "library-contextbar hidden";
+  bar.setAttribute("role", "group");
+  bar.setAttribute("aria-label", ariaLabel);
+  const count = document.createElement("span");
+  count.id = `${idPrefix}-selected-count`;
+  count.className = "library-selected-count";
+  const end = document.createElement("span");
+  end.className = "library-contextbar-end";
+  const del = document.createElement("button");
+  del.id = `${idPrefix}-bulk-delete`;
+  del.className = "ghost small";
+  del.type = "button";
+  setLabel(del, "ph:trash Delete");
+  const clear = document.createElement("button");
+  clear.id = `${idPrefix}-clear-selection`;
+  clear.className = "ghost small";
+  clear.type = "button";
+  clear.textContent = "Done";
+  end.append(del, clear);
+  bar.append(count, end);
+  return bar;
+}
+
+// --- Boards & maps: the one sub-tab of the three whose gallery is built by
+// whiteboard.js (renderLibraryBoardsGallery), which this file does not own
+// and does not edit. Its cards carry no id in the DOM — nothing needed one
+// until now — so the tick is grafted on from here via a MutationObserver on
+// the grid whiteboard.js already tears down and rebuilds on every render,
+// rather than by changing what that function builds. -----------------------
+
+//: Keyed by board id (never `null` — the default scratch board is not a real
+//: Entry and cannot be deleted; see attachBoardTick).
+const libraryBoardsSelection = new Map();
+
+//: Re-fetches the exact list `renderLibraryBoardsGallery` just rendered, with
+//: the exact same filter (the search box's current value, the same
+//: `wbLastCreatedBoard` patch-in that function does) so the *n*th tick lines
+//: up with the *n*th card the observer below just saw appended. If the
+//: counts don't match — the grid mutated again while this fetch was in
+//: flight — this bails rather than tick the wrong board; the next mutation
+//: (the very next render) retries it.
+async function syncLibraryBoardsTicks() {
+  const grid = document.getElementById("library-boards-grid");
+  if (!grid) return;
+  const cards = [...grid.querySelectorAll(".library-board-card")];
+  if (!cards.length) {
+    syncSelectbarCount("library-boards", libraryBoardsSelection.size);
+    return;
+  }
+  let boards;
+  try {
+    boards = await apiJson("/whiteboard/boards", { silent: true });
+  } catch {
+    return;
+  }
+  if (!Array.isArray(boards)) return;
+  const created = window.wbLastCreatedBoard;
+  if (created && !boards.some((b) => b.id === created.id)) boards.push({ ...created });
+  const needle = (document.getElementById("library-boards-search")?.value || "").trim().toLowerCase();
+  //: The gallery's own filter *and* sort, not a second copy of the filter —
+  //: see `wbVisibleBoards` (whiteboard.js). Ordering is part of "the exact
+  //: same filter" this function's comment above requires: the counts still
+  //: match under a reorder, so a private copy would silently tick the wrong
+  //: boards rather than bail.
+  const shown = window.wbVisibleBoards(boards, needle);
+  if (shown.length !== cards.length) return;
+  // A board ticked in an earlier render that no longer exists (deleted from
+  // its own ⋯ menu, or from elsewhere) shouldn't go on counting toward the bar.
+  const liveIds = new Set(shown.filter((b) => b.id !== null).map((b) => b.id));
+  for (const id of [...libraryBoardsSelection.keys()]) {
+    if (!liveIds.has(id)) libraryBoardsSelection.delete(id);
+  }
+  cards.forEach((card, i) => attachBoardTick(card, shown[i]));
+  syncSelectbarCount("library-boards", libraryBoardsSelection.size);
+}
+
+function attachBoardTick(card, board) {
+  const top = card.querySelector(".library-card-top");
+  if (!top) return;
+  const existing = top.querySelector(".library-card-tick");
+  // The default board (id === null) isn't a note and can't be renamed or
+  // deleted — renderLibraryBoardsGallery's own comment says so, right where
+  // it skips giving it a ⋯ menu at all. No tick for the same reason an
+  // activity row gets no tick in the "All" library view: a Delete that can
+  // never do anything is worse than no checkbox.
+  if (board.id === null) {
+    existing?.remove();
+    return;
+  }
+  if (existing) {
+    existing.checked = libraryBoardsSelection.has(board.id);
+    return;
+  }
+  const tick = document.createElement("input");
+  tick.type = "checkbox";
+  tick.className = "library-card-tick";
+  tick.checked = libraryBoardsSelection.has(board.id);
+  tick.setAttribute("aria-label", `Select "${board.title}"`);
+  tick.addEventListener("click", (event) => event.stopPropagation());
+  tick.addEventListener("change", () => {
+    if (tick.checked) libraryBoardsSelection.set(board.id, board);
+    else libraryBoardsSelection.delete(board.id);
+    syncSelectbarCount("library-boards", libraryBoardsSelection.size);
+  });
+  top.insertBefore(tick, top.firstChild);
+}
+
+function clearLibraryBoardsSelection() {
+  libraryBoardsSelection.clear();
+  for (const tick of document.querySelectorAll("#library-boards-grid .library-card-tick")) {
+    tick.checked = false;
+  }
+  syncSelectbarCount("library-boards", 0);
+}
+
+async function bulkDeleteLibraryBoards() {
+  const boards = [...libraryBoardsSelection.values()];
+  if (!boards.length) return;
+  // Same wording renderLibraryBoardsGallery's own per-board Delete already
+  // uses (whiteboard.js) — a board goes through `DELETE /entries/{id}` same
+  // as that single-item menu action, so the two must not promise different
+  // things about whether it comes back.
+  if (
+    !(await confirmDialog(
+      `Delete ${boards.length} board${boards.length === 1 ? "" : "s"}? This cannot be undone.`
+    ))
+  ) {
+    return;
+  }
+  let deleted = 0;
+  for (const board of boards) {
+    try {
+      await apiJson(`/entries/${board.id}`, { method: "DELETE" });
+      deleted++;
+    } catch (err) {
+      toast(err.message, true);
+    }
+  }
+  libraryBoardsSelection.clear();
+  if (deleted) toast(`Deleted ${deleted} board${deleted === 1 ? "" : "s"}.`);
+  const failed = boards.length - deleted;
+  if (failed) toast(`${failed} board${failed === 1 ? "" : "s"} couldn't be deleted.`, true);
+  if (typeof renderLibraryBoardsGallery === "function") renderLibraryBoardsGallery();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  // The bar goes right above the grid it governs, same placement the
+  // Documents/Files sub-tabs' own bars have in index.html.
+  const boardsGrid = document.getElementById("library-boards-grid");
+  if (boardsGrid && !document.getElementById("library-boards-selectbar")) {
+    const bar = createLibrarySelectbar("library-boards", "Actions for the selected boards");
+    boardsGrid.parentNode.insertBefore(bar, boardsGrid);
+    document.getElementById("library-boards-bulk-delete").addEventListener("click", bulkDeleteLibraryBoards);
+    document.getElementById("library-boards-clear-selection").addEventListener("click", clearLibraryBoardsSelection);
+    // whiteboard.js calls `grid.replaceChildren()` then re-appends every
+    // card on each render (a fresh board, a rename, the search box, "+ New
+    // board") — this is the one hook available from outside that file that
+    // fires exactly then, without this file calling into or duplicating
+    // renderLibraryBoardsGallery's own logic.
+    new MutationObserver(() => { syncLibraryBoardsTicks(); }).observe(boardsGrid, { childList: true });
+  }
+
+  const linksList = document.getElementById("bookmark-list");
+  if (linksList && !document.getElementById("library-links-selectbar")) {
+    const bar = createLibrarySelectbar("library-links", "Actions for the selected links");
+    linksList.parentNode.insertBefore(bar, linksList);
+    document.getElementById("library-links-bulk-delete").addEventListener("click", bulkDeleteLibraryLinks);
+    document.getElementById("library-links-clear-selection").addEventListener("click", clearLibraryLinksSelection);
+  }
+
+  //: The Contents outline had a selection bar here. It went with its ticks —
+  //: see the note in the outline builder: a table of contents is for finding
+  //: your place, not for bulk-editing. Nothing could reach the bar any more,
+  //: and a set of actions for a selection that can never be made is worse
+  //: than none.
 });
 
 // --- Links (§30): a bookmark shelf for websites, alongside the notes and
@@ -3085,6 +4481,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
 let bookmarksCache = [];
 let bookmarkGroupFilter = null; // null = all groups
+
+//: Which links are ticked, keyed by bookmark id — its own Map so a selection
+//: here can never leak into another sub-tab's bulk delete, the same reasoning
+//: mediaRowKey's own comment gives for libraryMediaSelection.
+const libraryLinksSelection = new Map();
 
 async function renderBookmarks() {
   const list = $("bookmark-list");
@@ -3096,9 +4497,47 @@ async function renderBookmarks() {
     toast(error.message, true);
     return;
   }
+  // A reload can drop a link that was ticked (deleted from its own ⋯, or by
+  // the bulk action just below) — same prune renderLibraryDocuments does for
+  // libraryDocsSelection, and for the same reason: otherwise the bar's count
+  // goes on including a row that no longer exists.
+  const liveLinkIds = new Set(bookmarksCache.map((b) => b.id));
+  for (const id of [...libraryLinksSelection.keys()]) {
+    if (!liveLinkIds.has(id)) libraryLinksSelection.delete(id);
+  }
   empty.classList.toggle("hidden", bookmarksCache.length > 0);
   renderBookmarkGroupChips();
   filterBookmarks();
+  syncSelectbarCount("library-links", libraryLinksSelection.size);
+}
+
+function clearLibraryLinksSelection() {
+  libraryLinksSelection.clear();
+  renderBookmarks();
+}
+
+async function bulkDeleteLibraryLinks() {
+  const links = [...libraryLinksSelection.values()];
+  if (!links.length) return;
+  if (
+    !(await confirmDialog(`Delete ${links.length} selected link${links.length === 1 ? "" : "s"}?`))
+  ) {
+    return;
+  }
+  let deleted = 0;
+  for (const bookmark of links) {
+    try {
+      await apiJson(`/bookmarks/${bookmark.id}`, { method: "DELETE" });
+      deleted++;
+    } catch (err) {
+      toast(err.message, true);
+    }
+  }
+  libraryLinksSelection.clear();
+  if (deleted) toast(`Deleted ${deleted} link${deleted === 1 ? "" : "s"}.`);
+  const failed = links.length - deleted;
+  if (failed) toast(`${failed} link${failed === 1 ? "" : "s"} couldn't be deleted.`, true);
+  renderBookmarks();
 }
 
 function renderBookmarkGroupChips() {
@@ -3132,6 +4571,54 @@ function renderBookmarkGroupChips() {
   }
 }
 
+//: Sorting for the Links sub-tab — the Library's sub-tabs were reported as
+//: "missing sorting and filtering options", and this is the same local,
+//: no-round-trip approach the media gallery uses: the list is already in
+//: memory, so ordering it is a reorder rather than a request.
+//:
+//: "By site" is the one order here that is not a copy of the media set, and it
+//: is the one a list of links actually wants: hostname first, then title
+//: within a host, so everything from one place reads as a block.
+const BOOKMARK_SORTS = {
+  newest: (a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")),
+  oldest: (a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")),
+  az: (a, b) => String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" }),
+  za: (a, b) => String(b.title || "").localeCompare(String(a.title || ""), undefined, { sensitivity: "base" }),
+  site: (a, b) => {
+    const host = (url) => {
+      //: A stored link can be anything somebody pasted, so a URL that will not
+      //: parse sorts by its own raw text rather than throwing the whole list
+      //: into an exception.
+      try {
+        return new URL(url).hostname.replace(/^www\./, "");
+      } catch {
+        return String(url || "");
+      }
+    };
+    return (
+      host(a.url).localeCompare(host(b.url), undefined, { sensitivity: "base" }) ||
+      String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" })
+    );
+  },
+};
+
+const BOOKMARK_SORT_KEY = "library-links-sort";
+
+function bookmarkSort() {
+  const stored = localStorage.getItem(BOOKMARK_SORT_KEY);
+  return BOOKMARK_SORTS[stored] ? stored : "newest";
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const select = document.getElementById("bookmark-sort");
+  if (!select) return;
+  select.value = bookmarkSort();
+  select.addEventListener("change", () => {
+    localStorage.setItem(BOOKMARK_SORT_KEY, select.value);
+    filterBookmarks();
+  });
+});
+
 function filterBookmarks() {
   const list = $("bookmark-list");
   const noMatch = $("bookmark-no-match");
@@ -3147,7 +4634,10 @@ function filterBookmarks() {
     );
   });
   list.replaceChildren();
-  for (const bookmark of visible) {
+  //: On a copy, for the reason the media gallery's own sort records: `visible`
+  //: can be the cache itself when nothing is filtered, and sorting in place
+  //: would reorder the array every other reader shares.
+  for (const bookmark of [...visible].sort(BOOKMARK_SORTS[bookmarkSort()])) {
     list.appendChild(bookmarkRow(bookmark));
   }
   noMatch?.classList.toggle("hidden", !(bookmarksCache.length > 0 && visible.length === 0));
@@ -3156,6 +4646,22 @@ function filterBookmarks() {
 function bookmarkRow(bookmark) {
   const row = document.createElement("div");
   row.className = "bookmark-row";
+
+  // The tick. Same control (and the same `.doc-list-tick` sizing) the
+  // Documents sub-tab's own rows already use, so selecting a link works the
+  // same way selecting a document does.
+  const tick = document.createElement("input");
+  tick.type = "checkbox";
+  tick.className = "doc-list-tick";
+  tick.checked = libraryLinksSelection.has(bookmark.id);
+  tick.setAttribute("aria-label", `Select "${bookmark.title || bookmark.url}"`);
+  tick.addEventListener("click", (event) => event.stopPropagation());
+  tick.addEventListener("change", () => {
+    if (tick.checked) libraryLinksSelection.set(bookmark.id, bookmark);
+    else libraryLinksSelection.delete(bookmark.id);
+    syncSelectbarCount("library-links", libraryLinksSelection.size);
+  });
+  row.appendChild(tick);
 
   const main = document.createElement("div");
   main.className = "bookmark-main";
@@ -3350,14 +4856,107 @@ function bookmarkRow(bookmark) {
 // endpoint — the same data, grouped differently client-side. -----------
 
 let contentsMode = "category";
+//: Which sections are folded, by their heading. Kept per grouping mode,
+//: because "Uncategorised" collapsed under By category says nothing about a
+//: month of the same name under By month.
+const contentsCollapsed = {
+  category: new Set(),
+  tag: new Set(),
+  date: new Set(),
+  folder: new Set(),
+};
 // A big notebook can have a group with hundreds of notes; nobody scans
-// past this many in one outline section, and rendering them all would be
-// the one part of this view that isn't cheap.
+// past this many in one section, and rendering them all would be the one
+// part of this view that isn't cheap.
 const CONTENTS_GROUP_CAP = 200;
+
+//: **This is an index, not a set of cards.** It used to be a masonry of
+//: bordered boxes, each with its own 14rem scroller — asked for directly:
+//: "I think cards are overly used and used too much… i want to redesign the
+//: contents subtab".
+//:
+//: Three things were wrong with the boxes, and they are the reasons for the
+//: shape below rather than a restyle of the old one:
+//:
+//: 1. **A card is a claim that its contents are one object you can act on.**
+//:    A category is not — it is a heading. Boxes made twenty headings look
+//:    like twenty things to click.
+//: 2. **Each box scrolled on its own.** A category of 25 notes showed five
+//:    rows and hid twenty behind a nested scrollbar inside an already
+//:    scrolling page, which is the one interaction nobody finds by accident.
+//:    Sections are now open to their full height and the *page* scrolls, the
+//:    way an index in a book works.
+//: 3. **There was no way to find anything.** An index of 400 rows without a
+//:    filter or a jump bar is a wall, so both are here now, plus grouping by
+//:    month — half of "where is that note" is *when* you wrote it.
+function contentsGroups(entries) {
+  const groups = new Map();
+  const addTo = (key, entry) => {
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(entry);
+  };
+  if (contentsMode === "tag") {
+    for (const entry of entries) {
+      if (entry.tags && entry.tags.length) for (const tag of entry.tags) addTo(tag, entry);
+      else addTo("(untagged)", entry);
+    }
+  } else if (contentsMode === "folder") {
+    //: The vault's own shape. Asked for directly: "kortex and obsidian files
+    //: and md file trees … is I think the largest gap that is missing right
+    //: now." An imported note carries the path it came from
+    //: (`Entry.source_path`); everything written in this app has none, and
+    //: those group under one heading rather than being hidden — a mode that
+    //: silently drops most of the notebook reads as broken.
+    for (const entry of entries) {
+      const path = entry.source_path || "";
+      const folder = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+      addTo(path ? folder || "(vault root)" : "(written here)", entry);
+    }
+  } else if (contentsMode === "date") {
+    for (const entry of entries) {
+      const when = new Date(entry.created_at || entry.updated_at || Date.now());
+      //: A sortable key ("2026-03") with a readable label built from it, so
+      //: months order by time rather than alphabetically — "April" before
+      //: "January" is the classic version of this bug.
+      const key = Number.isNaN(when.valueOf())
+        ? "Undated"
+        : `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, "0")}`;
+      addTo(key, entry);
+    }
+  } else {
+    for (const entry of entries) addTo(entry.category || "Uncategorised", entry);
+  }
+  return groups;
+}
+
+function contentsSectionLabel(key) {
+  if (contentsMode !== "date" || key === "Undated") return key;
+  const [year, month] = key.split("-");
+  const when = new Date(Number(year), Number(month) - 1, 1);
+  return when.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+}
+
+function contentsOrderedKeys(groups) {
+  const keys = [...groups.keys()];
+  //: Newest month first — an index by time is read from now backwards.
+  if (contentsMode === "date") return keys.sort((a, b) => b.localeCompare(a));
+  //: Folders in path order, with the two synthetic groups last: they are
+  //: where things *aren't* filed, and a tree reads better without them at
+  //: the top.
+  if (contentsMode === "folder") {
+    const synthetic = (key) => (key.startsWith("(") ? 1 : 0);
+    return keys.sort(
+      (a, b) => synthetic(a) - synthetic(b) || a.localeCompare(b),
+    );
+  }
+  return keys.sort((a, b) => a.localeCompare(b));
+}
 
 async function renderContents() {
   const outline = $("contents-outline");
   const empty = $("contents-empty");
+  const jump = $("contents-jump");
+  const noMatch = $("contents-no-match");
   if (!outline) return;
   // Refetched on every visit, not gated behind `entriesEverLoaded` — every
   // sibling Library subtab (Documents, Image Gallery, AI Skills) re-fetches
@@ -3368,41 +4967,114 @@ async function renderContents() {
 
   const active = allEntries.filter((e) => !e.deleted_at && !e.archived_at);
   outline.replaceChildren();
+  jump?.replaceChildren();
   empty.classList.toggle("hidden", active.length > 0);
+  noMatch?.classList.add("hidden");
   if (active.length === 0) return;
 
-  const groups = new Map();
-  const addTo = (key, entry) => {
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(entry);
-  };
-  if (contentsMode === "tag") {
-    for (const entry of active) {
-      if (entry.tags && entry.tags.length) {
-        for (const tag of entry.tags) addTo(tag, entry);
-      } else {
-        addTo("(untagged)", entry);
-      }
+  const needle = ($("contents-filter")?.value || "").trim().toLowerCase();
+  //: The filter reads the same text the row shows. Matching the raw markdown
+  //: instead would hit a note on an image path or a link target the reader
+  //: cannot see in this view, which reads as the filter being broken.
+  const shown = needle
+    ? active.filter((entry) => noteLabel(entry, 200).toLowerCase().includes(needle))
+    : active;
+  if (!shown.length) {
+    if (noMatch) {
+      noMatch.textContent = `Nothing in the index matches “${needle}”.`;
+      noMatch.classList.remove("hidden");
     }
-  } else {
-    for (const entry of active) addTo(entry.category || "Uncategorised", entry);
+    return;
   }
 
-  for (const key of [...groups.keys()].sort((a, b) => a.localeCompare(b))) {
+  const groups = contentsGroups(shown);
+  const folded = contentsCollapsed[contentsMode];
+
+  for (const key of contentsOrderedKeys(groups)) {
     const members = groups.get(key);
-    const section = document.createElement("div");
+    const label = contentsSectionLabel(key);
+    const section = document.createElement("section");
     section.className = "contents-section";
-    const heading = document.createElement("h3");
+    section.id = `contents-sec-${encodeURIComponent(key)}`;
+
+    //: A `<button>` heading, not an `<h3>` with a click handler: folding a
+    //: section is an action, and the thing that performs it has to be
+    //: reachable by keyboard and announce its state. `aria-expanded` is what
+    //: a screen reader reads out; the caret is what everyone else sees.
+    const heading = document.createElement("button");
+    heading.type = "button";
     heading.className = "contents-heading";
-    heading.textContent = `${key} (${members.length})`;
-    section.appendChild(heading);
+    heading.setAttribute("aria-expanded", folded.has(key) ? "false" : "true");
+    const caret = document.createElement("i");
+    caret.className = "ph ph-caret-down contents-caret";
+    caret.setAttribute("aria-hidden", "true");
+    const name = document.createElement("span");
+    name.className = "contents-heading-name";
+    name.textContent = label;
+    const count = document.createElement("span");
+    count.className = "contents-count";
+    count.textContent = members.length;
+    heading.append(caret, name, count);
+
     const list = document.createElement("ul");
     list.className = "contents-list";
+    list.hidden = folded.has(key);
+    heading.addEventListener("click", () => {
+      const nowFolded = !folded.has(key);
+      if (nowFolded) folded.add(key);
+      else folded.delete(key);
+      list.hidden = nowFolded;
+      heading.setAttribute("aria-expanded", nowFolded ? "false" : "true");
+      section.classList.toggle("is-folded", nowFolded);
+    });
+    section.classList.toggle("is-folded", folded.has(key));
+
     for (const entry of members.slice(0, CONTENTS_GROUP_CAP)) {
       const li = document.createElement("li");
+      //: **No tick here.** Asked for directly: "the contents page shouldnt have
+      //: radio buttons, it is purely a table of contents." It is right, and it
+      //: is a point about what this page *is* rather than about how the
+      //: control looked: a table of contents is a way to find your place, and
+      //: every row offering to select itself for a bulk delete makes an index
+      //: into a management screen you did not ask to be in.
       const link = document.createElement("a");
       link.href = "#";
-      link.textContent = noteLabel(entry, 80);
+      //: **A picture note shows its picture.** Reported: "the contents tab
+      //: doesnt render images". Every row was `noteLabel`, which strips
+      //: markdown down to text — so a note that *is* a photo appeared as its
+      //: filename, or as the bare word "image" when the alt text was empty.
+      //: In an index whose whole job is helping you recognise a note, that is
+      //: the one row shape that cannot do it.
+      const shot = noteAnyImage(entry);
+      if (shot) {
+        const thumb = document.createElement("img");
+        thumb.className = "contents-thumb";
+        thumb.src = mediaSrc(shot.url);
+        thumb.alt = "";
+        thumb.loading = "lazy";
+        link.appendChild(thumb);
+      }
+      const text = document.createElement("span");
+      text.className = "contents-label";
+      //: In folder mode a row is a *file*, so it is named the way the vault
+      //: names it — that is also the name its `[[wiki links]]` use, so the
+      //: index and the links agree about what a note is called.
+      const fileName =
+        contentsMode === "folder" && entry.source_path
+          ? entry.source_path.split("/").pop()
+          : "";
+      text.textContent = fileName || noteLabel(entry, 80);
+      link.appendChild(text);
+      //: The right-hand column of an index: what a row is filed under, or
+      //: when it was written when the grouping already answers "under what".
+      //: One value, muted, at a fixed edge — so the eye can run down it.
+      const meta = document.createElement("span");
+      meta.className = "contents-meta";
+      meta.textContent =
+        contentsMode === "category" || contentsMode === "folder"
+          ? relativeTime(entry.updated_at || entry.created_at)
+          : entry.category || "Uncategorised";
+      link.appendChild(meta);
       link.addEventListener("click", (e) => {
         e.preventDefault();
         flashEntry(entry.id);
@@ -3412,11 +5084,29 @@ async function renderContents() {
     }
     if (members.length > CONTENTS_GROUP_CAP) {
       const more = document.createElement("li");
-      more.className = "muted text-sm";
+      more.className = "muted text-sm contents-more";
       more.textContent = `…and ${members.length - CONTENTS_GROUP_CAP} more`;
       list.appendChild(more);
     }
-    section.appendChild(list);
+    section.append(heading, list);
     outline.appendChild(section);
+
+    //: The jump bar. An index long enough to need one is exactly the index
+    //: that had nothing but a scrollbar before.
+    if (jump) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip contents-jump-chip";
+      chip.textContent = `${label} ${members.length}`;
+      chip.title = `Jump to ${label}`;
+      chip.addEventListener("click", () => {
+        //: Unfold before scrolling: jumping to a section that is folded lands
+        //: on a heading with nothing under it, which reads as the jump having
+        //: failed.
+        if (folded.has(key)) heading.click();
+        section.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+      jump.appendChild(chip);
+    }
   }
 }

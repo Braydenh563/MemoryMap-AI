@@ -8,6 +8,7 @@ import asyncio
 import csv
 import io
 import json
+import logging
 import os
 import platform
 import re
@@ -34,6 +35,11 @@ from memorymap.entry import importer, manager
 from memorymap.search import searxng_manager, websearch
 
 router = APIRouter(tags=["settings"])
+
+#: Routes in this module that must work **before** the notebook is unlocked.
+#: Included in `app.py` without the `locked` dependency, deliberately and
+#: only for the client-error sink below — see its docstring.
+open_router = APIRouter(tags=["settings"])
 
 # Preferences the user may change from the UI — a deliberate allowlist
 # so a stray request can't scribble on model settings (those have their
@@ -236,6 +242,12 @@ class PreferencesBody(BaseModel):
     # autonomous pass could never actually pick up any candidates no matter
     # what the checkbox showed.
     auto_stale_review_enabled: bool | None = None
+    #: ANALYSIS.md §60 item 2. Declared here as well as in the response and
+    #: `_AUTONOMOUS_PREFS` below — the comment above this block records what
+    #: happens when it is not: Pydantic drops the key, every PUT that turns it
+    #: on is a silent no-op, and the checkbox shows a state the backend never
+    #: had.
+    auto_capture_enabled: bool | None = None
     autonomous_tasks_interval_hours: int | None = Field(default=None, ge=1, le=168)
     autonomous_tasks_model: str | None = Field(default=None, max_length=100)
     battery_efficient_mode: bool | None = None
@@ -244,6 +256,16 @@ class PreferencesBody(BaseModel):
     # background jobs, agent runs and general activity while a due reminder
     # still gets through either way.
     notifications_muted_except_reminders: bool | None = None
+    #: Where the AI's own activity is announced: "toasts" (a passing notice
+    #: *and* a row in the notifications centre, the behaviour this app has
+    #: always had) or "centre" (the row only).
+    #:
+    #: Asked for directly: *"make an option for agent activity notifications to
+    #: be hidden and not show up as toast notifications but somewhere else."*
+    #: Distinct from `notifications_muted_except_reminders`, which is a
+    #: blanket mute that also stops the row being recorded — this is about
+    #: *where* an activity notice lands, not whether it happens.
+    agent_activity_notices: str | None = Field(default=None, pattern="^(toasts|centre)$")
     # Agent tools the user has switched off (by tool name).
     disabled_tools: list[str] | None = Field(default=None, max_length=50)
     # Which faster-whisper model size the dictation buttons load. Read by
@@ -423,6 +445,7 @@ def get_preferences() -> dict:
         "auto_link_enabled": config.get_preference("auto_link_enabled", True),
         "auto_dedupe_enabled": config.get_preference("auto_dedupe_enabled", True),
         "auto_stale_review_enabled": config.get_preference("auto_stale_review_enabled", False),
+        "auto_capture_enabled": config.get_preference("auto_capture_enabled", False),
         "autonomous_tasks_interval_hours": config.get_preference(
             "autonomous_tasks_interval_hours", 6
         ),
@@ -434,6 +457,7 @@ def get_preferences() -> dict:
         "notifications_muted_except_reminders": config.get_preference(
             "notifications_muted_except_reminders", False
         ),
+        "agent_activity_notices": config.get_preference("agent_activity_notices", "toasts"),
         # Same shape of bug as the autonomous-prefs block above, on the same
         # checkbox this session already restyled: PUT /preferences has always
         # accepted show_console_on_startup (PreferencesBody's own field), but
@@ -465,6 +489,7 @@ _AUTONOMOUS_PREFS = frozenset(
         "auto_link_enabled",
         "auto_dedupe_enabled",
         "auto_stale_review_enabled",
+        "auto_capture_enabled",
     }
 )
 
@@ -1038,6 +1063,71 @@ def server_logs(limit: int = Query(default=200, ge=1, le=logbuffer.MAX_RECORDS))
     return logbuffer.recent(limit=limit)
 
 
+class ClientError(BaseModel):
+    """One thing that went wrong in the browser, on its way to the terminal."""
+
+    message: str = Field(max_length=2000)
+    #: Where it happened, when the browser knows: "app.js:6088:12". Free text
+    #: because a stack frame's shape differs per engine and none of it is
+    #: parsed — it is read by a person.
+    source: str = Field(default="", max_length=500)
+    #: "error" | "unhandledrejection" | "csp" — what kind of failure this was,
+    #: since the three need different first questions asked about them.
+    kind: str = Field(default="error", max_length=40)
+
+
+@open_router.post("/logs/client", status_code=204)
+def record_client_error(body: ClientError, response: Response) -> None:
+    """Put a browser-side failure into the same log everything else uses.
+
+    Asked for directly: *"can you make any other erros like what aoppeared on
+    the loading screen appear in the logs as well?? the terminal and logs need
+    to capture everything."*
+
+    The gap was real and had just cost a session. A JavaScript error aborts
+    the rest of the file it is in, so the app can hang on its loading screen
+    with **nothing** in the terminal, nothing in Settings → Logs, and the only
+    record sitting in a browser console nobody opens — least of all in the
+    desktop shell, which has no obvious way to open one. The crash that
+    prompted this (`Cannot access 'captureStagedFiles' before initialization`)
+    was invisible to every log this app keeps.
+
+    Deliberately `logger.error`, not a new channel: `logbuffer`'s handler is
+    already attached to the root logger, so this reaches the terminal, the
+    Settings → Logs viewer and `/logs/stream` at once, with no new plumbing to
+    keep in step. The `[browser]` prefix is what tells a reader the failure
+    happened on the other side of the wire, which changes what they should
+    look at next.
+
+    **On `open_router`, outside the unlock gate, on purpose.** This has to
+    work *before* unlock: the loading-screen hang it exists for happens with
+    the lock overlay still up, and a crash report that needs a token cannot
+    describe the failure that stopped the token from ever being used. Every
+    other route in this module stays behind `locked`.
+
+    What it accepts is bounded instead of authenticated: three short strings,
+    length-capped by the schema, appended to a ring buffer that already caps
+    itself at `MAX_RECORDS`, reachable only from an origin the CSP pins to
+    `'self'` on a server that binds to localhost. The worst an abuser of it
+    can do is push older lines out of a 500-record buffer on their own
+    machine.
+    """
+    # **Through `safe_value`, not raw.** Everything in this payload is
+    # attacker-shaped by construction — it is text the browser was handed by
+    # whatever failed, and a message containing a newline would draw a forged
+    # second row in the Settings → Logs viewer while control characters can
+    # rewrite what a terminal shows. `logbuffer.sanitise` runs at the ring
+    # buffer and so protects the viewer only; the terminal sees the raw
+    # record, which is exactly why this module's own helper exists and says
+    # to clean at the call site.
+    logger = logging.getLogger("memorymap.browser")
+    kind = logbuffer.safe_value(body.kind, limit=40)
+    message = logbuffer.safe_value(body.message, limit=logbuffer.MAX_MESSAGE_CHARS)
+    where = f" ({logbuffer.safe_value(body.source, limit=200)})" if body.source else ""
+    logger.error("[browser/%s] %s%s", kind, message, where)
+    response.status_code = 204
+
+
 @router.get("/logs/stats")
 def server_log_stats(
     limit: int = Query(default=200, ge=1, le=logbuffer.MAX_RECORDS),
@@ -1538,6 +1628,15 @@ def _run_directory_import(directory_path: str):
                 if not body.strip():
                     skipped += 1
                     continue
+                #: **The file's own text, unchanged.** An earlier attempt at
+                #: this prepended `# <filename>` so the note would carry its
+                #: vault name — and three existing tests caught it, rightly:
+                #: an importer that edits what it imports is a data-loss bug
+                #: waiting to be reported, and this app's own rule is that a
+                #: note has no separate title, its opening words *are* its
+                #: name. The filename is preserved on `source_path` instead,
+                #: where `find_by_wiki_name` reads it, so `[[wiki links]]`
+                #: resolve without a single character of the note changing.
                 entry = manager.create_entry(
                     session,
                     body.strip(),
@@ -1545,6 +1644,13 @@ def _run_directory_import(directory_path: str):
                     tags=meta.get("tags") or [],
                     ai_confidence=100 if meta.get("category") else 0,
                 )
+                #: Relative to the vault root, never absolute — see
+                #: `Entry.source_path`. `as_posix` so a vault imported on
+                #: Windows and one imported on Linux group identically.
+                try:
+                    entry.source_path = f.relative_to(p).as_posix()[:500]
+                except ValueError:
+                    entry.source_path = f.name[:500]
                 if meta.get("category"):
                     entry.user_filed = True
                 deps.store_quietly(session, entry)
@@ -1556,6 +1662,9 @@ def _run_directory_import(directory_path: str):
         if imported > 0:
             manager.log_action(session, "imported", "data", detail=f"markdown dir x{imported}")
             session.commit()
+            #: A whole vault arriving at once is exactly the "large change"
+            #: the rebuild suggestion exists for — see `mark_index_stale`.
+            deps.mark_index_stale(imported)
 
 @router.post("/import/directory", status_code=202)
 def import_directory(req: ImportDirectoryRequest, background_tasks: BackgroundTasks):
@@ -1599,6 +1708,11 @@ def import_markdown(
         if not body.strip():
             skipped.append(f"{name}: empty")
             continue
+        #: The path, not the text — see the directory importer above for why
+        #: nothing here rewrites the file's own content. A browser sends the
+        #: relative path as the filename when the picker was a directory
+        #: picker, and the bare name otherwise; both are relative, which is
+        #: the only kind stored.
         entry = manager.create_entry(
             session,
             body.strip(),
@@ -1606,6 +1720,7 @@ def import_markdown(
             tags=meta.get("tags") or [],
             ai_confidence=100 if meta.get("category") else 0,
         )
+        entry.source_path = name.lstrip("/")[:500]
         if meta.get("category"):
             entry.user_filed = True  # the file said where it belongs
             session.commit()
@@ -1613,6 +1728,7 @@ def import_markdown(
         imported += 1
     manager.log_action(session, "imported", "data", detail=f"markdown x{imported}")
     session.commit()
+    deps.mark_index_stale(imported)
     return {"imported": imported, "skipped": skipped}
 
 

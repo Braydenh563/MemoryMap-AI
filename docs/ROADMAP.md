@@ -12,7 +12,54 @@ against a running Ollama/LM Studio. UI claims are now checkable (Chromium is
 in the sandbox); model *behaviour* claims are not — reproduce or say plainly
 you couldn't.
 
+## ► START HERE: the redesign is the priority
+
+A full UX/architecture re-imagining was asked for and is written up in
+**[roadmap/REDESIGN.md](roadmap/REDESIGN.md)** — measured evidence for every
+complaint, the three underlying causes, the target shape, a complete ledger
+of all forty requests with their state (§R8), and the numbers as they stand
+(§R9). **Read it before doing any UI, file-handling, graph or backend work.**
+
+**Read the top of [roadmap/HANDOVER.md](roadmap/HANDOVER.md) first — it is
+ahead of this file.** It carries the v0.2.0 round: the two defect shapes behind
+nearly every visual bug reported, what is done, and fifteen open items all top
+priority by instruction. It still carries the reversal worth knowing before any
+file work — PDFs and documents must be viewable, downloadable and manageable
+**without any AI model in the loop** — and the note that anything editor- or
+slash-command-shaped starts from `frontend/editor.js`, which has a "/" menu.
+
+**The next session's order of work, highest value first.** Each links to the
+section that holds the quoted request and the detail:
+
+| | Work | Why it is first |
+| --- | --- | --- |
+| ~~1, 3, 6, 8~~ | **Done — four rows retired.** The lock audit ([§R8.2](roadmap/REDESIGN.md)); staging every file ([§R7.2](roadmap/REDESIGN.md)); the agent-harness audit ([§R5](roadmap/REDESIGN.md)); managing concept maps ([§R7.6](roadmap/REDESIGN.md)). | Two were built by earlier sessions and only the table was stale — **check a row against the code before taking it**, that is the sixth "already exists" catch. The other two are written up in [roadmap/HANDOVER.md](roadmap/HANDOVER.md)'s harness-audit section, with what §R5's five points actually turned out to be and why the staged-URL guard lives in `api()` rather than in a list of save paths. |
+| ~~2~~ | ~~**The document/file editor**~~ **Done — all six items** ([§R7.1](roadmap/REDESIGN.md)) | Selection → chat context; editing a text or code file in place; syntax highlighting written in-repo because this app has no CDN and no bundler; an HTML preview pane in a scriptless sandbox served with its own CSP; Export text, named after what the text *is* rather than the file it came from; and item 6, which turned out to be true already — the Library's Files tiles have opened into the lightbox all along, and the lightbox is now the editor. Four bugs fell out of building it, each found by measuring rather than looking; all are in [roadmap/HANDOVER.md](roadmap/HANDOVER.md). |
+| 4 | **The pane-based shell** ([§R7.5](roadmap/REDESIGN.md), [§R8.3](roadmap/REDESIGN.md)) | Every remaining UI complaint is downstream of seven screens that each own the whole window. Its acceptance criterion is the distinct-left-edge count in [DESIGN.md](DESIGN.md) — re-baseline it on a fixed fixture first, per §R9. |
+| 5 | **Cross-linking: the `@` picker** ([§R7.3](roadmap/REDESIGN.md)) | Link direction landed; **the Connections block is now built** (`GET /entries/{id}/connections` and `/documents/{id}/connections`, the dialog off both ⋯ menus, `tests/test_connections_block.py`) — it groups links by direction and adds the documents, boards and files each thing is joined to, none of which were surfaced anywhere. What is left of this row is the one universal `@` picker. **§R7.3 item 3 (typed collapsible blocks) is now built too** — `> [!note]-` and `> [!note]+` render as a `<details>`, with a "Collapsible section" slash command; a plain `> [!note]` is unchanged, so old notes are unaffected exactly as that item required. |
+| 7 | **Settings, and the whiteboard's panel layout** ([§R7.5](roadmap/REDESIGN.md)) | Settings has never been measured. Panel control sizes are unified; the layout rethink is not. |
+| 9 | **The backend list** ([§R7.7](roadmap/REDESIGN.md)) | Not urgent. Includes the answer to "should it be async" — measured, and it is **no**; the reasoning is there so nobody redoes it. |
+
+**Two standing rules from that work**, both learned the expensive way this
+session:
+
+- **Measure, change, re-measure.** Every claim in REDESIGN.md has a number
+  behind it. A change that does not move one of §R1's numbers is decoration.
+- **A load-time path behind a condition needs a test that meets the
+  condition.** A crash that hung the app on its loading screen passed
+  `node --check`, passed every cold-boot test, and needed exactly one thing
+  to reproduce: an unsaved draft in the capture box. See
+  `tests/test_frontend_load_order.py`.
+
 ## What is open right now — start here
+
+**The overnight round is in [roadmap/HANDOVER.md](roadmap/HANDOVER.md)'s first
+section — read it before this list.** Built there, do not rebuild: document OCR
+through the workspace (PDFs rasterised page by page, plus a per-page vision
+read), the chat header/sources/message redesign, Notion block handles in the
+documents live view, `agent_activity_notices`, and typed values in the advanced
+response settings. Still open from it: concept-map learnability, the whiteboard
+rethink, more dashboard widgets, Files cards for long OCR text.
 
 Six sessions of finished narrative used to sit above this line. It has moved
 to [roadmap/HISTORY.md](roadmap/HISTORY.md)'s "§80 to §86" index, because a
@@ -241,12 +288,9 @@ Items 1–2, below, are the ones with real substance after that.
     including the corrected "model is not stored per turn" premise:
     HISTORY.md §100.
 
-~~12. **The Documents Library sub-tab needs a full visual redesign.**~~
-    **Built.** Full narrative: HISTORY.md §100. Whiteboards' own pass (item
-    9 above) is unrelated code and still open.
+~~12. **The Documents Library sub-tab needs a full visual redesign.**~~ **Built.** Full narrative: HISTORY.md §100.
 
-~~13. **Back/forward navigation still misses most navigation types.**~~
-    **Built, all four cases.** Library's sub-tabs (§88.1 item 7), saved chat
+~~13. **Back/forward navigation still misses most navigation types.**~~ **Built, all four cases.** Library's sub-tabs (§88.1 item 7), saved chat
     conversations (`openConversation`/`newChatConversation` recording a
     `{tab: "chat", section}` entry, restored by `stepTabHistory` — the
     session that built this also had to make `stepTabHistory` `async` and
@@ -495,7 +539,10 @@ same session is in §88.0 so nobody re-fixes it.
    Documents, in order.
 ~~8. **The Documents Library sub-tab needs a visual redesign.**~~ **Built** —
    see the live-list's own item 12, which has the full root cause and fix.
-9. **The Whiteboards Library sub-tab is bland** — same pass.
+~~9. **The Whiteboards Library sub-tab is bland**~~ **Built** — search, sort
+   and a Cards/Rows switch on the Library's one shared view preference. Same pass: Contents rebuilt as a real index (sticky sections, filter, jump bar,
+   folding, by-month grouping) and the three-pane OCR workspace — HANDOVER.md's
+   third batch has both, and what Tesseract's absence here left unverified.
 10. **The graph dock may get too tall and squish the graph.** Now three
     deliberate rows; if it grows again, the answer is an overflow menu rather
     than a fourth row.
@@ -711,12 +758,8 @@ demand. This session's graph-toolbar work is (d); the pane system is (c).
 
 ### 88.3 The app.js split — done
 
-All four files (documents.js, library.js, dashboard.js, settings.js) are
-split out of app.js (~28,460 → ~21,720 lines) and verified live in Chromium
-with zero console errors. Full narrative — line ranges, the four hazards
-found and how each was fixed, the rules that made it safe — moved to
-[HISTORY.md's own §88.3 entry](roadmap/HISTORY.md#883--the-appjs-split-full-narrative-moved-from-roadmapmd-now-complete)
-now that it's finished.
+Four files split out, verified live, narrative in
+[HISTORY.md §88.3](roadmap/HISTORY.md#883--the-appjs-split-full-narrative-moved-from-roadmapmd-now-complete).
 
 ### 88.4 Context, memory and harness engineering — an analysis
 
@@ -730,12 +773,8 @@ each round. Conversations can be compressed (§35I). Tools are a fixed registry
 in `ai/tools/`. There is a "what the AI remembers" surface (§39B).
 
 **Corrected — items 1 and 2 below were already built by a prior session
-(`search_manager.py`, commits `be53bd5`/`03b9a3e`/`a399926`, dated before
-this analysis was last read as current) when this list was drafted, and
-this section was never updated to say so. Checked directly rather than
-trusted, per this file's own repeated rule, and confirmed via `git log`
-that the code predates the session that found it stale — not a
-same-session miss like a couple of others this file records elsewhere.**
+(`search_manager.py`, commits `be53bd5`/`03b9a3e`/`a399926`), and this section
+was never updated to say so. Checked directly, per this file's own rule.**
 
 **What's actually still a gap, in order of value:**
 

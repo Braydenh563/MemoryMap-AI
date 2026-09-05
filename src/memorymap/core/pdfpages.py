@@ -30,9 +30,26 @@ hands them to the model.
 from __future__ import annotations
 
 import logging
+import threading
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+#: Serialises every call into pypdfium2. Not a performance nicety — a real
+#: crash, reproduced and confirmed: FastAPI's sync routes run in an anyio
+#: threadpool, and a browser viewing a multi-page PDF fires several
+#: `GET /media/pdf-page/{n}` requests concurrently (one per `<img>`,
+#: unthrottled by `loading="lazy"` for anything near the viewport). Hammering
+#: `pdfium.PdfDocument()`/`.render()` from several threads at once — even
+#: against independently opened documents — corrupts PDFium's C-level heap:
+#: reproduced locally as `corrupted double-linked list` and a hard process
+#: abort (SIGABRT), which no Python `except` clause can catch, since it never
+#: raises a Python exception at all. Reported live, from a real PDF: several
+#: pages 404ing at once and "it crashed... i couldnt scroll." The render
+#: itself is ~20ms (this module's own docstring), so serialising it costs
+#: nothing perceptible — an 8-page view goes from "mostly-parallel" to
+#: "160ms sequential," not from fast to slow.
+_pdfium_lock = threading.Lock()
 
 #: How many pages of one PDF are ever rendered.
 #:
@@ -79,14 +96,52 @@ def page_count(path: Path) -> int:
     try:
         import pypdfium2 as pdfium
 
-        document = pdfium.PdfDocument(str(path))
-        try:
-            return len(document)
-        finally:
-            document.close()
+        with _pdfium_lock:
+            document = pdfium.PdfDocument(str(path))
+            try:
+                return len(document)
+            finally:
+                document.close()
     except Exception as exc:  # noqa: BLE001 — a viewer must not 500 on a bad file
-        logger.debug("couldn't count pages in %s: %s", path, exc)
+        # `%r`, not `%s`, on `path` throughout this file — flagged by CodeQL
+        # (py/log-injection) even though `path` is always `attachment.stored_name`
+        # (a hash this app generated itself, see routes_files.py), never the
+        # uploaded file's own name. CodeQL can't see that far through the call
+        # chain, and `%r` closes the gap for free either way: repr() escapes
+        # newlines and control characters, so nothing reaching this logger can
+        # forge a second log line no matter where the value came from.
+        logger.debug("couldn't count pages in %r: %s", path, exc)
         return 0
+
+
+def _render_one(page, path: Path, index: int, *, greyscale: bool) -> bytes | None:
+    """One already-open `pdfium` page to PNG bytes, or None if it is too
+    large to render safely. Shared by `render_pages` (the vision-OCR batch)
+    and `render_page` (one page, for the viewer) so the pixel-limit check
+    and the encoding choice live in exactly one place."""
+    import io
+
+    width, height = page.get_size()
+    if (width * RENDER_SCALE) * (height * RENDER_SCALE) > MAX_PIXELS:
+        logger.info(
+            "skipping page %d of %r: %dx%d at %.1fx exceeds the pixel limit",
+            index + 1, path.name, width, height, RENDER_SCALE,
+        )
+        return None
+    image = page.render(scale=RENDER_SCALE).to_pil()
+    try:
+        buffer = io.BytesIO()
+        if greyscale:
+            # Greyscale before PNG: a scanned page carries no colour worth
+            # keeping for a vision model, and this is roughly a third of the
+            # bytes for it to encode. The page *viewer* (render_page) keeps
+            # colour — a person reading their own document is not paying a
+            # token budget the way a model prompt is.
+            image = image.convert("L")
+        image.save(buffer, format="PNG", optimize=True)
+        return buffer.getvalue()
+    finally:
+        image.close()
 
 
 def render_pages(path: Path, limit: int = MAX_PAGES) -> list[bytes]:
@@ -104,8 +159,6 @@ def render_pages(path: Path, limit: int = MAX_PAGES) -> list[bytes]:
     if not available():
         return []
     try:
-        import io
-
         import pypdfium2 as pdfium
     except ImportError:
         return []
@@ -113,32 +166,18 @@ def render_pages(path: Path, limit: int = MAX_PAGES) -> list[bytes]:
     pages: list[bytes] = []
     document = None
     try:
-        document = pdfium.PdfDocument(str(path))
-        for index in range(min(len(document), max(0, limit))):
-            page = document[index]
-            try:
-                width, height = page.get_size()
-                if (width * RENDER_SCALE) * (height * RENDER_SCALE) > MAX_PIXELS:
-                    logger.info(
-                        "skipping page %d of %s: %dx%d at %.1fx exceeds the "
-                        "pixel limit",
-                        index + 1, path.name, width, height, RENDER_SCALE,
-                    )
-                    continue
-                image = page.render(scale=RENDER_SCALE).to_pil()
+        with _pdfium_lock:
+            document = pdfium.PdfDocument(str(path))
+            for index in range(min(len(document), max(0, limit))):
+                page = document[index]
                 try:
-                    buffer = io.BytesIO()
-                    # Greyscale before PNG: a scanned page carries no colour
-                    # worth keeping, and this is roughly a third of the bytes
-                    # for the model to encode.
-                    image.convert("L").save(buffer, format="PNG", optimize=True)
-                    pages.append(buffer.getvalue())
+                    png = _render_one(page, path, index, greyscale=True)
+                    if png is not None:
+                        pages.append(png)
                 finally:
-                    image.close()
-            finally:
-                page.close()
+                    page.close()
     except Exception as exc:  # noqa: BLE001 — see the docstring
-        logger.info("couldn't rasterise %s: %s", path, exc)
+        logger.info("couldn't rasterise %r: %s", path, exc)
         return pages
     finally:
         if document is not None:
@@ -147,3 +186,56 @@ def render_pages(path: Path, limit: int = MAX_PAGES) -> list[bytes]:
             except Exception:  # noqa: BLE001
                 pass
     return pages
+
+
+def render_page(path: Path, index: int) -> bytes | None:
+    """One page, by number, as PNG bytes — for *viewing* a PDF rather than
+    reading it with a model. Kept apart from `render_pages`/`MAX_PAGES`
+    deliberately: that cap exists to bound vision-model cost (a model reads
+    a page in seconds, so eight pages is already a lot of GPU time), and has
+    nothing to do with how many pages a person can scroll past for free. In
+    colour, unlike `render_pages` — nothing here is paying a model's token
+    budget for the file.
+
+    None on any failure (page out of range, a file pdfium can't open, an
+    oversized page): the caller — `routes_files.pdf_page` — turns that into
+    a 404, the same "no pages" contract `render_pages` already keeps.
+    """
+    # CodeQL (py/log-injection) flags `index` itself here, not just `path`:
+    # it can't see that FastAPI's `index: int` route parameter already
+    # rejects anything non-numeric before this function is ever called, so
+    # it treats the value reaching `logger.info` below as still tainted.
+    # An explicit int() re-cast into a fresh local breaks that taint chain
+    # for CodeQL and costs nothing at runtime — a real int passes through
+    # unchanged, and the `except` mirrors the `index < 0` guard it replaces.
+    try:
+        safe_index = int(index)
+    except (TypeError, ValueError):
+        return None
+    if not available() or safe_index < 0:
+        return None
+    try:
+        import pypdfium2 as pdfium
+    except ImportError:
+        return None
+
+    document = None
+    try:
+        with _pdfium_lock:
+            document = pdfium.PdfDocument(str(path))
+            if safe_index >= len(document):
+                return None
+            page = document[safe_index]
+            try:
+                return _render_one(page, path, safe_index, greyscale=False)
+            finally:
+                page.close()
+    except Exception as exc:  # noqa: BLE001 — a viewer must not 500 on a bad file
+        logger.info("couldn't rasterise page %d of %r: %s", safe_index, path, exc)
+        return None
+    finally:
+        if document is not None:
+            try:
+                document.close()
+            except Exception:  # noqa: BLE001
+                pass

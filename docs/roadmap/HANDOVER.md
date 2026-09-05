@@ -235,8 +235,20 @@ Ranked by how loudly and how often it was asked for.
     per-panel and per-card insets that stack up inside the shell (a tab's 18px,
     a card's 15px, and so on) have not been rebalanced, and that is the half
     most likely behind "features being squished to overly and unusable sizes".
-18. **Sorting and filtering on the remaining Library sub-tabs** — Images and
-    Files have it now; Documents, Boards, Links and Skills do not.
+18. **Sorting on Boards and Skills** — Images, Files, Links and Documents have
+    it now; those two do not. The pattern to copy is in library.js
+    (`LIBRARY_MEDIA_SORTS`, `BOOKMARK_SORTS`, `LIBRARY_DOC_SORTS`): comparators
+    in a keyed object, the choice in localStorage, the select inside a
+    `.library-toolbar` so it takes the shared control height, and — where a
+    list is paged — **sort before paging**, or the order only rearranges rows
+    within a page.
+
+    Two traps this hit already, both worth knowing: the document list's word
+    count is `words`, not `word_count` (the wrong name makes every row
+    evaluate to zero and the order look arbitrary rather than broken), and a
+    fixture whose rows sit in the same relative order under every comparator
+    makes all of them "pass" without distinguishing a working sort from a
+    broken one.
 
 ## The previous round's handover
 

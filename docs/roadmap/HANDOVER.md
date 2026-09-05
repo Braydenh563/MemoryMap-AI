@@ -106,6 +106,36 @@ the commits.
   spaces dropdown and the whiteboard's dense property selects are untouched,
   as asked.
 
+### Later in the same round (second batch of reports)
+
+Fixed and measured:
+- **All seven Library sub-tab headers are one height** (36.8px). The two that
+  resisted the first attempt — Documents and Boards — each had an id-scoped
+  `--control-h: 2rem` from an earlier local fix for the same problem, at
+  (1,1,0), beating the global rule. Deleted; their `gap` kept.
+- **A file in the Library can be renamed from the Library.** Rename was
+  withheld from `Attachment` rows by an earlier judgement ("an attachment's
+  name is the note's own file list's business"), which meant it was missing
+  from nearly every row of the Files tab. `PUT /files/{id}` already existed;
+  the frontend never called it. Note the two shapes: files takes `filename`
+  and answers with the *whole note*, media takes `original_name`.
+- **Drafts cannot link to saved notes.** Guarded in `manager.create_link`,
+  which every route reaches — the UI button, the AI's tool, the auto-linker,
+  the graph. Draft-to-draft is still allowed (the request was that drafts be
+  separate *from real notes*). Six tests.
+- **Favourites is one concept everywhere.** The sidebar said Favourites with a
+  star; everything else said pinned with a push-pin. Now star + "Favourites"
+  on the note action, the meta chip, the palette filter, and the `pin_note`
+  tool description the model reads. `is:favourite`/`is:favourites` added;
+  `is:pinned` still works, because it is in saved filters people already have.
+- **The app stops paying a wide margin for a wide window.** `--content-max`
+  1500 → 1800. At 1600 the outer margin went 50px→18px a side and the note list
+  gained 64px. The real gutter is untouched.
+- **Live action lines in chat** — each tool event carries a `touched` list of
+  the notes it actually reached, drawn as openable chips *outside* the
+  disclosure so they read while a long turn runs. Taken from the result, never
+  the arguments. Nine tests.
+
 ### Still open — all of it top priority, in the user's own words
 
 Ranked by how loudly and how often it was asked for.
@@ -194,7 +224,19 @@ Ranked by how loudly and how often it was asked for.
 13. Deeper notebook backend: better grouping, better linking, better AI
     understanding of every feature.
 14. Whiteboard region → PNG export into the image library.
-15. Gap below the badges above "used in" and the captions box.
+15. **Cards are overused.** "showing things as cards might be the wrong way to
+    visualise things... I think cards are overly used and used too much." Audit
+    where a card earns its place and where a row, table, tree or inline strip
+    serves better. The notes list already has a rows/cards switch added for
+    exactly this reason.
+16. **Redesign the Contents sub-tab**, and make it render images — it shows
+    every note as a text label, so an image note reads as a filename.
+17. **The density audit's second half.** The outer margin is fixed; the
+    per-panel and per-card insets that stack up inside the shell (a tab's 18px,
+    a card's 15px, and so on) have not been rebalanced, and that is the half
+    most likely behind "features being squished to overly and unusable sizes".
+18. **Sorting and filtering on the remaining Library sub-tabs** — Images and
+    Files have it now; Documents, Boards, Links and Skills do not.
 
 ## The previous round's handover
 

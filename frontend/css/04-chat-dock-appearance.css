@@ -513,10 +513,17 @@
 
 /* Title and its metadata are one block, so the actions align to the pair
    rather than to whichever of them happens to be taller. */
+/* Title and its metadata on one line, wrapping to two only when there is not
+   room. Stacked, the model badge sat alone on a second row under a short
+   title with the actions floating away to the right — one fact in a lane of
+   its own, which reads as something that failed to line up rather than as a
+   heading with its details beside it. */
 .chat-headline {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-4);
+  row-gap: var(--space-1);
   min-width: 0;
   margin-right: auto;
 }
@@ -1395,6 +1402,19 @@ button {
 .seg,
 .seg button {
   border-radius: calc(var(--radius) * 0.5 + var(--radius-md));
+}
+
+/* **One corner language per row.** Measured in the chat dock, the densest row
+   of toggles in the app: Skills, Web, Plan and ⋯ are pills, and the segmented
+   Ask/Request between them came out at 2.2px from the tunable rule above — one
+   strip, two shapes, which is what reads as the app not having decided.
+   Scoped to the dock rather than changed above, because that rule is the
+   user's own corner-rounding preference and every other `.seg` in the app is
+   in a form, not in a row of pills. (0,2,1) beats the (0,2,0) above whatever
+   the source order.) */
+.chat-dock-controls .seg,
+.chat-dock-controls .seg button {
+  border-radius: var(--radius-pill);
 }
 
 /* --- spacious density (third option alongside comfortable/compact) --------- */

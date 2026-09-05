@@ -568,7 +568,72 @@ function editorLinkMatches(needle) {
     }))
     .filter((item) => item.value);
 
-  return [...notes, ...documents];
+  //: **Files and images**, the third and fourth kinds. They are not wiki-link
+  //: targets — there is no name to resolve, only a url — so each carries the
+  //: markdown it wants inserted (`item.markdown`, handled in `editorRunItem`):
+  //: an embed for a picture, a plain link for anything else.
+  const files = (editorFileCache || [])
+    .filter((file) => !query || (file.original_name || "").toLowerCase().includes(query))
+    .slice(0, 4)
+    .map((file) => ({
+      id: `file-${file._isAttachment ? "a" : "m"}-${file.id}`,
+      group: file._isImage ? "Images" : "Files",
+      label: file.original_name || "File",
+      hint: file._isImage ? "image" : "file",
+      markdown: `${file._isImage ? "!" : ""}[${(file.original_name || "file").replace(/[[\]]/g, "")}](${file.url})`,
+    }));
+
+  //: **Boards.** A board *is* an Entry (`is_board`), so it is already in
+  //: `allEntries` — but it is filtered out of the notes list above by the
+  //: same rule that keeps boards out of the note list everywhere else, and a
+  //: notebook with boards had no way to link to one at all.
+  const boards = (typeof allEntries !== "undefined" ? allEntries : [])
+    .filter((e) => e.is_board && !e.is_private)
+    .filter((e) => !query || (e.content || "").toLowerCase().includes(query))
+    .slice(0, 3)
+    .map((entry) => ({
+      id: `board-${entry.id}`,
+      group: "Boards",
+      label: noteLabel(entry, 60),
+      hint: "board",
+      value: (entry.content || "")
+        .split("\n")[0]
+        .replace(/\[\[|\]\]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 60),
+    }))
+    .filter((item) => item.value);
+
+  return [...notes, ...documents, ...boards, ...files];
+}
+
+//: The Library's own gallery payload, fetched once per menu session the same
+//: way documents are — `/media` and `/files/gallery` are two calls, and doing
+//: them per keystroke would put a request behind every letter typed.
+let editorFileCache = null;
+
+async function editorLoadFiles() {
+  if (editorFileCache && editorFileCache.length) return;
+  const [media, attachments] = await Promise.all([
+    apiJson("/media", { silent: true }).catch(() => []),
+    apiJson("/files/gallery", { silent: true }).catch(() => []),
+  ]);
+  const rows = [
+    ...(Array.isArray(media) ? media : []).map((row) => ({ ...row, _isAttachment: false })),
+    ...(Array.isArray(attachments) ? attachments : []).map((row) => ({
+      ...row,
+      _isAttachment: true,
+      url: `/files/${row.id}`,
+    })),
+  ];
+  //: `_isImage` decides embed-or-link, and it is decided here once rather
+  //: than by each caller re-sniffing the extension — the same split
+  //: `library.js` makes for the gallery.
+  editorFileCache = rows.map((row) => ({
+    ...row,
+    _isImage: /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif|tiff?)$/i.test(row.original_name || ""),
+  }));
 }
 
 // Documents are fetched once per menu session rather than per keystroke.
@@ -636,7 +701,17 @@ function editorRunItem(position) {
   }
   editorCloseMenu();
 
-  if (item.value !== undefined) {
+  if (item.markdown !== undefined) {
+    //: **A file is not a `[[wiki link]]`.** Wiki links resolve by *name*
+    //: against notes and documents; an image or an attachment has a url and
+    //: no name to resolve, so an item like that carries the markdown it wants
+    //: inserted and the opening `[[` the trigger left behind is removed
+    //: first. Asked for as "cross-link everything: notes, documents, files,
+    //: maps from anywhere" — the picker covered two of the four.
+    const at = textarea.selectionStart;
+    const open = trigger === "[[" ? at - trigger.length : at;
+    editorSplice(textarea, open, at, item.markdown, null);
+  } else if (item.value !== undefined) {
     // A link target: close the brackets and step past them.
     const at = textarea.selectionStart;
     editorSplice(textarea, at, at, `${item.value}]]`, null);
@@ -721,6 +796,15 @@ document.addEventListener("input", (event) => {
             .catch(() => {
               editorDocumentCache = [];
             });
+        }
+        //: Files and images the same way: the menu opens on what is already
+        //: in memory and gains the rest a moment later, rather than making
+        //: the first keystroke wait on two requests.
+        if (editorFileCache === null) {
+          editorFileCache = [];
+          editorLoadFiles().then(() => {
+            if (editorMenuState.open) editorRefreshMenu();
+          });
         }
       }
       editorOpenMenu(textarea, trigger);

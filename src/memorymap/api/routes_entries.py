@@ -108,6 +108,7 @@ def _to_out(
         source_url=getattr(entry, "source_url", None),
         source_title=getattr(entry, "source_title", None),
         source_path=getattr(entry, "source_path", "") or "",
+        is_board=bool(getattr(entry, "is_board", False)),
         created_at=entry.created_at,
         deleted_at=entry.deleted_at if entry.is_deleted else None,
         archived_at=entry.archived_at,

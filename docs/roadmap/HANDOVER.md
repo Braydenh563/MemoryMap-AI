@@ -343,6 +343,52 @@ depend on it and does not block it.
   arrive or vanish in bulk; Settings says so once the count crosses the
   threshold the backend sets, and a rebuild clears it. Three tests.
 
+### The chat tab's first impression (#35, in part)
+
+*"the chat interface … still need[s] a large redesign … they feel very fake and
+just rudimentary."* Measured at 1440px before touching anything, which is what
+the changes are:
+
+- **The welcome was a 326px column of centred text in a 1062px pane**, with the
+  four starter chips 550px below it jammed against the composer — two halves of
+  one invitation, as far apart as the layout allowed. The chips are inside the
+  welcome now (borrowed from the dock and returned to it the moment a message
+  arrives, so nothing else has to know where they live), and it is 52ch wide.
+- **One control strip carried two corner languages**: Skills, Web, Plan and ⋯
+  as pills with a segmented Ask/Request between them at `--radius-md`. Now one
+  language per row. Scoped to the dock, because that radius comes from the
+  user's own corner-rounding preference and every other `.seg` is in a form.
+- **The model badge sat alone on a second row** under a short title with the
+  actions floating right. Title and badge share a line now, wrapping only when
+  there is no room.
+
+Checked while there: the message rows themselves are fine. What looked like a
+box-inside-a-box in a screenshot is the generating ring on a stream that never
+finished — measured `border: 0px none` on the answer step.
+
+### The link picker covers all four kinds now (#15)
+
+"Cross-link everything: notes, documents, files, maps from anywhere" — the
+`[[` picker covered two of the four. It now offers **Notes, Documents, Boards
+and Images/Files**, and an item can carry the markdown it wants inserted
+(`item.markdown`) rather than a wiki-link name: a file has a url and no name to
+resolve, so a picture inserts `![name](url)` and anything else `[name](url)`,
+with the `[[` the trigger left behind removed first.
+
+**A field that had to be added to make it possible, and the trap it came
+with:** a board *is* an Entry (`Entry.is_board`), but `is_board` was never
+serialised, so the frontend could not tell a board from a note anywhere. The
+Boards group was written against a field that did not exist — a "feature that
+never ran once" caught by driving it, not by reading it. `EntryOut` carries
+`is_board` now.
+
+**And the trap that cost twenty minutes here, worth writing down:** `kill
+$(pgrep -f "uvicorn memorymap" | head -1)` kills *the pgrep's own shell*, whose
+command line contains the pattern. The real server (4h old, still serving
+`0.1.9`) survived three restarts, and every backend measurement in between was
+of stale code. Kill by the PID that `ps` shows an `etime` for, and check
+`/health`'s `version` before believing a backend measurement.
+
 ### Still open — all of it top priority, in the user's own words
 
 Ranked by how loudly and how often it was asked for.

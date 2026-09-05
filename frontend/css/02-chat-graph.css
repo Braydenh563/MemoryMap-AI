@@ -202,11 +202,40 @@
 }
 
 /* Welcome shown in an empty chat so the page isn't a blank rectangle. */
+/* The welcome. 34ch was a 326px column of centred text in a 1062px pane
+   (measured), which reads as a leftover rather than as an invitation — and the
+   starter chips it belongs with were 550px below it, jammed against the
+   composer. Wider, and the chips live inside it now (see `chatEmptyState`). */
 .chat-empty {
   margin: auto;
   text-align: center;
-  max-width: 34ch;
-  padding: 1.5rem 1rem;
+  max-width: 52ch;
+  padding: var(--space-7) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.chat-empty > p {
+  margin: 0;
+}
+
+/* Inside the welcome the chips are the *call to action*, so they get room and
+   a centre line; in the dock (where they go back the moment a message arrives)
+   they stay the quiet single row they were. */
+.chat-empty #chat-suggest {
+  margin-top: var(--space-4);
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* "Try asking:" is a heading for the chips, not the first item in the row —
+   in the row it took half a line and pushed one chip onto its own. */
+.chat-empty #chat-suggest > .muted {
+  flex: 1 0 100%;
+  text-align: center;
 }
 
 .chat-empty .empty-title {

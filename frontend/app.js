@@ -9258,6 +9258,18 @@ function renderChatEmptyState() {
     "Ask a question and the AI answers from your saved notes. Turn on “AI can " +
     "make changes” and it can create, tag, link, and organise notes for you too.";
   empty.append(emblem, title, blurb);
+  //: **The starters belong in the empty state, not in a strip above the
+  //: composer.** Measured at 1440px: the welcome was a 326px column of centred
+  //: text in a 1062px pane with four suggestion chips jammed against the
+  //: composer 550px below it — two halves of one invitation, as far apart as
+  //: the layout allowed. `#chat-suggest` still exists and is still filled by
+  //: `loadChatSuggestions`; it is *moved here* while the pane is empty and
+  //: goes back to the dock the moment a message arrives, so nothing else has
+  //: to know where it lives.
+  const suggest = $("chat-suggest");
+  if (suggest && !suggest.classList.contains("hidden")) {
+    empty.appendChild(suggest);
+  }
   box.appendChild(empty);
   // Animated like the ai-mark: a new chat is the AI waiting, and the slow
   // turn says so. Stills itself under Settings → Appearance → reduced motion.
@@ -9265,7 +9277,17 @@ function renderChatEmptyState() {
 }
 
 function clearChatEmptyState() {
-  $("chat-messages").querySelector(".chat-empty")?.remove();
+  const empty = $("chat-messages").querySelector(".chat-empty");
+  if (!empty) return;
+  //: The chips are on loan from the dock (see `chatEmptyState`), so they go
+  //: home before the welcome is thrown away — removing them with it would
+  //: lose the element every other caller still holds by id.
+  const suggest = empty.querySelector("#chat-suggest");
+  if (suggest) {
+    suggest.classList.add("hidden");
+    document.querySelector(".chat-dock")?.prepend(suggest);
+  }
+  empty.remove();
 }
 
 // --- web panel: search + reader view ----------------------------------------
@@ -14231,6 +14253,9 @@ async function loadChatSuggestions() {
     const chipEl = chip(question, "", () => sendChatMessage(question));
     box.appendChild(chipEl);
   }
+  //: They arrive after the welcome was drawn, so the welcome takes them now.
+  const empty = $("chat-messages").querySelector(".chat-empty");
+  if (empty && !empty.contains(box)) empty.appendChild(box);
   // These chips arrive after the tab is drawn and are a row or two of height
   // the composer's fit was measured without.
   refitComposer();

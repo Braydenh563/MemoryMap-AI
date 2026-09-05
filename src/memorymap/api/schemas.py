@@ -165,6 +165,12 @@ class EntryOut(BaseModel):
     is_private: bool = False
     # Captured from the text-selection popup, not yet reviewed.
     is_draft: bool = False
+    #: A whiteboard/concept map, which is an Entry like any other (see
+    #: `Entry.is_board`). The frontend had no way to tell one from a note at
+    #: all, so a board could not be offered as a link target, filtered out of
+    #: a note list, or labelled as what it is — every surface either treated
+    #: it as a note or hard-coded a second fetch of `/whiteboard/boards`.
+    is_board: bool = False
     # Where a web-reader clipping came from, when it was one (BACKLOG §65).
     source_url: str | None = None
     source_title: str | None = None

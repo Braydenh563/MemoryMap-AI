@@ -12,29 +12,7 @@ against a running Ollama/LM Studio. UI claims are now checkable (Chromium is
 in the sandbox); model *behaviour* claims are not — reproduce or say plainly
 you couldn't.
 
-## ► START HERE: the v0.2.0 round
-
-**Read the top of [roadmap/HANDOVER.md](roadmap/HANDOVER.md) before anything
-else.** It opens with the two defect *shapes* that account for nearly every
-visual bug reported this round — the enumerated CSS allowlist that a new
-caller silently falls off, and `border: none` resurrecting a 3px border under
-an `!important` border-style — and then lists what is done and what is still
-asked for, ranked.
-
-The fifteen open items there are all top priority by the user's own
-instruction. In short, and in their words: the chat interface and documents
-editor "still need a large redesign... they feel very fake and just
-rudimentary"; the text editor must be "EXACTLY LIKE OBSIDIAN" (live WYSIWYG
-markdown, plus the obsidian-editing-toolbar plugin's toolbar, in everything);
-Kortex-style structured blocks in notes and reminders too; markdown file trees
-and Obsidian vault linking, "the largest gap that is missing right now";
-region-typed OCR to the shape of Baidu Unlimited-OCR; and an app-wide pass on
-"ux semiotics and affordances for everything".
-
-**Start from `frontend/editor.js` for anything slash-command shaped** — the
-"/" menu already exists and a previous session nearly rebuilt it.
-
-## The earlier redesign brief
+## ► START HERE: the redesign is the priority
 
 A full UX/architecture re-imagining was asked for and is written up in
 **[roadmap/REDESIGN.md](roadmap/REDESIGN.md)** — measured evidence for every
@@ -42,12 +20,13 @@ complaint, the three underlying causes, the target shape, a complete ledger
 of all forty requests with their state (§R8), and the numbers as they stand
 (§R9). **Read it before doing any UI, file-handling, graph or backend work.**
 
-**A later session added a second, larger burst of requests than fits here —
-read the top of [roadmap/HANDOVER.md](roadmap/HANDOVER.md) first.** It leads
-with a reversal worth knowing before anything else: PDFs and documents must
-be viewable, downloadable and manageable **without any AI model in the
-loop** — the file-viewer design this repo had been building toward assumed
-AI-only reading, and that assumption is now wrong.
+**Read the top of [roadmap/HANDOVER.md](roadmap/HANDOVER.md) first — it is
+ahead of this file.** It carries the v0.2.0 round: the two defect shapes behind
+nearly every visual bug reported, what is done, and fifteen open items all top
+priority by instruction. It still carries the reversal worth knowing before any
+file work — PDFs and documents must be viewable, downloadable and manageable
+**without any AI model in the loop** — and the note that anything editor- or
+slash-command-shaped starts from `frontend/editor.js`, which has a "/" menu.
 
 **The next session's order of work, highest value first.** Each links to the
 section that holds the quoted request and the detail:

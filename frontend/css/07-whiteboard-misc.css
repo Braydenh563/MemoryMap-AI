@@ -4127,3 +4127,43 @@ button.connection-row {
   display: block;
   margin-bottom: var(--space-3);
 }
+
+/* --- one control height per Library header row ------------------------------
+   Reported: "the button elements in the top row of each library subtab are all
+   different sizes and proportions between tabs?? it needs to remain
+   consistent."
+
+   Measured across all seven sub-tabs, and it was worse than tab-to-tab drift:
+   four headers rendered at 28px, two at 32px, and the media headers carried
+   **both heights in the same row**. Nothing normalised them — a button's height
+   fell out of whichever class it happened to wear, so `button.small` gave the
+   28px `--target-min` floor and a plain `button` gave 32, side by side.
+
+   **In this file rather than beside `.library-head` in 00-tokens-shell.css,
+   and that is the whole reason it works.** The selector is (0,1,1), which ties
+   with `button.small` and with `button.ghost.graph-help-toggle`; a tie is
+   broken by source order, and 00 is the first stylesheet loaded. The first
+   attempt lived there and left four controls at 32px — the round "?" toggles
+   and the Documents/Boards action buttons — because every one of those rules
+   is in a later file.
+
+   `--control-h` is borrowed from `.library-toolbar` deliberately instead of
+   picking a third number: the toolbar sits directly beneath this row in the
+   same card, and a header at one height above a toolbar at another is the same
+   complaint one line further down. One card, one control height.
+
+   Width comes too, for the circular ones only. `.graph-help-toggle` is a
+   2rem circle; giving it a height without a width is how this app has already
+   produced a reported oval once (see `.library-toolbar`'s own note). */
+.library-head button,
+.library-head select,
+.library-head .seg {
+  height: var(--control-h);
+  padding-block: 0;
+  margin: 0;
+  font-size: var(--text-md);
+}
+
+.library-head .graph-help-toggle {
+  width: var(--control-h);
+}

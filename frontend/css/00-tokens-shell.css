@@ -1135,9 +1135,32 @@ header#top-bar.tabs-wrapped #tab-bar {
   --control-h: 2.2rem;
 }
 
+/* **Every Library sub-tab's header row is one height now.** Reported: "the
+   button elements in the top row of each library subtab are all different
+   sizes and proportions between tabs?? it needs to remain consistent."
+
+   Measured across all seven, and it was worse than tab-to-tab drift: the
+   Documents, Skills, Contents and All headers rendered their controls at 28px,
+   Boards and the Documents list at 32px, and the media headers had **both
+   heights in the same row**. The cause is that nothing normalised them — a
+   button's height fell out of whichever class it happened to carry, so
+   `button.small` gave 28 (the `--target-min` floor) and a plain `button` gave
+   32, in the same strip.
+
+   `--control-h` is borrowed from `.library-toolbar` deliberately rather than
+   picking a third number: the toolbar sits directly beneath this row inside
+   the same card, and a header at one height above a toolbar at another is the
+   same complaint one line further down. One card, one control height. */
 .library-head {
+  --control-h: 2.3rem;
   margin-bottom: var(--space-2);
 }
+
+/* The sizing rule that used to sit here moved to 07-whiteboard-misc.css. It is
+   the same selector, and it had to move for cascade order: this is the *first*
+   stylesheet, so `.library-head button` at (0,1,1) tied with every
+   `button.small` / `button.ghost.graph-help-toggle` rule in the later files and
+   lost the tie to source order — measured, four controls stayed at 32px. */
 
 /* --- the overview strip ------------------------------------------------------
    A management screen opens with the state of the thing it manages. Each tile

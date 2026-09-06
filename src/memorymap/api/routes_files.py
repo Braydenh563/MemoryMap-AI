@@ -1776,6 +1776,127 @@ def _vision_read_page(path: Path, index: int) -> OcrPageReadOut:
     )
 
 
+class OcrRangeReadOut(BaseModel):
+    """Several pages of a document, read by a vision model in one request."""
+
+    pages: list[OcrPageReadOut] = []
+    #: How many pages the spec asked for *after* clamping to the document, so
+    #: the UI can say "read 8 of the 20 you asked for" rather than silently
+    #: returning fewer.
+    requested: int = 0
+    read: int = 0
+    page_count: int = 0
+    message: str = ""
+
+
+#: How many pages one range request may read. A vision pass is seconds per
+#: page, so "all" on a 300-page scan is not a request anyone means to make
+#: synchronously — the cap keeps a mis-click from occupying the model for an
+#: hour, and the response says plainly how far it got so the reader can ask
+#: for the next block rather than wondering.
+MAX_RANGE_PAGES = 25
+
+
+def _parse_page_spec(spec: str, count: int) -> list[int]:
+    """`"all"`, `"3"`, `"1-5"`, `"1,4,7-9"` -> sorted 0-based page indices.
+
+    **One-based on the way in, because that is what the page rail shows and
+    what a person means by "page 1".** Anything unparseable is skipped rather
+    than raising: a range typed with a stray character should read the pages
+    it could understand, not refuse the lot.
+    """
+    text = (spec or "").strip().lower()
+    if not text or text in {"all", "*"}:
+        return list(range(count))
+    wanted: set[int] = set()
+    for part in text.replace(" ", "").split(","):
+        if not part:
+            continue
+        if "-" in part[1:]:  # not a leading minus
+            start_text, _, end_text = part.partition("-")
+            if not (start_text.isdigit() and end_text.isdigit()):
+                continue
+            start, end = int(start_text), int(end_text)
+            if start > end:
+                start, end = end, start
+            wanted.update(range(start - 1, end))
+        elif part.isdigit():
+            wanted.add(int(part) - 1)
+    return sorted(i for i in wanted if 0 <= i < count)
+
+
+def _vision_read_range(path: Path, spec: str) -> OcrRangeReadOut:
+    """Read every page the spec names, reusing the single-page reader.
+
+    Deliberately a loop over `_vision_read_page` rather than a second
+    implementation: one place decides what "no rasteriser", "no vision model"
+    and "nothing legible" mean, and a range read cannot drift away from what
+    the per-page button does.
+    """
+    if not pdfpages.available():
+        return OcrRangeReadOut(
+            message=(
+                "Reading a PDF needs the small PDF rasteriser: install the "
+                "“PDF pages” extra in Settings → Optional extras."
+            )
+        )
+    count = pdfpages.page_count(path)
+    if count <= 0:
+        return OcrRangeReadOut(message="That PDF could not be opened.")
+    indices = _parse_page_spec(spec, count)
+    if not indices:
+        return OcrRangeReadOut(
+            page_count=count,
+            message=f"No pages matched that range. This document has {count} page(s).",
+        )
+    requested = len(indices)
+    capped = indices[:MAX_RANGE_PAGES]
+    pages = [_vision_read_page(path, index) for index in capped]
+    read = sum(1 for page in pages if page.text)
+    note = ""
+    if requested > len(capped):
+        last = capped[-1] + 1
+        note = (
+            f" Stopped after {len(capped)} pages (the limit for one go) — "
+            f"ask for {last + 1}-{min(last + MAX_RANGE_PAGES, count)} to carry on."
+        )
+    return OcrRangeReadOut(
+        pages=pages,
+        requested=requested,
+        read=read,
+        page_count=count,
+        message=(f"Read {read} of {len(capped)} page(s)." + note).strip(),
+    )
+
+
+@router.post("/files/{attachment_id}/ocr-range-read", response_model=OcrRangeReadOut)
+def attachment_ocr_range_read(
+    attachment_id: int, pages: str = "all", session: Session = Depends(get_session)
+) -> OcrRangeReadOut:
+    """Read a whole PDF, or the pages named by `pages` (e.g. `1-5`, `2,7`)."""
+    attachment = _existing_attachment(session, attachment_id)
+    if Path(attachment.filename).suffix.lower() != ".pdf":
+        raise HTTPException(status_code=415, detail="Only PDFs are read by page range.")
+    path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="File is missing from disk")
+    return _vision_read_range(path, pages)
+
+
+@router.post("/media/{upload_id}/ocr-range-read", response_model=OcrRangeReadOut)
+def media_ocr_range_read(
+    upload_id: int, pages: str = "all", session: Session = Depends(get_session)
+) -> OcrRangeReadOut:
+    """Read a whole PDF, or the pages named by `pages` (e.g. `1-5`, `2,7`)."""
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    if Path(upload.filename).suffix.lower() != ".pdf":
+        raise HTTPException(status_code=415, detail="Only PDFs are read by page range.")
+    path = _within_dir(deps.get_config().data_dir / "media", upload.filename)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="That file is no longer on disk.")
+    return _vision_read_range(path, pages)
+
+
 @router.post("/files/{attachment_id}/ocr-page-read", response_model=OcrPageReadOut)
 def attachment_ocr_page_read(
     attachment_id: int, page: int = 0, session: Session = Depends(get_session)

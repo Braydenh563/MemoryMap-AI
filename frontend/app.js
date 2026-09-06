@@ -3681,7 +3681,29 @@ function openLightbox(items, startIndex = 0) {
   // PDF's *pages* render with zero AI involvement; reading its words with a
   // model is a deliberate, opt-in second step, not something a user has to
   // sit through just to look at their own document.
-  const readWithAiBtn = actionBtn("ph:sparkle Read text with AI", "Extract this PDF's text with the local AI", () => {
+  //: **Which PDF the OCR workspace should open, or null.** Set by
+  //: `showDocument`'s PDF branch, where the file's identity is actually
+  //: known; cleared wherever the lightbox resets for a new file.
+  let lightboxOcrTarget = null;
+
+  const readWithAiBtn = actionBtn("ph:sparkle Read text with AI", "Open the page reader: see each page beside what it says", () => {
+    //: **One reader, not two.** Reported: *"that panel is separate from the
+    //: lightbox where you can select to read the text on the document, and I
+    //: feel like that button should show the other text on page panel
+    //: popup."* This button used to swap the lightbox to a flat blob of
+    //: extracted text, while the OCR workspace — page rail, region boxes,
+    //: per-page and now per-range reads, copy, save as note — was a separate
+    //: window reachable only from a file card's menu. Two answers to "what
+    //: does this document say", and the worse one was on the file you were
+    //: looking at.
+    //:
+    //: Falls back to the old inline text when the workspace cannot be
+    //: addressed (no id resolved, or library.js absent on this surface):
+    //: degrading to the flat reading beats a button that does nothing.
+    if (lightboxOcrTarget && typeof window.openOcrWorkspace === "function") {
+      window.openOcrWorkspace(lightboxOcrTarget, []);
+      return;
+    }
     lightboxLoadExtractedText?.();
   });
   readWithAiBtn.classList.add("hidden");
@@ -4170,6 +4192,7 @@ function openLightbox(items, startIndex = 0) {
     editFileBtn.classList.add("hidden");
     lightboxPreviewSource = null;
     lightboxExtractedText = null;
+    lightboxOcrTarget = null;
     exportTextBtn.classList.add("hidden");
     clearDocPreview();
     previewHtmlBtn.classList.add("hidden");
@@ -4325,6 +4348,15 @@ function openLightbox(items, startIndex = 0) {
       if (info && info.available && info.pages > 0) {
         docBody.classList.add("hidden");
         find.classList.add("hidden"); // nothing here is text to search yet
+        //: The identity the OCR workspace needs, built here because this is
+        //: the one place that knows whether the open file is an attachment or
+        //: a media upload. `original_name` rather than the stored name: the
+        //: workspace's own `ocrIsPdf` tests the extension of exactly that.
+        lightboxOcrTarget = attachmentId
+          ? { id: attachmentId, _isAttachment: true, original_name: item.filename || name }
+          : item.id
+          ? { id: item.id, _isAttachment: false, original_name: item.filename || name }
+          : null;
         readWithAiBtn.classList.remove("hidden");
         pdfPages.classList.remove("hidden");
         // Zoom, same as the image view — reported live once pages actually
@@ -4421,6 +4453,7 @@ function openLightbox(items, startIndex = 0) {
     editFileBtn.classList.add("hidden");
     lightboxPreviewSource = null;
     lightboxExtractedText = null;
+    lightboxOcrTarget = null;
     exportTextBtn.classList.add("hidden");
     clearDocPreview();
     previewHtmlBtn.classList.add("hidden");

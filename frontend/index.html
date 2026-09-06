@@ -3864,6 +3864,21 @@ Link to another note with [[its first few words]]."></textarea>
                directly not to depend on. -->
           <button id="ocr-read-page" class="ghost small hidden" type="button"
             title="Transcribe the page you are looking at with a local vision model"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Read this page with AI</button>
+          <!-- Reported: "there's a read text on this page option but not an
+               option to read the text on the whole document or specific
+               pages." Reading a ten-page scan meant ten clicks and ten waits.
+               A range box rather than a second "read everything" button,
+               because "specific pages" was half the ask and a box that
+               defaults to `all` answers both with one control. PDFs only —
+               shown by `ocrLoadPage` alongside the per-page button. -->
+          <span id="ocr-read-range-group" class="row ocr-read-range hidden">
+            <label class="visually-hidden" for="ocr-read-pages">Pages to read</label>
+            <input id="ocr-read-pages" class="ocr-read-pages" type="text"
+              value="all" placeholder="all" autocomplete="off" spellcheck="false"
+              title="Which pages to read: all, 3, 1-5, or 1,4,7-9">
+            <button id="ocr-read-range" class="ghost small" type="button"
+              title="Transcribe every page in that range with a local vision model"><i class="ph ph-book-open-text ph-lead" aria-hidden="true"></i> Read pages</button>
+          </span>
           <button id="ocr-copy-all" class="ghost small" type="button"
             title="Copy every region's text, in reading order"><i class="ph ph-copy ph-lead" aria-hidden="true"></i> Copy all</button>
           <button id="ocr-to-note" class="small" type="button"

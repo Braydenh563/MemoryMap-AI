@@ -5020,3 +5020,18 @@ button.connection-row {
     max-width: calc(100vw - 2rem);
   }
 }
+
+/* The page-range control beside "Read this page with AI". A short box, not a
+   full-width field: it holds "all", "3" or "1-5,8" and nothing longer, and a
+   wide input in a crowded header would read as the primary control when the
+   page rail beside it is what people actually navigate with. */
+.ocr-read-range {
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ocr-read-pages {
+  width: 6rem;
+  margin: 0;
+  text-align: center;
+}

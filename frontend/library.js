@@ -2490,6 +2490,9 @@ async function ocrLoadPage(image, page = 0) {
   $("ocr-boxes").replaceChildren();
   $("ocr-region-list").replaceChildren();
   $("ocr-read-page")?.classList.toggle("hidden", !ocrIsPdf(image));
+  //: The range box lives or dies with the per-page button — both are PDF-only,
+  //: and a "read pages 1-5" control beside a photograph would be a lie.
+  $("ocr-read-range-group")?.classList.toggle("hidden", !ocrIsPdf(image));
   try {
     const body = await apiJson(ocrRegionsUrl(image, ocrWorkspacePage));
     ocrRenderRegions(body);
@@ -2843,6 +2846,67 @@ document.addEventListener("DOMContentLoaded", () => {
       button.disabled = false;
     }
   });
+  //: **Read a range, or the whole document.** Reported: the workspace could
+  //: read the page you were looking at and nothing else, so a ten-page scan
+  //: took ten clicks and ten waits.
+  //:
+  //: Renders one region per page rather than a single blob, so the reading
+  //: keeps the shape of the document: each page's text is separately
+  //: copyable, and "Save as note" writes them in order with their page
+  //: numbers instead of a wall of text nobody can navigate.
+  $("ocr-read-range")?.addEventListener("click", async (event) => {
+    const image = ocrWorkspaceCurrent;
+    if (!image) return;
+    const button = event.currentTarget;
+    const spec = ($("ocr-read-pages")?.value || "all").trim() || "all";
+    button.disabled = true;
+    const label = spec === "all" ? "Reading every page with AI…" : `Reading pages ${spec} with AI…`;
+    $("ocr-message").textContent = label;
+    $("ocr-message").classList.remove("hidden");
+    const progress = typeof toastProgress === "function" ? toastProgress(label) : null;
+    const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
+    try {
+      const body = await trackOcrRead(
+        image,
+        label,
+        apiJson(`${base}/ocr-range-read?pages=${encodeURIComponent(spec)}`, { method: "POST" })
+      );
+      const withText = (body.pages || []).filter((page) => (page.text || "").trim());
+      if (withText.length) {
+        ocrRenderRegions({
+          //: `kind: "heading"` on nothing here — these are pages, not layout
+          //: blocks, and the label carries the page number because a reader
+          //: scrolling twelve transcriptions needs to know which is which.
+          regions: withText.map((page, index) => ({
+            index,
+            kind: "text",
+            text: `Page ${page.page + 1}\n\n${page.text.trim()}`,
+            confidence: 0,
+            box: { x: 0, y: 0, w: 1, h: 1 },
+          })),
+          source: "stored-text",
+          message: body.message || `Read ${withText.length} page(s) — text only, no page positions.`,
+          pages: ocrWorkspacePages,
+          page: ocrWorkspacePage,
+        });
+      } else {
+        $("ocr-message").textContent =
+          body.message || "Nothing was read on those pages.";
+        $("ocr-message").classList.remove("hidden");
+      }
+      progress?.done(
+        withText.length
+          ? `Read ${withText.length} page(s) of ${image.original_name}.`
+          : body.message || "Nothing was read."
+      );
+    } catch (error) {
+      $("ocr-message").textContent = error.message || "Those pages could not be read.";
+      progress?.done(error.message || "Those pages could not be read.", { isError: true });
+    } finally {
+      button.disabled = false;
+    }
+  });
+
   $("ocr-to-note")?.addEventListener("click", async () => {
     const text = ocrAllText();
     if (!text) return toast("There is nothing to save yet.", true);

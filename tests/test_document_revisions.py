@@ -125,3 +125,24 @@ def test_the_history_is_bounded(client):
                 session.commit()
     rows = client.get(f"/documents/{doc['id']}/revisions").json()
     assert len(rows) <= routes_documents.MAX_DOCUMENT_REVISIONS
+
+
+def test_deleting_a_document_takes_its_history_with_it(client):
+    """A real foreign key with no ORM cascade: the delete failed outright.
+
+    Caught by the whole suite rather than by the tests for the thing I touched
+    — `test_documents_api.py::test_create_read_update_delete` started raising
+    `FOREIGN KEY constraint failed` the moment revisions began being written.
+    Kept here as well, close to the cause.
+    """
+    doc = _make(client, "before")
+    client.put(f"/documents/{doc['id']}", json={"content": "after"})
+    assert client.get(f"/documents/{doc['id']}/revisions").json(), "a revision exists"
+    assert client.delete(f"/documents/{doc['id']}").status_code == 200
+    with routes_documents.deps.get_db().session() as session:
+        left = (
+            session.query(DocumentRevision)
+            .filter(DocumentRevision.document_id == doc["id"])
+            .count()
+        )
+    assert left == 0, "a deleted document must not leave its text behind"

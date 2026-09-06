@@ -15,6 +15,31 @@ the bump, not everything it implies — a fuller reconciliation against the
 intervening commits is still owed.
 
 ### Added
+- **Document history.** Every version a document has had, with who changed it,
+  how many words it gained or lost, the opening of that version, and a way to
+  read or restore any of them. A stretch of editing coalesces into one entry
+  rather than one per autosave, so the list reads as sittings rather than
+  keystrokes. Restoring keeps the version it replaced.
+- **Ask the notebook about itself.** "What are my most common tags", "which
+  categories have the most notes", "how many notes have no tags", "which are my
+  most linked notes", "when do I write most" are counted from your data rather
+  than generated — exact, instant, and answered with no AI model running at all.
+  Private and binned notes are never counted.
+- **"Ask the AI for wordings"** in the document suggestion menu: where the
+  built-in checks have no mechanical fix, the local model offers two or three
+  alternative phrasings to pick from. Nothing changes until you choose one.
+- **OCR readings are kept.** A page read is stored as it completes, so a read
+  that finishes after you close the workspace is still there when you come
+  back, and a range read that is interrupted keeps the pages it managed.
+- **The OCR reader picker offers both AI readers** where a machine has two
+  different models — a dedicated document reader and a general vision model —
+  instead of one option named after whichever it happened to resolve.
+- **Mark a notification unread**, per row, plus "Mark all read".
+- **"Edit document"** on a previewed document in the lightbox.
+- **A "Still writing" pill** in Chat when you scroll away from a live answer,
+  doubling as jump-to-latest.
+- **Double-tap the chat composer's resize corner** to reset it to the automatic
+  height.
 - **Help → "Ask the guide"**, a small embedded AI chat for "how do I…"
   questions about the app itself. Answers with the utility model, grounded
   in a fixed set of reference notes (`ai/help_chat.py`'s `HELP_TOPICS`) so a
@@ -44,6 +69,42 @@ intervening commits is still owed.
   working.
 
 ### Fixed
+- **The chat sidebar never marked the open conversation.** A `null` passed as
+  the highlight terms threw inside the Sources panel, which aborted
+  `openConversation` before it repainted the sidebar — the click worked, the
+  transcript rendered, and an unrelated null check stopped the row from ever
+  being marked. A third of each row was also dead to clicks, and the mark it
+  would have got was a 3px bar and a 13% tint.
+- **The chat header's model name opened its panel off the bottom of the
+  window** — `position: absolute` with no positioned ancestor put it at (0, 905)
+  in a 900px viewport, which is indistinguishable from a control that does
+  nothing.
+- **A page read that finished after the OCR workspace was closed was lost**,
+  even though the app announces such reads as background tasks precisely so the
+  window can be closed.
+- **The OCR picker and the OCR reader disagreed about which model would run.**
+- **The gallery's per-image select checkboxes could not be clicked** — the
+  actions row above them stretched across the tile and swallowed every click.
+- **The lightbox could not be dismissed by clicking beside the picture**, and
+  its close button was covered by the content column on taller documents.
+- **The streaming indicator froze and, on a long answer, vanished.** Its
+  animation timer destroyed itself the first time the live turn was re-parented,
+  and one beat in four of the reduced-motion cycle lit nothing at all.
+- **Nineteen buttons drew a typed character where an icon belonged**, and
+  eleven more had no gap between icon and label. Two lint tests now refuse both.
+- **Twenty-five icon-only buttons were rectangular**, including nine popup close
+  buttons measured at 43.6x28.
+- **The formatting toolbar's dropdowns un-clipped the whole toolbar**, spilling
+  every control past the panel edge.
+- **Files and attachments did not render in the timeline or graph popups** —
+  both filtered to images and dropped everything else.
+- **The dashboard greeting could call you by a misspelt or invented name.**
+- **The note cards' ⋯ glyph sat above centre**, drawn as a typed character
+  where the app's other ⋯ builder uses the icon font.
+- **Deleting a document failed** once it had a history, on a foreign key.
+- **Restoring a document version restored the wrong text** — the snapshot taken
+  first coalesced into the very revision being restored. Caught by a test
+  before it shipped.
 - **Short background AI jobs were invisible.** The status loop idles at 10s
   (120s in a hidden tab) and can only announce a job it has seen in a
   `/tasks` payload, so an image caption — often shorter than that gap —

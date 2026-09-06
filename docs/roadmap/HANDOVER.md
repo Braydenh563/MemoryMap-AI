@@ -10,18 +10,86 @@ reading of the source rather than a look at the running app.
 
 ### Done
 
-- ~~"the popup close buttons are rectangular not square"~~ — nine of them
-  measured 43.6x28 in Chromium with every popup forced visible, plus the find
-  bar's prev/next, four refresh buttons and the speak button. All 25 measure
-  square now; `tests/test_icon_only_buttons.py` keeps them that way.
-- ~~"the favourites button in the graph popup is missing text"~~ — it was the
-  one unlabelled cell in a nine-cell labelled grid.
+Every one of these was reproduced or measured before it was touched, and the
+measurement is in the commit message. Where something turned out to already
+exist, that is said too — with what was actually wrong with it.
+
+- ~~"the popup close buttons are rectangular not square"~~ — nine measured
+  43.6x28 with every popup forced visible, plus the find bar's prev/next, four
+  refresh buttons and the speak button. All 25 square now;
+  `tests/test_icon_only_buttons.py` keeps them that way.
+- ~~"the favourites button in the graph popup is missing text"~~ — the one
+  unlabelled cell in a nine-cell labelled grid.
 - ~~"I used a dropdown in the toolbar in the capture tab and it went off the
   panel and to the end"~~ — the *toolbar* went off the panel, not the dropdown:
-  a `:has(details[open]) { overflow: visible }` rule dropped the row-mode
-  scroller's clipping to free the popup and freed all ~59 controls with it.
+  `:has(details[open]) { overflow: visible }` dropped the row-mode scroller's
+  clipping to free the popup and freed all ~59 controls with it.
 - ~~"fix the formatting toolbar in the documents to be like the one in
   notes"~~ — list buttons worded, both `<details>` summaries worded.
+- ~~"the expand toolbar and hide formatting tools dont have curved corners"~~ —
+  not a radius fault: the four `<details>` openers and three icon-only controls
+  rested *already filled* in a strip where everything else rests transparent.
+  `summary` was also missing from the strip's height rule (24.7px against 32).
+- ~~"the widgets button text and icon arent aligned and dont have a gap"~~ —
+  eleven buttons were missing `ph-lead`, which is the whole 0.35em gap.
+- ~~"the popup agent stop button text and icon arent aligned"~~ — it had no
+  icon: `■ Stop` was a typed character. Nineteen of those are real icons now,
+  and `tests/test_icon_label_gap.py` refuses both faults.
+- ~~"the ellipse kebab icons in the notes on the your notes tab are not
+  centred"~~ — two ⋯ builders, one drawing `ph:dots-three` and one the literal
+  U+22EF, which sits above the line box's optical centre.
+- ~~"I cant click the select radio buttons in any of the images"~~ —
+  `elementFromPoint` returned `DIV.library-image-actions` on every tick.
+- ~~"I cant click off the documents or images to close the lightbox and the
+  close button doesnt work all the time"~~ — the column is 1396x134, so the
+  band beside the picture was not the backdrop; and the close button had no
+  z-index over it.
+- ~~"the conversations didnt visibly select in the sidebar"~~ — three causes,
+  the first a **null dereference** (`highlightInto` on `terms=null`) that threw
+  inside `openConversation` and skipped the repaint. Probably also the cause of
+  "my agent question generated with no metadata below the ai response".
+- ~~"clicking the model used in the chat header doesnt work"~~ — it opened the
+  panel at (0, 905) in a 900px window.
+- ~~"the send buttin in the chat is out of place"~~ — `--radius-pill` is the one
+  radius token that does not follow the rounding slider.
+- ~~"allow double tapping the bottom expansion corner … to reset it"~~ — built.
+  (Auto-expand itself already existed and is verified, not rebuilt.)
+- ~~"the text streaming animation stops moving and just shows as 3 lines"~~ —
+  two causes: the stepped cycle walked four elements for three dots, and the
+  interval killed itself the first time its node was re-parented.
+- ~~"I scrolled up while still streaming and the generating animation
+  disappeared"~~ — `#chat-jump-latest`, a sticky "Still writing" pill.
+- ~~"make tool usage and steps fade in"~~ — entry animation on the step column.
+- ~~"files and attachments dont render in the timeline and popups"~~ — both
+  popups filtered to `is_image` and dropped everything else.
+- ~~"the model spelt my name wrong in the dashboard welcome message"~~ — only an
+  *exact* match was normalised, so a near miss survived and the correct name was
+  appended on top.
+- ~~OCR: "no text appeared in any of the extracted text areas"~~ — page reads
+  were never stored, so anything finishing after the workspace closed was lost.
+  `PageRead` + `GET …/page-reads`.
+- ~~OCR: "my ocr model shows as a vision model and my actual vision model
+  doesnt appear at all"~~ — two resolvers, one option, and the picker and the
+  reader disagreed about which model would run.
+- ~~"add an edit document button to previewed documents in the lightbox"~~
+- ~~"the 'check with ai' button … should attach a … badge"~~ — the composer's
+  staged-document chips already existed; nothing but the import path could add
+  to them.
+- ~~"if I click on an issue flagged … auto scroll and temporarily highlight"~~
+- ~~"i still cant … right-click an underlined word"~~ — the handler only ever
+  matched a `<textarea>`, so Live view (the only view that draws a squiggle)
+  fell through to the browser's menu.
+- ~~"no way to have the ai write a suggested replacement or multiple"~~ —
+  `POST /documents/{id}/rephrase`.
+- ~~"can the document have edit history like git logs??"~~ — `DocumentRevision`,
+  coalesced into sittings, with view and restore.
+- ~~"why doesnt the document editor go the full width"~~ — it can (691→1100,
+  measured); the control was one unlabelled icon among twenty-five. Now worded
+  in the ⋯ menu.
+- ~~"allow marking notifications as unread as well"~~
+- ~~"enhance the semantic search so it can pick up … 'what are my most common
+  tags'"~~ — `ai/notebook_stats.py`: counted, exact, and it answers with no
+  model running at all.
 
 ### Open — bugs
 

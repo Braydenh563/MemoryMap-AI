@@ -33,6 +33,7 @@ from memorymap.ai import (
     intent,
     librarian,
     memory,
+    notebook_stats,
     presets,
     skill_runner,
     skills,
@@ -689,6 +690,23 @@ def _prepare(
     attached_docs = _attached_documents(session, document_ids or [])
     if attached or attached_docs:
         detected = intent.NOTES
+    #: **A question about the notebook's shape is answered by counting it.**
+    #: Asked for directly: "enhance the semantic search so it can pick up stuff
+    #: like if I ask 'what are my most common tags', or maybe 'categories with
+    #: the most notes'."
+    #:
+    #: Retrieval cannot answer those, and no amount of tuning would: semantic
+    #: search finds the notes most *like* a question, and "what are my most
+    #: common tags" is not like any note. It used to retrieve five arbitrary
+    #: notes and tell the model to answer from those alone — so the model
+    #: either declined or invented a ranking from a five-note sample.
+    #:
+    #: The facts are computed here, exactly, from rows. The model still writes
+    #: the sentence when it is running (the answer is handed to it as ground
+    #: truth below), which means the phrasing is natural and the numbers cannot
+    #: be invented — and with the model stopped the computed sentence is
+    #: already a complete answer on its own.
+    stats = notebook_stats.answer(question, session) if detected == intent.NOTES else None
     connected_ids: set[int] = set()
     match_info: dict = {}
     when_phrase = ""
@@ -699,7 +717,11 @@ def _prepare(
     # picked. Only takes effect when there is something attached to fall
     # back to; an empty attachment list with this flag set would otherwise
     # search nothing at all and answer from silence.
-    if intent.needs_retrieval(detected) and not (attached_notes_only and attached):
+    if stats is not None:
+        #: Nothing to retrieve: the answer is a count, and five notes about
+        #: whatever the question sounded like would only be noise beside it.
+        entries, mode = [], "stats"
+    elif intent.needs_retrieval(detected) and not (attached_notes_only and attached):
         found = search_manager.retrieve_detailed(
             session, question, deps.get_embeddings(), limit=5
         )
@@ -795,6 +817,16 @@ def _prepare(
     return {
         "notes": notes,
         "intent": detected,
+        #: The computed answer, when this was a question about the notebook's
+        #: shape rather than its contents. `text` is already a complete answer
+        #: — which is what makes these work with the model stopped — and the
+        #: prompt below hands it to the model as ground truth rather than
+        #: asking it to work the numbers out.
+        "stats": (
+            {"kind": stats.kind, "text": stats.text, "facts": stats.facts}
+            if stats is not None
+            else None
+        ),
         "raw_results": [_to_out(session, entry) for entry in entries],
         "search_mode": mode,
         # Ids that came along because they are *connected* to a match, so the
@@ -837,16 +869,29 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
     image_context = (
         "" if chat_sees_images else _image_caption_context(images_raw, model_manager, ollama)
     )
-    answered = (
-        conversational or bool(prepared["notes"]) or bool(images_raw)
-    ) and ollama_running
+    #: A counted answer *is* an answer, and it does not need a model running to
+    #: be one — which is the whole point of computing it. Without this the
+    #: response would carry a correct sentence and simultaneously report that
+    #: nothing had been answered.
+    answered = prepared["stats"] is not None or (
+        (conversational or bool(prepared["notes"]) or bool(images_raw)) and ollama_running
+    )
     shared = {
         "style": prepared["style"],
         "profile": prepared["profile"],
         "history": [turn.model_dump() for turn in body.history],
         "persona_prompt": _resolve_persona(body.persona, session),
     }
-    if conversational and body.notes_only:
+    if prepared["stats"] is not None:
+        #: **Counted, not generated.** The answer to "what are my most common
+        #: tags" is a fact about rows, and `notebook_stats` has already written
+        #: it as a sentence. Handing it to the model to rephrase would put a
+        #: generator between the user and a number that is already exact, for
+        #: nothing but style — and would make the one feature here that works
+        #: with the model stopped depend on the model. So it is returned as it
+        #: stands, instantly, whether or not anything is running.
+        ai_response, ai_thinking = prepared["stats"]["text"], None
+    elif conversational and body.notes_only:
         # Same rule as the streaming route: this box interrogates the
         # notebook and does not chat (§35A).
         ai_response, ai_thinking = librarian.ASK_IS_FOR_NOTES, None
@@ -891,7 +936,18 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         connected_ids=prepared["connected_ids"],
         match_info=prepared["match_info"],
         when_phrase=prepared["when_phrase"],
-        answered_by=model_manager.chat_model() if answered else None,
+        #: **A counted answer was not answered by a model, and must not say it
+        #: was.** `answered` is true for one (see its own note above) but
+        #: `answered_by` names *who* wrote the sentence, and for these the
+        #: honest answer is nobody — the numbers came from rows. Naming the
+        #: chat model here would put its name under a sentence it never saw,
+        #: which is exactly the kind of small false claim this app cannot
+        #: afford to make about its own AI.
+        answered_by=(
+            None
+            if prepared["stats"] is not None
+            else (model_manager.chat_model() if answered else None)
+        ),
         ollama_running=ollama_running,
         sentence_grounding=sentence_grounding,
     )
@@ -1048,6 +1104,14 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
 
     def plain_events(prepared: dict, ollama_running: bool) -> Iterator[dict]:
         """The pre-Wave-G behaviour: stream a grounded answer, no tools."""
+        if prepared["stats"] is not None:
+            #: **A counted answer, streamed as one piece.** See the same branch
+            #: in `chat()`: the number is already exact and already a sentence,
+            #: so there is nothing to generate and nothing to wait for. It
+            #: arrives before a local model would have finished loading, and it
+            #: arrives at all when no model is running.
+            yield {"type": "answer", "delta": prepared["stats"]["text"]}
+            return
         conversational = not intent.needs_retrieval(prepared["intent"])
         if conversational and body.notes_only:
             # The Notes tab's Ask box has one job (§35A). A greeting is the one

@@ -524,6 +524,24 @@ def _record_document_revision(session: Session, document: Document, source: str 
 def delete_document(document_id: int, session: Session = Depends(get_session)) -> dict:
     document = _existing(session, document_id)
     log_action(session, "deleted", "document", document.id, document.title[:80])
+    #: **The history goes with the document.** `DocumentRevision` and
+    #: `DocumentAiEdit` both hold a real foreign key to `documents.id`, and
+    #: there is no ORM cascade on either — deleting a document that had been
+    #: edited raised `FOREIGN KEY constraint failed` and the delete failed
+    #: outright. Caught by `test_documents_api.py::test_create_read_update_delete`
+    #: the moment revisions started being written, which is the argument for
+    #: running the whole suite rather than the tests for the thing you touched.
+    #:
+    #: Deleted rather than orphaned deliberately: a document's history is
+    #: about *that document*, and keeping the text of something the user asked
+    #: to delete would be the app quietly retaining what it was told to
+    #: destroy. The bin covers "I did not mean that" for the document itself.
+    session.query(DocumentRevision).filter(
+        DocumentRevision.document_id == document.id
+    ).delete(synchronize_session=False)
+    session.query(DocumentAiEdit).filter(
+        DocumentAiEdit.document_id == document.id
+    ).delete(synchronize_session=False)
     session.delete(document)
     session.commit()
     return {"deleted": True}

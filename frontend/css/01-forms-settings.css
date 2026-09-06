@@ -4127,3 +4127,11 @@ select {
     transition: none;
   }
 }
+
+/* The one-line explanation shown when By folder has nothing to group by —
+   see `renderContents`. Sits above the single section rather than inside it,
+   because it is about the mode, not about the notes in it. */
+.contents-folder-hint {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-sm);
+}

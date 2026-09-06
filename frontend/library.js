@@ -4974,7 +4974,13 @@ function contentsGroups(entries) {
     for (const entry of entries) {
       const path = entry.source_path || "";
       const folder = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
-      addTo(path ? folder || "(vault root)" : "(written here)", entry);
+      //: **"(written here)" said nothing to the person reading it.** Reported:
+      //: *"idk what (written here) is. are there even folders?? how do I make
+      //: them??"* — three fair questions, and the label answered none of
+      //: them. It is not a folder you can make: folders in this app are the
+      //: directories of an imported Obsidian vault, and a note typed into
+      //: MemoryMap has no path at all. The heading now says that.
+      addTo(path ? folder || CONTENTS_VAULT_ROOT : CONTENTS_NO_FOLDER, entry);
     }
   } else if (contentsMode === "date") {
     for (const entry of entries) {
@@ -4993,6 +4999,12 @@ function contentsGroups(entries) {
   return groups;
 }
 
+//: The two synthetic folder headings. Named constants because three places
+//: need to agree on them — the grouper, the ordering (they sort last) and the
+//: explanation shown when they are all there is.
+const CONTENTS_NO_FOLDER = "Written in MemoryMap (no folder)";
+const CONTENTS_VAULT_ROOT = "Top level of the vault";
+
 function contentsSectionLabel(key) {
   if (contentsMode !== "date" || key === "Undated") return key;
   const [year, month] = key.split("-");
@@ -5008,7 +5020,13 @@ function contentsOrderedKeys(groups) {
   //: where things *aren't* filed, and a tree reads better without them at
   //: the top.
   if (contentsMode === "folder") {
-    const synthetic = (key) => (key.startsWith("(") ? 1 : 0);
+    //: Compared against the constants, not `startsWith("(")`. The headings
+    //: used to be "(written here)" and "(vault root)", so a leading bracket
+    //: was a fair proxy — renaming them for legibility would have quietly
+    //: sorted them in among the real folders instead of after them, which is
+    //: precisely the kind of coupling a literal-matching helper hides.
+    const synthetic = (key) =>
+      key === CONTENTS_NO_FOLDER || key === CONTENTS_VAULT_ROOT ? 1 : 0;
     return keys.sort(
       (a, b) => synthetic(a) - synthetic(b) || a.localeCompare(b),
     );
@@ -5053,6 +5071,24 @@ async function renderContents() {
 
   const groups = contentsGroups(shown);
   const folded = contentsCollapsed[contentsMode];
+
+  //: **A mode that groups everything under one heading has to say why.**
+  //: Reported: *"idk what (written here) is. are there even folders?? how do I
+  //: make them??"* Folders here are not something you create — they are the
+  //: directories of an imported Obsidian vault, and a note typed into this app
+  //: has no path at all. Until something is imported, By folder therefore has
+  //: exactly one group, which reads as a broken mode rather than an empty one.
+  //: Shown only in that case: once a vault is imported there are real folders
+  //: and the note would be clutter.
+  if (contentsMode === "folder" && groups.size === 1 && groups.has(CONTENTS_NO_FOLDER)) {
+    const hint = document.createElement("p");
+    hint.className = "muted contents-folder-hint";
+    hint.textContent =
+      "Folders come from an imported Obsidian vault — they are not created in "
+      + "MemoryMap. Nothing has been imported yet, so every note is grouped "
+      + "here. Import a vault from Settings → Import to see its folder tree.";
+    outline.appendChild(hint);
+  }
 
   for (const key of contentsOrderedKeys(groups)) {
     const members = groups.get(key);

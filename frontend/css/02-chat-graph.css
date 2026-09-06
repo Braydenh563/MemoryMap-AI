@@ -2031,6 +2031,21 @@ kbd {
   animation: dot-bounce 1.2s infinite ease-in-out !important;
 }
 
+/* **…except while the model is writing.** The dots are the *waiting* state;
+   once tokens are arriving the indicator cross-fades to the writing trace
+   (see `.ai-writing-trace` in 01-forms-settings.css) and the dots have to get
+   out of the way.
+
+   `!important` here is answering the `!important` directly above, not reaching
+   for force: that rule exists to keep progress moving even under reduced
+   motion, and a running animation beats any normal declaration, so the fade
+   could not touch the dots without matching it. Measured before and after —
+   the dots sat at 0.61 opacity underneath the trace until this was added. */
+:root[data-progress-motion="always"] .typing-dots[data-phase="writing"] span {
+  animation: none !important;
+  opacity: 0 !important;
+}
+
 /* **The stagger has to be restated too.** Reported: "the writing dots
    animation has all the dots jumping up and down at the same time." The
    `animation` shorthand above resets every longhand it does not mention,

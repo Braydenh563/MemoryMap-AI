@@ -8758,6 +8758,10 @@ async function askQuestion(preset) {
         status.textContent = "The model is thinking…";
       },
       onAnswer: (delta) => {
+        //: The first answer token is the moment "waiting" becomes "writing",
+        //: so the indicator changes with it. `setPhase` is idempotent, so
+        //: calling it on every delta costs nothing.
+        answerBox.querySelector(".typing-dots")?.setPhase?.("writing");
         if (thinkingBox.open) thinkingBox.open = false; // reasoning done → tuck away
         answerRaw += delta;
         // Same caret the Chat tab's timeline gets, for the same reason — see
@@ -10840,14 +10844,80 @@ const PROGRESS_STEP_MS = 1000;
 // sentence beside the indicator pass theirs in — the weekly digest used to
 // append " Thinking about your week…" next to the default, and it rendered as
 // "Thinking… Thinking about your week…" (user-reported).
+//: The writing motif: three nodes and the edge being drawn between them —
+//: the same node-and-edge vocabulary the graph, the concept maps and the app's
+//: own mark are built from. Inline SVG with attributes rather than a `style`
+//: string, because this app's CSP drops inline styles (CLAUDE.md, "a policy
+//: silently refusing the work"); everything that moves is done in CSS.
+function aiWritingTrace() {
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("class", "ai-writing-trace");
+  svg.setAttribute("viewBox", "0 0 34 12");
+  svg.setAttribute("aria-hidden", "true"); // the container already announces itself
+  const line = document.createElementNS(NS, "path");
+  line.setAttribute("class", "ai-writing-edge");
+  line.setAttribute("d", "M4 8 L17 4 L30 8");
+  svg.append(line);
+  const nodes = [
+    [4, 8],
+    [17, 4],
+    [30, 8],
+  ];
+  nodes.forEach(([cx, cy], index) => {
+    const dot = document.createElementNS(NS, "circle");
+    dot.setAttribute("class", `ai-writing-node ai-writing-node-${index + 1}`);
+    dot.setAttribute("cx", String(cx));
+    dot.setAttribute("cy", String(cy));
+    dot.setAttribute("r", "2");
+    svg.append(dot);
+  });
+  return svg;
+}
+
+//: **Two phases, because waiting and writing are not the same event.**
+//:
+//: Asked for directly: *"make the 3-dot animation change to something cool and
+//: app specific when the model is writing, and when it is thinking or waiting
+//: for a response it goes back to the 3-dot button, and make the transition
+//: between animations smooth as well."*
+//:
+//: `thinking` keeps the dots — they are the universal "waiting" idiom and
+//: everyone already reads them. `writing` swaps to this app's own motif: a
+//: short run of nodes with a line drawing itself between them, which is a
+//: notebook writing a new thought into its graph. Every other indicator in
+//: here (`Loading…`, `Generating caption…`) simply never leaves `thinking`,
+//: so nothing else changes shape.
+//:
+//: Both live in the same box at the same time and cross-fade, so the swap
+//: cannot cause a layout jump mid-stream — the container is sized once and
+//: the two children are stacked in it.
+//:
+//: The SVG is appended *after* the three dot spans on purpose:
+//: `.typing-dots span:nth-child(2)`/`(3)` address those dots by position, and
+//: putting anything before them would silently re-time the bounce.
 function typingDots(label = "Thinking…") {
   const dots = document.createElement("span");
+  //: `typing-dots` is kept as the class even though this is now two
+  //: indicators: existing CSS keys off it, and so does the code that removes
+  //: the indicator when the first token lands
+  //: (`querySelector(".typing-dots, .typing-label")`). Renaming it would have
+  //: been a silent breakage in surfaces this change never meant to touch.
   dots.className = "typing-dots";
+  dots.dataset.phase = "thinking";
   dots.setAttribute("role", "status");
   dots.setAttribute("aria-label", label);
   for (let i = 0; i < 3; i++) dots.appendChild(document.createElement("span"));
+  dots.appendChild(aiWritingTrace());
   dots.setStatus = (next) => {
     dots.setAttribute("aria-label", next);
+  };
+  //: Idempotent, because the streaming callbacks that drive this fire on
+  //: every delta — setting the same phase again must not restart the
+  //: cross-fade or the line would stutter on each token.
+  dots.setPhase = (phase) => {
+    const next = phase === "writing" ? "writing" : "thinking";
+    if (dots.dataset.phase !== next) dots.dataset.phase = next;
   };
   if (progressMotionWanted()) return dots;
 
@@ -10948,6 +11018,10 @@ function progressLine(initial = "Thinking…") {
   wrap.className = "progress-line";
   const indicator = typingDots(initial);
   wrap.appendChild(indicator);
+  //: Forwarded rather than reached for: callers hold the `progressLine`, not
+  //: the dots inside it, and a caller poking at `.querySelector(".typing-dots")`
+  //: would break the moment this component changed shape.
+  wrap.setPhase = (phase) => indicator.setPhase?.(phase);
   //: The dots are always dots now — stepped rather than bouncing when motion
   //: is off — so the label is always its own node. It used to be *replaced*
   //: by the indicator under reduced motion, which is how the digest widget

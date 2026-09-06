@@ -4004,3 +4004,126 @@ select {
   margin: 0;
   text-align: right;
 }
+
+/* ============ THE WRITING PHASE: nodes, and an edge drawing itself ========
+   Asked for directly: the dots stay for "thinking / waiting for a response",
+   and the model actually *writing* gets something of this app's own. The
+   motif is the one the graph, the concept maps and the app mark are all built
+   from — a couple of nodes and the connection between them — so a reply being
+   written reads as a thought being written into the notebook.
+
+   Both indicators occupy the same box and cross-fade, which is what keeps the
+   swap from nudging the text beside it mid-stream. `.typing-dots` sizes
+   itself to the dots; the trace is laid over them rather than added after. */
+.ai-writing-trace {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 2.1rem;
+  height: 0.75rem;
+  transform: translateY(-50%);
+  opacity: 0;
+  /* Not interactive, and never a pointer target while invisible. */
+  pointer-events: none;
+  transition: opacity var(--motion-slow) ease;
+}
+
+.typing-dots[data-phase="writing"] .ai-writing-trace {
+  opacity: 1;
+}
+
+/* The dots recede rather than vanish — a cut between the two would be the
+   "glitch" the cross-fade exists to avoid.
+
+   **`animation: none` is load-bearing here, not tidiness.** The dots carry
+   their own bouncing keyframes, and a running animation beats a normal
+   declaration in the cascade — so `opacity: 0` alone lost to it, and the
+   dots stayed visible *underneath* the trace at whatever opacity the bounce
+   happened to be on. Measured: 0.61 instead of 0. Dropping the animation
+   hands the property back to this rule and the transition below. */
+.typing-dots[data-phase="writing"] span {
+  animation: none;
+  opacity: 0;
+  transform: scale(0.5);
+}
+
+.typing-dots span {
+  transition: opacity var(--motion-slow) ease, transform var(--motion-slow) ease;
+}
+
+/* The connecting edge, drawn and redrawn. `stroke-dasharray` is in the SVG's
+   own user units (the viewBox is 34x12), so the dash covers the whole path
+   and the offset sweeps it on. */
+.ai-writing-edge {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 30;
+  stroke-dashoffset: 30;
+  animation: ai-writing-draw 1.5s ease-in-out infinite;
+}
+
+.ai-writing-node {
+  fill: var(--accent);
+  opacity: 0.25;
+  animation: ai-writing-node-lit 1.5s ease-in-out infinite;
+}
+
+/* Each node lights as the line reaches it. */
+.ai-writing-node-2 {
+  animation-delay: 0.35s;
+}
+
+.ai-writing-node-3 {
+  animation-delay: 0.7s;
+}
+
+@keyframes ai-writing-draw {
+  0% {
+    stroke-dashoffset: 30;
+  }
+  55%,
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes ai-writing-node-lit {
+  0%,
+  20% {
+    opacity: 0.25;
+    r: 2;
+  }
+  45% {
+    opacity: 1;
+    r: 2.6;
+  }
+  100% {
+    opacity: 0.55;
+    r: 2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* DESIGN.md's rule for this branch: stop the motion, keep the information.
+     The edge is drawn complete and the nodes stay lit, so "the model is
+     writing" is still legible as a distinct state from the waiting dots —
+     it simply no longer moves. The cross-fade goes too, since a fade is
+     motion; the two states swap instantly instead. */
+  .ai-writing-edge {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  .ai-writing-node {
+    animation: none;
+    opacity: 0.9;
+  }
+
+  .ai-writing-trace,
+  .typing-dots span {
+    transition: none;
+  }
+}

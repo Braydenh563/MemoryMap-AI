@@ -21556,6 +21556,23 @@ function paletteCommands() {
     { label: "ph:graph Go to Graph", run: () => switchTab("graph") },
     { label: "ph:file-text Go to Documents", run: () => switchTab("documents") },
     { label: "ph:alarm Go to Reminders", run: () => switchTab("reminders") },
+    // Features reachable *only* from inside one surface are exactly the ones a
+    // palette has to carry, or they are found by accident or not at all.
+    // Tensions lives in a dialog; the board's overview and find bar live on a
+    // board you have to be on already.
+    { label: "ph:scales Tensions — find where I disagreed with myself", run: () => openTensions() },
+    {
+      label: "ph:map-trifold Board overview",
+      run: () => {
+        if (typeof wbToggleNavigator === "function") wbToggleNavigator(true);
+      },
+    },
+    {
+      label: "ph:magnifying-glass Find a card on this board",
+      run: () => {
+        if (typeof wbOpenBoardSearch === "function") wbOpenBoardSearch();
+      },
+    },
     {
       label: "ph:pencil-simple New note",
       run: () => {

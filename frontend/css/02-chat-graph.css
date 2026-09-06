@@ -4165,3 +4165,60 @@ mark.lightbox-hit {
   margin-top: var(--space-1);
   font-size: var(--text-sm);
 }
+
+/* --- what the answering model is ---------------------------------------------
+   Asked for: "in chat I want more details in features, including model
+   attributes, token expense distribution, more features." Fed by
+   `GET /models/spec` — an endpoint that had existed since §11 with no caller.
+
+   Anchored under the chat header rather than floated at the badge: it is a
+   panel about the conversation you are in, and the header is where the
+   conversation's own facts already live. */
+.chat-model-panel {
+  position: absolute;
+  z-index: 40;
+  top: 100%;
+  left: 0;
+  margin-top: var(--space-2);
+  min-width: 18rem;
+  max-width: min(26rem, 90vw);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--modal-bg-opaque);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--text-sm);
+}
+
+.chat-model-panel-head {
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+/* A model id can be a full HuggingFace path; the panel must not grow to fit
+   one. It wraps here rather than ellipsising, because in a panel *about* the
+   model the whole name is the one thing that has to be readable. */
+.chat-model-panel-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Label and value in two columns, so the eye reads down the values rather than
+   hunting through sentences — this is a specification, not prose. */
+.chat-model-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: 0 0 var(--space-3);
+}
+
+.chat-model-facts dt {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.chat-model-facts dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}

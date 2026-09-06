@@ -587,6 +587,10 @@
   row-gap: var(--space-1);
   min-width: 0;
   margin-right: auto;
+  /* The containing block for `.chat-model-panel`, which hangs under the model
+     badge in this row. Without it the panel would be positioned against the
+     page and land somewhere unrelated to the control that opened it. */
+  position: relative;
 }
 
 .chat-toolbar #chat-title {

@@ -9452,12 +9452,40 @@ function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0, u
         compositionLines,
       kind: "window",
     });
+    //: **Where the prompt went, drawn rather than described.** Asked for: "in
+    //: chat I want more details in features, including model attributes, token
+    //: expense distribution, more features". The distribution has been
+    //: computed on the server since §88.4 and sent on every `stats` event —
+    //: and the only place it appeared was inside a tooltip, which is a number
+    //: nobody finds. A single bar answers "how full" and says nothing about
+    //: *what filled it*, which is the question you have when the answers start
+    //: getting worse.
+    //:
+    //: One segment per part of the prompt, each one hoverable and each one
+    //: named. The remainder is the room the next turn has left, drawn as
+    //: nothing at all — a fifth coloured band would read as a fifth cost.
     const bar = document.createElement("span");
     bar.className = "msg-meta-bar";
-    const level = document.createElement("span");
-    level.className = "msg-meta-bar-level";
-    level.style.width = `${fill}%`;
-    bar.appendChild(level);
+    const parts = c
+      ? [
+          ["system", c.system, "The instructions the model is given every turn"],
+          ["tools", c.tool_schemas, "The descriptions of the tools it can call"],
+          ["history", c.history, "Earlier messages in this conversation"],
+          ["notes", c.notes, "Your notes and the question itself"],
+        ]
+      : [["all", inTok, "This turn's whole prompt"]];
+    for (const [kind, tokens, why] of parts) {
+      const amount = Number(tokens) || 0;
+      if (amount <= 0) continue;
+      const segment = document.createElement("span");
+      segment.className = `msg-meta-bar-level msg-meta-bar-${kind}`;
+      //: Measured against the *window*, not against the prompt: the point of
+      //: the bar is how much of the model's memory this turn is spending, and
+      //: normalising to the prompt would draw a full bar on every turn.
+      segment.style.width = `${Math.min(100, (amount / stats.context_tokens) * 100)}%`;
+      segment.title = `${why} — about ${compactTokens(amount)} tokens`;
+      bar.appendChild(segment);
+    }
     meter.insertBefore(bar, meter.firstChild);
     row.appendChild(meter);
   }
@@ -25206,16 +25234,110 @@ function renderChatActiveModelBadge() {
   // The badge itself ellipsis-truncates a long id (a full HuggingFace path
   // easily runs past the header) — the full name is still one hover away.
   badge.title = name
-    ? `The model currently answering in this chat: ${name} — click to change it`
+    ? `The model currently answering in this chat: ${name} — click for what it is and what it can do`
     : "";
 }
 
-// One click from "which model is this?" to the control that changes it.
-// `openSettingsModal` already takes a section plus an element to scroll to —
-// the same deep link the Preferences search-relevance group uses — so this
-// needs no new picker, and Settings stays the single place the setting lives.
+//: **What this model actually is.** Asked for: "in chat I want more details in
+//: features, including model attributes, token expense distribution, more
+//: features."
+//:
+//: `GET /models/spec` has existed since §11 — size, quantisation, family, the
+//: declared window against the one the app will really run it at, and the
+//: tri-state capability flags — and **nothing in the frontend had ever called
+//: it.** A whole endpoint that never ran once, which is this repo's second
+//: recurring failure shape. It answers the first question anyone has when a
+//: model behaves oddly ("can this one even use tools?") and the answer was
+//: only discoverable by trying it and reading the failure.
+//:
+//: Pressing the badge opens this rather than jumping straight to Settings: the
+//: panel is what you wanted nine times in ten, and "change it" is a button
+//: inside it for the tenth.
+async function openChatModelPanel() {
+  const name = modelStatus && modelStatus.chat_model;
+  const panel = $("chat-model-panel");
+  if (!panel || !name) return;
+  panel.replaceChildren();
+  const head = document.createElement("div");
+  head.className = "row space-between chat-model-panel-head";
+  const title = document.createElement("strong");
+  title.textContent = name;
+  title.className = "chat-model-panel-name";
+  head.appendChild(title);
+  const close = smallButton("ph:x", "Close", () => panel.classList.add("hidden"));
+  close.classList.add("icon-only");
+  head.appendChild(close);
+  panel.appendChild(head);
+
+  const list = document.createElement("dl");
+  list.className = "chat-model-facts";
+  const loading = document.createElement("p");
+  loading.className = "muted";
+  loading.textContent = "Reading the model's own specification…";
+  panel.append(list, loading);
+  panel.classList.remove("hidden");
+
+  const spec = await apiJson(`/models/spec?name=${encodeURIComponent(name)}`).catch(() => null);
+  loading.remove();
+  if (!spec) {
+    const failed = document.createElement("p");
+    failed.className = "muted";
+    //: Named as a *backend* silence rather than a model fault: the usual cause
+    //: is that Ollama is not running, and "unknown" with no reason sends
+    //: people looking at the wrong thing.
+    failed.textContent =
+      "The backend didn't answer. This needs the model runner to be up — everything else in this panel comes from it.";
+    panel.appendChild(failed);
+    return;
+  }
+  const fact = (label, value, why) => {
+    if (value === null || value === undefined || value === "") return;
+    const dt = document.createElement("dt");
+    dt.textContent = label;
+    const dd = document.createElement("dd");
+    dd.textContent = String(value);
+    if (why) dd.title = why;
+    list.append(dt, dd);
+  };
+  fact("Family", spec.family, "The architecture this model is built on");
+  fact("Size", spec.parameters, "How many parameters it has");
+  fact("Quantisation", spec.quantisation, "How much its weights were compressed to fit in memory");
+  if (spec.context_length) {
+    fact(
+      "Declared window",
+      `${compactTokens(spec.context_length)} tokens`,
+      "What the model says it can hold"
+    );
+  }
+  if (spec.usable_context) {
+    fact(
+      "Used here",
+      `${compactTokens(spec.usable_context)} tokens`,
+      "What this app actually runs it at — often lower on purpose, to leave room for the key/value cache"
+    );
+  }
+  //: Tri-state, and rendered as three states. `null` means this backend does
+  //: not say, and drawing that as "No" would be a confident lie about a model
+  //: that works fine — the endpoint's own docstring makes the same point.
+  const flag = (value) => (value === null || value === undefined ? "Not reported" : value ? "Yes" : "No");
+  fact("Can call tools", flag(spec.supports_tools), "Whether agent mode can work with this model");
+  fact("Can show its reasoning", flag(spec.supports_thinking));
+  fact("Can see images", flag(spec.supports_vision), "Whether it can read a picture or a scanned page");
+
+  const change = smallButton("ph:gear Change the model", "Open Settings → Models", () => {
+    panel.classList.add("hidden");
+    openSettingsModal("models", "chat-model-select");
+  });
+  panel.appendChild(change);
+}
+
 $("chat-active-model")?.addEventListener("click", () => {
-  openSettingsModal("models", "chat-model-select");
+  const panel = $("chat-model-panel");
+  if (panel && !panel.classList.contains("hidden")) {
+    panel.classList.add("hidden");
+    return;
+  }
+  openChatModelPanel();
 });
 
 function renderUtilityModelPicker(status) {

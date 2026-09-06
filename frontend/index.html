@@ -3878,6 +3878,13 @@ Link to another note with [[its first few words]]."></textarea>
   <div id="undo-history-menu" class="nav-history-menu hidden" role="menu"
     aria-label="Recent actions you can undo"></div>
 
+  <!-- What the answering model actually is: size, quantisation, the window it
+       declares against the one this app runs it at, and whether it can call
+       tools or see images. Fed by `GET /models/spec`, which has existed since
+       §11 and which nothing had ever called. -->
+  <div id="chat-model-panel" class="chat-model-panel hidden" role="dialog"
+    aria-label="About the model answering this chat"></div>
+
   <!-- ======================= EXTRACT NOTES (BACKLOG.md §62) ================ -->
   <!-- Shared by all three surfaces that offer it (Writing Room, Documents,
        whiteboard multi-selection): one panel, one preview-before-commit

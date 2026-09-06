@@ -506,8 +506,13 @@
    answers the only question anyone asks of this line, which is whether the
    next turn is the one that starts forgetting. */
 .msg-meta-bar {
-  display: inline-block;
-  width: 2.5rem;
+  /* Flex, because the bar is now several segments rather than one fill — see
+     `messageMetaLine`. Wider than it was: four bands in 2.5rem are four bands
+     nobody can aim at, and the whole point of drawing the distribution is that
+     you can hover a part of it and be told what it is. */
+  display: inline-flex;
+  align-items: stretch;
+  width: 4.5rem;
   height: 0.3rem;
   border-radius: var(--radius-pill);
   background: var(--chip-bg);
@@ -517,7 +522,32 @@
 .msg-meta-bar-level {
   display: block;
   height: 100%;
-  border-radius: var(--radius-pill);
+  background: var(--accent);
+  /* No per-segment rounding: rounded ends inside a row of segments read as
+     gaps, and a gap here would mean "unused" — which is what the *end* of the
+     bar already means. */
+  flex: none;
+}
+
+/* **One colour per part of the prompt.** Not decoration: the whole reason to
+   draw the distribution rather than list it is that the same band sits in the
+   same colour on every turn, so a conversation whose history is quietly
+   swallowing the window shows it as a growing stripe. Steps of the accent
+   rather than four unrelated hues — these are four parts of one quantity, and
+   a rainbow would read as four separate things. */
+.msg-meta-bar-system {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.msg-meta-bar-tools {
+  background: color-mix(in srgb, var(--accent) 65%, transparent);
+}
+
+.msg-meta-bar-history {
+  background: color-mix(in srgb, var(--accent) 82%, transparent);
+}
+
+.msg-meta-bar-notes {
   background: var(--accent);
 }
 

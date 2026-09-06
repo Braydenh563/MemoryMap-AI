@@ -583,7 +583,29 @@ html {
    Safe because every other direct child of <body> — the lock screen, all seven
    modal overlays, the toast box, the skip link — is `position: fixed`, so none
    of them is in this flex column. */
+/* **A two-finger swipe must not navigate away from the app.**
+   Reported, with a screenshot of the boot splash stuck at "Starting…": *"I
+   accidentally swiped to the right on my trackpad with a couple fingers, then
+   horizontal arrows appeared and it went back to the loading screen and got
+   stuck there, I think it is a web browser feature thing."* It is — Chromium's
+   overscroll history navigation, the same gesture that goes Back on a web
+   page. It is a fine default for a page you are *reading*; on an offline
+   notebook it throws away the whole session, and the arrows that appear are
+   the browser's, not this app's, so there is nothing in here to make them
+   behave.
+
+   `overscroll-behavior-x: none` is the declaration that turns that gesture off
+   — it has to be on the root as well as the body, because the propagation the
+   gesture rides is from the viewport. Vertical overscroll is left alone: pull-
+   to-refresh is not bound here and rubber-banding costs nothing. This app has
+   its own Back and Forward (the status bar's pair, and Alt+Left), so nothing
+   is taken away. */
+html {
+  overscroll-behavior-x: none;
+}
+
 body {
+  overscroll-behavior-x: none;
   margin: 0;
   font-family: var(--ui-font, system-ui, -apple-system, "Segoe UI", sans-serif);
   color: var(--ink);
@@ -3324,6 +3346,26 @@ summary.small.icon-button {
   font-size: var(--text-md);
   line-height: 1.5;
   text-align: center;
+}
+
+/* The way out. Styled by hand rather than with the app's own button classes:
+   this may be on screen because a stylesheet or a script never arrived, so it
+   must look like a button using only what is already in this file. */
+.boot-splash-reload {
+  margin-top: var(--space-4);
+  padding: var(--space-2) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--text-md);
+  cursor: pointer;
+}
+
+.boot-splash-reload:hover,
+.boot-splash-reload:focus-visible {
+  border-color: var(--accent);
 }
 
 /* --- one ⋯ button, everywhere in the Library ---------------------------------

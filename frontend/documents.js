@@ -1230,6 +1230,13 @@ function renderDocLive(keepActive = false) {
     }
     host.appendChild(docLiveRow(block, index, blocks.length));
   });
+
+  //: The caret one past the end — see `docLiveFocusEnd`. Nothing is written to
+  //: the document until something is typed here, and leaving it re-renders the
+  //: view without it.
+  if (docLiveActive === blocks.length) {
+    host.appendChild(docLiveEditor("", docLiveActive));
+  }
 }
 
 //: **The block handle — Notion's, in this app's own furniture.**
@@ -1587,6 +1594,30 @@ function focusDocLiveBlock(index, caret = "end") {
   box.setSelectionRange(position, position);
 }
 
+//: The end of the document, ready to type into — adding an empty block first
+//: when the last one has words in it, because "below it" means a new line and
+//: not the end of the previous paragraph.
+function docLiveFocusEnd() {
+  const source = $("doc-content");
+  if (!source) return;
+  const blocks = docLiveBlocks(source.value);
+  const last = blocks.length - 1;
+  if (last >= 0 && !blocks[last].trim()) return focusDocLiveBlock(last, "end");
+  //: **One past the end**, rather than writing a blank paragraph into the
+  //: document. Appending `"\n\n"` to the text does not work and is worth
+  //: recording: `docLiveBlocks` pops trailing blank lines (they belong to the
+  //: separator) and `docLiveText` drops empty blocks, so a trailing empty
+  //: paragraph is not representable in this document model at all — the block
+  //: list would come back the same length and the editor would render nowhere.
+  //:
+  //: An index one past the last block is, and it costs nothing: `renderDocLive`
+  //: draws an empty editor there, the input handler's `splice(index, 1, …)`
+  //: appends when `index === blocks.length`, and the blur handler renders the
+  //: view again — so clicking below the document and then clicking away leaves
+  //: the document exactly as it was, with no stray blank line to clean up.
+  focusDocLiveBlock(blocks.length, "end");
+}
+
 function wireDocLive() {
   const host = $("doc-live");
   if (!host) return;
@@ -1597,9 +1628,27 @@ function wireDocLive() {
     // A link in a rendered block is a link. Clicking `[[Another doc]]` should
     // open it, not put a caret next to it — that is the whole reason to
     // render at all.
-    if (event.target.closest("a, button, input")) return;
+    if (event.target.closest("a, button, input, textarea")) return;
     const block = event.target.closest(".lp-block");
-    if (!block) return;
+    //: **Clicking the space under the document starts a new line under it.**
+    //:
+    //: Reported: *"on the live view of the documents editor, it makes me start
+    //: on the line of the doc title, not below it."* Measured: a click in the
+    //: empty area below the last paragraph hit no `.lp-block`, so this handler
+    //: returned and nothing took focus at all — `document.activeElement` stayed
+    //: on the tab button. With nowhere else for the caret to be, the next
+    //: keystroke or the next click landed on the first block, which for a
+    //: document that opens with `# My report` is its title.
+    //:
+    //: The whole point of a page-shaped editor is that the page continues
+    //: below what is on it. Notion, Obsidian and every word processor put the
+    //: caret at the end of the document when you click the empty space under
+    //: it; this one dropped the click.
+    if (!block) {
+      event.preventDefault();
+      docLiveFocusEnd();
+      return;
+    }
     // preventDefault stops the browser placing a selection in the block we
     // are about to replace, which otherwise steals focus back from the
     // textarea a moment later.

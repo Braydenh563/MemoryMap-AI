@@ -13740,6 +13740,17 @@ async function sendChatMessage(preset, opts = {}) {
   // Every string this is given comes from an event that really happened —
   // see `progressLine` on why it must never invent a stage.
   const say = (text) => pendingLine.setStatus?.(text);
+  //: **The indicator's shape has to change with the stage, not just its
+  //: words.** Reported, with a screenshot: *"it is still the 3-dot animation
+  //: when the model is actively streaming text"* — beside the label "Writing
+  //: the answer…", which is the tell. The label was being updated and the
+  //: animation was not, because `say()` is the only thing this turn ever
+  //: called: `progressLine` has exposed `setPhase` since the writing trace was
+  //: built, and the *ask box* was wired to it (see `onAnswer` there) while the
+  //: chat tab — the surface almost everyone uses — was not. A feature that
+  //: only runs on one of its two call sites is this repo's "never executed"
+  //: failure shape, one branch over.
+  const phase = (name) => pendingLine.setPhase?.(name);
   // **The turn is marked as generating for its whole length, not just until
   // the first event.** Reported as "none of the generating animations work",
   // and this is the mechanism: `clearPending` above runs on the first event
@@ -13989,12 +14000,17 @@ async function sendChatMessage(preset, opts = {}) {
       onThinking: (delta) => {
         clearPending();
         timeline.thinking(delta);
+        //: Reasoning is still waiting, as far as the reader is concerned:
+        //: nothing of the answer exists yet. Set explicitly rather than left
+        //: alone, so a turn that thinks *after* writing goes back to dots.
+        phase("thinking");
         status.textContent = "The model is thinking…";
         chatScrollToEnd();
       },
       onAnswer: (delta) => {
         clearPending();
         timeline.answer(delta);
+        phase("writing");
         status.textContent = "The model is writing…";
         say("Writing the answer…");
         chatScrollToEnd();

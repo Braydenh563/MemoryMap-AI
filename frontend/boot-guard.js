@@ -119,10 +119,34 @@
     );
   });
 
+  // **A way out, not just a message.** The 12-second notice below has been
+  // here a while and it names the one remedy that works in every shell — but
+  // it is still an instruction on a dead screen, and the report that prompted
+  // this ("it went back to the loading screen and got stuck there") is a case
+  // where a plain reload is all that is needed. A button is one click; closing
+  // and reopening the app is not.
+  function offerReload(splash) {
+    if (document.getElementById("boot-splash-reload")) return;
+    var button = document.createElement("button");
+    button.id = "boot-splash-reload";
+    button.type = "button";
+    button.className = "boot-splash-reload";
+    button.textContent = "Try again";
+    button.addEventListener("click", function () {
+      // `true` is ignored by modern browsers and harmless; the plain reload is
+      // what re-runs boot. Deliberately not `location.href = "/"` — that would
+      // discard a deep link the reader may have arrived on.
+      location.reload();
+    });
+    splash.appendChild(button);
+  }
+
   setTimeout(function () {
     say(
-      "This is taking longer than it should. If it doesn't finish, close " +
-        "MemoryMap completely and start it again."
+      "This is taking longer than it should. Try again, and if it still " +
+        "doesn't finish, close MemoryMap completely and start it again."
     );
+    var splash = document.getElementById("boot-splash");
+    if (splash && !splash.classList.contains("hidden")) offerReload(splash);
   }, 12000);
 })();

@@ -4902,9 +4902,24 @@ button.connection-row {
   margin-bottom: var(--space-2);
 }
 
+/* The confidence, when there is one. It used to carry `margin-left: auto` and
+   so happened to push the copy button to the right — which meant the copy
+   button's position depended on whether the reader reported a confidence.
+   See `ocrRenderRegions`: it is on the copy button now, where it belongs. */
 .ocr-region-conf {
-  margin-left: auto;
   font-variant-numeric: tabular-nums;
+}
+
+.ocr-region-copy {
+  margin-left: auto;
+}
+
+/* A disabled control has to read as disabled — the `<input>` greys itself, and
+   without this the words beside it stayed at full strength and the pair looked
+   like a live control that had stopped responding. */
+.checkbox-label.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .ocr-region-kind-heading {

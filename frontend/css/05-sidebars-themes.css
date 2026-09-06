@@ -1287,7 +1287,7 @@ body.resizing-sidebar {
 }
 
 .doc-toolbar.is-collapsed {
-  padding-block: 0.2rem;
+  padding-block: var(--space-1);
 }
 
 .doc-toolbar-collapsed-name {

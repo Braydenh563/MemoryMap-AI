@@ -2398,6 +2398,33 @@ function ocrRenderRegions(body) {
   message.classList.toggle("hidden", !body.message);
 
   const positioned = body.source === "tesseract";
+  //: **"I dont think that the regions works."** It did — there was simply
+  //: nothing for it to show. Boxes are the positions the reader returned, and
+  //: only Tesseract returns any: a vision model gives back the words on the
+  //: page and nothing about where they sit (`ocr-page-read` renders its answer
+  //: as one whole-page region on purpose, and says so in its own message). So
+  //: on every vision or stored-text reading the toggle flipped a layer that
+  //: was empty, which from the outside is indistinguishable from broken.
+  //:
+  //: A control that cannot do anything must say so rather than sit there
+  //: looking live. Disabled, with the reason in its tooltip and the reader
+  //: that *would* produce them named — which is also the honest argument for
+  //: Tesseract still existing here.
+  const boxToggle = $("ocr-show-boxes");
+  const boxLabel = boxToggle?.closest("label");
+  if (boxToggle) {
+    boxToggle.disabled = !positioned;
+    if (boxLabel) {
+      boxLabel.classList.toggle("is-disabled", !positioned);
+      boxLabel.title = positioned
+        ? "Draw a box around each block the reader found"
+        : "This reading has no page positions. Only Tesseract returns where each "
+          + "block sits — a vision model gives back the words and not the places.";
+    }
+    //: The layer follows the checkbox even after a re-read, or a page read
+    //: with boxes turned off would come back with them on.
+    $("ocr-boxes").classList.toggle("is-hidden", positioned && !boxToggle.checked);
+  }
   for (const region of ocrWorkspaceRegions) {
     if (positioned) {
       const box = document.createElement("button");
@@ -2435,6 +2462,13 @@ function ocrRenderRegions(body) {
     }
     const copy = document.createElement("button");
     copy.type = "button";
+    //: **Top right, always.** Asked for: "move the copy text button to the top
+    //: right in the text box". It looked like it already was — but the thing
+    //: pushing it right was `.ocr-region-conf`'s own `margin-left: auto`, and
+    //: only Tesseract returns a confidence. Every vision and stored-text
+    //: reading therefore had no confidence row, nothing claimed the free
+    //: space, and the copy button sat jammed against the "Text" chip on the
+    //: left. The margin belongs on the thing that must be at the right.
     copy.className = "ghost small icon-button ocr-region-copy";
     setLabel(copy, "ph:copy");
     copy.title = "Copy this region's text";

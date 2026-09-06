@@ -4182,10 +4182,29 @@ mark.lightbox-hit {
    Anchored under the chat header rather than floated at the badge: it is a
    panel about the conversation you are in, and the header is where the
    conversation's own facts already live. */
+/* **`position: absolute` needs a positioned ancestor, and this had none.**
+   Reported: "clicking the model used in the chat header doesnt work." It did
+   work — `#chat-active-model`'s listener fired, `openChatModelPanel` ran, the
+   `hidden` class came off — and the panel opened **off the bottom of the
+   screen**. Measured at 1440x900: the panel's box landed at (0, 905) while
+   the badge it belongs to sits at (487, 86).
+
+   `#chat-model-panel` is a direct child of `<body>` (it lives beside the
+   other app-level panels in index.html, not inside the chat header), so
+   `top: 100%` resolved against the initial containing block — 100% of the
+   viewport's height, five pixels past its bottom edge. A control that opens
+   something nobody can see is indistinguishable from a control that does
+   nothing.
+
+   Fixed rather than absolute, with `openChatModelPanel` placing it under the
+   badge in viewport coordinates — the same treatment `clampToolbarMenu` gives
+   the formatting strip's menus, and for the same reason: where it should go
+   depends on where the badge has ended up, which CSS here cannot know. The
+   `top`/`left` below are only the pre-measurement seed. */
 .chat-model-panel {
-  position: absolute;
+  position: fixed;
   z-index: 40;
-  top: 100%;
+  top: 0;
   left: 0;
   margin-top: var(--space-2);
   min-width: 18rem;

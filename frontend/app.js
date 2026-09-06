@@ -21289,6 +21289,38 @@ function initComposerResize() {
     autoGrow(box);
   }
 
+  //: **Double-tap the grabber to put it back.** Asked for directly: "allow
+  //: double tapping the bottom expansion corner of the chat text box to reset
+  //: it to the regular height." A dragged height is sticky by design (it
+  //: survives reloads, see above), so without this the only way back to the
+  //: automatic height was to drag it to *exactly* the right size by hand —
+  //: which is not a thing anyone can do.
+  //:
+  //: Scoped to the corner rather than the whole box: a double-click in the
+  //: text is how you select a word, and stealing that would trade one small
+  //: annoyance for a much larger one. The grabber is ~16px square at the
+  //: bottom-right, and a little slack around it costs nothing because the
+  //: only thing in that corner *is* the grabber.
+  const GRABBER = 22;
+  box.addEventListener("dblclick", (event) => {
+    const rect = box.getBoundingClientRect();
+    const inCorner =
+      event.clientX >= rect.right - GRABBER && event.clientY >= rect.bottom - GRABBER;
+    if (!inCorner) return;
+    event.preventDefault();
+    delete box.dataset.maxPx;
+    try {
+      localStorage.removeItem(COMPOSER_HEIGHT_KEY);
+    } catch {
+      /* private mode — there was nothing stored to remove */
+    }
+    // The inline height a drag left behind has to go too, or `autoGrow`'s own
+    // reset measures against it and the box never shrinks back.
+    box.style.height = "auto";
+    autoGrow(box);
+    toast("Composer height reset.");
+  });
+
   if (typeof ResizeObserver !== "function") return;
   const observer = new ResizeObserver(() => {
     const height = Math.round(box.getBoundingClientRect().height);
@@ -25610,6 +25642,41 @@ function renderChatActiveModelBadge() {
 //: Pressing the badge opens this rather than jumping straight to Settings: the
 //: panel is what you wanted nine times in ten, and "change it" is a button
 //: inside it for the tenth.
+//: Places the panel under the badge, in viewport coordinates. It is
+//: `position: fixed` (see the stylesheet's own note on why `absolute` put it
+//: off the bottom of the screen), so nothing positions it but this.
+function placeChatModelPanel() {
+  const panel = $("chat-model-panel");
+  const badge = $("chat-active-model");
+  if (!panel || !badge || panel.classList.contains("hidden")) return;
+  const margin = 8;
+  panel.style.left = "0px";
+  panel.style.top = "0px";
+  const anchor = badge.getBoundingClientRect();
+  const box = panel.getBoundingClientRect();
+  let left = anchor.left;
+  if (left + box.width > window.innerWidth - margin) {
+    left = window.innerWidth - margin - box.width;
+  }
+  if (left < margin) left = margin;
+  let top = anchor.bottom + margin;
+  if (top + box.height > window.innerHeight - margin) {
+    // Above the badge when there is no room below it, and pinned inside the
+    // window when there is room neither way — never off the edge, which is
+    // the whole bug this is here to end.
+    const above = anchor.top - margin - box.height;
+    top = above >= margin ? above : Math.max(margin, window.innerHeight - margin - box.height);
+  }
+  panel.style.left = `${Math.round(left)}px`;
+  panel.style.top = `${Math.round(top)}px`;
+}
+
+//: The panel fills in asynchronously (`GET /models/spec`), and it grows when
+//: it does — so it is placed again once the content lands, and on any resize
+//: or scroll that moves the badge out from under it.
+window.addEventListener("resize", placeChatModelPanel);
+window.addEventListener("scroll", placeChatModelPanel, true);
+
 async function openChatModelPanel() {
   const name = modelStatus && modelStatus.chat_model;
   const panel = $("chat-model-panel");
@@ -25633,8 +25700,11 @@ async function openChatModelPanel() {
   loading.textContent = "Reading the model's own specification…";
   panel.append(list, loading);
   panel.classList.remove("hidden");
+  placeChatModelPanel();
 
   const spec = await apiJson(`/models/spec?name=${encodeURIComponent(name)}`).catch(() => null);
+  //: The panel was measured empty a moment ago; it is a different height now.
+  placeChatModelPanel();
   loading.remove();
   if (!spec) {
     const failed = document.createElement("p");

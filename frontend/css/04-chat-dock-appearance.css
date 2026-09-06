@@ -3536,9 +3536,23 @@ label.setting-check,
 
 /* Send is the one primary action in the block, so it is the one filled
    control. Everything else in the dock is a ghost button, which is what makes
-   this read as primary without needing to be bigger than the row. */
+   this read as primary without needing to be bigger than the row.
+   
+   **It is not, however, the one *round* control.** Reported: "the send buttin
+   in the chat is out of place with how rounded its corners are." Measured in
+   the composer row: `#chat-send` was `--radius-pill` (999px) beside a
+   `#chat-input` at 1.6px and a `.chat-composer` at 0 — a lozenge sitting in a
+   square-cornered box. `--radius-pill` is a fixed 999px and so is the one
+   radius token in the app that does *not* move with the appearance setting's
+   corner-rounding slider, which is why it drifted away from its neighbours
+   without anyone changing it: every other control in the row followed the
+   setting down and this one could not.
+
+   `--radius-md` is the shape the composer's own controls wear, and it scales
+   with the same slider they do, so the row stays one object at every setting.
+   The fill still carries "primary"; it never needed the shape to. */
 .chat-dock #chat-send {
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   padding-inline: var(--space-5);
 }
 

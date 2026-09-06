@@ -2735,7 +2735,34 @@ function openGraphLinkPanel(edge, nodes) {
   setLabel(removeBtn, "ph:trash Remove link");
   removeBtn.addEventListener("click", async () => {
     if (!(await confirmDialog("Remove this connection entirely?\n\nThe two notes are untouched — only the link between them goes."))) return;
+    //: Captured before the delete, because after it there is nothing left to
+    //: read the other end and the reason off.
+    const targetId = edge.target?.id ?? edge.target;
+    const linkType = edge.link_type || null;
+    const reason = edge.reason || null;
     await apiJson(`/entries/${sourceId}/links/${edge.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
+    //: **A link is the one thing in this notebook you cannot rebuild from
+    //: memory.** Which two notes, in which direction, with what reason — a
+    //: confirm dialog is not an undo, and this had only the dialog. The
+    //: recreated link gets a new id, so the redo closure re-reads it rather
+    //: than assuming the old one comes back.
+    let recreatedId = null;
+    pushUndo(
+      "Removed a link",
+      async () => {
+        const made = await apiJson(`/entries/${sourceId}/links`, {
+          method: "POST",
+          body: JSON.stringify({ target_id: targetId, link_type: linkType, reason }),
+        });
+        recreatedId = made.link_id ?? made.id ?? null;
+        renderGraph();
+      },
+      async () => {
+        if (recreatedId === null) return;
+        await apiJson(`/entries/${sourceId}/links/${recreatedId}`, { method: "DELETE" });
+        renderGraph();
+      }
+    );
     toast("Link removed.");
     close();
     renderGraph();

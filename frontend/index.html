@@ -3871,6 +3871,13 @@ Link to another note with [[its first few words]]."></textarea>
   <div id="status-nav-history-menu" class="nav-history-menu hidden" role="menu"
     aria-label="Navigation history"></div>
 
+  <!-- The undo stack, made visible. Same shape, same placement rules and the
+       same stylesheet as the nav-history menu above — right-clicking Undo is
+       already the gesture the back/forward pair use for theirs, so this is one
+       idea in two places rather than two ideas. -->
+  <div id="undo-history-menu" class="nav-history-menu hidden" role="menu"
+    aria-label="Recent actions you can undo"></div>
+
   <!-- ======================= EXTRACT NOTES (BACKLOG.md §62) ================ -->
   <!-- Shared by all three surfaces that offer it (Writing Room, Documents,
        whiteboard multi-selection): one panel, one preview-before-commit

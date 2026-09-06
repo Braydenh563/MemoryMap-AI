@@ -1305,10 +1305,21 @@ function favouriteButton(entry) {
     "ph:star",
     entry.pinned ? "Remove from Favourites" : "Add to Favourites (also floats it to the top)",
     async () => {
+      const was = Boolean(entry.pinned);
       await api(`/entries/${entry.id}`, {
         method: "PUT",
-        body: JSON.stringify({ pinned: !entry.pinned }),
+        body: JSON.stringify({ pinned: !was }),
       });
+      //: On the global stack, because a mis-click here is silent: the star
+      //: changes shape and the note moves to the top of the list, and there
+      //: was nothing that put it back. Reported as the undo stack being
+      //: "significantly outdated and dont register a lot of actions".
+      pushEntryPutUndo(
+        entry.id,
+        was ? "Removed a favourite" : "Added a favourite",
+        { pinned: was },
+        { pinned: !was }
+      );
       await loadEntries();
     }
   );
@@ -23782,7 +23793,11 @@ function renderUndoBar() {
   redoBtn.disabled = !next;
   paintStatusItem("status-undo", {
     icon: "ph:arrow-u-up-left",
-    title: last ? `Undo: ${last.label} (${shortcuts.undo.keys})` : "Nothing to undo",
+    //: The right-click gesture is named here because a hidden gesture is not a
+    //: feature — the same reason the nav pair's tooltips name theirs.
+    title: last
+      ? `Undo: ${last.label} (${shortcuts.undo.keys}) — right-click for the last ${undoStack.length}`
+      : "Nothing to undo",
   });
   paintStatusItem("status-redo", {
     icon: "ph:arrow-u-up-right",
@@ -23792,6 +23807,70 @@ function renderUndoBar() {
 
 $("status-undo").addEventListener("click", performUndo);
 $("status-redo").addEventListener("click", performRedo);
+
+//: **The stack you can see.** Reported: the global undo is "significantly
+//: outdated and dont register a lot of actions" — and the second half of that
+//: is that there was no way to *look*. A single button that says "Undo: moved
+//: a note to the bin" tells you the last thing and nothing about the four
+//: before it, so undoing three steps is three presses into the dark.
+//:
+//: Right-click, the same gesture the back/forward pair already uses for their
+//: own history, and named in the tooltip so it is discoverable rather than
+//: folklore. Picking a row undoes everything down to and including it, which
+//: is what a history list means everywhere else.
+function openUndoHistoryMenu(anchorEl) {
+  const menu = $("undo-history-menu");
+  if (!menu) return;
+  menu.replaceChildren();
+  if (!undoStack.length) return;
+  const list = document.createElement("ul");
+  list.className = "action-menu-list";
+  //: Newest first, because the newest is the one you are almost always
+  //: reaching for and a list you have to read upwards is a list you misread.
+  [...undoStack].reverse().forEach((action, offset) => {
+    const li = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "action-menu-item";
+    setLabel(button, `ph:arrow-u-up-left ${action.label}`);
+    button.title = offset === 0 ? "Undo this" : `Undo this and the ${offset} after it`;
+    button.addEventListener("click", async () => {
+      menu.classList.add("hidden");
+      //: One at a time through `performUndo`, so a step that fails stops the
+      //: run with the stack intact rather than leaving the notebook half
+      //: rolled back — the same contract a single press already has.
+      for (let step = 0; step <= offset; step += 1) {
+        const before = undoStack.length;
+        await performUndo();
+        if (undoStack.length === before) break;
+      }
+    });
+    li.appendChild(button);
+    list.appendChild(li);
+  });
+  menu.appendChild(list);
+  menu.classList.remove("hidden");
+  const margin = 8;
+  const anchor = anchorEl.getBoundingClientRect();
+  menu.style.left = "0px";
+  const box = menu.getBoundingClientRect();
+  const left = Math.min(anchor.left, window.innerWidth - margin - box.width);
+  menu.style.left = `${Math.round(Math.max(margin, left))}px`;
+}
+
+$("status-undo").addEventListener("contextmenu", (event) => {
+  if (!undoStack.length) return;
+  event.preventDefault();
+  openUndoHistoryMenu($("status-undo"));
+});
+
+document.addEventListener("mousedown", (event) => {
+  const menu = $("undo-history-menu");
+  if (!menu || menu.classList.contains("hidden")) return;
+  if (!menu.contains(event.target) && event.target !== $("status-undo")) {
+    menu.classList.add("hidden");
+  }
+});
 
 // --- quick access: recent questions + most-used entries (Phase 5) -------------------
 

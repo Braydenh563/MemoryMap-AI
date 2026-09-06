@@ -220,6 +220,14 @@
               <option value="toasts">Pop-ups + panel</option>
               <option value="centre">Panel only</option>
             </select>
+            <!-- Asked for directly: "also allow marking notifications as unread
+                 as well." Each row has its own toggle; this is the other half
+                 of the pair, because a panel where every row can be marked
+                 unread needs one gesture that puts the whole list back to
+                 read. It also clears the per-row overrides — "all read" means
+                 the same thing whichever way a row became unread. -->
+            <button id="notif-mark-all-read" class="ghost small" type="button"
+              title="Mark every notification as read">Mark all read</button>
             <button id="notif-clear" class="ghost small notif-clear">Clear all</button>
           </div>
           <p class="muted notif-foot">

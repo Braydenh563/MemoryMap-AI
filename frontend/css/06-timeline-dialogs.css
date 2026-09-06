@@ -3171,3 +3171,29 @@ aside[data-resizable="1"] {
     color: var(--ink);
   }
 }
+
+/* The per-row read/unread toggle. Asked for directly: "also allow marking
+   notifications as unread as well." It sits at the end of the row where the
+   "new" state is already being read, quiet until the row is hovered or
+   focused so a list of ten does not become a list of ten buttons. */
+.notif-read-toggle {
+  margin-left: auto;
+  flex: 0 0 auto;
+  align-self: center;
+  opacity: 0;
+  transition: opacity var(--motion-fast) ease;
+}
+
+.notif-row:hover .notif-read-toggle,
+.notif-row:focus-within .notif-read-toggle,
+.notif-read-toggle:focus-visible {
+  opacity: 1;
+}
+
+/* An unread row keeps its marker visible without hovering: the dot *is* the
+   "new" flag, and hiding the thing that says a row is new until you point at
+   it would be hiding the state itself. */
+.notif-row.notif-unread .notif-read-toggle {
+  opacity: 0.85;
+  color: var(--accent);
+}

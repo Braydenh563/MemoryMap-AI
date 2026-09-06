@@ -23672,9 +23672,67 @@ function notificationsReadAt() {
   return Number(localStorage.getItem(NOTIFICATIONS_READ_KEY) || 0);
 }
 
+//: **Read state is a watermark, and "mark this one unread" is not.**
+//:
+//: Asked for directly: "also allow marking notifications as unread as well."
+//: Opening the panel stamps `notificationsReadAt` with the current time, and
+//: everything older than the stamp is read — which is the right model for
+//: "I've seen the list" and cannot express "…except that one, I want to come
+//: back to it." Rewinding the watermark to just before that item would mark
+//: everything after it unread too.
+//:
+//: So a small set of ids sits alongside the watermark and overrides it. It
+//: holds only the exceptions, which is a handful at most, and "mark all read"
+//: empties it — that action means the same thing either way.
+const NOTIFICATIONS_UNREAD_KEY = "notificationsForcedUnread";
+
+function forcedUnreadIds() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(NOTIFICATIONS_UNREAD_KEY) || "[]");
+    return new Set(Array.isArray(raw) ? raw : []);
+  } catch {
+    return new Set(); // a corrupt override list costs the flags, not the panel
+  }
+}
+
+function setForcedUnreadIds(ids) {
+  try {
+    //: Pruned to what is still in the history: `MAX_NOTIFICATIONS` drops old
+    //: rows, and an override for a row nobody can see any more would sit in
+    //: storage forever keeping the badge count wrong.
+    const live = new Set(storedNotifications().map((item) => item.id));
+    const kept = [...ids].filter((id) => live.has(id));
+    localStorage.setItem(NOTIFICATIONS_UNREAD_KEY, JSON.stringify(kept));
+  } catch {
+    /* private mode — the flag just will not be remembered */
+  }
+}
+
+function isNotificationUnread(item, readAt = notificationsReadAt(), forced = forcedUnreadIds()) {
+  return item.at > readAt || forced.has(item.id);
+}
+
+function setNotificationUnread(id, unread) {
+  const ids = forcedUnreadIds();
+  if (unread) ids.add(id);
+  else ids.delete(id);
+  setForcedUnreadIds(ids);
+  //: A row marked *read* while the watermark still counts it as new needs the
+  //: watermark moved past it, or the override would be the only thing holding
+  //: it unread and removing it would change nothing.
+  if (!unread) {
+    const item = storedNotifications().find((entry) => entry.id === id);
+    if (item && item.at > notificationsReadAt()) {
+      localStorage.setItem(NOTIFICATIONS_READ_KEY, String(item.at));
+    }
+  }
+  renderNotificationBadge();
+}
+
 function unreadNotifications() {
   const since = notificationsReadAt();
-  return storedNotifications().filter((n) => n.at > since);
+  const forced = forcedUnreadIds();
+  return storedNotifications().filter((n) => isNotificationUnread(n, since, forced));
 }
 
 function renderNotificationBadge() {
@@ -23775,9 +23833,10 @@ async function openNotifications() {
   //: The count, beside the word it qualifies. The bell in the header already
   //: carries it, but the bell is what you clicked to get here — inside the
   //: panel the number has to say how many of the rows below are new.
+  const forced = forcedUnreadIds();
   const chip = $("notif-unread");
   if (chip) {
-    const unread = items.filter((item) => item.at > readAt).length;
+    const unread = items.filter((item) => isNotificationUnread(item, readAt, forced)).length;
     chip.textContent = unread > 99 ? "99+" : String(unread);
     chip.classList.toggle("hidden", unread === 0);
     chip.title = `${unread} unread`;
@@ -23809,7 +23868,8 @@ async function openNotifications() {
   for (const item of items) {
     const row = document.createElement("li");
     row.className = "notif-row";
-    if (item.at > readAt) row.classList.add("notif-unread");
+    const unread = isNotificationUnread(item, readAt, forced);
+    if (unread) row.classList.add("notif-unread");
 
     const icon = document.createElement("span");
     icon.className = "notif-icon";
@@ -23828,6 +23888,26 @@ async function openNotifications() {
       .join(" · ");
     body.append(title, meta);
     row.append(icon, body);
+
+    //: The dot is the control. A row is either new or it is not, so this is a
+    //: two-state toggle rather than a menu — and it sits where the "new"
+    //: marker already is, so pressing the thing that says "unread" is what
+    //: changes whether it is unread. `stopPropagation` because the row itself
+    //: may navigate somewhere, and "keep this for later" is the opposite of
+    //: "take me there now".
+    const readToggle = document.createElement("button");
+    readToggle.type = "button";
+    readToggle.className = "ghost small icon-only notif-read-toggle";
+    readToggle.setAttribute("aria-pressed", String(unread));
+    readToggle.title = unread ? "Mark as read" : "Mark as unread";
+    readToggle.setAttribute("aria-label", readToggle.title);
+    setLabel(readToggle, unread ? "ph:circle" : "ph:check-circle");
+    readToggle.addEventListener("click", (event) => {
+      event.stopPropagation();
+      setNotificationUnread(item.id, !unread);
+      openNotifications();
+    });
+    row.append(readToggle);
 
     // A notification you cannot act on is a notification you learn to ignore.
     if (item.action && item.action.tab) {
@@ -23851,6 +23931,10 @@ async function openNotifications() {
 
   // Opening the panel *is* reading them. Marked after rendering, so the
   // unread ones are still highlighted in the list you are looking at.
+  //
+  // The overrides survive it: a row deliberately kept unread must not be
+  // cleared by looking at the panel, or "mark as unread" would last exactly
+  // until the next time the bell is opened, which is no time at all.
   localStorage.setItem(NOTIFICATIONS_READ_KEY, String(Date.now()));
   renderNotificationBadge();
 }
@@ -32727,4 +32811,13 @@ $("chat-jump-latest")?.addEventListener("click", () => {
   pane.scrollTo({ top: pane.scrollHeight, behavior: reducedMotionWanted() ? "auto" : "smooth" });
   pane.dataset.stuck = "1";
   syncChatJumpLatest();
+});
+
+//: The panel-wide half of "mark as unread": one gesture that puts every row
+//: back to read, overrides included. See `forcedUnreadIds`.
+$("notif-mark-all-read")?.addEventListener("click", () => {
+  localStorage.setItem(NOTIFICATIONS_READ_KEY, String(Date.now()));
+  setForcedUnreadIds(new Set());
+  openNotifications();
+  toast("All notifications marked as read.");
 });

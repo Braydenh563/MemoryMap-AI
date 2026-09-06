@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import difflib
 import json
 import random
 import re
@@ -210,6 +211,26 @@ def greeting(block: str = "morning") -> dict:
             # lower-cased it.
             phrase = phrase[: match.start()] + name + phrase[match.end() :]
             append_name = False
+        else:
+            phrase, fixed = _repair_misspelt_name(phrase, name)
+            if fixed:
+                append_name = False
+
+    # **A greeting must never call the user by a name they did not save.**
+    # Reported: "the model spelt my name wrong in the dashboard welcome
+    # message." The exact-match normalisation above is the only thing that ever
+    # touched the model's spelling, so a near miss — "Braden" for "Brayden" —
+    # sailed straight through it, and `append_name` stayed True on top, which
+    # is how the banner ends up greeting two people.
+    #
+    # `_repair_misspelt_name` catches the near misses. This catches the rest: a
+    # model that invents a different name entirely, or addresses someone when
+    # no name is saved at all. There is no repairing that, so the handwritten
+    # greeting is used instead — being greeted impersonally is a non-event, and
+    # being greeted by the wrong name is the kind of small wrongness that makes
+    # a person stop trusting everything else the app says.
+    if _greets_a_stranger(phrase, name):
+        return fallback
 
     return {
         "greeting": phrase,
@@ -217,6 +238,60 @@ def greeting(block: str = "morning") -> dict:
         "append_name": append_name,
         "source": "ai",
     }
+
+
+#: How close a word has to be to the saved name before it is treated as the
+#: model's attempt at it rather than as a different word. 0.72 accepts
+#: "Braden"/"Brayden" (0.77) and "Sammy"/"Sam" (0.75) while refusing ordinary
+#: words that merely share letters — "Sunday"/"Sam" scores 0.44.
+NAME_SIMILARITY = 0.72
+
+
+def _name_like_words(phrase: str) -> list[str]:
+    """The capitalised words in a greeting that could be someone's name.
+
+    The first word is skipped: every greeting starts with one ("Morning",
+    "Welcome") and it is capitalised because it opens the sentence, not because
+    it is a name.
+    """
+    words = re.findall(r"[A-Za-z][A-Za-z'\-]*", phrase)
+    return [word for word in words[1:] if word[:1].isupper()]
+
+
+def _repair_misspelt_name(phrase: str, name: str) -> tuple[str, bool]:
+    """Put the saved spelling back where the model got it nearly right.
+
+    Returns the phrase and whether anything was replaced. Only the *closest*
+    candidate is replaced, and only one: a greeting with two near-miss names in
+    it is not a spelling slip, it is a greeting for somebody else.
+    """
+    best: tuple[float, str] | None = None
+    for word in _name_like_words(phrase):
+        if word.lower() == name.lower():
+            continue
+        score = difflib.SequenceMatcher(None, word.lower(), name.lower()).ratio()
+        if score >= NAME_SIMILARITY and (best is None or score > best[0]):
+            best = (score, word)
+    if best is None:
+        return phrase, False
+    return re.sub(rf"\b{re.escape(best[1])}\b", name, phrase, count=1), True
+
+
+def _greets_a_stranger(phrase: str, name: str) -> bool:
+    """True when the greeting addresses a name that is not the saved one.
+
+    A vocative only: "Hello, Dave" and "Welcome back, Dave!" address someone,
+    while "Time to write" and "Morning — Tuesday already" do not. Matching on
+    the comma is what keeps ordinary capitalised words (a weekday, a place a
+    persona mentions) from being read as names.
+    """
+    vocative = re.search(r",\s*([A-Z][A-Za-z'\-]*)\s*[.!?]?\s*$", phrase.strip())
+    if not vocative:
+        return False
+    spoken = vocative.group(1)
+    if not name:
+        return True  # nobody to greet, so any name here is invented
+    return spoken.lower() != name.lower()
 
 
 @router.get("/heatmap")

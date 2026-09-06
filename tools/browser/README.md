@@ -57,3 +57,25 @@ Re-checks a batch of fixes against the running app in one pass, so "I fixed
 nine things" can be one measurement rather than nine arguments. Written for one
 session's batch, so **edit it for yours** — the value is the shape (assert the
 number, not the appearance), not the specific checks.
+
+## `find-fat-borders.js`
+
+Sweeps every `input`, `textarea` and `select` — with all overlays and dialogs
+revealed — for a computed border wider than 2.5px.
+
+Every border this app draws on purpose is 1px, so 3px is a fingerprint with
+exactly one cause. `border: none` sets the border *style* to none and leaves
+the *width* at its initial `medium`; the Appearance system then forces
+`border-style: var(--border-style) !important` onto every input, so `medium`
+comes back as 3px on a control that every stylesheet involved believes has no
+border. It is invisible in the source and unmissable on screen, which is why it
+has now been reported three separate times — the popup agent's input, the ask
+composer, and the OCR "Find in what was read" box.
+
+The fix is always the same and the trap inside it is always the same too: two
+`!important` declarations are settled by specificity, and the Appearance rule's
+selector (`input` plus five `:not([type=…])`) is **(0,5,1)**. A class-based
+`border: none !important` loses to it silently — measured, and it still
+computed as 3px. The answering rule needs an **id**.
+
+Expected output is `3px-border controls: 0`; the script exits non-zero if not.

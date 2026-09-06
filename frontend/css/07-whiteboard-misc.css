@@ -4698,13 +4698,48 @@ button.connection-row {
 .ocr-find .ocr-find-input {
   flex: 1 1 auto;
   min-width: 0;
-  border: none;
   background: none;
   padding: 0;
+  /* **`border: none` measured as `3px solid rgb(240,242,245)`** — the bright
+     ring reported around this box ("fix the hard line around the find in what
+     was read textbox"). Same cause and same answer as `.ask-composer >
+     #question`, which documents it at length: the Appearance system sets
+     `border-style: var(--border-style) !important` on every input
+     (00-tokens-shell.css) so a user's chosen border style cannot be defeated
+     by a stray local rule, and forcing the style back to `solid` restores the
+     initial `medium` width — 3px — on a control every stylesheet involved
+     believes has no border. An `!important` can only be answered by another.
+     Right everywhere else; wrong here, where the input is the *interior* of
+     the `.ocr-find` field rather than a field of its own, so the ring drew
+     inside the wrapper's own border and read as a hard second box.
+     `box-shadow` goes with it: the recessed inset says "this is the field",
+     and the wrapper is already saying that. */
+  box-shadow: none;
+}
+
+/* **The id is load-bearing, and `!important` alone was not enough.** Two
+   `!important` declarations are settled by specificity, and the Appearance
+   rule's selector — `input` plus five `:not([type=…])` — is (0,5,1), which
+   beats `.ocr-find .ocr-find-input` at (0,2,0). Measured: `border: none
+   !important` at the class selector still computed as `3px solid
+   rgb(240,242,245)`. `#ocr-find` is (1,0,0) and wins outright, which is the
+   same reason `.ask-composer > #question` had to be written with its id.
+   This repo has now paid for the enumerated-`:not()`-chain specificity trap
+   three times; if a fourth borderless input appears, give it an id. */
+.ocr-find #ocr-find {
+  border: none !important;
 }
 
 .ocr-find-input:focus {
   outline: none;
+}
+
+/* The focus ring belongs to the whole row, not to the bare input inside it —
+   otherwise focusing the box lights up the interior and leaves the wrapper,
+   which is what the eye reads as the control, unchanged. Same treatment
+   `.ask-composer` uses for the same reason. */
+.ocr-find:focus-within {
+  border-color: var(--accent);
 }
 
 .ocr-find-count {

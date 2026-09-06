@@ -45,7 +45,7 @@ from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_sugg
     WhiteboardNode,
 )
 from memorymap.core.deps import get_session
-from memorymap.entry import manager
+from memorymap.entry import duplicates, manager
 from memorymap.search import search_manager
 
 router = APIRouter(prefix="/entries", tags=["entries"])
@@ -638,6 +638,11 @@ def improve_writing(body: ImproveBody) -> dict:
 # Notes this similar are almost certainly worth connecting.
 LINK_SUGGESTION_THRESHOLD = 0.55
 
+#: How many of the twelve suggestions any one note may anchor. See
+#: `link_suggestions` for the measurement that put this here: without a cap,
+#: one note paired with six copies of itself filled half the list.
+MAX_SUGGESTIONS_PER_NOTE = 2
+
 #: How many concept matches `?semantic=true` returns. A search result is a
 #: shortlist to read, not a second copy of the notebook.
 SEMANTIC_LIST_LIMIT = 25
@@ -686,10 +691,45 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     # `similar_pairs` hands these back best-first and blocks the matrix
     # multiply, so a big notebook costs one block of memory rather than an
     # N×N matrix. Stop at 12 rather than scoring every pair into a list first.
+    #
+    # **Two filters stand between "best-first" and "useful", and both were
+    # added after measuring what this actually returned.** On a real 116-note
+    # notebook every single one of the twelve suggestions was a pair of notes
+    # with *identical* text, scoring 1.00 — six of them the same stub note
+    # paired with six copies of itself. The feature was working exactly as
+    # written and surfacing nothing worth acting on, which is the measured
+    # reason a notebook can sit at 16 linked notes out of 116 with the
+    # auto-linker switched on the whole time.
+    #
+    #  1. A near-identical pair is a *duplicate*, not a connection. Linking
+    #     two copies of one note records that a note resembles itself. This
+    #     app already has a feature whose whole job is that case, so the pair
+    #     belongs to it — `entry/duplicates.py`, same threshold, reusing its
+    #     arithmetic word-overlap score rather than inventing a second notion
+    #     of "the same". Cheap enough to run on the survivors of the vector
+    #     pass, which is a handful of pairs, not the notebook.
+    #  2. One note may anchor at most `MAX_SUGGESTIONS_PER_NOTE` of the
+    #     twelve. Without this, the single most connectable note in a
+    #     notebook takes every slot with its own neighbours (which is exactly
+    #     what happened above), and the list stops being a survey of the
+    #     notebook and becomes a survey of one note.
     suggestions = []
+    appearances: dict[int, int] = {}
     for a, b, score in similar_pairs(vectors, LINK_SUGGESTION_THRESHOLD):
         if frozenset((a, b)) in already_linked:
             continue
+        if (
+            appearances.get(a, 0) >= MAX_SUGGESTIONS_PER_NOTE
+            or appearances.get(b, 0) >= MAX_SUGGESTIONS_PER_NOTE
+        ):
+            continue
+        if (
+            duplicates.similarity(entries_by_id[a].content, entries_by_id[b].content)
+            >= duplicates.DEFAULT_THRESHOLD
+        ):
+            continue
+        appearances[a] = appearances.get(a, 0) + 1
+        appearances[b] = appearances.get(b, 0) + 1
         suggestions.append({
             "source_id": a,
             "target_id": b,

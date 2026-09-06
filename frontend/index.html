@@ -3269,7 +3269,44 @@ Link to another note with [[its first few words]]."></textarea>
            graph's own fullscreen toggle sits, and the two should not be in
            different places. -->
       <button id="wb-fullscreen" class="ghost small icon-only" title="Full screen (Esc to leave)" aria-label="Toggle full screen"><i class="ph ph-arrows-out" aria-hidden="true"></i></button>
+      <!-- The two navigation controls added with the navigator/search work.
+           They sit in the zoom cluster because that is already the "where am
+           I on this board" group (zoom, fit, full screen) — and because the
+           canvas carries four floating panels already, two of which have a
+           recorded history of colliding with each other on narrow screens, so
+           a fifth always-on panel was the wrong answer. -->
+      <button id="wb-navigator-toggle" class="ghost small icon-only" type="button" title="Board overview (N)" aria-label="Board overview" aria-expanded="false" aria-controls="wb-navigator"><i class="ph ph-map-trifold" aria-hidden="true"></i></button>
+      <button id="wb-search-toggle" class="ghost small icon-only" type="button" title="Find a card on this board (Ctrl+F)" aria-label="Find a card on this board" aria-expanded="false" aria-controls="wb-search-bar"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
       <button id="wb-help-btn" class="ghost small" title="Show the whiteboard help again">?</button>
+    </div>
+
+    <!-- The navigator: a live minimap of the whole board with a draggable
+         viewport rectangle. Anchored to the bottom-right corner of the canvas
+         rather than to the zoom panel itself, because that panel is draggable
+         and a popover that follows a dragged panel off the edge of the screen
+         is worse than one that stays where overviews live. -->
+    <div id="wb-navigator" class="wb-navigator card glass hidden" role="dialog" aria-label="Board overview">
+      <div class="wb-navigator-head">
+        <span class="wb-navigator-title">Overview</span>
+        <button id="wb-navigator-fit" class="ghost small" type="button" title="Fit everything on screen">Fit</button>
+        <button id="wb-navigator-close" class="ghost small icon-only" type="button" title="Close the overview" aria-label="Close the overview"><i class="ph ph-x" aria-hidden="true"></i></button>
+      </div>
+      <svg id="wb-navigator-map" class="wb-navigator-map" viewBox="0 0 208 132" width="208" height="132" role="img" aria-label="A map of everything on this board, with the part you are looking at outlined"></svg>
+      <p id="wb-navigator-empty" class="wb-navigator-empty muted hidden">Nothing on this board yet.</p>
+      <p class="wb-navigator-hint muted">Click or drag the map to move around.</p>
+    </div>
+
+    <!-- Find a card by its words. A board is made of notes and the notebook
+         can full-text search every one of them — except, until now, when they
+         were laid out on a board, where finding one meant panning around
+         looking for it. -->
+    <div id="wb-search-bar" class="wb-search-bar card glass hidden" role="search">
+      <i class="ph ph-magnifying-glass wb-search-icon" aria-hidden="true"></i>
+      <input id="wb-search-input" type="search" placeholder="Find a card on this board" aria-label="Find a card on this board" autocomplete="off" spellcheck="false">
+      <span id="wb-search-count" class="wb-search-count muted" role="status" aria-live="polite"></span>
+      <button id="wb-search-prev" class="ghost small icon-only" type="button" title="Previous match (Shift+Enter)" aria-label="Previous match"><i class="ph ph-caret-up" aria-hidden="true"></i></button>
+      <button id="wb-search-next" class="ghost small icon-only" type="button" title="Next match (Enter)" aria-label="Next match"><i class="ph ph-caret-down" aria-hidden="true"></i></button>
+      <button id="wb-search-close" class="ghost small icon-only" type="button" title="Close (Esc)" aria-label="Close the board search"><i class="ph ph-x" aria-hidden="true"></i></button>
     </div>
 
     <!-- A properties panel for the current single selection — asked for

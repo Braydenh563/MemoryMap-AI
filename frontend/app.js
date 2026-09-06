@@ -26828,6 +26828,24 @@ function openGlobalFind() {
     lightboxFind.focus();
     return;
   }
+  // **A board is the same handoff as the lightbox, for the same reason.**
+  // This bar walks the DOM of the visible tab and highlights text nodes — on
+  // an open whiteboard that is the wrong tool twice over: the cards are laid
+  // out inside a zoomed, transformed canvas layer, so a `mark` around a match
+  // sits wherever the pan happens to have left it and often off-screen
+  // entirely, and a card can be scrolled far outside the viewport with no
+  // scrollIntoView that means anything on an infinite canvas. The board has
+  // its own find, which pans the viewport to each match — send Ctrl+F there.
+  const wbCanvas = document.getElementById("wb-canvas-view");
+  const wbView = document.getElementById("library-view-whiteboard");
+  if (
+    wbCanvas && !wbCanvas.classList.contains("hidden") &&
+    wbView && !wbView.classList.contains("hidden") &&
+    typeof wbOpenBoardSearch === "function"
+  ) {
+    wbOpenBoardSearch();
+    return;
+  }
   const bar = $("global-find-bar");
   bar.classList.remove("hidden");
   const input = $("global-find-input");

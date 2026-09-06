@@ -2997,6 +2997,25 @@ input[type="url"]:hover:not(:focus) {
   position: absolute;
   width: 1px;
   height: 1px;
+  /* `width: 1px` on its own does not settle this element's box: measured on
+     the Timeline tab it reports 136px wide, and the global
+     `select { min-width: 7rem }` is a floor that `width` cannot argue with.
+     These two answer that floor and the `.row select { flex: 1 }` growth
+     rule, so the declaration means what it says rather than depending on
+     `clip-path` below to cover for it.
+
+     **Stated honestly: adding these did not change the computed 136px, and I
+     did not find what does.** Enumerating every stylesheet rule matching the
+     element found none setting `width`/`min-width`, there is no inline
+     style, and the root font is 16px (so it is not a scaled 7rem). It has no
+     visual consequence either way — the element is `position: absolute`,
+     `height: 1px`, `border: 0` and clipped by `clip-path: inset(50%)`, so it
+     is out of flow and invisible at any width; it only inflates the shell's
+     `scrollWidth`, which is what surfaced it. Left in because the rule is
+     more correct with them, and written down so the next person does not
+     re-derive the same dead end. */
+  min-width: 0;
+  flex: 0 0 auto;
   padding: 0;
   margin: 0;
   overflow: hidden;
@@ -4752,7 +4771,12 @@ button.connection-row {
 .wb-gestures {
   position: absolute;
   left: 50%;
-  bottom: var(--space-5);
+  /* **Above the tool row, not under it.** Measured at 1440x900: this strip
+     rendered 960x40 at (240, 796) and the tools panel 882x54 at (34, 773) —
+     an overlap across most of the strip's width, so the gestures it exists to
+     teach were sitting behind the toolbar. The tool row is `bottom: 1rem` and
+     54px tall, so clearing it means starting above ~5rem. */
+  bottom: 5.25rem;
   transform: translateX(-50%);
   z-index: 5;
   display: flex;
@@ -4826,4 +4850,151 @@ button.connection-row {
   box-shadow: none;
   max-width: 60rem;
   margin: 0 auto;
+}
+
+/* ================= BOARD NAVIGATOR AND BOARD SEARCH =======================
+   Two ways of getting around a board bigger than the screen. Neither existed:
+   the only `minimap` in this codebase was the static thumbnail drawn on a
+   board's card in Boards & maps, and there was no way at all to find a card
+   by its words once it was laid out on a canvas.
+
+   Both are popovers rather than new always-on floating panels. The canvas
+   already carries four of those, and this stylesheet's own comments record
+   two separate reports of them colliding with each other and running off
+   narrow screens — a fifth would have made a measured problem worse. */
+
+.wb-navigator {
+  position: absolute;
+  /* Above the zoom cluster, which is `bottom: 1rem` and measures 50px tall.
+     Anchored to the canvas corner rather than to that panel, because the
+     panel is draggable and a popover chasing it off-screen is worse than one
+     that stays where overviews are looked for. */
+  right: 1rem;
+  bottom: 5rem;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.wb-navigator-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.wb-navigator-title {
+  flex: 1 1 auto;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.wb-navigator-map {
+  display: block;
+  /* The SVG carries its own width/height attributes so the projection maths
+     in `wbNavigatorProjection` and the rendered box agree exactly. */
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--inner);
+  cursor: crosshair;
+  touch-action: none; /* so a touch drag pans the board, not the page */
+}
+
+.wb-navigator-empty,
+.wb-navigator-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+}
+
+/* Items on the map. Cards, images/text boxes and ink are told apart by
+   weight rather than by hue, so the map still reads for anyone who cannot
+   separate the colours — the viewport rectangle below is the only thing
+   using the accent, and it is also the only thing drawn as an outline. */
+.wb-nav-item {
+  fill: var(--ink);
+  opacity: 0.35;
+}
+
+.wb-nav-item-object {
+  opacity: 0.55;
+}
+
+.wb-nav-item-sketch {
+  opacity: 0.22;
+}
+
+.wb-nav-item.is-selected {
+  fill: var(--accent);
+  opacity: 0.9;
+}
+
+.wb-nav-viewport {
+  fill: var(--accent);
+  fill-opacity: 0.12;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.wb-search-bar {
+  position: absolute;
+  /* Measured, not guessed: at `top: 1rem` this bar rendered 439x52 at x=500
+     and `#wb-back-to-boards` sits 93x28 at x=674 on the same line — a direct
+     overlap that hid the way back to the board list. Below it instead. */
+  top: 3.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  max-width: min(30rem, 80vw);
+}
+
+.wb-search-icon {
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+
+.wb-search-bar input {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+
+.wb-search-count {
+  flex: 0 0 auto;
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+/* The match highlight. An outline plus a lift, not a background colour: a
+   card already paints its own opaque surface (see `.wb-card`'s comment on
+   why), and tinting that surface would fight the note's own rendered
+   markdown for contrast. */
+.wb-search-hit {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 2px;
+}
+
+.wb-search-current {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: var(--shadow-lg);
+}
+
+/* A board is a canvas; the panels over it are the only stacking that matters,
+   so at narrow widths the navigator steps aside rather than covering the
+   tools it is meant to help you reach. */
+@media (max-width: 720px) {
+  .wb-navigator {
+    display: none;
+  }
+
+  .wb-search-bar {
+    max-width: calc(100vw - 2rem);
+  }
 }

@@ -2737,3 +2737,72 @@ p.graph-help-panel {
 .dash-body .row {
   overflow-x: clip;
 }
+
+/* The board miniature in the Boards & maps widget. Sized to the same box as
+   `.dash-list-thumb`'s image so a widget with boards and a widget with photos
+   line up on the same grid, rather than each row setting its own height. */
+.dash-board-thumb {
+  background: var(--inner);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.dash-board-thumb-card {
+  fill: var(--accent);
+  opacity: 0.75;
+}
+
+.dash-board-thumb-sketch {
+  fill: var(--ink);
+  opacity: 0.4;
+}
+
+/* A `.dash-list` row that opens something is a real control: it takes focus,
+   so it has to show it. `miniEntryList`'s note rows are click-only and keep
+   their existing behaviour; these are the rows added with the boards,
+   documents and unfinished widgets. */
+.dash-list li[role="button"] {
+  cursor: pointer;
+}
+
+.dash-list li[role="button"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* The Loose ends widget's reading: a sentence, a meter, a caption, then a
+   short sample. The number is the finding — see the widget's own comment for
+   why this is not the list of notes it began as. */
+.dash-loose-summary {
+  margin: 0 0 var(--space-2);
+}
+
+.dash-loose-meter {
+  /* Declared here rather than only as a `var()` fallback on the fill: the
+     widget overrides it through the CSSOM on the fill element itself, and a
+     token that exists only as a fallback is a value with no home (caught by
+     `test_no_token_is_used_with_a_dead_fallback`). Declaring it means an
+     empty meter renders as a real 0% bar instead of an unstyled one. */
+  --dash-loose-pct: 0%;
+  height: var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--inner);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.dash-loose-fill {
+  /* Set through the CSSOM by the widget — an inline `style` attribute would
+     be dropped by this app's CSP. */
+  width: var(--dash-loose-pct);
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--radius-pill);
+  transition: width var(--motion-slow) ease;
+}
+
+.dash-loose-caption {
+  margin: var(--space-1) 0 var(--space-3);
+  font-size: var(--text-xs);
+}

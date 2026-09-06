@@ -186,6 +186,11 @@ function handleWbZoom(e) {
   d3.select("#wb-zoom-group").style("transform", css);
   d3.select("#wb-overlay-zoom-group").style("transform", css);
   wbSyncGridToTransform(e.transform);
+  // The navigator's viewport rectangle is only true for one transform, so it
+  // is redrawn with every pan and zoom. `wbRenderNavigator` returns
+  // immediately when the navigator is closed, which is the common case — this
+  // costs nothing on a board nobody is navigating.
+  wbRenderNavigator();
 }
 
 //: The grid's spacing in board coordinates. Scaled by the zoom so a square
@@ -620,6 +625,374 @@ function wbItemBBox(kind, item) {
   w = w || (kind === "node" ? WB_CARD_DEFAULT_SIZE.w : WB_OBJECT_MIN_SIZE);
   h = h || (kind === "node" ? WB_CARD_DEFAULT_SIZE.h : WB_OBJECT_MIN_SIZE);
   return { minX: item.x, minY: item.y, maxX: item.x + w, maxY: item.y + h };
+}
+
+// --- Getting around a board bigger than the screen -------------------------
+//
+// Three things any canvas needs once it holds more than one screenful, none
+// of which this board had. Measured on a live board before building, rather
+// than assumed:
+//
+//   * **There was no overview at all.** `board-minimap` in this file is the
+//     *library thumbnail* drawn on a board's card in Boards & maps — it never
+//     rendered on the canvas and has no viewport rectangle. Searching the DOM
+//     of an open board for `.wb-minimap`/`#wb-minimap` found nothing.
+//   * **There was no way to find a card by its words.** A board is made of
+//     notes, and the notebook can full-text search every note in it — except
+//     when they are laid out on a board, where the only way to find one was
+//     to pan around looking.
+//   * **"Fit to Screen" did not fit.** It was
+//     `wbZoom.transform(d3.zoomIdentity)` — a reset to 100% at the origin. On
+//     a board whose content sits at x=2000 that shows blank canvas, which
+//     reads as the board having been wiped rather than as a navigation bug.
+//
+// All three are answered here, and all three share `wbContentBounds()`.
+
+/** The bounding box of everything on the board, in board coordinates. */
+function wbContentBounds() {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  const grow = (box) => {
+    if (!box) return;
+    if (box.minX < minX) minX = box.minX;
+    if (box.minY < minY) minY = box.minY;
+    if (box.maxX > maxX) maxX = box.maxX;
+    if (box.maxY > maxY) maxY = box.maxY;
+  };
+  // `wbItemBBox` already knows every kind's quirks — a link sketch has no
+  // shape of its own and returns null, an unresized card is measured from
+  // the live DOM. Reusing it is what keeps the navigator, the fit and the
+  // search agreeing with the alignment guides about where things are.
+  for (const [kind, list] of Object.entries(WB_LIST_BY_KIND)) {
+    for (const item of wbState[list] || []) grow(wbItemBBox(kind, item));
+  }
+  if (!Number.isFinite(minX)) return null;
+  return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
+}
+
+/**
+ * Put everything on the board on screen at once.
+ *
+ * Never zooms *in* past 1: `scaleExtent` allows 4x, but magnifying two cards
+ * until they fill a 1440px window is not what anyone means by "fit".
+ */
+function wbZoomToFit({ animate = true, padding = 64 } = {}) {
+  const container = document.getElementById("whiteboard-container");
+  if (!container) return;
+  const sel = d3.select(container);
+  const bounds = wbContentBounds();
+  if (!bounds) {
+    // An empty board genuinely has nothing to fit, and the origin at 100% is
+    // where the first card will land — so that is the honest destination.
+    (animate ? sel.transition().duration(300) : sel).call(wbZoom.transform, d3.zoomIdentity);
+    return;
+  }
+  const rect = container.getBoundingClientRect();
+  const k = Math.max(
+    0.1,
+    Math.min(
+      1,
+      (rect.width - padding * 2) / Math.max(bounds.width, 1),
+      (rect.height - padding * 2) / Math.max(bounds.height, 1),
+    ),
+  );
+  const cx = (bounds.minX + bounds.maxX) / 2;
+  const cy = (bounds.minY + bounds.maxY) / 2;
+  const target = d3.zoomIdentity
+    .translate(rect.width / 2 - k * cx, rect.height / 2 - k * cy)
+    .scale(k);
+  (animate ? sel.transition().duration(350) : sel).call(wbZoom.transform, target);
+}
+
+/** Centre the viewport on one board-space rectangle, keeping the current zoom. */
+function wbCenterOn(box, { animate = true, minScale = 0.55 } = {}) {
+  const container = document.getElementById("whiteboard-container");
+  if (!container || !box) return;
+  const sel = d3.select(container);
+  const rect = container.getBoundingClientRect();
+  const current = d3.zoomTransform(container);
+  // Jumping to a match at 0.12x would land on a card too small to read, so
+  // ease the zoom up to something legible — but never zoom *out* to get
+  // there, because that would undo a deliberate close-up.
+  const k = Math.max(current.k, Math.min(minScale, 1));
+  const cx = (box.minX + box.maxX) / 2;
+  const cy = (box.minY + box.maxY) / 2;
+  const target = d3.zoomIdentity
+    .translate(rect.width / 2 - k * cx, rect.height / 2 - k * cy)
+    .scale(k);
+  (animate ? sel.transition().duration(300) : sel).call(wbZoom.transform, target);
+}
+
+// --- The navigator (a live minimap) ----------------------------------------
+//
+// Deliberately *not* a fifth always-on floating panel. The canvas already
+// carries four, and this file's own CSS comments record two separate reports
+// of them colliding with each other and running off narrow screens. It opens
+// from a button in the zoom cluster — where fit and full screen already live,
+// so it sits with the other "where am I" controls — and closes again.
+
+const WB_NAV_W = 208;
+const WB_NAV_H = 132;
+const WB_NAV_PAD = 6;
+
+function wbNavigatorOpen() {
+  const panel = document.getElementById("wb-navigator");
+  return !!panel && !panel.classList.contains("hidden");
+}
+
+/** Board coordinates -> navigator coordinates, or null on an empty board. */
+function wbNavigatorProjection() {
+  const bounds = wbContentBounds();
+  const container = document.getElementById("whiteboard-container");
+  if (!bounds || !container) return null;
+  const rect = container.getBoundingClientRect();
+  const t = d3.zoomTransform(container);
+  // The navigator shows the content *and* wherever the viewport currently is,
+  // so a viewport panned off into empty space still draws a rectangle you can
+  // drag back — union the two before scaling, or the rectangle silently
+  // clamps to the edge and stops telling the truth about where you are.
+  const view = {
+    minX: (0 - t.x) / t.k,
+    minY: (0 - t.y) / t.k,
+    maxX: (rect.width - t.x) / t.k,
+    maxY: (rect.height - t.y) / t.k,
+  };
+  const minX = Math.min(bounds.minX, view.minX);
+  const minY = Math.min(bounds.minY, view.minY);
+  const maxX = Math.max(bounds.maxX, view.maxX);
+  const maxY = Math.max(bounds.maxY, view.maxY);
+  const w = Math.max(maxX - minX, 1);
+  const h = Math.max(maxY - minY, 1);
+  const k = Math.min((WB_NAV_W - WB_NAV_PAD * 2) / w, (WB_NAV_H - WB_NAV_PAD * 2) / h);
+  const offX = WB_NAV_PAD + ((WB_NAV_W - WB_NAV_PAD * 2) - w * k) / 2;
+  const offY = WB_NAV_PAD + ((WB_NAV_H - WB_NAV_PAD * 2) - h * k) / 2;
+  return {
+    k,
+    view,
+    toNav: (x, y) => [offX + (x - minX) * k, offY + (y - minY) * k],
+    toBoard: (nx, ny) => [minX + (nx - offX) / k, minY + (ny - offY) / k],
+  };
+}
+
+function wbRenderNavigator() {
+  const svg = document.getElementById("wb-navigator-map");
+  const empty = document.getElementById("wb-navigator-empty");
+  if (!svg || !wbNavigatorOpen()) return;
+  const proj = wbNavigatorProjection();
+  const bounds = wbContentBounds();
+  svg.replaceChildren();
+  if (empty) empty.classList.toggle("hidden", !!bounds);
+  svg.classList.toggle("hidden", !bounds);
+  if (!proj || !bounds) return;
+  const NS = "http://www.w3.org/2000/svg";
+  const add = (tag, attrs) => {
+    const el = document.createElementNS(NS, tag);
+    // Attributes, never a `style` string: this app's CSP rejects inline
+    // styles outright, and thirty-five of them once shipped as silently dead
+    // markup (CLAUDE.md, "a policy silently refusing the work").
+    for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, String(value));
+    svg.append(el);
+    return el;
+  };
+  for (const [kind, list] of Object.entries(WB_LIST_BY_KIND)) {
+    for (const item of wbState[list] || []) {
+      const box = wbItemBBox(kind, item);
+      if (!box) continue;
+      const [x, y] = proj.toNav(box.minX, box.minY);
+      const w = Math.max((box.maxX - box.minX) * proj.k, 2);
+      const h = Math.max((box.maxY - box.minY) * proj.k, 2);
+      const selected = wbMultiSelection.has(wbMultiKey(kind, item.id))
+        || (wbSelectedItem && wbSelectedItem.kind === kind && wbSelectedItem.id === item.id);
+      add("rect", {
+        x, y, width: w, height: h, rx: 1,
+        class: `wb-nav-item wb-nav-item-${kind}${selected ? " is-selected" : ""}`,
+      });
+    }
+  }
+  const [vx, vy] = proj.toNav(proj.view.minX, proj.view.minY);
+  add("rect", {
+    x: vx,
+    y: vy,
+    width: Math.max((proj.view.maxX - proj.view.minX) * proj.k, 4),
+    height: Math.max((proj.view.maxY - proj.view.minY) * proj.k, 4),
+    class: "wb-nav-viewport",
+  });
+}
+
+/** Move the viewport so its centre lands where the navigator was clicked. */
+function wbNavigatorJump(event) {
+  const svg = document.getElementById("wb-navigator-map");
+  const proj = wbNavigatorProjection();
+  if (!svg || !proj) return;
+  const rect = svg.getBoundingClientRect();
+  // The SVG is laid out at exactly WB_NAV_W x WB_NAV_H, but a browser zoom or
+  // a future responsive tweak could scale it — divide through by the real
+  // rendered size rather than trusting the constants.
+  const nx = ((event.clientX - rect.left) / rect.width) * WB_NAV_W;
+  const ny = ((event.clientY - rect.top) / rect.height) * WB_NAV_H;
+  const [bx, by] = proj.toBoard(nx, ny);
+  wbCenterOn({ minX: bx, minY: by, maxX: bx, maxY: by }, { animate: false, minScale: 0 });
+}
+
+function wbToggleNavigator(force) {
+  const panel = document.getElementById("wb-navigator");
+  const button = document.getElementById("wb-navigator-toggle");
+  if (!panel) return;
+  const open = force === undefined ? panel.classList.contains("hidden") : force;
+  panel.classList.toggle("hidden", !open);
+  if (button) button.setAttribute("aria-expanded", open ? "true" : "false");
+  try {
+    localStorage.setItem("wb-navigator-open", open ? "1" : "0");
+  } catch {
+    /* private mode — the navigator just won't be remembered */
+  }
+  if (open) wbRenderNavigator();
+}
+
+// --- Find a card on this board ---------------------------------------------
+
+const wbBoardSearch = { query: "", matches: [], index: -1 };
+
+/**
+ * Every searchable string an item carries, lowercased.
+ *
+ * `byId` is built once per search run rather than per item — `allEntries` is
+ * the whole notebook, and re-Mapping it for each of a board's cards on every
+ * keystroke is the kind of quiet quadratic that only shows up on someone
+ * else's larger notebook.
+ *
+ * **Not `entriesById`.** That map is a `const` *inside* `renderWhiteboard`,
+ * so it does not exist out here — a first cut guarded with
+ * `typeof entriesById !== "undefined"`, which meant the guard silently
+ * returned "" and the search matched nothing at all while looking like it
+ * worked. Caught by driving it in a browser, not by reading it.
+ */
+function wbSearchTextFor(kind, item, byId) {
+  if (kind === "node") {
+    const entry = byId ? byId.get(String(item.entry_id)) : null;
+    if (entry) return ((entry.content || entry.preview) || "").toLowerCase();
+    // The note is not in the in-memory list (created since the last
+    // `loadEntries()`), but its card is on screen with its text in it — so
+    // read what the person can actually see rather than reporting no match
+    // for a card they are looking straight at.
+    const el = document.querySelector(`.node-card[data-id="${item.id}"] .wb-card-content`);
+    return (el?.textContent || "").toLowerCase();
+  }
+  if (kind === "object") {
+    // A text box keeps its words in the same `data` JSON blob an image keeps
+    // its URL in (see WhiteboardObject's own docstring), so a bad parse here
+    // means "not searchable", never a thrown render.
+    try {
+      const data = JSON.parse(item.data || "{}");
+      return String(data.content || "").toLowerCase();
+    } catch {
+      return "";
+    }
+  }
+  return "";
+}
+
+function wbBoardSearchRun(query) {
+  wbBoardSearch.query = query;
+  wbBoardSearch.matches = [];
+  wbBoardSearch.index = -1;
+  const needle = query.trim().toLowerCase();
+  if (needle) {
+    const byId = new Map(
+      (typeof allEntries !== "undefined" && Array.isArray(allEntries) ? allEntries : []).map((e) => [
+        String(e.id),
+        e,
+      ]),
+    );
+    for (const kind of ["node", "object"]) {
+      for (const item of wbState[WB_LIST_BY_KIND[kind]] || []) {
+        if (wbSearchTextFor(kind, item, byId).includes(needle)) {
+          wbBoardSearch.matches.push({ kind, id: item.id });
+        }
+      }
+    }
+    // Reading order, so pressing Enter walks the board top-to-bottom rather
+    // than in whatever order the two lists happened to load.
+    wbBoardSearch.matches.sort((a, b) => {
+      const ba = wbItemBBox(a.kind, wbSearchItem(a));
+      const bb = wbItemBBox(b.kind, wbSearchItem(b));
+      if (!ba || !bb) return 0;
+      return ba.minY - bb.minY || ba.minX - bb.minX;
+    });
+  }
+  wbApplySearchHighlight();
+  wbUpdateSearchCount();
+  if (wbBoardSearch.matches.length) wbBoardSearchGo(0);
+}
+
+function wbSearchItem(match) {
+  return (wbState[WB_LIST_BY_KIND[match.kind]] || []).find((i) => i.id === match.id) || null;
+}
+
+function wbApplySearchHighlight() {
+  const wanted = new Set(wbBoardSearch.matches.map((m) => wbMultiKey(m.kind, m.id)));
+  const current = wbBoardSearch.index >= 0 ? wbBoardSearch.matches[wbBoardSearch.index] : null;
+  const currentKey = current ? wbMultiKey(current.kind, current.id) : null;
+  for (const el of document.querySelectorAll("#wb-html-layer [data-id], #wb-zoom-group [data-id]")) {
+    const kind = el.classList.contains("node-card")
+      ? "node"
+      : el.classList.contains("wb-object")
+      ? "object"
+      : null;
+    if (!kind) continue;
+    const key = wbMultiKey(kind, Number(el.dataset.id));
+    el.classList.toggle("wb-search-hit", wanted.has(key));
+    el.classList.toggle("wb-search-current", key === currentKey);
+  }
+}
+
+function wbUpdateSearchCount() {
+  const el = document.getElementById("wb-search-count");
+  if (!el) return;
+  const total = wbBoardSearch.matches.length;
+  if (!wbBoardSearch.query.trim()) {
+    el.textContent = "";
+    return;
+  }
+  // "3 of 12", not a bare number — a screen reader reading this aria-live
+  // region needs to know which of how many, and so does everyone else.
+  el.textContent = total ? `${wbBoardSearch.index + 1} of ${total}` : "No matches";
+}
+
+/** Step through the matches, wrapping at both ends. */
+function wbBoardSearchGo(delta) {
+  const total = wbBoardSearch.matches.length;
+  if (!total) return;
+  const next = wbBoardSearch.index < 0 ? 0 : (wbBoardSearch.index + delta + total) % total;
+  wbBoardSearch.index = next;
+  const match = wbBoardSearch.matches[next];
+  const item = wbSearchItem(match);
+  const box = item ? wbItemBBox(match.kind, item) : null;
+  if (box) wbCenterOn(box);
+  wbApplySearchHighlight();
+  wbUpdateSearchCount();
+}
+
+function wbCloseBoardSearch() {
+  const bar = document.getElementById("wb-search-bar");
+  if (!bar) return;
+  bar.classList.add("hidden");
+  wbBoardSearch.query = "";
+  wbBoardSearch.matches = [];
+  wbBoardSearch.index = -1;
+  wbApplySearchHighlight();
+  document.getElementById("whiteboard-container")?.focus?.();
+}
+
+function wbOpenBoardSearch() {
+  const bar = document.getElementById("wb-search-bar");
+  const input = document.getElementById("wb-search-input");
+  if (!bar || !input) return;
+  bar.classList.remove("hidden");
+  input.focus();
+  input.select();
 }
 
 //: Real anchor/connection points for links (asked for directly, "take
@@ -2624,7 +2997,9 @@ async function initWhiteboard() {
   // Toolbar hooks
   document.getElementById("wb-zoom-in").addEventListener("click", () => container.transition().call(wbZoom.scaleBy, 1.2));
   document.getElementById("wb-zoom-out").addEventListener("click", () => container.transition().call(wbZoom.scaleBy, 0.8));
-  document.getElementById("wb-zoom-fit").addEventListener("click", () => container.transition().call(wbZoom.transform, d3.zoomIdentity));
+  // Was `wbZoom.transform(d3.zoomIdentity)` — a reset to 100% at the origin,
+  // under a button labelled "Fit to Screen". See `wbZoomToFit`.
+  document.getElementById("wb-zoom-fit").addEventListener("click", () => wbZoomToFit());
 
   // **An arrow, not the function directly.** `addEventListener` passes the
   // click event as the first argument, which would land in
@@ -2633,6 +3008,68 @@ async function initWhiteboard() {
   // only ever turn full screen *on*. Reported as "I cant exit full screen
   // mode in the whiteboard".
   document.getElementById("wb-fullscreen")?.addEventListener("click", () => toggleWhiteboardFullscreen());
+
+  // --- Navigator ----------------------------------------------------------
+  document.getElementById("wb-navigator-toggle")?.addEventListener("click", () => wbToggleNavigator());
+  document.getElementById("wb-navigator-close")?.addEventListener("click", () => wbToggleNavigator(false));
+  document.getElementById("wb-navigator-fit")?.addEventListener("click", () => wbZoomToFit());
+  const navMap = document.getElementById("wb-navigator-map");
+  if (navMap) {
+    // Pointer events rather than mouse events, so a pen or a touch drag on a
+    // tablet moves the viewport too — this is a drawing app, and the board is
+    // reachable from a touchscreen.
+    let navDragging = false;
+    navMap.addEventListener("pointerdown", (event) => {
+      navDragging = true;
+      navMap.setPointerCapture(event.pointerId);
+      wbNavigatorJump(event);
+      event.preventDefault();
+    });
+    navMap.addEventListener("pointermove", (event) => {
+      if (navDragging) wbNavigatorJump(event);
+    });
+    const endNavDrag = (event) => {
+      if (!navDragging) return;
+      navDragging = false;
+      try {
+        navMap.releasePointerCapture(event.pointerId);
+      } catch {
+        /* the pointer was already gone */
+      }
+    };
+    navMap.addEventListener("pointerup", endNavDrag);
+    navMap.addEventListener("pointercancel", endNavDrag);
+  }
+  try {
+    if (localStorage.getItem("wb-navigator-open") === "1") wbToggleNavigator(true);
+  } catch {
+    /* private mode — open it by hand */
+  }
+
+  // --- Find a card on this board ------------------------------------------
+  document.getElementById("wb-search-toggle")?.addEventListener("click", () => {
+    const bar = document.getElementById("wb-search-bar");
+    if (bar && !bar.classList.contains("hidden")) wbCloseBoardSearch();
+    else wbOpenBoardSearch();
+  });
+  document.getElementById("wb-search-close")?.addEventListener("click", wbCloseBoardSearch);
+  document.getElementById("wb-search-prev")?.addEventListener("click", () => wbBoardSearchGo(-1));
+  document.getElementById("wb-search-next")?.addEventListener("click", () => wbBoardSearchGo(1));
+  const searchInput = document.getElementById("wb-search-input");
+  if (searchInput) {
+    searchInput.addEventListener("input", () => wbBoardSearchRun(searchInput.value));
+    searchInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        // Enter re-runs nothing — the matches are already live from `input`.
+        // It only steps, which is what every find bar in every editor does.
+        wbBoardSearchGo(event.shiftKey ? -1 : 1);
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        wbCloseBoardSearch();
+      }
+    });
+  }
   
   // Sidebar toggling
   const setWbLibraryOpen = (open) => {
@@ -3539,7 +3976,27 @@ async function initWhiteboard() {
     const view = document.getElementById("library-view-whiteboard");
     if (!view || view.classList.contains("hidden")) return;
     const tag = (document.activeElement?.tagName || "").toLowerCase();
+    // Ctrl+F is deliberately *not* bound here. The app already owns it for
+    // "Find on this page", and binding it a second time opened both bars at
+    // once — `preventDefault` does not stop another listener, only the
+    // browser. `openGlobalFind` in app.js now hands off to the board search
+    // when a board is open, which is one owner for one shortcut and the same
+    // shape as the handoff it already does for the lightbox's find.
     if (tag === "input" || tag === "textarea" || document.activeElement?.isContentEditable) return;
+    // Bare "n" for the overview, matching the single-letter tool keys this
+    // board already uses (V/S/P/R/O...). Modifier chords are left alone so
+    // Ctrl+N still opens a browser window.
+    if ((e.key === "n" || e.key === "N") && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      wbToggleNavigator();
+      return;
+    }
+    // "/" is the other find idiom, and costs nothing to support.
+    if (e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      wbOpenBoardSearch();
+      return;
+    }
     if (e.code === "Space") {
       // preventDefault so the page does not scroll under the board, and so a
       // focused toolbar button is not "clicked" by the space that is panning.
@@ -4259,10 +4716,32 @@ function renderWbLibrary() {
 
 window.currentBoardId = null;
 
+//: **A response is only allowed to land on the board it was asked for.**
+//:
+//: Found while testing the board search, and it is worth writing down because
+//: it looked like a search bug for three rounds: `window.currentBoardId` read
+//: 128 (the board that had just been opened, and the one the picker showed)
+//: while `wbState.nodes` held the two cards of board 85. The board on screen
+//: was not the board the app thought was open.
+//:
+//: `openWhiteboardBoard` clicks the Boards & maps sub-tab, and that click
+//: starts its own load for whatever board was selected before; it then sets
+//: `currentBoardId` and starts a second load for the board actually asked
+//: for. Both used to `wbState = res` unconditionally, so whichever response
+//: happened to arrive last won — intermittently, which is why two identical
+//: probe runs disagreed.
+//:
+//: The guard is the ordinary one for an out-of-order response: remember which
+//: board the request was for, and throw the answer away if it is no longer
+//: the question being asked. Never mind "last write wins" with a sequence
+//: number — the board id *is* the identity here, and comparing it means a
+//: re-fetch of the same board still applies normally.
 async function fetchWhiteboardState() {
+  const requestedBoardId = window.currentBoardId ?? null;
   try {
-    const url = window.currentBoardId ? `/whiteboard/?board_id=${window.currentBoardId}` : "/whiteboard/";
+    const url = requestedBoardId ? `/whiteboard/?board_id=${requestedBoardId}` : "/whiteboard/";
     const res = await apiJson(url);
+    if ((window.currentBoardId ?? null) !== requestedBoardId) return;
     wbState = res;
     await refreshBoardList();
   } catch (err) {
@@ -4956,6 +5435,11 @@ function wbScheduleRender() {
 function renderWhiteboardNow() {
   wbRenderQueued = false;
   renderWhiteboard();
+  // A render replaces card elements, so the search highlight classes are gone
+  // with them and the navigator's item rectangles are stale. Both re-apply
+  // from state rather than being re-derived by their own callers.
+  wbApplySearchHighlight();
+  wbRenderNavigator();
 }
 
 function renderWhiteboard() {

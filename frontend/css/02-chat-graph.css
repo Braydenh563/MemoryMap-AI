@@ -64,6 +64,68 @@
   max-width: 100%;
 }
 
+/* **Steps arrive, they do not appear.** Asked for directly: "make tool usage
+   and steps fade in not just suddenly spawn in."
+
+   Every row in this column is appended by a streaming callback as the event
+   that produced it happens, so from the reader's side a tool row, a thought
+   or a grounding chip simply exists on one frame having not existed on the
+   previous one. At the rate a local model emits them that is a column that
+   flickers rather than one that builds, and it makes a sequence that *is*
+   ordered in time read as a list that was there all along.
+
+   A short rise-and-fade on the element's own entry animation costs nothing —
+   it runs once per row, never repeats, and needs no JavaScript at all, so a
+   row added by a callback nobody has thought about yet gets it too. 4px of
+   travel rather than a slide: enough for the eye to register the direction
+   the column grows in, not enough to be a movement anyone has to wait out. */
+@keyframes step-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.agent-steps > *,
+.chat-sources > *,
+.agent-step-group-body > * {
+  animation: step-enter var(--motion-slow) ease-out both;
+}
+
+/* The one exception the rule above must make for itself: the pending
+   indicator is *moved* to the end of the column on every delta
+   (`clearPending`), and Blink restarts an entry animation in a re-inserted
+   subtree — so it would fade in again on every token, which is the flicker
+   this is here to remove. */
+.agent-steps > .progress-line {
+  animation: none;
+}
+
+/* Reduced motion keeps the information and drops the movement, per DESIGN.md:
+   the row still fades rather than jumping, it just does not travel. */
+@media (prefers-reduced-motion: reduce) {
+  .agent-steps > *,
+  .chat-sources > *,
+  .agent-step-group-body > * {
+    animation-name: step-fade;
+  }
+
+  @keyframes step-fade {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+}
+
 .agent-steps>* {
   max-width: 100%;
 }
@@ -4248,4 +4310,45 @@ mark.lightbox-hit {
 .chat-model-facts dd {
   margin: 0;
   font-variant-numeric: tabular-nums;
+}
+
+/* **The "still writing" / jump-to-latest pill.** See `#chat-jump-latest` in
+   index.html for the report behind it. Anchored to the bottom of the
+   transcript column rather than to the pane it scrolls with — a control that
+   scrolls away with the content is the very problem it exists to solve. */
+.chat-jump-latest {
+  position: sticky;
+  bottom: var(--space-3);
+  z-index: 4;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 auto;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-pill);
+  background: var(--modal-bg-opaque);
+  box-shadow: var(--shadow-lg);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.chat-jump-latest:hover {
+  background: var(--accent-soft);
+}
+
+/* The dots only exist while a turn is running; an empty span must not open a
+   gap in the pill on the way back to "Jump to latest". */
+.chat-jump-latest-dots:empty {
+  display: none;
+}
+
+/* While a turn is live the pill wears the app's own working state, so it reads
+   as the indicator that scrolled away rather than as a second, unrelated
+   control that happens to have appeared. */
+.chat-jump-latest.is-generating-pill {
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }

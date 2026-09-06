@@ -1241,6 +1241,29 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
           </div>
           <div id="chat-messages"></div>
+          <!-- **"Still writing" has to be sayable when the writing is
+               off-screen.** Reported: "I also scrolled up while still
+               streaming the response and the generating and animation
+               disappeared." Nothing had gone wrong — the indicator lives at
+               the end of the transcript, and reading back through a long
+               answer puts the end of the transcript below the fold. But an
+               app whose only "I am working" signal can be scrolled out of
+               view has no working signal at all for exactly the minute you
+               most want one.
+
+               It appears only once the reader has actually scrolled away
+               (`#chat-messages`'s own `data-stuck="0"`, which the follow
+               logic already tracks), so it costs nothing in the normal case
+               where the pane is following the stream. It doubles as the
+               jump-to-latest control every long transcript wants and this
+               one did not have. -->
+          <button type="button" id="chat-jump-latest" class="chat-jump-latest hidden"
+            title="Back to the end of the conversation"
+            aria-label="Back to the end of the conversation">
+            <span id="chat-jump-latest-dots" class="chat-jump-latest-dots" aria-hidden="true"></span>
+            <span id="chat-jump-latest-label">Jump to latest</span>
+            <i class="ph ph-arrow-down ph-lead" aria-hidden="true"></i>
+          </button>
           <div id="chat-suggest" class="recent hidden"></div>
           <!-- The dock: everything about the message you are about to send,
                in one block fixed to the bottom of the chat.

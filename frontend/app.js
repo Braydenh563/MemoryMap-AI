@@ -11118,6 +11118,44 @@ const PROGRESS_STEP_MS = 1000;
 //: own mark are built from. Inline SVG with attributes rather than a `style`
 //: string, because this app's CSP drops inline styles (CLAUDE.md, "a policy
 //: silently refusing the work"); everything that moves is done in CSS.
+//: **An interval that belongs to a node, and survives that node being moved.**
+//:
+//: The pattern this replaces was `if (!node.isConnected) return
+//: clearInterval(timer)` — correct about the leak it was guarding (an interval
+//: that outlives its element grows with every turn of a long conversation) and
+//: wrong about what "gone" means. **A node that is being re-parented is
+//: disconnected for an instant**, and this app re-parents the streaming
+//: indicator on purpose: `reattachStreamingTurn` appends every node of the
+//: live turn back into `#chat-messages` whenever the pane is rebuilt, and
+//: `clearPending` moves the pending line to the end of the steps.
+//:
+//: One tick landing inside one of those windows killed the timer for good.
+//: The node came back, the animation did not, and it froze mid-cycle showing
+//: its three dots standing still — reported as "the text streaming animation
+//: stops moving and just shows as 3 lines", and again as "I scrolled up while
+//: still streaming the response and the generating and animation disappeared",
+//: which is the same timer dying during the re-render that scrolling caused.
+//:
+//: So: skip the work while detached, and only give up once the node has stayed
+//: gone for `GRACE_TICKS` in a row. A re-parent is one frame; ten ticks is
+//: several seconds, which is far longer than any re-render and still bounded,
+//: so the leak the original guard was written for cannot come back.
+const LIVING_INTERVAL_GRACE_TICKS = 10;
+
+function livingInterval(node, fn, ms) {
+  let missing = 0;
+  const timer = setInterval(() => {
+    if (!node.isConnected) {
+      missing += 1;
+      if (missing >= LIVING_INTERVAL_GRACE_TICKS) clearInterval(timer);
+      return;
+    }
+    missing = 0;
+    fn();
+  }, ms);
+  return timer;
+}
+
 function aiWritingTrace() {
   const NS = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(NS, "svg");
@@ -11204,20 +11242,22 @@ function typingDots(label = "Thinking…") {
   //: anyone unwell — and it is unmistakably alive.
   dots.classList.add("typing-dots-stepped");
   let at = 0;
-  const children = [...dots.children];
+  //: **The dots only** — `aiWritingTrace()`'s `<svg>` is appended into this
+  //: same box (see its own note on why it goes after the spans), so a plain
+  //: `[...dots.children]` walked four elements for three dots. Every fourth
+  //: tick lit the SVG, which shows nothing in this mode, so one beat in four
+  //: had no dot on at all: a second of stillness that reads exactly like the
+  //: animation having stopped. Measured on the running app before the fix —
+  //: the highlighted index cycled 0, 1, 2, 3 across four spans-and-an-SVG.
+  const children = [...dots.querySelectorAll(":scope > span")];
   const tick = () => {
     children.forEach((dot, i) => dot.classList.toggle("is-on", i === at));
     at = (at + 1) % children.length;
   };
   tick();
-  const timer = setInterval(() => {
-    //: Stops itself once the node is gone. A `setInterval` that outlives its
-    //: element is a leak that grows with every turn of a long conversation,
-    //: and nothing else would ever clear this one — the caller removes the
-    //: node, it does not know an interval exists.
-    if (!dots.isConnected) return clearInterval(timer);
-    tick();
-  }, PROGRESS_STEP_MS);
+  //: Stops itself once the node is really gone — but not the instant it is
+  //: merely being moved. See `livingInterval`.
+  livingInterval(dots, tick, PROGRESS_STEP_MS);
   return dots;
 }
 
@@ -11309,6 +11349,8 @@ function progressLine(initial = "Thinking…") {
   wrap.appendChild(musing);
   let at = Math.floor(Math.random() * PROGRESS_MUSINGS.length);
   const showMusing = () => {
+    //: Skipped, not fatal: `livingInterval` below decides when this indicator
+    //: is actually finished with, and a node mid-re-parent is not.
     if (!wrap.isConnected) return;
     //: **They cross-fade rather than cutting.** Reported: *"the thinking
     //: bubble animation and generating messages that alternate can be better
@@ -11330,10 +11372,7 @@ function progressLine(initial = "Thinking…") {
   //: stepped dots' own interval.
   const first = setTimeout(() => {
     showMusing();
-    const rotate = setInterval(() => {
-      if (!wrap.isConnected) return clearInterval(rotate);
-      showMusing();
-    }, MUSING_ROTATE_MS);
+    livingInterval(wrap, showMusing, MUSING_ROTATE_MS);
   }, MUSING_DELAY_MS);
   wrap.addEventListener("remove", () => clearTimeout(first));
 
@@ -11393,6 +11432,11 @@ function followBottom(element) {
       const distance =
         element.scrollHeight - element.scrollTop - element.clientHeight;
       element.dataset.stuck = distance <= SCROLL_STICK_SLACK ? "1" : "0";
+      //: The chat pane is the one place this flag has a visible consequence
+      //: — see `syncChatJumpLatest`. Guarded by id rather than wired at the
+      //: chat's own call site because `followBottom` is what owns the flag,
+      //: and a second listener would have to duplicate the same maths.
+      if (element.id === "chat-messages") syncChatJumpLatest();
     },
     { passive: true }
   );
@@ -11405,12 +11449,51 @@ function keepAtBottom(element) {
   if (element.dataset.stuck !== "0") element.scrollTop = element.scrollHeight;
 }
 
+//: **The "still writing" pill, for when the writing is off-screen.**
+//:
+//: Reported: "I also scrolled up while still streaming the response and the
+//: generating and animation disappeared." Nothing had broken — the indicator
+//: lives at the end of the transcript, and scrolling back through a long
+//: answer puts the end of the transcript below the fold. `followBottom`
+//: already records that the reader has taken over, as `data-stuck="0"` on the
+//: pane, and deliberately stops auto-scrolling when it happens; what was
+//: missing is any way for the app to keep saying "still working" once the
+//: place it was saying it has scrolled away.
+//:
+//: So the pill is shown by exactly that flag, wears the app's own indicator
+//: while a turn is live, and falls back to a plain jump-to-latest the rest of
+//: the time — which is a control a long transcript wants anyway and this one
+//: never had. `chatStreaming` is the same state the stop button reads, so the
+//: two cannot disagree about whether a turn is running.
+function syncChatJumpLatest() {
+  const button = $("chat-jump-latest");
+  const pane = $("chat-messages");
+  if (!button || !pane) return;
+  const scrolledAway = pane.dataset.stuck === "0";
+  const overflowing = pane.scrollHeight - pane.clientHeight > SCROLL_STICK_SLACK;
+  button.classList.toggle("hidden", !(scrolledAway && overflowing));
+  const streaming = Boolean(chatStreaming);
+  button.classList.toggle("is-generating-pill", streaming);
+  const label = $("chat-jump-latest-label");
+  if (label) label.textContent = streaming ? "Still writing" : "Jump to latest";
+  const dots = $("chat-jump-latest-dots");
+  if (!dots) return;
+  //: Rebuilt only when the phase actually changes: `typingDots` starts an
+  //: interval (and, with motion on, CSS animations), and replacing it on every
+  //: scroll event would restart both several times a second.
+  if (streaming && !dots.firstChild) dots.appendChild(typingDots("Writing"));
+  if (!streaming) dots.replaceChildren();
+}
+
 function chatScrollToEnd() {
   if (chatScrollQueued) return;
   chatScrollQueued = true;
   requestAnimationFrame(() => {
     chatScrollQueued = false;
     keepAtBottom($("chat-messages"));
+    //: Called here as well as on scroll: a turn starting or ending changes
+    //: what the pill says, and neither of those is a scroll event.
+    syncChatJumpLatest();
   });
 }
 
@@ -32634,3 +32717,14 @@ $("template-cancel")?.addEventListener("click", stopEditingTemplate);
 // appear later. Last line of the file on purpose: by here every panel this
 // script builds up front exists, and the observer inside covers the rest.
 watchForSelects();
+
+//: Clicking it does the one thing its name promises, and hands the pane back
+//: to the follow logic by landing at the bottom — the next `scroll` event sets
+//: `data-stuck` to "1" and the stream resumes carrying the view with it.
+$("chat-jump-latest")?.addEventListener("click", () => {
+  const pane = $("chat-messages");
+  if (!pane) return;
+  pane.scrollTo({ top: pane.scrollHeight, behavior: reducedMotionWanted() ? "auto" : "smooth" });
+  pane.dataset.stuck = "1";
+  syncChatJumpLatest();
+});

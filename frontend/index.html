@@ -2402,6 +2402,45 @@ Link to another note with [[its first few words]]."></textarea>
           <div id="doc-preview" class="doc-preview markdown-body hidden" aria-live="off"></div>
         </div>
         <p id="doc-status" class="status doc-status" role="status"></p>
+        <!-- **The strip VS Code and Word both have and this editor did not.**
+             Asked for: "improve and expand on some features in the document
+             editor, take inspo from vs code and word with options to view more
+             info like character count, inline auto fill suggestions, grammar
+             checker + auto correct etc."
+
+             Everything here is computed locally from the text in the box —
+             nothing on this bar needs a model, a network call or a service,
+             which is the only way it can exist in an app whose whole claim is
+             that it works with the plug pulled. -->
+        <div class="doc-statusbar" id="doc-statusbar" role="group" aria-label="Document status">
+          <span id="doc-caret" class="doc-statusbar-item doc-statusbar-fact"
+            title="Where the caret is, and what is selected">Ln 1, Col 1</span>
+          <span id="doc-counts" class="doc-statusbar-item doc-statusbar-fact"
+            title="Characters, words and roughly how long this takes to read"></span>
+          <!-- The findings chip. A count with nothing behind it is a scold, so
+               it opens the list and every row jumps to the sentence. -->
+          <button id="doc-prose" class="doc-statusbar-item doc-statusbar-button" type="button"
+            aria-expanded="false" aria-controls="doc-prose-panel"
+            title="Writing suggestions found in this document"><i class="ph ph-spell-check ph-lead" aria-hidden="true"></i> <span id="doc-prose-count">No suggestions</span></button>
+          <span class="doc-statusbar-spacer"></span>
+          <!-- Both off by default, and both remembered. Software that changes
+               what you typed without being asked is the thing everyone turns
+               off first; this asks. -->
+          <label class="checkbox-label doc-statusbar-item"
+            title="Fix a small list of unambiguous typos as you finish each word (teh, adn, recieve…). Never in a code file.">
+            <input type="checkbox" id="doc-autocorrect"> Autocorrect
+          </label>
+          <label class="checkbox-label doc-statusbar-item"
+            title="Suggest the rest of a word from this document and your notebook — Tab to accept">
+            <input type="checkbox" id="doc-complete" checked> Suggestions
+          </label>
+        </div>
+        <div id="doc-prose-panel" class="doc-prose-panel hidden" aria-label="Writing suggestions"></div>
+        <!-- The completion popup, positioned at the caret. Outside the panes so
+             nothing clips it — the toolbar's own `overflow` trap is one storey
+             up in this file and cost an hour. -->
+        <ul id="doc-complete-list" class="doc-complete-list hidden" role="listbox"
+          aria-label="Word suggestions"></ul>
         <p class="muted doc-hint">
           Saves automatically. <kbd>Ctrl</kbd>+<kbd>S</kbd> saves now,
           <kbd>Ctrl</kbd>+<kbd>B</kbd>/<kbd>I</kbd> wrap the selection in bold or italics.

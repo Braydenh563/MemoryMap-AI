@@ -2845,3 +2845,200 @@ textarea.autogrow {
 .library-image-grid.show-file-types .library-file-page {
   display: none;
 }
+
+/* --- the document editor's instruments ---------------------------------------
+   Asked for: "take inspo from vs code and word with options to view more info
+   like character count, inline auto fill suggestions, grammar checker + auto
+   correct etc." Everything here is computed locally from the text in the box —
+   see documents.js for why that is the requirement and not a limitation. */
+
+/* The status strip. Quiet by design: it is the line you glance at, never the
+   line you read, so it takes the smallest type in the app and the muted ink,
+   and its own controls only gain weight when there is something to say. */
+.doc-statusbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--inner);
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.doc-statusbar-fact {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.doc-statusbar-spacer {
+  flex: 1 1 auto;
+}
+
+.doc-statusbar-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.doc-statusbar-button:hover,
+.doc-statusbar-button:focus-visible {
+  border-color: var(--border);
+  color: var(--ink);
+}
+
+/* Only when there is something to look at. A count that is always coloured is
+   a count nobody reads. */
+.doc-statusbar-button.has-findings {
+  color: var(--warn);
+}
+
+.doc-statusbar .checkbox-label {
+  font-size: var(--text-xs);
+  gap: var(--space-1);
+}
+
+/* The findings themselves. A list, under the bar that counts them, so opening
+   it does not cover the document it is about. */
+.doc-prose-panel {
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--inner);
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
+.doc-prose-head {
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.doc-prose-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.doc-prose-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* The row is the jump. A finding you have to hunt for after reading about it
+   is a finding that cost you more than it saved. */
+.doc-prose-jump {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.doc-prose-jump:hover,
+.doc-prose-jump:focus-visible {
+  border-color: var(--accent);
+  background: var(--chip-bg);
+}
+
+.doc-prose-what {
+  flex: none;
+}
+
+/* The offending words, so the row says what it is about rather than only what
+   kind of thing it is. */
+.doc-prose-where {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+}
+
+/* The completion popup. `position: fixed` because it is placed in viewport
+   coordinates against the caret — an absolutely-positioned list would be
+   offset by every scrolling ancestor between it and the textarea, which in
+   this editor is three of them. */
+.doc-complete-list {
+  position: fixed;
+  z-index: 1200;
+  list-style: none;
+  margin: 0;
+  padding: var(--space-1);
+  min-width: 10rem;
+  max-width: 20rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--modal-bg-opaque);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--text-sm);
+}
+
+.doc-complete-list li {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The typed part in full strength, the suggested rest quieter: the difference
+   is the whole message the row is carrying. */
+.doc-complete-list li b {
+  font-weight: 600;
+}
+
+.doc-complete-list li span {
+  color: var(--muted);
+}
+
+.doc-complete-list li.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.doc-complete-list li.active span {
+  color: inherit;
+}
+
+/* The caret mirror (documents.js). Off-screen rather than `display: none` — a
+   box with no layout reports no position, which is the whole reason it exists.
+   Every property that affects text layout is copied onto it in script; these
+   are only the ones that must never be. */
+.doc-caret-mirror {
+  position: absolute;
+  visibility: hidden;
+  top: 0;
+  left: -9999px;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}

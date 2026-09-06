@@ -365,6 +365,9 @@ async function openDocument(id) {
   renderDocPreview();
   if (docView === "live") renderDocLive();
   renderDocStats();
+  //: The status bar and the prose check belong to the document, so they are
+  //: repainted with it rather than waiting for the first keystroke.
+  renderDocTools();
   renderDocOutline();
   renderDocNotes();
   renderDocBacklinks();
@@ -3046,3 +3049,776 @@ function applyDocToolbarLayoutButtons() {
 //: toggle would read as the setting not having been saved.
 applyDocToolbarMode(docToolbarMode());
 mountDocToolbarControls();
+
+// =============================================================================
+// The editor's own instruments: counts, completion, prose checks, autocorrect
+// =============================================================================
+//
+// Asked for directly: *"improve and expand on some features in the document
+// editor, take inspo from vs code and word with options to view more info like
+// character count, inline auto fill suggestions, grammar checker + auto correct
+// etc."*
+//
+// **Everything below is local arithmetic over the text in the box.** No model,
+// no network, no service — which is not a limitation here, it is the
+// requirement: this app's whole claim is that it works with the plug pulled,
+// and a grammar checker that phones a server would be the first thing in it
+// that does not. It also means every one of these is instant, which is what
+// makes them usable while typing at all.
+//
+// What that rules out is honest to state: this cannot judge *meaning*. It will
+// not know that a sentence is wrong, only that it repeats a word, runs long,
+// or contains a spelling this list is sure about. Rules that would need
+// judgement (its/it's, their/there in context) are deliberately absent —
+// a checker that is wrong a third of the time teaches people to ignore it,
+// and then the two thirds it is right about go unread too.
+
+//: The one surface each instrument acts on: whichever box the caret is in.
+//: Source view has one textarea; Live view has one per paragraph, and the
+//: active one is the only `.lp-src` on screen.
+function docActiveBox() {
+  const active = document.activeElement;
+  if (active instanceof HTMLTextAreaElement) {
+    if (active.id === "doc-content" || active.classList.contains("lp-src")) return active;
+  }
+  return $("doc-content");
+}
+
+//: **Where the caret is, in pixels.** The standard mirror technique: a hidden
+//: div that copies every property that affects text layout, holds the text up
+//: to the caret, and reports where a marker span lands. There is no API for
+//: this — `selectionStart` is an index, and a popup has to go somewhere on
+//: screen.
+//:
+//: The property list is the part that has to be right: miss `font-family` or
+//: `padding` and the popup drifts further from the caret the further down the
+//: document you are, which reads as a positioning bug rather than a missing
+//: line of CSS.
+const DOC_MIRROR_PROPS = [
+  "boxSizing", "width", "borderLeftWidth", "borderRightWidth", "borderTopWidth",
+  "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
+  "fontFamily", "fontSize", "fontWeight", "fontStyle", "letterSpacing",
+  "lineHeight", "textTransform", "textIndent", "whiteSpace", "wordSpacing",
+  "tabSize",
+];
+
+let docMirror = null;
+
+function docCaretPoint(box) {
+  if (!docMirror) {
+    docMirror = document.createElement("div");
+    docMirror.className = "doc-caret-mirror";
+    document.body.appendChild(docMirror);
+  }
+  const style = getComputedStyle(box);
+  for (const prop of DOC_MIRROR_PROPS) docMirror.style[prop] = style[prop];
+  //: `pre-wrap`, always: a textarea wraps and preserves whitespace, and a
+  //: mirror that collapsed spaces would put the caret a word early on every
+  //: line that has two of them.
+  docMirror.style.whiteSpace = "pre-wrap";
+  docMirror.style.overflowWrap = "break-word";
+  docMirror.textContent = box.value.slice(0, box.selectionStart);
+  const marker = document.createElement("span");
+  //: A zero-width space rather than nothing: an empty span has no box, so it
+  //: reports the wrong position at the end of a line.
+  marker.textContent = "​";
+  docMirror.appendChild(marker);
+  const boxRect = box.getBoundingClientRect();
+  const markRect = marker.getBoundingClientRect();
+  const mirrorRect = docMirror.getBoundingClientRect();
+  return {
+    x: boxRect.left + (markRect.left - mirrorRect.left) - box.scrollLeft,
+    y: boxRect.top + (markRect.top - mirrorRect.top) - box.scrollTop,
+    lineHeight: Number.parseFloat(style.lineHeight) || 18,
+  };
+}
+
+// --- the status bar -----------------------------------------------------------
+
+const DOC_READING_WPM = 220;
+
+//: Line and column are 1-based, because that is what every editor and every
+//: error message in the world means by them.
+function docCaretStats(box) {
+  const upto = box.value.slice(0, box.selectionStart);
+  const line = upto.split("\n").length;
+  const column = upto.length - (upto.lastIndexOf("\n") + 1) + 1;
+  const selected = box.selectionEnd - box.selectionStart;
+  return { line, column, selected };
+}
+
+function renderDocStatusBar() {
+  const box = docActiveBox();
+  const caret = $("doc-caret");
+  const counts = $("doc-counts");
+  if (!box || !caret || !counts) return;
+  //: In Live view the caret is inside one paragraph, so a line number
+  //: counted within that box would be a lie about the document. The block's
+  //: own offset makes it the document's line — `docLiveBlockOffset` exists for
+  //: exactly this class of question and returns null when it cannot be sure,
+  //: which is when the bar says so rather than guessing.
+  let stats = docCaretStats(box);
+  if (box.classList.contains("lp-src")) {
+    const offset = docLiveBlockOffset(box);
+    if (offset === null) {
+      stats = null;
+    } else {
+      const full = $("doc-content").value.slice(0, offset + box.selectionStart);
+      stats = {
+        line: full.split("\n").length,
+        column: full.length - (full.lastIndexOf("\n") + 1) + 1,
+        selected: box.selectionEnd - box.selectionStart,
+      };
+    }
+  }
+  caret.textContent = stats
+    ? `Ln ${stats.line}, Col ${stats.column}${stats.selected ? ` · ${stats.selected} selected` : ""}`
+    : "In a paragraph";
+
+  const text = $("doc-content")?.value || "";
+  const words = (text.match(/\S+/g) || []).length;
+  const chars = text.length;
+  const minutes = words / DOC_READING_WPM;
+  const read =
+    !words ? "" : minutes < 1 ? "under a min" : minutes < 60
+      ? `${Math.round(minutes)} min read`
+      : `${(minutes / 60).toFixed(1)}h read`;
+  //: Characters first, because that is the one the existing header line never
+  //: showed and the one that was asked for by name.
+  counts.textContent = [
+    `${chars.toLocaleString()} char${chars === 1 ? "" : "s"}`,
+    `${words.toLocaleString()} word${words === 1 ? "" : "s"}`,
+    read,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+// --- the prose check ----------------------------------------------------------
+//
+// **Rules, not judgement.** Each one has to be something a regular expression
+// can be *sure* about, because a checker that is wrong a third of the time
+// teaches people to ignore it — and then the two thirds it is right about go
+// unread too. That is why there is no its/it's rule here: telling those apart
+// needs the sentence's meaning, and this has none.
+//
+// `fix` is optional. A rule that can state the problem but not the answer
+// ("this sentence is 47 words long") still earns its row: knowing where to look
+// is most of the work. Only rules with a `fix` get a button.
+const DOC_PROSE_RULES = [
+  {
+    id: "repeat",
+    //: The classic, and the one nobody catches by re-reading: the eye supplies
+    //: the missing word. Case-insensitive, and only for words worth repeating
+    //: by accident — `\b(\w+)\s+\1\b` alone flags "had had" and "that that",
+    //: which are both real English.
+    test: /\b(the|a|an|and|to|of|in|is|it|that|for|on|with|as|at|be)\s+\1\b/gi,
+    message: "The same word twice in a row",
+    fix: (match) => match.split(/\s+/)[0],
+  },
+  {
+    id: "double-space",
+    test: /(?<=\S) {2,}(?=\S)/g,
+    message: "More than one space between words",
+    fix: () => " ",
+  },
+  {
+    id: "space-before-punctuation",
+    test: /\s+([,.;:!?])/g,
+    message: "A space before punctuation",
+    fix: (match) => match.trim(),
+  },
+  {
+    id: "missing-space",
+    //: After a full stop and before a capital — not after every full stop,
+    //: because `3.5`, `file.md` and `e.g.` are all correct and common.
+    test: /[a-z]{2}[.!?](?=[A-Z])/g,
+    message: "No space after the full stop",
+    fix: (match) => `${match} `,
+  },
+  {
+    id: "missing-space-comma",
+    //: Only before a letter. `1,000` and `a[1,2]` are both correct and common,
+    //: and a rule that reformatted numbers would be worse than no rule.
+    test: /,(?=[A-Za-z])/g,
+    message: "No space after the comma",
+    fix: () => ", ",
+  },
+  {
+    id: "double-punctuation",
+    test: /([,;:])\1+/g,
+    message: "Punctuation repeated",
+    fix: (match) => match[0],
+  },
+  {
+    id: "spelling",
+    //: The same list autocorrect uses, so a document written with autocorrect
+    //: off can still be cleaned up in one pass afterwards. Built below from
+    //: `DOC_AUTOCORRECT` rather than typed twice.
+    test: null,
+    message: "A likely typo",
+  },
+  {
+    id: "long-sentence",
+    //: 45 words is not wrong, and this does not say it is — it says look here.
+    //: No `fix`, because splitting a sentence is a decision about meaning and
+    //: this knows none.
+    test: null,
+    message: "A very long sentence — worth a full stop somewhere",
+  },
+];
+
+//: **Unambiguous typos only.** Every entry here is a string that is not a word
+//: in any English text — which is the bar an automatic replacement has to
+//: clear, because the cost of being wrong is that the app silently changed
+//: something the writer meant. `alot` is in; `dont` is not (an apostrophe is a
+//: style choice, and in a code block it is a quote).
+const DOC_AUTOCORRECT = {
+  teh: "the", adn: "and", taht: "that", tehn: "then", thsi: "this",
+  thier: "their", recieve: "receive", recieved: "received", seperate: "separate",
+  seperated: "separated", occured: "occurred", occuring: "occurring",
+  definately: "definitely", wich: "which", becuase: "because", becasue: "because",
+  alot: "a lot", accomodate: "accommodate", acheive: "achieve", acheived: "achieved",
+  arguement: "argument", beleive: "believe", calender: "calendar",
+  concious: "conscious", embarass: "embarrass", enviroment: "environment",
+  existance: "existence", goverment: "government", independant: "independent",
+  neccessary: "necessary", occassion: "occasion", persistant: "persistent",
+  publically: "publicly", recomend: "recommend", refered: "referred",
+  succesful: "successful", tommorow: "tomorrow", untill: "until",
+  wierd: "weird", writting: "writing", youre: "you're", ot: "to",
+};
+
+const DOC_LONG_SENTENCE_WORDS = 45;
+
+//: Findings, in document order, each with the exact span it is about so the
+//: panel can jump to it and the fix can replace it without searching for the
+//: text again (which would find the wrong occurrence in a document that says
+//: the same thing twice).
+function docProseFindings(text) {
+  const found = [];
+  for (const rule of DOC_PROSE_RULES) {
+    if (!rule.test) continue;
+    //: A fresh regex per pass: these carry `g`, and `lastIndex` survives
+    //: between calls on a shared object — which silently skips half the
+    //: document on every second run.
+    const pattern = new RegExp(rule.test.source, rule.test.flags);
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      if (!match[0].length) break; // a zero-width match would loop forever
+      found.push({
+        rule: rule.id,
+        message: rule.message,
+        start: match.index,
+        end: match.index + match[0].length,
+        text: match[0],
+        replacement: rule.fix ? rule.fix(match[0]) : null,
+      });
+    }
+  }
+  //: Spelling, word by word, so the span is the word and not a substring of a
+  //: longer one — a regex over the whole list would flag "ot" inside "not".
+  const word = /[A-Za-z']+/g;
+  let hit;
+  while ((hit = word.exec(text)) !== null) {
+    const lower = hit[0].toLowerCase();
+    const better = DOC_AUTOCORRECT[lower];
+    if (!better) continue;
+    found.push({
+      rule: "spelling",
+      message: `“${hit[0]}” is probably “${better}”`,
+      start: hit.index,
+      end: hit.index + hit[0].length,
+      text: hit[0],
+      //: Keeps the writer's capitalisation: a typo at the start of a sentence
+      //: must not be corrected into a lowercase word.
+      replacement: hit[0][0] === hit[0][0].toUpperCase()
+        ? better[0].toUpperCase() + better.slice(1)
+        : better,
+    });
+  }
+  //: Long sentences, measured over the prose only. Code fences and headings
+  //: are skipped: a fenced block has no sentences, and a heading that runs
+  //: long is a heading, not a run-on.
+  let index = 0;
+  for (const chunk of text.split(/\n\s*\n/)) {
+    const at = index;
+    index += chunk.length + 2;
+    if (/^\s*(?:```|~~~|#|\||>)/.test(chunk)) continue;
+    let cursor = 0;
+    for (const sentence of chunk.split(/(?<=[.!?])\s+/)) {
+      const words = (sentence.match(/\S+/g) || []).length;
+      if (words > DOC_LONG_SENTENCE_WORDS) {
+        found.push({
+          rule: "long-sentence",
+          message: `${words} words in one sentence`,
+          start: at + cursor,
+          end: at + cursor + sentence.length,
+          text: sentence,
+          replacement: null,
+        });
+      }
+      cursor += sentence.length + 1;
+    }
+  }
+  return found.sort((a, b) => a.start - b.start);
+}
+
+let docProseFound = [];
+
+function renderDocProse() {
+  const chip = $("doc-prose");
+  const count = $("doc-prose-count");
+  const panel = $("doc-prose-panel");
+  if (!chip || !count || !panel) return;
+  //: A code file has no prose. Running these rules over one would flag `==`,
+  //: `;;` and every long line, which is noise a programmer cannot turn off
+  //: fast enough.
+  const isCode = !docFileType().previewable;
+  docProseFound = isCode ? [] : docProseFindings($("doc-content")?.value || "");
+  chip.hidden = isCode;
+  count.textContent = docProseFound.length
+    ? `${docProseFound.length} suggestion${docProseFound.length === 1 ? "" : "s"}`
+    : "No suggestions";
+  chip.classList.toggle("has-findings", docProseFound.length > 0);
+  if (!panel.classList.contains("hidden")) renderDocProsePanel();
+}
+
+function renderDocProsePanel() {
+  const panel = $("doc-prose-panel");
+  if (!panel) return;
+  panel.replaceChildren();
+  if (!docProseFound.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = "Nothing to flag. These checks are spelling, spacing and sentence length — they cannot judge meaning.";
+    panel.appendChild(empty);
+    return;
+  }
+  const head = document.createElement("div");
+  head.className = "row doc-prose-head";
+  const title = document.createElement("strong");
+  title.textContent = `${docProseFound.length} suggestion${docProseFound.length === 1 ? "" : "s"}`;
+  head.appendChild(title);
+  const fixable = docProseFound.filter((f) => f.replacement !== null);
+  if (fixable.length) {
+    const all = document.createElement("button");
+    all.type = "button";
+    all.className = "ghost small doc-prose-fix-all";
+    setLabel(all, `ph:magic-wand Fix ${fixable.length} of them`);
+    all.title = "Apply every suggestion that has one clear answer";
+    all.addEventListener("click", () => docProseFixAll());
+    head.appendChild(all);
+  }
+  panel.appendChild(head);
+
+  const list = document.createElement("ul");
+  list.className = "doc-prose-list";
+  for (const finding of docProseFound.slice(0, 60)) {
+    const li = document.createElement("li");
+    li.className = "doc-prose-row";
+    const jump = document.createElement("button");
+    jump.type = "button";
+    jump.className = "doc-prose-jump";
+    const what = document.createElement("span");
+    what.className = "doc-prose-what";
+    what.textContent = finding.message;
+    const where = document.createElement("span");
+    where.className = "doc-prose-where muted";
+    //: The words themselves, trimmed — a row reading only "a very long
+    //: sentence" makes you go and find it, which is the work the row was
+    //: supposed to save.
+    where.textContent = finding.text.replace(/\s+/g, " ").slice(0, 80);
+    jump.append(what, where);
+    jump.title = "Show me this in the document";
+    jump.addEventListener("click", () => docProseJump(finding));
+    li.appendChild(jump);
+    if (finding.replacement !== null) {
+      const fix = document.createElement("button");
+      fix.type = "button";
+      fix.className = "ghost small doc-prose-fix";
+      setLabel(fix, "ph:check");
+      fix.title = `Change it to “${finding.replacement}”`;
+      fix.setAttribute("aria-label", fix.title);
+      fix.addEventListener("click", () => docProseFix(finding));
+      li.appendChild(fix);
+    }
+    list.appendChild(li);
+  }
+  panel.appendChild(list);
+}
+
+//: Show me where. Source view can select the span outright; Live view has to
+//: switch to Source first, because a span the caret cannot reach is not a
+//: place the panel can take you.
+function docProseJump(finding) {
+  if (docView !== "source" && docView !== "split") setDocView("source");
+  const box = $("doc-content");
+  if (!box) return;
+  box.focus();
+  box.setSelectionRange(finding.start, finding.end);
+  //: `blur`+`focus` is the only way to make a textarea scroll to a selection
+  //: it already holds. Without it the caret is right and the view is not.
+  box.blur();
+  box.focus();
+}
+
+function docProseApply(text, finding) {
+  return text.slice(0, finding.start) + finding.replacement + text.slice(finding.end);
+}
+
+function docProseFix(finding) {
+  const box = $("doc-content");
+  if (!box || finding.replacement === null) return;
+  //: Checked against the document as it is *now*, not as it was when the panel
+  //: was drawn. Editing while the panel is open moves every span after the
+  //: edit, and applying a stale offset would corrupt the document silently —
+  //: which is the one failure a writing aid must never have.
+  if (box.value.slice(finding.start, finding.end) !== finding.text) {
+    renderDocProse();
+    return toast("That text has changed — the list is refreshed.", true);
+  }
+  box.value = docProseApply(box.value, finding);
+  markDocDirty();
+  box.dispatchEvent(new Event("input", { bubbles: true }));
+  if (docView === "live") renderDocLive();
+  renderDocProse();
+}
+
+function docProseFixAll() {
+  const box = $("doc-content");
+  if (!box) return;
+  //: Back to front, so each replacement cannot move the offsets of the ones
+  //: still to be applied.
+  const fixable = docProseFound
+    .filter((f) => f.replacement !== null)
+    .sort((a, b) => b.start - a.start);
+  let text = box.value;
+  let applied = 0;
+  for (const finding of fixable) {
+    if (text.slice(finding.start, finding.end) !== finding.text) continue;
+    text = docProseApply(text, finding);
+    applied += 1;
+  }
+  if (!applied) return toast("Nothing left to fix.", true);
+  box.value = text;
+  markDocDirty();
+  box.dispatchEvent(new Event("input", { bubbles: true }));
+  if (docView === "live") renderDocLive();
+  renderDocProse();
+  toast(`Fixed ${applied}. Ctrl+Z undoes it.`);
+}
+
+// --- inline completion --------------------------------------------------------
+//
+// **Where the words come from, and why not a dictionary.** A generic English
+// word list would suggest "thereabouts" while you are writing about your own
+// project and never once offer the word you actually use twenty times a day.
+// The useful vocabulary of a document is the document, plus the notebook it
+// sits in: your project names, your people, your jargon, spelled the way you
+// spell them. So the index is built from this document's own words and the
+// notebook's note titles and tags — which also means it needs no download, no
+// model, and no network, and it is *right* on the first character rather than
+// after a paragraph of context.
+
+const DOC_COMPLETE_MIN = 3; //: Below three characters almost anything matches.
+const DOC_COMPLETE_MAX = 6;
+
+let docCompleteWords = null;
+let docCompleteMatches = [];
+let docCompleteIndex = 0;
+let docCompleteBox = null;
+
+function docCompleteEnabled() {
+  return $("doc-complete")?.checked !== false;
+}
+
+//: Rebuilt when the document changes rather than on every keystroke: a
+//: 50,000-word document is a real thing to have here, and splitting it on each
+//: character typed is the shape that makes an editor feel heavy.
+function docBuildVocabulary() {
+  const counts = new Map();
+  const add = (word, weight) => {
+    if (word.length < DOC_COMPLETE_MIN + 1) return;
+    counts.set(word, (counts.get(word) || 0) + weight);
+  };
+  for (const word of ($("doc-content")?.value || "").match(/[A-Za-z][A-Za-z'-]{2,}/g) || []) {
+    //: Weighted above the notebook's words: while writing *this* document, the
+    //: word you used two paragraphs ago is far likelier than one from a note
+    //: last March.
+    add(word, 3);
+  }
+  const entries = typeof allEntries !== "undefined" ? allEntries : [];
+  for (const entry of entries.slice(0, 400)) {
+    for (const word of String(entry.content || "").slice(0, 400).match(/[A-Za-z][A-Za-z'-]{2,}/g) || []) {
+      add(word, 1);
+    }
+  }
+  for (const doc of typeof docList !== "undefined" && Array.isArray(docList) ? docList : []) {
+    for (const word of String(doc.title || "").match(/[A-Za-z][A-Za-z'-]{2,}/g) || []) add(word, 2);
+  }
+  docCompleteWords = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+//: The half-typed word immediately before the caret, or null. Deliberately not
+//: offered mid-word: a caret inside "compl|etion" is someone fixing a letter,
+//: and a popup there is in the way.
+function docWordFragment(box) {
+  const upto = box.value.slice(0, box.selectionStart);
+  const after = box.value.slice(box.selectionStart, box.selectionStart + 1);
+  if (after && /[A-Za-z]/.test(after)) return null;
+  const match = /[A-Za-z][A-Za-z'-]*$/.exec(upto);
+  if (!match || match[0].length < DOC_COMPLETE_MIN) return null;
+  //: Never inside a wiki link — that autocomplete owns those keystrokes, and
+  //: two popups over one caret is worse than either alone.
+  if (/\[\[[^\]]*$/.test(upto)) return null;
+  return { start: match.index, fragment: match[0] };
+}
+
+function hideDocComplete() {
+  $("doc-complete-list")?.classList.add("hidden");
+  docCompleteMatches = [];
+  docCompleteBox = null;
+}
+
+function renderDocComplete(box) {
+  const list = $("doc-complete-list");
+  if (!list || !docCompleteEnabled()) return hideDocComplete();
+  const at = docWordFragment(box);
+  if (!at) return hideDocComplete();
+  if (!docCompleteWords) docBuildVocabulary();
+  const needle = at.fragment.toLowerCase();
+  docCompleteMatches = docCompleteWords
+    .filter(([word]) => word.toLowerCase().startsWith(needle) && word.toLowerCase() !== needle)
+    .slice(0, DOC_COMPLETE_MAX)
+    .map(([word]) => word);
+  if (!docCompleteMatches.length) return hideDocComplete();
+
+  docCompleteBox = box;
+  docCompleteIndex = Math.min(docCompleteIndex, docCompleteMatches.length - 1);
+  list.replaceChildren();
+  docCompleteMatches.forEach((word, index) => {
+    const li = document.createElement("li");
+    li.setAttribute("role", "option");
+    li.setAttribute("aria-selected", String(index === docCompleteIndex));
+    li.classList.toggle("active", index === docCompleteIndex);
+    const head = document.createElement("b");
+    head.textContent = word.slice(0, at.fragment.length);
+    const rest = document.createElement("span");
+    rest.textContent = word.slice(at.fragment.length);
+    li.append(head, rest);
+    li.addEventListener("mousedown", (event) => {
+      //: mousedown, not click: the textarea must not lose focus first, or the
+      //: selection this writes into is gone by the time it runs.
+      event.preventDefault();
+      applyDocComplete(box, word);
+    });
+    list.appendChild(li);
+  });
+  const point = docCaretPoint(box);
+  //: Kept on screen: a popup at the caret near the right edge or the bottom of
+  //: the window would otherwise open off it, which is the app-wide rule for
+  //: every menu here.
+  list.classList.remove("hidden");
+  const width = list.offsetWidth;
+  const height = list.offsetHeight;
+  const left = Math.min(point.x, window.innerWidth - width - 8);
+  const below = point.y + point.lineHeight + 4;
+  const top = below + height > window.innerHeight - 8 ? point.y - height - 4 : below;
+  list.style.left = `${Math.max(8, left)}px`;
+  list.style.top = `${Math.max(8, top)}px`;
+}
+
+function applyDocComplete(box, word) {
+  const at = docWordFragment(box);
+  if (!at) return hideDocComplete();
+  const before = box.value.slice(0, at.start);
+  const after = box.value.slice(box.selectionStart);
+  box.value = `${before}${word}${after}`;
+  const caret = before.length + word.length;
+  box.setSelectionRange(caret, caret);
+  hideDocComplete();
+  box.focus();
+  box.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+//: Returns true when it handled the key, so the caller knows not to let the
+//: editor's own bindings see it — the same contract `wikiSuggestKeydown` uses.
+function docCompleteKeydown(event, box) {
+  const list = $("doc-complete-list");
+  if (!list || list.classList.contains("hidden")) return false;
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    const step = event.key === "ArrowDown" ? 1 : -1;
+    docCompleteIndex =
+      (docCompleteIndex + step + docCompleteMatches.length) % docCompleteMatches.length;
+    renderDocComplete(box);
+    return true;
+  }
+  //: **Tab, not Enter.** Enter in a document is a new line, and stealing it
+  //: for a suggestion is how an autocomplete becomes the thing you fight.
+  if (event.key === "Tab") {
+    event.preventDefault();
+    applyDocComplete(box, docCompleteMatches[docCompleteIndex]);
+    return true;
+  }
+  if (event.key === "Escape") {
+    event.preventDefault();
+    hideDocComplete();
+    return true;
+  }
+  return false;
+}
+
+// --- autocorrect --------------------------------------------------------------
+
+function docAutocorrectEnabled() {
+  //: Never in a code file: `teh` may be a variable, and an editor that rewrote
+  //: an identifier as you typed it would be unusable.
+  return $("doc-autocorrect")?.checked === true && docFileType().previewable;
+}
+
+//: Fires on the keystroke that *finishes* a word — a space, a newline or
+//: punctuation — which is the only moment a correction is unambiguous. Mid-word
+//: it would rewrite "teh" while you were on your way to typing "tehran".
+function docAutocorrectAt(box) {
+  if (!docAutocorrectEnabled()) return false;
+  const caret = box.selectionStart;
+  const upto = box.value.slice(0, caret);
+  const match = /([A-Za-z']+)([\s.,;:!?)\]]+)$/.exec(upto);
+  if (!match) return false;
+  const better = DOC_AUTOCORRECT[match[1].toLowerCase()];
+  if (!better) return false;
+  const replacement = match[1][0] === match[1][0].toUpperCase()
+    ? better[0].toUpperCase() + better.slice(1)
+    : better;
+  const start = caret - match[0].length;
+  box.value = box.value.slice(0, start) + replacement + match[2] + box.value.slice(caret);
+  const next = start + replacement.length + match[2].length;
+  box.setSelectionRange(next, next);
+  //: Announced, quietly and once. Software that changes what you typed and
+  //: says nothing is the reason people turn autocorrect off — and this one
+  //: names both words so a wrong correction is visible rather than found
+  //: later.
+  toast(`“${match[1]}” → “${replacement}”. Ctrl+Z undoes it.`);
+  return true;
+}
+
+// --- wiring -------------------------------------------------------------------
+//
+// One delegated pair on `document` rather than listeners per box: the live
+// view replaces its textareas on every render, and per-box listeners are the
+// shape that silently accumulates duplicates (tests/test_frontend_handlers.py
+// exists because of exactly that).
+
+const DOC_TOOL_KEYS = { autocorrect: "doc-autocorrect", complete: "doc-complete" };
+
+function docToolPref(name, fallback) {
+  try {
+    const stored = localStorage.getItem(DOC_TOOL_KEYS[name]);
+    return stored === null ? fallback : stored === "1";
+  } catch {
+    return fallback; // private mode — the default shape
+  }
+}
+
+function docSaveToolPref(name, on) {
+  try {
+    localStorage.setItem(DOC_TOOL_KEYS[name], on ? "1" : "0");
+  } catch {
+    /* private mode — it just won't be remembered */
+  }
+}
+
+let docProseTimer = null;
+let docVocabTimer = null;
+
+function docToolsOnInput(box) {
+  renderDocStatusBar();
+  renderDocComplete(box);
+  //: Debounced, both of them: the prose pass walks the whole document and the
+  //: vocabulary re-splits it, and neither is worth doing between two
+  //: keystrokes. 400ms is under the pause at the end of a sentence, so in
+  //: practice the panel is current whenever anyone looks at it.
+  clearTimeout(docProseTimer);
+  docProseTimer = setTimeout(renderDocProse, 400);
+  clearTimeout(docVocabTimer);
+  docVocabTimer = setTimeout(() => {
+    docCompleteWords = null;
+  }, 1200);
+}
+
+function docToolsBoxFor(target) {
+  if (!(target instanceof HTMLTextAreaElement)) return null;
+  if (target.id === "doc-content" || target.classList.contains("lp-src")) return target;
+  return null;
+}
+
+document.addEventListener("input", (event) => {
+  const box = docToolsBoxFor(event.target);
+  if (!box) return;
+  //: Autocorrect first, because it edits the value the rest of this then
+  //: measures — running the counts before it would show the pre-correction
+  //: text for one frame.
+  if (event.inputType === "insertText" || event.inputType === "insertLineBreak") {
+    docAutocorrectAt(box);
+  }
+  docToolsOnInput(box);
+});
+
+document.addEventListener("keydown", (event) => {
+  const box = docToolsBoxFor(event.target);
+  if (!box) return;
+  //: Before anything else this editor binds: Tab and the arrows mean the
+  //: popup while it is open, and mean their usual thing the instant it is not.
+  if (docCompleteKeydown(event, box)) event.stopPropagation();
+}, true);
+
+//: `selectionchange` is the only event that fires for a caret moved by the
+//: keyboard, the mouse *and* by script — a `keyup`/`click` pair misses the
+//: third, which is how a status bar drifts out of step with the caret it is
+//: describing.
+document.addEventListener("selectionchange", () => {
+  if (!docToolsBoxFor(document.activeElement)) return;
+  renderDocStatusBar();
+});
+
+document.addEventListener("focusout", (event) => {
+  //: Only when focus is leaving the editor entirely: moving from one live-view
+  //: block to the next must not close a popup that is about to be reopened.
+  if (!docToolsBoxFor(event.target)) return;
+  setTimeout(() => {
+    if (!docToolsBoxFor(document.activeElement)) hideDocComplete();
+  }, 0);
+});
+
+$("doc-prose")?.addEventListener("click", () => {
+  const panel = $("doc-prose-panel");
+  const chip = $("doc-prose");
+  if (!panel || !chip) return;
+  const open = panel.classList.contains("hidden");
+  panel.classList.toggle("hidden", !open);
+  chip.setAttribute("aria-expanded", String(open));
+  if (open) renderDocProsePanel();
+});
+
+for (const [name, id] of Object.entries(DOC_TOOL_KEYS)) {
+  const input = $(id);
+  if (!input) continue;
+  //: `complete` defaults on and `autocorrect` defaults off, which is the
+  //: difference between *offering* something and *doing* it to your text.
+  input.checked = docToolPref(name, name === "complete");
+  input.addEventListener("change", () => {
+    docSaveToolPref(name, input.checked);
+    if (name === "complete" && !input.checked) hideDocComplete();
+  });
+}
+
+//: Painted once on load so the bar is not blank before the first keystroke,
+//: and again whenever a document is opened — `openDocument` calls this.
+function renderDocTools() {
+  docCompleteWords = null;
+  renderDocStatusBar();
+  renderDocProse();
+}
+
+renderDocTools();

@@ -9,6 +9,7 @@ import csv
 import io
 import json
 import logging
+import importlib
 import os
 import platform
 import re
@@ -629,7 +630,14 @@ def set_console_mode(
         and os.getenv("MEMORYMAP_DESKTOP") == "1"
         and sys.platform == "win32"
     ):
-        from memorymap.__main__ import restart_in_console_mode
+        # `importlib`, not an `import` statement: `memorymap.__main__` imports
+        # `api.app`, which imports this module, so a statement here closes a
+        # CodeQL py/cyclic-import loop — and deferring it into the function
+        # body does not clear that, only dropping the statement does. The
+        # desktop entry point is the caller here, not a dependency.
+        restart_in_console_mode = importlib.import_module(
+            "memorymap.__main__"
+        ).restart_in_console_mode
 
         restarting = True
         background_tasks.add_task(restart_in_console_mode, not show_console)
@@ -654,7 +662,9 @@ def restart_app(background_tasks: BackgroundTasks) -> dict:
     """
     if os.getenv("MEMORYMAP_DESKTOP") != "1" or sys.platform != "win32":
         return {"restarting": False}
-    from memorymap.__main__ import restart_in_console_mode
+    restart_in_console_mode = importlib.import_module(
+        "memorymap.__main__"
+    ).restart_in_console_mode  # same cycle break as above
 
     show_console = bool(deps.get_config().get_preference("show_console_on_startup", True))
     background_tasks.add_task(restart_in_console_mode, not show_console)

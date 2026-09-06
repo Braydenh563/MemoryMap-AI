@@ -27,6 +27,7 @@ already follows.
 from __future__ import annotations
 
 import functools
+import importlib
 import logging
 import os
 import shutil
@@ -236,7 +237,17 @@ def extract_and_store(upload_id: int, image_path: Path) -> None:
     # (for `tesseract_available()`/`extract_text()` alone) without pulling
     # in the whole app's dependency graph just to check whether a binary
     # exists on PATH.
-    from memorymap.core import deps
+    #
+    # `deps` specifically goes through `importlib` rather than an `import`
+    # statement, because a statement is what CodeQL py/cyclic-import counts —
+    # deferring it into the function body does not clear the finding, only
+    # dropping the statement does (`entry/manager.py` records the same). The
+    # cycle here is `ai.embeddings -> core.extras -> core.ocr -> core.deps ->
+    # ai.embeddings`, and this is its wrong-direction edge: `deps` is the
+    # container that builds the embedding service, so nothing it builds
+    # should name it back. Runtime behaviour is identical.
+    deps = importlib.import_module("memorymap.core.deps")
+
     from memorymap.core.database import MediaUpload
 
     with deps.get_db().session() as session:

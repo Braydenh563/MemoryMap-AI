@@ -1633,22 +1633,59 @@ button {
 label.setting-check,
 .setting-check {
   display: grid;
-  /* Three columns, not two: label, the row's "?" when it has one, then the
-     switch. The middle track collapses to zero on the rows with no hint, so
-     every switch in a group still lands on one straight right edge — which
-     is the whole reason this is a grid. */
-  grid-template-columns: 1fr auto auto;
+  /* Three columns: the switch, its label, and the row's "?" when it has one.
+     The last track collapses to zero on the rows with no hint, so the label
+     column still ends on one straight edge down a group — which is the whole
+     reason this is a grid rather than a flex row.
+
+     **The switch leads, and the row is one filled control.** Reported: "the
+     ui of the tools listed in settings is different from the rest, I prefer
+     the integrated whole button with the toggle like the rest of the
+     application, there are a couple other outliers as well" — with a
+     screenshot of `.check-row` (autonomous optimization, AI-first filing) as
+     the shape to match. This was the other shape: a divider-separated list
+     with the switch pinned hard right, far enough from its own label on a
+     wide screen that the pairing had to be inferred from the row's
+     y-position. `.check-row`'s recipe below is copied deliberately rather
+     than shared — the two selectors carry different column contracts (this
+     one has the "?" track) and merging them would mean one of the two
+     growing an override for the other's layout. */
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   column-gap: 0.6rem;
-  padding: 0.5rem 0;
-  border-top: 1px solid var(--border);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  transition: background var(--motion-base) ease, border-color var(--motion-base) ease;
   cursor: pointer;
   margin: 0;
 }
 
-/* The label column: its own text, its "?", and the hint that opens below. */
+.setting-check:hover {
+  background: var(--ghost-btn-bg-hover);
+}
+
+/* On is the accent fill, hover is a neutral lift — never the same colour, for
+   the reason `.check-row` records: an unchecked row under the pointer must
+   not be pixel-identical to a chosen one. */
+.setting-check:has(input:checked) {
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.setting-check:has(input:checked):hover {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+/* The whole row is clickable, so its text must not be dragged into a
+   selection every time someone clicks it. */
 .setting-check>span {
-  grid-column: 1;
+  user-select: none;
+}
+
+/* The label column: its own text and the hint that opens below. */
+.setting-check>span {
+  grid-column: 2;
 }
 
 /* Hard right, and centred in the row. Note what that means when a hint is
@@ -1659,7 +1696,7 @@ label.setting-check,
    alignment; `align-self: center` on a grid item spanning the tall row
    never did that.) */
 .setting-check>input[type="checkbox"] {
-  grid-column: 3;
+  grid-column: 1;
   grid-row: 1;
   align-self: center;
 }
@@ -1680,13 +1717,16 @@ label.setting-check,
    here now; the size comes back from the shared rule
    (03-dashboard-widgets.css) like every other hint button's does. */
 .setting-check>.setting-hint-toggle {
-  grid-column: 2;
+  grid-column: 3;
   grid-row: 1;
   align-self: center;
 }
 
-.settings-group>.setting-check:first-of-type {
-  border-top: none;
+/* Consecutive rows are one group: pull them together so they read as a
+   stack of switches rather than as separate cards, the way `.check-row +
+   .check-row` already does for the rows this shape was matched to. */
+.setting-check+.setting-check {
+  margin-top: calc(var(--space-1) * -1);
 }
 
 .setting-check input[type="checkbox"] {

@@ -348,35 +348,35 @@
 
    One hairline between rows, no ground, no radius: the same list shape the
    rest of Settings uses, which is what "different from the rest" was about. */
+/* **No chrome on the `li` at all: the row inside it is the control.**
+   `.setting-check` is an integrated, padded, rounded, fills-when-on row now
+   (04-chat-dock-appearance.css records why), so a divider under each one
+   draws a line between two things that already read as separate objects —
+   and a divider plus a filled pill is the "list of cards" shape the whole
+   change was moving away from. The `li` is a list item and nothing else. */
 #tool-list li {
-  padding: var(--space-3) var(--space-4);
-  /* One hairline per gap: the bottom rule is the separator, and a top rule as
-     well divides every pair of neighbours twice. Measured: both were on. */
-  border-top: 0;
-  border-bottom: 1px solid var(--border);
+  padding: 0;
+  border: 0;
   background: none;
   border-radius: 0;
 }
 
-#tool-list li:last-child {
-  border-bottom: 0;
-}
+/* **`.tool-row` is `.setting-check` now, and carries both classes**, which is
+   what keeps this page and the rest of Settings one component rather than two
+   doing the same job.
 
-/* The row's own top rule goes with it — the `li` above is the separator now,
-   and two lines between neighbours is one line too many. */
-#tool-list .tool-row {
-  border-top: 0;
-}
-
-/* **`.tool-row` is `.setting-check` now, and carries both classes.** Reported
-   directly: "the toggles in the tools it can use settings page are visually
-   different from the rest". They were — measured across every Settings
-   section, all seven `.setting-check` rows put the switch hard right against
-   a straight edge, while all fifty-one tool rows put it first, on the left,
-   so its position tracked nothing and the two pages read as different
-   components doing the same job. `.setting-check`'s own comment records why
-   right is the answer: it was asked for, and it is where every settings
-   screen a person has already used puts it.
+   The *shape* they share has been reported twice, in opposite directions, so
+   the history matters. First: "the toggles in the tools it can use settings
+   page are visually different from the rest" — at that point `.setting-check`
+   was a divider-separated list with the switch hard right, and the fix was to
+   move these rows to match it. Then, with a screenshot of `.check-row` as the
+   target: "I prefer the integrated whole button with the toggle like the rest
+   of the application, there are a couple other outliers as well". So
+   `.setting-check` itself became that integrated row, and every screen wearing
+   it — this one included — moved together. **The lesson is the one that
+   survives both reports: there is one on/off row in this app, and the answer
+   to "these look different" is always to change the shared rule, never to
+   special-case one page.**
 
    Nothing here re-declares the grid — the row simply joins that rule's
    selector list by wearing its class. All that is left is the weight of the

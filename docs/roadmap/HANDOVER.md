@@ -131,55 +131,42 @@ model panel placing on screen, 12 of 12 gallery ticks clickable, the Documents
 toolbar at one uniform 32px, and the notifications row toggle and "Mark all
 read" both present.
 
-### Open — bugs
+### Open — what is genuinely left
 
-1. Chat sidebar: clicking another conversation does not visibly select it.
-2. An agent question generated with no metadata below the AI response.
-3. Popup agent stop button: text and icon not aligned.
-4. Widgets button: text and icon not aligned, and no gap between them.
-5. Text streaming animation stops moving and shows as three static lines.
-6. Scrolling up mid-stream loses the "generating" indicator and animation.
-7. Tool usage and steps appear abruptly — they should fade in.
-8. Files and attachments do not render in the timeline or in popups.
-9. Library → Images: the per-image select radio buttons cannot be clicked.
-10. Lightbox: clicking off it does not close it, and the close button is
-    unreliable.
-11. Notes → Your Notes: the ⋯ kebab glyphs are not centred.
-12. OCR workspace: pages read (notifications fired) but no text appeared in
-    any extracted-text area. **Reported twice.**
-13. OCR workspace: the OCR model is listed as a vision model, and the actual
-    vision model is not offered at all. **Reported twice.**
-14. Chat header: clicking the model name does nothing.
-15. Dashboard: the welcome message spells the user's name wrong.
-16. Chat send button: corner radius out of place against its neighbours.
-17. "Expand toolbar" and "Hide formatting tools" have square corners that
-    round only on hover.
-18. Document editor does not fill the panel width the way its toolbar does,
-    and there is no way to widen it.
+Everything else from the batch is in the Done list above, each with the
+measurement that closed it. What remains:
 
-### Open — features asked for
+1. **"my agent question generated with no metadata or anything below the ai
+   response in the chat."** Very likely the same null dereference that stopped
+   the sidebar repainting (`highlightInto` on `terms=null`, thrown inside
+   `chatSourcesPanel`) — the metadata is rendered *after* the sources panel in
+   the same pass, so an exception there takes everything below it with it. That
+   fix is in; **this has not been confirmed against a real agent turn**, which
+   needs a model that actually calls tools. Confirm before closing it.
+2. **"the whole auto correct and suggestions needs improvement. copy the
+   suggestions from word and vs code."** Three of the four concrete asks under
+   this are built (right-click a flagged word anywhere it is underlined; AI-written
+   alternatives; click-to-scroll-and-flash). What is *not* done is the general
+   ask: the checker is still spelling, spacing and sentence length. Word's value
+   is agreement, tense and register; VS Code's is a per-word quick-fix that
+   learns. Neither is a small change, and neither should be started without
+   deciding whether the checks stay mechanical (fast, offline, no model) or
+   become a model pass (slow, better, needs a running model) — the app currently
+   has both and does not say which is which.
+3. **"the agent or ai needs to be more directly integrated into the documents."**
+   The document AI is a *panel*: you open it, ask, read, accept. Everything the
+   editor now has (AI edit, extract notes, rephrase, translate, check with AI)
+   is reachable from a toolbar or a menu. The ask is for the AI to be present
+   *in the writing*, the way `/ai` is in Notion and Ctrl+K is in Cursor —
+   at the cursor, on the selection, without a panel. `frontend/editor.js`
+   already has a "/" menu, which is where this starts.
 
-19. Chat composer: auto-expand with the text to a sensible maximum height.
-20. Chat composer: double-tap the resize corner to reset to normal height.
-21. Documents: right-click a misspelled word for suggestions / add to
-    dictionary / ignore, Word-style.
-22. Documents: let the AI write one or more suggested replacements for a
-    flagged issue, to pick between.
-23. Documents: clicking a flagged issue scrolls to it and highlights it.
-24. Documents: rework autocorrect and suggestions generally — "copy the
-    suggestions from word and vs code".
-25. Documents: edit history, like a git log.
-26. Documents: "Check with AI" should attach a removable badge linking or
-    excerpting the document, not paste its text below.
-27. Documents: an "Edit document" button on a previewed document in the
-    lightbox.
-28. Documents: the agent/AI integrated more directly into the editor.
-29. Notifications: allow marking one as unread.
-30. Semantic search: answer aggregate questions ("what are my most common
-    tags", "categories with the most notes"), and expand knowledge-graph
-    management, traversal and use generally.
-31. Verify full usage guides exist in the docs for the help AI to use
-    (`HELP_TOPICS` went 18 → 26 entries but was never audited for coverage).
+### Not reproduced, and why that matters
+
+- The traced-path text-clipping report (§5 of an earlier round) still has not
+  been reproduced. CLAUDE.md's rule applies: when a report keeps coming back and
+  the code keeps testing clean, the *shape of the interaction* is the bug, or
+  the reporter is running a stale file.
 
 ### Then
 

@@ -5454,3 +5454,72 @@ button.connection-row {
     animation-timing-function: steps(2, end);
   }
 }
+
+/* --- Inline AI (editor.js) ------------------------------------------------
+   The AI at the caret. Positioned in viewport coordinates by
+   `inlineAiPosition`, so `fixed`, like `.editor-menu` and `.selection-bar`.
+
+   z-index 61, one above `.editor-menu`'s 60: the "/" menu is how this bar is
+   usually opened, and the bar has to draw over the menu's closing frame
+   rather than under it.
+
+   A card, not a pill: this one holds a text field, three buttons and a line of
+   prose, and the pill shape the selection bar uses reads as a toolbar — which
+   is the wrong promise for something you type a sentence into. */
+.inline-ai {
+  position: fixed;
+  z-index: 61;
+  width: min(30rem, calc(100vw - 2 * var(--space-3)));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--modal-bg);
+  box-shadow: var(--shadow-lg);
+  /* Same reason as `.selection-bar`: `--modal-bg` is 4% see-through by
+     design, and this sits over the densest text in the app. */
+  backdrop-filter: blur(8px);
+}
+
+.inline-ai-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.inline-ai-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  color: var(--accent);
+}
+
+/* `min-width: 0` because a flex item's default `min-width: auto` refuses to
+   shrink below its content, which on a long placeholder pushed the Ask button
+   off the end of the bar. */
+.inline-ai-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The scope line: what this is about to change, and the two keys. Small and
+   muted because it is a statement of state, not a control. */
+.inline-ai-scope {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  /* No clamp and no ellipsis: this line carries the offline message and the
+     model's own error text, and a truncated error is the thing that makes a
+     failure unreadable. It wraps instead. */
+  line-height: 1.4;
+}
+
+.inline-ai-review {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}

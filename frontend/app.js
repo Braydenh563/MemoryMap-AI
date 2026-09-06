@@ -16049,11 +16049,26 @@ function clampToolbarMenu(details) {
   const box = list.getBoundingClientRect();
   if (!box.width || !anchor.width) return;
   const margin = 8;
-  // The stylesheet's intent, in viewport coordinates: right-aligned to the
-  // opener, growing leftwards.
-  let left = anchor.right - box.width;
+  // **Left-aligned to the opener, growing rightwards.**
+  //
+  // This was `anchor.right - box.width` — right-aligned, transcribed from the
+  // stylesheet's `right: 0`, which is correct for `#doc-dock-menu` (a kebab at
+  // the far right of the panel, where a menu growing rightwards would leave
+  // the screen) and wrong for every menu in a toolbar. Measured: a 192px menu
+  // right-aligned to a 41px icon button lands **151px to the left of the
+  // button that opened it** — over the sidebar, on the capture toolbar — at
+  // every viewport. Reported as "dropdowns are completely broken and dont show
+  // in the capture notes and documents toolbars", which is what a menu that
+  // opens nowhere near its control looks like from the outside.
+  //
+  // `clampToolbarMenu` only ever runs for `.doc-toolbar-menu` (see the toggle
+  // listener below), so the kebab keeps the stylesheet's right-alignment and
+  // this is a toolbar-only rule.
+  let left = anchor.left;
   if (left + box.width > window.innerWidth - margin) {
-    left = window.innerWidth - margin - box.width;
+    // No room to the right: right-align to the opener, which is the shape that
+    // keeps a menu attached to its button near the end of a row.
+    left = Math.min(anchor.right - box.width, window.innerWidth - margin - box.width);
   }
   // `margin` wins a tie deliberately: a viewport narrower than the menu cannot
   // satisfy both edges, and losing the *start* of the list is worse than
@@ -30278,6 +30293,13 @@ const DEFAULT_SHORTCUTS = {
   // arrow keys: those are needed everywhere text is edited or a list is
   // navigated, and a modifier is what every browser already uses for this
   // exact action, so it costs no muscle memory to learn.
+  //: **The inline AI's chord.** Not Ctrl+K (the command palette) and not
+  //: Ctrl+I (italic, in every editing surface here) — the two chords every
+  //: other app uses for this. Ctrl+J was free, and this is declared in the
+  //: registry rather than bound loose for the reason `askAgent` records above:
+  //: a chord in a listener of its own is invisible to
+  //: `test_frontend_shortcuts.py`'s collision check and to the shortcuts help.
+  inlineAi: { keys: "Ctrl+J", label: "Ask the AI to write at the cursor" },
   navigateBack: { keys: "Alt+ArrowLeft", label: "Go back to the previous page or view" },
   navigateForward: { keys: "Alt+ArrowRight", label: "Go forward again" },
 };
@@ -30399,6 +30421,16 @@ function runShortcut(id) {
     find: () => {
       if (localStorage.getItem("activeTab") === "documents") toggleDocFindBar(true);
       else openGlobalFind();
+    },
+    //: Acts on whichever editing surface has focus, which is the only sane
+    //: reading of "write here": the document textarea, or one live-view
+    //: paragraph. `inlineAiOpen` refuses (with a toast) anywhere else rather
+    //: than opening a bar whose submit could not work.
+    inlineAi: () => {
+      const active = document.activeElement;
+      if (typeof inlineAiOpen === "function" && active instanceof HTMLTextAreaElement) {
+        inlineAiOpen(active);
+      }
     },
     newChat: () => {
       switchTab("chat");

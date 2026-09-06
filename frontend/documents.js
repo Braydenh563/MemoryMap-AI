@@ -2804,15 +2804,25 @@ const DOC_WIDTH_KEY = "doc-full-width";
 
 function applyDocWidth(wide) {
   const tab = $("tab-documents");
-  const button = $("doc-width-toggle");
   tab?.classList.toggle("doc-wide", wide);
-  if (button) {
+  const title = wide ? "Back to a comfortable reading width" : "Use the full width of the pane";
+  //: **Both views of one setting, painted together.** The toolbar's icon and
+  //: the ⋯ menu's worded row are the same control, and the app's own rule (see
+  //: `applyDocToolbarMode`) is that painting one without the other is how they
+  //: drift. The menu row exists because the icon alone was not findable —
+  //: reported as "is there a way to make it wider if the user chooses??" about
+  //: a control that was already there.
+  for (const button of [$("doc-width-toggle"), $("doc-width-menu")]) {
+    if (!button) continue;
     button.setAttribute("aria-pressed", String(wide));
-    button.title = wide
-      ? "Back to a comfortable reading width"
-      : "Use the full width of the pane";
-    button.setAttribute("aria-label", button.title);
+    button.title = title;
+    button.setAttribute("aria-label", title);
   }
+  //: The label names what pressing it *does*, not the state it is in — the
+  //: state is `aria-pressed` for a screen reader and the pane's own width for
+  //: everyone else. Same rule the toolbar-mode row follows.
+  const label = $("doc-width-menu-label");
+  if (label) label.textContent = wide ? "Comfortable reading width" : "Use the full width";
 }
 
 function setDocWidth(wide) {
@@ -2824,9 +2834,9 @@ function setDocWidth(wide) {
   applyDocWidth(wide);
 }
 
-$("doc-width-toggle")?.addEventListener("click", () =>
-  setDocWidth(!$("tab-documents")?.classList.contains("doc-wide"))
-);
+const toggleDocWidth = () => setDocWidth(!$("tab-documents")?.classList.contains("doc-wide"));
+$("doc-width-toggle")?.addEventListener("click", toggleDocWidth);
+$("doc-width-menu")?.addEventListener("click", toggleDocWidth);
 
 try {
   applyDocWidth(localStorage.getItem(DOC_WIDTH_KEY) === "wide");
@@ -3607,10 +3617,47 @@ function renderDocProsePanel() {
   panel.appendChild(list);
 }
 
-//: Show me where. Source view can select the span outright; Live view has to
-//: switch to Source first, because a span the caret cannot reach is not a
-//: place the panel can take you.
+//: **Show me where — and make it obvious for a moment.**
+//:
+//: Asked for directly: "if I click on an issue flagged in the document
+//: suggestions, it should auto scroll to the issue and temporarily highlight
+//: the offending area." The scrolling half was here already; the highlight was
+//: a text selection, which is the quietest mark a screen has — the same grey
+//: as any other selection, in a box the pointer has just left, several
+//: paragraphs from where the eye was. Landing in roughly the right place with
+//: nothing saying "here" is what makes a jump feel like it did not happen.
+//:
+//: Two ways to say it, because the two views can say different things. Live
+//: view has a real element for the flagged word (`docMarkLiveFindings`), so
+//: it is scrolled into view and pulsed where it sits — which is what anyone
+//: coming from Word expects, and it does not throw away the view they were
+//: reading in. Source view has only a string, so the selection stays but the
+//: textarea gets an accent `::selection` for the length of the flash, which
+//: turns "something is selected somewhere" into "that, there".
+const DOC_FLASH_MS = 1600;
+
+function docFlashLiveFinding(finding) {
+  const host = $("doc-live");
+  if (!host) return false;
+  const marks = [...host.querySelectorAll(".doc-flag")];
+  const mark = marks.find((el) => el.textContent === finding.text);
+  if (!mark) return false;
+  mark.scrollIntoView({
+    block: "center",
+    behavior: reducedMotionWanted() ? "auto" : "smooth",
+  });
+  //: Removed and re-added around a forced reflow: without it the browser
+  //: coalesces both writes and a second click on the same row animates
+  //: nothing, which reads as the row having stopped working.
+  mark.classList.remove("doc-flag-flash");
+  void mark.offsetWidth;
+  mark.classList.add("doc-flag-flash");
+  setTimeout(() => mark.classList.remove("doc-flag-flash"), DOC_FLASH_MS);
+  return true;
+}
+
 function docProseJump(finding) {
+  if (docView === "live" && docFlashLiveFinding(finding)) return;
   if (docView !== "source" && docView !== "split") setDocView("source");
   const box = $("doc-content");
   if (!box) return;
@@ -3620,6 +3667,10 @@ function docProseJump(finding) {
   //: it already holds. Without it the caret is right and the view is not.
   box.blur();
   box.focus();
+  box.classList.remove("doc-selection-flash");
+  void box.offsetWidth;
+  box.classList.add("doc-selection-flash");
+  setTimeout(() => box.classList.remove("doc-selection-flash"), DOC_FLASH_MS);
 }
 
 function docProseApply(text, finding) {
@@ -4363,29 +4414,70 @@ let docLastTranslateLanguage = "";
 //: is wrong and one suggested fix, is a thing you can read, agree or
 //: disagree with, and apply by hand — same shape as everything else this
 //: checker offers.
-const DOC_AI_REVIEW_CHARS = 6000;
+//: **A badge, not a wall of text.** Asked for directly: "the 'check with ai'
+//: button in the documents should attach a link to the document or an excerpt
+//: from the document to read but in a little attached badge that can be
+//: removed so the document text isnt just pasted below."
+//:
+//: This used to write the whole document into the composer. Three things were
+//: wrong with that and the report names the first: the question you are about
+//: to ask is buried under six thousand characters you did not type, so the
+//: composer stops being somewhere you can write. The second is that there was
+//: no way to change your mind — the text was *in* the box, so unattaching it
+//: meant finding where the prompt ended and the document began. The third is
+//: that it sends a snapshot: the model reads whatever the document said at the
+//: moment the button was pressed, not what it says when the question is
+//: actually asked.
+//:
+//: `attachedDocuments` fixes all three and it already existed — the composer
+//: has staged documents as removable chips since files could be dropped into
+//: chat, and `sendChat` already passes their ids to the backend, which reads
+//: them itself. So this attaches rather than pastes, and the composer is left
+//: holding one short sentence: the question.
+//:
+//: A *selection* is the one case that still travels as text. It is short by
+//: definition, it is the passage the question is about, and there is nothing
+//: in the document's id to say which part of it was meant.
+const DOC_AI_REVIEW_SELECTION_CHARS = 1200;
 
 async function docAiReview() {
-  const text = ($("doc-content")?.value || "").trim();
+  const box = $("doc-content");
+  const text = (box?.value || "").trim();
   if (!text) return toast("Nothing to review yet.", true);
-  const box = document.getElementById("chat-input");
-  if (!box) return toast("The chat isn't available right now.", true);
-  //: Long enough for a real document, short enough that the request itself
-  //: does not become the thing that fills the context window it is trying to
-  //: economise. `docTranslatePassage`'s own OCR-to-chat sibling caps at 4000;
-  //: a whole document is the more common case here, so the cap is higher.
-  const quoted = text.length > DOC_AI_REVIEW_CHARS ? `${text.slice(0, DOC_AI_REVIEW_CHARS)}…` : text;
-  const prompt =
-    "Read this document for the things a spellchecker can't catch: " +
-    "its/it's and other agreement mistakes, tense that shifts partway through, " +
-    "unclear or awkward sentences, and tone. List each one as a numbered point " +
-    `naming the exact wording and a one-line fix — don't rewrite the whole document.
+  const input = document.getElementById("chat-input");
+  if (!input) return toast("The chat isn't available right now.", true);
 
-${quoted}`;
+  const selection = box
+    ? box.value.slice(box.selectionStart || 0, box.selectionEnd || 0).trim()
+    : "";
+  const ask =
+    "Read this for the things a spellchecker can't catch: its/it's and other " +
+    "agreement mistakes, tense that shifts partway through, unclear or awkward " +
+    "sentences, and tone. List each one as a numbered point naming the exact " +
+    "wording and a one-line fix — don't rewrite it.";
+
   switchTab("chat");
-  box.value = prompt;
-  box.focus();
-  box.dispatchEvent(new Event("input", { bubbles: true }));
+  if (selection) {
+    const quoted =
+      selection.length > DOC_AI_REVIEW_SELECTION_CHARS
+        ? `${selection.slice(0, DOC_AI_REVIEW_SELECTION_CHARS)}…`
+        : selection;
+    input.value = `${ask}\n\n${quoted}`;
+  } else {
+    input.value = ask;
+    //: The badge, via the composer's own staging list — the same chip an
+    //: imported file gets, removable by the same ✕, and read by the backend
+    //: from the document itself rather than from a snapshot pasted here.
+    const attached = attachDocumentToChat(currentDoc && currentDoc.id, (currentDoc && currentDoc.title) || $("doc-title")?.value || "This document");
+    if (!attached) {
+      //: The one case where pasting is still the honest answer: the chip
+      //: cannot be added (four already staged, or an unsaved document with no
+      //: id yet), and silently asking about nothing would be worse.
+      input.value = `${ask}\n\n${text.slice(0, 6000)}${text.length > 6000 ? "…" : ""}`;
+    }
+  }
+  input.focus();
+  input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
 //: **Managing the dictionary.** Asked for by name. A list you can add to and

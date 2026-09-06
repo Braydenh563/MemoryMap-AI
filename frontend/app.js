@@ -13584,7 +13584,7 @@ async function importChatDocuments(files) {
   // an image is — a chip in the composer, then a chip in the bubble, then a
   // way back to the document.
   for (const document of made) {
-    if (attachedDocuments.length >= 4) break;
+    if (attachedDocuments.length >= MAX_CHAT_DOCUMENTS) break;
     attachedDocuments.push({ id: document.id, name: document.title });
   }
   renderDocumentAttachments();
@@ -13611,6 +13611,38 @@ async function importChatDocuments(files) {
 //: app taking back something it already told the user it had done.
 let attachedDocuments = [];
 let lastChatDocumentAttachments = [];
+
+//: Four, matching the ceiling the import path already enforced inline. A
+//: local model's context is the scarce thing here, and four whole documents
+//: is already more than most of them can hold alongside a conversation.
+const MAX_CHAT_DOCUMENTS = 4;
+
+//: **Stage one document on the message being written.**
+//:
+//: The composer has staged documents as removable chips since files could be
+//: dropped into chat, but the only way in was that import path — so every
+//: *other* surface that wanted to ask the AI about a document had to paste its
+//: text into the box instead. Reported about the Documents tab's own button:
+//: "the 'check with ai' button in the documents should attach a link to the
+//: document or an excerpt from the document to read but in a little attached
+//: badge that can be removed so the document text isnt just pasted below."
+//:
+//: Returns false rather than throwing when it cannot: no id (an unsaved
+//: document), or the four-attachment ceiling already reached. The caller
+//: decides what to do about it — `docAiReview` falls back to pasting, because
+//: silently asking a question about nothing is the worse failure.
+function attachDocumentToChat(id, name) {
+  if (!id) return false;
+  if (attachedDocuments.some((d) => d.id === id)) {
+    renderDocumentAttachments();
+    return true; // already staged: the badge the caller wanted is on screen
+  }
+  if (attachedDocuments.length >= MAX_CHAT_DOCUMENTS) return false;
+  attachedDocuments.push({ id, name: name || "Document" });
+  renderDocumentAttachments();
+  announce(`Attached “${name || "document"}”. ${attachedDocuments.length} document(s) attached.`);
+  return true;
+}
 
 function renderDocumentAttachments() {
   const box = $("chat-doc-attachments");

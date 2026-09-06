@@ -2310,6 +2310,21 @@ Link to another note with [[its first few words]]."></textarea>
                      the tool bar as a horizontal scroll or expanded." Expanded
                      (wrapping) is the default because it is also what stops the
                      toolbar clipping its own menus — see .doc-toolbar's CSS. -->
+                <!-- **The reading width, said in words.** Reported: "why
+                     doesnt the document editor go the full width of the panel
+                     like the formatting toolbar?? is there a way to make it
+                     wider if the user chooses??" There was — measured, the
+                     toolbar's own `#doc-width-toggle` takes the editor from
+                     691px to 1100px, exactly matching the toolbar — but it is
+                     one unlabelled icon among twenty-five, so the answer to
+                     "is there a way" was effectively no. This is the same
+                     setting with its name on it, beside the other toolbar
+                     setting, in the menu people open to find out what a
+                     document can do. Both stay in step: `applyDocWidth`
+                     paints this row's label too. -->
+                <button id="doc-width-menu" class="ghost small doc-dock-menu-item" type="button"
+                  aria-pressed="false"
+                  title="Switch between a comfortable reading measure and the full width of the pane"><i class="ph ph-arrows-out-line-horizontal ph-lead" aria-hidden="true"></i> <span id="doc-width-menu-label">Use the full width</span></button>
                 <button id="doc-toolbar-mode" class="ghost small doc-dock-menu-item" type="button"
                   aria-pressed="false"
                   title="Switch between a wrapping toolbar and a single scrolling row"><i class="ph ph-rows ph-lead" aria-hidden="true"></i> <span id="doc-toolbar-mode-label">Use one scrolling row</span></button>

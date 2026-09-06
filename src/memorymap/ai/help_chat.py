@@ -80,13 +80,15 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "id": "ask-chat",
-        "keywords": ("ask", "chat", "agent", "conversation", "tool", "question"),
+        "keywords": ("ask", "chat", "agent", "conversation", "tool", "question", "popup agent", "everywhere"),
         "body": (
             "\"Ask your notebook\" (Notes tab) and the Chat tab both answer from "
             "saved notes, with the raw notes shown beside the answer. Agent mode "
             "(a toggle in Chat) lets the assistant use its tools to search, link, "
             "tag, organise and create — destructive actions always ask first. "
-            "Conversations save and rename in the sidebar."
+            "Conversations save and rename in the sidebar. The same agent also "
+            "pops open over any tab with Ctrl/Cmd+Shift+A, so you don't have to "
+            "switch to Chat first."
         ),
         "badge": {"label": "Chat", "tab": "chat"},
     },
@@ -157,7 +159,7 @@ HELP_TOPICS: list[dict] = [
             "commenting. \"Check with AI\" reviews a document for wording issues "
             "a spellchecker can't catch."
         ),
-        "badge": {"label": "Documents", "tab": "documents"},
+        "badge": {"label": "Library", "tab": "library"},
     },
     {
         "id": "whiteboard",
@@ -167,7 +169,7 @@ HELP_TOPICS: list[dict] = [
             "freehand sketches and note cards together. Freehand sketches also "
             "appear in the Library's Images sub-tab."
         ),
-        "badge": {"label": "Whiteboard", "tab": "whiteboard"},
+        "badge": {"label": "Library", "tab": "library"},
     },
     {
         "id": "files-images",
@@ -281,6 +283,90 @@ HELP_TOPICS: list[dict] = [
         ),
         "badge": {"label": "Account & security", "section": "account"},
     },
+    {
+        "id": "archive",
+        "keywords": ("archive", "archived", "shelved", "out of the way"),
+        "body": (
+            "Archiving keeps a note, chat or document but gets it out of your "
+            "everyday lists — different from the bin, since nothing archived "
+            "is ever auto-cleared or at risk of being deleted. The action is "
+            "in each item's own menu (next to Delete, not grouped with it); "
+            "everything archived is still reachable from the Library's "
+            "Archived filter, where Unarchive brings it straight back."
+        ),
+        "badge": {"label": "Library", "tab": "library"},
+    },
+    {
+        "id": "undo-bin",
+        "keywords": ("undo", "redo", "recycle bin", "restore", "deleted", "trash"),
+        "body": (
+            "Deleting a note goes to the recycle bin, not gone for good — "
+            "restore it from the Library's Bin filter, or use the Undo toast "
+            "that appears right after deleting. Ctrl/Cmd+Z undoes the last "
+            "change generally; the status bar's own Undo/Redo buttons do the "
+            "same thing by click."
+        ),
+        "badge": {"label": "Library", "tab": "library"},
+    },
+    {
+        "id": "voice",
+        "keywords": ("dictate", "dictation", "voice", "microphone", "meeting", "transcribe", "recording", "read aloud"),
+        "body": (
+            "The microphone icon on the note composer dictates a note using "
+            "local Whisper — nothing sent anywhere. \"Record a meeting or "
+            "lecture\" (reachable from the Dashboard or the command palette) "
+            "transcribes a longer recording and can pull out decisions and "
+            "action items. Read-aloud plays a note or answer back to you."
+        ),
+        "badge": {"label": "Notes", "tab": "notes"},
+    },
+    {
+        "id": "autonomous",
+        "keywords": ("background librarian", "auto tag", "auto-tag", "auto link", "auto-link", "dedupe", "duplicate", "autonomous"),
+        "body": (
+            "Turned on in Settings -> Preferences, the background librarian "
+            "tags, links and flags duplicate notes on an interval you choose "
+            "— off by default, since it writes to your notebook without "
+            "being asked each time. It never deletes anything and skips "
+            "itself on battery power."
+        ),
+        "badge": {"label": "Preferences", "section": "preferences"},
+    },
+    {
+        "id": "command-palette",
+        "keywords": ("command palette", "jump anywhere", "quick actions", "jump to"),
+        "body": (
+            "Ctrl/Cmd+K opens the command palette: jump to any tab or "
+            "setting, search notes, or run a quick action (new note, new "
+            "chat, back up now, toggle the theme, and more) without leaving "
+            "the keyboard. It's a different box from the popup agent "
+            "(Ctrl/Cmd+Shift+A) — this one runs fixed commands, that one "
+            "answers and acts on an open-ended request."
+        ),
+        "badge": {"label": "Shortcuts", "section": "shortcuts"},
+    },
+    {
+        "id": "extract-notes",
+        "keywords": ("extract notes", "rough thoughts", "writing room", "draft"),
+        "body": (
+            "\"Extract notes\" (Notes tab) turns a block of pasted free text "
+            "into several AI-drafted, auto-linked notes instead of one long "
+            "one. The Writing Room sub-tab is for turning rough, unstructured "
+            "thoughts into a proper note before it's saved."
+        ),
+        "badge": {"label": "Notes", "tab": "notes"},
+    },
+    {
+        "id": "favourites",
+        "keywords": ("favourite", "favorite", "star", "starred", "pin", "pinned"),
+        "body": (
+            "Starring a note makes it a favourite — a parallel way to keep "
+            "important notes close, separate from categories or tags. "
+            "Favourites show in the sidebar, filter in the Library, and can "
+            "sit in their own Dashboard widget."
+        ),
+        "badge": {"label": "Notes", "tab": "notes"},
+    },
 ]
 
 #: A tight window — this is guidance, not a conversation to reminisce in.
@@ -292,14 +378,18 @@ MAX_MESSAGE_CHARS = 1000
 MAX_TOPICS = 3
 
 
-def _mentions(keyword: str, lowered_text: str) -> bool:
-    """Whole-word match, not a raw substring one. A plain `in` check let
-    "ask" match inside "basket" and "task" — short, common keywords like
-    that are exactly the ones a false substring hit is likeliest for, and a
-    wrongly-matched topic means the model gets handed reference notes about
-    the wrong feature. A multi-word keyword (`"web search"`) still matches
-    as a phrase; `\\b` on each end just stops it landing mid-word."""
-    return re.search(rf"\b{re.escape(keyword)}\b", lowered_text) is not None
+# Whole-word match, not a raw substring one — a plain `in` check let "ask"
+# match inside "basket" and "task", and a wrongly-matched topic means the
+# model gets handed reference notes about the wrong feature. Compiled once
+# at import time rather than per call: this runs on every `/help/ask`
+# request, and re-compiling ~100 small regexes (18 topics x ~6 keywords)
+# on every one of them is wasted work an unbounded local model call already
+# dwarfs, but costs nothing to avoid.
+_KEYWORD_PATTERNS: dict[str, re.Pattern[str]] = {
+    keyword: re.compile(rf"\b{re.escape(keyword)}\b")
+    for topic in HELP_TOPICS
+    for keyword in topic["keywords"]
+}
 
 
 def _matching_topics(question: str) -> list[dict]:
@@ -309,7 +399,10 @@ def _matching_topics(question: str) -> list[dict]:
     tie over a rarer one."""
     lowered = question.lower()
     scored = [
-        (sum(1 for keyword in topic["keywords"] if _mentions(keyword, lowered)), topic)
+        (
+            sum(1 for keyword in topic["keywords"] if _KEYWORD_PATTERNS[keyword].search(lowered)),
+            topic,
+        )
         for topic in HELP_TOPICS
     ]
     scored = [pair for pair in scored if pair[0] > 0]

@@ -6148,9 +6148,16 @@ const ATTACHMENT_ICONS = {
   gif: "ph-file-image", webp: "ph-file-image", heic: "ph-file-image", heif: "ph-file-image",
 };
 
-function attachmentIconClass(url) {
-  if (!url.startsWith("/media/")) return null;
-  const ext = url.split(".").pop().split(/[?#]/)[0].toLowerCase();
+// `name` is optional and only matters for a `/files/{id}` URL — the
+// note-attachment download endpoint, opaque and extension-less by design
+// (unlike `/media/<filename>.ext`, which pasted/dropped inline images use).
+// Without it, a note's attached PDF/docx/etc. had no extension anywhere in
+// its URL to read a type from, so every non-image attachment fell through
+// to nothing rendering at all wherever a caller built the URL that way.
+function attachmentIconClass(url, name) {
+  const source = name || (url.startsWith("/media/") ? url : "");
+  if (!source) return null;
+  const ext = source.split(".").pop().split(/[?#]/)[0].toLowerCase();
   return ATTACHMENT_ICONS[ext] || "ph-file";
 }
 
@@ -6173,8 +6180,9 @@ const FILE_KIND_LABELS = {
   mp4: "Video", mov: "Video", webm: "Video",
 };
 
-function fileKindLabel(url) {
-  const ext = url.split(".").pop().split(/[?#]/)[0].toLowerCase();
+function fileKindLabel(url, name) {
+  const source = name || url;
+  const ext = source.split(".").pop().split(/[?#]/)[0].toLowerCase();
   return FILE_KIND_LABELS[ext] || "File";
 }
 
@@ -6197,8 +6205,8 @@ function fileChip(name, url) {
   const label = name && name !== url ? name : url.split("/").pop();
   const chipEl = document.createElement("span");
   chipEl.className = "chip file-chip";
-  setLabel(chipEl, `${(attachmentIconClass(url) || "ph-file").replace("ph-", "ph:")} ${label}`);
-  chipEl.title = `${fileKindLabel(url)} — ${label}`;
+  setLabel(chipEl, `${(attachmentIconClass(url, name) || "ph-file").replace("ph-", "ph:")} ${label}`);
+  chipEl.title = `${fileKindLabel(url, name)} — ${label}`;
   return chipEl;
 }
 
@@ -6212,7 +6220,7 @@ function fileCard(name, url) {
   open.className = "file-card-open";
   open.title = `Open “${label}”`;
   const icon = document.createElement("i");
-  icon.className = `ph ${attachmentIconClass(url) || "ph-file"} file-card-icon`;
+  icon.className = `ph ${attachmentIconClass(url, name) || "ph-file"} file-card-icon`;
   icon.setAttribute("aria-hidden", "true");
   const text = document.createElement("span");
   text.className = "file-card-text";
@@ -6221,7 +6229,7 @@ function fileCard(name, url) {
   nameEl.textContent = label;
   const kindEl = document.createElement("span");
   kindEl.className = "file-card-kind";
-  kindEl.textContent = fileKindLabel(url);
+  kindEl.textContent = fileKindLabel(url, name);
   text.append(nameEl, kindEl);
   open.append(icon, text);
   open.addEventListener("click", () => {
@@ -22029,6 +22037,11 @@ function paletteCommands() {
       },
     },
     { label: "ph:sparkle New chat", run: () => { switchTab("chat"); newChatConversation(); } },
+    // The popup agent (Ctrl+Shift+A) has real capability — it's the same
+    // tool-calling agent as Chat's agent mode, just reachable from anywhere
+    // — but was reachable only by already knowing that chord. This palette
+    // is the app's own "what can I do here" list; it belongs in it.
+    { label: "ph:magic-wand Ask the agent anything", run: toggleAgentPalette },
     { label: "ph:palette New sketch", run: openSketch },
     {
       // Reachable from anywhere, which is the point. Asked for directly: "I

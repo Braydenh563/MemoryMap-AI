@@ -1893,10 +1893,21 @@ class OcrReadersOut(BaseModel):
 
 @router.get("/ocr-readers", response_model=OcrReadersOut)
 def ocr_readers() -> OcrReadersOut:
-    """What can read a page here — asked by the workspace's reader picker."""
+    """What can read a page here — asked by the workspace's reader picker.
+
+    Reported directly: "I can only select the vision models not OCR
+    models." This called `resolve_vision_model` — the same, name-agnostic
+    "can anything here see an image" resolver `/models/vision-model` uses —
+    so the picker always described whatever generic vision model
+    auto-detect happened to find first, never the dedicated document
+    reader (GLM-OCR/DeepSeek-OCR/PaddleOCR-VL) an explicit `ocr_model`
+    preference names, even though the actual read (`routes_files.py`'s own
+    page-read endpoint) already calls `resolve_ocr_model` and gets it
+    right. The picker's own idea of "which model" just never matched what
+    a read would actually use."""
     ollama = deps.get_ollama()
     running = ollama.is_running()
-    model = deps.get_model_manager().resolve_vision_model(ollama) if running else ""
+    model = deps.get_model_manager().resolve_ocr_model(ollama) if running else ""
     if not running:
         reason = "The AI model isn't running."
     elif not model:

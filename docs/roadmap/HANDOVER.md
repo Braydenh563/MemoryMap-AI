@@ -1,5 +1,123 @@
 # Handover
 
+## ► Top priority, by direct instruction: the whiteboard
+
+Not built this session — logged here and moved to the top of ROADMAP.md's
+priority table on explicit instruction, ahead of everything below. Two asks:
+
+1. **A full redesign of the whiteboard's panels and controls.** Reported
+   directly: layout, structure, distribution and positioning are "pretty
+   poor," and the panels clash with each other and with the canvas
+   underneath (screenshot: the right-side Look/Board panel, the bottom
+   toolbar, and the Tab/Enter/Delete hint bar all crowd the same corner).
+   This is the layout rethink ROADMAP.md's row 7 already named as the open
+   half of "Settings, and the whiteboard's panel layout" — not a new item,
+   now the first one.
+2. **Pan tool -> selection tool on click, specifically requested**: while
+   the Pan tool is active, clicking (or double-clicking — asked both ways,
+   pick one deliberately rather than building both) directly on a card,
+   sketch or shape should switch to the Selection tool and select that
+   object, rather than requiring a manual tool switch first. "It is still
+   annoying to use" was the framing — this is the concrete fix named for it.
+
+See ROADMAP.md's priority table for where this sits against the rest of the
+still-open work.
+
+## ► This session's tail: fixes shipped, and four items logged for next sprint
+
+**Shipped, verified (full suite green, ruff clean, `node --check` on every
+touched `.js`):**
+
+- Dashboard: attached non-image files now render as a file chip in widget
+  note lists (`noteRowFile()` in `dashboard.js`) — previously only images got
+  a preview, everything else showed nothing. Needed `attachmentIconClass`/
+  `fileKindLabel` in `app.js` to take the file's *name*, not just its URL,
+  because `/files/{id}` (the note-attachment endpoint) is extension-less.
+- Dashboard widget picker showed **On this day** twice: `DASH_WIDGETS` had
+  both `onthisday` and `on-this-day` keys. Removed the duplicate; `dashLayout`
+  self-heals any saved layout referencing the dropped key, so no migration.
+- Help chat: added the app's existing `typingDots()`/`.is-streaming` caret to
+  the Help bot's own replies, and made its transcript auto-stick to the
+  bottom on a new message unless the user has scrolled up (`helpChatIsNearBottom`).
+- `HELP_TOPICS` grew from 18 to 26 entries, and its keyword matcher now
+  precompiles each keyword's regex once at import instead of per-request.
+- **Regression, introduced and fixed this session**: two `HELP_TOPICS`
+  badges (`documents`, `whiteboard`) pointed `tab` at sub-tab names that
+  `switchTab()` can't resolve — clicking either badge blanked the whole
+  screen. Fixed both to point at `library`; added
+  `test_every_badge_tab_is_a_real_top_level_tab` so a badge pointed at a
+  non-top-level tab fails the suite instead of shipping.
+- OCR workspace's reader picker (`GET /ocr-readers`) called
+  `resolve_vision_model` instead of `resolve_ocr_model` — reported live as
+  "I can only select the vision models not OCR models." The real page-read
+  endpoint already called the right resolver; only the picker's displayed
+  name/status was wrong. `tests/test_ocr_readers.py` (new, 4 tests) covers:
+  an installed OCR-family model being preferred over a generic vision model,
+  an explicit `ocr_model` preference winning, falling back to a generic
+  vision model when no reader is installed, and reporting "not running"
+  correctly offline.
+
+**Logged, not built — for the start of next sprint, in report order:**
+
+1. **Graph Trace: multiple paths between two nodes.** Reported live: when
+   more than one path connects the traced nodes, should each be drawn in its
+   own colour, with the written path list above the map switchable between
+   them? Today `GET /graph/path` (`entry/paths.py`) returns a single
+   (shortest) path and `graph.js`'s `runTrace`/`drawTrace`/`renderTraceReadout`
+   only ever hold one. This is a real feature, not a quick fix: the backend
+   needs a k-shortest-paths (or all-simple-paths-up-to-N) search instead of
+   plain BFS, and the frontend needs a colour per path plus a switcher in the
+   Trace panel that re-highlights `drawTrace`'s overlay and re-runs
+   `renderTraceReadout` for whichever path is selected. Worth scoping the cap
+   on N before building — an all-paths search on a densely-linked notebook
+   can blow up combinatorially.
+2. **OCR: vision-model page read produced no text.** Reported: reading a
+   page of a scanned PDF with a vision model (not an OCR-family model) left
+   the text area empty, after scrolling off the page and back (ruling out a
+   scroll-triggered render gap). **Not reproduced this session** — no live
+   Ollama in this sandbox, and the fake-transport tests can't exercise a
+   real vision model's actual response shape. Next session: reproduce with a
+   real Ollama + vision model against a scanned PDF page, and check whether
+   the response is arriving empty (model returned nothing/whitespace) or
+   arriving non-empty but failing to reach the text area (a rendering/DOM
+   bug in the OCR workspace's read-result handler, similar in shape to the
+   whiteboard-badge regression above).
+3. **Formatting toolbar: block-insert ("+") dropdown can overflow the
+   panel edge** in the note editor's capture tab, and likely Documents too
+   (same component). Screenshot showed the menu sitting at/past the right
+   edge of its panel.
+4. **Formatting-bar dropdowns get clipped, don't reposition inside the
+   panel.** Likely the same root cause as #3 — worth checking first whether
+   these dropdowns already use the viewport-escaping mechanism built for the
+   nav-history menu (`wireEscapedActionMenu` or equivalent — see the
+   "screenshot you look at is not a measurement" story in CLAUDE.md for why
+   that menu took six rounds) or never got wired to it. Neither #3 nor #4
+   was investigated this session — flagged rather than guess-fixed, per this
+   file's own standing rule to reproduce before theorising.
+5. **OCR page/range reads: no cancel, don't survive leaving the workspace,
+   invisible in Background tasks.** Reported live, three asks in one: verify
+   OCR actually works, let a read be stopped, and surface it in Settings →
+   Background tasks. Traced, not built — this is a real architecture gap,
+   not a quick fix. `ocr-page-read` and `ocr-range-read`
+   (`routes_files.py:2062-2115`, called from `library.js:3381` and `:3438`)
+   are plain synchronous `POST`s: the browser `fetch` has no
+   `AbortController` (contrast `askController`/`chatController`/
+   `cmdPaletteRun`, which all wire Stop buttons this way already — grep
+   `AbortController` in `app.js` for the pattern to copy), so there is
+   nothing to press to stop one, and navigating away either aborts the
+   fetch client-side (losing the read, since nothing server-side is
+   tracking it to resume or report on) or leaves it running with no visible
+   result. Either way it never appears in Settings → Background tasks,
+   because `routes_tasks.py`'s `collect()` doesn't know about it —
+   `ai/captioning.py`'s `running_captions()` is the existing pattern for a
+   model-call job that *is* tracked there (registered on start, polled by
+   `collect()`, listed under "Running now") and is the template to follow:
+   register each OCR read the same way, add its entry to `collect()`, and
+   give the workspace a Stop button that calls whatever cancel path
+   `bgtasks.py` uses elsewhere. This is ROADMAP's existing item 100 ("Files /
+   OCR: lightbox, progress, background jobs, card redesign") — this report
+   sharpens the scope to exactly this piece of it.
+
 ## This session — chat, document OCR, the block editor, three alignment defects
 
 Driven live, overnight, from a stream of reports. Read this before the v0.2.0

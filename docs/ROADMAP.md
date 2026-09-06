@@ -23,23 +23,28 @@ of all forty requests with their state (§R8), and the numbers as they stand
 (§R9). **Read it before doing any UI, file-handling, graph or backend work.**
 
 **Read the top of [roadmap/HANDOVER.md](roadmap/HANDOVER.md) first — it is
-ahead of this file.** It carries the v0.2.0 round: the two defect shapes behind
-nearly every visual bug reported, what is done, and fifteen open items all top
-priority by instruction. It still carries the reversal worth knowing before any
-file work — PDFs and documents must be viewable, downloadable and manageable
-**without any AI model in the loop** — and the note that anything editor- or
-slash-command-shaped starts from `frontend/editor.js`, which has a "/" menu.
+ahead of this file.** Its own top section is the whiteboard priority below,
+by direct instruction. Under that: the v0.2.0 round, the two defect shapes
+behind nearly every visual bug reported, what is done, and fifteen open
+items all top priority by instruction. It still carries the reversal worth
+knowing before any file work — PDFs and documents must be viewable,
+downloadable and manageable **without any AI model in the loop** — and the
+note that anything editor- or slash-command-shaped starts from
+`frontend/editor.js`, which has a "/" menu.
 
 **The next session's order of work, highest value first.** Each links to the
 section that holds the quoted request and the detail:
 
 | | Work | Why it is first |
 | --- | --- | --- |
+| 0 | **The whiteboard's panels and controls, in full — moved here by direct instruction, ahead of everything below.** Full narrative in [roadmap/HANDOVER.md](roadmap/HANDOVER.md)'s own top section. | Two asks: (a) the layout/structure/distribution/positioning redesign this row already named as the open half of item 7 below — panels reported clashing with each other and the canvas; (b) new, specific: while the **Pan** tool is active, clicking (or double-clicking — pick one deliberately) directly on a card/sketch/shape should switch to **Selection** and select it, instead of requiring a manual tool switch first. Not built yet — logged here first, per this file's own standing rule. |
+| 0b | **OCR page/range reads: stoppable, and tracked in Background tasks** ([roadmap/HANDOVER.md](roadmap/HANDOVER.md), "logged, not built" §5). Sharpens item 100's scope. | Reported live: reads can't be stopped, don't survive leaving the OCR workspace, and never appear in Settings → Background tasks. Root cause traced to the endpoint level — `ocr-page-read`/`ocr-range-read` are plain synchronous fetches with no `AbortController`, unlike chat/ask/agent, and never registered with `routes_tasks.py`'s `collect()`, unlike image captioning. `ai/captioning.py`'s `running_captions()` is the template to copy. |
+| 0c | **Graph Trace: multiple paths between two nodes, coloured and switchable** ([roadmap/HANDOVER.md](roadmap/HANDOVER.md), "logged, not built" §1). | Reported live. `GET /graph/path` returns one BFS shortest path today; this needs a k-shortest/all-simple-paths search server-side and a path switcher plus per-path colour in `graph.js`'s Trace panel. Scope the cap on N before building — unbounded all-paths search can blow up on a densely-linked notebook. |
 | ~~1, 3, 6, 8~~ | **Done — four rows retired.** The lock audit ([§R8.2](roadmap/REDESIGN.md)); staging every file ([§R7.2](roadmap/REDESIGN.md)); the agent-harness audit ([§R5](roadmap/REDESIGN.md)); managing concept maps ([§R7.6](roadmap/REDESIGN.md)). | Two were built by earlier sessions and only the table was stale — **check a row against the code before taking it**, that is the sixth "already exists" catch. The other two are written up in [roadmap/HANDOVER.md](roadmap/HANDOVER.md)'s harness-audit section, with what §R5's five points actually turned out to be and why the staged-URL guard lives in `api()` rather than in a list of save paths. |
 | ~~2~~ | ~~**The document/file editor**~~ **Done — all six items** ([§R7.1](roadmap/REDESIGN.md)) | Selection → chat context; editing a text or code file in place; syntax highlighting written in-repo because this app has no CDN and no bundler; an HTML preview pane in a scriptless sandbox served with its own CSP; Export text, named after what the text *is* rather than the file it came from; and item 6, which turned out to be true already — the Library's Files tiles have opened into the lightbox all along, and the lightbox is now the editor. Four bugs fell out of building it, each found by measuring rather than looking; all are in [roadmap/HANDOVER.md](roadmap/HANDOVER.md). |
 | 4 | **The pane-based shell** ([§R7.5](roadmap/REDESIGN.md), [§R8.3](roadmap/REDESIGN.md)) | Every remaining UI complaint is downstream of seven screens that each own the whole window. Its acceptance criterion is the distinct-left-edge count in [DESIGN.md](DESIGN.md) — re-baseline it on a fixed fixture first, per §R9. |
 | 5 | **Cross-linking: the `@` picker** ([§R7.3](roadmap/REDESIGN.md)) | Link direction landed; **the Connections block is now built** (`GET /entries/{id}/connections` and `/documents/{id}/connections`, the dialog off both ⋯ menus, `tests/test_connections_block.py`) — it groups links by direction and adds the documents, boards and files each thing is joined to, none of which were surfaced anywhere. What is left of this row is the one universal `@` picker. **§R7.3 item 3 (typed collapsible blocks) is now built too** — `> [!note]-` and `> [!note]+` render as a `<details>`, with a "Collapsible section" slash command; a plain `> [!note]` is unchanged, so old notes are unaffected exactly as that item required. |
-| 7 | **Settings, and the whiteboard's panel layout** ([§R7.5](roadmap/REDESIGN.md)) | Settings has never been measured. Panel control sizes are unified; the layout rethink is not. |
+| 7 | **Settings, and the whiteboard's panel layout** ([§R7.5](roadmap/REDESIGN.md)) | Settings has never been measured. Panel control sizes are unified; the layout rethink is now row 0 above, promoted by direct instruction. |
 | 9 | **The backend list** ([§R7.7](roadmap/REDESIGN.md)) | Not urgent. Includes the answer to "should it be async" — measured, and it is **no**; the reasoning is there so nobody redoes it. |
 
 **Two standing rules from that work**, both learned the expensive way this

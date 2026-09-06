@@ -3076,6 +3076,24 @@ window.collapseLongSettingHints = collapseLongSettingHints;
 let helpChatHistory = [];
 let helpChatBusy = false;
 
+// Auto-scroll is only welcome while the reader is already at the bottom —
+// asked for directly: scrolling up to re-read an earlier answer must not
+// get yanked back down the moment the next reply lands. A ~40px slop covers
+// the last row's own height so "basically at the bottom" still counts.
+function helpChatIsNearBottom() {
+  const list = $("help-chat-messages");
+  if (!list) return true;
+  return list.scrollHeight - list.scrollTop - list.clientHeight < 40;
+}
+
+function helpChatAppendRow(row) {
+  const list = $("help-chat-messages");
+  if (!list || !row) return;
+  const stick = helpChatIsNearBottom();
+  list.appendChild(row);
+  if (stick) list.scrollTop = list.scrollHeight;
+}
+
 function renderHelpChatMessage(role, content, badges = []) {
   const list = $("help-chat-messages");
   if (!list) return null;
@@ -3100,8 +3118,7 @@ function renderHelpChatMessage(role, content, badges = []) {
     }
     row.appendChild(badgeRow);
   }
-  list.appendChild(row);
-  list.scrollTop = list.scrollHeight;
+  helpChatAppendRow(row);
   return row;
 }
 
@@ -3112,21 +3129,34 @@ async function submitHelpChatQuestion(question) {
   const sendBtn = $("help-chat-send");
   if (sendBtn) sendBtn.disabled = true;
   renderHelpChatMessage("user", question);
-  const pending = renderHelpChatMessage("assistant", "Thinking…");
-  pending?.classList.add("is-pending");
+  // Same "thinking" indicator every other AI-backed surface uses
+  // (typingDots(), app.js) rather than a static "Thinking…" line — asked
+  // for directly, kept deliberately simple since this reply never streams
+  // token-by-token: no "writing" phase, just the wait and then the caret
+  // settling below.
+  const pending = document.createElement("div");
+  pending.className = "help-chat-msg is-assistant is-pending";
+  pending.appendChild(typeof typingDots === "function" ? typingDots("Thinking…") : document.createTextNode("Thinking…"));
+  helpChatAppendRow(pending);
   if (input) input.value = "";
   try {
     const result = await apiJson("/help/ask", {
       method: "POST",
       body: JSON.stringify({ question, history: helpChatHistory }),
     });
-    pending?.remove();
+    pending.remove();
     const content = result?.content || "Sorry, I couldn't answer that.";
-    renderHelpChatMessage("assistant", content, result?.badges || []);
+    const row = renderHelpChatMessage("assistant", content, result?.badges || []);
+    // The typewriter caret (`.is-streaming`, already built for Chat's real
+    // token stream) settles for a moment rather than blinking forever —
+    // this reply arrived in one piece, so pretending it is still being
+    // written would be the misleading kind of animation, not the honest one.
+    row?.classList.add("is-streaming");
+    setTimeout(() => row?.classList.remove("is-streaming"), 700);
     helpChatHistory.push({ role: "user", content: question });
     helpChatHistory.push({ role: "assistant", content });
   } catch {
-    pending?.remove();
+    pending.remove();
     renderHelpChatMessage("assistant", "Something went wrong asking that — try again.");
   } finally {
     helpChatBusy = false;

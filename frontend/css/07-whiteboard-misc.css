@@ -2268,6 +2268,14 @@ dialog::backdrop {
   overflow: hidden;
 }
 
+/* A non-image attachment's file chip, appended after the title/preview text
+   — `.chip` alone would stretch to the column's full width inside
+   `.dash-list-text`'s flex column, which reads wrong for a pill. */
+.dash-list-file-chip {
+  align-self: flex-start;
+  margin-top: 0.25rem;
+}
+
 /* A widget row is now two lines tall, so the single-line ellipsis the list
    carried has to go — it clipped the title and hid the preview entirely. */
 .dash-list li {

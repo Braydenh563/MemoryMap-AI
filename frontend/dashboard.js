@@ -88,7 +88,7 @@ const DASH_WIDGETS = {
   "most-linked": { title: "ph:link Most-linked notes", description: "The notes with the most connections — the hubs of your notebook.", render: renderMostLinkedWidget },
   "top-tags": { title: "ph:tag Top tags", description: "Your most-used tags, ranked by how many notes carry them.", render: renderTopTagsWidget },
   questions: { title: "ph:chat-circle Recent questions", description: "The questions you've recently asked the notebook's chat.", render: renderQuestionsWidget },
-  "on-this-day": { title: "ph:calendar-blank On this day", description: "Notes from this date in previous years.", render: renderOnThisDayWidget },
+  "on-this-day": { title: "ph:calendar-blank On this day", description: "What you wrote on this date in earlier months and years.", render: renderOnThisDayWidget },
   digest: { title: "ph:newspaper Weekly digest", description: "A short roundup of what you wrote and did this week.", render: renderDigestWidget },
   capture: { title: "ph:pencil-simple Quick capture", description: "A one-line box to jot a note without leaving the dashboard.", render: renderQuickCaptureWidget },
   reminders: { title: "ph:alarm Reminders", description: "Upcoming and overdue reminders, soonest first.", render: renderRemindersWidget },
@@ -114,11 +114,15 @@ const DASH_WIDGETS = {
   //: here answers from data already loaded; this one's answer costs a model
   //: pass over pairs of notes, so rendering the dashboard must not start one.
   tensions: { title: "ph:scales Tensions", description: "Find where your notes contradict each other — a decision reversed, a date that moved, a view you changed.", render: renderTensionsWidget },
-  //: **The two things a notebook can tell you that a to-do list cannot:** what
-  //: you were thinking about a year ago today, and whether you are actually
-  //: writing. Both are answered entirely from `allEntries`, which is already
-  //: loaded — no request, no model.
-  onthisday: { title: "ph:clock-counter-clockwise On this day", description: "What you wrote on this date in earlier months and years.", render: renderOnThisDayWidget },
+  //: **What a notebook can tell you that a to-do list cannot:** whether you
+  //: are actually writing. Answered entirely from `allEntries`, which is
+  //: already loaded — no request, no model. (Its sibling idea — what you
+  //: were thinking about on this date in earlier years — turned out to
+  //: already exist as `on-this-day` above under a different key; reported
+  //: directly as two identical widgets in the picker, "on-this-day" kept
+  //: since it was the original and removing `onthisday` here needed no
+  //: layout migration — `dashLayout()` already drops any saved id that
+  //: isn't in this object.)
   pace: { title: "ph:chart-line-up Writing pace", description: "How many words you have written each day this fortnight.", render: renderPaceWidget },
 };
 
@@ -1359,7 +1363,7 @@ function dashWidgetRow(name, layout, position = null) {
 const DASH_WIDGET_GROUPS = {
   stats: "overview", streak: "overview", heatmap: "overview", pace: "overview",
   digest: "overview", art: "overview",
-  pinned: "notes", random: "notes", categories: "notes", onthisday: "notes",
+  pinned: "notes", random: "notes", categories: "notes", "on-this-day": "notes",
   unfinished: "notes", orphans: "notes", tensions: "notes", boards: "notes",
   documents: "notes",
   capture: "doing", reminders: "doing", focus: "doing", questions: "doing",
@@ -1834,6 +1838,18 @@ function noteRowImage(entry) {
   return attached ? { alt: attached.filename || "", url: `/files/${attached.id}` } : null;
 }
 
+// The non-image half of `noteRowImage` — a note's attached PDF, spreadsheet
+// or the like has nothing to thumbnail, and previously had nothing shown
+// for it at all here: `miniEntryList` only ever asked `noteRowImage`, so a
+// note whose only attachment was a document rendered as if it were bare
+// text, indistinguishable from a note with nothing attached. Reported
+// directly: "files dont render in the widgets and other areas notes are
+// shown."
+function noteRowFile(entry) {
+  const attached = (entry.attachments || []).find((file) => !file.is_image);
+  return attached ? { name: attached.filename || "", url: `/files/${attached.id}` } : null;
+}
+
 function miniEntryList(body, entries, emptyText) {
   if (!entries.length) {
     const p = document.createElement("p");
@@ -1859,6 +1875,7 @@ function miniEntryList(body, entries, emptyText) {
       thumb.className = "dash-list-thumb";
       li.appendChild(thumb);
     }
+    const file = !image && noteRowFile(entry);
     const textEl = document.createElement("span");
     textEl.className = "dash-list-text";
     // Block syntax first. renderInlineMarkdown is exactly that — INLINE — so a
@@ -1891,6 +1908,11 @@ function miniEntryList(body, entries, emptyText) {
       renderInlineMarkdown(preview, cut.text, [], true);
       if (cut.truncated) preview.appendChild(document.createTextNode("…"));
       textEl.appendChild(preview);
+    }
+    if (file) {
+      const chipEl = fileChip(file.name, file.url);
+      chipEl.classList.add("dash-list-file-chip");
+      textEl.appendChild(chipEl);
     }
     li.appendChild(textEl);
     li.title = "Open this note";

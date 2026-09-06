@@ -114,3 +114,21 @@ def test_every_help_topic_has_a_non_empty_body_and_badge():
         assert topic["keywords"]
         assert topic["badge"].get("label")
         assert topic["badge"].get("tab") or topic["badge"].get("section")
+
+
+# Reported live: clicking the "Whiteboard" badge (a `data-goto-tab="whiteboard"`
+# button) blanked the whole app — `switchTab()` hides every tab panel and
+# shows none when given a name that matches no real tab, since "whiteboard"
+# and "documents" are Library *sub*-tabs, not top-level tabs, and the badge
+# system only knows how to switch to a top-level one. Same bug on both.
+REAL_TOP_LEVEL_TABS = {"dashboard", "notes", "chat", "graph", "library", "timeline", "reminders"}
+
+
+def test_every_badge_tab_is_a_real_top_level_tab():
+    for topic in help_chat.HELP_TOPICS:
+        tab = topic["badge"].get("tab")
+        if tab is not None:
+            assert tab in REAL_TOP_LEVEL_TABS, (
+                f"{topic['id']!r}'s badge points at {tab!r}, which switchTab() "
+                "can't resolve — it isn't one of the app's top-level tabs"
+            )

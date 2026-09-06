@@ -580,6 +580,11 @@ class Conversation(Base, WorkspaceMixin):
     # so the thread you keep coming back to sinks under a week of one-offs.
     # (Added by the auto-migrator on existing databases, defaulting to false.)
     pinned: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Kept, but out of the way — same shape as Entry.archived_at (BACKLOG
+    # §30b), extended here to chats as that item's own named remaining
+    # scope. Never implies deletion; added by the auto-migrator, defaulting
+    # to NULL (not archived) on every existing row.
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=utcnow, onupdate=utcnow
@@ -763,6 +768,9 @@ class Document(Base, WorkspaceMixin):
     # every document that existed before file types did as markdown, which is
     # what all of them are.
     file_type: Mapped[str] = mapped_column(String(20), default="md")
+    # Same "kept, out of the way" column as Entry.archived_at/
+    # Conversation.archived_at (BACKLOG §30b) — never implies deletion.
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 

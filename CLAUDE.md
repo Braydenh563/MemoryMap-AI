@@ -46,11 +46,22 @@ files cross-link, and `tests/test_docs_layout.py` enforces that.
 
 ## The standing caveat
 
-**Every provider test runs against a fake transport.** SSE framing and
-tool-call fragment indices come from reading the spec, not from a running LM
-Studio. Reasoning about behaviour instead of reproducing it has cost real time
-more than once — when something is reported broken, reproduce it before
-theorising, and say plainly when you could not.
+**Every provider test runs against a fake transport.** Tool-call fragment
+indices come from reading the spec, not from a running LM Studio. Reasoning
+about behaviour instead of reproducing it has cost real time more than once —
+when something is reported broken, reproduce it before theorising, and say
+plainly when you could not.
+
+**The plain-streaming half of that caveat is lifted.** A real stdlib
+`HTTPServer` speaking the OpenAI `/v1` dialect (no mocked `requests`, a real
+socket) stood in for LM Studio/llama.cpp/Jan/vLLM: `POST /models/provider`
+switched the live app to it, and `/help/ask`, `/voice/summarize` and a full
+`/chat/stream` turn (status → meta → two answer deltas → stats → done, in
+order) all round-tripped correctly, including the SSE `data:`/`[DONE]`
+framing `OpenAICompatClient.chat_stream` parses. **Not covered**: real
+inference (the stand-in server returns a canned string, not a model's own
+output) and `chat_tools`/`chat_tools_stream`'s tool-call fragment parsing —
+that half of the caveat still stands.
 
 **The UI half of that caveat is now lifted, and you should use it.** The
 sandbox has Chromium and Playwright, and the app runs on localhost:

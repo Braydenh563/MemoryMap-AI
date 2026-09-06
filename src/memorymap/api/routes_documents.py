@@ -147,6 +147,7 @@ def _summary(document: Document) -> dict:
         # column existed, or by a restore from an older backup, can hold
         # anything at all, and the editor picks its whole mode from this.
         "file_type": filetypes.normalise(document.file_type),
+        "archived_at": document.archived_at.isoformat() if document.archived_at else None,
     }
 
 
@@ -287,7 +288,11 @@ def list_documents(
     case-insensitive substring matching, not semantic search — whether
     documents get embeddings at all is a separate, larger decision.
     """
-    query = select(Document).order_by(Document.updated_at.desc())
+    # Archived documents are kept, but out of the way — reachable via the
+    # Library's Shelved filter (routes_library._shelved), not this list.
+    query = select(Document).where(Document.archived_at.is_(None)).order_by(
+        Document.updated_at.desc()
+    )
     term = q.strip()
     if term:
         like = f"%{term}%"
@@ -433,6 +438,30 @@ def delete_document(document_id: int, session: Session = Depends(get_session)) -
     session.delete(document)
     session.commit()
     return {"deleted": True}
+
+
+@router.put("/{document_id}/archive")
+def archive_document(document_id: int, session: Session = Depends(get_session)) -> dict:
+    """Kept, but out of the way (BACKLOG §30b's named remaining scope) —
+    same shape as `routes_entries.archive_entry`: never deleted, never
+    auto-cleared, drops out of the Documents list, still reachable from
+    the Library's Shelved filter."""
+    document = _existing(session, document_id)
+    if not document.archived_at:
+        document.archived_at = utcnow()
+        log_action(session, "archived", "document", document.id, document.title[:80])
+        session.commit()
+    return _summary(document)
+
+
+@router.put("/{document_id}/unarchive")
+def unarchive_document(document_id: int, session: Session = Depends(get_session)) -> dict:
+    document = _existing(session, document_id)
+    if document.archived_at:
+        document.archived_at = None
+        log_action(session, "unarchived", "document", document.id, document.title[:80])
+        session.commit()
+    return _summary(document)
 
 
 def _safe_filename(title: str, extension: str) -> str:

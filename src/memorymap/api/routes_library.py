@@ -303,6 +303,11 @@ def _shelved(session: Session) -> list[dict]:
     user-facing label) specifically so it cannot be confused with
     `"kind": "archived"` above at the code level, even though the two
     English words mean almost the same thing.
+
+    Extended to chats and documents (BACKLOG §30b's own named remaining
+    scope, after notes got this first): each carries a `"subtype"` —
+    `"note"`/`"chat"`/`"document"` — since `"kind": "shelved"` alone no
+    longer says which unarchive route or menu the frontend should use.
     """
     rows = session.scalars(
         select(Entry)
@@ -335,6 +340,7 @@ def _shelved(session: Session) -> list[dict]:
         items.append(
             {
                 "kind": "shelved",
+                "subtype": "note",
                 "id": entry.id,
                 "title": own_title or (_clip(content)[:60] or "Empty note"),
                 "preview": _clip(preview_source),
@@ -346,6 +352,55 @@ def _shelved(session: Session) -> list[dict]:
                 "pinned": False,
                 "thumb_attachment_id": thumb_id,
                 "thumb_url": None if thumb_id else _first_inline_image_url(content),
+            }
+        )
+    for chat in session.scalars(
+        select(Conversation)
+        .where(Conversation.archived_at.is_not(None))
+        .order_by(Conversation.archived_at.desc())
+        .limit(PER_KIND_LIMIT)
+    ).all():
+        try:
+            messages = json.loads(chat.messages)
+        except (ValueError, TypeError):
+            messages = []
+        first_question = next(
+            (m.get("content", "") for m in messages if m.get("role") == "user"), ""
+        )
+        items.append(
+            {
+                "kind": "shelved",
+                "subtype": "chat",
+                "id": chat.id,
+                "title": chat.title or "Untitled chat",
+                "preview": _clip(first_question),
+                "updated_at": chat.archived_at.isoformat(),
+                "detail": "archived",
+                "size": len(messages) // 2,
+                "entry_id": None,
+                "mime": None,
+                "pinned": False,
+            }
+        )
+    for doc in session.scalars(
+        select(Document)
+        .where(Document.archived_at.is_not(None))
+        .order_by(Document.archived_at.desc())
+        .limit(PER_KIND_LIMIT)
+    ).all():
+        items.append(
+            {
+                "kind": "shelved",
+                "subtype": "document",
+                "id": doc.id,
+                "title": doc.title or "Untitled",
+                "preview": _clip(doc.content),
+                "updated_at": doc.archived_at.isoformat(),
+                "detail": "archived",
+                "size": len(doc.content.split()),
+                "entry_id": None,
+                "mime": None,
+                "pinned": False,
             }
         )
     return items

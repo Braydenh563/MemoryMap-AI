@@ -7,10 +7,12 @@ now *only* what's still open, ranked by what it unlocks. Section numbers in
 code comments and tests still resolve via HISTORY.md's index.
 
 **The standing caveat:** every provider test runs against a fake transport —
-SSE framing and tool-call parsing are implemented from the spec, not verified
-against a running Ollama/LM Studio. UI claims are now checkable (Chromium is
-in the sandbox); model *behaviour* claims are not — reproduce or say plainly
-you couldn't.
+tool-call parsing is implemented from the spec, not verified against a
+running server. Plain SSE streaming *is* now verified against a real socket
+(a stand-in OpenAI-`/v1` server, not real LM Studio/vLLM/llama.cpp or real
+inference) — see CLAUDE.md's standing caveat for what that covered. UI claims
+are checkable (Chromium is in the sandbox); model *behaviour* claims mostly
+are not — reproduce or say plainly you couldn't.
 
 ## ► START HERE: the redesign is the priority
 
@@ -1746,13 +1748,29 @@ Worth doing, and worth doing after the above.
         verification at the time. **Re-verified this session**: archived a
         fresh note via the API, confirmed it appears under the Library's
         Archived chip with the right count, zero console errors.
-        **Deliberately scoped to notes only** — chats and documents (BACKLOG
-        §4 item 3 also names both) are the real remaining work, one
-        `archived_at` column and one pair of routes each, same shape as the
-        notes version above to copy from. §26 lists three things that build
-        on the full archive afterwards (a "delete everything" control, one
-        assembled "your data" page, opt-in auto-archive-by-age) but none of
-        those block extending to chats/documents first.
+        **Extended to chats and documents this session** — the named
+        remaining scope, done: `Conversation.archived_at`/
+        `Document.archived_at` (both additive), `PUT
+        /conversations/{id}/archive`/`/unarchive` and `PUT
+        /documents/{id}/archive`/`/unarchive`, an "Archive" action beside
+        Delete in the chat sidebar and the documents dock (not grouped
+        with it, same placement as the notes version), and `_shelved()`
+        extended to include both with a `"subtype"` field so the Library's
+        one Shelved filter now covers all three kinds. 10 new tests
+        (`test_conversation_archive.py`, `test_document_archive.py`).
+        **Live-verified**: archived a real chat and document through the
+        actual endpoints, confirmed both vanish from their ordinary lists
+        and appear under the Library's Archived chip (screenshot: two
+        cards, correct titles, "archived"/"just now" metadata), then
+        unarchived both back to their normal lists — zero console errors
+        throughout. The frontend kebab menu's own Archive/Unarchive click
+        path is the same `makeMenuItem`/`kebabMenu` shape the notes version
+        already uses successfully, but wasn't itself click-driven in this
+        verification (a generic popup-visibility timing issue in the test
+        harness, not a reproduced app bug) — the API + Library-rendering
+        half of the round trip was. §26 lists three things that build on
+        the full archive afterwards (a "delete everything" control, one
+        assembled "your data" page, opt-in auto-archive-by-age).
     30c. ~~**Chat metadata not surviving a reload**~~ **Checked before
         building, found already fixed (HISTORY.md §70).** `_turn_messages`
         (routes_conversations.py) persists `stats`/`elapsed_ms` on the

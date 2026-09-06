@@ -159,6 +159,7 @@ def _summary(conversation: Conversation) -> dict:
         # about when its title doesn't.
         "preview": first_question[:120],
         "tokens": sum(int(m.get("tokens") or 0) for m in messages),
+        "archived_at": conversation.archived_at.isoformat() if conversation.archived_at else None,
     }
 
 
@@ -209,7 +210,10 @@ def list_conversations(
     title-only search can't find that.
     """
     term = (q or "").strip()
-    query = select(Conversation)
+    # Archived chats are kept, but out of the way — same shape as an
+    # archived note dropping out of the Notes tab. Reachable via the
+    # Library's Shelved filter (routes_library._shelved), not this list.
+    query = select(Conversation).where(Conversation.archived_at.is_(None))
     if term:
         # A cheap SQL prefilter — it over-matches (JSON keys count as text),
         # so everything it returns is then checked properly below.
@@ -250,6 +254,46 @@ def pin_conversation(
     )
     session.commit()
     session.refresh(conversation)
+    return _summary(conversation)
+
+
+@router.put("/{conversation_id}/archive")
+def archive_conversation(
+    conversation_id: int, session: Session = Depends(get_session)
+) -> dict:
+    """Kept, but out of the way (BACKLOG §30b's named remaining scope) —
+    same shape as `routes_entries.archive_entry`: never deleted, never
+    auto-cleared, drops out of the sidebar list and out of the way, still
+    reachable from the Library's Shelved filter."""
+    conversation = _existing(session, conversation_id)
+    if not conversation.archived_at:
+        # Same suppression as pinning above: archiving is organising, not
+        # using, so `updated_at` must not jump to now.
+        session.execute(
+            update(Conversation)
+            .where(Conversation.id == conversation.id)
+            .values(archived_at=utcnow(), updated_at=conversation.updated_at)
+        )
+        log_action(session, "archived", "conversation", conversation.id)
+        session.commit()
+        session.refresh(conversation)
+    return _summary(conversation)
+
+
+@router.put("/{conversation_id}/unarchive")
+def unarchive_conversation(
+    conversation_id: int, session: Session = Depends(get_session)
+) -> dict:
+    conversation = _existing(session, conversation_id)
+    if conversation.archived_at:
+        session.execute(
+            update(Conversation)
+            .where(Conversation.id == conversation.id)
+            .values(archived_at=None, updated_at=conversation.updated_at)
+        )
+        log_action(session, "unarchived", "conversation", conversation.id)
+        session.commit()
+        session.refresh(conversation)
     return _summary(conversation)
 
 

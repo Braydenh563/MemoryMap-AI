@@ -296,6 +296,18 @@ function renderDocList() {
           }).catch((e) => toast(e.message, true));
           loadDocuments(currentDoc?.id);
         }),
+        // Not destructive, so not grouped with Delete below — same
+        // "keep it, but out of the way" action the Notes tab already has
+        // for entries (BACKLOG §30b's named remaining scope: chats and
+        // documents). Reachable again from the Library's Shelved filter.
+        makeMenuItem("ph:archive Archive", "Keep it, but out of the way — not deleted", async () => {
+          await apiJson(`/documents/${doc.id}/archive`, { method: "PUT" }).catch((e) =>
+            toast(e.message, true)
+          );
+          if (currentDoc && currentDoc.id === doc.id) currentDoc = null;
+          toast("Archived.");
+          loadDocuments(currentDoc?.id);
+        }),
         makeMenuItem("ph:trash Delete", "Delete this document", async () => {
           if (!(await confirmDialog(`Delete "${doc.title || "Untitled"}"? This cannot be undone.`))) return;
           await apiJson(`/documents/${doc.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));

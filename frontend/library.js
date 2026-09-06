@@ -484,6 +484,15 @@ function libraryActions(item) {
         reload();
         loadConversationList();
       }),
+      makeMenuItem("ph:archive Archive", "Keep it, but out of the way — not deleted", async () => {
+        await apiJson(`/conversations/${item.id}/archive`, { method: "PUT" }).catch((e) =>
+          toast(e.message, true)
+        );
+        if (chatConv && chatConv.id === item.id) newChatConversation();
+        toast("Archived.");
+        reload();
+        loadConversationList();
+      }),
       makeMenuItem("ph:trash Delete", "Delete this chat", async () => {
         if (!(await confirmDialog("Delete this saved chat?"))) return;
         await apiJson(`/conversations/${item.id}`, { method: "DELETE" }).catch((e) =>
@@ -508,6 +517,13 @@ function libraryActions(item) {
       }),
       makeMenuItem("⬇ Download .md", "Save a copy as a markdown file", () => {
         window.open(`/documents/${item.id}/export.md`, "_blank");
+      }),
+      makeMenuItem("ph:archive Archive", "Keep it, but out of the way — not deleted", async () => {
+        await apiJson(`/documents/${item.id}/archive`, { method: "PUT" }).catch((e) =>
+          toast(e.message, true)
+        );
+        toast("Archived.");
+        reload();
       }),
       makeMenuItem("ph:trash Delete", "Delete this document", async () => {
         if (!(await confirmDialog(`Delete “${item.title}”? This cannot be undone.`))) return;
@@ -541,16 +557,27 @@ function libraryActions(item) {
     ];
   }
   if (item.kind === "shelved") {
+    // Notes, chats and documents all land in "shelved" (routes_library.
+    // _shelved), each with its own unarchive route/method and its own
+    // "bring it back to..." wording — `subtype` is what tells them apart.
+    const UNARCHIVE = {
+      note: { url: `/entries/${item.id}/unarchive`, method: "POST", noun: "note", reload: () => loadEntries() },
+      chat: { url: `/conversations/${item.id}/unarchive`, method: "PUT", noun: "chat", reload: () => loadConversationList() },
+      document: { url: `/documents/${item.id}/unarchive`, method: "PUT", noun: "document", reload: () => {} },
+    };
+    const target = UNARCHIVE[item.subtype] || UNARCHIVE.note;
     return [
-      makeMenuItem("ph:arrow-u-up-left Unarchive", "Bring this note back into your notebook", async () => {
-        await apiJson(`/entries/${item.id}/unarchive`, { method: "POST" }).catch((e) =>
-          toast(e.message, true)
-        );
-        toast("Unarchived.");
-        reload();
-        loadEntries();
-      }),
-      // No delete-for-good here: an archived note was never at risk of
+      makeMenuItem(
+        "ph:arrow-u-up-left Unarchive",
+        `Bring this ${target.noun} back into your notebook`,
+        async () => {
+          await apiJson(target.url, { method: target.method }).catch((e) => toast(e.message, true));
+          toast("Unarchived.");
+          reload();
+          target.reload();
+        }
+      ),
+      // No delete-for-good here: an archived item was never at risk of
       // being lost — that's the whole difference from the bin above — so
       // the only way out of this list is back to the notebook.
     ];

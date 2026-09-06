@@ -6139,3 +6139,44 @@ the input. No Ollama in this sandbox, so the *offline* path (`ollama.chat`
 never called) is what got exercised live; the happy path — a real reply and
 a badge match — is covered by `tests/test_help_chat.py` against the fake
 transport only, per this file's standing caveat.
+
+**Update, same session, §113 below: the happy path got a live run too**,
+against a stand-in for the *other* half of this caveat — not Ollama being
+offline, but every other backend never having been driven for real at all.
+
+## §113 — a real (non-Ollama) backend, driven live for the first time
+
+Asked directly: "make sure the app runs for all other local integrated ai
+providers as well, not just ollama." The architecture already made this
+true by construction — `ai/provider.py`'s `Provider` base class is what
+`agent.py`/`librarian.py`/`help_chat.py`/every route calls
+`deps.get_ollama()` and gets back, and `OpenAICompatClient` (the LM
+Studio/llama.cpp/Jan/vLLM dialect) implements the identical `chat`/
+`chat_stream`/`chat_tools`/`is_running` surface `OllamaClient` does — but
+"true by construction" and "verified" are different claims, and this file's
+own standing caveat says every provider test runs against a mocked
+`requests`, never a real socket.
+
+So: a ~90-line stdlib `http.server.ThreadingHTTPServer` (`fake_openai_server.py`,
+not committed — a throwaway verification tool) speaking just enough of the
+OpenAI `/v1` dialect (`GET /v1/models`, `POST /v1/chat/completions`,
+streaming and non-streaming) to stand in for a real LM Studio/vLLM/
+llama.cpp instance, minus real inference — it returns a fixed string, not a
+model's own output. `POST /models/provider` (the same endpoint Settings ->
+Models calls) pointed the live app at it; `security.check_backend_url`
+allowed it as a loopback address with no extra configuration, exactly as
+designed.
+
+Result: `POST /help/ask` and `POST /voice/summarize` both answered correctly
+through the real dialect, `help_chat`'s badge-matching worked unchanged, and
+a full `POST /chat/stream` turn produced `status` -> `meta` (real semantic
+search results from the actual notebook) -> two `answer` deltas -> `stats`
+-> `done`, in order, with the deltas reassembling to the exact reply text —
+proving `OpenAICompatClient.chat_stream`'s SSE `data:`/`[DONE]` framing
+against a real socket for the first time, not just the mocked-`requests`
+tests in `test_providers.py`. Switched back to `ollama` afterward, verified
+`/health` still 200. Not covered by this pass: `chat_tools`/
+`chat_tools_stream` (agent mode's own tool-call fragment parsing) — the
+stand-in server never sent one, so that half of the caveat is unchanged.
+CLAUDE.md's own standing caveat and ROADMAP.md's opening paragraph are
+updated to say precisely this, not more.

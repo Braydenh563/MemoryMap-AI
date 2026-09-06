@@ -15939,6 +15939,18 @@ async function loadConversationList() {
       })
     );
     items.push(
+      // Not destructive, so not grouped with Delete below — same "keep it,
+      // but out of the way" action Notes already has for entries (BACKLOG
+      // §30b's named remaining scope: chats and documents). Reachable
+      // again from the Library's Shelved filter.
+      makeMenuItem("ph:archive Archive", "Keep it, but out of the way — not deleted", async () => {
+        await apiJson(`/conversations/${conversation.id}/archive`, { method: "PUT" });
+        if (chatConv.id === conversation.id) newChatConversation();
+        toast("Archived.");
+        loadConversationList();
+      })
+    );
+    items.push(
       makeMenuItem("ph:trash Delete", "Delete this chat", async () => {
         if (!(await confirmDialog("Delete this saved chat?"))) return;
         await apiJson(`/conversations/${conversation.id}`, { method: "DELETE" });

@@ -26,6 +26,19 @@ still owed.
 - **Document editor: "Check with AI."** Sends the current document to Chat
   with a prompt asking the model to flag wording issues a spellchecker
   can't catch — agreement, tense, clarity — without rewriting the document.
+- **Archive extended to chats and documents** (BACKLOG §30b's own named
+  remaining scope, after notes got this first). An "Archive" action beside
+  Delete in the chat sidebar and the documents dock — kept, never deleted,
+  out of the way — and the Library's Shelved filter now covers all three
+  kinds.
+
+### Verified
+- **A real (non-Ollama) backend, driven live for the first time.** A
+  stand-in OpenAI-`/v1` server (a real socket, not a mocked `requests`)
+  proved `/help/ask`, `/voice/summarize` and a full `/chat/stream` turn —
+  SSE framing included — all round-trip correctly through
+  `OpenAICompatClient`, the dialect LM Studio/llama.cpp/Jan/vLLM share.
+  Tool-call streaming remains spec-verified only; see HISTORY.md §113.
 
 ## [0.2.0] — 2026-09-05
 

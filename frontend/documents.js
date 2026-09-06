@@ -674,36 +674,42 @@ function setDocWordGoal(id, goal) {
   }
 }
 
+//: **The goal, and only the goal.** The word count, the reading time and the
+//: character count moved to the editor's own status bar (`renderDocStatusBar`)
+//: when the top dock was rebuilt — reported as "redesign, rearrange, fix, and
+//: update the section with the word count, word goal etc elements". Facts
+//: about the text belong beside the text; what is left here is the *target*,
+//: which is a thing you set rather than a thing you read, and it is drawn as
+//: its own control on the same bar.
+//:
+//: Kept as a separate function from the status bar's because it is called from
+//: four places that mean "the document changed" — and because a goal is
+//: per-document state while the counts are pure arithmetic over the box.
 function renderDocStats() {
-  const el = $("doc-stats");
-  if (!el) return;
-  const text = $("doc-content").value || "";
-  const words = (text.match(/\S+/g) || []).length;
+  const words = (($("doc-content")?.value || "").match(/\S+/g) || []).length;
   const goal = currentDoc ? getDocWordGoal(currentDoc.id) : 0;
-  const goalBtn = $("doc-word-goal");
-  if (goalBtn) {
-    goalBtn.title = goal
-      ? `Goal: ${goal.toLocaleString()} words — click to change`
-      : "Set a word-count goal";
-    goalBtn.setAttribute("aria-pressed", String(goal > 0));
-  }
-  if (!words) {
-    el.textContent = "";
+  const button = $("doc-word-goal");
+  const label = $("doc-goal-label");
+  if (!button || !label) return;
+  button.setAttribute("aria-pressed", String(goal > 0));
+  button.classList.toggle("has-findings", goal > 0 && words >= goal);
+  if (!goal) {
+    label.textContent = "Set a goal";
+    button.title = "Set a word-count goal for this document";
+    //: The progress ring is meaningless without a target, so it is not drawn
+    //: rather than drawn empty — an empty meter reads as "you have written
+    //: nothing", which is a different and usually false claim.
+    button.style.removeProperty("--doc-goal-pct");
+    button.classList.remove("has-goal");
     return;
   }
-  const minutes = words / READING_WORDS_PER_MINUTE;
-  // Under a minute, "1 min read" overstates it; over an hour, minutes stop
-  // meaning anything.
-  const readTime =
-    minutes < 1
-      ? "under a min"
-      : minutes < 60
-        ? `${Math.round(minutes)} min read`
-        : `${(minutes / 60).toFixed(1)}h read`;
-  const wordsPart = goal
-    ? `${words.toLocaleString()} / ${goal.toLocaleString()} words (${Math.min(100, Math.round((words / goal) * 100))}%)`
-    : `${words.toLocaleString()} word${words === 1 ? "" : "s"}`;
-  el.textContent = `${wordsPart} · ${readTime}`;
+  const pct = Math.min(100, Math.round((words / goal) * 100));
+  label.textContent = `${words.toLocaleString()} / ${goal.toLocaleString()} · ${pct}%`;
+  button.title = `Goal: ${goal.toLocaleString()} words — click to change it`;
+  //: A custom property rather than an inline `style` attribute, which this
+  //: app's CSP refuses. Same rule the Loose ends meter follows.
+  button.style.setProperty("--doc-goal-pct", `${pct}%`);
+  button.classList.add("has-goal");
 }
 
 function promptDocWordGoal() {
@@ -1240,6 +1246,8 @@ function renderDocLive(keepActive = false) {
   if (docLiveActive === blocks.length) {
     host.appendChild(docLiveEditor("", docLiveActive));
   }
+  //: The blocks were just replaced, so the marks went with them.
+  docMarkLiveFindings();
 }
 
 //: **The block handle — Notion's, in this app's own furniture.**
@@ -3318,9 +3326,30 @@ function docProseFindings(text) {
   //: Spelling, word by word, so the span is the word and not a substring of a
   //: longer one — a regex over the whole list would flag "ot" inside "not".
   const word = /[A-Za-z']+/g;
+  const dictionary = docDictionary();
+  const variants = docVariantLookup();
   let hit;
   while ((hit = word.exec(text)) !== null) {
     const lower = hit[0].toLowerCase();
+    //: A word in the dictionary is a word. This is the whole point of having
+    //: one — the third time a checker flags your project's name, a checker you
+    //: cannot answer is a checker you turn off.
+    if (dictionary.has(lower)) continue;
+    const variant = variants.get(lower);
+    if (variant) {
+      found.push({
+        rule: "variant",
+        message: `${docSpellingVariant() === "uk" ? "UK" : "US"} spelling: “${variant}”`,
+        start: hit.index,
+        end: hit.index + hit[0].length,
+        text: hit[0],
+        replacement:
+          hit[0][0] === hit[0][0].toUpperCase()
+            ? variant[0].toUpperCase() + variant.slice(1)
+            : variant,
+      });
+      continue;
+    }
     const better = DOC_AUTOCORRECT[lower];
     if (!better) continue;
     found.push({
@@ -3360,7 +3389,9 @@ function docProseFindings(text) {
       cursor += sentence.length + 1;
     }
   }
-  return found.sort((a, b) => a.start - b.start);
+  return found
+    .filter((finding) => !docProseIgnored.has(docProseKey(finding)))
+    .sort((a, b) => a.start - b.start);
 }
 
 let docProseFound = [];
@@ -3380,36 +3411,77 @@ function renderDocProse() {
     ? `${docProseFound.length} suggestion${docProseFound.length === 1 ? "" : "s"}`
     : "No suggestions";
   chip.classList.toggle("has-findings", docProseFound.length > 0);
+  //: A fresh set of findings means a fresh set of marks. Re-rendered rather
+  //: than patched: the live view owns its own DOM and the cheapest correct
+  //: answer is to let it repaint.
+  if (docView === "live") renderDocLive(true);
   if (!panel.classList.contains("hidden")) renderDocProsePanel();
+}
+
+//: One header for both states of the panel: what it is, what can be done to
+//: all of it at once, and the way out.
+function docProseHeader() {
+  const head = document.createElement("div");
+  head.className = "row doc-prose-head";
+  const title = document.createElement("strong");
+  title.className = "doc-prose-title";
+  title.textContent = docProseFound.length
+    ? `${docProseFound.length} suggestion${docProseFound.length === 1 ? "" : "s"}`
+    : "Writing suggestions";
+  head.appendChild(title);
+
+  const tools = document.createElement("span");
+  tools.className = "row doc-prose-tools";
+  const fixable = docProseFound.filter((f) => f.replacement !== null);
+  if (fixable.length) {
+    const all = document.createElement("button");
+    all.type = "button";
+    all.className = "ghost small doc-prose-fix-all";
+    setLabel(all, `ph:magic-wand Fix ${fixable.length}`);
+    all.title = "Apply every suggestion that has one clear answer";
+    all.addEventListener("click", () => docProseFixAll());
+    tools.appendChild(all);
+  }
+  //: The dictionary is reachable from the thing that uses it. A word list you
+  //: can add to and never see again is a list nobody trusts.
+  const dict = smallButton("ph:book-open-text Dictionary", "Words you have told this to accept", () =>
+    openDocDictionary()
+  );
+  tools.appendChild(dict);
+  const close = smallButton("ph:x", "Close the suggestions", () => closeDocProsePanel());
+  close.classList.add("icon-only", "doc-prose-close");
+  close.setAttribute("aria-label", "Close the suggestions");
+  tools.appendChild(close);
+  head.appendChild(tools);
+  return head;
+}
+
+function closeDocProsePanel() {
+  $("doc-prose-panel")?.classList.add("hidden");
+  $("doc-prose")?.setAttribute("aria-expanded", "false");
+  //: Focus goes back to the control that opened it, or it lands on the body
+  //: and the next Tab starts from the top of the page.
+  $("doc-prose")?.focus();
 }
 
 function renderDocProsePanel() {
   const panel = $("doc-prose-panel");
   if (!panel) return;
   panel.replaceChildren();
+  //: The header first, always — including on the empty state. Reported:
+  //: "there's no close x button." A panel whose only exit is the control that
+  //: opened it is a panel you have to remember how to leave, and the empty
+  //: state was the one view where that was most likely.
   if (!docProseFound.length) {
+    panel.appendChild(docProseHeader());
     const empty = document.createElement("p");
-    empty.className = "muted";
-    empty.textContent = "Nothing to flag. These checks are spelling, spacing and sentence length — they cannot judge meaning.";
+    empty.className = "muted doc-prose-empty";
+    empty.textContent =
+      "Nothing to flag. These checks are spelling, spacing and sentence length — they read the text, not its meaning.";
     panel.appendChild(empty);
     return;
   }
-  const head = document.createElement("div");
-  head.className = "row doc-prose-head";
-  const title = document.createElement("strong");
-  title.textContent = `${docProseFound.length} suggestion${docProseFound.length === 1 ? "" : "s"}`;
-  head.appendChild(title);
-  const fixable = docProseFound.filter((f) => f.replacement !== null);
-  if (fixable.length) {
-    const all = document.createElement("button");
-    all.type = "button";
-    all.className = "ghost small doc-prose-fix-all";
-    setLabel(all, `ph:magic-wand Fix ${fixable.length} of them`);
-    all.title = "Apply every suggestion that has one clear answer";
-    all.addEventListener("click", () => docProseFixAll());
-    head.appendChild(all);
-  }
-  panel.appendChild(head);
+  panel.appendChild(docProseHeader());
 
   const list = document.createElement("ul");
   list.className = "doc-prose-list";
@@ -3429,8 +3501,14 @@ function renderDocProsePanel() {
     //: supposed to save.
     where.textContent = finding.text.replace(/\s+/g, " ").slice(0, 80);
     jump.append(what, where);
-    jump.title = "Show me this in the document";
-    jump.addEventListener("click", () => docProseJump(finding));
+    jump.title = "Show me this in the document, and what can be done about it";
+    jump.addEventListener("click", (event) => {
+      docProseJump(finding);
+      //: The row *is* the flagged word as far as this panel is concerned, so
+      //: pressing it opens the same menu the word itself does — anchored to
+      //: the row, which is the thing the pointer is on.
+      openDocSuggest(finding, event.currentTarget.getBoundingClientRect());
+    });
     li.appendChild(jump);
     if (finding.replacement !== null) {
       const fix = document.createElement("button");
@@ -3686,7 +3764,12 @@ function docAutocorrectAt(box) {
   const upto = box.value.slice(0, caret);
   const match = /([A-Za-z']+)([\s.,;:!?)\]]+)$/.exec(upto);
   if (!match) return false;
-  const better = DOC_AUTOCORRECT[match[1].toLowerCase()];
+  const lower = match[1].toLowerCase();
+  //: A word the reader has accepted is never rewritten, whatever the typo list
+  //: says. The dictionary is the reader's answer to this feature, and an
+  //: autocorrect that ignored it would be the app overruling them mid-sentence.
+  if (docDictionary().has(lower)) return false;
+  const better = DOC_AUTOCORRECT[lower] || docVariantLookup().get(lower);
   if (!better) return false;
   const replacement = match[1][0] === match[1][0].toUpperCase()
     ? better[0].toUpperCase() + better.slice(1)
@@ -3791,6 +3874,87 @@ document.addEventListener("focusout", (event) => {
   }, 0);
 });
 
+//: **Clicking the flagged word itself.** Reported: "I cant click on the
+//: flagged word or phrase and see a popup for suggested fixes."
+//:
+//: A `<textarea>` cannot carry marks inside its text — its value is a string,
+//: not a DOM — so there is nothing there to underline and nothing to click.
+//: What there *is* is a caret with an offset, which is exactly what a finding
+//: is expressed in. So: double-click (or right-click) a word, and if a finding
+//: covers that offset its menu opens at the caret. Stated plainly because the
+//: absence of a squiggle is a real difference from Word, and the reason for it
+//: is structural rather than an omission.
+//:
+//: In Live view the rendered blocks *are* DOM, and `docMarkLiveFindings` below
+//: underlines them properly — so the squiggle exists exactly where it can.
+function docFindingAtOffset(offset) {
+  return docProseFound.find((finding) => offset >= finding.start && offset <= finding.end) || null;
+}
+
+function docOffsetOf(box) {
+  if (box.id === "doc-content") return box.selectionStart;
+  const base = docLiveBlockOffset(box);
+  return base === null ? null : base + box.selectionStart;
+}
+
+function docOpenSuggestAtCaret(box) {
+  const offset = docOffsetOf(box);
+  if (offset === null) return false;
+  const finding = docFindingAtOffset(offset);
+  if (!finding) return false;
+  const point = docCaretPoint(box);
+  openDocSuggest(finding, {
+    left: point.x,
+    top: point.y,
+    bottom: point.y + point.lineHeight,
+  });
+  return true;
+}
+
+document.addEventListener("dblclick", (event) => {
+  const box = docToolsBoxFor(event.target);
+  if (box) docOpenSuggestAtCaret(box);
+});
+
+document.addEventListener("contextmenu", (event) => {
+  const box = docToolsBoxFor(event.target);
+  if (!box) return;
+  //: Only when there is something to say. Swallowing the browser's own menu
+  //: over ordinary text would take away spell-check, paste and everything else
+  //: it carries for the sake of a menu with nothing in it.
+  if (docOpenSuggestAtCaret(box)) event.preventDefault();
+});
+
+//: Anywhere else closes it — the rule every menu in this app follows.
+document.addEventListener("mousedown", (event) => {
+  const menu = $("doc-suggest-menu");
+  if (!menu || menu.classList.contains("hidden")) return;
+  if (!menu.contains(event.target)) closeDocSuggest();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  if (!$("doc-suggest-menu")?.classList.contains("hidden")) closeDocSuggest();
+});
+
+$("doc-dictionary-close")?.addEventListener("click", () => $("doc-dictionary-dialog")?.close());
+$("doc-spelling-variant")?.addEventListener("change", async (event) => {
+  prefsCache = await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ spelling_variant: event.currentTarget.value }),
+  }).catch(() => prefsCache);
+  //: The variant decides which half of the pair table is a finding, so the
+  //: lookup has to be rebuilt before the next pass reads it.
+  docVariantFor = null;
+  renderDocProse();
+});
+$("doc-dictionary-add")?.addEventListener("click", async () => {
+  const word = await promptDialog("Add a word to your dictionary:", "");
+  if (!word) return;
+  await docDictionaryAdd(word.trim());
+  openDocDictionary();
+});
+
 $("doc-prose")?.addEventListener("click", () => {
   const panel = $("doc-prose-panel");
   const chip = $("doc-prose");
@@ -3815,10 +3979,385 @@ for (const [name, id] of Object.entries(DOC_TOOL_KEYS)) {
 
 //: Painted once on load so the bar is not blank before the first keystroke,
 //: and again whenever a document is opened — `openDocument` calls this.
+//:
+//: **The call that runs it at load time is the last line of this file**, not
+//: this one. `const`/`let` at module scope are hoisted into a temporal dead
+//: zone, so calling this here threw `Cannot access 'docDictionarySet' before
+//: initialization` the moment the dictionary and the spelling tables were
+//: added below — a real crash, caught in the browser, that no amount of
+//: reading the function would have shown.
 function renderDocTools() {
   docCompleteWords = null;
   renderDocStatusBar();
   renderDocProse();
 }
 
+// =============================================================================
+// The dictionary, the spelling variant, and the popup you get from a flagged word
+// =============================================================================
+//
+// Asked for: *"the auto correct and grammar checker needs to be improved
+// because I cant click on the flagged word or phrase and see a popup for
+// suggested fixes or other options like adding to dictionary (a way to manage
+// that dictionary), auto correct spelling (us, uk spelling etc), language
+// translation etc. integrate all the usability that these features need and how
+// the user would expect to use them."*
+//
+// The check itself was already right; what it had no shape for was *disagreeing
+// with it*. A checker you cannot argue with is one you turn off, because the
+// third time it flags your project's name you have no way to say "this is a
+// word". So: every finding is a control, and the control's menu carries the
+// four answers a person actually has — fix it, this is a word, not this time,
+// and (for a spelling) always correct it for me.
+//
+// **The dictionary lives on the server** (`writing_dictionary`, routes_settings)
+// rather than in `localStorage`, and the reason is the same as the spelling
+// variant's: a word list you have to rebuild after clearing browser data is a
+// list nobody adds to, and a variant that differs between the desktop shell and
+// a browser tab is a checker that contradicts itself.
+
+//: **US and UK, as an explicit list rather than a rule.** The rules everyone
+//: reaches for are wrong often enough to be useless: `-ise/-ize` turns "size"
+//: into "sise", `-our/-or` turns "four" into "for". Every pair here is a word
+//: whose two spellings are both real and mean the same thing, which is the only
+//: case where suggesting the other one is safe.
+//:
+//: UK on the left, US on the right, and the direction is chosen by the setting
+//: — the checker never has an opinion about which is correct, only about which
+//: one this notebook was told to use.
+const DOC_SPELLING_PAIRS = [
+  ["colour", "color"], ["colours", "colors"], ["coloured", "colored"],
+  ["favourite", "favorite"], ["favourites", "favorites"], ["favour", "favor"],
+  ["behaviour", "behavior"], ["behaviours", "behaviors"],
+  ["honour", "honor"], ["labour", "labor"], ["neighbour", "neighbor"],
+  ["humour", "humor"], ["rumour", "rumor"], ["flavour", "flavor"],
+  ["harbour", "harbor"], ["endeavour", "endeavor"], ["armour", "armor"],
+  ["centre", "center"], ["centres", "centers"], ["metre", "meter"],
+  ["metres", "meters"], ["litre", "liter"], ["litres", "liters"],
+  ["theatre", "theater"], ["fibre", "fiber"], ["calibre", "caliber"],
+  ["organise", "organize"], ["organised", "organized"], ["organising", "organizing"],
+  ["organisation", "organization"], ["organisations", "organizations"],
+  ["recognise", "recognize"], ["recognised", "recognized"],
+  ["realise", "realize"], ["realised", "realized"],
+  ["apologise", "apologize"], ["analyse", "analyze"], ["analysed", "analyzed"],
+  ["prioritise", "prioritize"], ["summarise", "summarize"],
+  ["specialise", "specialize"], ["categorise", "categorize"],
+  ["catalogue", "catalog"], ["dialogue", "dialog"], ["programme", "program"],
+  ["licence", "license"], ["defence", "defense"], ["offence", "offense"],
+  ["practise", "practice"], ["grey", "gray"], ["cheque", "check"],
+  ["travelling", "traveling"], ["travelled", "traveled"], ["traveller", "traveler"],
+  ["cancelled", "canceled"], ["cancelling", "canceling"], ["modelling", "modeling"],
+  ["labelled", "labeled"], ["fulfil", "fulfill"], ["enrol", "enroll"],
+  ["storey", "story"], ["tyre", "tire"], ["kerb", "curb"], ["plough", "plow"],
+  ["aluminium", "aluminum"], ["sceptical", "skeptical"], ["moustache", "mustache"],
+  ["draught", "draft"], ["pyjamas", "pajamas"], ["jewellery", "jewelry"],
+  ["marvellous", "marvelous"], ["towards", "toward"],
+];
+
+//: Built once from the pairs above, in whichever direction the setting names.
+//: A map rather than a scan, because this runs per word of the document.
+let docVariantMap = null;
+let docVariantFor = null;
+
+function docSpellingVariant() {
+  return (prefsCache && prefsCache.spelling_variant) || "off";
+}
+
+function docVariantLookup() {
+  const variant = docSpellingVariant();
+  if (docVariantFor === variant && docVariantMap) return docVariantMap;
+  docVariantFor = variant;
+  docVariantMap = new Map();
+  if (variant === "uk") {
+    for (const [uk, us] of DOC_SPELLING_PAIRS) docVariantMap.set(us, uk);
+  } else if (variant === "us") {
+    for (const [uk, us] of DOC_SPELLING_PAIRS) docVariantMap.set(uk, us);
+  }
+  return docVariantMap;
+}
+
+//: The words the reader has told this to accept. A Set, lowercased, because a
+//: word added at the start of a sentence must not have to be added again in
+//: the middle of one.
+let docDictionarySet = null;
+
+function docDictionary() {
+  if (!docDictionarySet) {
+    docDictionarySet = new Set(
+      ((prefsCache && prefsCache.writing_dictionary) || []).map((word) =>
+        String(word).toLowerCase()
+      )
+    );
+  }
+  return docDictionarySet;
+}
+
+async function docDictionaryWrite(words) {
+  docDictionarySet = new Set(words.map((word) => word.toLowerCase()));
+  prefsCache = await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ writing_dictionary: [...docDictionarySet].sort() }),
+  }).catch(() => prefsCache);
+  renderDocProse();
+}
+
+async function docDictionaryAdd(word) {
+  const clean = String(word || "").trim();
+  if (!clean) return;
+  await docDictionaryWrite([...docDictionary(), clean.toLowerCase()]);
+  toast(`“${clean}” added to your dictionary.`);
+}
+
+//: Findings dismissed for this sitting only. Not persisted, deliberately:
+//: "not this time" is a statement about one sentence, and remembering it
+//: forever would quietly turn a check off with no way to see that it is off.
+const docProseIgnored = new Set();
+
+function docProseKey(finding) {
+  return `${finding.rule}:${finding.text.toLowerCase()}`;
+}
+
+//: **The popup, and the four answers a person actually has.** Fix it, this is
+//: a word, not this time, and — for a spelling — always correct it. Anchored
+//: at the thing it is about, because a menu that opens somewhere else makes
+//: you re-find the word you were looking at.
+let docSuggestOpenFor = null;
+
+function closeDocSuggest() {
+  $("doc-suggest-menu")?.classList.add("hidden");
+  docSuggestOpenFor = null;
+}
+
+function docSuggestAlternatives(finding) {
+  //: More than one plausible answer, where there is one. A single suggestion
+  //: presented as *the* answer is how a checker quietly rewrites someone's
+  //: voice; two or three make it a choice.
+  const out = [];
+  if (finding.replacement !== null && finding.replacement !== undefined) {
+    out.push(finding.replacement);
+  }
+  if (finding.rule === "spelling" || finding.rule === "variant") {
+    const lower = finding.text.toLowerCase();
+    //: The other direction of the variant table, so a document set to UK still
+    //: offers the US spelling as the second option rather than pretending it
+    //: does not exist.
+    for (const [uk, us] of DOC_SPELLING_PAIRS) {
+      if (uk === lower && !out.includes(us)) out.push(us);
+      if (us === lower && !out.includes(uk)) out.push(uk);
+    }
+  }
+  return out.slice(0, 4);
+}
+
+function openDocSuggest(finding, anchorRect) {
+  const menu = $("doc-suggest-menu");
+  if (!menu) return;
+  docSuggestOpenFor = finding;
+  menu.replaceChildren();
+
+  const head = document.createElement("div");
+  head.className = "doc-suggest-head";
+  const word = document.createElement("strong");
+  word.textContent = finding.text.replace(/\s+/g, " ").slice(0, 48);
+  const why = document.createElement("span");
+  why.className = "muted doc-suggest-why";
+  why.textContent = finding.message;
+  head.append(word, why);
+  menu.appendChild(head);
+
+  const list = document.createElement("div");
+  list.className = "doc-suggest-list";
+  const alternatives = docSuggestAlternatives(finding);
+  for (const option of alternatives) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "doc-suggest-item";
+    setLabel(item, `ph:check ${option === " " ? "one space" : option}`);
+    item.title = `Replace with “${option}”`;
+    item.addEventListener("click", () => {
+      docProseFix({ ...finding, replacement: option });
+      closeDocSuggest();
+    });
+    list.appendChild(item);
+  }
+  if (!alternatives.length) {
+    const none = document.createElement("p");
+    none.className = "muted doc-suggest-none";
+    //: A rule with no fix still opens this menu, because "ignore it" and "this
+    //: is fine" are answers too — and because a row you cannot press at all
+    //: reads as a broken row.
+    none.textContent = "No single answer for this one — it is a place to look, not a correction.";
+    list.appendChild(none);
+  }
+  menu.appendChild(list);
+
+  const actions = document.createElement("div");
+  actions.className = "doc-suggest-actions";
+  if (finding.rule === "spelling" || finding.rule === "variant") {
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "doc-suggest-item";
+    setLabel(add, `ph:book-open-text Add “${finding.text}” to dictionary`);
+    add.addEventListener("click", async () => {
+      closeDocSuggest();
+      await docDictionaryAdd(finding.text);
+    });
+    actions.appendChild(add);
+  }
+  const ignore = document.createElement("button");
+  ignore.type = "button";
+  ignore.className = "doc-suggest-item";
+  setLabel(ignore, "ph:eye-slash Ignore this for now");
+  ignore.title = "Stop flagging this wording until MemoryMap is restarted";
+  ignore.addEventListener("click", () => {
+    docProseIgnored.add(docProseKey(finding));
+    closeDocSuggest();
+    renderDocProse();
+    renderDocProsePanel();
+  });
+  actions.appendChild(ignore);
+
+  //: **Translation, through the chat rather than behind it.** There is no
+  //: offline translator in this app and inventing one would be a lie; what
+  //: there *is* is a local model that can translate, and the honest way to
+  //: offer that is to hand the passage to it with the question already
+  //: written, where the answer is visible and correctable — not to silently
+  //: rewrite the document with something nobody checked.
+  const translate = document.createElement("button");
+  translate.type = "button";
+  translate.className = "doc-suggest-item";
+  setLabel(translate, "ph:translate Translate this passage…");
+  translate.addEventListener("click", () => {
+    closeDocSuggest();
+    docTranslatePassage(finding.text);
+  });
+  actions.appendChild(translate);
+  menu.appendChild(actions);
+
+  menu.classList.remove("hidden");
+  //: Placed after it is visible, because a hidden element measures zero and a
+  //: menu positioned against zero opens in the corner.
+  const width = menu.offsetWidth;
+  const height = menu.offsetHeight;
+  const left = Math.min(anchorRect.left, window.innerWidth - width - 8);
+  const below = anchorRect.bottom + 4;
+  const top = below + height > window.innerHeight - 8 ? anchorRect.top - height - 4 : below;
+  menu.style.left = `${Math.max(8, left)}px`;
+  menu.style.top = `${Math.max(8, top)}px`;
+  menu.querySelector("button")?.focus();
+}
+
+//: A passage, a language, and the local model — asked in the chat so the
+//: answer is somewhere you can read, keep or ignore.
+async function docTranslatePassage(text) {
+  const language = await promptDialog(
+    "Translate this passage into which language?",
+    docLastTranslateLanguage || "French"
+  );
+  if (!language) return;
+  docLastTranslateLanguage = language;
+  const box = document.getElementById("chat-input");
+  if (!box) return toast("The chat isn't available right now.", true);
+  switchTab("chat");
+  box.value = `Translate this into ${language}, and keep the formatting:\n\n${text}`;
+  box.focus();
+  box.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+let docLastTranslateLanguage = "";
+
+//: **Managing the dictionary.** Asked for by name. A list you can add to and
+//: never see again is a list nobody trusts — and a wrongly added word would
+//: otherwise silence a real typo forever with no way to find out why.
+async function openDocDictionary() {
+  const words = [...docDictionary()].sort();
+  const dialog = $("doc-dictionary-dialog");
+  const list = $("doc-dictionary-list");
+  if (!dialog || !list) return;
+  list.replaceChildren();
+  if (!words.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent =
+      "Nothing here yet. Add a word from a suggestion and it stops being flagged everywhere.";
+    list.appendChild(empty);
+  }
+  for (const word of words) {
+    const row = document.createElement("li");
+    row.className = "doc-dictionary-row";
+    const label = document.createElement("span");
+    label.textContent = word;
+    const remove = smallButton("ph:x", `Remove “${word}”`, async () => {
+      await docDictionaryWrite(words.filter((other) => other !== word));
+      openDocDictionary();
+    });
+    remove.classList.add("icon-only");
+    row.append(label, remove);
+    list.appendChild(row);
+  }
+  const variant = $("doc-spelling-variant");
+  if (variant) variant.value = docSpellingVariant();
+  dialog.showModal();
+}
+
+//: Last line, deliberately: everything above has to exist before the first
+//: paint. See `renderDocTools`.
 renderDocTools();
+
+//: **The squiggle, where a squiggle is possible.**
+//:
+//: A `<textarea>` cannot carry marks inside its text — its value is a string,
+//: not a DOM — so Source view genuinely cannot underline a word, and the
+//: double-click/right-click path above is the honest substitute. Live view is
+//: different: its blocks are rendered HTML, so the flagged words can be marked
+//: exactly where they are and clicked exactly where they are marked, which is
+//: what anyone coming from Word expects.
+//:
+//: Word-level rules only. Underlining a 47-word sentence would put a wavy line
+//: under a whole paragraph, which says "all of this is wrong" — the opposite
+//: of what that finding means.
+const DOC_MARKABLE_RULES = new Set(["spelling", "variant", "repeat"]);
+
+function docMarkLiveFindings() {
+  const host = $("doc-live");
+  if (!host || docView !== "live") return;
+  const wanted = docProseFound.filter((finding) => DOC_MARKABLE_RULES.has(finding.rule));
+  if (!wanted.length) return;
+  //: Longest first, for the same reason `addInlineCitations` sorts that way:
+  //: when one flagged string contains another, marking the short one first
+  //: leaves the long one unmatchable.
+  const byText = [...wanted].sort((a, b) => b.text.length - a.text.length);
+  for (const block of host.querySelectorAll(".lp-block")) {
+    for (const finding of byText) {
+      //: A queue rather than a plain walk, because wrapping a match *splits*
+      //: the text node it was found in and the remainder is a node the walker
+      //: never saw — the same hazard, and the same fix, as the citation
+      //: markers.
+      const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+      const nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      for (const node of nodes) {
+        if (node.parentElement?.closest(".doc-flag, code, pre")) continue;
+        const at = node.textContent.indexOf(finding.text);
+        if (at === -1) continue;
+        const tail = node.splitText(at);
+        tail.splitText(finding.text.length);
+        const mark = document.createElement("mark");
+        mark.className = `doc-flag doc-flag-${finding.rule}`;
+        mark.textContent = finding.text;
+        mark.title = `${finding.message} — click for suggestions`;
+        mark.addEventListener("mousedown", (event) => {
+          //: mousedown and `stopPropagation`, because the live view's own
+          //: handler turns a click in a block into a caret in that block's
+          //: textarea — which would replace this element before the menu
+          //: could be anchored to it.
+          event.preventDefault();
+          event.stopPropagation();
+          openDocSuggest(finding, mark.getBoundingClientRect());
+        });
+        tail.replaceWith(mark);
+        break;
+      }
+    }
+  }
+}

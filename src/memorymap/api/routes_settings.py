@@ -141,6 +141,23 @@ class PreferencesBody(BaseModel):
     search_min_similarity: float | None = Field(default=None, ge=0, le=1)
     search_relative_z_margin: float | None = Field(default=None, ge=0, le=3)
     communication_style: Literal["friendly", "concise", "detailed"] | None = None
+    #: **The writing checker's own two settings.** Both belong on the server
+    #: rather than in `localStorage`, and the reason is the same for each: a
+    #: dictionary you have to rebuild when you clear your browser data is a
+    #: dictionary nobody adds to, and a spelling variant that differs between
+    #: the desktop shell and a browser tab is a checker that contradicts
+    #: itself. Asked for directly: *"adding to dictionary (a way to manage that
+    #: dictionary), auto correct spelling (us, uk spelling etc)"*.
+    #:
+    #: Bounded, because this is a list a client writes to freely: 2,000 words
+    #: is far more than anyone adds by hand and small enough that the whole
+    #: list can be sent to the editor on load, which is what lets the check run
+    #: on every keystroke without a request.
+    writing_dictionary: list[str] | None = Field(default=None, max_length=2000)
+    #: `off` means "do not have an opinion about which side of the Atlantic
+    #: this document is on" — the honest default for a notebook that does not
+    #: know who is writing in it.
+    spelling_variant: Literal["off", "uk", "us"] | None = None
     # Display name for the dashboard greeting (empty string clears it).
     display_name: str | None = Field(default=None, max_length=60)
     # Optional context about the user for the librarian.
@@ -396,6 +413,8 @@ def get_preferences() -> dict:
         "search_min_similarity": config.get_preference("search_min_similarity", 0.25),
         "search_relative_z_margin": config.get_preference("search_relative_z_margin", 0.5),
         "communication_style": config.get_preference("communication_style", "friendly"),
+        "writing_dictionary": config.get_preference("writing_dictionary", []),
+        "spelling_variant": config.get_preference("spelling_variant", "off"),
         "display_name": config.get_preference("display_name", ""),
         # Saved correctly and honoured correctly (routes_auth.py's three
         # idle-timeout checks all read it) but never once echoed back here —

@@ -2192,11 +2192,22 @@ Link to another note with [[its first few words]]."></textarea>
               aria-label="File type" title="What kind of file this document is"></select>
           </span>
           <span class="row doc-actions">
+            <!-- **The counts moved out of here.** Reported: "redesign,
+                 rearrange, fix, and update the section with the word count,
+                 word goal etc elements. I think the whole top dock in the
+                 documents needs to be improved and redesigned."
+
+                 The dock was carrying three different kinds of thing in one
+                 strip: what the document *is* (name, type), what is *true of
+                 it right now* (words, goal, saved) and what you can *do to it*
+                 (view, export, delete). Facts about the text belong beside the
+                 text, which is where every editor worth copying puts them and
+                 where this editor now has a real status bar — so the word
+                 count and the goal live there, with the character count, the
+                 caret position and the writing checks that were already there.
+                 Save state stays: it is a fact about the *file*, and it
+                 belongs next to the file's name. -->
             <span class="doc-dock-status">
-              <span id="doc-stats" class="muted doc-stats"
-                title="Words, and roughly how long this takes to read"></span>
-              <button id="doc-word-goal" class="ghost small icon-button" type="button" aria-pressed="false"
-                title="Set a word-count goal" aria-label="Set a word-count goal"><i class="ph ph-flag" aria-hidden="true"></i></button>
               <span id="doc-saved" class="muted doc-saved" role="status"></span>
             </span>
             <!-- Same divider the formatting toolbar below uses to separate
@@ -2417,6 +2428,12 @@ Link to another note with [[its first few words]]."></textarea>
             title="Where the caret is, and what is selected">Ln 1, Col 1</span>
           <span id="doc-counts" class="doc-statusbar-item doc-statusbar-fact"
             title="Characters, words and roughly how long this takes to read"></span>
+          <!-- The goal, where the count it is a goal for now lives. A button
+               because it is also how you set one — a target with no way to
+               change it from where it is shown is a number you have to go
+               hunting for. -->
+          <button id="doc-word-goal" class="doc-statusbar-item doc-statusbar-button" type="button"
+            aria-pressed="false" title="Set a word-count goal"><i class="ph ph-flag ph-lead" aria-hidden="true"></i> <span id="doc-goal-label">Set a goal</span></button>
           <!-- The findings chip. A count with nothing behind it is a scold, so
                it opens the list and every row jumps to the sentence. -->
           <button id="doc-prose" class="doc-statusbar-item doc-statusbar-button" type="button"
@@ -2435,12 +2452,25 @@ Link to another note with [[its first few words]]."></textarea>
             <input type="checkbox" id="doc-complete" checked> Suggestions
           </label>
         </div>
-        <div id="doc-prose-panel" class="doc-prose-panel hidden" aria-label="Writing suggestions"></div>
+        <!-- Reported: "the suggestion texbox is waaayy too small and there's
+             no close x button." Both true: it was a 16rem box with no way out
+             except pressing the chip that opened it, which is a thing you have
+             to remember rather than see. It is a real panel now — its own
+             header, its own close, and room for the list it holds. -->
+        <div id="doc-prose-panel" class="doc-prose-panel hidden" role="region"
+          aria-label="Writing suggestions"></div>
         <!-- The completion popup, positioned at the caret. Outside the panes so
              nothing clips it — the toolbar's own `overflow` trap is one storey
              up in this file and cost an hour. -->
         <ul id="doc-complete-list" class="doc-complete-list hidden" role="listbox"
           aria-label="Word suggestions"></ul>
+        <!-- The menu you get from a flagged word. Reported: "I cant click on
+             the flagged word or phrase and see a popup for suggested fixes or
+             other options like adding to dictionary." Positioned in viewport
+             coordinates against the word, so it lives outside the panes where
+             nothing can clip it. -->
+        <div id="doc-suggest-menu" class="doc-suggest-menu hidden" role="menu"
+          aria-label="Suggestions for this word"></div>
         <p class="muted doc-hint">
           Saves automatically. <kbd>Ctrl</kbd>+<kbd>S</kbd> saves now,
           <kbd>Ctrl</kbd>+<kbd>B</kbd>/<kbd>I</kbd> wrap the selection in bold or italics.
@@ -4037,6 +4067,36 @@ Link to another note with [[its first few words]]."></textarea>
       </div>
     </div>
   </div>
+
+  <!-- **Managing the dictionary**, asked for by name: "adding to dictionary (a
+       way to manage that dictionary)". A list you can add to and never see
+       again is a list nobody trusts — and a word added by mistake would
+       otherwise silence a real typo forever with no way to find out why.
+       The spelling variant lives here too, because it is the same decision
+       from the other end: which words this notebook considers spelled right. -->
+  <dialog id="doc-dictionary-dialog" class="card doc-dictionary-dialog"
+    aria-label="Your writing dictionary">
+    <div class="row space-between">
+      <h2>Your dictionary</h2>
+      <button id="doc-dictionary-close" class="ghost small icon-only" type="button"
+        aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+    </div>
+    <p class="muted">
+      Words here are never flagged as typos, in any document. They are stored
+      with your notebook, not in this browser.
+    </p>
+    <div class="row doc-dictionary-controls">
+      <label class="doc-dictionary-variant" for="doc-spelling-variant">Spelling</label>
+      <select id="doc-spelling-variant"
+        title="Which spelling this notebook prefers. Off means no opinion either way.">
+        <option value="off">No preference</option>
+        <option value="uk">British (colour, organise)</option>
+        <option value="us">American (color, organize)</option>
+      </select>
+      <button id="doc-dictionary-add" class="ghost small" type="button"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Add a word</button>
+    </div>
+    <ul id="doc-dictionary-list" class="doc-dictionary-list"></ul>
+  </dialog>
 
   <div id="extract-panel" class="modal-overlay hidden" role="dialog"
     aria-modal="true" aria-label="Extract notes">

@@ -2916,7 +2916,12 @@ textarea.autogrow {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--inner);
-  max-height: 16rem;
+  /* Reported: "waaayy too small". 16rem showed four rows of a list that
+     routinely has twenty, so the panel was a scroller from the moment it
+     opened. `min` against the viewport keeps it from swallowing a short
+     window — it is a panel under the document, not a second page. */
+  max-height: min(60vh, 32rem);
+  min-height: 8rem;
   overflow-y: auto;
 }
 
@@ -3041,4 +3046,180 @@ textarea.autogrow {
   overflow: hidden;
   white-space: pre-wrap;
   overflow-wrap: break-word;
+}
+
+/* --- the suggestion menu, the dictionary, and the goal ------------------------
+   Asked for: "I cant click on the flagged word or phrase and see a popup for
+   suggested fixes or other options like adding to dictionary (a way to manage
+   that dictionary), auto correct spelling (us, uk spelling etc), language
+   translation etc." */
+
+/* `fixed`, for the same reason the completion popup is: it is placed in
+   viewport coordinates against a word inside three nested scrollers, and an
+   absolutely-positioned menu would be offset by every one of them. */
+.doc-suggest-menu {
+  position: fixed;
+  z-index: 1210;
+  min-width: 15rem;
+  max-width: 22rem;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--modal-bg-opaque);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--text-sm);
+}
+
+/* The word, and why it is flagged. Both, because "recieve" with no reason is a
+   scold and a reason with no word makes you go and look. */
+.doc-suggest-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-1) var(--space-2) var(--space-2);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-1);
+}
+
+.doc-suggest-why {
+  font-size: var(--text-xs);
+}
+
+.doc-suggest-list,
+.doc-suggest-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* The replacements read as the primary answer and the rest as what else you
+   can do, so they are separated by a rule rather than by weight — the actions
+   are still real controls. */
+.doc-suggest-actions {
+  margin-top: var(--space-1);
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--border);
+}
+
+.doc-suggest-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.doc-suggest-item:hover,
+.doc-suggest-item:focus-visible {
+  border-color: var(--accent);
+  background: var(--chip-bg);
+}
+
+.doc-suggest-none {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.doc-dictionary-dialog {
+  width: min(30rem, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.doc-dictionary-controls {
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.doc-dictionary-variant {
+  flex: none;
+}
+
+.doc-dictionary-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.doc-dictionary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+/* The suggestions panel: a real panel now, with room for its list. Reported:
+   "the suggestion texbox is waaayy too small and there's no close x button." */
+.doc-prose-head {
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.doc-prose-tools {
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+}
+
+.doc-prose-empty {
+  margin: 0;
+}
+
+/* The word goal, where the count it is a goal for now lives. The bar is drawn
+   *inside* the button as a background layer rather than as a child element, so
+   the control stays one box with one hit area — a meter beside a button is two
+   things to aim at for one idea. */
+.doc-word-goal-progress,
+#doc-word-goal.has-goal {
+  --doc-goal-pct: 0%;
+  background-image: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--accent) 28%, transparent) var(--doc-goal-pct),
+    transparent var(--doc-goal-pct)
+  );
+}
+
+/* The squiggle. Only in Live view, where the text is real DOM — a textarea's
+   value is a string and cannot carry a mark, which is why Source view offers
+   the same menu on double-click instead. A wavy underline rather than a
+   highlight: the word still has to read as the word, and a coloured block
+   behind it is the thing that makes a checked document unreadable. */
+.doc-flag {
+  background: none;
+  color: inherit;
+  text-decoration: underline wavy color-mix(in srgb, var(--warn) 80%, transparent);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* A spelling is a stronger claim than a style note, so it is marked in the
+   colour this app already uses for "this is wrong" rather than "look here". */
+.doc-flag-spelling {
+  text-decoration-color: color-mix(in srgb, var(--error) 80%, transparent);
+}
+
+.doc-flag:hover {
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  border-radius: var(--radius-sm);
 }

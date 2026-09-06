@@ -3047,3 +3047,122 @@ aside[data-resizable="1"] {
     opacity: 1;
   }
 }
+
+/* ===================== TENSIONS: THE DISAGREEMENT REVIEW ==================
+   Where the notebook disagrees with itself — see `ai/tensions.py`. Two notes
+   side by side with what the model thinks they disagree about, and the two
+   decisions a person can make about it. */
+
+.tensions-dialog {
+  width: min(56rem, 94vw);
+  max-height: 88vh;
+}
+
+.tensions-intro {
+  margin-top: 0;
+}
+
+.tensions-controls {
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.tensions-status.is-busy {
+  /* The app's own generating pulse, so a slow local model reads as working
+     rather than as stuck — the same signal the chat dock uses. */
+  animation: pulse-fade 1.6s ease-in-out infinite;
+}
+
+.tensions-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+  /* The dialog is capped at 88vh, so a long review scrolls inside itself
+     rather than pushing its own Close button off the screen. */
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.tension-card {
+  padding: var(--space-4);
+}
+
+.tension-card.is-resolved {
+  opacity: 0.6;
+}
+
+.tension-why {
+  margin: 0 0 var(--space-2);
+  font-weight: 600;
+}
+
+.tension-gap {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-xs);
+}
+
+.tension-pair {
+  display: grid;
+  /* Two columns where there is room, stacked where there is not. `minmax(0,
+     1fr)` rather than `1fr` so a long unbroken word cannot push the column
+     wider than its share. */
+  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
+  gap: var(--space-4);
+}
+
+.tension-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--inner);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.tension-side-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.tension-date {
+  font-size: var(--text-xs);
+}
+
+.tension-excerpt {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.tension-actions {
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.tension-done {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-sm);
+}
+
+.dash-tension-explain {
+  font-size: var(--text-xs);
+  margin: var(--space-2) 0 var(--space-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* DESIGN.md's rule for this branch: stop the motion, keep the information.
+     The pulse says "still working" during a pass that can run for a minute,
+     so it is replaced by a static emphasis rather than removed — someone who
+     has asked for less motion still needs to know the review is running. */
+  .tensions-status.is-busy {
+    animation: none;
+    font-weight: 600;
+    color: var(--ink);
+  }
+}

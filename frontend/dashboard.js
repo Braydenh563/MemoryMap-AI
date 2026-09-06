@@ -110,6 +110,10 @@ const DASH_WIDGETS = {
   documents: { title: "ph:file-text Recent documents", description: "The documents you last edited, newest first.", render: renderDocumentsWidget },
   unfinished: { title: "ph:check-square-offset Unfinished", description: "Notes with checklist items you haven't ticked off yet.", render: renderUnfinishedWidget },
   orphans: { title: "ph:link-break Loose ends", description: "How much of your notebook is connected to anything, and the oldest notes that aren't.", render: renderOrphanNotesWidget },
+  //: Deliberately a doorway rather than a live reading. Every other widget
+  //: here answers from data already loaded; this one's answer costs a model
+  //: pass over pairs of notes, so rendering the dashboard must not start one.
+  tensions: { title: "ph:scales Tensions", description: "Find where your notes contradict each other — a decision reversed, a date that moved, a view you changed.", render: renderTensionsWidget },
 };
 
 function dashLayout() {
@@ -862,6 +866,7 @@ function featureCatalog() {
       { name: "Magic add", desc: "Type “call mum tomorrow evening” and the AI schedules it.", run: () => { switchTab("reminders"); $("reminder-magic").focus(); } },
       { name: "Focus timer", desc: "Pomodoro-style timer with presets or your own minutes.", run: () => switchTab("dashboard") },
       { name: "Weekly digest", desc: "An AI recap of everything you saved this week.", run: () => switchTab("dashboard") },
+      { name: "Tensions", desc: "Find where your notes contradict each other — a decision reversed, a date that moved.", run: () => openTensions() },
       { name: "Activity heatmap", desc: "A year of capture activity at a glance.", run: () => switchTab("dashboard") },
       { name: "Streaks", desc: "How many days in a row you've captured something.", run: () => switchTab("dashboard") },
     ]},
@@ -2795,4 +2800,47 @@ async function renderOrphanNotesWidget(body) {
   // filed yet, and nagging about it is how a hygiene widget becomes noise.
   const oldest = [...loose].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
   miniEntryList(body, oldest.slice(0, 3), "");
+}
+
+
+/**
+ * The Tensions doorway.
+ *
+ * Explains the idea and opens the review; it does **not** run one. Every
+ * other widget renders from `allEntries` or one cached fetch, and a widget
+ * that quietly started a model pass over the notebook every time the
+ * dashboard drew would be the most expensive thing on the page.
+ */
+async function renderTensionsWidget(body) {
+  const [entries, graph] = await Promise.all([
+    allEntries.length ? Promise.resolve(allEntries) : apiJson("/entries", { cacheMs: 4000 }),
+    apiJson("/graph", { cacheMs: 4000, silent: true }).catch(() => null),
+  ]);
+  // Already-accepted tensions are the one part that *is* cheap to show: they
+  // are ordinary links with a type, so the graph already carries them.
+  const accepted = ((graph && graph.edges) || []).filter((e) => e.link_type === "contradicts").length;
+
+  const blurb = document.createElement("p");
+  blurb.className = "muted";
+  blurb.textContent = accepted
+    ? `${accepted} place${accepted === 1 ? "" : "s"} where your notes contradict each other.`
+    : "Nothing here can tell you where you changed your mind — until you look.";
+  body.appendChild(blurb);
+
+  const explain = document.createElement("p");
+  explain.className = "muted dash-tension-explain";
+  explain.textContent =
+    "Similar-notes search finds what belongs together. This reads pairs with your local model and looks for the opposite: claims that can't both be right.";
+  body.appendChild(explain);
+
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "ghost small";
+  const icon = document.createElement("i");
+  icon.className = "ph ph-scales ph-lead";
+  icon.setAttribute("aria-hidden", "true");
+  open.append(icon, entries.length < 2 ? "Nothing to compare yet" : "Review disagreements");
+  open.disabled = entries.length < 2;
+  open.addEventListener("click", () => openTensions());
+  body.appendChild(open);
 }

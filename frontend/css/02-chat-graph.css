@@ -1100,6 +1100,19 @@ details.tool-chip[open] > .tool-chip-body {
   stroke-width: 2.2;
 }
 
+/* A `contradicts` link — the one type that means "these are at odds" rather
+   than "these belong together", produced by the Tensions review. Dashed as
+   well as coloured on purpose: colour alone would not separate it for anyone
+   who cannot tell it from the accent, and on a dense graph the dash is the
+   part that reads at a glance. Placed after `.graph-edge-reasoned` because
+   these links always carry a reason and would otherwise be overridden by it. */
+.graph-edge-contradicts {
+  stroke: var(--error);
+  stroke-opacity: 0.85;
+  stroke-width: 2.2;
+  stroke-dasharray: 6 4;
+}
+
 /* The invisible, much wider click target laid over each thin visible edge —
    reported directly: "the links are hard to click on". `stroke: transparent`
    still hit-tests (unlike `fill: none` with no stroke at all), and only a

@@ -410,6 +410,30 @@
     </div>
   </dialog>
 
+  <!-- Tensions: where the notebook disagrees with itself.
+       `core/database.py`'s LINK_TYPES comment says `contradicts` is "the one
+       worth having built this for" and nothing ever produced one — see
+       `ai/tensions.py`. A dialog rather than a tab because it is a review you
+       sit down to do, not a place you live; opened from the Tensions widget
+       and from the command palette. -->
+  <dialog id="tensions-dialog" class="card space-dialog tensions-dialog"
+          aria-labelledby="tensions-title">
+    <h3 id="tensions-title">Where you disagreed with yourself</h3>
+    <p class="muted tensions-intro">
+      Your notes are read here, on this machine, looking for pairs that
+      can't both be right — a decision you reversed, a date that moved, a
+      view you changed. Nothing is linked until you say so.
+    </p>
+    <div class="row tensions-controls">
+      <button type="button" class="accent" id="tensions-run">Start the review</button>
+      <span class="muted tensions-status" id="tensions-status" role="status" aria-live="polite"></span>
+    </div>
+    <div id="tensions-results" class="tensions-results"></div>
+    <div class="row right space-dialog-actions">
+      <button type="button" class="ghost" data-close-dialog="tensions-dialog">Close</button>
+    </div>
+  </dialog>
+
   <!-- Widget picker (roadmap §26): a dedicated surface for the same
        dashboard_layout preference the inline "Edit layout" mode writes.
        Rows are built by renderDashWidgetsList() in app.js. -->

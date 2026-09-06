@@ -5850,3 +5850,120 @@ the screen that names the problem now offers the thing that fixes it).
   `/support-bundle` return ZIP/CSV, `/graph/path` and the two `/websearch`
   routes require query parameters, and `/logs/stream` is SSE (it is what hung
   an earlier probe that had no per-request timeout).
+
+## §104 — Tensions: the notebook finds where you disagreed with yourself
+
+The brief was to make the app do something that has not been done before, and
+this is the one thing this codebase was already asking for and had never got.
+`core/database.py`'s `LINK_TYPES` comment, written some sessions ago:
+
+    `contradicts` is the one worth having built this for: a notebook that can
+    show you where you disagreed with yourself is not something an embedding
+    similarity score can ever produce, however well tuned.
+
+That was true, and it stayed unbuilt. `link_type` was writable through exactly
+one path — a person choosing "Contradicts" from a dropdown on
+`POST /entries/{id}/links`. So the notebook could *record* a disagreement it
+was told about and could never *find* one.
+
+### Why nothing else in the app could do it
+
+Every notion of connection here answers the same question, "are these about
+the same thing": embedding similarity, the duplicates scanner's word overlap,
+`[[wiki links]]`, threads, shared tags. None can tell agreement from
+disagreement — **two notes that flatly contradict each other are, to a vector,
+maximally similar.** That is not a tuning problem, it is what a similarity
+score measures. Only a model reading both can separate them.
+
+### Why a local-first app can do it and a cloud notebook cannot
+
+Reading every plausible pair of notes with a language model is an unbounded
+number of tokens over a corpus that is entirely the user's private writing.
+Metered, that is a bill nobody would pay to be told they changed their mind.
+Sent to someone else's server, it is the most sensitive text a person owns.
+Here inference is free and never leaves the machine, so the notebook can
+afford to actually read itself. This is the first feature in the app that is
+*only possible* because of the local-first choice, rather than merely
+compatible with it.
+
+### The two rules that keep it from being noise
+
+Both matter more than the prompt does, and both run before any model call:
+
+1. **Candidates come from pairs already about the same subject.** A
+   contradiction is only possible between notes sharing a topic, so this never
+   scans all pairs — it takes the shortlist the existing similarity pass
+   produces. The threshold is *lower* than the auto-linker's on purpose: two
+   notes that disagree often share less vocabulary than two that agree,
+   because the disagreement is exactly where their words differ.
+2. **Time is part of the finding.** The valuable case is a change of mind —
+   March versus September. Two notes from the same few days are one thought
+   being worked out, so `MIN_GAP_DAYS = 7` drops them. The gap is shown
+   ("5 months apart") because it *is* the story.
+
+### Refusing to accuse without a case
+
+A model told to justify itself will sometimes assert the conclusion instead.
+`_clean_explanation` rejects a reply that is not `YES`/`NO`, a `YES` with
+nothing after it, and a `YES` whose explanation only restates the verdict —
+"they disagree", "basically they just conflict". That last one is a pattern
+rather than a phrase list, because the phrase list it started as missed
+exactly that example: subject and verb are fixed and anything can sit between
+them. A tension with no checkable reason is an unfalsifiable accusation, and
+this feature must never produce one, so it is treated as no finding at all.
+
+Nothing is written without a click, same as the auto-linker and for a stronger
+reason: telling someone they contradicted themselves when they did not is
+worse than telling them nothing. Accepting is what creates the `EntryLink` —
+an existing column, so **no migration**, and the graph, the traversal weighting
+and Trace all understand the result the moment it exists.
+
+### The surface
+
+A `<dialog>` rather than a tab: this is a review you sit down to do, not a
+place you live. Reached from a Tensions dashboard widget and the command
+palette. Each finding shows what the model thinks they disagree about, how far
+apart they were written, both notes with their dates, and two decisions —
+accept, or "Not a contradiction" (remembered, so it never comes back).
+
+Craft details that were measured, not assumed:
+
+- **The widget is a doorway, not a live reading.** Every other widget renders
+  from data already loaded; this one's answer costs a model pass, and a widget
+  that quietly started one every time the dashboard drew would be the most
+  expensive thing on the page.
+- **An empty result says *why*.** `{"tensions": [], "status": "..."}` rather
+  than a bare list, because "no model running" and "your notebook is
+  consistent" are completely different answers that a bare `[]` renders
+  identically — which is how a feature that never ran gets reported as one
+  that found nothing. Verified live: with no Ollama the panel reads "No local
+  model is running, so nothing can read your notes. Start Ollama and try
+  again."
+- **Accessibility.** The progress line is `aria-live="polite"` so it is
+  announced without stealing focus; each card is a `role="group"` labelled
+  with its own finding; the outcome after a decision is `role="status"`,
+  because the button that was pressed is gone and the alternative is silence.
+  The busy pulse has a `prefers-reduced-motion` branch that keeps the
+  information and drops the motion — caught by
+  `test_every_indefinite_animation_answers_reduced_motion`, which is exactly
+  the kind of thing a new component silently skips.
+- **A contradiction no longer looks like every other line on the graph.**
+  `.graph-edge-contradicts` is dashed as well as coloured — colour alone would
+  not separate it for anyone who cannot tell it from the accent, and on a
+  dense graph the dash is the part that reads at a glance.
+
+Measured in Chromium: dialog 896x697 inside an 88vh cap, the two note panels
+420px each and equal, no clipped excerpts (36/36 both), the results list a
+real scroll container so a long review cannot push Close off screen.
+
+### What has not been verified, plainly
+
+**No local model has ever judged a real pair.** There is no Ollama in this
+sandbox, so every test drives the fake transport, and the results panel was
+measured against a stubbed response. What is genuinely exercised is everything
+that decides: which pairs are worth a call, how a reply is parsed, what is
+rejected, what accepting writes. What is unmeasured is the prompt's actual hit
+rate — how often a small local model calls a real contradiction correctly, and
+how often it invents one. That number matters more than anything else here and
+it is not known yet. The guards above are written on the assumption it will be
+worse than hoped.

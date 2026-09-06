@@ -750,6 +750,157 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     return suggestions
 
 
+#: Where dismissed tensions are remembered. A preference key rather than a new
+#: table: this is a small list of pair keys, it belongs to the person rather
+#: than to either note, and adding a migration for "I looked at this and it
+#: was not a contradiction" would be a heavy answer to a light question.
+TENSION_DISMISSED_KEY = "tensions_dismissed"
+
+#: Tensions look at pairs the notebook already believes are about the same
+#: thing (see `ai/tensions.py` — contradiction is only possible between notes
+#: sharing a subject). A lower bar than `LINK_SUGGESTION_THRESHOLD` on
+#: purpose: two notes that *disagree* often share less vocabulary than two
+#: that agree, because the disagreement is exactly where their words differ.
+TENSION_CANDIDATE_THRESHOLD = 0.45
+
+
+def _tension_key(a: int, b: int) -> str:
+    """A stable id for a pair, order-independent."""
+    low, high = sorted((a, b))
+    return f"{low}:{high}"
+
+
+def _dismissed_tensions() -> set[str]:
+    stored = deps.get_config().get_preference(TENSION_DISMISSED_KEY, []) or []
+    return {str(key) for key in stored}
+
+
+@router.get("/tensions")
+def find_tensions(
+    limit: int = Query(default=8, ge=1, le=20),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Places the notebook appears to disagree with itself.
+
+    The feature `core/database.py`'s `LINK_TYPES` comment says the typed-link
+    vocabulary was built for and that nothing ever produced — see
+    `ai/tensions.py` for the full reasoning. Read-only and suggestion-only:
+    finding a tension writes nothing, and `POST /entries/tensions/accept` is
+    the only thing that creates the `contradicts` link.
+
+    Returns `{"tensions": [...], "status": "..."}` rather than a bare list so
+    an empty result can say *why* it is empty — "no model running" and "your
+    notebook does not contradict itself" are completely different answers and
+    a bare `[]` renders them identically, which is how a feature that never
+    ran gets reported as a feature that found nothing.
+    """
+    from memorymap.ai.embeddings import bytes_to_vector, similar_pairs
+    from memorymap.ai import tensions as tensions_module
+
+    ollama = deps.get_ollama()
+    if not ollama.is_running():
+        return {"tensions": [], "status": "no_model"}
+
+    embeddings = deps.get_embeddings()
+    if not embeddings.is_ready():
+        return {"tensions": [], "status": "no_embeddings"}
+
+    entries = manager.list_entries(session)
+    by_id = {e.id: e for e in entries if not e.is_private and not e.is_board}
+    if len(by_id) < 2:
+        return {"tensions": [], "status": "too_few_notes"}
+
+    records = session.execute(
+        select(EmbeddingRecord.entry_id, EmbeddingRecord.embedding).where(
+            EmbeddingRecord.model_version == embeddings.backend_id()
+        )
+    ).all()
+    vectors = {eid: bytes_to_vector(blob) for eid, blob in records if eid in by_id}
+
+    # A pair already marked as contradicting is a finding the person has
+    # already accepted, not one to re-propose. Every other link type is left
+    # alone deliberately: notes can be linked as "related" *and* disagree,
+    # and that is one of the more interesting cases.
+    known: set[str] = set(_dismissed_tensions())
+    for link in session.scalars(select(EntryLink).where(EntryLink.link_type == "contradicts")):
+        known.add(_tension_key(link.source_entry_id, link.target_entry_id))
+
+    models = deps.get_model_manager()
+    found: list[dict] = []
+    checked = 0
+    for a_id, b_id, score in similar_pairs(vectors, TENSION_CANDIDATE_THRESHOLD):
+        if checked >= tensions_module.MAX_PAIRS_PER_PASS or len(found) >= limit:
+            break
+        if _tension_key(a_id, b_id) in known:
+            continue
+        ordered = tensions_module.order_by_time(by_id[a_id], by_id[b_id])
+        if ordered is None:
+            continue  # same few days, or undated — see MIN_GAP_DAYS
+        checked += 1
+        tension = tensions_module.compare_pair(ordered[0], ordered[1], models, ollama)
+        if tension is None:
+            continue
+        found.append(
+            {
+                "key": _tension_key(tension.earlier_id, tension.later_id),
+                "earlier_id": tension.earlier_id,
+                "later_id": tension.later_id,
+                "explanation": tension.explanation,
+                "earlier_excerpt": tension.earlier_excerpt,
+                "later_excerpt": tension.later_excerpt,
+                "earlier_at": tension.earlier_at,
+                "later_at": tension.later_at,
+                "gap_days": tension.gap_days,
+                "similarity": round(score, 2),
+            }
+        )
+    status = "ok" if found else ("none_found" if checked else "no_candidates")
+    return {"tensions": found, "status": status, "pairs_checked": checked}
+
+
+class TensionPair(BaseModel):
+    earlier_id: int
+    later_id: int
+
+
+@router.post("/tensions/accept")
+def accept_tension(body: TensionPair, session: Session = Depends(get_session)) -> dict:
+    """Record a tension as a real `contradicts` link between the two notes.
+
+    Uses `manager.create_link` rather than inserting a row, so the link gets
+    the same audit entry, the same self-link and duplicate guards, and the
+    same graph/traversal treatment as one made by hand.
+    """
+    earlier = _existing_entry(session, body.earlier_id)
+    later = _existing_entry(session, body.later_id)
+    link = manager.create_link(
+        session,
+        earlier,
+        later,
+        reason="these disagree with each other",
+        link_type="contradicts",
+    )
+    return {"created": link is not None}
+
+
+@router.post("/tensions/dismiss")
+def dismiss_tension(body: TensionPair) -> dict:
+    """Stop offering this pair. Remembered across restarts.
+
+    Capped, and oldest-first: without a cap this preference would grow
+    without bound on a notebook where most candidates are rejected, and it
+    is written to disk on every change (see `Config.set_preference`).
+    """
+    config = deps.get_config()
+    stored = list(config.get_preference(TENSION_DISMISSED_KEY, []) or [])
+    key = _tension_key(body.earlier_id, body.later_id)
+    if key not in stored:
+        stored.append(key)
+    del stored[:-500]
+    config.set_preference(TENSION_DISMISSED_KEY, stored)
+    return {"dismissed": key}
+
+
 class LinkSuggestionReasonPair(BaseModel):
     source_id: int
     target_id: int

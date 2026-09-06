@@ -1582,6 +1582,12 @@ async function renderGraph() {
   // toggled on both selections so hover/reason styling and the click
   // target agree on which edges are which.
   edgeLines.classed("graph-edge-reasoned", (d) => d.kind === "link" && !!d.reason);
+  // **A disagreement should not look like every other line on the map.**
+  // `contradicts` is the one link type that says the two notes are at odds
+  // rather than together (see `core/database.py`'s LINK_TYPES), and the
+  // Tensions review now produces them — but the graph drew them exactly like
+  // a "related" edge, so the payoff of finding one was invisible here.
+  edgeLines.classed("graph-edge-contradicts", (d) => d.link_type === "contradicts");
   edgeHitLines
     .classed("graph-edge-manageable", (d) => d.kind === "link")
     .on("click", (event, d) => {

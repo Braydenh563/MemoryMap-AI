@@ -25391,6 +25391,193 @@ function applyImprove() {
   toast("Applied the AI's suggestion.");
 }
 
+// --- Tensions: where the notebook disagrees with itself ---------------------
+//
+// Sibling of the auto-linker below, and deliberately next to it: both propose
+// a connection and neither writes one without a click. The difference is what
+// they can see. Similarity — every kind this app has, embeddings included —
+// answers "are these about the same thing", and two notes that flatly
+// contradict each other are, to a vector, maximally similar. Only a model
+// reading both can tell agreement from disagreement.
+//
+// `core/database.py`'s LINK_TYPES comment called `contradicts` "the one worth
+// having built this for" and nothing ever produced one; `ai/tensions.py` is
+// the half that does, and this is the review.
+
+function tensionsDialog() {
+  return document.getElementById("tensions-dialog");
+}
+
+function openTensions() {
+  const dialog = tensionsDialog();
+  if (!dialog) return;
+  if (!dialog.open) dialog.showModal();
+  // Deliberately does *not* auto-run. A pass reads pairs of notes with the
+  // local model — free, but not instant — so starting one is a decision the
+  // person makes, not something that happens because a dialog opened.
+  const results = document.getElementById("tensions-results");
+  if (results && !results.childElementCount) setTensionsStatus("");
+}
+
+function setTensionsStatus(text, busy = false) {
+  const el = document.getElementById("tensions-status");
+  if (!el) return;
+  el.textContent = text;
+  // `aria-live="polite"` is on the element itself, so a screen reader gets
+  // the progress line without the focus being moved off the button that
+  // started it.
+  el.classList.toggle("is-busy", busy);
+}
+
+const TENSION_STATUS_TEXT = {
+  no_model: "No local model is running, so nothing can read your notes. Start Ollama and try again.",
+  no_embeddings:
+    "Semantic search is off, so there is no shortlist of notes to compare. Turn it on in Settings → Models.",
+  too_few_notes: "Not enough notes yet — there is nothing to compare.",
+  no_candidates:
+    "No pairs were close enough in subject to be worth reading. Contradictions only show up between notes about the same thing.",
+  none_found: "Nothing contradicted itself. Your notebook is consistent, as far as this pass could tell.",
+};
+
+async function runTensionReview() {
+  const button = document.getElementById("tensions-run");
+  const results = document.getElementById("tensions-results");
+  if (!results) return;
+  if (button) button.disabled = true;
+  results.replaceChildren();
+  setTensionsStatus("Reading your notes… this runs on your machine and can take a minute.", true);
+
+  const body = await apiJson("/entries/tensions", { silent: true }).catch(() => null);
+  if (button) button.disabled = false;
+
+  if (!body) {
+    setTensionsStatus("The review could not run. Nothing was changed.");
+    return;
+  }
+  const found = body.tensions || [];
+  if (!found.length) {
+    setTensionsStatus(TENSION_STATUS_TEXT[body.status] || "Nothing found.");
+    return;
+  }
+  const checked = body.pairs_checked || 0;
+  setTensionsStatus(
+    `${found.length} to look at, from ${checked} pair${checked === 1 ? "" : "s"} read.`,
+  );
+  for (const tension of found) results.appendChild(tensionCard(tension));
+}
+
+/** One proposed disagreement, with both notes and the two decisions. */
+function tensionCard(tension) {
+  const card = document.createElement("div");
+  card.className = "card tension-card";
+  // A group with its own label, so a screen reader moving by landmark hears
+  // what this block is about before its buttons.
+  card.setAttribute("role", "group");
+  card.setAttribute("aria-label", `Possible contradiction: ${tension.explanation}`);
+
+  const why = document.createElement("p");
+  why.className = "tension-why";
+  why.textContent = tension.explanation;
+  card.appendChild(why);
+
+  const gap = document.createElement("p");
+  gap.className = "muted tension-gap";
+  // The gap is the finding as much as the text is — "you thought this, then
+  // months later you thought that" is the story, and a bare pair of notes
+  // does not tell it.
+  gap.textContent = tension.gap_days
+    ? `${tensionGapText(tension.gap_days)} apart`
+    : "Written around the same time";
+  card.appendChild(gap);
+
+  const pair = document.createElement("div");
+  pair.className = "tension-pair";
+  pair.appendChild(tensionSide("Earlier", tension.earlier_at, tension.earlier_excerpt, tension.earlier_id));
+  pair.appendChild(tensionSide("Later", tension.later_at, tension.later_excerpt, tension.later_id));
+  card.appendChild(pair);
+
+  const actions = document.createElement("div");
+  actions.className = "row tension-actions";
+  const accept = document.createElement("button");
+  accept.type = "button";
+  accept.className = "accent small";
+  accept.textContent = "Yes — link these as contradicting";
+  accept.addEventListener("click", async () => {
+    await apiJson("/entries/tensions/accept", {
+      method: "POST",
+      body: JSON.stringify({ earlier_id: tension.earlier_id, later_id: tension.later_id }),
+    }).catch(() => null);
+    tensionResolve(card, "Linked as contradicting.");
+  });
+  const dismiss = document.createElement("button");
+  dismiss.type = "button";
+  dismiss.className = "ghost small";
+  dismiss.textContent = "Not a contradiction";
+  dismiss.addEventListener("click", async () => {
+    await apiJson("/entries/tensions/dismiss", {
+      method: "POST",
+      body: JSON.stringify({ earlier_id: tension.earlier_id, later_id: tension.later_id }),
+    }).catch(() => null);
+    tensionResolve(card, "Dismissed — this pair won't come back.");
+  });
+  actions.append(accept, dismiss);
+  card.appendChild(actions);
+  return card;
+}
+
+/** Replace a card's controls with what happened, in place. */
+function tensionResolve(card, message) {
+  card.classList.add("is-resolved");
+  const actions = card.querySelector(".tension-actions");
+  if (!actions) return;
+  const done = document.createElement("p");
+  done.className = "muted tension-done";
+  // `role="status"` so the outcome is announced: the button that was just
+  // pressed is gone, and without this a screen-reader user gets silence.
+  done.setAttribute("role", "status");
+  done.textContent = message;
+  actions.replaceWith(done);
+}
+
+function tensionGapText(days) {
+  if (days < 31) return `${days} day${days === 1 ? "" : "s"}`;
+  const months = Math.round(days / 30);
+  if (months < 18) return `${months} month${months === 1 ? "" : "s"}`;
+  const years = (days / 365).toFixed(1).replace(/\.0$/, "");
+  return `${years} year${years === "1" ? "" : "s"}`;
+}
+
+function tensionSide(label, when, excerpt, entryId) {
+  const side = document.createElement("div");
+  side.className = "tension-side";
+  const head = document.createElement("p");
+  head.className = "tension-side-head";
+  const tag = document.createElement("strong");
+  tag.textContent = label;
+  head.appendChild(tag);
+  if (when) {
+    const date = document.createElement("span");
+    date.className = "muted tension-date";
+    date.textContent = when;
+    head.appendChild(date);
+  }
+  side.appendChild(head);
+  const text = document.createElement("p");
+  text.className = "tension-excerpt";
+  text.textContent = excerpt || "(empty note)";
+  side.appendChild(text);
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "ghost small";
+  open.textContent = "Open this note";
+  open.addEventListener("click", () => {
+    tensionsDialog()?.close();
+    flashEntry(entryId);
+  });
+  side.appendChild(open);
+  return side;
+}
+
 // --- Wave N: AI link suggestions (auto-linker, approve each) -------------------------
 
 async function loadLinkSuggestions() {
@@ -31269,6 +31456,10 @@ function initSpaceSwitcher() {
       document.getElementById(closer.dataset.closeDialog)?.close();
     });
   }
+
+  // Tensions: the review's own start button. `data-close-dialog` above
+  // already wires its Close.
+  $("tensions-run")?.addEventListener("click", runTensionReview);
 
   $("space-create-submit")?.addEventListener("click", async () => {
     const name = $("space-create-name").value.trim();

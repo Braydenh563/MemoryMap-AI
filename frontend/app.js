@@ -369,7 +369,45 @@ async function api(path, options = {}) {
     }
     throw new Error(errMsg);
   }
+  //: A write that can leave a model running on a background thread gets the
+  //: task poll looked at now, rather than up to ten seconds from now.
+  //:
+  //: Reported as *"notifications dont appear when generating image
+  //: captions"*, and the cause is a cadence, not a missing notification.
+  //: `refreshModelStatus` idles at 10s (120s behind a hidden tab), and
+  //: `noticeTaskTransitions` can only announce a job it has actually *seen*
+  //: in a `/tasks` payload. A caption is one model round-trip — often
+  //: shorter than the gap between two idle polls — so it began and ended
+  //: unobserved: no "Started" line, no status-bar job slot, nothing. The
+  //: long jobs this panel was built for (a re-index, a model pull) never hit
+  //: this because they outlive any poll interval.
+  if (fetchOptions.method && fetchOptions.method !== "GET" && JOB_STARTING_PATH.test(path)) {
+    kickBackgroundTaskPoll();
+  }
   return response;
+}
+
+//: Paths whose response can leave captioning, OCR or a librarian pass running
+//: on a background thread. Deliberately a short list rather than "every
+//: write": filing a note or a message is exactly when an attached image
+//: starts being read (`core/media_process.py` runs at *commit*, not at
+//: upload), but a rename or a preference save can start nothing and should
+//: not cost a poll.
+const JOB_STARTING_PATH =
+  /^\/(entries|documents|media\/upload|media\/\d+\/|files\/\d+\/|conversations\/\d+\/messages|extras\/|models\/pull|search\/reindex|tasks\/trigger-autonomous)/;
+
+//: Debounced, because committing a note with four images is four writes and
+//: one job list. 600ms rather than immediately: the thread is started after
+//: the response is written, so a poll racing it by a millisecond sees the
+//: state from just before the job existed — the exact miss this fixes.
+let jobPollKick = null;
+function kickBackgroundTaskPoll() {
+  clearTimeout(jobPollKick);
+  jobPollKick = setTimeout(() => {
+    refreshBackgroundTasks().catch(() => {
+      // A poll is best-effort — it runs again on the status loop regardless.
+    });
+  }, 600);
 }
 
 // A short-lived cache for GET responses, opt-in per call.
@@ -24112,6 +24150,16 @@ function settingsOpen() {
 }
 
 function jobsRunning() {
+  // Anything in `GET /tasks` counts, not just the two jobs `/models/status`
+  // happens to carry. This used to read re-index and pulls only, so while a
+  // caption, an image OCR or an autonomous pass was running the loop stayed
+  // on its 10-second idle cadence — the status bar's job slot lagged by up
+  // to ten seconds behind work that often does not last that long, and the
+  // finish was noticed just as late. The two below are kept as their own
+  // check rather than folded in: they come from a different payload, and a
+  // `/tasks` call that fails leaves `backgroundTasks` empty while a pull is
+  // demonstrably still running.
+  if (backgroundTasks.length) return true;
   if (!modelStatus) return false;
   const reindexing = modelStatus.reindex && modelStatus.reindex.status === "running";
   const pulling = Object.values(modelStatus.pulls || {}).some(

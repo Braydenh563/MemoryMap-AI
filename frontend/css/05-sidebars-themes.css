@@ -1214,11 +1214,45 @@ body.resizing-sidebar {
   position: sticky;
   top: 0;
   z-index: 3;
+  /* **`overflow-y: visible` here was not visible, and that is the whole bug.**
+     Reported: *"there's a vertical scrollbar in the toolbar in documents?? and
+     popups appear in the toolbar container, not outside."* Both symptoms come
+     from this one declaration.
+
+     CSS does not allow one axis to be `visible` while the other is not — the
+     `visible` axis computes to `auto` instead. Measured on the live toolbar:
+     `overflow-y` computed `auto`, exactly as the spec says, which is the
+     vertical scrollbar. And any `overflow: auto` box is a clipping context, so
+     the toolbar's own `<details>` menus were trapped inside a 40px-tall strip
+     rather than opening over the document.
+
+     So the default is now the **expanded** toolbar: it wraps. No scroller, so
+     nothing clips and no scrollbar appears, and every one of the ~59 controls
+     is reachable without scrolling a strip to find it. The single-row scroller
+     is still available as a mode below, for a compact bar. Both were asked for:
+     *"there should be the option to have the tool bar as a horizontal scroll
+     or expanded."* */
+  flex-wrap: wrap;
+  row-gap: 0.25rem;
+  overflow: visible;
+}
+
+/* The compact alternative: one row that scrolls sideways. */
+.doc-toolbar[data-toolbar-mode="row"] {
+  flex-wrap: nowrap;
   overflow-x: auto;
-  overflow-y: visible;
   /* A scrolling strip needs its own scrollbar to be unobtrusive: this is
      chrome, not content. */
   scrollbar-width: thin;
+}
+
+/* **A menu opening un-clips the strip.** In row mode the toolbar is a
+   scroller, so a `<details>` popup inside it would be trapped again — the
+   second half of the same report. `:has()` (already used elsewhere in this
+   stylesheet) drops the clipping for exactly as long as a menu is open, so
+   the popup escapes and the scroller returns the moment it closes. */
+.doc-toolbar[data-toolbar-mode="row"]:has(details[open]) {
+  overflow: visible;
 }
 
 /* Nothing in the strip may shrink — a squeezed button is a button whose glyph

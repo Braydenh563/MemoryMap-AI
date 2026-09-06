@@ -439,12 +439,54 @@
 /* ======================= MICRO-ANIMATIONS ======================= */
 /* Interactive cards get a slight upward lift and shadow pop on hover */
 .card.interactive,
+/* **The pan desync, and why `will-change` was causing it.** Reported twice —
+   "shapes and links still lag separately behind notes in the whiteboard when
+   dragging the whiteboard around" — and the handler was never the fault, so
+   re-reading it a third time would not have found this.
+
+   Measured on a live board: `.wb-card` computed `will-change: transform,
+   box-shadow`, so **every card was promoted to its own compositor layer**,
+   while `#wb-zoom-group` and `#wb-overlay-zoom-group` (the SVG holding the
+   shapes and links) computed `will-change: auto` and were not promoted at
+   all. Panning changes one transform on each layer's parent: the promoted
+   HTML content moves on the compositor immediately, the un-promoted SVG
+   needs a main-thread paint, and on a fast drag it arrives a frame or more
+   later. The cards were not "correct" and the shapes "slow" — they were
+   simply on two different pipelines.
+
+   The fix is to make the three zoom layers agree (below, where they are
+   promoted together) and to stop promoting cards individually. A blanket
+   `will-change` on every card is the documented anti-pattern anyway: it is a
+   hint for an imminent change, and dozens of permanent layers cost memory
+   for nothing. Promoted on hover instead, which is when a card's own
+   transform actually animates. */
 .wb-card,
 .library-chip {
   transition: transform var(--motion-slow) cubic-bezier(0.2, 0.8, 0.2, 1),
     box-shadow 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
     border-color 0.2s ease;
+}
+
+.wb-card:hover,
+.library-chip:hover {
   will-change: transform, box-shadow;
+}
+
+/* **A dragged card must track the cursor, not ease after it.** The transition
+   above is for the hover lift; while a card is actually being dragged its
+   transform is being set every pointer move, so a 0.2s ease means the card
+   trails the pointer by exactly that much. `.dragging` was already used to
+   suppress the hover lift and never to suppress this. */
+.wb-card.dragging {
+  transition: none;
+}
+
+/* The three layers a pan transforms. Promoted together so they are composited
+   the same way and land in the same frame — see the desync note above. */
+#wb-html-layer,
+#wb-zoom-group,
+#wb-overlay-zoom-group {
+  will-change: transform;
 }
 
 .card.interactive:hover,

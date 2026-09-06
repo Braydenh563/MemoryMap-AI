@@ -2264,6 +2264,13 @@ Link to another note with [[its first few words]]."></textarea>
                   title="Download as a .md file"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Download as .md</button>
                 <button id="doc-export-pdf" class="ghost small doc-dock-menu-item" type="button"
                   title="Print or save as PDF"><i class="ph ph-file-pdf ph-lead" aria-hidden="true"></i> Print or save as PDF</button>
+                <!-- Asked for directly: "there should be the option to have
+                     the tool bar as a horizontal scroll or expanded." Expanded
+                     (wrapping) is the default because it is also what stops the
+                     toolbar clipping its own menus — see .doc-toolbar's CSS. -->
+                <button id="doc-toolbar-mode" class="ghost small doc-dock-menu-item" type="button"
+                  aria-pressed="false"
+                  title="Switch between a wrapping toolbar and a single scrolling row"><i class="ph ph-rows ph-lead" aria-hidden="true"></i> <span id="doc-toolbar-mode-label">Use one scrolling row</span></button>
                 <button id="doc-delete" class="ghost small doc-dock-menu-item danger" type="button"
                   title="Delete this document"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete document</button>
               </div>

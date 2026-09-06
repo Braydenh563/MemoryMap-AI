@@ -2846,3 +2846,59 @@ window.addEventListener("beforeunload", (event) => {
 });
 
 initDocSidebarTabs();
+
+
+// --- Toolbar shape: expanded, or one scrolling row --------------------------
+//
+// Asked for directly: *"there should be the option to have the tool bar as a
+// horizontal scroll or expanded."* Expanded (wrapping) is the default, and not
+// only as a preference: a wrapping toolbar is not a scroll container, so it
+// cannot clip the `<details>` menus inside it — which was the other half of
+// the same report. See `.doc-toolbar`'s own comment for the `overflow-y:
+// visible` trap that caused both.
+
+const DOC_TOOLBAR_MODE_KEY = "doc-toolbar-mode";
+
+function docToolbarMode() {
+  try {
+    return localStorage.getItem(DOC_TOOLBAR_MODE_KEY) === "row" ? "row" : "wrap";
+  } catch {
+    return "wrap"; // private mode — the safe shape, since it never clips
+  }
+}
+
+function applyDocToolbarMode(mode) {
+  const row = mode === "row";
+  for (const bar of document.querySelectorAll(".doc-toolbar")) {
+    //: An attribute rather than a class: the CSS keys off
+    //: `[data-toolbar-mode="row"]`, and the default (wrap) is the bare rule,
+    //: so an unset attribute is the safe shape rather than an unstyled one.
+    if (row) bar.dataset.toolbarMode = "row";
+    else delete bar.dataset.toolbarMode;
+  }
+  const button = document.getElementById("doc-toolbar-mode");
+  const label = document.getElementById("doc-toolbar-mode-label");
+  if (button) button.setAttribute("aria-pressed", row ? "true" : "false");
+  //: The label names what pressing it *does*, not the state it is in — the
+  //: state is carried by `aria-pressed` for a screen reader and by the
+  //: toolbar's own shape for everyone else.
+  if (label) label.textContent = row ? "Expand the toolbar" : "Use one scrolling row";
+}
+
+function setDocToolbarMode(mode) {
+  try {
+    localStorage.setItem(DOC_TOOLBAR_MODE_KEY, mode);
+  } catch {
+    /* private mode — it just won't be remembered */
+  }
+  applyDocToolbarMode(mode);
+}
+
+document.getElementById("doc-toolbar-mode")?.addEventListener("click", () => {
+  setDocToolbarMode(docToolbarMode() === "row" ? "wrap" : "row");
+});
+
+//: Applied on load as well as on click: the toolbar exists before a document
+//: is opened, and a remembered mode that only took effect after the next
+//: toggle would read as the setting not having been saved.
+applyDocToolbarMode(docToolbarMode());

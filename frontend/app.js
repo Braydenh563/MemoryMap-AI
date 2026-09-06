@@ -3737,6 +3737,25 @@ function openLightbox(items, startIndex = 0) {
   actions.appendChild(zoomLabel);
   const zoomInBtn = actionBtn("ph:magnifying-glass-plus", "Zoom in", () => setZoom(zoom + 0.5));
   const resetBtn = actionBtn("ph:arrows-in Fit", "Back to fit", () => setZoom(1));
+  //: **"Open this in the editor", from the preview.** Asked for directly: "add
+  //: an edit document button to previewed documents in the lightbox." The
+  //: Library's own kebab offers Preview *and* Open, but once you are in the
+  //: preview and have decided you want to change something, the only route
+  //: back was to close the lightbox, find the row again and pick the other
+  //: menu item — three steps to answer a question the preview itself raised.
+  //:
+  //: Only for a *document*: the lightbox also shows attachments and uploaded
+  //: files, which have their own in-place edit (`editFileBtn`) and no row in
+  //: the Documents tab to open. `item.documentId` is what says which is which,
+  //: set by the one caller that previews a document.
+  const openDocBtn = actionBtn("ph:pencil-simple Edit document", "Open this in the document editor", () => {
+    const target = items[index];
+    if (!target || !target.documentId) return;
+    close();
+    switchTab("documents");
+    openDocument(target.documentId);
+  });
+  openDocBtn.classList.add("hidden");
   // Zoom is an image control. A document scrolls and reflows instead, so
   // showing a disabled-in-spirit 100% beside a page of text is three
   // controls that do nothing — the same "only show what this can do"
@@ -4634,12 +4653,16 @@ function openLightbox(items, startIndex = 0) {
       actions.classList.remove("hidden");
       setZoom(1);
       showZoomControls(false);
+      openDocBtn.classList.toggle("hidden", !item.documentId);
       syncMoreMenu(item);
       await showDocument(item, name, attachmentId);
       hydrate(index, item, true);
       return;
     }
     doc.classList.add("hidden");
+    //: A picture is never a document, so paging from a previewed document to
+    //: an image must take this away with the rest of the text controls.
+    openDocBtn.classList.add("hidden");
     //: A picture has no text to edit, and leaving Edit/Save on the bar after
     //: paging from a .md to a .png would offer to write the note's markdown
     //: over an image. Cleared with the target, not just hidden.

@@ -1988,6 +1988,10 @@ async function renderLibraryDocuments() {
               {
                 filename: full.title || "Untitled",
                 id: full.id,
+                //: What tells the lightbox this preview has an editor to open
+                //: — see `openDocBtn` there. Separate from `id`, which the
+                //: lightbox also uses for attachments and uploads.
+                documentId: full.id,
                 kind: full.file_type === "md" ? "markdown" : "code",
                 text: full.content || "",
                 addedAt: full.updated_at || "",

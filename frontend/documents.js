@@ -4030,32 +4030,75 @@ function docOffsetOf(box) {
   return base === null ? null : base + box.selectionStart;
 }
 
-function docOpenSuggestAtCaret(box) {
-  const offset = docOffsetOf(box);
+//: **The character under the pointer, not the character the caret happens to
+//: be at.** Right-clicking a word is how everyone expects to be offered a
+//: correction for *that* word — but a right-click does not reliably move the
+//: caret first, so reading `selectionStart` answered a question about wherever
+//: the caret was last left, which is usually somewhere else entirely. That is
+//: half of "i still cant select on an underlined incorrectly spelled word and
+//: have a popup with suggestions".
+//:
+//: `caretPositionFromPoint` (and WebKit's older `caretRangeFromPoint`) gives
+//: the index inside a `<textarea>` directly. Falls back to the caret when
+//: neither exists or the point is outside the box, which is the old behaviour
+//: rather than a failure.
+function docOffsetAtPoint(box, x, y) {
+  if (typeof x !== "number" || typeof y !== "number") return docOffsetOf(box);
+  let offset = null;
+  if (document.caretPositionFromPoint) {
+    const position = document.caretPositionFromPoint(x, y);
+    if (position && position.offsetNode === box) offset = position.offset;
+  } else if (document.caretRangeFromPoint) {
+    const range = document.caretRangeFromPoint(x, y);
+    if (range && range.startContainer === box) offset = range.startOffset;
+  }
+  if (offset === null) return docOffsetOf(box);
+  if (box.id === "doc-content") return offset;
+  const base = docLiveBlockOffset(box);
+  return base === null ? null : base + offset;
+}
+
+function docOpenSuggestAtCaret(box, point = null) {
+  const offset = point ? docOffsetAtPoint(box, point.x, point.y) : docOffsetOf(box);
   if (offset === null) return false;
   const finding = docFindingAtOffset(offset);
   if (!finding) return false;
-  const point = docCaretPoint(box);
+  const at = docCaretPoint(box);
   openDocSuggest(finding, {
-    left: point.x,
-    top: point.y,
-    bottom: point.y + point.lineHeight,
+    left: at.x,
+    top: at.y,
+    bottom: at.y + at.lineHeight,
   });
   return true;
 }
 
 document.addEventListener("dblclick", (event) => {
   const box = docToolsBoxFor(event.target);
-  if (box) docOpenSuggestAtCaret(box);
+  if (box) docOpenSuggestAtCaret(box, { x: event.clientX, y: event.clientY });
 });
 
 document.addEventListener("contextmenu", (event) => {
+  //: **The underlined word is a real element, so right-clicking it must work.**
+  //: The other half of the same report. `docToolsBoxFor` only ever matched a
+  //: `<textarea>`, so in Live view — the one view that *can* draw a squiggle,
+  //: and therefore the view where anyone would try this — right-clicking the
+  //: mark fell straight through to the browser's own menu. The app's menu was
+  //: reachable only by left-clicking, which is not what an underline means
+  //: anywhere else.
+  const flag = event.target instanceof Element ? event.target.closest(".doc-flag") : null;
+  if (flag && flag._docFinding) {
+    event.preventDefault();
+    openDocSuggest(flag._docFinding, flag.getBoundingClientRect());
+    return;
+  }
   const box = docToolsBoxFor(event.target);
   if (!box) return;
   //: Only when there is something to say. Swallowing the browser's own menu
   //: over ordinary text would take away spell-check, paste and everything else
   //: it carries for the sake of a menu with nothing in it.
-  if (docOpenSuggestAtCaret(box)) event.preventDefault();
+  if (docOpenSuggestAtCaret(box, { x: event.clientX, y: event.clientY })) {
+    event.preventDefault();
+  }
 });
 
 //: Anywhere else closes it — the rule every menu in this app follows.
@@ -4324,6 +4367,59 @@ function openDocSuggest(finding, anchorRect) {
   }
   menu.appendChild(list);
 
+  //: **"Ask the AI for wordings", where the app itself has no answer.** Asked
+  //: for directly: "the listed errors in suggestions have no way to have the
+  //: ai write a suggested replacement or multiple for the user to choose."
+  //:
+  //: A row rather than an automatic call: this costs a model round-trip of
+  //: several seconds, and firing one every time a menu opens would make the
+  //: menu feel broken on a small local model. It replaces itself with the
+  //: options when they arrive, so the menu that asked is the menu that
+  //: answers — pressing an option applies it exactly as a built-in fix does,
+  //: through `docProseFix`, which re-checks the document before writing.
+  const askAi = document.createElement("button");
+  askAi.type = "button";
+  askAi.className = "doc-suggest-item doc-suggest-ai";
+  setLabel(askAi, "ph:magic-wand Ask the AI for wordings…");
+  askAi.title = "Have the local model suggest two or three other ways to put this";
+  askAi.addEventListener("click", async () => {
+    if (!currentDoc || !currentDoc.id) return toast("Save the document first.", true);
+    setLabel(askAi, "ph:hourglass Thinking…");
+    askAi.disabled = true;
+    const body = await apiJson(`/documents/${currentDoc.id}/rephrase`, {
+      method: "POST",
+      body: JSON.stringify({ passage: finding.text, note: finding.message || "" }),
+    }).catch(() => null);
+    //: The menu may have been closed, or opened on something else, while the
+    //: model was thinking. Writing into it then would put one finding's
+    //: suggestions under another finding's heading.
+    if (docSuggestOpenFor !== finding) return;
+    const options = (body && body.options) || [];
+    if (!options.length) {
+      setLabel(askAi, "ph:magic-wand Ask the AI for wordings…");
+      askAi.disabled = false;
+      return toast(
+        (body && body.message) || "No other wordings came back for that one.",
+        true
+      );
+    }
+    askAi.remove();
+    for (const option of options) {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "doc-suggest-item doc-suggest-ai-option";
+      setLabel(item, `ph:magic-wand ${option}`);
+      item.title = `Replace with “${option}”`;
+      item.addEventListener("click", () => {
+        docProseFix({ ...finding, replacement: option });
+        closeDocSuggest();
+      });
+      list.appendChild(item);
+    }
+    placeDocSuggest();
+  });
+  list.appendChild(askAi);
+
   const actions = document.createElement("div");
   actions.className = "doc-suggest-actions";
   if (finding.rule === "spelling" || finding.rule === "variant") {
@@ -4368,16 +4464,30 @@ function openDocSuggest(finding, anchorRect) {
   menu.appendChild(actions);
 
   menu.classList.remove("hidden");
-  //: Placed after it is visible, because a hidden element measures zero and a
-  //: menu positioned against zero opens in the corner.
+  docSuggestAnchor = anchorRect;
+  placeDocSuggest();
+  menu.querySelector("button")?.focus();
+}
+
+//: Kept so the menu can be re-placed after it changes size — the AI wordings
+//: arrive seconds after it opens and make it taller, and a menu that grew
+//: downwards off the bottom of the window is a menu whose best suggestion is
+//: unreachable.
+let docSuggestAnchor = null;
+
+function placeDocSuggest() {
+  const menu = $("doc-suggest-menu");
+  if (!menu || !docSuggestAnchor || menu.classList.contains("hidden")) return;
+  //: Measured after it is visible, because a hidden element measures zero and
+  //: a menu positioned against zero opens in the corner.
   const width = menu.offsetWidth;
   const height = menu.offsetHeight;
-  const left = Math.min(anchorRect.left, window.innerWidth - width - 8);
-  const below = anchorRect.bottom + 4;
-  const top = below + height > window.innerHeight - 8 ? anchorRect.top - height - 4 : below;
+  const left = Math.min(docSuggestAnchor.left, window.innerWidth - width - 8);
+  const below = docSuggestAnchor.bottom + 4;
+  const top =
+    below + height > window.innerHeight - 8 ? docSuggestAnchor.top - height - 4 : below;
   menu.style.left = `${Math.max(8, left)}px`;
   menu.style.top = `${Math.max(8, top)}px`;
-  menu.querySelector("button")?.focus();
 }
 
 //: A passage, a language, and the local model — asked in the chat so the
@@ -4559,8 +4669,18 @@ function docMarkLiveFindings() {
         const mark = document.createElement("mark");
         mark.className = `doc-flag doc-flag-${finding.rule}`;
         mark.textContent = finding.text;
-        mark.title = `${finding.message} — click for suggestions`;
+        mark.title = `${finding.message} — click or right-click for suggestions`;
+        //: Hung on the element so the delegated `contextmenu` listener above
+        //: can find it: a right-click has no way back to the closure that
+        //: built this mark, and re-deriving the finding from the text would
+        //: pick the wrong one wherever a word is flagged twice.
+        mark._docFinding = finding;
         mark.addEventListener("mousedown", (event) => {
+          //: Primary button only. `mousedown` fires for the right button too,
+          //: so without this a right-click opened the menu here *and* then let
+          //: `contextmenu` open it again — two placements of the same menu in
+          //: one gesture, the second one usually in the wrong place.
+          if (event.button !== 0) return;
           //: mousedown and `stopPropagation`, because the live view's own
           //: handler turns a click in a block into a caret in that block's
           //: textarea — which would replace this element before the menu

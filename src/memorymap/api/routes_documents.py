@@ -654,6 +654,50 @@ def ai_edit(
     }
 
 
+class RephraseBody(BaseModel):
+    """A passage the writer wants alternatives for, and what is wrong with it."""
+
+    passage: str = Field(min_length=1, max_length=2000)
+    #: The checker's own message ("This sentence runs long", "its/it's"), so
+    #: the model fixes the thing that was flagged rather than rewriting to
+    #: taste. Optional: the toolbar can ask for alternatives to any selection.
+    note: str = Field(default="", max_length=200)
+
+
+@router.post("/{document_id}/rephrase")
+def rephrase_passage(
+    document_id: int, body: RephraseBody, session: Session = Depends(get_session)
+) -> dict:
+    """Two or three other ways to word one passage.
+
+    Asked for directly: *"the listed errors in suggestions have no way to have
+    the ai write a suggested replacement or multiple for the user to choose."*
+    The app's own checks catch spelling, spacing and sentence length, and can
+    offer a fix for the first two; for "this sentence is hard to follow" there
+    is no mechanical answer and the panel could only say so.
+
+    Nothing is saved. The alternatives come back for the writer to pick from —
+    the same rule `ai_edit` follows and for the same reason: a writing aid that
+    edits the document by itself is the most destructive thing in the app.
+    `options` is empty rather than an error when the model is offline or its
+    reply is unusable, because "no suggestions" is a true statement and not a
+    failure the writer caused.
+    """
+    _existing(session, document_id)
+    options = drafter.rephrase(
+        body.passage,
+        deps.get_model_manager(),
+        deps.get_ollama(),
+        note=body.note,
+    )
+    running = deps.get_ollama().is_running()
+    return {
+        "options": options,
+        "ollama_running": running,
+        "message": "" if running else drafter.OFFLINE_MESSAGE,
+    }
+
+
 class DocumentAiEditLogBody(BaseModel):
     """Recorded by the frontend right after it accepts an AI suggestion —
     the write to `document.content` and the write to this changelog are two

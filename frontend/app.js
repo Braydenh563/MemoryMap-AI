@@ -29485,6 +29485,20 @@ async function loadOnboardingDiagnostics(forSlide) {
     lines.push(
       `Your notebook lives at ${storage.data_dir} (${mb} MB so far) — nothing here ever leaves this machine.`
     );
+    // ROADMAP.md's onboarding item named this the one still-open piece: a
+    // data-dir writability check. The database opening at all already
+    // implies it was writable at boot, but a synced folder, a permissions
+    // change, or a disk remounted read-only can flip that afterwards with
+    // nothing in the interface ever saying so — a save just starts failing,
+    // on the one screen this app has that already knows where the notebook
+    // lives and is looking right at it.
+    if (storage.data_dir_writable === false) {
+      lines.push(
+        "That folder isn't writable right now, so new notes and edits won't " +
+          "save. Check its permissions, or move the notebook somewhere " +
+          "MemoryMap can write to (Settings → Account & security)."
+      );
+    }
   } else {
     lines.push("Couldn't check where your notebook lives just now.");
   }

@@ -1608,17 +1608,14 @@ into a good one.
     twice, which this project's own history (HISTORY.md's repeated "checked
     before building" theme) is precisely the failure mode it keeps warning
     about.
-19. **First-run onboarding, the rest.** Reachability diagnostics are built;
-    still open: offering to pull a model, a data-dir writability check,
-    seeded example notes so the graph, timeline and dashboard have something
-    to show before the first note exists — named by the project's own outside
-    review as the highest-leverage version of onboarding. Also asked for
-    directly: **a guided application tour** — a click-through walkthrough of
-    the tabs and their core actions, distinct from the reachability/seeded-
-    notes work above (that's about the notebook having something to show;
-    this is about someone new knowing where to look). `#onboarding-overlay`
-    already exists as a surface (see CLAUDE.md's login recipe); worth
-    checking what it currently does before scoping a tour on top of it.
+19. **First-run onboarding.** ~~Reachability diagnostics~~, ~~pull a
+    model~~, ~~seeded example notes~~ and ~~a guided tour~~
+    (`ONBOARDING_SLIDES`, nine slides) were **already built** — found by
+    reading `frontend/app.js` first, per this file's own rule, rather than
+    rebuilding what this entry's stale text called still open. **The one
+    real gap — a data-dir writability check — is closed**: `GET /storage`
+    reports `data_dir_writable` and the "Your setup" slide warns on it.
+    Verified live: `"data_dir_writable": true` against this sandbox's dir.
 19b. **A mute-notifications option, asked for directly**, alongside making
     the toast/notification split clearer: "there can be an option to mute
     notifications except for reminders." Built as

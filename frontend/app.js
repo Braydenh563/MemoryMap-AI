@@ -15812,6 +15812,69 @@ function kebabMenu(items, ariaLabel) {
   return wrap;
 }
 
+//: **A formatting-toolbar menu has to stay inside its panel**, and until this
+//: ran it did not.
+//:
+//: Reported twice: *"formatting can go off the edge of the pannel in the
+//: capture tab and im assuming the documents tab as well"* and *"dropdown
+//: menus from the formatting bar get cut off and dont stay in the panel"*.
+//: Measured in the capture composer at 1440px: the **Insert** menu spanned
+//: x=164–356 against a panel starting at x=287 — **123px of it outside the
+//: panel's left edge**. The three menus at the right end of the same strip
+//: were all comfortably inside, which is why this reads as intermittent.
+//:
+//: The cause is one line of CSS doing the right thing in the wrong place.
+//: `.doc-dock-menu-list` is `position: absolute; right: 0` — anchored to its
+//: opener's *right* edge, growing leftwards. That is correct for the menu it
+//: was written for (the document ⋯, which sits at the right end of the header
+//: row) and wrong for an opener near the left of a toolbar, where a 192px
+//: menu is pushed straight out of the panel.
+//:
+//: Not fixable in CSS: which edge to anchor to depends on where the opener
+//: happens to sit relative to a panel whose width changes with the window,
+//: the sidebar and the chat dock. So it is measured on open, the same way
+//: `wireEscapedActionMenu` handles the clipping case it owns.
+//:
+//: `toggle` does not bubble, so this listens in the capture phase — one
+//: delegated listener covers the note composer's strip and the document
+//: editor's, including any `<details>` menu added to either later.
+function clampToolbarMenu(details) {
+  const list = details.querySelector(".doc-dock-menu-list");
+  if (!list) return;
+  // Cleared first so the measurement below is of the stylesheet's own
+  // placement, not of wherever the previous open left it.
+  list.style.left = "";
+  list.style.right = "";
+  const panel = details.closest(".card, .doc-main, .modal") || document.body;
+  const panelBox = panel.getBoundingClientRect();
+  const opener = details.getBoundingClientRect();
+  const width = list.getBoundingClientRect().width;
+  if (!width || !panelBox.width) return;
+  const margin = 8;
+  // The stylesheet's placement, expressed as an offset from the opener's own
+  // left edge: right-aligned to the opener.
+  let left = opener.width - width;
+  const lowest = panelBox.left + margin - opener.left;
+  const highest = panelBox.right - margin - width - opener.left;
+  // `lowest` wins a tie deliberately: a panel narrower than the menu cannot
+  // satisfy both edges, and losing the *start* of the list is worse than
+  // losing its end.
+  left = Math.max(lowest, Math.min(left, highest));
+  list.style.left = `${Math.round(left)}px`;
+  list.style.right = "auto";
+}
+
+document.addEventListener(
+  "toggle",
+  (event) => {
+    const details = event.target;
+    if (!(details instanceof HTMLElement) || details.tagName !== "DETAILS") return;
+    if (!details.open || !details.classList.contains("doc-toolbar-menu")) return;
+    clampToolbarMenu(details);
+  },
+  true
+);
+
 // "12.4k" beats "12417" when the number is a rough sense of scale, which is
 // all a token count ever is.
 function formatTokens(n) {

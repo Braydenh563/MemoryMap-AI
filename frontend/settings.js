@@ -2660,9 +2660,7 @@ $("custom-theme-name").addEventListener("keydown", (e) => {
   if (e.key === "Enter") $("custom-theme-save").click();
 });
 
-$("settings-modal").addEventListener("click", (e) => {
-  if (e.target === $("settings-modal")) closeSettingsModal(); // backdrop click
-});
+wireBackdropClose($("settings-modal"), () => closeSettingsModal()); // backdrop click
 for (const button of document.querySelectorAll("#settings-nav button")) {
   button.addEventListener("click", () => showSettingsSection(button.dataset.section));
 }

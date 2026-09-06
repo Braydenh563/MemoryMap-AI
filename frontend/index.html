@@ -3835,6 +3835,15 @@ Link to another note with [[its first few words]]."></textarea>
     <button id="status-undo" class="status-item icon-only" type="button" disabled data-status-slot="undo"></button>
     <button id="status-redo" class="status-item icon-only" type="button" disabled data-status-slot="undo"></button>
     <button id="status-command" class="status-item" type="button" data-status-slot="command"></button>
+    <!-- Asked for directly: "make sure the user knows the popup agent exists
+         and can access it. through the tools and features popup, the command
+         pallate, settings, and maybe even the bottom status bar if toggled."
+         The palette entry and the Help topic covered the first two; this is
+         the bar. On by default rather than opt-in like the clock beside it,
+         because the whole point of the ask is discoverability — a control
+         nobody switches on advertises nothing — and it joins STATUS_SLOTS so
+         it can be hidden from Settings like every other slot here. -->
+    <button id="status-agent" class="status-item" type="button" data-status-slot="agent"></button>
     <!-- Off by default, unlike the STATUS_SLOTS group above (app.js) — a
          clock is not one of the bar's existing permanent landmarks, so it
          does not appear for everyone the moment this shipped. Asked for
@@ -4057,6 +4066,14 @@ Link to another note with [[its first few words]]."></textarea>
             <span id="ocr-find-count" class="muted text-sm ocr-find-count" role="status"></span>
           </div>
           <p id="ocr-message" class="muted ocr-message" role="status"></p>
+          <!-- Asked for directly: "also let the user be able to stop the
+               readings." Hidden unless something is actually running
+               (ocrSyncStopButton) — a Stop that is always on screen and
+               inert most of the time is the affordance problem this app
+               keeps fixing elsewhere. -->
+          <button type="button" id="ocr-stop-read" class="ghost small hidden">
+            <i class="ph ph-stop-circle ph-lead" aria-hidden="true"></i> Stop reading
+          </button>
           <ol id="ocr-region-list" class="ocr-region-list"></ol>
           <!-- **The reading's own actions belong under the reading.**
                Measured: with these three in the header the tool row needed

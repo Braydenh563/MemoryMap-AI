@@ -1073,9 +1073,7 @@ function askLinkDetails(from, to) {
     row.append(cancel, create);
     card.appendChild(row);
     overlay.appendChild(card);
-    overlay.addEventListener("click", (event) => {
-      if (event.target === overlay) close(null);
-    });
+    wireBackdropClose(overlay, () => close(null));
     document.addEventListener("keydown", onKey, true);
     document.body.appendChild(overlay);
     // Cancel takes focus, not Create: a stray Enter arriving with the dialog
@@ -2777,7 +2775,7 @@ function openGraphLinkPanel(edge, nodes) {
   row.append(saveBtn, generateBtn, removeBtn, cancelBtn);
   card.appendChild(row);
   overlay.appendChild(card);
-  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+  wireBackdropClose(overlay, () => close());
   document.body.appendChild(overlay);
   textarea.focus();
 }

@@ -23,7 +23,7 @@ priority table on explicit instruction, ahead of everything below. Two asks:
 See ROADMAP.md's priority table for where this sits against the rest of the
 still-open work.
 
-## ► This session's tail: fixes shipped, and four items logged for next sprint
+## ► This session's tail: fixes shipped, and five items logged for next sprint
 
 **Shipped, verified (full suite green, ruff clean, `node --check` on every
 touched `.js`):**
@@ -94,29 +94,32 @@ touched `.js`):**
    that menu took six rounds) or never got wired to it. Neither #3 nor #4
    was investigated this session — flagged rather than guess-fixed, per this
    file's own standing rule to reproduce before theorising.
-5. **OCR page/range reads: no cancel, don't survive leaving the workspace,
-   invisible in Background tasks.** Reported live, three asks in one: verify
-   OCR actually works, let a read be stopped, and surface it in Settings →
-   Background tasks. Traced, not built — this is a real architecture gap,
-   not a quick fix. `ocr-page-read` and `ocr-range-read`
-   (`routes_files.py:2062-2115`, called from `library.js:3381` and `:3438`)
-   are plain synchronous `POST`s: the browser `fetch` has no
-   `AbortController` (contrast `askController`/`chatController`/
-   `cmdPaletteRun`, which all wire Stop buttons this way already — grep
-   `AbortController` in `app.js` for the pattern to copy), so there is
-   nothing to press to stop one, and navigating away either aborts the
-   fetch client-side (losing the read, since nothing server-side is
-   tracking it to resume or report on) or leaves it running with no visible
-   result. Either way it never appears in Settings → Background tasks,
-   because `routes_tasks.py`'s `collect()` doesn't know about it —
-   `ai/captioning.py`'s `running_captions()` is the existing pattern for a
-   model-call job that *is* tracked there (registered on start, polled by
-   `collect()`, listed under "Running now") and is the template to follow:
-   register each OCR read the same way, add its entry to `collect()`, and
-   give the workspace a Stop button that calls whatever cancel path
-   `bgtasks.py` uses elsewhere. This is ROADMAP's existing item 100 ("Files /
-   OCR: lightbox, progress, background jobs, card redesign") — this report
-   sharpens the scope to exactly this piece of it.
+5. **A traced path's text is cut off mid-word at the start**, reported with a
+   screenshot showing a chip-and-arrow row reading "ting is the delivery of
+   computing se… → linked to (Both are related to my cloud computing uni
+   unit) …ectures for my cloud computing cla…", ending in "26 notes · 27
+   links · 1 thread" — words missing their first few letters, not an
+   ellipsis. `.graph-trace-path` (`04-chat-dock-appearance.css`) is
+   `flex-wrap: wrap` with `overflow-y: auto`, which should never produce a
+   single unbroken horizontal line to clip mid-word in the first place — so
+   this was **not reproduced or root-caused this session**; grepping for the
+   "N notes · N links · N thread" stat line that ends the screenshot found no
+   matching renderer in the time available, which means it likely belongs to
+   a different summary line than `renderTraceReadout`'s own path row (in
+   `graph.js`), not that one is misattributed. Next session: reproduce by
+   tracing a path between two notes with long titles and a long link reason
+   at a realistic window width, then find which container actually owns the
+   stat line the screenshot ends on before touching any CSS.
+6. ~~**OCR page/range reads: no cancel, invisible in Background tasks.**~~
+   **Done, later in this same session.** `vision_ocr.register_page_read`/
+   `finish_page_read` track a read the same way `captioning.py`'s
+   `_running` does; `routes_tasks.collect()` lists it; `_read_page` wraps
+   both readers in a `try`/`finally`; the OCR workspace's page/range reads
+   now carry an `AbortController` and a Stop button (`ocrStopRead`,
+   `#ocr-stop-read`). `tests/test_ocr_page_read_tasks.py` covers the
+   registry. Not verified live end-to-end (no Ollama here) — only the
+   registry, the endpoint wiring and the button's presence/hookup were
+   checked in Chromium and by test.
 
 ## This session — chat, document OCR, the block editor, three alignment defects
 

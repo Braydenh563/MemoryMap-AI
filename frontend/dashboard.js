@@ -2634,9 +2634,7 @@ $("dash-widgets-search").addEventListener("input", (e) => renderDashWidgetsList(
 // Tools & features browser (opened from the dashboard quick links).
 $("features-close").addEventListener("click", closeFeatures);
 $("features-search").addEventListener("input", (e) => renderFeatures(e.target.value));
-$("features-overlay").addEventListener("click", (e) => {
-  if (e.target === $("features-overlay")) closeFeatures();
-});
+wireBackdropClose($("features-overlay"), () => closeFeatures());
 
 // --- The four widgets for what the dashboard could not previously see -------
 //

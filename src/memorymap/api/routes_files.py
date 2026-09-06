@@ -1822,10 +1822,30 @@ def _checked_reader(reader: str) -> str:
 
 
 def _read_page(path: Path, index: int, reader: str) -> OcrPageReadOut:
-    """One page, by whichever reader was asked for."""
-    if reader == "tesseract":
-        return _tesseract_read_page(path, index)
-    return _vision_read_page(path, index)
+    """One page, by whichever reader was asked for.
+
+    Registered in `vision_ocr`'s running-reads list for the length of the call,
+    which is what puts it in Settings → Background tasks. Asked for directly:
+    "make sure eveyrhting appears in the bg processes in settings." A read is a
+    model round-trip of several seconds and it appeared there nowhere, so
+    closing the workspace mid-read left no sign anywhere that the app was still
+    working.
+
+    Here rather than in either reader, and here rather than in the two
+    endpoints: `_read_range` loops over this function, so a range read shows up
+    as its pages complete — which is also the only progress a range read has to
+    report.
+    """
+    token = vision_ocr.register_page_read(
+        f"Reading page {index + 1} of {path.name}",
+        model="Tesseract" if reader == "tesseract" else "",
+    )
+    try:
+        if reader == "tesseract":
+            return _tesseract_read_page(path, index)
+        return _vision_read_page(path, index)
+    finally:
+        vision_ocr.finish_page_read(token)
 
 
 def _tesseract_read_page(path: Path, index: int) -> OcrPageReadOut:

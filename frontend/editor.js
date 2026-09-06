@@ -1270,9 +1270,7 @@ function editorChoiceDialog(message, choices) {
     }
     card.append(text, row);
     overlay.appendChild(card);
-    overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) close(null);
-    });
+    wireBackdropClose(overlay, () => close(null));
     document.addEventListener("keydown", onKey, true);
     document.body.appendChild(overlay);
     // Cancel takes focus: a stray Enter must not be the thing that creates a

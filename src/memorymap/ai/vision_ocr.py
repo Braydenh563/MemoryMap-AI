@@ -20,6 +20,8 @@ best-effort contract as its two siblings.
 
 from __future__ import annotations
 
+
+
 import base64
 import importlib
 import logging
@@ -29,6 +31,48 @@ import threading
 from pathlib import Path
 
 from memorymap.core import pdfpages
+
+#: Page reads in flight right now, keyed by an opaque id -> what is being read.
+#:
+#: Asked for directly: "make sure the ocr and featrures int he workspase
+#: actually function and even if the user leaves the things being read. also
+#: let the user be able to stop the readings., make sure eveyrhting appears in
+#: the bg processes in settings." The last clause is this: a page read is a
+#: model round-trip of several seconds and it appeared in Settings ->
+#: Background tasks nowhere at all, unlike captioning (`ai/captioning.py`'s
+#: `_running`, the shape copied here) or a re-index. So closing the workspace
+#: mid-read left no trace anywhere that the app was still working.
+#:
+#: Registered around the *request handler* rather than inside the reader,
+#: because both readers (the vision model and Tesseract) go through the same
+#: two endpoints and neither should have to know about this list.
+_reads_lock = threading.Lock()
+_reads: dict[int, dict] = {}
+_read_seq = 0
+
+
+def register_page_read(label: str, model: str = "") -> int:
+    """Record a read as running. Returns the id to hand `finish_page_read`."""
+    global _read_seq
+    with _reads_lock:
+        _read_seq += 1
+        token = _read_seq
+        _reads[token] = {"label": label, "model": model}
+    return token
+
+
+def finish_page_read(token: int) -> None:
+    """Drop a read from the running list. Never raises on an unknown id — the
+    caller is a `finally`, and a `finally` that can throw hides the real
+    error."""
+    with _reads_lock:
+        _reads.pop(token, None)
+
+
+def running_page_reads() -> list[dict]:
+    """What is being read right now, for the Tasks panel."""
+    with _reads_lock:
+        return [{"token": token, **info} for token, info in _reads.items()]
 
 logger = logging.getLogger("memorymap.vision_ocr")
 

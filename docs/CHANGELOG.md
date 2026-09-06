@@ -7,10 +7,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
-`__version__`/`pyproject.toml` moved to `0.2.1` without a changelog entry;
-this section covers what is confirmed since, not everything the version
-bump implies — a fuller reconciliation against the intervening commits is
-still owed.
+`__version__` and `pyproject.toml` are both `0.2.1`, and a sweep of every
+`.py`/`.json`/`.toml`/`.cfg`/`.yml` in the repo found no stale `0.2.0`
+outside this file's own history and the docs' narrative references, which
+are correct where they stand. This section covers what is confirmed since
+the bump, not everything it implies — a fuller reconciliation against the
+intervening commits is still owed.
 
 ### Added
 - **Help → "Ask the guide"**, a small embedded AI chat for "how do I…"
@@ -31,6 +33,40 @@ still owed.
   Delete in the chat sidebar and the documents dock — kept, never deleted,
   out of the way — and the Library's Shelved filter now covers all three
   kinds.
+- **The popup agent in the status bar.** It works from every tab and had
+  nothing on screen saying so. Now a slot beside the Ctrl-K hint, on by
+  default (the ask was discoverability, and a control nobody switches on
+  advertises nothing) and hideable from Settings like every other slot.
+- **A Stop button for OCR page and range reads**, and both now appear in
+  Settings → Background tasks while they run. A read is a model round-trip
+  of several seconds that could not be cancelled and showed up in that panel
+  nowhere, so closing the workspace mid-read left no sign the app was still
+  working.
+
+### Fixed
+- **Short background AI jobs were invisible.** The status loop idles at 10s
+  (120s in a hidden tab) and can only announce a job it has seen in a
+  `/tasks` payload, so an image caption — often shorter than that gap —
+  began and ended unobserved: no "Started" line, no status-bar slot, no
+  "Finished" toast. Writes that can leave work on a background thread now
+  kick a poll, and `jobsRunning()` counts every task rather than only
+  re-index and model pulls.
+- **Formatting-toolbar dropdowns escaped their panel.** Measured in the
+  capture composer: the Insert menu sat 123px outside the panel's left edge,
+  because `.doc-dock-menu-list` is anchored `right: 0` and grows leftwards —
+  right for the document ⋯ it was written for, wrong for an opener near the
+  left of a toolbar. Clamped inside the panel on open.
+- **The OCR workspace's reader picker named the wrong model.** It resolved a
+  generic vision model instead of the configured or auto-detected OCR
+  document reader, so a dedicated reader could never be chosen even when
+  installed.
+- **One toggle row everywhere in Settings.** `.setting-check` was a
+  divider-separated grid with the switch pinned hard right; it is now the
+  same integrated, filled-when-on row with a leading switch that the rest of
+  the app uses, which moves the tools list and the appearance outliers
+  together.
+- **Attached non-image files rendered as nothing** in dashboard widget note
+  lists, and the widget picker listed "On this day" twice.
 
 ### Verified
 - **A real (non-Ollama) backend, driven live for the first time.** A

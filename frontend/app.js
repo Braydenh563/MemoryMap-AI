@@ -1159,9 +1159,7 @@ function confirmDialog(message, options = {}) {
     card.appendChild(row);
     overlay.appendChild(card);
     // Clicking the backdrop cancels, the way every other overlay here behaves.
-    overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) close(false);
-    });
+    wireBackdropClose(overlay, () => close(false));
     document.addEventListener("keydown", onKey, true);
     document.body.appendChild(overlay);
     // Cancel takes focus, not the dangerous one: a stray Enter or Space
@@ -1215,9 +1213,7 @@ function showDetailDialog(title, text) {
     row.append(ok);
     card.append(heading, body, row);
     overlay.appendChild(card);
-    overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) close();
-    });
+    wireBackdropClose(overlay, () => close());
     document.addEventListener("keydown", onKey, true);
     document.body.appendChild(overlay);
     ok.focus();
@@ -1297,15 +1293,34 @@ function promptDialog(message, initial = "", { confirmLabel = "Save" } = {}) {
     );
     card.append(text, input, row);
     overlay.appendChild(card);
-    overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) close("");
-    });
+    wireBackdropClose(overlay, () => close(""));
     document.addEventListener("keydown", onKey, true);
     document.body.appendChild(overlay);
     // The text, selected: a rename usually replaces the name rather than
     // editing it, and a caret at position 0 makes you clear it by hand first.
     input.focus();
     input.select();
+  });
+}
+
+//: Shared by every overlay's backdrop-click-to-close.
+//:
+//: Reported directly: "when I try to highlight text in text boxes in popup
+//: displays, the popup often just closes." `click` fires wherever the mouse
+//: went *up*, not where it went down — so starting a text selection inside
+//: the card and releasing outside it (a completely normal way to select the
+//: last word or two) fires a click whose target is the backdrop, which every
+//: one of these listeners used to read as "the backdrop was clicked" and
+//: close on. Recording where the *mousedown* started tells the two apart: a
+//: real backdrop click starts and ends on the backdrop; a selection drag
+//: starts inside the card.
+function wireBackdropClose(overlay, close) {
+  let downOnBackdrop = false;
+  overlay.addEventListener("mousedown", (e) => {
+    downOnBackdrop = e.target === overlay;
+  });
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay && downOnBackdrop) close();
   });
 }
 
@@ -3444,7 +3459,7 @@ async function attachFromLibrary(entry) {
     }
   };
   close.addEventListener("click", done);
-  overlay.addEventListener("click", (e) => { if (e.target === overlay) done(); });
+  wireBackdropClose(overlay, () => done());
   document.addEventListener("keydown", onKey, true);
 
   const isPdf = (url) => /\.pdf$/i.test(url);
@@ -4772,7 +4787,7 @@ function openLightbox(items, startIndex = 0) {
   };
   // Only the backdrop itself closes on click — the nav/close buttons need to
   // stay clickable without also dismissing the dialog they sit inside.
-  overlay.addEventListener("click", close);
+  wireBackdropClose(overlay, close);
   closeBtn.addEventListener("click", close);
   prevBtn.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -5023,9 +5038,7 @@ function pickEntryDialog(message) {
     row.append(smallButton("Cancel", "Cancel", () => close(null)));
     card.append(text, search, list, row);
     overlay.appendChild(card);
-    overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) close(null);
-    });
+    wireBackdropClose(overlay, () => close(null));
     document.addEventListener("keydown", onKey, true);
     document.body.appendChild(overlay);
     search.focus();
@@ -5118,9 +5131,7 @@ function pickMediaDialog() {
     row.append(smallButton("Cancel", "Cancel", () => close(null)));
     card.append(text, search, grid, row);
     overlay.appendChild(card);
-    overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) close(null);
-    });
+    wireBackdropClose(overlay, () => close(null));
     document.addEventListener("keydown", onKey, true);
     document.body.appendChild(overlay);
     search.focus();
@@ -9822,9 +9833,7 @@ function showCopyFallback(text) {
   close.textContent = "Done";
   const dismiss = () => overlay.remove();
   close.addEventListener("click", dismiss);
-  overlay.addEventListener("click", (event) => {
-    if (event.target === overlay) dismiss();
-  });
+  wireBackdropClose(overlay, () => dismiss());
   overlay.addEventListener("keydown", (event) => {
     if (event.key === "Escape") dismiss();
   });
@@ -21652,9 +21661,7 @@ function showUpdateAvailableDialog(result) {
 
   card.append(heading, text, progress, row);
   overlay.appendChild(card);
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) dismiss();
-  });
+  wireBackdropClose(overlay, () => dismiss());
   document.addEventListener("keydown", onKey, true);
   document.body.appendChild(overlay);
   later.focus();
@@ -21710,9 +21717,7 @@ function showSourceUpdatedDialog(result) {
 
   card.append(heading, text, row);
   overlay.appendChild(card);
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) dismiss();
-  });
+  wireBackdropClose(overlay, () => dismiss());
   document.addEventListener("keydown", onKey, true);
   document.body.appendChild(overlay);
   ok.focus();
@@ -24578,6 +24583,27 @@ function renderStatusBar() {
   word.textContent = "Commands";
   command.append(key, word);
   command.title = `Search everything and jump anywhere (${STATUS_META_KEY})`;
+
+  // Same reasoning one control along: the popup agent works from every tab
+  // and had nothing on screen saying it exists. Reported as exactly that —
+  // it needed to be reachable from the tools popup, the palette, Settings
+  // "and maybe even the bottom status bar".
+  const agent = $("status-agent");
+  if (agent) {
+    agent.replaceChildren();
+    const glyph = document.createElement("i");
+    glyph.className = "ph ph-magic-wand";
+    glyph.setAttribute("aria-hidden", "true");
+    const word = document.createElement("span");
+    word.textContent = "Ask";
+    agent.append(glyph, word);
+    //: `STATUS_META_KEY` is the whole "Ctrl K"/"⌘K" hint, not a bare
+    //: modifier — appending "+Shift+A" to it produced "Ctrl K+Shift+A", which
+    //: names no shortcut at all. Caught by reading the rendered title
+    //: attribute rather than the source.
+    const meta = STATUS_META_KEY.startsWith("⌘") ? "⌘" : "Ctrl";
+    agent.title = `Ask the agent anything, from any tab (${meta}+Shift+A)`;
+  }
 }
 
 // Hover is handled in CSS. This is the click half — needed for touch, where
@@ -28081,6 +28107,7 @@ $("status-notes").addEventListener("click", () => {
 $("status-reminders").addEventListener("click", () => switchTab("reminders"));
 $("status-task").addEventListener("click", () => openSettingsModal("tasks"));
 $("status-command").addEventListener("click", () => openPalette());
+$("status-agent")?.addEventListener("click", () => toggleAgentPalette());
 
 // Paint it before any poll lands, so the bar is furniture from the first frame
 // rather than four boxes that pop into existence a second later.
@@ -30123,9 +30150,7 @@ function closeShortcuts() {
 }
 
 $("shortcuts-close").addEventListener("click", closeShortcuts);
-$("shortcuts-overlay").addEventListener("click", (e) => {
-  if (e.target === $("shortcuts-overlay")) closeShortcuts();
-});
+wireBackdropClose($("shortcuts-overlay"), () => closeShortcuts());
 
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Tab") return;
@@ -30503,9 +30528,7 @@ $("palette-input").addEventListener("input", () => {
   renderPalette($("palette-input").value);
 });
 $("palette-input").addEventListener("keydown", paletteKeydown);
-$("palette-overlay").addEventListener("click", (e) => {
-  if (e.target === $("palette-overlay")) closePalette();
-});
+wireBackdropClose($("palette-overlay"), () => closePalette());
 
 $("sketch-btn").addEventListener("click", openSketch);
 $("sketch-close").addEventListener("click", closeSketch);
@@ -30617,9 +30640,7 @@ $("speak-btn").addEventListener("click", () => speakText($("ai-answer").textCont
 
 // Meeting notes (§17).
 $("meeting-close").addEventListener("click", closeMeetingRecorder);
-$("meeting-overlay").addEventListener("click", (e) => {
-  if (e.target === $("meeting-overlay")) closeMeetingRecorder();
-});
+wireBackdropClose($("meeting-overlay"), () => closeMeetingRecorder());
 $("meeting-record").addEventListener("click", toggleMeetingRecording);
 $("meeting-save").addEventListener("click", saveMeetingNote);
 $("meeting-save-doc")?.addEventListener("click", saveMeetingDocument);
@@ -31000,6 +31021,11 @@ const STATUS_SLOTS = [
   { key: "nav", label: "Back and forward", hint: "Move between the pages you have visited" },
   { key: "undo", label: "Undo and redo", hint: "The same undo the rest of the app uses" },
   { key: "command", label: "Command palette hint", hint: "The Ctrl-K reminder" },
+  {
+    key: "agent",
+    label: "Ask the agent",
+    hint: "Open the agent over whatever you are doing, from any tab",
+  },
 ];
 
 function hiddenStatusSlots() {

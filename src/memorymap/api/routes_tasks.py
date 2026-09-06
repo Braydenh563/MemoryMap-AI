@@ -109,6 +109,27 @@ def collect() -> list[dict]:
             }
         )
 
+    # A PDF page being read in the OCR workspace (`_read_page`). Not
+    # cancellable from here for the same reason the two above are not: it is
+    # one blocking model (or Tesseract) call with nothing to check a flag
+    # between. The workspace's own Stop button abandons the *request*, which is
+    # what the person pressing it actually wants.
+    from memorymap.ai import vision_ocr as _vision_ocr
+
+    for job in _vision_ocr.running_page_reads():
+        tasks.append(
+            {
+                "kind": "page-read",
+                "name": str(job["token"]),
+                "label": job["label"],
+                "detail": f"{job['model']} is reading this page."
+                if job["model"]
+                else "A vision model is reading this page.",
+                "progress": None,
+                "log": [],
+            }
+        )
+
     # Autonomous optimization task
     from memorymap.ai import autonomous
     if autonomous.is_running():

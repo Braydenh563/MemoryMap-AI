@@ -1345,9 +1345,7 @@ function openLibraryCreatePicker() {
 
   card.append(text, row);
   overlay.appendChild(card);
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) close();
-  });
+  wireBackdropClose(overlay, () => close());
   document.addEventListener("keydown", onKey, true);
   document.body.appendChild(overlay);
   row.querySelector("button")?.focus();
@@ -2364,12 +2362,19 @@ function ocrPageImageUrl(image, page = 0) {
 //: any surface can consult to offer a way back in.
 const ocrActiveReads = new Map();
 
-function trackOcrRead(image, label, promise) {
+function trackOcrRead(image, label, promise, controller = null) {
   const key = ocrRailKey(image);
-  const record = { label, started: Date.now(), promise };
+  //: `controller` is what makes the read stoppable. Asked for directly:
+  //: "also let the user be able to stop the readings." A page read is a
+  //: blocking model call with nothing to interrupt server-side between
+  //: tokens, so Stop abandons the *request* — the person pressing it wants
+  //: their workspace back, not a guarantee about the model's own thread.
+  const record = { label, started: Date.now(), promise, controller };
   ocrActiveReads.set(key, record);
+  ocrSyncStopButton();
   const settle = () => {
     if (ocrActiveReads.get(key) === record) ocrActiveReads.delete(key);
+    ocrSyncStopButton();
     //: Re-render only if this file is still the one on the stage. The
     //: workspace may have been closed, reopened on another page, or never
     //: opened at all — none of which should make a finished read throw.
@@ -2386,6 +2391,26 @@ function trackOcrRead(image, label, promise) {
 
 function ocrReadInFlight(image) {
   return image ? ocrActiveReads.get(ocrRailKey(image)) || null : null;
+}
+
+//: Abandon the read on the file currently on the stage, and say so.
+//: Returns whether there was one to stop, so the caller can stay quiet when
+//: the read finished between the button appearing and the click landing.
+function ocrStopRead() {
+  const record = ocrReadInFlight(ocrWorkspaceCurrent);
+  if (!record || !record.controller) return false;
+  record.controller.abort();
+  return true;
+}
+
+//: The Stop button exists only while something is running. A control that is
+//: always there but does nothing most of the time is the affordance problem
+//: this app keeps fixing elsewhere.
+function ocrSyncStopButton() {
+  const button = document.getElementById("ocr-stop-read");
+  if (!button) return;
+  const record = ocrReadInFlight(ocrWorkspaceCurrent);
+  button.classList.toggle("hidden", !record || !record.controller);
 }
 
 function ocrSelectRegion(index) {
@@ -3360,6 +3385,12 @@ document.addEventListener("DOMContentLoaded", () => {
   //: documents."* So the page you are looking at is rasterised server-side and
   //: handed to the local vision model, one page at a time: a reader who wants
   //: page 6 should not wait through five pages they have already checked.
+  $("ocr-stop-read")?.addEventListener("click", () => {
+    if (!ocrStopRead()) return;
+    $("ocr-message").textContent = "Stopped. Nothing was written.";
+    $("ocr-message").classList.remove("hidden");
+  });
+
   $("ocr-read-page")?.addEventListener("click", async (event) => {
     const image = ocrWorkspaceCurrent;
     if (!image) return;
@@ -3375,12 +3406,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const progress = typeof toastProgress === "function" ? toastProgress(label) : null;
     const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
     try {
+      const controller = new AbortController();
       const body = await trackOcrRead(
         image,
         label,
         apiJson(`${base}/ocr-page-read?page=${page}&reader=${ocrReader()}`, {
           method: "POST",
-        })
+          signal: controller.signal,
+        }),
+        controller
       );
       const text = (body.text || "").trim();
       if (text) {
@@ -3402,6 +3436,13 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       progress?.done(text ? `Read page ${page + 1} of ${image.original_name}.` : body.message || "Nothing was read.");
     } catch (error) {
+      //: A read the user stopped is not a failure and must not be reported
+      //: as one — `ocrStopRead` has already written the "Stopped." line, and
+      //: a red toast on top of it says the app broke when it obeyed.
+      if (error?.name === "AbortError") {
+        progress?.done("Reading stopped.");
+        return;
+      }
       $("ocr-message").textContent = error.message || "That page could not be read.";
       progress?.done(error.message || "That page could not be read.", { isError: true });
     } finally {
@@ -3431,13 +3472,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const progress = typeof toastProgress === "function" ? toastProgress(label) : null;
     const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
     try {
+      const controller = new AbortController();
       const body = await trackOcrRead(
         image,
         label,
         apiJson(
           `${base}/ocr-range-read?pages=${encodeURIComponent(spec)}&reader=${ocrReader()}`,
-          { method: "POST" }
-        )
+          { method: "POST", signal: controller.signal }
+        ),
+        controller
       );
       const withText = (body.pages || []).filter((page) => (page.text || "").trim());
       if (withText.length) {
@@ -3468,6 +3511,13 @@ document.addEventListener("DOMContentLoaded", () => {
           : body.message || "Nothing was read."
       );
     } catch (error) {
+      //: A read the user stopped is not a failure and must not be reported
+      //: as one — `ocrStopRead` has already written the "Stopped." line, and
+      //: a red toast on top of it says the app broke when it obeyed.
+      if (error?.name === "AbortError") {
+        progress?.done("Reading stopped.");
+        return;
+      }
       $("ocr-message").textContent = error.message || "Those pages could not be read.";
       progress?.done(error.message || "Those pages could not be read.", { isError: true });
     } finally {

@@ -2872,12 +2872,22 @@ function renderGraphPopupActions(entry) {
   const box = $("graph-popup-actions");
   box.replaceChildren();
 
-  box.appendChild(
-    //: One glyph in both states, coloured when it is on — the note cards'
-    //: own rule, and for the reason `favouriteButton` (app.js) records: the
-    //: "off" version used a *different icon*, and one of those was missing
-    //: from the font and drew nothing at all.
-    smallButton("ph:star", entry.pinned ? "Remove from Favourites" : "Add to Favourites", async () => {
+  //: One glyph in both states, coloured when it is on — the note cards'
+  //: own rule, and for the reason `favouriteButton` (app.js) records: the
+  //: "off" version used a *different icon*, and one of those was missing
+  //: from the font and drew nothing at all.
+  //:
+  //: It also carried **no label**, reported directly with a screenshot of
+  //: this grid: eight cells read "Grow", "Focus", "Similar", "Link",
+  //: "Trace", "Remind", "Open", "Bin", and the ninth was a bare star. In a
+  //: labelled grid an unlabelled cell does not read as "the icon says it
+  //: all", it reads as *text that failed to render* — the whole row of
+  //: siblings is the context that makes it look broken. So it is worded
+  //: like the rest, and the wording carries the state the colour carries.
+  const favourite = smallButton(
+    entry.pinned ? "ph:star Favourited" : "ph:star Favourite",
+    entry.pinned ? "Remove from Favourites" : "Add to Favourites",
+    async () => {
       await apiJson(`/entries/${entry.id}`, {
         method: "PUT",
         body: JSON.stringify({ pinned: !entry.pinned }),
@@ -2886,8 +2896,11 @@ function renderGraphPopupActions(entry) {
       closeGraphPopup();
       await loadEntries().catch(() => {});
       renderGraph();
-    })
+    }
   );
+  favourite.classList.toggle("is-favourite", Boolean(entry.pinned));
+  favourite.setAttribute("aria-pressed", String(Boolean(entry.pinned)));
+  box.appendChild(favourite);
   box.appendChild(
     smallButton("ph:plant Grow", "Add a new note linked to this one", (event) =>
       openGraphNewNote(event, entry.id)

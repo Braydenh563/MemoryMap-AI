@@ -315,7 +315,7 @@
   <aside id="agent-monitor" class="card glass agent-monitor hidden">
     <div class="row space-between monitor-header">
       <h3 class="monitor-title"><i class="ph ph-robot ph-lead" aria-hidden="true"></i> Agent Activity</h3>
-      <button id="agent-monitor-close" class="ghost small" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+      <button id="agent-monitor-close" class="ghost small icon-only" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
     </div>
     <div id="agent-monitor-logs" class="monitor-logs"></div>
   </aside>
@@ -602,7 +602,7 @@
             <button type="button" data-md="strike" title="Strikethrough"><s>S</s></button>
             <button type="button" data-md="code" title="Inline code">&lt;/&gt;</button>
             <span class="doc-toolbar-sep" aria-hidden="true"></span>
-            <button type="button" data-md="highlight" title="Highlight (yellow)"
+            <button type="button" class="icon-only" data-md="highlight" title="Highlight (yellow)"
               aria-label="Highlight"><i class="ph ph-highlighter" aria-hidden="true"></i></button>
             <select class="md-colour-select" data-md-colour="highlight"
               aria-label="Highlight colour" title="Highlight in a colour">
@@ -612,12 +612,12 @@
               aria-label="Text colour" title="Text colour">
               <option value="">Text colour…</option>
             </select>
-            <button type="button" data-md="clearformat" title="Remove highlight or colour"
+            <button type="button" class="icon-only" data-md="clearformat" title="Remove highlight or colour"
               aria-label="Remove highlight or colour"><i class="ph ph-eraser" aria-hidden="true"></i></button>
             <span class="doc-toolbar-sep" aria-hidden="true"></span>
             <button type="button" data-md="ul" title="Bulleted list">• List</button>
             <button type="button" data-md="task" title="Task list"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Task</button>
-            <button type="button" data-md="link" title="Link" aria-label="Link"><i class="ph ph-link" aria-hidden="true"></i></button>
+            <button type="button" class="icon-only" data-md="link" title="Link" aria-label="Link"><i class="ph ph-link" aria-hidden="true"></i></button>
             <span class="doc-toolbar-sep" aria-hidden="true"></span>
             <!-- Asked for directly: a way to see highlights and text colours
                  while writing, and to click a word to edit it. The document
@@ -902,7 +902,7 @@ Link to another note with [[its first few words]]."></textarea>
                     title="Ask this question again"><i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i> Retry</button>
                   <button id="copy-btn" class="ghost small hidden"
                     title="Copy the answer">⧉ Copy</button>
-                  <button id="speak-btn" class="ghost small hidden"
+                  <button id="speak-btn" class="ghost small hidden icon-only"
                     title="Read the answer aloud (uses your computer's voices)" aria-label="Read the answer aloud"><i class="ph ph-speaker-high" aria-hidden="true"></i></button>
                 </span>
               </h3>
@@ -1553,7 +1553,7 @@ Link to another note with [[its first few words]]."></textarea>
           aria-label="Web search">
           <div class="row space-between web-panel-head">
             <strong id="web-panel-title"><i class="ph ph-globe ph-lead" aria-hidden="true"></i> Web</strong>
-            <button id="web-panel-close" class="ghost small" aria-label="Close web panel"><i class="ph ph-x" aria-hidden="true"></i></button>
+            <button id="web-panel-close" class="ghost small icon-only" aria-label="Close web panel"><i class="ph ph-x" aria-hidden="true"></i></button>
           </div>
           <div class="row web-panel-search">
             <input id="web-query" type="search" placeholder="Search the web…"
@@ -1713,7 +1713,7 @@ Link to another note with [[its first few words]]."></textarea>
       <div id="timeline-popup" class="graph-popup hidden" role="dialog" aria-label="View note">
         <div class="row space-between">
           <strong id="timeline-popup-title">Note</strong>
-          <button id="timeline-popup-close" class="ghost small" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+          <button id="timeline-popup-close" class="ghost small icon-only" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
         </div>
         <div id="timeline-popup-info" class="graph-popup-info timeline-popup-info"></div>
         <div id="timeline-popup-media" class="graph-popup-media hidden"></div>
@@ -2005,7 +2005,7 @@ Link to another note with [[its first few words]]."></textarea>
           aria-label="Edit note">
           <div class="row space-between">
             <strong id="graph-popup-title">Note</strong>
-            <button id="graph-popup-close" class="ghost small" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+            <button id="graph-popup-close" class="ghost small icon-only" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
           </div>
           <!-- At-a-glance facts about this note -->
           <div id="graph-popup-info" class="graph-popup-info"></div>
@@ -2031,7 +2031,7 @@ Link to another note with [[its first few words]]."></textarea>
           aria-label="Add a note to the map">
           <div class="row space-between">
             <strong id="graph-new-title">＋ New note</strong>
-            <button id="graph-new-close" class="ghost small" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+            <button id="graph-new-close" class="ghost small icon-only" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
           </div>
           <p class="muted" id="graph-new-hint"></p>
           <input id="graph-new-note-title" type="text" maxlength="200"
@@ -2304,11 +2304,19 @@ Link to another note with [[its first few words]]."></textarea>
                controls carry words and twenty carry glyphs reads as three
                different toolbars; the names are in the tooltips and the ARIA
                labels, which is where every other control here keeps them. -->
-          <button type="button" data-md="ul" title="Bulleted list" aria-label="Bulleted list"><i class="ph ph-list-bullets" aria-hidden="true"></i></button>
-          <button type="button" data-md="ol" title="Numbered list" aria-label="Numbered list"><i class="ph ph-list-numbers" aria-hidden="true"></i></button>
-          <button type="button" data-md="task" title="Task list" aria-label="Task list"><i class="ph ph-check-square" aria-hidden="true"></i></button>
+          <!-- Worded, matching the note toolbar's own list/task buttons —
+               reported directly: "fix the formatting toolbar in the
+               documents to be like the one in notes." The icon-only choice
+               here was deliberate once (a 25-control row that wraps to a
+               second row even bare, see the comment on the two <details>
+               folds below), but the wrap already absorbs the extra width
+               gracefully rather than clipping or scrolling, so matching the
+               note editor's wording is a look change, not a regression. -->
+          <button type="button" data-md="ul" title="Bulleted list"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i> List</button>
+          <button type="button" data-md="ol" title="Numbered list"><i class="ph ph-list-numbers ph-lead" aria-hidden="true"></i> Numbered</button>
+          <button type="button" data-md="task" title="Task list"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Task</button>
           <span class="doc-toolbar-sep" aria-hidden="true"></span>
-          <button type="button" data-md="link" title="Link" aria-label="Link"><i class="ph ph-link" aria-hidden="true"></i></button>
+          <button type="button" class="icon-only" data-md="link" title="Link" aria-label="Link"><i class="ph ph-link" aria-hidden="true"></i></button>
           <!-- **Two folds, because twenty-five controls do not fit.** Reported:
                "the documents toolbar takes up a second row so either group with
                dropdown sections like in the graph top dock and/or add more
@@ -2326,7 +2334,7 @@ Link to another note with [[its first few words]]."></textarea>
                query, so nesting them changes nothing about how they fire. -->
           <details class="doc-dock-menu doc-toolbar-menu" id="doc-toolbar-colour">
             <summary class="doc-dock-menu-btn doc-toolbar-menu-btn"
-              title="Highlight and colour" aria-label="Highlight and colour"><i class="ph ph-highlighter" aria-hidden="true"></i> <i class="ph ph-caret-down doc-toolbar-menu-caret" aria-hidden="true"></i></summary>
+              title="Highlight and colour" aria-label="Highlight and colour"><i class="ph ph-highlighter" aria-hidden="true"></i> Highlight <i class="ph ph-caret-down doc-toolbar-menu-caret" aria-hidden="true"></i></summary>
             <div class="doc-dock-menu-list">
               <button type="button" class="doc-dock-menu-item" data-md="highlight" title="Highlight (yellow)"><i class="ph ph-highlighter ph-lead" aria-hidden="true"></i> Highlight</button>
               <select class="md-colour-select" data-md-colour="highlight"
@@ -2342,7 +2350,7 @@ Link to another note with [[its first few words]]."></textarea>
           </details>
           <details class="doc-dock-menu doc-toolbar-menu" id="doc-toolbar-insert">
             <summary class="doc-dock-menu-btn doc-toolbar-menu-btn"
-              title="Insert a block" aria-label="Insert a block"><i class="ph ph-plus-square" aria-hidden="true"></i> <i class="ph ph-caret-down doc-toolbar-menu-caret" aria-hidden="true"></i></summary>
+              title="Insert a block" aria-label="Insert a block"><i class="ph ph-plus-square" aria-hidden="true"></i> Insert <i class="ph ph-caret-down doc-toolbar-menu-caret" aria-hidden="true"></i></summary>
             <div class="doc-dock-menu-list">
               <button type="button" class="doc-dock-menu-item" data-md="quote" title="Quote"><i class="ph ph-quotes ph-lead" aria-hidden="true"></i> Quote</button>
               <button type="button" class="doc-dock-menu-item" data-md="codeblock" title="Code block"><i class="ph ph-code-block ph-lead" aria-hidden="true"></i> Code block</button>
@@ -2351,7 +2359,7 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
           </details>
           <span class="doc-toolbar-sep" aria-hidden="true"></span>
-          <button type="button" id="doc-find-toggle" title="Find and replace (Ctrl+F)" aria-expanded="false" aria-controls="doc-find-bar" aria-label="Find and replace (Ctrl+F)"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
+          <button type="button" id="doc-find-toggle" class="icon-only" title="Find and replace (Ctrl+F)" aria-expanded="false" aria-controls="doc-find-bar" aria-label="Find and replace (Ctrl+F)"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
           <!-- **The reading width, as a control rather than a constant.**
                Reported: "idk why the document rendered views are so thin??" —
                and they were 736px in a 1132px pane, because a measure cap
@@ -2381,12 +2389,12 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="doc-find-bar hidden" id="doc-find-bar" role="search">
           <input type="text" id="doc-find-input" placeholder="Find" aria-label="Find">
           <span id="doc-find-count" class="muted doc-find-count"></span>
-          <button type="button" id="doc-find-prev" class="ghost small" title="Previous match (Shift+Enter)" aria-label="Previous match (Shift+Enter)"><i class="ph ph-caret-up" aria-hidden="true"></i></button>
-          <button type="button" id="doc-find-next" class="ghost small" title="Next match (Enter)" aria-label="Next match (Enter)"><i class="ph ph-caret-down" aria-hidden="true"></i></button>
+          <button type="button" id="doc-find-prev" class="ghost small icon-only" title="Previous match (Shift+Enter)" aria-label="Previous match (Shift+Enter)"><i class="ph ph-caret-up" aria-hidden="true"></i></button>
+          <button type="button" id="doc-find-next" class="ghost small icon-only" title="Next match (Enter)" aria-label="Next match (Enter)"><i class="ph ph-caret-down" aria-hidden="true"></i></button>
           <input type="text" id="doc-replace-input" placeholder="Replace with" aria-label="Replace with">
           <button type="button" id="doc-replace-one" class="ghost small">Replace</button>
           <button type="button" id="doc-replace-all" class="ghost small">Replace all</button>
-          <button type="button" id="doc-find-close" class="ghost small" title="Close (Esc)" aria-label="Close find and replace"><i class="ph ph-x" aria-hidden="true"></i></button>
+          <button type="button" id="doc-find-close" class="ghost small icon-only" title="Close (Esc)" aria-label="Close find and replace"><i class="ph ph-x" aria-hidden="true"></i></button>
         </div>
         <div class="doc-panes" id="doc-panes">
           <!-- The textarea stays the source of truth in every mode, including
@@ -2493,7 +2501,7 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="doc-ai-history" class="ghost small" type="button" title="See and undo past AI edits to this document">
               <i class="ph ph-clock-counter-clockwise" aria-hidden="true"></i> History
             </button>
-            <button id="doc-ai-close" class="ghost small" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+            <button id="doc-ai-close" class="ghost small icon-only" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
           </div>
         </div>
         <div id="doc-ai-verb" class="segmented-control" aria-label="What should the AI do">
@@ -2878,7 +2886,7 @@ Link to another note with [[its first few words]]."></textarea>
             </select>
             <button id="library-docs-new" class="small" type="button"
               title="Start a new document">＋ New document</button>
-            <button id="library-docs-refresh" class="ghost small" type="button"
+            <button id="library-docs-refresh" class="ghost small icon-only" type="button"
               title="Reload the list" aria-label="Reload the list"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
           </div>
         </div>
@@ -3003,7 +3011,7 @@ Link to another note with [[its first few words]]."></textarea>
               <button data-library-view="list" type="button" title="Rows" aria-label="Rows"><i class="ph ph-list" aria-hidden="true"></i></button>
             </div>
             <button id="wb-boards-new" class="small" type="button">＋ New board</button>
-            <button id="library-media-refresh" class="ghost small" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+            <button id="library-media-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
             <button type="button" id="wb-boards-help" class="ghost small graph-help-toggle"
               aria-expanded="false" aria-controls="wb-boards-intro"
               title="Every board and concept map you have made. Pick one to open it, or use ＋ Create → New concept map to start a map from a core idea."
@@ -3548,7 +3556,7 @@ Link to another note with [[its first few words]]."></textarea>
            that would have dismissed it. -->
       <div class="row space-between wb-sidebar-head">
         <h3>Library</h3>
-        <button id="wb-library-close" class="ghost small" title="Close the library" aria-label="Close the library"><i class="ph ph-x" aria-hidden="true"></i></button>
+        <button id="wb-library-close" class="ghost small icon-only" title="Close the library" aria-label="Close the library"><i class="ph ph-x" aria-hidden="true"></i></button>
       </div>
       <ul id="wb-library-list" class="wb-library-list"></ul>
     </aside>
@@ -3567,7 +3575,7 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="row">
           <button id="library-images-upload" class="small" type="button"><i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Upload</button>
           <input id="library-images-upload-input" aria-label="Choose images or PDFs to upload" title="Choose images or PDFs to upload" type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/x-icon,application/pdf" multiple class="hidden">
-          <button id="library-images-refresh" class="ghost small" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+          <button id="library-images-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
           <button type="button" id="library-images-help" class="ghost small graph-help-toggle"
             aria-expanded="false" aria-controls="library-images-intro"
             title="Every image pasted, dropped, or uploaded — in a note, a document, or on a whiteboard — or added directly here, then attachable to any note from its own &quot;Attach from Library&quot; action."
@@ -3705,7 +3713,7 @@ Link to another note with [[its first few words]]."></textarea>
     <section class="card glass">
       <div class="row space-between library-head">
         <h2>Contents</h2>
-        <button id="contents-refresh" class="ghost small" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+        <button id="contents-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
       </div>
       <p class="muted">An index of your notebook — by category, by tag, by the
         month you wrote it, or by the folder it came from if you imported a
@@ -4134,7 +4142,7 @@ Link to another note with [[its first few words]]."></textarea>
     <div class="card modal-card extract-card">
       <div class="row space-between">
         <h2>Extract notes</h2>
-        <button id="extract-close" class="ghost small" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+        <button id="extract-close" class="ghost small icon-only" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
       </div>
       <p class="muted" id="extract-status" role="status"></p>
       <div id="extract-notes-list" class="extract-notes-list"></div>

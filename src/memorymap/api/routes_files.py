@@ -1612,16 +1612,21 @@ def _pdf_regions_for(
     out.pages = count
     out.page = index
     if out.source == "none":
-        #: Not "install Tesseract": the direct instruction on this feature was
-        #: *"I basically dont want to download tesseract and only want to use
-        #: an ai vision learning and ocr model for images and scanned
-        #: documents"* (pdfpages.py's own docstring quotes it). The workspace
-        #: has a per-page vision read button — point at that, not at a system
-        #: package the user has said they do not want.
+        #: Points at the button, not at a system package. The vision reader is
+        #: named first because it is the default and the one that needs no
+        #: install; Tesseract is named too, but only when it is actually here —
+        #: an app that suggests a thing you do not have is an app telling you
+        #: to go and solve a problem it created (see `READERS`, and the two
+        #: opposite instructions this feature has been given).
         out.message = (
             f"Nothing has been read off page {index + 1} yet. "
-            "Use “Read this page with AI” to transcribe it with a vision model."
+            "Use “Read this page” to transcribe it."
         )
+        if ocr.tesseract_available():
+            out.message += (
+                " Either reader works here — the AI vision model, or "
+                "Tesseract, which is faster and marks where each block sits."
+            )
     if out.source == "stored-text":
         out.message = f"{stored_label} — this is the whole document's reading, not page {index + 1}."
     return out
@@ -1776,8 +1781,138 @@ def _vision_read_page(path: Path, index: int) -> OcrPageReadOut:
     )
 
 
+#: **The two readers, and why both exist.**
+#:
+#: This project was told, twice, in opposite directions. First: *"I basically
+#: dont want to download tesseract and only want to use an ai vision learning
+#: and ocr model for images and scanned documents"* — which is why every read
+#: path here defaults to a vision model and why `core/pdfpages.py` exists at
+#: all. Then, later and just as directly: *"make sure tesseract exists as an
+#: alternative as well."*
+#:
+#: Both are satisfiable because they are not the same claim. The vision model
+#: is the *default*; Tesseract is an *alternative you can pick*, and it is a
+#: genuinely better answer for some work: it needs no model running, it reads a
+#: page in about a tenth of a second rather than several seconds, it never
+#: invents words that were not on the page (the failure `VisionOcrBody.text`
+#: exists to let you correct), and it returns *where* each block sits, which a
+#: vision model cannot. It is also the only reader that works with no GPU and
+#: no model installed at all.
+#:
+#: Neither is silently substituted for the other: the reader that produced a
+#: reading is named in the response, and a request for one that is not
+#: installed says so rather than quietly answering with the other.
+READERS = ("vision", "tesseract")
+
+
+def _checked_reader(reader: str) -> str:
+    """400 on an unknown reader rather than silently using the default.
+
+    A typo'd `?reader=tesserract` that quietly ran the vision model would
+    charge a reader seconds of GPU time for a request they meant to be
+    instant, and tell them Tesseract had done it.
+    """
+    name = (reader or "vision").strip().lower()
+    if name not in READERS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown reader {reader!r} — expected one of {', '.join(READERS)}.",
+        )
+    return name
+
+
+def _read_page(path: Path, index: int, reader: str) -> OcrPageReadOut:
+    """One page, by whichever reader was asked for."""
+    if reader == "tesseract":
+        return _tesseract_read_page(path, index)
+    return _vision_read_page(path, index)
+
+
+def _tesseract_read_page(path: Path, index: int) -> OcrPageReadOut:
+    """Rasterise one PDF page and read it with Tesseract.
+
+    Same shape as `_vision_read_page` on purpose — the caller should not have
+    to know which reader it asked for to understand the answer. `model` carries
+    the reader's name for the same reason the vision path puts the model's name
+    there: the workspace prints *who read this*, and "a vision model" and
+    "Tesseract" are different enough claims that the difference must survive
+    the round trip.
+    """
+    if not pdfpages.available():
+        return OcrPageReadOut(
+            page=index,
+            message=(
+                "Reading a PDF page needs the small PDF rasteriser: install "
+                "the “PDF pages” extra in Settings → Optional extras."
+            ),
+        )
+    if not ocr.tesseract_available():
+        raise HTTPException(
+            status_code=409,
+            detail="Tesseract isn't installed. Install the “OCR” extra in "
+            "Settings → Optional extras, or read this page with the AI instead.",
+        )
+    count = pdfpages.page_count(path)
+    if count <= 0:
+        return OcrPageReadOut(page=index, message="That PDF could not be opened.")
+    index = max(0, min(index, count - 1))
+    png = pdfpages.render_page(path, index)
+    if not png:
+        return OcrPageReadOut(page=index, message=f"Page {index + 1} could not be rendered.")
+    with tempfile.TemporaryDirectory(prefix="mm-pagetess-") as scratch:
+        page_path = Path(scratch) / f"page-{index}.png"
+        page_path.write_bytes(png)
+        text = (ocr.extract_text(page_path) or "").strip()
+    return OcrPageReadOut(
+        page=index,
+        text=text,
+        model="tesseract" if text else "",
+        message="" if text else f"Tesseract found no text on page {index + 1}.",
+    )
+
+
+class OcrReadersOut(BaseModel):
+    """Which readers this machine can actually use, right now.
+
+    The workspace asks before it offers: a picker whose second entry always
+    fails is worse than no picker, and "install Tesseract" is a real, one-click
+    answer this app already knows how to give (`core/extras.py`).
+    """
+
+    #: The reader used when nothing is chosen.
+    default: str = "vision"
+    tesseract: bool = False
+    vision: bool = False
+    #: The vision model that would answer, so the picker can name it rather
+    #: than saying "a vision model" and leaving you to go and look.
+    vision_model: str = ""
+    #: Why the vision reader is unavailable, when it is — "the model isn't
+    #: running" and "nothing installed can see images" need different fixes.
+    vision_reason: str = ""
+
+
+@router.get("/ocr-readers", response_model=OcrReadersOut)
+def ocr_readers() -> OcrReadersOut:
+    """What can read a page here — asked by the workspace's reader picker."""
+    ollama = deps.get_ollama()
+    running = ollama.is_running()
+    model = deps.get_model_manager().resolve_vision_model(ollama) if running else ""
+    if not running:
+        reason = "The AI model isn't running."
+    elif not model:
+        reason = "No installed model reports it can see images."
+    else:
+        reason = ""
+    return OcrReadersOut(
+        tesseract=ocr.tesseract_available(),
+        vision=bool(model),
+        vision_model=model or "",
+        vision_reason=reason,
+    )
+
+
 class OcrRangeReadOut(BaseModel):
-    """Several pages of a document, read by a vision model in one request."""
+    """Several pages of a document, read by one of the readers above."""
 
     pages: list[OcrPageReadOut] = []
     #: How many pages the spec asked for *after* clamping to the document, so
@@ -1825,13 +1960,20 @@ def _parse_page_spec(spec: str, count: int) -> list[int]:
     return sorted(i for i in wanted if 0 <= i < count)
 
 
-def _vision_read_range(path: Path, spec: str) -> OcrRangeReadOut:
+#: Tesseract reads a rendered page in about a tenth of a second, so the cap
+#: that keeps a mis-click from occupying a *model* for an hour has no reason to
+#: apply to it. Still bounded — a 2,000-page scan is not a synchronous request
+#: either — just bounded by what is actually slow.
+MAX_TESSERACT_RANGE_PAGES = 200
+
+
+def _read_range(path: Path, spec: str, reader: str = "vision") -> OcrRangeReadOut:
     """Read every page the spec names, reusing the single-page reader.
 
-    Deliberately a loop over `_vision_read_page` rather than a second
-    implementation: one place decides what "no rasteriser", "no vision model"
-    and "nothing legible" mean, and a range read cannot drift away from what
-    the per-page button does.
+    Deliberately a loop over `_read_page` rather than a second implementation:
+    one place decides what "no rasteriser", "no vision model" and "nothing
+    legible" mean, and a range read cannot drift away from what the per-page
+    button does.
     """
     if not pdfpages.available():
         return OcrRangeReadOut(
@@ -1850,15 +1992,16 @@ def _vision_read_range(path: Path, spec: str) -> OcrRangeReadOut:
             message=f"No pages matched that range. This document has {count} page(s).",
         )
     requested = len(indices)
-    capped = indices[:MAX_RANGE_PAGES]
-    pages = [_vision_read_page(path, index) for index in capped]
+    limit = MAX_TESSERACT_RANGE_PAGES if reader == "tesseract" else MAX_RANGE_PAGES
+    capped = indices[:limit]
+    pages = [_read_page(path, index, reader) for index in capped]
     read = sum(1 for page in pages if page.text)
     note = ""
     if requested > len(capped):
         last = capped[-1] + 1
         note = (
             f" Stopped after {len(capped)} pages (the limit for one go) — "
-            f"ask for {last + 1}-{min(last + MAX_RANGE_PAGES, count)} to carry on."
+            f"ask for {last + 1}-{min(last + limit, count)} to carry on."
         )
     return OcrRangeReadOut(
         pages=pages,
@@ -1871,56 +2014,72 @@ def _vision_read_range(path: Path, spec: str) -> OcrRangeReadOut:
 
 @router.post("/files/{attachment_id}/ocr-range-read", response_model=OcrRangeReadOut)
 def attachment_ocr_range_read(
-    attachment_id: int, pages: str = "all", session: Session = Depends(get_session)
+    attachment_id: int,
+    pages: str = "all",
+    reader: str = "vision",
+    session: Session = Depends(get_session),
 ) -> OcrRangeReadOut:
     """Read a whole PDF, or the pages named by `pages` (e.g. `1-5`, `2,7`)."""
+    reader = _checked_reader(reader)
     attachment = _existing_attachment(session, attachment_id)
     if Path(attachment.filename).suffix.lower() != ".pdf":
         raise HTTPException(status_code=415, detail="Only PDFs are read by page range.")
     path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
     if not path.is_file():
         raise HTTPException(status_code=404, detail="File is missing from disk")
-    return _vision_read_range(path, pages)
+    return _read_range(path, pages, reader)
 
 
 @router.post("/media/{upload_id}/ocr-range-read", response_model=OcrRangeReadOut)
 def media_ocr_range_read(
-    upload_id: int, pages: str = "all", session: Session = Depends(get_session)
+    upload_id: int,
+    pages: str = "all",
+    reader: str = "vision",
+    session: Session = Depends(get_session),
 ) -> OcrRangeReadOut:
     """Read a whole PDF, or the pages named by `pages` (e.g. `1-5`, `2,7`)."""
+    reader = _checked_reader(reader)
     upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
     if Path(upload.filename).suffix.lower() != ".pdf":
         raise HTTPException(status_code=415, detail="Only PDFs are read by page range.")
     path = _within_dir(deps.get_config().data_dir / "media", upload.filename)
     if not path.is_file():
         raise HTTPException(status_code=404, detail="That file is no longer on disk.")
-    return _vision_read_range(path, pages)
+    return _read_range(path, pages, reader)
 
 
 @router.post("/files/{attachment_id}/ocr-page-read", response_model=OcrPageReadOut)
 def attachment_ocr_page_read(
-    attachment_id: int, page: int = 0, session: Session = Depends(get_session)
+    attachment_id: int,
+    page: int = 0,
+    reader: str = "vision",
+    session: Session = Depends(get_session),
 ) -> OcrPageReadOut:
+    reader = _checked_reader(reader)
     attachment = _existing_attachment(session, attachment_id)
     if Path(attachment.filename).suffix.lower() != ".pdf":
         raise HTTPException(status_code=415, detail="Only PDF pages are read one at a time.")
     path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
     if not path.is_file():
         raise HTTPException(status_code=404, detail="File is missing from disk")
-    return _vision_read_page(path, page)
+    return _read_page(path, page, reader)
 
 
 @router.post("/media/{upload_id}/ocr-page-read", response_model=OcrPageReadOut)
 def media_ocr_page_read(
-    upload_id: int, page: int = 0, session: Session = Depends(get_session)
+    upload_id: int,
+    page: int = 0,
+    reader: str = "vision",
+    session: Session = Depends(get_session),
 ) -> OcrPageReadOut:
+    reader = _checked_reader(reader)
     upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
     if Path(upload.filename).suffix.lower() != ".pdf":
         raise HTTPException(status_code=415, detail="Only PDF pages are read one at a time.")
     path = _within_dir(deps.get_config().data_dir / "media", upload.filename)
     if not path.is_file():
         raise HTTPException(status_code=404, detail="That file is no longer on disk.")
-    return _vision_read_page(path, page)
+    return _read_page(path, page, reader)
 
 
 class VisionOcrBody(BaseModel):

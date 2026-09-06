@@ -1261,6 +1261,58 @@ body.resizing-sidebar {
   flex: none;
 }
 
+/* **The strip's own two controls, pinned to its right edge.** Asked for:
+   "cant collapse and make horizontally scrollable the tools bar in the notes
+   capture subtab and documents editor." `position: sticky` is the point — in
+   row mode the toolbar is a scroller, and a control that scrolls away with the
+   buttons it controls is a control you have to go looking for. Its own ground
+   so the buttons underneath do not show through as they pass. */
+.doc-toolbar-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+  position: sticky;
+  right: 0;
+  padding-left: var(--space-2);
+  background: linear-gradient(to right, transparent, var(--card) var(--space-2));
+}
+
+/* Collapsed: the strip keeps its own two controls and its name, and gives the
+   rest of its height back to the thing you are writing. Not `display: none` on
+   the toolbar itself — a control that hides the control that brings it back is
+   a trap. */
+.doc-toolbar.is-collapsed > *:not(.doc-toolbar-tools) {
+  display: none;
+}
+
+.doc-toolbar.is-collapsed {
+  padding-block: 0.2rem;
+}
+
+.doc-toolbar-collapsed-name {
+  display: none;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+/* The name appears only while collapsed: expanded, the buttons say what the
+   strip is far better than a word would. */
+.doc-toolbar.is-collapsed .doc-toolbar-collapsed-name {
+  display: inline;
+  margin-right: auto;
+}
+
+/* Collapsed, the cluster is the whole strip, so it must sit at the left with
+   the label rather than floating in from the right. */
+.doc-toolbar.is-collapsed .doc-toolbar-tools {
+  margin-left: 0;
+  width: 100%;
+  justify-content: space-between;
+  background: none;
+  padding-left: 0;
+}
+
 /* A menu inside a scrolling container would be clipped by it. These are
    `<details>` popovers positioned against the strip, so the strip is told to
    let them out — `overflow-y: visible` above does that vertically, and this

@@ -4008,6 +4008,49 @@ mark.lightbox-hit {
   white-space: nowrap;
 }
 
+/* **The picture the source is holding.** A source card is a note preview, and
+   the widget rows have shown a note's picture since `noteRowImage` shipped —
+   these did not, which is half of "the sources ... dont render inline md,
+   images or files". A strip rather than a square: the card is 17rem wide and
+   two lines tall, so a thumbnail that keeps its own aspect ratio would decide
+   the card's height for it and the grid would go ragged. */
+.chat-source-thumb {
+  width: 100%;
+  height: 4.5rem;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  background: var(--chip-bg);
+}
+
+/* Non-image attachments, as chips. An image is already shown above; a PDF or a
+   spreadsheet has nothing to show, and its *name* is the useful fact. */
+.chat-source-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.chat-source-file {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+}
+
+/* Markdown inside the clamped preview must not reintroduce block layout: a
+   `<code>` or a former link is inline, and an image the renderer produced
+   would blow the two-line clamp apart. */
+.chat-source-snippet img {
+  display: none;
+}
+
+.chat-source-snippet code {
+  font-size: 0.95em;
+  padding: 0 0.2em;
+}
+
 /* The answer's own block inside a bubble. Reported: "the text is right up
    against the overly animated borders as well" — the step had a border and no
    padding, so every line of prose touched it. Padding on the inside of a
@@ -4033,6 +4076,16 @@ mark.lightbox-hit {
   padding-inline: var(--space-1);
   margin-inline-start: calc(var(--space-1) * -1);
   transition: background var(--motion-fast) ease;
+  /* Reported: "the icon is out of alignment". The pencil below used to be an
+     `::after` on a *block* heading, so it sat on the heading's text baseline
+     at `--text-sm` — visibly low against a 1.25rem title, and only ever seen
+     on hover, which is when nobody is looking for alignment. `inline-flex`
+     with `align-items: center` centres it against the cap height instead. */
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+  min-width: 0;
 }
 
 .chat-title:hover,
@@ -4040,13 +4093,24 @@ mark.lightbox-hit {
   background: var(--chip-bg);
 }
 
-/* A hint that this is editable, shown only on approach so a heading is a
-   heading at rest. */
-.chat-title:hover::after {
+/* A hint that this is editable. **Always in the layout, only visible on
+   approach** — the old rule created the glyph on hover, so the heading grew
+   by ~1.4rem the moment the pointer touched it and everything to its right
+   jumped. Fading an element that is already occupying its space costs the
+   same and moves nothing. `line-height: 1` because the glyph's own line box
+   is what pushed it off centre. */
+.chat-title::after {
   content: "\270E";
-  margin-left: var(--space-2);
   color: var(--muted);
   font-size: var(--text-sm);
+  line-height: 1;
+  opacity: 0;
+  transition: opacity var(--motion-fast) ease;
+}
+
+.chat-title:hover::after,
+.chat-title:focus-visible::after {
+  opacity: 1;
 }
 
 

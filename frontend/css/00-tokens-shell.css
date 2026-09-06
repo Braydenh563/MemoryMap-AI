@@ -3112,6 +3112,42 @@ summary.icon-button {
   width: auto;
 }
 
+/* **A glyph that is the whole control is centred by layout, not by baseline.**
+   Reported: "the icons the arrow buttons and in some ellipse kebab buttons are
+   not centred". Measured on the status bar's own back/forward/undo/redo: the
+   icon's box sat 1.36px above the button's centre, and the caret-up one 2.42px
+   to the left of it — small enough to look like bad drawing rather than a bug,
+   which is why it survived.
+
+   Two independent causes, both of them rules that are *right* for the case
+   they were written for:
+
+   - `.ph { vertical-align: -0.12em }` optically drops a glyph onto the text
+     baseline beside a label. When the icon is the control's only content it
+     has no label to align with — and where a helper wraps it in a `<span>`
+     (`paintStatusItem` does, so the four arrows in the status bar all have
+     one) that span is an inline box, so the shift is applied inside it and the
+     flex centring above never sees it.
+   - `.ph-lead { margin-inline-end: 0.35em }` is the gap before a label. On an
+     icon with no label after it, that margin is 0.35em of dead space on one
+     side only — which is exactly half of the 2.42px measured offset, doubled.
+
+   So: neutralise both inside an icon-only control, and make any wrapper span
+   centre its child rather than baseline-align it. */
+.icon-only .ph,
+.icon-button .ph {
+  vertical-align: 0;
+  margin-inline-end: 0;
+}
+
+.icon-only > span,
+.icon-button > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
 /* Reported live, with a screenshot: the Settings modal's back/forward
    nav arrows sit noticeably larger and boxier than "Close" right beside
    them (43px square against Close's 30px). `.small`'s own `padding:

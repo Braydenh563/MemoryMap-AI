@@ -12252,6 +12252,24 @@ const SOURCE_TOOLS = {
   web_search: "web",
 };
 
+//: Turn every control inside a rendered fragment into inert markup, keeping
+//: its text and its classes. Used where a rendered preview is placed inside a
+//: card that is itself clickable: the preview should still *look* like the
+//: note, and must not contain a second thing to press.
+function deactivateControls(root) {
+  for (const node of root.querySelectorAll("a, button, input, [tabindex]")) {
+    if (node.tagName === "INPUT") {
+      node.disabled = true;
+      node.tabIndex = -1;
+      continue;
+    }
+    const flat = document.createElement("span");
+    flat.className = node.className;
+    while (node.firstChild) flat.appendChild(node.firstChild);
+    node.replaceWith(flat);
+  }
+}
+
 function chatSourcesFrom({ meta, toolEvents, touched }) {
   const seen = new Set();
   const sources = [];
@@ -12287,16 +12305,29 @@ function chatSourcesFrom({ meta, toolEvents, touched }) {
       id: entry.id,
       label,
       snippet: preview(rest),
+      //: The note itself rides along, so the card can show its picture and its
+      //: attached files rather than only a line of its text. Reported: "the
+      //: sources in the chat responses dont render inline md, images or files."
+      entry,
       open: () => flashEntry(entry.id),
     });
   }
   for (const item of touched || []) {
     const opener = TOUCHED_KINDS[item.kind] || TOUCHED_KINDS.note;
+    //: A touched row carries an id and a label and nothing else — but the note
+    //: behind it is already loaded, so the card need not be the poorer for it.
+    const known =
+      item.kind === "document"
+        ? null
+        : (typeof allEntries !== "undefined" ? allEntries : []).find(
+            (row) => row.id === item.id
+          ) || null;
     add({
       kind: item.kind === "document" ? "document" : "note",
       id: item.id,
       label: item.label,
-      snippet: "",
+      snippet: known ? preview(String(known.content || "").replace(/\s+/g, " ")) : "",
+      entry: known,
       open: () => opener.open(item.id),
     });
   }
@@ -12417,11 +12448,67 @@ function chatSourcesPanel(input) {
     setLabel(title, `${icons[source.kind] || "ph:note"} ${source.label}`);
     head.append(number, title);
     card.appendChild(head);
+    //: **A source card is a note preview, and every other note preview in this
+    //: app renders.** Reported: *"the sources in the chat responses dont render
+    //: inline md, images or files etc."* — the snippet was `textContent`, so a
+    //: note reading `**Due Friday** — see ![](/media/x.png)` printed its own
+    //: asterisks and the literal text of an image it was holding.
+    //:
+    //: Three things, in the order the eye wants them: the picture (embedded or
+    //: attached — `noteRowImage`, dashboard.js, which exists because an
+    //: attached image appears nowhere in the note's markdown), the text with
+    //: its markdown rendered, and a chip per non-image attachment so a note
+    //: that is really a wrapper around a PDF says so.
+    const image = source.entry ? noteRowImage(source.entry) : null;
+    if (image) {
+      const thumb = document.createElement("img");
+      thumb.className = "chat-source-thumb";
+      thumb.src = mediaSrc(image.url);
+      thumb.alt = image.alt || "";
+      thumb.loading = "lazy";
+      card.classList.add("has-thumb");
+      card.appendChild(thumb);
+    }
     if (source.snippet) {
       const snippet = document.createElement("p");
       snippet.className = "chat-source-snippet";
-      snippet.textContent = source.snippet;
+      //: `compact` because this is a two-line preview inside a card, not a
+      //: note body: it is the same flag the timeline and widget previews pass.
+      //: Wiki links are unwrapped first — renderInlineMarkdown is inline-only
+      //: and does not know `[[…]]`, so without this a linked note printed its
+      //: own brackets.
+      renderInlineMarkdown(
+        snippet,
+        source.snippet.replace(/\[\[([^[\]]{1,120})\]\]/g, "$1"),
+        null,
+        true
+      );
+      //: **The card is itself a control**, so nothing inside it may be one.
+      //: renderInlineMarkdown emits real `<a>`s and file chips for links, and
+      //: an anchor nested inside this card's own `<a>`/`<button>` is both
+      //: invalid and unreachable by keyboard — the outer control swallows it.
+      //: The formatting is what was asked for; the second click target was not.
+      deactivateControls(snippet);
       card.appendChild(snippet);
+    }
+    const files = (source.entry?.attachments || []).filter((file) => !file.is_image);
+    if (files.length) {
+      const strip = document.createElement("span");
+      strip.className = "chat-source-files";
+      for (const file of files.slice(0, 3)) {
+        const chip = document.createElement("span");
+        chip.className = "chip chat-source-file";
+        setLabel(chip, `ph:paperclip ${file.filename || "file"}`);
+        chip.title = file.filename || "";
+        strip.appendChild(chip);
+      }
+      if (files.length > 3) {
+        const more = document.createElement("span");
+        more.className = "chip chat-source-file muted";
+        more.textContent = `+${files.length - 3}`;
+        strip.appendChild(more);
+      }
+      card.appendChild(strip);
     }
     const foot = document.createElement("span");
     foot.className = "chat-source-foot muted";
@@ -13790,6 +13877,7 @@ async function sendChatMessage(preset, opts = {}) {
         });
         convRef.id = created.id;
         if (viewing()) $("chat-title").textContent = created.title;
+        applyPendingChatTitle(created.id, viewing());
         loadConversationList();
       } else if (checkpointed || opts.replaceLast) {
         await apiJson(`/conversations/${convRef.id}/turns/last`, {
@@ -14369,14 +14457,19 @@ async function sendChatMessage(preset, opts = {}) {
         $("chat-title").textContent = created.title;
         renderChatUsage(created.tokens);
       }
+      // A name typed before the first message was sent beats both the
+      // question-derived title and the model's. See `renameCurrentConversation`.
+      const namedByHand = applyPendingChatTitle(created.id, viewing());
       // Let the AI name the thread once there's something to name. Silent
       // best-effort: the question-derived title stays if the model can't.
-      apiJson(`/conversations/${created.id}/retitle`, { method: "POST", silent: true })
-        .then((named) => {
-          if (chatConv.id === created.id) $("chat-title").textContent = named.title;
-          loadConversationList();
-        })
-        .catch(() => {});
+      if (!namedByHand) {
+        apiJson(`/conversations/${created.id}/retitle`, { method: "POST", silent: true })
+          .then((named) => {
+            if (chatConv.id === created.id) $("chat-title").textContent = named.title;
+            loadConversationList();
+          })
+          .catch(() => {});
+      }
     } else if (opts.replaceLast || checkpointed) {
       // `checkpointed` matters as much as `replaceLast` here: a long agent
       // turn has already written a row for this exchange (see checkpointTurn),
@@ -14711,6 +14804,7 @@ function newChatConversation() {
   releaseChatComposer();
   recordTabVisit("chat", "new");
   chatConv = { id: null, turns: [] };
+  chatPendingTitle = null;
   // A summary belongs to the conversation it summarised (§35I).
   chatSummary = null;
   renderCompressionState();
@@ -27256,10 +27350,33 @@ $("chat-fork").addEventListener("click", async () => {
 //: Renaming, where the name is. It used to mean leaving the tab and finding
 //: the chat in the Library — for a property whose whole purpose is helping
 //: you recognise the thread you are currently looking at.
+//: **A name you give before there is anything to name.**
+//:
+//: Reported: *"the click to rename this conversation button doesnt work."* It
+//: did nothing, silently, and the reason is the guard this used to open with:
+//: a chat has no row until its first message is sent (`convRef.id === null`
+//: until the POST in `sendChatMessage` comes back), so on a fresh chat — which
+//: is exactly when you would want to name the thing you are about to start —
+//: the handler returned before it did anything at all. No toast, no dialog,
+//: no clue.
+//:
+//: A pending title rather than an error message: the name is remembered and
+//: applied the moment the conversation exists. It also *wins over the AI's own
+//: retitle*, which is the whole point — a thread someone bothered to name must
+//: not be renamed out from under them three seconds later.
+let chatPendingTitle = null;
+
 async function renameCurrentConversation() {
-  if (!chatConv || chatConv.id === null) return;
-  const next = await promptDialog("Rename this conversation:", $("chat-title").textContent);
-  if (!next) return;
+  if (!chatConv) return;
+  const current = $("chat-title").textContent;
+  const next = await promptDialog("Rename this conversation:", current);
+  if (!next || next === current) return;
+  if (chatConv.id === null) {
+    chatPendingTitle = next;
+    $("chat-title").textContent = next;
+    toast("Named. It is saved with your first message.");
+    return;
+  }
   try {
     await apiJson(`/conversations/${chatConv.id}`, {
       method: "PUT",
@@ -27270,6 +27387,24 @@ async function renameCurrentConversation() {
   } catch (error) {
     toast(error.message || "Couldn't rename this conversation.", true);
   }
+}
+
+//: Called by both places that create a conversation from the composer. Silent
+//: and best-effort: a title that fails to stick is worth a wrong name in the
+//: sidebar, not an error over the answer that just arrived.
+function applyPendingChatTitle(conversationId, viewing) {
+  const wanted = chatPendingTitle;
+  chatPendingTitle = null;
+  if (!wanted) return false;
+  if (viewing) $("chat-title").textContent = wanted;
+  apiJson(`/conversations/${conversationId}`, {
+    method: "PUT",
+    body: JSON.stringify({ title: wanted }),
+    silent: true,
+  })
+    .then(() => loadConversationList())
+    .catch(() => {});
+  return true;
 }
 
 //: Built once, at boot — the header's ⋯ is the same for every conversation,

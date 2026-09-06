@@ -2883,6 +2883,9 @@ function applyDocToolbarMode(mode) {
   //: state is carried by `aria-pressed` for a screen reader and by the
   //: toolbar's own shape for everyone else.
   if (label) label.textContent = row ? "Expand the toolbar" : "Use one scrolling row";
+  //: The strip's own layout button and this menu entry are two views of one
+  //: setting, so painting one without the other is how they drift.
+  applyDocToolbarLayoutButtons();
 }
 
 function setDocToolbarMode(mode) {
@@ -2898,7 +2901,99 @@ document.getElementById("doc-toolbar-mode")?.addEventListener("click", () => {
   setDocToolbarMode(docToolbarMode() === "row" ? "wrap" : "row");
 });
 
+//: **The two controls that were asked for, on the toolbar itself.**
+//:
+//: Reported: *"cant collapse and make horizontally scrollable the tools bar in
+//: the notes capture subtab and documents editor."* Half of that was already
+//: built and unfindable — the wrap/scroll switch existed, buried in the
+//: document dock's ⋯ menu, four clicks from the strip it changes, and the note
+//: composer's toolbar had no way to reach it at all. The other half, collapse,
+//: did not exist: on a laptop the expanded strip is two rows of chrome above a
+//: three-row note box.
+//:
+//: Built in script rather than written into the markup twice, because there
+//: are two toolbars and a third would silently miss out. Pinned to the right
+//: edge with `position: sticky` so that in scroll mode the controls do not
+//: scroll away with the buttons they control.
+const DOC_TOOLBAR_COLLAPSED_KEY = "doc-toolbar-collapsed";
+
+function docToolbarCollapsed() {
+  try {
+    return localStorage.getItem(DOC_TOOLBAR_COLLAPSED_KEY) === "1";
+  } catch {
+    return false; // private mode — the expanded shape is the safe default
+  }
+}
+
+function applyDocToolbarCollapsed(collapsed) {
+  for (const bar of document.querySelectorAll(".doc-toolbar")) {
+    bar.classList.toggle("is-collapsed", collapsed);
+    const button = bar.querySelector(".doc-toolbar-collapse");
+    if (!button) continue;
+    button.setAttribute("aria-pressed", collapsed ? "true" : "false");
+    button.title = collapsed ? "Show the formatting tools" : "Hide the formatting tools";
+    button.setAttribute("aria-label", button.title);
+    setLabel(button, collapsed ? "ph:caret-down" : "ph:caret-up");
+  }
+}
+
+function setDocToolbarCollapsed(collapsed) {
+  try {
+    localStorage.setItem(DOC_TOOLBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
+  } catch {
+    /* private mode — it just won't be remembered */
+  }
+  applyDocToolbarCollapsed(collapsed);
+}
+
+function mountDocToolbarControls() {
+  for (const bar of document.querySelectorAll(".doc-toolbar")) {
+    if (bar.querySelector(".doc-toolbar-tools")) continue;
+    const tools = document.createElement("span");
+    tools.className = "doc-toolbar-tools";
+
+    //: Shown only while collapsed, so the strip still says what it is rather
+    //: than becoming an unexplained bar with two arrows in it.
+    const name = document.createElement("span");
+    name.className = "doc-toolbar-collapsed-name";
+    name.textContent = "Formatting";
+    tools.appendChild(name);
+
+    const layout = document.createElement("button");
+    layout.type = "button";
+    layout.className = "ghost small icon-only doc-toolbar-layout";
+    layout.addEventListener("click", () => {
+      setDocToolbarMode(docToolbarMode() === "row" ? "wrap" : "row");
+      applyDocToolbarLayoutButtons();
+    });
+    tools.appendChild(layout);
+
+    const collapse = document.createElement("button");
+    collapse.type = "button";
+    collapse.className = "ghost small icon-only doc-toolbar-collapse";
+    collapse.addEventListener("click", () => setDocToolbarCollapsed(!docToolbarCollapsed()));
+    tools.appendChild(collapse);
+
+    bar.appendChild(tools);
+  }
+  applyDocToolbarLayoutButtons();
+  applyDocToolbarCollapsed(docToolbarCollapsed());
+}
+
+function applyDocToolbarLayoutButtons() {
+  const row = docToolbarMode() === "row";
+  for (const button of document.querySelectorAll(".doc-toolbar-layout")) {
+    button.setAttribute("aria-pressed", row ? "true" : "false");
+    //: The tooltip names what pressing it *does*; `aria-pressed` carries the
+    //: state. Same rule the dock menu's own label follows.
+    button.title = row ? "Expand the toolbar over several rows" : "Fit the toolbar on one scrolling row";
+    button.setAttribute("aria-label", button.title);
+    setLabel(button, row ? "ph:rows" : "ph:arrows-left-right");
+  }
+}
+
 //: Applied on load as well as on click: the toolbar exists before a document
 //: is opened, and a remembered mode that only took effect after the next
 //: toggle would read as the setting not having been saved.
 applyDocToolbarMode(docToolbarMode());
+mountDocToolbarControls();

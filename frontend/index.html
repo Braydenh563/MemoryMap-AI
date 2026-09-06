@@ -3824,86 +3824,176 @@ Link to another note with [[its first few words]]."></textarea>
        Tesseract's own blocks, and the only label beyond "text" is "heading",
        computed from box height. See core/ocr.py's `extract_regions`. -->
   <div id="ocr-workspace" class="modal-overlay ocr-workspace hidden" role="dialog"
-    aria-modal="true" aria-label="Read text from this image">
+    aria-modal="true" aria-label="OCR workspace — read text from images and documents">
     <div class="card modal-card ocr-card">
-      <div class="row space-between ocr-head">
-        <div class="ocr-headline">
-          <h2>Text on the page</h2>
-          <span id="ocr-source" class="chip ocr-source" hidden></span>
+      <!-- **Two rows, not one.** Reported: "fix the ui of the top bar". Nine
+           controls sat in a single flex row, and measured, every one of the
+           wide ones had wrapped: `Read this page with AI` rendered 42.8px tall
+           against 41px of content, `Copy all` and `Save as note` the same —
+           the classic signature of a label broken across two lines inside a
+           button sized for one. Wrapping was the symptom; the cause is that a
+           dialog header is not a place for a toolbar. So: identity and the way
+           out on top, and the tools themselves on their own row below, grouped
+           by what they do to what you are looking at — look at it, read it,
+           keep it. The toolbar scrolls sideways rather than wrapping, which is
+           the same rule the Documents toolbar now follows. -->
+      <div class="ocr-head">
+        <div class="row space-between ocr-head-top">
+          <div class="ocr-headline">
+            <!-- Renamed from "Text on the page". Asked for directly: *"make it
+                 not just reading text on the page but truly make it an all
+                 encompassing text and image ocr workspace, dont limit the
+                 feature."* The old name described one of the things it does
+                 and quietly set the ceiling for everything else in here. -->
+            <h2>OCR workspace</h2>
+            <!-- Which file. The workspace can be reached from four places and
+                 opened on a document you last touched an hour ago; a dialog
+                 titled only "Text on the page" is a dialog you have to close
+                 to find out what is in it. -->
+            <span id="ocr-file" class="ocr-file" hidden></span>
+            <span id="ocr-source" class="chip ocr-source" hidden></span>
+          </div>
+          <div class="row ocr-head-right">
+            <!-- Page navigation belongs beside the page, not inside the tool
+                 row: it is *where you are*, not something you are doing. -->
+            <span class="row ocr-pager" id="ocr-pager" hidden>
+              <button type="button" id="ocr-prev-page" class="ghost small icon-only"
+                title="Previous page (Left arrow)" aria-label="Previous page"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
+              <span id="ocr-page-label" class="ocr-page-label" role="status">Page 1</span>
+              <button type="button" id="ocr-next-page" class="ghost small icon-only"
+                title="Next page (Right arrow)" aria-label="Next page"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
+            </span>
+            <button id="ocr-close" class="ghost small icon-only" type="button" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+          </div>
         </div>
-        <div class="row">
-          <label class="checkbox-label" title="Draw a box around each block the reader found">
-            <input type="checkbox" id="ocr-show-boxes" checked>
-            <i class="ph ph-bounding-box ph-lead" aria-hidden="true"></i> Regions
-          </label>
-          <!-- Reported: "the file documents get cut off a bit when reading
-               them with the ocr workspace". A page is usually portrait and
-               the pane is landscape, so at full width the bottom of the page
-               sat below the fold with only a scrollbar to say so. Fit is the
-               default now — the whole page, always — and Actual size is for
-               reading small print, where scrolling is the point. -->
-          <!-- **Real zoom, because "Actual size" is not 100%.** Reported: "the
-               document at 100% zoom is still zoomed in and I cant zoom out".
-               True, and the cause is that a PDF page is *rendered* at
-               `RENDER_SCALE = 2.0` (~144 DPI, chosen so a vision model can
-               read small type) — so the PNG's own pixels are twice the page's
-               nominal size, and "Actual size" showed a 200% view with nothing
-               to take it back down. Fit and a zoom range replace the pair:
-               100% now means the page at its own size, whatever scale it was
-               rasterised at. -->
-          <div class="seg seg-compact" id="ocr-zoom" role="group" aria-label="Page size">
-            <button type="button" data-ocr-zoom="fit" class="active" aria-pressed="true"
-              title="Show the whole page">Fit</button>
-            <button type="button" data-ocr-zoom="full" aria-pressed="false"
-              title="Show the page at 100% — its own size on paper">100%</button>
+        <div class="ocr-toolbar" role="toolbar" aria-label="Reading tools">
+          <div class="ocr-tool-group" role="group" aria-label="How the page is shown">
+            <label class="checkbox-label" title="Draw a box around each block the reader found">
+              <input type="checkbox" id="ocr-show-boxes" checked>
+              <i class="ph ph-bounding-box ph-lead" aria-hidden="true"></i> Regions
+            </label>
+            <!-- Reported: "the file documents get cut off a bit when reading
+                 them with the ocr workspace". A page is usually portrait and
+                 the pane is landscape, so at full width the bottom of the page
+                 sat below the fold with only a scrollbar to say so. Fit is the
+                 default now — the whole page, always — and Actual size is for
+                 reading small print, where scrolling is the point. -->
+            <!-- **Real zoom, because "Actual size" is not 100%.** Reported: "the
+                 document at 100% zoom is still zoomed in and I cant zoom out".
+                 True, and the cause is that a PDF page is *rendered* at
+                 `RENDER_SCALE = 2.0` (~144 DPI, chosen so a vision model can
+                 read small type) — so the PNG's own pixels are twice the page's
+                 nominal size, and "Actual size" showed a 200% view with nothing
+                 to take it back down. Fit and a zoom range replace the pair:
+                 100% now means the page at its own size, whatever scale it was
+                 rasterised at. -->
+            <div class="seg seg-compact" id="ocr-zoom" role="group" aria-label="Page size">
+              <button type="button" data-ocr-zoom="fit" class="active" aria-pressed="true"
+                title="Show the whole page">Fit</button>
+              <button type="button" data-ocr-zoom="full" aria-pressed="false"
+                title="Show the page at 100% — its own size on paper">100%</button>
+            </div>
+            <div class="row ocr-zoom-steps" role="group" aria-label="Zoom">
+              <button type="button" id="ocr-zoom-out" class="ghost small icon-only"
+                title="Zoom out" aria-label="Zoom out"><i class="ph ph-minus" aria-hidden="true"></i></button>
+              <span id="ocr-zoom-level" class="muted text-sm ocr-zoom-level" role="status">Fit</span>
+              <button type="button" id="ocr-zoom-in" class="ghost small icon-only"
+                title="Zoom in" aria-label="Zoom in"><i class="ph ph-plus" aria-hidden="true"></i></button>
+            </div>
+            <!-- Asked for directly: "allow scrolling in documents between
+                 pages as well". One page at a time is right when you are
+                 checking a transcription against the page it came from; a
+                 continuous scroll is right when you are looking for the page
+                 that has the table on it, and until now the only way to do
+                 that was to click twelve thumbnails. PDFs only — a photograph
+                 has one page and a mode switch for it would be furniture. -->
+            <div class="seg seg-compact ocr-view-modes hidden" id="ocr-view" role="group" aria-label="How pages are laid out">
+              <button type="button" data-ocr-view="page" class="active" aria-pressed="true"
+                title="One page at a time"><i class="ph ph-file" aria-hidden="true"></i> One page</button>
+              <button type="button" data-ocr-view="scroll" aria-pressed="false"
+                title="Scroll through every page"><i class="ph ph-scroll" aria-hidden="true"></i> Scroll</button>
+            </div>
           </div>
-          <div class="row ocr-zoom-steps" role="group" aria-label="Zoom">
-            <button type="button" id="ocr-zoom-out" class="ghost small icon-only"
-              title="Zoom out" aria-label="Zoom out"><i class="ph ph-minus" aria-hidden="true"></i></button>
-            <span id="ocr-zoom-level" class="muted text-sm ocr-zoom-level" role="status">Fit</span>
-            <button type="button" id="ocr-zoom-in" class="ghost small icon-only"
-              title="Zoom in" aria-label="Zoom in"><i class="ph ph-plus" aria-hidden="true"></i></button>
+          <div class="ocr-tool-group" role="group" aria-label="Read the page">
+            <!-- **Two readers, and you pick.** This app was told first that it
+                 must never depend on Tesseract, and later, just as directly,
+                 "make sure tesseract exists as an alternative as well". Both
+                 hold: the vision model stays the default, and Tesseract is the
+                 alternative you can choose — no model needed, about a tenth of
+                 a second a page, and the only reader that returns *where* each
+                 block sits. The picker only lists what this machine can
+                 actually do (`GET /ocr-readers`). -->
+            <label class="visually-hidden" for="ocr-reader">Which reader</label>
+            <select id="ocr-reader" class="ocr-reader" title="Which reader transcribes the page">
+              <option value="vision">AI vision model</option>
+              <option value="tesseract">Tesseract</option>
+            </select>
+            <!-- Only shown for a document whose page can be handed to a reader
+                 (a PDF). Reported: "is the document ocr even working??" — it
+                 was not: the region routes refused a PDF outright. -->
+            <button id="ocr-read-page" class="ghost small" type="button"
+              title="Transcribe what you are looking at"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> <span id="ocr-read-page-label">Read this page</span></button>
+            <!-- Reported: "there's a read text on this page option but not an
+                 option to read the text on the whole document or specific
+                 pages." Reading a ten-page scan meant ten clicks and ten waits.
+                 A range box rather than a second "read everything" button,
+                 because "specific pages" was half the ask and a box that
+                 defaults to `all` answers both with one control. -->
+            <span id="ocr-read-range-group" class="row ocr-read-range hidden">
+              <label class="visually-hidden" for="ocr-read-pages">Pages to read</label>
+              <input id="ocr-read-pages" class="ocr-read-pages" type="text"
+                value="all" placeholder="all" autocomplete="off" spellcheck="false"
+                title="Which pages to read: all, 3, 1-5, or 1,4,7-9">
+              <button id="ocr-read-range" class="ghost small" type="button"
+                title="Transcribe every page in that range"><i class="ph ph-book-open-text ph-lead" aria-hidden="true"></i> Read pages</button>
+            </span>
           </div>
-          <!-- Only shown for a document whose page can be handed to a vision
-               model (a PDF). Reported: "is the document ocr even working??" —
-               it was not: the region routes refused a PDF outright, and the
-               only reader offered was Tesseract, which this project was told
-               directly not to depend on. -->
-          <button id="ocr-read-page" class="ghost small hidden" type="button"
-            title="Transcribe the page you are looking at with a local vision model"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Read this page with AI</button>
-          <!-- Reported: "there's a read text on this page option but not an
-               option to read the text on the whole document or specific
-               pages." Reading a ten-page scan meant ten clicks and ten waits.
-               A range box rather than a second "read everything" button,
-               because "specific pages" was half the ask and a box that
-               defaults to `all` answers both with one control. PDFs only —
-               shown by `ocrLoadPage` alongside the per-page button. -->
-          <span id="ocr-read-range-group" class="row ocr-read-range hidden">
-            <label class="visually-hidden" for="ocr-read-pages">Pages to read</label>
-            <input id="ocr-read-pages" class="ocr-read-pages" type="text"
-              value="all" placeholder="all" autocomplete="off" spellcheck="false"
-              title="Which pages to read: all, 3, 1-5, or 1,4,7-9">
-            <button id="ocr-read-range" class="ghost small" type="button"
-              title="Transcribe every page in that range with a local vision model"><i class="ph ph-book-open-text ph-lead" aria-hidden="true"></i> Read pages</button>
-          </span>
-          <button id="ocr-copy-all" class="ghost small" type="button"
-            title="Copy every region's text, in reading order"><i class="ph ph-copy ph-lead" aria-hidden="true"></i> Copy all</button>
-          <button id="ocr-to-note" class="small" type="button"
-            title="Save everything read here as a new note"><i class="ph ph-note ph-lead" aria-hidden="true"></i> Save as note</button>
-          <button id="ocr-close" class="ghost small" type="button" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
         </div>
       </div>
       <div class="ocr-panes">
         <nav id="ocr-rail" class="ocr-rail" aria-label="Pages"></nav>
-        <div class="ocr-page">
+        <div class="ocr-page" id="ocr-page-pane">
           <div id="ocr-stage" class="ocr-stage">
             <img id="ocr-image" alt="">
             <div id="ocr-boxes" class="ocr-boxes"></div>
           </div>
+          <!-- Continuous mode's pages. Empty and `hidden` in one-page mode so
+               nothing is rendered or requested until it is asked for — a
+               200-page scan must not fetch 200 PNGs because the dialog opened. -->
+          <div id="ocr-scroll" class="ocr-scroll hidden"></div>
         </div>
         <div class="ocr-regions">
+          <!-- Find, over the reading rather than over the picture: the whole
+               point of transcribing a page is that its words become
+               searchable, and until now the reading was a list you scrolled. -->
+          <div class="row ocr-find">
+            <i class="ph ph-magnifying-glass ocr-find-icon" aria-hidden="true"></i>
+            <label class="visually-hidden" for="ocr-find">Find in what was read</label>
+            <input id="ocr-find" type="search" class="ocr-find-input"
+              placeholder="Find in what was read" autocomplete="off">
+            <span id="ocr-find-count" class="muted text-sm ocr-find-count" role="status"></span>
+          </div>
           <p id="ocr-message" class="muted ocr-message" role="status"></p>
           <ol id="ocr-region-list" class="ocr-region-list"></ol>
+          <!-- **The reading's own actions belong under the reading.**
+               Measured: with these three in the header the tool row needed
+               1743px of a 1350px bar, so ~400px of it — including "Save as
+               note" — was only reachable by scrolling the toolbar sideways.
+               They are also simply in the wrong place: copying, asking about
+               and keeping *the text* are things you do to the pane on the
+               right, not to the picture in the middle. -->
+          <div class="row ocr-regions-foot">
+            <button id="ocr-copy-all" class="ghost small" type="button"
+              title="Copy every region's text, in reading order"><i class="ph ph-copy ph-lead" aria-hidden="true"></i> Copy all</button>
+            <!-- The reading is only worth having if it can leave this window.
+                 A transcription you have to re-read in a dialog is a dead end;
+                 the two things anyone does with one are ask about it and keep
+                 it, so both are one press from where it was read. -->
+            <button id="ocr-to-chat" class="ghost small" type="button"
+              title="Put this reading in the chat composer and ask about it"><i class="ph ph-chat-circle-text ph-lead" aria-hidden="true"></i> Ask about this</button>
+            <button id="ocr-to-note" class="small" type="button"
+              title="Save everything read here as a new note"><i class="ph ph-note ph-lead" aria-hidden="true"></i> Save as note</button>
+          </div>
         </div>
       </div>
     </div>

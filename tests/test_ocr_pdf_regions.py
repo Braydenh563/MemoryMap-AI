@@ -69,16 +69,37 @@ def test_the_page_asked_for_is_echoed_and_clamped(two_pages: Path):
 
 
 @needs_pdfium
-def test_without_tesseract_it_points_at_the_vision_reader(two_pages: Path, monkeypatch):
-    """Not "install Tesseract": this project was told directly to use a vision
-    model for scanned documents, and the workspace has a button for exactly
-    that. A message naming the wrong remedy is how a working feature gets
-    reported as broken."""
+def test_without_tesseract_it_points_at_the_button_and_not_at_an_install(
+    two_pages: Path, monkeypatch
+):
+    """Never "install Tesseract": this project was told directly to use a
+    vision model for scanned documents, and the workspace has a button for
+    exactly that. A message naming a remedy the reader cannot act on is how a
+    working feature gets reported as broken."""
     monkeypatch.setattr("memorymap.core.ocr.tesseract_available", lambda: False)
     out = _pdf_regions_for(two_pages, 0, "", "")
     assert out.source == "none"
-    assert "Read this page with AI" in out.message
+    assert "Read this page" in out.message
     assert "Tesseract" not in out.message
+
+
+@needs_pdfium
+def test_with_tesseract_installed_both_readers_are_offered(two_pages: Path, monkeypatch):
+    """The other half of the same rule, and the later instruction — *"make sure
+    tesseract exists as an alternative as well"*. When it **is** on the machine
+    it is named, because then it is a choice rather than an errand: no model
+    needed, and it marks where each block sits.
+
+    `extract_regions` is stubbed to None separately from `tesseract_available`:
+    the two answer different questions (is the binary here / did it find
+    anything on *this* page), and a page it read successfully would not reach
+    the `source == "none"` branch this message lives in at all."""
+    monkeypatch.setattr("memorymap.core.ocr.tesseract_available", lambda: True)
+    monkeypatch.setattr("memorymap.core.ocr.extract_regions", lambda path: None)
+    out = _pdf_regions_for(two_pages, 0, "", "")
+    assert out.source == "none"
+    assert "Read this page" in out.message
+    assert "Tesseract" in out.message
 
 
 @needs_pdfium

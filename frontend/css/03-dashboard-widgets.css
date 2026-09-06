@@ -1996,9 +1996,39 @@
   transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease;
 }
 
+/* **The open chat has to be findable at a glance, not inferred.** Reported:
+   "the conversations didnt visibly select in the sidebar." The row *was*
+   marked — measured after a click, `active-conv` was on the right `<li>` — but
+   what it bought was a 3px bar at the extreme left of a 268px row and a fill
+   at `--accent-soft`, which is 13% alpha: on a sidebar that already has its
+   own ground, a 13% tint is close to nothing. Half the report was a dead click
+   target (see `loadConversationList`) and this is the other half.
+
+   Three signals instead of two, all reading the same way as the rest of the
+   app's selected states: a wider accent rail, a fill at the strength a
+   selected row elsewhere uses, and the title itself in the accent colour so
+   the eye lands on the *name* rather than on a stripe in the margin. */
 #conversation-list li.active-conv {
   border-left-color: var(--accent);
-  background: var(--accent-soft);
+  border-left-width: 4px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+#conversation-list li.active-conv .conv-name {
+  color: var(--accent);
+}
+
+/* The whole row is the target now, so it must say so on the way in. */
+#conversation-list li {
+  cursor: pointer;
+}
+
+#conversation-list li:hover {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+
+#conversation-list li.active-conv:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 #conversation-list li .entry-actions {

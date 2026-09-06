@@ -6829,9 +6829,27 @@ function renderNoteInline(element, text, terms) {
   }
 }
 
+//: `terms` is "the words to highlight", and **every caller that has nothing to
+//: highlight passes something falsy rather than `[]`** — `chatSourcesPanel`
+//: passes a literal `null`, which is what a snippet with no search behind it
+//: honestly is. This read `terms.length` directly and threw
+//: `Cannot read properties of null (reading 'length')`.
+//:
+//: The throw is worth recording because of where it landed rather than what it
+//: was. `renderInlineMarkdown` is called while a saved conversation's Sources
+//: panel is being built, which happens inside `openConversation` — so the
+//: exception aborted the rest of that function, including the
+//: `loadConversationList()` at its end that repaints the sidebar. Reported as
+//: "I clicked on other chat conversations in the chat sidebar but the
+//: conversations didnt visibly select in the sidebar": the click worked, the
+//: fetch worked, and an unrelated null check three calls down stopped the row
+//: from ever being marked. Nothing was logged where anyone would look.
+//:
+//: Normalised here, at the one place that reads it, rather than at each call
+//: site — the next caller to pass `null` should not have to know either.
 function highlightInto(element, text, terms) {
   element.replaceChildren();
-  if (!terms.length) {
+  if (!terms || !terms.length) {
     element.textContent = text;
     return;
   }
@@ -16038,10 +16056,29 @@ async function loadConversationList() {
     if (conversation.id === chatConv.id) li.classList.add("active-conv");
     if (conversation.pinned) li.classList.add("pinned-conv");
 
+    //: **The whole row opens the chat, not just the words in it.** Reported:
+    //: "I clicked on other chat conversations in the chat sidebar but the
+    //: conversations didnt visibly select in the sidebar." Measured: the
+    //: `<li>` is 268x48 and `.conv-title` — which carried the only click
+    //: handler — is 211x35. The 6.4px/9.6px padding ring and the gutter kept
+    //: clear for the ⋯ are dead: `elementFromPoint` returns the `<li>` at the
+    //: row's top edge, bottom edge, left edge and right-hand side alike. So
+    //: roughly a third of every row did nothing when clicked, which reads
+    //: exactly like a selection that failed rather than a click that missed.
+    //:
+    //: On the `<li>`, with the actions cluster excluded: a click on the ⋯ (or
+    //: on anything inside the menu it opens) is not a request to switch
+    //: conversations. `aria-current` says which row is the open one to a
+    //: screen reader, which the accent fill says to everyone else.
+    li.addEventListener("click", (event) => {
+      if (event.target instanceof Element && event.target.closest(".entry-actions")) return;
+      openConversation(conversation.id);
+    });
+    li.setAttribute("aria-current", conversation.id === chatConv.id ? "true" : "false");
+
     const title = document.createElement("span");
     title.className = "conv-title";
     title.title = "Open this chat";
-    title.addEventListener("click", () => openConversation(conversation.id));
 
     const name = document.createElement("span");
     name.className = "conv-name";

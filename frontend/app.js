@@ -8722,6 +8722,9 @@ async function askQuestion(preset) {
   let answerRaw = "";
   let stopped = false;
   let groundingRawResults = []; // set by onMeta, read by onGrounding
+  //: Kept beyond the callback that receives them, because the answer element
+  //: is rebuilt after the stream ends and the markers have to be put back.
+  let groundedSentences = [];
   // The box explained itself instead of answering — so the final markdown
   // pass, the saved turn and the answer actions all sit this one out.
   let hinted = false;
@@ -8782,6 +8785,10 @@ async function askQuestion(preset) {
         renderRelatedElsewhere($("ai-answer-grounding"), event.items);
       },
       onGrounding: (event) => {
+        //: Remembered as well as rendered — see the re-application after the
+        //: final markdown pass below, which is why the inline markers were
+        //: never visible.
+        groundedSentences = event.sentences || [];
         renderAnswerGrounding(
           $("ai-answer-grounding"),
           event.sentences,
@@ -8793,6 +8800,21 @@ async function askQuestion(preset) {
 
     // Final render (catches anything after the last animation frame).
     if (!hinted) renderMarkdown(answerBox, answerRaw);
+    //: **And the citations go back in.** Reported: *"in the ask tab, no inline
+    //: or grounding links to the notes viewed and referenced appear."* The
+    //: markers were being inserted — `onGrounding` fires during the stream and
+    //: `addInlineCitations` writes them straight into the answer — and then
+    //: the line above rebuilt the whole answer element from the raw markdown
+    //: and threw every one of them away. The grounding event arrives *before*
+    //: `done`, so this was true of every answer that had any: the feature ran,
+    //: correctly, and its output survived for a few milliseconds.
+    //:
+    //: Re-applied rather than moved, because the live render during streaming
+    //: is what makes the answer readable as it arrives; the markers simply
+    //: have to be the last thing written.
+    if (!hinted && groundedSentences.length) {
+      addInlineCitations(answerBox, groundedSentences, groundingRawResults);
+    }
     if (!hinted) {
       conversation.push({ question, answer: answerRaw });
       show("retry-btn", "copy-btn", "speak-btn", "new-chat-btn");
@@ -14212,6 +14234,16 @@ async function sendChatMessage(preset, opts = {}) {
 
   clearPending();
   timeline.finalise();
+  //: **The citations go back in after the final render.** Same defect as the
+  //: Ask box's, one surface over and for the same reason: `onGrounding` writes
+  //: the markers straight into the answer during the stream, and `finalise()`
+  //: re-renders every prose step from its raw markdown — throwing all of them
+  //: away a few milliseconds later. The grounding event always arrives before
+  //: `done`, so this was true of every answer that had any.
+  if (groundingSentences?.length) {
+    const answerEl = bubble.querySelector(".bubble-answer");
+    if (answerEl) addInlineCitations(answerEl, groundingSentences, meta?.raw_results || []);
+  }
   const answerRaw = timeline.text();
   const thinkingRaw = timeline.thinkingText();
   //: **The Sources panel replaces the old "N matching notes" disclosure here.**

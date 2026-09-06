@@ -3689,6 +3689,25 @@ Link to another note with [[its first few words]]."></textarea>
              place in the toolbar as `#note-sort`, which is one of the two the
              report calls good, so this is the pattern spreading rather than a
              seventh way of doing it. -->
+        <!-- **Files is a reading list now, so it filters by whether a thing
+             has been read.** Asked for directly: "because the ocr worspace
+             exists, redesign the files library subtab and its capabilities."
+             The workspace is where a document gets read; the only question
+             this list could not answer was which ones already had been, so
+             every scan looked identical to every other and the way to find out
+             was to open each one.
+
+             Files only — an image is not "unread" in any sense a person
+             means, so `setLibraryMediaKind` hides this on the Images tab
+             rather than offering a filter that would divide pictures by
+             whether OCR happened to have run on them. -->
+        <select id="library-media-read" class="hidden"
+          aria-label="Filter by whether it has been read"
+          title="Filter by whether it has been read">
+          <option value="all">Read or not</option>
+          <option value="read">Read</option>
+          <option value="unread">Not read yet</option>
+        </select>
         <select id="library-media-sort" aria-label="Sort files" title="Sort files">
           <option value="newest">Newest first</option>
           <option value="oldest">Oldest first</option>

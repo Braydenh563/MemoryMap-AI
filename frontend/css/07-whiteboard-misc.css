@@ -5635,3 +5635,44 @@ button.connection-row {
   color: var(--muted);
   font-size: var(--text-h2);
 }
+
+/* --- Files as a reading list ----------------------------------------------
+   Asked for directly: "because the ocr worspace exists, redesign the files
+   library subtab and its capabilities." The workspace is where a document
+   gets read, and this list could not say which files already had been — so
+   every scan looked identical to every other and the only way to find out was
+   to open each one.
+
+   A strip under the filename, not a corner badge: the two halves are a state
+   and the action on it, and separating them across the tile would make the
+   button read as belonging to the picture rather than to the reading. */
+.library-read-strip {
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-top: var(--space-1);
+}
+
+.library-read-badge {
+  /* The number is the point — "Read · 1,240 words" says what came out, where
+     "Read" alone only says a job finished — so it must not be clipped away by
+     the tile's own width. It wraps rather than truncating. */
+  white-space: normal;
+}
+
+/* Read and unread are a *state*, so they are coloured like every other state
+   in this app rather than getting their own pair: `--ok` for done, muted for
+   not-yet. Deliberately not red for unread — an unread file is not a problem. */
+.library-read-badge.is-read {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 35%, transparent);
+}
+
+.library-read-badge.is-unread {
+  color: var(--muted);
+}
+
+.library-read-open {
+  flex: none;
+  white-space: nowrap;
+}

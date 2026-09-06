@@ -2262,6 +2262,14 @@ function setLibraryMediaKind(kind) {
   // both — a person who picks a PDF on the Images tab gets the PDF, it just
   // appears under Files — because refusing a file the app can store would be
   // worse than filing it somewhere they then have to look.
+  //: The read filter is a Files idea. An image is not "unread" in any sense a
+  //: person means — dividing pictures by whether OCR happened to have run on
+  //: them would be a control that answers a question nobody asked.
+  const readFilter = $("library-media-read");
+  if (readFilter) {
+    readFilter.classList.toggle("hidden", libraryMediaKind !== "files");
+    if (libraryMediaKind !== "files") readFilter.value = "all";
+  }
   const input = $("library-images-upload-input");
   if (input) {
     input.accept =
@@ -3904,6 +3912,40 @@ async function analyseMediaRow(image, kind, payload = {}) {
 //: well as its id — `media:12` and `attachment:12` are different files.
 const libraryMediaSelection = new Map();
 
+//: **What the workspace has already read out of a file.**
+//:
+//: A vision model's reading wins over Tesseract's when both exist: the
+//: workspace prefers it everywhere else too (`ocrStoredPageReads`), and a
+//: reading list that disagreed with the reader about which text is current
+//: would be worse than no list.
+function mediaReading(row) {
+  return (row?.vision_ocr_text || row?.ocr_text || "").trim();
+}
+
+function mediaHasBeenRead(row) {
+  return mediaReading(row).length > 0;
+}
+
+//: The badge on a file tile. Two states, and the read one carries a number:
+//: "Read" alone says a job finished, while "Read · 1,240 words" says what came
+//: out of it — which is the thing you are deciding on when you are looking for
+//: the scan that actually had the text in it.
+function mediaReadingBadge(row) {
+  const badge = document.createElement("span");
+  const reading = mediaReading(row);
+  if (!reading) {
+    badge.className = "chip library-read-badge is-unread";
+    badge.textContent = "Not read";
+    badge.title = "Nothing has been transcribed from this yet";
+    return badge;
+  }
+  const words = reading.split(/\s+/).length;
+  badge.className = "chip library-read-badge is-read";
+  badge.textContent = `Read · ${words.toLocaleString()} words`;
+  badge.title = "Open the reader to see it beside the page";
+  return badge;
+}
+
 function mediaRowKey(image) {
   const kind = image._isAttachment ? "attachment" : "media";
   return `${kind}:${image.id}`;
@@ -4050,14 +4092,23 @@ function libraryMediaSort() {
   return LIBRARY_MEDIA_SORTS[stored] ? stored : "newest";
 }
 
+//: The read filter is *not* stored, unlike the sort. A sort is a preference —
+//: how you like lists arranged — but "show me only what I have not read" is a
+//: task you are in the middle of, and a filter that silently persisted across
+//: sessions is how a Library comes back next week apparently missing half its
+//: files. Same reasoning the notes list uses for its own transient filters.
 document.addEventListener("DOMContentLoaded", () => {
   const select = document.getElementById("library-media-sort");
-  if (!select) return;
-  select.value = libraryMediaSort();
-  select.addEventListener("change", () => {
-    localStorage.setItem(LIBRARY_MEDIA_SORT_KEY, select.value);
-    filterLibraryImagesGallery();
-  });
+  if (select) {
+    select.value = libraryMediaSort();
+    select.addEventListener("change", () => {
+      localStorage.setItem(LIBRARY_MEDIA_SORT_KEY, select.value);
+      filterLibraryImagesGallery();
+    });
+  }
+  document
+    .getElementById("library-media-read")
+    ?.addEventListener("change", () => filterLibraryImagesGallery());
 });
 
 function filterLibraryImagesGallery() {
@@ -4071,9 +4122,18 @@ function filterLibraryImagesGallery() {
   // has to be the kind-filtered one — otherwise a notebook holding only PDFs
   // would show the Images tab as "no match for your search" with an empty
   // search box.
-  const ofKind = libraryImagesCache.filter((i) =>
-    libraryMediaKind === "files" ? !i._isImage : i._isImage
-  );
+  const readState = libraryMediaKind === "files" ? $("library-media-read")?.value || "all" : "all";
+  const ofKind = libraryImagesCache
+    .filter((i) => (libraryMediaKind === "files" ? !i._isImage : i._isImage))
+    //: Applied with the kind rather than with the search box, deliberately:
+    //: the empty-state copy below distinguishes "nothing in this sub-tab" from
+    //: "nothing matches your search", and a read filter is part of *which
+    //: files this sub-tab is showing*, not part of the query.
+    .filter((i) => {
+      if (readState === "read") return mediaHasBeenRead(i);
+      if (readState === "unread") return !mediaHasBeenRead(i);
+      return true;
+    });
   const matched = query
     ? ofKind.filter(
         (i) =>
@@ -5024,6 +5084,45 @@ function filterLibraryImagesGallery() {
     // menuList comment above for why that id doesn't belong to this row),
     // and a caption box that looks editable but silently 404s on save is
     // worse than a tile with no caption box at all.
+    //: **The reading strip — the Files sub-tab's whole reason to look
+    //: different from the Images one.** Asked for directly: "because the ocr
+    //: worspace exists, redesign the files library subtab and its
+    //: capabilities." The workspace is where a document gets read; this list
+    //: could not say which ones already had been, so every scan looked the
+    //: same as every other and the only way to find out was to open each one.
+    //:
+    //: Files only. An image "read" or "not read" is a statement about whether
+    //: OCR happened to have run, which is not a thing anybody is looking for
+    //: when they are browsing pictures.
+    if (!image._isImage) {
+      const strip = document.createElement("div");
+      strip.className = "row library-read-strip";
+      strip.appendChild(mediaReadingBadge(image));
+      const read = document.createElement("button");
+      read.type = "button";
+      read.className = "ghost small library-read-open";
+      //: The label follows the state, because "Read" on something already read
+      //: reads as a claim about the file rather than as an invitation.
+      setLabel(
+        read,
+        mediaHasBeenRead(image) ? "ph:book-open-text Open reader" : "ph:scan Read this"
+      );
+      read.title = mediaHasBeenRead(image)
+        ? "Open it in the reader, beside what was found"
+        : "Open the reader and transcribe it";
+      //: A *primary* control on the tile rather than a row in the kebab. The
+      //: workspace only became worth putting a front door on once it could
+      //: find its own siblings — before that, opening it from here was a dead
+      //: end you had to close to get anywhere.
+      read.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openOcrWorkspace(image, libraryImagesCache);
+      });
+      strip.appendChild(read);
+      fig.append(img, actions, cap, strip, usage, fields);
+      grid.appendChild(fig);
+      continue;
+    }
     fig.append(img, actions, cap, usage, fields);
     grid.appendChild(fig);
   }

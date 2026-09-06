@@ -1351,14 +1351,77 @@ function dashWidgetRow(name, layout, position = null) {
 // Two groups — "On your dashboard" and "Available" — rather than a single
 // list with a per-row status chip: with ~17 widgets, seeing at a glance how
 // many are already on the dashboard is more useful than reading each row.
+//: Which shelf each widget belongs on. A map here rather than a `group:` field
+//: on all twenty-five entries: the catalogue's rows are already long, and a
+//: widget's *group* is a fact about this list rather than about the widget.
+//: Anything unlisted falls into "other", so a widget added later still appears
+//: — silently vanishing from the picker is the one failure this must not have.
+const DASH_WIDGET_GROUPS = {
+  stats: "overview", streak: "overview", heatmap: "overview", pace: "overview",
+  digest: "overview", art: "overview",
+  pinned: "notes", random: "notes", categories: "notes", onthisday: "notes",
+  unfinished: "notes", orphans: "notes", tensions: "notes", boards: "notes",
+  documents: "notes",
+  capture: "doing", reminders: "doing", focus: "doing", questions: "doing",
+};
+
+const DASH_WIDGET_GROUP_LABELS = {
+  overview: "How the notebook is going",
+  notes: "Your notes and what is in them",
+  doing: "Things to do here",
+  other: "Everything else",
+};
+
+//: What the dashboard currently is, in one line, and the way back to the
+//: default. A list of twenty-five toggles with no statement of the result is a
+//: list you edit blind — and "reset" is the answer to the fear that stops
+//: people trying any of them.
+function dashWidgetsSummary(layout) {
+  const row = document.createElement("div");
+  row.className = "row space-between dash-widgets-summary";
+  const count = layout.order.filter((name) => !layout.hidden.includes(name)).length;
+  const total = Object.keys(DASH_WIDGETS).length;
+  const line = document.createElement("span");
+  line.className = "muted";
+  line.textContent = `${count} of ${total} on your dashboard`;
+  row.appendChild(line);
+  const reset = smallButton(
+    "ph:arrow-counter-clockwise Reset layout",
+    "Put every widget back to the order and visibility it started with",
+    async () => {
+      const sure = await confirmDialog(
+        "Reset the dashboard layout?\n\nEvery widget goes back to its original place, and the ones you removed come back. Nothing else changes.",
+      );
+      if (!sure) return;
+      //: An empty layout is what `dashLayout()` reads as "no preference", so
+      //: this is a reset rather than a second copy of the default order kept
+      //: in a place that could drift from the real one.
+      await saveDashLayout({ order: [], hidden: [], wide: [], sizes: {} });
+      renderDashboard();
+      renderDashWidgetsList($("dash-widgets-search")?.value || "");
+    },
+  );
+  row.appendChild(reset);
+  return row;
+}
+
 function renderDashWidgetsList(filterText = "") {
   const container = $("dash-widgets-list");
   container.replaceChildren();
   const layout = dashLayout();
+  container.appendChild(dashWidgetsSummary(layout));
   const q = filterText.trim().toLowerCase();
   const names = Object.keys(DASH_WIDGETS).filter((name) => {
     if (!q) return true;
-    return DASH_WIDGETS[name].title.replace(PH_LABEL, "").toLowerCase().includes(q);
+    //: **The description is searched too.** Reported: "I just want a better
+    //: menu and way to manage the widgets." With twenty-five of them, a filter
+    //: that only matches titles means you have to already know a widget is
+    //: called "Rediscover" to find the one that shows you an old note — which
+    //: is exactly backwards, because the reason you are in this list is that
+    //: you do not know what is in it.
+    const widget = DASH_WIDGETS[name];
+    const haystack = `${widget.title.replace(PH_LABEL, "")} ${widget.description || ""}`;
+    return haystack.toLowerCase().includes(q);
   });
 
   const addGroup = (label, list, ordered) => {
@@ -1386,7 +1449,17 @@ function renderDashWidgetsList(filterText = "") {
     onDashboard.filter((n) => names.includes(n)),
     onDashboard,
   );
-  addGroup("Available", names.filter((n) => layout.hidden.includes(n)), null);
+  //: **The rest, grouped by what they are for.** Thirteen hidden widgets in one
+  //: flat list called "Available" is a wall — you scroll it once, take nothing
+  //: in, and close the dialog. Four short groups are four decisions.
+  const available = names.filter((n) => layout.hidden.includes(n));
+  for (const [group, label] of Object.entries(DASH_WIDGET_GROUP_LABELS)) {
+    addGroup(
+      label,
+      available.filter((n) => (DASH_WIDGET_GROUPS[n] || "other") === group),
+      null,
+    );
+  }
 
   if (!names.length) {
     const empty = document.createElement("p");

@@ -1203,6 +1203,17 @@ body.resizing-sidebar {
      `z-index` above the prose, and an opaque ground so text does not show
      through it. */
 .doc-toolbar {
+  /* **One height for the strip and everything in it.** Reported as "fix the
+     toolbar", and measured before touching it: the controls in this bar
+     rendered at *five* different heights — 29.2px, 28px, 24.7px, 10px and one
+     at 0 — because nothing here declared a height and each control's size fell
+     out of whichever class it happened to carry. It is the same fault, with
+     the same fix and the same token, as `.library-head` and the OCR
+     workspace's header; DESIGN.md's control-height rule is about exactly this.
+     2rem rather than 2.25: this strip holds ~30 controls and sits directly
+     above the writing surface, so it is the one bar in the app that should be
+     the smaller of the two comfortable heights. */
+  --control-h: 2rem;
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
@@ -1259,6 +1270,51 @@ body.resizing-sidebar {
    no longer centres, and the row scrolls precisely so it does not have to. */
 .doc-toolbar > * {
   flex: none;
+}
+
+/* The sizing itself. `align-items: center` above only centres boxes of
+   differing heights against each other — it cannot make them the same height,
+   which is what was actually reported. */
+.doc-toolbar button,
+.doc-toolbar select,
+.doc-toolbar .select-opener,
+.doc-toolbar .doc-toolbar-toggle {
+  height: var(--control-h);
+  padding-block: 0;
+  margin: 0;
+}
+
+/* An icon-only control is square at the strip's height, so a row of thirty
+   reads as one family rather than as thirty widths of the same idea. */
+.doc-toolbar .icon-only,
+.doc-toolbar .icon-button {
+  width: var(--control-h);
+  padding-inline: 0;
+}
+
+/* The group separators are furniture, not controls: they take the strip's
+   height as a *rule*, and the sizing rule above must not turn them into 2rem
+   blocks. */
+.doc-toolbar .doc-toolbar-sep {
+  align-self: center;
+  height: calc(var(--control-h) - var(--space-2));
+  flex: none;
+}
+
+/* A scrolling strip's scrollbar is chrome, not content. Reported with a
+   screenshot of the bar with a full-width track under it: at 2px it is a hair
+   line that still says "there is more", which is the whole job. */
+.doc-toolbar[data-toolbar-mode="row"]::-webkit-scrollbar {
+  height: 4px;
+}
+
+.doc-toolbar[data-toolbar-mode="row"]::-webkit-scrollbar-thumb {
+  border-radius: var(--radius-pill);
+  background: var(--border);
+}
+
+.doc-toolbar[data-toolbar-mode="row"]::-webkit-scrollbar-track {
+  background: none;
 }
 
 /* **The strip's own two controls, pinned to its right edge.** Asked for:

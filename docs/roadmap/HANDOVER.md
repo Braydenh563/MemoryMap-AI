@@ -91,6 +91,46 @@ exist, that is said too — with what was actually wrong with it.
   tags'"~~ — `ai/notebook_stats.py`: counted, exact, and it answers with no
   model running at all.
 
+### The sweep, and what it did *not* find
+
+Two of this session's bugs were the same shape — a control that exists, renders
+and is styled correctly, and cannot be clicked because something transparent is
+on top of it (the gallery's select ticks; the lightbox's dismiss area). That is
+worth sweeping for rather than waiting to be reported, so
+`scratchpad/hit.js` walks every button, link, input, select and `summary` on
+eight tabs, four Notes sections, eight Library sub-tabs and Settings, and asks
+`elementFromPoint` whether the control is actually the thing at its own centre.
+
+**It found no third instance.** Everything it flagged was one of three
+artifacts, and they are written down because the next person to run it will hit
+the same three and should not spend an hour on them:
+
+- **Controls behind an open modal.** Correct, not a bug — filter on
+  `.modal-overlay`, `.lightbox` and dialogs.
+- **Items inside a closed `<details>`.** They report a real 192x209 rect and
+  `visibility: visible`, because Chromium hides `<details>` content with
+  `content-visibility` rather than `display: none` — the box is still measurable.
+  Checked properly by tabbing through the toolbar: **focus never enters a closed
+  menu** (0 stops in 45 tabs), so the browser is handling it correctly and there
+  is nothing to fix.
+- **Elements whose centre is under the sticky status bar mid-scroll.** Checked
+  properly by scrolling each tab's own scroller to the bottom and re-testing:
+  **zero controls are covered** on Notes, Library, Timeline or Documents.
+
+The lesson worth keeping is the one CLAUDE.md already states in another form: a
+sweep that produces 118 hits and 0 bugs is still worth running, but only if you
+finish it. Reporting the 118 would have been worse than not running it.
+
+### Verified after the fact, in one pass
+
+`scratchpad/verify.js` re-checks this session's fixes against the running app:
+nine popup close buttons square, the note kebab centred at dx/dy 0.00, the graph
+popup's favourite reading "Favourite" beside "Grow"/"Focus", the chat send button
+at the same radius family as its input, the jump-to-latest pill present, the
+model panel placing on screen, 12 of 12 gallery ticks clickable, the Documents
+toolbar at one uniform 32px, and the notifications row toggle and "Mark all
+read" both present.
+
 ### Open — bugs
 
 1. Chat sidebar: clicking another conversation does not visibly select it.

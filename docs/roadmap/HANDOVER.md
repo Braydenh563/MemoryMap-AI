@@ -1,5 +1,85 @@
 # Handover
 
+## ► The live report batch this session is working through
+
+Verbatim from the user, kept here so nothing is lost if a session ends
+mid-list. **Struck items are done and pushed**; the rest are open in order.
+Every "done" line names the measurement or the check that closed it, because
+several of these have been reported twice already after being closed on a
+reading of the source rather than a look at the running app.
+
+### Done
+
+- ~~"the popup close buttons are rectangular not square"~~ — nine of them
+  measured 43.6x28 in Chromium with every popup forced visible, plus the find
+  bar's prev/next, four refresh buttons and the speak button. All 25 measure
+  square now; `tests/test_icon_only_buttons.py` keeps them that way.
+- ~~"the favourites button in the graph popup is missing text"~~ — it was the
+  one unlabelled cell in a nine-cell labelled grid.
+- ~~"I used a dropdown in the toolbar in the capture tab and it went off the
+  panel and to the end"~~ — the *toolbar* went off the panel, not the dropdown:
+  a `:has(details[open]) { overflow: visible }` rule dropped the row-mode
+  scroller's clipping to free the popup and freed all ~59 controls with it.
+- ~~"fix the formatting toolbar in the documents to be like the one in
+  notes"~~ — list buttons worded, both `<details>` summaries worded.
+
+### Open — bugs
+
+1. Chat sidebar: clicking another conversation does not visibly select it.
+2. An agent question generated with no metadata below the AI response.
+3. Popup agent stop button: text and icon not aligned.
+4. Widgets button: text and icon not aligned, and no gap between them.
+5. Text streaming animation stops moving and shows as three static lines.
+6. Scrolling up mid-stream loses the "generating" indicator and animation.
+7. Tool usage and steps appear abruptly — they should fade in.
+8. Files and attachments do not render in the timeline or in popups.
+9. Library → Images: the per-image select radio buttons cannot be clicked.
+10. Lightbox: clicking off it does not close it, and the close button is
+    unreliable.
+11. Notes → Your Notes: the ⋯ kebab glyphs are not centred.
+12. OCR workspace: pages read (notifications fired) but no text appeared in
+    any extracted-text area. **Reported twice.**
+13. OCR workspace: the OCR model is listed as a vision model, and the actual
+    vision model is not offered at all. **Reported twice.**
+14. Chat header: clicking the model name does nothing.
+15. Dashboard: the welcome message spells the user's name wrong.
+16. Chat send button: corner radius out of place against its neighbours.
+17. "Expand toolbar" and "Hide formatting tools" have square corners that
+    round only on hover.
+18. Document editor does not fill the panel width the way its toolbar does,
+    and there is no way to widen it.
+
+### Open — features asked for
+
+19. Chat composer: auto-expand with the text to a sensible maximum height.
+20. Chat composer: double-tap the resize corner to reset to normal height.
+21. Documents: right-click a misspelled word for suggestions / add to
+    dictionary / ignore, Word-style.
+22. Documents: let the AI write one or more suggested replacements for a
+    flagged issue, to pick between.
+23. Documents: clicking a flagged issue scrolls to it and highlights it.
+24. Documents: rework autocorrect and suggestions generally — "copy the
+    suggestions from word and vs code".
+25. Documents: edit history, like a git log.
+26. Documents: "Check with AI" should attach a removable badge linking or
+    excerpting the document, not paste its text below.
+27. Documents: an "Edit document" button on a previewed document in the
+    lightbox.
+28. Documents: the agent/AI integrated more directly into the editor.
+29. Notifications: allow marking one as unread.
+30. Semantic search: answer aggregate questions ("what are my most common
+    tags", "categories with the most notes"), and expand knowledge-graph
+    management, traversal and use generally.
+31. Verify full usage guides exist in the docs for the help AI to use
+    (`HELP_TOPICS` went 18 → 26 entries but was never audited for coverage).
+
+### Then
+
+32. The rest of this file's open items, then ROADMAP.md, then BACKLOG.md.
+33. A brainstorm pass on the app's future: what is missing, what needs
+    fixing, refining, scaling, optimising, and how to professionalise it
+    against competitors — written into ROADMAP.md and BACKLOG.md.
+
 ## ► Top priority, by direct instruction: the whiteboard
 
 Not built this session — logged here and moved to the top of ROADMAP.md's

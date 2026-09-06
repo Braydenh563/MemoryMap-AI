@@ -20588,12 +20588,32 @@ function placeTimelinePopup() {
 // one showed literal `**`/`#` characters instead of rendered markdown, and
 // no sketch/image attachment at all — a gap in this one render path, not a
 // missing feature, since both already exist elsewhere.
+//: **Everything attached, not only the pictures.** Reported: "files and
+//: attachments dont render in the timeline and popups." Measured against the
+//: source: this filtered `entry.attachments` down to `a.is_image` and dropped
+//: the rest on the floor, so a note with a PDF, a spreadsheet or a Word
+//: document attached to it showed an empty popup — with no hint that anything
+//: had been attached at all, which reads as the note having lost them.
+//:
+//: The non-image half is `fileCard`, which is the same control the note cards,
+//: the chat transcript and the widgets already use for an attached file: an
+//: icon by kind, the name, and a Save button. Reusing it rather than drawing
+//: something new here is the point — a file should look the same wherever the
+//: app shows it, and this surface was the one place it did not appear at all.
 function renderTimelinePopupMedia(entry) {
   const box = $("timeline-popup-media");
   box.replaceChildren();
-  const images = (entry.attachments || []).filter((a) => a.is_image);
-  box.classList.toggle("hidden", images.length === 0);
-  if (!images.length) return;
+  const all = entry.attachments || [];
+  const images = all.filter((a) => a.is_image);
+  const files = all.filter((a) => !a.is_image);
+  box.classList.toggle("hidden", all.length === 0);
+  if (!all.length) return;
+  for (const attachment of files) {
+    //: `url` is what every other file surface is given; attachments carry
+    //: theirs as `/files/{id}` when the row does not spell one out.
+    const url = attachment.url || `/files/${attachment.id}`;
+    box.appendChild(fileCard(attachment.filename || attachment.name || "", url));
+  }
   for (const attachment of images) {
     const img = document.createElement("img");
     img.className = "graph-popup-thumb"; // shared with the graph popup's own thumbnails
@@ -20613,6 +20633,11 @@ function renderTimelinePopupMedia(entry) {
     });
     box.appendChild(img);
   }
+  //: The popup is positioned against its own height, and a file card is a
+  //: block that changes it — the image path already re-places on load and the
+  //: cards need the same courtesy, or the popup hangs off the bottom of a
+  //: note with four attachments.
+  placeTimelinePopup();
 }
 
 async function openTimelinePopup(event, noteSummary) {

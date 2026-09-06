@@ -2788,12 +2788,27 @@ function openGraphLinkPanel(edge, nodes) {
 // "Open" only took you to the Notes tab, where you still had to find the card
 // and click its thumbnail. Reported as "sketches don't open from the graph",
 // and that is exactly right: the one thing the note is *about* was missing.
+//: **And the same for everything that is not a picture.** Reported: "files and
+//: attachments dont render in the timeline and popups." This popup and the
+//: timeline's both filtered to `is_image` and dropped the rest, so a note
+//: whose whole point is the PDF attached to it opened a popup with nothing in
+//: it — no hint that anything was attached, which reads as the note having
+//: lost the file. `fileCard` is the app's own control for an attached file
+//: (the note cards, the chat transcript and the widgets all use it); this
+//: surface was the one place a file did not appear at all.
 function renderGraphPopupMedia(entry) {
   const box = $("graph-popup-media");
   box.replaceChildren();
-  const images = (entry.attachments || []).filter((a) => a.is_image);
-  box.classList.toggle("hidden", images.length === 0);
-  if (!images.length) return;
+  const all = entry.attachments || [];
+  const images = all.filter((a) => a.is_image);
+  const files = all.filter((a) => !a.is_image);
+  box.classList.toggle("hidden", all.length === 0);
+  if (!all.length) return;
+  for (const attachment of files) {
+    box.appendChild(
+      fileCard(attachment.filename || attachment.name || "", attachment.url || `/files/${attachment.id}`)
+    );
+  }
   for (const attachment of images) {
     const img = document.createElement("img");
     img.className = "graph-popup-thumb";
@@ -2815,6 +2830,10 @@ function renderGraphPopupMedia(entry) {
     });
     box.appendChild(img);
   }
+  //: A file card is a block with height, and this popup is placed against its
+  //: own — the image path already re-places once the bytes land, and the cards
+  //: need the same or the popup hangs off the edge of the map.
+  placeGraphPopup();
 }
 
 // Clamp the popup inside the graph box. Called on open and again once the

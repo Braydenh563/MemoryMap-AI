@@ -1300,7 +1300,13 @@ body.resizing-sidebar {
 .doc-toolbar button,
 .doc-toolbar select,
 .doc-toolbar .select-opener,
-.doc-toolbar .doc-toolbar-toggle {
+.doc-toolbar .doc-toolbar-toggle,
+/* `summary` was the one control shape this list missed. A `<details>` opener
+   is not a `<button>`, so the four menu openers in this strip sized
+   themselves off their own padding and measured 24.7px against everything
+   else's 32 — the same "five different heights" fault this rule was written
+   to end, surviving in the one element type it did not name. */
+.doc-toolbar summary {
   height: var(--control-h);
   padding-block: 0;
   margin: 0;
@@ -1427,7 +1433,34 @@ body.resizing-sidebar {
   background-color: var(--chip-bg);
 }
 
-.doc-toolbar button {
+/* **One chrome for the whole strip, whatever element a control happens to be.**
+   Reported: "the expand toolbar and hide formatting tools dont have curved
+   corners like they look like when hovered over" — a complaint about two
+   buttons that is really about the controls beside them. Measured across the
+   note toolbar: every `<button>` rests transparent (border
+   `rgba(0,0,0,0)`, background `rgba(0,0,0,0)`) and fills on hover, while the
+   four `<details>` menu openers rest *already filled* — border
+   `rgba(255,255,255,0.22)` over background `rgba(255,255,255,0.14)`. They are
+   `<summary>` elements, so this rule never matched them and they kept the
+   app's default button chrome instead.
+
+   The visible consequence is the one reported: in a strip where four controls
+   wear a filled, rounded box at rest and the rest wear nothing, the two bare
+   ones at the right end read as the odd ones out — and since their own box
+   only appears on hover, they read as "square until you hover". Nothing was
+   wrong with their radius (measured identical to every other control in the
+   strip: `var(--radius-md)`, whatever the appearance setting has scaled it
+   to). The fix is to stop four controls from resting in a state the other
+   twenty-five reach only on hover.
+
+   `button.icon-only` is named explicitly for the same reason in reverse: it
+   is a `<button>`, so it did match — but a later sheet's `.icon-only` chrome
+   beat this rule on file order, and the three icon-only controls in this
+   strip picked up the same resting fill the summaries had. */
+.doc-toolbar button,
+.doc-toolbar button.icon-only,
+.doc-toolbar button.icon-button,
+.doc-toolbar summary {
   min-width: 2rem;
   padding: 0.25rem 0.4rem;
   font-size: 0.8rem;
@@ -1439,12 +1472,24 @@ body.resizing-sidebar {
   border-radius: var(--radius-md);
 }
 
-.doc-toolbar button:hover {
+.doc-toolbar button:hover,
+.doc-toolbar button.icon-only:hover,
+.doc-toolbar button.icon-button:hover,
+.doc-toolbar summary:hover {
   background: var(--accent-soft);
   border-color: var(--accent);
 }
 
-.doc-toolbar button:focus-visible {
+/* An open menu keeps the hover fill: the opener is the thing the popup below
+   belongs to, and a popup with no visible source is a popup you have to
+   remember the origin of. */
+.doc-toolbar .doc-toolbar-menu[open] > summary {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.doc-toolbar button:focus-visible,
+.doc-toolbar summary:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }

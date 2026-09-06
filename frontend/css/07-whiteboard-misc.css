@@ -3336,6 +3336,51 @@ button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not
   border: 1px solid var(--ghost-btn-border);
 }
 
+/* **The formatting strip is another of those grouped sets, and it took a
+   report to notice.** "the expand toolbar and hide formatting tools dont have
+   curved corners like they look like when hovered over" — a complaint about
+   two buttons that was really about the twenty-five beside them.
+
+   Measured across the note toolbar: every plain `<button>` in it rests
+   transparent and fills on hover, while the four `<details>` openers and the
+   three icon-only controls rested *already filled* (border
+   `rgba(255,255,255,0.22)` over background `rgba(255,255,255,0.14)`) — the
+   rule above, plus the app's default `<summary>` chrome, reaching into a strip
+   the rule above was never meant for. In a bar where seven controls wear a
+   filled box at rest and twenty-five wear nothing, the bare ones read as the
+   broken ones; and since their own box appears only on hover, they read as
+   "square until hovered". Nothing was wrong with any radius: every control in
+   the strip measured the same `var(--radius-md)`.
+
+   `.doc-toolbar` is exactly the case the comment above describes — a bordered,
+   grouped strip that already says "these are buttons", where a per-item ground
+   doubles the bar's visual weight. Like `.seg button`, the class is on the
+   *parent*, so it cannot be another `:not()` up there and is this override
+   instead.
+
+   The selectors below carry the `:not()` chains of the rules they are
+   correcting, and that is deliberate rather than cargo-culted: a plain
+   `.doc-toolbar summary` is (0,1,1) and loses to
+   `summary:not(.icon-only):not(.icon-button)` at (0,3,1) — measured, after a
+   first attempt that read as correct and changed nothing on screen. Matching
+   the chain and adding the ancestor is what actually wins, honestly, without
+   an `!important`. */
+.doc-toolbar summary:not(.icon-only):not(.icon-button),
+.doc-toolbar button.icon-only:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool),
+.doc-toolbar button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool) {
+  padding: 0.25rem 0.4rem;
+  background: none;
+  border: 1px solid transparent;
+}
+
+.doc-toolbar summary:not(.icon-only):not(.icon-button):hover,
+.doc-toolbar button.icon-only:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):hover,
+.doc-toolbar button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):hover,
+.doc-toolbar .doc-toolbar-menu[open] > summary:not(.icon-only):not(.icon-button) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
 /* **The `.seg button` exclusion the comment above promised and the selector
    never delivered.** It cannot be written as another `:not()` there — the
    class is on the *parent* — so it is this override instead, and it took a

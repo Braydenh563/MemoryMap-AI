@@ -2861,7 +2861,18 @@ function entryOverflowMenu(entry) {
   //: Same square-kebab rule as `kebabMenu` below — this is the *other* ⋯
   //: builder (note cards, built lazily on first open), and a rule applied to
   //: one of two implementations of the same control is how they drift.
-  const opener = smallButton("⋯", "More actions", () => {
+  //:
+  //: **And they had.** Reported: "the ellipse kebab icons in the notes on the
+  //: your notes tab are not centred." `kebabMenu` draws `ph:dots-three`; this
+  //: one drew the literal character `⋯` (U+22EF), and a text glyph is placed
+  //: on the *font's* baseline inside a 19.2px line box centred in a 28px
+  //: button — U+22EF sits at the em box's midline, which is above the line
+  //: box's optical centre, so the dots rode high. No amount of flex centring
+  //: fixes that: the box is centred correctly and the glyph is not centred
+  //: within the box. The icon font's own glyph is drawn to fill its box, so
+  //: using the same icon as the other builder fixes the centring and the
+  //: drift in one go.
+  const opener = smallButton("ph:dots-three", "More actions", () => {
     const willOpen = menu.classList.contains("hidden");
     if (willOpen) {
       fillMenu();

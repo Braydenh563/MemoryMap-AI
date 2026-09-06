@@ -475,7 +475,7 @@
       <span class="muted hidden" id="dash-hint">Drag to rearrange · ＋Add / <i class="ph ph-x ph-lead" aria-hidden="true"></i>Remove widgets · ▭Wide makes a full-width section — your layout is remembered.</span>
       <span id="dash-hint-spacer"></span>
       <div class="dash-toolbar-actions">
-        <button id="dash-widgets-open" class="ghost small"><i class="ph ph-squares-four" aria-hidden="true"></i> Widgets</button>
+        <button id="dash-widgets-open" class="ghost small"><i class="ph ph-squares-four ph-lead" aria-hidden="true"></i> Widgets</button>
         <button id="dash-edit" class="ghost small">Edit layout</button>
       </div>
     </div>
@@ -615,7 +615,7 @@
             <button type="button" class="icon-only" data-md="clearformat" title="Remove highlight or colour"
               aria-label="Remove highlight or colour"><i class="ph ph-eraser" aria-hidden="true"></i></button>
             <span class="doc-toolbar-sep" aria-hidden="true"></span>
-            <button type="button" data-md="ul" title="Bulleted list">• List</button>
+            <button type="button" data-md="ul" title="Bulleted list"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i> List</button>
             <button type="button" data-md="task" title="Task list"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Task</button>
             <button type="button" class="icon-only" data-md="link" title="Link" aria-label="Link"><i class="ph ph-link" aria-hidden="true"></i></button>
             <span class="doc-toolbar-sep" aria-hidden="true"></span>
@@ -769,9 +769,9 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="row draft-controls">
                 <button id="draft-compose"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Draft it</button>
                 <button id="draft-cancel" class="ghost hidden" type="button"
-                  title="Stop the AI — nothing you've written is changed">■ Stop</button>
+                  title="Stop the AI — nothing you've written is changed"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
                 <button id="draft-undo" class="ghost" type="button" disabled
-                  title="Nothing to undo yet">↩ Undo</button>
+                  title="Nothing to undo yet"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Undo</button>
                 <input id="draft-instruction" type="text" maxlength="300"
                   placeholder="Optional: “make it shorter”, “add a summary”…"
                   aria-label="An instruction for this revision">
@@ -901,7 +901,7 @@ Link to another note with [[its first few words]]."></textarea>
                   <button id="retry-btn" class="ghost small hidden"
                     title="Ask this question again"><i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i> Retry</button>
                   <button id="copy-btn" class="ghost small hidden"
-                    title="Copy the answer">⧉ Copy</button>
+                    title="Copy the answer"><i class="ph ph-copy ph-lead" aria-hidden="true"></i> Copy</button>
                   <button id="speak-btn" class="ghost small hidden icon-only"
                     title="Read the answer aloud (uses your computer's voices)" aria-label="Read the answer aloud"><i class="ph ph-speaker-high" aria-hidden="true"></i></button>
                 </span>
@@ -1003,7 +1003,7 @@ Link to another note with [[its first few words]]."></textarea>
                  That replaced a <select> plus a separate "Move" button, which
                  was three clicks and had a failure state of its own. -->
             <span id="batch-category-host"></span>
-            <button id="batch-tag" class="ghost small">＋ Tag</button>
+            <button id="batch-tag" class="ghost small"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Tag</button>
             <button id="batch-delete" class="ghost small"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
             <button id="batch-cancel" class="ghost small">Done</button>
           </div>
@@ -1025,7 +1025,7 @@ Link to another note with [[its first few words]]."></textarea>
           </div>
           <ul id="entry-list" class="entry-list"></ul>
           <div id="notes-pagination" class="row notes-pagination hidden" role="navigation" aria-label="Notes pages">
-            <button id="notes-page-prev" class="ghost small" type="button" aria-label="Previous page"><i class="ph ph-caret-left" aria-hidden="true"></i> Prev</button>
+            <button id="notes-page-prev" class="ghost small" type="button" aria-label="Previous page"><i class="ph ph-caret-left ph-lead" aria-hidden="true"></i> Prev</button>
             <span id="notes-page-status" class="muted text-sm" role="status">Page 1 of 1</span>
             <button id="notes-page-next" class="ghost small" type="button" aria-label="Next page">Next <i class="ph ph-caret-right" aria-hidden="true"></i></button>
           </div>
@@ -1214,7 +1214,7 @@ Link to another note with [[its first few words]]."></textarea>
                 aria-label="Compress the earlier messages"
                 title="Compress — summarise the earlier messages, so the model keeps the gist instead of losing the start of a long chat"><i class="ph ph-arrows-in" aria-hidden="true"></i></button>
               <span id="chat-actions-menu" class="chat-actions-menu"></span>
-              <button id="chat-export" class="ghost small visually-hidden" tabindex="-1" title="Download this chat as a Markdown file">⭳ Export</button>
+              <button id="chat-export" class="ghost small visually-hidden" tabindex="-1" title="Download this chat as a Markdown file"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export</button>
               <!-- The saved-chat list has its own Delete, and deleting a
                    conversation's last turn deletes the conversation with it —
                    but the chat you're looking at right now, including a
@@ -1856,7 +1856,7 @@ Link to another note with [[its first few words]]."></textarea>
              group" instead of "title plus one loose action, then a gap,
              then another loose action". -->
         <div class="graph-toolbar-end">
-          <button id="graph-add-node" class="small" title="Add a new note straight onto the map">＋ New note</button>
+          <button id="graph-add-node" class="small" title="Add a new note straight onto the map"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New note</button>
           <button type="button" id="graph-help-toggle" class="ghost small graph-help-toggle"
             aria-expanded="false" aria-controls="graph-help-panel"
             title="Drag a note to place it — it stays where you put it, and is still there after a reload. Double-click a placed note to hand it back to the layout. Solid lines are links you made, dashed lines are trains of thought, dotted lines are notes that mean similar things. Hover a note to spotlight its connections, scroll or use the buttons to zoom, click a note to edit it right here, and click a legend colour to hide that category. Double-click empty space to add a note there. Drop one note onto another to link them, and use Trace to see how any two notes connect."
@@ -2334,7 +2334,7 @@ Link to another note with [[its first few words]]."></textarea>
                query, so nesting them changes nothing about how they fire. -->
           <details class="doc-dock-menu doc-toolbar-menu" id="doc-toolbar-colour">
             <summary class="doc-dock-menu-btn doc-toolbar-menu-btn"
-              title="Highlight and colour" aria-label="Highlight and colour"><i class="ph ph-highlighter" aria-hidden="true"></i> Highlight <i class="ph ph-caret-down doc-toolbar-menu-caret" aria-hidden="true"></i></summary>
+              title="Highlight and colour" aria-label="Highlight and colour"><i class="ph ph-highlighter ph-lead" aria-hidden="true"></i> Highlight <i class="ph ph-caret-down doc-toolbar-menu-caret" aria-hidden="true"></i></summary>
             <div class="doc-dock-menu-list">
               <button type="button" class="doc-dock-menu-item" data-md="highlight" title="Highlight (yellow)"><i class="ph ph-highlighter ph-lead" aria-hidden="true"></i> Highlight</button>
               <select class="md-colour-select" data-md-colour="highlight"
@@ -2350,7 +2350,7 @@ Link to another note with [[its first few words]]."></textarea>
           </details>
           <details class="doc-dock-menu doc-toolbar-menu" id="doc-toolbar-insert">
             <summary class="doc-dock-menu-btn doc-toolbar-menu-btn"
-              title="Insert a block" aria-label="Insert a block"><i class="ph ph-plus-square" aria-hidden="true"></i> Insert <i class="ph ph-caret-down doc-toolbar-menu-caret" aria-hidden="true"></i></summary>
+              title="Insert a block" aria-label="Insert a block"><i class="ph ph-plus-square ph-lead" aria-hidden="true"></i> Insert <i class="ph ph-caret-down doc-toolbar-menu-caret" aria-hidden="true"></i></summary>
             <div class="doc-dock-menu-list">
               <button type="button" class="doc-dock-menu-item" data-md="quote" title="Quote"><i class="ph ph-quotes ph-lead" aria-hidden="true"></i> Quote</button>
               <button type="button" class="doc-dock-menu-item" data-md="codeblock" title="Code block"><i class="ph ph-code-block ph-lead" aria-hidden="true"></i> Code block</button>
@@ -2499,7 +2499,7 @@ Link to another note with [[its first few words]]."></textarea>
           <h2>AI assistant</h2>
           <div class="row">
             <button id="doc-ai-history" class="ghost small" type="button" title="See and undo past AI edits to this document">
-              <i class="ph ph-clock-counter-clockwise" aria-hidden="true"></i> History
+              <i class="ph ph-clock-counter-clockwise ph-lead" aria-hidden="true"></i> History
             </button>
             <button id="doc-ai-close" class="ghost small icon-only" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
           </div>
@@ -2516,7 +2516,7 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="row">
           <button id="doc-ai-run"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Suggest an edit</button>
           <button id="doc-ai-cancel-run" class="ghost hidden" type="button"
-            title="Stop the AI — the document is untouched">■ Stop</button>
+            title="Stop the AI — the document is untouched"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
           <span id="doc-ai-status" class="status" role="status"></span>
         </div>
         <label for="doc-ai-result" class="muted">The AI's version — edit it before accepting if you like</label>
@@ -2674,7 +2674,7 @@ Link to another note with [[its first few words]]."></textarea>
       <!-- Only ever appears under the Done group — see the note on
            #reminders-page-size above. -->
       <div id="reminders-done-pagination" class="row notes-pagination hidden" role="navigation" aria-label="Completed reminder pages">
-        <button id="reminders-done-page-prev" class="ghost small" type="button" aria-label="Previous page"><i class="ph ph-caret-left" aria-hidden="true"></i> Prev</button>
+        <button id="reminders-done-page-prev" class="ghost small" type="button" aria-label="Previous page"><i class="ph ph-caret-left ph-lead" aria-hidden="true"></i> Prev</button>
         <span id="reminders-done-page-status" class="muted text-sm" role="status">Page 1 of 1</span>
         <button id="reminders-done-page-next" class="ghost small" type="button" aria-label="Next page">Next <i class="ph ph-caret-right" aria-hidden="true"></i></button>
       </div>
@@ -2738,7 +2738,7 @@ Link to another note with [[its first few words]]."></textarea>
             <h2>Library</h2>
             <span class="row">
               <button id="library-new-doc" class="small" type="button"
-                title="Start a new document">＋ New document</button>
+                title="Start a new document"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New document</button>
               <button id="library-refresh" class="ghost small icon-only" type="button"
                 title="Reload the list" aria-label="Reload the list"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
             </span>
@@ -2831,8 +2831,8 @@ Link to another note with [[its first few words]]."></textarea>
             aria-label="Actions for the selected items">
             <span id="library-selected-count" class="library-selected-count"></span>
             <span class="library-contextbar-end">
-              <button id="library-bulk-open" class="ghost small" type="button">↗ Open</button>
-              <button id="library-bulk-restore" class="ghost small hidden" type="button">↩ Restore</button>
+              <button id="library-bulk-open" class="ghost small" type="button"><i class="ph ph-arrow-square-out ph-lead" aria-hidden="true"></i> Open</button>
+              <button id="library-bulk-restore" class="ghost small hidden" type="button"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Restore</button>
               <button id="library-bulk-delete" class="ghost small" type="button"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
               <button id="library-clear-selection" class="ghost small" type="button">Done</button>
             </span>
@@ -2840,7 +2840,7 @@ Link to another note with [[its first few words]]."></textarea>
         </section>
         <div id="library-grid" class="library-grid"></div>
         <div id="library-pagination" class="row notes-pagination hidden" role="navigation" aria-label="Library pages">
-          <button id="library-page-prev" class="ghost small" type="button" aria-label="Previous page"><i class="ph ph-caret-left" aria-hidden="true"></i> Prev</button>
+          <button id="library-page-prev" class="ghost small" type="button" aria-label="Previous page"><i class="ph ph-caret-left ph-lead" aria-hidden="true"></i> Prev</button>
           <span id="library-page-status" class="muted text-sm" role="status">Page 1 of 1</span>
           <button id="library-page-next" class="ghost small" type="button" aria-label="Next page">Next <i class="ph ph-caret-right" aria-hidden="true"></i></button>
         </div>
@@ -2885,7 +2885,7 @@ Link to another note with [[its first few words]]."></textarea>
               <option value="100">100 per page</option>
             </select>
             <button id="library-docs-new" class="small" type="button"
-              title="Start a new document">＋ New document</button>
+              title="Start a new document"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New document</button>
             <button id="library-docs-refresh" class="ghost small icon-only" type="button"
               title="Reload the list" aria-label="Reload the list"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
           </div>
@@ -2911,7 +2911,7 @@ Link to another note with [[its first few words]]."></textarea>
         </div>
         <ul id="library-docs-list" class="doc-list"></ul>
         <div id="library-docs-pagination" class="row notes-pagination hidden" role="navigation" aria-label="Document pages">
-          <button id="library-docs-page-prev" class="ghost small" type="button" aria-label="Previous page"><i class="ph ph-caret-left" aria-hidden="true"></i> Prev</button>
+          <button id="library-docs-page-prev" class="ghost small" type="button" aria-label="Previous page"><i class="ph ph-caret-left ph-lead" aria-hidden="true"></i> Prev</button>
           <span id="library-docs-page-status" class="muted text-sm" role="status">Page 1 of 1</span>
           <button id="library-docs-page-next" class="ghost small" type="button" aria-label="Next page">Next <i class="ph ph-caret-right" aria-hidden="true"></i></button>
         </div>
@@ -3010,7 +3010,7 @@ Link to another note with [[its first few words]]."></textarea>
               <button data-library-view="grid" type="button" title="Cards" aria-label="Card view"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
               <button data-library-view="list" type="button" title="Rows" aria-label="Rows"><i class="ph ph-list" aria-hidden="true"></i></button>
             </div>
-            <button id="wb-boards-new" class="small" type="button">＋ New board</button>
+            <button id="wb-boards-new" class="small" type="button"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New board</button>
             <button id="library-media-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
             <button type="button" id="wb-boards-help" class="ghost small graph-help-toggle"
               aria-expanded="false" aria-controls="wb-boards-intro"
@@ -3031,7 +3031,7 @@ Link to another note with [[its first few words]]."></textarea>
       </section>
     </div>
     <div id="wb-canvas-view" class="hidden">
-      <button id="wb-back-to-boards" class="ghost small" type="button">← Boards</button>
+      <button id="wb-back-to-boards" class="ghost small" type="button"><i class="ph ph-arrow-left ph-lead" aria-hidden="true"></i> Boards</button>
       <!-- **The gestures, on screen, while you still need them.** Reported:
            "concept maps are unlearnable". The map *creates* well — it opens
            with a root selected and a toast naming Tab and Enter — but a toast
@@ -3535,8 +3535,8 @@ Link to another note with [[its first few words]]."></textarea>
           <button type="button" id="wb-align-bottom" class="ghost small" title="Align bottom edges">⇣</button>
         </div>
         <div class="wb-multi-actions">
-          <button type="button" id="wb-distribute-h" class="ghost small" title="Distribute evenly, left to right">↔ Space</button>
-          <button type="button" id="wb-distribute-v" class="ghost small" title="Distribute evenly, top to bottom">↕ Space</button>
+          <button type="button" id="wb-distribute-h" class="ghost small" title="Distribute evenly, left to right"><i class="ph ph-arrows-horizontal ph-lead" aria-hidden="true"></i> Space</button>
+          <button type="button" id="wb-distribute-v" class="ghost small" title="Distribute evenly, top to bottom"><i class="ph ph-arrows-vertical ph-lead" aria-hidden="true"></i> Space</button>
         </div>
         <!-- BACKLOG.md §62: the selected note cards' own content is the
              "notes-in-context" this extracts from — shown only once the
@@ -3674,7 +3674,7 @@ Link to another note with [[its first few words]]."></textarea>
         <input id="bookmark-group-input" type="text" list="bookmark-group-options"
           placeholder="Group (optional, e.g. Work/Reading)" aria-label="Bookmark group">
         <datalist id="bookmark-group-options"></datalist>
-        <button type="submit" class="small">＋ Add</button>
+        <button type="submit" class="small"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Add</button>
       </form>
       <!-- Same shape and same place as the Notes and Files sort controls —
            the Library sub-tabs were reported as "missing sorting and filtering
@@ -4009,9 +4009,9 @@ Link to another note with [[its first few words]]."></textarea>
                  has one page and a mode switch for it would be furniture. -->
             <div class="seg seg-compact ocr-view-modes hidden" id="ocr-view" role="group" aria-label="How pages are laid out">
               <button type="button" data-ocr-view="page" class="active" aria-pressed="true"
-                title="One page at a time"><i class="ph ph-file" aria-hidden="true"></i> One page</button>
+                title="One page at a time"><i class="ph ph-file ph-lead" aria-hidden="true"></i> One page</button>
               <button type="button" data-ocr-view="scroll" aria-pressed="false"
-                title="Scroll through every page"><i class="ph ph-scroll" aria-hidden="true"></i> Scroll</button>
+                title="Scroll through every page"><i class="ph ph-scroll ph-lead" aria-hidden="true"></i> Scroll</button>
             </div>
           </div>
           <div class="ocr-tool-group" role="group" aria-label="Read the page">
@@ -4503,7 +4503,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="row dashboard-persona-row">
               <select id="dashboard-persona-select" class="small-select" aria-label="Dashboard greeting persona"></select>
               <button id="dashboard-greeting-regenerate" class="small" type="button">
-                <i class="ph ph-arrows-clockwise" aria-hidden="true"></i> Regenerate greeting
+                <i class="ph ph-arrows-clockwise ph-lead" aria-hidden="true"></i> Regenerate greeting
               </button>
               <span id="dashboard-greeting-status" class="status"></span>
             </div>
@@ -5897,7 +5897,7 @@ Link to another note with [[its first few words]]."></textarea>
               <span id="log-live" class="log-live" role="status">connecting…</span>
               <button id="logs-copy" class="ghost small">Copy all</button>
               <button id="logs-bundle" class="ghost small"
-                title="Save a zip with the log, your settings and app status, for a bug report">⬇ Support bundle</button>
+                title="Save a zip with the log, your settings and app status, for a bug report"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Support bundle</button>
               <button id="logs-clear" class="ghost small">Clear</button>
             </div>
             <!-- Terminal view: the same records the List view shows, formatted
@@ -6305,7 +6305,7 @@ Link to another note with [[its first few words]]."></textarea>
       <p id="binned-meta" class="muted"></p>
       <div id="binned-body" class="binned-body"></div>
       <div class="row">
-        <button id="binned-restore" class="small">↩ Restore</button>
+        <button id="binned-restore" class="small"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Restore</button>
         <button id="binned-purge" class="ghost small"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete for good</button>
       </div>
     </div>

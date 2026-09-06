@@ -5701,3 +5701,152 @@ composer's Skills button. That is a placement decision rather than a defect in
 what was reported, and moving a `position: fixed` panel without measuring it
 across window heights is how this session's other regressions were made.
 Recorded here rather than guessed at.
+
+## §103 — the whiteboard rethink, four dashboard widgets, and the auto-linker that only ever offered duplicates
+
+Everything in this section was found by driving the running app in Chromium
+and measuring. Three of the seven things the sweep flagged turned out to be
+**false positives** and were left alone; they are listed at the end, because
+knowing what was checked and found sound is worth as much as the fixes.
+
+### The whiteboard could not be navigated
+
+Three gaps, all confirmed against an open board before anything was built:
+
+- **No overview of any kind.** The `board-minimap` in `whiteboard.js` is the
+  static thumbnail drawn on a board's card in Boards & maps; searching an open
+  board's DOM for `.wb-minimap`/`#wb-minimap` found nothing.
+- **No way to find a card by its words.** A board is made of notes and the
+  notebook full-text searches every one of them — except when they are laid
+  out on a canvas, where the only way to find one was to pan around looking.
+- **"Fit to Screen" did not fit.** It was
+  `container.call(wbZoom.transform, d3.zoomIdentity)` — a reset to 100% at the
+  origin. On a board whose content sits away from 0,0 that shows blank canvas,
+  which reads as the board having been wiped rather than as a navigation bug.
+
+Built: `wbContentBounds()` (shared by all three), `wbZoomToFit()`, a navigator
+popover with a live viewport rectangle you can click or drag, and a find bar
+that pans to each match with `n of m` in an `aria-live` region. Both new
+surfaces are popovers opened from the zoom cluster, **not** a fifth floating
+panel — the canvas already carries four, and this stylesheet's own comments
+record two separate reports of those colliding on narrow screens.
+
+### Board cards failed WCAG AA over a light board
+
+`.wb-card` was `background: var(--card)` — the Appearance transparency slider,
+0.55 alpha by default — with no backdrop blur. Every other card in the app
+sits on a background the theme controls; a board card floats over whatever
+colour the board's own picker is set to.
+
+Measured from raw screenshot pixels, not judged by eye:
+
+| state | card interior | contrast vs `--ink` |
+| --- | --- | --- |
+| over a light board (`#fff8d0`, via the shipped picker) | (112, 111, 99) | 4.51:1 |
+| over a white board (computed) | (112, 114, 117) | **4.29:1 — fails AA** |
+| after the fix | (24, 27, 34) | **15.32:1** |
+
+**Card-over-card was measured too and is not a problem**: two overlapping
+translucent cards sampled (57, 59, 57) against (112, 111, 99) solo, and over
+the default dark board the overlap differed from the surroundings by 2 units —
+invisible. So this was never "translucency is bad", it is "a board card must
+occlude what is under it". The fix keeps the person's preference as a *tint*
+over an opaque base (`--modal-bg-opaque`, the token this codebase already
+added for exactly this failure) rather than dropping the preference.
+
+The same root cause hit `#wb-back-to-boards`: a bare `.ghost` button floating
+on the canvas, so on a light board the only way back to the board list was
+near-white text on cream. It gets an opaque chip.
+
+### A board could render another board's contents
+
+Found while testing the board search, and it looked like a search bug for
+three rounds. `window.currentBoardId` read 128 — the board just opened, and
+the one the picker showed — while `wbState.nodes` held board 85's two cards.
+
+`openWhiteboardBoard` clicks the Boards & maps sub-tab, which starts its own
+load for the previously selected board, then sets `currentBoardId` and starts
+a second load for the board actually asked for. Both did `wbState = res`
+unconditionally, so whichever response arrived last won — intermittently,
+which is why two identical probe runs disagreed. `fetchWhiteboardState` now
+remembers which board a request was for and drops the answer if it is no
+longer the question being asked. Stable across three consecutive runs.
+
+Two smaller ones from the same screenshot: the gesture hint strip rendered at
+(240, 796) underneath the tool row at (34, 773), and Ctrl+F opened both the
+app's find-on-page *and* the new board search, because `preventDefault` does
+not stop another listener. Ctrl+F now has one owner, `openGlobalFind`, which
+hands off to the board search the same way it already hands off to the
+lightbox's find.
+
+### The auto-linker's twelve slots were all duplicates
+
+`GET /entries/link-suggestions` already existed and was working exactly as
+written. Driven against a real 116-note notebook, **all twelve suggestions
+were pairs of notes with identical text scoring 1.00**, six of them one stub
+note paired with copies of itself. That is the measured reason a notebook can
+sit at 16 linked notes out of 116 with the auto-linker switched on the whole
+time: the twelve slots were full before a real connection could reach them.
+
+Two filters, both reusing what the codebase already has:
+
+1. A near-identical pair is a **duplicate**, not a connection — recording that
+   a note resembles itself is not a link. `entry/duplicates.py` exists for
+   exactly that case, so its arithmetic word-overlap score and threshold are
+   reused rather than inventing a second notion of "the same".
+2. **One note may anchor at most two of the twelve.** Otherwise the most
+   connectable note takes every slot, which is what happened.
+
+Verified end to end: 12 of 12 self-pairs became 0, and the list now surfaces
+genuine cross-note pairs. Held by `tests/test_link_suggestion_quality.py`.
+
+### Four dashboard widgets, and one of them changed shape after measuring
+
+Every one of the nineteen existing widgets reads notes. Audited against the
+tab bar instead of brainstormed: **Boards & maps** (with the real layout
+miniature, from `preview_items` the server already normalises), **Recent
+documents**, **Unfinished** (open `- [ ]` checklist items), and **Loose ends**.
+
+Loose ends began as a list of stranded notes and became a *reading*, because
+measuring it first showed the list would have been useless. The first cut
+counted a note as stranded with no links, no tags **and** no category — and
+could never fire, because this app files every note as it is saved: 116 of 116
+had a category. A field the app fills in for you says nothing about whether
+*you* connected anything. On links and tags alone, 99 of 116 qualified — and a
+widget listing 85% of a notebook has told you nothing and made you scroll. So
+the proportion leads, with a meter and the three oldest as somewhere to start,
+and a button that opens the auto-linker (which lives in the Graph toolbar, so
+the screen that names the problem now offers the thing that fixes it).
+
+### Checked and found sound — do not "fix" these
+
+- **The graph legend's chips extend past the viewport.** Deliberate: it is
+  `flex-wrap: nowrap; overflow-x: auto` with a comment saying why a chip must
+  not shrink. A scan that flags `right > viewport` must exclude scroll
+  containers.
+- **Seven checkboxes look unlabelled.** All seven are wrapped in real
+  `<label>`s with text; a probe reading only the element's own text is wrong,
+  not the app.
+- **`--radius: 2px` and a 62%-transparent card** are the profile's own
+  Appearance sliders, not hard-coded values.
+- **A 136px element inside every combobox** is `.select-native-hidden`, the
+  real `<select>` — `position: absolute`, `height: 1px`, `border: 0` and
+  clipped by `clip-path: inset(50%)`, so out of flow and invisible at any
+  width. It only inflates the shell's `scrollWidth`. Its rule was tightened
+  (`min-width: 0`), and the comment states honestly that this did **not**
+  change the computed 136px and that enumerating every matching stylesheet
+  rule found nothing setting it — so the next session does not re-derive the
+  same dead end.
+
+### Two sweeps that came back clean
+
+- **Responsive, seven tabs at 390x844 and 768x1024.** One real bug: the
+  graph's four display toggles had no `flex-wrap`, so "Hide unlinked" ended at
+  x=488 and "Labels" at x=652 on a 390px screen, with nothing scrolling them —
+  both unreachable on a phone. Fixed; re-measured, nothing sits outside the
+  viewport on any tab at either size.
+- **Every parameterless GET endpoint, 68 of them.** 60 return clean JSON. The
+  other 8 are all correct behaviour and not bugs: `/export/*` and
+  `/support-bundle` return ZIP/CSV, `/graph/path` and the two `/websearch`
+  routes require query parameters, and `/logs/stream` is SSE (it is what hung
+  an earlier probe that had no per-request timeout).

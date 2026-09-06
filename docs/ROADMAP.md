@@ -58,8 +58,8 @@ section — read it before this list.** Built there, do not rebuild: document OC
 through the workspace (PDFs rasterised page by page, plus a per-page vision
 read), the chat header/sources/message redesign, Notion block handles in the
 documents live view, `agent_activity_notices`, and typed values in the advanced
-response settings. Still open from it: concept-map learnability, the whiteboard
-rethink, more dashboard widgets, Files cards for long OCR text.
+response settings. Still open from it: concept-map learnability. **Built since:
+the whiteboard rethink and more dashboard widgets** — HISTORY.md §103.
 
 Six sessions of finished narrative used to sit above this line. It has moved
 to [roadmap/HISTORY.md](roadmap/HISTORY.md)'s "§80 to §86" index, because a

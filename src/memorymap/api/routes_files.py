@@ -14,7 +14,8 @@ import subprocess
 import sys
 import tempfile
 import uuid
-from datetime import datetime
+import logging
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
@@ -27,9 +28,11 @@ from memorymap.ai import captioning, vision_ocr
 from memorymap.api.routes_entries import _existing_entry, _to_out
 from memorymap.api.schemas import EntryOut
 from memorymap.core import deps, docview, media_gc, media_process, ocr, pdfpages
-from memorymap.core.database import Attachment, Entry, MediaUpload
+from memorymap.core.database import Attachment, Entry, MediaUpload, PageRead
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["files"])
 
@@ -1744,7 +1747,24 @@ class OcrPageReadOut(BaseModel):
 #: reader decides what to keep (Copy, Save to a note, or Save the reading onto
 #: the file through the existing analyse endpoint). Reading is cheap to repeat
 #: and a wrong transcription written onto the row is not.
-def _vision_read_page(path: Path, index: int) -> OcrPageReadOut:
+def _reader_model(reader: str) -> str:
+    """The model the named reader will actually use, or "" if there is none.
+
+    One function so the picker (`ocr_readers`) and the read (`_vision_read_page`)
+    cannot answer this differently — which is exactly what they did before, and
+    is why "my ocr model shows as a vision model" survived a first fix.
+    """
+    manager = deps.get_model_manager()
+    ollama = deps.get_ollama()
+    if reader == "ocr":
+        # The general "can anything here see an image" resolver. Named `ocr`
+        # only because it is the *other* one from the workspace's default;
+        # what it returns is whatever vision model the app would otherwise use.
+        return manager.resolve_vision_model(ollama) or ""
+    return manager.resolve_ocr_model(ollama) or ""
+
+
+def _vision_read_page(path: Path, index: int, reader: str = "vision") -> OcrPageReadOut:
     if not pdfpages.available():
         return OcrPageReadOut(
             page=index,
@@ -1755,7 +1775,7 @@ def _vision_read_page(path: Path, index: int) -> OcrPageReadOut:
         )
     if not deps.get_ollama().is_running():
         raise HTTPException(status_code=409, detail="The AI model isn't running.")
-    model = deps.get_model_manager().resolve_vision_model(deps.get_ollama())
+    model = _reader_model(reader)
     if not model:
         raise HTTPException(
             status_code=409,
@@ -1802,7 +1822,28 @@ def _vision_read_page(path: Path, index: int) -> OcrPageReadOut:
 #: Neither is silently substituted for the other: the reader that produced a
 #: reading is named in the response, and a request for one that is not
 #: installed says so rather than quietly answering with the other.
-READERS = ("vision", "tesseract")
+#: **Three, not two, because "the AI" was hiding two different models.**
+#: Reported: *"in the ocr workspace, my ocr model shows as a vision model and
+#: my actual vision model doesnt appear as an option at all."* Exactly right.
+#: `resolve_ocr_model` prefers a dedicated document reader (GLM-OCR,
+#: DeepSeek-OCR, PaddleOCR-VL) and falls back to a general vision model;
+#: `resolve_vision_model` answers "can anything here see an image". On a
+#: machine with both installed they return different models — and the
+#: workspace offered one option, labelled "AI vision model", which named
+#: whichever of the two the picker happened to resolve. The other model was
+#: unreachable from the UI entirely.
+#:
+#: Worse, the two halves disagreed: `ocr_readers` was fixed to call
+#: `resolve_ocr_model` and `_vision_read_page` was left calling
+#: `resolve_vision_model`, so the picker could name one model and the read use
+#: the other. That is the same "fixed at one of two call sites" shape this
+#: repo keeps hitting, and it is why the report came back after the first fix.
+#:
+#: So each resolver gets its own reader name and its own option, and the read
+#: uses the resolver its name promises. `"vision"` keeps meaning "the app's
+#: default choice" for every existing caller and stored preference — it maps
+#: to `resolve_ocr_model`, which is what a read has always actually done.
+READERS = ("vision", "ocr", "tesseract")
 
 
 def _checked_reader(reader: str) -> str:
@@ -1821,7 +1862,81 @@ def _checked_reader(reader: str) -> str:
     return name
 
 
-def _read_page(path: Path, index: int, reader: str) -> OcrPageReadOut:
+def _page_read_key(attachment_id: int | None, upload_id: int | None) -> tuple[str, int] | None:
+    """Which id space this read belongs to. See `PageRead` on why both."""
+    if attachment_id is not None:
+        return ("attachment", int(attachment_id))
+    if upload_id is not None:
+        return ("upload", int(upload_id))
+    return None
+
+
+def _remember_page_read(key: tuple[str, int] | None, result: OcrPageReadOut, reader: str) -> None:
+    """Store one page's reading, replacing any earlier one for the same page.
+
+    Silent on failure and never raises: a reading that reached the caller is a
+    success, and losing the *cache* of it must not turn that into an error the
+    reader sees. Empty readings are not stored — "the model found nothing on
+    page 4" is not a transcription, and storing it would stop a later, better
+    reader from being asked.
+    """
+    if not key or not (result.text or "").strip():
+        return
+    kind, source_id = key
+    try:
+        with deps.get_db().session() as session:
+            row = (
+                session.query(PageRead)
+                .filter(
+                    PageRead.kind == kind,
+                    PageRead.source_id == source_id,
+                    PageRead.page == int(result.page),
+                )
+                .one_or_none()
+            )
+            if row is None:
+                row = PageRead(kind=kind, source_id=source_id, page=int(result.page))
+                session.add(row)
+            row.reader = reader
+            row.model = result.model or ""
+            row.text = result.text
+            row.created_at = datetime.now(timezone.utc)
+            #: Explicit: `DatabaseManager.session()` hands back a bare Session,
+            #: and `with` on one closes it without committing — the whole point
+            #: of this table is that the reading outlives the request.
+            session.commit()
+    except Exception:  # noqa: BLE001 - a cache write must never fail a read
+        logger.debug("could not store the page reading", exc_info=True)
+
+
+def _stored_page_reads(key: tuple[str, int] | None) -> list[OcrPageReadOut]:
+    """Every page of this document that has already been read, oldest page first."""
+    if not key:
+        return []
+    kind, source_id = key
+    try:
+        with deps.get_db().session() as session:
+            rows = (
+                session.query(PageRead)
+                .filter(PageRead.kind == kind, PageRead.source_id == source_id)
+                .order_by(PageRead.page.asc())
+                .all()
+            )
+            return [
+                OcrPageReadOut(page=row.page, text=row.text or "", model=row.model or "")
+                for row in rows
+            ]
+    except Exception:  # noqa: BLE001 - an unreadable cache is an empty one
+        logger.debug("could not load stored page readings", exc_info=True)
+        return []
+
+
+def _read_page(
+    path: Path,
+    index: int,
+    reader: str,
+    key: tuple[str, int] | None = None,
+) -> OcrPageReadOut:
     """One page, by whichever reader was asked for.
 
     Registered in `vision_ocr`'s running-reads list for the length of the call,
@@ -1841,9 +1956,17 @@ def _read_page(path: Path, index: int, reader: str) -> OcrPageReadOut:
         model="Tesseract" if reader == "tesseract" else "",
     )
     try:
-        if reader == "tesseract":
-            return _tesseract_read_page(path, index)
-        return _vision_read_page(path, index)
+        result = (
+            _tesseract_read_page(path, index)
+            if reader == "tesseract"
+            else _vision_read_page(path, index, reader)
+        )
+        #: Stored as each page completes, not once the whole range is done:
+        #: the point is that a read which finishes after the workspace has been
+        #: closed is not lost, and a range read that is interrupted half way
+        #: should keep the half it managed. See `PageRead`.
+        _remember_page_read(key, result, reader)
+        return result
     finally:
         vision_ocr.finish_page_read(token)
 
@@ -1903,12 +2026,22 @@ class OcrReadersOut(BaseModel):
     default: str = "vision"
     tesseract: bool = False
     vision: bool = False
-    #: The vision model that would answer, so the picker can name it rather
-    #: than saying "a vision model" and leaving you to go and look.
+    #: The model that would answer for the *default* reader, so the picker can
+    #: name it rather than saying "a vision model" and leaving you to go and
+    #: look. This is `resolve_ocr_model`: a dedicated document reader if one is
+    #: installed, else the general vision model.
     vision_model: str = ""
-    #: Why the vision reader is unavailable, when it is — "the model isn't
+    #: Why the default reader is unavailable, when it is — "the model isn't
     #: running" and "nothing installed can see images" need different fixes.
     vision_reason: str = ""
+    #: The *other* model: what `resolve_vision_model` returns. Offered as its
+    #: own reader whenever it differs from `vision_model`, because a machine
+    #: with both GLM-OCR and Qwen-VL installed has two genuinely different
+    #: readers and the workspace used to expose only one of them under a label
+    #: that named the other. Empty when there is no second choice to make.
+    ocr: bool = False
+    ocr_model: str = ""
+    ocr_reason: str = ''
 
 
 @router.get("/ocr-readers", response_model=OcrReadersOut)
@@ -1927,18 +2060,26 @@ def ocr_readers() -> OcrReadersOut:
     a read would actually use."""
     ollama = deps.get_ollama()
     running = ollama.is_running()
-    model = deps.get_model_manager().resolve_ocr_model(ollama) if running else ""
+    model = _reader_model("vision") if running else ""
+    other = _reader_model("ocr") if running else ""
     if not running:
         reason = "The AI model isn't running."
     elif not model:
         reason = "No installed model reports it can see images."
     else:
         reason = ""
+    #: Only when it is a genuinely *different* model. On the common machine
+    #: with one vision model both resolvers return it, and offering the same
+    #: model twice under two names is a worse picker than offering it once.
+    second = other if (other and other != model) else ""
     return OcrReadersOut(
         tesseract=ocr.tesseract_available(),
         vision=bool(model),
         vision_model=model or "",
         vision_reason=reason,
+        ocr=bool(second),
+        ocr_model=second,
+        ocr_reason="" if second else reason,
     )
 
 
@@ -1998,7 +2139,12 @@ def _parse_page_spec(spec: str, count: int) -> list[int]:
 MAX_TESSERACT_RANGE_PAGES = 200
 
 
-def _read_range(path: Path, spec: str, reader: str = "vision") -> OcrRangeReadOut:
+def _read_range(
+    path: Path,
+    spec: str,
+    reader: str = "vision",
+    key: tuple[str, int] | None = None,
+) -> OcrRangeReadOut:
     """Read every page the spec names, reusing the single-page reader.
 
     Deliberately a loop over `_read_page` rather than a second implementation:
@@ -2025,7 +2171,7 @@ def _read_range(path: Path, spec: str, reader: str = "vision") -> OcrRangeReadOu
     requested = len(indices)
     limit = MAX_TESSERACT_RANGE_PAGES if reader == "tesseract" else MAX_RANGE_PAGES
     capped = indices[:limit]
-    pages = [_read_page(path, index, reader) for index in capped]
+    pages = [_read_page(path, index, reader, key) for index in capped]
     read = sum(1 for page in pages if page.text)
     note = ""
     if requested > len(capped):
@@ -2040,6 +2186,26 @@ def _read_range(path: Path, spec: str, reader: str = "vision") -> OcrRangeReadOu
         read=read,
         page_count=count,
         message=(f"Read {read} of {len(capped)} page(s)." + note).strip(),
+    )
+
+
+def _stored_range(key: tuple[str, int] | None) -> OcrRangeReadOut:
+    """What is already known about a document, in the shape a range read returns.
+
+    The same shape on purpose: the workspace has one renderer for "here are
+    some pages of text", and giving stored readings a different envelope would
+    mean a second one that could drift from it.
+    """
+    pages = _stored_page_reads(key)
+    if not pages:
+        return OcrRangeReadOut()
+    return OcrRangeReadOut(
+        pages=pages,
+        requested=len(pages),
+        read=len(pages),
+        message=(
+            f"{len(pages)} page(s) already read." if len(pages) != 1 else "1 page already read."
+        ),
     )
 
 
@@ -2058,7 +2224,7 @@ def attachment_ocr_range_read(
     path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
     if not path.is_file():
         raise HTTPException(status_code=404, detail="File is missing from disk")
-    return _read_range(path, pages, reader)
+    return _read_range(path, pages, reader, _page_read_key(attachment_id, None))
 
 
 @router.post("/media/{upload_id}/ocr-range-read", response_model=OcrRangeReadOut)
@@ -2076,7 +2242,7 @@ def media_ocr_range_read(
     path = _within_dir(deps.get_config().data_dir / "media", upload.filename)
     if not path.is_file():
         raise HTTPException(status_code=404, detail="That file is no longer on disk.")
-    return _read_range(path, pages, reader)
+    return _read_range(path, pages, reader, _page_read_key(None, upload_id))
 
 
 @router.post("/files/{attachment_id}/ocr-page-read", response_model=OcrPageReadOut)
@@ -2093,7 +2259,7 @@ def attachment_ocr_page_read(
     path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
     if not path.is_file():
         raise HTTPException(status_code=404, detail="File is missing from disk")
-    return _read_page(path, page, reader)
+    return _read_page(path, page, reader, _page_read_key(attachment_id, None))
 
 
 @router.post("/media/{upload_id}/ocr-page-read", response_model=OcrPageReadOut)
@@ -2110,7 +2276,33 @@ def media_ocr_page_read(
     path = _within_dir(deps.get_config().data_dir / "media", upload.filename)
     if not path.is_file():
         raise HTTPException(status_code=404, detail="That file is no longer on disk.")
-    return _read_page(path, page, reader)
+    return _read_page(path, page, reader, _page_read_key(None, upload_id))
+
+
+@router.get("/files/{attachment_id}/page-reads", response_model=OcrRangeReadOut)
+def attachment_page_reads(
+    attachment_id: int,
+    session: Session = Depends(get_session),
+) -> OcrRangeReadOut:
+    """Every page of this attachment that has already been read.
+
+    Asked by the OCR workspace as it opens a document, so a reading that
+    finished while the workspace was closed is still there when you come back
+    — which is the whole point of `PageRead`. See that model's docstring for
+    the report.
+    """
+    _existing_attachment(session, attachment_id)
+    return _stored_range(_page_read_key(attachment_id, None))
+
+
+@router.get("/media/{upload_id}/page-reads", response_model=OcrRangeReadOut)
+def media_page_reads(
+    upload_id: int,
+    session: Session = Depends(get_session),
+) -> OcrRangeReadOut:
+    """Every page of this upload that has already been read."""
+    deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    return _stored_range(_page_read_key(None, upload_id))
 
 
 class VisionOcrBody(BaseModel):

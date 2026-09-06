@@ -4047,8 +4047,14 @@ Link to another note with [[its first few words]]."></textarea>
                  block sits. The picker only lists what this machine can
                  actually do (`GET /ocr-readers`). -->
             <label class="visually-hidden" for="ocr-reader">Which reader</label>
+            <!-- Three, because "the AI" was two different models wearing one
+                 label. Reported: "my ocr model shows as a vision model and my
+                 actual vision model doesnt appear as an option at all." The
+                 second AI option is hidden unless this machine really has two
+                 different readers — see `ocrLoadReaders`. -->
             <select id="ocr-reader" class="ocr-reader" title="Which reader transcribes the page">
-              <option value="vision">AI vision model</option>
+              <option value="vision">AI document reader</option>
+              <option value="ocr" hidden>AI vision model</option>
               <option value="tesseract">Tesseract</option>
             </select>
             <!-- Only shown for a document whose page can be handed to a reader

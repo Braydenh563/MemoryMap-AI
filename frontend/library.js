@@ -2571,6 +2571,15 @@ function ocrRenderRegions(body) {
   ocrApplyFind();
 }
 
+//: Everything this document has already had read off it, from the store the
+//: read endpoints write to. Never throws: a document with no readings and a
+//: backend that cannot answer are the same thing here — nothing to show.
+async function ocrStoredPageReads(image) {
+  if (!image) return null;
+  const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
+  return apiJson(`${base}/page-reads`).catch(() => null);
+}
+
 async function ocrLoadPage(image, page = 0, opts = {}) {
   ocrWorkspaceCurrent = image;
   ocrWorkspacePage = Math.max(0, page);
@@ -2639,7 +2648,43 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
   $("ocr-read-range-group")?.classList.toggle("hidden", !ocrIsPdf(image));
   try {
     const body = await apiJson(ocrRegionsUrl(image, ocrWorkspacePage));
-    ocrRenderRegions(body);
+    //: **What was already read wins over "nothing read yet".** Reported
+    //: twice: "ai read the pages 1-3 in my pdf as I put it, but no text
+    //: appeared in any of the extracted text areas?? notifications appeared
+    //: saying the pages were read but nothing happened after that."
+    //:
+    //: The second sentence was the diagnosis. A page read is announced as a
+    //: background task precisely so this window can be closed while it runs —
+    //: and the result only ever existed in the response and in the DOM that
+    //: response painted. Reopening the document re-ran the *regions* request,
+    //: which knows nothing about page reads, and painted an empty pane over a
+    //: reading that had genuinely happened.
+    //:
+    //: `GET …/page-reads` returns every page of this document the app has
+    //: stored (see the `PageRead` model), in the same envelope a range read
+    //: returns, so it goes straight through the same renderer. Asked for
+    //: after the regions call and preferred over it only when it has
+    //: something: a Tesseract reading with real box positions is a better
+    //: answer than stored text, and this must not overwrite it.
+    const stored = ocrIsPdf(image) ? await ocrStoredPageReads(image) : null;
+    const storedPages = (stored?.pages || []).filter((p) => (p.text || "").trim());
+    if (storedPages.length && body.source !== "tesseract") {
+      ocrRenderRegions({
+        regions: storedPages.map((entry, index) => ({
+          index,
+          kind: "text",
+          text: `Page ${entry.page + 1}\n\n${entry.text.trim()}`,
+          confidence: 0,
+          box: { x: 0, y: 0, w: 1, h: 1 },
+        })),
+        source: "stored-text",
+        message: stored.message || `${storedPages.length} page(s) already read.`,
+        pages: body.pages || ocrWorkspacePages,
+        page: ocrWorkspacePage,
+      });
+    } else {
+      ocrRenderRegions(body);
+    }
     if (ocrIsPdf(image)) ocrBuildPageRail(image, body.pages || 1);
     ocrSyncPager(image);
     //: The mode can only be honoured once the page count is known — a
@@ -3153,7 +3198,15 @@ function ocrStepPage(delta) {
 //: why rather than being offered and erroring. Refreshed on open because both
 //: answers change while the app is running — a model gets loaded, an extra
 //: gets installed.
-let ocrReaders = { vision: false, tesseract: false, vision_model: "", vision_reason: "" };
+let ocrReaders = {
+  vision: false,
+  tesseract: false,
+  vision_model: "",
+  vision_reason: "",
+  ocr: false,
+  ocr_model: "",
+  ocr_reason: "",
+};
 
 async function ocrLoadReaders() {
   const select = $("ocr-reader");
@@ -3163,16 +3216,46 @@ async function ocrLoadReaders() {
   } catch {
     //: An unreachable status endpoint must not disable reading: leave both
     //: options enabled and let the read itself report what went wrong.
-    ocrReaders = { vision: true, tesseract: true, vision_model: "", vision_reason: "" };
+    ocrReaders = {
+      vision: true,
+      tesseract: true,
+      vision_model: "",
+      vision_reason: "",
+      ocr: false,
+      ocr_model: "",
+      ocr_reason: "",
+    };
   }
   const vision = select.querySelector('option[value="vision"]');
+  const second = select.querySelector('option[value="ocr"]');
   const tess = select.querySelector('option[value="tesseract"]');
   if (vision) {
+    //: "document reader", not "vision model": this option is
+    //: `resolve_ocr_model`, which prefers a model built to transcribe a page
+    //: (GLM-OCR, DeepSeek-OCR, PaddleOCR-VL) and only falls back to a general
+    //: vision model. Calling it "vision model" is what produced the report —
+    //: "my ocr model shows as a vision model" — because the label named the
+    //: wrong one of the two things it could be.
     vision.textContent = ocrReaders.vision_model
-      ? `AI vision model (${ocrReaders.vision_model})`
-      : "AI vision model";
+      ? `AI document reader (${ocrReaders.vision_model})`
+      : "AI document reader";
     vision.disabled = ocrReaders.vision === false;
     vision.title = ocrReaders.vision_reason || "";
+  }
+  if (second) {
+    //: **Hidden unless there is a genuine second choice.** The backend only
+    //: fills `ocr_model` when `resolve_vision_model` returns something
+    //: *different* from the default reader — on the common machine with one
+    //: vision model installed, both resolvers return it, and offering the same
+    //: model twice under two names is a worse picker than offering it once.
+    const has = Boolean(ocrReaders.ocr && ocrReaders.ocr_model);
+    second.hidden = !has;
+    second.disabled = !has;
+    second.textContent = has ? `AI vision model (${ocrReaders.ocr_model})` : "AI vision model";
+    second.title = has
+      ? "The general vision model, rather than the dedicated page reader. Worth "
+        + "trying when a page is a photograph or a diagram more than a document."
+      : ocrReaders.ocr_reason || "";
   }
   if (tess) {
     tess.disabled = ocrReaders.tesseract === false;
@@ -3185,7 +3268,7 @@ async function ocrLoadReaders() {
   }
   //: Fall to whichever one works rather than leaving a disabled option
   //: selected, which reads as "this is what will happen" and is not.
-  if (select.selectedOptions[0]?.disabled) {
+  if (select.selectedOptions[0]?.disabled || select.selectedOptions[0]?.hidden) {
     select.value = ocrReaders.tesseract && !ocrReaders.vision ? "tesseract" : "vision";
   }
   //: No repaint call is needed: `enhanceSelect` (app.js) watches each select
@@ -3197,11 +3280,15 @@ async function ocrLoadReaders() {
 }
 
 function ocrReader() {
-  return $("ocr-reader")?.value === "tesseract" ? "tesseract" : "vision";
+  const value = $("ocr-reader")?.value;
+  return value === "tesseract" || value === "ocr" ? value : "vision";
 }
 
 function ocrReaderName() {
-  return ocrReader() === "tesseract" ? "Tesseract" : "AI";
+  const reader = ocrReader();
+  if (reader === "tesseract") return "Tesseract";
+  if (reader === "ocr") return ocrReaders.ocr_model || "the vision model";
+  return ocrReaders.vision_model || "AI";
 }
 
 //: **Find, over the reading.** The point of transcribing a page is that its

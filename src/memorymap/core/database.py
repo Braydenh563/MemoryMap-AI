@@ -838,6 +838,57 @@ class DocumentAiEdit(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class PageRead(Base):
+    """One page of one document, as read by one of the OCR workspace's readers.
+
+    **This table exists because the reading was being thrown away.** Reported
+    twice: *"ai read the pages 1-3 in my pdf as I put it, but no text appeared
+    in any of the extracted text areas?? notifications appeared saying the
+    pages were read but nothing happened after that."*
+
+    The second sentence is the diagnosis. A page read is a model round-trip of
+    several seconds, and the app deliberately advertises it as a background
+    task so the workspace can be closed while it runs — that is what those
+    notifications are. But the result only ever existed in the HTTP response
+    and in the DOM the response painted. Close the workspace, switch tab, or
+    simply have the read finish after you have moved on, and the text was
+    gone: reopening the document showed empty extracted-text areas, with the
+    "read" notifications sitting in the panel saying it had worked.
+
+    So each page's reading is stored as it completes, and the workspace loads
+    what is already known when a document is opened. It also makes a range
+    read resumable and idempotent — asking again for a page already read is
+    answered from here rather than costing another pass of the model.
+
+    Keyed by `(kind, source_id, page)`: a page can belong to an Attachment or
+    to a MediaUpload, which are two different id spaces, so the kind has to be
+    part of the identity. Re-reading a page replaces its row rather than
+    appending — the newest reading is the one the workspace should show, and a
+    history of transcriptions of the same page is not something anyone asked
+    for.
+    """
+
+    __tablename__ = "page_reads"
+    __table_args__ = (
+        UniqueConstraint("kind", "source_id", "page", name="uq_page_read_source_page"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    #: "attachment" or "upload" — see the class docstring on why this is part
+    #: of the key rather than a detail.
+    kind: Mapped[str] = mapped_column(String(16), index=True)
+    source_id: Mapped[int] = mapped_column(Integer, index=True)
+    #: Zero-based, matching the API and the page rail's own indexing.
+    page: Mapped[int] = mapped_column(Integer, default=0)
+    #: Which reader produced it: "vision", "ocr" or "tesseract".
+    reader: Mapped[str] = mapped_column(String(16), default="vision")
+    #: The model's name, or "Tesseract". Shown to the reader, because "who read
+    #: this" is the first question when a transcription looks wrong.
+    model: Mapped[str] = mapped_column(String(200), default="")
+    text: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class WhiteboardNode(Base, WorkspaceMixin):
     """A note card placed on the whiteboard canvas."""
 

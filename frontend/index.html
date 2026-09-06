@@ -5976,6 +5976,26 @@ Link to another note with [[its first few words]]."></textarea>
                 <p>Press <kbd>?</kbd> any time for the full list, or <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> to open the command palette and jump anywhere or search your notes. Press <kbd>g</kbd> then a letter to jump straight to a tab (<button type="button" class="linklike" data-goto-section="shortcuts">Settings → Shortcuts</button> lists which letter goes where) — MemoryMap has no “/” chat commands to learn; everything happens through the tools the AI already has in Agent mode and Skills.</p>
               </details>
             </div>
+
+            <!-- Item 40's "mini AI chat" half: app-guidance only, small and
+                 basic by design (not a second full Chat tab), no persisted
+                 history — nothing here is written to the database, so a new
+                 chat starts blank and this one forgets on reload by design.
+                 -->
+            <div class="settings-group help-chat-group">
+              <div class="row space-between">
+                <h4 class="flush"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Ask the guide</h4>
+                <button type="button" id="help-chat-clear" class="ghost small" title="Clear this chat and start over">
+                  <i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> New chat
+                </button>
+              </div>
+              <p class="muted">Quick "how do I…" answers about MemoryMap itself, from your utility model — not your notes, and nothing here is saved.</p>
+              <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite" aria-label="Help chat"></div>
+              <form id="help-chat-form" class="row help-chat-form">
+                <input type="text" id="help-chat-input" placeholder="e.g. How do I turn off web search?" maxlength="1000" autocomplete="off" aria-label="Ask the guide a question">
+                <button type="submit" id="help-chat-send" class="primary small">Ask</button>
+              </form>
+            </div>
           </section>
 
           <section class="settings-section hidden" id="settings-about">

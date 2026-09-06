@@ -6097,3 +6097,45 @@ to the chat composer and has never been round-tripped through a model; the
 vision reader's own behaviour is unchanged and still unexercised; and the
 Tensions caveat from §104 stands unaltered. Everything visual above was
 measured in Chromium and the numbers are quoted with it.
+
+## §112 — the Help mini AI chat, item 40's second half
+
+Item 40 asked for two things: docs/guides in Help, and a small embedded AI
+chat for "how do I…" questions. Checking the running app first (as this file
+keeps insisting on) found the docs half already done — a 13-topic accordion
+with `data-goto-tab`/`data-goto-section` cross-links into the exact setting
+or tab each topic describes. Only the chat half was missing, so only that
+got built.
+
+`src/memorymap/ai/help_chat.py` is deliberately its own path, not a
+parameterised call into `librarian.converse`/`answer`: it must never see the
+user's notes (a wrong-tab guess there would be a worse failure than "I don't
+know"), so it gets its own system prompt that refuses notebook questions
+outright and points them at Chat/Ask instead. It uses
+`ModelManager.utility_model()`, not the chat model, and the existing
+`"quick"` preset (256 tokens, temp 0.2, no thinking) rather than a new one —
+that preset already was "speed and accuracy over creativity, tight budget,"
+so a fourth preset would have been the same shape with a different name.
+
+The "hyperlinked badges" are a fixed keyword → `{label, tab|section}` lookup
+(`FEATURE_BADGES`), matched against the question and the reply text after the
+model answers, capped at three. Not asked of the model as structured output:
+a small local model returning prose and JSON in one completion is exactly the
+unreliable shape this codebase already avoids elsewhere (`ai/agent.py`'s own
+comments on tool-call reliability). The badges are plain
+`data-goto-tab`/`data-goto-section` buttons, so the Settings modal's existing
+delegated click handlers (`settings.js`, wired for the Help accordion) pick
+them up with no new wiring at all.
+
+`POST /help/ask` never touches the database — no `conversations` row, no
+`ChatMessage`. The running transcript lives in a module-level array in
+`settings.js`, sent back on each call as `history` and echoed into the next
+prompt; a page reload starts blank, exactly as asked ("no persisted history
+at all"). Verified end-to-end in Chromium: the Help section's new "Ask the
+guide" panel renders under the existing accordion, submitting a question adds
+a user bubble and an assistant bubble with no clipping (`scrollHeight` equals
+`clientHeight`), and "New chat" clears the transcript and returns focus to
+the input. No Ollama in this sandbox, so the *offline* path (`ollama.chat`
+never called) is what got exercised live; the happy path — a real reply and
+a badge match — is covered by `tests/test_help_chat.py` against the fake
+transport only, per this file's standing caveat.

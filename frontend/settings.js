@@ -3067,3 +3067,82 @@ function collapseLongSettingHints(root) {
   }
 }
 window.collapseLongSettingHints = collapseLongSettingHints;
+
+// --- Help mini AI chat (ROADMAP.md item 40's second half) -------------------
+// App-guidance only, backed by /help/ask. Deliberately not persisted: the
+// spec asked for no database row at all, so the running transcript lives
+// only in this module-level array — it survives a tab switch (this module
+// never reloads) but not a page reload, exactly as specified.
+let helpChatHistory = [];
+let helpChatBusy = false;
+
+function renderHelpChatMessage(role, content, badges = []) {
+  const list = $("help-chat-messages");
+  if (!list) return null;
+  const row = document.createElement("div");
+  row.className = `help-chat-msg is-${role}`;
+  if (role === "assistant") {
+    renderMarkdown(row, content);
+  } else {
+    row.textContent = content;
+  }
+  if (badges.length) {
+    const badgeRow = document.createElement("div");
+    badgeRow.className = "help-chat-badges";
+    for (const badge of badges) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "chip chip-interactive";
+      if (badge.tab) btn.dataset.gotoTab = badge.tab;
+      if (badge.section) btn.dataset.gotoSection = badge.section;
+      btn.textContent = badge.label;
+      badgeRow.appendChild(btn);
+    }
+    row.appendChild(badgeRow);
+  }
+  list.appendChild(row);
+  list.scrollTop = list.scrollHeight;
+  return row;
+}
+
+async function submitHelpChatQuestion(question) {
+  if (helpChatBusy || !question.trim()) return;
+  helpChatBusy = true;
+  const input = $("help-chat-input");
+  const sendBtn = $("help-chat-send");
+  if (sendBtn) sendBtn.disabled = true;
+  renderHelpChatMessage("user", question);
+  const pending = renderHelpChatMessage("assistant", "Thinking…");
+  pending?.classList.add("is-pending");
+  if (input) input.value = "";
+  try {
+    const result = await apiJson("/help/ask", {
+      method: "POST",
+      body: JSON.stringify({ question, history: helpChatHistory }),
+    });
+    pending?.remove();
+    const content = result?.content || "Sorry, I couldn't answer that.";
+    renderHelpChatMessage("assistant", content, result?.badges || []);
+    helpChatHistory.push({ role: "user", content: question });
+    helpChatHistory.push({ role: "assistant", content });
+  } catch {
+    pending?.remove();
+    renderHelpChatMessage("assistant", "Something went wrong asking that — try again.");
+  } finally {
+    helpChatBusy = false;
+    if (sendBtn) sendBtn.disabled = false;
+    input?.focus();
+  }
+}
+
+$("help-chat-form")?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  submitHelpChatQuestion($("help-chat-input")?.value || "");
+});
+
+$("help-chat-clear")?.addEventListener("click", () => {
+  helpChatHistory = [];
+  const list = $("help-chat-messages");
+  if (list) list.replaceChildren();
+  $("help-chat-input")?.focus();
+});

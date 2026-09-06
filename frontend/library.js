@@ -2444,6 +2444,17 @@ function ocrRenderRegions(body) {
   //: reader found there would be a lie about where the text is.
   const labels = {
     tesseract: "ph:scan Read on the page",
+    //: **"reading" is not a fallback badge any more, and it must not read as
+    //: one.** It used to be "stored-text": one region covering the whole page,
+    //: which really was a stand-in. Now the reading is split into its own
+    //: typed blocks in order (`ocr.regions_from_reading`) — real sections,
+    //: real structure, just no rectangles — so the badge says what is true of
+    //: it rather than apologising for what it lacks. The missing half is in
+    //: the message underneath, where the offer to install Tesseract lives.
+    reading: "ph:list-bullets Sections from the reading",
+    //: Kept only so an older cached response does not render as "Nothing read
+    //: yet", which would be wrong in the most alarming direction. Nothing
+    //: emits it.
     "stored-text": "ph:text-align-left Stored text, no page positions",
     none: "ph:warning Nothing read yet",
   };
@@ -2482,7 +2493,12 @@ function ocrRenderRegions(body) {
     $("ocr-boxes").classList.toggle("is-hidden", positioned && !boxToggle.checked);
   }
   for (const region of ocrWorkspaceRegions) {
-    if (positioned) {
+    //: `positioned` says the *reading* has boxes; `region.box` says this block
+    //: does. They are the same thing today and were not always — a payload
+    //: from before `box` became nullable, or a future reader that boxes some
+    //: blocks and not others, would crash on `region.box.x` here. One extra
+    //: check, and the list rows below still render for every block either way.
+    if (positioned && region.box) {
       const box = document.createElement("button");
       box.type = "button";
       box.className = `ocr-box ocr-box-${region.kind}`;
@@ -2502,9 +2518,37 @@ function ocrRenderRegions(body) {
     row.dataset.index = String(region.index);
     const head = document.createElement("div");
     head.className = "row ocr-region-head";
+    //: **Where this block came from, on the row itself.** Asked for: "make it
+    //: so extracted text is visually linked to the page or section it was
+    //: extracted from". Two halves — *which section* is the number, and
+    //: *which page* is the badge — and both are true whether or not anything
+    //: measured a rectangle, which is the whole reason the reading-derived
+    //: regions are worth having.
+    const where = document.createElement("span");
+    where.className = "chip ocr-region-where";
+    const pageNumber = (Number(body.page) || 0) + 1;
+    const pageCount = Number(body.pages) || 1;
+    where.textContent =
+      pageCount > 1
+        ? `p${pageNumber} \u00b7 \u00a7${region.index + 1}`
+        : `\u00a7${region.index + 1}`;
+    where.title =
+      pageCount > 1
+        ? `Section ${region.index + 1} of page ${pageNumber}`
+        : `Section ${region.index + 1} of this page`;
+    head.appendChild(where);
+
     const kind = document.createElement("span");
     kind.className = `chip ocr-region-kind ocr-region-kind-${region.kind}`;
-    kind.textContent = region.kind === "heading" ? "Heading" : "Text";
+    //: Five kinds now, not two. Tesseract still only ever says heading/text;
+    //: a reading also distinguishes lists, tables and code from prose, read
+    //: off the block's own shape. An unknown kind falls back to "Text" rather
+    //: than rendering `undefined`, which is the shape this repo keeps paying
+    //: for elsewhere.
+    kind.textContent =
+      { heading: "Heading", list: "List", table: "Table", code: "Code", text: "Text" }[
+        region.kind
+      ] || "Text";
     head.appendChild(kind);
     if (region.confidence) {
       //: Confidence is the one number that tells you whether to trust a row,

@@ -1281,8 +1281,20 @@ body.resizing-sidebar {
    would still render but stop doing anything when clicked. */
 .doc-toolbar .doc-toolbar-menu[open] > .doc-dock-menu-list {
   position: fixed;
-  top: 0;
-  left: 0;
+  /* **`auto`, not `0` — a fixed box at 0,0 lands in the corner of its
+     containing block**, and every one of these menus lives inside a `.card`
+     that becomes one whenever Appearance → Glass is on (`backdrop-filter`
+     creates a containing block for fixed descendants). `clampToolbarMenu`
+     writes real coordinates on open, so these values are only ever seen when
+     it could not measure — and reported, when they were zeros: "the toolbar
+     dropdowns are now appearing in the top left corner of the panel".
+
+     `auto` resolves to the *static* position: where the panel would have sat
+     in normal flow, which inside its own `<details>` is directly under the
+     button. So the un-clamped fallback is approximately right instead of
+     being in a corner nowhere near the control. */
+  top: auto;
+  left: auto;
   right: auto;
   /* Above the sticky strip (z-index 3) and the panels around it. */
   z-index: 60;

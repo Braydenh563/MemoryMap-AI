@@ -30,6 +30,7 @@ import functools
 import importlib
 import logging
 import os
+import re
 import shutil
 import subprocess  # noqa: S404 — fixed args from a hardcoded table below, no shell, no user input
 import sys
@@ -224,6 +225,99 @@ def extract_regions(image_path: Path) -> dict | None:
             }
         )
     return {"width": width, "height": height, "regions": regions, "source": "tesseract"}
+
+
+#: A line this many characters or fewer, with no closing punctuation, is a
+#: heading rather than a one-line paragraph. Twelve words at a generous average
+#: — long enough for a real section title, short enough that a sentence which
+#: happens to end without a full stop is not mistaken for one.
+READING_HEADING_CHARS = 72
+
+
+def regions_from_reading(text: str) -> list[dict]:
+    """Split a page's *reading* into typed blocks, with no image involved.
+
+    **Why this exists: "the regions dont work without tesseract but surely
+    there's a better way."** They did not, and the fallback said so honestly —
+    one region covering the whole page and a message telling you to go install
+    a binary. That is a correct answer to the wrong question. This app's
+    primary reader is a vision model, not Tesseract (see `read_page`), so on
+    the path most people actually use, the page *was* read, in order, with its
+    structure intact in the text — and the workspace threw all of that away
+    because it could not draw a rectangle around it.
+
+    Regions are two different things wearing one name: **where a block sits on
+    the page**, which genuinely needs pixel analysis, and **what the blocks
+    are, in order**, which does not. This computes the second from the reading
+    itself, so every page gets regions whatever is installed: a heading is
+    still a heading, a table is still a table, and "this sentence came from
+    block 4 of page 2" is answerable — which is what "make it so extracted
+    text is visually linked to the page or section it was extracted from"
+    actually asks for. Where Tesseract *is* installed, `extract_regions` above
+    still supplies real boxes and this is not used.
+
+    Blocks are separated by blank lines, which is what every reader — vision
+    model, Tesseract's own `--psm 1`, a PDF text layer — already emits between
+    paragraphs. `box` is None rather than a full-page rectangle: a box that
+    claims to be the whole page is a *wrong* answer, and the UI can draw a
+    list without one but cannot un-draw a lie.
+    """
+    blocks: list[dict] = []
+    for chunk in re.split(r"\n\s*\n", str(text or "")):
+        body = chunk.strip("\n").rstrip()
+        if not body.strip():
+            continue
+        blocks.append(
+            {
+                "index": len(blocks),
+                "kind": _reading_block_kind(body),
+                "text": body,
+                #: Nothing measured it, so nothing pretends to have. The
+                #: workspace reads 0.0 as "no confidence to show" and omits the
+                #: badge rather than displaying a confident-looking zero.
+                "confidence": 0.0,
+                "box": None,
+            }
+        )
+    return blocks
+
+
+def _reading_block_kind(body: str) -> str:
+    """What a block of a reading is, from its shape alone.
+
+    Deliberately shape, not content: a model asked to label its own output
+    costs a second round trip per page and disagrees with itself between runs,
+    and every one of these is a rule a person could check by looking.
+    """
+    lines = [line for line in body.splitlines() if line.strip()]
+    first = lines[0].strip() if lines else ""
+
+    #: A fenced block, or a run of lines that are all indented four spaces —
+    #: the two ways every markdown reader writes code.
+    if first.startswith("```") or all(line.startswith("    ") for line in lines):
+        return "code"
+    #: Two or more pipes on most lines is a table however it was drawn; a
+    #: single stray pipe in prose is not.
+    if len(lines) >= 2 and sum(line.count("|") >= 2 for line in lines) >= len(lines) - 1:
+        return "table"
+    #: Bullets, numbers, or checkboxes on the majority of lines.
+    bulleted = sum(
+        bool(re.match(r"^\s*(?:[-*+\u2022]|\d+[.)])\s+", line)) for line in lines
+    )
+    if lines and bulleted >= max(2, len(lines) - 1):
+        return "list"
+    #: A markdown heading says so outright. Otherwise: one short line with no
+    #: sentence-ending punctuation is a title, which is how a heading reads on
+    #: a scanned page where nothing carries markup at all.
+    if first.startswith("#"):
+        return "heading"
+    if (
+        len(lines) == 1
+        and len(first) <= READING_HEADING_CHARS
+        and not first.endswith((".", "!", "?", ":", ";", ","))
+    ):
+        return "heading"
+    return "text"
 
 
 def extract_and_store(upload_id: int, image_path: Path) -> None:

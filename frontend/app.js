@@ -16036,18 +16036,39 @@ function kebabMenu(items, ariaLabel) {
 //: `toggle` does not bubble, so this listens in the capture phase — one
 //: delegated listener covers the note composer's strip and the document
 //: editor's, including any `<details>` menu added to either later.
-function clampToolbarMenu(details) {
+function clampToolbarMenu(details, { retry = true } = {}) {
   const list = details.querySelector(".doc-dock-menu-list");
   if (!list) return;
   const opener = details.querySelector("summary") || details;
-  // Cleared first so the measurement below is of the menu's own size, not of
-  // wherever the previous open left it.
-  list.style.left = "0px";
-  list.style.top = "0px";
-  list.style.right = "auto";
+  // **Cleared, not zeroed — and this distinction is the whole bug below.**
+  //
+  // The inline values have to go before measuring, or the menu's own size is
+  // measured from wherever the previous open left it. This used to clear them
+  // by writing `left: 0; top: 0`, and then the guard two lines down could
+  // `return` — leaving those zeros in place. A `position: fixed` element at
+  // 0,0 sits in the top-left corner of whatever its containing block is,
+  // which for these menus is the surrounding `.card`: reported as "the
+  // toolbar dropdowns are now appearing in the top left corner of the panel",
+  // with a screenshot of the Block menu pinned to the corner of the capture
+  // card while its button sat 1,600px away.
+  //
+  // Writing "" removes the declaration instead, so a failed measurement falls
+  // back to the stylesheet — which now says `top: auto; left: auto`, i.e. the
+  // static position, i.e. roughly under the button. A wrong-but-near answer
+  // beats a corner every time.
+  list.style.left = "";
+  list.style.top = "";
+  list.style.right = "";
   const anchor = opener.getBoundingClientRect();
   const box = list.getBoundingClientRect();
-  if (!box.width || !anchor.width) return;
+  if (!box.width || !anchor.width) {
+    // Nothing to measure *yet* is a real state: a `<details>` panel is not
+    // laid out until the open takes effect, and this runs from the `toggle`
+    // event. One retry on the next frame, once — a loop here would spin
+    // forever on a menu that is genuinely empty.
+    if (retry) requestAnimationFrame(() => clampToolbarMenu(details, { retry: false }));
+    return;
+  }
   const margin = 8;
   // **Left-aligned to the opener, growing rightwards.**
   //

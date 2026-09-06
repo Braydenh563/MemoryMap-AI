@@ -103,14 +103,19 @@ def test_with_tesseract_installed_both_readers_are_offered(two_pages: Path, monk
 
 
 @needs_pdfium
-def test_stored_text_stands_in_for_the_first_page_only(two_pages: Path, monkeypatch):
+def test_a_stored_reading_stands_in_for_the_first_page_only(two_pages: Path, monkeypatch):
     """A document's stored reading belongs to the *document*. Offering it as
-    page 7's fallback would be the app stating a guess about where the text
-    came from as a fact — the same line the "stored-text" badge exists to
-    hold."""
+    page 7's sections would be the app stating a guess about where the text
+    came from as a fact — the same line the source badge exists to hold.
+
+    (The badge is "reading" now, not "stored-text": without Tesseract the
+    reading is split into its own typed blocks rather than returned as one
+    whole-page region. What is being pinned here is unchanged — page 2 gets
+    nothing, because page 1's text is not page 2's.)
+    """
     monkeypatch.setattr("memorymap.core.ocr.tesseract_available", lambda: False)
     first = _pdf_regions_for(two_pages, 0, "Some text read earlier", "Read by a model")
-    assert first.source == "stored-text"
+    assert first.source == "reading"
     assert first.regions[0].text == "Some text read earlier"
     later = _pdf_regions_for(two_pages, 1, "Some text read earlier", "Read by a model")
     assert later.source == "none"

@@ -1524,25 +1524,38 @@ class OcrRegionBox(BaseModel):
 
 class OcrRegionOut(BaseModel):
     index: int
-    #: "text" or "heading". Deliberately not "table"/"formula"/"figure":
-    #: Tesseract reports boxes and confidences, and a semantic label guessed
-    #: from box geometry would be a guess presented as a fact.
+    #: From Tesseract: "text" or "heading" only — it reports boxes and
+    #: confidences, and a semantic label guessed from box *geometry* would be a
+    #: guess presented as a fact. From a reading (`ocr.regions_from_reading`),
+    #: also "list", "table" and "code", because those are read off the block's
+    #: own shape — pipes, bullets, a fence — which is evidence rather than
+    #: inference.
     kind: str
     text: str
     confidence: float
-    box: OcrRegionBox
+    #: **None when nothing measured where this block sits.** A reading gives
+    #: order and structure but no pixels, and a box covering the whole page
+    #: would be a wrong answer rather than a missing one — the workspace can
+    #: render a list without a rectangle, but it cannot un-draw a lie about
+    #: where the text was.
+    box: OcrRegionBox | None = None
 
 
 class OcrRegionsOut(BaseModel):
     width: int
     height: int
     regions: list[OcrRegionOut]
-    #: "tesseract" when the boxes are real, "stored-text" when the OCR stack
-    #: is missing and this is the one already-extracted blob standing in for
-    #: a page of regions, "none" when there is nothing at all. The reader is
-    #: told which — a single region covering the whole page is a *fallback*,
-    #: and drawing it as though Tesseract had found it there would be a lie
-    #: about where the text is.
+    #: "tesseract" when the boxes are real; "reading" when they were derived
+    #: from the text the vision model (or any other reader) already produced —
+    #: real blocks in real order, with no box; "none" when the page has not
+    #: been read at all. The reader is told which, because a block list without
+    #: boxes and a page of measured rectangles answer different questions and
+    #: the UI draws them differently.
+    #:
+    #: "stored-text" is the retired third value: it meant "one region covering
+    #: the whole page", which was a fallback that told you nothing about
+    #: structure and existed only because splitting the reading had not been
+    #: tried. Nothing emits it now.
     source: str
     message: str = ""
     #: How many pages this file has, when it is a document the workspace can
@@ -1654,25 +1667,27 @@ def _regions_for(path: Path, stored_text: str, stored_label: str) -> OcrRegionsO
             regions=[],
             source="none",
             message=(
-                "Tesseract isn't installed, so the page can't be split into "
-                "regions. Install it from Settings → AI models to see where "
-                "each line sits on the page."
+                "This page hasn't been read yet — read it and its sections "
+                "will appear here."
             ),
         )
+    #: **The page was read; split what it said.** Reported as "the regions
+    #: dont work without tesseract but surely there's a better way", and there
+    #: is: the vision model is this app's primary reader and it returns the
+    #: page in order with its structure intact, so the blocks are already
+    #: there — only the rectangles are missing. `regions_from_reading` types
+    #: them from their own shape and numbers them, which is what makes "this
+    #: text came from section 4 of page 2" answerable with nothing installed.
+    blocks = ocr.regions_from_reading(text)
     return OcrRegionsOut(
         width=0,
         height=0,
-        regions=[
-            OcrRegionOut(
-                index=0,
-                kind="text",
-                text=text,
-                confidence=0.0,
-                box=OcrRegionBox(x=0.0, y=0.0, w=1.0, h=1.0),
-            )
-        ],
-        source="stored-text",
-        message=f"{stored_label} — install Tesseract to see where each line sits on the page.",
+        regions=[OcrRegionOut(**block) for block in blocks],
+        source="reading",
+        message=(
+            f"{stored_label} — sections come from the reading itself. "
+            "Install Tesseract to also see where each one sits on the page."
+        ),
     )
 
 

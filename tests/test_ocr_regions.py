@@ -185,20 +185,31 @@ def test_a_pdf_is_read_page_by_page_rather_than_refused(client):
     assert "pages" in response.json()
 
 
-def test_the_route_falls_back_to_the_text_it_already_has(client, monkeypatch):
+def test_without_tesseract_the_sections_come_from_the_reading(client, monkeypatch):
     """Tesseract missing is the *common* case (it is a system binary, not a
-    wheel). The workspace still opens, with the one blob of stored text as a
-    single whole-page region — and `source` says so, because drawing that as
-    though Tesseract had found it there would be a lie about where it is."""
+    wheel), and this app's primary reader is a vision model anyway.
+
+    This used to answer with one region covering the whole page, badged
+    "stored-text" — honest, and useless: it threw away the structure the
+    reading already had because it could not draw a rectangle around it.
+    Reported as "the regions dont work without tesseract but surely there's a
+    better way". Now the reading is split into its own blocks, typed by shape,
+    and `box` is **None** rather than a full-page rectangle — a box that
+    claims to be the whole page is a wrong answer, not a missing one.
+    """
     monkeypatch.setattr(ocr, "extract_regions", lambda path: None)
     created = client.post("/entries", json={"content": "host note"}).json()
     files = {"file": ("scan.png", b"\x89PNG\r\n\x1a\n" + b"0" * 32, "image/png")}
     upload = client.post(f"/entries/{created['id']}/files", files=files)
     attachment_id = upload.json()["attachments"][-1]["id"]
-    client.post(f"/files/{attachment_id}/analyse", json={"kind": "ocr", "text": "READ ME"})
+    reading = "Invoice\n\nAmount due is forty pounds.\n\n- one\n- two\n- three"
+    client.post(f"/files/{attachment_id}/analyse", json={"kind": "ocr", "text": reading})
 
     body = client.get(f"/files/{attachment_id}/ocr-regions").json()
-    assert body["source"] == "stored-text"
-    assert [r["text"] for r in body["regions"]] == ["READ ME"]
-    assert body["regions"][0]["box"] == {"x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0}
+    assert body["source"] == "reading"
+    assert [r["kind"] for r in body["regions"]] == ["heading", "text", "list"]
+    assert body["regions"][0]["text"] == "Invoice"
+    # Nothing measured where these are, so nothing claims to have.
+    assert all(r["box"] is None for r in body["regions"])
+    # The offer to install Tesseract stays — it adds the boxes this cannot.
     assert "Tesseract" in body["message"]

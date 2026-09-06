@@ -2806,3 +2806,8 @@ p.graph-help-panel {
   margin: var(--space-1) 0 var(--space-3);
   font-size: var(--text-xs);
 }
+
+/* The Loose ends widget's call to action, below its sample rows. */
+.dash-loose-action {
+  margin-top: var(--space-3);
+}

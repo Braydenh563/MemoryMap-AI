@@ -1241,6 +1241,16 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   display: inline-flex;
   align-items: center;
   gap: var(--space-4);
+  /* **Wraps, because on a phone it did not.** Measured at 390x844: with no
+     wrap these four toggles ran straight off the right edge — `Hide unlinked`
+     ended at x=488 and `Labels` at x=652 on a 390px-wide screen — and unlike
+     the legend below (which is deliberately a scrolling row, and says so)
+     nothing here scrolls, so those two options were simply unreachable on a
+     phone. Wrapping is the right answer rather than scrolling: these are four
+     independent checkboxes, not one ranked row, so a second line costs
+     nothing and keeps every one of them hittable. */
+  flex-wrap: wrap;
+  row-gap: var(--space-2);
 }
 
 .graph-physics+.graph-temporal::before,

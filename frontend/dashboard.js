@@ -2768,6 +2768,29 @@ async function renderOrphanNotesWidget(body) {
   body.appendChild(caption);
 
   if (!loose.length) return;
+
+  // **The widget that names the problem offers the thing that fixes it.**
+  // The auto-linker lives as "Suggest links" in the Graph tab's toolbar,
+  // among the graph's own display options — so the one screen that tells you
+  // most of your notebook is unconnected had no way to act on it, and the
+  // feature that would has to be found first. `loadLinkSuggestions` renders
+  // into the Graph tab's own panel, so this switches there and runs it rather
+  // than duplicating the list here.
+  const connect = document.createElement("button");
+  connect.type = "button";
+  connect.className = "ghost small dash-loose-action";
+  const connectIcon = document.createElement("i");
+  connectIcon.className = "ph ph-link ph-lead";
+  connectIcon.setAttribute("aria-hidden", "true");
+  connect.append(connectIcon, "Find links to add");
+  connect.title = "Look for notes worth connecting, and approve them one by one";
+  connect.addEventListener("click", () => {
+    switchTab("graph");
+    // The tab switch renders asynchronously; the suggestions panel it draws
+    // into has to exist before it is filled.
+    setTimeout(() => loadLinkSuggestions(), 120);
+  });
+  body.appendChild(connect);
   // Oldest first: a note written this morning has not had a chance to be
   // filed yet, and nagging about it is how a hygiene widget becomes noise.
   const oldest = [...loose].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));

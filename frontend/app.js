@@ -15850,28 +15850,51 @@ function kebabMenu(items, ariaLabel) {
 function clampToolbarMenu(details) {
   const list = details.querySelector(".doc-dock-menu-list");
   if (!list) return;
-  // Cleared first so the measurement below is of the stylesheet's own
-  // placement, not of wherever the previous open left it.
-  list.style.left = "";
-  list.style.right = "";
-  const panel = details.closest(".card, .doc-main, .modal") || document.body;
-  const panelBox = panel.getBoundingClientRect();
-  const opener = details.getBoundingClientRect();
-  const width = list.getBoundingClientRect().width;
-  if (!width || !panelBox.width) return;
+  const opener = details.querySelector("summary") || details;
+  // Cleared first so the measurement below is of the menu's own size, not of
+  // wherever the previous open left it.
+  list.style.left = "0px";
+  list.style.top = "0px";
+  list.style.right = "auto";
+  const anchor = opener.getBoundingClientRect();
+  const box = list.getBoundingClientRect();
+  if (!box.width || !anchor.width) return;
   const margin = 8;
-  // The stylesheet's placement, expressed as an offset from the opener's own
-  // left edge: right-aligned to the opener.
-  let left = opener.width - width;
-  const lowest = panelBox.left + margin - opener.left;
-  const highest = panelBox.right - margin - width - opener.left;
-  // `lowest` wins a tie deliberately: a panel narrower than the menu cannot
+  // The stylesheet's intent, in viewport coordinates: right-aligned to the
+  // opener, growing leftwards.
+  let left = anchor.right - box.width;
+  if (left + box.width > window.innerWidth - margin) {
+    left = window.innerWidth - margin - box.width;
+  }
+  // `margin` wins a tie deliberately: a viewport narrower than the menu cannot
   // satisfy both edges, and losing the *start* of the list is worse than
   // losing its end.
-  left = Math.max(lowest, Math.min(left, highest));
+  if (left < margin) left = margin;
+  let top = anchor.bottom + 4;
+  if (top + box.height > window.innerHeight - margin) {
+    // Flip above the opener, and only fall back to "pinned to the bottom" when
+    // there is no room either way — a menu that covers its own button is still
+    // better than one whose last item is unreachable.
+    const above = anchor.top - 4 - box.height;
+    top = above >= margin ? above : Math.max(margin, window.innerHeight - margin - box.height);
+  }
   list.style.left = `${Math.round(left)}px`;
-  list.style.right = "auto";
+  list.style.top = `${Math.round(top)}px`;
 }
+
+//: A fixed-position menu does not travel with the strip it belongs to, so any
+//: scroll or resize while it is open would leave it stranded beside a button
+//: that has moved. Re-placing on both is cheaper than the alternative (an
+//: anchor-positioning polyfill) and covers the two ways it can happen: the
+//: page scrolls under a sticky toolbar, or the toolbar itself is scrolled
+//: sideways in row mode.
+function replaceOpenToolbarMenus() {
+  for (const details of document.querySelectorAll(".doc-toolbar-menu[open]")) {
+    clampToolbarMenu(details);
+  }
+}
+window.addEventListener("resize", replaceOpenToolbarMenus);
+window.addEventListener("scroll", replaceOpenToolbarMenus, true);
 
 document.addEventListener(
   "toggle",

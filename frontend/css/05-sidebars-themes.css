@@ -1257,13 +1257,35 @@ body.resizing-sidebar {
   scrollbar-width: thin;
 }
 
-/* **A menu opening un-clips the strip.** In row mode the toolbar is a
-   scroller, so a `<details>` popup inside it would be trapped again — the
-   second half of the same report. `:has()` (already used elsewhere in this
-   stylesheet) drops the clipping for exactly as long as a menu is open, so
-   the popup escapes and the scroller returns the moment it closes. */
-.doc-toolbar[data-toolbar-mode="row"]:has(details[open]) {
-  overflow: visible;
+/* **Un-clipping the strip to free a menu freed the whole toolbar too.**
+   This used to be `.doc-toolbar[data-toolbar-mode="row"]:has(details[open])
+   { overflow: visible }` — the popup escaped, and so did the ~59 controls
+   the scroller exists to contain. Reported with a screenshot: *"I used a
+   dropdown in the toolbar in the capture tab and it went off the panel and
+   to the end"*. The strip stopped clipping the instant a menu opened, so
+   every button past the panel's right edge painted straight over the pane
+   beside it, and whatever the strip had been scrolled to was thrown away in
+   the same frame.
+
+   `overflow: visible` was always the wrong lever: it is the *popup* that
+   needs to leave the scroller, not the strip that needs to stop being one.
+   So the popup goes `position: fixed` while it is open and is placed against
+   the viewport by `clampToolbarMenu` (app.js) — a fixed box is clipped only
+   by an ancestor that establishes a containing block (a transform, filter or
+   backdrop-filter), and nothing between here and <body> does. The strip
+   keeps clipping and keeps its scroll position throughout.
+
+   It stays where it is in the DOM rather than being reparented to <body>,
+   which is the other way to escape a clipping ancestor: the toolbar's button
+   handlers are delegated from the strip itself, so a menu moved out of it
+   would still render but stop doing anything when clicked. */
+.doc-toolbar .doc-toolbar-menu[open] > .doc-dock-menu-list {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: auto;
+  /* Above the sticky strip (z-index 3) and the panels around it. */
+  z-index: 60;
 }
 
 /* Nothing in the strip may shrink — a squeezed button is a button whose glyph
@@ -1369,14 +1391,9 @@ body.resizing-sidebar {
   padding-left: 0;
 }
 
-/* A menu inside a scrolling container would be clipped by it. These are
-   `<details>` popovers positioned against the strip, so the strip is told to
-   let them out — `overflow-y: visible` above does that vertically, and this
-   keeps the popover itself out of the scroll calculation. */
-.doc-toolbar .doc-toolbar-menu[open] .doc-dock-menu-list {
-  position: absolute;
-  z-index: 4;
-}
+/* (The open menu's own positioning now lives with the row-mode rule above,
+   which takes it out of the strip's flow entirely. A `position: absolute`
+   here would put it straight back into the scroller it needs to escape.) */
 
 /* The colour pickers are <select>s, and this app styles form controls as
    full-width block inputs by default — so each one claimed its own line and

@@ -38,6 +38,7 @@ from memorymap.api import (
     routes_entries,
     routes_files,
     routes_graph,
+    routes_help,
     routes_insights,
     routes_library,
     routes_models,
@@ -296,9 +297,10 @@ def create_app() -> FastAPI:
     app.add_middleware(security.OriginCheckMiddleware)
     app.add_middleware(
         security.SecurityHeadersMiddleware,
-        csp=security.build_csp(
-            security.inline_script_hashes(FRONTEND_DIR / "index.html")
-        ),
+        # Tracks index.html rather than freezing one policy at startup — see
+        # CspForPage for the reported bug that caused ("blocked
+        # script-src-elem: inline" after any frontend update, until restart).
+        csp=security.CspForPage(FRONTEND_DIR / "index.html"),
     )
 
     # Everything that touches the user's data sits behind the unlock
@@ -310,6 +312,10 @@ def create_app() -> FastAPI:
     app.include_router(routes_ask_history.router, dependencies=locked)
     app.include_router(routes_models.router, dependencies=locked)
     app.include_router(routes_settings.router, dependencies=locked)
+    # The browser's own crash reports, which have to reach the log *before*
+    # unlock — that is when the failure they describe happens. One route, and
+    # `routes_settings.open_router`'s own comment says why it is separate.
+    app.include_router(routes_settings.open_router)
     app.include_router(routes_update.router, dependencies=locked)
     app.include_router(routes_websearch.router, dependencies=locked)
     app.include_router(routes_backups.router, dependencies=locked)
@@ -330,6 +336,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_drafts.router, dependencies=locked)
     app.include_router(routes_insights.router, dependencies=locked)
     app.include_router(routes_graph.router, dependencies=locked)
+    app.include_router(routes_help.router, dependencies=locked)
     app.include_router(routes_reminders.router, dependencies=locked)
     app.include_router(routes_bookmarks.router, dependencies=locked)
     app.include_router(routes_voice.router, dependencies=locked)

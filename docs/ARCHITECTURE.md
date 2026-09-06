@@ -171,6 +171,9 @@ MemoryMap-AI-v0/
 │   │   ├── embeddings.py    # embedding service + background warm-up
 │   │   ├── janitor.py       # LLM prompt #1: file a note into a category
 │   │   ├── librarian.py     # LLM prompt #2: answer from retrieved notes
+│   │   ├── help_chat.py     # the Help tab's "Ask the guide" mini chat:
+│   │   │                    #   app-guidance only, grounded in HELP_TOPICS,
+│   │   │                    #   never touches notes or the database
 │   │   ├── agent.py         # tool-calling loop (Wave G)
 │   │   ├── autonomous.py    # the background librarian (§39A): a scheduled
 │   │   │                    #   agent pass over the whole notebook. Off by
@@ -242,6 +245,7 @@ are grouped by feature area:
 | `routes_insights` | `/insights` | dashboard: stats, most-accessed, on-this-day, digest |
 | `routes_reminders` | `/reminders` | create/list/complete reminders |
 | `routes_voice` | `/voice` | local Whisper transcription |
+| `routes_help` | `/help` | the Help tab's mini AI chat (`POST /help/ask`) — app guidance only, no persisted history |
 | `routes_timeline` | `/timeline` | the notebook on a time axis, in bands |
 | `routes_tasks` | `/tasks` | what is running in the background right now |
 | `routes_library` | `/library` | **everything you have made, in one list** — notes, documents, chats, files, tags, bin, activity, assembled server-side |
@@ -889,7 +893,7 @@ style, optional AI profile, …) live in `data/preferences.json`, managed by
 
 ## 12. Testing & CI
 
-- **Run locally:** `PYTHONPATH=src pytest` (≈1,900 tests, a few minutes). Uses a
+- **Run locally:** `PYTHONPATH=src pytest` (2,700+ tests, ~7-8 minutes). Uses a
   throwaway database and fakes every AI call (`tests/fakes.py` +
   `tests/conftest.py`), so it's fast and fully offline.
 - **The suite cannot see the UI.** Every layout and wiring bug fixed so far

@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import threading
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
@@ -34,14 +35,17 @@ from memorymap.core import deps, vault
 from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_suggestions)
     Bookmark,
     Document,
+    DocumentLink,
     EmbeddingRecord,
     Entry,
     EntryBookmark,
     EntryLink,
     EntryRevision,
+    MediaUpload,
+    WhiteboardNode,
 )
 from memorymap.core.deps import get_session
-from memorymap.entry import manager
+from memorymap.entry import duplicates, manager
 from memorymap.search import search_manager
 
 router = APIRouter(prefix="/entries", tags=["entries"])
@@ -103,6 +107,8 @@ def _to_out(
         is_draft=bool(getattr(entry, "is_draft", False)),
         source_url=getattr(entry, "source_url", None),
         source_title=getattr(entry, "source_title", None),
+        source_path=getattr(entry, "source_path", "") or "",
+        is_board=bool(getattr(entry, "is_board", False)),
         created_at=entry.created_at,
         deleted_at=entry.deleted_at if entry.is_deleted else None,
         archived_at=entry.archived_at,
@@ -120,6 +126,9 @@ def _to_out(
                 preview=_preview(manager.readable_content(other)),
                 reason=link.reason,
                 reason_confidence=link.reason_confidence,
+                # The one fact the merged list could never carry. See
+                # `LinkOut.direction`.
+                direction="out" if link.source_entry_id == entry.id else "in",
             )
             for link, other in resolved_links
         ],
@@ -133,6 +142,7 @@ def _to_out(
             for a in manager.attachments_for(session, entry)
         ],
         filed_by=filed_by,
+        filing_state=getattr(entry, "filing_state", "done") or "done",
         similar=similar,
     )
 
@@ -195,11 +205,103 @@ def _process_committed_media(session: Session, plaintext_content: str) -> None:
     )
 
 
+def _file_entry_now(session: Session, content: str) -> tuple[str, int, str]:
+    """Ask the janitor where a note belongs. Whatever goes wrong in AI land,
+    the note still gets saved (plan §4)."""
+    try:
+        return janitor.categorise(
+            session,
+            content,
+            deps.get_embeddings(),
+            deps.get_model_manager(),
+            deps.get_ollama(),
+        )
+    except Exception:
+        return manager.UNCATEGORISED, 0, "none"
+
+
+def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
+    """Decide a deferred note's category after its POST has already returned.
+
+    Runs on its own daemon thread with its own session, the same shape
+    `core/ocr.py`'s `extract_in_background` uses and for the same reason:
+    the request this belongs to is finished, and the user is already typing
+    the next note.
+
+    Two things here are load-bearing and easy to get wrong:
+
+    **The workspace has to be re-established by hand.** A fresh session from
+    `deps.get_db()` carries no `workspace_id` in `session.info`, so the
+    scoping hooks in `core/database.py` sit out entirely — which means the
+    janitor would otherwise weigh *every space's* categories when deciding
+    where a note from one space belongs, and could file it into a category
+    that space cannot even see. `impersonate_workspace` puts the session
+    back in the note's own space for the duration.
+
+    **The note is never left saying "pending" forever.** Every exit path —
+    success, a janitor that raised, an entry deleted while the thread was
+    still running — settles `filing_state`, because the composer's status
+    chip and the poller in `app.js` both read it as "still working" and a
+    stuck value would show a note filing itself for eternity.
+
+    **Filing is not the only slow thing in a save**, and deferring it alone
+    left the request at ~1s measured locally with no model running at all.
+    Embedding the note and the near-duplicate search (itself a full semantic
+    search, run only to *maybe* show an advisory toast) were the rest of it,
+    and neither is anything the composer needs before the user can start
+    typing again. They move here too. The duplicate warning comes back
+    through `GET /entries/{id}/filing` instead of the create response, so a
+    note that triggers one still gets its "you already wrote something like
+    this" — a moment later, in the same notification that says where it was
+    filed.
+    """
+    from memorymap.core.deps import impersonate_workspace
+
+    try:
+        with deps.get_db().session() as session:
+            with impersonate_workspace(session, workspace_id):
+                entry = session.get(Entry, entry_id)
+                if entry is None:
+                    return  # deleted before filing finished — nothing to settle
+                category, confidence, _filed_by = _file_entry_now(
+                    session, manager.readable_content(entry)
+                )
+                entry.category_id = manager.get_or_create_category(
+                    session, category
+                ).id
+                entry.ai_confidence = confidence
+                # Ordered deliberately: the vector has to exist before the
+                # near-duplicate search has anything to compare against, and
+                # both have to land before `filing_state` reads "done" — that
+                # flag is what the composer's poller stops on.
+                deps.store_quietly(session, entry)
+                duplicate = _find_near_duplicate(session, entry)
+                if duplicate is not None:
+                    entry.filing_similar_id = duplicate.id
+                entry.filing_state = "done"
+                session.commit()
+    except Exception:
+        logger.warning("background filing failed for entry %s", entry_id, exc_info=True)
+        try:
+            with deps.get_db().session() as session:
+                entry = session.get(Entry, entry_id)
+                if entry is not None:
+                    entry.filing_state = "failed"
+                    session.commit()
+        except Exception:
+            logger.warning("couldn't mark entry %s as failed", entry_id, exc_info=True)
+
+
 @router.post("", response_model=EntryOut, status_code=201)
 def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> EntryOut:
     parent = None
     if body.parent_id is not None:
         parent = _existing_entry(session, body.parent_id)
+
+    # Deferred only when nothing else already decides the category: with an
+    # explicit `category` or a `parent_id` there is no model call to wait
+    # for, so deferring would add a round trip and buy nothing.
+    defer = body.defer_filing and not body.category and parent is None
 
     if body.category:
         # Guided mode: the user chose — the AI stays out of it entirely.
@@ -209,19 +311,14 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
         # parent's category — predictable beats clever here.
         category = manager.category_name_for(session, parent)
         confidence, filed_by = 75, "thread"
+    elif defer:
+        # Saved to disk now, filed a moment later — see
+        # `_file_entry_in_background`. Uncategorised is a real, visible
+        # holding place rather than a null, so a note whose filing thread
+        # dies with the process is still exactly where a user can find it.
+        category, confidence, filed_by = manager.UNCATEGORISED, 0, "pending"
     else:
-        # Ask the janitor where this belongs. Whatever goes wrong in AI
-        # land, the note still gets saved (plan §4).
-        try:
-            category, confidence, filed_by = janitor.categorise(
-                session,
-                body.content,
-                deps.get_embeddings(),
-                deps.get_model_manager(),
-                deps.get_ollama(),
-            )
-        except Exception:
-            category, confidence, filed_by = manager.UNCATEGORISED, 0, "none"
+        category, confidence, filed_by = _file_entry_now(session, body.content)
 
     entry = manager.create_entry(
         session,
@@ -239,13 +336,19 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     if body.source_url:
         entry.source_url = body.source_url
         entry.source_title = body.source_title
+    if defer:
+        entry.filing_state = "pending"
     session.commit()
 
     # Best effort: a failed embedding only means this entry is invisible
     # to semantic search until re-indexed — never a failed save. It is logged
     # rather than swallowed, so a backend that has stopped working shows up in
     # Settings → Logs instead of quietly shrinking search.
-    deps.store_quietly(session, entry)
+    #
+    # Skipped when filing is deferred: the same background thread does it,
+    # right before the near-duplicate search that depends on it.
+    if not defer:
+        deps.store_quietly(session, entry)
 
     # [[wiki links]] become real links. Best effort for the same reason: a
     # link that can't be resolved must never cost someone their note.
@@ -271,9 +374,54 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     # that was actually just submitted, before that happens.
     _process_committed_media(session, body.content)
 
-    return _to_out(
-        session, entry, filed_by=filed_by, similar=_find_near_duplicate(session, entry)
+    out = _to_out(
+        session,
+        entry,
+        filed_by=filed_by,
+        similar=None if defer else _find_near_duplicate(session, entry),
     )
+
+    # Started last, on purpose: everything above still runs inside the
+    # request, so the thread can never race the commit that makes this note
+    # visible to its own session.
+    if defer:
+        threading.Thread(
+            target=_file_entry_in_background,
+            args=(entry.id, getattr(entry, "workspace_id", "default") or "default"),
+            daemon=True,
+            name=f"file-entry-{entry.id}",
+        ).start()
+
+    return out
+
+
+@router.get("/{entry_id}/filing")
+def filing_status(entry_id: int, session: Session = Depends(get_session)) -> dict:
+    """Where a deferred note ended up — the one thing the composer polls.
+
+    Deliberately not `GET /entries/{id}`: that serialises links, documents,
+    dates and attachments through four more queries, and a poller running
+    every second while a note settles would pay all of it to read three
+    fields. This is the whole of what the "Filed under X" notification
+    needs.
+    """
+    entry = _existing_entry(session, entry_id)
+    similar = None
+    duplicate_id = getattr(entry, "filing_similar_id", None)
+    if duplicate_id is not None:
+        other = session.get(Entry, duplicate_id)
+        if other is not None:
+            similar = {
+                "id": other.id,
+                "preview": _preview(manager.readable_content(other)),
+            }
+    return {
+        "id": entry.id,
+        "filing_state": getattr(entry, "filing_state", "done") or "done",
+        "category": manager.category_name_for(session, entry),
+        "ai_confidence": entry.ai_confidence,
+        "similar": similar,
+    }
 
 
 class SuggestTagsBody(BaseModel):
@@ -490,6 +638,11 @@ def improve_writing(body: ImproveBody) -> dict:
 # Notes this similar are almost certainly worth connecting.
 LINK_SUGGESTION_THRESHOLD = 0.55
 
+#: How many of the twelve suggestions any one note may anchor. See
+#: `link_suggestions` for the measurement that put this here: without a cap,
+#: one note paired with six copies of itself filled half the list.
+MAX_SUGGESTIONS_PER_NOTE = 2
+
 #: How many concept matches `?semantic=true` returns. A search result is a
 #: shortlist to read, not a second copy of the notebook.
 SEMANTIC_LIST_LIMIT = 25
@@ -538,10 +691,45 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     # `similar_pairs` hands these back best-first and blocks the matrix
     # multiply, so a big notebook costs one block of memory rather than an
     # N×N matrix. Stop at 12 rather than scoring every pair into a list first.
+    #
+    # **Two filters stand between "best-first" and "useful", and both were
+    # added after measuring what this actually returned.** On a real 116-note
+    # notebook every single one of the twelve suggestions was a pair of notes
+    # with *identical* text, scoring 1.00 — six of them the same stub note
+    # paired with six copies of itself. The feature was working exactly as
+    # written and surfacing nothing worth acting on, which is the measured
+    # reason a notebook can sit at 16 linked notes out of 116 with the
+    # auto-linker switched on the whole time.
+    #
+    #  1. A near-identical pair is a *duplicate*, not a connection. Linking
+    #     two copies of one note records that a note resembles itself. This
+    #     app already has a feature whose whole job is that case, so the pair
+    #     belongs to it — `entry/duplicates.py`, same threshold, reusing its
+    #     arithmetic word-overlap score rather than inventing a second notion
+    #     of "the same". Cheap enough to run on the survivors of the vector
+    #     pass, which is a handful of pairs, not the notebook.
+    #  2. One note may anchor at most `MAX_SUGGESTIONS_PER_NOTE` of the
+    #     twelve. Without this, the single most connectable note in a
+    #     notebook takes every slot with its own neighbours (which is exactly
+    #     what happened above), and the list stops being a survey of the
+    #     notebook and becomes a survey of one note.
     suggestions = []
+    appearances: dict[int, int] = {}
     for a, b, score in similar_pairs(vectors, LINK_SUGGESTION_THRESHOLD):
         if frozenset((a, b)) in already_linked:
             continue
+        if (
+            appearances.get(a, 0) >= MAX_SUGGESTIONS_PER_NOTE
+            or appearances.get(b, 0) >= MAX_SUGGESTIONS_PER_NOTE
+        ):
+            continue
+        if (
+            duplicates.similarity(entries_by_id[a].content, entries_by_id[b].content)
+            >= duplicates.DEFAULT_THRESHOLD
+        ):
+            continue
+        appearances[a] = appearances.get(a, 0) + 1
+        appearances[b] = appearances.get(b, 0) + 1
         suggestions.append({
             "source_id": a,
             "target_id": b,
@@ -560,6 +748,157 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
         if len(suggestions) == 12:
             break
     return suggestions
+
+
+#: Where dismissed tensions are remembered. A preference key rather than a new
+#: table: this is a small list of pair keys, it belongs to the person rather
+#: than to either note, and adding a migration for "I looked at this and it
+#: was not a contradiction" would be a heavy answer to a light question.
+TENSION_DISMISSED_KEY = "tensions_dismissed"
+
+#: Tensions look at pairs the notebook already believes are about the same
+#: thing (see `ai/tensions.py` — contradiction is only possible between notes
+#: sharing a subject). A lower bar than `LINK_SUGGESTION_THRESHOLD` on
+#: purpose: two notes that *disagree* often share less vocabulary than two
+#: that agree, because the disagreement is exactly where their words differ.
+TENSION_CANDIDATE_THRESHOLD = 0.45
+
+
+def _tension_key(a: int, b: int) -> str:
+    """A stable id for a pair, order-independent."""
+    low, high = sorted((a, b))
+    return f"{low}:{high}"
+
+
+def _dismissed_tensions() -> set[str]:
+    stored = deps.get_config().get_preference(TENSION_DISMISSED_KEY, []) or []
+    return {str(key) for key in stored}
+
+
+@router.get("/tensions")
+def find_tensions(
+    limit: int = Query(default=8, ge=1, le=20),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Places the notebook appears to disagree with itself.
+
+    The feature `core/database.py`'s `LINK_TYPES` comment says the typed-link
+    vocabulary was built for and that nothing ever produced — see
+    `ai/tensions.py` for the full reasoning. Read-only and suggestion-only:
+    finding a tension writes nothing, and `POST /entries/tensions/accept` is
+    the only thing that creates the `contradicts` link.
+
+    Returns `{"tensions": [...], "status": "..."}` rather than a bare list so
+    an empty result can say *why* it is empty — "no model running" and "your
+    notebook does not contradict itself" are completely different answers and
+    a bare `[]` renders them identically, which is how a feature that never
+    ran gets reported as a feature that found nothing.
+    """
+    from memorymap.ai.embeddings import bytes_to_vector, similar_pairs
+    from memorymap.ai import tensions as tensions_module
+
+    ollama = deps.get_ollama()
+    if not ollama.is_running():
+        return {"tensions": [], "status": "no_model"}
+
+    embeddings = deps.get_embeddings()
+    if not embeddings.is_ready():
+        return {"tensions": [], "status": "no_embeddings"}
+
+    entries = manager.list_entries(session)
+    by_id = {e.id: e for e in entries if not e.is_private and not e.is_board}
+    if len(by_id) < 2:
+        return {"tensions": [], "status": "too_few_notes"}
+
+    records = session.execute(
+        select(EmbeddingRecord.entry_id, EmbeddingRecord.embedding).where(
+            EmbeddingRecord.model_version == embeddings.backend_id()
+        )
+    ).all()
+    vectors = {eid: bytes_to_vector(blob) for eid, blob in records if eid in by_id}
+
+    # A pair already marked as contradicting is a finding the person has
+    # already accepted, not one to re-propose. Every other link type is left
+    # alone deliberately: notes can be linked as "related" *and* disagree,
+    # and that is one of the more interesting cases.
+    known: set[str] = set(_dismissed_tensions())
+    for link in session.scalars(select(EntryLink).where(EntryLink.link_type == "contradicts")):
+        known.add(_tension_key(link.source_entry_id, link.target_entry_id))
+
+    models = deps.get_model_manager()
+    found: list[dict] = []
+    checked = 0
+    for a_id, b_id, score in similar_pairs(vectors, TENSION_CANDIDATE_THRESHOLD):
+        if checked >= tensions_module.MAX_PAIRS_PER_PASS or len(found) >= limit:
+            break
+        if _tension_key(a_id, b_id) in known:
+            continue
+        ordered = tensions_module.order_by_time(by_id[a_id], by_id[b_id])
+        if ordered is None:
+            continue  # same few days, or undated — see MIN_GAP_DAYS
+        checked += 1
+        tension = tensions_module.compare_pair(ordered[0], ordered[1], models, ollama)
+        if tension is None:
+            continue
+        found.append(
+            {
+                "key": _tension_key(tension.earlier_id, tension.later_id),
+                "earlier_id": tension.earlier_id,
+                "later_id": tension.later_id,
+                "explanation": tension.explanation,
+                "earlier_excerpt": tension.earlier_excerpt,
+                "later_excerpt": tension.later_excerpt,
+                "earlier_at": tension.earlier_at,
+                "later_at": tension.later_at,
+                "gap_days": tension.gap_days,
+                "similarity": round(score, 2),
+            }
+        )
+    status = "ok" if found else ("none_found" if checked else "no_candidates")
+    return {"tensions": found, "status": status, "pairs_checked": checked}
+
+
+class TensionPair(BaseModel):
+    earlier_id: int
+    later_id: int
+
+
+@router.post("/tensions/accept")
+def accept_tension(body: TensionPair, session: Session = Depends(get_session)) -> dict:
+    """Record a tension as a real `contradicts` link between the two notes.
+
+    Uses `manager.create_link` rather than inserting a row, so the link gets
+    the same audit entry, the same self-link and duplicate guards, and the
+    same graph/traversal treatment as one made by hand.
+    """
+    earlier = _existing_entry(session, body.earlier_id)
+    later = _existing_entry(session, body.later_id)
+    link = manager.create_link(
+        session,
+        earlier,
+        later,
+        reason="these disagree with each other",
+        link_type="contradicts",
+    )
+    return {"created": link is not None}
+
+
+@router.post("/tensions/dismiss")
+def dismiss_tension(body: TensionPair) -> dict:
+    """Stop offering this pair. Remembered across restarts.
+
+    Capped, and oldest-first: without a cap this preference would grow
+    without bound on a notebook where most candidates are rejected, and it
+    is written to disk on every change (see `Config.set_preference`).
+    """
+    config = deps.get_config()
+    stored = list(config.get_preference(TENSION_DISMISSED_KEY, []) or [])
+    key = _tension_key(body.earlier_id, body.later_id)
+    if key not in stored:
+        stored.append(key)
+    del stored[:-500]
+    config.set_preference(TENSION_DISMISSED_KEY, stored)
+    return {"dismissed": key}
 
 
 class LinkSuggestionReasonPair(BaseModel):
@@ -1201,6 +1540,123 @@ def remove_entry_title(entry_id: int, session: Session = Depends(get_session)) -
     return _to_out(session, entry)
 
 
+@router.get("/{entry_id}/connections")
+def entry_connections(entry_id: int, session: Session = Depends(get_session)) -> dict:
+    """Everything this note is joined to, in one place and grouped by kind.
+
+    Asked for by way of Kortex's Connections block: *"I should be able to
+    seamlessly utilise, flick, link, manage, create and search between
+    multiple features"*. Every one of these joins already existed in the
+    database — `EntryLink` both ways, `DocumentLink`, `WhiteboardNode`,
+    `/media/<name>` references in the body — but each was surfaced (if at
+    all) somewhere different: links as chips on the card, documents as a
+    separate list, boards nowhere at all. A note could be on three boards
+    and referenced by two documents and show none of it.
+
+    Direction is kept, not merged. "This note points at that one" and "that
+    one points at this" are different facts, and a merged list can state
+    neither.
+    """
+    entry = _existing_entry(session, entry_id)
+    outgoing: list[dict] = []
+    incoming: list[dict] = []
+    for link, other in manager.links_for_entry(session, entry):
+        if other.is_deleted:
+            continue
+        row = {
+            "link_id": link.id,
+            "id": other.id,
+            # A private note's text never leaves the vault for a list like
+            # this: the *fact* of the connection is not secret, its content
+            # is. Same rule as the Library's own file-usage chips.
+            "preview": (
+                "Private note" if other.is_private else _connection_label(other)
+            ),
+            "is_private": bool(other.is_private),
+            "reason": link.reason,
+            "reason_confidence": link.reason_confidence,
+        }
+        (outgoing if link.source_entry_id == entry.id else incoming).append(row)
+
+    documents = [
+        {"id": doc.id, "title": doc.title, "file_type": doc.file_type}
+        for doc in session.scalars(
+            select(Document)
+            .join(DocumentLink, DocumentLink.document_id == Document.id)
+            .where(DocumentLink.entry_id == entry.id)
+            .order_by(Document.title)
+        )
+    ]
+
+    # A board is itself a note (`WhiteboardNode.board_id` points at an
+    # entry), and `board_id IS NULL` is the unnamed scratch board every
+    # notebook starts with — so the title has to be resolved per row rather
+    # than joined, and NULL is a real board, not a missing one.
+    boards: list[dict] = []
+    seen_boards: set[int | None] = set()
+    for node in session.scalars(
+        select(WhiteboardNode).where(WhiteboardNode.entry_id == entry.id)
+    ):
+        if node.board_id in seen_boards:
+            continue
+        seen_boards.add(node.board_id)
+        title = "Whiteboard"
+        if node.board_id is not None:
+            board = session.get(Entry, node.board_id)
+            if board is None:
+                continue
+            title = manager.extract_title(manager.readable_content(board)) or "Untitled board"
+        boards.append({"id": node.board_id, "title": title, "node_id": node.id})
+
+    files = _connected_files(session, manager.readable_content(entry))
+
+    return {
+        "outgoing": outgoing,
+        "incoming": incoming,
+        "documents": documents,
+        "boards": boards,
+        "files": files,
+        "total": len(outgoing) + len(incoming) + len(documents) + len(boards) + len(files),
+    }
+
+
+def _connection_label(entry) -> str:  # noqa: ANN001
+    """What one note is called on another note's Connections list.
+
+    A note's own leading `# Heading` is what it calls itself, so that is the
+    label when it wrote one — `_preview` alone hands back "# Connections probe
+    B\noven temperatures", which renders on a single-line row as the hash, the
+    title and the first line of the body run together.
+    """
+    text = manager.readable_content(entry)
+    return manager.extract_title(text) or _preview(text, 80)
+
+
+def _connected_files(session: Session, text: str) -> list[dict]:
+    """The uploads a body of markdown actually references, as cards.
+
+    `referenced_names` is the same parse the media garbage collector uses to
+    decide what is *not* an orphan, so a file listed here and a file the GC
+    spares are guaranteed to be the same set — there is no second regex to
+    drift out of step with it.
+    """
+    from memorymap.core.media_gc import referenced_names
+
+    names = referenced_names(text)
+    if not names:
+        return []
+    rows = session.scalars(select(MediaUpload).where(MediaUpload.filename.in_(names)))
+    return [
+        {
+            "name": media.filename,
+            "original_name": media.original_name,
+            "url": f"/media/{media.filename}",
+            "caption": media.caption or "",
+        }
+        for media in rows
+    ]
+
+
 @router.post("/{entry_id}/links", response_model=EntryOut)
 def create_link(
     entry_id: int, body: LinkBody, session: Session = Depends(get_session)
@@ -1211,6 +1667,14 @@ def create_link(
         session, source, target, reason=body.reason, link_type=body.link_type
     )
     if link is None:
+        # Three refusals share one return value, so the message names the one
+        # that actually applies — "already linked" on a draft/note pair would
+        # send someone hunting for a link that was never allowed to exist.
+        if bool(source.is_draft) != bool(target.is_draft):
+            raise HTTPException(
+                status_code=400,
+                detail="A draft can't be linked to a saved note. Save the draft first.",
+            )
         raise HTTPException(
             status_code=400, detail="Already linked (or tried to link an entry to itself)"
         )

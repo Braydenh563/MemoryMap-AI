@@ -170,7 +170,13 @@ def test_the_strip_offers_a_preview_and_a_way_back():
     strip = source.split("function chatAttachmentStrip(")[1].split("\nfunction addBubble(")[0]
     assert "openLightbox(" in strip, "the thumbnail must open the full-size view"
     assert "figcaption" in strip, "the caption has to be visible under the card"
-    assert 'switchTab("library")' in strip
+    # `focusLibraryFile`, not a literal `switchTab("library")`, since the
+    # Library's media view became two sub-tabs (Images and Files) and which
+    # one to open depends on the file. The property this line is really
+    # asserting — that the card offers a way back to the Library — is
+    # unchanged; the helper is where the three steps now live, and it is
+    # tested by being the only route any of the three call sites take.
+    assert "focusLibraryFile(" in strip, "the card must offer a way back to the Library"
     assert 'switchTab("documents")' in strip and "openDocument(" in strip
 
 

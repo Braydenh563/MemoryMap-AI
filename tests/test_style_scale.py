@@ -432,3 +432,134 @@ def test_the_shared_rule_never_swallows_a_non_text_control():
     assert not (listed & NON_TEXTUAL_INPUTS), (
         f"non-text controls in the shared text-input rule: {sorted(listed & NON_TEXTUAL_INPUTS)}"
     )
+
+
+# --- the CARP additions (DESIGN.md, "The principles this system is an
+# implementation of") -------------------------------------------------------
+#
+# The four tests above this line cover spacing, type and corners: the values a
+# rule *declares*. The two below cover the two failures that survived all of
+# them, because a stylesheet can be perfectly on-scale and still render
+# inconsistently:
+#
+#   - A control class can declare padding and font-size and no height, and
+#     then render at five different heights depending only on what each
+#     instance happens to contain. `button.small` did exactly that — measured
+#     live at 19, 24, 25, 26 and 30px across six screens.
+#   - A hit target can be below the size a person can reliably hit. The
+#     Semantic toggles measured 32x18 and the reminder checkboxes 13x13,
+#     against WCAG 2.2 AA's 24px floor.
+#
+# Neither is visible in a diff, and both were found by measuring a running
+# browser. These make them visible in CI instead.
+
+
+def test_the_hit_target_floor_is_declared_and_used():
+    """`--target-min` exists, and the controls that had no height use it.
+
+    DESIGN.md's "Hit targets" section is the contract. Without this, the token
+    can be quietly dropped by a later refactor and every control it was
+    holding up goes back to being sized by its content — which is how it got
+    to 19px in the first place.
+    """
+    css = css_text()
+    assert "--target-min:" in css, (
+        "--target-min is gone. It is the floor under every interactive "
+        "element (DESIGN.md, 'Hit targets') — a control with no declared "
+        "height falls back to being sized by whatever text it holds."
+    )
+    for selector in ("button.small", 'input[type="checkbox"]'):
+        block = _rule_block(css, selector)
+        assert block is not None, f"{selector} has no rule at all any more"
+        assert "--target-min" in block, (
+            f"`{selector}` no longer uses --target-min. Measured before it "
+            f"did: button.small rendered at 19/24/25/26/30px across six "
+            f"screens, and checkboxes at 13x13 against WCAG 2.2 AA's 24px."
+        )
+
+
+def test_every_indefinite_animation_answers_reduced_motion():
+    """An `infinite` animation has a `prefers-reduced-motion` branch.
+
+    DESIGN.md states the rule and why the branch must *keep the information*:
+    stopping a spinner is right, removing the thing it was telling you is not.
+    This checks the mechanical half — that a branch exists at all — because
+    that is the half a new component silently skips.
+    """
+    css = css_text()
+    animated = set(re.findall(r"animation:[^;]*\binfinite\b[^;]*;", css))
+    if not animated:
+        return
+    reduced = re.findall(
+        r"@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{(.*?)\n\}", css, re.S
+    )
+    blob = "\n".join(reduced)
+    # Every selector that declares an infinite animation should appear inside
+    # at least one reduced-motion block. Matched on the selector rather than
+    # the declaration, since the branch turns the animation *off*.
+    offenders = []
+    for match in re.finditer(
+        r"([^{}]+)\{[^{}]*animation:[^;]*\binfinite\b[^;]*;[^{}]*\}", css
+    ):
+        selector = match.group(1).strip().split("\n")[-1].strip()
+        if not selector or selector.startswith("@"):
+            continue
+        head = selector.split()[-1].lstrip(".#")
+        if head and head not in blob:
+            offenders.append(selector)
+    assert not offenders, (
+        "These run an indefinite animation with no prefers-reduced-motion "
+        "branch:\n  " + "\n  ".join(offenders) + "\n\nSee DESIGN.md, 'Motion'."
+    )
+
+
+def _rule_block(css: str, selector: str) -> str | None:
+    """The declaration block of the first rule whose selector *list* contains
+    `selector` as a whole entry.
+
+    Written as a depth-tracking scan rather than a regex over `{...}` pairs.
+    A flat regex desyncs on the first `@keyframes` — nested braces — and then
+    attributes every later rule to the wrong selector, which is how this
+    helper failed twice before being written this way. Comments are stripped
+    first so a brace inside one cannot do the same.
+    """
+    body = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    depth, i, head = 0, 0, 0
+    while i < len(body):
+        char = body[i]
+        if char == "{":
+            depth += 1
+            if depth == 1:
+                selectors = [s.strip() for s in body[head:i].split(",")]
+                if selector in selectors:
+                    end, inner = i + 1, 1
+                    while end < len(body) and inner:
+                        inner += (body[end] == "{") - (body[end] == "}")
+                        end += 1
+                    return body[i + 1 : end - 1]
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                head = i + 1
+        i += 1
+    return None
+
+
+def test_the_hidden_attribute_is_enforced_over_the_apps_own_display_rules():
+    """`<button hidden>` must actually be hidden.
+
+    Reported with a screenshot — "there's an empty bubble in the header next
+    to the model name??" — and measured as `hidden: true` with
+    `display: "flex"`, a 24.8x20px pill with nothing in it. The attribute's
+    `display: none` comes from the *user agent* stylesheet, so any author rule
+    beats it, and this app sets `display: flex` on every `button`: every
+    `<button hidden>` in the app was visible. A `<span hidden>` in the same row
+    was correctly invisible, which is why it went unnoticed for so long.
+
+    A lint rather than a behaviour test for the usual reason: nothing in this
+    Python suite can see a rendered DOM, and the rule is one line to keep and
+    a screenshot plus several rounds to rediscover.
+    """
+    block = _rule_block(_stylesheet(), "[hidden]")
+    assert block is not None, "no `[hidden]` rule — see this test's docstring"
+    assert "display" in block and "none" in block and "!important" in block

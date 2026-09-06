@@ -20,6 +20,8 @@ best-effort contract as its two siblings.
 
 from __future__ import annotations
 
+
+
 import base64
 import importlib
 import logging
@@ -29,6 +31,48 @@ import threading
 from pathlib import Path
 
 from memorymap.core import pdfpages
+
+#: Page reads in flight right now, keyed by an opaque id -> what is being read.
+#:
+#: Asked for directly: "make sure the ocr and featrures int he workspase
+#: actually function and even if the user leaves the things being read. also
+#: let the user be able to stop the readings., make sure eveyrhting appears in
+#: the bg processes in settings." The last clause is this: a page read is a
+#: model round-trip of several seconds and it appeared in Settings ->
+#: Background tasks nowhere at all, unlike captioning (`ai/captioning.py`'s
+#: `_running`, the shape copied here) or a re-index. So closing the workspace
+#: mid-read left no trace anywhere that the app was still working.
+#:
+#: Registered around the *request handler* rather than inside the reader,
+#: because both readers (the vision model and Tesseract) go through the same
+#: two endpoints and neither should have to know about this list.
+_reads_lock = threading.Lock()
+_reads: dict[int, dict] = {}
+_read_seq = 0
+
+
+def register_page_read(label: str, model: str = "") -> int:
+    """Record a read as running. Returns the id to hand `finish_page_read`."""
+    global _read_seq
+    with _reads_lock:
+        _read_seq += 1
+        token = _read_seq
+        _reads[token] = {"label": label, "model": model}
+    return token
+
+
+def finish_page_read(token: int) -> None:
+    """Drop a read from the running list. Never raises on an unknown id — the
+    caller is a `finally`, and a `finally` that can throw hides the real
+    error."""
+    with _reads_lock:
+        _reads.pop(token, None)
+
+
+def running_page_reads() -> list[dict]:
+    """What is being read right now, for the Tasks panel."""
+    with _reads_lock:
+        return [{"token": token, **info} for token, info in _reads.items()]
 
 logger = logging.getLogger("memorymap.vision_ocr")
 
@@ -226,6 +270,85 @@ def vision_ocr_and_store(upload_id: int, image_path: Path, force: bool = False) 
             detail="no legible text found" if not text else "",
         )
         return text
+
+
+def pdf_vision_ocr_and_store(upload_id: int, pdf_path: Path, force: bool = False) -> str | None:
+    """The same job as `vision_ocr_and_store`, for a PDF rather than a picture.
+
+    This exists because of a gap that was invisible from either side.
+    `VISION_OCR_SUFFIXES` is raster-only, so `process_committed_upload` never
+    started a reader for an uploaded PDF — while `pdf_vision_reader` (the half
+    that *can* read one) was only ever reached from a button. The result: file
+    a scanned PDF and nothing at all had read it, so it was unsearchable and
+    the agent could not see a word of it until somebody happened to open it and
+    press a button. Asked for directly: *"make sure all the file and document
+    ocr works with ai ocr models, I dont use tesseract."*
+
+    A PDF that already carries a text layer is left alone: `docview.extract`
+    (no `vision_reader` passed, so no model round trip) reads that layer, and
+    a model asked to transcribe a page whose text is already exact can only
+    make it worse. The model is for scans — the case where there is nothing
+    else.
+    """
+    deps = importlib.import_module("memorymap.core.deps")
+    docview = importlib.import_module("memorymap.core.docview")
+    taskhistory = importlib.import_module("memorymap.core.taskhistory")
+    from memorymap.core.database import MediaUpload
+
+    with deps.get_db().session() as session:
+        upload = session.get(MediaUpload, upload_id)
+        if upload is None:
+            return None  # deleted before this ran
+        if upload.vision_ocr_text and not force:
+            return upload.vision_ocr_text
+        original = upload.original_name
+
+    # Outside the session: both of these are slow (a converter, then a model
+    # per page), and holding a session open across them is how a background
+    # job ends up blocking a request.
+    try:
+        if (docview.extract(pdf_path).text or "").strip():
+            return None  # has a real text layer; nothing for a model to add
+    except Exception:  # noqa: BLE001 — an unreadable PDF just means "try the model"
+        pass
+
+    reader = pdf_reader_or_none()
+    if reader is None:
+        return None  # no model, no rasteriser, or the backend is down
+    try:
+        text = (reader(pdf_path) or "").strip()
+    except Exception:  # noqa: BLE001 — same reasoning as vision_ocr_text's own
+        taskhistory.record("vision_ocr", f"Reading text from {original}", "failed")
+        return None
+
+    model = deps.get_model_manager().resolve_ocr_model(deps.get_ollama()) or ""
+    with deps.get_db().session() as session:
+        upload = session.get(MediaUpload, upload_id)
+        if upload is None:
+            return None
+        upload.vision_ocr_text = text or None
+        upload.vision_ocr_model = model if text else None
+        session.commit()
+    taskhistory.record(
+        "vision_ocr",
+        f"Reading text from {original}",
+        "completed",
+        name=model,
+        detail="no legible text found" if not text else "",
+    )
+    return text or None
+
+
+def pdf_vision_ocr_in_background(upload_id: int, pdf_path: Path) -> None:
+    """Fire-and-forget, exactly as `vision_ocr_in_background` — and more
+    necessary here, since a scan is up to `pdfpages.MAX_PAGES` model round
+    trips rather than one."""
+    threading.Thread(
+        target=pdf_vision_ocr_and_store,
+        args=(upload_id, pdf_path),
+        daemon=True,
+        name="vision-ocr-pdf",
+    ).start()
 
 
 def vision_ocr_in_background(upload_id: int, image_path: Path) -> None:

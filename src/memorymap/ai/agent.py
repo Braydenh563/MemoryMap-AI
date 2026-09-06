@@ -240,7 +240,10 @@ COMPACT_TOOLS_GUIDE = (
 #: a well-behaved model treats the list as exhaustive, which is exactly the
 #: behaviour that makes a narrow guess expensive.
 #:
-#: One sentence, because it is on every round of every focused turn.
+#: One sentence, because it is on every round of every focused turn — and it
+#: is appended to the system message, joining the clock in its volatile tail
+#: (see build_agent_messages): narrowed-or-not is decided per turn, so this
+#: can never be part of the prefix-cached head wherever it is put.
 FOCUS_NOTE = (
     " The tools listed were picked from the wording of the request and are a "
     "suggestion, not a limit: if the right one is not there, call it by name "
@@ -449,6 +452,221 @@ REPEATED_CALL_NOTE = (
     "You have already made this exact call and it failed the same way. "
     "Calling it a third time will not help. Change the arguments, use a "
     "different tool, or stop and tell the user what you could not do."
+)
+
+# How many times one tool may fail in a turn — with *any* arguments — before
+# it is taken away for the rest of that turn. See `tool_failures` in
+# `run_agent` for the logged loop this exists for. Three is deliberate: two
+# failures is a model correcting itself, which is the behaviour the recovery
+# hints are there to produce and worth allowing; a third means it is not
+# converging and every further round is spent, not invested.
+#: What the chat transcript's tool disclosure shows when a tool did not write
+#: its own `summary`.
+#:
+#: Reported with a screenshot: "tools render fine in the chat initially but
+#: then I come back to them after reloading the app later and they look like
+#: this" — rows reading `Listed your categories{'categories': [{'name':
+#: 'Games', 'notes': 3}], 'total_notes': 27, 'label': 'ph:folders Listed your
+#: categories'}`. That is Python's `repr` of the result dict, which is what
+#: the fallback here used to be: single quotes, `True`/`False`, no line
+#: breaks, and the app's own display `label` repeated inside the body of the
+#: row whose heading already is that label.
+#:
+#: JSON instead, indented, for three reasons: it is the format the arguments
+#: block directly above it in the same disclosure already uses
+#: (`JSON.stringify(args, null, 2)`), so the two halves stop looking like they
+#: came from different programs; it is what the tool actually returned over
+#: the wire; and it wraps at field boundaries instead of running as one line.
+#: `label` is dropped because it is presentation the row has already shown,
+#: and `default=str` keeps a stray datetime from turning the whole disclosure
+#: into an error.
+#:
+#: 4000 is unchanged and deliberate — see the note at the call site: the box
+#: it lands in already scrolls (`.tool-chip-result`, 12rem), so this only
+#: bounds a pathological single result from bloating the SSE event.
+RESULT_SUMMARY_CHARS = 4000
+
+
+def _result_summary(result: dict) -> str:
+    """A tool's result as the transcript shows it."""
+    summary = result.get("summary")
+    if summary:
+        return str(summary)
+    body = {k: v for k, v in result.items() if k != "label"}
+    try:
+        text = json.dumps(body, indent=2, ensure_ascii=False, default=str)
+    except (TypeError, ValueError):
+        # A result that will not serialise is still worth showing.
+        text = str(body)
+    if len(text) > RESULT_SUMMARY_CHARS:
+        return text[:RESULT_SUMMARY_CHARS] + "…"
+    return text
+
+
+#: **What a tool call actually touched, as things the reader can open.**
+#:
+#: Asked for: "is it also possible to have live action lines show on the chat
+#: ui, to show and visually show as the ai accesses specific notes, files and
+#: stuff??"
+#:
+#: The transcript already said *that* a tool ran and, in a disclosure, what it
+#: returned as JSON. What it could not say is *which note* — and a note id in a
+#: blob of JSON is not something a person can act on, the same complaint that
+#: produced the palette's note links.
+#:
+#: Read from the tool's own result rather than from the arguments it was called
+#: with. Arguments are what the model *asked for*, which may be wrong, may be a
+#: search string rather than an id, and may name a note the call then refused.
+#: The result is what happened. A tool that touched nothing contributes
+#: nothing, which is why this returns a list and the UI omits the row when it
+#: is empty.
+#:
+#: Capped, because a `list_notes` over a big notebook would otherwise put fifty
+#: chips under one row and bury the answer beneath its own evidence.
+TOUCHED_LIMIT = 6
+
+
+def _touched_kind(candidate: dict) -> str | None:
+    """Which kind of thing a result row is, or None if it is not one.
+
+    **The order matters and is the whole correctness of this function.** A
+    document result carries `id`, `title` *and* `content` (see
+    ai/tools/documents.py), so a check for `content` alone calls a document a
+    note — and the UI would then open the *note* with that id, which is a
+    different object entirely, or nothing at all. `title` is what only a
+    document has; `content` is what a note has and a document also has. So
+    document is tested first, and note is the fallback.
+    """
+    if "title" in candidate:
+        return "document"
+    if "content" in candidate:
+        return "note"
+    return None
+
+
+def _touched_items(result: dict) -> list[dict]:
+    """What a tool result names, as {kind, id, label} for the transcript."""
+    if not isinstance(result, dict):
+        return []
+    rows: list[dict] = []
+    seen: set[tuple[str, int]] = set()
+
+    def _take(candidate: object) -> None:
+        if len(rows) >= TOUCHED_LIMIT or not isinstance(candidate, dict):
+            return
+        item_id = candidate.get("id")
+        if not isinstance(item_id, int):
+            return
+        kind = _touched_kind(candidate)
+        if kind is None or (kind, item_id) in seen:
+            return
+        seen.add((kind, item_id))
+        # A document is known by its title; a note has none, so its opening
+        # words stand in for one — the same thing `noteLabel` shows in a list.
+        source = candidate.get("title") if kind == "document" else candidate.get("content")
+        label = " ".join(str(source or "").split())[:60]
+        rows.append({"kind": kind, "id": item_id, "label": label or f"{kind} #{item_id}"})
+
+    # The single-item shape (`get_note`, `edit_note`, `read_document`) is the
+    # result itself; the many-item shapes nest under a handful of stable keys.
+    _take(result)
+    for key in ("notes", "documents", "results", "matches", "linked", "created"):
+        value = result.get(key)
+        if isinstance(value, list):
+            for item in value:
+                _take(item)
+    return rows
+
+
+#: How many web/file sources one tool call may contribute to the answer's
+#: Sources panel. Five is what `web_search` itself asks the engine for.
+SOURCE_LIMIT = 8
+
+#: How much of a result's own text stands in as a preview. Long enough to tell
+#: whether the source is the one you want, short enough that eight of them do
+#: not become a second answer under the answer.
+SOURCE_SNIPPET_CHARS = 220
+
+
+def _tool_sources(name: str, result: dict) -> list[dict]:
+    """The pages and files one read-only call actually consulted, as
+    ``{title, url, snippet}`` rows for the chat's Sources panel.
+
+    Reported: *"improve the ui of the sources… what is shown about the
+    sources, dropdown previews, hyperlinks etc."* The panel could not show any
+    of that, because none of it was ever sent: a tool event carried a prose
+    label and a bounded `result_summary` blob, so the front end had a sentence
+    where it needed a title, an address and a line of the page.
+
+    Read-only tools only. A write tool's result is a change, and changes are
+    already carried by `change`/`touched` — a source is something the answer
+    *drew on*.
+    """
+    if not isinstance(result, dict) or "error" in result:
+        return []
+    rows: list[dict] = []
+
+    def _clip_text(value: object) -> str:
+        text = " ".join(str(value or "").split())
+        return text[:SOURCE_SNIPPET_CHARS]
+
+    if name == "web_search":
+        for hit in (result.get("results") or [])[:SOURCE_LIMIT]:
+            if not isinstance(hit, dict):
+                continue
+            rows.append(
+                {
+                    "title": _clip_text(hit.get("title")) or str(hit.get("url") or ""),
+                    "url": str(hit.get("url") or ""),
+                    "snippet": _clip_text(hit.get("snippet")),
+                }
+            )
+    elif name == "read_url":
+        rows.append(
+            {
+                "title": _clip_text(result.get("title")) or str(result.get("url") or ""),
+                "url": str(result.get("url") or ""),
+                "snippet": _clip_text(result.get("text")),
+            }
+        )
+    elif name in {"read_file", "search_files"}:
+        matches = result.get("matches") or result.get("results") or []
+        if isinstance(matches, list) and matches:
+            for hit in matches[:SOURCE_LIMIT]:
+                if not isinstance(hit, dict):
+                    continue
+                rows.append(
+                    {
+                        "title": _clip_text(hit.get("path") or hit.get("name")),
+                        "url": "",
+                        "snippet": _clip_text(hit.get("snippet") or hit.get("text")),
+                    }
+                )
+        elif result.get("path") or result.get("name"):
+            rows.append(
+                {
+                    "title": _clip_text(result.get("path") or result.get("name")),
+                    "url": "",
+                    "snippet": _clip_text(result.get("text") or result.get("content")),
+                }
+            )
+    #: A row with nothing to say is not a source. Dropping it here keeps the
+    #: "is there anything to show" test in the front end a length check.
+    return [row for row in rows if row["title"] or row["url"]]
+
+
+MAX_TOOL_FAILURES = 3
+
+# How many confirm cards one destructive tool may put in front of the user in
+# a single turn. See the `parked` check in `run_agent`.
+MAX_PARKED_CONFIRMS = 2
+
+TOOL_EXHAUSTED_NOTE = (
+    "This tool has now failed several times in this turn with different "
+    "arguments, so it has been switched off for the rest of this turn. Do "
+    "not call it again — you will get this same message. Either do the job "
+    "with a different tool, or stop now and tell the user plainly what you "
+    "were trying to do and what went wrong."
 )
 
 
@@ -709,12 +927,27 @@ def build_agent_messages(
         f" The current date and time is {local.replace(second=0, microsecond=0).isoformat()}"
         f" ({local.tzname() or 'local time'})."
     )
+    # **The clock goes last, and that ordering is the whole point.** A
+    # prefix cache (Ollama's, llama.cpp's, every backend that has one) keeps
+    # the tokens *before the first difference* and re-reads everything after
+    # it. Rounding to the minute above stops the clock changing between the
+    # rounds of one turn; putting it at the end of the message stops the
+    # minute it does change from invalidating anything ahead of it. Persona,
+    # grounding and the tools guide — by far the largest part of this prompt,
+    # and the part that is identical turn after turn — now sit in front of
+    # every volatile byte, so they are re-read from cache instead of
+    # re-processed. Asked for directly: "keep the system prompt + persona
+    # byte-identical turn to turn so the cache is reused."
+    #
+    # Everything between them is stable *within* a conversation: the style
+    # hint, the profile and the length hint only change when the user changes
+    # a setting or the mode, which is a new prefix either way.
     messages = [
         {
             "role": "system",
             "content": f"{persona} {AGENT_GROUNDING} "
-            f"{tools_guide(budget.window_tokens if budget else None)}{now_hint} "
-            f"{style_hint}{profile_hint}{librarian.length_hint(mode)}",
+            f"{tools_guide(budget.window_tokens if budget else None)} "
+            f"{style_hint}{profile_hint}{librarian.length_hint(mode)}{now_hint}",
         }
     ]
     past = librarian.history_messages(history)
@@ -1035,6 +1268,27 @@ def run_agent(
     # (tool, arguments) pairs that have already failed, so a model looping on
     # the same broken call can be told so rather than burning every round.
     failed_calls: set[tuple[str, str]] = set()
+    # **How many times each tool has failed this turn, regardless of its
+    # arguments.** `failed_calls` above only catches a model repeating the
+    # *identical* call, and the loop this exists for never does that.
+    #
+    # Reported with a live log: the agent called `merge_categories` over and
+    # over, alternating between "There is no category called X" and "X and X
+    # are the same category" — different arguments every round, so the
+    # signature guard never fired once, and the turn burned every round it
+    # had before telling the user nothing. The tool's own error message even
+    # listed the real category names (see `_find_category`), so this is not
+    # fixable by explaining harder: a small model that has misunderstood
+    # *what the tool is for* will keep producing fresh wrong arguments for it
+    # indefinitely. The only thing that ends that is taking the tool away.
+    tool_failures: dict[str, int] = {}
+    # Destructive calls parked for the user's approval this turn, per tool.
+    parked: dict[str, int] = {}
+
+    def _count_failure(tool_name: str) -> int:
+        tool_failures[tool_name] = tool_failures.get(tool_name, 0) + 1
+        return tool_failures[tool_name]
+
     # …and the ones that have already *succeeded*, which is the other half of
     # the same idea: a repeat of a call that worked is not progress either. The
     # model has that result in its context already.
@@ -1216,6 +1470,7 @@ def run_agent(
                 # job is bigger than one step, and the useful answer is "you
                 # are already inside the mechanism you are reaching for".
                 failed_calls.add(signature)
+                _count_failure(name)
                 messages.append(
                     {
                         "role": "tool",
@@ -1246,6 +1501,7 @@ def run_agent(
                     else _RECOVERY_HINTS["not_in_skill"]
                 )
                 failed_calls.add(signature)
+                _count_failure(name)
                 yield {
                     "type": "tool",
                     "label": f"ph:warning {name} isn't part of this skill",
@@ -1272,6 +1528,7 @@ def run_agent(
                     # exist. Recoverable mistakes, not dead turns: hand the
                     # model the reason and let it try again or answer directly.
                     failed_calls.add(signature)
+                    _count_failure(name)
                     messages.append(
                         {
                             "role": "tool",
@@ -1295,6 +1552,35 @@ def run_agent(
                     continue
                 yield handover
                 return
+            elif spec is not None and spec.destructive and parked.get(name, 0) >= MAX_PARKED_CONFIRMS:
+                # **A destructive tool cannot paper the turn with confirm
+                # cards.** Parking one hands the model `AWAITING_CONFIRMATION`
+                # rather than a result, which is honest but is not a *stop*:
+                # a model that has misread the job re-parks the same tool with
+                # fresh arguments, and every round of that is another card in
+                # front of the user for something they never asked for. Two is
+                # enough for a genuine "delete this, and that" turn; past that
+                # the model is guessing, and guessing at destructive calls is
+                # the one place this app should be least willing to keep up.
+                result = {
+                    "error": (
+                        f"{name} is already waiting for the user's approval "
+                        f"{parked[name]} times in this turn. Nothing more can be "
+                        "queued for them."
+                    ),
+                    "what_to_do": (
+                        "Stop. The user has to approve what is already waiting "
+                        "before anything else destructive can be prepared. Tell "
+                        "them what is queued and why, and do not call this tool again."
+                    ),
+                }
+                _count_failure(name)
+                yield {
+                    "type": "tool",
+                    "label": f"ph:prohibit {name.replace('_', ' ')} — too many waiting for approval",
+                    "ok": False,
+                    "error": result["error"],
+                }
             elif spec is not None and spec.destructive:
                 # Park it for the user — never auto-run a destructive tool.
                 # The confirm card is the honest signal, so count it as an
@@ -1302,6 +1588,7 @@ def run_agent(
                 # user can see for themselves that it is waiting on them.
                 did_write = True
                 ran_writes.add(name)
+                parked[name] = parked.get(name, 0) + 1
                 yield {
                     "type": "confirm",
                     "name": name,
@@ -1309,9 +1596,34 @@ def run_agent(
                     "label": tools.confirm_label(name, arguments),
                 }
                 result = AWAITING_CONFIRMATION
+            elif tool_failures.get(name, 0) >= MAX_TOOL_FAILURES:
+                # **The tool is spent for this turn.** Unlike the signature
+                # check just below, this fires however much the arguments
+                # change — which is the whole point, since the loop it was
+                # written for produced fresh wrong arguments every round (see
+                # `tool_failures`). Blocked *before* execution, so a tool that
+                # writes cannot land a change on a fourth guess either.
+                result = {
+                    "error": (
+                        f"{name} has failed {tool_failures[name]} times in this "
+                        "turn and is no longer available for it"
+                    ),
+                    "what_to_do": TOOL_EXHAUSTED_NOTE,
+                }
+                yield {
+                    "type": "tool",
+                    "label": f"ph:prohibit {name.replace('_', ' ')} — stopped after repeated failures",
+                    "ok": False,
+                    "error": result["error"],
+                }
             elif signature in failed_calls:
                 # --- NEW INTERCEPTION: Duplicate Failed Calls ---
                 # The model is looping on a broken call. Intercept before execution.
+                # Counted as a failure too, so a model that alternates between
+                # repeating a call and inventing new arguments for the same
+                # tool still reaches MAX_TOOL_FAILURES rather than ping-ponging
+                # between the two interceptions forever.
+                _count_failure(name)
                 result = {
                     "error": (
                         f"You already called {name} with these exact arguments "
@@ -1429,20 +1741,38 @@ def run_agent(
                     # Hand back advice with the error, not just the error.
                     repeated = signature in failed_calls
                     failed_calls.add(signature)
+                    exhausted = _count_failure(name) >= MAX_TOOL_FAILURES
                     result = {
                         **result,
                         "what_to_do": (
-                            REPEATED_CALL_NOTE
+                            # Said on the failure that *reaches* the cap, not
+                            # only on the blocked call after it — otherwise the
+                            # model spends one more round discovering a rule it
+                            # could have been told here.
+                            TOOL_EXHAUSTED_NOTE
+                            if exhausted
+                            else REPEATED_CALL_NOTE
                             if repeated
                             else _recovery_hint(name, str(result["error"]))
                         ),
                     }
                 event = {
                     "type": "tool",
+                    #: **The tool's own name.** The front end has always tried
+                    #: to read it (`SOURCE_TOOLS[event.tool || event.name]`,
+                    #: app.js) and it was never sent, so every web page and
+                    #: every file this app read was silently missing from the
+                    #: answer's Sources panel — a feature that could not have
+                    #: worked once.
+                    "tool": name,
                     "label": result.get("label") or name,
                     "ok": "error" not in result,
                     "error": result.get("error"),
                     "arguments": arguments,
+                    #: Titles, addresses and one line each of what was read —
+                    #: see `_tool_sources`. This is what the Sources panel
+                    #: draws its cards, previews and links from.
+                    "sources": _tool_sources(name, result),
                     # UI display only — the version fed back to the model as
                     # conversation context is `payload` below, with its own
                     # separate, real token budget (`result_cap`). This is just
@@ -1457,7 +1787,10 @@ def run_agent(
                     # reads in full, while still bounding a pathological
                     # single result (a huge page fetch) from bloating the
                     # SSE event.
-                    "result_summary": result.get("summary") or (str(result)[:4000] + "…" if len(str(result)) > 4000 else str(result)),
+                    "result_summary": _result_summary(result),
+                    # What this call actually touched, for the chat's live
+                    # action line — see `_touched_items`.
+                    "touched": _touched_items(result),
                 }
                 if change:
                     event["change"] = change

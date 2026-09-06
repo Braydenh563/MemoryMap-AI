@@ -6,7 +6,10 @@ Split out of test_antigravity_regressions.py.
 
 from __future__ import annotations
 
+import pytest
+
 from memorymap.api import routes_files
+from memorymap.core import pdfpages
 
 
 def test_media_upload_does_not_process_a_staged_upload_by_default(ai_client, monkeypatch):
@@ -481,3 +484,98 @@ def test_media_text_reads_an_uploaded_pdf_for_the_lightbox(ai_client):
 
 def test_media_text_404s_for_an_unknown_upload(ai_client):
     assert ai_client.get("/media/text/never-existed.md").status_code == 404
+
+
+# --- pdf-info / pdf-page: viewing a PDF's actual pages, no AI involved ---------
+#
+# Direct instruction, after the AI-extraction lightbox left a user stuck on
+# "Reading…" for a scanned PDF: "pdfs and documents should be viewable,
+# accessible and manageable without the ai, even if the ai cant read them."
+# These two routes are the answer — pdfpages rasterises pages to PNG, the
+# same optional, no-torch, ~20ms/page library the vision-OCR fallback
+# already used, but reached without markitdown or a model anywhere in the
+# path.
+
+# A real, tiny, one-page PDF pypdfium2 can actually open — the bare
+# structural stub used elsewhere in this file has no page tree, so pdfium
+# (correctly) can't render anything from it.
+_ONE_PAGE_PDF = (
+    b"%PDF-1.4\n"
+    b"1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n"
+    b"2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n"
+    b"3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 100]/Contents 4 0 R"
+    b"/Resources<</Font<</F1 5 0 R>>>>>>endobj\n"
+    b"4 0 obj<</Length 44>>stream\nBT /F1 24 Tf 20 40 Td (Hello view) Tj ET\n"
+    b"endstream endobj\n"
+    b"5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\n"
+    b"trailer<</Root 1 0 R>>"
+)
+
+
+def _upload_pdf(ai_client, data: bytes = _ONE_PAGE_PDF, name: str = "notes.pdf") -> str:
+    uploaded = ai_client.post(
+        "/media/upload", files={"file": (name, data, "application/pdf")}
+    ).json()
+    return uploaded["url"].rsplit("/", 1)[-1]
+
+
+def test_pdf_info_404s_for_an_unknown_upload(ai_client):
+    assert ai_client.get("/media/pdf-info/never-existed.pdf").status_code == 404
+
+
+def test_pdf_info_422s_for_a_non_pdf(ai_client):
+    stored = _upload_pdf(ai_client)
+    non_pdf = stored.rsplit(".", 1)[0] + ".png"
+    assert ai_client.get(f"/media/pdf-info/{non_pdf}").status_code == 422
+
+
+def test_pdf_info_without_the_extra_says_so(ai_client, monkeypatch):
+    from memorymap.core import pdfpages
+
+    monkeypatch.setattr(pdfpages, "available", lambda: False)
+    stored = _upload_pdf(ai_client)
+    payload = ai_client.get(f"/media/pdf-info/{stored}").json()
+    assert payload["available"] is False
+    assert payload["pages"] == 0
+    assert "rasteriser" in payload["message"].lower() or "extras" in payload["message"].lower()
+
+
+def test_pdf_info_on_an_unopenable_pdf_says_so_not_probably_a_scan(ai_client, monkeypatch):
+    """Same misdiagnosis this session already fixed in `docview.py`, checked
+    here too since this is a second, independent path to the same file."""
+    from memorymap.core import pdfpages
+
+    monkeypatch.setattr(pdfpages, "available", lambda: True)
+    monkeypatch.setattr(pdfpages, "page_count", lambda p: 0)
+    stored = _upload_pdf(ai_client)
+    payload = ai_client.get(f"/media/pdf-info/{stored}").json()
+    assert payload["available"] is False
+    assert "couldn't be opened" in payload["message"].lower()
+
+
+def test_pdf_page_404s_out_of_range(ai_client, monkeypatch):
+    from memorymap.core import pdfpages
+
+    monkeypatch.setattr(pdfpages, "available", lambda: True)
+    monkeypatch.setattr(pdfpages, "render_page", lambda p, i: None)
+    stored = _upload_pdf(ai_client)
+    assert ai_client.get(f"/media/pdf-page/{stored}/9").status_code == 404
+
+
+def test_pdf_page_404s_for_a_non_pdf(ai_client):
+    stored = _upload_pdf(ai_client)
+    non_pdf = stored.rsplit(".", 1)[0] + ".png"
+    assert ai_client.get(f"/media/pdf-page/{non_pdf}/0").status_code == 404
+
+
+@pytest.mark.skipif(not pdfpages.available(), reason="the pdfpages extra is not installed")
+def test_pdf_page_returns_a_real_png(ai_client):
+    stored = _upload_pdf(ai_client)
+    info = ai_client.get(f"/media/pdf-info/{stored}").json()
+    assert info["available"] is True
+    assert info["pages"] == 1
+
+    page = ai_client.get(f"/media/pdf-page/{stored}/0")
+    assert page.status_code == 200
+    assert page.headers["content-type"] == "image/png"
+    assert page.content.startswith(b"\x89PNG\r\n\x1a\n")

@@ -78,13 +78,17 @@ const DASH_WIDGETS = {
   stats: { title: "ph:chart-bar Stats", description: "Note count, tags, categories and other totals at a glance.", render: renderStatsWidget },
   streak: { title: "ph:flame Streak", description: "How many days in a row you've added or edited a note.", render: renderStreakWidget },
   art: { title: "ph:palette Notebook constellation", description: "A generative starfield: one cluster per category, sized by note count.", render: renderArtWidget },
-  pinned: { title: "ph:push-pin Pinned notes", description: "Notes you've pinned, so they're always one click away.", render: renderPinnedWidget },
+  //: The key stays `pinned` — it is a stored widget id, and renaming it would
+  //: silently drop the widget off every dashboard that has it turned on. Only
+  //: what a person reads changes, which is the half that was inconsistent:
+  //: the sidebar and the note cards call this Favourites.
+  pinned: { title: "ph:star Favourites", description: "Notes you've starred, so they're always one click away.", render: renderPinnedWidget },
   "recent-notes": { title: "ph:clock Recently added", description: "The last few notes you created, newest first.", render: renderRecentNotesWidget },
   "most-used": { title: "ph:flame Most used", description: "The categories and tags you reach for most often.", render: renderMostUsedWidget },
   "most-linked": { title: "ph:link Most-linked notes", description: "The notes with the most connections — the hubs of your notebook.", render: renderMostLinkedWidget },
   "top-tags": { title: "ph:tag Top tags", description: "Your most-used tags, ranked by how many notes carry them.", render: renderTopTagsWidget },
   questions: { title: "ph:chat-circle Recent questions", description: "The questions you've recently asked the notebook's chat.", render: renderQuestionsWidget },
-  "on-this-day": { title: "ph:calendar-blank On this day", description: "Notes from this date in previous years.", render: renderOnThisDayWidget },
+  "on-this-day": { title: "ph:calendar-blank On this day", description: "What you wrote on this date in earlier months and years.", render: renderOnThisDayWidget },
   digest: { title: "ph:newspaper Weekly digest", description: "A short roundup of what you wrote and did this week.", render: renderDigestWidget },
   capture: { title: "ph:pencil-simple Quick capture", description: "A one-line box to jot a note without leaving the dashboard.", render: renderQuickCaptureWidget },
   reminders: { title: "ph:alarm Reminders", description: "Upcoming and overdue reminders, soonest first.", render: renderRemindersWidget },
@@ -93,6 +97,33 @@ const DASH_WIDGETS = {
   "tag-cloud": { title: "ph:cloud Tag cloud", description: "All your tags sized by how often they're used.", render: renderTagCloudWidget },
   categories: { title: "ph:folders Categories", description: "Every category with its note count, click to filter.", render: renderCategoriesWidget },
   random: { title: "ph:dice-five Rediscover", description: "A random older note, to resurface something you'd forgotten.", render: renderRandomNoteWidget },
+  //: **Four surfaces the dashboard could not see at all.**
+  //:
+  //: Every widget above this line reads notes. But a notebook here is also
+  //: boards, documents, and the state a note is *in* — and the dashboard is
+  //: the one screen meant to answer "what is going on in here", so a feature
+  //: with no widget is a feature the dashboard is blind to. Audited against
+  //: the tab bar rather than brainstormed: Boards & maps, Documents, and the
+  //: two things about notes that nothing surfaced (which ones still have work
+  //: left in them, and which ones are stranded).
+  boards: { title: "ph:squares-four Boards & maps", description: "Your most recent whiteboards and concept maps, with a miniature of each.", render: renderBoardsWidget },
+  documents: { title: "ph:file-text Recent documents", description: "The documents you last edited, newest first.", render: renderDocumentsWidget },
+  unfinished: { title: "ph:check-square-offset Unfinished", description: "Notes with checklist items you haven't ticked off yet.", render: renderUnfinishedWidget },
+  orphans: { title: "ph:link-break Loose ends", description: "How much of your notebook is connected to anything, and the oldest notes that aren't.", render: renderOrphanNotesWidget },
+  //: Deliberately a doorway rather than a live reading. Every other widget
+  //: here answers from data already loaded; this one's answer costs a model
+  //: pass over pairs of notes, so rendering the dashboard must not start one.
+  tensions: { title: "ph:scales Tensions", description: "Find where your notes contradict each other — a decision reversed, a date that moved, a view you changed.", render: renderTensionsWidget },
+  //: **What a notebook can tell you that a to-do list cannot:** whether you
+  //: are actually writing. Answered entirely from `allEntries`, which is
+  //: already loaded — no request, no model. (Its sibling idea — what you
+  //: were thinking about on this date in earlier years — turned out to
+  //: already exist as `on-this-day` above under a different key; reported
+  //: directly as two identical widgets in the picker, "on-this-day" kept
+  //: since it was the original and removing `onthisday` here needed no
+  //: layout migration — `dashLayout()` already drops any saved id that
+  //: isn't in this object.)
+  pace: { title: "ph:chart-line-up Writing pace", description: "How many words you have written each day this fortnight.", render: renderPaceWidget },
 };
 
 function dashLayout() {
@@ -542,15 +573,23 @@ const QUICK_GO = [
       $("note-search").focus();
     },
   },
-  { icon: "ph:books", label: "Notes", run: () => { switchTab("notes"); showNotesSection("browse"); } },
-  { icon: "ph:chat-circle", label: "Chat", run: () => switchTab("chat") },
-  // The Library, the Timeline and Reminders were all reachable only from the
-  // tab bar. A "quick access" strip that skips three of the app's seven tabs
-  // is a strip that has stopped being an index of the app.
-  { icon: "ph:book-open", label: "Library", run: () => switchTab("library") },
-  { icon: "ph:graph", label: "Graph", run: () => switchTab("graph") },
-  { icon: "ph:calendar", label: "Timeline", run: () => switchTab("timeline") },
-  { icon: "ph:alarm", label: "Reminders", run: () => switchTab("reminders") },
+  // **The six chips that named tabs are gone**, and the reason is the ask
+  // they came from being wrong about what the row is for. It said: "a quick
+  // access strip that skips three of the app's seven tabs is a strip that
+  // has stopped being an index of the app" — and completing the index is
+  // exactly what made the Dashboard show its own navigation three times.
+  // Measured on one 1440x900 screen: the tab bar, a "Start something" row of
+  // five action cards, and a "Jump to" row of eight chips, six of which
+  // named *the same tabs as the tab bar two inches above them*. Three ways
+  // to reach the same seven places, none of them obviously the one to use —
+  // reported as "a lot of ui elements arent where they should be from a
+  // learnability and ux point of view. it doesnt feel intuitive."
+  //
+  // What survives is what the tab bar cannot do: focus the search box,
+  // open the features modal, and open the command palette (which was
+  // findable only by already knowing Ctrl+K — a button is how you learn a
+  // shortcut). Every tab is still one click away, in the one place that has
+  // always been for tabs.
   { icon: "ph:toolbox", label: "Tools & features", run: () => openFeatures() },
   // The palette is the fastest route to anything at all, and it was findable
   // only by already knowing Ctrl+K. A button is how you learn a shortcut.
@@ -837,6 +876,7 @@ function featureCatalog() {
       { name: "Magic add", desc: "Type “call mum tomorrow evening” and the AI schedules it.", run: () => { switchTab("reminders"); $("reminder-magic").focus(); } },
       { name: "Focus timer", desc: "Pomodoro-style timer with presets or your own minutes.", run: () => switchTab("dashboard") },
       { name: "Weekly digest", desc: "An AI recap of everything you saved this week.", run: () => switchTab("dashboard") },
+      { name: "Tensions", desc: "Find where your notes contradict each other — a decision reversed, a date that moved.", run: () => openTensions() },
       { name: "Activity heatmap", desc: "A year of capture activity at a glance.", run: () => switchTab("dashboard") },
       { name: "Streaks", desc: "How many days in a row you've captured something.", run: () => switchTab("dashboard") },
     ]},
@@ -1109,6 +1149,38 @@ async function renderDashboard() {
           }
         )
       );
+      //: **Reordering without a mouse.** Drag-to-reorder is the only way this
+      //: grid could be arranged, and HTML5 drag-and-drop is unreachable by
+      //: keyboard, unusable with a screen reader and awkward on a trackpad —
+      //: which is the whole of "a better way to manage and rearrange widgets"
+      //: for anyone who does not want to drag a card across a page. Two
+      //: buttons do the same job, exactly, and are also the faster way to move
+      //: one widget three places up.
+      if (!hidden) {
+        const at = layout.order.indexOf(name);
+        const move = (delta) => async () => {
+          const order = [...layout.order];
+          const to = at + delta;
+          if (to < 0 || to >= order.length) return;
+          order.splice(to, 0, ...order.splice(at, 1));
+          await saveDashLayout({ ...dashLayout(), order });
+          renderDashboard();
+          //: Focus follows the widget, so a second press moves the same card
+          //: again rather than whatever landed under the pointer.
+          setTimeout(() => {
+            document
+              .querySelector(`[data-widget="${name}"] .dash-move-${delta < 0 ? "up" : "down"}`)
+              ?.focus();
+          }, 60);
+        };
+        const up = smallButton("ph:arrow-up", "Move this widget earlier", move(-1));
+        up.classList.add("dash-move-up");
+        up.disabled = at <= 0;
+        const down = smallButton("ph:arrow-down", "Move this widget later", move(1));
+        down.classList.add("dash-move-down");
+        down.disabled = at >= layout.order.length - 1;
+        controls.append(up, down);
+      }
       const handle = document.createElement("span");
       handle.className = "drag-handle";
       handle.textContent = "≡ drag";
@@ -1171,7 +1243,49 @@ async function renderDashboard() {
 // searchable, browsable list instead of only being reachable by scrolling
 // the live grid in edit mode.
 
-function dashWidgetRow(name, layout) {
+//: **A row here is a widget's *state*, not a pair of verbs.**
+//:
+//: Asked for: "the widgets menu and edit need a redesign". Three things were
+//: wrong, and each is a semiotics problem rather than a styling one:
+//:
+//: 1. Wide was a **flip-label button** — it read "Wide" when narrow and
+//:    "Narrow" when wide. A flip label says what pressing it will do and, at
+//:    rest, says nothing about what the widget *is*; with nineteen rows you
+//:    could not scan the list and see which ones span two columns. It is a
+//:    two-state property, so it is now a toggle that stays pressed, with
+//:    `aria-pressed` for anyone not looking at it.
+//: 2. Remove sat at the same visual weight as Wide, so a destructive action
+//:    and a reversible one looked identical. Remove keeps its own accent.
+//: 3. **Order could only be changed by dragging the live grid** — unreachable
+//:    by keyboard, and invisible from the one screen that lists every widget.
+//:    Each row on the dashboard now carries move-up/move-down.
+function dashWidgetToggle(label, title, pressed, onClick) {
+  const button = smallButton(label, title, onClick);
+  button.setAttribute("aria-pressed", String(pressed));
+  button.classList.toggle("active", pressed);
+  return button;
+}
+
+async function moveDashWidget(name, delta) {
+  const layout = dashLayout();
+  //: Reordered against the *visible* row order, not the full list: moving a
+  //: widget "up" past three hidden ones looks like nothing happening.
+  const visible = layout.order.filter((n) => !layout.hidden.includes(n));
+  const from = visible.indexOf(name);
+  const to = from + delta;
+  if (from < 0 || to < 0 || to >= visible.length) return;
+  visible.splice(to, 0, ...visible.splice(from, 1));
+  //: Hidden widgets keep their relative places by being appended after: they
+  //: are not on the dashboard, so their order is not something the user is
+  //: looking at, and preserving it means un-hiding one puts it back where it
+  //: was rather than at the end.
+  layout.order = [...visible, ...layout.order.filter((n) => layout.hidden.includes(n))];
+  await saveDashLayout(layout);
+  renderDashboard();
+  renderDashWidgetsList($("dash-widgets-search").value);
+}
+
+function dashWidgetRow(name, layout, position = null) {
   const widget = DASH_WIDGETS[name];
   const hidden = layout.hidden.includes(name);
   const isWide = layout.wide.includes(name);
@@ -1196,30 +1310,44 @@ function dashWidgetRow(name, layout) {
 
   const controls = document.createElement("div");
   controls.className = "dash-widget-row-controls entry-actions";
-  controls.appendChild(
-    smallButton(
-      hidden ? "ph:plus Add" : "ph:x Remove",
-      hidden ? "Add this widget to the dashboard" : "Remove this widget from the dashboard",
-      async () => {
-        await toggleDashWidgetHidden(name);
-        renderDashboard();
-        renderDashWidgetsList($("dash-widgets-search").value);
-      }
-    )
-  );
+  if (!hidden && position) {
+    //: Only where they can do something: the first row's "up" and the last
+    //: row's "down" are disabled rather than absent, so the control cluster
+    //: keeps one width and the rows stay aligned down the list.
+    const up = smallButton("ph:arrow-up", "Move up", () => moveDashWidget(name, -1));
+    up.disabled = position.index === 0;
+    const down = smallButton("ph:arrow-down", "Move down", () => moveDashWidget(name, 1));
+    down.disabled = position.index === position.total - 1;
+    for (const button of [up, down]) button.classList.add("icon-button");
+    controls.append(up, down);
+  }
   if (!hidden) {
     controls.appendChild(
-      smallButton(
-        isWide ? "ph:rows Narrow" : "ph:arrows-out-line-horizontal Wide",
-        isWide ? "Show in one column" : "Span two columns",
+      dashWidgetToggle(
+        "ph:arrows-out-line-horizontal Wide",
+        isWide ? "Spanning two columns — press to narrow" : "Span two columns",
+        isWide,
         async () => {
           await toggleDashWidgetWide(name);
           renderDashboard();
           renderDashWidgetsList($("dash-widgets-search").value);
-        }
-      )
+        },
+      ),
     );
   }
+  const onOff = smallButton(
+    hidden ? "ph:plus Add" : "ph:x Remove",
+    hidden ? "Add this widget to the dashboard" : "Remove this widget from the dashboard",
+    async () => {
+      await toggleDashWidgetHidden(name);
+      renderDashboard();
+      renderDashWidgetsList($("dash-widgets-search").value);
+    },
+  );
+  //: The one row that takes something away says so in the app's own danger
+  //: colour, rather than looking like the reversible toggle beside it.
+  if (!hidden) onOff.classList.add("danger");
+  controls.appendChild(onOff);
   row.appendChild(controls);
   return row;
 }
@@ -1227,26 +1355,115 @@ function dashWidgetRow(name, layout) {
 // Two groups — "On your dashboard" and "Available" — rather than a single
 // list with a per-row status chip: with ~17 widgets, seeing at a glance how
 // many are already on the dashboard is more useful than reading each row.
+//: Which shelf each widget belongs on. A map here rather than a `group:` field
+//: on all twenty-five entries: the catalogue's rows are already long, and a
+//: widget's *group* is a fact about this list rather than about the widget.
+//: Anything unlisted falls into "other", so a widget added later still appears
+//: — silently vanishing from the picker is the one failure this must not have.
+const DASH_WIDGET_GROUPS = {
+  stats: "overview", streak: "overview", heatmap: "overview", pace: "overview",
+  digest: "overview", art: "overview",
+  pinned: "notes", random: "notes", categories: "notes", "on-this-day": "notes",
+  unfinished: "notes", orphans: "notes", tensions: "notes", boards: "notes",
+  documents: "notes",
+  capture: "doing", reminders: "doing", focus: "doing", questions: "doing",
+};
+
+const DASH_WIDGET_GROUP_LABELS = {
+  overview: "How the notebook is going",
+  notes: "Your notes and what is in them",
+  doing: "Things to do here",
+  other: "Everything else",
+};
+
+//: What the dashboard currently is, in one line, and the way back to the
+//: default. A list of twenty-five toggles with no statement of the result is a
+//: list you edit blind — and "reset" is the answer to the fear that stops
+//: people trying any of them.
+function dashWidgetsSummary(layout) {
+  const row = document.createElement("div");
+  row.className = "row space-between dash-widgets-summary";
+  const count = layout.order.filter((name) => !layout.hidden.includes(name)).length;
+  const total = Object.keys(DASH_WIDGETS).length;
+  const line = document.createElement("span");
+  line.className = "muted";
+  line.textContent = `${count} of ${total} on your dashboard`;
+  row.appendChild(line);
+  const reset = smallButton(
+    "ph:arrow-counter-clockwise Reset layout",
+    "Put every widget back to the order and visibility it started with",
+    async () => {
+      const sure = await confirmDialog(
+        "Reset the dashboard layout?\n\nEvery widget goes back to its original place, and the ones you removed come back. Nothing else changes.",
+      );
+      if (!sure) return;
+      //: An empty layout is what `dashLayout()` reads as "no preference", so
+      //: this is a reset rather than a second copy of the default order kept
+      //: in a place that could drift from the real one.
+      await saveDashLayout({ order: [], hidden: [], wide: [], sizes: {} });
+      renderDashboard();
+      renderDashWidgetsList($("dash-widgets-search")?.value || "");
+    },
+  );
+  row.appendChild(reset);
+  return row;
+}
+
 function renderDashWidgetsList(filterText = "") {
   const container = $("dash-widgets-list");
   container.replaceChildren();
   const layout = dashLayout();
+  container.appendChild(dashWidgetsSummary(layout));
   const q = filterText.trim().toLowerCase();
   const names = Object.keys(DASH_WIDGETS).filter((name) => {
     if (!q) return true;
-    return DASH_WIDGETS[name].title.replace(PH_LABEL, "").toLowerCase().includes(q);
+    //: **The description is searched too.** Reported: "I just want a better
+    //: menu and way to manage the widgets." With twenty-five of them, a filter
+    //: that only matches titles means you have to already know a widget is
+    //: called "Rediscover" to find the one that shows you an old note — which
+    //: is exactly backwards, because the reason you are in this list is that
+    //: you do not know what is in it.
+    const widget = DASH_WIDGETS[name];
+    const haystack = `${widget.title.replace(PH_LABEL, "")} ${widget.description || ""}`;
+    return haystack.toLowerCase().includes(q);
   });
 
-  const addGroup = (label, list) => {
+  const addGroup = (label, list, ordered) => {
     if (!list.length) return;
     const heading = document.createElement("h4");
     heading.className = "dash-widgets-group-label";
     heading.textContent = `${label} (${list.length})`;
     container.appendChild(heading);
-    for (const name of list) container.appendChild(dashWidgetRow(name, layout));
+    list.forEach((name, index) => {
+      //: Position is the *unfiltered* one: with a search term typed, "up"
+      //: still means one place up the dashboard, not one place up the four
+      //: rows that happen to match.
+      const position = ordered
+        ? { index: ordered.indexOf(name), total: ordered.length }
+        : null;
+      container.appendChild(dashWidgetRow(name, layout, position));
+    });
   };
-  addGroup("On your dashboard", names.filter((n) => !layout.hidden.includes(n)));
-  addGroup("Available", names.filter((n) => layout.hidden.includes(n)));
+  //: The dashboard's own order, so the list reads top-to-bottom the way the
+  //: page does — a picker that lists widgets in a different order from the
+  //: thing it is editing makes "move up" unreadable.
+  const onDashboard = layout.order.filter((n) => !layout.hidden.includes(n));
+  addGroup(
+    "On your dashboard",
+    onDashboard.filter((n) => names.includes(n)),
+    onDashboard,
+  );
+  //: **The rest, grouped by what they are for.** Thirteen hidden widgets in one
+  //: flat list called "Available" is a wall — you scroll it once, take nothing
+  //: in, and close the dialog. Four short groups are four decisions.
+  const available = names.filter((n) => layout.hidden.includes(n));
+  for (const [group, label] of Object.entries(DASH_WIDGET_GROUP_LABELS)) {
+    addGroup(
+      label,
+      available.filter((n) => (DASH_WIDGET_GROUPS[n] || "other") === group),
+      null,
+    );
+  }
 
   if (!names.length) {
     const empty = document.createElement("p");
@@ -1604,6 +1821,35 @@ function firstNoteImage(content) {
   return isRenderableUrl(url) ? { alt, url } : null;
 }
 
+//: **An attached picture is a picture too.** Reported: "the widgets and other
+//: things dont render attached files on notes like the recently added widget
+//: and other areas in the application."
+//:
+//: The gap is in the model, not the markup: an image *embedded* in the note
+//: text is `![](…)` and was found by `firstNoteImage` above, but an image
+//: **attached** to the note (`entry.attachments`, its own table, `/files/{id}`)
+//: appears nowhere in the note's markdown — so a note whose only picture was
+//: attached rather than pasted rendered as a row of text with no picture at
+//: all, in every widget, forever.
+function noteRowImage(entry) {
+  const embedded = firstNoteImage((entry.content || "").replace(/\[\[([^[\]]{1,120})\]\]/g, "$1"));
+  if (embedded) return embedded;
+  const attached = (entry.attachments || []).find((file) => file.is_image);
+  return attached ? { alt: attached.filename || "", url: `/files/${attached.id}` } : null;
+}
+
+// The non-image half of `noteRowImage` — a note's attached PDF, spreadsheet
+// or the like has nothing to thumbnail, and previously had nothing shown
+// for it at all here: `miniEntryList` only ever asked `noteRowImage`, so a
+// note whose only attachment was a document rendered as if it were bare
+// text, indistinguishable from a note with nothing attached. Reported
+// directly: "files dont render in the widgets and other areas notes are
+// shown."
+function noteRowFile(entry) {
+  const attached = (entry.attachments || []).find((file) => !file.is_image);
+  return attached ? { name: attached.filename || "", url: `/files/${attached.id}` } : null;
+}
+
 function miniEntryList(body, entries, emptyText) {
   if (!entries.length) {
     const p = document.createElement("p");
@@ -1619,7 +1865,7 @@ function miniEntryList(body, entries, emptyText) {
     // The wiki-link unwrap notePreviewText also did — renderInlineMarkdown
     // itself doesn't know `[[...]]`, only the full note-body renderer does.
     const raw = (entry.content || "").replace(/\[\[([^[\]]{1,120})\]\]/g, "$1");
-    const image = firstNoteImage(raw);
+    const image = noteRowImage(entry);
     if (image) {
       li.classList.add("dash-has-thumb");
       const thumb = document.createElement("img");
@@ -1629,6 +1875,7 @@ function miniEntryList(body, entries, emptyText) {
       thumb.className = "dash-list-thumb";
       li.appendChild(thumb);
     }
+    const file = !image && noteRowFile(entry);
     const textEl = document.createElement("span");
     textEl.className = "dash-list-text";
     // Block syntax first. renderInlineMarkdown is exactly that — INLINE — so a
@@ -1662,6 +1909,11 @@ function miniEntryList(body, entries, emptyText) {
       if (cut.truncated) preview.appendChild(document.createTextNode("…"));
       textEl.appendChild(preview);
     }
+    if (file) {
+      const chipEl = fileChip(file.name, file.url);
+      chipEl.classList.add("dash-list-file-chip");
+      textEl.appendChild(chipEl);
+    }
     li.appendChild(textEl);
     li.title = "Open this note";
     li.addEventListener("click", () => flashEntry(entry.id));
@@ -1683,7 +1935,7 @@ async function renderPinnedWidget(body) {
   const entries = (
     allEntries.length ? allEntries : await apiJson("/entries", { cacheMs: 4000 })
   ).filter((e) => e.pinned);
-  miniEntryList(body, entries.slice(0, 5), "Pin a note and it shows up here.");
+  miniEntryList(body, entries.slice(0, 5), "Star a note and it shows up here.");
 }
 
 async function renderMostUsedWidget(body) {
@@ -2382,6 +2634,479 @@ $("dash-widgets-search").addEventListener("input", (e) => renderDashWidgetsList(
 // Tools & features browser (opened from the dashboard quick links).
 $("features-close").addEventListener("click", closeFeatures);
 $("features-search").addEventListener("input", (e) => renderFeatures(e.target.value));
-$("features-overlay").addEventListener("click", (e) => {
-  if (e.target === $("features-overlay")) closeFeatures();
-});
+wireBackdropClose($("features-overlay"), () => closeFeatures());
+
+// --- The four widgets for what the dashboard could not previously see -------
+//
+// Registered in DASH_WIDGETS above, where the reasoning for the set lives.
+// All four follow the shape every widget here already uses: an async function
+// taking the widget's own `body` element, reading `allEntries` or one cached
+// `apiJson`, and rendering an empty state that says what to do rather than
+// "no data".
+
+/** A row that opens something other than a note, styled like `.dash-list`. */
+function dashActionRow(ul, { title, meta, onOpen, hint, thumb }) {
+  const li = document.createElement("li");
+  if (thumb) {
+    li.classList.add("dash-has-thumb");
+    li.appendChild(thumb);
+  }
+  const text = document.createElement("span");
+  text.className = "dash-list-text";
+  const titleEl = document.createElement("span");
+  titleEl.className = "dash-list-title";
+  titleEl.textContent = title;
+  text.appendChild(titleEl);
+  if (meta) {
+    const metaEl = document.createElement("span");
+    metaEl.className = "dash-list-preview";
+    metaEl.textContent = meta;
+    text.appendChild(metaEl);
+  }
+  li.appendChild(text);
+  li.title = hint || "Open";
+  // A row that does something is a control, so it answers to the keyboard and
+  // announces itself as one — `li.addEventListener("click")` alone (the shape
+  // `miniEntryList` uses) is invisible to a screen reader and unreachable by
+  // Tab.
+  li.tabIndex = 0;
+  li.setAttribute("role", "button");
+  const go = () => onOpen();
+  li.addEventListener("click", go);
+  li.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      go();
+    }
+  });
+  ul.appendChild(li);
+}
+
+function dashEmpty(body, text) {
+  const p = document.createElement("p");
+  p.className = "muted";
+  p.textContent = text;
+  body.appendChild(p);
+}
+
+async function renderBoardsWidget(body) {
+  const boards = await apiJson("/whiteboard/boards", { cacheMs: 4000, silent: true }).catch(() => null);
+  const usable = (boards || []).filter((b) => (b.node_count + b.sketch_count + (b.object_count || 0)) > 0);
+  if (!usable.length) {
+    dashEmpty(body, "Draw a board or build a concept map and it will show up here.");
+    return;
+  }
+  // Busiest first. `GET /whiteboard/boards` has no updated_at to sort on, and
+  // "the board with the most on it" is a better answer than "whichever row
+  // the database returned first" — which is what an unsorted list would be.
+  const ranked = [...usable]
+    .sort(
+      (a, b) =>
+        b.node_count + b.sketch_count + (b.object_count || 0) -
+        (a.node_count + a.sketch_count + (a.object_count || 0)),
+    )
+    .slice(0, 5);
+  const ul = document.createElement("ul");
+  ul.className = "dash-list";
+  for (const board of ranked) {
+    const parts = [];
+    if (board.node_count) parts.push(`${board.node_count} card${board.node_count === 1 ? "" : "s"}`);
+    if (board.sketch_count) parts.push(`${board.sketch_count} sketch${board.sketch_count === 1 ? "" : "es"}`);
+    if (board.object_count) parts.push(`${board.object_count} image${board.object_count === 1 ? "" : "s"}`);
+    dashActionRow(ul, {
+      title: board.title,
+      meta: parts.join(" · "),
+      hint: "Open this board",
+      thumb: dashBoardThumb(board),
+      // `openWhiteboardBoard` handles the tab and sub-tab switch itself.
+      onOpen: () => openWhiteboardBoard(board.id),
+    });
+  }
+  body.appendChild(ul);
+}
+
+/**
+ * The same miniature the Library's board cards draw, at widget-row size.
+ *
+ * Reuses `preview_items` — positions already normalised into 0..1 against the
+ * board's own bounds by the server — so this shows the real layout without
+ * the dashboard ever loading a board.
+ */
+function dashBoardThumb(board) {
+  const items = Array.isArray(board.preview_items) ? board.preview_items : [];
+  if (!items.length) return null;
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("class", "dash-list-thumb dash-board-thumb");
+  svg.setAttribute("viewBox", "0 0 40 40");
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.setAttribute("aria-hidden", "true");
+  for (const item of items) {
+    const dot = document.createElementNS(NS, "rect");
+    // Attributes, never an inline `style` string — this app's CSP drops those.
+    dot.setAttribute("x", String(3 + (Number(item.x) || 0) * 34));
+    dot.setAttribute("y", String(3 + (Number(item.y) || 0) * 34));
+    dot.setAttribute("width", item.kind === "sketch" ? "2" : "4");
+    dot.setAttribute("height", item.kind === "sketch" ? "2" : "3");
+    dot.setAttribute("class", `dash-board-thumb-${item.kind === "sketch" ? "sketch" : "card"}`);
+    svg.append(dot);
+  }
+  return svg;
+}
+
+async function renderDocumentsWidget(body) {
+  // `GET /documents` is already ordered by updated_at descending, so the
+  // newest-edited are simply the first rows — no client-side sort needed.
+  const docs = await apiJson("/documents", { cacheMs: 4000, silent: true }).catch(() => null);
+  if (!docs || !docs.length) {
+    dashEmpty(body, "Write or import a document and the ones you edited last show up here.");
+    return;
+  }
+  const ul = document.createElement("ul");
+  ul.className = "dash-list";
+  for (const doc of docs.slice(0, 6)) {
+    const words = doc.words ? `${doc.words.toLocaleString()} word${doc.words === 1 ? "" : "s"}` : "Empty";
+    dashActionRow(ul, {
+      title: doc.title || "Untitled document",
+      meta: `${words} · ${dashRelativeTime(doc.updated_at)}`,
+      hint: "Open this document",
+      onOpen: () => {
+        switchTab("documents");
+        openDocument(doc.id);
+      },
+    });
+  }
+  body.appendChild(ul);
+}
+
+/** "3 days ago" from an ISO timestamp, with a plain date once it is old. */
+function dashRelativeTime(iso) {
+  const when = new Date(iso);
+  if (Number.isNaN(when.getTime())) return "";
+  const seconds = Math.max(0, (Date.now() - when.getTime()) / 1000);
+  if (seconds < 90) return "just now";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  if (days <= 30) return `${days} day${days === 1 ? "" : "s"} ago`;
+  return when.toLocaleDateString();
+}
+
+//: A markdown task line: `- [ ]` / `* [x]` / `1. [ ]`, with the loose leading
+//: whitespace real notes actually contain. Deliberately anchored per line
+//: with `m` rather than scanning the whole body, so an indented sub-task
+//: counts and a literal "[ ]" mid-sentence does not.
+const DASH_OPEN_TASK = /^[ \t]*(?:[-*+]|\d+[.)])[ \t]+\[[ \t]\]/gm;
+const DASH_DONE_TASK = /^[ \t]*(?:[-*+]|\d+[.)])[ \t]+\[[xX]\]/gm;
+
+async function renderUnfinishedWidget(body) {
+  const entries = allEntries.length ? allEntries : await apiJson("/entries", { cacheMs: 4000 });
+  const withTasks = [];
+  for (const entry of entries) {
+    const content = entry.content || "";
+    if (!content.includes("[")) continue; // cheap reject before two regexes
+    // `lastIndex` is shared state on a `g` regex, so these must be reset per
+    // note or every second note silently scores zero — the classic one.
+    DASH_OPEN_TASK.lastIndex = 0;
+    DASH_DONE_TASK.lastIndex = 0;
+    const open = (content.match(DASH_OPEN_TASK) || []).length;
+    if (!open) continue;
+    const done = (content.match(DASH_DONE_TASK) || []).length;
+    withTasks.push({ entry, open, done });
+  }
+  if (!withTasks.length) {
+    dashEmpty(body, "Nothing outstanding. Checklists you write as “- [ ] something” appear here until they are ticked.");
+    return;
+  }
+  // Closest to finished first: a list with one box left is the one worth
+  // showing, not the one someone has barely started.
+  withTasks.sort((a, b) => a.open - b.open || b.done - a.done);
+  const ul = document.createElement("ul");
+  ul.className = "dash-list";
+  for (const row of withTasks.slice(0, 6)) {
+    const first = (row.entry.content || "").split("\n").find((line) => line.trim())?.trim() || "Untitled note";
+    const total = row.open + row.done;
+    dashActionRow(ul, {
+      title: first.replace(/^#{1,6}\s+/, "").slice(0, 70),
+      meta: `${row.open} left of ${total}`,
+      hint: "Open this note",
+      onOpen: () => flashEntry(row.entry.id),
+    });
+  }
+  body.appendChild(ul);
+}
+
+async function renderOrphanNotesWidget(body) {
+  const [entries, graph] = await Promise.all([
+    allEntries.length ? Promise.resolve(allEntries) : apiJson("/entries", { cacheMs: 4000 }),
+    apiJson("/graph", { cacheMs: 4000, silent: true }).catch(() => null),
+  ]);
+  // The same degree map `renderMostLinkedWidget` builds, read for its zeroes
+  // instead of its peaks.
+  const linked = new Set();
+  for (const edge of (graph && graph.edges) || []) {
+    if (typeof edge.source === "number") linked.add(edge.source);
+    if (typeof edge.target === "number") linked.add(edge.target);
+  }
+  // A board is a note by construction here, and an empty canvas is not a
+  // stranded thought. Drafts have not been filed yet by definition.
+  const real = entries.filter((e) => !e.is_board && !e.is_draft);
+  // **Category is deliberately not part of this test, and that is a measured
+  // decision rather than an oversight.** The first cut of this widget counted
+  // a note as stranded only if it had no links, no tags *and* no category —
+  // and it could never fire, because this app files every note as it is
+  // saved: on a real 116-note notebook, 116 had a category. A field the app
+  // fills in for you says nothing about whether *you* connected anything.
+  //
+  // Tags and links are the two a person actually chooses, so those are the
+  // test. On that same notebook 99 of 116 notes qualified — which is why this
+  // is not the list of them it started as. A widget that lists 85% of your
+  // notes has told you nothing and made you scroll; the number *is* the
+  // finding, so the number leads, and only a handful of oldest offenders come
+  // with it as somewhere to actually start.
+  const loose = real.filter((entry) => !linked.has(entry.id) && !(entry.tags || []).length);
+  if (!real.length) {
+    dashEmpty(body, "Write a few notes and this will show how well connected they are.");
+    return;
+  }
+  const connected = real.length - loose.length;
+  const pct = Math.round((connected / real.length) * 100);
+
+  const summary = document.createElement("p");
+  summary.className = "dash-loose-summary";
+  summary.textContent = loose.length
+    ? `${loose.length} of ${real.length} notes have no link and no tag.`
+    : `All ${real.length} notes have a link or a tag.`;
+  body.appendChild(summary);
+
+  // A meter, not a decorative bar: it carries its own value for a screen
+  // reader, which a styled div cannot.
+  const meter = document.createElement("div");
+  meter.className = "dash-loose-meter";
+  meter.setAttribute("role", "meter");
+  meter.setAttribute("aria-valuemin", "0");
+  meter.setAttribute("aria-valuemax", "100");
+  meter.setAttribute("aria-valuenow", String(pct));
+  meter.setAttribute("aria-label", `${pct}% of notes are connected`);
+  const fill = document.createElement("div");
+  fill.className = "dash-loose-fill";
+  // A width has to be a real number here, and CSP forbids a `style`
+  // attribute — a custom property set through the CSSOM is neither.
+  fill.style.setProperty("--dash-loose-pct", `${pct}%`);
+  meter.appendChild(fill);
+  body.appendChild(meter);
+
+  const caption = document.createElement("p");
+  caption.className = "muted dash-loose-caption";
+  caption.textContent = `${pct}% connected`;
+  body.appendChild(caption);
+
+  if (!loose.length) return;
+
+  // **The widget that names the problem offers the thing that fixes it.**
+  // The auto-linker lives as "Suggest links" in the Graph tab's toolbar,
+  // among the graph's own display options — so the one screen that tells you
+  // most of your notebook is unconnected had no way to act on it, and the
+  // feature that would has to be found first. `loadLinkSuggestions` renders
+  // into the Graph tab's own panel, so this switches there and runs it rather
+  // than duplicating the list here.
+  const connect = document.createElement("button");
+  connect.type = "button";
+  connect.className = "ghost small dash-loose-action";
+  const connectIcon = document.createElement("i");
+  connectIcon.className = "ph ph-link ph-lead";
+  connectIcon.setAttribute("aria-hidden", "true");
+  connect.append(connectIcon, "Find links to add");
+  connect.title = "Look for notes worth connecting, and approve them one by one";
+  connect.addEventListener("click", () => {
+    switchTab("graph");
+    // The tab switch renders asynchronously; the suggestions panel it draws
+    // into has to exist before it is filled.
+    setTimeout(() => loadLinkSuggestions(), 120);
+  });
+  body.appendChild(connect);
+  // Oldest first: a note written this morning has not had a chance to be
+  // filed yet, and nagging about it is how a hygiene widget becomes noise.
+  const oldest = [...loose].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  miniEntryList(body, oldest.slice(0, 3), "");
+}
+
+
+/**
+ * The Tensions doorway.
+ *
+ * Explains the idea and opens the review; it does **not** run one. Every
+ * other widget renders from `allEntries` or one cached fetch, and a widget
+ * that quietly started a model pass over the notebook every time the
+ * dashboard drew would be the most expensive thing on the page.
+ */
+async function renderTensionsWidget(body) {
+  const [entries, graph] = await Promise.all([
+    allEntries.length ? Promise.resolve(allEntries) : apiJson("/entries", { cacheMs: 4000 }),
+    apiJson("/graph", { cacheMs: 4000, silent: true }).catch(() => null),
+  ]);
+  // Already-accepted tensions are the one part that *is* cheap to show: they
+  // are ordinary links with a type, so the graph already carries them.
+  const accepted = ((graph && graph.edges) || []).filter((e) => e.link_type === "contradicts").length;
+
+  const blurb = document.createElement("p");
+  blurb.className = "muted";
+  blurb.textContent = accepted
+    ? `${accepted} place${accepted === 1 ? "" : "s"} where your notes contradict each other.`
+    : "Nothing here can tell you where you changed your mind — until you look.";
+  body.appendChild(blurb);
+
+  const explain = document.createElement("p");
+  explain.className = "muted dash-tension-explain";
+  explain.textContent =
+    "Similar-notes search finds what belongs together. This reads pairs with your local model and looks for the opposite: claims that can't both be right.";
+  body.appendChild(explain);
+
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "ghost small";
+  const icon = document.createElement("i");
+  icon.className = "ph ph-scales ph-lead";
+  icon.setAttribute("aria-hidden", "true");
+  open.append(icon, entries.length < 2 ? "Nothing to compare yet" : "Review disagreements");
+  open.disabled = entries.length < 2;
+  open.addEventListener("click", () => openTensions());
+  body.appendChild(open);
+}
+
+//: **On this day.** A notebook accumulates, and the thing that makes years of
+//: it worth having is being handed a page from one of them without asking.
+//: Same date, earlier years and earlier months — months as well as years,
+//: because a notebook two months old would otherwise never show anything and
+//: an empty widget teaches you to remove it.
+function renderOnThisDayWidget(body) {
+  const now = new Date();
+  const day = now.getDate();
+  const month = now.getMonth();
+  const thisYear = now.getFullYear();
+  const entries = (typeof allEntries !== "undefined" ? allEntries : []).filter((entry) => {
+    const at = new Date(entry.created_at);
+    if (Number.isNaN(at.getTime())) return false;
+    if (at.getDate() !== day) return false;
+    //: A different year on the same date, or an earlier month this year. Today
+    //: itself is excluded — "on this day" that returns what you wrote an hour
+    //: ago is a mirror, not a memory.
+    if (at.getFullYear() !== thisYear) return true;
+    return at.getMonth() !== month;
+  });
+  if (!entries.length) {
+    return dashEmpty(
+      body,
+      "Nothing from this date yet. Come back when the notebook is a few months older."
+    );
+  }
+  entries.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  //: Grouped by when, because "two years ago" is the fact that makes the row
+  //: worth reading and a bare list of notes buries it.
+  const seen = new Set();
+  const shown = [];
+  for (const entry of entries) {
+    const at = new Date(entry.created_at);
+    const years = thisYear - at.getFullYear();
+    const key = years > 0 ? `${years}y` : `${month - at.getMonth()}m`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    shown.push({ entry, when: years > 0
+      ? `${years} year${years === 1 ? "" : "s"} ago`
+      : `${month - at.getMonth()} month${month - at.getMonth() === 1 ? "" : "s"} ago` });
+    if (shown.length >= 4) break;
+  }
+  const list = document.createElement("ul");
+  list.className = "dash-list";
+  for (const { entry, when } of shown) {
+    const li = document.createElement("li");
+    li.setAttribute("role", "button");
+    li.tabIndex = 0;
+    const stamp = document.createElement("span");
+    stamp.className = "chip dash-onthisday-when";
+    stamp.textContent = when;
+    const text = document.createElement("span");
+    text.className = "dash-list-text";
+    renderInlineMarkdown(text, noteLabel(entry, 90), null, true);
+    li.append(stamp, text);
+    const open = () => flashEntry(entry.id);
+    li.addEventListener("click", open);
+    li.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
+    list.appendChild(li);
+  }
+  body.appendChild(list);
+}
+
+//: **Writing pace.** The streak widget answers "did I show up"; this answers
+//: "did I write anything when I did", which is a different and more honest
+//: question — a one-word note keeps a streak alive.
+//:
+//: A fortnight rather than a week: seven bars cannot show a trend, and a month
+//: of bars in a widget column is a picket fence.
+const DASH_PACE_DAYS = 14;
+
+function renderPaceWidget(body) {
+  const entries = typeof allEntries !== "undefined" ? allEntries : [];
+  const days = [];
+  const now = new Date();
+  for (let back = DASH_PACE_DAYS - 1; back >= 0; back -= 1) {
+    const at = new Date(now);
+    at.setDate(now.getDate() - back);
+    at.setHours(0, 0, 0, 0);
+    days.push({ at, words: 0 });
+  }
+  const first = days[0].at.getTime();
+  for (const entry of entries) {
+    const at = new Date(entry.created_at);
+    if (Number.isNaN(at.getTime()) || at.getTime() < first) continue;
+    const index = Math.floor((at.setHours(0, 0, 0, 0) - first) / 86400000);
+    if (index < 0 || index >= days.length) continue;
+    days[index].words += (String(entry.content || "").match(/\S+/g) || []).length;
+  }
+  const total = days.reduce((sum, day) => sum + day.words, 0);
+  if (!total) {
+    return dashEmpty(body, "No words yet this fortnight. Anything you write today shows up here.");
+  }
+  const peak = Math.max(...days.map((day) => day.words), 1);
+
+  const headline = document.createElement("p");
+  headline.className = "dash-pace-total";
+  const strong = document.createElement("strong");
+  strong.textContent = total.toLocaleString();
+  headline.append(strong, ` words in ${DASH_PACE_DAYS} days · ${Math.round(total / DASH_PACE_DAYS).toLocaleString()} a day`);
+  body.appendChild(headline);
+
+  const chart = document.createElement("div");
+  chart.className = "dash-pace-chart";
+  chart.setAttribute("role", "img");
+  chart.setAttribute(
+    "aria-label",
+    `Words written each day: ${days.map((d) => `${d.at.toLocaleDateString(undefined, { weekday: "short" })} ${d.words}`).join(", ")}`
+  );
+  for (const day of days) {
+    const column = document.createElement("div");
+    column.className = "dash-pace-bar";
+    //: A custom property rather than an inline `style` attribute, which this
+    //: app's CSP refuses — the same rule the Loose ends meter follows.
+    column.style.setProperty("--dash-pace-height", `${Math.round((day.words / peak) * 100)}%`);
+    column.title = `${day.at.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" })}: ${day.words.toLocaleString()} word${day.words === 1 ? "" : "s"}`;
+    //: Today is marked, so the row reads as ending *now* rather than as an
+    //: undated fortnight.
+    if (day.at.toDateString() === new Date().toDateString()) column.classList.add("is-today");
+    chart.appendChild(column);
+  }
+  body.appendChild(chart);
+
+  const caption = document.createElement("p");
+  caption.className = "muted dash-pace-caption";
+  const best = days.reduce((a, b) => (b.words > a.words ? b : a));
+  caption.textContent = `Best day: ${best.at.toLocaleDateString(undefined, { weekday: "long" })}, ${best.words.toLocaleString()} words`;
+  body.appendChild(caption);
+}

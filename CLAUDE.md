@@ -37,6 +37,7 @@ say whether it meets what was asked, not just whether the code path exists.
 | [`docs/roadmap/HISTORY.md`](docs/roadmap/HISTORY.md) | **What is already built, including every retraction.** Read it before starting anything — five items have now been caught as "already built" one grep before being rebuilt. |
 | [`docs/DESIGN.md`](docs/DESIGN.md) | The design system. Any CSS work has to follow it; `tests/test_style_scale.py` fails the build otherwise. |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How the pieces fit. |
+| [`.claude/skills/README.md`](.claude/skills/README.md) | The seven vendored MIT design skills (`ui-ux-pro-max` and friends) — what they cover, the two local edits, and what was never verified. Read before doing visual design work; `docs/DESIGN.md` still overrides them for anything in `frontend/`. |
 
 The roadmap was split because it passed 4,500 lines. **Section numbers did not
 change**, so a `§21` in a code comment still resolves — but a session that
@@ -45,11 +46,22 @@ files cross-link, and `tests/test_docs_layout.py` enforces that.
 
 ## The standing caveat
 
-**Every provider test runs against a fake transport.** SSE framing and
-tool-call fragment indices come from reading the spec, not from a running LM
-Studio. Reasoning about behaviour instead of reproducing it has cost real time
-more than once — when something is reported broken, reproduce it before
-theorising, and say plainly when you could not.
+**Every provider test runs against a fake transport.** Tool-call fragment
+indices come from reading the spec, not from a running LM Studio. Reasoning
+about behaviour instead of reproducing it has cost real time more than once —
+when something is reported broken, reproduce it before theorising, and say
+plainly when you could not.
+
+**The plain-streaming half of that caveat is lifted.** A real stdlib
+`HTTPServer` speaking the OpenAI `/v1` dialect (no mocked `requests`, a real
+socket) stood in for LM Studio/llama.cpp/Jan/vLLM: `POST /models/provider`
+switched the live app to it, and `/help/ask`, `/voice/summarize` and a full
+`/chat/stream` turn (status → meta → two answer deltas → stats → done, in
+order) all round-tripped correctly, including the SSE `data:`/`[DONE]`
+framing `OpenAICompatClient.chat_stream` parses. **Not covered**: real
+inference (the stand-in server returns a canned string, not a model's own
+output) and `chat_tools`/`chat_tools_stream`'s tool-call fragment parsing —
+that half of the caveat still stands.
 
 **The UI half of that caveat is now lifted, and you should use it.** The
 sandbox has Chromium and Playwright, and the app runs on localhost:
@@ -166,7 +178,7 @@ what made "everything else here is new" a fact rather than a guess.
       cryptography python-multipart pytest httpx ruff
   ```
 
-- `python -m pytest tests/` — ~1,600 tests, ~3 minutes, all green. Keep it that way.
+- `python -m pytest tests/` — 2,700+ tests, ~7-8 minutes, all green. Keep it that way.
 - **Restart the server after any Python change.** A stale uvicorn is why a
   correct fix "didn't work" twice in one session — the browser was running the
   old code and the diff looked wrong.

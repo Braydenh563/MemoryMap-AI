@@ -101,6 +101,130 @@ def extract_text(image_path: Path) -> str:
         return ""
 
 
+#: A word Tesseract is less than this sure of is dropped from a region's
+#: text. Its own confidence is 0–100 and it reports -1 for the structural
+#: rows (page/block/paragraph) that carry no word at all. 30 is low enough to
+#: keep a smudged scan readable and high enough to drop the punctuation-noise
+#: it invents at the edges of a photograph.
+REGION_MIN_CONFIDENCE = 30
+
+#: A word taller than this multiple of the page's median word height is read
+#: as a heading rather than body text. Purely a *presentation* hint for the
+#: region list — nothing downstream depends on it being right, which is why a
+#: ratio is honest here and a "table"/"formula" classifier would not be:
+#: Tesseract reports boxes and confidences, not semantic structure, and
+#: labelling a region "table" from box geometry alone would be a guess
+#: presented as a fact.
+REGION_HEADING_RATIO = 1.45
+
+
+def extract_regions(image_path: Path) -> dict | None:
+    """Text laid out as Tesseract found it: one entry per block, with the
+    box it occupies on the page.
+
+    Asked for directly, with three screenshots of Baidu's Unlimited-OCR:
+    *"for the document ocr I want smth like this"* — a page beside its
+    regions, each region typed and its text separately readable, rather than
+    one wall of text under the picture with no way to tell which part of the
+    page a line came from.
+
+    Returns `None` — not an empty result — when the OCR stack is missing or
+    the image cannot be read, so a caller can tell "nothing is installed"
+    apart from "this page has no text on it" and say so. Boxes are
+    **normalised to 0–1** against the image's own pixel size, because the
+    thing that draws them is an `<img>` scaled to whatever width the panel
+    happens to be; sending pixels would make every overlay wrong at every
+    size but one.
+    """
+    if not tesseract_available():
+        _log_binary_missing()
+        return None
+    try:
+        import pytesseract
+        from PIL import Image
+    except ImportError:
+        _log_package_missing()
+        return None
+    try:
+        with Image.open(image_path) as img:
+            width, height = img.size
+            data = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT)
+    except Exception:
+        logger.warning("OCR regions failed for %s", image_path.name, exc_info=True)
+        return None
+    if not width or not height:
+        return None
+
+    #: Grouped by Tesseract's own block numbering rather than by clustering
+    #: boxes ourselves: it has already done the page analysis, and a second
+    #: opinion computed from the boxes it returned would only ever be worse.
+    blocks: dict[tuple[int, int], dict] = {}
+    heights: list[float] = []
+    for i in range(len(data.get("text", []))):
+        word = str(data["text"][i]).strip()
+        if not word:
+            continue
+        try:
+            confidence = float(data["conf"][i])
+        except (TypeError, ValueError):
+            continue
+        if confidence < REGION_MIN_CONFIDENCE:
+            continue
+        key = (int(data["page_num"][i]), int(data["block_num"][i]))
+        left, top = float(data["left"][i]), float(data["top"][i])
+        word_w, word_h = float(data["width"][i]), float(data["height"][i])
+        heights.append(word_h)
+        block = blocks.setdefault(
+            key,
+            {"words": [], "confidences": [], "x0": left, "y0": top, "x1": left, "y1": top,
+             "line": int(data["line_num"][i]), "heights": []},
+        )
+        #: A newline where Tesseract says the line changed, so a paragraph
+        #: comes back as a paragraph. Joining every word with a space turned
+        #: an address block into one run-on line.
+        if int(data["line_num"][i]) != block["line"]:
+            block["words"].append("\n")
+            block["line"] = int(data["line_num"][i])
+        block["words"].append(word)
+        block["confidences"].append(confidence)
+        block["heights"].append(word_h)
+        block["x0"] = min(block["x0"], left)
+        block["y0"] = min(block["y0"], top)
+        block["x1"] = max(block["x1"], left + word_w)
+        block["y1"] = max(block["y1"], top + word_h)
+
+    median_height = sorted(heights)[len(heights) // 2] if heights else 0.0
+    regions = []
+    for key in sorted(blocks):
+        block = blocks[key]
+        text = " ".join(block["words"]).replace(" \n ", "\n").replace("\n ", "\n").strip()
+        if not text:
+            continue
+        block_heights = block["heights"]
+        block_median = sorted(block_heights)[len(block_heights) // 2] if block_heights else 0.0
+        kind = (
+            "heading"
+            if median_height and block_median >= median_height * REGION_HEADING_RATIO
+            else "text"
+        )
+        regions.append(
+            {
+                "index": len(regions),
+                "kind": kind,
+                "text": text,
+                "confidence": round(sum(block["confidences"]) / len(block["confidences"]), 1),
+                #: x/y/w/h as fractions of the image, top-left origin.
+                "box": {
+                    "x": round(block["x0"] / width, 5),
+                    "y": round(block["y0"] / height, 5),
+                    "w": round((block["x1"] - block["x0"]) / width, 5),
+                    "h": round((block["y1"] - block["y0"]) / height, 5),
+                },
+            }
+        )
+    return {"width": width, "height": height, "regions": regions, "source": "tesseract"}
+
+
 def extract_and_store(upload_id: int, image_path: Path) -> None:
     """Runs OCR synchronously and writes the result onto the `MediaUpload`
     row if any text was found. Split out from `extract_in_background` below

@@ -139,6 +139,89 @@ def test_delete_reassigns_every_workspace_scoped_model_to_default(client, sessio
     assert session.get(Document, document.id).workspace_id == "default"
 
 
+# --- deleting a space whose category name collides with "default" -----------
+#
+# Reported live via a raw 500: `sqlalchemy.exc.IntegrityError: UNIQUE
+# constraint failed: categories.workspace_id, categories.name`. The blind
+# bulk UPDATE that reassigns every workspace-scoped row to "default" is
+# exactly wrong for Category, which carries a `(workspace_id, name)` unique
+# constraint on purpose (see the model's own docstring — two spaces must be
+# able to have their own "Uni" without colliding). The moment the space being
+# deleted has a category "default" already has — and "Uncategorised",
+# get_or_create_category's own fallback, is that category on nearly every
+# space that has ever filed a note — the UPDATE collides with itself.
+
+
+def test_deleting_a_space_merges_a_same_named_category_instead_of_crashing(
+    client, session
+):
+    created = client.post("/spaces", json={"name": "Doomed Twin"}).json()
+    space_id = created["id"]
+
+    # "Uncategorised" is get_or_create_category's own fallback name, so on a
+    # real notebook it exists in "default" almost the moment the first note
+    # is ever filed there — this collision is not a contrived category name,
+    # it is the ordinary one. The test fixture starts empty, so both sides
+    # are created explicitly rather than assumed.
+    default_uncat = _row(session, Category, name="Uncategorised", workspace_id="default")
+    doomed_uncat = _row(
+        session, Category, name="Uncategorised", workspace_id=space_id
+    )
+    entry_in_doomed = _row(
+        session,
+        Entry,
+        content="filed under the doomed space's own Uncategorised",
+        workspace_id=space_id,
+        category_id=doomed_uncat.id,
+    )
+    # Captured as plain values before the delete: every ORM object created
+    # above lives in this same session, and session.expire_all() below marks
+    # all of their attributes (PK included) expired — reading so much as
+    # `doomed_uncat.id` afterwards would try to refresh it from a row the
+    # fix is about to delete, and raise ObjectDeletedError before the
+    # assertion even runs. A plain int has no such state to expire.
+    default_uncat_id = default_uncat.id
+    doomed_uncat_id = doomed_uncat.id
+    entry_id = entry_in_doomed.id
+
+    resp = client.delete(f"/spaces/{space_id}")
+    assert resp.status_code == 200, resp.text
+
+    session.expire_all()
+    # The duplicate is gone rather than renamed into existence — there is
+    # still exactly one "Uncategorised" in "default".
+    assert session.query(Category).filter_by(id=doomed_uncat_id).first() is None
+    remaining = (
+        session.query(Category).filter_by(workspace_id="default", name="Uncategorised").all()
+    )
+    assert len(remaining) == 1
+    assert remaining[0].id == default_uncat_id
+
+    # The note that was filed under the doomed category now points at the
+    # survivor, not at nothing — a bare workspace_id reassignment without
+    # this would have left category_id pointing at a deleted row.
+    refetched = session.query(Entry).filter_by(id=entry_id).one()
+    assert refetched.category_id == default_uncat_id
+    assert refetched.workspace_id == "default"
+
+
+def test_deleting_a_space_still_moves_a_category_with_no_name_collision(
+    client, session
+):
+    """The merge path above must not swallow the ordinary case: a category
+    name that is genuinely new to "default" still just moves, exactly as it
+    did before the collision fix."""
+    created = client.post("/spaces", json={"name": "Doomed Unique"}).json()
+    space_id = created["id"]
+    category = _row(session, Category, name="doomed-only-cat", workspace_id=space_id)
+
+    resp = client.delete(f"/spaces/{space_id}")
+    assert resp.status_code == 200, resp.text
+
+    session.expire_all()
+    assert session.get(Category, category.id).workspace_id == "default"
+
+
 # --- chats are workspace-scoped too -------------------------------------------
 #
 # Reported directly, with a screenshot: the Library showed every chat
@@ -199,3 +282,61 @@ def test_deleting_a_space_reassigns_its_chats_to_default(client, session):
 
     session.expire_all()
     assert session.get(Conversation, conversation.id).workspace_id == "default"
+
+
+def test_a_hidden_space_leaves_all_spaces_but_still_works_when_selected(client):
+    """Asked for directly: "how do I hide a specific space's notes and
+    images/documents etc, all the content from the 'all spaces' space if I
+    wish??" There was no way — `Space` carried only id/name/icon, and "all"
+    switched the workspace filter off entirely, so it showed everything.
+
+    The flag is a *view* filter and this pins both halves of that: the space
+    drops out of the everything-view, and stays completely usable when it is
+    the one selected.
+    """
+    private = client.post("/spaces", json={"name": "Journal"}).json()
+    other = client.post("/spaces", json={"name": "Work"}).json()
+
+    client.post(
+        "/entries",
+        json={"content": "a private thought", "defer_filing": True},
+        headers={"X-Workspace-ID": private["id"]},
+    )
+    client.post(
+        "/entries",
+        json={"content": "a work note", "defer_filing": True},
+        headers={"X-Workspace-ID": other["id"]},
+    )
+
+    def contents(workspace):
+        rows = client.get("/entries", headers={"X-Workspace-ID": workspace}).json()
+        return {e["content"] for e in rows}
+
+    # Before hiding, "all" sees both.
+    everything = contents("all")
+    assert "a private thought" in everything
+    assert "a work note" in everything
+
+    hidden = client.put(f"/spaces/{private['id']}", json={"hidden_from_all": True})
+    assert hidden.status_code == 200
+    assert hidden.json()["hidden_from_all"] is True
+
+    # Gone from the everything-view, and nothing else went with it.
+    after = contents("all")
+    assert "a private thought" not in after
+    assert "a work note" in after
+
+    # Still entirely usable when you actually go there.
+    assert "a private thought" in contents(private["id"])
+
+    # And it comes back.
+    client.put(f"/spaces/{private['id']}", json={"hidden_from_all": False})
+    assert "a private thought" in contents("all")
+
+
+def test_the_default_space_cannot_be_hidden(client):
+    """It is where a deleted space's notes land, so hiding it would quietly
+    empty the everything-view of anything that ever fell back to it.
+    """
+    refused = client.put("/spaces/default", json={"hidden_from_all": True})
+    assert refused.status_code == 400

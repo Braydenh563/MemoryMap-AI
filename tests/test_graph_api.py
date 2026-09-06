@@ -78,6 +78,35 @@ def test_a_pin_can_be_released(client):
     assert node["graph_pin_y"] is None
 
 
+def test_unpin_all_releases_every_pinned_node(client):
+    """Direct instruction: "I want to be able to unroot and reset the graph
+    to free float if I want with a button" — one call releases every
+    pinned note rather than tracking each down to double-click it."""
+    a = _save(client, "pinned note one")
+    b = _save(client, "pinned note two")
+    c = _save(client, "never pinned")
+    client.put(f"/graph/pin/{a['id']}", json={"x": 1.0, "y": 2.0})
+    client.put(f"/graph/pin/{b['id']}", json={"x": -5.0, "y": 8.0})
+
+    resp = client.post("/graph/unpin-all")
+    assert resp.status_code == 200
+    assert resp.json() == {"unpinned": 2}
+
+    nodes = {n["id"]: n for n in client.get("/graph").json()["nodes"]}
+    assert nodes[a["id"]]["graph_pin_x"] is None
+    assert nodes[a["id"]]["graph_pin_y"] is None
+    assert nodes[b["id"]]["graph_pin_x"] is None
+    assert nodes[b["id"]]["graph_pin_y"] is None
+    assert nodes[c["id"]]["graph_pin_x"] is None  # was never pinned; still fine
+
+
+def test_unpin_all_is_a_no_op_when_nothing_is_pinned(client):
+    _save(client, "an ordinary note")
+    resp = client.post("/graph/unpin-all")
+    assert resp.status_code == 200
+    assert resp.json() == {"unpinned": 0}
+
+
 def test_a_lone_coordinate_is_refused_not_guessed(client):
     """One axis set and the other null is not a position — refused rather
     than silently coerced into either a pin or a release."""

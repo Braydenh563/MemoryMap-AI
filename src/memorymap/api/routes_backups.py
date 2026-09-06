@@ -6,6 +6,7 @@ Split out of `routes_settings.py`'s "backups" section
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -54,6 +55,16 @@ def storage_location() -> dict:
         "backup_retention_count": _retention(config),
         "backup_retention_min": MIN_RETENTION,
         "backup_retention_max": MAX_RETENTION,
+        # ROADMAP.md's onboarding item named this a still-open gap: a
+        # data-dir writability check. The database already opening here
+        # implies the directory is writable *now*, but a machine can go
+        # read-only under it later (a synced folder, a permissions change, a
+        # full disk remounted read-only) with nothing in the interface ever
+        # saying so until a save silently fails. `os.access` is the same
+        # check `_validated_export_dir` below already trusts for the export
+        # folder; this is the same question asked of the notebook's own
+        # folder instead.
+        "data_dir_writable": os.access(config.data_dir, os.W_OK),
     }
 
 

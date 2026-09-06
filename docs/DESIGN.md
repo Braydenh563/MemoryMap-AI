@@ -492,3 +492,131 @@ it is. See ROADMAP §35L.
   the one BACKLOG.md §5 already names (wiki-links, a slash menu,
   live-preview editing, sub-pages) — a feature/product question, not a
   design one, and correctly out of this pass's scope.
+
+
+---
+
+## The principles this system is an implementation of
+
+Added after a direct instruction: *"I shouldnt be having to tell you to
+consider all these ui/ux principles, they should be part of design.md and
+you should be sticking to them throughout development."*
+
+That is correct, and the four sections above (spacing, type, corners,
+control height) are already three of the four classical CARP principles
+wearing implementation names. Naming them, adding the fourth, and — where
+possible — giving each a **number a session can measure itself against** is
+what this section is for. A principle with no measurement is a preference;
+a principle with one is a check.
+
+### C — Contrast
+
+Contrast is what makes a thing look like what it is. The palette carries it
+(`--ink` vs `--muted`, `--accent` vs `--chip-bg`), and the failure mode here
+has never been "not enough colour" — it is **two things that differ slightly
+for no reason**, which reads as an accident rather than a distinction.
+
+> **The rule:** if two things are different, make them clearly different. If
+> they are the same kind of thing, make them identical. Nothing in between.
+
+Text contrast is 4.5:1 minimum for body copy (WCAG AA), 3:1 for large text
+and for the boundary of a control you are meant to find. `--muted` on
+`--card` is the pair to check when adding a theme.
+
+### A — Alignment
+
+**The weakest part of this app, measured.** Count the distinct left edges of
+every visible element wider than 120px on a screen; a composed layout has
+two to four. Measured at 1440×900:
+
+| Screen | Distinct left edges |
+| --- | ---: |
+| Dashboard | **37** |
+| Graph | **35** |
+| Notes | **32** |
+| Library | **25** |
+| Reminders | **16** |
+| Chat | 13 |
+| Timeline | 9 |
+
+Thirty-seven means essentially nothing lines up with anything, and it is the
+most likely single cause of *"it feels fake and unprofessional but I cant
+place it"* — misalignment is felt long before it is seen.
+
+> **The rule:** every element sits on an edge something else already
+> established. A new element that needs a new left edge is a sign the layout
+> wants a grid, not that the element wants a margin.
+
+This is the acceptance criterion for the shell work in
+[roadmap/REDESIGN.md](roadmap/REDESIGN.md) §R6 item 6: **if a change does not
+reduce that count, it did not fix the thing it was for.**
+
+### R — Repetition
+
+The token scales *are* repetition, and `tests/test_style_scale.py` enforces
+them. The gap they did not cover was **control size**, because a class can
+be consistent in its declarations and still render at five heights.
+
+Measured before `--target-min` existed: `button.small` — the most-used
+control class in the app — rendered at **19, 24, 25, 26 and 30px**, decided
+entirely by whether a given button held an icon, a word, or both. Five
+heights for one class.
+
+> **The rule:** a control class declares a height (or a floor). Content never
+> decides how tall a control is.
+
+### P — Proximity
+
+Related things sit together; unrelated things get a gap. The failure here is
+the one the Library screen had: six stat tiles and, directly beneath them,
+the same six filters as chips — *adjacent* but not related, because they
+were the same control twice.
+
+> **The rule:** before adding a control, find the one that already does it.
+> Proximity is meaningless if the neighbours are duplicates.
+
+---
+
+## Hit targets — `--target-min`
+
+```
+--target-min: 1.75rem   /* 28px — the floor under every interactive thing */
+```
+
+Distinct from `--control-h`, and the difference matters: `--control-h` is a
+**strip's** declared height, scoped per toolbar, and exists so a row reads as
+one strip. `--target-min` is a **global floor** that applies to a control
+wherever it sits, including the many that belong to no strip.
+
+WCAG 2.2 AA ("Target Size (Minimum)", 2.5.8) sets 24×24 CSS px. 28px clears
+it with room for a border. Measured violations before this token existed:
+
+- `#semantic-search-toggle`, `#library-semantic-toggle`,
+  `#library-show-binned` — **32×18**.
+- The reminder rows' checkboxes — **13×13**, barely half the floor and
+  genuinely fiddly with a trackpad.
+
+A `min-height`, never a `height`, so a strip declaring a taller
+`--control-h` still wins and a control that wraps to two lines still grows.
+**Not a spacing token**, for the reason the control-height section already
+gives: a hit target must not move with the density setting.
+
+The one deliberate exception is a control drawn by a sibling — the switch
+pattern, where the input is clipped to nothing and the switch is the real
+target. Those are excepted by name in `01-forms-settings.css`, not by
+accident.
+
+---
+
+## Motion — and the one rule that is not optional
+
+Durations come from the `--motion-*` scale. Beyond that:
+
+> **Every indefinite animation needs a `prefers-reduced-motion` branch, and
+> the branch keeps the information.** Stopping a spinner is right; removing
+> the thing it was telling you is not.
+
+Both animations added in this pass follow it: the "Filing…" chip keeps its
+label and drops the spin, and the streaming caret stays visible and stops
+blinking. Someone who asked for less motion is the person least able to
+infer "this is still loading" from text quietly appearing.

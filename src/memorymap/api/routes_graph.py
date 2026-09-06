@@ -700,3 +700,29 @@ def pin_node(
     entry.graph_pin_y = body.y
     session.commit()
     return {"id": entry.id, "graph_pin_x": entry.graph_pin_x, "graph_pin_y": entry.graph_pin_y}
+
+
+@router.post("/graph/unpin-all")
+def unpin_all_nodes(session: Session = Depends(get_session)) -> dict:
+    """Release every pinned node at once — direct instruction: "I want to be
+    able to unroot and reset the graph to free float if I want with a
+    button." `pin_node` above only ever clears one note at a time, which is
+    fine for the drag-to-place gesture it serves but not for "start over,"
+    which would otherwise mean tracking down and double-clicking every
+    pinned node individually.
+
+    Scoped by the ordinary session (the same `WorkspaceMixin` scoping every
+    other query in this app already gets) rather than an explicit
+    workspace filter here — this route has no more reason to reach across
+    spaces than `pin_node` above does.
+    """
+    pinned = (
+        session.query(Entry)
+        .filter(Entry.is_deleted == False, Entry.graph_pin_x.is_not(None))  # noqa: E712
+        .all()
+    )
+    for entry in pinned:
+        entry.graph_pin_x = None
+        entry.graph_pin_y = None
+    session.commit()
+    return {"unpinned": len(pinned)}

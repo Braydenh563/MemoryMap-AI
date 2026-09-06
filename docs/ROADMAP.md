@@ -7,12 +7,65 @@ now *only* what's still open, ranked by what it unlocks. Section numbers in
 code comments and tests still resolve via HISTORY.md's index.
 
 **The standing caveat:** every provider test runs against a fake transport —
-SSE framing and tool-call parsing are implemented from the spec, not verified
-against a running Ollama/LM Studio. UI claims are now checkable (Chromium is
-in the sandbox); model *behaviour* claims are not — reproduce or say plainly
-you couldn't.
+tool-call parsing is implemented from the spec, not verified against a
+running server. Plain SSE streaming *is* now verified against a real socket
+(a stand-in OpenAI-`/v1` server, not real LM Studio/vLLM/llama.cpp or real
+inference) — see CLAUDE.md's standing caveat for what that covered. UI claims
+are checkable (Chromium is in the sandbox); model *behaviour* claims mostly
+are not — reproduce or say plainly you couldn't.
+
+## ► START HERE: the redesign is the priority
+
+A full UX/architecture re-imagining was asked for and is written up in
+**[roadmap/REDESIGN.md](roadmap/REDESIGN.md)** — measured evidence for every
+complaint, the three underlying causes, the target shape, a complete ledger
+of all forty requests with their state (§R8), and the numbers as they stand
+(§R9). **Read it before doing any UI, file-handling, graph or backend work.**
+
+**Read the top of [roadmap/HANDOVER.md](roadmap/HANDOVER.md) first — it is
+ahead of this file.** Its own top section is the whiteboard priority below,
+by direct instruction. Under that: the v0.2.0 round, the two defect shapes
+behind nearly every visual bug reported, what is done, and fifteen open
+items all top priority by instruction. It still carries the reversal worth
+knowing before any file work — PDFs and documents must be viewable,
+downloadable and manageable **without any AI model in the loop** — and the
+note that anything editor- or slash-command-shaped starts from
+`frontend/editor.js`, which has a "/" menu.
+
+**The next session's order of work, highest value first.** Each links to the
+section that holds the quoted request and the detail:
+
+| | Work | Why it is first |
+| --- | --- | --- |
+| 0 | **The whiteboard's panels and controls, in full — moved here by direct instruction, ahead of everything below.** Full narrative in [roadmap/HANDOVER.md](roadmap/HANDOVER.md)'s own top section. | Two asks: (a) the layout/structure/distribution/positioning redesign this row already named as the open half of item 7 below — panels reported clashing with each other and the canvas; (b) new, specific: while the **Pan** tool is active, clicking (or double-clicking — pick one deliberately) directly on a card/sketch/shape should switch to **Selection** and select it, instead of requiring a manual tool switch first. Not built yet — logged here first, per this file's own standing rule. |
+| 0c | **Graph Trace: multiple paths between two nodes, coloured and switchable** ([roadmap/HANDOVER.md](roadmap/HANDOVER.md), "logged, not built" §1). | Reported live. `GET /graph/path` returns one BFS shortest path today; this needs a k-shortest/all-simple-paths search server-side and a path switcher plus per-path colour in `graph.js`'s Trace panel. Scope the cap on N before building — unbounded all-paths search can blow up on a densely-linked notebook. |
+| ~~1, 3, 6, 8~~ | **Done — four rows retired.** The lock audit ([§R8.2](roadmap/REDESIGN.md)); staging every file ([§R7.2](roadmap/REDESIGN.md)); the agent-harness audit ([§R5](roadmap/REDESIGN.md)); managing concept maps ([§R7.6](roadmap/REDESIGN.md)). | Two were built by earlier sessions and only the table was stale — **check a row against the code before taking it**, that is the sixth "already exists" catch. The other two are written up in [roadmap/HANDOVER.md](roadmap/HANDOVER.md)'s harness-audit section, with what §R5's five points actually turned out to be and why the staged-URL guard lives in `api()` rather than in a list of save paths. |
+| ~~2~~ | ~~**The document/file editor**~~ **Done — all six items** ([§R7.1](roadmap/REDESIGN.md)) | Selection → chat context; editing a text or code file in place; syntax highlighting written in-repo because this app has no CDN and no bundler; an HTML preview pane in a scriptless sandbox served with its own CSP; Export text, named after what the text *is* rather than the file it came from; and item 6, which turned out to be true already — the Library's Files tiles have opened into the lightbox all along, and the lightbox is now the editor. Four bugs fell out of building it, each found by measuring rather than looking; all are in [roadmap/HANDOVER.md](roadmap/HANDOVER.md). |
+| 4 | **The pane-based shell** ([§R7.5](roadmap/REDESIGN.md), [§R8.3](roadmap/REDESIGN.md)) | Every remaining UI complaint is downstream of seven screens that each own the whole window. Its acceptance criterion is the distinct-left-edge count in [DESIGN.md](DESIGN.md) — re-baseline it on a fixed fixture first, per §R9. |
+| 5 | **Cross-linking: the `@` picker** ([§R7.3](roadmap/REDESIGN.md)) | Link direction landed; **the Connections block is now built** (`GET /entries/{id}/connections` and `/documents/{id}/connections`, the dialog off both ⋯ menus, `tests/test_connections_block.py`) — it groups links by direction and adds the documents, boards and files each thing is joined to, none of which were surfaced anywhere. What is left of this row is the one universal `@` picker. **§R7.3 item 3 (typed collapsible blocks) is now built too** — `> [!note]-` and `> [!note]+` render as a `<details>`, with a "Collapsible section" slash command; a plain `> [!note]` is unchanged, so old notes are unaffected exactly as that item required. |
+| 7 | **Settings, and the whiteboard's panel layout** ([§R7.5](roadmap/REDESIGN.md)) | Settings has never been measured. Panel control sizes are unified; the layout rethink is now row 0 above, promoted by direct instruction. |
+| 9 | **The backend list** ([§R7.7](roadmap/REDESIGN.md)) | Not urgent. Includes the answer to "should it be async" — measured, and it is **no**; the reasoning is there so nobody redoes it. |
+
+**Two standing rules from that work**, both learned the expensive way this
+session:
+
+- **Measure, change, re-measure.** Every claim in REDESIGN.md has a number
+  behind it. A change that does not move one of §R1's numbers is decoration.
+- **A load-time path behind a condition needs a test that meets the
+  condition.** A crash that hung the app on its loading screen passed
+  `node --check`, passed every cold-boot test, and needed exactly one thing
+  to reproduce: an unsaved draft in the capture box. See
+  `tests/test_frontend_load_order.py`.
 
 ## What is open right now — start here
+
+**The overnight round is in [roadmap/HANDOVER.md](roadmap/HANDOVER.md)'s first
+section — read it before this list.** Built there, do not rebuild: document OCR
+through the workspace (PDFs rasterised page by page, plus a per-page vision
+read), the chat header/sources/message redesign, Notion block handles in the
+documents live view, `agent_activity_notices`, and typed values in the advanced
+response settings. Still open from it: concept-map learnability. **Built since:
+the whiteboard rethink and more dashboard widgets** — HISTORY.md §103.
 
 Six sessions of finished narrative used to sit above this line. It has moved
 to [roadmap/HISTORY.md](roadmap/HISTORY.md)'s "§80 to §86" index, because a
@@ -241,12 +294,9 @@ Items 1–2, below, are the ones with real substance after that.
     including the corrected "model is not stored per turn" premise:
     HISTORY.md §100.
 
-~~12. **The Documents Library sub-tab needs a full visual redesign.**~~
-    **Built.** Full narrative: HISTORY.md §100. Whiteboards' own pass (item
-    9 above) is unrelated code and still open.
+~~12. **The Documents Library sub-tab needs a full visual redesign.**~~ **Built.** Full narrative: HISTORY.md §100.
 
-~~13. **Back/forward navigation still misses most navigation types.**~~
-    **Built, all four cases.** Library's sub-tabs (§88.1 item 7), saved chat
+~~13. **Back/forward navigation still misses most navigation types.**~~ **Built, all four cases.** Library's sub-tabs (§88.1 item 7), saved chat
     conversations (`openConversation`/`newChatConversation` recording a
     `{tab: "chat", section}` entry, restored by `stepTabHistory` — the
     session that built this also had to make `stepTabHistory` `async` and
@@ -341,32 +391,7 @@ same session is in §88.0 so nobody re-fixes it.
 
 | Report | Cause |
 | --- | --- |
-| "Run Skill buttons in the AI Skills library are broken" **and** the `app.js:10495` console error | One line, two symptoms: `startSkill(skill.name)` passed the name *string* where the skill object was expected **and** omitted `values`, so `Object.values(undefined)` threw. Now `runSkill(skill)` |
-| "The documents subtab cards don't even do anything" | `openDocument()` loaded correctly but the Documents *page* stayed hidden behind the Library tab. Needed `switchTab("documents")` first |
-| "The Open button on a selected draft does nothing" | `openLibraryItem` had no branch for the `draft` kind, which arrived with the new Drafts chip. `flashEntry` already knew how to reveal a draft |
-| "There's no way to publish a draft as a proper note" | There was — the draft chip — labelled "click to clear the label", which names the mechanism and not the outcome. Relabelled |
-| "The `/` command popup isn't scrollable and disappears when I try" | A capture-phase `scroll` listener saw the menu's *own* wheel event and closed it. Now ignores scrolls inside the menu, plus `overscroll-behavior: contain` |
-| "The top menu bar shifts when I open the settings modal" | `scrollbar-gutter: stable` was applied **only** under `.modal-open`, so opening a dialog *added* a gutter that had not been there a frame earlier. Now reserved permanently |
-| "Weird small circles left hanging when I change where links connect" | Link endpoint handles are appended to `#wb-overlay-zoom-group`; **both** existing clears only swept `#wb-zoom-group`. Every render appended a group and none was removed. One `wbClearSketchHandles()` now clears both layers |
-| "Tune semantic search should show at all times" | The control lived inside `#chat-results`, which is `hidden` until an answer exists — so the thing that changes how search behaves could only be reached *after* running one. Moved to the ask row |
-| "The export folder rows have no gap" | `.row`'s gap applies *within* a row, not between two of them. `.settings-row-spaced` |
-| "The documents sub-tab search box is a different height" | Same failure DESIGN.md names for the graph strip: an `<input>`'s own padding outgrows a button unless the row sets one height. `--control-h` applied to that head |
-| "The skill-logs sidebar should be sticky and viewport-height" | `#skills-sidebar` had **no CSS at all** — it carried `card glass` but not `sidebar-panel`, so it scrolled away with the page |
-| "The new-chat button clashes with the collapse button" | The collapse toggle is absolutely positioned at the sidebar's top-right and the heading row's trailing button sits in the same place. The head now reserves `--sidebar-toggle-lane`, a token that already existed for exactly this |
-| "Back/forward should handle sub-tabs too" | History entries are now `{tab, section}`; `showNotesSection` records one. Verified: browse → back → capture → back → ask → forward → capture |
-| Whiteboard "janky and uncomfortable" | `renderWhiteboard()` (a full d3 join over every item) was called from **48 sites**; one action touches several. All now coalesce into one rAF via `wbScheduleRender()` |
-| "Make link creation on the graph offer a kind, a reason, and a cancel" | Built — see §87.5's typed links, now shipped as `EntryLink.link_type` plus the drag-to-link dialog |
-| "The dashboard widgets are completely broken" **and** `Unhandled promise rejection: TypeError: Cannot read properties of null (reading 'replace')` | One bug, reported as two. §88.0's own `startSkill` fix (row above) stopped new corruption but never cleaned up what it had already written: `JSON.stringify` turns `undefined` into `null` inside an array, so a profile that ran a skill during that bug's window carried a permanent `null` in `recentSkills`. `withoutLeadingEmoji()` called `.replace()` on it unguarded, on every dashboard render, before the widget grid populated. Fixed at all three points — write guard, a self-healing read-side filter that rewrites the cleaned list (so an already-affected profile repairs itself on next load), and a defensive coercion — reproduced and verified live in this sandbox's Chromium |
-| Categories sidebar heading smaller than Chats/Documents | A stale ID-selector `#sidebar h2 { font-size: var(--text-lg) }` outranked the unified `.card h2` (§35L) by specificity for this one sidebar. Removed |
-| "The docked ui at the top of the graph needs a cleanup" (second pass) | "+ New note" grouped with the "?" help button instead of bookending the strip alone; Layout/Colour segmented controls split into two labelled groups (they shared one with no "Colour" label); Minimap moved into the Options panel with the other "tuned once" settings |
-| Skill Logs sidebar still not full height after the first fix | Same bug `.doc-sidebar` already hit once: `align-self: start` + `max-height` alone is a ceiling with no floor. Applied `.doc-sidebar`'s complete pattern (`align-self: stretch`, `height: 100%`, `max-height: var(--page-sticky-h)`, flex column, list scrolls not the card) instead of the partial version tried first |
-| Link-kind dialog ("How are these connected?") text unreadable in dark theme | `.link-kind-option` overrode `background` to transparent but not `color`, so it kept the global `button` rule's `color: var(--on-accent)` — `#0d1017` in dark theme, meant for text on that same rule's bright accent fill, not a transparent button. Added `color: var(--ink)` |
-| Back-to-top button "too much to the left" on Notes, displaced on Library | `positionScrollTopForNested` always pulled the button in from the panel's own edge, stacking a second margin on top of the page's own — Notes has no right-side element to clear at all. Now only pulls in when a real right-side panel (the Skill Logs sidebar) is actually present; otherwise matches every other tab's flat offset |
-| Graph toolbar still 3 rows after the first redesign pass | The two hard-split `.graph-toolbar-row`s merged into one flexible row (Options now wraps up rather than living on a pinned second row), and the search/Trace group moved out of the `display: contents` `#graph-toolbar-secondary` wrapper onto the header's own line beside "Graph" — a flex item inside that wrapper would not size to its own content no matter what was tried in CSS, confirmed by direct measurement, not assumption. Down to 2 rows |
-| Graph Options panel minimap combobox taller than the buttons beside it | `.graph-options button` got `height: var(--control-h)`; the `<select>` in the same panel never did. Both now measure identically (30.4px) |
-| Chat "New" button clashes with the sidebar collapse toggle specifically while collapsed-but-hover-expanded | `.sidebar-collapsed .sidebar-head` zeroes the toggle's reserved padding lane, correct at the true 48px-collapsed width — but the element keeps that class throughout the hover-peek state too, where the toggle visually moves back to its normal `right: 1.25rem`. Reserve restored for that specific hover state |
-| Graph node labels show raw callout syntax (`Review > [!tip] Remem…`) | `routes_graph.py`'s `_preview()` stripped a leading `#` heading marker but not a callout's `> [!kind]` opening line. Added `_CALLOUT_MD`, the callout equivalent of the existing `_HEADING_MD` strip |
-| "There's a weird black line on the right side of the screen" (desktop/WebView2 build, screenshotted) | Supersedes this table's own earlier row above ("The top menu bar shifts when I open the settings modal") rather than being a new bug: that fix made `scrollbar-gutter: stable` permanent on `<html>` so a real scrollbar disappearing under `.modal-open` wouldn't shift the layout. §36A later moved all scrolling onto each `.tab-page` (body is now unconditionally `overflow: hidden`, and `window.scrollTo` no longer exists in app.js), so `<html>` can no longer show a real scrollbar at all — the gutter that rule reserves is now permanently empty, narrowing `<html>`'s own rendered box by a scrollbar's width and leaving unstyled space at the viewport's right edge that no CSS rule paints, because it sits outside `<html>`'s box entirely. Confirmed directly in this sandbox's Chromium: `document.documentElement`'s rendered width measured a clean scrollbar-width short of `window.innerWidth` with the rule in place, and exactly equal to it with the rule removed — and re-tested opening the real settings modal to confirm no shift returns without it, since body's own `overflow: hidden` is unconditional regardless. `scrollbar-gutter: stable` removed from `01-forms-settings.css`'s `<html>` rule. **Not confirmed in the actual WebView2 shell that reported it** — only that the underlying CSS condition it depends on (a permanently unfillable gutter) is real and now gone |
+| *(38 older rows moved out)* | The oldest entries of this table were condensed into [roadmap/HISTORY.md](roadmap/HISTORY.md) to keep this file under its own length rule (`tests/test_docs_layout.py`). Nothing was lost — the rule exists because a roadmap nobody finishes reading is a roadmap that gets rebuilt |
 
 ### 88.1 Reported and still open — work this list top-down
 
@@ -495,7 +520,10 @@ same session is in §88.0 so nobody re-fixes it.
    Documents, in order.
 ~~8. **The Documents Library sub-tab needs a visual redesign.**~~ **Built** —
    see the live-list's own item 12, which has the full root cause and fix.
-9. **The Whiteboards Library sub-tab is bland** — same pass.
+~~9. **The Whiteboards Library sub-tab is bland**~~ **Built** — search, sort
+   and a Cards/Rows switch on the Library's one shared view preference. Same pass: Contents rebuilt as a real index (sticky sections, filter, jump bar,
+   folding, by-month grouping) and the three-pane OCR workspace — HANDOVER.md's
+   third batch has both, and what Tesseract's absence here left unverified.
 10. **The graph dock may get too tall and squish the graph.** Now three
     deliberate rows; if it grows again, the answer is an overflow menu rather
     than a fourth row.
@@ -711,12 +739,8 @@ demand. This session's graph-toolbar work is (d); the pane system is (c).
 
 ### 88.3 The app.js split — done
 
-All four files (documents.js, library.js, dashboard.js, settings.js) are
-split out of app.js (~28,460 → ~21,720 lines) and verified live in Chromium
-with zero console errors. Full narrative — line ranges, the four hazards
-found and how each was fixed, the rules that made it safe — moved to
-[HISTORY.md's own §88.3 entry](roadmap/HISTORY.md#883--the-appjs-split-full-narrative-moved-from-roadmapmd-now-complete)
-now that it's finished.
+Four files split out, verified live, narrative in
+[HISTORY.md §88.3](roadmap/HISTORY.md#883--the-appjs-split-full-narrative-moved-from-roadmapmd-now-complete).
 
 ### 88.4 Context, memory and harness engineering — an analysis
 
@@ -730,12 +754,8 @@ each round. Conversations can be compressed (§35I). Tools are a fixed registry
 in `ai/tools/`. There is a "what the AI remembers" surface (§39B).
 
 **Corrected — items 1 and 2 below were already built by a prior session
-(`search_manager.py`, commits `be53bd5`/`03b9a3e`/`a399926`, dated before
-this analysis was last read as current) when this list was drafted, and
-this section was never updated to say so. Checked directly rather than
-trusted, per this file's own repeated rule, and confirmed via `git log`
-that the code predates the session that found it stale — not a
-same-session miss like a couple of others this file records elsewhere.**
+(`search_manager.py`, commits `be53bd5`/`03b9a3e`/`a399926`), and this section
+was never updated to say so. Checked directly, per this file's own rule.**
 
 **What's actually still a gap, in order of value:**
 
@@ -1429,6 +1449,31 @@ full narrative and the measured numbers.
 | [roadmap/ANALYSIS.md](roadmap/ANALYSIS.md) | Judgements: the odysseus read, and the licence constraint — **this project is AGPL-3.0 now, not MIT**, so §34a's "no code crosses either way" is half-lifted. What was deliberately not taken. Also §59: the claude-obsidian/cognee/graphify read behind items 32–36 below, and §60: a second odysseus read after the repo tripled in size — a real non-atomic-write bug it found, an MCP shape worth copying, and its own admission that the backend isn't better designed. |
 | [DESIGN.md](DESIGN.md) | The design system. `tests/test_style_scale.py` enforces it. |
 
+## Still open after §105 — start here
+
+§105 (HISTORY.md) closed a long run of live reports. What it did **not** close,
+each already located:
+
+1. **The translation action has never met a model.** `docTranslatePassage`
+   hands the passage to the chat composer with the question written. That the
+   composer receives it is verified; that a local model answers it well is not.
+2. **The vision reader is still unexercised.** Every OCR test drives a fake
+   transport. `?reader=tesseract` is now a real alternative and is equally
+   unmeasured — no `tesseract` binary in the sandbox either.
+3. **Tensions still has no measured hit rate** (§104's caveat, unchanged).
+4. **Source view cannot underline a flagged word**, and structurally cannot: a
+   `<textarea>`'s value is a string. Double-click and right-click open the same
+   menu off the caret offset. If this keeps being reported, the answer is a
+   contenteditable source view, which is a much larger change than it looks.
+5. ~~The prose rules are deliberately shallow~~ **Closed.** A "Check with AI"
+   button in the suggestions panel hands the whole document to the chat with a
+   prompt asking for exactly what the local rules cannot judge — its/it's,
+   agreement, tense, tone, clarity — as a numbered list of issues rather than a
+   silent rewrite. On request, not a pass: verified it does not touch the
+   editor's own instant checks. **Not yet verified against a real model** — no
+   Ollama in this sandbox — only that the composer receives the right prompt
+   (same gap as item 1 above).
+
 ## Next up, ranked by what it unlocks
 
 **One list, four tiers. Work top-down and do not skip.** The failure this
@@ -1569,17 +1614,14 @@ into a good one.
     twice, which this project's own history (HISTORY.md's repeated "checked
     before building" theme) is precisely the failure mode it keeps warning
     about.
-19. **First-run onboarding, the rest.** Reachability diagnostics are built;
-    still open: offering to pull a model, a data-dir writability check,
-    seeded example notes so the graph, timeline and dashboard have something
-    to show before the first note exists — named by the project's own outside
-    review as the highest-leverage version of onboarding. Also asked for
-    directly: **a guided application tour** — a click-through walkthrough of
-    the tabs and their core actions, distinct from the reachability/seeded-
-    notes work above (that's about the notebook having something to show;
-    this is about someone new knowing where to look). `#onboarding-overlay`
-    already exists as a surface (see CLAUDE.md's login recipe); worth
-    checking what it currently does before scoping a tour on top of it.
+19. **First-run onboarding.** ~~Reachability diagnostics~~, ~~pull a
+    model~~, ~~seeded example notes~~ and ~~a guided tour~~
+    (`ONBOARDING_SLIDES`, nine slides) were **already built** — found by
+    reading `frontend/app.js` first, per this file's own rule, rather than
+    rebuilding what this entry's stale text called still open. **The one
+    real gap — a data-dir writability check — is closed**: `GET /storage`
+    reports `data_dir_writable` and the "Your setup" slide warns on it.
+    Verified live: `"data_dir_writable": true` against this sandbox's dir.
 19b. **A mute-notifications option, asked for directly**, alongside making
     the toast/notification split clearer: "there can be an option to mute
     notifications except for reminders." Built as
@@ -1710,13 +1752,29 @@ Worth doing, and worth doing after the above.
         verification at the time. **Re-verified this session**: archived a
         fresh note via the API, confirmed it appears under the Library's
         Archived chip with the right count, zero console errors.
-        **Deliberately scoped to notes only** — chats and documents (BACKLOG
-        §4 item 3 also names both) are the real remaining work, one
-        `archived_at` column and one pair of routes each, same shape as the
-        notes version above to copy from. §26 lists three things that build
-        on the full archive afterwards (a "delete everything" control, one
-        assembled "your data" page, opt-in auto-archive-by-age) but none of
-        those block extending to chats/documents first.
+        **Extended to chats and documents this session** — the named
+        remaining scope, done: `Conversation.archived_at`/
+        `Document.archived_at` (both additive), `PUT
+        /conversations/{id}/archive`/`/unarchive` and `PUT
+        /documents/{id}/archive`/`/unarchive`, an "Archive" action beside
+        Delete in the chat sidebar and the documents dock (not grouped
+        with it, same placement as the notes version), and `_shelved()`
+        extended to include both with a `"subtype"` field so the Library's
+        one Shelved filter now covers all three kinds. 10 new tests
+        (`test_conversation_archive.py`, `test_document_archive.py`).
+        **Live-verified**: archived a real chat and document through the
+        actual endpoints, confirmed both vanish from their ordinary lists
+        and appear under the Library's Archived chip (screenshot: two
+        cards, correct titles, "archived"/"just now" metadata), then
+        unarchived both back to their normal lists — zero console errors
+        throughout. The frontend kebab menu's own Archive/Unarchive click
+        path is the same `makeMenuItem`/`kebabMenu` shape the notes version
+        already uses successfully, but wasn't itself click-driven in this
+        verification (a generic popup-visibility timing issue in the test
+        harness, not a reproduced app bug) — the API + Library-rendering
+        half of the round trip was. §26 lists three things that build on
+        the full archive afterwards (a "delete everything" control, one
+        assembled "your data" page, opt-in auto-archive-by-age).
     30c. ~~**Chat metadata not surviving a reload**~~ **Checked before
         building, found already fixed (HISTORY.md §70).** `_turn_messages`
         (routes_conversations.py) persists `stats`/`elapsed_ms` on the
@@ -1775,69 +1833,22 @@ Worth doing, and worth doing after the above.
     back tagged `stale`. Two new regression tests. The other two candidates
     — proactive digest/on-this-day surfacing, and letting a saved skill run
     on the same schedule — are still open.
-35. **No vision-capable image understanding.** Confirmed by grep, not
-    assumed: `ollama_client.py` already reads a model's `vision` capability
-    alongside `tools`/`thinking` from the same `/api/show` call §6 built, but
-    nothing consumes it — no code path sends an attached image to a vision
-    model. Asked for directly, including how it should be configured:
-    auto-detected the same way `tools`/`thinking` already are, with a manual
-    override in Settings → Models for OpenAI-compatible backends that don't
-    self-report capabilities. Wire into the existing image path (paste/drop/
-    attach → `/media/upload`), and run it *alongside*, not instead of, the
-    OCR idea already scoped in BACKLOG.md §4 item 1 — the two answer
-    different questions and are both cheap once the pipeline exists: local
-    OCR (`pytesseract`, no torch, always available) extracts literal text for
-    the existing keyword index ("what did that whiteboard photo say"), a
-    vision model's description (only when one is configured) covers content
-    OCR can't read at all ("what's in that photo"). Needs a decision on
-    where the description is stored (a note field vs. a side table) and
-    whether the agent narrates "generated from an image" the way whiteboard
-    AI actions already disclose their own source.
-39. **Passive capture: a fifth autonomous-tasks job that mines chat for
-    un-filed facts** (ANALYSIS.md §60). Today a note is only filed on an
-    explicit instruction or an explicit tool call — something mentioned in
-    passing during an ordinary Q&A turn is never captured. An
-    `auto_capture_enabled` job alongside the existing `auto_tag`/`auto_link`/
-    `auto_dedupe` three, default off for the same reason those are ("it runs
-    the agent against the whole notebook with nobody watching"). Needs
-    measuring before it ships, the same discipline already applied to §33's
-    semantic-tool-retrieval item — a background job that mis-files something
-    nobody asked to capture is a worse failure than one that misses something.
-40. **Help page overhaul, plus an embedded mini AI chat for in-app guidance.**
-    Asked for directly, in detail, across several messages — logged here
-    before being built, not yet started. Two parts:
-    - **The docs/guides half.** Today's Help is thin. Wants proper docs and
-      guides in-app: hyperlinks, tutorials, step-by-step instructions, and
-      quick-access links into the actual menus/commands/settings a topic
-      describes (the same "jump straight to the setting and highlight it"
-      pattern item 83/§82's search-relevance links already established —
-      reuse that mechanism rather than inventing a second one).
-    - **The mini AI chat half**, specified precisely:
-      - Lives in the Help/Settings area, small and basic by design, not a
-        second full Chat tab.
-      - Uses the user's already-configured **utility model** (not the main
-        chat model), specialised via its own system prompt for app guidance
-        only — answering "how do I…" / troubleshooting, not general Q&A over
-        the notebook.
-      - Can hand back **hyperlinked badges** pointing at specific app
-        features (same quick-access-link mechanism as the docs half).
-      - **No persisted history at all** — asked for directly: not saved to
-        the database, not listed anywhere past chats are. The *current*
-        chat persists only within the user's current session (survives a
-        tab switch, does not survive "start a new help chat" or the session
-        ending) — likely a plain in-memory/module-state or `sessionStorage`
-        pattern, not `conversations`/`ChatMessage`, since those are exactly
-        the persistence this was asked to avoid.
-      - Model parameters tuned for **speed and accuracy over creativity** —
-        low temperature, no extended thinking, a tight prompt/context
-        budget (this repo already asserts `agent.PROSE_BUDGET_CHARS` for the
-        same reason: every sentence in a system prompt is resent every
-        round, and a help chat that's slow to answer "how do I turn off web
-        search" defeats its own purpose).
-    Not scoped further than this — no route names, no component layout — on
-    purpose: worth a full session's own design pass rather than a rushed
-    half-build, and the auto-update framework (item 83) was an explicit
-    prerequisite gate for starting this one, now cleared.
+35. ~~No vision-capable image understanding.~~ **Built** —
+    `ai/captioning.py` (background caption on upload, `POST /media/{id}/caption`
+    for a manual re-read), auto-detected vision capability plus a manual
+    override in Settings → Models (`ModelManager.resolve_vision_model`), and
+    the Library's Image Gallery already searches captions alongside OCR text
+    and filenames. Runs alongside OCR, not instead of it, exactly as this item
+    specified.
+
+39. ~~Passive capture~~ **Built** — see item 2 under ANALYSIS.md §60's
+    "Worth building" list, corrected there rather than twice.
+
+40. ~~Help page overhaul, plus an embedded mini AI chat for in-app guidance.~~
+    **Built** — see [roadmap/HISTORY.md](roadmap/HISTORY.md) for the
+    write-up: the docs/guides half was already a 13-topic accordion with
+    cross-links, and the mini AI chat half is now `ai/help_chat.py` +
+    `POST /help/ask`, wired into Settings → Help.
 
 ### Tier 4 — deferred, with the reason
 
@@ -1903,7 +1914,7 @@ told to open first.
 
 ## How to work on this repo
 
-- `pytest tests/` — ~1,600+ tests, fully offline, no Ollama needed
+- `pytest tests/` — 2,700+ tests, fully offline, no Ollama needed
   (`pytest.ini` sets `pythonpath = src`).
 - `ruff check .` — matches CI.
 - `node --check frontend/app.js` — one large plain-JS file; run after every edit.

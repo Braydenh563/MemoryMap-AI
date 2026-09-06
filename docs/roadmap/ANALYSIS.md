@@ -911,57 +911,20 @@ calls in `src/memorymap/` and found none else touching live user state (the
 other three are a searxng pid file and a source-bootstrap shim, not user
 data).
 
-### Worth building — features, ranked by fit
+### Worth building — features, ranked by fit, and what actually happened
 
-1. **MCP support, now with a real shape to copy instead of a blank BACKLOG
-   §29 entry.** Odysseus's `mcp_servers/` is four small stdio servers, one per
-   capability domain (`memory_server.py`, `rag_server.py`,
-   `image_gen_server.py`, `email_server.py`), each built on the plain
-   `mcp.server.Server` + `stdio_server` pair with lazy-initialised managers —
-   and separately, `src/mcp_manager.py` on the *consuming* side, recently
-   hardened for concurrent server connections and connection timeouts (its
-   last three commits in this checkout are all reliability fixes to exactly
-   that file). Two different features, and they should ship separately:
-   - **Expose first.** A `memorymap-mcp` stdio server over the existing tool
-     registry (search/create/tag a note) needs no new trust model — it's the
-     same local process boundary the app already has, reachable from Claude
-     Desktop or any other MCP client on the same machine. This is the
-     low-risk half BACKLOG §29 didn't distinguish from the other one.
-   - **Consume, later, and carefully.** Odysseus's own newest commit in this
-     checkout (`c80462e`, *"block private SSRF targets and revalidate
-     redirects in importer"*) is a live reminder of what "an external MCP
-     server is exactly the kind of thing design principle 1 doesn't have a
-     category for" (BACKLOG §29's own words) actually costs in practice —
-     worth reading before scoping this half.
-
-2. **Passive memory extraction from chat, as a fifth opt-in background-librarian
-   job.** Odysseus's `services/memory/memory_extractor.py` sends the last few
-   turns of a conversation to the LLM after each reply, asking it to pull out
-   memorable facts, and periodically re-audits the whole memory list to merge
-   duplicates and drop junk — short-circuited by a SHA-256 fingerprint of the
-   current entries so an already-clean list doesn't re-run the LLM (their own
-   comment: this was costing 30–120s per call before the fingerprint).
-   Grepped this app for anything equivalent and found nothing: MemoryMap
-   files a note only on an explicit instruction or an explicit tool call —
-   something mentioned in passing during an ordinary Q&A turn is never
-   captured. That's a real gap for an app whose whole pitch is "a local AI
-   files your notes," and `autonomous_tasks_enabled`'s existing job list
-   (`auto_tag_enabled`, `auto_link_enabled`, `auto_dedupe_enabled` in
-   `core/config.py`) is already exactly the right home for a fifth
-   `auto_capture_enabled` job — same infrastructure, same default-off
-   reasoning (*"it runs the agent against the whole notebook with nobody
-   watching, which is a thing to opt into rather than discover"*), same need
-   for a fingerprint-style short-circuit so it doesn't re-run on an unchanged
-   conversation. Needs the same measurement discipline as §33's item 3 before
-   shipping — a background job that mis-files something nobody asked to
-   capture is a worse failure than one that misses something.
-
-3. **QR + LAN pairing for a phone companion** (`companion/pairing.py`) — a
-   bcrypt-hashed pairing token plus a UDP-connect trick to guess the LAN-facing
-   IP, no cloud relay involved. Minor, and not blocking anything: the PWA
-   already exists. Worth keeping on file as the onboarding pattern *if* a
-   phone companion is ever built on purpose, since "type in your laptop's IP
-   address" is real friction a QR code removes.
+1. ~~MCP support~~ **Built** — `src/memorymap/mcp_server.py` exposes the tool
+   registry over stdio, checked before writing this update rather than
+   re-scoping it from nothing.
+2. ~~Passive memory extraction from chat~~ **Built** —
+   `ai/passive_capture.py` plus `auto_capture_enabled` (`core/config.py`),
+   wired into `ai/autonomous.py`'s job list, a Settings toggle
+   (`#pref-auto-capture`), and `tests/test_passive_capture.py`. Same
+   default-off, fingerprint-short-circuited shape this entry originally
+   asked for.
+3. **QR + LAN pairing for a phone companion** — still not built, and still
+   only worth doing *if* a phone companion is ever built on purpose; nothing
+   here blocks on it. Kept as the pattern to copy when that decision is made.
 
 ### Looked at and not recommended
 

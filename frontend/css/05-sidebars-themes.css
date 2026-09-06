@@ -302,6 +302,106 @@ button.ai-unavailable {
   margin-right: var(--space-1);
 }
 
+/* A file attached to a note. Replaces the bare `<a href="/media/…">` that
+   used to render here, which navigated the whole app away to a 401 page
+   with no way back — see `fileCard` in app.js for the full account.
+
+   `inline-flex`, not `block`: this is produced by the inline-markdown
+   renderer and can legitimately sit mid-sentence. Stacked one per line is
+   the common case and falls out of the flow anyway, because a note that
+   attaches files puts each on its own line. */
+.file-card {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0;
+  max-width: 100%;
+  margin: var(--space-2) var(--space-2) var(--space-2) 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--chip-bg);
+  overflow: hidden;
+  vertical-align: middle;
+}
+
+.file-card:hover {
+  border-color: var(--accent);
+}
+
+.file-card-open {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  height: auto;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.file-card-open:hover {
+  background: var(--accent-soft);
+}
+
+.file-card-icon {
+  flex: 0 0 auto;
+  font-size: var(--text-h3);
+  color: var(--accent);
+}
+
+.file-card-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+/* The name is the thing being identified, so it gets the ellipsis rather
+   than the row: a long filename must not be allowed to widen the card past
+   the note it sits in. */
+.file-card-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.file-card-kind {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+/* Its own border rather than a gap, so the two halves read as one object
+   with two actions instead of two buttons that happen to be adjacent. */
+.file-card-save,
+.file-card-remove {
+  flex: 0 0 auto;
+  align-self: stretch;
+  height: auto;
+  border: 0;
+  border-left: 1px solid var(--border);
+  border-radius: 0;
+}
+
+/* The composer's own list of attached files. A wrapping row rather than a
+   grid: there are usually one or two, and a grid would leave an empty
+   column beside a single file. */
+.file-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* Inside the strip each card is its own row item, so the inline margin the
+   in-note version needs (it can sit mid-sentence) would double the gap. */
+.file-strip .file-card {
+  margin: 0;
+}
+
 /* Swapped in for a note's own inline image once its file is gone —
    a closable box instead of a broken-image glyph, asked for directly. */
 .entry-inline-image-deleted {
@@ -684,6 +784,45 @@ mark.text-highlight-grey { background: rgba(148, 163, 184, 0.25); }
   color: var(--callout-accent);
 }
 
+/* --- a callout that folds (REDESIGN.md §R7.3 item 3) -----------------------
+   `> [!note]-` renders as a `<details>` and its head as the `<summary>`, so
+   the open/close, the keyboard operation and the ARIA all come from the
+   browser. What is left to style is the marker: the default `list-item`
+   triangle sits on the baseline in a box whose other disclosures all use the
+   app's own caret, so this is the same caret every other expander uses. */
+.callout-foldable > .callout-head {
+  list-style: none;
+  cursor: pointer;
+}
+
+.callout-foldable > .callout-head::-webkit-details-marker {
+  display: none;
+}
+
+.callout-foldable > .callout-head::after {
+  content: "";
+  flex: 0 0 auto;
+  /* Pushed to the far end rather than sitting against the title: the head is
+     a flex row and the caret is the affordance for the whole row. */
+  margin-left: auto;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--motion-fast) ease;
+}
+
+.callout-foldable[open] > .callout-head::after {
+  transform: rotate(45deg);
+}
+
+/* Closed, the head is the whole box, so the margin under it is a gap with
+   nothing on the other side of it. */
+.callout-foldable:not([open]) > .callout-head {
+  margin-bottom: 0;
+}
+
 /* The body is rendered by renderMarkdown, so it can hold lists, code and
    links. Its first and last children lose their outer margin or the box gains
    a stripe of dead space at each end. */
@@ -1049,15 +1188,194 @@ body.resizing-sidebar {
    different control heights in the screenshot that came with "fix/redesign
    the ui, layout, alignment, sizing". The dock is `.doc-dock` now and shares
    only the separator. */
+/* **One row that scrolls, pinned to the top of the editor.**
+
+   Two changes, both about the same thing — a toolbar is furniture, and
+   furniture that moves or grows is furniture you have to look at:
+
+   - `flex-wrap: wrap` let the row become two (and, before the colour selects
+     were sized, four). A second row appears and disappears as the pane is
+     resized, shifting the whole document down by 33px each time. `nowrap`
+     plus a scroller keeps the editor's top edge where it was, and the
+     controls that do not fit are one flick away rather than one reflow.
+   - Sticky, because in a long document the formatting controls are needed
+     where the caret is, not at the top of a page you have scrolled away from.
+     `z-index` above the prose, and an opaque ground so text does not show
+     through it. */
 .doc-toolbar {
+  /* **One height for the strip and everything in it.** Reported as "fix the
+     toolbar", and measured before touching it: the controls in this bar
+     rendered at *five* different heights — 29.2px, 28px, 24.7px, 10px and one
+     at 0 — because nothing here declared a height and each control's size fell
+     out of whichever class it happened to carry. It is the same fault, with
+     the same fix and the same token, as `.library-head` and the OCR
+     workspace's header; DESIGN.md's control-height rule is about exactly this.
+     2rem rather than 2.25: this strip holds ~30 controls and sits directly
+     above the writing surface, so it is the one bar in the app that should be
+     the smaller of the two comfortable heights. */
+  --control-h: 2rem;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.25rem;
   padding: 0.4rem 0.4rem;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   background: var(--card);
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  /* **`overflow-y: visible` here was not visible, and that is the whole bug.**
+     Reported: *"there's a vertical scrollbar in the toolbar in documents?? and
+     popups appear in the toolbar container, not outside."* Both symptoms come
+     from this one declaration.
+
+     CSS does not allow one axis to be `visible` while the other is not — the
+     `visible` axis computes to `auto` instead. Measured on the live toolbar:
+     `overflow-y` computed `auto`, exactly as the spec says, which is the
+     vertical scrollbar. And any `overflow: auto` box is a clipping context, so
+     the toolbar's own `<details>` menus were trapped inside a 40px-tall strip
+     rather than opening over the document.
+
+     So the default is now the **expanded** toolbar: it wraps. No scroller, so
+     nothing clips and no scrollbar appears, and every one of the ~59 controls
+     is reachable without scrolling a strip to find it. The single-row scroller
+     is still available as a mode below, for a compact bar. Both were asked for:
+     *"there should be the option to have the tool bar as a horizontal scroll
+     or expanded."* */
+  flex-wrap: wrap;
+  row-gap: 0.25rem;
+  overflow: visible;
+}
+
+/* The compact alternative: one row that scrolls sideways. */
+.doc-toolbar[data-toolbar-mode="row"] {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  /* A scrolling strip needs its own scrollbar to be unobtrusive: this is
+     chrome, not content. */
+  scrollbar-width: thin;
+}
+
+/* **A menu opening un-clips the strip.** In row mode the toolbar is a
+   scroller, so a `<details>` popup inside it would be trapped again — the
+   second half of the same report. `:has()` (already used elsewhere in this
+   stylesheet) drops the clipping for exactly as long as a menu is open, so
+   the popup escapes and the scroller returns the moment it closes. */
+.doc-toolbar[data-toolbar-mode="row"]:has(details[open]) {
+  overflow: visible;
+}
+
+/* Nothing in the strip may shrink — a squeezed button is a button whose glyph
+   no longer centres, and the row scrolls precisely so it does not have to. */
+.doc-toolbar > * {
+  flex: none;
+}
+
+/* The sizing itself. `align-items: center` above only centres boxes of
+   differing heights against each other — it cannot make them the same height,
+   which is what was actually reported. */
+.doc-toolbar button,
+.doc-toolbar select,
+.doc-toolbar .select-opener,
+.doc-toolbar .doc-toolbar-toggle {
+  height: var(--control-h);
+  padding-block: 0;
+  margin: 0;
+}
+
+/* An icon-only control is square at the strip's height, so a row of thirty
+   reads as one family rather than as thirty widths of the same idea. */
+.doc-toolbar .icon-only,
+.doc-toolbar .icon-button {
+  width: var(--control-h);
+  padding-inline: 0;
+}
+
+/* The group separators are furniture, not controls: they take the strip's
+   height as a *rule*, and the sizing rule above must not turn them into 2rem
+   blocks. */
+.doc-toolbar .doc-toolbar-sep {
+  align-self: center;
+  height: calc(var(--control-h) - var(--space-2));
+  flex: none;
+}
+
+/* A scrolling strip's scrollbar is chrome, not content. Reported with a
+   screenshot of the bar with a full-width track under it: at 2px it is a hair
+   line that still says "there is more", which is the whole job. */
+.doc-toolbar[data-toolbar-mode="row"]::-webkit-scrollbar {
+  height: 4px;
+}
+
+.doc-toolbar[data-toolbar-mode="row"]::-webkit-scrollbar-thumb {
+  border-radius: var(--radius-pill);
+  background: var(--border);
+}
+
+.doc-toolbar[data-toolbar-mode="row"]::-webkit-scrollbar-track {
+  background: none;
+}
+
+/* **The strip's own two controls, pinned to its right edge.** Asked for:
+   "cant collapse and make horizontally scrollable the tools bar in the notes
+   capture subtab and documents editor." `position: sticky` is the point — in
+   row mode the toolbar is a scroller, and a control that scrolls away with the
+   buttons it controls is a control you have to go looking for. Its own ground
+   so the buttons underneath do not show through as they pass. */
+.doc-toolbar-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+  position: sticky;
+  right: 0;
+  padding-left: var(--space-2);
+  background: linear-gradient(to right, transparent, var(--card) var(--space-2));
+}
+
+/* Collapsed: the strip keeps its own two controls and its name, and gives the
+   rest of its height back to the thing you are writing. Not `display: none` on
+   the toolbar itself — a control that hides the control that brings it back is
+   a trap. */
+.doc-toolbar.is-collapsed > *:not(.doc-toolbar-tools) {
+  display: none;
+}
+
+.doc-toolbar.is-collapsed {
+  padding-block: var(--space-1);
+}
+
+.doc-toolbar-collapsed-name {
+  display: none;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+/* The name appears only while collapsed: expanded, the buttons say what the
+   strip is far better than a word would. */
+.doc-toolbar.is-collapsed .doc-toolbar-collapsed-name {
+  display: inline;
+  margin-right: auto;
+}
+
+/* Collapsed, the cluster is the whole strip, so it must sit at the left with
+   the label rather than floating in from the right. */
+.doc-toolbar.is-collapsed .doc-toolbar-tools {
+  margin-left: 0;
+  width: 100%;
+  justify-content: space-between;
+  background: none;
+  padding-left: 0;
+}
+
+/* A menu inside a scrolling container would be clipped by it. These are
+   `<details>` popovers positioned against the strip, so the strip is told to
+   let them out — `overflow-y: visible` above does that vertically, and this
+   keeps the popover itself out of the scroll calculation. */
+.doc-toolbar .doc-toolbar-menu[open] .doc-dock-menu-list {
+  position: absolute;
+  z-index: 4;
 }
 
 /* The colour pickers are <select>s, and this app styles form controls as
@@ -2296,7 +2614,11 @@ textarea.autogrow {
    the exception belongs here where the conflict is, not there where it
    wouldn't be seen. */
 .header-controls button:not(.ai-status) {
-  height: 2rem;
+  /* The token, not a repeat of its value — raising --header-control-h has
+     to move these with the tabs, or the bar goes ragged the moment it
+     changes ("the buttons and spaces elements in the top bar are too
+     small"). */
+  height: var(--header-control-h);
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -2444,4 +2766,516 @@ textarea.autogrow {
   margin-bottom: var(--space-2);
   background: none;
   border-color: var(--border);
+}
+
+/* A non-image upload's tile in the Library gallery. Same footprint as an
+   image tile so the grid stays a grid — a PDF among photos must not make
+   the row it is in a different height. See library.js's own comment for why
+   these tiles used to delete themselves instead of rendering. */
+/* **The PDF's first page covers the tile; it does not sit on top of it.**
+   Reported with a screenshot: "in the files tab, the file type logo gets cut
+   off and squashed below the preview image". It did. `.library-file-page` had
+   no rule of its own at all, so the rendered page was a plain `<img>` flowing
+   as the first child of a 9rem `overflow: hidden` flex column — pushing the
+   glyph and the "PDF" caption down and off the bottom edge.
+
+   `library.js`'s own comment says what was meant: "The glyph stays underneath
+   as the fallback for everything without pages, and for a PDF whose render
+   fails." Underneath, not above. Taking the page out of flow and letting it
+   fill the tile makes that true — the glyph is still there, still centred,
+   simply covered while there is a page to show, and revealed the moment the
+   render 404s, because the error handler removes the page and nothing else
+   has to change.
+
+   `cover`, not `contain`: a tile is a fixed 9rem box and a portrait page in it
+   would otherwise letterbox into a thin strip with the glyph showing through
+   either side. The top of a document is the part worth seeing, so the crop is
+   anchored there rather than to the middle. */
+.library-file-page {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  background: #fff;
+}
+
+.library-file-thumb {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  /* Matched to `.library-image-tile img`'s own 9rem, not chosen: a tile
+     that is taller than the photos beside it makes its whole grid row
+     taller and the gallery stops reading as a grid. */
+  height: 9rem;
+  border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
+  background: var(--chip-bg);
+  color: var(--accent);
+  font-size: var(--text-display);
+  cursor: pointer;
+}
+
+.library-file-thumb-kind {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  letter-spacing: 0.06em;
+}
+
+/* A file staged in the composer: chosen, not yet uploaded, because the note
+   it belongs to has no id until Save. Dimmed rather than hidden — it is a
+   real commitment the user has made and should be able to see and undo. */
+.file-card-staged {
+  border-style: dashed;
+}
+
+.file-card-staged .file-card-open {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.file-card-pending {
+  color: var(--accent);
+}
+
+/* Direction on a link chip. Colour is deliberately *not* the only signal —
+   the arrow glyph carries it, and DESIGN.md's contrast rule (and WCAG's
+   "don't convey information by colour alone") both say so. The tint is a
+   second, faster read for someone scanning a well-linked note. */
+.chip.link.link-in {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
+/* The × that detaches a link, and the pencil that edits its reason. Measured
+   at 10x18 — under half of WCAG 2.2 AA's 24px floor, and the fiddliest
+   target left in the notes list. The glyph stays its size; the box around it
+   grows to something a trackpad can actually land on. */
+.unlink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--target-min);
+  min-height: var(--target-min);
+  /* **Zero the inherited line box.** Reported with a screenshot right after
+     the target floor landed: "the linked notes buttons arent aligned". The
+     chip is an `inline-flex` row with `align-items: center`, which centres
+     its children's *boxes* — but each of these had inherited the chip's own
+     0.75rem line-height on top of a 28px box, so the glyph sat low inside a
+     box that was itself correctly centred. Two different vertical
+     alignments, one visible offset.
+
+     `line-height: 1` makes the glyph fill its own box, and the flex
+     centring above then puts it where it belongs. The 28px target is
+     untouched — the box stays the size a finger needs, the ink just sits in
+     the middle of it. */
+  line-height: 1;
+  /* The floor grows the row it sits in unless the chip is told it may stay
+     shorter than its tallest child's *minimum*. Without this the whole link
+     chip inflated to 28px tall, which is a third taller than every other
+     chip in the same strip. */
+  align-self: center;
+}
+
+/* A chip carrying action buttons is a row of boxes, not a line of text, so
+   its own line-height must not decide anyone's height. */
+.chip.link {
+  line-height: 1;
+  padding-block: 0;
+}
+
+/* Files shown by type rather than by preview — `setLibraryMediaView`
+   (library.js), asked for as "make it togglable to change between filetype
+   and previews".
+
+   Hiding the page render is the whole switch. The glyph and its caption are
+   already in every tile, centred, and were only ever covered; take the cover
+   away and the type view is simply what the tile looks like underneath. No
+   second markup path, nothing refetched, and a tile cannot end up in a state
+   where neither is showing. */
+.library-image-grid.show-file-types .library-file-page {
+  display: none;
+}
+
+/* --- the document editor's instruments ---------------------------------------
+   Asked for: "take inspo from vs code and word with options to view more info
+   like character count, inline auto fill suggestions, grammar checker + auto
+   correct etc." Everything here is computed locally from the text in the box —
+   see documents.js for why that is the requirement and not a limitation. */
+
+/* The status strip. Quiet by design: it is the line you glance at, never the
+   line you read, so it takes the smallest type in the app and the muted ink,
+   and its own controls only gain weight when there is something to say. */
+.doc-statusbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--inner);
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.doc-statusbar-fact {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.doc-statusbar-spacer {
+  flex: 1 1 auto;
+}
+
+.doc-statusbar-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.doc-statusbar-button:hover,
+.doc-statusbar-button:focus-visible {
+  border-color: var(--border);
+  color: var(--ink);
+}
+
+/* Only when there is something to look at. A count that is always coloured is
+   a count nobody reads. */
+.doc-statusbar-button.has-findings {
+  color: var(--warn);
+}
+
+.doc-statusbar .checkbox-label {
+  font-size: var(--text-xs);
+  gap: var(--space-1);
+}
+
+/* The findings themselves. A list, under the bar that counts them, so opening
+   it does not cover the document it is about. */
+.doc-prose-panel {
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--inner);
+  /* Reported: "waaayy too small". 16rem showed four rows of a list that
+     routinely has twenty, so the panel was a scroller from the moment it
+     opened. `min` against the viewport keeps it from swallowing a short
+     window — it is a panel under the document, not a second page. */
+  max-height: min(60vh, 32rem);
+  min-height: 8rem;
+  overflow-y: auto;
+}
+
+.doc-prose-head {
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.doc-prose-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.doc-prose-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* The row is the jump. A finding you have to hunt for after reading about it
+   is a finding that cost you more than it saved. */
+.doc-prose-jump {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.doc-prose-jump:hover,
+.doc-prose-jump:focus-visible {
+  border-color: var(--accent);
+  background: var(--chip-bg);
+}
+
+.doc-prose-what {
+  flex: none;
+}
+
+/* The offending words, so the row says what it is about rather than only what
+   kind of thing it is. */
+.doc-prose-where {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+}
+
+/* The completion popup. `position: fixed` because it is placed in viewport
+   coordinates against the caret — an absolutely-positioned list would be
+   offset by every scrolling ancestor between it and the textarea, which in
+   this editor is three of them. */
+.doc-complete-list {
+  position: fixed;
+  z-index: 1200;
+  list-style: none;
+  margin: 0;
+  padding: var(--space-1);
+  min-width: 10rem;
+  max-width: 20rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--modal-bg-opaque);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--text-sm);
+}
+
+.doc-complete-list li {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The typed part in full strength, the suggested rest quieter: the difference
+   is the whole message the row is carrying. */
+.doc-complete-list li b {
+  font-weight: 600;
+}
+
+.doc-complete-list li span {
+  color: var(--muted);
+}
+
+.doc-complete-list li.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.doc-complete-list li.active span {
+  color: inherit;
+}
+
+/* The caret mirror (documents.js). Off-screen rather than `display: none` — a
+   box with no layout reports no position, which is the whole reason it exists.
+   Every property that affects text layout is copied onto it in script; these
+   are only the ones that must never be. */
+.doc-caret-mirror {
+  position: absolute;
+  visibility: hidden;
+  top: 0;
+  left: -9999px;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+/* --- the suggestion menu, the dictionary, and the goal ------------------------
+   Asked for: "I cant click on the flagged word or phrase and see a popup for
+   suggested fixes or other options like adding to dictionary (a way to manage
+   that dictionary), auto correct spelling (us, uk spelling etc), language
+   translation etc." */
+
+/* `fixed`, for the same reason the completion popup is: it is placed in
+   viewport coordinates against a word inside three nested scrollers, and an
+   absolutely-positioned menu would be offset by every one of them. */
+.doc-suggest-menu {
+  position: fixed;
+  z-index: 1210;
+  min-width: 15rem;
+  max-width: 22rem;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--modal-bg-opaque);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--text-sm);
+}
+
+/* The word, and why it is flagged. Both, because "recieve" with no reason is a
+   scold and a reason with no word makes you go and look. */
+.doc-suggest-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-1) var(--space-2) var(--space-2);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-1);
+}
+
+.doc-suggest-why {
+  font-size: var(--text-xs);
+}
+
+.doc-suggest-list,
+.doc-suggest-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* The replacements read as the primary answer and the rest as what else you
+   can do, so they are separated by a rule rather than by weight — the actions
+   are still real controls. */
+.doc-suggest-actions {
+  margin-top: var(--space-1);
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--border);
+}
+
+.doc-suggest-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.doc-suggest-item:hover,
+.doc-suggest-item:focus-visible {
+  border-color: var(--accent);
+  background: var(--chip-bg);
+}
+
+.doc-suggest-none {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.doc-dictionary-dialog {
+  width: min(30rem, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.doc-dictionary-controls {
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.doc-dictionary-variant {
+  flex: none;
+}
+
+.doc-dictionary-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.doc-dictionary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+/* The suggestions panel: a real panel now, with room for its list. Reported:
+   "the suggestion texbox is waaayy too small and there's no close x button." */
+.doc-prose-head {
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.doc-prose-tools {
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+}
+
+.doc-prose-empty {
+  margin: 0;
+}
+
+/* The word goal, where the count it is a goal for now lives. The bar is drawn
+   *inside* the button as a background layer rather than as a child element, so
+   the control stays one box with one hit area — a meter beside a button is two
+   things to aim at for one idea. */
+.doc-word-goal-progress,
+#doc-word-goal.has-goal {
+  --doc-goal-pct: 0%;
+  background-image: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--accent) 28%, transparent) var(--doc-goal-pct),
+    transparent var(--doc-goal-pct)
+  );
+}
+
+/* The squiggle. Only in Live view, where the text is real DOM — a textarea's
+   value is a string and cannot carry a mark, which is why Source view offers
+   the same menu on double-click instead. A wavy underline rather than a
+   highlight: the word still has to read as the word, and a coloured block
+   behind it is the thing that makes a checked document unreadable. */
+.doc-flag {
+  background: none;
+  color: inherit;
+  text-decoration: underline wavy color-mix(in srgb, var(--warn) 80%, transparent);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* A spelling is a stronger claim than a style note, so it is marked in the
+   colour this app already uses for "this is wrong" rather than "look here". */
+.doc-flag-spelling {
+  text-decoration-color: color-mix(in srgb, var(--error) 80%, transparent);
+}
+
+.doc-flag:hover {
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  border-radius: var(--radius-sm);
 }

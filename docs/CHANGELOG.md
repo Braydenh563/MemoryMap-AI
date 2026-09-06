@@ -7,6 +7,172 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+`__version__` and `pyproject.toml` are both `0.2.1`, and a sweep of every
+`.py`/`.json`/`.toml`/`.cfg`/`.yml` in the repo found no stale `0.2.0`
+outside this file's own history and the docs' narrative references, which
+are correct where they stand. This section covers what is confirmed since
+the bump, not everything it implies — a fuller reconciliation against the
+intervening commits is still owed.
+
+### Added
+- **Help → "Ask the guide"**, a small embedded AI chat for "how do I…"
+  questions about the app itself. Answers with the utility model, grounded
+  in a fixed set of reference notes (`ai/help_chat.py`'s `HELP_TOPICS`) so a
+  small local model isn't guessing at features it has never seen, never
+  reads the user's notes, and keeps no history past the current browser
+  session. Replies can carry quick-access badges into the exact tab or
+  settings section they describe.
+- **Onboarding's data-dir writability check.** `GET /storage` now reports
+  `data_dir_writable`, and the "Your setup" onboarding slide warns if the
+  notebook folder has gone read-only.
+- **Document editor: "Check with AI."** Sends the current document to Chat
+  with a prompt asking the model to flag wording issues a spellchecker
+  can't catch — agreement, tense, clarity — without rewriting the document.
+- **Archive extended to chats and documents** (BACKLOG §30b's own named
+  remaining scope, after notes got this first). An "Archive" action beside
+  Delete in the chat sidebar and the documents dock — kept, never deleted,
+  out of the way — and the Library's Shelved filter now covers all three
+  kinds.
+- **The popup agent in the status bar.** It works from every tab and had
+  nothing on screen saying so. Now a slot beside the Ctrl-K hint, on by
+  default (the ask was discoverability, and a control nobody switches on
+  advertises nothing) and hideable from Settings like every other slot.
+- **A Stop button for OCR page and range reads**, and both now appear in
+  Settings → Background tasks while they run. A read is a model round-trip
+  of several seconds that could not be cancelled and showed up in that panel
+  nowhere, so closing the workspace mid-read left no sign the app was still
+  working.
+
+### Fixed
+- **Short background AI jobs were invisible.** The status loop idles at 10s
+  (120s in a hidden tab) and can only announce a job it has seen in a
+  `/tasks` payload, so an image caption — often shorter than that gap —
+  began and ended unobserved: no "Started" line, no status-bar slot, no
+  "Finished" toast. Writes that can leave work on a background thread now
+  kick a poll, and `jobsRunning()` counts every task rather than only
+  re-index and model pulls.
+- **Formatting-toolbar dropdowns escaped their panel.** Measured in the
+  capture composer: the Insert menu sat 123px outside the panel's left edge,
+  because `.doc-dock-menu-list` is anchored `right: 0` and grows leftwards —
+  right for the document ⋯ it was written for, wrong for an opener near the
+  left of a toolbar. Clamped inside the panel on open.
+- **The OCR workspace's reader picker named the wrong model.** It resolved a
+  generic vision model instead of the configured or auto-detected OCR
+  document reader, so a dedicated reader could never be chosen even when
+  installed.
+- **One toggle row everywhere in Settings.** `.setting-check` was a
+  divider-separated grid with the switch pinned hard right; it is now the
+  same integrated, filled-when-on row with a leading switch that the rest of
+  the app uses, which moves the tools list and the appearance outliers
+  together.
+- **Attached non-image files rendered as nothing** in dashboard widget note
+  lists, and the widget picker listed "On this day" twice.
+
+### Verified
+- **A real (non-Ollama) backend, driven live for the first time.** A
+  stand-in OpenAI-`/v1` server (a real socket, not a mocked `requests`)
+  proved `/help/ask`, `/voice/summarize` and a full `/chat/stream` turn —
+  SSE framing included — all round-trip correctly through
+  `OpenAICompatClient`, the dialect LM Studio/llama.cpp/Jan/vLLM share.
+  Tool-call streaming remains spec-verified only; see HISTORY.md §113.
+
+## [0.2.0] — 2026-09-05
+
+A long round driven almost entirely by live reports with screenshots. Two
+defect *shapes* account for most of the visual bugs in it, and both are
+written up at the top of `docs/roadmap/HANDOVER.md`: a CSS recipe that names
+its members explicitly and silently drops any control that never enrolled, and
+`border: none`, which leaves the width at `medium` for an `!important`
+border-style rule to resurrect as 3px.
+
+### Added
+- **An OCR workspace.** A page beside its regions: a page rail, the image with
+  a clickable box per block Tesseract found, and the text of each block with
+  its confidence, one selection shared both ways. `core/ocr.py` gained
+  `extract_regions`; `GET /media|files/{id}/ocr-regions` serve it. Fit and
+  Actual size, because a portrait scan in a landscape pane was getting cut off.
+- **A vault keeps its shape when imported.** `Entry.source_path` holds the
+  vault-relative path, `[[wiki links]]` resolve by **filename** (which is what
+  Obsidian links name), the Contents index gained a By-folder mode, and
+  Settings gained a folder picker beside the file picker.
+- **The Contents sub-tab is a real index** — sticky sections, a filter, a jump
+  bar, folding, grouping by category, tag or month — rather than a masonry of
+  boxes with a scroller inside each one.
+- **A selection toolbar** in both editing surfaces, and the note *edit* form
+  (the app's poorest editing surface) gained the toolbar, the "/" menu and the
+  selection bar it never had. Documents now open in Live view.
+- **Live action lines in chat**: each tool call names what it touched, as chips
+  that preview the note in place with Open and Edit.
+- **Sorting on every Library sub-tab**, and a Cards/Rows switch on Boards.
+- **A rebuild-the-search-index suggestion** after a bulk change, rather than a
+  standing notice nobody reads.
+- **Favourites** as a parallel pseudo-category, integrated everywhere.
+
+### Changed
+- The Images/Files gallery kebab is the app's own `kebabMenu()` — it was a
+  second implementation of one control, which is how it drifted three times.
+- The widgets picker shows Wide as a state, marks Remove as destructive, and
+  can be reordered from the keyboard.
+- Deleting a file can take its `![...]()` out of the notes that showed it.
+
+### Fixed
+- A document chip in chat opened a *note* with the same id.
+- A tool row with chips vanished from a reopened conversation.
+- Drafts could link to saved notes.
+- The Files sub-tab's kebab existed but was invisible and unclickable behind
+  the page preview.
+- Attached (not embedded) images never appeared in widget rows.
+
+
+## [0.1.9] — 2026-09-04
+
+### Added
+- **A note's attached files can be read.** An attachment now carries a
+  caption, extracted text and a vision-model transcription of its own —
+  columns `MediaUpload` has always had and `Attachment` never did. One
+  endpoint (`POST /files/{id}/analyse`) covers all three: Tesseract for a
+  picture, the document extractor for a .docx or a text-layer PDF, and a
+  vision model rasterising pages for a scan or a diagram with no text layer
+  at all. Any of the three can be typed over by hand.
+- **Files show a preview.** A PDF tile renders its own first page.
+- **The file gallery multi-selects**, with a count and bulk delete, matching
+  the Documents sub-tab.
+- **A whiteboard selection can be saved straight to the image library** as a
+  PNG, with no file downloaded on the way.
+- **The user has an avatar in chat**, alongside the assistant's emblem.
+- Ask's two panels have real heads, and the tab says what it does before its
+  first use instead of being an input on an empty card.
+
+### Changed
+- **Semantic search knows how a note is filed.** A note's category, its tags
+  and the text of anything attached to it are part of what gets embedded, so
+  "what do I have under hobbies" is a question the vectors can answer.
+  Existing notes need a re-index to benefit; new and edited ones do not.
+- **One help popover for every "?" in the app.** Three different
+  presentations (a floating card, a static bordered paragraph that pushed the
+  page down, and bare inline text) are now one anchored, caret-pointing
+  popover that no card's overflow can clip.
+- The Ask box reads as a single composer rather than five loose controls.
+- Image caption and OCR fields read as fields rather than shouting labels,
+  and the model that wrote a caption is a badge rather than a bare id.
+
+### Fixed
+- **A PDF's pages no longer disappear when you read its text** — pages on one
+  side, the extracted text on the other.
+- **Popup menus clipped in many places, not one.** Every `<select>` in the
+  app now escapes its clipping ancestor; the escape mechanism itself gained
+  the z-index and width fixes that only showed up once it was used inside a
+  modal.
+- **A note's attached PDF never appeared in the Library**, because the
+  gallery only ever queried one of the two file tables.
+- Agent rows printed their icon spec as text ("ph:folder Merged …").
+- Whiteboard link endpoints drifted away from the cursor while zoomed — the
+  zoom scale was applied twice.
+- Usage chips printed raw markdown instead of a readable line.
+- A turn that is still generating now says so for as long as it runs, rather
+  than only until the first stream event.
+
+
 ### Added
 - A formatting toolbar for the Notes composer, matching the document
   editor's: bold, italic, code, lists, links, plus highlight, a highlight

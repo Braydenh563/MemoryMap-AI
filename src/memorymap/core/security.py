@@ -118,13 +118,21 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
 
 # --- Content-Security-Policy ------------------------------------------------
 
-# The one inline <script> in index.html applies the theme before first paint,
-# and has to stay inline — app.js loads at the end of the body, far too late to
-# stop the flash. So it is allowed by the hash of its own contents, computed
-# from the file at startup rather than written down here. Written down, it
-# would be wrong the first time anyone edited the block (which the roadmap
-# already expects: the theme table in it is kept in step with THEME_PRESETS by
-# hand), and a stale hash fails as a blank unstyled page.
+# **index.html has no inline script any more, and this machinery is what is
+# left of the reason it does not.** The anti-flash theme bootstrap used to be
+# an inline block here, allowed by the hash of its own contents. That worked,
+# and it kept going wrong in the field: a hash is a second copy of the script,
+# and any path that pairs one version of the page with the other version's
+# header refuses it — reported as "[browser/csp] blocked script-src-elem:
+# inline", which lands as the app opening in its default look with the saved
+# theme never applied. The block now lives in `frontend/theme-boot.js`, which
+# `script-src 'self'` covers unconditionally, and
+# `test_static_freshness.py::test_the_page_has_no_inline_script_left` holds
+# the page that way.
+#
+# This is kept rather than deleted because it is what makes that rule safe to
+# rely on: if an inline block ever comes back, it is hashed and works, instead
+# of being silently refused.
 # Two loosenesses here were flagged by CodeQL (`py/bad-tag-filter`), and the
 # *reported* risk does not apply while the real bug does — worth writing down
 # so the next person does not re-litigate it.
@@ -148,6 +156,7 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
 #
 # `\s*` in both places closes them. It is still not an HTML parser and is not
 # trying to be; it is a deliberately narrow reader of one known file.
+_HTML_COMMENT = re.compile(rb"<!--.*?-->", re.DOTALL)
 _INLINE_SCRIPT = re.compile(
     rb"<script(?![^>]*\ssrc\s*=)[^>]*>(.*?)</script(?:\s+[^>]*)?>", re.DOTALL | re.IGNORECASE
 )
@@ -159,6 +168,17 @@ def inline_script_hashes(html_path: Path) -> list[str]:
         html = html_path.read_bytes()
     except OSError:
         return []
+    # **Comments first, and this is not tidiness.** `_INLINE_SCRIPT` is a
+    # regex, so a comment that merely *mentions* a script tag opens a match
+    # for it — and because the pattern then runs to the next `</script`, it
+    # swallows the real tags in between. Caught live: a comment added above
+    # the head's own `<script src=…>` (explaining why the theme bootstrap is
+    # a file rather than an inline block) produced one phantom hash and, in
+    # doing so, hid the tag it was written about. A phantom hash is harmless
+    # on its own; a real inline script hidden by one would be served with no
+    # hash at all and refused by the browser, which is the exact failure this
+    # module exists to prevent.
+    html = _HTML_COMMENT.sub(b"", html)
     hashes = []
     for body in _INLINE_SCRIPT.findall(html):
         digest = hashlib.sha256(body).digest()
@@ -203,23 +223,89 @@ def build_csp(script_hashes: list[str]) -> str:
         # Nothing may frame MemoryMap: clickjacking a notebook that is already
         # unlocked is the cheapest attack on it.
         "frame-ancestors": "'none'",
+        # **What MemoryMap may frame — the other direction, and it is narrow.**
+        # `blob:` only, for the HTML preview pane (REDESIGN.md §R7.1 item 4):
+        # the viewer builds a Blob from a file's own text and points an iframe
+        # at it. Without this the directive falls back to `default-src 'self'`
+        # and the frame is blocked with nothing logged, which is exactly the
+        # "policy silently refusing the work" shape this project has been
+        # bitten by before.
+        #
+        # It is safe *because of the sandbox on the iframe*, not because of
+        # this line: `sandbox=""` with no `allow-` tokens means no scripts, no
+        # forms, no same-origin, no top-level navigation — an .html file the
+        # user did not write renders as layout and nothing else. The CSP
+        # allows the frame to exist; the sandbox decides what it may do.
+        "frame-src": "'self' blob:",
     }
     return "; ".join(f"{name} {value}" for name, value in directives.items())
+
+
+class CspForPage:
+    """The CSP for `html_path`, recomputed whenever that file changes on disk.
+
+    **This exists because of a real, repeatedly-reported bug, and the shape of
+    it is worth keeping in mind.** The policy names the page's inline script by
+    sha256 hash — there is no `'unsafe-inline'` — so the hash in the header and
+    the script in the body have to agree exactly. They were computed at
+    *startup* and then frozen for the life of the process, while `index.html`
+    itself is read from disk on every request. Any update to the frontend under
+    a running server therefore served a new script with the old hash, and the
+    browser did the only thing it can:
+
+        [browser/csp] blocked script-src-elem: inline
+
+    That script is the anti-flash theme bootstrap in the page head, so the cost
+    was not abstract — losing it means the app paints its default look and the
+    resolved light/dark mode is never applied. It was reported more than once
+    ("this error keeps appearing"), and each time the honest answer was "the
+    server is stale, restart it". A correct policy that silently goes wrong
+    whenever a file changes is a trap rather than a policy, so the fix is to
+    stop freezing it: re-read when, and only when, the file's mtime or size
+    moves. A `stat` per response is cheaper by orders of magnitude than the
+    static-file read the same request already does, and the hash work only
+    happens on the request after an actual edit.
+    """
+
+    def __init__(self, html_path: Path) -> None:
+        self._path = html_path
+        self._stamp: tuple[float, int] | None = None
+        self._csp = build_csp([])
+
+    def _current_stamp(self) -> tuple[float, int] | None:
+        try:
+            st = self._path.stat()
+        except OSError:
+            return None
+        return (st.st_mtime, st.st_size)
+
+    def value(self) -> str:
+        stamp = self._current_stamp()
+        # An unreadable page keeps the last good policy rather than silently
+        # widening to one with no hashes at all.
+        if stamp is not None and stamp != self._stamp:
+            self._csp = build_csp(inline_script_hashes(self._path))
+            self._stamp = stamp
+        return self._csp
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Attach the CSP and its neighbours to every response."""
 
-    def __init__(self, app, csp: str) -> None:
+    def __init__(self, app, csp: str | CspForPage) -> None:
         super().__init__(app)
         self._csp = csp
+
+    def _policy(self) -> str:
+        # A plain string is still accepted so a test can pin an exact policy.
+        return self._csp.value() if isinstance(self._csp, CspForPage) else self._csp
 
     async def dispatch(self, request, call_next):
         response = await call_next(request)
         headers = response.headers
         # setdefault, not assignment: a route that has deliberately set its own
         # policy knows something this middleware does not.
-        headers.setdefault("Content-Security-Policy", self._csp)
+        headers.setdefault("Content-Security-Policy", self._policy())
         # Belt and braces with frame-ancestors above, for anything that reads
         # the older header instead.
         headers.setdefault("X-Frame-Options", "DENY")

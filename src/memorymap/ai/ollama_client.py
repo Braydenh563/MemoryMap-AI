@@ -51,7 +51,94 @@ __all__ = [
     "split_thinking",
     "_ThinkTagSplitter",
     "_ToolTextGate",
+    "describe_http_error",
 ]
+
+
+def describe_http_error(exc: requests.HTTPError, model: str) -> str:
+    """Turn a `requests.HTTPError` from Ollama into something the user can act
+    on, instead of the bare status line.
+
+    Reported as "the AI is broken", with nothing more to go on than
+    `ProviderError: Chat with 'my-model' failed: 500 Server Error: Internal
+    Server Error for url: http://127.0.0.1:11434/api/chat`. That message names
+    the transport and hides the diagnosis: **Ollama puts the actual reason in
+    the response body**, as `{"error": "..."}`, and `str(HTTPError)` never
+    looks at it. Every 500 in this app read identically no matter whether the
+    model failed to load, the machine was out of memory, or the GGUF was
+    incompatible.
+
+    So: quote the server's own words, and where the wording is one of the
+    handful of failures that are actually common with a locally-built or
+    downloaded GGUF, say what to do about it. The raw text is always kept —
+    a message that replaces the server's diagnosis with a guess is worse than
+    one that adds to it.
+    """
+    response = getattr(exc, "response", None)
+    status = getattr(response, "status_code", None)
+    detail = ""
+    if response is not None:
+        try:
+            payload = response.json()
+            if isinstance(payload, dict):
+                detail = str(payload.get("error") or "").strip()
+        except ValueError:
+            detail = (response.text or "").strip()
+    detail = detail[:400]
+
+    if not detail:
+        # **An empty body is the case that keeps being reported**, and the
+        # bare transport line is the least useful thing this function can
+        # say. Reported verbatim, from a custom HF GGUF:
+        #
+        #     Tool chat with 'hf.co/…/Gemma-4-E2B-…:Q4_K_M' failed:
+        #     500 Server Error: Internal Server Error for url:
+        #     http://localhost:11434/api/chat
+        #
+        # Ollama usually puts a reason in `{"error": …}`, and the branches
+        # below read it — but when the runner dies mid-request the body can
+        # come back empty, and then the user is told only that something
+        # went wrong somewhere. The app knows more than that: it knows which
+        # model was asked, that the failure was a 5xx from a local server,
+        # and (because 500s on this path are dominated by two causes) what
+        # is worth checking first.
+        #
+        # Still no guessing about *which* it was — the raw error stays in
+        # the text, exactly as the docstring above requires.
+        if isinstance(status, int) and status >= 500:
+            return (
+                f"Chat with '{model}' failed: Ollama returned {status} and no "
+                "reason. That is almost always the model itself — either it "
+                "could not be loaded (a GGUF built for a newer llama.cpp than "
+                "this Ollama, or a truncated download) or it ran out of "
+                "memory partway through. Ollama's own log has the real "
+                f"message. Original error: {exc}"
+            )
+        return f"Chat with '{model}' failed: {exc}"
+
+    lowered = detail.lower()
+    if "memory" in lowered:
+        advice = (
+            " This machine does not have enough free memory to run the model. "
+            "Close something large, or pick a smaller model or a smaller "
+            "quantisation (a q4 build of the same model needs roughly half "
+            "what a q8 does)."
+        )
+    elif "runner process has terminated" in lowered or "unable to load model" in lowered:
+        advice = (
+            " Ollama could not load the model file itself. That is usually a "
+            "GGUF built for a newer llama.cpp than this Ollama has, or a "
+            "truncated download — try `ollama pull` again, or update Ollama."
+        )
+    elif status == 404 or "not found" in lowered:
+        advice = (
+            f" Ollama does not have '{model}'. Pull it first, or choose a "
+            "different model in Settings."
+        )
+    else:
+        advice = ""
+
+    return f"Chat with '{model}' failed — Ollama said: {detail}.{advice}"
 
 
 class OllamaClient(Provider):
@@ -383,7 +470,7 @@ class OllamaClient(Provider):
             except requests.HTTPError as exc:
                 if attempt == 0 and is_transient_server_error(exc):
                     continue
-                raise OllamaError(f"Chat with '{model}' failed: {exc}") from exc
+                raise OllamaError(describe_http_error(exc, model)) from exc
             except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
                 raise OllamaError(f"Chat with '{model}' failed: {exc}") from exc
         # Unreachable: every branch above either returns or raises. Only here
@@ -440,7 +527,7 @@ class OllamaClient(Provider):
             except requests.HTTPError as exc:
                 if attempt == 0 and is_transient_server_error(exc):
                     continue
-                raise OllamaError(f"Chat with '{model}' failed: {exc}") from exc
+                raise OllamaError(describe_http_error(exc, model)) from exc
             except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
                 raise OllamaError(f"Chat with '{model}' failed: {exc}") from exc
 
@@ -609,6 +696,17 @@ class OllamaClient(Provider):
                 raise ToolsUnsupportedError(
                     f"'{model}' answers without tools but fails with them"
                 ) from exc
+            # Same reasoning as `describe_http_error`: a 500 whose body says
+            # *why* must not reach the user as a bare status line. Only an
+            # HTTPError carries a response to read; everything else here
+            # (connection refused, a malformed chunk) is already self-
+            # describing in its own string.
+            if isinstance(exc, requests.HTTPError):
+                raise OllamaError(
+                    describe_http_error(exc, model).replace(
+                        "Chat with", "Tool chat with", 1
+                    )
+                ) from exc
             raise OllamaError(f"Tool chat with '{model}' failed: {exc}") from exc
 
         calls = self._normalise_tool_calls(raw_calls)
@@ -734,6 +832,17 @@ class OllamaClient(Provider):
             ):
                 raise ToolsUnsupportedError(
                     f"'{model}' answers without tools but fails with them"
+                ) from exc
+            # Same reasoning as `describe_http_error`: a 500 whose body says
+            # *why* must not reach the user as a bare status line. Only an
+            # HTTPError carries a response to read; everything else here
+            # (connection refused, a malformed chunk) is already self-
+            # describing in its own string.
+            if isinstance(exc, requests.HTTPError):
+                raise OllamaError(
+                    describe_http_error(exc, model).replace(
+                        "Chat with", "Tool chat with", 1
+                    )
                 ) from exc
             raise OllamaError(f"Tool chat with '{model}' failed: {exc}") from exc
 

@@ -373,7 +373,10 @@ def run_skill(
                 "index": index,
                 "state": "stalled",
                 "text": step,
-                "reason": "ran out of rounds before finishing",
+                "reason": (
+                    "ran out of rounds before finishing — Resume continues "
+                    "from here, or split this step into two smaller ones"
+                ),
             }
             stopped_at = index
             break
@@ -407,7 +410,20 @@ def run_skill(
                 "index": index,
                 "state": "failed",
                 "text": step,
-                "reason": "the model didn't respond — no answer and no tool call",
+                #: **Say what to do about it, not only what happened.**
+                #: Reported: *"skills are too hard for small ais and things go
+                #: wrong often."* A small model producing one empty turn is the
+                #: single most common way a run stops, and it usually passes on
+                #: the next attempt — which the Resume button already does,
+                #: from this step, without re-running the ones before it. A
+                #: reason that does not say that leaves the reader with a dead
+                #: run and no move.
+                "reason": (
+                    "the model didn't respond — no answer and no tool call. "
+                    "Resume picks up from this step; a smaller model often "
+                    "gets it on the second attempt, and Manual mode lets you "
+                    "steer each step."
+                ),
             }
             stopped_at = index
             break

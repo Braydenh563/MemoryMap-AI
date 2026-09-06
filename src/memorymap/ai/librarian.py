@@ -61,6 +61,30 @@ GROUNDING = (
 )
 SYSTEM_PROMPT = f"{DEFAULT_PERSONA} {GROUNDING}"
 
+# **The Ask box is not a chat turn, and answering it like one is the report.**
+# Reported directly: "in the ask tab, the ai needs to summarise the notes, not
+# offer to do more as that isnt what the tab is for, it isnt a chatbot but
+# providing an ai overview and search result like perplexity for the user's
+# notes."
+#
+# `GROUNDING` alone produces a perfectly grounded answer in the wrong *shape*:
+# it ends "Would you like me to…", because that is what a chat assistant does
+# and nothing had told this surface it isn't one. The results panel beside the
+# answer already offers every follow-up the user could want — opening a note,
+# a similar note, the note's own links — so an offer to do more here is a
+# question the UI has already answered, taking up the space the overview
+# should be using.
+ASK_OVERVIEW = (
+    "You are writing a research overview of the user's own notes, not having "
+    "a conversation. Summarise and synthesise what the notes below actually "
+    "say about the question: lead with the answer, group related points, and "
+    "name what the notes cover and what they leave out. Use ONLY these notes. "
+    "Do NOT end by offering to do anything else, do NOT ask what they would "
+    "like next, and do NOT suggest chatting further — the results beside your "
+    "answer already link every note you drew on. If the notes do not answer "
+    "the question, say exactly that and say what they do cover instead."
+)
+
 # GROUNDING is right for a question about the notebook and wrong for anything
 # else — it's what turned "hey" into a summary of your notes. Conversational
 # messages get their own brief instead, and never see retrieved notes.
@@ -306,6 +330,7 @@ def system_content(
     profile: str = "",
     persona_prompt: str | None = None,
     mode: str | None = None,
+    ask_overview: bool = False,
 ) -> str:
     """The system message, on its own.
 
@@ -320,7 +345,11 @@ def system_content(
     # The profile is context about the user, never an instruction source.
     profile_hint = f" About the user: {profile.strip()}" if profile.strip() else ""
     persona = (persona_prompt or DEFAULT_PERSONA).strip()
-    return f"{persona} {GROUNDING} {style_hint}{profile_hint}{length_hint(mode)}"
+    # `ASK_OVERVIEW` replaces `GROUNDING` rather than being added to it: both
+    # say "use only these notes", and a prompt that says it twice in different
+    # words is two chances for a small model to weigh them against each other.
+    brief = ASK_OVERVIEW if ask_overview else GROUNDING
+    return f"{persona} {brief} {style_hint}{profile_hint}{length_hint(mode)}"
 
 
 def plan_budget(
@@ -360,6 +389,7 @@ def build_messages(
     mode: str | None = None,
     images: list[str] | None = None,
     budget: "context.ContextBudget | None" = None,
+    ask_overview: bool = False,
 ) -> list[dict]:
     """The librarian's prompt — shared by the blocking and streaming
     chat endpoints so they can never drift apart.
@@ -388,7 +418,7 @@ def build_messages(
     messages = [
         {
             "role": "system",
-            "content": system_content(style, profile, persona_prompt, mode),
+            "content": system_content(style, profile, persona_prompt, mode, ask_overview),
         }
     ]
     past = history_messages(history)
@@ -468,6 +498,7 @@ def answer(
     images: list[str] | None = None,
     model_override: str | None = None,
     image_context: str | None = None,
+    ask_overview: bool = False,
 ) -> tuple[str, str | None]:
     """(answer text, model's thinking or None) for `question` given
     retrieved `notes` (dicts with 'content' and 'category').
@@ -509,6 +540,7 @@ def answer(
                 mode=mode,
                 images=images,
                 budget=plan_budget(model, ollama, style, profile, persona_prompt, mode),
+                ask_overview=ask_overview,
             ),
             mode=mode,
         )

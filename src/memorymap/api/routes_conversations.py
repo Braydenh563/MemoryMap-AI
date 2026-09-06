@@ -159,6 +159,7 @@ def _summary(conversation: Conversation) -> dict:
         # about when its title doesn't.
         "preview": first_question[:120],
         "tokens": sum(int(m.get("tokens") or 0) for m in messages),
+        "archived_at": conversation.archived_at.isoformat() if conversation.archived_at else None,
     }
 
 
@@ -209,7 +210,10 @@ def list_conversations(
     title-only search can't find that.
     """
     term = (q or "").strip()
-    query = select(Conversation)
+    # Archived chats are kept, but out of the way — same shape as an
+    # archived note dropping out of the Notes tab. Reachable via the
+    # Library's Shelved filter (routes_library._shelved), not this list.
+    query = select(Conversation).where(Conversation.archived_at.is_(None))
     if term:
         # A cheap SQL prefilter — it over-matches (JSON keys count as text),
         # so everything it returns is then checked properly below.
@@ -250,6 +254,46 @@ def pin_conversation(
     )
     session.commit()
     session.refresh(conversation)
+    return _summary(conversation)
+
+
+@router.put("/{conversation_id}/archive")
+def archive_conversation(
+    conversation_id: int, session: Session = Depends(get_session)
+) -> dict:
+    """Kept, but out of the way (BACKLOG §30b's named remaining scope) —
+    same shape as `routes_entries.archive_entry`: never deleted, never
+    auto-cleared, drops out of the sidebar list and out of the way, still
+    reachable from the Library's Shelved filter."""
+    conversation = _existing(session, conversation_id)
+    if not conversation.archived_at:
+        # Same suppression as pinning above: archiving is organising, not
+        # using, so `updated_at` must not jump to now.
+        session.execute(
+            update(Conversation)
+            .where(Conversation.id == conversation.id)
+            .values(archived_at=utcnow(), updated_at=conversation.updated_at)
+        )
+        log_action(session, "archived", "conversation", conversation.id)
+        session.commit()
+        session.refresh(conversation)
+    return _summary(conversation)
+
+
+@router.put("/{conversation_id}/unarchive")
+def unarchive_conversation(
+    conversation_id: int, session: Session = Depends(get_session)
+) -> dict:
+    conversation = _existing(session, conversation_id)
+    if conversation.archived_at:
+        session.execute(
+            update(Conversation)
+            .where(Conversation.id == conversation.id)
+            .values(archived_at=None, updated_at=conversation.updated_at)
+        )
+        log_action(session, "unarchived", "conversation", conversation.id)
+        session.commit()
+        session.refresh(conversation)
     return _summary(conversation)
 
 
@@ -508,6 +552,60 @@ def truncate_conversation(
     conversation.updated_at = utcnow()
     session.commit()
     return {**_summary(conversation), "removed": removed, "conversation_deleted": False}
+
+
+class ForkBody(BaseModel):
+    """Where to cut the copy. Omitted means the whole conversation."""
+
+    #: The turn to keep *up to and including*. Same indexing `truncate` uses —
+    #: one turn is a user message and its answer, so the message slice is
+    #: `(up_to + 1) * 2`. `None` means "all of it", which is the plain
+    #: duplicate case.
+    up_to: int | None = None
+    title: str | None = Field(default=None, max_length=120)
+
+
+@router.post("/{conversation_id}/fork", status_code=201)
+def fork_conversation(
+    conversation_id: int, body: ForkBody, session: Session = Depends(get_session)
+) -> dict:
+    """Copy a conversation, optionally only as far as one turn.
+
+    Asked for directly: *"ability to fork conversations"*. The need is the one
+    every chat interface eventually grows: a thread reaches a good state and
+    you want to try a different direction **without losing the one you have**.
+    Today the only way is to keep asking and then delete what you did not
+    want, which is destructive and cannot be undone.
+
+    A copy rather than a branch pointer, deliberately. Conversations here are
+    one JSON blob per row (see `Conversation`'s own docstring on why that is
+    the right size for a single-user app), and a real branch would mean
+    turning that into a tree with shared ancestry, a merge story and a
+    migration — an enormous amount of machinery so that two threads can share
+    the bytes of the first three messages. Copying is O(one chat) of disk and
+    behaves exactly as a reader expects: the fork is a normal conversation
+    from the moment it exists, and editing it cannot reach back into its
+    parent.
+    """
+    conversation = _existing(session, conversation_id)
+    messages = json.loads(conversation.messages)
+    if body.up_to is not None:
+        #: `max(0, …)` rather than refusing a negative: a fork with nothing in
+        #: it is a new chat, which is a reasonable thing to have asked for and
+        #: a silly thing to return an error about.
+        messages = messages[: max(0, (body.up_to + 1) * 2)]
+    #: The name says where it came from, because a Library listing two
+    #: identically-named chats is the thing that makes forking unusable.
+    title = (body.title or "").strip() or f"{conversation.title} (fork)"
+    fork = Conversation(
+        title=title[:120],
+        messages=json.dumps(messages),
+        workspace_id=conversation.workspace_id,
+    )
+    session.add(fork)
+    session.commit()
+    log_action(session, "created", "conversation", fork.id)
+    return _summary(fork)
 
 
 class FollowupsBody(BaseModel):

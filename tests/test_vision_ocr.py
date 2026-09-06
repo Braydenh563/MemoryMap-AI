@@ -208,3 +208,104 @@ def test_vision_ocr_and_store_does_not_record_a_task_with_no_vision_model(
 
     vision_ocr.vision_ocr_and_store(upload_id, image_path)
     assert taskhistory.recent() == []
+
+
+# --- Scanned PDFs, read automatically on upload ---------------------------
+#
+# The gap these cover: `VISION_OCR_SUFFIXES` is raster-only, so a filed PDF
+# started no reader at all — `pdf_vision_reader` existed but was only ever
+# reached from a button. Asked for directly: "make sure all the file and
+# document ocr works with ai ocr models, I dont use tesseract."
+
+
+def _pdf_upload(session) -> int:
+    return _upload(session, filename="scan.pdf")
+
+
+def test_pdf_vision_ocr_and_store_writes_what_the_reader_returns(
+    app_state, session, monkeypatch, tmp_path
+):
+    upload_id = _pdf_upload(session)
+    pdf = tmp_path / "scan.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    monkeypatch.setattr(vision_ocr, "pdf_reader_or_none", lambda: (lambda p: "Page one text"))
+    monkeypatch.setattr(
+        deps.get_model_manager(), "resolve_ocr_model", lambda ollama: "llava"
+    )
+
+    assert vision_ocr.pdf_vision_ocr_and_store(upload_id, pdf) == "Page one text"
+    with deps.get_db().session() as check:
+        row = check.get(MediaUpload, upload_id)
+        assert row.vision_ocr_text == "Page one text"
+        assert row.vision_ocr_model == "llava"
+
+
+def test_pdf_vision_ocr_and_store_leaves_a_text_layer_pdf_alone(
+    app_state, session, monkeypatch, tmp_path
+):
+    """A model asked to transcribe a page whose text is already exact can only
+    make it worse — so the expensive path is for scans only."""
+    from memorymap.core import docview
+
+    upload_id = _pdf_upload(session)
+    pdf = tmp_path / "scan.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    monkeypatch.setattr(
+        docview, "extract", lambda path, vision_reader=None: docview.ViewedFile(
+            text="Already selectable text", kind="plain", source="converted"
+        )
+    )
+    called = []
+    monkeypatch.setattr(
+        vision_ocr, "pdf_reader_or_none", lambda: called.append("model") or (lambda p: "x")
+    )
+
+    assert vision_ocr.pdf_vision_ocr_and_store(upload_id, pdf) is None
+    assert called == []
+    with deps.get_db().session() as check:
+        assert check.get(MediaUpload, upload_id).vision_ocr_text is None
+
+
+def test_pdf_vision_ocr_and_store_is_quiet_with_no_reader(
+    app_state, session, monkeypatch, tmp_path
+):
+    upload_id = _pdf_upload(session)
+    pdf = tmp_path / "scan.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    monkeypatch.setattr(vision_ocr, "pdf_reader_or_none", lambda: None)
+    assert vision_ocr.pdf_vision_ocr_and_store(upload_id, pdf) is None
+
+
+def test_pdf_vision_ocr_and_store_is_write_once_by_default(
+    app_state, session, monkeypatch, tmp_path
+):
+    upload_id = _pdf_upload(session)
+    pdf = tmp_path / "scan.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    with deps.get_db().session() as write:
+        row = write.get(MediaUpload, upload_id)
+        row.vision_ocr_text = "read earlier"
+        write.commit()
+    called = []
+    monkeypatch.setattr(
+        vision_ocr, "pdf_reader_or_none", lambda: called.append("model") or (lambda p: "x")
+    )
+    assert vision_ocr.pdf_vision_ocr_and_store(upload_id, pdf) == "read earlier"
+    assert called == []
+
+
+def test_pdf_vision_ocr_and_store_records_the_completed_task(
+    app_state, session, monkeypatch, tmp_path
+):
+    upload_id = _pdf_upload(session)
+    pdf = tmp_path / "scan.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    monkeypatch.setattr(vision_ocr, "pdf_reader_or_none", lambda: (lambda p: "Some text"))
+    monkeypatch.setattr(
+        deps.get_model_manager(), "resolve_ocr_model", lambda ollama: "llava"
+    )
+    taskhistory.clear()
+    vision_ocr.pdf_vision_ocr_and_store(upload_id, pdf)
+    history = taskhistory.recent()
+    assert history[0]["kind"] == "vision_ocr"
+    assert history[0]["outcome"] == "completed"

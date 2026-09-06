@@ -22,7 +22,7 @@ from itertools import chain
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import (
@@ -47,9 +47,11 @@ from memorymap.core.database import (
     AskTurn,
     AuditLog,
     Category,
+    Conversation,
     Document,
     Entry,
     MediaUpload,
+    Reminder,
 )
 from memorymap.core.deps import get_session
 from memorymap.core.logbuffer import safe_value
@@ -65,13 +67,40 @@ _MEDIA_REF = re.compile(r"/media/([A-Za-z0-9._-]{1,200})")
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
+#: **Asking and requesting are logged apart, and this is why.** Reported
+#: directly: "tasks that I have put in the agent show in the 'ask' again
+#: section, the things that I will ask the agent are different to what I would
+#: ask if searching in my notebook."
+#:
+#: Every turn through this module used to write one `queried`/`chat` audit row,
+#: so "Ask again" — which reads that log — offered back "tag everything about
+#: the trip" and "delete the draft" as though they were questions about the
+#: notebook. They are instructions, they have already been carried out, and
+#: running one a second time from a chip is at best pointless and at worst a
+#: repeat of an action the user did not mean to repeat.
+#:
+#: The rule the user gave, in their words: "if I was in the chat and using the
+#: 'ask' mode, then those queries should count, but only those, and my previous
+#: requests in the 'ask' subtab in notes should be registered." So the two
+#: reading surfaces — the Notes tab's Ask box (`notes_only`) and the Chat tab
+#: in Ask mode (tools off) — write `chat`; Request mode and the Ctrl+Shift+A
+#: palette, both of which act, write `agent`. Both stay in the audit log, which
+#: is a record of what happened and should not lose the requests; only the
+#: chip row narrows.
+ASK_SURFACE = "chat"
+AGENT_SURFACE = "agent"
+
+
 @router.get("/recent", response_model=list[str])
 def recent_questions(session: Session = Depends(get_session)) -> list[str]:
     """The last 5 distinct questions, newest first (quick access).
-    Read straight from the audit log — no extra bookkeeping."""
+    Read straight from the audit log — no extra bookkeeping.
+
+    Scoped to `ASK_SURFACE`, so an instruction given to the agent is never
+    offered back as something to ask again."""
     rows = session.scalars(
         select(AuditLog)
-        .where(AuditLog.action == "queried", AuditLog.entity_type == "chat")
+        .where(AuditLog.action == "queried", AuditLog.entity_type == ASK_SURFACE)
         .order_by(AuditLog.id.desc())
         .limit(50)
     )
@@ -634,6 +663,7 @@ def _prepare(
     force_notes_intent: bool = False,
     attached_notes_only: bool = False,
     document_ids: list[int] | None = None,
+    surface: str = ASK_SURFACE,
 ) -> dict:
     """The shared first half of both chat endpoints: retrieve entries,
     bump their usage counters, log the question, gather AI settings.
@@ -751,7 +781,7 @@ def _prepare(
     # Every entry this question surfaced counts as "used".
     for entry in entries:
         entry.access_count += 1
-    manager.log_action(session, "queried", "chat", detail=question)
+    manager.log_action(session, "queried", surface, detail=question)
     session.commit()
     logging.getLogger("memorymap.chat").info(
         "chat: %d note(s) via %s search for %r",
@@ -792,6 +822,9 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         body.note_ids,
         attached_notes_only=body.attached_notes_only,
         document_ids=body.document_ids,
+        # This endpoint has no tool loop — it retrieves and answers, nothing
+        # else — so every turn through it is an ask by construction.
+        surface=ASK_SURFACE,
     )
     model_manager = deps.get_model_manager()
     ollama = deps.get_ollama()
@@ -837,6 +870,9 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
             mode=mode,
             images=images,
             image_context=image_context,
+            # The Ask box (`notes_only`) gets the overview brief instead of
+            # the chat one — see `librarian.ASK_OVERVIEW`.
+            ask_overview=body.notes_only,
             **shared,
         )
     # Direct Q&A only — conversational replies aren't grounded in retrieved
@@ -880,6 +916,89 @@ def _save_ask_turn(session: Session, question: str, answer: str, prepared: dict)
         )
     )
     session.commit()
+
+
+# **"Nothing in your notes" should not be the end of the answer.**
+#
+# Asked for directly: "idk if the ai should be able to look for related
+# semantic results for alternate items like reminders, chat sessions, docs etc
+# related to the notes if no notes are found?? like similar items??"
+#
+# Retrieval only ever searched notes, so a question whose answer sits in a
+# document, a saved chat or a reminder came back as a flat "I couldn't find
+# any saved notes matching that question" — true, useless, and on a notebook
+# that has grown documents and chats, misleading about how much the app holds.
+#
+# Keyword matching on purpose rather than embeddings: this runs *only* on the
+# already-empty path, where being slightly less clever costs nothing and
+# another model round trip would just buy a second wait for a second
+# disappointment. Workspace scoping comes from `WorkspaceMixin`, as everywhere.
+_RELATED_LIMIT = 4
+
+
+def _related_elsewhere(session: Session, question: str) -> list[dict]:
+    """Documents, saved chats and reminders matching a question no note answered."""
+    words = re.findall(r"[\w']{3,}", (question or "").lower())[:6]
+    if not words:
+        return []
+    found: list[dict] = []
+
+    def _add(rows, kind: str, label_of, id_of) -> None:
+        for row in rows:
+            if len(found) >= _RELATED_LIMIT:
+                return
+            found.append({"kind": kind, "id": id_of(row), "label": label_of(row)})
+
+    for word in words:
+        if len(found) >= _RELATED_LIMIT:
+            break
+        like = f"%{word}%"
+        _add(
+            session.scalars(
+                select(Document)
+                .where(or_(Document.title.ilike(like), Document.content.ilike(like)))
+                .order_by(Document.updated_at.desc())
+                .limit(_RELATED_LIMIT)
+            ).all(),
+            "document",
+            lambda d: d.title or "Untitled",
+            lambda d: d.id,
+        )
+        _add(
+            session.scalars(
+                select(Conversation)
+                .where(or_(Conversation.title.ilike(like), Conversation.messages.ilike(like)))
+                .order_by(Conversation.updated_at.desc())
+                .limit(_RELATED_LIMIT)
+            ).all(),
+            "chat",
+            lambda c: c.title or "Untitled chat",
+            lambda c: c.id,
+        )
+        _add(
+            session.scalars(
+                select(Reminder)
+                .where(Reminder.text.ilike(like))
+                .order_by(Reminder.due_at.desc())
+                .limit(_RELATED_LIMIT)
+            ).all(),
+            "reminder",
+            lambda r: r.text,
+            lambda r: r.id,
+        )
+    # De-duplicated on (kind, id): one word matching a document's title and
+    # another matching its body would otherwise list it twice.
+    seen: set[tuple[str, int]] = set()
+    unique: list[dict] = []
+    for item in found:
+        key = (item["kind"], item["id"])
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+    return unique[:_RELATED_LIMIT]
+
+
 
 
 @router.post("/stream")
@@ -975,6 +1094,25 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
             # must not stand in for "there's nothing to look at" (same fix
             # as `librarian.answer`'s own guard).
             yield {"type": "answer", "delta": librarian.NO_RESULTS_MESSAGE}
+            # …but the notebook is more than its notes. See
+            # `_related_elsewhere`: a question answered by a document, a saved
+            # chat or a reminder used to end here regardless.
+            related = _related_elsewhere(session, question)
+            if related:
+                kinds = sorted({item["kind"] for item in related})
+                yield {
+                    "type": "answer",
+                    "delta": (
+                        " There "
+                        + ("is" if len(related) == 1 else "are")
+                        + f" {len(related)} other "
+                        + ("item" if len(related) == 1 else "items")
+                        + " that mention it, in your "
+                        + " and ".join(f"{k}s" for k in kinds)
+                        + "."
+                    ),
+                }
+                yield {"type": "related", "items": related}
             return
         elif not ollama_running:
             yield {"type": "answer", "delta": librarian.OFFLINE_MESSAGE}
@@ -1002,6 +1140,10 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                     persona_prompt,
                     mode,
                 ),
+                # The Ask box's own brief on the streaming path too — this is
+                # the one people actually use, so a fix only on the blocking
+                # route above would be a fix nobody sees.
+                ask_overview=body.notes_only,
             )
         # §88.4 item 4: the same per-stage token estimate agent.py's tool
         # path now attaches to its own stats event (chars/4, no tool
@@ -1066,6 +1208,14 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
             force_notes_intent=body.answering_agent,
             attached_notes_only=body.attached_notes_only,
             document_ids=body.document_ids,
+            # Asking vs requesting, decided from what the caller can already
+            # do rather than from a new flag: `notes_only` is the Notes tab's
+            # Ask box, and tools-off is the Chat tab's Ask mode. Anything that
+            # can reach for a tool — Request mode, the palette, a skill or plan
+            # run — is a request. `use_tools` is resolved above, so the saved
+            # preference is accounted for and an unset flag cannot land a
+            # Request turn in the chip row.
+            surface=ASK_SURFACE if (body.notes_only or not use_tools) else AGENT_SURFACE,
         )
         ollama_running = ollama.is_running()
         # In agent mode the model can act even when nothing matched — "save a

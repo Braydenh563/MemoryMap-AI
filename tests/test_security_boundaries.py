@@ -256,19 +256,33 @@ def test_custom_css_does_not_inject_a_style_tag():
     )
 
 
-def test_the_inline_theme_script_is_allowed_by_its_own_hash():
-    """index.html has exactly one inline script — the pre-paint theme block,
-    which cannot move to app.js because app.js loads too late to stop the
-    flash. It is allowed by a hash computed from the file at startup, so
-    editing the block cannot leave a stale hash behind and a blank page with
-    it. This test is what would notice a second inline script appearing.
+def test_the_real_page_needs_no_hash_at_all():
+    """**This assertion is the reverse of what it used to be, on purpose.**
+
+    index.html carried exactly one inline script — the pre-paint theme block
+    — allowed by a hash computed from the file. It was believed to have to
+    stay inline, because app.js loads at the end of the body, far too late to
+    stop the flash. That was true of app.js and false of the requirement: a
+    plain `<script src>` in the head runs before first paint just as well,
+    which is what `theme-boot.js` now is.
+
+    The move was made because the hash kept costing more than it was worth. A
+    hash is a second copy of the script, held in a header, and the report
+
+        [browser/csp] blocked script-src-elem: inline
+
+    is what a browser says when the two copies disagree — which lands on the
+    user as the app opening in its default look with their saved theme never
+    applied. `CspForPage` already closed the stale-server cause of that
+    disagreement; this closes the rest of them, because `script-src 'self'`
+    covers a same-origin file with nothing to disagree with.
+
+    So the page yielding *no* hashes is now the healthy state, and a hash
+    reappearing means an inline block has come back.
     """
     from memorymap.api.app import FRONTEND_DIR
 
-    hashes = security.inline_script_hashes(FRONTEND_DIR / "index.html")
-    assert len(hashes) == 1
-    assert hashes[0].startswith("'sha256-")
-    assert hashes[0] in security.build_csp(hashes)
+    assert security.inline_script_hashes(FRONTEND_DIR / "index.html") == []
 
 
 def test_the_hash_tracks_the_file_rather_than_a_written_down_value(tmp_path):
@@ -495,8 +509,71 @@ def test_several_inline_scripts_each_get_their_own_hash(tmp_path):
     assert len(set(hashes)) == 2
 
 
-def test_the_real_page_still_yields_a_hash():
-    """The point of all of the above: the app's own page must keep working."""
-    from memorymap.api.app import FRONTEND_DIR
+def test_a_comment_mentioning_a_script_tag_yields_nothing(tmp_path):
+    """Found live, and it hid a real tag while it did it.
 
-    assert security.inline_script_hashes(FRONTEND_DIR / "index.html")
+    `_INLINE_SCRIPT` is a regex, so a comment that merely *writes out* a
+    script tag opens a match — and the pattern then runs to the next
+    `</script`, swallowing whatever real tags lie between. index.html's own
+    comment explaining why the theme bootstrap is a file did exactly that: it
+    produced a phantom hash and consumed the `<script src>` it was written
+    about. A phantom hash is harmless; a real inline script hidden behind one
+    would be served with no hash and refused by the browser, which is the
+    failure this whole module exists to prevent."""
+    page = tmp_path / "index.html"
+    page.write_text(
+        "<!-- explains why `<script src>` is used here -->\n"
+        '<script src="/theme-boot.js"></script>\n'
+    )
+    assert security.inline_script_hashes(page) == []
+
+
+def test_csp_follows_the_page_when_it_changes_under_a_running_server(tmp_path):
+    """A frontend update must not leave the policy naming the old script.
+
+    The bug this pins down was reported from real use, more than once, as
+
+        [browser/csp] blocked script-src-elem: inline
+
+    and the cause was structural rather than a bad hash: the policy was built
+    once at startup while `index.html` is read from disk on every request, so
+    any edit to the page under a running server served a new inline script
+    against the *previous* script's hash. The browser blocks it, and what is
+    lost is the anti-flash theme bootstrap in the page head — the app paints
+    its default look instead of the user's. Restarting fixed it, which is why
+    it kept coming back.
+    """
+    page = tmp_path / "index.html"
+    page.write_text("<script>window.A = 1;</script>", encoding="utf-8")
+    provider = security.CspForPage(page)
+
+    first = provider.value()
+    assert security.inline_script_hashes(page)[0] in first
+
+    # Same content, no re-read needed: the policy must stay valid.
+    assert provider.value() == first
+
+    # Now the page changes under the running process, exactly as a frontend
+    # update does. os.utime keeps the test independent of filesystem mtime
+    # granularity, which is coarse enough on some platforms to hide this.
+    page.write_text("<script>window.A = 2;</script>", encoding="utf-8")
+    import os
+
+    st = page.stat()
+    os.utime(page, (st.st_atime, st.st_mtime + 10))
+
+    second = provider.value()
+    assert second != first, "policy still names the old script after an edit"
+    assert security.inline_script_hashes(page)[0] in second
+
+
+def test_csp_keeps_the_last_good_policy_if_the_page_goes_missing(tmp_path):
+    """Never silently widen to a policy with no hashes at all."""
+    page = tmp_path / "index.html"
+    page.write_text("<script>window.A = 1;</script>", encoding="utf-8")
+    provider = security.CspForPage(page)
+    good = provider.value()
+
+    page.unlink()
+
+    assert provider.value() == good

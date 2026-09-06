@@ -159,3 +159,35 @@ def test_the_dismissed_key_does_not_depend_on_which_note_came_first():
     from memorymap.api.routes_entries import _tension_key
 
     assert _tension_key(7, 3) == _tension_key(3, 7)
+
+
+# --- The agent's way in ----------------------------------------------------
+
+
+def test_the_agent_has_a_tool_for_this_and_it_never_links_anything(client, session):
+    """Reachable by asking, not only by clicking — and read-only.
+
+    The whole feature's rule is that accusing someone of contradicting
+    themselves is a claim a person has to agree with first, so the tool
+    *reports*. `link_notes` is what writes one, and the user is in that loop.
+    """
+    from memorymap.ai import tools
+
+    spec = tools.TOOLS["find_contradictions"]
+    assert spec.destructive is False
+    # Reported, not applied: the handler must not be able to create a link.
+    from memorymap.core.database import EntryLink
+
+    result = spec.handler(session, {"limit": 3})
+    assert "tensions" in result
+    assert session.scalars(select(EntryLink)).all() == []
+
+
+def test_the_tool_says_why_it_found_nothing(client, session):
+    """Same honesty rule as the endpoint: a bare empty list renders "no model
+    running" and "your notebook is consistent" identically."""
+    from memorymap.ai import tools
+
+    result = tools.TOOLS["find_contradictions"].handler(session, {})
+    assert result["tensions"] == []
+    assert result["message"], "an empty result must explain itself"

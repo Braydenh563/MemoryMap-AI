@@ -537,6 +537,30 @@ BUILTIN_SKILLS: list[dict] = [
         ],
     },
 
+    {
+        "name": "Find where I disagreed with myself",
+        "prompt": (
+            "Look for places where my own notes contradict each other — a decision I "
+            "reversed, a date that moved, a view I changed — and tell me what you found."
+        ),
+        "description": "Reads related notes and reports the ones that can't both be right.",
+        "when_to_use": (
+            "When I ask what I changed my mind about, whether my notes are consistent, "
+            "or where I contradicted myself."
+        ),
+        "tools": ["find_contradictions", "link_notes"],
+        "steps": [
+            "Run the find_contradictions tool.",
+            "For each one, say what the two notes claim and how far apart they were "
+            "written — the gap is the point, since the interesting case is a change "
+            "of mind rather than a slip.",
+            "Do NOT link anything on your own. Offer to link the ones I agree with, "
+            "and only then use link_notes with link_type 'contradicts'.",
+            "If nothing was found, say so plainly rather than reaching for a weak "
+            "example — a wrong accusation is worse here than no answer.",
+        ],
+    },
+
     *_AUDIT_SKILLS,
     {
         "name": "Summarise my week",

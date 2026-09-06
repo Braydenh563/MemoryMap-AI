@@ -2123,9 +2123,107 @@ def _audit_link_reasons(session: Session, args: dict) -> dict:
     updated = links.audit_vague_links(session, deps.get_model_manager(), deps.get_ollama(), limit)
     return {"updated": updated, "message": f"Successfully audited and rewrote {updated} link reasons."}
 
+def _find_contradictions(session: Session, args: dict) -> dict:
+    """Notes that appear to contradict each other (see `ai.tensions`).
+
+    The agent's way into the Tensions review. Read-only on purpose: this
+    *reports* what it found and never links anything, because the whole
+    feature's rule is that accusing someone of contradicting themselves is
+    a claim a person has to agree with first. The agent can say what it
+    found and offer to link them; `link_notes` is the tool that does it,
+    and the user is in that loop either way.
+
+    Deps come from `deps.get_*` like every other handler here, so a test's
+    `override_ai(...)` fake reaches this tool the same way.
+    """
+    from memorymap.ai import tensions
+    from memorymap.ai.embeddings import bytes_to_vector, similar_pairs
+    from memorymap.core.database import EmbeddingRecord, EntryLink
+
+    ollama = deps.get_ollama()
+    if not ollama.is_running():
+        return {"tensions": [], "message": "No local model is running, so nothing can read the notes."}
+    embeddings = deps.get_embeddings()
+    if not embeddings.is_ready():
+        return {
+            "tensions": [],
+            "message": "Semantic search is off, so there is no shortlist of notes to compare.",
+        }
+
+    limit = max(1, min(int(args.get("limit", 5)), 10))
+    entries = manager.list_entries(session)
+    by_id = {e.id: e for e in entries if not e.is_private and not e.is_board}
+    records = session.execute(
+        select(EmbeddingRecord.entry_id, EmbeddingRecord.embedding).where(
+            EmbeddingRecord.model_version == embeddings.backend_id()
+        )
+    ).all()
+    vectors = {eid: bytes_to_vector(blob) for eid, blob in records if eid in by_id}
+
+    already = {
+        frozenset((link.source_entry_id, link.target_entry_id))
+        for link in session.scalars(select(EntryLink).where(EntryLink.link_type == "contradicts"))
+    }
+
+    models = deps.get_model_manager()
+    found: list[dict] = []
+    checked = 0
+    for a_id, b_id, _score in similar_pairs(vectors, 0.45):
+        if checked >= tensions.MAX_PAIRS_PER_PASS or len(found) >= limit:
+            break
+        if frozenset((a_id, b_id)) in already:
+            continue
+        ordered = tensions.order_by_time(by_id[a_id], by_id[b_id])
+        if ordered is None:
+            continue
+        checked += 1
+        tension = tensions.compare_pair(ordered[0], ordered[1], models, ollama)
+        if tension is None:
+            continue
+        found.append(
+            {
+                "earlier_note_id": tension.earlier_id,
+                "later_note_id": tension.later_id,
+                "what_they_disagree_about": tension.explanation,
+                "earlier": tension.earlier_excerpt,
+                "later": tension.later_excerpt,
+                "written_apart_days": tension.gap_days,
+            }
+        )
+    if not found:
+        return {
+            "tensions": [],
+            "message": (
+                f"Read {checked} pair(s) of related notes and found no contradictions."
+                if checked
+                else "No notes were close enough in subject to be worth comparing."
+            ),
+        }
+    return {
+        "tensions": found,
+        "message": (
+            f"Found {len(found)} place(s) where the notes appear to disagree, from "
+            f"{checked} pair(s) read. Nothing has been linked — offer to link any the "
+            "user agrees with, using link_notes with link_type 'contradicts'."
+        ),
+    }
+
+
 TOOLS: dict[str, ToolSpec] = {
     spec.name: spec
     for spec in [
+        ToolSpec(
+            "find_contradictions",
+            "Finds places where the user's own notes disagree with each other — a decision reversed, a date that moved, a view they changed. Reports them; does not link anything.",
+            {
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "Max contradictions to report (default 5, max 10)"}
+                },
+            },
+            _find_contradictions,
+        ),
+
         ToolSpec(
             "audit_link_reasons",
             "Audits vague graph link reasons (like 'similar in meaning') and rewrites them by deducing a specific reason based on both notes.",

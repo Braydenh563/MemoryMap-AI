@@ -2760,6 +2760,16 @@ function ocrBuildPageRail(image, pages) {
   ocrWorkspacePages = Math.max(1, pages || 1);
   const rail = $("ocr-rail");
   if (!rail) return;
+  //: The switch above the rail gains its "Pages" segment only once the page
+  //: count is known, which is here — the region response is the one thing that
+  //: carries it. Redrawn on every page load so the count is right.
+  ocrRenderRailSwitch(image);
+  //: **The rail belongs to whichever list is selected.** Without this, opening
+  //: a page of a PDF while the switch says "Images" would silently replace the
+  //: sibling list with pages and leave the switch claiming otherwise — the
+  //: state and the control disagreeing, which is the shape that makes a
+  //: feature feel broken rather than merely limited.
+  if (ocrRailMode !== "pages") return;
   if (rail.dataset.pagesFor === `${ocrRailKey(image)}:${ocrWorkspacePages}`) {
     for (const thumb of rail.querySelectorAll(".ocr-rail-item")) {
       const active = thumb.dataset.key === `page:${ocrWorkspacePage}`;
@@ -2836,6 +2846,175 @@ function reopenOcrWorkspace() {
 }
 window.reopenOcrWorkspace = reopenOcrWorkspace;
 
+//: **Which list the rail is showing.** "pages" is only reachable while a PDF
+//: is open; the other two are always available, which is the point.
+let ocrRailMode = "images";
+
+//: Every image and every readable file in the notebook, loaded by the
+//: workspace itself.
+//:
+//: **Why this exists.** Reported: *"I cant always switch between viewing
+//: files or images, and if I open it from the lightbox when viewing an image,
+//: no other files or images show."* The rail was built from an `images`
+//: argument, and three of `openOcrWorkspace`'s four call sites passed `[]` —
+//: the lightbox, the reopen toast, and `reopenOcrWorkspace`. So the workspace
+//: was navigable only when it happened to be opened from the gallery grid,
+//: and everywhere else it was a dead end with no error and nothing to click.
+//: A view that can only be navigated when a particular caller remembers to
+//: hand it a list is a view whose navigation does not exist.
+//:
+//: Reuses `/media` and `/files/gallery` — the same two the Library's own
+//: gallery loads, with the same `_isImage`/`_isAttachment` flags set the same
+//: way, because a second shape for the same rows is how the two ended up
+//: disagreeing about what an attachment is once already.
+let ocrSiblingCache = null;
+
+async function ocrLoadSiblings({ force = false } = {}) {
+  if (ocrSiblingCache && !force) return ocrSiblingCache;
+  const [images, attachments] = await Promise.all([
+    apiJson("/media", { silent: true }).catch(() => []),
+    apiJson("/files/gallery", { silent: true }).catch(() => []),
+  ]);
+  for (const item of images || []) item._isImage = isImageUrl(item.url);
+  for (const item of attachments || []) {
+    item._isImage = (item.mime || "").startsWith("image/");
+    item._isAttachment = true;
+    item.ocr_text = item.ocr_text || "";
+    item.caption = item.caption || "";
+    item.vision_ocr_text = item.vision_ocr_text || "";
+  }
+  ocrSiblingCache = [...(images || []), ...(attachments || [])];
+  return ocrSiblingCache;
+}
+
+//: A file the workspace can actually open. Images always; otherwise only what
+//: `ocrIsPdf` recognises — the rail is a list of things to read, and a row
+//: that opens to an empty stage is worse than a shorter rail.
+function ocrCanOpen(row) {
+  return Boolean(row && (row._isImage || ocrIsPdf(row)));
+}
+
+//: Build the switch above the rail. Rebuilt on every rail render because the
+//: counts change with the notebook and the "Pages" segment only exists while
+//: a paged document is open.
+function ocrRenderRailSwitch(current) {
+  const host = $("ocr-rail-switch");
+  if (!host) return;
+  const siblings = ocrSiblingCache || [];
+  const segments = [
+    {
+      id: "images",
+      label: "Images",
+      count: siblings.filter((row) => row._isImage).length,
+      title: "Every picture in the notebook",
+    },
+    {
+      id: "files",
+      label: "Files",
+      count: siblings.filter((row) => !row._isImage && ocrCanOpen(row)).length,
+      title: "Every document the reader can open",
+    },
+  ];
+  if (ocrIsPdf(current) && ocrWorkspacePages > 1) {
+    segments.push({
+      id: "pages",
+      label: "Pages",
+      count: ocrWorkspacePages,
+      title: "The pages of the document you are reading",
+    });
+  }
+  host.replaceChildren();
+  //: One segment is not a choice. Hidden rather than rendered inert, for the
+  //: same reason the box-overlay toggle is disabled when there is nothing to
+  //: show: a control that cannot do anything teaches that the feature is
+  //: broken.
+  const usable = segments.filter((segment) => segment.count > 0);
+  host.classList.toggle("hidden", usable.length < 2);
+  for (const segment of usable) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ocr-rail-tab";
+    button.dataset.mode = segment.id;
+    button.setAttribute("role", "tab");
+    const active = segment.id === ocrRailMode;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", String(active));
+    button.title = segment.title;
+    const name = document.createElement("span");
+    name.textContent = segment.label;
+    const count = document.createElement("span");
+    count.className = "ocr-rail-tab-count";
+    count.textContent = String(segment.count);
+    button.append(name, count);
+    button.addEventListener("click", () => {
+      ocrRailMode = segment.id;
+      ocrRenderRail(ocrWorkspaceCurrent || current);
+    });
+    host.appendChild(button);
+  }
+}
+
+//: Fill the rail for whichever mode is selected. "pages" is left to
+//: `ocrLoadPage`, which is the only thing that knows the page count.
+function ocrRenderRail(current) {
+  const rail = $("ocr-rail");
+  if (!rail) return;
+  ocrRenderRailSwitch(current);
+  if (ocrRailMode === "pages") return; // the page rail is built elsewhere
+  const siblings = (ocrSiblingCache || []).filter(
+    (row) => ocrCanOpen(row) && (ocrRailMode === "images" ? row._isImage : !row._isImage)
+  );
+  ocrWorkspaceImages = siblings;
+  rail.dataset.pagesFor = "";
+  rail.replaceChildren();
+  const currentKey = current ? ocrRailKey(current) : "";
+  for (const row of siblings) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "ocr-rail-item";
+    item.dataset.key = ocrRailKey(row);
+    item.classList.toggle("is-active", item.dataset.key === currentKey);
+    if (row._isImage) {
+      const thumb = document.createElement("img");
+      thumb.src = mediaSrc(row.url);
+      thumb.alt = "";
+      thumb.loading = "lazy";
+      item.appendChild(thumb);
+    } else {
+      //: A PDF has no thumbnail to fetch without rasterising it, and a broken
+      //: `<img>` in a rail reads as a missing file rather than as a document.
+      const glyph = document.createElement("span");
+      glyph.className = "ocr-rail-glyph";
+      setLabel(glyph, "ph:file-pdf");
+      item.appendChild(glyph);
+    }
+    const name = document.createElement("span");
+    name.className = "ocr-rail-name";
+    name.textContent = row.original_name;
+    item.appendChild(name);
+    item.title = row.original_name;
+    item.addEventListener("click", () => ocrOpenSibling(row));
+    rail.appendChild(item);
+  }
+  rail.classList.toggle("hidden", !siblings.length);
+}
+
+//: Opening a *different* thing from the rail, as opposed to a different page
+//: of the same thing. A PDF resets the paging state and takes the page rail;
+//: an image keeps the sibling rail it was picked from.
+function ocrOpenSibling(row) {
+  if (ocrIsPdf(row)) {
+    ocrWorkspacePage = 0;
+    ocrWorkspacePages = 1;
+    ocrRailMode = "pages";
+    ocrTearDownScroll();
+    ocrLoadPage(row, 0);
+    return;
+  }
+  ocrLoadPage(row);
+  ocrRenderRail(row);
+}
+
 function openOcrWorkspace(image, images) {
   const overlay = $("ocr-workspace");
   if (!overlay) return;
@@ -2861,40 +3040,31 @@ function openOcrWorkspace(image, images) {
   //: images beside it. Two different lists in one strip, so the page rail is
   //: built from the region response (which knows the page count) and this
   //: sibling rail is built here.
-  if (ocrIsPdf(image)) {
-    ocrWorkspaceImages = [];
-    rail.dataset.pagesFor = "";
-    rail.replaceChildren();
-    rail.classList.add("hidden");
-    overlay.classList.remove("hidden");
-    ocrLoadPage(image, 0);
-    return;
+  //: **The rail no longer depends on the caller.** Whatever list was passed
+  //: seeds the cache so a gallery open still paints instantly, but the
+  //: workspace then loads the rest itself — which is what makes it navigable
+  //: when opened from the lightbox, from the reopen toast, or from a
+  //: still-running read, all three of which passed nothing.
+  if (Array.isArray(images) && images.length && !ocrSiblingCache) {
+    ocrSiblingCache = images;
   }
-  //: Only images the reader can actually open — the rail is a page list, and
-  //: a row that 404s in it is worse than a shorter rail.
-  ocrWorkspaceImages = (images || []).filter((row) => row._isImage);
+  ocrRailMode = ocrIsPdf(image) ? "pages" : image._isImage ? "images" : "files";
   rail.dataset.pagesFor = "";
   rail.replaceChildren();
-  for (const row of ocrWorkspaceImages) {
-    const item = document.createElement("button");
-    item.type = "button";
-    item.className = "ocr-rail-item";
-    item.dataset.key = ocrRailKey(row);
-    const thumb = document.createElement("img");
-    thumb.src = mediaSrc(row.url);
-    thumb.alt = "";
-    thumb.loading = "lazy";
-    const name = document.createElement("span");
-    name.className = "ocr-rail-name";
-    name.textContent = row.original_name;
-    item.append(thumb, name);
-    item.title = row.original_name;
-    item.addEventListener("click", () => ocrLoadPage(row));
-    rail.appendChild(item);
-  }
-  rail.classList.toggle("hidden", ocrWorkspaceImages.length < 2);
+  rail.classList.add("hidden");
   overlay.classList.remove("hidden");
-  ocrLoadPage(image);
+  if (ocrIsPdf(image)) {
+    ocrWorkspaceImages = [];
+    ocrLoadPage(image, 0);
+  } else {
+    ocrLoadPage(image);
+  }
+  //: Fetched after the overlay is up and the first page is loading, so the
+  //: rail filling in never delays the thing you actually opened. A failure
+  //: leaves the rail empty, which is exactly where it started.
+  ocrLoadSiblings()
+    .then(() => ocrRenderRail(image))
+    .catch(() => {});
 }
 
 //: **The whole page, in a pane that is the wrong shape for it.** See the

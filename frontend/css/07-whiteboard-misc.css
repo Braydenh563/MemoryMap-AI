@@ -5558,3 +5558,80 @@ button.connection-row {
   padding-top: var(--space-2);
   border-top: 1px solid var(--border);
 }
+
+/* --- the OCR rail's own switch --------------------------------------------
+   Reported: "I cant always switch between viewing files or images, and if I
+   open it from the lightbox when viewing an image, no other files or images
+   show." The rail used to be whatever list the caller passed in, and three of
+   the four call sites passed nothing — so the workspace was navigable only
+   when opened from the gallery grid. It loads its own siblings now, and this
+   is the control that says which list you are looking at.
+
+   A column, so the switch is pinned above a rail that scrolls under it: the
+   rail can be two hundred pages long, and a switch that scrolls away with it
+   is a switch you cannot reach from page 180. */
+.ocr-rail-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: var(--space-2);
+}
+
+.ocr-rail-switch {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--inner);
+}
+
+.ocr-rail-tab {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  /* The tab labels are one word each and the counts are short, but a notebook
+     with 1,000 files would still push the row wider than the rail. */
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ocr-rail-tab:hover {
+  color: var(--ink);
+}
+
+.ocr-rail-tab.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* The count reads as a quantity rather than as part of the label, which is
+   what stops "Files 12" being mistaken for a filename. */
+.ocr-rail-tab-count {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+/* A document has no thumbnail to fetch without rasterising it, and a broken
+   <img> in the rail reads as a missing file rather than as a PDF. */
+.ocr-rail-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--radius-sm);
+  background: var(--inner);
+  color: var(--muted);
+  font-size: var(--text-h2);
+}

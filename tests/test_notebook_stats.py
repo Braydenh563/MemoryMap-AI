@@ -18,6 +18,7 @@ right tags" would be testing the thing this replaced.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from memorymap.ai import notebook_stats
 from memorymap.core import deps
@@ -184,3 +185,115 @@ def test_an_ordinary_question_still_goes_through_search(client):
         session.commit()
     body = client.post("/chat", json={"question": "what did I write about pasta"}).json()
     assert "work (" not in body["ai_response"]
+
+
+# --- spelling, and the questions added with it -------------------------------
+#
+# Reported: "the stats semantic search needs to be improved and also it doesnt
+# account for spelling mistakes." Every matcher in this module is a regex over
+# literal words, so a typo did not degrade the answer — it produced the *worst*
+# available one, falling through to the retrieval path this module exists
+# because retrieval answers badly.
+
+
+def test_a_misspelt_question_still_gets_the_computed_answer(session) -> None:
+    _note(session, "one", tags=["work"])
+    _note(session, "two", tags=["work"])
+    session.commit()
+    for asked in (
+        "what are my most common tags",
+        "what are my most common tgas",
+        "my most comon tags",
+        "which catagories have the most notes",
+    ):
+        assert notebook_stats.answer(asked, session) is not None, asked
+
+
+def test_it_does_not_correct_a_real_word_into_a_different_one(session) -> None:
+    """The failure mode worth guarding: "notepad" is 0.67 similar to
+    "notebook", and turning one into the other would answer a question the
+    user did not ask. A missed correction costs a fallthrough; a wrong one
+    costs a wrong answer."""
+    assert notebook_stats._despell("open my notepad") == "open my notepad"
+    assert notebook_stats._despell("count the docuemnts") == "count the documents"
+
+
+def test_short_words_are_left_alone(session) -> None:
+    # "tp" is as close to "to", "up" and "top"; correcting it guesses at
+    # meaning rather than fixing spelling.
+    assert notebook_stats._despell("tp tag") == "tp tag"
+
+
+def test_every_vocabulary_word_is_one_the_matchers_look_for() -> None:
+    """`_VOCABULARY` is written out by hand, so it can drift from the patterns.
+
+    Scraping the regexes for their literals would mean parsing regex syntax and
+    would quietly lose a word written inside a group the scraper did not
+    understand. This checks the cheap direction instead: every vocabulary word
+    appears somewhere in this module's source, so a word added to the list
+    without a matcher — or left behind when a matcher is rewritten — shows up
+    here rather than as a silently useless correction target.
+    """
+    import re
+
+    source = Path(notebook_stats.__file__).read_text(encoding="utf-8")
+    # The declaration itself does not count as a use.
+    body = source.split("_VOCABULARY = (", 1)[1].split(").split()", 1)[1]
+    # Every raw-string regex literal in the rest of the module. A word is
+    # "looked for" if one of them matches it — `folders?` covers both "folder"
+    # and "folders", and `most|top|common|commonest|…` covers five of the list
+    # in one pattern, so a plain substring check would report those as unused.
+    patterns = re.findall(r'r"([^"]+)"', body)
+    missing = [
+        word
+        for word in notebook_stats._VOCABULARY
+        if not any(re.fullmatch(f"(?:{p})", word) or re.search(p, word) for p in patterns)
+    ]
+    assert not missing, f"in _VOCABULARY but nothing looks for it: {missing}"
+
+
+def test_word_count_counts_words_not_spaces(session) -> None:
+    _note(session, "one  two   three")
+    _note(session, "four")
+    session.commit()
+    answer = notebook_stats.answer("how many words have I written", session)
+    assert answer is not None
+    assert answer.kind == "word-count"
+    # Four, not seven: the run of spaces must not each count as a word, which
+    # is exactly what the SQL `length - length(replace(...))` trick would do.
+    assert {fact["label"]: fact["count"] for fact in answer.facts}["words"] == 4
+
+
+def test_longest_notes_ranks_and_skips_fragments(session) -> None:
+    _note(session, "short")
+    _note(session, "a much longer note " * 6)
+    _note(session, "the very longest note in the whole notebook " * 8)
+    session.commit()
+    answer = notebook_stats.answer("what are my longest notes", session)
+    assert answer is not None
+    assert answer.kind == "longest-notes"
+    counts = [fact["count"] for fact in answer.facts]
+    assert counts == sorted(counts, reverse=True)
+    # "short" is under the fragment floor, so it is not in the ranking.
+    assert all("short" != fact["label"] for fact in answer.facts)
+
+
+def test_tag_pairs_counts_each_pair_once(session) -> None:
+    for _ in range(3):
+        _note(session, "note", tags=["a", "b"])
+    session.commit()
+    answer = notebook_stats.answer("which tags go together", session)
+    assert answer is not None
+    assert answer.kind == "tag-pairs"
+    # Three notes carry the pair; ordering the pair within itself is what stops
+    # (a,b) and (b,a) both being counted, which would report six.
+    assert answer.facts[0]["count"] == 3
+    assert answer.facts[0]["label"] == "#a + #b"
+
+
+def test_a_pair_seen_once_is_not_a_pattern(session) -> None:
+    _note(session, "note", tags=["a", "b"])
+    session.commit()
+    answer = notebook_stats.answer("which tags appear together", session)
+    assert answer is not None
+    assert answer.facts == []

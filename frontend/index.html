@@ -4128,7 +4128,19 @@ Link to another note with [[its first few words]]."></textarea>
         </div>
       </div>
       <div class="ocr-panes">
-        <nav id="ocr-rail" class="ocr-rail" aria-label="Pages"></nav>
+        <div class="ocr-rail-column">
+          <!-- Reported: "I cant always switch between viewing files or images,
+               and if I open it from the lightbox when viewing an image, no
+               other files or images show." The rail used to be whatever list
+               the *caller* happened to pass in, and three of its four call
+               sites passed an empty array — so opened from the lightbox, from
+               a reopen toast or from a still-running read, there was nothing
+               in it and no way to reach anything else. It loads its own now,
+               and this switch is what says which list you are looking at. -->
+          <div id="ocr-rail-switch" class="ocr-rail-switch" role="tablist"
+            aria-label="What the rail lists"></div>
+          <nav id="ocr-rail" class="ocr-rail" aria-label="Pages"></nav>
+        </div>
         <div class="ocr-page" id="ocr-page-pane">
           <div id="ocr-stage" class="ocr-stage">
             <img id="ocr-image" alt="">

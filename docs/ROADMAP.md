@@ -1811,34 +1811,17 @@ Worth doing, and worth doing after the above.
     back tagged `stale`. Two new regression tests. The other two candidates
     — proactive digest/on-this-day surfacing, and letting a saved skill run
     on the same schedule — are still open.
-35. **No vision-capable image understanding.** Confirmed by grep, not
-    assumed: `ollama_client.py` already reads a model's `vision` capability
-    alongside `tools`/`thinking` from the same `/api/show` call §6 built, but
-    nothing consumes it — no code path sends an attached image to a vision
-    model. Asked for directly, including how it should be configured:
-    auto-detected the same way `tools`/`thinking` already are, with a manual
-    override in Settings → Models for OpenAI-compatible backends that don't
-    self-report capabilities. Wire into the existing image path (paste/drop/
-    attach → `/media/upload`), and run it *alongside*, not instead of, the
-    OCR idea already scoped in BACKLOG.md §4 item 1 — the two answer
-    different questions and are both cheap once the pipeline exists: local
-    OCR (`pytesseract`, no torch, always available) extracts literal text for
-    the existing keyword index ("what did that whiteboard photo say"), a
-    vision model's description (only when one is configured) covers content
-    OCR can't read at all ("what's in that photo"). Needs a decision on
-    where the description is stored (a note field vs. a side table) and
-    whether the agent narrates "generated from an image" the way whiteboard
-    AI actions already disclose their own source.
-39. **Passive capture: a fifth autonomous-tasks job that mines chat for
-    un-filed facts** (ANALYSIS.md §60). Today a note is only filed on an
-    explicit instruction or an explicit tool call — something mentioned in
-    passing during an ordinary Q&A turn is never captured. An
-    `auto_capture_enabled` job alongside the existing `auto_tag`/`auto_link`/
-    `auto_dedupe` three, default off for the same reason those are ("it runs
-    the agent against the whole notebook with nobody watching"). Needs
-    measuring before it ships, the same discipline already applied to §33's
-    semantic-tool-retrieval item — a background job that mis-files something
-    nobody asked to capture is a worse failure than one that misses something.
+35. ~~No vision-capable image understanding.~~ **Built** —
+    `ai/captioning.py` (background caption on upload, `POST /media/{id}/caption`
+    for a manual re-read), auto-detected vision capability plus a manual
+    override in Settings → Models (`ModelManager.resolve_vision_model`), and
+    the Library's Image Gallery already searches captions alongside OCR text
+    and filenames. Runs alongside OCR, not instead of it, exactly as this item
+    specified.
+
+39. ~~Passive capture~~ **Built** — see item 2 under ANALYSIS.md §60's
+    "Worth building" list, corrected there rather than twice.
+
 40. **Help page overhaul, plus an embedded mini AI chat for in-app guidance.**
     Asked for directly, in detail, across several messages — logged here
     before being built, not yet started. Two parts:

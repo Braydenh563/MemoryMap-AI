@@ -1459,10 +1459,14 @@ each already located:
    `<textarea>`'s value is a string. Double-click and right-click open the same
    menu off the caret offset. If this keeps being reported, the answer is a
    contenteditable source view, which is a much larger change than it looks.
-5. **The prose rules are deliberately shallow.** No its/it's, no agreement, no
-   tense — all of them need the sentence's meaning. The local model could judge
-   a paragraph on request; nothing wires that yet, and it must stay a request
-   rather than a pass, or the editor stops being instant.
+5. ~~The prose rules are deliberately shallow~~ **Closed.** A "Check with AI"
+   button in the suggestions panel hands the whole document to the chat with a
+   prompt asking for exactly what the local rules cannot judge — its/it's,
+   agreement, tense, tone, clarity — as a numbered list of issues rather than a
+   silent rewrite. On request, not a pass: verified it does not touch the
+   editor's own instant checks. **Not yet verified against a real model** — no
+   Ollama in this sandbox — only that the composer receives the right prompt
+   (same gap as item 1 above).
 
 ## Next up, ranked by what it unlocks
 

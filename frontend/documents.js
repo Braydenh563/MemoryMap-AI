@@ -3496,6 +3496,22 @@ function docProseHeader() {
     all.addEventListener("click", () => docProseFixAll());
     tools.appendChild(all);
   }
+  //: **The rules stop at the sentence's own shape — meaning needs a model.**
+  //: ROADMAP.md names the gap directly: no its/it's, no subject-verb
+  //: agreement, no tense consistency, because every one of those needs to
+  //: understand what the sentence is *saying*, not just how it is spelled or
+  //: spaced. That is exactly what the local model is for, and exactly why this
+  //: is a button rather than a background pass: judging meaning takes seconds,
+  //: not milliseconds, and a check that ran on every keystroke would turn this
+  //: editor into one that visibly stutters while you type. On request, it
+  //: costs nothing until asked for; as a pass, it would cost something on
+  //: every single character.
+  const aiReview = smallButton(
+    "ph:sparkle Check with AI",
+    "Ask the local model to read for things spelling and grammar rules can't catch — its/it's, agreement, tense, tone, clarity",
+    () => docAiReview()
+  );
+  tools.appendChild(aiReview);
   //: The dictionary is reachable from the thing that uses it. A word list you
   //: can add to and never see again is a list nobody trusts.
   const dict = smallButton("ph:book-open-text Dictionary", "Words you have told this to accept", () =>
@@ -4319,6 +4335,46 @@ async function docTranslatePassage(text) {
 }
 
 let docLastTranslateLanguage = "";
+
+//: **The request the rules above cannot answer.** Handed to the chat rather
+//: than run silently, for the reason `docProseHeader`'s own comment gives:
+//: judging meaning takes real inference time, and this editor's whole
+//: character-count/word-goal/completion stack is built on being instant. A
+//: background pass that occasionally froze the UI for a few seconds mid-word
+//: would be a worse editor than one with no AI review at all.
+//:
+//: Asks for a list rather than a rewrite — the same reason `docProseFix`
+//: never silently replaces text without the exact span matching first: an
+//: editor that hands your document to a model and gets a different document
+//: back, with no way to see what changed or why, is not reviewing your
+//: writing, it is overwriting it. A list of numbered issues, each with what
+//: is wrong and one suggested fix, is a thing you can read, agree or
+//: disagree with, and apply by hand — same shape as everything else this
+//: checker offers.
+const DOC_AI_REVIEW_CHARS = 6000;
+
+async function docAiReview() {
+  const text = ($("doc-content")?.value || "").trim();
+  if (!text) return toast("Nothing to review yet.", true);
+  const box = document.getElementById("chat-input");
+  if (!box) return toast("The chat isn't available right now.", true);
+  //: Long enough for a real document, short enough that the request itself
+  //: does not become the thing that fills the context window it is trying to
+  //: economise. `docTranslatePassage`'s own OCR-to-chat sibling caps at 4000;
+  //: a whole document is the more common case here, so the cap is higher.
+  const quoted = text.length > DOC_AI_REVIEW_CHARS ? `${text.slice(0, DOC_AI_REVIEW_CHARS)}…` : text;
+  const prompt =
+    "Read this document for the things a spellchecker can't catch: " +
+    "its/it's and other agreement mistakes, tense that shifts partway through, " +
+    "unclear or awkward sentences, and tone. List each one as a numbered point " +
+    `naming the exact wording and a one-line fix — don't rewrite the whole document.
+
+${quoted}`;
+  switchTab("chat");
+  box.value = prompt;
+  box.focus();
+  box.dispatchEvent(new Event("input", { bubbles: true }));
+}
 
 //: **Managing the dictionary.** Asked for by name. A list you can add to and
 //: never see again is a list nobody trusts — and a wrongly added word would

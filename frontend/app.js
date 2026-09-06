@@ -13462,7 +13462,10 @@ async function sendChatMessage(preset, opts = {}) {
     closeNotePicker();
   }
 
-  $("chat-suggest").classList.add("hidden");
+  //: Same loan as in `openConversation`: `chatEmptyState` can have moved this
+  //: element inside `#chat-messages`, and a caller that cleared the pane first
+  //: would find it gone.
+  $("chat-suggest")?.classList.add("hidden");
   input.value = "";
   autoGrow(input); // a cleared box must not keep the height of what was in it
   // The draft is gone, so the suggestions about it are too — including the
@@ -15654,8 +15657,35 @@ async function openConversation(id) {
   renderCompressionState();
   $("chat-title").textContent = full.title;
   renderChatUsage(full.tokens);
+  //: **Give the starter chips back before clearing the pane, not after.**
+  //:
+  //: Reported with a screenshot: *"I cant view older chat sessions, the
+  //: panel/page just appears blank."* The title, model and token count in the
+  //: header were all correct — only the transcript was empty, which is what
+  //: made it look like a rendering problem with the messages rather than a
+  //: crash.
+  //:
+  //: `#chat-suggest` is **on loan**. `chatEmptyState` *moves* that element out
+  //: of the dock and into `.chat-empty` inside `#chat-messages` (see its own
+  //: comment on why the starters belong with the welcome). So on any chat that
+  //: was showing the empty state — every fresh load of the tab — the element
+  //: is a child of the very thing being wiped here: `replaceChildren()`
+  //: destroyed it, and the next line dereferenced `null` and threw.
+  //:
+  //: The throw landed exactly between "clear the transcript" and "render the
+  //: messages", so the pane was emptied and then nothing was drawn. Every
+  //: saved conversation opened blank, and the console error was the only
+  //: sign.
+  //:
+  //: `clearChatEmptyState` already knows how to return the chips to the dock —
+  //: it exists for this — so the fix is to let it run first rather than to
+  //: null-guard the symptom.
+  clearChatEmptyState();
   $("chat-messages").replaceChildren();
-  $("chat-suggest").classList.add("hidden");
+  //: Optional-chained regardless: this element is moved between two parents at
+  //: runtime, and a second caller that clears the pane should degrade to a
+  //: stale chip strip rather than to a blank conversation.
+  $("chat-suggest")?.classList.add("hidden");
   let lastQuestionText = null;
   for (const message of full.messages) {
     if (message.role === "user") {

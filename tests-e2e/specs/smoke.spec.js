@@ -78,3 +78,48 @@ test("capturing a note makes it appear in Notes -> Browse", async ({ page }) => 
   await page.waitForTimeout(300);
   await expect(page.locator("#entry-list")).toContainText(marker, { timeout: 10_000 });
 });
+
+// Reported with a screenshot: "I cant view older chat sessions, the
+// panel/page just appears blank." The header was right — title, model, token
+// count — and only the transcript was empty, which is why it read as a
+// rendering problem rather than the crash it was.
+//
+// `#chat-suggest` is on loan: `chatEmptyState` *moves* it out of the dock and
+// into `.chat-empty` inside `#chat-messages`. `openConversation` then called
+// `replaceChildren()` on that pane — destroying the borrowed element — and
+// dereferenced it on the very next line. The throw landed between "clear the
+// transcript" and "draw the messages", so every saved conversation opened
+// blank.
+//
+// This lives in the E2E suite because it is exactly the shape the Python
+// tests structurally cannot see: the API was correct the whole time, and the
+// only evidence was one console error in a browser.
+test("opening a saved conversation renders its messages", async ({ page }) => {
+  const pageErrors = [];
+  page.on("pageerror", (err) => pageErrors.push(err.message));
+
+  await page.goto("/");
+  await page.click("#tab-btn-chat");
+  await page.waitForSelector("#chat-messages", { timeout: 15_000 });
+
+  // A conversation has to exist to be reopened, and the empty state has to
+  // have been shown first — that is what lends `#chat-suggest` away, and a
+  // test that skipped it would pass against the bug.
+  const conversationId = await page.evaluate(async () => {
+    const list = await apiJson("/conversations");
+    return list.length ? list[0].id : null;
+  });
+  test.skip(conversationId === null, "no saved conversations in this profile");
+
+  await page.evaluate((id) => openConversation(id), conversationId);
+  await page.waitForTimeout(500);
+
+  const rendered = await page.evaluate(
+    () => document.getElementById("chat-messages").children.length
+  );
+  expect(
+    rendered,
+    "a saved conversation opened with an empty transcript — see openConversation's #chat-suggest comment"
+  ).toBeGreaterThan(0);
+  expect(pageErrors, `uncaught exceptions: ${pageErrors.join("; ")}`).toEqual([]);
+});

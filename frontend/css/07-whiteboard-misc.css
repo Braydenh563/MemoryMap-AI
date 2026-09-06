@@ -4339,10 +4339,22 @@ button.connection-row {
 
 /* The right-hand column of the index — when it was written, or what it is
    filed under. Muted and fixed at the row's edge so the eye can run straight
-   down it, and never the thing that decides the row's width: it truncates
-   before the label does. */
+   down it, and never the thing that decides the row's width.
+
+   **`flex: 0 0 auto`, not `0 1 auto`.** The intent above was always "the
+   label truncates, not this" — but a shrinkable meta column competes with
+   `.contents-label`'s `flex: 1 1 auto` for the same space and loses, so the
+   date got squeezed instead. Reported with a screenshot, and measured on the
+   live index: "3 days ago" needs 78px and was given 43, rendering as "3 …";
+   2 of 8 visible rows were clipped that way.
+
+   A date is short and bounded, so refusing to shrink it costs nothing, and
+   the label beside it already has `min-width: 0` and an ellipsis — it
+   absorbs the remainder and truncates first, which is what the rule wanted
+   in the first place. `max-width` stays as the backstop for the other mode,
+   where the meta is a category name and genuinely can run long. */
 .contents-meta {
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   max-width: 40%;
   overflow: hidden;
   text-overflow: ellipsis;

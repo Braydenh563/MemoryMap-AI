@@ -385,32 +385,7 @@ same session is in §88.0 so nobody re-fixes it.
 
 | Report | Cause |
 | --- | --- |
-| "Run Skill buttons in the AI Skills library are broken" **and** the `app.js:10495` console error | One line, two symptoms: `startSkill(skill.name)` passed the name *string* where the skill object was expected **and** omitted `values`, so `Object.values(undefined)` threw. Now `runSkill(skill)` |
-| "The documents subtab cards don't even do anything" | `openDocument()` loaded correctly but the Documents *page* stayed hidden behind the Library tab. Needed `switchTab("documents")` first |
-| "The Open button on a selected draft does nothing" | `openLibraryItem` had no branch for the `draft` kind, which arrived with the new Drafts chip. `flashEntry` already knew how to reveal a draft |
-| "There's no way to publish a draft as a proper note" | There was — the draft chip — labelled "click to clear the label", which names the mechanism and not the outcome. Relabelled |
-| "The `/` command popup isn't scrollable and disappears when I try" | A capture-phase `scroll` listener saw the menu's *own* wheel event and closed it. Now ignores scrolls inside the menu, plus `overscroll-behavior: contain` |
-| "The top menu bar shifts when I open the settings modal" | `scrollbar-gutter: stable` was applied **only** under `.modal-open`, so opening a dialog *added* a gutter that had not been there a frame earlier. Now reserved permanently |
-| "Weird small circles left hanging when I change where links connect" | Link endpoint handles are appended to `#wb-overlay-zoom-group`; **both** existing clears only swept `#wb-zoom-group`. Every render appended a group and none was removed. One `wbClearSketchHandles()` now clears both layers |
-| "Tune semantic search should show at all times" | The control lived inside `#chat-results`, which is `hidden` until an answer exists — so the thing that changes how search behaves could only be reached *after* running one. Moved to the ask row |
-| "The export folder rows have no gap" | `.row`'s gap applies *within* a row, not between two of them. `.settings-row-spaced` |
-| "The documents sub-tab search box is a different height" | Same failure DESIGN.md names for the graph strip: an `<input>`'s own padding outgrows a button unless the row sets one height. `--control-h` applied to that head |
-| "The skill-logs sidebar should be sticky and viewport-height" | `#skills-sidebar` had **no CSS at all** — it carried `card glass` but not `sidebar-panel`, so it scrolled away with the page |
-| "The new-chat button clashes with the collapse button" | The collapse toggle is absolutely positioned at the sidebar's top-right and the heading row's trailing button sits in the same place. The head now reserves `--sidebar-toggle-lane`, a token that already existed for exactly this |
-| "Back/forward should handle sub-tabs too" | History entries are now `{tab, section}`; `showNotesSection` records one. Verified: browse → back → capture → back → ask → forward → capture |
-| Whiteboard "janky and uncomfortable" | `renderWhiteboard()` (a full d3 join over every item) was called from **48 sites**; one action touches several. All now coalesce into one rAF via `wbScheduleRender()` |
-| "Make link creation on the graph offer a kind, a reason, and a cancel" | Built — see §87.5's typed links, now shipped as `EntryLink.link_type` plus the drag-to-link dialog |
-| "The dashboard widgets are completely broken" **and** `Unhandled promise rejection: TypeError: Cannot read properties of null (reading 'replace')` | One bug, reported as two. §88.0's own `startSkill` fix (row above) stopped new corruption but never cleaned up what it had already written: `JSON.stringify` turns `undefined` into `null` inside an array, so a profile that ran a skill during that bug's window carried a permanent `null` in `recentSkills`. `withoutLeadingEmoji()` called `.replace()` on it unguarded, on every dashboard render, before the widget grid populated. Fixed at all three points — write guard, a self-healing read-side filter that rewrites the cleaned list (so an already-affected profile repairs itself on next load), and a defensive coercion — reproduced and verified live in this sandbox's Chromium |
-| Categories sidebar heading smaller than Chats/Documents | A stale ID-selector `#sidebar h2 { font-size: var(--text-lg) }` outranked the unified `.card h2` (§35L) by specificity for this one sidebar. Removed |
-| "The docked ui at the top of the graph needs a cleanup" (second pass) | "+ New note" grouped with the "?" help button instead of bookending the strip alone; Layout/Colour segmented controls split into two labelled groups (they shared one with no "Colour" label); Minimap moved into the Options panel with the other "tuned once" settings |
-| Skill Logs sidebar still not full height after the first fix | Same bug `.doc-sidebar` already hit once: `align-self: start` + `max-height` alone is a ceiling with no floor. Applied `.doc-sidebar`'s complete pattern (`align-self: stretch`, `height: 100%`, `max-height: var(--page-sticky-h)`, flex column, list scrolls not the card) instead of the partial version tried first |
-| Link-kind dialog ("How are these connected?") text unreadable in dark theme | `.link-kind-option` overrode `background` to transparent but not `color`, so it kept the global `button` rule's `color: var(--on-accent)` — `#0d1017` in dark theme, meant for text on that same rule's bright accent fill, not a transparent button. Added `color: var(--ink)` |
-| Back-to-top button "too much to the left" on Notes, displaced on Library | `positionScrollTopForNested` always pulled the button in from the panel's own edge, stacking a second margin on top of the page's own — Notes has no right-side element to clear at all. Now only pulls in when a real right-side panel (the Skill Logs sidebar) is actually present; otherwise matches every other tab's flat offset |
-| Graph toolbar still 3 rows after the first redesign pass | The two hard-split `.graph-toolbar-row`s merged into one flexible row (Options now wraps up rather than living on a pinned second row), and the search/Trace group moved out of the `display: contents` `#graph-toolbar-secondary` wrapper onto the header's own line beside "Graph" — a flex item inside that wrapper would not size to its own content no matter what was tried in CSS, confirmed by direct measurement, not assumption. Down to 2 rows |
-| Graph Options panel minimap combobox taller than the buttons beside it | `.graph-options button` got `height: var(--control-h)`; the `<select>` in the same panel never did. Both now measure identically (30.4px) |
-| Chat "New" button clashes with the sidebar collapse toggle specifically while collapsed-but-hover-expanded | `.sidebar-collapsed .sidebar-head` zeroes the toggle's reserved padding lane, correct at the true 48px-collapsed width — but the element keeps that class throughout the hover-peek state too, where the toggle visually moves back to its normal `right: 1.25rem`. Reserve restored for that specific hover state |
-| Graph node labels show raw callout syntax (`Review > [!tip] Remem…`) | `routes_graph.py`'s `_preview()` stripped a leading `#` heading marker but not a callout's `> [!kind]` opening line. Added `_CALLOUT_MD`, the callout equivalent of the existing `_HEADING_MD` strip |
-| "There's a weird black line on the right side of the screen" (desktop/WebView2 build, screenshotted) | Supersedes this table's own earlier row above ("The top menu bar shifts when I open the settings modal") rather than being a new bug: that fix made `scrollbar-gutter: stable` permanent on `<html>` so a real scrollbar disappearing under `.modal-open` wouldn't shift the layout. §36A later moved all scrolling onto each `.tab-page` (body is now unconditionally `overflow: hidden`, and `window.scrollTo` no longer exists in app.js), so `<html>` can no longer show a real scrollbar at all — the gutter that rule reserves is now permanently empty, narrowing `<html>`'s own rendered box by a scrollbar's width and leaving unstyled space at the viewport's right edge that no CSS rule paints, because it sits outside `<html>`'s box entirely. Confirmed directly in this sandbox's Chromium: `document.documentElement`'s rendered width measured a clean scrollbar-width short of `window.innerWidth` with the rule in place, and exactly equal to it with the rule removed — and re-tested opening the real settings modal to confirm no shift returns without it, since body's own `overflow: hidden` is unconditional regardless. `scrollbar-gutter: stable` removed from `01-forms-settings.css`'s `<html>` rule. **Not confirmed in the actual WebView2 shell that reported it** — only that the underlying CSS condition it depends on (a permanently unfillable gutter) is real and now gone |
+| *(38 older rows moved out)* | The oldest entries of this table were condensed into [roadmap/HISTORY.md](roadmap/HISTORY.md) to keep this file under its own length rule (`tests/test_docs_layout.py`). Nothing was lost — the rule exists because a roadmap nobody finishes reading is a roadmap that gets rebuilt |
 
 ### 88.1 Reported and still open — work this list top-down
 
@@ -1467,6 +1442,27 @@ full narrative and the measured numbers.
 | [roadmap/BACKLOG.md](roadmap/BACKLOG.md) | Standing backlog items not yet promoted to this file's live list. |
 | [roadmap/ANALYSIS.md](roadmap/ANALYSIS.md) | Judgements: the odysseus read, and the licence constraint — **this project is AGPL-3.0 now, not MIT**, so §34a's "no code crosses either way" is half-lifted. What was deliberately not taken. Also §59: the claude-obsidian/cognee/graphify read behind items 32–36 below, and §60: a second odysseus read after the repo tripled in size — a real non-atomic-write bug it found, an MCP shape worth copying, and its own admission that the backend isn't better designed. |
 | [DESIGN.md](DESIGN.md) | The design system. `tests/test_style_scale.py` enforces it. |
+
+## Still open after §105 — start here
+
+§105 (HISTORY.md) closed a long run of live reports. What it did **not** close,
+each already located:
+
+1. **The translation action has never met a model.** `docTranslatePassage`
+   hands the passage to the chat composer with the question written. That the
+   composer receives it is verified; that a local model answers it well is not.
+2. **The vision reader is still unexercised.** Every OCR test drives a fake
+   transport. `?reader=tesseract` is now a real alternative and is equally
+   unmeasured — no `tesseract` binary in the sandbox either.
+3. **Tensions still has no measured hit rate** (§104's caveat, unchanged).
+4. **Source view cannot underline a flagged word**, and structurally cannot: a
+   `<textarea>`'s value is a string. Double-click and right-click open the same
+   menu off the caret offset. If this keeps being reported, the answer is a
+   contenteditable source view, which is a much larger change than it looks.
+5. **The prose rules are deliberately shallow.** No its/it's, no agreement, no
+   tense — all of them need the sentence's meaning. The local model could judge
+   a paragraph on request; nothing wires that yet, and it must stay a request
+   rather than a pass, or the editor stops being instant.
 
 ## Next up, ranked by what it unlocks
 

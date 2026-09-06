@@ -5967,3 +5967,133 @@ rate — how often a small local model calls a real contradiction correctly, and
 how often it invents one. That number matters more than anything else here and
 it is not known yet. The guards above are written on the assumption it will be
 worse than hoped.
+
+## §105 — the OCR workspace becomes a workspace, and the writing checker becomes arguable
+
+A long autonomous round against a stream of live reports. The standing
+instruction throughout: *"I basically need you to make the app deal in both
+form and function, ui and ux, utility, accessibility, learnability, usability,
+ability etc... Something that hasn't been done before."*
+
+### The measurement that mattered most
+
+Three of this round's fixes were things the source read as correct at every
+line. All three were found by driving Chromium and reading numbers.
+
+**The OCR page rendered at a tenth of its size.** Reported as *"fix the view of
+individual pages"*, with a screenshot of a slide the size of a postage stamp.
+Every line of `ocrSizeStage` is right. At the moment the `<img>` fires `load`,
+`#ocr-page-pane` measures **142px** wide; a beat later it measures **769px**,
+and re-running the identical code then produces the correct 757px stage every
+time. Four runs wrong, two right — which is exactly why "it looks fine here"
+kept closing it. A `ResizeObserver` on the pane is the fix that does not depend
+on winning the race, and it covers three unreported cases with the same cause:
+the rail appearing when a second page is found, the window resizing, and a
+picture already in cache.
+
+**Five control heights in one strip, twice.** *"None of the top elements in the
+ocr workspace are aligned and are different heights"* — measured: the Regions
+label at 32px, the segment's buttons at 27.2, every `.ghost.small` at 28, the
+enhanced dropdown at 35.6. Then the same again in the document editor's
+formatting bar: 29.2, 28, 24.7, 10, and one at 0. Neither strip declared a
+height, so each control's size fell out of whichever class it happened to
+carry. Same `--control-h` fix and same reasoning as `.library-head`.
+
+**Rearranging the dashboard could not be saved.** `DashboardLayout` capped
+`order`/`hidden`/`wide` at twenty entries; the catalogue passed twenty some
+time ago. `order` carries every widget, so every save of a full layout came
+back `422` — and `saveDashLayout` swallows the failure by design, so nothing
+said so. `tests/test_dashboard_layout_cap.py` parses the JS catalogue and fails
+the build when it approaches the bound, because the two live in different
+languages and nothing else can notice them drifting.
+
+**The flickering bar, third report, finally measured.** The earlier
+`overflow-x: clip` fix covered a different container. The activity heatmap
+wanted **699px in a 307px column**, and `overflow-x: auto` on a widget 92px
+tall is a scrollbar that appears and disappears as the dashboard repaints on
+its own timers. The cells size themselves to the column now — a year of
+activity is a shape you take in at a glance, and a shape you have to scroll is
+not one.
+
+### Features that had never run once
+
+Three, all of this repo's second recurring failure shape:
+
+- **`GET /models/spec`** — size, quantisation, family, declared window against
+  the one the app really runs at, tri-state capability flags — has existed
+  since §11 and the frontend had never called it. It is now the panel behind
+  the chat's model badge.
+- **The per-turn token composition** has been computed and sent on every
+  `stats` event since §88.4, and appeared only inside a tooltip. The window
+  meter is now one segment per part of the prompt, each named on hover.
+- **The inline citations** were being written into the answer by `onGrounding`
+  and then destroyed a few milliseconds later by the final markdown pass —
+  in the Ask box *and* in the Chat tab. Reported as *"no inline or grounding
+  links to the notes viewed and referenced appear."*
+
+### The OCR workspace
+
+Renamed, because *"make it not just reading text on the page but truly ... an
+all encompassing text and image ocr workspace, dont limit the feature."* The
+read button was hidden outright for a photograph, so the one surface built for
+reading a picture could not read one. Regions are correctable where you see
+them. Find filters the reading and dims the boxes it drops. Continuous scrolling
+between pages, driven by an `IntersectionObserver` off what is actually on
+screen. And the Regions toggle now says when it can do nothing — only Tesseract
+returns positions, so on a vision reading it was flipping an empty layer, which
+from the outside is indistinguishable from broken.
+
+**Tesseract is back as an alternative**, which is not a reversal of §111 but
+the second half of it: *"make sure tesseract exists as an alternative as well."*
+The vision model stays the default; Tesseract is a choice, and a better one for
+some work — no model needed, a tenth of a second a page, it never invents a
+line, and it is the only reader that says *where* each block sits. A request for
+one is never answered with the other.
+
+### The writing checker
+
+`Ln/Col`, characters, words, reading time; completion from the document's own
+vocabulary plus the notebook's (a generic dictionary would offer "thereabouts"
+while you write about your project and never once offer the word you use twenty
+times a day); a prose check of rules, not judgement; autocorrect over a list of
+strings that are not words in any English text.
+
+Then, reported: *"I cant click on the flagged word or phrase and see a popup for
+suggested fixes or other options like adding to dictionary."* The check was
+right; what it had no shape for was **disagreeing with it**. A checker you
+cannot answer is one you turn off. So: a menu on the word, carrying replace /
+this is a word / not this time / translate. A dictionary stored with the
+notebook rather than in `localStorage`. British and American spelling as an
+explicit pair table, because `-ise/-ize` turns "size" into "sise".
+
+**And the squiggle exists exactly where a squiggle can.** A `<textarea>`'s
+value is a string, not a DOM, so Source view genuinely cannot underline a word
+— Live view's blocks are rendered HTML and are marked properly. Source view
+gets the same menu on double-click or right-click off the caret offset. Worth
+stating plainly: the missing underline in Source view is a structural
+difference from Word, not an omission.
+
+### App-wide
+
+- **21 absolutely-positioned menus** sat inside an ancestor with `overflow`
+  set. `wireEscapedActionMenu` had solved this since the Library's kebab, but
+  only for callers that remembered to ask. `openActionMenu` now escapes *when
+  it is needed* — nothing changes for a menu that fits.
+- **A two-finger swipe threw the session away** — Chromium's overscroll history
+  navigation. `overscroll-behavior-x: none`. The boot splash also grew a Try
+  again button: naming a remedy on a dead screen is not offering one.
+- **Icons off-centre in arrow and kebab buttons**, from two rules that are
+  right elsewhere: `.ph`'s baseline shift applied inside the `<span>`
+  `paintStatusItem` adds, and `.ph-lead`'s trailing margin on an icon with no
+  label. Measured 1.36px up and 2.42px left; both now 0.01.
+- **Undo** gained the favourite and the link (the one thing in a notebook you
+  cannot rebuild from memory had a confirm dialog and nothing else), and a
+  history menu on right-click.
+
+### What was not verified
+
+No local model ran in this sandbox, so: the translation action hands a passage
+to the chat composer and has never been round-tripped through a model; the
+vision reader's own behaviour is unchanged and still unexercised; and the
+Tensions caveat from §104 stands unaltered. Everything visual above was
+measured in Chromium and the numbers are quoted with it.

@@ -1632,6 +1632,60 @@ function docLiveFocusEnd() {
 function wireDocLive() {
   const host = $("doc-live");
   if (!host) return;
+  //: **The whole pane is a drop target, not just the rows.** Reported: "on the
+  //: documents, I have to drag the drag button onto the text itself, and not
+  //: just vertically or horizontally."
+  //:
+  //: Each `.lp-row` already handles its own dragover, and the row spans the
+  //: full width — but a row is only as tall as its paragraph, and everything
+  //: between two rows (the pane's own row gap, its padding, the empty space
+  //: below the last block) belongs to `#doc-live`, which had no handler. Drag
+  //: through any of it and the drop marker vanished, which reads exactly as
+  //: "it only works over the text".
+  //:
+  //: Nearest row by vertical distance, so a pointer anywhere in the pane —
+  //: including far off to the side or below the document — always names a
+  //: real place to drop.
+  const rowNearest = (clientY) => {
+    let best = null;
+    let bestGap = Infinity;
+    for (const row of host.querySelectorAll(".lp-row")) {
+      const box = row.getBoundingClientRect();
+      const gap =
+        clientY < box.top ? box.top - clientY : clientY > box.bottom ? clientY - box.bottom : 0;
+      if (gap < bestGap) {
+        bestGap = gap;
+        best = { row, box };
+      }
+    }
+    return best;
+  };
+  const markDrop = (clientY) => {
+    const near = rowNearest(clientY);
+    for (const row of host.querySelectorAll(".lp-row")) {
+      row.classList.remove("is-drop-before", "is-drop-after");
+    }
+    if (!near) return null;
+    const after = clientY > near.box.top + near.box.height / 2;
+    near.row.classList.toggle("is-drop-before", !after);
+    near.row.classList.toggle("is-drop-after", after);
+    return { index: Number(near.row.dataset.index), after };
+  };
+  host.addEventListener("dragover", (event) => {
+    if (docLiveDragFrom === null) return;
+    event.preventDefault();
+    markDrop(event.clientY);
+  });
+  host.addEventListener("drop", (event) => {
+    if (docLiveDragFrom === null) return;
+    event.preventDefault();
+    const target = markDrop(event.clientY);
+    if (target) docMoveLiveBlockTo(docLiveDragFrom, target.after ? target.index + 1 : target.index);
+    docLiveDragFrom = null;
+    for (const row of host.querySelectorAll(".lp-row")) {
+      row.classList.remove("is-drop-before", "is-drop-after");
+    }
+  });
   // Delegated, because the blocks are replaced on every render and per-block
   // listeners would have to be re-bound each time — which is the shape that
   // silently accumulates duplicates (see tests/test_frontend_handlers.py).

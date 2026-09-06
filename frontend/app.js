@@ -1992,6 +1992,7 @@ function inlineActionIs(id, kind) {
 function closeActionMenus() {
   for (const menu of document.querySelectorAll(".action-menu:not(.hidden)")) {
     menu.classList.add("hidden");
+    restoreEscapedMenu(menu);
     // `menu._escapedOpener` (set by wireEscapedActionMenu) wins when
     // present: a menu reparented to <body> has no useful `.parentElement`
     // to search — `document.body.querySelector` would find the *first*
@@ -2177,7 +2178,104 @@ function openActionMenu(menu, opener) {
   if (menu.getBoundingClientRect().bottom > bound.bottom) {
     menu.classList.add("action-menu-flip");
   }
+  //: **And if flipping is not enough, leave the box entirely.** Asked for
+  //: app-wide: "make sure the popup menus dont get clipped or go off the
+  //: screen." Measured on the live app: **21** absolutely-positioned menus sit
+  //: inside an ancestor with `overflow` set — every enhanced `<select>` inside
+  //: a scrolling panel, the document dock's own list, the whiteboard's menus.
+  //: Flipping upward only helps when the spill is downward and the clipper is
+  //: tall enough; sideways, or in a short panel, the menu is simply cut.
+  //:
+  //: `wireEscapedActionMenu` has solved this since the Library's kebab was
+  //: reported — but only for the callers that remembered to ask for it, one at
+  //: a time. This makes it the default *when it is needed*: nothing changes for
+  //: a menu that fits, and a menu that does not gets the same reparent-to-body
+  //: treatment rather than being clipped.
+  escapeMenuIfClipped(menu, opener);
   menu.querySelector("button")?.focus();
+}
+
+//: The nearest ancestor that would clip this menu — `overflow` anything but
+//: `visible` makes a box a clipping context, and `clip` and `hidden` clip
+//: without even offering a scrollbar to reach what they cut off.
+function menuClippingAncestor(el) {
+  let node = el?.parentElement;
+  while (node && node !== document.body) {
+    const cs = getComputedStyle(node);
+    const clips = (value) => value === "auto" || value === "scroll" || value === "hidden" || value === "clip";
+    if (clips(cs.overflowX) || clips(cs.overflowY)) return node;
+    node = node.parentElement;
+  }
+  return null;
+}
+
+//: The placement `wireEscapedActionMenu` has always used, factored out so the
+//: automatic path and the hand-wired one cannot drift into placing the same
+//: menu differently. Right-aligned to the opener, flipped above when there is
+//: no room below, and clamped to the viewport on both axes — which is the
+//: "or go off the screen" half of the same report.
+function placeEscapedMenu(menu, opener) {
+  const margin = 8;
+  const anchor = opener.getBoundingClientRect();
+  menu.style.left = "0px";
+  menu.style.top = "0px";
+  const box = menu.getBoundingClientRect();
+  let left = anchor.right - box.width;
+  let top = anchor.bottom + 4;
+  if (left < margin) left = margin;
+  if (left + box.width > window.innerWidth - margin) {
+    left = Math.max(margin, window.innerWidth - margin - box.width);
+  }
+  if (top + box.height > window.innerHeight - margin) {
+    const above = anchor.top - 4 - box.height;
+    top = above >= margin ? above : Math.max(margin, window.innerHeight - margin - box.height);
+  }
+  menu.style.left = `${Math.round(left)}px`;
+  menu.style.top = `${Math.round(top)}px`;
+}
+
+function escapeMenuIfClipped(menu, opener) {
+  //: A menu that already has its own escape wiring is left alone: two
+  //: mechanisms reparenting the same node would fight over where home is.
+  if (menu._escapeWired || menu._escapedHome) return;
+  const clipper = menuClippingAncestor(menu);
+  if (!clipper) return;
+  const box = menu.getBoundingClientRect();
+  const bound = clipper.getBoundingClientRect();
+  //: A pixel of tolerance, because a menu whose edge lands exactly on its
+  //: container's is not clipped and reparenting it would be a visible jump for
+  //: no reason.
+  const spills =
+    box.right > bound.right + 1 ||
+    box.left < bound.left - 1 ||
+    box.bottom > bound.bottom + 1 ||
+    box.top < bound.top - 1;
+  if (!spills) return;
+  menu._escapedHome = { parent: menu.parentElement, next: menu.nextSibling };
+  //: Read by `closeActionMenus`, which otherwise looks for the opener among
+  //: the menu's siblings — and once the menu is a child of <body> that search
+  //: finds the first `[aria-haspopup]` on the page, which is the wrong button.
+  menu._escapedOpener = opener;
+  document.body.appendChild(menu);
+  menu.classList.add("action-menu-escaped");
+  //: `action-menu-flip` pins `bottom`; `placeEscapedMenu` sets `top`. Both at
+  //: once over-constrains an auto-height box, which reproduced as the menu
+  //: collapsing to its own padding — see `wireEscapedActionMenu`'s note.
+  menu.classList.remove("action-menu-flip");
+  placeEscapedMenu(menu, opener);
+}
+
+function restoreEscapedMenu(menu) {
+  const home = menu._escapedHome;
+  if (!home) return;
+  //: Put back rather than left in <body>: a page that never restores an
+  //: escaped menu accumulates stray fixed nodes forever, and the next
+  //: `openActionMenu` expects to find it where it was built.
+  home.parent.insertBefore(menu, home.next);
+  menu.classList.remove("action-menu-escaped");
+  menu.style.left = "";
+  menu.style.top = "";
+  menu._escapedHome = null;
 }
 
 // **Escapes a `kebabMenu()` dropdown from a clipping scroll ancestor.**
@@ -2210,6 +2308,10 @@ function wireEscapedActionMenu(wrap) {
   // it finds — the wrong button — once this menu is no longer a
   // descendant of its own opener's wrapper.
   menu._escapedOpener = opener;
+  //: Claimed, so `escapeMenuIfClipped` (the automatic path) does not also try
+  //: to reparent this one — two mechanisms with two ideas of "home" would put
+  //: it back in the wrong place.
+  menu._escapeWired = true;
   let homeParent = null;
   let homeNext = null;
   const place = () => {

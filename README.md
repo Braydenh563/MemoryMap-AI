@@ -157,8 +157,15 @@ AI's own reading of it.
 
 Plus a status bar, command palette (`Ctrl`/`Cmd`+`K`), a sketch pad, local
 Whisper dictation, read-aloud, opt-in web search, 10 themes over 8 colour
-palettes, 19 built-in skills, interface zoom (`Ctrl`+`+`/`-`/`0`), and daily
+palettes, 20 built-in skills, interface zoom (`Ctrl`+`+`/`-`/`0`), and daily
 local backups.
+
+**Settings → Help** has a full in-app guide — topic-by-topic explanations
+with quick-access links straight into the setting or tab each one describes
+— plus a small "Ask the guide" AI chat for "how do I…" questions, answered
+by your utility model from the app's own reference material rather than
+guessed. It never sees your notes and keeps no history past the current
+session.
 
 **Any OpenAI-compatible server works**, not just Ollama — LM Studio,
 `llama-server`, Jan, vLLM. Settings → Models also exposes the sampling
@@ -237,7 +244,7 @@ report — are answered in **[`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md
 ## Developing
 
 ```
-pytest                       # ~2,600 tests, ~7-8 minutes
+pytest                       # 2,700+ tests, ~7-8 minutes
 ruff check .                 # what CI lints with
 node --check frontend/app.js # the frontend is one plain-JS file
 ```

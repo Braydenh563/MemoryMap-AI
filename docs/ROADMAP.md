@@ -1892,7 +1892,7 @@ told to open first.
 
 ## How to work on this repo
 
-- `pytest tests/` — ~1,600+ tests, fully offline, no Ollama needed
+- `pytest tests/` — 2,700+ tests, fully offline, no Ollama needed
   (`pytest.ini` sets `pythonpath = src`).
 - `ruff check .` — matches CI.
 - `node --check frontend/app.js` — one large plain-JS file; run after every edit.

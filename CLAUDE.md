@@ -167,7 +167,7 @@ what made "everything else here is new" a fact rather than a guess.
       cryptography python-multipart pytest httpx ruff
   ```
 
-- `python -m pytest tests/` — ~1,600 tests, ~3 minutes, all green. Keep it that way.
+- `python -m pytest tests/` — 2,700+ tests, ~7-8 minutes, all green. Keep it that way.
 - **Restart the server after any Python change.** A stale uvicorn is why a
   correct fix "didn't work" twice in one session — the browser was running the
   old code and the diff looked wrong.

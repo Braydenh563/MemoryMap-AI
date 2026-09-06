@@ -7,6 +7,26 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+`__version__`/`pyproject.toml` moved to `0.2.1` without a changelog entry;
+this section covers what is confirmed since, not everything the version
+bump implies — a fuller reconciliation against the intervening commits is
+still owed.
+
+### Added
+- **Help → "Ask the guide"**, a small embedded AI chat for "how do I…"
+  questions about the app itself. Answers with the utility model, grounded
+  in a fixed set of reference notes (`ai/help_chat.py`'s `HELP_TOPICS`) so a
+  small local model isn't guessing at features it has never seen, never
+  reads the user's notes, and keeps no history past the current browser
+  session. Replies can carry quick-access badges into the exact tab or
+  settings section they describe.
+- **Onboarding's data-dir writability check.** `GET /storage` now reports
+  `data_dir_writable`, and the "Your setup" onboarding slide warns if the
+  notebook folder has gone read-only.
+- **Document editor: "Check with AI."** Sends the current document to Chat
+  with a prompt asking the model to flag wording issues a spellchecker
+  can't catch — agreement, tense, clarity — without rewriting the document.
+
 ## [0.2.0] — 2026-09-05
 
 A long round driven almost entirely by live reports with screenshots. Two

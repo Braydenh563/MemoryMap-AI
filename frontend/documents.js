@@ -2465,6 +2465,155 @@ async function openDocAiHistory() {
   }
 }
 
+//: **The document's own history**, asked for by name: "can the document have
+//: edit history like git logs??"
+//:
+//: `openDocAiHistory` above lists the edits the *model* made and can revert one
+//: of them; this lists every version the document has had, whoever wrote it.
+//: They answer different questions and both are worth having, so this is a
+//: second list rather than a rewrite of that one.
+//:
+//: What makes it read like a log rather than a pile of timestamps is the
+//: signed word delta on each row — a history where every line looks the same
+//: has to be read from the top, which is the work a history exists to save.
+const DOC_HISTORY_SOURCES = {
+  edit: { icon: "ph:pencil-simple", label: "You" },
+  ai: { icon: "ph:magic-wand", label: "AI edit" },
+  restore: { icon: "ph:clock-counter-clockwise", label: "Restored" },
+};
+
+function docHistoryDelta(words) {
+  if (!words) return "no change in length";
+  return words > 0 ? `+${words} words` : `${words} words`;
+}
+
+async function openDocHistory() {
+  if (!currentDoc) return toast("Open a document first.", true);
+  const dialog = $("doc-history-dialog");
+  const list = $("doc-history-list");
+  const empty = $("doc-history-empty");
+  if (!dialog || !list) return;
+  list.replaceChildren();
+  empty.classList.add("hidden");
+  dialog.showModal();
+  const loading = document.createElement("li");
+  loading.className = "muted";
+  loading.textContent = "Loading…";
+  list.appendChild(loading);
+  let entries;
+  try {
+    entries = await apiJson(`/documents/${currentDoc.id}/revisions`);
+  } catch (error) {
+    list.replaceChildren();
+    const failed = document.createElement("li");
+    failed.className = "muted";
+    failed.textContent = error.message || "Couldn't load the history.";
+    list.appendChild(failed);
+    return;
+  }
+  list.replaceChildren();
+  if (!entries.length) {
+    empty.classList.remove("hidden");
+    return;
+  }
+  for (const entry of entries) {
+    const shape = DOC_HISTORY_SOURCES[entry.source] || DOC_HISTORY_SOURCES.edit;
+    const row = document.createElement("li");
+    row.className = "doc-ai-history-entry";
+    const icon = document.createElement("i");
+    icon.className = `ph ${shape.icon.replace("ph:", "ph-")}`;
+    icon.setAttribute("aria-hidden", "true");
+
+    const text = document.createElement("div");
+    text.className = "doc-ai-history-text";
+    const line = document.createElement("p");
+    line.textContent = `${shape.label} · ${docHistoryDelta(entry.word_delta)}`;
+    const meta = document.createElement("p");
+    meta.className = "muted text-sm";
+    meta.textContent = `${new Date(entry.created_at).toLocaleString()} · ${entry.words} words`;
+    //: The opening of the version itself. A row saying only "You, 20 May,
+    //: +140 words" makes you open every entry to find the one you want, which
+    //: is the work this list is supposed to save.
+    const preview = document.createElement("p");
+    preview.className = "muted text-sm doc-history-preview";
+    preview.textContent = entry.preview || "";
+    text.append(line, meta, preview);
+
+    const view = document.createElement("button");
+    view.type = "button";
+    view.className = "ghost small";
+    view.textContent = "View";
+    view.title = "Read this version without changing anything";
+    view.addEventListener("click", async () => {
+      const full = await apiJson(
+        `/documents/${currentDoc.id}/revisions/${entry.id}`
+      ).catch(() => null);
+      if (!full) return toast("Couldn't open that version.", true);
+      dialog.close();
+      //: Through the lightbox, which is already the app's read-only viewer for
+      //: a document's text — including its find bar, which is how anyone
+      //: actually locates what changed in a long version.
+      openLightbox(
+        [
+          {
+            filename: `${full.title || "Untitled"} — ${new Date(full.created_at).toLocaleString()}`,
+            kind: currentDoc.file_type === "md" ? "markdown" : "code",
+            text: full.content || "",
+            addedAt: full.created_at || "",
+          },
+        ],
+        0
+      );
+    });
+
+    const restore = document.createElement("button");
+    restore.type = "button";
+    restore.className = "ghost small";
+    restore.textContent = "Restore";
+    restore.title = "Put the document back to this version";
+    restore.addEventListener("click", async () => {
+      //: Asked first, because this replaces what is on screen. Cheap to undo
+      //: (the restore keeps the version it replaced) but not obviously so from
+      //: the outside, and a confirm is what says it is a real change.
+      const ok = await confirmDialog(
+        `Put this document back to the version from ${new Date(entry.created_at).toLocaleString()}?\n\n` +
+          "The version you have now is kept in the history, so this is undoable.",
+        { confirmLabel: "Restore it" }
+      );
+      if (!ok) return;
+      restore.disabled = true;
+      try {
+        const saved = await apiJson(
+          `/documents/${currentDoc.id}/revisions/${entry.id}/restore`,
+          { method: "POST" }
+        );
+        currentDoc = saved;
+        $("doc-content").value = saved.content || "";
+        $("doc-title").value = saved.title || "";
+        renderDocPreview();
+        docDirty = false;
+        $("doc-saved").textContent = "Saved";
+        docs = docs.map((d) => (d.id === saved.id ? { ...d, ...saved } : d));
+        renderDocList();
+        dialog.close();
+        toast("Restored. The version you had is in the history.");
+      } catch (error) {
+        toast(error.message || "Couldn't restore that version.", true);
+      } finally {
+        restore.disabled = false;
+      }
+    });
+
+    const actions = document.createElement("span");
+    actions.className = "row doc-history-actions";
+    actions.append(view, restore);
+    row.append(icon, text, actions);
+    list.appendChild(row);
+  }
+}
+
+$("doc-history")?.addEventListener("click", openDocHistory);
+
 const DOC_SIDEBAR_SECTIONS = ["list", "outline"];
 const DOC_SIDEBAR_STORE = "docSidebarSection";
 

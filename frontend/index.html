@@ -2302,6 +2302,15 @@ Link to another note with [[its first few words]]."></textarea>
                      at all. -->
                 <button id="doc-connections" class="ghost small doc-dock-menu-item" type="button"
                   title="Notes, references and files joined to this document"><i class="ph ph-graph ph-lead" aria-hidden="true"></i> Connections</button>
+                <!-- **The whole history, not just the AI's.** Asked for by
+                     name: "can the document have edit history like git logs??"
+                     `#doc-ai-history` (in the AI panel) lists edits the model
+                     made and can revert one of them; this lists every version
+                     the document has had, whoever wrote it, with how much
+                     changed each time. They answer different questions and
+                     both are worth having. -->
+                <button id="doc-history" class="ghost small doc-dock-menu-item" type="button"
+                  title="Every version this document has had, and a way back to any of them"><i class="ph ph-clock-counter-clockwise ph-lead" aria-hidden="true"></i> History</button>
                 <button id="doc-export-md" class="ghost small doc-dock-menu-item" type="button"
                   title="Download as a .md file"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Download as .md</button>
                 <button id="doc-export-pdf" class="ghost small doc-dock-menu-item" type="button"
@@ -2582,6 +2591,22 @@ Link to another note with [[its first few words]]."></textarea>
          distinct from the app's own session-only global undo stack, which
          also fires on every accept for an immediate Ctrl+Z but forgets
          everything on reload. -->
+    <!-- The document's own history. Same shape as the AI edit log beside it,
+         deliberately: two lists that answer "what happened to this document"
+         should not be two different-looking things. -->
+    <dialog id="doc-history-dialog" class="card space-dialog doc-ai-history-dialog">
+      <h3>Document history</h3>
+      <p class="muted">Every version this document has had. Editing for a while
+        counts as one entry, so this reads as sittings rather than keystrokes —
+        and restoring one keeps the version it replaced, so nothing here is ever
+        lost.</p>
+      <ul id="doc-history-list" class="doc-ai-history-list"></ul>
+      <p id="doc-history-empty" class="muted hidden">Nothing yet — this document
+        has not been changed since it was made.</p>
+      <div class="row right space-dialog-actions">
+        <button type="button" class="ghost" data-close-dialog="doc-history-dialog">Close</button>
+      </div>
+    </dialog>
     <dialog id="doc-ai-history-dialog" class="card space-dialog doc-ai-history-dialog">
       <h3>AI edit history</h3>
       <p class="muted">Every AI edit accepted into this document. Revert any of them — it's recorded too, so nothing here is ever lost.</p>

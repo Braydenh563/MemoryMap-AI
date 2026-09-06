@@ -889,6 +889,44 @@ class PageRead(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class DocumentRevision(Base):
+    """A document's text as it was before an edit — the history behind "can the
+    document have edit history like git logs??", asked for by name.
+
+    Notes have had `EntryRevision` for a long time and documents had nothing:
+    rewriting one destroyed what it used to say, with no way back beyond the
+    session's own undo stack, which forgets on reload. `DocumentAiEdit` covered
+    the *AI's* edits only — a person's own rewrite left no trace at all.
+
+    Written before the change lands, so the newest revision is always the
+    version being replaced, and stored as whole snapshots rather than diffs for
+    the reason `DocumentAiEdit` already gives: a restore has to reproduce an
+    exact prior state, not replay a patch against text that may have been
+    edited by hand since.
+
+    **Not one row per keystroke.** Autosave fires while you type, and a history
+    with two hundred entries five seconds apart is not a history — it is a log
+    nobody can read. `routes_documents` coalesces: an edit within
+    `REVISION_QUIET_SECONDS` of the last revision replaces it rather than
+    adding one, so a sitting at the keyboard becomes a single entry and
+    coming back an hour later becomes another. That is what makes the list
+    read like a git log rather than like a keylogger.
+    """
+
+    __tablename__ = "document_revisions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), index=True)
+    title: Mapped[str] = mapped_column(String(200), default="")
+    content: Mapped[str] = mapped_column(Text, default="")
+    #: How the change was made: "edit" (a person), "ai" (an accepted AI
+    #: suggestion), "restore" (rolled back to an earlier revision). Shown in
+    #: the list, because "who changed this" is the first question a history
+    #: answers.
+    source: Mapped[str] = mapped_column(String(10), default="edit")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class WhiteboardNode(Base, WorkspaceMixin):
     """A note card placed on the whiteboard canvas."""
 

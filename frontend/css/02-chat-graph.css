@@ -3080,6 +3080,14 @@ mark.lightbox-hit {
      letting the box's own size centre it. Reported live. */
   display: grid;
   place-items: center;
+  /* **Above everything else in the viewer, explicitly.** Reported: "the close
+     button doesnt work all the time." It is the overlay's *first* child and
+     `.lightbox-column` is the second, so with no z-index on either the column
+     paints over it wherever their boxes overlap — nowhere for a short
+     landscape photo, and the whole top-right corner for the document viewer's
+     tall split pane. "Sometimes" is what an overlap that depends on the
+     content's height looks like from the outside. */
+  z-index: 3;
 }
 
 .lightbox-close:hover,

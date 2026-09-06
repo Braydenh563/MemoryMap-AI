@@ -2158,6 +2158,31 @@ header#top-bar.tabs-wrapped #tab-bar {
   opacity: 0.6;
 }
 
+/* **The row is a container, so only its buttons may take a click.** Reported:
+   "I cant click the select radio buttons in any of the images in the library
+   images subtab." Measured with `elementFromPoint` at the centre of each
+   tick: every one returned `DIV.library-image-actions`, not the checkbox.
+
+   The cause is the `left` that was added to this row (see its main rule
+   above) so the buttons could wrap instead of running off the tile's edge on
+   a narrow window. `left` *and* `right` stretch the box across the full width
+   of the tile, and the tick sits at the tile's top-left — under a transparent
+   part of a box at `z-index: 2` that still takes every pointer event landing
+   on it.
+
+   Raising the tick's own z-index would fix this one control and leave the
+   rest of that strip of thumbnail dead to clicks. `pointer-events` fixes the
+   class: the row itself stops being a target, each control inside it goes
+   back to being one, and the thumbnail underneath is clickable again along
+   its whole top edge. */
+.library-image-actions {
+  pointer-events: none;
+}
+
+.library-image-actions > * {
+  pointer-events: auto;
+}
+
 .library-image-tile:hover .library-image-actions,
 .library-image-tile:focus-within .library-image-actions,
 .library-image-actions:focus-within {

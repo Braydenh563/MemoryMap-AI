@@ -1314,13 +1314,31 @@ function promptDialog(message, initial = "", { confirmLabel = "Save" } = {}) {
 //: close on. Recording where the *mousedown* started tells the two apart: a
 //: real backdrop click starts and ends on the backdrop; a selection drag
 //: starts inside the card.
-function wireBackdropClose(overlay, close) {
+//: `alsoBackdrop` is a selector for elements that *look* like empty space
+//: even though they are not the overlay itself — a full-width layout column
+//: whose own box extends well past the thing it is centring.
+//:
+//: Reported: "I cant click off the documents or images to close the lightbox
+//: and the close button doesnt work all the time." Measured with the viewer
+//: open on a 1440x900 window: `.lightbox-column` is **1396px wide and 134px
+//: tall**, so the whole horizontal band either side of the picture belongs to
+//: the column, not the backdrop. The four screen edges did close it, which is
+//: why this reads as intermittent rather than broken: whether a click "off
+//: the image" works depends on whether it landed above or beside it.
+//:
+//: The elements named by the caller are the ones with no content of their
+//: own. `e.target === el` still has to hold for each: a click that lands on
+//: the picture, the caption, a button or any other real child is a click on
+//: that child, and closes nothing.
+function wireBackdropClose(overlay, close, alsoBackdrop = "") {
+  const isBackdrop = (target) =>
+    target === overlay || (alsoBackdrop && target instanceof Element && target.matches(alsoBackdrop));
   let downOnBackdrop = false;
   overlay.addEventListener("mousedown", (e) => {
-    downOnBackdrop = e.target === overlay;
+    downOnBackdrop = isBackdrop(e.target);
   });
   overlay.addEventListener("click", (e) => {
-    if (e.target === overlay && downOnBackdrop) close();
+    if (isBackdrop(e.target) && downOnBackdrop) close();
   });
 }
 
@@ -4796,9 +4814,13 @@ function openLightbox(items, startIndex = 0) {
     else if (e.key === "ArrowLeft" && items.length > 1) show(index - 1);
     else if (e.key === "ArrowRight" && items.length > 1) show(index + 1);
   };
-  // Only the backdrop itself closes on click — the nav/close buttons need to
-  // stay clickable without also dismissing the dialog they sit inside.
-  wireBackdropClose(overlay, close);
+  // Only empty space closes on click — the picture, the metadata and the
+  // nav/close buttons all need to stay clickable without dismissing the
+  // dialog they sit inside. The three layout boxes named here have no content
+  // of their own: the column is full-window-width and only as tall as the
+  // picture, so without them the entire band left and right of the image was
+  // dead to a dismissing click. See `wireBackdropClose`.
+  wireBackdropClose(overlay, close, ".lightbox-column, .lightbox-stage-wrap, .lightbox-stage");
   closeBtn.addEventListener("click", close);
   prevBtn.addEventListener("click", (e) => {
     e.stopPropagation();

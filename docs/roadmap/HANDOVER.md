@@ -97,7 +97,7 @@ Two of this session's bugs were the same shape — a control that exists, render
 and is styled correctly, and cannot be clicked because something transparent is
 on top of it (the gallery's select ticks; the lightbox's dismiss area). That is
 worth sweeping for rather than waiting to be reported, so
-`scratchpad/hit.js` walks every button, link, input, select and `summary` on
+`tools/browser/find-unclickable-controls.js` walks every button, link, input, select and `summary` on
 eight tabs, four Notes sections, eight Library sub-tabs and Settings, and asks
 `elementFromPoint` whether the control is actually the thing at its own centre.
 
@@ -123,7 +123,7 @@ finish it. Reporting the 118 would have been worse than not running it.
 
 ### Verified after the fact, in one pass
 
-`scratchpad/verify.js` re-checks this session's fixes against the running app:
+`tools/browser/verify-fixes.js` re-checks this session's fixes against the running app:
 nine popup close buttons square, the note kebab centred at dx/dy 0.00, the graph
 popup's favourite reading "Favourite" beside "Grow"/"Focus", the chat send button
 at the same radius family as its input, the jump-to-latest pill present, the

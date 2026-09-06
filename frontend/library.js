@@ -526,10 +526,15 @@ function libraryActions(item) {
         reload();
       }),
       makeMenuItem("ph:trash Delete", "Delete this document", async () => {
-        if (!(await confirmDialog(`Delete “${item.title}”? This cannot be undone.`))) return;
-        await apiJson(`/documents/${item.id}`, { method: "DELETE" }).catch((e) =>
-          toast(e.message, true)
-        );
+        if (
+          !(await confirmDialog(`Delete “${item.title}”? You can undo this straight after.`))
+        ) {
+          return;
+        }
+        //: The same helper the Documents tab's own two delete buttons use
+        //: (`documents.js`), so all three doors offer the same Undo rather
+        //: than one of them being permanent because it was written later.
+        await deleteDocumentWithUndo(item).catch((e) => toast(e.message, true));
         reload();
       }),
     ];
@@ -2017,8 +2022,18 @@ async function renderLibraryDocuments() {
           window.open(`/documents/${doc.id}/export.md`, "_blank");
         }),
         makeMenuItem("ph:trash Delete", "Delete this document", async () => {
-          if (!(await confirmDialog(`Delete "${doc.title || "Untitled"}"? This cannot be undone.`))) return;
-          await apiJson(`/documents/${doc.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
+          if (
+            !(await confirmDialog(
+              `Delete "${doc.title || "Untitled"}"? You can undo this straight after.`
+            ))
+          ) {
+            return;
+          }
+          //: The fourth and last door onto the same delete. All four now go
+          //: through `deleteDocumentWithUndo` — a delete that is recoverable
+          //: from one menu and permanent from another is worse than one that
+          //: is permanent everywhere, because it teaches a rule that is false.
+          await deleteDocumentWithUndo(doc).catch((e) => toast(e.message, true));
           libraryDocsSelection.delete(doc.id);
           renderLibraryDocuments();
         }),

@@ -309,8 +309,14 @@ function renderDocList() {
           loadDocuments(currentDoc?.id);
         }),
         makeMenuItem("ph:trash Delete", "Delete this document", async () => {
-          if (!(await confirmDialog(`Delete "${doc.title || "Untitled"}"? This cannot be undone.`))) return;
-          await apiJson(`/documents/${doc.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
+          if (
+            !(await confirmDialog(
+              `Delete "${doc.title || "Untitled"}"? You can undo this straight after.`
+            ))
+          ) {
+            return;
+          }
+          await deleteDocumentWithUndo(doc).catch((e) => toast(e.message, true));
           // Cleared, not just left stale: loadDocuments() only opens a
           // replacement when `currentDoc` is falsy - leaving it pointing at
           // the doc that was just deleted would keep the editor showing it.
@@ -2124,12 +2130,78 @@ function exportDocumentPdf() {
   });
 }
 
+//: **Deleting a document is the only permanent loss left in this app, and it
+//: is the longest thing anyone writes here.** Notes go to a recycle bin;
+//: conversations, files and whiteboards are all recoverable one way or
+//: another; a document was gone the moment you confirmed, which is why both
+//: delete prompts had to say "This cannot be undone" out loud.
+//:
+//: Asked as part of "is everythign wired to the nav history and universal
+//: undo/redo" — and it was not. This wires it, from the client side, by
+//: keeping the document's own text and re-creating it: `pushUndo` puts it on
+//: the app-wide stack (Ctrl+Z, the status bar's Undo, and its right-click
+//: list of the last fifty), and `toastAction` offers it immediately, which is
+//: when people actually notice.
+//:
+//: **What does not come back, stated plainly:** the id changes, so anything
+//: that pointed at the old one by id — a bookmark, a chat attachment — points
+//: at nothing; and the revision history is genuinely gone, because
+//: `delete_document` removes it deliberately (see its comment: keeping the
+//: text of something the user asked to destroy would be worse). The words come
+//: back. That is the difference between a mistake and a loss.
+async function deleteDocumentWithUndo(doc) {
+  //: Fetched, not taken from the list row: the list carries a summary, and
+  //: restoring from it would bring back a document with its body missing —
+  //: an undo that silently loses the content is worse than no undo at all.
+  const full = await apiJson(`/documents/${doc.id}`).catch(() => null);
+  await apiJson(`/documents/${doc.id}`, { method: "DELETE" });
+  if (!full) {
+    //: Deleted, but nothing to restore from. Say so rather than offering an
+    //: Undo that would quietly do nothing.
+    toast("Document deleted. It could not be read first, so this one can't be undone.", true);
+    return;
+  }
+  const recreate = async () => {
+    const made = await apiJson("/documents", {
+      method: "POST",
+      body: JSON.stringify({
+        title: full.title || "Untitled",
+        content: full.content || "",
+        file_type: full.file_type || "md",
+      }),
+    });
+    await loadDocuments(made.id);
+    return made;
+  };
+  let restored = null;
+  const action = pushUndo(
+    `Deleted “${full.title || "Untitled"}”`,
+    async () => {
+      restored = await recreate();
+    },
+    async () => {
+      if (restored) await apiJson(`/documents/${restored.id}`, { method: "DELETE" });
+      restored = null;
+      await loadDocuments();
+    }
+  );
+  toastAction("Document deleted.", "Undo", async () => {
+    await action.undo();
+    //: `settleUndoFromToast`, not a bare stack pop: the toast's Undo and the
+    //: status bar's Undo are the same action, and without this a later Ctrl+Z
+    //: would run the same restore a second time — the closure works fine
+    //: twice and nothing else stops it.
+    settleUndoFromToast(action);
+    toast("Document restored.");
+  });
+}
+
 async function deleteCurrentDocument() {
   if (!currentDoc) return;
-  if (!(await confirmDialog(`Delete "${currentDoc.title}"? This can't be undone.`))) return;
-  await apiJson(`/documents/${currentDoc.id}`, { method: "DELETE" });
-  toast("Document deleted.");
+  if (!(await confirmDialog(`Delete "${currentDoc.title}"? You can undo this straight after.`))) return;
+  const doomed = currentDoc;
   currentDoc = null;
+  await deleteDocumentWithUndo(doomed);
   await loadDocuments();
 }
 

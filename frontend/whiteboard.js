@@ -6958,6 +6958,17 @@ async function openWhiteboardBoard(boardId) {
   wbScheduleRender();
   wbApplyBgImage();
   renderWbGestureHints();
+  //: **A board is a place, so opening one is a navigation.** Asked as part of
+  //: "is everythign wired to the nav history and universal undo/redo": it was
+  //: not. `switchTab("library")` above records "library", and then opening
+  //: board after board recorded nothing at all — so Back from the fourth board
+  //: you looked at left the Library entirely rather than returning to the
+  //: third. Documents, graph focus and chat conversations all already record
+  //: their own identity this way (`doc:{id}`, `focus:{id}`, `conv:{id}`); this
+  //: is the same key for the same reason.
+  if (typeof recordTabVisit === "function") {
+    recordTabVisit("library", boardId ? `board:${boardId}` : "library-view-whiteboard");
+  }
 }
 
 //: Where "concept maps are unlearnable" is actually answered.

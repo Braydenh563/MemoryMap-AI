@@ -19743,11 +19743,27 @@ async function goToTabHistory(next) {
       // before any sub-tab click) has no `section` — falls back to "All"
       // (`library-view-documents`, the sub-tab that kept its old id) rather
       // than leaving whatever sub-view happened to be on screen already.
-      document
-        .querySelector(
-          `#library-subtabs button[data-target="${entry.section || "library-view-documents"}"]`
-        )
-        ?.click();
+      //: **A board is a place, and `board:{id}` is not a sub-tab id.**
+      //: `openWhiteboardBoard` records one now (see whiteboard.js), so this
+      //: has to know how to go back to one — without this branch the selector
+      //: below would look for `button[data-target="board:12"]`, match nothing,
+      //: and Back would silently do nothing at all. Recording a place you
+      //: cannot return to is worse than not recording it: the entry appears in
+      //: the history popup and then refuses to work.
+      if (entry.section?.startsWith("board:")) {
+        //: Awaited for the same reason chat's `conv:` and documents' `doc:`
+        //: branches are: it fetches before it finishes, and returning early
+        //: would clear `tabHistory.navigating` in the `finally` below — turning
+        //: every back/forward through a board into a fresh history entry
+        //: instead of a no-op.
+        await openWhiteboardBoard(Number(entry.section.slice("board:".length)));
+      } else {
+        document
+          .querySelector(
+            `#library-subtabs button[data-target="${entry.section || "library-view-documents"}"]`
+          )
+          ?.click();
+      }
     } else if (entry.tab === "chat" && entry.section) {
       if (entry.section.startsWith("conv:")) {
         // Awaited deliberately: openConversation does its own network fetch

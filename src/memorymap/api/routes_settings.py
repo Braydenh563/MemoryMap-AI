@@ -356,11 +356,30 @@ class SavedSearch(BaseModel):
     query: str = Field(min_length=1, max_length=200)
 
 
+#: **The cap has to be bigger than the catalogue, and it was not.**
+#:
+#: Found by measuring, not by reading: reordering a widget on the dashboard
+#: produced `PUT /preferences 422` and nothing moved. `order` carries *every*
+#: widget — visible and hidden — and the dashboard has grown past twenty of
+#: them, so every save of a full layout was rejected outright. Nothing in the
+#: UI said so (`saveDashLayout` swallows the failure to keep a dead preference
+#: from breaking the page), which is why "a better way to manage and rearrange
+#: widgets" was reported as a design problem: rearranging did not persist at
+#: all.
+#:
+#: 64 rather than "the current number of widgets": a bound exists here to stop
+#: a malformed request storing an unbounded list, not to enforce the
+#: catalogue's size — and a limit that has to be raised every time a widget is
+#: added is a limit that will be forgotten again. `tests/test_dashboard_layout_cap.py`
+#: fails the build if the catalogue ever approaches it.
+DASHBOARD_LAYOUT_MAX = 64
+
+
 class DashboardLayout(BaseModel):
-    order: list[str] = Field(default_factory=list, max_length=20)
-    hidden: list[str] = Field(default_factory=list, max_length=20)
+    order: list[str] = Field(default_factory=list, max_length=DASHBOARD_LAYOUT_MAX)
+    hidden: list[str] = Field(default_factory=list, max_length=DASHBOARD_LAYOUT_MAX)
     # Widgets the user has set to span two grid columns.
-    wide: list[str] = Field(default_factory=list, max_length=20)
+    wide: list[str] = Field(default_factory=list, max_length=DASHBOARD_LAYOUT_MAX)
     # Older layouts stored the same thing as {"stats": "wide"}. Kept so a
     # layout saved before the switch still loads; the frontend folds it into
     # `wide` and writes the list form back on the next save.

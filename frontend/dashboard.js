@@ -114,6 +114,12 @@ const DASH_WIDGETS = {
   //: here answers from data already loaded; this one's answer costs a model
   //: pass over pairs of notes, so rendering the dashboard must not start one.
   tensions: { title: "ph:scales Tensions", description: "Find where your notes contradict each other — a decision reversed, a date that moved, a view you changed.", render: renderTensionsWidget },
+  //: **The two things a notebook can tell you that a to-do list cannot:** what
+  //: you were thinking about a year ago today, and whether you are actually
+  //: writing. Both are answered entirely from `allEntries`, which is already
+  //: loaded — no request, no model.
+  onthisday: { title: "ph:clock-counter-clockwise On this day", description: "What you wrote on this date in earlier months and years.", render: renderOnThisDayWidget },
+  pace: { title: "ph:chart-line-up Writing pace", description: "How many words you have written each day this fortnight.", render: renderPaceWidget },
 };
 
 function dashLayout() {
@@ -1139,6 +1145,38 @@ async function renderDashboard() {
           }
         )
       );
+      //: **Reordering without a mouse.** Drag-to-reorder is the only way this
+      //: grid could be arranged, and HTML5 drag-and-drop is unreachable by
+      //: keyboard, unusable with a screen reader and awkward on a trackpad —
+      //: which is the whole of "a better way to manage and rearrange widgets"
+      //: for anyone who does not want to drag a card across a page. Two
+      //: buttons do the same job, exactly, and are also the faster way to move
+      //: one widget three places up.
+      if (!hidden) {
+        const at = layout.order.indexOf(name);
+        const move = (delta) => async () => {
+          const order = [...layout.order];
+          const to = at + delta;
+          if (to < 0 || to >= order.length) return;
+          order.splice(to, 0, ...order.splice(at, 1));
+          await saveDashLayout({ ...dashLayout(), order });
+          renderDashboard();
+          //: Focus follows the widget, so a second press moves the same card
+          //: again rather than whatever landed under the pointer.
+          setTimeout(() => {
+            document
+              .querySelector(`[data-widget="${name}"] .dash-move-${delta < 0 ? "up" : "down"}`)
+              ?.focus();
+          }, 60);
+        };
+        const up = smallButton("ph:arrow-up", "Move this widget earlier", move(-1));
+        up.classList.add("dash-move-up");
+        up.disabled = at <= 0;
+        const down = smallButton("ph:arrow-down", "Move this widget later", move(1));
+        down.classList.add("dash-move-down");
+        down.disabled = at >= layout.order.length - 1;
+        controls.append(up, down);
+      }
       const handle = document.createElement("span");
       handle.className = "drag-handle";
       handle.textContent = "≡ drag";
@@ -2843,4 +2881,139 @@ async function renderTensionsWidget(body) {
   open.disabled = entries.length < 2;
   open.addEventListener("click", () => openTensions());
   body.appendChild(open);
+}
+
+//: **On this day.** A notebook accumulates, and the thing that makes years of
+//: it worth having is being handed a page from one of them without asking.
+//: Same date, earlier years and earlier months — months as well as years,
+//: because a notebook two months old would otherwise never show anything and
+//: an empty widget teaches you to remove it.
+function renderOnThisDayWidget(body) {
+  const now = new Date();
+  const day = now.getDate();
+  const month = now.getMonth();
+  const thisYear = now.getFullYear();
+  const entries = (typeof allEntries !== "undefined" ? allEntries : []).filter((entry) => {
+    const at = new Date(entry.created_at);
+    if (Number.isNaN(at.getTime())) return false;
+    if (at.getDate() !== day) return false;
+    //: A different year on the same date, or an earlier month this year. Today
+    //: itself is excluded — "on this day" that returns what you wrote an hour
+    //: ago is a mirror, not a memory.
+    if (at.getFullYear() !== thisYear) return true;
+    return at.getMonth() !== month;
+  });
+  if (!entries.length) {
+    return dashEmpty(
+      body,
+      "Nothing from this date yet. Come back when the notebook is a few months older."
+    );
+  }
+  entries.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  //: Grouped by when, because "two years ago" is the fact that makes the row
+  //: worth reading and a bare list of notes buries it.
+  const seen = new Set();
+  const shown = [];
+  for (const entry of entries) {
+    const at = new Date(entry.created_at);
+    const years = thisYear - at.getFullYear();
+    const key = years > 0 ? `${years}y` : `${month - at.getMonth()}m`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    shown.push({ entry, when: years > 0
+      ? `${years} year${years === 1 ? "" : "s"} ago`
+      : `${month - at.getMonth()} month${month - at.getMonth() === 1 ? "" : "s"} ago` });
+    if (shown.length >= 4) break;
+  }
+  const list = document.createElement("ul");
+  list.className = "dash-list";
+  for (const { entry, when } of shown) {
+    const li = document.createElement("li");
+    li.setAttribute("role", "button");
+    li.tabIndex = 0;
+    const stamp = document.createElement("span");
+    stamp.className = "chip dash-onthisday-when";
+    stamp.textContent = when;
+    const text = document.createElement("span");
+    text.className = "dash-list-text";
+    renderInlineMarkdown(text, noteLabel(entry, 90), null, true);
+    li.append(stamp, text);
+    const open = () => flashEntry(entry.id);
+    li.addEventListener("click", open);
+    li.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
+    list.appendChild(li);
+  }
+  body.appendChild(list);
+}
+
+//: **Writing pace.** The streak widget answers "did I show up"; this answers
+//: "did I write anything when I did", which is a different and more honest
+//: question — a one-word note keeps a streak alive.
+//:
+//: A fortnight rather than a week: seven bars cannot show a trend, and a month
+//: of bars in a widget column is a picket fence.
+const DASH_PACE_DAYS = 14;
+
+function renderPaceWidget(body) {
+  const entries = typeof allEntries !== "undefined" ? allEntries : [];
+  const days = [];
+  const now = new Date();
+  for (let back = DASH_PACE_DAYS - 1; back >= 0; back -= 1) {
+    const at = new Date(now);
+    at.setDate(now.getDate() - back);
+    at.setHours(0, 0, 0, 0);
+    days.push({ at, words: 0 });
+  }
+  const first = days[0].at.getTime();
+  for (const entry of entries) {
+    const at = new Date(entry.created_at);
+    if (Number.isNaN(at.getTime()) || at.getTime() < first) continue;
+    const index = Math.floor((at.setHours(0, 0, 0, 0) - first) / 86400000);
+    if (index < 0 || index >= days.length) continue;
+    days[index].words += (String(entry.content || "").match(/\S+/g) || []).length;
+  }
+  const total = days.reduce((sum, day) => sum + day.words, 0);
+  if (!total) {
+    return dashEmpty(body, "No words yet this fortnight. Anything you write today shows up here.");
+  }
+  const peak = Math.max(...days.map((day) => day.words), 1);
+
+  const headline = document.createElement("p");
+  headline.className = "dash-pace-total";
+  const strong = document.createElement("strong");
+  strong.textContent = total.toLocaleString();
+  headline.append(strong, ` words in ${DASH_PACE_DAYS} days · ${Math.round(total / DASH_PACE_DAYS).toLocaleString()} a day`);
+  body.appendChild(headline);
+
+  const chart = document.createElement("div");
+  chart.className = "dash-pace-chart";
+  chart.setAttribute("role", "img");
+  chart.setAttribute(
+    "aria-label",
+    `Words written each day: ${days.map((d) => `${d.at.toLocaleDateString(undefined, { weekday: "short" })} ${d.words}`).join(", ")}`
+  );
+  for (const day of days) {
+    const column = document.createElement("div");
+    column.className = "dash-pace-bar";
+    //: A custom property rather than an inline `style` attribute, which this
+    //: app's CSP refuses — the same rule the Loose ends meter follows.
+    column.style.setProperty("--dash-pace-height", `${Math.round((day.words / peak) * 100)}%`);
+    column.title = `${day.at.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" })}: ${day.words.toLocaleString()} word${day.words === 1 ? "" : "s"}`;
+    //: Today is marked, so the row reads as ending *now* rather than as an
+    //: undated fortnight.
+    if (day.at.toDateString() === new Date().toDateString()) column.classList.add("is-today");
+    chart.appendChild(column);
+  }
+  body.appendChild(chart);
+
+  const caption = document.createElement("p");
+  caption.className = "muted dash-pace-caption";
+  const best = days.reduce((a, b) => (b.words > a.words ? b : a));
+  caption.textContent = `Best day: ${best.at.toLocaleDateString(undefined, { weekday: "long" })}, ${best.words.toLocaleString()} words`;
+  body.appendChild(caption);
 }

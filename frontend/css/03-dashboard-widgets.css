@@ -1212,19 +1212,40 @@
 }
 
 /* --- activity heatmap + tag cloud widgets ---------------------------------- */
+/* **The flickering bar, found by measuring rather than by looking.**
+   Reported twice — "that weird flickering bar/line is there again" — and the
+   `overflow-x: clip` fix below it covered a different container. Measured on
+   the live dashboard: this grid wanted **699px in a 307px column** (53 weeks
+   at 10px plus gaps), and with `overflow-x: auto` that is a horizontal
+   scrollbar across the bottom of a widget only 92px tall. The dashboard
+   repaints on its own timers, so the bar appears, disappears and reappears —
+   which is exactly "a weird flickering bar or set of horizontal lines at the
+   bottom of some elements".
+
+   A scrollbar was never the right answer for this control anyway: a year of
+   activity is a shape you take in at a glance, and a shape you have to scroll
+   is not one. The cells size themselves to the column instead — `1fr` columns
+   with square cells — so the whole year always fits, at whatever width the
+   widget happens to be. `max-width` keeps them from becoming lozenges in a
+   wide layout; `overflow: hidden` means there is no axis left to grow a
+   scrollbar on. */
 .heatmap {
   display: grid;
   grid-auto-flow: column;
-  grid-template-rows: repeat(7, 10px);
-  grid-auto-columns: 10px;
+  grid-template-rows: repeat(7, auto);
+  grid-auto-columns: minmax(0, 1fr);
   gap: 3px;
-  overflow-x: auto;
+  overflow: hidden;
   padding-bottom: 0.25rem;
 }
 
 .heat-cell {
-  width: 10px;
-  height: 10px;
+  /* Square by ratio rather than by a fixed pair, because the width is now
+     decided by the column and the height has to follow it. */
+  width: auto;
+  height: auto;
+  aspect-ratio: 1;
+  max-width: 12px;
   border-radius: var(--radius-sm);
   background: var(--chip-bg);
 }
@@ -2810,4 +2831,54 @@ p.graph-help-panel {
 /* The Loose ends widget's call to action, below its sample rows. */
 .dash-loose-action {
   margin-top: var(--space-3);
+}
+
+/* --- On this day -------------------------------------------------------------
+   The stamp is the point of the row: "two years ago" is what makes the note
+   worth reading, so it leads rather than trailing off the end. */
+.dash-onthisday-when {
+  flex: none;
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Writing pace ------------------------------------------------------------
+   The streak widget answers "did I show up"; this answers "did I write
+   anything", which a one-word note can fake on the first and not on the
+   second. Bars rather than a line: fourteen daily totals are counts, and a
+   line between them implies a value at 3pm on Tuesday that does not exist. */
+.dash-pace-total {
+  margin: 0 0 var(--space-2);
+}
+
+.dash-pace-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 3.5rem;
+}
+
+.dash-pace-bar {
+  /* Set through the CSSOM by the widget — an inline `style` attribute would be
+     dropped by this app's CSP, the same rule the Loose ends meter follows.
+     Declared here so a zero-word day is a real 0% bar rather than an unstyled
+     one (and so the token is not a value with no home — see
+     `test_no_token_is_used_with_a_dead_fallback`). */
+  --dash-pace-height: 0%;
+  flex: 1 1 0;
+  min-width: 0;
+  /* A floor, so a day with a handful of words is visibly a day with a handful
+     of words rather than an absence. */
+  height: max(2px, var(--dash-pace-height));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.dash-pace-bar.is-today {
+  background: var(--accent);
+}
+
+.dash-pace-caption {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
 }

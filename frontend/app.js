@@ -16084,6 +16084,48 @@ function clampToolbarMenu(details) {
   }
   list.style.left = `${Math.round(left)}px`;
   list.style.top = `${Math.round(top)}px`;
+
+  // **A second pass, because `position: fixed` is not always fixed to the
+  // viewport.** Any ancestor with `transform`, `filter`, `backdrop-filter`,
+  // `perspective`, `contain` or `will-change` becomes the containing block for
+  // its fixed descendants, and `left`/`top` are then measured from *that* box,
+  // not from the screen. Every one of these menus lives inside a `.card`, and
+  // `.card` carries `backdrop-filter: blur(var(--glass-blur))` whenever the
+  // Appearance → Glass setting is on — which is the default.
+  //
+  // So the numbers computed above, which are viewport coordinates taken from
+  // `getBoundingClientRect` and clamped against `window.innerWidth/Height`,
+  // land the panel offset by the card's own position — up and to the left of
+  // where it belongs, and clipped by the card on top of that. Reported as
+  // "these toolbar dropdowns flicker somewhere random on the screen and dont
+  // show", and the flicker is this function re-running on every scroll and
+  // re-placing it wrongly each time.
+  //
+  // Rather than enumerate the properties that create a containing block — a
+  // list CSS keeps adding to, and one that would have to be checked up the
+  // whole ancestor chain on every open — measure where the panel actually
+  // landed and correct by the difference. Self-correcting, cause-agnostic, and
+  // one extra layout read.
+  //
+  // Proven, not reasoned: this sandbox's headless Chromium reports
+  // `backdrop-filter: none` on every `.card`, so the user's exact trigger does
+  // not fire here — but `filter` creates the same containing block and *is*
+  // supported, so forcing `.card.doc-main { filter: saturate(1) }` reproduces
+  // it exactly. Measured with that in place: the panel's `style.left` reads
+  // 595px while it renders at x=886, the correction having subtracted the
+  // card's own 291px offset. Without the second pass the same menu would have
+  // been given left=886 and rendered at 1177 — 291px to the right of the
+  // button that opened it, which is the reported "somewhere random". After
+  // the correction, dx is 0 (±1 rounding) on all six and every one is
+  // hit-testable. With no containing block the correction is zero, so this
+  // costs one layout read and changes nothing.
+  const landed = list.getBoundingClientRect();
+  const driftX = left - landed.x;
+  const driftY = top - landed.y;
+  if (Math.abs(driftX) > 0.5 || Math.abs(driftY) > 0.5) {
+    list.style.left = `${Math.round(left + driftX)}px`;
+    list.style.top = `${Math.round(top + driftY)}px`;
+  }
 }
 
 //: A fixed-position menu does not travel with the strip it belongs to, so any

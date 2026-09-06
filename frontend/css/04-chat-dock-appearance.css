@@ -131,6 +131,38 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 12rem;
+  /* Both of these are load-bearing — see the rule below for why. */
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+/* **Why the chips were cut off at both ends with no ellipsis.**
+   Reported as "fix the ui and cut off text of the trace text path", and the
+   screenshot showed chips reading "ting is the delivery of computing se" —
+   missing the start *and* the end of the sentence, which no `text-overflow`
+   can produce.
+
+   Measured: the chip is a `<button>`, which this app's button rule makes a
+   flex container, and `renderInlineMarkdown` writes the preview into a
+   `<span>` child. So the overflowing thing is a **flex item**, not inline
+   text in this box, and `text-overflow: ellipsis` on the button never
+   applies to it. Worse, a flex item that cannot shrink (`min-width: auto` is
+   the default) and is centred by the button's own `justify-content: center`
+   overflows *equally on both sides*: the span measured 511px wide in a 192px
+   box, sitting at x = -160px relative to it. That is the both-ends clip,
+   exactly.
+
+   The truncation has to live on the item that actually contains the text.
+   `min-width: 0` lets it shrink to the box, and then its own ellipsis works
+   on the inline text inside it. `justify-content: flex-start` on the button
+   is the belt to that braces: if a future child ever refuses to shrink, it
+   overflows off the *end*, where an ellipsis would have been, rather than
+   losing the first word too. */
+.graph-trace-note > * {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .graph-trace-note:hover {
@@ -164,6 +196,28 @@
   overflow: visible;
   text-overflow: clip;
   white-space: nowrap;
+}
+
+/* The story menu is a `<details>`, so `margin-left: auto` belongs on *it* —
+   the summary inside is not a flex child of the header and pushing the button
+   would have left the menu's own box at the start of the row with the button
+   floating away from it. */
+.graph-trace-story {
+  margin-left: auto;
+}
+
+/* …and then the summary must not push itself again, or it slides off the end
+   of its own `<details>`. */
+.graph-trace-story > .story-mode-btn {
+  margin-left: 0;
+  /* A `<summary>` shows a disclosure triangle by default, and this one already
+     carries an explicit caret icon — two markers on one control. */
+  list-style: none;
+  cursor: pointer;
+}
+
+.graph-trace-story > .story-mode-btn::-webkit-details-marker {
+  display: none;
 }
 
 .story-mode-btn:hover {

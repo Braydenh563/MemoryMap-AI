@@ -232,6 +232,25 @@ def find(index: Connections, source_id: int, target_id: int) -> list[Step] | Non
     Nothing here is hot enough to need better — a personal notebook is a few
     thousand nodes at the outside, and this runs once per question.
     """
+    return _dijkstra(index, source_id, target_id)
+
+
+def _dijkstra(
+    index: Connections,
+    source_id: int,
+    target_id: int,
+    banned_nodes: frozenset[int] = frozenset(),
+    banned_edges: frozenset[tuple[int, int]] = frozenset(),
+) -> list[Step] | None:
+    """`find`, with two exclusion sets that only `find_many` uses.
+
+    Split out rather than inlined into `find_many` because Yen's algorithm
+    below needs *this exact search* — same weights, same hop cap, same
+    tie-break — run repeatedly with parts of the graph masked off. A second
+    implementation would drift from the one the single-path answer uses, and
+    then the "best route" and "route 1 of 3" would disagree about which route
+    is best, which is worse than not offering alternatives at all.
+    """
     if source_id == target_id or source_id not in index.entries:
         return None
     if target_id not in index.entries:
@@ -258,6 +277,8 @@ def find(index: Connections, source_id: int, target_id: int) -> list[Step] | Non
         for neighbour, step in index.neighbours(node).items():
             if neighbour in settled:
                 continue
+            if neighbour in banned_nodes or (node, neighbour) in banned_edges:
+                continue
             candidate = (cost + step.weight, hops + 1)
             if candidate < best.get(neighbour, (1 << 30, 1 << 30)):
                 best[neighbour] = candidate
@@ -274,6 +295,96 @@ def find(index: Connections, source_id: int, target_id: int) -> list[Step] | Non
         node = step.source
     chain.reverse()
     return chain
+
+
+#: How many routes `find_many` will look for, counting the best one. Three is
+#: the number the UI can show as switchable chips without becoming a list you
+#: have to read; past that the fourth-best route between two notes in a
+#: personal notebook is nearly always a longer version of one of the first
+#: three, and each extra one costs a whole Dijkstra per hop of the previous.
+MAX_ALTERNATE_PATHS = 3
+
+
+def find_many(
+    index: Connections,
+    source_id: int,
+    target_id: int,
+    limit: int = MAX_ALTERNATE_PATHS,
+) -> list[list[Step]]:
+    """The best route, then the next-best genuinely different ones.
+
+    Asked for directly: *"allow for multiple paths to be displayed if they
+    exist."* One route answers "how are these two related?"; several answer the
+    question people actually have next, which is "is that the only way they
+    connect?" — and in a notebook the difference between one route and three
+    is the difference between a fact and a shape.
+
+    Yen's algorithm, which is the standard answer and is built entirely out of
+    `_dijkstra`: take the best path; for each node along it, re-run the search
+    with that node's outgoing step banned and everything before it pinned, and
+    keep whatever comes back. Loopless by construction (the pinned prefix's
+    nodes are banned from the suffix), so no route ever revisits a note — which
+    matters here beyond correctness, because a path that walked through the
+    same note twice would read as nonsense in the readout.
+
+    Returns [] when there is no route at all, so a caller can treat "no path"
+    and "one path" the same way it always has.
+    """
+    best = _dijkstra(index, source_id, target_id)
+    if best is None:
+        return []
+    if limit <= 1:
+        return [best]
+
+    found: list[list[Step]] = [best]
+    #: Candidates, ordered by (cost, hops) so the cheapest genuinely-different
+    #: route is always taken next. A plain list with a scan rather than a heap:
+    #: `limit` is 3, so this holds a handful of entries at the outside.
+    candidates: list[tuple[float, int, list[Step]]] = []
+    #: Route identity is its node sequence. Two routes over the same notes by
+    #: different *reasons* are the same route as far as a reader is concerned.
+    seen = {_route_key(source_id, best)}
+
+    while len(found) < limit:
+        previous = found[-1]
+        for i in range(len(previous)):
+            spur_node = source_id if i == 0 else previous[i - 1].target
+            root = previous[:i]
+            # Ban the first step of every known route that shares this prefix,
+            # or the search just returns the route we already have.
+            banned_edges = {
+                (route[i].source, route[i].target)
+                for route in found
+                if len(route) > i and route[:i] == root
+            }
+            # And ban the prefix's own nodes, which is what makes the result
+            # loopless: the suffix cannot wander back through where it began.
+            banned_nodes = frozenset(
+                [source_id] + [step.target for step in root[:-1]]
+            ) - {spur_node}
+            spur = _dijkstra(
+                index, spur_node, target_id, banned_nodes, frozenset(banned_edges)
+            )
+            if spur is None:
+                continue
+            whole = root + spur
+            key = _route_key(source_id, whole)
+            if key in seen:
+                continue
+            seen.add(key)
+            cost = sum(step.weight for step in whole)
+            candidates.append((cost, len(whole), whole))
+        if not candidates:
+            break
+        candidates.sort(key=lambda item: (item[0], item[1]))
+        found.append(candidates.pop(0)[2])
+
+    return found
+
+
+def _route_key(source_id: int, chain: list[Step]) -> tuple[int, ...]:
+    """A route's identity: the notes it visits, in order."""
+    return tuple([source_id] + [step.target for step in chain])
 
 
 def degree(index: Connections, node_id: int) -> int:

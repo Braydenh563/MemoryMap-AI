@@ -1257,6 +1257,97 @@ button.ghost.danger {
   pointer-events: none;
 }
 
+/* --- more than one route between the same two notes ------------------------
+   Asked for directly: "allow for multiple paths to be displayed if they
+   exist." All of them are drawn at once, because "is that the only way these
+   connect?" is a question about the picture — switching one at a time would
+   never show you that there are three.
+
+   Three colours, from tokens that already exist and already mean "a different
+   thing" in this app's charts and badges rather than three new hues invented
+   for one feature. The index wraps at 3 in `drawTrace`, so a fourth route (if
+   `MAX_ALTERNATE_PATHS` is ever raised) reuses the first colour rather than
+   computing one nobody chose. */
+.graph-path-route-0 {
+  stroke: var(--accent);
+}
+
+.graph-path-route-1 {
+  stroke: var(--ok);
+}
+
+.graph-path-route-2 {
+  stroke: var(--warn);
+}
+
+/* The routes you are not reading. Thin and faint enough to read as context
+   rather than as the answer, and still visible enough to be worth drawing —
+   a route at 0.2 opacity is a route nobody notices, which is the same as not
+   drawing it. Dashed as well as faint, because colour alone is not a signal
+   everyone can use. */
+.graph-path-line.is-dimmed {
+  stroke-width: 2;
+  stroke-opacity: 0.42;
+  stroke-dasharray: 6 5;
+}
+
+/* The switcher above the path. `role="tablist"` in the markup, so these are
+   tabs and read as a choice between views of one thing — which is what they
+   are — rather than as six unrelated buttons. */
+.graph-trace-routes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.graph-trace-route-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--inner);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.graph-trace-route-chip:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+/* The selected route. A border and the full ink colour rather than a fill:
+   the swatch is already carrying the route's colour, and filling the chip in
+   the same colour would leave the swatch invisible against it. */
+.graph-trace-route-chip.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* The dot that ties a chip to its line on the map. `currentColor` would make
+   every swatch the chip's own text colour, so each one names its route's
+   stroke explicitly — the same three tokens, in the same order. */
+.graph-trace-route-swatch {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+
+.graph-trace-route-chip[data-route="1"] .graph-trace-route-swatch {
+  background: var(--ok);
+}
+
+.graph-trace-route-chip[data-route="2"] .graph-trace-route-swatch {
+  background: var(--warn);
+}
+
 .graph-node.graph-on-path .graph-core {
   stroke: var(--accent);
   stroke-width: 3.5px;

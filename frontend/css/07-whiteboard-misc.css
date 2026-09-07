@@ -7017,3 +7017,26 @@ header#top-bar > #tab-bar {
   order: 100;
   margin-left: auto;
 }
+
+/* --- the switch's hit target (MODERNISATION_AUDIT.md Brief 8) --------------
+   The painted pill is 32×18.4 and must stay that size (DESIGN.md → Hit
+   targets records the slab it became when a min-height was put on the input
+   itself). The *target* is a different thing from the paint: a transparent
+   ::before that overhangs the pill by 5px above and below hit-tests to the
+   input, so a finger aiming at the switch has 28px to land on without the
+   switch looking any different. Measured before: elementFromPoint 5px above
+   the pill returned the label; after, the input. */
+.checkbox-label>input[type="checkbox"]:not(.sr-only)::before,
+.semantic-toggle input[type="checkbox"]::before,
+.library-sort-check input[type="checkbox"]::before,
+.wb-snap-label input[type="checkbox"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  /* 0.1rem past the arithmetic: at a fractional y the 4.8px overhang
+     snapped to 4 and a probe 4px under the pill hit the label. 6.4px each
+     way is a 31px box inside a 30px label — nothing else moves. */
+  top: calc((1.15rem - var(--target-min)) / 2 - 0.1rem);
+  bottom: calc((1.15rem - var(--target-min)) / 2 - 0.1rem);
+}

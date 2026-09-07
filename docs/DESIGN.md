@@ -761,6 +761,15 @@ pattern, where the input is clipped to nothing and the switch is the real
 target. Those are excepted by name in `01-forms-settings.css`, not by
 accident.
 
+**The painted switches are still 32×18.4, and that is honest rather than a
+gap** (MODERNISATION_AUDIT.md Brief 8 measured the three ids above at
+32×18.4 after this section first claimed them fixed). The pill's paint must
+stay that size — a `min-height` on the input made it a 32×28 slab with the
+knob adrift, reported within the hour — so the *target* is a transparent
+`::before` on the input that overhangs the pill by 6.4px above and below
+(`07-whiteboard-misc.css`): `elementFromPoint` 4px outside the pill returns
+the input, and the pill looks exactly as it did.
+
 ---
 
 ## Motion — and the one rule that is not optional

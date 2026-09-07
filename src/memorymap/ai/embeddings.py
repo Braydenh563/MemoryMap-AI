@@ -54,6 +54,7 @@ def start_warmup(service: "EmbeddingService", session_factory=None) -> None:  # 
     def run() -> None:
         _warmup["running"] = True
         _warmup["error"] = False
+        started = time.monotonic()
         try:
             service.embed_text("warm up")
         except Exception:
@@ -67,6 +68,7 @@ def start_warmup(service: "EmbeddingService", session_factory=None) -> None:  # 
                     "Loading embedding model",
                     "failed",
                     "Failed to load",
+                    duration_ms=(time.monotonic() - started) * 1000,
                 )
         # Now that the model is up, catch any notes that missed out.
         if session_factory is not None and not _warmup["error"]:

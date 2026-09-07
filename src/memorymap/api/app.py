@@ -34,6 +34,7 @@ from memorymap.api import (
     routes_categories,
     routes_chat,
     routes_conversations,
+    routes_debug,
     routes_documents,
     routes_backups,
     routes_duplicates,
@@ -466,6 +467,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_timeline.router, dependencies=locked)
     app.include_router(routes_library.router, dependencies=locked)
     app.include_router(routes_whiteboard.router, dependencies=locked)
+    app.include_router(routes_debug.router, dependencies=locked)
 
     @app.get("/openapi.json", include_in_schema=False, dependencies=locked)
     def openapi_schema() -> JSONResponse:

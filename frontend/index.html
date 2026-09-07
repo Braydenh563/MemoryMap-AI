@@ -6595,6 +6595,46 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
             </div>
 
+            <!-- PLAN.md B9 — "observability that costs nothing": the same
+                 numbers `GET /debug/health` assembles from things that
+                 already exist elsewhere (the Tasks list, taskhistory, the
+                 log buffer), read once when this section opens rather than
+                 polled, since a support-bundle-sized diagnostic is not what
+                 About is for. Filled in by `renderHealthBlock` in
+                 settings.js; every value starts as an em dash rather than
+                 blank so a slow first fetch never reads as missing rows. -->
+            <div class="settings-group">
+              <h3>Health</h3>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Database</span>
+                  <small class="muted">Size on disk, and where this notebook's data lives.</small>
+                </div>
+                <span class="setting-control muted" id="health-db-size">—</span>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Notes, documents &amp; files</span>
+                  <small class="muted">What's actually stored in this notebook right now.</small>
+                </div>
+                <span class="setting-control muted" id="health-counts">—</span>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Background jobs</span>
+                  <small class="muted">Whatever a re-index, a model download or the embedder is doing right now.</small>
+                </div>
+                <span class="setting-control muted" id="health-jobs">—</span>
+              </div>
+              <div class="setting-row setting-row-stack">
+                <div class="setting-label">
+                  <span>Last error</span>
+                  <small class="muted">The most recent warning or error in the app log — the full log is in Settings → Logs.</small>
+                </div>
+                <span class="setting-control muted" id="health-last-error">—</span>
+              </div>
+            </div>
+
             <div class="settings-group">
               <h3>Updates</h3>
               <!-- Off by default (core/config.py's update_check_enabled) —

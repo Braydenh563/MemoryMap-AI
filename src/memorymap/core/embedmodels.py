@@ -315,6 +315,7 @@ def _run_download(model: EmbedModel) -> None:
             _state.outcome,
             _state.step,
             name=model.id,
+            duration_ms=(time.time() - _state.started) * 1000 if _state.started else None,
         )
 
 

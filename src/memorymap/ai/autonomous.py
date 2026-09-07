@@ -253,6 +253,7 @@ def _run_optimization() -> None:
     # when the previous pass ended: the flag's whole job is to be readable
     # by the thread that is finishing, right up until it finishes.
     _cancel.clear()
+    started = time.monotonic()
     try:
         config = deps.get_config()
         if config.get_preference("battery_efficient_mode"):
@@ -465,6 +466,7 @@ def _run_optimization() -> None:
             outcome,
             detail,
             name=deps.get_model_manager().utility_model(),
+            duration_ms=(time.monotonic() - started) * 1000,
         )
         logger.info("autonomous optimisation %s, %d change(s)", outcome, len(changes))
     finally:

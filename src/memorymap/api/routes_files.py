@@ -242,7 +242,7 @@ def list_attachment_gallery(session: Session = Depends(get_session)) -> list[Att
             vision_ocr_text=attachment.vision_ocr_text or page_text.get(attachment.id, ""),
             vision_ocr_model=attachment.vision_ocr_model or "",
             has_pages=Path(attachment.filename).suffix.lower() == ".pdf",
-            size_bytes=_attachment_size(attachment),
+            size_bytes=_attachment_size(session, attachment),
         )
         for attachment, entry in rows
     ]
@@ -266,17 +266,34 @@ class AttachmentAnalyseBody(BaseModel):
     force: bool = False
 
 
-def _attachment_size(attachment: Attachment) -> int:
+def _attachment_size(session: Session, attachment: Attachment) -> int:
     """Bytes on disk, or 0 when the file is gone.
 
     Same contract as `MediaUploadOut.size_bytes`: a row can outlive its file,
     and the gallery draws a placeholder for that rather than dropping the row,
     so this must report a number instead of raising.
+
+    `Attachment.size` is written at upload time (`manager.add_attachment`)
+    and kept current by every route that replaces the bytes on disk, so the
+    column is normally already the right answer — read it first and skip the
+    filesystem call `GET /files/gallery` used to pay once per attachment on
+    every open (`list_media`'s sibling gallery has the same bug, open as
+    PLAN.md P6; nothing here changes that one). `stat()` only runs for a row
+    whose `size` is still NULL/0 (a pre-existing attachment from before this
+    column existed) and whose file is actually there, and the result is
+    written back so the next call — in this request's own list, and every
+    request after — reads the column instead of the disk again.
     """
+    if attachment.size:
+        return attachment.size
     try:
-        return (deps.get_config().uploads_dir / attachment.stored_name).stat().st_size
+        size = (deps.get_config().uploads_dir / attachment.stored_name).stat().st_size
     except OSError:
         return 0
+    if size:
+        attachment.size = size
+        session.commit()
+    return size
 
 
 def _attachment_out(session: Session, attachment: Attachment) -> AttachmentGalleryOut:
@@ -299,7 +316,7 @@ def _attachment_out(session: Session, attachment: Attachment) -> AttachmentGalle
         vision_ocr_text=attachment.vision_ocr_text or "",
         vision_ocr_model=attachment.vision_ocr_model or "",
         has_pages=Path(attachment.filename).suffix.lower() == ".pdf",
-        size_bytes=_attachment_size(attachment),
+        size_bytes=_attachment_size(session, attachment),
     )
 
 

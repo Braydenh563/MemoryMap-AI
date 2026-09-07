@@ -69,6 +69,21 @@ merged only then.
   tuning, FTS5 for notes, `/entries` pagination).
 - **MINDMAP_PLAN.md** — the naming question and the scope call recorded as
   settled, plus what Coggle specifically does that the phases must keep.
+- **PLAN P1 (one visibility-aware poll)** — measured with
+  `scratchpad/ui-sweeps/idle.js` on the Dashboard: **14 requests in 60s
+  foreground → 4** (`/models/status` ×2, `/tasks` ×1, `/reminders` ×1), which
+  is P1's gate. The loop was already one loop; its idle tick went 10s → 30s,
+  `/tasks` is asked every other idle tick (a job started from this page
+  kicks the poll itself), reminders poll once a minute (their granularity),
+  and nothing is asked while the lock screen is up. Hidden was already 4.
+- **Phase 5 passes** — Settings (nav column 160px → 13rem, six wrapping
+  labels → none; a 16rem label column so every form field on Preferences
+  starts on one edge), the reminders form (a bordered inner pane → tone; row
+  stack 4/6.4/12.8 → 8/8/8), the whiteboard top bar and the documents editor
+  (`surfaces.js`: heights 19–39px → 28/32/36, statusbar and formatting strip
+  onto tones), the sub-tab strips 55px → 46px. Phase 6: a Voice section in
+  DESIGN.md, and the Timeline/Graph/Reminders empty states carry one action
+  (one delegated `data-empty-action` listener), driven in Chromium.
 
 ### In flight when this was written (subagents, worktrees)
 

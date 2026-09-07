@@ -6996,3 +6996,9 @@ header#top-bar > #tab-bar {
 .doc-statusbar .checkbox-label:has(input:checked) {
   border-color: transparent;
 }
+
+/* The empty state's one action sits under its sentence, centred like the
+   rest of the block, with the block's own rhythm above it. */
+.empty-state > button {
+  margin-top: var(--space-4);
+}

@@ -20361,6 +20361,27 @@ async function goToTabHistory(next) {
   paintTabHistory();
 }
 
+// Empty states carry one action (DESIGN.md → Voice): "Capture a note" from
+// the Timeline and Graph empties, "Add a reminder" from the Reminders one.
+// One delegated listener rather than one per button, so a fourth empty
+// state adds a `data-empty-action` and nothing else (and
+// test_frontend_handlers.py has one listener to count, not four).
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-empty-action]");
+  if (!button) return;
+  const action = button.dataset.emptyAction;
+  if (action === "capture") {
+    switchTab("notes");
+    showNotesSection("capture", { focus: true });
+    // The section reveal is a class toggle in the same task; focus a frame
+    // later so the box is visible when the caret lands in it.
+    requestAnimationFrame(() => $("entry-content")?.focus());
+  } else if (action === "reminder") {
+    const field = $("reminder-text") || $("reminder-magic");
+    if (field) field.focus();
+  }
+});
+
 function switchTab(name) {
   // Profiled directly: leaving the Graph tab left `graphSimulation` running
   // — it is only ever `.stop()`-ed "before every rebuild" (graph.js), never
@@ -24391,8 +24412,11 @@ function speakText(text) {
 // background service cannot wake itself up, and pretending it can would be
 // worse than the gap.
 
-const REMINDER_POLL_MS = 30_000;
-//: Which reminders have already been announced, so a 30-second poll does not
+//: 60s, was 30. A reminder is due to the minute, so once a minute is the
+//: granularity the data has; the second poll a minute bought nothing and was
+//: two of the fourteen idle requests PLAN.md P1 counts against.
+const REMINDER_POLL_MS = 60_000;
+//: Which reminders have already been announced, so a once-a-minute poll does not
 //: re-fire the same notification twice a minute. Kept in localStorage rather
 //: than memory: a reload would otherwise re-announce everything overdue, which
 //: is the most annoying possible version of this feature.
@@ -24953,7 +24977,7 @@ function startReminderWatch() {
   setInterval(checkDueReminders, REMINDER_POLL_MS);
   // A machine that was asleep wakes up with reminders long past due, and the
   // interval will not have run. Checking on focus catches that immediately
-  // rather than up to thirty seconds later.
+  // rather than up to a minute later.
   window.addEventListener("focus", () => checkDueReminders());
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) checkDueReminders();
@@ -25395,7 +25419,22 @@ function jobsRunning() {
 
 // One polling loop for everything: slow when idle, fast while a
 // download/re-index is running or the settings panel is open.
+//: When `/tasks` was last asked, so the idle cadence below can ask it half as
+//: often as `/models/status` (PLAN.md P1; MODERNISATION_AUDIT.md F2 measured
+//: 14 requests in an idle minute on the Dashboard — status ×6, tasks ×6,
+//: reminders ×2 — against P1's gate of ≤ 4).
+let backgroundTasksAskedAt = 0;
+const TASKS_IDLE_MS = 60_000;
+
 async function refreshModelStatus() {
+  // Locked: no token, so every request is a guaranteed 401 — noise in both
+  // logs and a wake-up of the Python process for nothing. Re-arm cheaply and
+  // let the unlock path call this itself (it does, after login).
+  if (!authToken()) {
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(refreshModelStatus, 10000);
+    return;
+  }
   try {
     // silent: a poll must never trigger the lock screen (Wave O fix).
     // Fast-fail timeout: if the LLM hangs, the UI reflects offline in 8s.
@@ -25414,20 +25453,31 @@ async function refreshModelStatus() {
   syncAiOnlyControls();
   // The status bar's job slot rides this loop rather than starting one of its
   // own, so it inherits the whole cadence: one second while something is
-  // running, twenty when idle, two minutes behind a hidden tab.
-  await refreshBackgroundTasks();
+  // running, thirty when idle, two minutes behind a hidden tab. Idle, `/tasks`
+  // is asked every other tick: a job that starts from this page kicks the poll
+  // itself (`kickBackgroundTaskPoll`), so an idle minute only has to notice a
+  // job started somewhere else, and once a minute is soon enough for that.
+  const idle = !jobsRunning() && !settingsOpen();
+  if (!idle || Date.now() - backgroundTasksAskedAt >= TASKS_IDLE_MS) {
+    backgroundTasksAskedAt = Date.now();
+    await refreshBackgroundTasks();
+  }
   if (settingsOpen()) renderSettings();
 
   clearTimeout(statusTimer);
   // Back right off when the tab is hidden — no point polling a page nobody's
   // looking at (visibilitychange below refreshes the moment it's shown again).
+  // Idle is 30s, not 10: the status this reports (is the model runner up,
+  // which model) changes on the order of minutes, and every tick wakes the
+  // process that is also running the model. Measured before: 14 requests in
+  // an idle minute; the gate is 4 (status ×2, tasks ×1, reminders ×1).
   const delay = jobsRunning()
     ? 1000
     : document.hidden
       ? 120000
       : settingsOpen()
         ? 3000
-        : 10000;
+        : 30000;
   statusTimer = setTimeout(refreshModelStatus, delay);
 }
 

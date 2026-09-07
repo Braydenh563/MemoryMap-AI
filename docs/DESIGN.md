@@ -707,6 +707,31 @@ were the same control twice.
 
 ---
 
+## Voice
+
+One voice, so labels do not read as three people's work (UI modernisation,
+Phase 6). Measured before this was written: "No saved chats yet — ask
+something!" beside "Nothing of this kind yet." beside "Your notebook is
+empty — capture a thought to begin" — three tones for one situation.
+
+- **Sentence case** everywhere except eyebrows (`.card h3`, the nav group
+  labels), which are the one uppercase recipe.
+- **Verbs on buttons**: "Save current look", "Reset to default", "Add",
+  "Move to bin". Never "OK", never a noun on its own where a verb fits.
+- **No exclamation marks.** Nothing in this app is that exciting.
+- **An empty state is one component**: `.empty-state` with an `.empty-icon`,
+  an `.empty-title` that says what *would* be here, one sentence saying how
+  to get it, and — where a single action exists — one button. Not a grey
+  line.
+- **Errors say what to do next**, inline under the control that failed;
+  toasts are for background work finishing. "Ollama isn't reachable — check
+  Settings → Models and try again", not "Error".
+- **Say the thing, not the mechanism.** "Reading the model's own
+  specification…" is fine; "Fetching /models/spec" is not.
+- **The notebook is "your notebook"; the model is "the AI" or "the model",
+  never "I".** The app narrates; the model speaks in the chat and nowhere
+  else.
+
 ## Hit targets — `--target-min`
 
 ```

@@ -1756,7 +1756,7 @@ header#top-bar select,
 #reminder-due-row {
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: var(--space-3);
 }
 
 #reminder-due-readout {
@@ -2093,7 +2093,7 @@ header#top-bar select,
 
 /* The composer reads as one control rather than three loose boxes. */
 .chat-composer {
-  gap: 0.4rem;
+  gap: var(--space-3);
   padding-top: var(--space-1);
   border-top: 1px solid var(--border);
   align-items: flex-end;

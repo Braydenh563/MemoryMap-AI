@@ -446,7 +446,7 @@
 }
 
 #reminder-presets {
-  gap: 0.4rem;
+  gap: var(--space-3);
   /* Was 0.1rem top — visually zero, so the quick-set row read as touching
      the form above it. Reported live. */
   margin: var(--space-5) 0 var(--space-4);

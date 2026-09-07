@@ -2640,7 +2640,13 @@ mark.global-find-hit.global-find-current {
 
 .modal-body {
   display: grid;
-  grid-template-columns: 160px 1fr;
+  /* 13rem, was 160px. Measured at 1440: six of the seventeen section labels
+     ("Tools it can use", "What it remembers", "Keyboard shortcuts", "Import
+     & export", "Account & security", "Background tasks") wrapped to two
+     lines at 61px tall beside 37px neighbours, so the nav read as a ragged
+     list. 13rem holds the longest at --text-lg with the button's own
+     padding; the guard below keeps a future longer label on one line. */
+  grid-template-columns: 13rem 1fr;
   /* An implicit `auto` row sizes to its CONTENT, so the scroll pane inside
      grew past the dialog and .modal-body's overflow:hidden simply clipped it
      — every settings screen lost its last inch and nothing scrolled. Pinning
@@ -2693,6 +2699,9 @@ mark.global-find-hit.global-find-current {
   box-shadow: none;
   color: var(--muted);
   text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   padding: 0.4rem 0.8rem;
   border-radius: var(--radius-md);
   font-weight: 500;

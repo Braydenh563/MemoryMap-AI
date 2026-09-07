@@ -2987,20 +2987,25 @@ input[type="url"]:hover:not(:focus) {
    block only ever had a margin *below* it, so its bordered box sat flush
    against the field row above and read as one run-on control. */
 .reminder-when {
-  border: 1px solid var(--border);
+  /* A group inside the card is a tone, not a second bordered pane (the
+     border budget, DESIGN.md → Surfaces). Same tint as every other inner
+     group; the transparent edge keeps the box the size it was measured at. */
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   margin-top: var(--space-4);
-  margin-bottom: var(--space-3);
-  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  margin-bottom: var(--space-4);
+  background: var(--surface-2);
 }
 
 .reminder-when>.row {
   margin: 0;
 }
 
+/* Rows in one group: --space-3, the inside-a-group gap. The form measured
+   4/6.4/12.8px between its rows before this — three steps for one stack. */
 .reminder-when>.row+.row {
-  margin-top: var(--space-2);
+  margin-top: var(--space-3);
 }
 
 /* The readout is the group's answer, not an aside — it gets the ink the
@@ -6928,4 +6933,18 @@ header#top-bar > #tab-bar {
 .library-card {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+}
+
+/* --- Settings form rows share a label column (Phase 5.1) ---------------------
+   Measured on Preferences at 1440: "Name for the dashboard greeting",
+   "Auto-clear binned notes after" and "Delete saved chats after" put their
+   fields at x=754, 724 and 689 — three rows, three left edges, because each
+   label was its own width. `.setting-label` already reserves
+   `--form-label-col` (9rem) for the settings-row shape; the plain `.row >
+   label` form rows had no column at all. 16rem is the longest of those
+   labels plus its gap, so every field on the page starts on one edge. Rows
+   whose label *is* the control (a check row) are excluded. */
+#settings-modal .settings-section .row > label:first-child:not(.setting-check):not(.check-row):not(.checkbox-label) {
+  flex: 0 0 16rem;
+  min-width: 0;
 }

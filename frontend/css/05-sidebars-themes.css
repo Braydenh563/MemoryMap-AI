@@ -2613,7 +2613,11 @@ textarea.autogrow {
 /* Magic add sits in a row beside its button, so it must not stretch that row. */
 #reminder-magic-row {
   align-items: flex-start;
-  margin-top: var(--space-1);
+  /* One field and its button: a control group, so the inside-a-group gap. */
+  gap: var(--space-3);
+  /* The form's own row rhythm places this; a private 4px on top of it was
+     one of the three off-steps measured in this stack. */
+  margin-top: 0;
 }
 
 #reminder-magic {

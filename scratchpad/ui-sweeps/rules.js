@@ -12,7 +12,7 @@ const [tab,sel,prop]=process.argv.slice(2);
     let node=e;
     while(node&&node!==document){
       for(const ss of document.styleSheets){let rules;try{rules=ss.cssRules;}catch(err){continue;}
-        const walk=(list)=>{for(const rule of list){if(rule.cssRules){walk(rule.cssRules);continue;}if(!rule.selectorText)continue;try{if(node.matches(rule.selectorText)&&rule.style.getPropertyValue(prop))out.push(`${node===e?'SELF':'ancestor '+node.tagName.toLowerCase()+'.'+[...node.classList].slice(0,2).join('.')}: ${(ss.href||'').split('/').pop().split('?')[0]} ${rule.selectorText} { ${prop}: ${rule.style.getPropertyValue(prop)} }`);}catch(err){}}};
+        const walk=(list)=>{for(const rule of list){if(!rule.selectorText){if(rule.cssRules)walk(rule.cssRules);continue;}try{if(node.matches(rule.selectorText)&&rule.style.getPropertyValue(prop))out.push(`${node===e?'SELF':'ancestor '+node.tagName.toLowerCase()+'.'+[...node.classList].slice(0,2).join('.')}: ${(ss.href||'').split('/').pop().split('?')[0]} ${rule.selectorText} { ${prop}: ${rule.style.getPropertyValue(prop)} }`);}catch(err){}}};
         walk(rules);}
       node=node.parentElement;
     }

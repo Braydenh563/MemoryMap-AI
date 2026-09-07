@@ -147,6 +147,18 @@ counting as in use; line numbers; the OCR Workspace's two-way page↔text sync;
 Stop buttons; four-space indent; one menu shell; one shell gutter; the zoom HUD;
 the tab strip centred.
 
+Then a second round after that: the tab strip centred from 1200px and never
+clipped (the wordmark now goes at 1499px rather than 720px, which is what
+freed the room); a mouse wheel can scroll any horizontal strip; the Files
+tab's OCR heading; the caption/OCR clamp line-height.
+
 Not reproduced here, so not fixed, and named as such: the writing-trace
-animation not moving, and browser errors after enabling battery saver. Not
-verified: whether tool calls render in the chat transcript on all three paths.
+animation not moving, browser errors after enabling battery saver, and the
+caption/OCR clamp slicing descenders (no OCR'd content exists in the sandbox
+— the identified cause was removed, not an observed repair). Not verified:
+whether tool calls render in the chat transcript on all three paths.
+
+**The three plans waiting for you**, in the order ROADMAP.md sets:
+`UI_MODERNISATION_PLAN.md` (phases 0-7), `AGENT_SKILLS_REFORM.md` (A-D), and
+`MINDMAP_PLAN.md` — that last one explicitly a first pass for you to extend,
+with a scope call to make in its §4 and a product name to confirm in its §1.

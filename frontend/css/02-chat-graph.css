@@ -1092,26 +1092,21 @@ details.tool-chip[open] > .tool-chip-body {
   place-content: center;
   font-size: 1rem;
   line-height: 1;
-  border: 1px solid var(--glass-border);
+  /* Plain inside the `.graph-zoom` strip, which carries the fill, edge and
+     shadow for all of them (03-dashboard-widgets.css). Each button used to
+     draw its own glass edge, shadow and 12px blur — three blurred layers
+     stacked inside a fourth. */
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
-  background: var(--glass-bg);
+  background: transparent;
   color: var(--ink);
   cursor: pointer;
-  box-shadow: var(--shadow-sm);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  box-shadow: none;
   transition: background var(--motion-fast) ease, transform var(--motion-fast) ease;
 }
 
-:root[data-glass="off"] .graph-zoom-btn {
-  background: var(--card);
-  border: 1px solid var(--border);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
 .graph-zoom-btn:hover {
-  background: var(--accent-soft);
+  background: var(--ghost-btn-bg-hover);
 }
 
 .graph-zoom-btn:active {

@@ -936,7 +936,7 @@ mark.text-highlight-grey { background: rgba(148, 163, 184, 0.25); }
 .duplicate-group .row label {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--space-3);
   font-size: 0.8rem;
 }
 
@@ -2252,19 +2252,21 @@ button.is-on {
      widened its track past the 1fr it was given — the same cause as the
      chat-bubble overflow, in a different grid. */
   min-width: 0;
-  border: 1px solid var(--border);
-  border-radius: calc(var(--radius) * 0.8);
-  background: var(--inner);
+  /* Inside the empty-state card, so a tone, not a second bordered pane
+     (the border budget). Same radius as every other tile. Hover changes
+     tone, never position — a row that moves on hover is Phase 4's rule. */
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
   color: var(--ink);
   box-shadow: none;
   cursor: pointer;
   text-align: left;
-  transition: border-color var(--motion-base) ease, transform var(--motion-base) ease;
+  transition: background var(--motion-base) ease;
 }
 
 .start-step:hover {
-  border-color: var(--accent);
-  transform: translateY(-2px);
+  background: var(--surface-3);
 }
 
 .start-step-icon {
@@ -2580,8 +2582,9 @@ button.is-on {
   background: var(--accent);
   color: #ffffff;
   font-weight: 600;
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  /* No shadow and no lift: the Library strip's active tab has neither, and
+     a selected tab is the filled recipe, which does not float. */
+  box-shadow: none;
 }
 
 .notes-subtabs button:not(.active):hover {

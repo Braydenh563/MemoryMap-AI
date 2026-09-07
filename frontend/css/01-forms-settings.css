@@ -358,7 +358,11 @@ select:focus {
 button {
   padding: 0.5rem 1rem;
   border: none;
-  border-radius: var(--radius-lg);
+  /* `--radius-md`, the tier DESIGN.md gives buttons. A late rule in
+     04-chat-dock-appearance.css used to re-set every button to
+     `calc(var(--radius) * 0.7)`, which is why buttons measured at 9.8px
+     beside 8.4px quick links and 11.2px stat tiles on one page. */
+  border-radius: var(--radius-md);
   background: var(--accent-surface);
   color: var(--on-accent);
   font: inherit;
@@ -3052,7 +3056,7 @@ html.modal-open body {
 .dash-toolbar {
   display: flex;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-4);
   /* No side inset: .tab-page's --page-gutter is the only one. See .dash-stats. */
   padding: 0 0 var(--space-3);
 }

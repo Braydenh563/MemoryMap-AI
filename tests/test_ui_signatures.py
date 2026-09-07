@@ -55,8 +55,13 @@ SURFACE_SELECTOR = re.compile(
 
 # Ceilings. Each is the count measured when this lint was added; a phase that
 # lowers one writes the new number here with the commit that earned it.
-ROW_GAP_CEILING = 5
-ROW_PADDING_CEILING = 12
+#
+# Row gap: Phase 2 brought 5 → 3. The three are `--space-3` inside a control
+# group, `--space-4` between groups, and `--space-1` for the two icon-only
+# formatting strips (`.doc-toolbar`, `.note-toolbar` — 60 controls each, where
+# an 8px gap would cost 240px of width). A fourth value is drift.
+ROW_GAP_CEILING = 3
+ROW_PADDING_CEILING = 11
 SURFACE_RADIUS_CEILING = 4
 
 

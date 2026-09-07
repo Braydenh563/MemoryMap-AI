@@ -1033,10 +1033,11 @@ header#top-bar select,
   align-items: baseline;
   gap: 0.4rem;
   padding: 0.6rem 1rem;
+  /* The tile recipe — see `.quick-link`. */
   background: var(--card);
   color: var(--ink);
   border: 1px solid var(--glass-border);
-  border-radius: calc(var(--radius) * 0.8);
+  border-radius: var(--radius-md);
   box-shadow: none;
   cursor: pointer;
   font-weight: 500;
@@ -1156,6 +1157,10 @@ header#top-bar select,
   padding: 0.8rem 1rem;
   align-items: center;
   gap: var(--space-3);
+  /* **The tile recipe** — shared with `.stat-tile` and `.start-step`: a card
+     fill, the glass edge, the button radius, no shadow, accent-soft on
+     hover. The three used to differ in edge colour (glass-border vs
+     border), radius (md / 0.8 / 0.8) and fill (card / inner). */
   background: var(--card);
   color: var(--ink);
   border: 1px solid var(--glass-border);
@@ -1210,6 +1215,9 @@ header#top-bar select,
 }
 
 .quick-link-primary {
+  /* Filled tier: no edge. The accent border it carried was a fourth edge
+     colour in one row of tiles. */
+  border-color: transparent;
   background: var(--accent);
   color: #fff;
   border-color: var(--accent);
@@ -2188,10 +2196,15 @@ header#top-bar select,
   flex-direction: column;
   gap: 0;
   overflow: hidden;
-  border-radius: calc(var(--radius) * 0.8);
+  /* The floating-control recipe (see `.scroll-top`): card fill, glass edge,
+     glass shadow, the button radius. The buttons inside are plain — the
+     strip is the control, not each segment of it. */
+  border-radius: var(--radius-md);
   border: 1px solid var(--glass-border);
+  background: var(--card);
   box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
 }
 
 .graph-zoom .graph-zoom-btn {
@@ -2372,7 +2385,7 @@ header#top-bar select,
 .graph-toolbar-group {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   padding-left: var(--space-3);
   border-left: 1px solid var(--border);
 }
@@ -2708,7 +2721,7 @@ p.graph-help-panel {
   right: 0;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 #graph-help-toggle {

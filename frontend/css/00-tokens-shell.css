@@ -1479,7 +1479,7 @@ header#top-bar.tabs-wrapped #tab-bar {
      phrase — "Include bin Sort" — with the switch apparently belonging to the
      select. The gap between unrelated controls has to be larger than the gap
      inside one, which is the whole of what `.library-sort` sets below. */
-  gap: var(--space-6);
+  gap: var(--space-4);
   flex-wrap: wrap;
   margin-bottom: var(--space-4);
 }
@@ -1631,9 +1631,15 @@ header#top-bar.tabs-wrapped #tab-bar {
   height: var(--control-h);
   padding: 0 var(--space-5);
   margin: 0;
-  border: 1px solid var(--border);
+  /* **The interactive filter chip** (UI_MODERNISATION_PLAN Phase 2): a
+     `--chip-bg` tint with a transparent edge, the same recipe as the chat
+     composer's Skills/Web/Plan toggles. It was an outlined pill — eleven
+     hairlines in a row under a bordered search field inside a bordered
+     card. The edge is transparent rather than absent so the height is
+     unchanged and `[data-contrast="on"]` can colour it back. */
+  border: 1px solid transparent;
   border-radius: var(--radius-pill);
-  background: none;
+  background: var(--chip-bg);
   box-shadow: none;
   color: var(--muted);
   font-size: var(--text-md);
@@ -1641,7 +1647,7 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 .library-chip:hover {
-  border-color: var(--accent);
+  background: var(--ghost-btn-bg);
   color: var(--ink);
 }
 
@@ -2758,7 +2764,7 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 @media (max-width: 720px) {
   .library-toolbar {
-    gap: var(--space-2);
+    gap: var(--space-3);
   }
 
   .library-grid {

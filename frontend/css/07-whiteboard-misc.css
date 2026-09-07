@@ -346,10 +346,13 @@
   z-index: 20;
   width: var(--sidebar-toggle-size);
   height: var(--sidebar-toggle-size);
-  border-radius: var(--radius-sm);
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
+  /* The tonal icon-button recipe (DESIGN.md → Buttons), not a bordered,
+     shadowed card of its own: it sits beside `.ghost.small.icon-only`
+     buttons in the same head row and read as a different control. */
+  border-radius: var(--radius-md);
+  background: var(--ghost-btn-bg);
+  border: 1px solid transparent;
+  box-shadow: none;
   color: var(--muted);
   cursor: pointer;
   display: flex;
@@ -362,7 +365,7 @@
 }
 
 .sidebar-collapse-toggle:hover {
-  background: var(--chip-bg);
+  background: var(--ghost-btn-bg-hover);
   color: var(--ink);
 }
 
@@ -3484,7 +3487,7 @@ summary:not(.icon-only):not(.icon-button) {
 .row.button-row {
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 .row.button-row > button,
@@ -3494,7 +3497,7 @@ summary:not(.icon-only):not(.icon-button) {
 
 .row.field-row {
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
@@ -3996,6 +3999,7 @@ summary:not(.icon-only):not(.icon-button) {
 .chat-model-button {
   border: 0;
   background: none;
+  box-shadow: none;
   padding: 0 var(--space-2);
   min-height: var(--target-min);
   border-radius: var(--radius-md);
@@ -6859,4 +6863,49 @@ header#top-bar > #tab-bar {
   overflow-y: auto;
   overflow-x: clip;
   overscroll-behavior: contain;
+}
+
+/* --- the one popover shell (UI_MODERNISATION_PLAN.md, Phase 2) -------------
+   Five floating surfaces drew five shells: `.action-menu` (96% modal tint,
+   radius-lg), the toolbar menus (opaque, radius-lg), the nav-history menu
+   (opaque, radius-lg, a larger padding), the chat model panel (opaque,
+   radius-md, --shadow-lg), the help popover and the notifications panel
+   (96% tint *plus* a blur, glass edge). Same job — a panel that floats over
+   arbitrary content and must be legible against all of it — five voices.
+
+   The recipe is the note-card kebab menu's, which the user asked to keep as
+   the reference, with one change: **opaque**. CLAUDE.md records the 4%
+   see-through of `--modal-bg` letting the note editor's form read as ghost
+   text through a menu, and an opaque ground needs no blur behind it — the
+   blur was a full filter pass per open panel, for nothing visible.
+
+   Last file, on purpose: every rule it overrides is earlier in the cascade
+   and stays as it is for sizing, placement and padding; only the *shell* —
+   fill, edge, radius, shadow, filter — is decided here. A sixth floating
+   surface joins this list rather than declaring its own. `.help-popover`'s
+   caret carries its own edge colour below so the join stays continuous. */
+.action-menu,
+.select-menu,
+.doc-dock-menu-list,
+.nav-history-menu,
+.chat-model-panel,
+.help-popover,
+.graph-help-panel,
+.graph-help-panel.search-help,
+.notif-panel,
+.ai-status-popup {
+  background: var(--modal-bg-opaque);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.help-popover::before {
+  background: var(--border);
+}
+
+.help-popover::after {
+  background: var(--modal-bg-opaque);
 }

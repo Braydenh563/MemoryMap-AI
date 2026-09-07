@@ -31,6 +31,7 @@ say whether it meets what was asked, not just whether the code path exists.
 | File | What it answers |
 | --- | --- |
 | [`docs/roadmap/HANDOVER.md`](docs/roadmap/HANDOVER.md) | **Read this first.** The last session's handover: what changed, what could not be verified and why, where to start, and the traps that cost an hour each. |
+| [`docs/roadmap/UI_MODERNISATION_PLAN.md`](docs/roadmap/UI_MODERNISATION_PLAN.md) | **The top priority by direct instruction**: the phased plan to modernise and professionalise the whole UI — causes, per-family targets, acceptance counts, order. Sweep scripts in `scratchpad/ui-sweeps/`. |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | **The live list — only what is still open.** Opens with it; nothing finished is kept here any more. |
 | [`docs/roadmap/BACKLOG.md`](docs/roadmap/BACKLOG.md) | The standing backlog, §1–§29. |
 | [`docs/roadmap/ANALYSIS.md`](docs/roadmap/ANALYSIS.md) | §30–§34, §59, §60. Judgements and competitor reads — **including the licence constraint. This project is AGPL-3.0 now, so odysseus's AGPL code may come in (with its notices); nothing may go out to an MIT project.** **§114 is the product-strategy read** — competitor teardown, per-feature upgrades, inventions, a 90-day plan, and the no-telemetry metrics answer. §59 is a second, unrelated read (claude-obsidian/cognee/graphify, all permissively licensed) behind ROADMAP.md items 32–36 (32/33/34 now built; 36 backend-only, see HANDOVER.md). §60 is a second odysseus read, behind ROADMAP.md items 37–39. |

@@ -3209,6 +3209,7 @@ Link to another note with [[its first few words]]."></textarea>
           <p><i class="ph ph-text-t" aria-hidden="true"></i> <strong>Text</strong> drops a box you can type in; <i class="ph ph-image" aria-hidden="true"></i> <strong>Image</strong> adds a picture — or just paste/drag one onto the board.</p>
           <p><i class="ph ph-eraser" aria-hidden="true"></i> <strong>Eraser</strong> removes whatever it drags across; ⟲ <strong>Undo</strong> (Ctrl+Z) brings it back.</p>
           <p><i class="ph ph-brain ph-lead" aria-hidden="true"></i> Select a linked card, then <strong>Tab</strong> for a new branch, <strong>Enter</strong> for a sibling — or use "Arrange as mind map" in Properties to lay out everything it's linked to.</p>
+          <p><i class="ph ph-mouse-scroll" aria-hidden="true"></i> <strong>Wheel</strong> pans, <strong>Shift+wheel</strong> pans sideways, <strong>Ctrl+wheel</strong> (or pinch) zooms; the middle button drags the board from any tool.</p>
           <p class="muted">Shortcuts: V select · H hand · K lasso · Space hold to pan · P pen · M highlighter · L line · A arrow · R rectangle · O circle · G triangle · D diamond · T text · E eraser · B fill · X delete · Ctrl+D duplicate · [ ] back / forward · Ctrl+Alt+C / V copy / paste style · Tab new branch · Enter new sibling · Esc clears the selection, then returns to Select</p>
           <p><i class="ph ph-bezier-curve" aria-hidden="true"></i> <strong>Double-click a line or link</strong> to bend it; drag the handle, double-click it again to straighten. Links attach to cards, text boxes and stickies alike.</p>
           <button id="wb-empty-hint-dismiss" class="ghost small wb-empty-hint-close" type="button">Don't show this again</button>
@@ -3269,6 +3270,15 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
             </div>
             <input type="file" id="wb-bg-image-input" aria-label="Choose a board background image" title="Choose a board background image" accept="image/*" class="hidden" aria-hidden="true">
+            <div class="wb-panel-group">
+              <span class="wb-panel-group-label">Panels</span>
+              <div class="wb-panel-group-row wb-panel-switches">
+                <label class="wb-snap-label" title="Show the properties drawer when something is selected or a drawing tool is active"><input type="checkbox" id="wb-panel-props" checked><span>Properties</span></label>
+                <label class="wb-snap-label" title="The board overview (N)"><input type="checkbox" id="wb-panel-overview"><span>Overview</span></label>
+                <label class="wb-snap-label" title="The note library"><input type="checkbox" id="wb-panel-library"><span>Library</span></label>
+                <label class="wb-snap-label" title="Find a card on this board (Ctrl+F)"><input type="checkbox" id="wb-panel-search"><span>Search</span></label>
+              </div>
+            </div>
             <div class="wb-panel-group">
               <span class="wb-panel-group-label">Board</span>
               <div class="wb-panel-group-row">

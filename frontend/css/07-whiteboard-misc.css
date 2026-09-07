@@ -6140,3 +6140,37 @@ button.connection-row {
     max-width: calc(100% - 1rem);
   }
 }
+
+/* With a link tool active every card, text box, sticky and shape is a
+   possible end, and says so on hover — reported: "only notes light up".
+   The anchor dots themselves come from wbShowAnchorHints during the drag. */
+#whiteboard-container[data-current-tool^="link-"] .node-card:hover,
+#whiteboard-container[data-current-tool^="link-"] .wb-object:hover {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  cursor: crosshair;
+}
+
+#whiteboard-container[data-current-tool^="link-"] .sketch-group:hover .sketch-path {
+  filter: drop-shadow(0 0 3px var(--accent));
+  cursor: crosshair;
+}
+
+/* The overview steps left of the properties drawer while the drawer is
+   open — reported: "it clashes with the board overview which I also can't
+   manage". The drawer's width plus both insets. */
+#wb-canvas-view:has(> #wb-properties-panel:not(.hidden)) .wb-navigator {
+  right: calc(1rem + 13.5rem + var(--space-3));
+}
+
+/* The Panels switch for Properties: off means the drawer never shows,
+   whatever is selected. */
+#library-view-whiteboard.wb-hide-props #wb-properties-panel {
+  display: none !important;
+}
+
+.wb-panel-switches {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-1) var(--space-3);
+}

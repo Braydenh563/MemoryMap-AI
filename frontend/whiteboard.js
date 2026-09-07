@@ -65,9 +65,12 @@
 let wbSpaceHeld = false;
 
 function wbZoomFilter(event) {
-  // Wheel: always. Zooming is a way of looking, not an edit, and there is no
-  // tool for which "you may not zoom right now" is the correct answer.
-  if (event.type === "wheel") return true;
+  // Wheel: zoom only with Ctrl/⌘ held (which is also what a trackpad pinch
+  // arrives as). A plain wheel *pans* — see the native listener in
+  // initWhiteboard — because that is what Miro, FigJam, Figma and draw.io
+  // all do, and reported as "annoying to... pan, navigate the board": a
+  // wheel that zooms leaves no fast way to move around at a fixed zoom.
+  if (event.type === "wheel") return event.ctrlKey || event.metaKey;
   // Middle button pans from anywhere. `buttons` rather than `button` because
   // mousemove reports the held set, and the drag half of the gesture needs to
   // pass the filter too.
@@ -621,6 +624,10 @@ async function wbUngroupSelection() {
 //: own resize code uses).
 function wbItemBBox(kind, item) {
   if (kind === "sketch") {
+    // Mid-drag the moving path lives in `_dragLiveD`; the stored `data` is
+    // still where the shape started, and a link following it would lag a
+    // whole gesture behind.
+    if (typeof item._dragLiveD === "string") return wbPathBBox(item._dragLiveD);
     const parsed = wbSketchParsedData(item);
     if (!parsed) return null; // a link sketch — no shape of its own to align
     return wbPathBBox(parsed.d);
@@ -1035,24 +1042,136 @@ const WB_FIXED_ANCHORS = [
 //: A link only ever connects nodes (cards) today — see `dragEndNode`'s own
 //: hit-test — but takes `kind` rather than assuming "node" so a future
 //: object-to-object link doesn't need this rewritten.
-function wbAnchorPoint(kind, item, anchor) {
-  if (!anchor) return null;
+//: **Endpoints follow rotation.** Reported with a screenshot: "if I rotate
+//: a textbox or shape, the connections no longer fit to the edge and just
+//: float in mid air." Cards and objects store `rotation` (degrees, about
+//: the box centre) and were measured as their *unrotated* box; a drawn
+//: shape bakes its rotation into the path, so its axis-aligned bbox is a
+//: superset of the shape and a ray to the bbox edge stops short of it.
+//: Two plain pieces of geometry fix both: rotate a point about a centre, and
+//: intersect a ray with the shape's own outline.
+function wbItemRotation(kind, item) {
+  if (kind === "sketch") return 0;
+  const deg = Number(item?.rotation);
+  return Number.isFinite(deg) ? deg : 0;
+}
+
+function wbRotatePoint(pt, center, deg) {
+  if (!deg) return pt;
+  const rad = (deg * Math.PI) / 180;
+  const cos = Math.cos(rad), sin = Math.sin(rad);
+  const dx = pt.x - center.x, dy = pt.y - center.y;
+  return { x: center.x + dx * cos - dy * sin, y: center.y + dx * sin + dy * cos };
+}
+
+function wbBoxCenter(box) {
+  return { x: (box.minX + box.maxX) / 2, y: (box.minY + box.maxY) / 2 };
+}
+
+//: The straight segments of a path, for hit-testing a ray against a drawn
+//: shape. Curves (the circle tool's arcs) contribute their endpoints only;
+//: the bbox fallback in `wbEdgePoint` covers a shape with no usable segment.
+function wbPathPolyline(d) {
+  const tokens = (d || "").match(/[MLCHVAZmlchvaz]|-?\d*\.?\d+(?:[eE]-?\d+)?/g);
+  if (!tokens) return [];
+  const segs = [];
+  let i = 0, px = 0, py = 0, sx = 0, sy = 0, cmd = "";
+  const num = () => parseFloat(tokens[i++]);
+  const lineTo = (x, y) => { segs.push([px, py, x, y]); px = x; py = y; };
+  while (i < tokens.length) {
+    if (/^[A-Za-z]$/.test(tokens[i])) cmd = tokens[i++];
+    if (i >= tokens.length && cmd !== "Z" && cmd !== "z") break;
+    switch (cmd) {
+      case "M": px = num(); py = num(); sx = px; sy = py; cmd = "L"; break;
+      case "m": px += num(); py += num(); sx = px; sy = py; cmd = "l"; break;
+      case "L": lineTo(num(), num()); break;
+      case "l": { const x = px + num(); lineTo(x, py + num()); break; }
+      case "H": lineTo(num(), py); break;
+      case "h": lineTo(px + num(), py); break;
+      case "V": lineTo(px, num()); break;
+      case "v": lineTo(px, py + num()); break;
+      case "C": i += 4; lineTo(num(), num()); break;
+      case "c": { i += 4; const x = px + num(); lineTo(x, py + num()); break; }
+      case "A": i += 5; lineTo(num(), num()); break;
+      case "a": { i += 5; const x = px + num(); lineTo(x, py + num()); break; }
+      case "Z": case "z": lineTo(sx, sy); cmd = ""; break;
+      default: i += 1;
+    }
+  }
+  return segs;
+}
+
+//: Where a line from an item's centre toward (towardX, towardY) leaves the
+//: item — on its rotated border for a card or text box, on its own outline
+//: for a drawn shape.
+function wbEdgePoint(kind, item, towardX, towardY) {
   const box = wbItemBBox(kind, item);
   if (!box) return null;
-  return { x: box.minX + anchor.x * (box.maxX - box.minX), y: box.minY + anchor.y * (box.maxY - box.minY) };
+  const c = wbBoxCenter(box);
+  if (kind === "sketch") {
+    const parsed = typeof item._dragLiveD === "string" ? { d: item._dragLiveD } : wbSketchParsedData(item);
+    const segs = parsed ? wbPathPolyline(parsed.d) : [];
+    const dx = towardX - c.x, dy = towardY - c.y;
+    if (segs.length && (dx || dy)) {
+      // Ray c + t·(dx,dy), t ≥ 0, against each segment; nearest hit wins.
+      let best = null;
+      for (const [x1, y1, x2, y2] of segs) {
+        const ex = x2 - x1, ey = y2 - y1;
+        const den = dx * ey - dy * ex;
+        if (Math.abs(den) < 1e-9) continue;
+        const t = ((x1 - c.x) * ey - (y1 - c.y) * ex) / den;
+        const u = ((x1 - c.x) * dy - (y1 - c.y) * dx) / den;
+        if (t >= 0 && u >= 0 && u <= 1 && (best === null || t < best)) best = t;
+      }
+      if (best !== null) return { x: c.x + dx * best, y: c.y + dy * best };
+    }
+    return wbBoxRayIntersection(box, towardX, towardY);
+  }
+  const rot = wbItemRotation(kind, item);
+  if (!rot) return wbBoxRayIntersection(box, towardX, towardY);
+  const local = wbRotatePoint({ x: towardX, y: towardY }, c, -rot);
+  return wbRotatePoint(wbBoxRayIntersection(box, local.x, local.y), c, rot);
+}
+
+//: The direction a curved link should leave an endpoint in: the box's face
+//: normal for an upright card, the outward radial for anything rotated or
+//: drawn (whose faces are not axis-aligned).
+function wbItemEdgeDir(kind, item, pt) {
+  const box = wbItemBBox(kind, item);
+  if (!box || !pt) return null;
+  if (kind !== "sketch" && !wbItemRotation(kind, item)) return wbEdgeNormal(box, pt);
+  const c = wbBoxCenter(box);
+  const len = Math.hypot(pt.x - c.x, pt.y - c.y);
+  return len ? { x: (pt.x - c.x) / len, y: (pt.y - c.y) / len } : null;
+}
+
+//: The eight fixed anchors of an item, in board space, rotated with it.
+function wbAnchorPositions(kind, item) {
+  const box = wbItemBBox(kind, item);
+  if (!box) return [];
+  const w = box.maxX - box.minX, h = box.maxY - box.minY;
+  const c = wbBoxCenter(box);
+  const rot = wbItemRotation(kind, item);
+  return WB_FIXED_ANCHORS.map((a) => {
+    const pt = wbRotatePoint({ x: box.minX + a.x * w, y: box.minY + a.y * h }, c, rot);
+    return { anchor: a, x: pt.x, y: pt.y };
+  });
+}
+
+function wbAnchorPoint(kind, item, anchor) {
+  if (!anchor) return null;
+  const hit = wbAnchorPositions(kind, item).find((p) => p.anchor.x === anchor.x && p.anchor.y === anchor.y);
+  return hit ? { x: hit.x, y: hit.y } : null;
 }
 
 //: The nearest of the 8 fixed points to a board-coordinate click, or `null`
 //: if none is within `thresholdPx` — `null` is the caller's cue to persist
 //: no anchor at all (the free/floating case) rather than a distant one.
 function wbNearestAnchor(kind, item, px, py, thresholdPx = 16) {
-  const box = wbItemBBox(kind, item);
-  if (!box) return null;
-  const w = box.maxX - box.minX, h = box.maxY - box.minY;
   let best = null, bestDist = thresholdPx;
-  for (const a of WB_FIXED_ANCHORS) {
-    const d = Math.hypot(px - (box.minX + a.x * w), py - (box.minY + a.y * h));
-    if (d <= bestDist) { bestDist = d; best = a; }
+  for (const p of wbAnchorPositions(kind, item)) {
+    const d = Math.hypot(px - p.x, py - p.y);
+    if (d <= bestDist) { bestDist = d; best = p.anchor; }
   }
   return best;
 }
@@ -1119,22 +1238,49 @@ function wbBoxRayIntersection(box, towardX, towardY) {
 //: resolve through the one lookup below.
 function wbLinkItem(kind, id) {
   if (id == null) return null;
-  const list = kind === "object" ? (wbState.objects || []) : wbState.nodes;
+  const list = kind === "object" ? (wbState.objects || [])
+    : kind === "sketch" ? (wbState.sketches || [])
+    : wbState.nodes;
   return list.find((i) => i.id === id) || null;
+}
+
+//: Everything a link can start from or land on: cards, text boxes and
+//: stickies, and every drawn shape (a link is a sketch too, and is never a
+//: target). Reported: "only notes light up with edge anchor points... and
+//: nothing else like shapes, sticky notes and text boxes."
+function wbLinkCandidates(excludeKind, excludeId) {
+  const out = [];
+  for (const n of wbState.nodes) out.push(["node", n]);
+  for (const o of wbState.objects || []) if (o.kind === "text") out.push(["object", o]);
+  for (const sk of wbState.sketches || []) {
+    const parsed = wbSketchParsedData(sk);
+    if (!parsed || (parsed.type || "").startsWith("link-")) continue;
+    out.push(["sketch", sk]);
+  }
+  return out.filter(([kind, item]) => !(kind === excludeKind && item.id === excludeId));
+}
+
+function wbLinkCandidateAt(x, y, excludeKind, excludeId) {
+  for (const [kind, item] of wbLinkCandidates(excludeKind, excludeId)) {
+    const box = wbItemBBox(kind, item);
+    if (box && x >= box.minX && x <= box.maxX && y >= box.minY && y <= box.maxY) return [kind, item];
+  }
+  return null;
 }
 
 function wbLinkEndpoints(sourceItem, sourceAnchor, targetItem, targetAnchor, sourceKind = "node", targetKind = "node") {
   const sourceBox = wbItemBBox(sourceKind, sourceItem);
   const targetBox = wbItemBBox(targetKind, targetItem);
-  const sourceCenter = { x: (sourceBox.minX + sourceBox.maxX) / 2, y: (sourceBox.minY + sourceBox.maxY) / 2 };
-  const targetCenter = { x: (targetBox.minX + targetBox.maxX) / 2, y: (targetBox.minY + targetBox.maxY) / 2 };
+  if (!sourceBox || !targetBox) return null;
+  const sourceCenter = wbBoxCenter(sourceBox);
+  const targetCenter = wbBoxCenter(targetBox);
   const fixedSource = wbAnchorPoint(sourceKind, sourceItem, sourceAnchor);
   const fixedTarget = wbAnchorPoint(targetKind, targetItem, targetAnchor);
-  const source = fixedSource || wbBoxRayIntersection(sourceBox, (fixedTarget || targetCenter).x, (fixedTarget || targetCenter).y);
-  const target = fixedTarget || wbBoxRayIntersection(targetBox, (fixedSource || sourceCenter).x, (fixedSource || sourceCenter).y);
+  const source = fixedSource || wbEdgePoint(sourceKind, sourceItem, (fixedTarget || targetCenter).x, (fixedTarget || targetCenter).y);
+  const target = fixedTarget || wbEdgePoint(targetKind, targetItem, (fixedSource || sourceCenter).x, (fixedSource || sourceCenter).y);
   return {
-    source: wbWithDir(source, wbEdgeNormal(sourceBox, source)),
-    target: wbWithDir(target, wbEdgeNormal(targetBox, target)),
+    source: wbWithDir(source, wbItemEdgeDir(sourceKind, sourceItem, source)),
+    target: wbWithDir(target, wbItemEdgeDir(targetKind, targetItem, target)),
   };
 }
 
@@ -1159,6 +1305,7 @@ function wbResolveLinkEndpoints(parsed) {
   if (sourceNode && targetNode) {
     return wbLinkEndpoints(sourceNode, parsed.sourceAnchor, targetNode, parsed.targetAnchor, sourceKind, targetKind);
   }
+  if ((sourceNode && !wbItemBBox(sourceKind, sourceNode)) || (targetNode && !wbItemBBox(targetKind, targetNode))) return null;
 
   const sourceBox = sourceNode ? wbItemBBox(sourceKind, sourceNode) : null;
   const targetBox = targetNode ? wbItemBBox(targetKind, targetNode) : null;
@@ -1168,15 +1315,15 @@ function wbResolveLinkEndpoints(parsed) {
   // is, same as the node/node case.
   const sourceFixed = sourceNode ? wbAnchorPoint(sourceKind, sourceNode, parsed.sourceAnchor) : parsed.sourcePoint;
   const targetFixed = targetNode ? wbAnchorPoint(targetKind, targetNode, parsed.targetAnchor) : parsed.targetPoint;
-  const targetCenter = targetBox && { x: (targetBox.minX + targetBox.maxX) / 2, y: (targetBox.minY + targetBox.maxY) / 2 };
-  const sourceCenter = sourceBox && { x: (sourceBox.minX + sourceBox.maxX) / 2, y: (sourceBox.minY + sourceBox.maxY) / 2 };
-  const source = sourceFixed || wbBoxRayIntersection(sourceBox, (targetFixed || targetCenter).x, (targetFixed || targetCenter).y);
-  const target = targetFixed || wbBoxRayIntersection(targetBox, (sourceFixed || sourceCenter).x, (sourceFixed || sourceCenter).y);
+  const targetCenter = targetBox && wbBoxCenter(targetBox);
+  const sourceCenter = sourceBox && wbBoxCenter(sourceBox);
+  const source = sourceFixed || wbEdgePoint(sourceKind, sourceNode, (targetFixed || targetCenter).x, (targetFixed || targetCenter).y);
+  const target = targetFixed || wbEdgePoint(targetKind, targetNode, (sourceFixed || sourceCenter).x, (sourceFixed || sourceCenter).y);
   // Only a card end has an edge to leave perpendicular to. A free dangling
   // point has no box, so it keeps the plain chord behaviour.
   return {
-    source: wbWithDir(source, sourceBox && wbEdgeNormal(sourceBox, source)),
-    target: wbWithDir(target, targetBox && wbEdgeNormal(targetBox, target)),
+    source: wbWithDir(source, sourceNode && wbItemEdgeDir(sourceKind, sourceNode, source)),
+    target: wbWithDir(target, targetNode && wbItemEdgeDir(targetKind, targetNode, target)),
   };
 }
 
@@ -1310,14 +1457,11 @@ function wbShowAnchorHints(kind, item, nearAnchor) {
   }
   hints.innerHTML = "";
   if (!item) return;
-  const box = wbItemBBox(kind, item);
-  if (!box) return;
-  const w = box.maxX - box.minX, h = box.maxY - box.minY;
-  for (const a of WB_FIXED_ANCHORS) {
+  for (const { anchor: a, x, y } of wbAnchorPositions(kind, item)) {
     const near = nearAnchor && nearAnchor.x === a.x && nearAnchor.y === a.y;
     const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    dot.setAttribute("cx", box.minX + a.x * w);
-    dot.setAttribute("cy", box.minY + a.y * h);
+    dot.setAttribute("cx", x);
+    dot.setAttribute("cy", y);
     dot.setAttribute("r", near ? 6 : 4);
     dot.setAttribute("fill", near ? "var(--accent)" : "var(--card)");
     dot.setAttribute("stroke", "var(--accent)");
@@ -3237,6 +3381,21 @@ async function initWhiteboard() {
   
   const container = d3.select("#whiteboard-container");
   container.call(wbZoom).on("dblclick.zoom", null);
+  // Plain wheel pans (Shift+wheel pans sideways); Ctrl/⌘+wheel is left to
+  // d3-zoom's own handler by `wbZoomFilter`. `passive: false` so the page
+  // behind the board does not scroll as well.
+  if (!container.node().dataset.wbWheelPan) {
+    container.node().dataset.wbWheelPan = "1";
+    container.node().addEventListener("wheel", (e) => {
+      if (e.ctrlKey || e.metaKey) return;
+      e.preventDefault();
+      const k = d3.zoomTransform(container.node()).k || 1;
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+      let dx = e.deltaX * unit, dy = e.deltaY * unit;
+      if (e.shiftKey && !dx) { dx = dy; dy = 0; }
+      container.call(wbZoom.translateBy, -dx / k, -dy / k);
+    }, { passive: false });
+  }
   
   // Toolbar hooks
   document.getElementById("wb-zoom-in").addEventListener("click", () => container.transition().call(wbZoom.scaleBy, 1.2));
@@ -4214,6 +4373,43 @@ async function initWhiteboard() {
       buttons[next].focus();
     });
   }
+
+  // **Panels, managed in one place.** Asked for: "there needs to be a window
+  // option to manage what windows are showing and not". Four switches in
+  // the Board menu: Properties (a preference — off means the drawer never
+  // opens, even with a selection; the class is read by CSS), and Overview,
+  // Library and Search, which are the same toggles the top bar carries,
+  // shown as on/off so their state can be read without hunting for them.
+  const propsPref = document.getElementById("wb-panel-props");
+  const viewHost = document.getElementById("library-view-whiteboard");
+  const applyPropsPref = (on) => {
+    viewHost?.classList.toggle("wb-hide-props", !on);
+    if (propsPref) propsPref.checked = on;
+  };
+  applyPropsPref(localStorage.getItem("wb-panel-props") !== "off");
+  propsPref?.addEventListener("change", () => {
+    localStorage.setItem("wb-panel-props", propsPref.checked ? "on" : "off");
+    applyPropsPref(propsPref.checked);
+  });
+  const panelSwitches = [
+    ["wb-panel-overview", "wb-navigator", "wb-navigator-toggle"],
+    ["wb-panel-library", "whiteboard-sidebar", "wb-add-note"],
+    ["wb-panel-search", "wb-search-bar", "wb-search-toggle"],
+  ];
+  const syncPanelSwitches = () => {
+    for (const [switchId, panelId] of panelSwitches) {
+      const sw = document.getElementById(switchId);
+      const panel = document.getElementById(panelId);
+      if (sw && panel) sw.checked = !panel.classList.contains("hidden");
+    }
+  };
+  for (const [switchId, , toggleId] of panelSwitches) {
+    document.getElementById(switchId)?.addEventListener("change", () => {
+      document.getElementById(toggleId)?.click();
+      syncPanelSwitches();
+    });
+  }
+  document.getElementById("wb-board-menu-toggle")?.addEventListener("click", syncPanelSwitches);
 
   const toolsPanel = document.getElementById("wb-tools-panel");
   const dockToggle = document.getElementById("wb-dock-toggle");
@@ -5949,10 +6145,18 @@ function renderWhiteboard() {
   // pan in particular, since the canvas's own zoom/pan drag needs an
   // unclaimed pointerdown to reach it.
   const sketchDrag = d3.drag()
-    .filter(() => window.currentTool === "select")
-    .on("start", (event, d) => {
+    .filter(() => window.currentTool === "select" || Boolean(window.currentTool?.startsWith("link-")))
+    .on("start", function (event, d) {
       event.sourceEvent.stopPropagation();
+      // A link tool drags a *link* out of the shape, not the shape — the same
+      // delegation `objDrag` does for text boxes and stickies.
+      if (window.currentTool?.startsWith("link-")) {
+        if (!wbSketchParsedData(d)) return;
+        d._linkKind = "sketch";
+        return dragStart.call(this, event, d);
+      }
       const parsed = wbSketchParsedData(d);
+      d._linkedSketches = wbLinkedSketchesFor(d.id, "sketch");
       d._dragOriginalD = parsed ? parsed.d : null;
       d._moveUndoBefore = WB_KIND_INFO.sketch.payload(d);
       // Raw (never-snapped) running totals, applied fresh from the
@@ -5973,7 +6177,8 @@ function renderWhiteboard() {
       // `d._bulkOrigin` itself is decided lazily, on the first real "drag"
       // frame below, for the same reason.
     })
-    .on("drag", (event, d) => {
+    .on("drag", function (event, d) {
+      if (d._linkKind === "sketch") return dragging.call(this, event, d);
       if (d._dragOriginalD == null) return;
       // First real movement of this gesture — decide once whether this is
       // a solo move or a bulk move of the whole multi-selection. Deferred
@@ -5994,12 +6199,19 @@ function renderWhiteboard() {
       const el = document.querySelector(`.sketch-group[data-id="${d.id}"]`);
       el?.querySelector(".sketch-path")?.setAttribute("d", newD);
       el?.querySelector(".sketch-hitbox")?.setAttribute("d", newD);
+      if (d._linkedSketches?.length) wbUpdateLinkedSketches(d.id, d._linkedSketches);
       if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, dx, dy);
       // Handles would otherwise trail the sketch by a whole render — cheap
       // to keep in step since there are at most 8 of them.
       wbClearSketchHandles();
     })
-    .on("end", async (event, d) => {
+    .on("end", async function (event, d) {
+      if (d._linkKind === "sketch") {
+        const r = dragEndNode.call(this, event, d);
+        d._linkKind = null;
+        return r;
+      }
+      delete d._linkedSketches;
       if (d._dragOriginalD == null) return;
       const finalD = d._dragLiveD;
       const bulkOrigin = d._bulkOrigin;
@@ -6969,18 +7181,14 @@ function dragging(event, d) {
     // pointer every frame — the same rectangle-intersection the render path
     // uses, not the old fixed centre-point.
     const fixedStart = wbAnchorPoint(d._linkKind || "node", d, d.linkSourceAnchor);
-    const start = fixedStart || wbBoxRayIntersection(wbItemBBox(d._linkKind || "node", d), mx, my);
+    const start = fixedStart || wbEdgePoint(d._linkKind || "node", d, mx, my);
     d.linkingPath.setAttribute("d", wbLinkPathD(window.currentTool, start, { x: mx, y: my }));
 
-    // Anchor hints follow whichever node the pointer is currently over, so
-    // the drop target's own snap points are visible before release.
-    let hoverNode = null;
-    for (const node of wbState.nodes) {
-      if (node.id === d.id) continue;
-      const box = wbItemBBox("node", node);
-      if (mx >= box.minX && mx <= box.maxX && my >= box.minY && my <= box.maxY) { hoverNode = node; break; }
-    }
-    if (hoverNode) wbShowAnchorHints("node", hoverNode, wbNearestAnchor("node", hoverNode, mx, my));
+    // Anchor hints follow whichever card, text box, sticky or shape the
+    // pointer is over, so the drop target's own snap points are visible
+    // before release.
+    const hover = wbLinkCandidateAt(mx, my, d._linkKind || "node", d.id);
+    if (hover) wbShowAnchorHints(hover[0], hover[1], wbNearestAnchor(hover[0], hover[1], mx, my));
     else wbShowAnchorHints(d._linkKind || "node", d, d.linkSourceAnchor);
   } else {
     // Pre-existing gap, not introduced this session, caught while adding
@@ -7050,19 +7258,9 @@ async function dragEndNode(event, d) {
     const my = (event.sourceEvent.clientY - rect.top - transform.y) / transform.k;
 
     const sourceKind = d._linkKind || "node";
-    let targetNode = null;
-    let targetKind = "node";
-    const candidates = [
-      ...wbState.nodes.map((n) => ["node", n]),
-      ...(wbState.objects || []).filter((o) => o.kind === "text").map((o) => ["object", o]),
-    ];
-    for (const [kind, item] of candidates) {
-       if (kind === sourceKind && item.id === d.id) continue;
-       const box = wbItemBBox(kind, item);
-       if (box && mx >= box.minX && mx <= box.maxX && my >= box.minY && my <= box.maxY) {
-           targetNode = item; targetKind = kind; break;
-       }
-    }
+    const hit = wbLinkCandidateAt(mx, my, sourceKind, d.id);
+    const targetNode = hit ? hit[1] : null;
+    const targetKind = hit ? hit[0] : "node";
 
     if (targetNode) {
        // The release point's own nearest anchor on the target, same as the

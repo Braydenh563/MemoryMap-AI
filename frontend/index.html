@@ -546,7 +546,7 @@
                    truncates, cannot be read on a touch device, and
                    disappears the moment you move to type the thing it just
                    described. -->
-              <button id="capture-help" class="ghost small graph-help-toggle" type="button"
+              <button id="capture-help" class="icon-only ghost small graph-help-toggle" type="button"
                 aria-expanded="false" aria-controls="capture-help-hint"
                 title="What can I type in a note?" aria-label="What can I type in a note?">
                 <i class="ph ph-question" aria-hidden="true"></i>
@@ -764,7 +764,7 @@ Link to another note with [[its first few words]]."></textarea>
                  click-to-open panel for reading the whole thing end to end.
                  Replaces a paragraph that used to sit here permanently, on
                  every visit, before anyone had asked what this tab does. -->
-            <button type="button" id="draft-help" class="ghost small graph-help-toggle"
+            <button type="button" id="draft-help" class="icon-only ghost small graph-help-toggle"
               aria-expanded="false" aria-controls="draft-intro"
               title="Type whatever's in your head — half sentences are fine. The AI turns it into a note. Edit the draft, add more thoughts, and it folds them in without undoing your changes. Your own words stay in the box: nothing here overwrites what you typed, and ↩ Undo steps back through every AI pass. This is the one part of the app that needs the local AI running — with it off, the Draft button is disabled and everything else on this tab still works."
               aria-label="What is this?">
@@ -1012,7 +1012,7 @@ Link to another note with [[its first few words]]."></textarea>
                  comment above #capture-help already claiming "same
                  disclosure pattern as #search-help below" — the shape was
                  shared, the class and markup weren't. -->
-            <button id="search-help" class="ghost small graph-help-toggle" type="button"
+            <button id="search-help" class="icon-only ghost small graph-help-toggle" type="button"
               aria-expanded="false" aria-controls="search-help-hint"
               title="What can I type here?" aria-label="What can I type here?">
               <i class="ph ph-question" aria-hidden="true"></i>
@@ -1706,7 +1706,7 @@ Link to another note with [[its first few words]]."></textarea>
              tooltip via `title`, plus a click-to-open panel for the same
              text end to end. Replaces a paragraph that used to sit under
              the toolbar permanently, on every visit. -->
-        <button type="button" id="timeline-help" class="ghost small graph-help-toggle"
+        <button type="button" id="timeline-help" class="icon-only ghost small graph-help-toggle"
           aria-expanded="false" aria-controls="timeline-intro"
           title="A note sits where it is about when it says so — &quot;the deadline is next Friday&quot; plots on that Friday, marked with a clock — and at when it was written otherwise. Click any note to open it."
           aria-label="How to read this">
@@ -1919,7 +1919,7 @@ Link to another note with [[its first few words]]."></textarea>
              then another loose action". -->
         <div class="graph-toolbar-end">
           <button id="graph-add-node" class="small" title="Add a new note straight onto the map"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New note</button>
-          <button type="button" id="graph-help-toggle" class="ghost small graph-help-toggle"
+          <button type="button" id="graph-help-toggle" class="icon-only ghost small graph-help-toggle"
             aria-expanded="false" aria-controls="graph-help-panel"
             title="Drag a note to place it — it stays where you put it, and is still there after a reload. Double-click a placed note to hand it back to the layout. Solid lines are links you made, dashed lines are trains of thought, dotted lines are notes that mean similar things. Hover a note to spotlight its connections, scroll or use the buttons to zoom, click a note to edit it right here, and click a legend colour to hide that category. Double-click empty space to add a note there. Drop one note onto another to link them, and use Trace to see how any two notes connect."
             aria-label="How to use this map">
@@ -2111,7 +2111,7 @@ Link to another note with [[its first few words]]."></textarea>
           <button id="graph-zoom-in" class="graph-zoom-btn" title="Zoom in" aria-label="Zoom in">＋</button>
           <button id="graph-zoom-out" class="graph-zoom-btn" title="Zoom out" aria-label="Zoom out">－</button>
           <button id="graph-zoom-fit" class="graph-zoom-btn" title="Fit the whole map to view" aria-label="Fit map to view">⤢</button>
-          <button id="graph-fullscreen" class="graph-zoom-btn" title="Full screen" aria-label="Full screen" aria-pressed="false"><i class="ph ph-frame-corners" aria-hidden="true"></i></button>
+          <button id="graph-fullscreen" class="icon-only graph-zoom-btn" title="Full screen" aria-label="Full screen" aria-pressed="false"><i class="ph ph-frame-corners" aria-hidden="true"></i></button>
         </div>
         <div id="graph-empty" class="empty-state hidden">
           <span class="empty-icon" aria-hidden="true"><i class="ph ph-share-network ph-lead" aria-hidden="true"></i></span>
@@ -2464,7 +2464,7 @@ Link to another note with [[its first few words]]."></textarea>
                and they were 736px in a 1132px pane, because a measure cap
                (78ch) is right for prose and wrong as the only option. The
                default is unchanged; this says so and offers the other. -->
-          <button type="button" id="doc-width-toggle" class="doc-toolbar-width"
+          <button type="button" id="doc-width-toggle" class="icon-only doc-toolbar-width"
             title="Use the full width of the pane" aria-pressed="false"
             aria-label="Use the full width of the pane"><i class="ph ph-arrows-out-line-horizontal" aria-hidden="true"></i></button>
           <!-- **Focus mode.** The one thing Obsidian, Notion and Kortex all
@@ -2477,7 +2477,7 @@ Link to another note with [[its first few words]]."></textarea>
                whiteboard's and graph's own full-screen toggles, so a person
                who has learned one already knows this one — including Esc to
                leave it. -->
-          <button type="button" id="doc-focus-toggle" class="doc-toolbar-width"
+          <button type="button" id="doc-focus-toggle" class="icon-only doc-toolbar-width"
             title="Focus mode — hide everything but the page (Esc to leave)" aria-pressed="false"
             aria-label="Focus mode — hide everything but the page"><i class="ph ph-frame-corners" aria-hidden="true"></i></button>
         </div>
@@ -2910,8 +2910,8 @@ Link to another note with [[its first few words]]."></textarea>
                  columns, which is what you want when the job is tidying up. -->
             <div class="seg seg-compact library-view" id="library-view" role="group"
               aria-label="How to show the library">
-              <button data-library-view="grid" type="button" title="Cards" aria-label="Card view"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
-              <button data-library-view="list" type="button" title="Rows" aria-label="Rows"><i class="ph ph-list" aria-hidden="true"></i></button>
+              <button class="icon-only" data-library-view="grid" type="button" title="Cards" aria-label="Card view"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
+              <button class="icon-only" data-library-view="list" type="button" title="Rows" aria-label="Rows"><i class="ph ph-list" aria-hidden="true"></i></button>
             </div>
             <!-- BACKLOG §77's pattern, completing §89 item 1's third and
                  last surface. "All" already renders through
@@ -3053,7 +3053,7 @@ Link to another note with [[its first few words]]."></textarea>
             <h2>AI Skill Library</h2>
             <span class="row">
               <button id="skills-add-new" class="small">+ New Skill</button>
-              <button type="button" id="skills-help" class="ghost small graph-help-toggle"
+              <button type="button" id="skills-help" class="icon-only ghost small graph-help-toggle"
                 aria-expanded="false" aria-controls="skills-intro"
                 title="Manage the capabilities of your AI agent. Enable, configure, and review execution logs."
                 aria-label="What is this?">
@@ -3122,12 +3122,12 @@ Link to another note with [[its first few words]]."></textarea>
                  set it. -->
             <div class="seg seg-compact library-view" id="library-boards-view" role="group"
               aria-label="How to show boards">
-              <button data-library-view="grid" type="button" title="Cards" aria-label="Card view"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
-              <button data-library-view="list" type="button" title="Rows" aria-label="Rows"><i class="ph ph-list" aria-hidden="true"></i></button>
+              <button class="icon-only" data-library-view="grid" type="button" title="Cards" aria-label="Card view"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
+              <button class="icon-only" data-library-view="list" type="button" title="Rows" aria-label="Rows"><i class="ph ph-list" aria-hidden="true"></i></button>
             </div>
             <button id="wb-boards-new" class="small" type="button"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New board</button>
             <button id="library-media-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
-            <button type="button" id="wb-boards-help" class="ghost small graph-help-toggle"
+            <button type="button" id="wb-boards-help" class="icon-only ghost small graph-help-toggle"
               aria-expanded="false" aria-controls="wb-boards-intro"
               title="Every board and concept map you have made. Pick one to open it, or use ＋ Create → New concept map to start a map from a core idea."
               aria-label="What is this?">
@@ -3833,9 +3833,9 @@ Link to another note with [[its first few words]]."></textarea>
       <div class="wb-properties-row hidden" id="wb-prop-align-row">
         <span>Align</span>
         <span class="seg seg-compact" id="wb-prop-align" role="group" aria-label="Text alignment">
-          <button type="button" data-align="left" title="Align left" aria-label="Align left"><i class="ph ph-text-align-left" aria-hidden="true"></i></button>
-          <button type="button" data-align="center" title="Centre" aria-label="Centre"><i class="ph ph-text-align-center" aria-hidden="true"></i></button>
-          <button type="button" data-align="right" title="Align right" aria-label="Align right"><i class="ph ph-text-align-right" aria-hidden="true"></i></button>
+          <button class="icon-only" type="button" data-align="left" title="Align left" aria-label="Align left"><i class="ph ph-text-align-left" aria-hidden="true"></i></button>
+          <button class="icon-only" type="button" data-align="center" title="Centre" aria-label="Centre"><i class="ph ph-text-align-center" aria-hidden="true"></i></button>
+          <button class="icon-only" type="button" data-align="right" title="Align right" aria-label="Align right"><i class="ph ph-text-align-right" aria-hidden="true"></i></button>
         </span>
       </div>
       <label class="wb-properties-row hidden" id="wb-prop-md-row" title="Show this box's markdown rendered — headings, bold, lists and links. Editing always shows the raw text.">
@@ -3920,7 +3920,7 @@ Link to another note with [[its first few words]]."></textarea>
           <button id="library-images-upload" class="small" type="button"><i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Upload</button>
           <input id="library-images-upload-input" aria-label="Choose images or PDFs to upload" title="Choose images or PDFs to upload" type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/x-icon,application/pdf" multiple class="hidden">
           <button id="library-images-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
-          <button type="button" id="library-images-help" class="ghost small graph-help-toggle"
+          <button type="button" id="library-images-help" class="icon-only ghost small graph-help-toggle"
             aria-expanded="false" aria-controls="library-images-intro"
             title="Every image pasted, dropped, or uploaded — in a note, a document, or on a whiteboard — or added directly here, then attachable to any note from its own &quot;Attach from Library&quot; action."
             aria-label="What is this?">
@@ -4076,9 +4076,18 @@ Link to another note with [[its first few words]]."></textarea>
     <section class="card glass">
       <div class="row space-between library-head">
         <h2>Contents</h2>
+        <!-- Directly requested: "make the text at the top of the contents page
+             one of those tooltip '?' buttons". Four lines of prose that only
+             ever needs reading once was pushing the controls a third of the
+             way down the card on every visit; the same words now open on
+             demand from the same "?" every other page in the app uses. -->
+        <button id="contents-help" class="ghost small icon-only graph-help-toggle" type="button"
+          aria-expanded="false" aria-controls="contents-intro"
+          title="An index of your notebook — by category, by tag, by the month you wrote it, or by the folder it came from if you imported a vault. Filter it, fold a section away, or jump straight to one. For the visual map of how notes link to each other, see the Graph tab."
+          aria-label="What is this page?"><i class="ph ph-question" aria-hidden="true"></i></button>
         <button id="contents-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
       </div>
-      <p class="muted">An index of your notebook — by category, by tag, by the
+      <p class="muted graph-help-panel hidden" id="contents-intro" role="dialog" aria-label="What is this page?">An index of your notebook — by category, by tag, by the
         month you wrote it, or by the folder it came from if you imported a
         vault. Filter it, fold a section away, or jump straight to one. For the
         visual map of how notes link to each other, see the Graph tab.</p>
@@ -5719,7 +5728,7 @@ Link to another note with [[its first few words]]."></textarea>
                        here, and jumped to (scrolled + flashed) from the
                        Dashboard, Ask sub-tab and Chat via
                        openSettingsModal("preferences", "search-relevance-group"). -->
-                  <button type="button" id="search-relevance-help" class="ghost small graph-help-toggle"
+                  <button type="button" id="search-relevance-help" class="icon-only ghost small graph-help-toggle"
                     aria-expanded="false" aria-controls="search-relevance-intro"
                     title="Minimum similarity: a semantic match below this score is dropped, however few results that leaves. Above-average margin: on top of that floor, a note also has to beat the rest of this search's own results by this many standard deviations — the app's own defence against a model that scores everything in a narrow band, so a flat floor alone lets unrelated notes through. Raise either number for fewer, more confident results; lower them if search feels too strict. Reset to default undoes both."
                     aria-label="What do these numbers mean?">

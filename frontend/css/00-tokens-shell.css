@@ -1111,10 +1111,28 @@ header#top-bar.tabs-wrapped #tab-bar {
   color: var(--warn);
 }
 
+/* The two state badges are chips (see renderExtras), so they only need their
+   colours here -- the box, padding and radius come from `.chip`. Both are
+   states, never controls: `cursor: default` and no hover keeps them from
+   reading as a third button beside Reinstall and Remove. */
 .extras-installed {
   color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 40%, transparent);
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
   font-weight: 600;
-  font-size: var(--text-md);
+  cursor: default;
+}
+
+/* The action column sits at the row's right edge instead of trailing the
+   title, so every row's buttons share one left edge however long its name is
+   -- the badges no longer have to act as the spacer between the two. */
+.extras-row .entry-meta {
+  gap: var(--space-3);
+}
+
+.extras-row .entry-actions {
+  margin-left: auto;
+  align-items: center;
 }
 
 /* The install-in-progress state: a step description over a progress bar,
@@ -1157,8 +1175,8 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 .extras-soon {
-  font-size: var(--text-sm);
   font-style: italic;
+  cursor: default;
 }
 
 /* --- the Library (§4, §36F) --------------------------------------------------

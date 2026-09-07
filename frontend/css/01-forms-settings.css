@@ -1605,11 +1605,40 @@ progress {
    this the narrower "in use" chip and the wider "Remove" button each sized
    their own column, so no two rows agreed on where either the size or the
    action began — measured at x=980/1070 on one row and 953/1042 on the next. */
-#installed-list li> :last-child {
+/* Reported: "the model button text in the settings isnt centred and has poor
+   affordance". `justify-content: flex-end` shares the column but pushes the
+   label to the right-hand edge *inside* the control, so "in use" sat against
+   the pill's right border with 2.5rem of empty pill beside it. The column is
+   what has to be fixed-width; the label inside it centres like every other
+   button's does. */
+#installed-list li > :last-child {
   flex: 0 0 5.5rem;
   display: inline-flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: center;
   margin: 0;
+}
+
+/* Affordance, same report: the two states were both grey pills, so the one
+   you can press looked exactly like the one you cannot. The chip stops
+   looking like a control (no border, no hover) and the button gains the
+   destructive tint it earns by deleting gigabytes off disk. */
+#installed-list li > .chip {
+  border-color: transparent;
+  background: var(--chip-bg);
+  color: var(--muted);
+  cursor: default;
+}
+
+#installed-list li > button {
+  border-color: var(--border);
+  color: var(--ink);
+}
+
+#installed-list li > button:hover {
+  border-color: var(--error);
+  color: var(--error);
+  background: var(--error-soft);
 }
 
 /* --- lock screen (Phase 4) ------------------------------------------------- */
@@ -4146,8 +4175,30 @@ select {
    Switches and sliders are deliberately exempt: a pill switch is 32x18 by
    the app-wide recipe (06-timeline-dialogs.css) and a range input draws its
    own track. Everything else that is a control gets the same 2.25rem box,
-   the same height DESIGN.md's control rule gives the toolbars. */
-#settings-modal .settings-section button,
+   the same height DESIGN.md's control rule gives the toolbars.
+
+   **Regression this rule caused, and the exclusion list that fixes it.**
+   Reported: "the palette ui is broken and elements overlap and clash".
+   `.theme-card` is a `<button>`, and a palette card is a *column* of a
+   title plus two lines of description -- about 90px of content. Pinning it
+   to 36px did not clip it (nothing here sets `overflow: hidden`); it made
+   the card's border box shorter than its own text, so every card's
+   description spilled over the card below it and the whole grid read as
+   overlapping rectangles. The same shape would hit any card, tile or
+   swatch that happens to be a button.
+
+   So the rule applies to *controls*, not to cards. Matching on the
+   substring rather than naming each class is deliberate: it is what stops
+   the next `something-card` button added to Settings from re-breaking the
+   grid, and a control is never named "card" or "tile" in this codebase.
+
+   Square controls are excluded for the same reason in the other direction.
+   Reported: "the 'keep this on the ai' '?' tooltip button is also an oval".
+   `.setting-hint-toggle` already declares 2rem x 2rem, but this rule is an
+   id plus a class plus an element, so its height won every time and left a
+   32x36 pill where a circle belongs. An icon-only button, a help dot and a
+   hint dot all size themselves; a fixed row height is not theirs to set. */
+#settings-modal .settings-section button:not([class*="card"]):not([class*="tile"]):not([class*="swatch"]):not([class*="preview"]):not(.icon-only):not(.icon-button):not([class*="help"]):not([class*="hint"]),
 #settings-modal .settings-section select,
 #settings-modal .settings-section .select-opener,
 #settings-modal .settings-section summary,
@@ -4162,6 +4213,18 @@ select {
   box-sizing: border-box;
 }
 
+/* A fixed height and a wrapping label cannot both be right. Reported with a
+   screenshot of the About page: "Restart MemoryMap" and "Reload the app"
+   each broke onto two lines inside a 36px box, so the second line sat over
+   the button's own bottom border. Widening is the correct give here -- these
+   rows wrap, so a wider button moves to the next line instead of pushing
+   anything off screen, and a two-line label in a control strip was never the
+   intended look. */
+#settings-modal .settings-section button,
+#settings-modal .settings-section summary {
+  white-space: nowrap;
+}
+
 /* A range input has no box of its own to size, so it is centred against the
    controls beside it rather than stretched to match them. */
 #settings-modal .settings-section input[type="range"] {
@@ -4172,4 +4235,26 @@ select {
    row centring its own contents differently. */
 #settings-modal .settings-section .row {
   align-items: center;
+}
+
+/* Reported: "the elements have no gap between them", with the search-relevance
+   block as the example. `.row` sets a *column* gap only, so two stacked rows
+   sit flush and read as one crowded block -- three controls with no air
+   between them, which is what makes a settings panel look unformatted even
+   when every control in it is the right size. */
+#settings-modal .settings-section .row + .row {
+  margin-top: var(--space-3);
+}
+
+/* A label-then-control row needs its controls to share a left edge, or the
+   inputs start wherever each label happens to end -- measured at x=320 and
+   x=372 on the two rows of this block, which is the ragged edge in the
+   report's screenshot. */
+#search-relevance-group .row > label {
+  flex: 0 0 11rem;
+}
+
+#search-relevance-group .row > input {
+  flex: 1 1 auto;
+  min-width: 0;
 }

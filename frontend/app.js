@@ -1358,6 +1358,17 @@ function smallButton(label, title, onClick, ghost = true) {
   const button = document.createElement("button");
   button.className = ghost ? "ghost small" : "small";
   setLabel(button, label);
+  // **A button whose whole content is one glyph is square, without the caller
+  // having to remember `.icon-only`.** Reported: "the backup x buttons arent
+  // square" -- `smallButton("x", ...)` inherits `button.small`'s text padding
+  // (0 0.8rem) and comes out a rectangle. CSS cannot see text, so this is the
+  // one place that can decide it: setLabel has just told us whether a label
+  // followed the icon (it emits `.ph-text` only then), and a bare character
+  // label leaves one character of text behind. Everything with real words is
+  // untouched.
+  if (!button.querySelector(".ph-text") && button.textContent.trim().length <= 1) {
+    button.classList.add("icon-only");
+  }
   button.title = title;
   if (title) button.setAttribute("aria-label", title);
   button.addEventListener("click", onClick);
@@ -25666,10 +25677,15 @@ async function renderExtras() {
       // A tick, not a disabled button. "Installed" is the answer to the only
       // question this row asks, and a greyed-out Install invites a click that
       // will do nothing.
-      const done = document.createElement("span");
-      done.className = "extras-installed";
-      done.textContent = "✓ Installed";
-      actions.appendChild(done);
+      // A chip, beside the name, not a coloured word wedged between the title
+      // and the first button. Reported: "the installed and not ready yet
+      // badges are poorly spaced and aligned and need affordance" -- as bare
+      // text it had no box of its own, so it inherited the row's 0.4rem gap on
+      // both sides and read as part of whichever neighbour you looked at
+      // first. A chip says "state", a button says "press me", and this is a
+      // state.
+      const done = chip("ph:check-circle Installed", "extras-installed");
+      head.appendChild(done);
       // And a way back out of the state detection cannot see. `find_spec`
       // answers "is it there", not "is it sound" — a half-finished download or
       // a wheel built for the wrong platform imports and does not work, and
@@ -25728,10 +25744,9 @@ async function renderExtras() {
       const blocked = smallButton("⬇ Install", extra.unavailable, () => {});
       blocked.disabled = true;
       actions.appendChild(blocked);
-      const soon = document.createElement("span");
-      soon.className = "muted extras-soon";
-      soon.textContent = "Not ready yet";
-      actions.appendChild(soon);
+      // Same treatment as Installed, and for the same reason: it is the row's
+      // state, so it sits with the name rather than in the action column.
+      head.appendChild(chip("ph:hourglass Not ready yet", "extras-soon"));
     } else {
       actions.appendChild(
         smallButton("⬇ Install", `Install ${extra.label}`, async () => {
@@ -28313,6 +28328,7 @@ initHelpToggle("timeline-help", "timeline-intro");
 initHelpToggle("skills-help", "skills-intro");
 initHelpToggle("wb-boards-help", "wb-boards-intro");
 initHelpToggle("library-images-help", "library-images-intro");
+initHelpToggle("contents-help", "contents-intro");
 restoreDraftLocally();
 
 // --- note picker wiring ---

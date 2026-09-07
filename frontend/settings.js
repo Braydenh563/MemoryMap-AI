@@ -2999,7 +2999,7 @@ function collapseLongSettingHints(root) {
 
     const toggle = document.createElement("button");
     toggle.type = "button";
-    toggle.className = "ghost small setting-hint-toggle";
+    toggle.className = "ghost small icon-only setting-hint-toggle";
     setLabel(toggle, "ph:question");
     // The label text, so the control says which setting it explains rather
     // than being one of a column of identical "?"s to a screen reader.

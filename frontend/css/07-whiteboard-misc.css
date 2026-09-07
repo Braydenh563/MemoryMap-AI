@@ -5818,3 +5818,14 @@ button.connection-row {
   grid-row: 1;
   justify-self: end;
 }
+
+/* The bend point on a selected link — a sibling of the endpoint handles,
+   filled with the accent so it reads as "the curve's own control", not a
+   third endpoint. Same pointer-events opt-in, for the same reason. */
+.wb-link-bend-handle {
+  fill: var(--accent);
+  stroke: var(--card);
+  stroke-width: 2px;
+  cursor: move;
+  pointer-events: auto;
+}

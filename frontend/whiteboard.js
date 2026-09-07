@@ -1240,7 +1240,22 @@ function wbLinkCaps(parsed) {
 //: link between adjacent cards loop absurdly. An endpoint with no direction
 //: — a free dangling point, or the live drag preview — keeps the original
 //: horizontal behaviour, which is correct for a point with no edge.
-function wbLinkPathD(type, sPt, tPt, caps, width) {
+//: `bend` — asked for directly: "I want to be able to double click on lines,
+//: add points for curving lines and connections." An offset from the chord's
+//: midpoint, in board units; when set, the link is a single quadratic curve
+//: through that control point (straight *or* curved kind — a bent straight
+//: line is a curve, which is what "add a point" means). Absent, both kinds
+//: draw exactly as they always did.
+function wbLinkPathD(type, sPt, tPt, caps, width, bend) {
+  if (bend && (bend.x || bend.y)) {
+    const ctrl = { x: (sPt.x + tPt.x) / 2 + bend.x, y: (sPt.y + tPt.y) / 2 + bend.y };
+    let d = `M ${sPt.x} ${sPt.y} Q ${ctrl.x} ${ctrl.y}, ${tPt.x} ${tPt.y}`;
+    const startCap = caps?.startCap || "none", endCap = caps?.endCap || "none";
+    const headLen = (width || 3) * 4 + 6;
+    if (endCap !== "none") d += " " + wbCapPath(endCap, tPt.x, tPt.y, Math.atan2(tPt.y - ctrl.y, tPt.x - ctrl.x), headLen);
+    if (startCap !== "none") d += " " + wbCapPath(startCap, sPt.x, sPt.y, Math.atan2(sPt.y - ctrl.y, sPt.x - ctrl.x), headLen);
+    return d;
+  }
   const straight = type === "link-straight";
   const dx = tPt.x - sPt.x;
   const dy = tPt.y - sPt.y;
@@ -5525,6 +5540,46 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
   wbClearSketchHandles();
   const group = d3.select("#wb-overlay-zoom-group").append("g").attr("class", "wb-sketch-handle-group");
 
+  // The bend handle: drag to curve the link, double-click to straighten it.
+  // Sits at the control point (or the chord midpoint when there is none) so
+  // the thing you grab is the thing that moves.
+  {
+    const mid = { x: (endpoints.source.x + endpoints.target.x) / 2, y: (endpoints.source.y + endpoints.target.y) / 2 };
+    const bendLive = { x: parsed.bend?.x || 0, y: parsed.bend?.y || 0 };
+    const paths = () => [".sketch-path", ".sketch-hitbox"].map((c) => document.querySelector(`.sketch-group[data-id="${sketch.id}"] ${c}`));
+    const repaint = () => {
+      const d = wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, bendLive);
+      for (const el of paths()) el?.setAttribute("d", d);
+    };
+    const handle = group.append("circle")
+      .attr("class", "wb-link-bend-handle")
+      .attr("cx", mid.x + bendLive.x).attr("cy", mid.y + bendLive.y)
+      .attr("r", 6);
+    handle.append("title").text("Drag to bend this link · double-click to straighten");
+    handle.call(
+      d3.drag()
+        .on("start", (event) => event.sourceEvent.stopPropagation())
+        .on("drag", function (event) {
+          bendLive.x += event.dx;
+          bendLive.y += event.dy;
+          d3.select(this).attr("cx", mid.x + bendLive.x).attr("cy", mid.y + bendLive.y);
+          repaint();
+        })
+        .on("end", async () => {
+          const before = WB_KIND_INFO.sketch.payload(sketch);
+          await wbSaveSketchProps(sketch, { bend: (bendLive.x || bendLive.y) ? { x: bendLive.x, y: bendLive.y } : undefined });
+          wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
+          wbScheduleRender();
+        })
+    ).on("dblclick", async (event) => {
+      event.stopPropagation();
+      const before = WB_KIND_INFO.sketch.payload(sketch);
+      await wbSaveSketchProps(sketch, { bend: undefined });
+      wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
+      wbScheduleRender();
+    });
+  }
+
   const hoveredNodeAt = (px, py) => {
     for (const node of wbState.nodes) {
       const box = wbItemBBox("node", node);
@@ -5562,7 +5617,7 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
             live.y += event.dy;
             d3.select(this).attr("cx", live.x).attr("cy", live.y);
             const previewPts = end === "source" ? [live, endpoints[other]] : [endpoints[other], live];
-            const previewD = wbLinkPathD(parsed.type, previewPts[0], previewPts[1], wbLinkCaps(parsed), parsed.width);
+            const previewD = wbLinkPathD(parsed.type, previewPts[0], previewPts[1], wbLinkCaps(parsed), parsed.width, parsed.bend);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", previewD);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", previewD);
 
@@ -5910,6 +5965,31 @@ function renderWhiteboard() {
     .attr("data-id", d => d.id)
     .style("cursor", () => (window.currentTool === "delete" || window.currentTool === "eraser" || window.currentTool === "select") ? "pointer" : "default")
     .call(sketchDrag)
+    .on("dblclick", async (event, d) => {
+      // Asked for directly: "double click on lines, add points for curving
+      // lines and connections." Only a link has a bend; a drawn shape's own
+      // double-click is left to whatever else wants it.
+      let parsed = null;
+      try { parsed = JSON.parse(d.data); } catch { parsed = null; }
+      if (!parsed || !(parsed.type || "").startsWith("link-")) return;
+      event.stopPropagation();
+      const endpoints = wbResolveLinkEndpoints(parsed);
+      if (!endpoints) return;
+      const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+      const rect = document.getElementById("wb-svg-layer").getBoundingClientRect();
+      const px = (event.clientX - rect.left - transform.x) / transform.k;
+      const py = (event.clientY - rect.top - transform.y) / transform.k;
+      const mid = { x: (endpoints.source.x + endpoints.target.x) / 2, y: (endpoints.source.y + endpoints.target.y) / 2 };
+      // A quadratic through the click: the control point is twice as far from
+      // the chord as the point you want the curve to pass through.
+      const bend = { x: (px - mid.x) * 2, y: (py - mid.y) * 2 };
+      const before = WB_KIND_INFO.sketch.payload(d);
+      await wbSaveSketchProps(d, { bend });
+      wbPushUndo({ action: "move", kind: "sketch", id: d.id, before });
+      wbSelectToolRef?.("select");
+      selectWbItem("sketch", d.id);
+      wbScheduleRender();
+    })
     .on("click", (event, d) => {
       // ROADMAP row 0(b), asked for directly: with the Hand active, a plain
       // click on something switches to Select and selects it. A pan is a
@@ -5992,7 +6072,7 @@ function renderWhiteboard() {
         strokeWidth = String(parsed.width || 3);
         dashArray = wbDashArray(parsed.dash || "solid", parsed.width || 3);
         const endpoints = wbResolveLinkEndpoints(parsed);
-        pathData = endpoints ? wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width) : "";
+        pathData = endpoints ? wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, parsed.bend) : "";
       }
     } catch(e) {}
     d3.select(this).select(".sketch-hitbox").attr("d", pathData);
@@ -6757,7 +6837,7 @@ function wbUpdateLinkedSketches(nodeId, precomputed) {
   for (const { sketch, parsed } of pairs) {
     const endpoints = wbResolveLinkEndpoints(parsed);
     if (!endpoints) continue;
-    const pathData = wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width);
+    const pathData = wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, parsed.bend);
     const el = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
     el?.querySelector(".sketch-path")?.setAttribute("d", pathData);
     el?.querySelector(".sketch-hitbox")?.setAttribute("d", pathData);

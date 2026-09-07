@@ -3318,6 +3318,24 @@ mark.lightbox-hit {
   overflow: hidden;
 }
 
+/* **The badge that says a reading exists**, not the reading itself — asked
+   for directly: "when an image and/or document is captioned and ocr is used
+   it should be tagged under the image in the chat bubble." The caption above
+   is the model's *description*; this is its *transcription*, which was
+   already resolved by the backend and handed to the lightbox on click, with
+   nothing in the bubble saying it was there to look at. Same "Read · N
+   words" shape and the same `--ok` "this is done" colour the Files sub-tab's
+   reading list uses (`library-read-badge.is-read`), so the one fact reads
+   the same way in both places. A real `<button>`, `align-self: flex-start`
+   so it does not stretch to the card's width like a block-level chip would. */
+.msg-attachment-read-badge {
+  align-self: flex-start;
+  border: 1px solid color-mix(in srgb, var(--ok) 35%, transparent);
+  color: var(--ok);
+  background: none;
+  cursor: pointer;
+}
+
 .msg-attachment-actions {
   display: flex;
   gap: var(--space-2);

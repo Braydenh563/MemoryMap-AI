@@ -102,6 +102,17 @@ intervening commits is still owed.
   All four delete doors now offer Undo.
 - **A refresh button on the Your Notes sub-tab**, matching the one every
   other Library list already had.
+- **A "Read · N words" badge on chat images that have been OCR'd.** The
+  caption already showed under the thumbnail; the vision-OCR/Tesseract
+  reading was resolved by the backend the whole time but nothing in the
+  bubble said it existed. Clicking the badge opens the same lightbox the
+  picture itself does.
+- **`read_file` can target a search term.** A new optional `query` argument
+  returns the text around where it actually appears instead of only the
+  first ~2000 characters — a multi-page scan's later pages were previously
+  unreachable through this tool no matter how precisely `search_files` had
+  already located the match. `list_documents`'s search preview and
+  `get_document`'s no-embedding-backend fallback got the same fix.
 
 ### Fixed
 - **The chat sidebar never marked the open conversation.** A `null` passed as

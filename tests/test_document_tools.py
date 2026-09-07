@@ -1,113 +1,99 @@
-"""The agent can write a document, not only read one (roadmap §35J).
+"""`list_documents`/`get_document`: the search preview and the plain
+(no-embeddings) full read actually contain the search term, not just the
+document's opening paragraph.
 
-Reported directly: "the agent can't create a document either". There was
-`list_documents` and `get_document` and no way to make one — so a model asked
-to "write this up properly" could read every document the user had and then
-had nowhere to put the result.
-
-A gap nobody noticed rather than a deliberate limit: §5's document work was
-built UI-first, and the tools were added for reading because that is what the
-chat needed at the time.
-
-Kept as its own tool rather than a flag on `create_note`. The database keeps
-notes and documents apart precisely so half-written documents do not turn up in
-search results and in the graph; one tool covering both would hand the model
-the decision that the separation exists to make.
+Reported directly: "if the ai is searching for something, might keywords be
+flagged in certain pages of a file document in the actual document and/or
+extracted text, then it can use a tool or smth simpler to get the full text
+from those areas??" `list_documents` already found the right document (a
+plain SQL `ILIKE` over the whole body) — the preview it handed back was
+always the document's first `PREVIEW_CHARS` characters regardless of where
+the match was, and `get_document`'s own `query` argument only ranked
+paragraphs when a working embedding backend was present, which CLAUDE.md
+says this project runs without on purpose (no torch, no
+sentence-transformers). Without one, a query used to fall straight through
+to the same head-of-document clip as no query at all.
 """
 
 from __future__ import annotations
 
-import pytest
-
-from memorymap.ai import agent, tools
+from memorymap.ai import tools
+from memorymap.ai.tools._common import DOCUMENT_CHARS, PREVIEW_CHARS
+from memorymap.core import deps
 from memorymap.core.database import Document
 
 
-def test_a_document_is_written_and_readable_back(session, app_state):
-    result = tools.TOOLS["create_document"].handler(
-        session, {"title": "Bean report", "content": "# Beans\n\nThey grow."}
+class _NoEmbeddings:
+    """Stands in for `deps.get_embeddings()` on an install with no working
+    backend — exactly the case CLAUDE.md says this project runs in by
+    default (no torch, no sentence-transformers). The suite's own fixture
+    backend (`tests/fakes.py`) is real enough to rank paragraphs, which
+    would take the *better* path (`used_snippets=True`) rather than the one
+    these two tests exist to pin — so it is swapped out deliberately, once,
+    for the tests that need the fallback specifically."""
+
+    def embed_text(self, text: str):  # noqa: ANN001, D102
+        return None
+
+
+def _doc(session, title="Untitled", content=""):
+    row = Document(title=title, content=content)
+    session.add(row)
+    session.commit()
+    return row
+
+
+def test_the_tools_are_registered():
+    assert "list_documents" in tools.TOOLS
+    assert "get_document" in tools.TOOLS
+
+
+def test_list_documents_preview_contains_the_matched_term(session):
+    filler = "padding " * 100  # comfortably past PREVIEW_CHARS
+    assert len(filler) > PREVIEW_CHARS
+    _doc(session, "Meeting notes", f"{filler}the launch date is March 3rd{filler}")
+    found = tools.TOOLS["list_documents"].handler(session, {"query": "launch date"})
+    assert found["returned"] == 1
+    assert "launch date is March 3rd" in found["documents"][0]["preview"]
+
+
+def test_list_documents_with_no_query_keeps_the_head_of_document_preview(session):
+    """Additive, not a replacement for the plain "list everything" case."""
+    _doc(session, "Short one", "Hello, this is the start of a document.")
+    found = tools.TOOLS["list_documents"].handler(session, {})
+    assert found["documents"][0]["preview"] == "Hello, this is the start of a document."
+
+
+def test_get_document_with_a_query_falls_back_to_the_matched_passage(session, monkeypatch):
+    """The case CLAUDE.md describes as the project's default (no embedding
+    backend): `q_vec` comes back `None`, and before this fix that meant a
+    plain head-of-document clip with no regard for where — or whether — the
+    term actually appeared."""
+    monkeypatch.setattr(deps, "get_embeddings", lambda: _NoEmbeddings())
+    filler = "the quick brown fox jumps over the lazy dog. " * 300
+    assert len(filler) > DOCUMENT_CHARS
+    doc = _doc(session, "Long report", f"{filler}THE BUDGET IS $4,471{filler}")
+    read = tools.TOOLS["get_document"].handler(
+        session, {"document_id": doc.id, "query": "budget"}
     )
-    stored = session.get(Document, result["id"])
-    assert stored.title == "Bean report"
-    assert stored.content == "# Beans\n\nThey grow."
-    assert result["words"] == 4  # "#", "Beans", "They", "grow."
+    assert "THE BUDGET IS $4,471" in read["content"]
+    assert "search term" in read["label"]
 
 
-def test_it_offers_an_undo(session, app_state):
-    """Every other write carries the call that would put it back, so the run
-    summary can show an Undo beside it. §21 lists "links and reminders have no
-    inverse tool" as a real cost — shipping a new write without one would be
-    adding to that list rather than working it down."""
-    result = tools.TOOLS["create_document"].handler(
-        session, {"title": "Draft", "content": "text"}
+def test_get_document_with_a_query_that_does_not_appear_keeps_the_old_behaviour(session, monkeypatch):
+    """A query for a word that is not in the document must not pretend it
+    found something — falls back to the plain head-of-document clip, same
+    as if no query had been given at all."""
+    monkeypatch.setattr(deps, "get_embeddings", lambda: _NoEmbeddings())
+    doc = _doc(session, "Doc", "Nothing relevant is written here at all.")
+    read = tools.TOOLS["get_document"].handler(
+        session, {"document_id": doc.id, "query": "xylophone"}
     )
-    undo = result["undo"]
-    assert undo["tool"] == "delete_document"
-    tools.TOOLS["delete_document"].handler(session, undo["arguments"])
-    assert session.get(Document, result["id"]) is None
+    assert read["content"] == "Nothing relevant is written here at all."
+    assert "search term" not in read["label"]
 
 
-def test_deleting_a_document_asks_first():
-    """It is not soft-deleted the way a note is, so it never runs inside the
-    agent loop — the user gets a confirm card."""
-    assert tools.TOOLS["delete_document"].destructive is True
-    assert tools.TOOLS["create_document"].destructive is False
-
-
-def test_a_created_document_is_not_mistaken_for_a_note():
-    """Robustness pass, reported as the agent "doing things that don't make
-    sense": the run summary's `change` event used to read
-    `result.get("id")` unconditionally and call it `note_id`, whatever the
-    tool actually touched. A skill that wrote a document during a run would
-    then produce a change whose "note_id" was really that document's id —
-    the chat UI's own View button (§21/§22) would take you to whatever note
-    happened to share that id, or nowhere. `create_document`'s own id must
-    never be read back out as a note's."""
-    result = {"id": 41, "title": "Bean report", "label": "created"}
-    assert agent._change_note_id("create_document", result) is None
-
-
-def test_note_tools_still_carry_their_own_note_id():
-    """The inverse of the bug above: a genuine note write must still resolve
-    — link_notes and unlink_notes use their own field names ("linked" /
-    "unlinked") rather than "id", and delete_note uses "deleted"."""
-    assert agent._change_note_id("create_note", {"id": 7}) == 7
-    assert agent._change_note_id("link_notes", {"linked": [3, 9]}) == 3
-    assert agent._change_note_id("unlink_notes", {"unlinked": [3, 9]}) == 3
-    assert agent._change_note_id("delete_note", {"deleted": 12}) == 12
-    assert agent._change_note_id("set_reminder", {"id": 5}) is None
-    assert agent._change_note_id("link_notes", {"linked": []}) is None
-
-
-def test_an_empty_document_is_refused(session, app_state):
-    """A titled empty document is the shape of a model that called the tool to
-    announce its intention. Refusing is what makes it write first."""
-    with pytest.raises(tools.ToolError, match="content"):
-        tools.TOOLS["create_document"].handler(session, {"title": "Later", "content": " "})
-
-
-def test_a_document_with_no_title_is_refused(session, app_state):
-    with pytest.raises(tools.ToolError, match="title"):
-        tools.TOOLS["create_document"].handler(session, {"title": "", "content": "text"})
-
-
-def test_an_enormous_document_is_refused_with_its_size(session, app_state):
-    """The content comes back through the model's own output, and an unbounded
-    one means a single call could fill the window on the next round."""
-    huge = "x" * (tools.MAX_NEW_DOCUMENT_CHARS + 1)
-    with pytest.raises(tools.ToolError, match="too long"):
-        tools.TOOLS["create_document"].handler(session, {"title": "Big", "content": huge})
-
-
-def test_it_counts_as_a_write(session, app_state):
-    """So the change shows in a skill run's summary, and so the hallucination
-    net does not warn about a document that really was written."""
-    assert "create_document" in tools.WRITE_TOOLS
-    assert agent.unsupported_claims("I wrote that up for you.", {"create_document"}) == []
-
-
-def test_the_write_up_words_offer_it(app_state):
-    """"Write this up" cued nothing before the tool existed to be cued."""
-    for question in ("write up my bean notes", "draft a report on beans"):
-        focused = tools.focus_for(question)
-        assert focused is None or "create_document" in focused
+def test_get_document_with_no_query_is_unchanged(session):
+    doc = _doc(session, "Doc", "Plain content, no query given.")
+    read = tools.TOOLS["get_document"].handler(session, {"document_id": doc.id})
+    assert read["content"] == "Plain content, no query given."

@@ -11581,6 +11581,47 @@ function chatAttachmentStrip(attachments) {
         figure.appendChild(caption);
       }
 
+      //: **The other half nothing said out loud.** Asked for directly: "in
+      //: the chat, when an image and/or document is captioned and ocr is
+      //: used it should be tagged under the image in the chat bubble." The
+      //: caption was already shown above; `item.text` (the vision-OCR or
+      //: Tesseract reading) was resolved by the backend the whole time
+      //: (`_hydrate_attachments` in routes_conversations.py) and handed to
+      //: the lightbox on click — but nothing in the bubble itself said a
+      //: reading existed at all, so the only way to learn one was there was
+      //: to open the picture and look.
+      //:
+      //: A badge, not the text itself: this app has already learned that
+      //: lesson once (`ai/embeddings.py`'s `MAX_MEDIA_TEXT_CHARS` note on why
+      //: a whole page of transcription does not belong inline in a note), and
+      //: a chat bubble is an even worse place for a page of OCR text to land
+      //: uninvited. Same "Read · N words" shape the Files sub-tab's reading
+      //: list already uses, so the same fact reads the same way everywhere it
+      //: appears.
+      if (item.text) {
+        const words = item.text.trim().split(/\s+/).length;
+        const badge = document.createElement("button");
+        badge.type = "button";
+        badge.className = "chip msg-attachment-read-badge";
+        setLabel(badge, `ph:scan Read · ${words.toLocaleString()} words`);
+        badge.title = "Text was found in this picture — click it to see the page";
+        //: Same lightbox call the thumbnail itself uses, so "click the
+        //: picture" and "click the badge that says there is text on it" land
+        //: on the same place rather than becoming two different doors.
+        badge.addEventListener("click", () =>
+          openLightbox(
+            images.map((i) => ({
+              filename: i.name,
+              getUrl: () => mediaSrc(i.url),
+              caption: i.caption || "",
+              text: i.text || "",
+            })),
+            images.indexOf(item)
+          )
+        );
+        figure.appendChild(badge);
+      }
+
       const actions = document.createElement("div");
       actions.className = "msg-attachment-actions";
       actions.appendChild(

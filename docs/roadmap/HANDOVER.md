@@ -182,6 +182,45 @@ exist, that is said too — with what was actually wrong with it.
   browser (reading present -> confirm -> "Nothing read yet").
 - ~~"there's also no refresh button on the your notes subtab"~~ — every other
   Library list had one; the notebook's own front page did not.
+- ~~"in the chat, when an image and/or document is captioned and ocr is used
+  it should be tagged under the image in the chat bubble"~~ — the caption
+  was already shown as a figcaption; the vision-OCR/Tesseract reading
+  (`item.text`) was resolved by the backend the whole time
+  (`_hydrate_attachments`, routes_conversations.py) and handed to the
+  lightbox on click, but nothing in the bubble said a reading existed at
+  all. A "Read · N words" badge now sits under the thumbnail, same shape and
+  colour the Files sub-tab's own reading badge uses, clickable to the same
+  lightbox. Verified end to end: uploaded an image with a stored OCR
+  reading, saved a turn referencing it, reopened the conversation — badge
+  present with the right count, click opens the lightbox on the text.
+- ~~"if the ai is searching for something, might keywords be flagged in
+  certain pages of a file document in the actual document and/or extracted
+  text, then it can use a tool or smth simpler to get the full text from
+  those areas"~~ — a real gap, not a misunderstanding. `search_files` and
+  `list_documents` already found the right file/document (a correct
+  substring/ILIKE scan over the whole text) — the preview and even the full
+  read then clipped from the **start** of the text regardless of where the
+  match was, and `read_file`'s own cap (`FILE_TEXT_CHARS = 2000`, about a
+  page) meant a keyword on page five of a scan was never reachable through
+  that tool at all, however precisely the search had located it. New
+  `_keyword_context` helper (window around each hit, merged when they
+  overlap, head-of-text fallback when there is no match) wired into both
+  search previews and a new optional `query` argument on `read_file` — the
+  "or something simpler" this was asked for by name, and specifically the
+  path that works with **no embedding backend**, which CLAUDE.md says this
+  project runs without on purpose. `get_document`'s existing `query`
+  argument already ranked paragraphs by embedding similarity when one is
+  present; this is its fallback for when one is not, replacing what used to
+  be a silent plain head-of-document clip. 28 new tests.
+- Investigated, not a bug: "I uploaded an image to the chat and it worked,
+  but in the library, it shows the vision model did the image caption AND
+  the ocr which I think is incorrect." It is deliberate and already
+  switchable — `process_committed_upload` (core/media_process.py) runs two
+  genuinely different single-purpose prompts on the same picture ("describe
+  this image" vs "transcribe every piece of text visible in this image"),
+  gated by two independent Settings toggles
+  (`auto_caption_images`/`auto_read_image_text`), both documented at length
+  in that module for exactly this reason. Not changed.
 
 ### The sweep, and what it did *not* find
 

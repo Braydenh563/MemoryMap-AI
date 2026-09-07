@@ -45,6 +45,7 @@ __all__ = [
     "_category_clause",
     "_since_days",
     "_refresh_embedding",
+    "_keyword_context",
 ]
 
 
@@ -108,6 +109,89 @@ DOCUMENT_CHARS = 12_000
 
 def _clip(text: str, length: int = 300) -> str:
     return text if len(text) <= length else text[: length - 1] + "…"
+
+
+#: How much text either side of a keyword hit travels with it. Enough that a
+#: sentence has room either side of the word that matched; the selection
+#: toolbar's own "how much travels with the selection" note (documents.js)
+#: uses the same reasoning for the same reason — a hit with no surroundings
+#: answers "is the word here" and not "what does it say here".
+_KEYWORD_CONTEXT_RADIUS = 200
+
+#: How many separate hits one call surfaces. A word that appears fifty times
+#: in a long document is not usefully described by fifty snippets; three
+#: locations is enough to show the model the shape of where it appears and
+#: cheap enough that a caller can always ask read_document/read_file again
+#: with a narrower query for one of them specifically.
+_KEYWORD_CONTEXT_MAX_HITS = 3
+
+
+def _keyword_context(
+    text: str,
+    needle: str,
+    *,
+    radius: int = _KEYWORD_CONTEXT_RADIUS,
+    max_hits: int = _KEYWORD_CONTEXT_MAX_HITS,
+    length: int = 0,
+) -> str:
+    """The text *around* where `needle` actually appears, not the start of
+    the document — asked for directly, and a real gap rather than a
+    misunderstanding of one that already existed: *"if the ai is searching
+    for something, might keywords be flagged in certain pages of a file
+    document in the actual document and/or extracted text, then it can use
+    a tool or smth simpler to get the full text from those areas."*
+
+    Before this, every search-result preview and every plain (no-embeddings)
+    document/file read clipped from the *start* of the text — `_clip(text,
+    N)` — regardless of where a match actually was. `_matches`/`ILIKE`
+    correctly finds a document because the word is in it somewhere; the
+    preview it hands the model is the document's opening paragraph, which,
+    fifty pages away from the actual hit, may share nothing with it at all.
+    `read_file`'s own full-text cap (`FILE_TEXT_CHARS = 2000`) makes this
+    concrete: a vision-OCR'd multi-page scan easily runs past that from page
+    two onward, so a keyword on page five was never reachable through this
+    tool at all, however precisely `search_files` had already located it.
+
+    Case-insensitive, matches merged when their windows overlap (a phrase
+    that recurs two sentences apart reads as one passage, not two identical
+    fragments with a gap between). Falls back to a plain head-of-text clip
+    — `_clip`'s existing behaviour — when there is no needle or no match, so
+    every caller can pass a query unconditionally and a document with none
+    of the words in it still returns something rather than nothing.
+    """
+    cap = length or radius * (2 * max_hits + 1)
+    plain = (needle or "").strip()
+    if not plain:
+        return _clip(text, cap)
+    hay = text.lower()
+    term = plain.lower()
+    spans: list[tuple[int, int]] = []
+    start = 0
+    while len(spans) < max_hits:
+        at = hay.find(term, start)
+        if at == -1:
+            break
+        spans.append((max(0, at - radius), min(len(text), at + len(term) + radius)))
+        start = at + len(term)
+    if not spans:
+        return _clip(text, cap)
+    # Merge windows that overlap or sit back-to-back, so a term that recurs
+    # close together reads as one continuous passage rather than two
+    # snippets duplicating their middle.
+    spans.sort()
+    merged: list[list[int]] = []
+    for lo, hi in spans:
+        if merged and lo <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], hi)
+        else:
+            merged.append([lo, hi])
+    parts = []
+    for lo, hi in merged:
+        piece = text[lo:hi].strip()
+        prefix = "…" if lo > 0 else ""
+        suffix = "…" if hi < len(text) else ""
+        parts.append(f"{prefix}{piece}{suffix}")
+    return "\n\n".join(parts)
 
 
 def _visible(*extra):

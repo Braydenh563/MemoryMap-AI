@@ -35,6 +35,12 @@ priority of the handover and roadmap."*
    already exists (a board is already an `Entry`); its §4 asks for a scope call
    before anything is built.
 7. [DESIGN.md](DESIGN.md) and [ARCHITECTURE.md](ARCHITECTURE.md) as reference.
+8. [roadmap/MODERNISATION_AUDIT.md](roadmap/MODERNISATION_AUDIT.md) — the full
+   application audit with the numbers behind it (boot 864ms, 14 idle requests a
+   minute, 22 button recipes on Chat, 76% chrome on a phone), a 90-day roadmap
+   and eight execution briefs. It **cross-links these plans rather than
+   repeating them**, and its §D6 lists three things they still describe as
+   missing that are already built.
 
 **The order of work.** Each item is a session or less; each ends green and
 pushed.

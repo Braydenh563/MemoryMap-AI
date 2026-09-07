@@ -406,8 +406,7 @@ like using Obsidian or Notion."* Ordered by how much each one gets in the way.
 
 ## 6. OpenAI-compatible backends — **done**
 
-Built. Moved to [HISTORY.md](HISTORY.md) with the rest of the finished work;
-the number is kept here so §6 references still land somewhere sensible.
+Built — the detail moved to [HISTORY.md](HISTORY.md) ("Retired from the live files, 2026-09-07"). Kept for its number.
 
 ## 7. Desktop packaging
 
@@ -2164,7 +2163,7 @@ only the fake-transport tests exercise it.
 
 ## 63. Ship a starter skills library — DONE, this claim was stale
 
-**Done.** The claim that this was outstanding was stale when it was written.
+Built — the detail moved to [HISTORY.md](HISTORY.md) ("Retired from the live files, 2026-09-07"). Kept for its number.
 
 ## 64. Documents editor — behind the rest of the app, needs its own pass
 
@@ -2883,19 +2882,7 @@ larger piece.
 
 ### What was built
 
-- **Metadata everywhere, not just the gallery.** `GET /media/meta/{filename}`
-  plus the lightbox asking for anything its caller did not pass. The bug was
-  never in the lightbox: caption/OCR/facts arrived as *arguments* and only
-  the gallery had a media row to pass, so the same picture showed a full
-  description in one tab and an empty panel in another.
-- **An actions bar**: zoom (buttons + wheel, 1x-6x), drag-to-pan, Fit, Copy
-  text, Save. Zoom controls hide in document mode, where they do nothing.
-- **Document preview**: `GET /media/text/{filename}` exposing the
-  `docview.extract` table that already existed for attachments, rendered as
-  real markdown (the app's own `renderMarkdown`) or as preserved-whitespace
-  code/plain, with find-in-document over the rendered text.
-- **Arrows out to the screen edges**, anchored to a new non-scrolling
-  `.lightbox-stage-wrap` rather than to the scrolling stage.
+Built — the detail moved to [HISTORY.md](HISTORY.md) ("Retired from the live files, 2026-09-07"). Kept for its number.
 
 ### Still open — the upload split, and what it collides with
 
@@ -3674,25 +3661,7 @@ the code decided none of them. What decided them was measuring.
 
 ### 109.2 Text highlighting — built
 
-`==highlighted text==`, plus `==green|text==` for a named colour from a
-closed set (yellow, green, blue, pink, purple, orange). Inline markdown, not
-a new data model — the same choice `**bold**`, `~~strike~~` and `[[wiki
-links]]` already made, so a highlight is still just characters in the note's
-own `content` and needs no column, no span-range table, and works everywhere
-content already goes: search, export, and the AI's own reading of the note.
-
-It renders through the one shared `renderInlineMarkdown`, so it lights up in
-notes, documents, chat answers, the digest and link previews at once. The
-colour allowlist lives *inside the regex*, so a colour with no stylesheet
-rule cannot be typed. Uses `mark.text-highlight`, deliberately distinct from
-the bare `<mark>` that `highlightInto` emits for search matches — same tag,
-different meaning, and without the distinction a highlighted note reads as
-"this matched your search" with no search running.
-
-**Still open on this:** there is no toolbar button or keyboard shortcut for
-it, because this editor has no formatting toolbar at all — bold, italic and
-strike are all typed by hand today. A selection toolbar (see 109.4) is where
-a highlight button belongs, and would carry the colour picker with it.
+Built — the detail moved to [HISTORY.md](HISTORY.md) ("Retired from the live files, 2026-09-07"). Kept for its number.
 
 ### 109.3 The competitor gap analysis, triaged
 
@@ -3787,39 +3756,7 @@ Genuinely open, ranked by value-per-effort:
 
 ### 110.1 Built
 
-- **A formatting toolbar for the Notes composer**, asked for as "a toolbar
-  like in the documents but for notes and stuff as well". Deliberately the
-  *same* `.doc-toolbar` markup, `data-md` contract and `MD_ACTIONS` table as
-  the document editor rather than a second implementation —
-  `applyMarkdown`/`wrapDocSelection` now take a target box id instead of
-  hardcoding `#doc-content`. This app already has three places that could
-  independently decide what `**` means (the doc toolbar, the "/" menu in
-  editor.js, and now this); keeping them to one table is what stops them
-  drifting into three dialects.
-- **Highlight, highlight-colour, text-colour and Remove formatting** on both
-  toolbars, plus the same actions on the selection popup.
-- **`++colour|text++`** for a foreground colour, alongside `==highlight==`.
-  Its colour is *required* in the pattern (unlike the highlight's optional
-  one) so an ordinary `++` in prose or code can never begin a match, and the
-  colour set is allowlisted inside the regex itself — a colour with no
-  stylesheet rule cannot be typed. Class names, never inline styles: this
-  app's CSP rejects those outright.
-- **The selection popup now works in text fields.** It never did, and the
-  reason was not the exclusion list: `window.getSelection()` does not see
-  inside a `<textarea>`, whose selection lives on the element as
-  `selectionStart`/`selectionEnd`. A separate `fieldSelection()` path reads
-  that. This is also where highlighting became *discoverable* — a syntax
-  nobody is told about may as well not exist, which is exactly how it was
-  reported ("I still dont know how to highlight text").
-- **Auto-captioning and auto-text-reading are switchable off** in Settings,
-  defaulting on. Two switches, not one: describing a picture is a
-  vision-model round trip and the expensive one; Tesseract is local and
-  cheap, so wanting the text without the description is a real position.
-  (Checked first, per the standing rule: OCR *already* auto-ran alongside
-  captioning — `process_committed_upload` fires all three — so the "make OCR
-  auto-run too" half of that ask needed nothing.)
-- **Bookmark editing is an inline form**, replacing two sequential
-  `promptDialog` calls. See 110.2.
+Built — the detail moved to [HISTORY.md](HISTORY.md) ("Retired from the live files, 2026-09-07"). Kept for its number.
 
 ### 110.2 The five bugs, and the measurement that found each
 

@@ -783,24 +783,6 @@ was never updated to say so. Checked directly, per this file's own rule.**
 
 **What's actually still a gap, in order of value:**
 
-1. ~~Retrieval is single-shot and similarity-only.~~ **Already hybrid.**
-   `_rank()` calls `_fuse()` — reciprocal rank fusion over the semantic and
-   keyword result lists — labelling the result `"hybrid"`, wired into
-   `_retrieve()` (every chat/ask question's own retrieval path). Re-ranking
-   and query expansion beyond this are the only parts still genuinely open.
-2. ~~The graph is not used for retrieval.~~ **Already used, and now weighted.**
-   `graph_expansion()` walks linked neighbours of the top hits (and a
-   second, weaker hop — ROADMAP item 33, `GRAPH_EXPANSION_HOP2_LIMIT`) and
-   is called from `_retrieve()`. §87.5's first slice — `link_type`/
-   `reason_confidence` weighting, via the shared `link_strength()` — now
-   makes this walk *smarter*: which neighbours survive the hop-count limit
-   is a real decision (strongest first) rather than database insertion
-   order. §87.5's own text below has the full narrative and what's still
-   genuinely open past this slice.
-~~3. **Memory is a surface, not a system.**~~ **Checked directly — already
-   built, this claim was stale.** Full narrative: HISTORY.md §100.
-~~4. **No token accounting per stage.**~~ **Built.** Full narrative:
-   HISTORY.md §100.
 5. **Tool retrieval is all-or-nothing.** Still genuinely open. Every tool
    definition is sent every round. §33 already scoped semantic tool
    retrieval and rightly said it needs measuring first — item 4's
@@ -1489,15 +1471,6 @@ each already located:
    `<textarea>`'s value is a string. Double-click and right-click open the same
    menu off the caret offset. If this keeps being reported, the answer is a
    contenteditable source view, which is a much larger change than it looks.
-5. ~~The prose rules are deliberately shallow~~ **Closed.** A "Check with AI"
-   button in the suggestions panel hands the whole document to the chat with a
-   prompt asking for exactly what the local rules cannot judge — its/it's,
-   agreement, tense, tone, clarity — as a numbered list of issues rather than a
-   silent rewrite. On request, not a pass: verified it does not touch the
-   editor's own instant checks. **Not yet verified against a real model** — no
-   Ollama in this sandbox — only that the composer receives the right prompt
-   (same gap as item 1 above).
-
 ## Next up, ranked by what it unlocks
 
 **One list, four tiers. Work top-down and do not skip.** The failure this
@@ -1532,18 +1505,6 @@ needs real model output to tune against, which this sandbox cannot provide.
 Each is already paid for; a small amount of work turns a frustrating surface
 into a good one.
 
-10. **The sketch pad.** ~~The highlighter at 5% opacity was effectively
-    invisible~~ **Fixed (HISTORY.md §46).** ~~A background colour for the
-    canvas~~ **Done (HISTORY.md §46)**, including a real CSS-vs-canvas-pixel
-    trap the fix hit — see there. ~~Holding Shift while drawing a shape
-    constrains it~~ **Fixed for the rect tool** (forces a square). **Still
-    genuinely open**: a
-    selection tool (clicking an existing stroke/shape to move, resize or
-    delete it; today's tools only ever draw a new one) — the sketch pad is
-    pure-raster (`ImageData` snapshots for undo, no discrete stroke
-    objects), so this needs a real architecture change, not a small patch,
-    unlike the whiteboard's own discrete-object select (item 11). The
-    toolbar redesign comes after it, not before.
 11. **The whiteboard, properly.** ~~Images, text boxes, resize (8-handle
     corner+edge), grid (lines/dots/isometric)+snap, per-board background
     image, export (PNG/SVG/PDF), clear-board, a redesigned board picker,
@@ -1576,13 +1537,6 @@ into a good one.
       §57).** The one real client-side O(cards × notebook size) issue found
       is fixed. **Not done**: a real profile against a large, many-hundred-
       item board — nothing this session was measured against one.
-12. ~~**Links that are links.**~~ **Already done — corrected, not rebuilt
-    (HISTORY.md §47).** Checked before touching anything, per this file's
-    own rule — nothing here needed building.
-13. ~~**"Take me to the thing the agent just changed," the UI half.**~~
-    **All four kinds now done (HISTORY.md §47, §51).** Notes, documents,
-    reminders and categories each get a View button on their change row,
-    verified live end to end.
 14. **Timeline line view, and text placement in grid view.** The grid view's
     text-placement half is **done**: an unprefixed `line-clamp` fixed
     (kept alongside `-webkit-line-clamp`), plus the backend's `preview`
@@ -1638,40 +1592,6 @@ into a good one.
     twice, which this project's own history (HISTORY.md's repeated "checked
     before building" theme) is precisely the failure mode it keeps warning
     about.
-19. **First-run onboarding.** ~~Reachability diagnostics~~, ~~pull a
-    model~~, ~~seeded example notes~~ and ~~a guided tour~~
-    (`ONBOARDING_SLIDES`, nine slides) were **already built** — found by
-    reading `frontend/app.js` first, per this file's own rule, rather than
-    rebuilding what this entry's stale text called still open. **The one
-    real gap — a data-dir writability check — is closed**: `GET /storage`
-    reports `data_dir_writable` and the "Your setup" slide warns on it.
-    Verified live: `"data_dir_writable": true` against this sandbox's dir.
-19b. **A mute-notifications option, asked for directly**, alongside making
-    the toast/notification split clearer: "there can be an option to mute
-    notifications except for reminders." Built as
-    `notifications_muted_except_reminders` (Settings → Preferences →
-    Notifications): `toast()` takes an `exempt` flag (set on the three
-    reminder-alert call sites) and returns early for everything else when
-    muted; `recordNotification` does the same for the persistent panel,
-    keyed off `kind !== "reminder"`. Errors are never muted — silencing a
-    real failure would hide the thing muting is least meant to hide. **Not
-    built**: mirroring ordinary toasts into the notifications panel (the
-    other half of the same message) — every `toast()` call site would need
-    a `kind` to avoid flooding the panel with routine "Saved."/"Linked."
-    noise, which needs a first pass at which toasts actually belong there
-    before it's buildable.
-
-    **Extended (HISTORY.md §49), asked for directly**: a mute toggle inside
-    the notifications panel itself (`#notif-mute-toggle`, reads "🔕 Mute" /
-    "🔔 Unmute" and `aria-pressed`), not only three screens away in Settings
-    — and the bell icon (`#notif-btn`) itself now shows 🔕 instead of 🔔
-    whenever muted, so the state is visible without opening anything. Built
-    and verified live end to end, which is what caught item 4a's real bug —
-    the toggle correctly PUT the preference and correctly re-rendered from
-    the response, and *still* showed unmuted, because `GET /preferences`
-    (which the PUT response is built from) never echoed the new key back.
-    Fixed there, not patched around here.
-
 ### Open questions raised this session, not built
 
 - **Should Capture have its own title field**, separate from the leading-
@@ -1727,18 +1647,6 @@ Worth doing, and worth doing after the above.
     simulation, not a new layout algorithm, per this item's own note that a
     new algorithm probably wasn't the actual gap.~~ **New layouts
     themselves are still open** — nothing above touched that part.
-26. ~~**Widgets: a picker.**~~ **Already done and live-verified this
-    session (checked before building, not after) — the `dash-widgets-dialog`
-    modal (index.html), its own comment already citing "roadmap §26", was
-    merged in from elsewhere and was never re-checked against this item.**
-    Playwright: clicking "Widgets" opens the dialog with all 17
-    `DASH_WIDGETS` rows, the search box filters them, a row's Add/Remove
-    button flips the widget on the dashboard in real time (confirmed the
-    grid actually lost the card, not just the row's own label), and "Done"
-    closes it. Zero console errors. Still open, and genuinely unscoped:
-    **more widgets to fill the picker** — customisable sidebars, and note
-    view options in the Notes tab were the other two asks bundled into this
-    item and neither has a concrete list yet.
 27. **llama.cpp, actually wired in.** A new `ai/provider.py` entry alongside
     Ollama/OpenAI-compatible, a GGUF file picker (files on disk, not a
     registry to pull from), and `core/extras.py`'s `unavailable` string
@@ -1857,23 +1765,6 @@ Worth doing, and worth doing after the above.
     back tagged `stale`. Two new regression tests. The other two candidates
     — proactive digest/on-this-day surfacing, and letting a saved skill run
     on the same schedule — are still open.
-35. ~~No vision-capable image understanding.~~ **Built** —
-    `ai/captioning.py` (background caption on upload, `POST /media/{id}/caption`
-    for a manual re-read), auto-detected vision capability plus a manual
-    override in Settings → Models (`ModelManager.resolve_vision_model`), and
-    the Library's Image Gallery already searches captions alongside OCR text
-    and filenames. Runs alongside OCR, not instead of it, exactly as this item
-    specified.
-
-39. ~~Passive capture~~ **Built** — see item 2 under ANALYSIS.md §60's
-    "Worth building" list, corrected there rather than twice.
-
-40. ~~Help page overhaul, plus an embedded mini AI chat for in-app guidance.~~
-    **Built** — see [roadmap/HISTORY.md](roadmap/HISTORY.md) for the
-    write-up: the docs/guides half was already a 13-topic accordion with
-    cross-links, and the mini AI chat half is now `ai/help_chat.py` +
-    `POST /help/ask`, wired into Settings → Help.
-
 ### Tier 4 — deferred, with the reason
 
 Not a dump: each says why it is not Tier 3.

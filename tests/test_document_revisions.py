@@ -138,7 +138,8 @@ def test_deleting_a_document_takes_its_history_with_it(client):
     doc = _make(client, "before")
     client.put(f"/documents/{doc['id']}", json={"content": "after"})
     assert client.get(f"/documents/{doc['id']}/revisions").json(), "a revision exists"
-    assert client.delete(f"/documents/{doc['id']}").status_code == 200
+    deleted = client.delete(f"/documents/{doc['id']}")
+    assert deleted.status_code == 200
     with routes_documents.deps.get_db().session() as session:
         left = (
             session.query(DocumentRevision)

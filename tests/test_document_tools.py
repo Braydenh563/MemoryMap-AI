@@ -69,7 +69,7 @@ def test_get_document_with_a_query_falls_back_to_the_matched_passage(session, mo
     backend): `q_vec` comes back `None`, and before this fix that meant a
     plain head-of-document clip with no regard for where — or whether — the
     term actually appeared."""
-    monkeypatch.setattr(deps, "get_embeddings", lambda: _NoEmbeddings())
+    monkeypatch.setattr(deps, "get_embeddings", _NoEmbeddings)
     filler = "the quick brown fox jumps over the lazy dog. " * 300
     assert len(filler) > DOCUMENT_CHARS
     doc = _doc(session, "Long report", f"{filler}THE BUDGET IS $4,471{filler}")
@@ -84,7 +84,7 @@ def test_get_document_with_a_query_that_does_not_appear_keeps_the_old_behaviour(
     """A query for a word that is not in the document must not pretend it
     found something — falls back to the plain head-of-document clip, same
     as if no query had been given at all."""
-    monkeypatch.setattr(deps, "get_embeddings", lambda: _NoEmbeddings())
+    monkeypatch.setattr(deps, "get_embeddings", _NoEmbeddings)
     doc = _doc(session, "Doc", "Nothing relevant is written here at all.")
     read = tools.TOOLS["get_document"].handler(
         session, {"document_id": doc.id, "query": "xylophone"}

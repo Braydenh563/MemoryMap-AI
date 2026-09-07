@@ -41,7 +41,7 @@ class _Running:
 
 def _patch(monkeypatch, ocr_model: str, vision_model: str) -> None:
     monkeypatch.setattr(routes_files.deps, "get_model_manager", lambda: _Manager(ocr_model, vision_model))
-    monkeypatch.setattr(routes_files.deps, "get_ollama", lambda: _Running())
+    monkeypatch.setattr(routes_files.deps, "get_ollama", _Running)
 
 
 def test_two_different_models_are_two_different_options(client, monkeypatch):

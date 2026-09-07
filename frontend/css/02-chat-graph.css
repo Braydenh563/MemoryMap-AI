@@ -2635,6 +2635,18 @@ kbd {
   z-index: 200;
 }
 
+/* **One menu row, everywhere.** Reported: "make the documents ellipse kebab
+   button dropdown menu the same ui style as the one in the chat tab", with
+   both screenshots side by side. The difference was never the panel -- that
+   was matched last round -- it was the rows: the document menu's buttons
+   carried `ghost small`, so each one wore the tonal button fill and the menu
+   read as seven stacked buttons, while the chat's are flat text that tints
+   under the pointer.
+
+   Fixed by giving the document rows these same classes rather than by adding
+   a second rule that overrides `ghost`: a specificity fight between
+   `button.ghost` and `.menu-item` is exactly how two menus drift apart again.
+   `.doc-dock-menu-item` keeps only its layout job (full width, nowrap). */
 .menu-item {
   /* One row, one line — see `.action-menu`'s width note above. */
   white-space: nowrap;

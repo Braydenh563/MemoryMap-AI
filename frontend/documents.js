@@ -2990,7 +2990,9 @@ function mountEditorToolbarExtras(bar) {
     for (const [md, label] of menu.items) {
       const button = document.createElement("button");
       button.type = "button";
-      button.className = "doc-dock-menu-item";
+      //: The one menu-row recipe, shared with the chat's kebab (`.menu-item`,
+      //: 02-chat-graph.css) -- see the comment on `.doc-dock-menu-list`.
+      button.className = "menu-item doc-dock-menu-item";
       button.dataset.md = md;
       button.textContent = label;
       body.appendChild(button);

@@ -3145,7 +3145,7 @@ span > .chip {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 1px;
+  gap: 0;
   /* The one menu shell, matched to `.action-menu` (02-chat-graph.css) -- the
      note-card kebab menu the user asked to keep as the reference ("keep the
      'your notes' ones in the note cards as they are as I like their look").

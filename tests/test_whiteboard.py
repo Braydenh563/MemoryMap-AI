@@ -369,6 +369,9 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
     assert state["objects"][0]["data"] == {
         "content": "Meeting notes", "color": "#ffcc00", "font_size": 18, "url": None,
         "bg": None, "border_color": None,
+        # Added with the text-box formatting controls; None until set.
+        "align": None,
+        "md": None,
     }
 
     moved = board_client.put(
@@ -566,3 +569,32 @@ def test_deleting_an_item_takes_its_links_with_it(board_client, session):
     ids = {s["id"] for s in board_client.get("/whiteboard/").json()["sketches"]}
     assert link_shape_obj["id"] not in ids
     assert shape["id"] in ids
+
+
+def test_a_text_box_keeps_its_alignment_and_markdown_flag(board_client):
+    """`align` and `md` are real fields, not extras Pydantic drops. The first
+    version of the text-box formatting controls stored them client-side only,
+    so every toggle came back empty on the next render."""
+    made = board_client.post(
+        "/whiteboard/objects",
+        json={
+            "kind": "text",
+            "data": {"content": "# Plan", "align": "center", "md": True},
+            "x": 0, "y": 0, "width": 200, "height": 120,
+        },
+    )
+    assert made.status_code == 201, made.text
+    body = made.json()
+    assert body["data"]["align"] == "center"
+    assert body["data"]["md"] is True
+
+    round_trip = board_client.get("/whiteboard/").json()["objects"]
+    stored = next(o for o in round_trip if o["id"] == body["id"])
+    assert stored["data"]["align"] == "center"
+    assert stored["data"]["md"] is True
+
+    refused = board_client.post(
+        "/whiteboard/objects",
+        json={"kind": "text", "data": {"content": "x", "align": "sideways"}, "x": 0, "y": 0},
+    )
+    assert refused.status_code == 422

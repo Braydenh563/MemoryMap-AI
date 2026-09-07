@@ -117,6 +117,14 @@ class WhiteboardObjectData(BaseModel):
     #: panel). Images have no use for either; left `None` there.
     bg: str | None = Field(default=None, max_length=20)
     border_color: str | None = Field(default=None, max_length=20)
+    #: How the text sits in its box, and whether it is shown as rendered
+    #: markdown — asked for directly ("text alignment, font size etc", "rendered
+    #: md which is togglable in text boxes and sticky notes"). A field the
+    #: schema does not name is dropped silently by Pydantic, which is exactly
+    #: how the first attempt at this looked like a frontend bug: the toggle
+    #: flipped, the PUT succeeded, and the value came back missing.
+    align: str | None = Field(default=None, pattern="^(left|center|right)$")
+    md: bool | None = None
 
 
 class WhiteboardObjectBase(BaseModel):

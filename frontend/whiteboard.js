@@ -1795,6 +1795,9 @@ function wbUpdatePropertiesPanel() {
     nostroke: document.getElementById("wb-prop-nostroke-row"),
     shapefill: document.getElementById("wb-prop-shapefill-row"),
     extractNotes: document.getElementById("wb-extract-notes-row"),
+    textstyle: document.getElementById("wb-prop-textstyle-row"),
+    align: document.getElementById("wb-prop-align-row"),
+    md: document.getElementById("wb-prop-md-row"),
   };
   Object.values(rows).forEach((r) => r?.classList.add("hidden"));
 
@@ -1900,6 +1903,13 @@ function wbUpdatePropertiesPanel() {
     rows.bg.classList.remove("hidden");
     rows.border.classList.remove("hidden");
     rows.fontsize.classList.remove("hidden");
+    rows.textstyle.classList.remove("hidden");
+    rows.align.classList.remove("hidden");
+    rows.md.classList.remove("hidden");
+    for (const button of document.querySelectorAll("#wb-prop-align button")) {
+      button.classList.toggle("active", button.dataset.align === (item.data.align || "left"));
+    }
+    document.getElementById("wb-prop-md").checked = Boolean(item.data.md);
     document.getElementById("wb-prop-color").value = item.data.color || "#1f2430";
     document.getElementById("wb-prop-bg").value = item.data.bg === "transparent" ? "#ffffff" : (item.data.bg || "#ffffff");
     document.getElementById("wb-prop-bg-none").checked = item.data.bg === "transparent";
@@ -2854,8 +2864,67 @@ function wbStableDragContainer(itemSelector) {
 //: any other object, double-click to get a caret, blur to go back. A box
 //: made by the text tool starts in edit mode, since the whole point of
 //: click-to-place is typing straight away.
+//: **Rendered markdown in a text box or sticky, toggleable.** Asked for
+//: directly. Editing always shows the raw text — markdown you cannot see is
+//: markdown you cannot fix — so this paints the rendered form only when the
+//: box is not being edited, and `wbBeginTextEdit` puts the source back.
+function wbPaintTextContent(contentEl, d) {
+  if (!contentEl) return;
+  const raw = d.data.content || "";
+  if (d.data.md && raw.trim() && typeof renderMarkdown === "function") {
+    contentEl.replaceChildren();
+    contentEl.classList.add("wb-text-md");
+    renderMarkdown(contentEl, raw);
+    return;
+  }
+  contentEl.classList.remove("wb-text-md");
+  contentEl.textContent = raw;
+}
+
+//: Wrap the selection inside a text box (or the whole text, when nothing is
+//: selected) in a markdown marker — the formatting bar a text box never had.
+function wbWrapTextSelection(marker) {
+  const item = wbSelectedTextObjectOrNull();
+  if (!item) return;
+  const el = document.querySelector(`.wb-object[data-id="${item.id}"] .wb-text-content`);
+  const raw = item.data.content || "";
+  const sel = window.getSelection();
+  let next;
+  if (el && el.isContentEditable && sel && sel.rangeCount && !sel.isCollapsed && el.contains(sel.anchorNode)) {
+    const picked = sel.toString();
+    next = raw.replace(picked, `${marker}${picked}${marker}`);
+  } else {
+    next = raw.trim() ? `${marker}${raw}${marker}` : raw;
+  }
+  item.data = { ...item.data, content: next };
+  wbSaveObject(item);
+  wbScheduleRender();
+}
+
+function wbBulletTextLines() {
+  const item = wbSelectedTextObjectOrNull();
+  if (!item) return;
+  const lines = (item.data.content || "").split("\n");
+  const allBulleted = lines.every((line) => !line.trim() || line.trimStart().startsWith("- "));
+  item.data = {
+    ...item.data,
+    content: lines
+      .map((line) => (!line.trim() ? line : allBulleted ? line.replace(/^(\s*)- /, "$1") : `- ${line}`))
+      .join("\n"),
+  };
+  wbSaveObject(item);
+  wbScheduleRender();
+}
+
 function wbBeginTextEdit(contentEl) {
   if (!contentEl || contentEl.isContentEditable) return;
+  //: Back to the source while editing, whatever the rendered view showed.
+  const objectEl = contentEl.closest(".wb-object");
+  const item = (wbState.objects || []).find((o) => String(o.id) === objectEl?.dataset.id);
+  if (item) {
+    contentEl.classList.remove("wb-text-md");
+    contentEl.textContent = item.data.content || "";
+  }
   contentEl.setAttribute("contenteditable", "true");
   contentEl.closest(".wb-object")?.classList.add("wb-text-editing");
   contentEl.focus();
@@ -4080,6 +4149,25 @@ async function initWhiteboard() {
   // `wbSelectedItem`/`wbState`, and the copy-style actions need them too.
   document.getElementById("wb-copy-style")?.addEventListener("click", wbCopySelectedStyle);
   document.getElementById("wb-paste-style")?.addEventListener("click", wbPasteCopiedStyle);
+  document.getElementById("wb-prop-bold")?.addEventListener("click", () => wbWrapTextSelection("**"));
+  document.getElementById("wb-prop-italic")?.addEventListener("click", () => wbWrapTextSelection("*"));
+  document.getElementById("wb-prop-bullets")?.addEventListener("click", wbBulletTextLines);
+  document.getElementById("wb-prop-align")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-align]");
+    const item = wbSelectedTextObjectOrNull();
+    if (!button || !item) return;
+    item.data = { ...item.data, align: button.dataset.align };
+    wbSaveObject(item);
+    wbScheduleRender();
+    wbUpdatePropertiesPanel();
+  });
+  document.getElementById("wb-prop-md")?.addEventListener("change", (event) => {
+    const item = wbSelectedTextObjectOrNull();
+    if (!item) return;
+    item.data = { ...item.data, md: event.target.checked };
+    wbSaveObject(item);
+    wbScheduleRender();
+  });
   // The floating selection bar's buttons reuse the keyboard paths exactly
   // (Ctrl+D, Ctrl+Alt+C/V, [ ], Delete) so the two can never disagree.
   const selBar = document.getElementById("wb-selection-bar");
@@ -7238,8 +7326,10 @@ function renderWbObjects(canvas) {
     } else {
       el.style("background", d.data.bg || "").style("border-color", d.data.border_color || "");
       const textEl = el.select(".wb-text-content");
-      textEl.style("color", d.data.color || "").style("font-size", d.data.font_size ? `${d.data.font_size}px` : "");
-      if (document.activeElement !== textEl.node()) textEl.text(d.data.content || "");
+      textEl.style("color", d.data.color || "")
+        .style("font-size", d.data.font_size ? `${d.data.font_size}px` : "")
+        .style("text-align", d.data.align || "");
+      if (document.activeElement !== textEl.node()) wbPaintTextContent(textEl.node(), d);
     }
   });
 

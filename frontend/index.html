@@ -3822,6 +3822,26 @@ Link to another note with [[its first few words]]."></textarea>
           <input type="checkbox" id="wb-prop-border-none" title="No border">
         </span>
       </label>
+      <div class="wb-properties-row hidden" id="wb-prop-textstyle-row">
+        <span>Text</span>
+        <span class="row wb-inline-controls">
+          <button type="button" id="wb-prop-bold" class="ghost small icon-button" title="Bold the selected text (**)" aria-label="Bold"><strong>B</strong></button>
+          <button type="button" id="wb-prop-italic" class="ghost small icon-button" title="Italicise the selected text (*)" aria-label="Italic"><em>I</em></button>
+          <button type="button" id="wb-prop-bullets" class="ghost small icon-button" title="Turn the lines into a bulleted list" aria-label="Bulleted list"><i class="ph ph-list-bullets" aria-hidden="true"></i></button>
+        </span>
+      </div>
+      <div class="wb-properties-row hidden" id="wb-prop-align-row">
+        <span>Align</span>
+        <span class="seg seg-compact" id="wb-prop-align" role="group" aria-label="Text alignment">
+          <button type="button" data-align="left" title="Align left" aria-label="Align left"><i class="ph ph-text-align-left" aria-hidden="true"></i></button>
+          <button type="button" data-align="center" title="Centre" aria-label="Centre"><i class="ph ph-text-align-center" aria-hidden="true"></i></button>
+          <button type="button" data-align="right" title="Align right" aria-label="Align right"><i class="ph ph-text-align-right" aria-hidden="true"></i></button>
+        </span>
+      </div>
+      <label class="wb-properties-row hidden" id="wb-prop-md-row" title="Show this box's markdown rendered — headings, bold, lists and links. Editing always shows the raw text.">
+        <span>Rendered markdown</span>
+        <input type="checkbox" id="wb-prop-md">
+      </label>
       <label class="wb-properties-row hidden" id="wb-prop-fontsize-row">
         <span>Text size</span>
         <input type="number" id="wb-prop-fontsize" aria-label="Selected item text size" title="Selected item text size" min="8" max="200" step="1">

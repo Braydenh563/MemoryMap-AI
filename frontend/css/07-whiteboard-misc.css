@@ -6559,3 +6559,30 @@ button.connection-row {
   background: var(--card);
   border-radius: var(--radius-md);
 }
+
+/* A text box showing rendered markdown: the app's own markdown body rules
+   apply, at the box's own font size and colour rather than the page's. */
+.wb-text-content.wb-text-md {
+  overflow: auto;
+}
+
+.wb-text-content.wb-text-md > :first-child {
+  margin-top: 0;
+}
+
+.wb-text-content.wb-text-md > :last-child {
+  margin-bottom: 0;
+}
+
+.wb-text-content.wb-text-md h1,
+.wb-text-content.wb-text-md h2,
+.wb-text-content.wb-text-md h3 {
+  font-size: 1.25em;
+  margin: 0.3em 0;
+}
+
+.wb-text-content.wb-text-md ul,
+.wb-text-content.wb-text-md ol {
+  margin: 0.2em 0;
+  padding-left: 1.2em;
+}

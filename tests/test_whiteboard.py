@@ -553,12 +553,16 @@ def test_deleting_an_item_takes_its_links_with_it(board_client, session):
         json={"data": f'{{"type": "link-curved", "sourceId": {shape["id"]}, "sourceKind": "sketch", "targetId": {obj["id"]}, "targetKind": "object"}}', "x": 0, "y": 0},
     ).json()
 
-    assert board_client.delete(f"/whiteboard/nodes/{node['id']}").status_code == 200
+    # The request runs outside the assert: CodeQL flags a side-effecting
+    # expression inside one, and `-O` would skip it entirely.
+    gone_node = board_client.delete(f"/whiteboard/nodes/{node['id']}")
+    assert gone_node.status_code == 200
     ids = {s["id"] for s in board_client.get("/whiteboard/").json()["sketches"]}
     assert link_node_obj["id"] not in ids
     assert link_shape_obj["id"] in ids and shape["id"] in ids
 
-    assert board_client.delete(f"/whiteboard/objects/{obj['id']}").status_code == 200
+    gone_obj = board_client.delete(f"/whiteboard/objects/{obj['id']}")
+    assert gone_obj.status_code == 200
     ids = {s["id"] for s in board_client.get("/whiteboard/").json()["sketches"]}
     assert link_shape_obj["id"] not in ids
     assert shape["id"] in ids

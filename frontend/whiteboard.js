@@ -1112,13 +1112,24 @@ function wbBoxRayIntersection(box, towardX, towardY) {
 //: A fixed end resolves to its own point regardless of the other end; a
 //: floating end resolves toward whatever the *other* end actually is (its
 //: fixed point if it has one, its centre otherwise), not always the centre.
-function wbLinkEndpoints(sourceItem, sourceAnchor, targetItem, targetAnchor) {
-  const sourceBox = wbItemBBox("node", sourceItem);
-  const targetBox = wbItemBBox("node", targetItem);
+//: **A link end is a card *or a text object*.** Reported: "I cant even link
+//: connections to text boxes or sticky notes." Every end was hard-wired to
+//: `wbState.nodes`; a link stores `sourceKind`/`targetKind` now ("node" when
+//: absent, so every existing link reads exactly as before) and both ends
+//: resolve through the one lookup below.
+function wbLinkItem(kind, id) {
+  if (id == null) return null;
+  const list = kind === "object" ? (wbState.objects || []) : wbState.nodes;
+  return list.find((i) => i.id === id) || null;
+}
+
+function wbLinkEndpoints(sourceItem, sourceAnchor, targetItem, targetAnchor, sourceKind = "node", targetKind = "node") {
+  const sourceBox = wbItemBBox(sourceKind, sourceItem);
+  const targetBox = wbItemBBox(targetKind, targetItem);
   const sourceCenter = { x: (sourceBox.minX + sourceBox.maxX) / 2, y: (sourceBox.minY + sourceBox.maxY) / 2 };
   const targetCenter = { x: (targetBox.minX + targetBox.maxX) / 2, y: (targetBox.minY + targetBox.maxY) / 2 };
-  const fixedSource = wbAnchorPoint("node", sourceItem, sourceAnchor);
-  const fixedTarget = wbAnchorPoint("node", targetItem, targetAnchor);
+  const fixedSource = wbAnchorPoint(sourceKind, sourceItem, sourceAnchor);
+  const fixedTarget = wbAnchorPoint(targetKind, targetItem, targetAnchor);
   const source = fixedSource || wbBoxRayIntersection(sourceBox, (fixedTarget || targetCenter).x, (fixedTarget || targetCenter).y);
   const target = fixedTarget || wbBoxRayIntersection(targetBox, (fixedSource || sourceCenter).x, (fixedSource || sourceCenter).y);
   return {
@@ -1137,22 +1148,26 @@ function wbLinkEndpoints(sourceItem, sourceAnchor, targetItem, targetAnchor) {
 //: Returns `null` for a stale reference (a card end whose id no longer
 //: exists), same as the two call sites already treated a missing node.
 function wbResolveLinkEndpoints(parsed) {
-  const sourceNode = parsed.sourceId != null ? wbState.nodes.find((n) => n.id === parsed.sourceId) : null;
-  const targetNode = parsed.targetId != null ? wbState.nodes.find((n) => n.id === parsed.targetId) : null;
+  const sourceKind = parsed.sourceKind || "node";
+  const targetKind = parsed.targetKind || "node";
+  const sourceNode = wbLinkItem(sourceKind, parsed.sourceId);
+  const targetNode = wbLinkItem(targetKind, parsed.targetId);
   if (parsed.sourceId != null && !sourceNode) return null;
   if (parsed.targetId != null && !targetNode) return null;
   if (!sourceNode && !parsed.sourcePoint) return null;
   if (!targetNode && !parsed.targetPoint) return null;
-  if (sourceNode && targetNode) return wbLinkEndpoints(sourceNode, parsed.sourceAnchor, targetNode, parsed.targetAnchor);
+  if (sourceNode && targetNode) {
+    return wbLinkEndpoints(sourceNode, parsed.sourceAnchor, targetNode, parsed.targetAnchor, sourceKind, targetKind);
+  }
 
-  const sourceBox = sourceNode ? wbItemBBox("node", sourceNode) : null;
-  const targetBox = targetNode ? wbItemBBox("node", targetNode) : null;
+  const sourceBox = sourceNode ? wbItemBBox(sourceKind, sourceNode) : null;
+  const targetBox = targetNode ? wbItemBBox(targetKind, targetNode) : null;
   // A free point is always fixed — there's no card border for it to "aim
   // toward" the way a floating card-end resolves. A card-end with no fixed
   // anchor of its own still floats toward whatever the other end actually
   // is, same as the node/node case.
-  const sourceFixed = sourceNode ? wbAnchorPoint("node", sourceNode, parsed.sourceAnchor) : parsed.sourcePoint;
-  const targetFixed = targetNode ? wbAnchorPoint("node", targetNode, parsed.targetAnchor) : parsed.targetPoint;
+  const sourceFixed = sourceNode ? wbAnchorPoint(sourceKind, sourceNode, parsed.sourceAnchor) : parsed.sourcePoint;
+  const targetFixed = targetNode ? wbAnchorPoint(targetKind, targetNode, parsed.targetAnchor) : parsed.targetPoint;
   const targetCenter = targetBox && { x: (targetBox.minX + targetBox.maxX) / 2, y: (targetBox.minY + targetBox.maxY) / 2 };
   const sourceCenter = sourceBox && { x: (sourceBox.minX + sourceBox.maxX) / 2, y: (sourceBox.minY + sourceBox.maxY) / 2 };
   const source = sourceFixed || wbBoxRayIntersection(sourceBox, (targetFixed || targetCenter).x, (targetFixed || targetCenter).y);
@@ -6363,6 +6378,10 @@ function renderWbObjects(canvas) {
   // the same convention `resizeDrag`'s own "drag" handler already uses.
   function objDragStart(event, d) {
     if (window.currentTool === "eraser" || window.currentTool === "delete" || window.currentTool === "bucket") return;
+    // A link tool on a text box starts a *link* from it, through the same
+    // three handlers the cards use — see `wbLinkItem`.
+    if (window.currentTool?.startsWith("link-")) { d._linkKind = "object"; return dragStart.call(this, event, d); }
+    d._linkedSketches = wbLinkedSketchesFor(d.id, "object");
     // `.raise()` deliberately does NOT happen here — moved to objDragMove.
     // See the matching comment on the card drag's own `dragging` for the
     // real bug this caused (raising mid-`start` breaks the browser's click
@@ -6382,6 +6401,7 @@ function renderWbObjects(canvas) {
   }
   function objDragMove(event, d) {
     if (window.currentTool === "eraser" || window.currentTool === "delete" || window.currentTool === "bucket") return;
+    if (window.currentTool?.startsWith("link-")) return dragging.call(this, event, d);
     if (d._bulkOrigin === undefined) {
       d._bulkOrigin = wbDragIsBulkMove("object", d.id)
         ? wbCaptureBulkMoveOrigin(wbMultiKey("object", d.id))
@@ -6411,10 +6431,13 @@ function renderWbObjects(canvas) {
       wbClearAlignmentGuides();
     }
     d3.select(this.closest(".wb-object")).style("transform", wbItemTransform(d));
+    if (d._linkedSketches?.length) wbUpdateLinkedSketches(d.id, d._linkedSketches);
     if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, d.x - d._dragOriginX, d.y - d._dragOriginY);
   }
   async function objDragEnd(event, d) {
     if (window.currentTool === "eraser" || window.currentTool === "delete" || window.currentTool === "bucket") return;
+    if (window.currentTool?.startsWith("link-")) { const r = dragEndNode.call(this, event, d); d._linkKind = null; return r; }
+    d._linkedSketches = null;
     wbClearAlignmentGuides();
     const bulkOrigin = d._bulkOrigin;
     // Reset unconditionally — a solo drag sets this to `null` (see
@@ -6701,7 +6724,7 @@ function renderWbObjects(canvas) {
 //: parses a second, visible as stutter on a busy board. `dragStart` below
 //: builds this list once per drag instead; a card gains or loses a link only
 //: between drags, never mid-drag, so it doesn't need to be live.
-function wbLinkedSketchesFor(nodeId) {
+function wbLinkedSketchesFor(nodeId, kind = "node") {
   const found = [];
   for (const sketch of wbState.sketches) {
     let parsed;
@@ -6711,7 +6734,9 @@ function wbLinkedSketchesFor(nodeId) {
       continue;
     }
     if (!parsed.type || !parsed.type.startsWith("link-")) continue;
-    if (parsed.sourceId !== nodeId && parsed.targetId !== nodeId) continue;
+    const atSource = parsed.sourceId === nodeId && (parsed.sourceKind || "node") === kind;
+    const atTarget = parsed.targetId === nodeId && (parsed.targetKind || "node") === kind;
+    if (!atSource && !atTarget) continue;
     found.push({ sketch, parsed });
   }
   return found;
@@ -6753,9 +6778,9 @@ function dragStart(event, d) {
     const startRect = document.getElementById("wb-svg-layer").getBoundingClientRect();
     const startX = (event.sourceEvent.clientX - startRect.left - startTransform.x) / startTransform.k;
     const startY = (event.sourceEvent.clientY - startRect.top - startTransform.y) / startTransform.k;
-    d.linkSourceAnchor = wbNearestAnchor("node", d, startX, startY);
+    d.linkSourceAnchor = wbNearestAnchor(d._linkKind || "node", d, startX, startY);
     wbLinkDragActive = true;
-    wbShowAnchorHints("node", d, d.linkSourceAnchor);
+    wbShowAnchorHints(d._linkKind || "node", d, d.linkSourceAnchor);
     d.linkingPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
     d.linkingPath.setAttribute("fill", "none");
     d.linkingPath.setAttribute("stroke", window.currentStrokeColor || "#ffffff");
@@ -6801,8 +6826,8 @@ function dragging(event, d) {
     // A fixed source anchor stays put; a floating one re-aims at the live
     // pointer every frame — the same rectangle-intersection the render path
     // uses, not the old fixed centre-point.
-    const fixedStart = wbAnchorPoint("node", d, d.linkSourceAnchor);
-    const start = fixedStart || wbBoxRayIntersection(wbItemBBox("node", d), mx, my);
+    const fixedStart = wbAnchorPoint(d._linkKind || "node", d, d.linkSourceAnchor);
+    const start = fixedStart || wbBoxRayIntersection(wbItemBBox(d._linkKind || "node", d), mx, my);
     d.linkingPath.setAttribute("d", wbLinkPathD(window.currentTool, start, { x: mx, y: my }));
 
     // Anchor hints follow whichever node the pointer is currently over, so
@@ -6814,7 +6839,7 @@ function dragging(event, d) {
       if (mx >= box.minX && mx <= box.maxX && my >= box.minY && my <= box.maxY) { hoverNode = node; break; }
     }
     if (hoverNode) wbShowAnchorHints("node", hoverNode, wbNearestAnchor("node", hoverNode, mx, my));
-    else wbShowAnchorHints("node", d, d.linkSourceAnchor);
+    else wbShowAnchorHints(d._linkKind || "node", d, d.linkSourceAnchor);
   } else {
     // Pre-existing gap, not introduced this session, caught while adding
     // snap-to-grid here: event.dx/dy are raw screen pixels — the
@@ -6882,12 +6907,18 @@ async function dragEndNode(event, d) {
     const mx = (event.sourceEvent.clientX - rect.left - transform.x) / transform.k;
     const my = (event.sourceEvent.clientY - rect.top - transform.y) / transform.k;
 
+    const sourceKind = d._linkKind || "node";
     let targetNode = null;
-    for (const node of wbState.nodes) {
-       if (node.id === d.id) continue;
-       const box = wbItemBBox("node", node);
-       if (mx >= box.minX && mx <= box.maxX && my >= box.minY && my <= box.maxY) {
-           targetNode = node; break;
+    let targetKind = "node";
+    const candidates = [
+      ...wbState.nodes.map((n) => ["node", n]),
+      ...(wbState.objects || []).filter((o) => o.kind === "text").map((o) => ["object", o]),
+    ];
+    for (const [kind, item] of candidates) {
+       if (kind === sourceKind && item.id === d.id) continue;
+       const box = wbItemBBox(kind, item);
+       if (box && mx >= box.minX && mx <= box.maxX && my >= box.minY && my <= box.maxY) {
+           targetNode = item; targetKind = kind; break;
        }
     }
 
@@ -6895,12 +6926,14 @@ async function dragEndNode(event, d) {
        // The release point's own nearest anchor on the target, same as the
        // source got at drag-start — `null` (nothing near enough) persists
        // as a free/floating end, same as the source's own case.
-       const targetAnchor = wbNearestAnchor("node", targetNode, mx, my);
+       const targetAnchor = wbNearestAnchor(targetKind, targetNode, mx, my);
        const sketchData = {
          data: JSON.stringify({
             type: window.currentTool,
             sourceId: d.id,
             targetId: targetNode.id,
+            sourceKind: sourceKind === "node" ? undefined : sourceKind,
+            targetKind: targetKind === "node" ? undefined : targetKind,
             color: window.currentStrokeColor || "#ffffff",
             sourceAnchor: d.linkSourceAnchor || undefined,
             targetAnchor: targetAnchor || undefined,

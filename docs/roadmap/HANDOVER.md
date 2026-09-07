@@ -4,6 +4,10 @@
 
 ## ► This session — chat attachments, glass, Settings, and a live ReferenceError
 
+**Next session starts at [UI_MODERNISATION_PLAN.md](UI_MODERNISATION_PLAN.md)**
+— by direct instruction, the UI is to be modernised and professionalised for
+the whole application; the plan has the phases, the counts and the order.
+
 Everything in this block is pushed on `claude/vigilant-pascal-wfo95n` and was
 **measured in Chromium** unless it says otherwise. The user's requests arrived
 faster than they could be finished, so the tail of the list is what is still

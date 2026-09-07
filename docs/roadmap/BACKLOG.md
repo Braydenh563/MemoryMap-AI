@@ -11,6 +11,13 @@ The live list — what to do next, and the two sections of freshly reported work
 (§35, §36) — stays in [ROADMAP.md](../ROADMAP.md). Analysis and finished work
 are in [ANALYSIS.md](ANALYSIS.md) and [HISTORY.md](HISTORY.md).
 
+> **Status, 2026-09-07.** Every UI/UX item in this file (§2 quick wins, §15
+> Appearance, §16 Sweeping UI quality-of-life, §19 Accessibility, §24
+> Dashboard, §29b's visual rows, §64's editor chrome) is now governed by
+> [UI_MODERNISATION_PLAN.md](UI_MODERNISATION_PLAN.md), the top priority in
+> ROADMAP.md: do them through its phases, not one by one from here. §6 and
+> §63 are done (kept for their numbers). Everything else stands.
+
 > The rule that governs all of it, unchanged: **check the running app before
 > building anything here.** Three sessions independently rebuilt something that
 > already existed, and an audit of §2 found four of its six "quick wins" done.

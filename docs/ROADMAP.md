@@ -14,15 +14,30 @@ inference) — see CLAUDE.md's standing caveat for what that covered. UI claims
 are checkable (Chromium is in the sandbox); model *behaviour* claims mostly
 are not — reproduce or say plainly you couldn't.
 
-## ► Open from the design-system session (see HANDOVER.md, "This session")
+## ► TOP PRIORITY, by direct instruction: modernise and professionalise the UI
 
-The surface tiers, button ramp, eyebrow rule, seg semantics and form-label
-column are built and measured. Still open, in the user's words: a
-**consistency fix** ("inconsistencies in ui style, sizing, alignment,
-positioning, spacing, gaps, margins, colour, style aesthetic") and the
-**larger mass spacing and panels** ("professional and usable, not overly
-performative ... not just a crude imitation of modern aesthetics"). HANDOVER.md
-lists the measured drift that remains and the sweep scripts to reuse.
+The full dev plan — causes, phases, per-family targets, acceptance counts and
+the order of work — is **[roadmap/UI_MODERNISATION_PLAN.md](roadmap/UI_MODERNISATION_PLAN.md)**.
+Start there. The sweep scripts it relies on are in `scratchpad/ui-sweeps/`.
+The instruction, verbatim:
+
+> fix instances like this where there are hard rectangle box background
+> colours behind rows. and there are still a lot of inconsistencies in ui
+> style, sizing, alignment, positioning, spacing, gaps, margins, colour, style
+> aesthetic etc. also sometimes when oeping dropdown menus or panels like for
+> tooltips or in the formatting toolbars, the panels will flicker somewhere
+> else on the screen then appear in the right place. now that you have done
+> the structure fix. I need you to do a consistency fix, and also adjust the
+> larger mass spacing and panels for the app. it needs to be professional and
+> usable, not overly performative. the aesthetic needs to fit, not just be a
+> crude imitation of modern aesthetics. I need you to modernise the ui.
+
+"the application still feels fake, vibe coded and not ready for professional
+use. some things feel performative and not at professional standards in the
+ui and ux." Done so far (HANDOVER.md, "This session"): surface tiers and the
+border budget, the button ramp, one eyebrow, seg semantics, one card radius,
+one shell gutter, the Files tick, toolbar menus hidden until placed, the
+Contents strip. Everything else in the plan is open.
 
 ## ► START HERE: the redesign is the priority
 
@@ -50,8 +65,6 @@ section that holds the quoted request and the detail:
 | P | **The professional-grade plan** — whiteboard, documents, backend, agent harness, performance; scoped, measured, in ship order. [roadmap/PLAN.md](roadmap/PLAN.md), with the professional audit behind it in [roadmap/AUDIT.md](roadmap/AUDIT.md). Written by direct instruction as the follow-on to row 0. | Read it before starting any whiteboard, documents or backend work. |
 | 0 | **The whiteboard's panels and controls, in full — moved here by direct instruction, ahead of everything below.** Full narrative in [roadmap/HANDOVER.md](roadmap/HANDOVER.md)'s own top section. | Two asks: (a) the layout/structure/distribution/positioning redesign this row already named as the open half of item 7 below — panels reported clashing with each other and the canvas; (b) new, specific: while the **Pan** tool is active, clicking (or double-clicking — pick one deliberately) directly on a card/sketch/shape should switch to **Selection** and select it, instead of requiring a manual tool switch first. Not built yet — logged here first, per this file's own standing rule. |
 | 0c | **Graph Trace: multiple paths between two nodes, coloured and switchable** ([roadmap/HANDOVER.md](roadmap/HANDOVER.md), "logged, not built" §1). | Reported live. `GET /graph/path` returns one BFS shortest path today; this needs a k-shortest/all-simple-paths search server-side and a path switcher plus per-path colour in `graph.js`'s Trace panel. Scope the cap on N before building — unbounded all-paths search can blow up on a densely-linked notebook. |
-| ~~1, 3, 6, 8~~ | **Done — four rows retired.** The lock audit ([§R8.2](roadmap/REDESIGN.md)); staging every file ([§R7.2](roadmap/REDESIGN.md)); the agent-harness audit ([§R5](roadmap/REDESIGN.md)); managing concept maps ([§R7.6](roadmap/REDESIGN.md)). | Two were built by earlier sessions and only the table was stale — **check a row against the code before taking it**, that is the sixth "already exists" catch. The other two are written up in [roadmap/HANDOVER.md](roadmap/HANDOVER.md)'s harness-audit section, with what §R5's five points actually turned out to be and why the staged-URL guard lives in `api()` rather than in a list of save paths. |
-| ~~2~~ | ~~**The document/file editor**~~ **Done — all six items** ([§R7.1](roadmap/REDESIGN.md)) | Selection → chat context; editing a text or code file in place; syntax highlighting written in-repo because this app has no CDN and no bundler; an HTML preview pane in a scriptless sandbox served with its own CSP; Export text, named after what the text *is* rather than the file it came from; and item 6, which turned out to be true already — the Library's Files tiles have opened into the lightbox all along, and the lightbox is now the editor. Four bugs fell out of building it, each found by measuring rather than looking; all are in [roadmap/HANDOVER.md](roadmap/HANDOVER.md). |
 | 4 | **The pane-based shell** ([§R7.5](roadmap/REDESIGN.md), [§R8.3](roadmap/REDESIGN.md)) | Every remaining UI complaint is downstream of seven screens that each own the whole window. Its acceptance criterion is the distinct-left-edge count in [DESIGN.md](DESIGN.md) — re-baseline it on a fixed fixture first, per §R9. |
 | 5 | **Cross-linking: the `@` picker** ([§R7.3](roadmap/REDESIGN.md)) | Link direction landed; **the Connections block is now built** (`GET /entries/{id}/connections` and `/documents/{id}/connections`, the dialog off both ⋯ menus, `tests/test_connections_block.py`) — it groups links by direction and adds the documents, boards and files each thing is joined to, none of which were surfaced anywhere. What is left of this row is the one universal `@` picker. **§R7.3 item 3 (typed collapsible blocks) is now built too** — `> [!note]-` and `> [!note]+` render as a `<details>`, with a "Collapsible section" slash command; a plain `> [!note]` is unchanged, so old notes are unaffected exactly as that item required. |
 | 7 | **Settings, and the whiteboard's panel layout** ([§R7.5](roadmap/REDESIGN.md)) | Settings has never been measured. Panel control sizes are unified; the layout rethink is now row 0 above, promoted by direct instruction. |
@@ -68,7 +81,7 @@ session:
   to reproduce: an unsaved draft in the capture box. See
   `tests/test_frontend_load_order.py`.
 
-## What is open right now — start here
+## What is open right now (older list — the top section supersedes it)
 
 **The overnight round is in [roadmap/HANDOVER.md](roadmap/HANDOVER.md)'s first
 section — read it before this list.** Built there, do not rebuild: document OCR
@@ -800,7 +813,7 @@ be evaluated here at all. Use item 4's new instrumentation and a small
 fixed question set *first*, or this becomes a change nobody can prove
 helped.
 
-## §89 — reported this session, not yet built (start here next)
+## §89 — reported this session, not yet built
 
 Landed live, in one long session, alongside the app.js split's first file
 (documents.js — done, see §88.3) and a vision-chat redesign (also done: see
@@ -1450,7 +1463,7 @@ full narrative and the measured numbers.
 11. **AI-authored callouts.** Let the agent emit `> [!question]` blocks. Note
     `agent.PROSE_BUDGET_CHARS` is **asserted** — the prompt has a budget.
 
-## Read these two first
+## Read these two first (older entry point; see the top of this file)
 
 | | What's in it |
 | --- | --- |
@@ -1460,7 +1473,7 @@ full narrative and the measured numbers.
 | [roadmap/ANALYSIS.md](roadmap/ANALYSIS.md) | Judgements: the odysseus read, and the licence constraint — **this project is AGPL-3.0 now, not MIT**, so §34a's "no code crosses either way" is half-lifted. What was deliberately not taken. Also §59: the claude-obsidian/cognee/graphify read behind items 32–36 below, and §60: a second odysseus read after the repo tripled in size — a real non-atomic-write bug it found, an MCP shape worth copying, and its own admission that the backend isn't better designed. **New: §114**, a product-strategy read — a live competitor teardown (NotebookLM, Obsidian, Anytype, Capacities, Khoj, Granola, Kortex), an upgrade list for every existing feature, 18 new-feature proposals, a scored 90-day plan, and the answer to "how do you measure anything in an app with no telemetry". It also strikes three §111.2 items as already built. |
 | [DESIGN.md](DESIGN.md) | The design system. `tests/test_style_scale.py` enforces it. |
 
-## Still open after §105 — start here
+## Still open after §105
 
 §105 (HISTORY.md) closed a long run of live reports. What it did **not** close,
 each already located:

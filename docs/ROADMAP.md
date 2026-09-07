@@ -956,6 +956,13 @@ callouts" entry before rebuilding anything that sounds finished.**
     added to a board, opened in the browser: `<img>` loaded with real
     dimensions, auth via the query-param fallback, zero console errors.
 
+10. **The sketch pad: a selection tool** — the one part of this item still
+    open (the rest is in HISTORY.md, "Retired from the live files"). Clicking
+    an existing stroke/shape to move, resize or delete it; today's tools only
+    ever draw a new one. The pad is pure-raster (`ImageData` snapshots for
+    undo, no discrete stroke objects), so this is an architecture change,
+    not a patch — unlike the whiteboard's discrete-object select (item 11).
+    The toolbar redesign comes after it, not before.
 11. **Whether AI-driven work (image captioning, and AI features generally)
     should run asynchronously as a standing design principle**, not just
     get a background-tasks *indicator* (item 6 above, already logged - this

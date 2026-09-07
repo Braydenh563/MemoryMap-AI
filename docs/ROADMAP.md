@@ -14,6 +14,48 @@ inference) — see CLAUDE.md's standing caveat for what that covered. UI claims
 are checkable (Chromium is in the sandbox); model *behaviour* claims mostly
 are not — reproduce or say plainly you couldn't.
 
+## ► NEXT SESSION (Fable): read this block, then the five plans, in this order
+
+The user's own framing: *"I want it to proceed with the laid out plans in
+plan.md and ui_modernisation_plan.md along with anything else in the top
+priority of the handover and roadmap."*
+
+**The reading order, before any code:**
+1. [CLAUDE.md](../CLAUDE.md) — the traps, the sandbox recipe, the standing caveat.
+2. [roadmap/HANDOVER.md](roadmap/HANDOVER.md) — the last session first; what was
+   measured, what could not be reproduced, what is half-done.
+3. [roadmap/UI_MODERNISATION_PLAN.md](roadmap/UI_MODERNISATION_PLAN.md) — phases
+   0-7. **Phase 0 first**: the sweep tooling and acceptance gates, or every
+   later phase is unmeasurable.
+4. [roadmap/PLAN.md](roadmap/PLAN.md) — the professional-grade plan (whiteboard,
+   documents, backend, agent harness, performance) in ship order.
+5. [roadmap/AGENT_SKILLS_REFORM.md](roadmap/AGENT_SKILLS_REFORM.md) — phases A-D.
+6. [roadmap/MINDMAP_PLAN.md](roadmap/MINDMAP_PLAN.md) — **first pass, to be
+   extended and refined by Fable, not executed verbatim.** Its §2 records what
+   already exists (a board is already an `Entry`); its §4 asks for a scope call
+   before anything is built.
+7. [DESIGN.md](DESIGN.md) and [ARCHITECTURE.md](ARCHITECTURE.md) as reference.
+
+**The order of work.** Each item is a session or less; each ends green and
+pushed.
+
+| | Work | Why here |
+| --- | --- | --- |
+| 1 | **UI Phase 0** — sweep tooling, `tests/test_ui_signatures.py`, the screenshot set | Nothing after this is measurable without it |
+| 2 | **UI Phases 1-2** — mass and layout, then component consistency by *count* | The largest visible change; the user's standing complaint |
+| 3 | **Skills reform Phases A-B** — step contracts, small-model mode | The app's AI is unusable on a 4B model today; this is the functional half of "feels unprofessional" |
+| 4 | **UI Phase 3-4** — type/colour/glass restraint, placement and motion | Finishes the look; cheap once 1-2 are done |
+| 5 | **Skills reform Phase C** — the run as a collapsible object; verify tool calls in chat | Also closes the agent-activity report |
+| 6 | **UI Phase 7** — document lightbox, note-editor gutters, document captioning, region OCR, the Files row | This round's leftovers |
+| 7 | **UI Phases 5-6** — per-surface passes, designed states and copy | Long tail |
+| 8 | **Mindmaps** — refine [MINDMAP_PLAN.md](roadmap/MINDMAP_PLAN.md), make the §4 scope call, then Phases 1-3 | The user's stated vision; needs 1-2 done first so it is built on a settled design system |
+| 9 | **PLAN.md's remaining tracks** — backend hardening, performance, packaging | Least user-visible, most durable |
+
+**Standing rules for all of it** (from CLAUDE.md, learned expensively):
+measure → change → re-measure, with the number in the commit message; check the
+running app before building anything; say plainly what you could not verify; one
+pushed, green commit per item.
+
 ## ► TOP PRIORITY, by direct instruction: modernise and professionalise the UI
 
 The full dev plan — causes, phases, per-family targets, acceptance counts and

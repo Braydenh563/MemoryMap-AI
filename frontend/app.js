@@ -11397,6 +11397,64 @@ function aiWritingTrace() {
 //: The SVG is appended *after* the three dot spans on purpose:
 //: `.typing-dots span:nth-child(2)`/`(3)` address those dots by position, and
 //: putting anything before them would silently re-time the bounce.
+//: **A mouse wheel must scroll a horizontal strip.** Reported: "if the tabs
+//: bar becomes scrollable, I cant do it with mouse, only with touch or my
+//: trackpad."
+//:
+//: That is the browser's behaviour, not a bug in the strip: a wheel emits
+//: `deltaY`, and an element that only overflows on X ignores it — so a
+//: trackpad (which emits real `deltaX` on a two-finger swipe) and a
+//: touchscreen work while a wheel does nothing at all. Every app with a tab
+//: strip translates the axis by hand; this is that, once, for all of them.
+//:
+//: Three conditions before it takes over, so it never steals a gesture that
+//: meant something else: the element must actually overflow horizontally, the
+//: gesture must be vertical-only (`deltaX === 0` — a trackpad's own horizontal
+//: swipe is left alone), and the scroll must have somewhere to go in that
+//: direction, so at either end the page scrolls normally instead of the strip
+//: swallowing the wheel.
+//:
+//: `passive: false` because it calls `preventDefault`; that is the whole
+//: point, and it is scoped to elements that pass the test above.
+function wheelScrollsHorizontally(element) {
+  if (!element || element.dataset.wheelX === "1") return;
+  element.dataset.wheelX = "1";
+  element.addEventListener(
+    "wheel",
+    (event) => {
+      if (event.deltaX !== 0 || event.shiftKey) return;
+      const room = element.scrollWidth - element.clientWidth;
+      if (room <= 1) return;
+      const atStart = element.scrollLeft <= 0 && event.deltaY < 0;
+      const atEnd = element.scrollLeft >= room - 1 && event.deltaY > 0;
+      if (atStart || atEnd) return;
+      element.scrollLeft += event.deltaY;
+      event.preventDefault();
+    },
+    { passive: false }
+  );
+}
+window.wheelScrollsHorizontally = wheelScrollsHorizontally;
+
+//: Every horizontal strip in the app, in one list. A strip added later gets
+//: this by being added here — which is cheaper than each surface remembering.
+function wireHorizontalWheelScrolling() {
+  const strips = [
+    "#tab-bar",
+    "#notes-subtabs",
+    "#library-subtabs",
+    ".doc-toolbar",
+    ".seg.edge-fade",
+    ".edge-fade",
+  ];
+  for (const selector of strips) {
+    for (const element of document.querySelectorAll(selector)) {
+      wheelScrollsHorizontally(element);
+    }
+  }
+}
+window.wireHorizontalWheelScrolling = wireHorizontalWheelScrolling;
+
 function typingDots(label = "Thinking…") {
   const dots = document.createElement("span");
   //: `typing-dots` is kept as the class even though this is now two
@@ -32678,6 +32736,10 @@ window.startApp = async function() {
     await originalStartAppAgentHook.apply(this, arguments);
   }
   streamAgentLogs();
+  //: After the app has painted, so the strips that are built at run time
+  //: (the Library sub-tabs, the editor toolbars) are in the DOM to be wired.
+  //: Idempotent per element (`data-wheel-x`), so calling it again is free.
+  wireHorizontalWheelScrolling();
 }
 
 // --- Global Command Palette (Ctrl+K) ---

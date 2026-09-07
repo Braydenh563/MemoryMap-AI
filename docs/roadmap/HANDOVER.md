@@ -162,6 +162,37 @@ belongs in the file that registers the listener.**
   tool calls render in the chat transcript on all three paths (logged as
   AGENT_SKILLS_REFORM Phase C).
 
+- **The handover to Fable, and the ordered plan.** The user is switching to
+  Fable for the next session and asked for everything to be logged and ordered:
+  *"I want it to proceed with the laid out plans in plan.md and
+  ui_modernisation_plan.md along with anything else in the top priority of the
+  handover and roadmap."* **ROADMAP.md now opens with that order** — reading
+  order first (CLAUDE.md → this file → UI_MODERNISATION_PLAN → PLAN →
+  AGENT_SKILLS_REFORM → MINDMAP_PLAN → DESIGN/ARCHITECTURE), then nine numbered
+  pieces of work with a reason for each position. `FABLE_BRIEF.md` beside this
+  file is the prompt the user will paste, including their own
+  Lead-Product-Engineer audit brief.
+- **The mindmap vision is written up** in
+  [MINDMAP_PLAN.md](MINDMAP_PLAN.md), researched (Kumu, XMind, MindMeister,
+  Coggle, Whimsical, Obsidian Canvas Mindmap, Excalidraw-in-Obsidian,
+  Reingold–Tilford/d3-flextree layout) and grounded in this codebase. **The
+  finding that changes the shape of the work: a board is already an `Entry`**
+  (`WhiteboardNode.board_id` → `entries.id`), so "a map is its own object that
+  can be attached, linked and referenced" is already true at the data layer —
+  the work is surfacing it, not building it. The plan asks for a scope call
+  (§4) before anything is built, and flags that "kaggle"/"kaggle.it" does not
+  resolve to a mindmapping product; Kumu.io is the closest match by
+  description and should be confirmed. Marked in the file as a first pass for
+  Fable to extend and refine.
+- **Three more fixes after v0.2.2**, all measured: the tab strip is centred on
+  the window above 1200px (it was 21px off at 1440 and 261px off at 1920 —
+  a flex row, so it started wherever the brand ended; a grid was tried first
+  and put the three brand children on separate rows, 59px → 181px, so it was
+  reverted for absolute centring); the HUD is larger, higher and accent-edged
+  ("a bit small and hard to see/notice"); and `shortModelName` now covers the
+  Images sub-tab's "Text read by", the caption byline and the OCR reader row,
+  with Settings and the model stats panel keeping the full id.
+
 ### Open — carried over from before this session, never started
 
 The user asked, twice, for a scan of the whole conversation so nothing slipped.

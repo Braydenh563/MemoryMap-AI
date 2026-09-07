@@ -31,6 +31,8 @@ say whether it meets what was asked, not just whether the code path exists.
 | File | What it answers |
 | --- | --- |
 | [`docs/roadmap/HANDOVER.md`](docs/roadmap/HANDOVER.md) | **Read this first.** The last session's handover: what changed, what could not be verified and why, where to start, and the traps that cost an hour each. |
+| [`docs/roadmap/MINDMAP_PLAN.md`](docs/roadmap/MINDMAP_PLAN.md) | The mindmap feature built on the whiteboard — research, the finding that a board is already an `Entry`, a scope call to make first, and five phases. A first pass, meant to be extended. |
+| [`docs/roadmap/FABLE_BRIEF.md`](docs/roadmap/FABLE_BRIEF.md) | The prompt handed to the next session, and the reading order it enforces. |
 | [`docs/roadmap/AGENT_SKILLS_REFORM.md`](docs/roadmap/AGENT_SKILLS_REFORM.md) | **Top priority, the other half**: why a skill run on a small model skips steps and calls no tools, and the four-phase reform for it — step contracts, small-model mode, the run as a collapsible object, recovery. |
 | [`docs/roadmap/UI_MODERNISATION_PLAN.md`](docs/roadmap/UI_MODERNISATION_PLAN.md) | **The top priority by direct instruction**: the phased plan to modernise and professionalise the whole UI — causes, per-family targets, acceptance counts, order. Sweep scripts in `scratchpad/ui-sweeps/`. |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | **The live list — only what is still open.** Opens with it; nothing finished is kept here any more. |

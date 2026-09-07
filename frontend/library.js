@@ -5431,8 +5431,12 @@ function filterLibraryImagesGallery() {
       captionToggle,
       captionBadge
     );
+    //: A PDF is not an image, and the heading said so anyway. Reported: "in
+    //: the files tab, the ocr heading still says 'text in this image' when it
+    //: should probably say something like 'extracted text from file'".
+    //: `_isImage` is already set for every row by the gallery loader.
     const visionField = field(
-      "Text in this image",
+      image._isImage ? "Text in this image" : "Text extracted from this file",
       visionOcrText,
       visionOcrToggle,
       visionOcrBadge

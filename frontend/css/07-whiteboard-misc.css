@@ -6752,16 +6752,65 @@ button.connection-row {
    strip is capped so it can never reach either. Below that the flex
    behaviour is untouched, including the degradation ladder that keeps this
    bar on one row. */
-@media (min-width: 1200px) {
-  header#top-bar {
-    position: sticky; /* already sticky; restated because it is what `absolute` below resolves against */
-  }
+/* **Centred only where it demonstrably fits, and never capped.** The first
+   version of this rule reserved a symmetric lane of `--tab-bar-side-lane` on
+   each side and capped the strip to what was left. That was wrong twice over:
+   the lane was sized from the *wider* side (the brand block, ~374px) and then
+   applied to both, reserving ~768px of a 1440px window; and capping a strip
+   that cannot shrink just makes it scroll. Reported immediately, with a
+   screenshot of "Reminders" sliced in half at 100% zoom.
 
+   The arithmetic the floor below comes from, all measured on this app at
+   default density: the strip's natural width is 651px, the brand block ends
+   at 374px, and the controls are 231px wide. For a strip centred on the
+   *window* to clear the brand on its left, the window must be at least
+   651 + 2 x 374 = 1399px. 1500px is that with room to spare, so the strip is
+   never capped and never scrolls at any width where this rule applies -- and
+   below it the strip stays in normal flex flow exactly as it always did,
+   where `safe center` (further down) keeps it centred until it has to
+   scroll. */
+/* **The wordmark goes before a tab does.** Asked directly: "can the top bar be
+   altered or improved in any way ui and ux wise to try and reduce this from
+   occuring??" -- "this" being the strip having to scroll.
+
+   The header's own comment (00-tokens-shell.css) already names the answer:
+   "the wordmark is the first thing that may go: it is decoration next to the
+   tabs, and reclaiming it buys a whole tab's worth of room." It was only being
+   dropped at 720px, by which point the layout has already given up and gone to
+   two rows. The window title, the taskbar icon and the logo all still say what
+   this app is; the seven tabs are the only thing in the bar that is *work*.
+
+   Measured: the brand block is ~374px with the wordmark and ~200px without,
+   so this frees ~174px exactly where the bar is tightest -- which is what
+   lets the centred layout below start at 1200px instead of 1500px, covering
+   the common 1366/1440 laptop widths that were reported. */
+@media (max-width: 1499px) {
+  header#top-bar > h1 {
+    display: none;
+  }
+}
+
+@media (min-width: 1200px) {
   header#top-bar > #tab-bar {
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
-    max-width: calc(100% - 2 * var(--tab-bar-side-lane));
+    /* Its own content width: no cap, so nothing is ever clipped. */
+    width: max-content;
+    max-width: none;
   }
 }
 
+
+/* **Centred when it fits, left-aligned the moment it has to scroll.** Asked
+   for directly: "can you also make the tabs centered in the row but if they
+   becom scrollable on smaller resolutions, they are aligned to the left??"
+
+   `safe center` is precisely that keyword: it centres like `center` while
+   there is room, and falls back to `start` when the content overflows, so the
+   first tab can never end up scrolled off the left edge with no way back --
+   which is what plain `center` does to an overflowing scroller, and why this
+   strip was left-aligned in the first place. */
+header#top-bar > #tab-bar {
+  justify-content: safe center;
+}

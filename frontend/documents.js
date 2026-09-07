@@ -1089,16 +1089,74 @@ function withDocPreviewShown(fn) {
 // decision with a real dependency behind it, and pretending otherwise by
 // half-highlighting a few keywords would look worse than plain monospace.
 
-function renderDocGutter() {
-  const gutter = $("doc-gutter");
-  const box = $("doc-content");
-  if (!gutter || !box || gutter.classList.contains("hidden")) return;
-  const lines = box.value.split("\n").length;
-  // One text node of numbers, not one element per line: a 5,000-line file is
-  // 5,000 elements to build and lay out on every keystroke otherwise, and the
-  // gutter is doing nothing that needs per-line nodes.
-  gutter.textContent = Array.from({ length: lines }, (_, i) => i + 1).join("\n");
-  gutter.scrollTop = box.scrollTop;
+//: Every gutter in the document, paired with the textarea it numbers. The
+//: documents editor's gutter is the original (`#doc-gutter` beside
+//: `#doc-content`); the note capture box and the note edit form get one each
+//: from `mountGutterFor`, which records the pairing in `data-for`
+//: (UI_MODERNISATION_PLAN Phase 7 item 2: "one toggle, remembered, working
+//: for any file type, in all three").
+function docGutters() {
+  return [...document.querySelectorAll(".doc-gutter")]
+    .map((gutter) => ({ gutter, box: gutter.dataset.for ? $(gutter.dataset.for) : $("doc-content") }))
+    .filter((pair) => pair.box);
+}
+
+function renderDocGutter(only = null) {
+  for (const { gutter, box } of docGutters()) {
+    if (only && box !== only) continue;
+    if (gutter.classList.contains("hidden")) continue;
+    const lines = box.value.split("\n").length;
+    // One text node of numbers, not one element per line: a 5,000-line file
+    // is 5,000 elements to build and lay out on every keystroke otherwise,
+    // and the gutter is doing nothing that needs per-line nodes.
+    gutter.textContent = Array.from({ length: lines }, (_, i) => i + 1).join("\n");
+    gutter.scrollTop = box.scrollTop;
+  }
+}
+
+//: Give a plain textarea a line-number gutter: wrap it, put the gutter
+//: before it, and keep the two in step on input and scroll. The gutter copies
+//: the textarea's own type metrics and top padding through the CSSOM (an
+//: inline `style=` would be refused by the CSP) — that, not a shared class,
+//: is what makes "1" sit exactly beside the first line whatever font the box
+//: uses. Idempotent, so the note edit form can call it on every open.
+function mountGutterFor(textarea) {
+  if (!textarea || !textarea.id || textarea.parentElement?.classList.contains("gutter-wrap")) {
+    return textarea?.previousElementSibling || null;
+  }
+  const wrap = document.createElement("div");
+  wrap.className = "gutter-wrap";
+  const gutter = document.createElement("div");
+  gutter.className = "doc-gutter hidden";
+  gutter.dataset.for = textarea.id;
+  gutter.setAttribute("aria-hidden", "true");
+  textarea.parentElement.insertBefore(wrap, textarea);
+  wrap.append(gutter, textarea);
+  // The note edit form builds its <li> detached and inserts it afterwards,
+  // so at this point `applyDocGutter` (which walks the *document*) cannot
+  // see this gutter and `getComputedStyle` returns empty strings. Decide the
+  // initial state from the remembered choice right here, and copy the type
+  // metrics on the first frame the box is in the document — measured, the
+  // form's gutter stayed hidden on every open without both.
+  const on = docGutterPref() === "1";
+  gutter.classList.toggle("hidden", !on);
+  textarea.classList.toggle("has-gutter", on);
+  const copyMetrics = () => {
+    const metrics = getComputedStyle(textarea);
+    gutter.style.fontFamily = metrics.fontFamily;
+    gutter.style.fontSize = metrics.fontSize;
+    gutter.style.lineHeight = metrics.lineHeight;
+    gutter.style.paddingTop = metrics.paddingTop;
+    gutter.style.paddingBottom = metrics.paddingBottom;
+    renderDocGutter(textarea);
+  };
+  if (textarea.isConnected) copyMetrics();
+  else requestAnimationFrame(copyMetrics);
+  textarea.addEventListener("input", () => renderDocGutter(textarea));
+  textarea.addEventListener("scroll", () => {
+    if (!gutter.classList.contains("hidden")) gutter.scrollTop = textarea.scrollTop;
+  });
+  return gutter;
 }
 
 //: The lines a selection touches, as [firstLine, lastLine] and the character
@@ -3431,13 +3489,28 @@ function setDocGutter(on) {
 //: Reads the *current* file's type rather than taking it as an argument, so
 //: the toggle and the file-open path cannot disagree about what "code" means.
 function applyDocGutter() {
-  const box = $("doc-content");
-  const on = docGutterWanted(box?.classList.contains("doc-content-code"));
-  $("doc-gutter")?.classList.toggle("hidden", !on);
-  const button = document.querySelector(".doc-toolbar-gutter");
-  if (button) {
-    button.setAttribute("aria-pressed", on ? "true" : "false");
-    button.title = on ? "Hide line numbers" : "Show line numbers";
+  // One remembered choice for every editor. The documents editor keeps its
+  // "follow the file type" default (code files number themselves); a note
+  // box has no file type, so there the choice alone decides.
+  let anyOn = false;
+  for (const { gutter, box } of docGutters()) {
+    const isDoc = box.id === "doc-content";
+    const on = isDoc
+      ? docGutterWanted(box.classList.contains("doc-content-code"))
+      : docGutterPref() === "1";
+    gutter.classList.toggle("hidden", !on);
+    // Numbers only line up against hard lines, so a numbered box stops
+    // soft-wrapping — the same rule `.doc-content-code` already applies.
+    if (!isDoc) box.classList.toggle("has-gutter", on);
+    anyOn = anyOn || on;
+  }
+  for (const button of document.querySelectorAll(".doc-toolbar-gutter")) {
+    const bar = button.closest(".doc-toolbar");
+    const own = bar?.id === "doc-toolbar"
+      ? !$("doc-gutter")?.classList.contains("hidden")
+      : docGutterPref() === "1";
+    button.setAttribute("aria-pressed", own ? "true" : "false");
+    button.title = own ? "Hide line numbers" : "Show line numbers";
     button.setAttribute("aria-label", button.title);
   }
   renderDocGutter();
@@ -3529,7 +3602,12 @@ function mountDocToolbarControlsFor(bar) {
     gutter.className = "ghost small icon-only doc-toolbar-gutter";
     setLabel(gutter, "ph:list-numbers");
     gutter.addEventListener("click", () => {
-      setDocGutter($("doc-gutter")?.classList.contains("hidden"));
+      // The strip's own button reads its own gutter: the documents strip
+      // asks #doc-gutter, a note strip asks the remembered choice.
+      const own = bar.id === "doc-toolbar"
+        ? $("doc-gutter")?.classList.contains("hidden")
+        : docGutterPref() !== "1";
+      setDocGutter(own);
     });
     tools.appendChild(gutter);
 
@@ -3558,6 +3636,8 @@ function mountDocToolbarControls() {
   $("doc-format-toggle")?.addEventListener("click", () =>
     setDocToolbarCollapsed(!docToolbarCollapsed())
   );
+  // The capture box gets its gutter here, once, with the strip that toggles it.
+  mountGutterFor($("entry-content"));
   for (const bar of document.querySelectorAll(".doc-toolbar")) mountDocToolbarControlsFor(bar);
   applyDocToolbarLayoutButtons();
   applyDocToolbarCollapsed(docToolbarCollapsed());

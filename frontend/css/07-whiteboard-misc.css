@@ -7196,3 +7196,34 @@ header#top-bar > #tab-bar {
 #doc-format-toggle[aria-pressed="true"] {
   background: var(--ghost-btn-bg-hover);
 }
+
+/* --- line numbers for any textarea (UI_MODERNISATION_PLAN Phase 7.2) -------
+   The documents editor's gutter pattern, wrapped so the capture box and the
+   note edit form can carry one: the gutter takes the textarea's own metrics
+   through the CSSOM at mount, and a numbered box stops soft-wrapping so the
+   numbers stay true. */
+.gutter-wrap {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.gutter-wrap > textarea {
+  flex: 1 1 auto;
+  min-width: 0;
+  /* The base input rule's bottom margin would leave the gutter 10px taller
+     than the box it numbers (measured 122 vs 112); the wrap owns the gap. */
+  margin-bottom: 0;
+}
+
+.gutter-wrap {
+  margin-bottom: var(--space-2);
+}
+
+.gutter-wrap > .doc-gutter:not(.hidden) + textarea,
+textarea.has-gutter {
+  white-space: pre;
+  overflow-x: auto;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}

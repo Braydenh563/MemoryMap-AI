@@ -5946,6 +5946,17 @@ function renderEditForm(li, entry) {
   chipsHost.className = "row attachment-chips hidden";
   chipsHost.id = "entry-edit-attachment-chips";
   li.append(toolbarEl, textarea, preview, chipsHost, meta);
+  // The same line-number gutter the capture box and the documents editor
+  // carry (documents.js `mountGutterFor`); it follows the one remembered
+  // choice, so a person who turned numbers on in Capture sees them here too.
+  //: On the next frame, not now: this <li> is still detached (`entryItem`
+  //: returns it to the list renderer), and `applyDocGutter` walks the
+  //: document to set the strip button's pressed state — measured, the button
+  //: opened with no state and no title until the first click without this.
+  if (typeof mountGutterFor === "function") {
+    mountGutterFor(textarea);
+    requestAnimationFrame(applyDocGutter);
+  }
   renderEntryAttachmentChips(textarea, chipsHost);
   textarea.addEventListener("input", () => renderEntryAttachmentChips(textarea, chipsHost));
   renderRelatedWhileEditing(li, entry);

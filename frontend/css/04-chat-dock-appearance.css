@@ -3141,6 +3141,22 @@ span > .chip {
   top: calc(100% + var(--space-2));
   right: 0;
   z-index: 5;
+  /* Reported: "when opening dropdown menus or panels ... the panels will
+     flicker somewhere else on the screen then appear in the right place."
+     A toolbar menu is a <details>; the browser paints it open at the
+     stylesheet position (right-aligned under its button) before the
+     `toggle` event -- a task, not a microtask -- runs clampToolbarMenu, and
+     one more frame passes when the first measurement finds no layout yet.
+     So it is invisible until placed: the class is set at the end of the
+     clamp and cleared on close (app.js). `visibility`, not `display`, so
+     it still has a box to measure. */
+  visibility: hidden;
+}
+
+.doc-dock-menu-list.is-placed,
+:not(.doc-toolbar-menu) > .doc-dock-menu-list {
+  visibility: visible;
+}
   min-width: 15rem;
   display: flex;
   flex-direction: column;

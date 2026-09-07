@@ -101,6 +101,33 @@ belongs in the file that registers the listener.**
   in real dark mode (the first look at it used a forced `data-mode`, which the
   widget does not read).
 
+- **Last request of the session (at 91% of the user's usage), what landed and
+  what did not.** Landed, measured: the Files preview-view tick (the PDF page
+  render painted over it, a z-index tie); toolbar `<details>` menus are
+  invisible until `clampToolbarMenu` has placed them (the "flicker somewhere
+  else then appear" report — the browser painted the open menu before the
+  `toggle` task ran); the Contents sticky heading is a glass strip instead of
+  a second coat of the card's own tint (the "hard rectangle behind rows"
+  shape — the Tools filter row was the same shape, fixed with the surface
+  tiers); one card radius (`--radius`) everywhere; one shell gutter
+  (`--page-gutter` for the top gap, the sidebar gap and the sides — was
+  12/10/18px); card head rows drop the title's own bottom margin. **Not
+  done — the user's words:** "there are still a lot of inconsistencies in ui
+  style, sizing, alignment, positioning, spacing, gaps, margins, colour, style
+  aesthetic etc"; "adjust the larger mass spacing and panels for the app. it
+  needs to be professional and usable, not overly performative. the aesthetic
+  needs to fit, not just be a crude imitation of modern aesthetics";
+  "modernise the ui". Where to start: this session's sweep scripts
+  (`buttons.js`, `borders.js`, `caps.js`, `segs.js`, `rows.js` in the
+  scratchpad — one computed-style signature table per component family per
+  tab) and fix by *count*, not by eye. The measured drift that remains: card
+  head rows at 28/38/40px (driven by their control heights, not margins),
+  `.row` gaps of 4/6.4/8/9.6/16px, the reminders form's 4/6.4/12.8px stack.
+  The flicker fix covers the toolbar menus only; the help popover, action
+  menus and select menus place synchronously and did not flicker here — if
+  the report persists it is one of those, and the same hide-until-placed
+  shape applies.
+
 ### Open — carried over from before this session, never started
 
 The user asked, twice, for a scan of the whole conversation so nothing slipped.

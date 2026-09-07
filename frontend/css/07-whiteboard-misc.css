@@ -5856,6 +5856,12 @@ button.connection-row {
   grid-column: 1;
   grid-row: 1;
   justify-self: start;
+  /* Above `.library-file-page` (the PDF's rendered first page, absolute at
+     z-index 1, later in the DOM). This rule set 1 too and lost the tie on
+     order -- reported as the tick showing in the filetype view and not the
+     preview view. Only a PDF has a page render, which is why .md/.txt rows
+     never showed it. */
+  z-index: 3;
   align-self: start;
   width: auto;
   margin: var(--space-1);

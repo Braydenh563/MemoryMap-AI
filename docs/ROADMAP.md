@@ -14,6 +14,16 @@ inference) — see CLAUDE.md's standing caveat for what that covered. UI claims
 are checkable (Chromium is in the sandbox); model *behaviour* claims mostly
 are not — reproduce or say plainly you couldn't.
 
+## ► Open from the design-system session (see HANDOVER.md, "This session")
+
+The surface tiers, button ramp, eyebrow rule, seg semantics and form-label
+column are built and measured. Still open, in the user's words: a
+**consistency fix** ("inconsistencies in ui style, sizing, alignment,
+positioning, spacing, gaps, margins, colour, style aesthetic") and the
+**larger mass spacing and panels** ("professional and usable, not overly
+performative ... not just a crude imitation of modern aesthetics"). HANDOVER.md
+lists the measured drift that remains and the sweep scripts to reuse.
+
 ## ► START HERE: the redesign is the priority
 
 A full UX/architecture re-imagining was asked for and is written up in

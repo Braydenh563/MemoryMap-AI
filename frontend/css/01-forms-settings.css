@@ -8,6 +8,16 @@
    One rule per level, stated here, with the difference carried by weight and
    colour as well as by size. Two sizes 0.08rem apart cannot do the job on
    their own — that is what made the old hierarchy invisible. */
+/* Inside a head row (`.row > h2`, the shape every card title with an action
+   beside it uses) the title's own margin is dropped: the row spaces itself.
+   Measured before this, the same title row was 28, 38 and 40px tall across
+   Notes, Library and Reminders because some h2s kept the margin below and
+   some did not. */
+.card .row > h2,
+.card .row > h3 {
+  margin-block: 0;
+}
+
 .card h2 {
   margin: 0 0 var(--space-5);
   font-size: var(--text-body);
@@ -1864,7 +1874,24 @@ progress {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--card-bg);
+  /* Was `--card-bg` -- the card's own translucent tint painted a second
+     time over itself: a darker (dark) / lighter (light) rectangle behind
+     the row, reported as "hard rectangle box background colours behind
+     rows". A sticky row over a glass card is a glass strip -- the recipe
+     `.notes-subtabs` and `.library-subtabs` already use, one blurred element
+     per page. */
+  background: var(--card);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+}
+
+/* The heading is a <button>, so the "no nested blur on controls" list in
+   03-dashboard-widgets.css (`.card button`) switches its filter off; this
+   one is a sticky strip, not a control, and is the one blurred element the
+   Contents page has. */
+.card .contents-heading {
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
 }
 
 .contents-heading:hover,

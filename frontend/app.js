@@ -16523,6 +16523,9 @@ function clampToolbarMenu(details, { retry = true } = {}) {
     // event. One retry on the next frame, once — a loop here would spin
     // forever on a menu that is genuinely empty.
     if (retry) requestAnimationFrame(() => clampToolbarMenu(details, { retry: false }));
+    // Out of retries: show it where the stylesheet put it rather than never.
+    // `.doc-dock-menu-list` is invisible until this class arrives.
+    else list.classList.add("is-placed");
     return;
   }
   const margin = 8;
@@ -16603,6 +16606,9 @@ function clampToolbarMenu(details, { retry = true } = {}) {
     list.style.left = `${Math.round(left + driftX)}px`;
     list.style.top = `${Math.round(top + driftY)}px`;
   }
+  // Only now is it allowed to paint -- see `.doc-dock-menu-list` in
+  // 04-chat-dock-appearance.css for the flicker this prevents.
+  list.classList.add("is-placed");
 }
 
 //: A fixed-position menu does not travel with the strip it belongs to, so any
@@ -16624,7 +16630,12 @@ document.addEventListener(
   (event) => {
     const details = event.target;
     if (!(details instanceof HTMLElement) || details.tagName !== "DETAILS") return;
-    if (!details.open || !details.classList.contains("doc-toolbar-menu")) return;
+    if (!details.classList.contains("doc-toolbar-menu")) return;
+    if (!details.open) {
+      // Back to invisible for the next open, so it never paints unplaced.
+      details.querySelector(".doc-dock-menu-list")?.classList.remove("is-placed");
+      return;
+    }
     clampToolbarMenu(details);
   },
   true

@@ -373,7 +373,8 @@ select optgroup {
   --page-left: var(--page-gutter);
   --page-right: var(--page-gutter);
   /* 2rem, the inset five rules had by hand */
-  --page-top: var(--space-6);
+  /* Equal to the side gutter -- see `.layout`'s gap for the measurement. */
+  --page-top: var(--page-gutter);
   --page-bottom: var(--space-8);
 
   /* How tall a sticky sidebar may be: the page, minus the page's own padding.
@@ -3100,7 +3101,12 @@ header#top-bar.tabs-wrapped #tab-bar {
      agree on the frame before JS has run, rather than starting at 260px
      and visibly jumping. */
   grid-template-columns: clamp(11rem, 17vw, 16rem) minmax(0, 1fr);
-  gap: var(--space-5);
+  /* The same gutter as the page edge. Measured at 1440px before this: 18px
+     from the window to a card, 12px under the top bar, 10px between the
+     sidebar and the content -- three shell gaps, three sizes. One token,
+     one gap, which is what makes a shell read as designed rather than
+     assembled. */
+  gap: var(--page-gutter);
   /* The gutter belongs to .tab-page now; this is only the column gap. */
   padding: 0;
   /* stretch, not start: with `start` the sidebar shrank to its content and sat
@@ -3146,7 +3152,11 @@ header#top-bar.tabs-wrapped #tab-bar {
   backdrop-filter: var(--glass-filter);
   -webkit-backdrop-filter: var(--glass-filter);
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
+  /* `--radius`, the user's own corner setting -- not the 0.8 step below it.
+     Measured: dashboard widgets, the modal and the graph box were 14px and
+     every other card 11.2px: two corner sizes on surfaces of the same rank,
+     one tab apart. */
+  border-radius: var(--radius);
   /* Outer depth plus a one-pixel specular lip along the top edge. The lip is
      the cheap half of the "liquid glass" technique going round (an SVG
      feTurbulence/feDisplacementMap referenced from `backdrop-filter`): the

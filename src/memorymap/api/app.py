@@ -14,11 +14,14 @@ import logging
 import os
 import sys
 import threading
+import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import DEFAULT_EXCLUDED_CONTENT_TYPES, GZipMiddleware
 
 from memorymap import __version__
@@ -193,6 +196,109 @@ def _start_autonomous_loop() -> None:
         )
 
 
+#: PLAN.md §3 B3. Every one of the ~200 `HTTPException(status_code=..., ...)`
+#: call sites across the routers picks a status and a human message; none of
+#: them picks a machine-readable `code`, and there are too many to touch by
+#: hand without risking exactly the kind of drive-by rewrite CLAUDE.md warns
+#: against ("Do NOT rewrite the 400+ raise sites"). Deriving `code` from the
+#: status here, once, gets every existing raise a stable code for free and
+#: means a *new* route never has to remember to set one.
+_STATUS_CODES: dict[int, str] = {
+    400: "bad_request",
+    401: "unauthorized",
+    403: "forbidden",
+    404: "not_found",
+    405: "method_not_allowed",
+    409: "conflict",
+    410: "gone",
+    413: "too_large",
+    415: "unsupported_media_type",
+    422: "invalid",
+    423: "locked",
+    429: "rate_limited",
+    500: "internal",
+    502: "bad_gateway",
+    503: "unavailable",
+}
+
+
+def _code_for_status(status_code: int) -> str:
+    """A stable machine-readable name for an HTTP status this app raises.
+
+    Falls back to `http_<code>` for anything not named above rather than
+    raising or returning something empty — a status nobody has catalogued
+    yet still gets a code a client can safely branch on, just not one with a
+    friendly name.
+    """
+    return _STATUS_CODES.get(status_code, f"http_{status_code}")
+
+
+def _register_error_handlers(app: FastAPI) -> None:
+    """Make every failure this app returns machine-readable JSON.
+
+    Before this, an `HTTPException` route returned `{"detail": ...}` — fine
+    for the message, but the frontend had nothing to branch on except
+    parsing that string, and a route that let an exception escape uncaught
+    (the space-delete `IntegrityError`, found in the §40 audit) fell through
+    to Starlette's default `ServerErrorMiddleware`, which in production mode
+    answers with a bare `text/plain` "Internal Server Error" — not JSON, no
+    correlation id, and (worse) sometimes a raw traceback if debug ever got
+    left on. Two handlers close both gaps:
+
+    - Every `HTTPException` (FastAPI's own class subclasses Starlette's, so
+      registering on the Starlette base catches both) gets `code` and `hint`
+      added alongside its existing `detail` — `detail` is left exactly as
+      the route set it, which is what keeps every existing
+      `response.json()["detail"] == "..."` assertion passing unchanged.
+      A route may already pass a *dict* detail (`{"detail": ..., "hint": ...,
+      "code": ...}`) to override any of the three explicitly; nothing in
+      this codebase does yet, but nothing has to change here the day one
+      does.
+    - Anything else — a bug, not a deliberately raised HTTP error — becomes
+      `500 {"detail": "Internal error", "code": "internal", "ref": <uuid>}`.
+      The traceback goes to the log keyed by that same `ref` (`logger.exception`,
+      so it's a full traceback, not just the one-line summary `.warning` would
+      give) and never reaches the response body: a stack trace in an HTTP
+      response is a real information leak (paths, versions, sometimes a
+      query with a value in it) and this app has no other layer that would
+      have stopped it reaching the client.
+    """
+    error_logger = logging.getLogger("memorymap.errors")
+
+    @app.exception_handler(StarletteHTTPException)
+    async def _http_exception_handler(
+        _request, exc: StarletteHTTPException
+    ) -> JSONResponse:
+        detail = exc.detail
+        code = _code_for_status(exc.status_code)
+        hint = None
+        if isinstance(detail, dict):
+            # A route opting into the richer shape directly — see the
+            # docstring above. `.get("detail", detail)` means a dict that
+            # forgot to include its own "detail" key still round-trips as
+            # itself rather than silently becoming `None`.
+            code = detail.get("code", code)
+            hint = detail.get("hint", hint)
+            detail = detail.get("detail", detail)
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": detail, "code": code, "hint": hint},
+            headers=getattr(exc, "headers", None),
+        )
+
+    @app.exception_handler(Exception)
+    async def _unhandled_exception_handler(_request, exc: Exception) -> JSONResponse:
+        # A fresh id per failure, logged next to the real traceback and
+        # handed back to the user — "it broke" with no ref is unreportable;
+        # this ref is the thing a bug report can actually be filed against.
+        ref = uuid.uuid4().hex
+        error_logger.exception("Unhandled exception (ref=%s)", ref, exc_info=exc)
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal error", "code": "internal", "ref": ref},
+        )
+
+
 def create_app() -> FastAPI:
     # First, before any singleton is built. This catches `uvicorn … --workers 4`
     # run directly against this factory, which is the only way the app can be
@@ -240,6 +346,7 @@ def create_app() -> FastAPI:
         bgtasks.stop_all()
 
     app = FastAPI(title="MemoryMap AI", version=__version__, lifespan=lifespan)
+    _register_error_handlers(app)
 
     # Middleware is added inside-out: the LAST one added is the outermost, so
     # the headers below are stamped on the origin check's own 403 too.

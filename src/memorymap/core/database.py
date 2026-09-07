@@ -1068,6 +1068,15 @@ class MediaUpload(Base, WorkspaceMixin):
     #: Which model produced `vision_ocr_text`, or NULL when there is none —
     #: same "credit the model, not the app" reasoning as `caption_model`.
     vision_ocr_model: Mapped[str | None] = mapped_column(String(200), default=None)
+    #: Bytes on disk, written once at upload time (PLAN.md §0 P6). Before this
+    #: column existed, `GET /media` computed it by calling `Path.stat()` on
+    #: every row on every single request — fine at a handful of files, a
+    #: measured, avoidable disk hit at a few thousand. NULL means "uploaded
+    #: before this column existed" (the additive auto-migrator's own
+    #: NULL-backfill for a column with no scalar default), not "empty file" —
+    #: `list_media` backfills any NULL it finds once, from a real `stat()`,
+    #: and never stats again after that.
+    size_bytes: Mapped[int | None] = mapped_column(Integer, default=None)
 
 
 class UserPreference(Base):
@@ -1263,6 +1272,13 @@ class DatabaseManager:
             # NORMAL is the recommended durability level under WAL: still
             # crash-safe, without an fsync on every single commit.
             dbapi_connection.execute("PRAGMA synchronous=NORMAL")
+            # Temp b-tree sorts and the transient tables ANALYZE/vacuum use
+            # otherwise spill to a file under the data directory — the same
+            # disk this app is trying to keep quiet while a local model reads
+            # its own weights off it. The working set here is one user's own
+            # notebook, not a multi-gigabyte warehouse query, so keeping it in
+            # RAM instead costs nothing that matters (PLAN.md §0 P5).
+            dbapi_connection.execute("PRAGMA temp_store=MEMORY")
 
         Base.metadata.create_all(self.engine)  # creates missing tables only
         self._add_missing_columns()
@@ -1415,6 +1431,40 @@ class DatabaseManager:
             "entries (workspace_id, is_deleted, is_draft, archived_at, "
             "created_at DESC, id DESC)",
         ),
+        # PLAN.md §0 P5 / AUDIT.md B10's remaining, unverified columns.
+        # `Entry.category_id` — a plain ForeignKey column carries no index of
+        # its own in SQLAlchemy/SQLite — is scanned by "notes in category X"
+        # (`entry/manager.py`'s `category_entry_ids`/`move_category_entries`)
+        # and by every `/library` row that resolves a note's category name.
+        ("ix_entries_category_id", "entries (category_id)"),
+        # `Attachment.entry_id` — same gap: an unindexed ForeignKey, searched
+        # both singly (a note opening its own attachments) and via `IN (...)`
+        # over a page of notes (`/library`'s thumbnail lookup,
+        # `entry/manager.py`'s bulk delete). Measured: without this, the
+        # `IN` lookup above does a full table scan of `attachments` per page.
+        ("ix_attachments_entry_id", "attachments (entry_id)"),
+        # GET /media (`routes_files.list_media`) orders every upload by
+        # `created_at DESC` inside the workspace filter `WorkspaceMixin`
+        # already adds — measured "USE TEMP B-TREE FOR ORDER BY" on 5,000
+        # uploads without this; the single-column `workspace_id` index the
+        # mixin gives every table isn't enough once an ORDER BY is added on
+        # top of the equality filter.
+        ("ix_media_uploads_workspace_created", "media_uploads (workspace_id, created_at DESC)"),
+        # GET /documents (`routes_documents.list_documents`) is the same
+        # shape one predicate wider: workspace-scoped, `archived_at IS NULL`,
+        # ordered by `updated_at DESC` — same measured TEMP B-TREE without a
+        # composite index that includes the sort column.
+        (
+            "ix_documents_workspace_live_updated",
+            "documents (workspace_id, archived_at, updated_at DESC)",
+        ),
+        # `PageRead(kind, source_id)` — named in the same audit item — turns
+        # out to already be covered: `uq_page_read_source_page`'s own unique
+        # constraint is itself an index on `(kind, source_id, page)`, and
+        # SQLite serves both `_remember_page_read`'s single-row lookup and
+        # `_stored_page_reads`'s `kind=? AND source_id IN (...)` scan from
+        # its `(kind, source_id)` prefix with no SCAN (checked with EXPLAIN
+        # QUERY PLAN, not assumed) — so no new index is added for it here.
     )
 
     def _ensure_indexes(self) -> None:

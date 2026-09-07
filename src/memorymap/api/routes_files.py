@@ -982,7 +982,12 @@ def upload_media(
             out.write(chunk)
 
     original_name = file.filename or stored_name
-    upload = MediaUpload(filename=stored_name, original_name=original_name[:300])
+    # `size` was already counted above while streaming the upload to disk —
+    # storing it here means `GET /media` never has to `stat()` this file to
+    # answer "how big is it" (PLAN.md §0 P6).
+    upload = MediaUpload(
+        filename=stored_name, original_name=original_name[:300], size_bytes=size
+    )
     session.add(upload)
     session.commit()
     session.refresh(upload)
@@ -1064,14 +1069,25 @@ def list_media(session: Session = Depends(get_session)) -> list[MediaUploadOut]:
     used, usage_incomplete = media_gc.usage_map(session)
     media_dir = deps.get_config().data_dir / "media"
 
-    def _size_of(name: str) -> int:
-        try:
-            return (media_dir / name).stat().st_size
-        except OSError:
-            # A row whose file is gone still lists — the gallery has a
-            # placeholder for exactly that — so this reports 0 rather than
-            # dropping the row or raising.
-            return 0
+    # PLAN.md §0 P6: `size_bytes` used to be `Path.stat()`'d here on *every*
+    # row of *every* call — the disk hit this whole column exists to remove.
+    # Uploads made after the column existed already carry it (see
+    # `upload_media`); this backfills only the rows that predate it — NULL,
+    # never 0, is what a pre-existing row reads as (the column's own
+    # docstring) — one `stat()` each, the only time each row ever pays it,
+    # in a single commit rather than one write per row.
+    unsized = [u for u in uploads if u.size_bytes is None]
+    if unsized:
+        for u in unsized:
+            try:
+                u.size_bytes = (media_dir / u.filename).stat().st_size
+            except OSError:
+                # A row whose file is gone still lists — the gallery has a
+                # placeholder for exactly that — so this leaves size_bytes at
+                # 0 rather than leaving it NULL (which would just retry the
+                # same failing stat() on every future call) or raising.
+                u.size_bytes = 0
+        session.commit()
 
     media_page_text = _page_read_text_map("upload", [u.id for u in uploads])
     return [
@@ -1079,7 +1095,7 @@ def list_media(session: Session = Depends(get_session)) -> list[MediaUploadOut]:
             id=u.id,
             used_by=used.get(u.filename, []),
             usage_incomplete=usage_incomplete,
-            size_bytes=_size_of(u.filename),
+            size_bytes=u.size_bytes or 0,
             url=f"/media/{u.filename}",
             original_name=u.original_name,
             ocr_text=u.ocr_text or "",

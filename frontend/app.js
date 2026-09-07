@@ -1260,7 +1260,17 @@ function showDetailDialog(title, text) {
 //
 // Resolves to the trimmed text, or "" for cancel/empty. "" rather than null so
 // every caller's guard is the same shape as the confirm one.
-function promptDialog(message, initial = "", { confirmLabel = "Save" } = {}) {
+//: `segment`, when given, adds **one** segmented control under the field:
+//: `{label, options: [{value, label, title}], value}`. The dialog then
+//: resolves `{text, choice}` instead of a bare string.
+//:
+//: One extra control in the dialog that already exists, rather than a second
+//: dialog after this one. CLAUDE.md records why in as many words: bookmark URL
+//: editing was reported broken five times while working end-to-end every time,
+//: and the fault was never the handler — "a second modal that only appears
+//: *after* you commit the first is a bad way to expose a second field". Naming
+//: a new board and saying what kind of board it is are one decision.
+function promptDialog(message, initial = "", { confirmLabel = "Save", segment = null } = {}) {
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay confirm-overlay";
@@ -1277,6 +1287,39 @@ function promptDialog(message, initial = "", { confirmLabel = "Save" } = {}) {
     input.value = initial;
     input.setAttribute("aria-label", message);
 
+    //: The optional segmented control. `.seg`, the app's own recipe — the
+    //: same one the Library's Cards/Rows switch and the dashboard's range
+    //: pickers use — so this is a control the user has already met.
+    let chosen = segment?.value ?? segment?.options?.[0]?.value ?? null;
+    let segRow = null;
+    if (segment?.options?.length) {
+      segRow = document.createElement("div");
+      segRow.className = "seg seg-compact";
+      segRow.setAttribute("role", "group");
+      segRow.setAttribute("aria-label", segment.label || message);
+      for (const option of segment.options) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = option.label;
+        button.dataset.value = option.value;
+        if (option.title) button.title = option.title;
+        button.classList.toggle("active", option.value === chosen);
+        button.setAttribute("aria-pressed", option.value === chosen ? "true" : "false");
+        button.addEventListener("click", () => {
+          chosen = option.value;
+          for (const sibling of segRow.querySelectorAll("button")) {
+            const on = sibling.dataset.value === chosen;
+            sibling.classList.toggle("active", on);
+            sibling.setAttribute("aria-pressed", on ? "true" : "false");
+          }
+          // Straight back to the name: choosing the kind is a detour on the
+          // way to typing, not the end of the interaction.
+          input.focus();
+        });
+        segRow.appendChild(button);
+      }
+    }
+
     let settled = false;
     const close = (answer) => {
       if (settled) return;
@@ -1284,7 +1327,9 @@ function promptDialog(message, initial = "", { confirmLabel = "Save" } = {}) {
       document.removeEventListener("keydown", onKey, true);
       overlay.remove();
       returnFocus?.focus?.();
-      resolve(answer);
+      // The shape changes only when a segment was asked for, so every existing
+      // caller keeps the bare string it has always awaited.
+      resolve(segment ? { text: answer, choice: chosen } : answer);
     };
     const onKey = (event) => {
       // Captured, so a shortcut elsewhere cannot fire underneath the dialog —
@@ -1321,7 +1366,9 @@ function promptDialog(message, initial = "", { confirmLabel = "Save" } = {}) {
       smallButton("Cancel", "Cancel", () => close("")),
       smallButton(confirmLabel, confirmLabel, () => close(input.value.trim()), false)
     );
-    card.append(text, input, row);
+    card.append(text, input);
+    if (segRow) card.append(segRow);
+    card.append(row);
     overlay.appendChild(card);
     wireBackdropClose(overlay, () => close(""));
     document.addEventListener("keydown", onKey, true);

@@ -2233,6 +2233,1202 @@ async function wbMindMapAddSibling(cardId) {
   await wbMindMapAddChild(parentId == null ? cardId : parentId);
 }
 
+// --- maps: a board with a real tree on it (MINDMAP_PLAN.md §5, Phase 2) -----
+//
+// The backend half (§9) already stores, serves and exports all of this. Until
+// this section existed the object renderer drew only `image` and `text`, so a
+// map's nodes were in the database, in `GET /tree` and in every export except
+// the one place anyone would look for them — the canvas. That is the blocker
+// §9.3 names, and everything below is the frontend half of it.
+//
+// **This is not `wbArrangeMindMap` further up this file.** That is the concept
+// map: whiteboard *cards* (a card is a real note) joined by link sketches,
+// with a spanning tree inferred by BFS because a link carries no direction. A
+// map node is a `WhiteboardObject` with a real `parent_id`, so its tree is
+// stored rather than guessed, and a `topic` can exist with no note behind it.
+// MINDMAP_PLAN.md §9.2 records why the two data models stayed separate. They
+// share a canvas and nothing else, and neither function here calls that one.
+
+//: The object kinds that are map nodes. `topic` is text that lives only on
+//: the map; the other four are pointers at library items, drawn with that
+//: item's own icon and its *resolved* title — never a copy of it, since a
+//: copied title goes stale the moment the note behind it is renamed (§9.2).
+const WB_MAP_KINDS = new Set(["topic", "note", "document", "file", "link"]);
+const WB_MAP_REFERENCE_KINDS = new Set(["note", "document", "file", "link"]);
+
+//: The Phosphor icon per kind, matching what the same item already shows in
+//: the Library — a node has to read as the same object in both places, and
+//: picking a second icon for a document here is exactly how it stops doing so.
+const WB_MAP_ICONS = {
+  topic: "ph-circle",
+  note: "ph-note",
+  document: "ph-file-text",
+  file: "ph-paperclip",
+  link: "ph-link-simple",
+};
+
+//: How far apart `wbMapTidy` puts things: the gap between two siblings on the
+//: breadth axis, and between one depth and the next. Deliberately *not*
+//: `MAP_ROW`/`MAP_COL` from routes_whiteboard.py — those are where the server
+//: drops a node when nobody said, which only has to be "not on top of its
+//: parent"; a tidy layout measures real node sizes and needs only the gap.
+const WB_MAP_GAP_BREADTH = 26;
+const WB_MAP_GAP_DEPTH = 76;
+
+//: A node's size when it is not in the DOM — collapsed away, or being laid
+//: out before its first paint. Matches `wbMapCreateNode`'s own defaults, so a
+//: tidy run immediately after a Tab does not jump when the node then renders.
+const WB_MAP_NODE_W = 200;
+const WB_MAP_NODE_H = 56;
+
+//: What the open board is, as far as maps are concerned: `{type, layout,
+//: labels, crossLinks}`, or `null` on an ordinary whiteboard (which is every
+//: board that predates this feature, and stays one).
+//:
+//: On `window` because library.js's gallery asks too, and a module-level
+//: `let` here would be invisible to it — the same reason `window.currentBoardId`
+//: lives there rather than here.
+window.wbMapState = null;
+
+function wbIsMap() {
+  return window.wbMapState?.type === "map";
+}
+
+function wbMapLayout() {
+  return window.wbMapState?.layout || "free";
+}
+
+//: Refresh `window.wbMapState` from `GET /boards/{id}/tree`.
+//:
+//: One request, because that endpoint is the only one carrying all three
+//: things this needs: the board's `type`, its `layout`, and the **resolved
+//: label** of every reference node. `GET /whiteboard/` returns objects whose
+//: `data.ref_id` says which note a node points at and nothing about what that
+//: note is called — so without this a map full of notes draws as a column of
+//: identical blank boxes.
+//:
+//: Structure is deliberately *not* taken from here. `parent_id` is already on
+//: every object `GET /whiteboard/` returned, so the tree is rebuilt locally on
+//: every render (`wbMapIndex`) and a Tab keypress redraws immediately instead
+//: of waiting on a round trip to be told what it already knows. This call is
+//: for the two facts only the server has.
+async function wbRefreshMapState() {
+  const boardId = window.currentBoardId ?? null;
+  if (!boardId) {
+    // The default scratch board has no note behind it, so it has nowhere to
+    // store settings and is always an ordinary board (`list_boards`' own
+    // comment says so). Nothing to ask for.
+    window.wbMapState = null;
+    return null;
+  }
+  try {
+    const tree = await apiJson(`/whiteboard/boards/${boardId}/tree`, { silent: true });
+    const labels = new Map();
+    // Iterative and seen-guarded: `parent_id` has no database constraint
+    // behind it (§9.1), so a ring is possible in principle and has to end this
+    // walk rather than the tab.
+    const frontier = [...(tree.roots || [])];
+    const seen = new Set();
+    while (frontier.length) {
+      const node = frontier.pop();
+      if (!node || seen.has(node.id)) continue;
+      seen.add(node.id);
+      labels.set(node.id, node.text || "");
+      frontier.push(...(node.children || []));
+    }
+    window.wbMapState = {
+      type: tree.type,
+      layout: tree.layout,
+      labels,
+      crossLinks: tree.cross_links || [],
+    };
+  } catch {
+    // A board that 404s here (the default board; a note deleted mid-session)
+    // is simply not a map. Failing soft matters because this runs on every
+    // board load: an ordinary whiteboard must not break because of it.
+    window.wbMapState = null;
+  }
+  return window.wbMapState;
+}
+
+//: The board's map nodes as a tree, rebuilt from `wbState.objects`.
+//:
+//: **A node whose parent is not on this board is a root**, which is why this
+//: is not a walk down from `parent_id == null`. Same rule as `_build_tree`
+//: server-side, for the same reason (§9.1): a stale pointer would otherwise
+//: make every node under it vanish from the canvas while still sitting in the
+//: database, which is the worst way to lose something.
+function wbMapIndex() {
+  const nodes = (wbState.objects || []).filter((o) => WB_MAP_KINDS.has(o.kind));
+  const byId = new Map(nodes.map((o) => [o.id, o]));
+  const childrenOf = new Map();
+  const roots = [];
+  for (const obj of nodes) {
+    const parent = obj.parent_id != null ? byId.get(obj.parent_id) : null;
+    if (!parent || parent.id === obj.id) {
+      roots.push(obj);
+    } else {
+      if (!childrenOf.has(parent.id)) childrenOf.set(parent.id, []);
+      childrenOf.get(parent.id).push(obj);
+    }
+  }
+  // Creation order throughout, so a sibling added with Enter lands after the
+  // one it was added from rather than wherever the object array happens to
+  // sit — and so two renders of an unchanged map are identical.
+  for (const list of childrenOf.values()) list.sort((a, b) => a.id - b.id);
+  roots.sort((a, b) => a.id - b.id);
+  return { nodes, byId, childrenOf, roots };
+}
+
+//: Every node reachable from `id`, itself first, deepest last. Seen-guarded
+//: for the ring case above; every walk in this section goes through it.
+function wbMapSubtree(index, id) {
+  const start = index.byId.get(id);
+  if (!start) return [];
+  const found = [start];
+  const seen = new Set([id]);
+  for (let i = 0; i < found.length; i += 1) {
+    for (const child of index.childrenOf.get(found[i].id) || []) {
+      if (seen.has(child.id)) continue;
+      seen.add(child.id);
+      found.push(child);
+    }
+  }
+  return found;
+}
+
+//: Branch colour, which is Coggle's rule: a **first-level** topic takes the
+//: next colour of the palette and every descendant inherits it, unless a node
+//: carries its own `data.color` — which then becomes what *its* subtree
+//: inherits, so recolouring a branch recolours the branch, not one box.
+//:
+//: The palette is the categorical scale the graph tab already colours its
+//: clusters with (`d3.schemeTableau10`, graph.js ~1405), not a new list of
+//: hex. Two surfaces colouring "one group of related things" differently is
+//: this app's recurring failure, and a map branch and a graph cluster are the
+//: same idea seen twice.
+//:
+//: Computed for the whole board in one walk rather than per node: a node's
+//: colour depends on its ancestors, so a per-node lookup would walk the tree
+//: once per node to learn what a single walk already knew.
+function wbMapColors(index) {
+  const palette = (window.d3?.schemeTableau10 || []).slice(0, 10);
+  const colors = new Map();
+  const seen = new Set();
+  let branch = 0;
+  const walk = (node, inherited) => {
+    if (seen.has(node.id)) return;
+    seen.add(node.id);
+    const own = node.data?.color || inherited || null;
+    colors.set(node.id, own);
+    for (const child of index.childrenOf.get(node.id) || []) {
+      // `inherited == null` is true for exactly one generation — the roots'
+      // own children, which *are* the first-level topics. Starting the colours
+      // at the root instead would give every branch on the map the same
+      // colour, which is the one thing branch colour exists not to do.
+      const next = child.data?.color
+        || (inherited == null && palette.length ? palette[branch++ % palette.length] : own);
+      walk(child, next);
+    }
+  };
+  for (const root of index.roots) walk(root, null);
+  return colors;
+}
+
+//: The nodes a collapsed branch hides. The collapsed node itself stays — it
+//: is the thing you click to get the branch back, and it carries the count
+//: badge that says how much is behind it.
+function wbMapHidden(index) {
+  const hidden = new Set();
+  for (const node of index.nodes) {
+    if (!node.data?.collapsed) continue;
+    for (const descendant of wbMapSubtree(index, node.id)) {
+      if (descendant.id !== node.id) hidden.add(descendant.id);
+    }
+  }
+  return hidden;
+}
+
+//: What a node is *called*. A topic says what it says; a reference node's
+//: label was resolved server-side (`_reference_label`) and arrives in
+//: `wbMapState.labels`, with `data.content` as the fallback covering the
+//: moment between creating one and the next tree refresh.
+function wbMapLabel(obj) {
+  if (obj.kind === "topic") return obj.data?.content || "";
+  const resolved = window.wbMapState?.labels?.get(obj.id);
+  if (resolved) return resolved;
+  return obj.data?.content || `${obj.kind} ${obj.data?.ref_id ?? ""}`.trim();
+}
+
+//: `**bold**`, `*italic*` and `` `code` `` inside a node's own text.
+//:
+//: **Built as DOM nodes, never as an HTML string.** A node's text is the one
+//: thing on a map guaranteed to be arbitrary user input, and this app's own
+//: rule (and its CSP) says the same thing twice: nothing user-written reaches
+//: `innerHTML`. `document.createTextNode` cannot be escaped wrongly because
+//: there is no escaping step to get wrong.
+//:
+//: Inline only. A node label is a phrase, not a document — the full markdown
+//: pass (`renderMarkdown`, which a text box reaches through `data.md`) builds
+//: paragraphs and headings, which inside a 56px box is a worse answer than no
+//: formatting at all.
+//:
+//: Each alternative is anchored and bounded by a negated class, so there is no
+//: nested quantifier for CodeQL's polynomial-ReDoS shape to find.
+const WB_MAP_INLINE = /(\*\*[^*\n]+\*\*|\*[^*\n]+\*|`[^`\n]+`)/;
+
+function wbMapInlineText(el, raw) {
+  if (!el) return;
+  el.replaceChildren();
+  for (const piece of String(raw || "").split(WB_MAP_INLINE)) {
+    if (!piece) continue;
+    let tag = null;
+    let inner = piece;
+    if (piece.length > 4 && piece.startsWith("**") && piece.endsWith("**")) {
+      tag = "strong";
+      inner = piece.slice(2, -2);
+    } else if (piece.length > 2 && piece.startsWith("*") && piece.endsWith("*")) {
+      tag = "em";
+      inner = piece.slice(1, -1);
+    } else if (piece.length > 2 && piece.startsWith("`") && piece.endsWith("`")) {
+      tag = "code";
+      inner = piece.slice(1, -1);
+    }
+    if (!tag) {
+      el.append(document.createTextNode(piece));
+      continue;
+    }
+    const marked = document.createElement(tag);
+    marked.textContent = inner;
+    el.append(marked);
+  }
+}
+
+//: The static half of a map node, built once as the node enters the DOM.
+//:
+//: Everything that changes while a map is edited — text, colour, the chevron's
+//: direction, the count badge — lives in `wbPaintMapNode` instead, and the
+//: chevron and badge are created here *always* and hidden when they have
+//: nothing to say. Creating them on demand would mean the enter selection and
+//: the update selection each had to know how to build one, which is exactly
+//: how the same control ends up drawn two slightly different ways.
+function wbBuildMapNode(el, d) {
+  el.classed("wb-map-node", true);
+  const body = el.append("div").attr("class", "wb-map-node-body");
+  if (WB_MAP_REFERENCE_KINDS.has(d.kind)) {
+    body.append("i")
+      .attr("class", `ph ${WB_MAP_ICONS[d.kind] || WB_MAP_ICONS.topic} wb-map-node-icon`)
+      .attr("aria-hidden", "true");
+  }
+  const text = body.append("div")
+    .attr("class", "wb-map-text")
+    .attr("contenteditable", "false");
+
+  if (d.kind === "topic") {
+    // A topic is renamed in place, through the same two functions a text box
+    // uses — one edit path for the board, not two. A reference node has no
+    // text of its own to edit: its label belongs to the note behind it, so
+    // double-clicking one opens that note instead (below).
+    text.on("dblclick", function (event) {
+      event.stopPropagation();
+      wbBeginTextEdit(this);
+    });
+    text.on("blur", function () {
+      wbEndTextEdit(this);
+      d.data = { ...d.data, content: this.textContent };
+      wbSaveObject(d);
+      // Back to the formatted view: `wbBeginTextEdit` put the raw source in
+      // for editing, and without this the markers stay on screen as literal
+      // asterisks until something else triggers a render.
+      wbMapInlineText(this, d.data.content);
+    });
+    text.on("keydown", function (event) {
+      if (!this.isContentEditable) return;
+      // While typing, Tab/Enter are text and the branch gestures must not
+      // fire — the same `stopPropagation` the card editor above needs, and
+      // for the same reason.
+      event.stopPropagation();
+      if (event.key === "Escape" || (event.key === "Enter" && !event.shiftKey)) {
+        event.preventDefault();
+        this.blur();
+      }
+    });
+    text.on("pointerdown", function (event) {
+      if (this.isContentEditable) event.stopPropagation();
+    });
+  } else {
+    el.on("dblclick", (event) => {
+      event.stopPropagation();
+      wbMapOpenReference(d);
+    });
+  }
+
+  // The count badge: how much a collapsed branch is holding. Without it a
+  // collapsed node is indistinguishable from a leaf, which is the difference
+  // between "folded away" and "not there".
+  el.append("span")
+    .attr("class", "wb-map-count")
+    .attr("aria-hidden", "true")
+    .property("hidden", true);
+
+  // The chevron (collapse) and the `+` (add a child) are the pointer half of
+  // the keyboard gestures — `.ghost.small.icon-only`, the app's own tonal
+  // icon-button recipe, not a shape invented for the canvas. Both stop
+  // `pointerdown` so grabbing one is not also the start of a node drag.
+  const stopDrag = (event) => event.stopPropagation();
+  el.append("button")
+    .attr("type", "button")
+    .attr("class", "ghost small icon-only wb-map-collapse")
+    .property("hidden", true)
+    .on("pointerdown", stopDrag)
+    .on("click", (event) => {
+      event.stopPropagation();
+      wbMapToggleCollapse(d.id);
+    })
+    .append("i").attr("class", "ph ph-caret-down").attr("aria-hidden", "true");
+  el.append("button")
+    .attr("type", "button")
+    .attr("class", "ghost small icon-only wb-map-add")
+    .attr("title", "Add a child (Tab)")
+    .attr("aria-label", "Add a child topic")
+    .on("pointerdown", stopDrag)
+    .on("click", (event) => {
+      event.stopPropagation();
+      wbMapAddChild(d.id);
+    })
+    .append("i").attr("class", "ph ph-plus").attr("aria-hidden", "true");
+}
+
+//: The half that changes: label, branch colour, chevron, badge. Runs for
+//: every visible map node on every render, so it does no work that the enter
+//: selection could have done once.
+function wbPaintMapNode(el, d, index, colors) {
+  const node = el.node();
+  if (!node) return;
+  const text = node.querySelector(".wb-map-text");
+  // Never while it is being typed into: a render triggered by something else
+  // moving on the board would otherwise replace the caret and the half-typed
+  // word — the exact bug `objectUpdate` already avoids for a text box.
+  if (text && document.activeElement !== text) {
+    wbMapInlineText(text, wbMapLabel(d));
+  }
+
+  // A custom property rather than a colour on each part: the fill, the edge
+  // and the branch's own edges all derive from one value in CSS, so a
+  // recoloured branch cannot end up with a border of the old colour.
+  // Set through CSSOM (`style.setProperty`), not a `style=` attribute — the
+  // CSP rejects those outright, and thirty-five of them once shipped as
+  // silently dead markup (CLAUDE.md).
+  const colour = colors?.get(d.id);
+  if (colour) node.style.setProperty("--wb-branch", colour);
+  else node.style.removeProperty("--wb-branch");
+
+  const children = index?.childrenOf.get(d.id) || [];
+  const collapsed = Boolean(d.data?.collapsed);
+  const chevron = node.querySelector(".wb-map-collapse");
+  if (chevron) {
+    chevron.hidden = children.length === 0;
+    chevron.title = collapsed ? "Expand this branch" : "Collapse this branch";
+    chevron.setAttribute("aria-label", chevron.title);
+    chevron.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    const icon = chevron.querySelector("i");
+    if (icon) icon.className = collapsed ? "ph ph-caret-right" : "ph ph-caret-down";
+  }
+  const badge = node.querySelector(".wb-map-count");
+  if (badge) {
+    // The whole subtree, not just the direct children: what the badge is
+    // answering is "how much is folded away here", and a branch three deep
+    // that reported "2" would be understating itself by an order of magnitude.
+    const buried = collapsed && index ? wbMapSubtree(index, d.id).length - 1 : 0;
+    badge.hidden = buried <= 0;
+    badge.textContent = String(buried);
+  }
+  el.classed("wb-map-collapsed", collapsed);
+  el.classed("wb-map-pinned", Boolean(d.data?.pinned));
+}
+
+//: Open the library item a reference node stands for. One place, because
+//: "double-click opens it" is the whole reason a reference node is different
+//: from a topic with the same words in it.
+function wbMapOpenReference(d) {
+  const refId = d.data?.ref_id;
+  if (!refId) return;
+  if (d.kind === "note" && typeof openEntryEditor === "function") {
+    openEntryEditor(refId);
+    return;
+  }
+  if (d.kind === "document" && typeof openDocument === "function") {
+    openDocument(refId);
+    return;
+  }
+  // A file and a bookmark have no single "open this" entry point that is safe
+  // to guess at from here, so both go to the Library, which is where the item
+  // actually lives. Saying so beats a click that appears to do nothing.
+  toast(`This node points at a ${d.kind} — open it from the Library.`);
+}
+
+//: A node's drawn size. The DOM first, because a map node is `height: auto`
+//: (its text decides how tall it is, so nothing can clip) and the stored
+//: `height` column is therefore only ever an approximation of it. Falls back
+//: to the stored value, then to the creation defaults, for a node that is not
+//: in the DOM at all — collapsed away, or being laid out before first paint.
+function wbMapNodeSize(d) {
+  const el = document.querySelector(`.wb-object[data-id="${d.id}"]`);
+  if (el && el.offsetHeight) return { w: el.offsetWidth, h: el.offsetHeight };
+  return { w: d.width || WB_MAP_NODE_W, h: d.height || WB_MAP_NODE_H };
+}
+
+//: Where an edge leaves its parent and where it meets its child, by layout —
+//: right/left for a map that grows sideways, bottom/top for one that grows
+//: down. `radial` and `free` have no fixed direction, so the axis is chosen
+//: per edge from whichever delta is larger, which is what makes a radial map's
+//: edges leave a node on the side the child is actually on.
+function wbMapEdgeAnchors(parent, child, layout) {
+  const p = wbMapNodeSize(parent);
+  const c = wbMapNodeSize(child);
+  let horizontal = layout === "tree-right";
+  if (layout === "radial" || layout === "free") {
+    horizontal = Math.abs(child.x - parent.x) >= Math.abs(child.y - parent.y);
+  }
+  if (horizontal) {
+    const leftward = child.x + c.w / 2 < parent.x + p.w / 2;
+    return {
+      horizontal,
+      x1: leftward ? parent.x : parent.x + p.w,
+      y1: parent.y + p.h / 2,
+      x2: leftward ? child.x + c.w : child.x,
+      y2: child.y + c.h / 2,
+    };
+  }
+  const upward = child.y + c.h / 2 < parent.y + p.h / 2;
+  return {
+    horizontal,
+    x1: parent.x + p.w / 2,
+    y1: upward ? parent.y : parent.y + p.h,
+    x2: child.x + c.w / 2,
+    y2: upward ? child.y + c.h : child.y,
+  };
+}
+
+//: The parent→child edges, drawn as cubic curves into their own group.
+//:
+//: A tree edge is deliberately **not** a link sketch. A sketch is a row in the
+//: database that has to be created, moved and deleted alongside the node it
+//: joins, and `parent_id` already says everything an edge means — so the edge
+//: is derived on every render and there is no second thing to keep in step.
+//: Cross-links stay real sketches, because they are the edges `parent_id`
+//: cannot express (§9.1).
+//:
+//: The group is the first child of the zoom group so edges sit *under* every
+//: sketch and node, which is the only z-order a tree reads correctly in.
+function wbRenderMapEdges() {
+  const zoomGroup = document.getElementById("wb-zoom-group");
+  if (!zoomGroup) return;
+  let group = zoomGroup.querySelector(".wb-map-edges");
+  if (!wbIsMap()) {
+    group?.remove();
+    return;
+  }
+  if (!group) {
+    group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    group.setAttribute("class", "wb-map-edges");
+    group.setAttribute("aria-hidden", "true");
+    zoomGroup.insertBefore(group, zoomGroup.firstChild);
+  }
+  const index = wbMapIndex();
+  const colors = wbMapColors(index);
+  const hidden = wbMapHidden(index);
+  const layout = wbMapLayout();
+  const NS = "http://www.w3.org/2000/svg";
+  const next = [];
+  for (const parent of index.nodes) {
+    if (hidden.has(parent.id) || parent.data?.collapsed) continue;
+    for (const child of index.childrenOf.get(parent.id) || []) {
+      if (hidden.has(child.id)) continue;
+      const a = wbMapEdgeAnchors(parent, child, layout);
+      // Control points on the axis the edge leaves by, at half the span: the
+      // curve leaves the parent square to its own edge and arrives square to
+      // the child's, which is what makes a column of siblings read as one
+      // branch rather than a fan of straight lines crossing each other.
+      const d = a.horizontal
+        ? `M${a.x1} ${a.y1} C${(a.x1 + a.x2) / 2} ${a.y1} ${(a.x1 + a.x2) / 2} ${a.y2} ${a.x2} ${a.y2}`
+        : `M${a.x1} ${a.y1} C${a.x1} ${(a.y1 + a.y2) / 2} ${a.x2} ${(a.y1 + a.y2) / 2} ${a.x2} ${a.y2}`;
+      const path = document.createElementNS(NS, "path");
+      path.setAttribute("class", "wb-map-edge");
+      path.setAttribute("d", d);
+      const colour = colors.get(child.id);
+      if (colour) path.setAttribute("stroke", colour);
+      next.push(path);
+    }
+  }
+  // Replaced wholesale rather than joined: an edge has no identity of its own
+  // (it *is* its two endpoints), so there is nothing for a data join to key
+  // on, and a map's edge count is one per node — small enough that rebuilding
+  // is cheaper than the bookkeeping a join would need.
+  group.replaceChildren(...next);
+}
+
+// --- editing a map ----------------------------------------------------------
+//
+// Obsidian Canvas Mindmap's set (§5 item 5), which is the de-facto standard:
+// Tab is a child, Enter a sibling, Shift+Tab outdents, the arrows walk the
+// tree, F2 renames and Delete takes the subtree. The point of copying it
+// rather than inventing one is that these are the gestures that make a mind
+// map fast; dragging boxes one at a time is a drawing tool with a tree drawn
+// on it.
+
+//: The selected object, if it is a map node on a map. Everything keyboard
+//: below goes through this rather than reading `wbSelectedItem` directly, so
+//: "am I editing a map right now" is decided in one place.
+function wbSelectedMapNode() {
+  if (!wbIsMap() || wbSelectedItem?.kind !== "object") return null;
+  const obj = (wbState.objects || []).find((o) => o.id === wbSelectedItem.id);
+  return obj && WB_MAP_KINDS.has(obj.kind) ? obj : null;
+}
+
+//: Add one node, letting the **server** place it (§9.3: "Omit `x`/`y` and the
+//: server places it"). A client that invents coordinates gets them wrong, and
+//: gets them wrong differently from the AI tools and the OPML import, which is
+//: how one map ends up looking like three tools' opinions of a map.
+//: What a topic is called before you have called it anything.
+//:
+//: **Not an empty string**, which is what the first version created and what
+//: looking at the result showed the problem with: five nodes on screen, four
+//: of them blank white boxes with no way to tell a node you had not named yet
+//: from a rendering fault. `wbMindMapAddCard` above reached the same
+//: conclusion for the concept map and calls its own "New branch"; the label is
+//: selected on creation, so the first keystroke replaces it either way.
+const WB_MAP_NEW_TOPIC = "New topic";
+
+async function wbMapCreateNode({ parentId = null, kind = "topic", text = WB_MAP_NEW_TOPIC, refId = null } = {}) {
+  const boardId = window.currentBoardId;
+  if (!boardId) return null;
+  const body = { kind, parent_id: parentId, text };
+  if (refId != null) body.ref_id = refId;
+  try {
+    const created = await apiJson(`/whiteboard/boards/${boardId}/nodes`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    wbState.objects = wbState.objects || [];
+    wbState.objects.push(created);
+    wbPushUndo({ action: "create", kind: "object", id: created.id });
+    return created;
+  } catch (err) {
+    toast(err.message || "Couldn't add that node.", true);
+    return null;
+  }
+}
+
+//: Add a child of `parentId`, select it, tidy its branch and open it for
+//: typing. **A new branch is an empty thought, so it opens ready to be typed**
+//: — the same rule (and the same wording) the concept map's own branch gesture
+//: follows further up this file; a node that makes you go and find the way to
+//: name it is the difference between a mind-mapping tool and a diagram editor.
+async function wbMapAddChild(parentId) {
+  const created = await wbMapCreateNode({ parentId });
+  if (!created) return null;
+  // Expanding first: adding a child to a collapsed node would otherwise put
+  // the new node straight into the hidden set, so the gesture would appear to
+  // do nothing at all.
+  const parent = (wbState.objects || []).find((o) => o.id === parentId);
+  if (parent?.data?.collapsed) {
+    parent.data = { ...parent.data, collapsed: false };
+    await wbSaveObject(parent);
+  }
+  selectWbItem("object", created.id);
+  await wbMapTidyBranch(parentId);
+  renderWhiteboardNow();
+  wbMapEditNode(created.id);
+  return created;
+}
+
+//: Enter — a sibling, which is a child of *this* node's parent. A root has no
+//: parent to be a sibling under, so Enter there adds another root, which is
+//: the only reading of "a sibling of the root" that means anything.
+async function wbMapAddSibling(id) {
+  const index = wbMapIndex();
+  const node = index.byId.get(id);
+  if (!node) return null;
+  // A dangling `parent_id` counts as no parent, exactly as `wbMapIndex` and
+  // `_build_tree` already treat it — so a node under a stale pointer gets a
+  // sibling at the top level rather than one hung off a parent that is not
+  // on this board.
+  const parentId = node.parent_id != null && index.byId.has(node.parent_id)
+    ? node.parent_id
+    : null;
+  return wbMapAddChild(parentId);
+}
+
+//: Shift+Tab — outdent: this node becomes a sibling of its own parent.
+//:
+//: Through `/move`, never `PUT /objects/{id}`, because the move endpoint is
+//: the only one that runs the cycle check — §9.3 says so in as many words, and
+//: `PUT` deliberately does not touch `parent_id` so the check cannot be
+//: bypassed by using the wrong endpoint.
+async function wbMapOutdent(id) {
+  const boardId = window.currentBoardId;
+  const index = wbMapIndex();
+  const node = index.byId.get(id);
+  if (!boardId || !node) return;
+  const parent = node.parent_id != null ? index.byId.get(node.parent_id) : null;
+  if (!parent) {
+    toast("This is already a top-level topic.");
+    return;
+  }
+  try {
+    const moved = await apiJson(`/whiteboard/boards/${boardId}/nodes/${id}/move`, {
+      method: "PUT",
+      body: JSON.stringify({ parent_id: parent.parent_id ?? null }),
+    });
+    Object.assign(node, moved);
+    await wbMapTidyBranch(moved.parent_id ?? null);
+    renderWhiteboardNow();
+  } catch (err) {
+    toast(err.message || "Couldn't move that node.", true);
+  }
+}
+
+//: The arrows, in tree terms rather than screen terms: up/down are the
+//: siblings either side, left is the parent and right is the first child.
+//:
+//: Deliberately *not* "whatever box is nearest in that direction on screen".
+//: A tree already knows what is above and below a node, and a spatial search
+//: gives a different answer the moment two branches overlap — which is
+//: precisely when you most need the keys to be predictable.
+function wbMapNavigate(id, key) {
+  const index = wbMapIndex();
+  const node = index.byId.get(id);
+  if (!node) return false;
+  const hidden = wbMapHidden(index);
+  const siblings = node.parent_id != null && index.byId.has(node.parent_id)
+    ? index.childrenOf.get(node.parent_id) || []
+    : index.roots;
+  const at = siblings.findIndex((s) => s.id === id);
+  let target = null;
+  if (key === "ArrowUp") target = siblings[at - 1];
+  else if (key === "ArrowDown") target = siblings[at + 1];
+  else if (key === "ArrowLeft") target = index.byId.get(node.parent_id);
+  else if (key === "ArrowRight" && !node.data?.collapsed) {
+    target = (index.childrenOf.get(id) || [])[0];
+  }
+  if (!target || hidden.has(target.id)) return false;
+  selectWbItem("object", target.id);
+  wbApplySelectionHighlight();
+  wbUpdateSelectionBar();
+  // Bring it on screen — but **only when it is actually off screen**.
+  // Navigating into a node past the edge of the viewport reads exactly like
+  // the key having done nothing, so the scroll has to happen; recentring on
+  // every arrow instead makes the whole map lurch under you while you are
+  // simply walking a branch you can already see, which is worse than either.
+  const el = document.querySelector(`.wb-object[data-id="${target.id}"]`);
+  const container = document.getElementById("whiteboard-container");
+  if (el && container) {
+    const node = el.getBoundingClientRect();
+    const view = container.getBoundingClientRect();
+    const offScreen = node.left < view.left || node.right > view.right
+      || node.top < view.top || node.bottom > view.bottom;
+    const box = offScreen ? wbItemBBox("object", target) : null;
+    if (box) wbCenterOn(box, { animate: true });
+  }
+  return true;
+}
+
+//: F2 / double-click — rename in place, through the same two functions a text
+//: box uses. A reference node has no text of its own: its label is the note's,
+//: and editing it here would either lie or silently rename the note.
+function wbMapEditNode(id) {
+  const node = (wbState.objects || []).find((o) => o.id === id);
+  if (!node) return;
+  if (node.kind !== "topic") {
+    toast("This node's name comes from the item it points at.");
+    return;
+  }
+  // The render that just ran replaced this element, so it is looked up fresh
+  // rather than kept from before — the same trap `wbCreateTextBox` documents.
+  requestAnimationFrame(() => {
+    const el = document.querySelector(`.wb-object[data-id="${id}"] .wb-map-text`);
+    if (!el) return;
+    wbBeginTextEdit(el);
+    // Select the whole label so the first keystroke replaces it: a new node
+    // arrives empty, and a renamed one is almost always being replaced rather
+    // than edited.
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  });
+}
+
+//: Delete — the subtree, with a real Undo rather than a confirm dialog.
+//:
+//: `DELETE /whiteboard/objects/{id}` returns the whole deleted subtree, rows
+//: and positions included, precisely so this can put it back (§9.1). A confirm
+//: dialog asks you to predict what you are about to lose; an undo shows you.
+//: The re-create walks the returned list in order — it comes back parents
+//: first — and maps each old id to its new one, so the tree comes back with
+//: the shape it had rather than as a heap of roots.
+async function wbMapDeleteSubtree(id) {
+  const boardId = window.currentBoardId;
+  const node = (wbState.objects || []).find((o) => o.id === id);
+  if (!boardId || !node) return;
+  let deleted = [];
+  try {
+    const res = await apiJson(`/whiteboard/objects/${id}`, { method: "DELETE" });
+    deleted = Array.isArray(res.deleted) ? res.deleted : [];
+  } catch (err) {
+    toast(err.message || "Couldn't delete that.", true);
+    return;
+  }
+  const gone = new Set(deleted.map((row) => row.id));
+  wbState.objects = (wbState.objects || []).filter((o) => !gone.has(o.id));
+  clearWbSelection();
+  wbScheduleRender();
+  const count = deleted.length;
+  toastAction(
+    `Deleted ${count} node${count === 1 ? "" : "s"}.`,
+    "Undo",
+    async () => {
+      const remap = new Map();
+      for (const row of deleted) {
+        // **A parent that was not itself deleted keeps its own id.** The first
+        // version fell back to `null` whenever `remap` had no entry, which is
+        // true for exactly one row — the top of the deleted subtree, whose
+        // parent is still sitting on the board. So the branch came back as a
+        // *root* instead of reattaching where it was taken from: five nodes
+        // restored, four parent links gone down to three, measured. Only a
+        // parent inside `deleted` needs translating, because only those have
+        // new ids.
+        const parent = row.parent_id == null
+          ? null
+          : remap.get(row.parent_id) ?? row.parent_id;
+        const body = {
+          kind: row.kind,
+          parent_id: parent,
+          text: row.data?.content || "",
+          x: row.x,
+          y: row.y,
+        };
+        if (row.data?.ref_id != null) body.ref_id = row.data.ref_id;
+        if (row.data?.color) body.color = row.data.color;
+        try {
+          const recreated = await apiJson(`/whiteboard/boards/${boardId}/nodes`, {
+            method: "POST",
+            body: JSON.stringify(body),
+          });
+          remap.set(row.id, recreated.id);
+          wbState.objects.push(recreated);
+        } catch (err) {
+          toast(err.message || "Couldn't restore that node.", true);
+          break;
+        }
+      }
+      await wbRefreshMapState();
+      renderWhiteboardNow();
+    }
+  );
+}
+
+//: The chevron: fold a branch away, or bring it back. `collapsed` is per-node
+//: view state in the object's own JSON blob (§9.1), so it survives a reload
+//: and the tree endpoint hands it back — a fold you made yesterday is still
+//: folded today, which is the only version of this that is worth having.
+async function wbMapToggleCollapse(id) {
+  const node = (wbState.objects || []).find((o) => o.id === id);
+  if (!node) return;
+  node.data = { ...node.data, collapsed: !node.data?.collapsed };
+  wbScheduleRender();
+  await wbSaveObject(node);
+}
+
+// --- tidy: Reingold–Tilford with variable node sizes (§5 item 6) ------------
+//
+// Implemented here rather than pulled in, because the app is offline-first and
+// there is no CDN to pull from — and because `graph.js` already hand-rolls its
+// own layout, so this is a sibling of existing code rather than a new
+// dependency. The reference is Buchheim, Jünger and Leipert's linear-time form
+// of Reingold–Tilford, with d3-flextree's extension: the distance between two
+// nodes is half of each one's own size plus a gap, instead of a constant.
+// Variable sizes are not a nicety here — a map node is as tall as its text.
+//
+// The breadth axis (siblings) is exact, per node. The depth axis is one offset
+// per level, taken from the widest node on that level: that is what `d3.tree`
+// itself does, and a per-node depth would let two nodes on the same level sit
+// at different distances from the root, which reads as a broken tree rather
+// than a tidy one.
+
+//: One tidy pass. `roots` are wrapper objects `{obj, children}`; everything
+//: else on a wrapper is the algorithm's own bookkeeping.
+function wbTidyFirstWalk(v, breadthOf, gap) {
+  if (!v.children.length) {
+    v.prelim = v.number > 0 && v.parent
+      ? v.parent.children[v.number - 1].prelim + wbTidyDistance(v, v.parent.children[v.number - 1], breadthOf, gap)
+      : 0;
+    return;
+  }
+  let defaultAncestor = v.children[0];
+  for (const w of v.children) {
+    wbTidyFirstWalk(w, breadthOf, gap);
+    defaultAncestor = wbTidyApportion(w, defaultAncestor, breadthOf, gap);
+  }
+  wbTidyExecuteShifts(v);
+  const midpoint = (v.children[0].prelim + v.children[v.children.length - 1].prelim) / 2;
+  const left = v.number > 0 && v.parent ? v.parent.children[v.number - 1] : null;
+  if (left) {
+    v.prelim = left.prelim + wbTidyDistance(v, left, breadthOf, gap);
+    v.mod = v.prelim - midpoint;
+  } else {
+    v.prelim = midpoint;
+  }
+}
+
+//: How far apart two nodes on the same level must sit: half of each one's own
+//: breadth plus the gap. The constant this replaces is the whole difference
+//: between a tidy tree of identical boxes and one of real, differently-sized
+//: nodes — with a constant, a tall node overlaps its neighbours and a short
+//: one leaves a hole.
+function wbTidyDistance(a, b, breadthOf, gap) {
+  return (breadthOf(a) + breadthOf(b)) / 2 + gap;
+}
+
+function wbTidyNextLeft(v) {
+  return v.children.length ? v.children[0] : v.thread;
+}
+
+function wbTidyNextRight(v) {
+  return v.children.length ? v.children[v.children.length - 1] : v.thread;
+}
+
+function wbTidyMoveSubtree(wm, wp, shift) {
+  const subtrees = wp.number - wm.number;
+  if (!subtrees) return;
+  wp.change -= shift / subtrees;
+  wp.shift += shift;
+  wm.change += shift / subtrees;
+  wp.prelim += shift;
+  wp.mod += shift;
+}
+
+function wbTidyExecuteShifts(v) {
+  let shift = 0;
+  let change = 0;
+  for (let i = v.children.length - 1; i >= 0; i -= 1) {
+    const w = v.children[i];
+    w.prelim += shift;
+    w.mod += shift;
+    change += w.change;
+    shift += w.shift + change;
+  }
+}
+
+function wbTidyAncestor(vim, v, defaultAncestor) {
+  return vim.ancestor && vim.ancestor.parent === v.parent ? vim.ancestor : defaultAncestor;
+}
+
+//: The part that makes the tree *tidy*: walk the right contour of everything
+//: to the left and the left contour of this subtree in step, and push this
+//: subtree right by however much they overlap. The threads (`nextLeft` /
+//: `nextRight` falling back to `.thread`) are what keep it linear-time instead
+//: of re-walking whole subtrees.
+function wbTidyApportion(v, defaultAncestor, breadthOf, gap) {
+  const left = v.number > 0 && v.parent ? v.parent.children[v.number - 1] : null;
+  if (!left) return defaultAncestor;
+  let vip = v;
+  let vop = v;
+  let vim = left;
+  let vom = vip.parent.children[0];
+  let sip = vip.mod;
+  let sop = vop.mod;
+  let sim = vim.mod;
+  let som = vom.mod;
+  while (wbTidyNextRight(vim) && wbTidyNextLeft(vip)) {
+    vim = wbTidyNextRight(vim);
+    vip = wbTidyNextLeft(vip);
+    vom = wbTidyNextLeft(vom);
+    vop = wbTidyNextRight(vop);
+    vop.ancestor = v;
+    const shift = vim.prelim + sim - (vip.prelim + sip) + wbTidyDistance(vim, vip, breadthOf, gap);
+    if (shift > 0) {
+      wbTidyMoveSubtree(wbTidyAncestor(vim, v, defaultAncestor), v, shift);
+      sip += shift;
+      sop += shift;
+    }
+    sim += vim.mod;
+    sip += vip.mod;
+    som += vom.mod;
+    sop += vop.mod;
+  }
+  if (wbTidyNextRight(vim) && !wbTidyNextRight(vop)) {
+    vop.thread = wbTidyNextRight(vim);
+    vop.mod += sim - sop;
+  }
+  if (wbTidyNextLeft(vip) && !wbTidyNextLeft(vom)) {
+    vom.thread = wbTidyNextLeft(vip);
+    vom.mod += sip - som;
+    return v;
+  }
+  return defaultAncestor;
+}
+
+//: The tidy positions for every map node, as `Map(id -> {x, y})`.
+//:
+//: Pure: it reads sizes and the tree and returns coordinates, touching neither
+//: the DOM nor the network. That is what lets `wbMapTidy` below run the whole
+//: layout, then paint once and save once — §8's "auto-layout must run off the
+//: paint path", which is a real constraint here because the whiteboard already
+//: had a lag bug of exactly that shape (task #71).
+function wbMapTidyPositions(index, layout) {
+  if (!index.roots.length) return new Map();
+  const vertical = layout === "tree-down" || layout === "radial";
+  // Breadth is the axis siblings spread along: heights for a map that grows
+  // sideways, widths for one that grows downward. Radial spreads siblings
+  // around a ring, so its breadth is a width too — arc length, before it is
+  // turned into an angle.
+  const sizes = new Map(index.nodes.map((o) => [o.id, wbMapNodeSize(o)]));
+  //: **Radial measures breadth in angle, not in pixels**, and that is not a
+  //: refinement — it is what makes the layout correct near the middle. The
+  //: breadth axis becomes the angle, so a fixed pixel gap buys a *wide* angle
+  //: at the first ring and a narrow one at the fifth: laid out in pixels, the
+  //: nodes closest to the root overlap each other while the outer rings sit in
+  //: empty space. Measured before this existed: two overlapping boxes out of
+  //: five on the first radial layout. Dividing each node's width by its own
+  //: ring number asks for the angle that width actually needs at that radius,
+  //: which is d3's own `separation(a, b) / a.depth` in another form. The gap
+  //: is folded in here for the same reason, so the distance function keeps
+  //: working in one unit.
+  const radial = layout === "radial";
+  const breadthOf = (w) => {
+    if (!w.obj) return 0; // the virtual root below has no size of its own
+    const s = sizes.get(w.obj.id) || { w: WB_MAP_NODE_W, h: WB_MAP_NODE_H };
+    if (radial) return (s.w + WB_MAP_GAP_BREADTH) / Math.max(1, w.depth);
+    return vertical ? s.w : s.h;
+  };
+  const gap = radial ? 0 : WB_MAP_GAP_BREADTH;
+
+  // One virtual root over the real ones, so a map with two top-level topics
+  // is laid out as one tree rather than two overlapping ones. It is dropped
+  // before any coordinate is written.
+  const wrap = (obj, parent, number, depth) => {
+    const node = {
+      obj, parent, number, depth, children: [],
+      prelim: 0, mod: 0, shift: 0, change: 0, thread: null, ancestor: null,
+    };
+    node.ancestor = node;
+    const kids = obj ? index.childrenOf.get(obj.id) || [] : index.roots;
+    // A collapsed branch is not laid out: its children are not on screen, and
+    // reserving room for them would leave a hole where the fold is.
+    if (!obj || !obj.data?.collapsed) {
+      kids.forEach((child, i) => node.children.push(wrap(child, node, i, depth + 1)));
+    }
+    return node;
+  };
+  const virtual = wrap(null, null, 0, -1);
+
+  wbTidyFirstWalk(virtual, breadthOf, gap);
+
+  // Depth offsets: one per level, from the widest (or tallest) node on it.
+  const perDepth = [];
+  const collect = (w) => {
+    if (w.obj) {
+      const s = sizes.get(w.obj.id) || { w: WB_MAP_NODE_W, h: WB_MAP_NODE_H };
+      perDepth[w.depth] = Math.max(perDepth[w.depth] || 0, vertical ? s.h : s.w);
+    }
+    w.children.forEach(collect);
+  };
+  collect(virtual);
+  const ring = Math.max(...perDepth.filter(Number.isFinite), WB_MAP_NODE_W) + WB_MAP_GAP_DEPTH;
+  const offsets = [0];
+  for (let d = 1; d < perDepth.length; d += 1) {
+    offsets[d] = layout === "radial"
+      ? d * ring
+      : offsets[d - 1] + (perDepth[d - 1] || 0) + WB_MAP_GAP_DEPTH;
+  }
+
+  const flat = [];
+  const second = (w, m) => {
+    if (w.obj) flat.push({ obj: w.obj, breadth: w.prelim + m, depth: w.depth });
+    for (const child of w.children) second(child, m + w.mod);
+  };
+  second(virtual, 0);
+  if (!flat.length) return new Map();
+
+  const positions = new Map();
+  if (layout === "radial") {
+    // x as angle, y as radius — the same call `d3.tree().size([2π, 1])` makes
+    // and the same reading of it: the breadth axis, normalised, *is* the angle.
+    // The span is padded so the first and last branch do not meet back at the
+    // top — by the *smallest* node extent in the layout, which is one node's
+    // worth of angle at the outermost ring. Padding by a raw pixel constant
+    // was wrong for the same reason the breadths above are divided by depth:
+    // it is not a quantity in this unit at all.
+    const extentOf = (f) =>
+      ((sizes.get(f.obj.id)?.w || WB_MAP_NODE_W) + WB_MAP_GAP_BREADTH) / Math.max(1, f.depth);
+    const min = Math.min(...flat.map((f) => f.breadth));
+    const max = Math.max(...flat.map((f) => f.breadth));
+    const span = max - min + Math.min(...flat.map(extentOf)) || 1;
+    for (const f of flat) {
+      const size = sizes.get(f.obj.id) || { w: WB_MAP_NODE_W, h: WB_MAP_NODE_H };
+      const angle = ((f.breadth - min) / span) * 2 * Math.PI - Math.PI / 2;
+      const radius = offsets[f.depth] || 0;
+      // Centres, then back to the top-left corner an object's `x`/`y` mean.
+      positions.set(f.obj.id, {
+        x: radius * Math.cos(angle) - size.w / 2,
+        y: radius * Math.sin(angle) - size.h / 2,
+      });
+    }
+  } else {
+    for (const f of flat) {
+      const size = sizes.get(f.obj.id) || { w: WB_MAP_NODE_W, h: WB_MAP_NODE_H };
+      const along = offsets[f.depth] || 0;
+      positions.set(f.obj.id, vertical
+        ? { x: f.breadth - size.w / 2, y: along }
+        : { x: along, y: f.breadth - size.h / 2 });
+    }
+  }
+
+  // Shift the whole layout so the first root keeps the position it already
+  // had. "Tidy this map" means tidy it, not "recentre my board" — the same
+  // choice, for the same reason, `wbArrangeMindMap` makes further up.
+  const anchor = positions.get(index.roots[0].id);
+  if (anchor) {
+    const dx = index.roots[0].x - anchor.x;
+    const dy = index.roots[0].y - anchor.y;
+    for (const pos of positions.values()) {
+      pos.x += dx;
+      pos.y += dy;
+    }
+  }
+  return positions;
+}
+
+//: Lay the map out and save it: compute everything, paint once, then write.
+//:
+//: The three phases are the point. `wbMapTidyPositions` touches nothing;
+//: `wbApplyBulkMove` moves every element in one pass; `wbSaveBulkMove` is the
+//: only part that goes near the network, and it runs after the paint. That is
+//: §8's "auto-layout must run off the paint path", and it reuses the two
+//: functions a multi-item drag already uses rather than writing a third way to
+//: move a set of things.
+async function wbMapTidy({ onlyBranch = null, quiet = false } = {}) {
+  if (!wbIsMap()) return 0;
+  const layout = wbMapLayout();
+  if (layout === "free") {
+    if (!quiet) toast("This map's layout is Free — pick a layout to tidy it.");
+    return 0;
+  }
+  const index = wbMapIndex();
+  const positions = wbMapTidyPositions(index, layout);
+  if (!positions.size) return 0;
+
+  // Which nodes this run is allowed to move. A branch tidy (after adding a
+  // child) touches only that branch, so the rest of the map does not jump
+  // under you while you are typing into a new node.
+  const scope = onlyBranch != null
+    ? new Set(wbMapSubtree(index, onlyBranch).map((o) => o.id))
+    : null;
+
+  const origin = new Map();
+  for (const [id, pos] of positions) {
+    const obj = index.byId.get(id);
+    if (!obj) continue;
+    if (scope && !scope.has(id)) continue;
+    // **A dragged node is pinned, and a pinned node keeps its place.** That is
+    // Coggle's bargain: tidy is on demand, and anything you positioned by hand
+    // is a decision, not a thing to be undone by the next tidy. Its children
+    // still take their tidy positions — the fold is in the branch, not the
+    // whole map.
+    if (obj.data?.pinned) continue;
+    if (Math.abs(obj.x - pos.x) < 0.5 && Math.abs(obj.y - pos.y) < 0.5) continue;
+    origin.set(wbMultiKey("object", id), { kind: "object", id, item: obj, x: pos.x, y: pos.y });
+  }
+  if (!origin.size) return 0;
+  // Zero delta, because each entry already carries its own target — the
+  // bulk-move helper adds `dx`/`dy` to the origin it was given, so handing it
+  // the destinations and no delta is how one shared helper does a per-node
+  // layout as well as a rigid drag.
+  wbApplyBulkMove(origin, 0, 0);
+  renderWhiteboardNow();
+  await wbSaveBulkMove(origin);
+  return origin.size;
+}
+
+//: Re-tidy one branch after a node was added to it, when the layout asks for
+//: it. Silent by design: this runs as part of Tab, and a toast per keystroke
+//: while building a map out is noise, not feedback.
+async function wbMapTidyBranch(parentId) {
+  if (!wbIsMap() || wbMapLayout() === "free") return;
+  // Whole-map when a root gained a child: a new top-level branch changes where
+  // every other branch has to sit, so tidying only the new one would leave it
+  // sitting on top of its neighbour.
+  const index = wbMapIndex();
+  const parent = parentId != null ? index.byId.get(parentId) : null;
+  const scope = parent && parent.parent_id != null ? parent.parent_id : null;
+  await wbMapTidy({ onlyBranch: scope, quiet: true });
+}
+
+//: The board top bar's map controls: a "Map" chip that says what this board
+//: is, the layout picker, and Tidy. All three are hidden on an ordinary
+//: whiteboard rather than disabled — a control that can never apply here is
+//: not a control you want to read past on every other board.
+//:
+//: The chip is `.library-chip`, which is the app's own filter-chip recipe
+//: (DESIGN.md, "the interactive filter chip"), not a badge invented for the
+//: canvas.
+function wbSyncMapChrome() {
+  const isMap = wbIsMap();
+  // A map that grows downward puts the branch spine on the node's top edge and
+  // its chevron underneath — decided once here as a class on the view rather
+  // than per node, since it is a property of the layout, not of any one node.
+  document.getElementById("library-view-whiteboard")
+    ?.classList.toggle("wb-map-down", isMap && wbMapLayout() === "tree-down");
+  const chip = document.getElementById("wb-map-chip");
+  const picker = document.getElementById("wb-map-layout");
+  const tidy = document.getElementById("wb-map-tidy");
+  if (chip) chip.hidden = !isMap;
+  if (tidy) tidy.hidden = !isMap;
+  if (picker) {
+    picker.hidden = !isMap;
+    picker.value = wbMapLayout();
+  }
+}
+
+//: Change the layout, then lay the map out in it. Changing a layout without
+//: applying it would leave the picker saying "tree-down" over a map still
+//: arranged sideways, which is a control that reports a state the screen
+//: disagrees with — the shape of bug this app has been bitten by repeatedly.
+async function wbMapSetLayout(layout) {
+  const boardId = window.currentBoardId;
+  if (!boardId || !wbIsMap()) return;
+  try {
+    await apiJson(`/whiteboard/boards/${boardId}`, {
+      method: "PUT",
+      body: JSON.stringify({ layout }),
+    });
+    window.wbMapState = { ...window.wbMapState, layout };
+    wbSyncMapChrome();
+    const moved = await wbMapTidy({ quiet: true });
+    renderWhiteboardNow();
+    toast(layout === "free"
+      ? "Layout set to Free — nodes stay where you put them."
+      : `Laid out ${moved} node${moved === 1 ? "" : "s"}.`);
+  } catch (err) {
+    toast(err.message || "Couldn't change the layout.", true);
+  }
+}
+
+//: **Dragging a node pins it.** The other half of the tidy bargain above: a
+//: position you chose by hand is a decision, and the next Tidy has to leave it
+//: alone or the gesture is pointless. Called from the object drag's own end
+//: handler, and only for a real move on a map — a click that happened to
+//: register as a zero-length drag must not silently pin anything.
+async function wbMapPinOnDrag(d) {
+  if (!wbIsMap() || !WB_MAP_KINDS.has(d.kind) || d.data?.pinned) return;
+  d.data = { ...d.data, pinned: true };
+  await wbSaveObject(d);
+  wbScheduleRender();
+}
+
 function wbApplySelectionHighlight() {
   document
     .querySelectorAll(".sketch-group.wb-selected, .node-card.wb-selected, .wb-object.wb-selected")
@@ -3310,6 +4506,25 @@ function wbBuildExportSvg(scope) {
     `<rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="${bgColor}" />`,
   ];
 
+  // A map's branch colours, and its tree edges, both computed once for the
+  // whole export. The edges are cloned out of the live DOM rather than
+  // recomputed: they are already real SVG paths in board coordinates (that is
+  // the whole reason `wbRenderMapEdges` draws them as SVG instead of on a
+  // canvas), so cloning them is exact and cannot disagree with what is on
+  // screen. First in the list, so they sit under every node.
+  const exportMapIndex = wbIsMap() ? wbMapIndex() : null;
+  const exportMapColors = exportMapIndex ? wbMapColors(exportMapIndex) : null;
+  if (exportMapIndex) {
+    for (const edge of document.querySelectorAll(".wb-map-edges .wb-map-edge")) {
+      const clone = edge.cloneNode(true);
+      clone.removeAttribute("class");
+      clone.setAttribute("fill", "none");
+      if (!clone.getAttribute("stroke")) clone.setAttribute("stroke", "#8888aa");
+      clone.setAttribute("stroke-width", "2");
+      parts.push(clone.outerHTML);
+    }
+  }
+
   // Sketches already exist as real SVG — cloned as-is rather than
   // reinterpreted, so a stroke's colour/width/opacity (including the
   // highlighter's own translucency) survives into the export untouched.
@@ -3360,6 +4575,23 @@ function wbBuildExportSvg(scope) {
         `<image href="${wbSvgEscape(mediaSrc(obj.data.url))}" width="${obj.width}" height="${obj.height}" ` +
           `preserveAspectRatio="xMidYMid slice" />`
       );
+    } else if (WB_MAP_KINDS.has(obj.kind)) {
+      // A map node exports as what it looks like: a rounded box with the
+      // branch's colour down its leading edge and its label inside. Without
+      // this branch a map exported as an empty `<g>` per node — every PNG and
+      // SVG of a mind map came out blank, which is the same "stored, served
+      // and not drawn" gap this whole section exists to close, one layer down.
+      const size = wbMapNodeSize(obj);
+      const colour = exportMapColors?.get(obj.id) || "#8888aa";
+      parts.push(
+        `<rect width="${size.w}" height="${size.h}" rx="8" fill="#ffffffee" ` +
+          `stroke="${wbSvgEscape(colour)}" stroke-width="1.5" />`
+      );
+      parts.push(
+        `<rect width="4" height="${size.h}" rx="2" fill="${wbSvgEscape(colour)}" />`
+      );
+      const lines = wbSvgWrapLines(wbMapLabel(obj), size.w - 28, 4, 7.5);
+      parts.push(wbSvgText(lines, 14, 22, { fontSize: 14, fill: "#1f2430", lineHeight: 17 }));
     } else if (obj.kind === "text") {
       const fontSize = obj.data.font_size || 16;
       const lines = wbSvgWrapLines(obj.data.content || "", obj.width - 20, 20, fontSize * 0.55);
@@ -3401,6 +4633,39 @@ function wbRasterizeSvg(svgString, width, height, mime) {
     };
     img.src = url;
   });
+}
+
+//: Markdown outline / OPML, straight from `GET /boards/{id}/export` (§9.3).
+//:
+//: The **server** renders both, and that is deliberate: the same two formats
+//: are what `import_board` reads back and what the AI's `read_mindmap` builds
+//: its outline from, so a second renderer here would be a third opinion of
+//: what this map says — and the one nobody would think to keep in step.
+//:
+//: `api()` rather than `apiJson()` because the response is a text file with a
+//: `Content-Disposition`, not JSON; `saveFile` is the app's own download
+//: helper and is what makes this work in the desktop shell, where a browser
+//: download has nowhere to land.
+async function wbExportMapText(format) {
+  const boardId = window.currentBoardId;
+  if (!boardId) {
+    toast("The default board isn't a map — outlines come from a map.");
+    return;
+  }
+  const res = await api(`/whiteboard/boards/${boardId}/export?format=${encodeURIComponent(format)}`);
+  const blob = await res.blob();
+  // The board picker's own label, minus the "(3 items)" it appends — the same
+  // strip `renameCurrentBoard` already does, and the only place the open
+  // board's title exists on the client.
+  const title = document.getElementById("wb-board-select")?.selectedOptions?.[0]
+    ?.textContent.replace(/\s*\(\d+ items?\)$/, "") || "mindmap";
+  // The extension the format actually is — a `.md` file holding OPML is a
+  // file nothing will open. The name is reduced to word characters, spaces and
+  // hyphens because a map may be called anything at all and this becomes a
+  // filename on someone's disk.
+  const safe = title.replace(/[^\w -]+/g, "").trim() || "mindmap";
+  await saveFile(`${safe}.${format === "opml" ? "opml" : "md"}`, blob);
+  toast(`Map exported as ${format === "opml" ? "OPML" : "a Markdown outline"}.`);
 }
 
 async function wbExportSvg(scope) {
@@ -3554,6 +4819,17 @@ function wbExportBoard(anchor) {
   addOption("What's on screen now", () => wbExportPdf("visible"));
   addOption("The whole board", () => wbExportPdf("whole"));
 
+  // **The text formats, on a map only.** An outline of a whiteboard is not a
+  // thing — there is no tree to indent — and offering it there would be two
+  // dead menu entries on every ordinary board. OPML is the interchange format
+  // every mindmapper reads (§5 item 16): cheap to offer, and it is what makes
+  // this feature not a lock-in.
+  if (wbIsMap()) {
+    addHeading("Outline");
+    addOption("Markdown (.md)", () => wbExportMapText("markdown"));
+    addOption("OPML (.opml)", () => wbExportMapText("opml"));
+  }
+
   document.body.appendChild(menu);
   wbExportMenuOutsideClick = (event) => {
     if (!menu.contains(event.target) && event.target !== button) wbCloseExportMenu();
@@ -3694,6 +4970,13 @@ async function initWhiteboard() {
   }
   $("wb-new-board")?.addEventListener("click", createNewBoard);
   $("wb-rename-board")?.addEventListener("click", renameCurrentBoard);
+  $("wb-map-layout")?.addEventListener("change", (e) => wbMapSetLayout(e.target.value));
+  $("wb-map-tidy")?.addEventListener("click", async () => {
+    const moved = await wbMapTidy({ quiet: true });
+    toast(moved
+      ? `Tidied ${moved} node${moved === 1 ? "" : "s"}.`
+      : "Everything is already where this layout puts it.");
+  });
   $("wb-empty-hint-close")?.addEventListener("click", () => {
     $("wb-empty-hint")?.classList.add("hidden");
   });
@@ -4816,6 +6099,52 @@ async function initWhiteboard() {
       else selectWbTool("select");
       return;
     }
+    // --- a map's own keys (MINDMAP_PLAN.md §5 item 5) ----------------------
+    //
+    // Obsidian Canvas Mindmap's set, which is the de-facto standard, and the
+    // reason this block sits *above* the card gestures and the arrow-key
+    // nudge below rather than beside them: on a map, Delete means "this
+    // subtree, undoably" and the arrows mean "walk the tree", both of which
+    // the generic handlers further down would otherwise have already claimed.
+    // Every branch returns, so nothing here falls through to them.
+    const mapNode = wbSelectedMapNode();
+    if (mapNode) {
+      if (e.key === "Tab") {
+        e.preventDefault();
+        // Shift+Tab outdents. Through `/move`, which is the only endpoint
+        // that runs the cycle check — see `wbMapOutdent`.
+        if (e.shiftKey) wbMapOutdent(mapNode.id);
+        else wbMapAddChild(mapNode.id);
+        return;
+      }
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        wbMapAddSibling(mapNode.id);
+        return;
+      }
+      if (e.key === "F2") {
+        e.preventDefault();
+        wbMapEditNode(mapNode.id);
+        return;
+      }
+      if ((e.key === "Delete" || e.key === "Backspace") && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        wbMapDeleteSubtree(mapNode.id);
+        return;
+      }
+      // The arrows walk the tree — but only unmodified. Shift/Ctrl arrows stay
+      // with the nudge below, so a node that genuinely needs moving by hand
+      // still can be.
+      if (
+        ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)
+        && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey
+      ) {
+        e.preventDefault();
+        wbMapNavigate(mapNode.id, e.key);
+        return;
+      }
+    }
+
     // Delete/Backspace with a selection — the other half of Select as a
     // real tool: previously the only way to delete anything was switching
     // to the Delete tool and clicking it.
@@ -5594,6 +6923,13 @@ async function fetchWhiteboardState() {
     const res = await apiJson(url);
     if ((window.currentBoardId ?? null) !== requestedBoardId) return;
     wbState = res;
+    // Before the board list, and awaited: everything that draws a map node
+    // reads `window.wbMapState` for the board's type and for reference
+    // labels, so a render that beat this call would draw the map as a plain
+    // whiteboard once and then correct itself — a visible flash of the wrong
+    // thing on every single board open.
+    await wbRefreshMapState();
+    wbSyncMapChrome();
     await refreshBoardList();
   } catch (err) {
     console.error("Whiteboard fetch error:", err);
@@ -5660,26 +6996,75 @@ async function renameCurrentBoard() {
   }
 }
 
-async function createNewBoard() {
-  const name = await promptDialog("Name the new board:", "");
+//: Create a board — or a map, which is the same thing with a `type` on it
+//: (MINDMAP_PLAN.md §4 chose option B: one data model, two behaviours).
+//:
+//: `preset` lets the Library's "New mind map" action skip straight to the map
+//: half without the dialog having to be answered twice; left alone, the dialog
+//: asks, defaulting to whatever it was told.
+async function createNewBoard(preset = "board") {
+  const answer = await promptDialog("Name the new board:", "", {
+    segment: {
+      label: "What kind of board",
+      value: preset,
+      options: [
+        { value: "board", label: "Board", title: "A free canvas — notes, sketches, images" },
+        { value: "map", label: "Mind map", title: "A tree: topics, branches and keyboard editing" },
+      ],
+    },
+  });
+  const name = answer?.text || "";
+  const kind = answer?.choice === "map" ? "map" : "board";
   if (!name || !name.trim()) return;
   try {
     const board = await apiJson("/whiteboard/boards", {
       method: "POST",
-      body: JSON.stringify({ name: name.trim() }),
+      // A map is created **in** its layout, not converted into one afterwards:
+      // `tree-right` is the layout every mainstream mindmapper opens in, and a
+      // map that starts as `free` would put its first three nodes wherever the
+      // server's fallback placement happened to drop them and only tidy up
+      // once someone found the picker.
+      body: JSON.stringify(
+        kind === "map"
+          ? { name: name.trim(), type: "map", layout: "tree-right" }
+          : { name: name.trim() }
+      ),
     });
     window.currentBoardId = board.id;
+    if (kind === "map") {
+      // One root topic, named after the map. **An empty canvas is the main
+      // reason mindmap features go unused** (MINDMAP_PLAN.md §5 item 21), and
+      // a map with nothing on it has no node to press Tab on — so the one
+      // gesture the whole feature turns on would have nowhere to start.
+      await apiJson(`/whiteboard/boards/${board.id}/nodes`, {
+        method: "POST",
+        body: JSON.stringify({ kind: "topic", parent_id: null, text: name.trim() }),
+      }).catch((err) => toast(err.message || "Couldn't add the root topic.", true));
+    }
     // `list_boards` only lists a board once something is actually placed on
     // it (see its own docstring) — an empty new one is invisible to both
     // this dropdown (already handled below via `justCreated`) and the
     // landing gallery, which would otherwise make a board someone just
     // created appear to vanish the moment they go back to the list.
     window.wbLastCreatedBoard = board;
-    const url = `/whiteboard/?board_id=${board.id}`;
-    wbState = await apiJson(url);
-    await refreshBoardList(board);
+    // `fetchWhiteboardState`, not a bare GET: it is the one path that also
+    // refreshes `window.wbMapState` and the top bar's map controls, and a map
+    // created through a second copy of those two lines opened as an ordinary
+    // whiteboard until the next board switch — the node was there, the Map
+    // chip was not, and none of the keys worked.
+    await fetchWhiteboardState();
     wbScheduleRender();
-    toast(`Board "${board.title}" created.`);
+    if (kind === "map") {
+      // Selected, so Tab works on the very first keystroke. A map whose root
+      // has to be clicked before the keyboard does anything teaches the wrong
+      // thing about the feature in its first five seconds.
+      const root = (wbState.objects || []).find((o) => WB_MAP_KINDS.has(o.kind));
+      if (root) selectWbItem("object", root.id);
+      renderWhiteboardNow();
+      toast(`Mind map "${board.title}" created — Tab adds a branch, Enter a sibling.`);
+    } else {
+      toast(`Board "${board.title}" created.`);
+    }
   } catch (err) {
     toast(err.message || "Couldn't create that board.", true);
   }
@@ -6575,6 +7960,25 @@ function renderWhiteboard() {
 
   const sketchUpdate = sketchEnter.merge(sketchSelection);
 
+  // A cross-link on a map is drawn dashed (MINDMAP_PLAN.md §5 item 9, the
+  // systems-map convention for "related, but not part of the tree"). The
+  // sketch itself is untouched — this is a class, so the same link on an
+  // ordinary board still draws exactly as it always did, and nothing about the
+  // stored data changes when a board's type does.
+  const crossLinkIds = new Set(
+    wbIsMap() ? (window.wbMapState?.crossLinks || []).map((l) => `${l.from_id}:${l.to_id}`) : []
+  );
+  sketchUpdate.classed("wb-map-crosslink", (d) => {
+    if (!crossLinkIds.size) return false;
+    let parsed;
+    try {
+      parsed = JSON.parse(d.data);
+    } catch {
+      return false;
+    }
+    return crossLinkIds.has(`${parsed?.sourceId}:${parsed?.targetId}`);
+  });
+
   sketchUpdate.each(function(d) {
     let pathData = d.data;
     let stroke = "var(--text-color)";
@@ -6905,6 +8309,13 @@ function renderWhiteboard() {
 
   renderWbObjects(canvas);
 
+  // After the nodes, never before: an edge is drawn between two *measured*
+  // boxes (`wbMapNodeSize` reads `offsetHeight`, since a map node's height is
+  // its text's), so running this first would measure the previous render's
+  // sizes and leave every edge one frame stale — visible as edges that lag
+  // behind a node the moment its text changes length.
+  wbRenderMapEdges();
+
   // Every element above was just rebuilt, so any `.wb-selected` class set
   // before this render is gone with it — re-apply from the state that
   // actually persists (`wbSelectedItem`), not the DOM.
@@ -6975,8 +8386,22 @@ function renderWbObjects(canvas) {
     wbDeleting.add(deletingKey);
     wbPushUndo({ action: "delete", kind: "object", payload: WB_KIND_INFO.object.payload(d) });
     try {
-      await apiJson(`/whiteboard/objects/${d.id}`, { method: "DELETE" });
-      wbState.objects = wbState.objects.filter((o) => o.id !== d.id);
+      const res = await apiJson(`/whiteboard/objects/${d.id}`, { method: "DELETE" });
+      // **Whatever the server says it deleted, not just the row we asked
+      // about.** On a map this endpoint takes the node's whole subtree and
+      // returns it as `deleted[]` (§9.1), so dropping only `d.id` here left
+      // every descendant on the canvas as a card pointing at a row that no
+      // longer exists — visible as nodes that survive a delete and then 404
+      // on the next save. Found by deleting a branch with the Delete key and
+      // counting: the server removed two rows, the board still drew one of
+      // them. An ordinary text box or image has no children, so `deleted`
+      // is a single row there and this is exactly what it always was.
+      const gone = new Set(
+        Array.isArray(res?.deleted) && res.deleted.length
+          ? res.deleted.map((row) => row.id)
+          : [d.id]
+      );
+      wbState.objects = wbState.objects.filter((o) => !gone.has(o.id));
       wbScheduleRender();
     } catch (e) {
       console.error(e);
@@ -7068,6 +8493,10 @@ function renderWbObjects(canvas) {
     delete d._moveUndoBefore;
     if (moveBefore && (moveBefore.x !== d.x || moveBefore.y !== d.y)) {
       wbPushUndo({ action: "move", kind: "object", id: d.id, before: moveBefore });
+      // A map node that was actually moved is now pinned — see
+      // `wbMapPinOnDrag`. Gated on the same "did it really move" check the
+      // undo entry uses, so a click is never mistaken for a placement.
+      await wbMapPinOnDrag(d);
     }
     if (bulkOrigin) await wbSaveBulkMove(bulkOrigin);
   }
@@ -7187,8 +8616,27 @@ function renderWbObjects(canvas) {
       });
   }
 
+  // The map facts for this render pass, computed once here rather than per
+  // node: `wbMapColors` walks the whole tree by design (see its own comment),
+  // and calling it from inside a per-node callback would walk it once per node.
+  const mapIndex = wbIsMap() ? wbMapIndex() : null;
+  const mapColors = mapIndex ? wbMapColors(mapIndex) : null;
+  const mapHidden = mapIndex ? wbMapHidden(mapIndex) : null;
+  // **A collapsed branch leaves the DOM rather than being hidden with CSS.**
+  // The export, the board bounds, the marquee and every `querySelector` in
+  // this file read the DOM — a `display: none` node would still be found by
+  // all four, so a folded branch would keep showing up in exports and keep
+  // stretching the board's bounds while being invisible on screen.
+  const objectData = mapHidden?.size
+    ? (wbState.objects || []).filter((o) => !mapHidden.has(o.id))
+    : (wbState.objects || []);
   const objectSelection = canvas.selectAll(".wb-object")
-    .data(wbState.objects || [], (d) => d.id);
+    .data(objectData, (d) => d.id);
+
+  // A map node is `height: auto` — its own text decides how tall it is, so a
+  // long topic grows its box instead of being sliced by `overflow: hidden`,
+  // which is the failure CLAUDE.md records costing six rounds on one popup.
+  const objectHeight = (d) => (WB_MAP_KINDS.has(d.kind) ? "auto" : `${d.height}px`);
 
   const objectEnter = objectSelection.enter()
     .append("div")
@@ -7196,7 +8644,7 @@ function renderWbObjects(canvas) {
     .attr("data-id", (d) => d.id)
     .style("transform", wbItemTransform)
     .style("width", (d) => `${d.width}px`)
-    .style("height", (d) => `${d.height}px`)
+    .style("height", objectHeight)
     .style("z-index", (d) => d.z)
     .call(objDrag)
     .on("click", (event, d) => {
@@ -7239,6 +8687,12 @@ function renderWbObjects(canvas) {
               .on("click", (event) => { event.stopPropagation(); deleteObject(d); });
           }
         });
+    } else if (WB_MAP_KINDS.has(d.kind)) {
+      // A map node, not a text box. Checked before the `else` below because
+      // that branch is "everything that isn't an image", which is what drew a
+      // topic as a bare, unlabelled text box for as long as the kinds existed
+      // without this — stored, served, and on screen as nothing recognisable.
+      wbBuildMapNode(el, d);
     } else {
       // Fill/border, asked for directly (the properties panel) — set on the
       // outer object div, which is what `.wb-object-text`'s own default
@@ -7294,6 +8748,13 @@ function renderWbObjects(canvas) {
         wbBeginTextEdit(this);
       });
     }
+    // A map node gets neither. Its height is its text's (see `objectHeight`),
+    // so a vertical resize handle would fight the content and lose; and a
+    // rotated node is a node whose edges no longer meet its anchors, which
+    // makes the tree unreadable for no gain a mind-mapper has ever asked for.
+    // The eight handles and the rotate grip also sit exactly where the
+    // chevron and the `+` do, and would swallow both.
+    if (WB_MAP_KINDS.has(d.kind)) return;
     for (const handle of ["nw", "n", "ne", "e", "se", "s", "sw", "w"]) {
       el.append("div")
         .attr("class", "wb-resize-handle")
@@ -7312,7 +8773,7 @@ function renderWbObjects(canvas) {
   objectUpdate
     .style("transform", wbItemTransform)
     .style("width", (d) => `${d.width}px`)
-    .style("height", (d) => `${d.height}px`)
+    .style("height", objectHeight)
     .style("z-index", (d) => d.z);
   // An image's own src can change (rare — nothing in this UI replaces one
   // yet, but a future paste-to-replace shouldn't need this rewritten) and a
@@ -7323,6 +8784,14 @@ function renderWbObjects(canvas) {
     const el = d3.select(this);
     if (d.kind === "image") {
       el.select("img").attr("src", mediaSrc(d.data.url) || "");
+    } else if (WB_MAP_KINDS.has(d.kind)) {
+      wbPaintMapNode(el, d, mapIndex, mapColors);
+      // The stored `height` is what the bounds, the alignment guides and the
+      // tidy layout all read, and a map node's real height is whatever its
+      // text needed. Syncing it here (locally — no PUT, nothing to save) is
+      // what keeps those three agreeing with what is actually on screen; the
+      // value rides along to the server on the node's next real save.
+      if (this.offsetHeight) d.height = this.offsetHeight;
     } else {
       el.style("background", d.data.bg || "").style("border-color", d.data.border_color || "");
       const textEl = el.select(".wb-text-content");
@@ -7601,6 +9070,12 @@ document.addEventListener("DOMContentLoaded", () => {
     wbShowCanvasView();
     await createNewBoard();
   });
+  // The same dialog, opened with the Mind map segment already chosen — not a
+  // second creation path with its own copy of the create-and-open sequence.
+  $("wb-boards-new-map")?.addEventListener("click", async () => {
+    wbShowCanvasView();
+    await createNewBoard("map");
+  });
   $("wb-back-to-boards")?.addEventListener("click", wbShowBoardsLanding);
   $("library-boards-search")?.addEventListener("input", renderLibraryBoardsGallery);
   // The Reload button beside "+ New board". Its id says `library-media-refresh`
@@ -7693,11 +9168,67 @@ document.addEventListener("DOMContentLoaded", () => {
 
 window.renderLibraryBoardsGallery = renderLibraryBoardsGallery;
 
+//: Maps / Boards / All (MINDMAP_PLAN.md §5 item 10). Which one is showing.
+//: In `localStorage` for the same reason the view mode and the sort already
+//: are: a filter you have to set again on every visit is one you stop using.
+const BOARD_FILTER_KEY = "library-boards-filter";
+const BOARD_FILTERS = [
+  { key: "all", label: "All", icon: "ph:squares-four", type: null },
+  { key: "map", label: "Maps", icon: "ph:tree-structure", type: "map" },
+  { key: "board", label: "Boards", icon: "ph:pencil-simple-line", type: "board" },
+];
+
+function boardTypeFilter() {
+  const stored = localStorage.getItem(BOARD_FILTER_KEY);
+  return BOARD_FILTERS.some((f) => f.key === stored) ? stored : "all";
+}
+
+//: The chip row itself. `.library-chip`, the app's own filter-chip recipe,
+//: with the count on the chip — the Everything sub-tab's rule and for the same
+//: reason: a filter you have to press to discover is empty wastes a click
+//: every time, and with three of them that is the whole row.
+function renderBoardTypeFilter(counts) {
+  const box = $("library-boards-filter");
+  if (!box) return;
+  const active = boardTypeFilter();
+  box.replaceChildren();
+  for (const filter of BOARD_FILTERS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `library-chip${filter.key === active ? " active" : ""}`;
+    button.dataset.boardFilter = filter.key;
+    button.setAttribute("aria-pressed", String(filter.key === active));
+    const icon = document.createElement("span");
+    setLabel(icon, filter.icon);
+    icon.setAttribute("aria-hidden", "true");
+    const label = document.createElement("span");
+    label.textContent = filter.label;
+    button.append(icon, label);
+    if (counts) {
+      const badge = document.createElement("span");
+      badge.className = "library-chip-count";
+      badge.textContent = String(counts[filter.key] ?? 0);
+      button.appendChild(badge);
+    }
+    button.addEventListener("click", () => {
+      localStorage.setItem(BOARD_FILTER_KEY, filter.key);
+      renderLibraryBoardsGallery();
+    });
+    box.appendChild(button);
+  }
+}
+
 async function renderLibraryBoardsGallery() {
   const grid = $("library-boards-grid");
   const empty = $("library-boards-empty");
   const noMatch = $("library-boards-no-match");
   if (!grid) return;
+  // Always the unfiltered list, then narrowed here. `?type=` exists and works
+  // (§9.3), but the chips carry counts, and counts for the two kinds you are
+  // *not* looking at cannot come from a request that excluded them — asking
+  // three times to draw one row would be three round trips for one small
+  // array. The server-side filter earns its place for a caller that wants only
+  // maps and no counts; this one wants both.
   const boards = await apiJson("/whiteboard/boards", { silent: true }).catch(() => null);
   if (!boards) { grid.replaceChildren(); empty?.classList.remove("hidden"); noMatch?.classList.add("hidden"); return; }
   // See `createNewBoard`'s own comment: a board with nothing on it yet
@@ -7706,8 +9237,14 @@ async function renderLibraryBoardsGallery() {
   if (created && !boards.some((b) => b.id === created.id)) {
     boards.push({ ...created, node_count: 0, sketch_count: 0, object_count: 0 });
   }
+  // Counted before the filter, so each chip says how many it *would* show.
+  const counts = { all: boards.length, map: 0, board: 0 };
+  for (const b of boards) counts[b.type === "map" ? "map" : "board"] += 1;
+  renderBoardTypeFilter(counts);
+  const wanted = BOARD_FILTERS.find((f) => f.key === boardTypeFilter())?.type ?? null;
+  const inScope = wanted ? boards.filter((b) => (b.type || "board") === wanted) : boards;
   const needle = ($("library-boards-search")?.value || "").trim().toLowerCase();
-  const shown = window.wbVisibleBoards(boards, needle);
+  const shown = window.wbVisibleBoards(inScope, needle);
   //: `.library-list` is the Library's own rows mode (00-tokens-shell.css) and
   //: a board card is already a `.library-card`, so this is the whole change:
   //: the same class the All sub-tab toggles, driven by the same preference.
@@ -7748,7 +9285,12 @@ async function renderLibraryBoardsGallery() {
     top.className = "library-card-top";
     const icon = document.createElement("span");
     icon.className = "library-card-icon";
-    setLabel(icon, "ph:squares-four");
+    // A map and a board share this sub-tab, so the icon is the one thing on
+    // the card that says which of the two you are looking at before you read
+    // the title — the same icon the top bar's Map chip and the New mind map
+    // action use, so the three agree.
+    const isMapCard = board.type === "map";
+    setLabel(icon, isMapCard ? "ph:tree-structure" : "ph:squares-four");
     icon.setAttribute("aria-hidden", "true");
     top.appendChild(icon);
 
@@ -7763,10 +9305,17 @@ async function renderLibraryBoardsGallery() {
     const parts = [];
     if (nodeCount) parts.push(`${nodeCount} card${nodeCount === 1 ? "" : "s"}`);
     if (sketchCount) parts.push(`${sketchCount} sketch${sketchCount === 1 ? "" : "es"}`);
-    if (objectCount) parts.push(`${objectCount} image${objectCount === 1 ? "" : "s"}`);
+    // On a map the objects *are* the nodes, so calling them "images" — which
+    // is what this line said for every map — is simply the wrong noun for the
+    // only thing on the board.
+    if (objectCount) {
+      parts.push(isMapCard
+        ? `${objectCount} node${objectCount === 1 ? "" : "s"}`
+        : `${objectCount} image${objectCount === 1 ? "" : "s"}`);
+    }
     const meta = document.createElement("span");
     meta.className = "muted library-card-meta";
-    meta.textContent = parts.length ? parts.join(" · ") : "Empty board";
+    meta.textContent = parts.length ? parts.join(" · ") : isMapCard ? "Empty map" : "Empty board";
 
     // **A thumbnail of the board itself**, rather than the same icon on every
     // card. Asked for directly: the Boards & maps sub-tab is "boring and
@@ -7788,6 +9337,24 @@ async function renderLibraryBoardsGallery() {
       map.setAttribute("viewBox", "0 0 100 56");
       map.setAttribute("preserveAspectRatio", "none");
       map.setAttribute("aria-hidden", "true");
+      // **A map's thumbnail draws its tree.** `preview_edges` is the
+      // parent→child segments in the same normalised 0..1 space as the items
+      // (§9.1), and it exists because structure is the entire difference
+      // between a map and a board — so a map previewing as a scatter of dots
+      // is indistinguishable from the thing it is not. Drawn *first*, so the
+      // lines sit under the blocks rather than across their labels; an
+      // ordinary board ships an empty list here and this loop does nothing.
+      // The +4.5/+3 offsets put a line at the centre of the block it joins,
+      // since a block is drawn from its top-left corner at 9×6.
+      for (const edge of Array.isArray(board.preview_edges) ? board.preview_edges : []) {
+        const line = document.createElementNS(NS, "line");
+        line.setAttribute("class", "board-minimap-edge");
+        line.setAttribute("x1", String(3 + (Number(edge.x1) || 0) * 88 + 4.5));
+        line.setAttribute("y1", String(3 + (Number(edge.y1) || 0) * 44 + 3));
+        line.setAttribute("x2", String(3 + (Number(edge.x2) || 0) * 88 + 4.5));
+        line.setAttribute("y2", String(3 + (Number(edge.y2) || 0) * 44 + 3));
+        map.appendChild(line);
+      }
       for (const item of items) {
         const nx = 3 + (Number(item.x) || 0) * 88;
         const ny = 3 + (Number(item.y) || 0) * 44;

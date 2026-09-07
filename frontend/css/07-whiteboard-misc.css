@@ -4059,6 +4059,18 @@ summary:not(.icon-only):not(.icon-button) {
   opacity: 0.3;
 }
 
+/* A map's parent→child edges, drawn under the blocks so the card reads as a
+   tree rather than a scatter (MINDMAP_PLAN.md §5 item 10). Thinner and fainter
+   than a sketch stroke on purpose: at this scale the edges are the *shape* of
+   the thumbnail, and drawn at full weight they swamp the blocks they join. */
+.board-minimap-edge {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 0.9;
+  stroke-linecap: round;
+  opacity: 0.5;
+}
+
 /* Strokes, as a stroke. Drawn rather than filled because a sketch has no
    box — a filled rectangle here would claim it was a card. */
 .board-minimap-sketch {
@@ -7346,4 +7358,194 @@ input[type="file"] {
     order: 101;
     flex: 1 1 100%;
   }
+/* --- map nodes and their edges (MINDMAP_PLAN.md §5, Phase 2) ---------------
+   A map node is a `.wb-object` like an image or a text box, so everything
+   above about positioning, selection and the drag cursor already applies; only
+   the face of it is decided here.
+
+   **Every colour derives from one custom property, `--wb-branch`**, which the
+   renderer sets per node from the branch palette (`wbMapColors`). One value,
+   because a node whose fill came from one place and whose edge came from
+   another is exactly how a recoloured branch ends up half the old colour.
+
+   The token is **declared here with a real default**, and the uses below are
+   plain `var(--wb-branch)` with no fallback of their own. That is deliberate
+   and `test_style_scale.py` enforces it: a fallback on a token that is
+   declared looks like a safety net and is actually a way for a rename to stop
+   applying silently. One declaration is also what makes the CLAUDE.md failure
+   impossible here — the renderer only ever *removes* the property (it calls
+   `removeProperty`, never writes `undefined`), so an uncoloured node falls
+   back to this line rather than to an invalid value. */
+.wb-map-node {
+  /* The stated default when a node has no branch of its own: the root, and
+     any node on a map whose palette has not been reached yet. */
+  --wb-branch: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  /* Height is deliberately absent — the renderer sets `height: auto` for map
+     kinds, so a node is exactly as tall as its own text and a long topic can
+     never be sliced by `overflow: hidden`. `min-height` keeps a one-word node
+     from collapsing to a strip. */
+  min-height: 2.75rem;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  border: 1.5px solid color-mix(in srgb, var(--wb-branch) 55%, transparent);
+  /* The branch's colour as a spine down the leading edge. A whole node filled
+     with the branch colour makes the text fight its own background at every
+     palette entry; a bar states the same grouping and leaves the label alone. */
+  border-left: 4px solid var(--wb-branch);
+  box-shadow: var(--glass-shadow);
+  color: var(--text);
+  font-size: var(--text-md);
+  line-height: 1.35;
+}
+
+/* A map that grows downward reads top-to-bottom, so the spine belongs on the
+   top edge — a left bar on a node whose parent is directly above it points at
+   nothing. */
+.wb-map-down .wb-map-node {
+  border-left-width: 1.5px;
+  border-top: 4px solid var(--wb-branch);
+}
+
+.wb-map-node-body {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.wb-map-node-icon {
+  flex: 0 0 auto;
+  color: var(--wb-branch);
+  font-size: var(--text-lg);
+}
+
+.wb-map-text {
+  min-width: 0;
+  flex: 1 1 auto;
+  outline: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+  /* Matches `.wb-text-content` above, and for the same reason: a box you are
+     not editing is a box, not a text field, so the I-beam and the live text
+     selection only arrive with `.wb-text-editing`. */
+  cursor: inherit;
+  user-select: none;
+}
+
+.wb-map-node.wb-text-editing .wb-map-text {
+  cursor: text;
+  user-select: text;
+}
+
+.wb-map-text:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.wb-map-text code {
+  background: var(--chip-bg);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
+  font-size: 0.92em;
+}
+
+/* The chevron sits on the node's own edge, where the branch leaves it, so
+   folding a branch is a click on the join rather than on a control parked in
+   a corner. `.ghost.small.icon-only` is the app's tonal icon button — the
+   position is the only thing decided here. */
+.wb-map-collapse {
+  position: absolute;
+  right: calc(var(--space-6) * -1);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 4;
+}
+
+.wb-map-down .wb-map-collapse {
+  right: 50%;
+  top: auto;
+  bottom: calc(var(--space-6) * -1);
+  transform: translateX(50%);
+}
+
+/* The `+` is an affordance, not furniture: it appears on the node you are
+   pointing at or have selected, which is the only time "add a child *here*"
+   means anything. Keyboard users have Tab and never need it to be visible. */
+.wb-map-add {
+  position: absolute;
+  right: calc(var(--space-8) * -1);
+  bottom: calc(var(--space-5) * -1);
+  z-index: 4;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.wb-map-node:hover .wb-map-add,
+.wb-map-node.wb-selected .wb-map-add,
+.wb-map-add:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* How much a collapsed branch is holding. On the node, in the branch's own
+   colour, because the count belongs to the branch that is folded away rather
+   than to the node it is folded into. */
+.wb-map-count {
+  position: absolute;
+  /* **Directly above the chevron, not beside it.** Two versions were measured
+     before this one and both collided with the chevron, which hangs off the
+     same edge vertically centred: hanging off the corner overlapped it by
+     20×12px, and insetting the badge into the node still left 6×5px — small
+     enough to look fine in a screenshot and still cover a corner of the one
+     control you press to unfold the branch. Sharing the chevron's x and
+     sitting a clear 12px above it also states the relationship: the count
+     belongs to the fold, not to the node. */
+  right: calc(var(--space-6) * -1);
+  top: calc(var(--space-8) * -1);
+  min-width: 1.25rem;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--wb-branch);
+  color: var(--card);
+  font-size: var(--text-xs);
+  line-height: 1.25rem;
+  text-align: center;
+  z-index: 5;
+}
+
+/* A pinned node keeps the place it was dragged to when the map is tidied
+   (`wbMapPinOnDrag`). Stated on the node, quietly, because "why did Tidy
+   move everything except this one" is otherwise unanswerable from the screen. */
+.wb-map-pinned {
+  border-style: dashed;
+}
+
+/* Tree edges. Drawn under everything (the group is the zoom group's first
+   child) and never interactive — an edge *is* its two endpoints, so there is
+   nothing about it to click. */
+.wb-map-edges {
+  pointer-events: none;
+}
+
+.wb-map-edge {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  opacity: 0.75;
+}
+
+/* A cross-link is the edge `parent_id` cannot express — a connection between
+   two branches. Dashed, which is the systems-map convention every serious
+   mindmapper uses to say "related, but not part of the tree" (MINDMAP_PLAN.md
+   §5 item 9). The tree edges above stay solid so the difference is readable
+   without a legend. */
+.sketch-group.wb-map-crosslink .sketch-path {
+  stroke-dasharray: 7 5;
+  opacity: 0.85;
 }

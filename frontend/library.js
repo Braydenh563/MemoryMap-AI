@@ -2576,6 +2576,14 @@ function ocrRenderRegions(body) {
     none: "ph:warning Nothing read yet",
   };
   setLabel(source, labels[body.source] || labels.none);
+  //: Which model did it — the one Settings chose, named on the result so a
+  //: wrong or missing model is visible here rather than only in Settings
+  //: (asked for: readings "need to use the right models that are set in
+  //: settings… properly manageable").
+  if (body.source === "reading" || body.source === "vision") {
+    source.appendChild(document.createTextNode(` · ${ocrReaderName()}`));
+    source.title = `Read with ${ocrReaderName()} — change the reader above, or the model in Settings`;
+  }
   source.hidden = false;
   source.classList.toggle("ocr-source-weak", body.source !== "tesseract");
   message.textContent = body.message || "";

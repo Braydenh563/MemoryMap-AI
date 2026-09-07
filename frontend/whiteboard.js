@@ -2400,6 +2400,64 @@ const WB_KIND_INFO = {
 //: element's own untransformed box, so the rotation pivots on the box's own
 //: centre regardless of where the translate moved it to — the reverse order
 //: would instead swing the box around a point offset from its own body.
+//: **A drag handle that lives inside the thing it moves needs a container
+//: that doesn't.** Reported directly: text boxes "spasm positions and are
+//: basically unmovable".
+//:
+//: `d3.drag` measures each frame's `event.dx/dy` between two `d3.pointer`
+//: readings taken against its *container*, and that container defaults to
+//: `this.parentNode`. For a drag bound to the item itself (`objDrag`) the
+//: parent is `#wb-html-layer`, which holds still while one object moves — so
+//: the deltas are true screen pixels and `/ transform.k` converts them to
+//: board units correctly. But `.wb-object-grip` and `.wb-resize-handle` are
+//: *children* of the item, so their default container is the item, and the
+//: item's own `transform` is rewritten on every frame of the drag. For an
+//: HTML element `d3.pointer` returns `clientX - getBoundingClientRect().left`,
+//: so the origin it measures from moves by exactly the amount just applied
+//: and the next frame's delta is cancelled against it. The box judders in
+//: place instead of following the cursor.
+//:
+//: Only text objects get a grip (an image has no contenteditable competing
+//: for its body), which is why this was reported for text boxes alone. The
+//: resize handles have the same flaw on the `w`/`n` corners only — those are
+//: the ones that move `x`/`y` as well as the size — which is the standing
+//: "zoom-drift in move/resize handles" report.
+//:
+//: Pointing every such drag at the item's own parent is a no-op for the
+//: handles that were already fine (a stable origin either way) and a fix for
+//: the ones that were not.
+function wbStableDragContainer(itemSelector) {
+  return function () {
+    return this.closest(itemSelector)?.parentNode || this.parentNode;
+  };
+}
+
+//: **A text box is a box first and a text field second.** The other half of
+//: the same report ("I can't drag text boxes... basically unmovable"): the
+//: `.wb-text-content` was `contenteditable` from the moment it rendered and
+//: fills the box edge to edge, so it swallowed every pointerdown before the
+//: object's own drag could see one. The only draggable surface left was the
+//: grip and a ~0.5rem strip of padding — and grabbing anywhere else did
+//: nothing at all, which reads as "broken" rather than "aim for the handle".
+//:
+//: So the box is only editable once you ask it to be, which is what every
+//: canvas app with text does (Figma, Excalidraw, PowerPoint): drag it like
+//: any other object, double-click to get a caret, blur to go back. A box
+//: made by the text tool starts in edit mode, since the whole point of
+//: click-to-place is typing straight away.
+function wbBeginTextEdit(contentEl) {
+  if (!contentEl || contentEl.isContentEditable) return;
+  contentEl.setAttribute("contenteditable", "true");
+  contentEl.closest(".wb-object")?.classList.add("wb-text-editing");
+  contentEl.focus();
+}
+
+function wbEndTextEdit(contentEl) {
+  if (!contentEl) return;
+  contentEl.setAttribute("contenteditable", "false");
+  contentEl.closest(".wb-object")?.classList.remove("wb-text-editing");
+}
+
 function wbItemTransform(d) {
   const rot = d.rotation ? ` rotate(${d.rotation}deg)` : "";
   return `translate(${d.x}px, ${d.y}px)${rot}`;
@@ -2551,7 +2609,7 @@ async function wbCreateTextBox(x, y) {
   // looked up fresh rather than kept from before the render.
   requestAnimationFrame(() => {
     const el = document.querySelector(`.wb-object[data-id="${created.id}"] .wb-text-content`);
-    el?.focus();
+    if (el) wbBeginTextEdit(el);
   });
 }
 
@@ -5733,6 +5791,9 @@ function renderWhiteboard() {
   function nodeResizeDrag(handle) {
     let rawDX = 0, rawDY = 0;
     return d3.drag()
+      // The handle sits inside the card it resizes — see
+      // `wbStableDragContainer`. Matters for `w`/`n`, which move x/y too.
+      .container(wbStableDragContainer(".node-card"))
       .on("start", (event, d) => {
         event.sourceEvent.stopPropagation();
         rawDX = 0;
@@ -6137,7 +6198,18 @@ function renderWbObjects(canvas) {
     // object's listener catching a bubbled grip click" apart. `gripDrag`
     // below exists precisely because that distinction needs two behaviour
     // objects, not one filter.
-    .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso" && !event.target.closest(".wb-resize-handle, .wb-rotate-handle, .wb-text-content, .wb-object-grip"))
+    .filter((event) => {
+      if (WB_BRUSH_TOOLS.has(window.currentTool) || window.currentTool === "lasso") return false;
+      if (event.target.closest(".wb-resize-handle, .wb-rotate-handle, .wb-object-grip")) return false;
+      // `.wb-text-content` used to be excluded outright, which is what left a
+      // text box draggable only by its grip — see `wbBeginTextEdit`. It only
+      // needs to keep the pointer while it is *being edited*, for the caret
+      // and for selecting words; the rest of the time it is just the face of
+      // a box and drags like one.
+      const text = event.target.closest(".wb-text-content");
+      if (text && text.isContentEditable) return false;
+      return true;
+    })
     .on("start", objDragStart)
     .on("drag", objDragMove)
     .on("end", objDragEnd);
@@ -6147,6 +6219,8 @@ function renderWbObjects(canvas) {
   // keep their own handle grabs from also bubbling into the object's own
   // `objDrag` listener.
   const gripDrag = d3.drag()
+    // The grip sits inside the box it moves — see `wbStableDragContainer`.
+    .container(wbStableDragContainer(".wb-object"))
     .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso")
     .on("start", function (event, d) {
       event.sourceEvent.stopPropagation();
@@ -6157,6 +6231,9 @@ function renderWbObjects(canvas) {
 
   function resizeDrag(handle) {
     return d3.drag()
+      // The handle sits inside the object it resizes — see
+      // `wbStableDragContainer`. Matters for `w`/`n`, which move x/y too.
+      .container(wbStableDragContainer(".wb-object"))
       .on("start", function (event, d) {
         event.sourceEvent.stopPropagation(); // don't also start objDrag
         d._resizeUndoBefore = WB_KIND_INFO.object.payload(d);
@@ -6294,7 +6371,8 @@ function renderWbObjects(canvas) {
         .call(gripDrag);
       const content = el.append("div")
         .attr("class", "wb-text-content")
-        .attr("contenteditable", "true")
+        // Not editable until asked — see `wbBeginTextEdit` for why.
+        .attr("contenteditable", "false")
         .style("color", d.data.color || "")
         .style("font-size", d.data.font_size ? `${d.data.font_size}px` : "")
         .text(d.data.content || "");
@@ -6302,14 +6380,26 @@ function renderWbObjects(canvas) {
       // flood the server and make undo/redo of everything *else* land
       // between two half-typed states.
       content.on("blur", function () {
+        wbEndTextEdit(this);
         d.data = { ...d.data, content: this.textContent };
         wbSaveObject(d);
       });
       // Typing is text-box business, not the canvas's — Delete/Backspace
       // here must edit the text, not delete the whole box the way the same
-      // keys do when an object is merely *selected*.
-      content.on("keydown", (event) => event.stopPropagation());
-      content.on("pointerdown", (event) => event.stopPropagation());
+      // keys do when an object is merely *selected*. Both of these are gated
+      // on actually being in edit mode now: a box that is not being edited
+      // has to let the pointer through to the object's own drag, and its
+      // Delete key belongs to the canvas again.
+      content.on("keydown", function (event) {
+        if (this.isContentEditable) event.stopPropagation();
+      });
+      content.on("pointerdown", function (event) {
+        if (this.isContentEditable) event.stopPropagation();
+      });
+      content.on("dblclick", function (event) {
+        event.stopPropagation();
+        wbBeginTextEdit(this);
+      });
     }
     for (const handle of ["nw", "n", "ne", "e", "se", "s", "sw", "w"]) {
       el.append("div")

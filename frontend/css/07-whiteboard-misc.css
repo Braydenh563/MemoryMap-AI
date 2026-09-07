@@ -67,7 +67,20 @@
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;
+  /* **A box you are not editing is a box, not a text field.** Reported:
+     text boxes were "basically unmovable" — the editable body filled the
+     whole box and took every pointerdown, so only the grip could move it.
+     The JS half is in `wbBeginTextEdit`; this is the half that has to match
+     it, because an I-beam over something you can only drag is a promise the
+     box does not keep, and a live text selection would fight the drag for
+     the same gesture. Both come back under `.wb-text-editing` below. */
+  cursor: inherit;
+  user-select: none;
+}
+
+.wb-object-text.wb-text-editing .wb-text-content {
   cursor: text;
+  user-select: text;
 }
 
 /* `outline: none` above had no replacement — a keyboard/screen-reader user

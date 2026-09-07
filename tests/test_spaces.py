@@ -288,5 +288,6 @@ def test_deleting_a_space_deletes_its_chats(client, session):
     conversation = _row(
         session, Conversation, title="doomed chat", messages="[]", workspace_id=space_id
     )
-    assert client.delete(f"/spaces/{space_id}").status_code == 200
+    deleted = client.delete(f"/spaces/{space_id}")
+    assert deleted.status_code == 200
     assert _gone(session, Conversation, conversation.id)

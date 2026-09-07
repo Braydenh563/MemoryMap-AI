@@ -33,7 +33,7 @@ next session does not re-diagnose them.
 | A12 | Hand-tool click did nothing on items (had to switch tools). | ROADMAP row 0b | ✅ |
 | A13 | Lightbox Describe/Read never regenerated after a clear (no `force`). | `app.js` lightbox `run()` | ✅ |
 | A14 | The test suite's fake embedding backend *succeeds*, so the no-embeddings fallback path (this project's default install) had no coverage until a monkeypatch forced it. | `tests/test_document_tools.py` | ✅ for documents; **files.py's equivalent path is still untested** |
-| A16 | **Text tool and Sticky tool did not place an object on a synthetic canvas click** in the Playwright harness (rect *drag* creates fine; `currentTool` stayed `text`/`sticky`, no object row). Either a harness limitation (d3-zoom click suppression on a synthetic `mouse.click`) or a real bug in the canvas click path that owns `wbCreateTextBox` (`whiteboard.js:4448`). **Unresolved — reproduce by hand first**: if a real click also fails, this is a P0. | `scratchpad/wbf.js` this session | open |
+| A16 | ✅ **Resolved — a harness artifact, not a bug.** The "New board" name confirm (`.confirm-overlay`, `aria-modal`) was still open under the script and intercepted the synthetic click; with it dismissed, Text and Sticky both place an object and open it for editing. Original report: **Text tool and Sticky tool did not place an object on a synthetic canvas click** in the Playwright harness (rect *drag* creates fine; `currentTool` stayed `text`/`sticky`, no object row). Either a harness limitation (d3-zoom click suppression on a synthetic `mouse.click`) or a real bug in the canvas click path that owns `wbCreateTextBox` (`whiteboard.js:4448`). **Unresolved — reproduce by hand first**: if a real click also fails, this is a P0. | `scratchpad/wbf.js` this session | open |
 | A15 | `notify()` (OS notification) and the in-app notification history are two systems; the history lives in `localStorage`, capped, unsynced with reminders' own `done` state. | `app.js:23867`, `:18620` | open → B-section |
 
 ## B. Schema and backend — what a professional backend would change
@@ -59,7 +59,7 @@ Read `core/database.py` end to end. These are structural, ordered by damage.
 
 ## C. Whiteboard — sub-par against Miro / FigJam / tldraw (after this session's fixes)
 
-Status now: Select/Hand/Lasso peers, Select home, contextual style panel, measured clearances, copy/paste style, Ctrl+D, `[`/`]`, hand-click selects, sticky tool, one zoom write per frame. Still missing, in order of how often a professional hits it:
+Status now: **one top bar (navigation left, board actions right, look/grid/export/clear behind a Board menu), a centred icon-only tool dock (`role="toolbar"`, arrow-key focus), a fixed right-hand properties drawer, a three-button zoom cluster — nothing draggable, measured overlap-free at 1440/1100/820**; Select/Hand/Lasso peers, Select home, copy/paste style, Ctrl+D, `[`/`]`, hand-click selects, sticky tool, connectors to text/stickies, bend points, Escape cascade (selection → tool), one zoom write per frame. Still missing, in order of how often a professional hits it:
 
 1. **Group transform of a multi-selection** (resize/rotate the set). Marquee selects; handles don't appear for the set. PLAN W1.
 2. **Connector routing**: links attach at card centre and draw *through* cards; no anchor snapping, no midpoint handle, no orthogonal mode. PLAN W2.

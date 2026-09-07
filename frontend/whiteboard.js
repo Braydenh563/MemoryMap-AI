@@ -4191,6 +4191,30 @@ async function initWhiteboard() {
     }, true);
   }
 
+  // The dock is a `role="toolbar"`: one Tab stop, arrow keys move between
+  // its buttons (Home/End to the ends). Without this a keyboard user tabs
+  // through twenty buttons to reach Undo. Only visible, enabled buttons
+  // take part, so a closed shape menu's entries are skipped.
+  const toolGroupEl = document.getElementById("wb-tool-group");
+  if (toolGroupEl) {
+    toolGroupEl.addEventListener("keydown", (e) => {
+      const keys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"];
+      if (!keys.includes(e.key)) return;
+      const buttons = [...toolGroupEl.querySelectorAll("button")].filter(
+        (b) => !b.disabled && b.offsetParent !== null,
+      );
+      const idx = buttons.indexOf(document.activeElement);
+      if (idx < 0 || buttons.length === 0) return;
+      e.preventDefault();
+      let next = idx;
+      if (e.key === "Home") next = 0;
+      else if (e.key === "End") next = buttons.length - 1;
+      else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = (idx - 1 + buttons.length) % buttons.length;
+      else next = (idx + 1) % buttons.length;
+      buttons[next].focus();
+    });
+  }
+
   const toolsPanel = document.getElementById("wb-tools-panel");
   const dockToggle = document.getElementById("wb-dock-toggle");
   if (toolsPanel && dockToggle) {
@@ -4333,9 +4357,14 @@ async function initWhiteboard() {
       wbSetSpaceHeld(true);
       return;
     }
+    // Escape cascades one level at a time, the way every editor does it:
+    // with something selected it clears the selection and leaves the tool
+    // alone; with nothing selected it returns to Select. One key that did
+    // both at once meant deselecting a shape mid-pen-session also threw
+    // away the pen.
     if (e.key === "Escape") {
-      clearWbSelection();
-      selectWbTool("select");
+      if (wbSelectedItem || wbMultiSelection.size > 0) clearWbSelection();
+      else selectWbTool("select");
       return;
     }
     // Delete/Backspace with a selection — the other half of Select as a

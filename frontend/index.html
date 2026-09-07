@@ -3188,7 +3188,8 @@ Link to another note with [[its first few words]]."></textarea>
           <p><i class="ph ph-text-t" aria-hidden="true"></i> <strong>Text</strong> drops a box you can type in; <i class="ph ph-image" aria-hidden="true"></i> <strong>Image</strong> adds a picture — or just paste/drag one onto the board.</p>
           <p><i class="ph ph-eraser" aria-hidden="true"></i> <strong>Eraser</strong> removes whatever it drags across; ⟲ <strong>Undo</strong> (Ctrl+Z) brings it back.</p>
           <p><i class="ph ph-brain ph-lead" aria-hidden="true"></i> Select a linked card, then <strong>Tab</strong> for a new branch, <strong>Enter</strong> for a sibling — or use "Arrange as mind map" in Properties to lay out everything it's linked to.</p>
-          <p class="muted">Shortcuts: V pan · S select · P pen · L line · A arrow · R rectangle · O circle · T text · E eraser · X delete · Tab new branch · Enter new sibling · Esc back to pan</p>
+          <p class="muted">Shortcuts: V select · H hand · K lasso · Space hold to pan · P pen · M highlighter · L line · A arrow · R rectangle · O circle · G triangle · D diamond · T text · E eraser · B fill · X delete · Ctrl+D duplicate · [ ] back / forward · Ctrl+Alt+C / V copy / paste style · Tab new branch · Enter new sibling · Esc clears the selection, then returns to Select</p>
+          <p><i class="ph ph-bezier-curve" aria-hidden="true"></i> <strong>Double-click a line or link</strong> to bend it; drag the handle, double-click it again to straighten. Links attach to cards, text boxes and stickies alike.</p>
           <button id="wb-empty-hint-dismiss" class="ghost small wb-empty-hint-close" type="button">Don't show this again</button>
         </div>
       </div>
@@ -3263,7 +3264,7 @@ Link to another note with [[its first few words]]."></textarea>
       </div>
     </div>
     <div class="whiteboard-floating-panel bottom-center card glass" data-panel-id="tools" id="wb-tools-panel" data-dock="bottom">
-      <div class="wb-tool-group" id="wb-tool-group">
+      <div class="wb-tool-group" id="wb-tool-group" role="toolbar" aria-label="Whiteboard tools">
       <!-- **Seven labelled sections, not forty-two loose icons.**
 
            Asked for directly: "finish the whiteboard panels and tools

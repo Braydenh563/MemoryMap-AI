@@ -1452,6 +1452,13 @@ async function wbNudgeSelection(dx, dy) {
 // for a mixed multi-selection. A node (note card) and an image object have
 // nothing here to edit yet (a card's own text is the note; an image has no
 // stroke/fill of its own), so the panel just stays hidden for those.
+// The tools that draw something with a colour and a thickness — the ones
+// whose settings the properties panel shows when nothing is selected.
+const WB_STYLE_TOOLS = new Set([
+  "draw", "highlighter", "eraser", "line", "arrow", "rect", "circle",
+  "triangle", "diamond", "text", "link-straight", "link-curved", "bucket",
+]);
+
 function wbUpdatePropertiesPanel() {
   const panel = document.getElementById("wb-properties-panel");
   if (!panel) return;
@@ -1472,6 +1479,17 @@ function wbUpdatePropertiesPanel() {
   };
   Object.values(rows).forEach((r) => r?.classList.add("hidden"));
 
+  // The style controls moved here out of the tool row (see index.html), so
+  // this panel is no longer only about a *selection*: it is also where the
+  // settings a drawing tool is about to use live. It therefore has to be
+  // open whenever one of those tools is active, not just when something is
+  // selected — otherwise picking the pen would hide the pen's own colour.
+  // This is the split every whiteboard app makes: tools in the row,
+  // properties in the panel.
+  const styleGroup = document.getElementById("wb-tool-style-group");
+  const toolDraws = WB_STYLE_TOOLS.has(window.currentTool);
+  styleGroup?.classList.toggle("hidden", !toolDraws);
+
   // A multi-selection has no one fill/stroke to edit (mixed kinds), but it
   // does have grouping and alignment, which only make sense here — shown
   // instead of the single-item rows above rather than alongside them.
@@ -1486,7 +1504,9 @@ function wbUpdatePropertiesPanel() {
     return;
   }
   if (!wbSelectedItem) {
-    panel.classList.add("hidden");
+    // Still open if a drawing tool is active — it is showing that tool's own
+    // colour and thickness, which is the point of putting them here.
+    panel.classList.toggle("hidden", !toolDraws);
     return;
   }
   const { kind, id } = wbSelectedItem;
@@ -3787,14 +3807,8 @@ async function initWhiteboard() {
   const shapeToggleIcon = document.getElementById("wb-shape-toggle-icon");
   const shapeMenu = document.getElementById("wb-shape-menu");
 
-  // Same dropdown pattern, for the two selection tools — asked for directly
-  // ("have the selection tools as their own dropdown... like with the
-  // shapes and lines").
-  const WB_SELECT_TOOLS = new Set(["select", "lasso"]);
-  let lastSelectTool = "select"; // what a plain click on the toggle (not the caret) selects
-  const selectToggle = document.getElementById("wb-select-toggle");
-  const selectToggleIcon = document.getElementById("wb-select-toggle-icon");
-  const selectMenu = document.getElementById("wb-select-menu");
+  // The selection tools were a dropdown; they are three peer buttons now
+  // (see index.html) so there is no toggle left to keep in sync.
 
   // The one place a tool switch happens, so the toolbar click and the
   // keyboard shortcuts below can never drift out of sync with each other.
@@ -3826,17 +3840,11 @@ async function initWhiteboard() {
       shapeToggle.classList.remove("active");
     }
     if (shapeMenu && shapeToggle) wbCloseDockedMenu(shapeMenu, shapeToggle);
-    if (selectToggle && WB_SELECT_TOOLS.has(tool)) {
-      lastSelectTool = tool;
-      const chosen = selectMenu?.querySelector(`button[data-tool="${tool}"] svg`);
-      if (chosen && selectToggleIcon) selectToggleIcon.innerHTML = chosen.innerHTML;
-      selectToggle.classList.add("active");
-    } else if (selectToggle) {
-      selectToggle.classList.remove("active");
-    }
-    if (selectMenu && selectToggle) wbCloseDockedMenu(selectMenu, selectToggle);
     wbRefreshArrowStyleControlRef?.();
     updateWbCursor();
+    // The properties panel now also carries the style a drawing tool will
+    // use, so a tool switch has to reopen/close it — see its own comment.
+    wbUpdatePropertiesPanel();
   }
 
   wbSelectToolRef = selectWbTool;
@@ -3992,7 +4000,6 @@ async function initWhiteboard() {
   }
 
   wbWireToggleGestures(shapeToggle, shapeMenu, () => lastShapeTool);
-  wbWireToggleGestures(selectToggle, selectMenu, () => lastSelectTool);
 
   // Asked for directly: the toolbar should be adjustable as a sidebar, not
   // only a bottom bar. `data-dock` drives the CSS (row vs. column layout,
@@ -4042,7 +4049,10 @@ async function initWhiteboard() {
   // contenteditable note), the same guard the app's other global shortcuts
   // already use.
   const WB_TOOL_KEYS = {
-    v: "pan",
+    // V selects and H is the hand, the way every whiteboard people already
+    // know binds them. V used to be Pan (and S Select); S stays as an alias
+    // so the old habit still works.
+    v: "select",
     h: "pan",
     s: "select",
     k: "lasso",
@@ -4079,6 +4089,20 @@ async function initWhiteboard() {
   // A board left while space is down would otherwise stay stuck in pan.
   window.addEventListener("blur", () => wbSetSpaceHeld(false));
 
+  // **Clicking the board gives the board the keyboard.** Single-key
+  // shortcuts are guarded (correctly) against firing while a field has
+  // focus, but a canvas is not focusable by default, so clicking it left
+  // focus wherever it happened to be — on whatever control was touched last,
+  // or on the lock screen's own password field for a freshly unlocked app.
+  // `tabindex="-1"` (index.html) plus this makes the board take focus the way
+  // every other surface does, so the tool keys work after clicking the thing
+  // they act on. Out of the tab order deliberately: it is a canvas, not a
+  // stop on the keyboard path through the page.
+  container.node()?.addEventListener("pointerdown", (e) => {
+    if (e.target.closest(".whiteboard-floating-panel, .wb-text-content")) return;
+    document.getElementById("whiteboard-container")?.focus({ preventScroll: true });
+  });
+
   document.addEventListener("keydown", (e) => {
     const view = document.getElementById("library-view-whiteboard");
     if (!view || view.classList.contains("hidden")) return;
@@ -4089,7 +4113,19 @@ async function initWhiteboard() {
     // browser. `openGlobalFind` in app.js now hands off to the board search
     // when a board is open, which is one owner for one shortcut and the same
     // shape as the handoff it already does for the lightbox's find.
-    if (tag === "input" || tag === "textarea" || document.activeElement?.isContentEditable) return;
+    // `offsetParent` is the visibility half, and it is load-bearing: the lock
+    // overlay's own password field keeps DOM focus after the overlay is
+    // hidden, so on a freshly unlocked app `activeElement` is an `<input>`
+    // that nobody can see or type into — and this guard then swallowed every
+    // single-key shortcut on the board (V/H/P, `n`, `/`) for the whole
+    // session. Measured, not guessed: `document.activeElement` read
+    // `INPUT#lock-password` on a board that had been open for minutes. A
+    // field you cannot see is not a field you are typing in.
+    const active = document.activeElement;
+    const typing = active
+      && (tag === "input" || tag === "textarea" || active.isContentEditable)
+      && active.offsetParent !== null;
+    if (typing) return;
     // Bare "n" for the overview, matching the single-letter tool keys this
     // board already uses (V/S/P/R/O...). Modifier chords are left alone so
     // Ctrl+N still opens a browser window.
@@ -4113,7 +4149,7 @@ async function initWhiteboard() {
     }
     if (e.key === "Escape") {
       clearWbSelection();
-      selectWbTool("pan");
+      selectWbTool("select");
       return;
     }
     // Delete/Backspace with a selection — the other half of Select as a
@@ -4207,7 +4243,9 @@ async function initWhiteboard() {
     }
   });
 
-  selectWbTool("pan"); // the initial state
+  // Opens in Select, like every whiteboard app — panning is always
+  // available on held space and the middle mouse button regardless.
+  selectWbTool("select"); // the initial state
 
   // Drawing event handlers on the SVG itself or container
   const svgCanvas = document.getElementById("wb-svg-layer");

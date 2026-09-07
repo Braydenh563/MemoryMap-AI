@@ -3143,7 +3143,7 @@ Link to another note with [[its first few words]]."></textarea>
         <button type="button" id="wb-gestures-dismiss" class="ghost small icon-only"
           title="Got it — hide these" aria-label="Hide the gesture hints"><i class="ph ph-x" aria-hidden="true"></i></button>
       </div>
-    <div class="whiteboard-container" id="whiteboard-container">
+    <div class="whiteboard-container" id="whiteboard-container" tabindex="-1">
       <!-- The SVG layer for drawing, fills the container -->
       <svg id="wb-svg-layer" class="wb-svg-layer">
         <g id="wb-zoom-group">
@@ -3288,35 +3288,38 @@ Link to another note with [[its first few words]]."></textarea>
            The `.header-divider` spans that used to separate a few of these
            are gone: a label says what a group *is*, which a rule never
            could. -->
-      <div class="wb-tool-section" role="group" aria-label="Move">
-        <span class="wb-tool-section-label" title="Pan the board, or pick things up">Move</span>
+      <!-- **Select and Hand are peers, and Select is home.**
+           Asked for directly, twice: "an easier and more intuitive way to
+           switch between selecting objects and panning", then "be inspired
+           from other whiteboard applications... fix the ease of transition
+           between the select and pan tools."
+
+           They were a Pan button plus a *dropdown* holding Select and Lasso.
+           Even granting that a plain click on that dropdown's face picks the
+           tool it shows, the two halves of the single most-used switch on a
+           whiteboard did not look like one choice: one was a button, the
+           other was a menu, and which tool the menu was currently offering
+           depended on what you last picked out of it.
+
+           Every whiteboard people already know (Figma, FigJam, Miro,
+           Excalidraw, tldraw) puts select and hand side by side as equal,
+           always-visible, single-click buttons, and opens in select. So does
+           this now — three peers, one click each, and the shortcuts they
+           already had. Panning never needed the button anyway: held space and
+           the middle mouse button pan from *any* tool (`wbZoomFilter`), which
+           is the same convention and is what makes select-by-default safe. -->
+      <div class="wb-tool-section" role="group" aria-label="Select and move">
+        <span class="wb-tool-section-label" title="Pick things up, or pan the board">Move</span>
         <div class="wb-tool-section-row">
-        <button class="ghost icon-button active" data-tool="pan" title="Pan (V)" aria-label="Pan (V)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"></polyline><polyline points="9 5 12 2 15 5"></polyline><polyline points="15 19 12 22 9 19"></polyline><polyline points="19 9 22 12 19 15"></polyline><line x1="2" y1="12" x2="22" y2="12"></line><line x1="12" y1="2" x2="12" y2="22"></line></svg>
+        <button class="ghost icon-button active" data-tool="select" title="Select (V) — click a card or sketch, Delete to remove it" aria-label="Select (V)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l7 17 2-7 7-2z"></path></svg>
         </button>
-        <!-- Selection tools grouped into their own dropdown — asked for
-             directly ("have the selection tools as their own dropdown tools
-             part like with the shapes and lines"). Same #wb-shape-picker
-             pattern: a toggle showing whichever of the two is active, a
-             hidden menu underneath, plain `data-tool` buttons inside that
-             #wb-tool-group's existing delegated click listener picks up
-             unchanged. -->
-        <div class="wb-shape-picker" id="wb-select-picker">
-          <button type="button" class="ghost icon-button" id="wb-select-toggle" title="Selection tools (S/K)" aria-haspopup="true" aria-expanded="false" aria-label="Selection tools (S/K)">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="wb-select-toggle-icon"><path d="M4 4l7 17 2-7 7-2z"></path></svg>
-            <svg class="wb-shape-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-          </button>
-          <div class="wb-shape-menu hidden" id="wb-select-menu" role="menu">
-            <div class="wb-shape-menu-group">
-              <button class="ghost icon-button" data-tool="select" title="Select (S) — click a card or sketch, Delete to remove it" aria-label="Select (S)">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l7 17 2-7 7-2z"></path></svg>
-              </button>
-              <button class="ghost icon-button" data-tool="lasso" title="Lasso select (K) — draw a freeform loop around anything whose centre falls inside it" aria-label="Lasso select (K)">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3C4 3 2 6 2 9c0 4 4 5 4 8 0 1.5-1 2-1 2"></path><path d="M8 3c5 0 8 2 8 6 0 3-2 4-5 4"></path><circle cx="5" cy="19.5" r="1.5"></circle></svg>
-              </button>
-            </div>
-          </div>
-        </div>
+        <button class="ghost icon-button" data-tool="pan" title="Hand (H) — drag to pan the board. Holding space pans from any tool" aria-label="Hand (H)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a1.5 1.5 0 0 0-3 0"></path><path d="M15 6V4.5a1.5 1.5 0 0 0-3 0V6"></path><path d="M12 6V5a1.5 1.5 0 0 0-3 0v7"></path><path d="M9 12V8.5a1.5 1.5 0 0 0-3 0V14a7 7 0 0 0 7 7h1a7 7 0 0 0 7-7v-3a1.5 1.5 0 0 0-3 0"></path></svg>
+        </button>
+        <button class="ghost icon-button" data-tool="lasso" title="Lasso select (K) — draw a freeform loop around anything whose centre falls inside it" aria-label="Lasso select (K)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3C4 3 2 6 2 9c0 4 4 5 4 8 0 1.5-1 2-1 2"></path><path d="M8 3c5 0 8 2 8 6 0 3-2 4-5 4"></path><circle cx="5" cy="19.5" r="1.5"></circle></svg>
+        </button>
         </div>
       </div>
       <div class="wb-tool-section" role="group" aria-label="Draw">
@@ -3472,26 +3475,6 @@ Link to another note with [[its first few words]]."></textarea>
         </button>
         </div>
       </div>
-      <div class="wb-tool-section" role="group" aria-label="Style">
-        <span class="wb-tool-section-label" title="Colour and thickness for whatever you draw next">Style</span>
-        <div class="wb-tool-section-row">
-        <input type="color" id="wb-color-picker" aria-label="Drawing colour" title="Drawing colour" value="#ffffff" title="Stroke Color" class="wb-color-picker">
-        <!-- Asked for directly ("pen size, eraser size, line/shape width").
-             The sketch pad's own `#sketch-size` already reaches every one of
-             its tools (HISTORY.md §46); the whiteboard's pen/line/shapes/
-             eraser had no equivalent — every stroke drew at a hardcoded 3px
-             with no way to change it before drawing (only after, and only
-             for a sketch already on the board, via the properties panel's
-             own Width field). -->
-        <input type="range" id="wb-stroke-width" aria-label="Line thickness" title="Line thickness" min="1" max="24" step="1" value="3" title="Pen / shape / eraser size">
-        <!-- Asked for directly: a visual size readout while dragging, since
-             a bare range input gives no idea what "8" actually looks like
-             until you draw with it. `position: fixed`, positioned from JS —
-             the timeline popup bug this same session found is the reason
-             this doesn't use position:absolute against a card ancestor. -->
-        <span id="wb-stroke-width-badge" class="wb-stroke-width-badge hidden"></span>
-        </div>
-      </div>
       <div class="wb-tool-section" role="group" aria-label="Edit">
         <span class="wb-tool-section-label" title="Undo, redo, delete">Edit</span>
         <div class="wb-tool-section-row">
@@ -3571,6 +3554,37 @@ Link to another note with [[its first few words]]."></textarea>
       <div class="wb-panel-header">
         <span class="wb-panel-grip" title="Drag to move" aria-hidden="true">⠿</span>
         <h3 class="wb-properties-title">Properties</h3>
+      </div>
+      <!-- **The style controls live with the thing they style, not in the
+           tool row.** Asked for directly: "actually restructure the ui and be
+           inspired from other whiteboard applications. think usability and how
+           the user would expect to use and access the features."
+
+           The tool row was carrying three jobs at once — pick a tool, set the
+           style it will draw with, and undo/redo — which is how it reached 42
+           controls and ~900px, wide enough to fight the zoom cluster for the
+           bottom edge at every window size. Figma, FigJam, Miro, Excalidraw
+           and tldraw all split those: a small row of *tools*, and a separate
+           contextual panel holding the properties of whatever is selected or
+           about to be drawn. This is that panel, so the colour and thickness
+           you are about to draw with now sit beside the colour and thickness
+           of the thing you have selected — the same two settings, in one
+           place, instead of two.
+
+           Same ids, so every listener in whiteboard.js is unchanged; the
+           panel's own show/hide learns about drawing tools in
+           `wbUpdatePropertiesPanel`. -->
+      <div class="wb-properties-group" id="wb-tool-style-group">
+        <span class="wb-properties-group-label">Draw with</span>
+        <label class="wb-properties-row">
+          <span>Colour</span>
+          <input type="color" id="wb-color-picker" aria-label="Drawing colour" title="Drawing colour" value="#ffffff" class="wb-color-picker">
+        </label>
+        <label class="wb-properties-row">
+          <span>Thickness</span>
+          <input type="range" id="wb-stroke-width" aria-label="Line thickness" title="Pen / shape / eraser size" min="1" max="24" step="1" value="3">
+        </label>
+        <span id="wb-stroke-width-badge" class="wb-stroke-width-badge hidden"></span>
       </div>
       <label class="wb-properties-row" id="wb-prop-color-row">
         <span>Colour</span>

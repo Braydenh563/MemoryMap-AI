@@ -475,6 +475,16 @@ async function submitLockForm() {
     });
     localStorage.setItem("token", body.token);
     $("lock-password").value = "";
+    // **Give the focus back, or every single-key shortcut in the app is
+    // dead.** Hiding the overlay does not move focus off the field inside
+    // it, so `document.activeElement` stayed `#lock-password` for the whole
+    // session that followed. Every handler that (correctly) refuses to steal
+    // a keystroke while someone is typing — the whiteboard's V/H/P tool keys,
+    // its `n` and `/`, and the same guard elsewhere — therefore returned
+    // immediately on every press, until the reader happened to click some
+    // other focusable control. Found while testing the tool shortcuts: they
+    // did nothing at all from a freshly unlocked app.
+    $("lock-password").blur();
     $("lock-overlay").classList.add("hidden");
     $("lock-btn").classList.remove("hidden");
     // Signing in starts a session, and a session starts at the front of every

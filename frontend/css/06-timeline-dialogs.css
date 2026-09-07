@@ -2143,6 +2143,19 @@
   margin: var(--space-2) 0;
 }
 
+/* **The measured sizes the floating panels clear each other by.**
+   Declared here with sensible defaults and overwritten at runtime by the
+   ResizeObserver in whiteboard.js, which publishes each panel's real height
+   and width. Declaring them rather than writing `var(--wb-h-library)`
+   at each use is what `tests/test_style_scale.py` asks for, and it is the
+   better shape anyway: the defaults live in one place instead of being
+   restated, slightly differently, at every site that reads them. */
+#library-view-whiteboard {
+  --wb-h-library: 6.5rem;
+  --wb-h-tools: 4rem;
+  --wb-w-zoom: 18rem;
+}
+
 .whiteboard-floating-panel {
   position: absolute;
   z-index: 10;
@@ -2301,7 +2314,7 @@
      row's own `left` and the zoom cluster's `right`. Subtracting only one
      of them left a measured 8px overlap. */
   flex-wrap: wrap;
-  max-width: calc(100% - var(--wb-w-zoom, 18rem) - 2rem - var(--space-3));
+  max-width: calc(100% - var(--wb-w-zoom) - 2rem - var(--space-3));
 }
 
 /* A pill is a single row of controls. Once it has wrapped it is a block of
@@ -2334,7 +2347,7 @@
      height (whiteboard.js), so this now sits exactly one gap above whatever
      the row really is, at every width and wrap count. */
   .whiteboard-floating-panel.bottom-right {
-    bottom: calc(0.5rem + var(--wb-h-tools, 30vh) + var(--space-3));
+    bottom: calc(0.5rem + var(--wb-h-tools) + var(--space-3));
   }
 }
 
@@ -2350,7 +2363,7 @@
    cannot measure a sibling); the fallback is only used for the frame before
    the first measurement lands. */
 .whiteboard-floating-panel.mid-right {
-  top: calc(1rem + var(--wb-h-library, 6.5rem) + var(--space-3));
+  top: calc(1rem + var(--wb-h-library) + var(--space-3));
   right: 1rem;
   flex-direction: column;
   align-items: stretch;
@@ -2365,7 +2378,7 @@
      900x700, where the board is 394px and the sum came to 399, collapsing
      this panel to 18px. The tool row is bottom-*left*; this panel is 11rem
      wide on the right, so the two do not share a column. */
-  max-height: calc(100% - var(--wb-h-library, 6.5rem) - 3.5rem);
+  max-height: calc(100% - var(--wb-h-library) - 3.5rem);
   overflow-y: auto;
   overscroll-behavior: contain;
 }

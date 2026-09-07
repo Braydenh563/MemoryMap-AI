@@ -75,6 +75,35 @@ belongs in the file that registers the listener.**
   in real dark mode (the first look at it used a forced `data-mode`, which the
   widget does not read).
 
+### Open — carried over from before this session, never started
+
+The user asked, twice, for a scan of the whole conversation so nothing slipped.
+These are the requests from the earlier part of the session that have no code
+against them yet. Each is a task in this session's task list as well.
+
+- "I want you to do a ui polish and feature improvement and expansion for each
+  of the note subtabs" — Browse, Capture, Write with AI, Ask. The edit form and
+  capture toolbar were brought to parity; the sub-tabs themselves were not
+  touched.
+- "the chat interface needs bugfixing and more utility and features" — the "/"
+  menu is built now (chat's own commands: attach, upload, web, plan, skills,
+  mode). The wider feature pass has not happened.
+- "all elements in the application need proper affordance and semiotics" —
+  icon-only buttons, inline links, chips and the Settings controls were done;
+  the app-wide pass is task #64.
+- "all the settings pages ui needs refining, aligning, made consistent" — one
+  proximity/hierarchy pass landed; every section still needs measuring on its
+  own (task #129).
+- Documents: undo across Live↔Source, per-hunk AI-edit diff, math and
+  footnotes.
+- Whiteboard: rotated resize handles for shapes, orthogonal connector routing,
+  frames.
+- "make sure all files are handled and viewable including spreadsheets" —
+  `.xlsx` has no parser in `core/docview.py`; needs an optional extra.
+- Complexity: `run_agent` (45), `_run_optimization` (31), `chat_stream` (26)
+  — from the security/complexity scan in `AUDIT.md` §I, which found no
+  security defects.
+
 ## ► Latest session — whiteboard chrome and geometry, documents, search, Files/OCR, notifications
 
 Everything below is pushed on `claude/vigilant-pascal-wfo95n` (PR #142) and

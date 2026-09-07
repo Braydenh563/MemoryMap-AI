@@ -4250,9 +4250,22 @@ select {
    block as the example. `.row` sets a *column* gap only, so two stacked rows
    sit flush and read as one crowded block -- three controls with no air
    between them, which is what makes a settings panel look unformatted even
-   when every control in it is the right size. */
-#settings-modal .settings-section .row + .row {
+   when every control in it is the right size.
+
+   **On the row itself, not between adjacent rows**, and that is the whole
+   point. `.row + .row` was the first version and it caused its own report: "a
+   gap only appears under the search relevance advanced '?' button when it is
+   active". The help panel is a `<p>` sitting between two rows, and opening it
+   lifts it to `<body>` (wireHelpPopover) -- so the two rows became adjacent,
+   `+` started matching, and 8px appeared out of nowhere the moment you asked
+   for help. A margin that does not depend on what is or is not between two
+   elements cannot do that. */
+#settings-modal .settings-section .row {
   margin-top: var(--space-3);
+}
+
+#settings-modal .settings-section .row:first-child {
+  margin-top: 0;
 }
 
 /* A label-then-control row needs its controls to share a left edge, or the

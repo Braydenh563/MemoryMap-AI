@@ -3059,3 +3059,42 @@ p.graph-help-panel {
   margin: var(--space-2) 0 0;
   font-size: var(--text-xs);
 }
+
+/* ============ "Tools it can use": the row, measured against a normal one ===
+   Reported three times, most recently as "the tools it can use switches in
+   their active state still have that black shadow and look different to
+   regular ones". The shadow half does not reproduce -- measured in both
+   modes, the switch is 32x18.4 with `box-shadow: none` on the pill and on the
+   knob, and a decoded screenshot of the knob is pure white on pure accent
+   with no dark halo. The "look different" half is real, and it is two things
+   a screenshot shows and a colour measurement does not:
+
+   1. **The hint outweighed the title.** The tool's name computed at
+      `font-weight: 500` and its description at 600, so the paragraph read as
+      the heading and the name read as a caption above it. Every other hint in
+      Settings is lighter than what it explains.
+   2. **The switch floated halfway down the paragraph.** `.setting-check`
+      centres its columns, which is right when the label is one line and wrong
+      when it is four: measured at y=655 against a text block starting at
+      y=620, so the control sat 35px below the name it belongs to, where on
+      every ordinary row the two are level. It aligns to the first line now,
+      nudged down so it centres on the name rather than hanging off its top. */
+.tool-row .tool-desc {
+  font-weight: 400;
+}
+
+/* `.tool-row.setting-check`, both classes: `.setting-check`'s own
+   `align-items: center` is a single class in a later file, so a bare
+   `.tool-row` ties on specificity and loses on source order. */
+.tool-row.setting-check {
+  align-items: start;
+}
+
+/* `align-self`, not the container's `align-items`: `.setting-check > input`
+   sets `align-self: center` on the switch directly (04-chat-dock-appearance),
+   and a per-item alignment always beats the container's. Measured before this:
+   the switch at y=655 against a text block starting at y=620. */
+.tool-row.setting-check > input[type="checkbox"] {
+  align-self: start;
+  margin-top: var(--space-1);
+}

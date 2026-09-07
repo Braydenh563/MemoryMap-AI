@@ -2185,8 +2185,20 @@ function placeHelpPopover(panel, trigger) {
   const box = panel.getBoundingClientRect();
   // Centred on the trigger, then pulled inside the window — a "?" sitting in
   // a right-hand control cluster would otherwise open half off-screen.
+  //: **Clamped to the surface the trigger lives on, not to the window.**
+  //: Reported with a screenshot of the search-relevance help hanging off the
+  //: right edge of the Settings dialog and over the page behind it: a modal is
+  //: narrower than the viewport, so "inside the window" let the popover leave
+  //: the thing it belongs to while still being technically on screen. The
+  //: window is the fallback for a "?" that is not inside a dialog at all.
+  const surface = trigger.closest(".modal-card, .card") || null;
+  const bounds = surface ? surface.getBoundingClientRect() : null;
+  const minLeft = bounds ? Math.max(margin, bounds.left + margin) : margin;
+  const maxLeft = bounds
+    ? Math.min(window.innerWidth - margin - box.width, bounds.right - margin - box.width)
+    : window.innerWidth - margin - box.width;
   let left = anchor.left + anchor.width / 2 - box.width / 2;
-  left = Math.min(Math.max(left, margin), Math.max(margin, window.innerWidth - margin - box.width));
+  left = Math.min(Math.max(left, minLeft), Math.max(minLeft, maxLeft));
   let top = anchor.bottom + 10;
   let above = false;
   if (top + box.height > window.innerHeight - margin) {

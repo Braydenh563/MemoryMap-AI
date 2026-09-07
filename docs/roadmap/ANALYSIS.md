@@ -1,7 +1,7 @@
 # Analysis and outside reads
 
 
-> **The other three:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59 and §60, including the licence constraint — MemoryMap is AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
+> **The other three:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, §66, §104 and §114 — the product-strategy read — including the licence constraint — MemoryMap is AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
 Split out of `ROADMAP.md`. These sections are **reference, not work** — they
 record judgements, a competitor read, and what was deliberately *not* taken, so
@@ -1041,3 +1041,684 @@ temporal proximity) and then re-measure whether the existing
 Ollama and cannot happen in this sandbox. Nothing about the sub-category
 question above changes that order or adds a new item to it — a hub-note
 cluster is read by the exact same traversal, not a different one.
+
+## 114. A product-strategy read — competitive teardown, per-feature upgrades, inventions, and a 90-day plan
+
+Asked for directly, as a strategy brief with blank placeholders (one-liner,
+feature list, competitors, brand attributes, constraints, horizon). **The
+placeholders were filled from the repo rather than handed back as a
+question** — README.md's own one-liner, the seven tabs, the AGPL/offline
+constraints, and the competitor reads already on file. Everything below was
+checked against the running code first, per this file's standing rule; where
+a claim is reasoning rather than observation it says so.
+
+**Do not read this as a task list.** It is a judgement document like §32 and
+§34. What it proposes that survives triage goes to
+[../ROADMAP.md](../ROADMAP.md) or [BACKLOG.md](BACKLOG.md); what is already
+built is in [HISTORY.md](HISTORY.md), which is where the grounding pass below
+started.
+
+### 114.0 The brief, filled in from the code
+
+| Slot | Filled with | Source |
+| --- | --- | --- |
+| One-liner | "Your thoughts, mapped by a local AI. 100% offline, on your machine." | README.md |
+| Target users | (1) privacy-motivated PKM users already running Ollama/LM Studio; (2) students/researchers with a document pile and no wish to upload it; (3) the local-LLM hobbyist looking for something to *point a model at*; (4) the author, as a daily notebook and portfolio piece | inferred — **assumption, not measured**, and the cheapest test is the issue tracker: see 114.5 |
+| Platform/tech | Python 3.11–3.13 + FastAPI + SQLite/SQLAlchemy; vanilla JS frontend, no build step; PWA; PyInstaller Windows/Linux packages; any OpenAI-compatible local backend | pyproject, `frontend/`, `packaging/` |
+| Constraints | Offline by default, no account, no telemetry, no cloud cost, AGPL-3.0 (code may come in from AGPL, nothing goes out to MIT), single-user, no bundler/CDN, must not require torch | CLAUDE.md, LICENSE, §33 |
+| Brand attributes | **Checkable** · **Genuinely yours** · **Works when the AI doesn't** · **Spatial/temporal, not a list** · **Honest about what it didn't do** | README's four "why this exists" bullets + §34 |
+| Horizon | v1 upgrades ≈ 6–8 weeks of sessions; moonshots 3–6 months | as asked |
+
+**The metric problem, stated up front because it changes every answer below.**
+This app has no analytics and must never get any — "no telemetry" is in the
+pitch, the privacy doc and the licence rationale. So *activation rate, D7/D30
+retention, conversion and NPS are not measurable here and no roadmap item
+should be justified by one.* Three honest substitutes are used throughout, and
+114.5 defines them properly:
+
+- **GH** — GitHub-observable (release-asset downloads, issues per 100
+  downloads, issue *mix*, star/fork velocity, PRs from strangers).
+- **Local** — a user-visible, never-transmitted counter the user reads
+  themselves (this is also a feature: see invention B7).
+- **Bench** — a fixture measurement in-repo (`scripts/scale_test.py`'s shape,
+  or a Playwright timing) or a hand-run 5-person usability session.
+
+### 114.0b Three stale claims caught while grounding this
+
+The grounding pass was worth its cost before it produced a single idea, which
+is the point CLAUDE.md keeps making. Three items on live lists are already
+built and should be struck rather than scheduled:
+
+1. **§111.2 item 4, "Export a single note or document" — built.**
+   `GET /entries/{id}/export.md` (`routes_entries.py:1241`) and
+   `GET /documents/{id}/export.md` (`routes_documents.py:533`), reachable from
+   the note ⋯ menu (`app.js:2958`) and from Library rows
+   (`library.js:519,592`). Strike the item.
+2. **§111.2 item 7, "A keyboard-shortcut sheet" — built.** `?` opens
+   `#shortcuts-overlay` (`index.html:6324`), Settings → Shortcuts rebinds
+   (`#settings-shortcuts`), and Help documents both. Strike the item.
+3. **§111.2 item 2, "Backlinks on the note itself" — half built, and the
+   remaining half is smaller than the item implies.** Documents already have a
+   live backlinks panel (`#doc-backlinks`, `documents.js:404`), and notes have
+   the Connections dialog (`GET /entries/{id}/connections`, §87 row 5). What is
+   genuinely missing is only **an always-visible backlink strip on the note
+   card/editor** rather than a dialog behind a ⋯ menu — which is upgrade
+   F1-3 below, not a new subsystem.
+
+Everything proposed in 114.2 and 114.3 was checked the same way; where a
+proposal is a *promotion of something already scoped*, it says so and links
+the existing scope instead of restating it.
+
+---
+
+### 114.1 Competitive teardown
+
+Read live this session (search-result and review level, not first-hand renders
+— Kortex and Granola remain blocked by this sandbox's egress proxy, same gap
+§102 recorded). Sources at the end of this section.
+
+| Competitor | Standout | UX pattern worth stealing | Pricing / growth loop | Structurally can't copy us |
+| --- | --- | --- | --- | --- |
+| **NotebookLM** (Google) | Studio panel: one click turns sources into Audio/Video Overview, Mind Map, slides, infographics, **quizzes and flashcards**; Deep Research with source-scoping; ~50 sources, 200 PDFs | *One click, many artefacts* from the same corpus — the artefact menu is the product | Free tier → Google One AI; distribution loop is Google itself | Your notes are on their servers; there is no offline mode and never will be |
+| **Obsidian** (+Smart Connections) | Plain-file vault, plugin ecosystem, local semantic search via Ollama | Plugin ecosystem as feature surface; command palette-first | Free core → paid Sync/Publish; loop = plugin authors marketing the host | AI is bolt-on per plugin: no shared filing/agent/audit layer, no answer-with-sources as a first-class object |
+| **Notion AI** | Databases, properties, collaboration, polished AI writing | Properties/typed objects; slash-command everything | Seat-based SaaS; team virality | Requires network for every AI interaction; no offline fallback |
+| **Anytype** | Local-first, E2E encrypted, object/relation model, P2P sync, free | Objects + relations instead of folders | Free/OSS, community loop | Deliberately thin AI — no local model orchestration |
+| **Capacities** | Object-based PKM, genuinely good AI organisation, Readwise/Raycast/WhatsApp/Telegram capture | *Capture from where you already are* | ~$10/mo; integration loop | Cloud-powered; the sync is the product |
+| **Logseq** | Local-first outliner, Ollama plugins, journals-first | Daily-journal-first capture | OSS + donations | Outliner-shaped; no graph/timeline synthesis story |
+| **Khoj** | Self-hostable "AI second brain", local LLMs via Ollama/llama.cpp, custom agents, free self-host / $8 hosted | Agents as named, shareable configs | OSS → hosted upsell | Chat-first, not notebook-first; no spatial/temporal views |
+| **Reor** | Local-model note-taking with automatic semantic linking | Auto-linked as you type | OSS | Small surface; no agent, no audit trail |
+| **Granola** | Rough bullets + transcript → merged meeting note; ~29 typed templates | Two-stream capture merged after the fact | Seat SaaS, meeting-network loop | Needs the cloud calendar/meeting graph |
+| **Kortex** | Captures/Documents/Sources pillars, `kAI` Tab-to-draft, 25+ workflows, web clipper | Tab-to-continue writing; workflow library | Subscription; creator loop | Cloud |
+| **Mem / Reflect / Recall / AFFiNE** | Auto-organising cloud notebooks; Recall in particular is built on summarise-the-web | Zero-effort filing as the pitch | SaaS | All cloud-first |
+
+**Table stakes — match or exceed, no credit for having them**
+
+1. **Import that actually lands** (Notion HTML/CSV, Obsidian vault, Apple/Google Keep). `POST /import/markdown` + `/import/directory` exist; the Notion dialect and a *first-run offer* do not. Already §109.3 item 1 — still the single biggest adoption blocker.
+2. **Typed templates with real fields** (Granola ~29, Notion databases). §102 item 4 / §111.2 item 5, unbuilt.
+3. **Capture from where you already are** — clipper/bookmarklet/tray hotkey. §102 item 5 and BACKLOG §95 item 9 (web clipper), both unbuilt.
+4. **Artefacts from a corpus** — mind map, audio, quiz, flashcards. The whiteboard has mind-mapping; audio is scoped and unbuilt (ROADMAP §88.2 item 7); quiz/flashcards do not exist anywhere (`grep -i flashcard src frontend` is empty).
+5. **A note editor that isn't embarrassing next to Obsidian's.** Documents got there (§93/§94); the note composer is deliberately behind, and §111.3's "text box or editor" question is still undecided.
+
+**Wedges — where we can be 10x, and they'd have to rebuild to follow**
+
+1. **Checkable answers.** Answer + the exact notes + the tool steps + how full the context window got, and `unsupported_claims` refusing to let the model claim a write it didn't do. A hosted assistant *cannot* show you your own corpus rows the way this does, and no local competitor has built the audit layer. **This is the moat; every feature below is asked "can the user check it?" first.**
+2. **Tensions** (§104, built) — the notebook telling you where you contradicted yourself. Nobody ships this. It is the most under-marketed thing in the repo: it is not in the README's feature list at all.
+3. **Spatial + temporal recall together** — graph (force/tree/radial/arc, typed links, trace paths) *and* a thread-banded timeline over the same corpus. §30/§32 already named this; it remains unclaimed ground.
+4. **The offline studio.** NotebookLM's artefact menu, run entirely on CPU on your own machine, is a headline nobody else can write: "everything NotebookLM does to your documents, without uploading them."
+5. **Works when the AI doesn't.** Saving a note never fails; search degrades to keywords; the status dot says what the AI is doing. Every cloud competitor is a blank page when the network is.
+
+**Sources:** [AFFiNE, NotebookLM alternatives](https://affine.pro/blog/notebooklm-alternatives) · [Recall, best Obsidian alternatives](https://www.recall.it/compare/best-obsidian-alternatives) · [LocalAlternative, local PKM tools](https://www.localalternative.io/categories/note-taking) · [Vellum, best local AI assistants](https://www.vellum.ai/blog/best-local-ai-assistants) · [Khoj review](https://www.needaitool.com/tools/khoj-ai) · [Capacities vs Anytype](https://capacities.io/compare/anytype) · [NotebookLM review 2026](https://opentoolhq.com/notebooklm-review-2026/) · [DigitalOcean, what is NotebookLM](https://www.digitalocean.com/resources/articles/what-is-notebooklm)
+
+---
+
+### 114.2 Every existing feature, and what category-leading looks like
+
+Effort: **S** ≤1 session · **M** 2–4 sessions · **L** a sprint or more.
+Risk is *product* risk (will it be wrong/unloved), not build risk.
+
+#### F1 — Capture and AI filing
+
+*Today:* type a thought, the janitor files it into a category, tags it, links
+it; guided mode lets you choose; `ai_first_filing` makes the round-trip a
+choice; templates prefill the box. *Short of:* filing is a one-way verdict —
+you see *which* category, but correcting it teaches nothing, and the composer
+is a text box next to a four-view Documents editor.
+
+*10x:* **capture that gets measurably better at your notebook**, where every
+correction is a stored preference the filer reads next time, and the whole
+thing still saves instantly with the model off.
+
+| # | Change | Why it wins | E/R | Metric |
+| --- | --- | --- | --- | --- |
+| 1 | **Correction memory**: when you move a note out of the category the AI chose, store `(pattern → category)` and feed the last N corrections into the filing prompt as examples | Every competitor's auto-filing is stateless; "it learned from me" is the only auto-filing pitch users believe | M/Med | Local: % of captures kept as filed, shown in the health panel |
+| 2 | **Inline chip suggestion while typing** (§102 item 9, unbuilt) — a category/tag chip appears under the box, opt-in, click to accept | Faster feedback than the audited batch job, without replacing its conservatism | S/Low | Bench: keystroke-to-filed time |
+| 3 | **Always-visible backlink/connection strip** on the note card, replacing the ⋯ → Connections dialog for the common case (see 114.0b item 3) | "A connected notebook" is not connected if the connections are two clicks deep | S/Low | Bench: clicks-to-related-note (currently 2, target 0) |
+| 4 | **Typed templates with structured fields** (§102 item 4 / §109.3 item 2) — a category-bound schema rendered as a form, stored as markdown skeleton + metadata | Granola ships 29 of these; Skills are saved *prompts*, which is a different thing | M/Med | Local: notes created from a template |
+| 5 | **Capture anywhere**: tray hotkey → tiny always-on-top composer (§102 item 5); the tray already exists in `__main__.py` | Table stake 3; the cheapest half of "capture from where you already are" | S/Low | GH: appears in issues/feature asks as a *used* feature |
+
+*Quick win (≤1 week):* #3, then #5.
+*Signature interaction:* **"Filed as Ideas — because it looks like these three."** The filing chip names the three nearest existing notes it matched on, each clickable. Nobody else shows the *reason* for an auto-file, and the reason is already computed.
+
+#### F2 — Chat and Agent mode
+
+*Today:* saved resumable conversations, ~50 tools, visible tool timeline,
+sources beside the answer, destructive actions confirmed, skills, the
+hallucinated-write net. *Short of:* the answer text itself doesn't carry
+per-claim citations (§102 item 6, unverified against a real model), and the
+tool count is a standing liability (§34's "every new tool must displace one").
+
+*10x:* **the only assistant whose every sentence can be clicked back to the
+note that justifies it**, and which says "I don't know" when the notes don't
+say.
+
+| # | Change | Why it wins | E/R | Metric |
+| --- | --- | --- | --- | --- |
+| 1 | **Per-claim inline citations** — `[3]` markers in the answer text resolving to the retrieved note, hover to preview, click to jump | This *is* the moat, rendered. Hosted tools cannot do it over your private corpus | M/Med | Bench: % of answer sentences carrying a resolvable citation |
+| 2 | **An "I don't know" bench** (§34's "what is missing that nobody asked for") — 30 questions with known answers + 10 with deliberately absent answers, run per model, published as a table | Turns "which model works here?" from folklore into the most useful page in the docs, and it is a *marketing asset* no competitor can publish about their own black box | M/Low | Bench: abstention rate on the 10 unanswerable |
+| 3 | **Scope chips on the composer** — "these 4 notes / this document / this board" as visible pills (`note_ids` + `attached_notes_only` already exist server-side; §102 corrected the "no way to scope" claim, but it is not *visible*) | Source-scoping is NotebookLM's headline control; the backend is already there | S/Low | Local: scoped turns as a share of turns |
+| 4 | **Answer → note in one click**, with the citation list preserved as real links, not pasted text | Closes capture→ask→capture; Kortex's synthesise loop without the cloud | S/Low | Local: notes created from answers |
+| 5 | **Tool budget UI**: show "3 of 12 steps used" during an agent run with a stop button, and log the per-stage token cost already accounted for | Agents that run silently are the #1 trust failure in this category | S/Low | Local: agent runs cancelled vs completed |
+
+*Quick win:* #3 and #4, both are UI over existing endpoints.
+*Signature interaction:* **hover a sentence, the note that justifies it lights up in the sources rail** — and a sentence with no source gets a visible grey underline instead of silence.
+
+#### F3 — Graph
+
+*Today:* force/tree/radial/arc layouts, colour by category, typed links with
+strength, focus mode, trace path (one BFS shortest path), keyboard layer,
+documents in the graph, AI traversal via `graph_expansion()`. *Short of:*
+§111.3's unanswered question — is the graph a picture or a retrieval index?
+The two want opposite edge densities.
+
+*10x:* **a map you navigate rather than admire** — the answer to "how did I
+get from X to Y" and "what's near this that I've forgotten".
+
+| # | Change | Why it wins | E/R | Metric |
+| --- | --- | --- | --- | --- |
+| 1 | **Decide the question, then split the views**: a "Reading" mode (few, strong, typed edges) and an "AI" mode (dense, weighted) with one toggle, instead of one graph serving both badly | Resolves §111.3 by shipping both honestly rather than compromising | M/Med | Bench: edges rendered per node in each mode |
+| 2 | **Multi-path trace, coloured and switchable** — already ROADMAP row 0c; cap N before building | "Show me *all* the ways these two ideas connect" is a question no competitor's graph answers | M/Med | Bench: paths returned, p95 latency at 10k notes |
+| 3 | **Fix `?similarity=true`'s O(n²)** (30s at 2,000 notes, §34) — cap the comparison pool or add a nearest-neighbour index | The single most-recommendable toggle is currently unrecommendable | M/Low | Bench: `scripts/scale_test.py` |
+| 4 | **Neighbourhood-to-draft**: select a cluster → "compose these into a draft" (§102 item 10, unbuilt; `expandNoteIntoDocument` only takes one note) | Kortex's Blogger, but from a spatial selection — a genuinely new gesture | M/Med | Local: drafts composed from selections |
+| 5 | **Saved views** — a named, restorable filter+layout+focus ("Japan trip, radial, tag-coloured") | Makes the graph a workspace rather than a toy; also the answer to §104's sub-category ask | S/Low | Local: saved views per notebook |
+
+*Quick win:* #5.
+*Signature interaction:* **Trace, then "why"** — pick two notes, get every path, and each hop shows the *typed reason* the link exists. Obsidian shows you a hairball; this shows an argument.
+
+#### F4 — Timeline
+
+*Today:* grid and line views, banded by category/tag/thread, `days` filter,
+thread bands via `parent_id`. *Short of:* it is a viewer, not a workspace —
+nothing is *done* from the timeline, and the "very professional" complaint was
+never made concrete.
+
+*10x:* **the notebook's memory of itself** — the view you open to answer "what
+was I thinking in March, and what came of it?"
+
+| # | Change | Why it wins | E/R | Metric |
+| --- | --- | --- | --- | --- |
+| 1 | **Period summary on demand**: brush a date range → an AI digest of that span, with the notes listed beside it | The weekly digest already exists on the Dashboard; this makes it arbitrary-range and *place*-bound | S/Low | Local: range digests generated |
+| 2 | **Reminders and documents as lanes**, not just notes | The timeline is currently blind to half the notebook | S/Low | Bench: entity types rendered |
+| 3 | **"What changed here"** — a thread lane with revision markers, so a note that was rewritten shows as a branch rather than a dot | Nobody in this space shows *note evolution* on a time axis | M/Med | Bench: revisions surfaced |
+| 4 | **Drag a note along the axis** to correct its date (backdating an imported note) | Imports land everything on import day; this is the fix and it is a gesture, not a form | S/Med | GH: import complaints |
+| 5 | **Gap detection** — visibly mark the weeks with nothing in them, with a one-click "what happened here?" prompt | Turns absence into a prompt to capture; the streak widget does this for today only | S/Low | Local: capture streak |
+
+*Quick win:* #1.
+*Signature interaction:* **brush-to-digest** — drag across two weeks and the app writes the paragraph you'd have written, with the notes beside it.
+
+#### F5 — Library and the Documents editor
+
+*Today:* everything in one grid (notes, docs, chats, files, tags, bin, log)
+plus Links (bookmarks), Contents (hyperlinked outline) and Skills; a four-view
+document editor with autosave, outline, find/replace, backlinks, AI edit,
+extract-to-notes, md/PDF export, syntax highlighting, `/` menu, collapsible
+blocks. *Short of:* the note composer and the document editor are two
+different products with two markdown dialects (§111.1's three-grammar
+problem), and highlights are characters in a body nobody can query.
+
+*10x:* **one editing surface with two densities**, and a library that answers
+"where did this come from" for every row.
+
+| # | Change | Why it wins | E/R | Metric |
+| --- | --- | --- | --- | --- |
+| 1 | **One markdown grammar module** consumed by `MD_ACTIONS`, `INLINE_MD` and editor.js's `/` menu | §110's Red/Grey bug lived exactly in the gap; this is the class-of-bug fix | M/Low | Bench: `tests/test_highlight_colours.py` + one new grammar test |
+| 2 | **Highlights as a queryable collection** (§111.2 item 3) — `==marks==` are already in `content`, so this is an index + a view, not a schema | The honest version of Kortex's clippings library, without a second collection type | S/Low | Local: highlight searches run |
+| 3 | **Notion importer** (HTML+CSV dialect) + a first-run "import your vault" offer | Table stake 1, the biggest adoption blocker on file | M/Med | GH: downloads → issues mentioning import |
+| 4 | **Source provenance on every row** — imported-from-file, clipped-from-URL, extracted-from-document, transcribed-from-audio, all as one visible chip | "Where did this come from" is the question a big library makes urgent, and the data mostly exists already | S/Low | Bench: rows with provenance |
+| 5 | **Virtualise the notes list** (§111.1 — 75k DOM nodes rebuilt per keystroke) | The biggest frontend scalability item on file, and invisible until it isn't | M/Low | Bench: render time at 10k/50k notes |
+
+*Quick win:* #2.
+*Signature interaction:* **`==highlight==` anywhere becomes a row in "Highlights"**, with the note, the source chip and the date — one syntax, two homes, no new object type.
+
+#### F6 — Reminders
+
+*Today:* natural-language scheduling, priority, repeats, snooze, calendar
+view, linked back to the source note. *Short of:* it is a to-do list that
+happens to sit next to a knowledge base; nothing connects "what I promised" to
+"what I know".
+
+*10x:* **commitments extracted from what you already wrote**, not typed twice.
+
+| # | Change | Why it wins | E/R | Metric |
+| --- | --- | --- | --- | --- |
+| 1 | **Commitment detection**: the librarian flags "I said I'd send X by Friday" and *offers* a reminder (offer, never create — same gate as every other autonomous job) | This is the reason to keep a notebook and a task list in one app; Granola does it for meetings only, in the cloud | M/Med | Local: offers accepted / offered |
+| 2 | **Reminder → note thread**: completing a reminder prompts one line of outcome, appended to the source note | Closes the loop that makes the notebook a record rather than a queue | S/Low | Local: reminders completed with an outcome |
+| 3 | **Meeting-prep brief**: a reminder mentioning a person/topic pulls the last N related notes into a briefing card at fire time | The killer combo with Voice (see 114.4 combo 2) | M/Med | Local: briefs opened |
+| 4 | **ICS export** (read-only, one file, no account) | "Genuinely yours" applied to dates; zero network | S/Low | GH: asked-for-ness |
+| 5 | **Overdue triage view** — group by "still matters / drop / reschedule" with a bulk action | Every task app has this; ours is missing and it's cheap | S/Low | Local: overdue count trend |
+
+*Quick win:* #2.
+*Signature interaction:* **the reminder that knows why it exists** — every fired reminder shows the sentence in the note that created it.
+
+#### F7 — Dashboard
+
+*Today:* streak, stats, weekly AI digest, on-this-day, quick capture,
+rearrangeable widgets. *Short of:* it reports activity, not understanding.
+
+*10x:* **the page that tells you something you didn't know about your own
+notebook**, once a day, cheaply.
+
+| # | Change | Why it wins | E/R | Metric |
+| --- | --- | --- | --- | --- |
+| 1 | **Tensions widget** — surface §104's contradiction finder on the Dashboard (it is built and effectively hidden) | The most differentiated thing in the app is currently undiscoverable; this is pure marketing-by-UI | S/Low | Local: tensions reviewed |
+| 2 | **"Notebook health"** — orphan notes, untagged notes, stale threads, duplicate candidates, index freshness, each with a one-click fix | Doubles as the app's only honest instrumentation (see 114.5) | M/Low | Local: it *is* the metric |
+| 3 | **A question of the day** drawn from the corpus ("You wrote about X three times in June and never since — still live?") | Retrieval as a prompt to return; the only defensible retention loop for an offline app | M/Med | Local: D7 return proxy (days-with-a-capture) |
+| 4 | **Digest → document** in one click, with sources | The weekly digest is currently disposable | S/Low | Local: digests kept |
+| 5 | **Widget for "what the AI did while you were away"** — the librarian's audit log, summarised | Ties the automation to the audit trail rather than hiding it | S/Low | Local: audit log opens |
+
+*Quick win:* #1 — it is a widget over an existing endpoint.
+*Signature interaction:* **"You disagreed with yourself"** as a dashboard card, with both notes side by side and a "reconcile into one note" button.
+
+#### F8 — Whiteboard
+
+*Today:* pannable canvas, sketches, shapes, note cards, mind-mapping mode,
+anchors/connectors, alignment guides, lasso, grouping, undo/redo, export.
+*Short of:* ROADMAP row 0 — panels clash with each other and the canvas, and
+the Pan tool needs a manual switch to select. Also §34's warning: this is a
+separate product wearing this one's clothes.
+
+*10x:* **the canvas is where a cluster of notes becomes a structure**, not a
+second drawing app.
+
+| # | Change | Why it wins | E/R | Metric |
+| --- | --- | --- | --- | --- |
+| 1 | **The panel/tool redesign + pan-click-to-select** (ROADMAP row 0, already top priority by instruction) | It is the reported blocker; nothing else on this list matters until it lands | M/Low | Bench: panel overlap = 0 at 1280×720 and 1024×640 |
+| 2 | **Board ⇄ graph round-trip**: drop a graph neighbourhood onto a board, and connectors drawn on the board become real typed links | Makes the whiteboard part of the notebook instead of adjacent to it — the one thing that answers §34's "separate product" objection | L/Med | Bench: links created from boards |
+| 3 | **Board → outline → document**, one click | The synthesis path competitors charge for | M/Med | Local: documents from boards |
+| 4 | **Templates** (2×2, timeline, decision tree, retro) | Cheap, and it is what makes a blank canvas usable | S/Low | Local: boards started from a template |
+| 5 | **Board as a chat scope** — "answer using only what's on this board" | Reuses the F2-3 scope chips; spatially-scoped retrieval is genuinely novel | S/Med | Local: board-scoped turns |
+
+*Quick win:* #4.
+*Signature interaction:* **draw an arrow between two cards and the notebook gains a typed link** — the drawing *is* the data entry.
+
+#### F9 — Voice, vision and OCR
+
+*Today:* local Whisper dictation, meeting transcription, image captions,
+vision-model transcription, Tesseract OCR, the OCR workspace with per-page
+PDF reads, all editable and searchable. *Short of:* no speaker separation
+(`grep -i speaker src` is empty), no two-stream meeting capture, no local TTS
+at all (read-aloud is the browser's `speechSynthesis`, which cannot be saved
+to a file — ROADMAP §88.2 item 7 scoped this and recommended Piper).
+
+*10x:* **anything you can hear or see becomes a checkable note, offline** —
+the demo that sells the whole app in 40 seconds.
+
+| # | Change | Why it wins | E/R | Metric |
+| --- | --- | --- | --- | --- |
+| 1 | **Rough bullets + transcript merge** (§102 item 1 / §109.3 item 4) — type during the recording, merge after | Granola's entire core loop, run locally, with the transcript kept beside the merge so it is checkable | M/Med | Local: merged notes / recordings |
+| 2 | **Structured meeting block** (decisions / actions / owners / dates) extracted once after transcription (§102 item 2) | Feeds F6-1 commitment detection directly | S/Med | Local: actions promoted to reminders |
+| 3 | **Speaker separation** (§102 item 8, genuinely absent), nameless first, renameable second | Flat transcripts are the reason people don't reread them | M/Med | Bench: turns segmented |
+| 4 | **Local TTS via Piper** as a `core/extras.py` package, evaluated exactly like Tesseract was | Unblocks the audio overview (invention B1) and makes read-aloud saveable | M/Med | Local: audio artefacts generated |
+| 5 | **Camera/screenshot capture straight into OCR** from the tray composer | The whiteboard-photo-to-notes path, which is the most-demoed feature in this whole category | M/Low | Local: OCR captures |
+
+*Quick win:* #2.
+*Signature interaction:* **the transcript stays**. Every merged note has "show the raw transcript" beside it, so a summary is never the only copy — the checkability principle applied to audio.
+
+#### F10 — Search
+
+*Today:* keyword, opt-in semantic (falls back cleanly), `tag:` and friends,
+opt-in web search via SearXNG. *Short of:* semantic is off by default because
+it needs a package; there is no hybrid ranking; nothing explains *why* a
+result ranked.
+
+*10x:* **one box that finds it whether you remember the words, the meaning,
+the picture or the week.**
+
+| # | Change | Why it wins | E/R | Metric |
+| --- | --- | --- | --- | --- |
+| 1 | **Hybrid ranking** (BM25-ish keyword + vector, reciprocal-rank fusion) instead of either/or | The measurable quality jump; both signals already exist | M/Med | Bench: recall@10 on a fixture query set |
+| 2 | **"Why this result"** chip — matched term, similar meaning, same thread, linked to a match | Nobody in PKM explains ranking; it is the search-shaped version of the moat | S/Low | Bench: results carrying a reason |
+| 3 | **Time and type facets in the same box** (`before:`, `after:`, `is:image`, `has:highlight`) | Cheap power-user surface; the parser already handles shortcuts | S/Low | Local: facet queries |
+| 4 | **Search inside a board / a document / a thread**, sharing the scope-chip UI from F2-3 | One control, four places | S/Low | Local: scoped searches |
+| 5 | **A "nothing found — here's what's near" fallback** using embeddings | Empty states are where trust dies | S/Low | Bench: empty-result rate |
+
+*Quick win:* #2.
+*Signature interaction:* every result carries **the reason it is there**, and reasons are clickable filters.
+
+#### F11 — Privacy, local models and packaging
+
+*Today:* any OpenAI-compatible backend, per-model sampling read from the GGUF,
+private notes encrypted with a password-derived key, localhost binding, daily
+backups with retention, Windows/Linux packages, Extras installer. *Short of:*
+macOS packaging absent; `faster-whisper` install failures still undiagnosed
+(ROADMAP 10a); the crypto has never had a second pair of eyes (§34).
+
+*10x:* **the install is the pitch** — one download, a model included or
+one-click fetched, notes on screen in under five minutes.
+
+| # | Change | Why it wins | E/R | Metric |
+| --- | --- | --- | --- | --- |
+| 1 | **A "no model? pick one" first-run step** that downloads a small GGUF through the app and starts the built-in runner | Every competitor's local-AI story starts with "first install Ollama" — removing that step is the biggest single funnel win available | L/Med | GH: downloads → issues about "no AI" |
+| 2 | **A privacy receipt page** — every outbound-capable code path, its current state, and the last time it fired, generated from the code rather than written by hand | "No telemetry" is a claim; this makes it an artefact, and it is un-copyable by anyone with a server | M/Low | GH: cited in reviews/comparisons |
+| 3 | **External crypto review** of the private-note path (§34's third missing thing) | The one place being wrong is silent and unrecoverable | S/Low (cost: attention) | — |
+| 4 | **macOS packaging** (ROADMAP item 10) | A third of this audience is on macOS | M/Med | GH: downloads by platform |
+| 5 | **Diagnose 10a properly** — one run on the failing machine, Logs page, paste the output | Two sessions have guessed; guessing is the expensive path | S/Low | GH: issue closed |
+
+*Quick win:* #5 (it needs a person, not a patch).
+*Signature interaction:* **the network ledger** — a page that says "nothing has left this machine, here is every door and whether it is shut."
+
+#### F12 — Onboarding and in-app help
+
+*Today:* guided first-run tour, seeded example notes (`seed_example_notes`),
+26-topic help with quick-links, an "Ask the guide" AI chat that never sees
+your notes. *Short of:* the first run still assumes a model exists somewhere,
+and there is no import offer at the point of maximum intent.
+
+*10x:* **from download to a graph with your own notes in it, in one sitting,
+without a terminal.**
+
+| # | Change | Why it wins | E/R | Metric |
+| --- | --- | --- | --- | --- |
+| 1 | **Import as step 2 of onboarding** (folder of markdown → dry-run preview → import) | Table stake 1 delivered at the only moment people will do it | M/Low | GH: proxy via import-related issues |
+| 2 | **A 60-second "watch it file three notes" demo** running against the seeded set, no model required | Shows the loop before the user has done any work | S/Low | Bench: usability sessions |
+| 3 | **Progressive disclosure of the seven tabs** — start with Capture/Ask, unlock the rest with a visible "show me everything" | §R7.5's pane complaint is partly a first-run overwhelm problem | M/Med | Bench: 5-person session task success |
+| 4 | **A "what can I ask?" chip row** on the empty chat, generated from the user's own categories | The blank prompt box is where local-AI apps lose people | S/Low | Local: chip-started turns |
+| 5 | **Help chat cites the doc section** it answered from, with a jump link | Checkability, applied to the guide itself | S/Low | Bench: answers with a citation |
+
+*Quick win:* #4.
+*Signature interaction:* **the tour files a note in front of you** and then shows the graph redraw — one screen that demonstrates the whole product.
+
+---
+
+### 114.3 New inventions
+
+18 ideas. Each: pitch · problem · why novel · loop · E/R · a ≤2-week first
+experiment. Nothing here duplicates something already built (checked against
+HISTORY.md and the code, per 114.0b).
+
+#### Category A — obvious gaps competitors missed (high value, medium effort)
+
+**A1. Recall practice (spaced repetition over your own notes).**
+*Pitch:* the notebook quizzes you on what you saved, generating questions from
+your own notes. *Problem:* you write things down and never read them again;
+"second brain" apps are write-only. *Novel:* NotebookLM ships quizzes over a
+temporary source set; Anki is a separate app you must author cards for. Nobody
+generates cards from a living personal corpus *and* schedules them locally. A
+competitor copying this needs local generation + a scheduler + your corpus.
+*Loop:* a daily 3-minute review is the strongest return-hook known in this
+category. *E/R:* M/Med. *Experiment:* generate 10 cards from 10 real notes with
+the local model, hand-rate them for usefulness; if <6/10 are good, the
+generation prompt is the project, not the scheduler.
+
+**A2. Highlights as a first-class collection.** *Pitch:* every `==highlight==`
+becomes a browsable, source-attributed quote shelf. *Problem:* the interesting
+sentence is buried in a long note. *Novel:* Readwise's product, minus the
+cloud and the subscription, over your *own* writing as well as clippings.
+*Loop:* a "highlight of the day" resurfaces old thinking. *E/R:* S/Low.
+*Experiment:* ship the view behind a flag, count searches against it in a week
+of real use.
+
+**A3. Web clipper without a browser extension.** *Pitch:* a bookmarklet plus
+`read_url` turns the current page into a source-attributed note with the
+selection quoted. *Problem:* capture-from-where-you-are is table stakes and
+absent. *Novel:* everyone ships an extension (a store account, review, two
+stores); a bookmarklet posting to `localhost` needs no store and works
+offline. *Loop:* daily capture from reading. *E/R:* S/Med (CSRF/same-origin is
+the real work). *Experiment:* a one-file bookmarklet against the running app;
+measure how many pages clip cleanly out of 20.
+
+**A4. Notebook diff — "what changed while I wasn't looking."** *Pitch:* a
+since-you-were-last-here view: new notes, links the librarian added, tags
+changed, tensions found. *Problem:* the autonomous librarian acts silently;
+trust needs visibility. *Novel:* no competitor's auto-organiser shows a diff,
+because most of them don't think you should care. *Loop:* the reason to open
+the app in the morning. *E/R:* M/Low (the audit log exists). *Experiment:*
+render one week of the existing audit log as a diff; is it interesting or
+noise?
+
+**A5. Person and project pages, derived not declared.** *Pitch:* entities the
+extractor already finds get an auto-page — every mention, every commitment,
+every open reminder. *Problem:* "what do I know about Sam?" needs a search and
+a memory. *Novel:* Capacities charges for object pages you must *create*;
+these are derived from text with zero user effort, and every fact links back.
+*Loop:* before every meeting. *E/R:* M/Med (`ai/entities.py` exists).
+*Experiment:* generate pages for the 5 most-mentioned entities in a real
+notebook and ask "is this the page you'd have written?"
+
+**A6. Print/share a notebook slice.** *Pitch:* pick a tag, a thread or a date
+range → a clean PDF/HTML with a table of contents and the graph as a figure.
+*Problem:* "genuinely yours" stops at export-everything; there is no "send
+this to someone". *Novel:* offline, no share link, no account — a file.
+*Loop:* weekly review, handing work over. *E/R:* M/Low (single-item export and
+PDF already exist). *Experiment:* export one real tag and see whether it reads
+as a document or a dump.
+
+#### Category B — AI-native superpowers
+
+**B1. The offline studio: audio overview, mind map, quiz, one-pager.**
+*Pitch:* NotebookLM's Studio panel, on your machine, over your own notes.
+*Problem:* the most-copied AI-notebook feature set is cloud-only. *Novel:* a
+competitor would need local TTS, local generation, and a corpus that never
+leaves — the whole point. *Loop:* commute listening; revision. *E/R:* L/Med;
+gated on Piper (ROADMAP §88.2 item 7 already recommends it). *Experiment:*
+Piper-generate a 3-minute overview of 10 notes on CPU; measure wall-clock and
+listen once. If a 3-minute clip takes 10 minutes to render, the feature is a
+background job, not a button — decide that before building the UI.
+
+**B2. Contradiction watch, live.** *Pitch:* Tensions (built) promoted from a
+finder to a *watcher* — saving a note that contradicts an existing one flags
+it at capture time. *Problem:* you re-decide things you already decided.
+*Novel:* nobody ships contradiction detection at all; doing it at write time
+is the version that changes behaviour. *Loop:* it earns attention every time
+it is right. *E/R:* M/Med. *Experiment:* run the existing tension prompt
+against the last 200 notes pairwise-capped; count true positives by hand.
+
+**B3. Ask the notebook a question it can't answer, and get a research plan.**
+*Pitch:* when retrieval finds nothing, the app proposes what to capture or
+read next rather than hallucinating. *Problem:* the empty answer is the worst
+moment in every RAG product. *Novel:* it converts the failure mode into the
+capture loop. *Loop:* the app tells you what to feed it. *E/R:* S/Med.
+*Experiment:* 10 deliberately unanswerable questions; is the plan better than
+"I don't know"?
+
+**B4. Rewrite-with-your-own-voice.** *Pitch:* drafting uses your past notes as
+the style exemplar, not a generic assistant voice. *Problem:* AI drafts read
+like AI. *Novel:* the corpus needed is private and local; a cloud tool would
+have to hold your writing to do it. *Loop:* every draft. *E/R:* M/Med.
+*Experiment:* blind A/B of 5 drafts with and without exemplars; can you tell?
+
+**B5. Agentic weekly review.** *Pitch:* one scheduled agent run that files
+strays, proposes merges for duplicates, closes stale threads, and produces a
+reviewable **plan** — every action confirmable, nothing applied silently.
+*Problem:* housekeeping never happens. *Novel:* the audit-and-confirm shape is
+this app's existing discipline applied to a bigger job; competitors' auto-tidy
+is invisible. *Loop:* Sunday. *E/R:* M/Med (`autonomous.py` + `make_plan`
+exist). *Experiment:* generate the plan, apply none of it, count how many
+proposals you'd accept.
+
+**B6. Trigger → action rules** (ROADMAP §88.2 item 8, honestly sized there as
+a new subsystem). *Pitch:* "when a note is filed as Health, add tag `body` and
+remind me in 30 days." *Novel:* local automation with no Zapier and no cloud.
+*Loop:* set once, benefit forever. *E/R:* L/Med. *Experiment:* hard-code two
+rules for a week before building the rules UI — if you don't miss them, don't
+build it.
+
+**B7. Your numbers, on your machine.** *Pitch:* the instrumentation panel from
+114.5, shipped as a user feature: capture cadence, answer-with-source rate,
+which model you actually use, filing corrections. *Problem:* the author has no
+metrics and users have no self-knowledge. *Novel:* every competitor's
+analytics serve *them*; this one serves only you and never transmits. *Loop:*
+monthly self-review. *E/R:* M/Low. *Experiment:* ship it locally, read it for
+two weeks, see which number you'd act on.
+
+#### Category C — moonshots (12–24 month defensibility)
+
+**C1. Notebook-to-notebook exchange, no server.** A signed, encrypted
+`.mmpack` of a *slice* (notes + links + attachments + provenance) that another
+MemoryMap imports as a linked, attributed sub-graph. Not sync — no server, no
+account, no conflict resolution. Defensible because the format plus the
+attribution model is a standard others would have to adopt; AGPL keeps it
+open. E/R: L/High. *Experiment:* export/import a 20-note slice round-trip and
+diff.
+
+**C2. The local model leaderboard for *this* task.** F2-2's honesty bench,
+generalised: a reproducible suite anyone can run against their own hardware,
+publishing filing accuracy, abstention rate, tool-call correctness and tokens
+per answer per model. Becomes the page the local-LLM community links to — a
+distribution loop no feature can buy. E/R: L/Med. *Experiment:* run three
+models on 30 questions and publish the table.
+
+**C3. Ambient capture with consent.** Opt-in, local-only watchers (a screenshot
+folder, a downloads folder, a voice memo folder) that OCR/transcribe/file and
+*always* show what they took. `passive_capture.py` exists as a starting point.
+Defensible because everyone else needs a cloud pipeline; risky because it is
+the one feature that could break the privacy promise if done sloppily. E/R:
+L/High. *Experiment:* one folder watcher, dry-run only, for a week.
+
+**C4. The reasoning archive.** Every answer, its sources, its tool steps and
+its context-window stats retained as a queryable object, so "why did I believe
+that in March?" is answerable. Turns the audit trail into a second corpus.
+E/R: L/Med. *Experiment:* keep 50 answers with full provenance; ask three
+retrospective questions of the archive.
+
+**C5. Teach mode.** The notebook builds a curriculum out of your own corpus —
+what you know, what you have half-written, what you keep contradicting — and
+runs you through it with A1's cards and B1's audio. This is the version of
+"second brain" that changes what is in the *first* one. E/R: L/High.
+*Experiment:* hand-build one curriculum from a real notebook and run it for a
+week.
+
+---
+
+### 114.4 Prioritisation
+
+**Score = (Impact 1–5 × Confidence 0.5–1.0) ÷ Effort (S=1, M=2, L=4).** Reach
+is deliberately omitted: with no telemetry there is no honest reach number, and
+faking one is how a roadmap starts lying. Top of the ranked list:
+
+| Item | I | C | E | Score |
+| --- | --: | --: | --: | --: |
+| F8-1 whiteboard panel redesign + pan-click-select (already row 0) | 4 | 1.0 | 2 | 2.00 |
+| F7-1 Tensions on the Dashboard | 4 | 1.0 | 1 | 4.00 |
+| F2-3 scope chips (backend exists) | 4 | 0.9 | 1 | 3.60 |
+| F2-4 answer → note with citations | 4 | 0.9 | 1 | 3.60 |
+| F10-2 "why this result" | 4 | 0.9 | 1 | 3.60 |
+| F1-3 always-visible connections strip | 4 | 0.85 | 1 | 3.40 |
+| A2 highlights collection | 4 | 0.85 | 1 | 3.40 |
+| F12-4 "what can I ask?" chips | 3 | 1.0 | 1 | 3.00 |
+| F4-1 brush-to-digest | 3 | 0.9 | 1 | 2.70 |
+| F2-1 per-claim citations | 5 | 0.8 | 2 | 2.00 |
+| F5-3 Notion importer + first-run offer | 5 | 0.8 | 2 | 2.00 |
+| F11-1 model-included first run | 5 | 0.6 | 4 | 0.75 |
+| F2-2 the "I don't know" bench | 4 | 0.9 | 2 | 1.80 |
+| A1 recall practice | 4 | 0.7 | 2 | 1.40 |
+| F9-1 bullets + transcript merge | 4 | 0.7 | 2 | 1.40 |
+| B1 offline studio | 5 | 0.5 | 4 | 0.63 |
+| F3-3 fix `?similarity=true` O(n²) | 3 | 1.0 | 2 | 1.50 |
+| F5-5 virtualise the notes list | 3 | 0.9 | 2 | 1.35 |
+| B2 live contradiction watch | 4 | 0.6 | 2 | 1.20 |
+| A5 derived person/project pages | 4 | 0.6 | 2 | 1.20 |
+
+**90-day roadmap**
+
+*Phase 1 — Now (weeks 1–4): make the moat visible.* Everything here is UI over
+machinery that already exists, so it ships fast and it is all evidence for the
+positioning.
+1. F8-1 whiteboard panels + pan-click-select (**the standing top priority; nothing else jumps it**)
+2. F7-1 Tensions widget · 3. F2-3 scope chips · 4. F2-4 answer → note
+5. F10-2 "why this result" · 6. F1-3 connections strip · 7. A2 highlights
+8. F12-4 empty-chat chips
+*Outcome:* a first-time user meets three differentiated things (checkable
+answers, contradiction detection, explained ranking) in the first session
+instead of never.
+
+*Phase 2 — Next (weeks 5–9): close the two table stakes that block adoption.*
+1. F2-1 per-claim inline citations · 2. F5-3 Notion importer + F12-1 first-run
+import · 3. F2-2 the "I don't know" bench, published in docs/MODELS.md
+4. F3-3 similarity O(n²) · 5. F5-5 notes-list virtualisation
+6. F9-2 structured meeting block · 7. F1-1 correction memory
+*Outcome:* someone with a 3,000-note Obsidian vault can move in, and the
+answer they get is checkable sentence by sentence.
+
+*Phase 3 — Later (weeks 10–13): one headline, one loop.*
+1. B1 offline studio, starting with Piper + audio overview (F9-4 first)
+2. A1 recall practice · 3. F9-1 bullets+transcript merge · 4. A4 notebook diff
+5. F11-1 model-included first run (spike only — size it before committing)
+6. A5 derived person/project pages
+*Outcome:* one thing to put at the top of the README that no competitor can
+match, plus the first genuine return-loop the app has ever had.
+
+**Three killer combos**
+
+1. **"Checkable" end-to-end** = per-claim citations (F2-1) + why-this-result
+   (F10-2) + the "I don't know" bench (F2-2) + the privacy receipt (F11-2).
+   The claim stops being marketing and becomes four artefacts. *No hosted
+   competitor can ship any of the four over your private corpus.*
+2. **The meeting loop** = bullets+transcript merge (F9-1) + structured meeting
+   block (F9-2) + commitment detection (F6-1) + meeting-prep brief (F6-3).
+   Granola's entire product, offline, with the transcript kept beside the
+   summary so it stays checkable.
+3. **The offline studio** = Piper TTS (F9-4) + audio overview + mind map from
+   the existing whiteboard + recall cards (A1). The one-line pitch:
+   *everything NotebookLM does to your documents, without uploading them.*
+
+---
+
+### 114.5 Risk, moat, and how to measure anything without telemetry
+
+**Top five ideas, their real risks, and the de-risking step**
+
+| Idea | Biggest risk | De-risk |
+| --- | --- | --- |
+| F2-1 per-claim citations | The local model won't emit reliable markers, and a wrong citation is worse than none | Post-hoc attribution instead of asking the model to cite: match each sentence back to retrieved chunks by embedding similarity, show a marker only above a threshold, grey-underline the rest. Test on 20 real answers before building UI |
+| F5-3 Notion importer | Notion's export dialect drifts and imports are destructive-feeling | Dry-run preview + an import that is one undoable batch (the audit log already models this); test against two real exports, not a synthetic one |
+| B1 offline studio | Piper is a new dependency, and this project has been burned by heavy installs (torch, sentence-transformers) | Ship it as a `core/extras.py` package exactly like Tesseract; feature stays fully absent, never broken, when not installed. Measure CPU wall-clock *first* (see B1's experiment) |
+| A1 recall practice | Auto-generated cards may be bad enough to be insulting | Hand-rate 10 before building the scheduler; ship "edit this card" from day one |
+| F11-1 model-included first run | Licence and size (a GGUF in the installer), plus support burden across three platforms | Don't bundle — *fetch* on first run with a visible size and a skip button; check each candidate model's licence against AGPL redistribution before it appears in the picker |
+
+**Moats, ranked by how hard they are to copy**
+
+1. **Verifiability as an architecture, not a feature.** Sources, tool steps,
+   context accounting, `unsupported_claims`, the audit log, the privacy
+   receipt. A cloud competitor cannot show you rows it doesn't hold; a local
+   competitor would have to build all six. *Deepen it deliberately: every new
+   AI feature ships with visible reasoning, an undo and a log, or it doesn't
+   ship.*
+2. **Workflow lock-in through structure you'd lose.** Typed links, threads,
+   boards, saved views, provenance chips. Export keeps the promise ("genuinely
+   yours") while the *structure* is what makes leaving unattractive — which is
+   the only ethical version of lock-in, and it needs C1's export format to
+   stay honest.
+3. **Community authority via the benchmark (C2).** Publishing "which local
+   model is actually good at this, measured" makes the repo the reference page
+   for a whole community, and reference pages compound. This is the only
+   growth loop available to an app with no accounts, no sharing and no
+   telemetry — and it costs a weekend, not a quarter.
+
+**Metrics, defined honestly**
+
+*The rule: nothing is transmitted, ever. Any number the author sees is either
+public GitHub data or something a user chose to send in an issue.*
+
+| Phase | GH (observable) | Local (user-visible only) | Bench (run by hand) |
+| --- | --- | --- | --- |
+| Now | Issue *mix* shifting from "how do I" to "can it also" | Notebook health panel exists; tensions reviewed | 5-person session: can they get a cited answer in 10 min? |
+| Next | Release downloads ÷ install-failure issues; import-related issues trending down | Days-with-a-capture; scoped-turn share | Recall@10 on a fixture query set; render time at 10k notes |
+| Later | Star/fork velocity after the benchmark page; external PRs | Cards reviewed per week; audio artefacts made | Piper wall-clock per minute of audio; abstention rate per model |
+
+**Time-to-value is the one number worth obsessing over**, and it is
+measurable without telemetry: *download → first cited answer over your own
+notes*, timed by hand with five people. Today that path includes "install
+Ollama, pull a model" — which is why F11-1 scores as the highest-impact
+lowest-confidence item on the board.
+
+---
+
+### 114.6 Start tomorrow — the five highest-leverage actions
+
+1. **Finish the whiteboard panel redesign + pan-click-to-select** (ROADMAP row
+   0). It is the standing top priority by direct instruction and it is the one
+   reported blocker; nothing on this list jumps it.
+2. **Ship the Tensions dashboard widget and put Tensions in the README's
+   feature list.** The most differentiated thing in the app is invisible in
+   the UI *and* absent from the pitch. One widget, one paragraph, one session.
+3. **Strike the three stale items in 114.0b** from §111.2 so the next session
+   doesn't schedule work that is already done — the fourth, fifth and sixth
+   "already built" catches this project has now recorded.
+4. **Build the "I don't know" bench** (40 questions, 30 answerable, 10 not) and
+   run it against two models. It is a test fixture, a docs page, a model
+   picker and a marketing asset in one, and it is the first honest quality
+   number this project would have.
+5. **Spike Piper for 90 minutes** — install it in a venv, generate 60 seconds
+   of speech on CPU, record the wall-clock. That single number decides whether
+   the offline studio (the strongest headline available) is a Phase-3 feature
+   or a nice idea, and no amount of further reading answers it.

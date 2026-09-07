@@ -6500,3 +6500,17 @@ button.connection-row {
   padding: 0 var(--space-3);
   border-radius: var(--radius-sm);
 }
+
+/* Every floating surface on the board is a `.card`, and `.card` carries a
+   1rem bottom margin that an absolutely positioned box still honours —
+   three of these were found one at a time (dock, overview, selection
+   bar). Zeroed once, for all of them. */
+.wb-board-menu,
+.wb-search-bar,
+.whiteboard-sidebar,
+.wb-export-menu,
+.wb-navigator,
+.wb-selection-bar,
+.whiteboard-floating-panel {
+  margin: 0;
+}

@@ -642,9 +642,15 @@ function wbItemBBox(kind, item) {
   // instead, converted to board space with the same zoom-transform division
   // every drag handler already uses (`transform.k`) — falls back to the
   // fixed default below only when the element genuinely isn't rendered.
-  if ((!w || !h) && kind === "node") {
+  if (kind === "node") {
     const el = document.querySelector(`.node-card[data-id="${item.id}"]`);
-    if (el) {
+    if (el && el.offsetWidth && el.offsetHeight) {
+      // Rendered size wins over a stored one for the same reason as
+      // objects below: a card's text can push it taller than the height it
+      // was last resized to.
+      w = el.offsetWidth;
+      h = el.offsetHeight;
+    } else if (el) {
       // `offsetWidth/Height`, not `getBoundingClientRect()`: the rect is the
       // axis-aligned box of the *rotated* card, wider and taller than the
       // card itself, so a rotated note's links landed on a box that does
@@ -2275,15 +2281,24 @@ function wbUpdateSelectionBar() {
   const bar = document.getElementById("wb-selection-bar");
   if (!bar) return;
   const sel = wbSelectedItem;
+  const multi = wbMultiSelection.size > 1;
   const container = document.getElementById("whiteboard-container");
   const host = document.getElementById("library-view-whiteboard");
   const editing = document.querySelector(".wb-object.wb-text-editing");
-  if (!sel || !container || !host || editing || wbLinkDragActive) {
+  if ((!sel && !multi) || !container || !host || editing || wbLinkDragActive) {
     bar.classList.add("hidden");
     return;
   }
-  const item = (wbState[WB_LIST_BY_KIND[sel.kind]] || []).find((i) => i.id === sel.id);
-  const box = item ? wbItemBBox(sel.kind, item) : null;
+  // A multi-selection gets the bar above the whole group — that is where
+  // Arrange's align/distribute and Export "just the selection" matter.
+  let box = null;
+  if (multi) {
+    const b = wbSelectionBounds();
+    if (b) box = { minX: b.minX, minY: b.minY, maxX: b.minX + b.width, maxY: b.minY + b.height };
+  } else {
+    const item = (wbState[WB_LIST_BY_KIND[sel.kind]] || []).find((i) => i.id === sel.id);
+    box = item ? wbItemBBox(sel.kind, item) : null;
+  }
   if (!box) {
     bar.classList.add("hidden");
     return;
@@ -6359,6 +6374,7 @@ function renderWhiteboard() {
       el?.querySelector(".sketch-path")?.setAttribute("d", newD);
       el?.querySelector(".sketch-hitbox")?.setAttribute("d", newD);
       if (d._linkedSketches?.length) wbUpdateLinkedSketches(d.id, d._linkedSketches);
+      wbUpdateSelectionBar();
       if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, dx, dy);
       // Handles would otherwise trail the sketch by a whole render — cheap
       // to keep in step since there are at most 8 of them.
@@ -6945,6 +6961,7 @@ function renderWbObjects(canvas) {
     }
     d3.select(this.closest(".wb-object")).style("transform", wbItemTransform(d));
     if (d._linkedSketches?.length) wbUpdateLinkedSketches(d.id, d._linkedSketches);
+    wbUpdateSelectionBar();
     if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, d.x - d._dragOriginX, d.y - d._dragOriginY);
   }
   async function objDragEnd(event, d) {
@@ -7396,6 +7413,7 @@ function dragging(event, d) {
       wbClearAlignmentGuides();
     }
     d3.select(this).style("transform", wbItemTransform(d));
+    wbUpdateSelectionBar();
     // Update this card's own link lines directly rather than a full
     // wbScheduleRender() — see wbUpdateLinkedSketches's own comment for why
     // that was the "glitchy and slow to update" report.

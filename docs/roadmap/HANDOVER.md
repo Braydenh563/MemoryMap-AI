@@ -110,6 +110,12 @@ list at the end.
   gained "What's on screen now". **Note:** `wbExportPdf` already existed
   — a duplicate was written and removed in the same sitting; grep first.
 
+- Backend: `_forget_links_to` in `routes_whiteboard.py` — deleting a card,
+  text box or shape now deletes the link sketches that touched it (they
+  were invisible orphans before). Test in `test_whiteboard.py`.
+- The selection bar follows drags and covers a multi-selection (above
+  `wbSelectionBounds`); every floating surface has `margin: 0` in one rule.
+
 ### Open — in the order the user is likely to hit them
 
 1. Whiteboard: group transform of a multi-selection; frames; text on

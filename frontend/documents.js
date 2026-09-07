@@ -3383,8 +3383,13 @@ function docToolbarCollapsed() {
   }
 }
 
-function applyDocToolbarCollapsed(collapsed) {
-  for (const bar of document.querySelectorAll(".doc-toolbar")) {
+//: `only`: one strip, which may not be in the document yet. Both appliers are
+//: what actually draw the wrap and collapse glyphs (`setLabel` lives here, not
+//: at the buttons' creation), and both used to walk the document -- so a bar
+//: mounted before insertion, which is exactly what the note edit form's cloned
+//: strip is, ended up with two blank buttons.
+function applyDocToolbarCollapsed(collapsed, only = null) {
+  for (const bar of only ? [only] : document.querySelectorAll(".doc-toolbar")) {
     bar.classList.toggle("is-collapsed", collapsed);
     const button = bar.querySelector(".doc-toolbar-collapse");
     if (!button) continue;
@@ -3441,6 +3446,16 @@ function mountDocToolbarControlsFor(bar) {
 
     bar.appendChild(tools);
   }
+  //: **Both buttons are drawn here, not by the caller.** Reported with a
+  //: screenshot: "the note edit toolbar buttons on the bottom right dont
+  //: render and show as black boxes". Neither button is given an icon when it
+  //: is created -- `applyDocToolbarLayoutButtons` and `applyDocToolbarCollapsed`
+  //: are what call `setLabel` on them, and both used to run once at the end of
+  //: the document-wide loop below. A bar mounted on its own (the note edit
+  //: form's cloned strip) therefore got two empty buttons: correct size,
+  //: correct background, no glyph and no text.
+  applyDocToolbarLayoutButtons(bar);
+  applyDocToolbarCollapsed(docToolbarCollapsed(), bar);
 }
 
 function mountDocToolbarControls() {
@@ -3449,9 +3464,10 @@ function mountDocToolbarControls() {
   applyDocToolbarCollapsed(docToolbarCollapsed());
 }
 
-function applyDocToolbarLayoutButtons() {
+function applyDocToolbarLayoutButtons(only = null) {
   const row = docToolbarMode() === "row";
-  for (const button of document.querySelectorAll(".doc-toolbar-layout")) {
+  const scope = only || document;
+  for (const button of scope.querySelectorAll(".doc-toolbar-layout")) {
     button.setAttribute("aria-pressed", row ? "true" : "false");
     //: The tooltip names what pressing it *does*; `aria-pressed` carries the
     //: state. Same rule the dock menu's own label follows.

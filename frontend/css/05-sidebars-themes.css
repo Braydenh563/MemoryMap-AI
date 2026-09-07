@@ -3390,3 +3390,34 @@ textarea.autogrow {
 .note-edit-meta > .note-edit-actions {
   margin-left: auto;
 }
+
+/* One height for everything on the meta row — reported: "the ui elements
+   aren't the same height and are out of alignment". */
+.note-edit-meta > input,
+.note-edit-meta select,
+.note-edit-meta .select-opener,
+.note-edit-meta .note-edit-actions button {
+  height: 2.25rem;
+  min-height: 0;
+  padding-block: 0;
+  box-sizing: border-box;
+}
+
+.note-edit-meta .note-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.note-edit-toolbar .note-edit-view {
+  margin-left: auto;
+}
+
+.note-edit-preview {
+  min-height: 6rem;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--inner);
+}

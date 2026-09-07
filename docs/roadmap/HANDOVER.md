@@ -144,6 +144,16 @@ list at the end.
   drop stores `sourceKind`/`targetKind`. Verified: a link drawn onto a 45°
   sticky ends on its rotated border.
 
+- Note edit form, second report ("toolbar isn't the same as capture and
+  documents, elements out of alignment, no preview"): the strip is now a
+  **clone of the capture strip** (`#note-toolbar`), wired by the new
+  `wireMarkdownToolbar` (split out of `initMarkdownToolbars`; the mount's
+  extras carry `data-md-extra` so a clone drops the dead copies and mounts
+  fresh). Measured: 32 `data-md` buttons and 4 menus on both, menus open
+  from the clone (the toggle handler is delegated on `document`). A
+  Write / Preview switch renders through `renderMarkdown`. Meta row
+  controls all 36px.
+
 ### Open — in the order the user is likely to hit them
 
 1. Whiteboard: group transform of a multi-selection; frames; text on

@@ -2950,6 +2950,7 @@ function mountEditorToolbarExtras(bar) {
   const sep = () => {
     const el = document.createElement("span");
     el.className = "doc-toolbar-sep";
+    el.dataset.mdExtra = "1";
     el.setAttribute("aria-hidden", "true");
     return el;
   };
@@ -2958,6 +2959,7 @@ function mountEditorToolbarExtras(bar) {
     const button = document.createElement("button");
     button.type = "button";
     button.dataset.md = spec.md;
+    button.dataset.mdExtra = "1";
     button.title = spec.title;
     button.setAttribute("aria-label", spec.title);
     setLabel(button, spec.icon);
@@ -2966,6 +2968,7 @@ function mountEditorToolbarExtras(bar) {
   for (const menu of EDITOR_TOOLBAR_MENUS) {
     const details = document.createElement("details");
     details.className = "doc-dock-menu doc-toolbar-menu";
+    details.dataset.mdExtra = "1";
     //: **Drawn exactly like the two menus written in the markup.** These were
     //: built with different classes and an icon *plus a word* — "Heading",
     //: "Block", "More", "Insert" — sitting in a row where every other control
@@ -2998,48 +3001,57 @@ function mountEditorToolbarExtras(bar) {
   }
 }
 
-function initMarkdownToolbars() {
-  for (const bar of document.querySelectorAll("[data-md-target], #doc-toolbar")) {
-    const boxId = bar.dataset.mdTarget || "doc-content";
-    mountEditorToolbarExtras(bar);
-    for (const button of bar.querySelectorAll("button[data-md]")) {
-      // mousedown-preventDefault keeps the caret in the textarea: without it
-      // the click moves focus to the button first and the selection the
-      // action is about to act on is already gone.
-      button.addEventListener("mousedown", (event) => event.preventDefault());
-      button.addEventListener("click", () => applyMarkdown(button.dataset.md, boxId));
+//: Wire one formatting strip to its textarea: mount the shared extras
+//: (Block menu, colours, …), then every `button[data-md]` and colour
+//: select. Split out of `initMarkdownToolbars` so the note edit form can
+//: clone the capture strip and wire the clone (app.js `noteEditToolbar`).
+//: Everything the mount appends is marked `data-md-extra` so a clone can
+//: drop the stale copies and mount fresh ones with live listeners.
+function wireMarkdownToolbar(bar) {
+  const boxId = bar.dataset.mdTarget || "doc-content";
+  mountEditorToolbarExtras(bar);
+  for (const button of bar.querySelectorAll("button[data-md]")) {
+    // mousedown-preventDefault keeps the caret in the textarea: without it
+    // the click moves focus to the button first and the selection the
+    // action is about to act on is already gone.
+    button.addEventListener("mousedown", (event) => event.preventDefault());
+    button.addEventListener("click", () => applyMarkdown(button.dataset.md, boxId));
+  }
+  for (const select of bar.querySelectorAll("select[data-md-colour]")) {
+    const kind = select.dataset.mdColour;
+    for (const colour of MD_COLOURS) {
+      const option = document.createElement("option");
+      option.value = colour;
+      option.textContent = colour[0].toUpperCase() + colour.slice(1);
+      select.appendChild(option);
     }
-    for (const select of bar.querySelectorAll("select[data-md-colour]")) {
-      const kind = select.dataset.mdColour;
-      for (const colour of MD_COLOURS) {
-        const option = document.createElement("option");
-        option.value = colour;
-        option.textContent = colour[0].toUpperCase() + colour.slice(1);
-        select.appendChild(option);
-      }
-      select.addEventListener("change", () => {
-        const colour = select.value;
-        select.value = "";
-        if (!colour) return;
-        const box = $(boxId);
-        if (!box) return;
-        const { selectionStart: start, selectionEnd: end, value } = box;
-        const selected = value.slice(start, end) || (kind === "ink" ? "coloured text" : "highlighted");
-        // Yellow is the highlight's default, so it needs no colour prefix -
-        // and writing one would put `==yellow|x==` in the note where `==x==`
-        // says the same thing.
-        const open = kind === "ink"
-          ? `++${colour}|`
-          : colour === "yellow" ? "==" : `==${colour}|`;
-        const close = kind === "ink" ? "++" : "==";
-        box.value = value.slice(0, start) + open + selected + close + value.slice(end);
-        box.setSelectionRange(start + open.length, start + open.length + selected.length);
-        finishMarkdownEdit(box, boxId);
-      });
-    }
+    select.addEventListener("change", () => {
+      const colour = select.value;
+      select.value = "";
+      if (!colour) return;
+      const box = $(boxId);
+      if (!box) return;
+      const { selectionStart: start, selectionEnd: end, value } = box;
+      const selected = value.slice(start, end) || (kind === "ink" ? "coloured text" : "highlighted");
+      // Yellow is the highlight's default, so it needs no colour prefix -
+      // and writing one would put `==yellow|x==` in the note where `==x==`
+      // says the same thing.
+      const open = kind === "ink"
+        ? `++${colour}|`
+        : colour === "yellow" ? "==" : `==${colour}|`;
+      const close = kind === "ink" ? "++" : "==";
+      box.value = value.slice(0, start) + open + selected + close + value.slice(end);
+      box.setSelectionRange(start + open.length, start + open.length + selected.length);
+      finishMarkdownEdit(box, boxId);
+    });
   }
 }
 
+function initMarkdownToolbars() {
+  for (const bar of document.querySelectorAll("[data-md-target], #doc-toolbar")) {
+    wireMarkdownToolbar(bar);
+  }
+}
 initMarkdownToolbars();
 
 $("doc-word-goal").addEventListener("click", promptDocWordGoal);

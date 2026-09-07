@@ -5735,6 +5735,28 @@ const NOTE_EDIT_TOOLBAR = [
 ];
 
 function noteEditToolbar(boxId) {
+  //: **The same strip as the capture box, cloned** — reported: "the toolbar
+  //: isn't the same as the note capture and documents". The capture strip
+  //: (`#note-toolbar`) is the source of truth; a clone drops the extras the
+  //: mount appended (their listeners do not survive cloning) and is wired
+  //: fresh by `wireMarkdownToolbar`, which mounts them again. The hand-built
+  //: list below is only the fallback for a page without that strip.
+  const source = document.getElementById("note-toolbar");
+  if (source && typeof wireMarkdownToolbar === "function") {
+    const clone = source.cloneNode(true);
+    clone.removeAttribute("id");
+    clone.className = "doc-toolbar note-edit-toolbar";
+    clone.setAttribute("aria-label", "Formatting");
+    for (const extra of clone.querySelectorAll("[data-md-extra]")) extra.remove();
+    // The capture strip's own preview toggle comes along with the clone as
+    // a dead button with a duplicate id; the edit form has its own
+    // Write / Preview switch.
+    clone.querySelector("#entry-preview-toggle")?.remove();
+    delete clone.dataset.mdExtras;
+    clone.dataset.mdTarget = boxId;
+    wireMarkdownToolbar(clone);
+    return clone;
+  }
   const bar = document.createElement("div");
   bar.className = "doc-toolbar note-edit-toolbar";
   bar.setAttribute("role", "toolbar");
@@ -5831,7 +5853,37 @@ function renderEditForm(li, entry) {
   meta.className = "note-edit-meta";
   row.classList.add("note-edit-actions");
   meta.append(tagsInput, categorySelect, row);
-  li.append(noteEditToolbar(textarea.id), textarea, meta);
+  const toolbarEl = noteEditToolbar(textarea.id);
+  //: Write / Preview — reported: "there is no preview". The preview is the
+  //: same renderer every note card uses, over the textarea's current text.
+  const view = document.createElement("div");
+  view.className = "seg seg-compact note-edit-view";
+  view.setAttribute("role", "group");
+  view.setAttribute("aria-label", "Write or preview");
+  const writeBtn = document.createElement("button");
+  writeBtn.type = "button"; writeBtn.textContent = "Write"; writeBtn.className = "active";
+  writeBtn.setAttribute("aria-pressed", "true");
+  const previewBtn = document.createElement("button");
+  previewBtn.type = "button"; previewBtn.textContent = "Preview";
+  previewBtn.setAttribute("aria-pressed", "false");
+  view.append(writeBtn, previewBtn);
+  toolbarEl.appendChild(view);
+  const preview = document.createElement("div");
+  preview.className = "markdown-body note-edit-preview hidden";
+  const setView = (mode) => {
+    const showPreview = mode === "preview";
+    if (showPreview) renderMarkdown(preview, textarea.value);
+    preview.classList.toggle("hidden", !showPreview);
+    textarea.classList.toggle("hidden", showPreview);
+    writeBtn.classList.toggle("active", !showPreview);
+    previewBtn.classList.toggle("active", showPreview);
+    writeBtn.setAttribute("aria-pressed", String(!showPreview));
+    previewBtn.setAttribute("aria-pressed", String(showPreview));
+    if (!showPreview) textarea.focus();
+  };
+  writeBtn.addEventListener("click", () => setView("write"));
+  previewBtn.addEventListener("click", () => setView("preview"));
+  li.append(toolbarEl, textarea, preview, meta);
   renderRelatedWhileEditing(li, entry);
   renderNoteBookmarksWhileEditing(li, entry);
 }

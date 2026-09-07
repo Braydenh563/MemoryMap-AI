@@ -2850,10 +2850,14 @@ async function wbMapAddSibling(id) {
   const index = wbMapIndex();
   const node = index.byId.get(id);
   if (!node) return null;
-  const parentId = index.childrenOf.has(node.parent_id) || node.parent_id != null
+  // A dangling `parent_id` counts as no parent, exactly as `wbMapIndex` and
+  // `_build_tree` already treat it — so a node under a stale pointer gets a
+  // sibling at the top level rather than one hung off a parent that is not
+  // on this board.
+  const parentId = node.parent_id != null && index.byId.has(node.parent_id)
     ? node.parent_id
     : null;
-  return wbMapAddChild(index.byId.has(parentId) ? parentId : null);
+  return wbMapAddChild(parentId);
 }
 
 //: Shift+Tab — outdent: this node becomes a sibling of its own parent.
@@ -2912,10 +2916,21 @@ function wbMapNavigate(id, key) {
   selectWbItem("object", target.id);
   wbApplySelectionHighlight();
   wbUpdateSelectionBar();
-  // Bring it on screen: navigating by keyboard into a node that is off the
-  // edge of the viewport reads exactly like the key having done nothing.
-  const box = wbItemBBox("object", target);
-  if (box) wbCenterOn(box, { animate: true });
+  // Bring it on screen — but **only when it is actually off screen**.
+  // Navigating into a node past the edge of the viewport reads exactly like
+  // the key having done nothing, so the scroll has to happen; recentring on
+  // every arrow instead makes the whole map lurch under you while you are
+  // simply walking a branch you can already see, which is worse than either.
+  const el = document.querySelector(`.wb-object[data-id="${target.id}"]`);
+  const container = document.getElementById("whiteboard-container");
+  if (el && container) {
+    const node = el.getBoundingClientRect();
+    const view = container.getBoundingClientRect();
+    const offScreen = node.left < view.left || node.right > view.right
+      || node.top < view.top || node.bottom > view.bottom;
+    const box = offScreen ? wbItemBBox("object", target) : null;
+    if (box) wbCenterOn(box, { animate: true });
+  }
   return true;
 }
 
@@ -4639,10 +4654,15 @@ async function wbExportMapText(format) {
   }
   const res = await api(`/whiteboard/boards/${boardId}/export?format=${encodeURIComponent(format)}`);
   const blob = await res.blob();
-  const title = (window.wbMapState?.labels && document.getElementById("wb-board-select")?.selectedOptions?.[0]
-    ?.textContent.replace(/\s*\(\d+ items?\)$/, "")) || "mindmap";
+  // The board picker's own label, minus the "(3 items)" it appends — the same
+  // strip `renameCurrentBoard` already does, and the only place the open
+  // board's title exists on the client.
+  const title = document.getElementById("wb-board-select")?.selectedOptions?.[0]
+    ?.textContent.replace(/\s*\(\d+ items?\)$/, "") || "mindmap";
   // The extension the format actually is — a `.md` file holding OPML is a
-  // file nothing will open.
+  // file nothing will open. The name is reduced to word characters, spaces and
+  // hyphens because a map may be called anything at all and this becomes a
+  // filename on someone's disk.
   const safe = title.replace(/[^\w -]+/g, "").trim() || "mindmap";
   await saveFile(`${safe}.${format === "opml" ? "opml" : "md"}`, blob);
   toast(`Map exported as ${format === "opml" ? "OPML" : "a Markdown outline"}.`);

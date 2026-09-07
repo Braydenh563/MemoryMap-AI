@@ -202,6 +202,7 @@ function handleWbZoom(e) {
     d3.select("#wb-zoom-group").style("transform", css);
     d3.select("#wb-overlay-zoom-group").style("transform", css);
     wbSyncGridToTransform(t);
+    wbUpdateSelectionBar();
     // The navigator's viewport rectangle is only true for one transform, so
     // it is redrawn with every pan and zoom. `wbRenderNavigator` returns
     // immediately when the navigator is closed, which is the common case.
@@ -1744,6 +1745,7 @@ async function wbPasteCopiedStyle() {
 function wbUpdatePropertiesPanel() {
   const panel = document.getElementById("wb-properties-panel");
   if (!panel) return;
+  wbUpdateSelectionBar();
   const rows = {
     color: document.getElementById("wb-prop-color-row"),
     width: document.getElementById("wb-prop-width-row"),
@@ -2217,6 +2219,52 @@ function clearWbSelection() {
   wbSelectedItem = null;
   wbMultiSelection.clear();
   wbApplySelectionHighlight();
+  wbUpdateSelectionBar();
+}
+
+//: **The floating selection toolbar.** The four or five things you do to a
+//: selected item most — duplicate it, copy or paste its style, send it back
+//: or forward, delete it — sit in a small bar just above the item, the way
+//: Miro, FigJam, tldraw and draw.io all do. The drawer still holds every
+//: property; this is the short list at the point of attention, so a shape
+//: is not managed from a panel a screen-width away (reported: "annoying
+//: to... manage shapes"). Positioned in the view's own coordinates from the
+//: item's board bbox through the live zoom transform, and re-placed on
+//: every render and every pan/zoom frame.
+function wbUpdateSelectionBar() {
+  const bar = document.getElementById("wb-selection-bar");
+  if (!bar) return;
+  const sel = wbSelectedItem;
+  const container = document.getElementById("whiteboard-container");
+  const host = document.getElementById("library-view-whiteboard");
+  const editing = document.querySelector(".wb-object.wb-text-editing");
+  if (!sel || !container || !host || editing || wbLinkDragActive) {
+    bar.classList.add("hidden");
+    return;
+  }
+  const item = (wbState[WB_LIST_BY_KIND[sel.kind]] || []).find((i) => i.id === sel.id);
+  const box = item ? wbItemBBox(sel.kind, item) : null;
+  if (!box) {
+    bar.classList.add("hidden");
+    return;
+  }
+  const t = d3.zoomTransform(container);
+  const rect = container.getBoundingClientRect();
+  const hostRect = host.getBoundingClientRect();
+  const cx = rect.left - hostRect.left + t.applyX((box.minX + box.maxX) / 2);
+  const top = rect.top - hostRect.top + t.applyY(box.minY);
+  const bottom = rect.top - hostRect.top + t.applyY(box.maxY);
+  bar.classList.remove("hidden");
+  const w = bar.offsetWidth, h = bar.offsetHeight;
+  const gap = 10;
+  const left = Math.max(8, Math.min(hostRect.width - w - 8, cx - w / 2));
+  // Above the item; below it when the top bar would cover the bar.
+  const topBar = document.getElementById("wb-topbar")?.getBoundingClientRect();
+  const floor = topBar ? topBar.bottom - hostRect.top + gap : 56;
+  let y = top - h - gap;
+  if (y < floor) y = bottom + gap;
+  bar.style.left = `${Math.round(left)}px`;
+  bar.style.top = `${Math.round(y)}px`;
 }
 
 // Shared by every item's own click handler (sketch/node/object) — a plain
@@ -3960,6 +4008,35 @@ async function initWhiteboard() {
   // `wbSelectedItem`/`wbState`, and the copy-style actions need them too.
   document.getElementById("wb-copy-style")?.addEventListener("click", wbCopySelectedStyle);
   document.getElementById("wb-paste-style")?.addEventListener("click", wbPasteCopiedStyle);
+  // The floating selection bar's buttons reuse the keyboard paths exactly
+  // (Ctrl+D, Ctrl+Alt+C/V, [ ], Delete) so the two can never disagree.
+  const selBar = document.getElementById("wb-selection-bar");
+  if (selBar) {
+    selBar.addEventListener("mousedown", (e) => e.preventDefault()); // keep the board's focus
+    const zOrder = (toFront) => {
+      const sel = wbSelectedItem;
+      const item = sel && (wbState[WB_LIST_BY_KIND[sel.kind]] || []).find((i) => i.id === sel.id);
+      if (!item) return;
+      wbSetZOrder(sel.kind, item, toFront).then((undo) => {
+        if (undo) wbPushUndo(undo);
+        wbScheduleRender();
+      });
+    };
+    const actions = {
+      "wb-selbar-duplicate": () => {
+        const kept = wbClipboard;
+        if (wbCopySelection()) wbPasteClipboard().finally(() => { wbClipboard = kept; });
+      },
+      "wb-selbar-copy-style": () => wbCopySelectedStyle(),
+      "wb-selbar-paste-style": () => wbPasteCopiedStyle(),
+      "wb-selbar-back": () => zOrder(false),
+      "wb-selbar-forward": () => zOrder(true),
+      "wb-selbar-delete": () => deleteWbSelection(),
+    };
+    for (const [id, fn] of Object.entries(actions)) {
+      document.getElementById(id)?.addEventListener("click", (e) => { e.stopPropagation(); fn(); });
+    }
+  }
   document.getElementById("wb-prop-color")?.addEventListener("change", async (e) => {
     const sketch = wbSelectedSketchOrNull();
     if (sketch) {
@@ -6061,6 +6138,7 @@ function wbScheduleRender() {
   requestAnimationFrame(() => {
     wbRenderQueued = false;
     renderWhiteboard();
+    wbUpdateSelectionBar();
   });
 }
 

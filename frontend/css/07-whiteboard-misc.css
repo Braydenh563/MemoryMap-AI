@@ -6235,3 +6235,34 @@ button.connection-row {
 #wb-properties-panel .wb-properties-group input[type="range"] {
   width: 6.5rem;
 }
+
+/* The floating selection toolbar (wbUpdateSelectionBar): a pill just above
+   the selected item, in the view's coordinates. Above the drawer and the
+   overview (z 22 > 20) but under any modal. */
+.wb-selection-bar {
+  position: absolute;
+  z-index: 22;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  box-shadow: var(--glass-shadow);
+  white-space: nowrap;
+}
+
+.wb-selection-bar button {
+  height: 1.75rem;
+  width: 1.75rem;
+  min-width: 0;
+  border-radius: var(--radius-pill);
+}
+
+.wb-selection-bar .wb-topbar-divider {
+  height: 1rem;
+}

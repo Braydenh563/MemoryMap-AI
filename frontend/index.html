@@ -3552,6 +3552,18 @@ Link to another note with [[its first few words]]."></textarea>
       <button id="wb-zoom-in" class="ghost small icon-only" title="Zoom in" aria-label="Zoom in"><i class="ph ph-plus" aria-hidden="true"></i></button>
     </div>
 
+    <!-- The floating selection toolbar — see wbUpdateSelectionBar. -->
+    <div id="wb-selection-bar" class="wb-selection-bar card glass hidden" role="toolbar" aria-label="Selected item">
+      <button type="button" id="wb-selbar-duplicate" class="ghost small icon-only" title="Duplicate (Ctrl+D)" aria-label="Duplicate"><i class="ph ph-copy" aria-hidden="true"></i></button>
+      <button type="button" id="wb-selbar-copy-style" class="ghost small icon-only" title="Copy style (Ctrl+Alt+C)" aria-label="Copy style"><i class="ph ph-eyedropper" aria-hidden="true"></i></button>
+      <button type="button" id="wb-selbar-paste-style" class="ghost small icon-only" title="Paste style (Ctrl+Alt+V)" aria-label="Paste style"><i class="ph ph-paint-bucket" aria-hidden="true"></i></button>
+      <span class="wb-topbar-divider" aria-hidden="true"></span>
+      <button type="button" id="wb-selbar-back" class="ghost small icon-only" title="Send backward ([)" aria-label="Send backward"><i class="ph ph-arrow-line-down" aria-hidden="true"></i></button>
+      <button type="button" id="wb-selbar-forward" class="ghost small icon-only" title="Bring forward (])" aria-label="Bring forward"><i class="ph ph-arrow-line-up" aria-hidden="true"></i></button>
+      <span class="wb-topbar-divider" aria-hidden="true"></span>
+      <button type="button" id="wb-selbar-delete" class="ghost small icon-only danger" title="Delete (Del)" aria-label="Delete"><i class="ph ph-trash" aria-hidden="true"></i></button>
+    </div>
+
     <!-- The navigator: a live minimap of the whole board with a draggable
          viewport rectangle. Anchored to the bottom-right corner of the canvas
          rather than to the zoom panel itself, because that panel is draggable

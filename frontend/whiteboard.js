@@ -5027,12 +5027,10 @@ async function initWhiteboard() {
     if (!window.currentTool || !window.currentTool.startsWith("link-")) return;
     if (wbLinkDragActive) return;
     const [x, y] = getLogicalMouse(e);
-    let hoverNode = null;
-    for (const node of wbState.nodes || []) {
-      const box = wbItemBBox("node", node);
-      if (box && x >= box.minX && x <= box.maxX && y >= box.minY && y <= box.maxY) { hoverNode = node; break; }
-    }
-    if (hoverNode) wbShowAnchorHints("node", hoverNode, wbNearestAnchor("node", hoverNode, x, y));
+    // Every linkable thing, in its rotated frame — this was cards only, on
+    // their unrotated box (reported: stickies "light up" wrong).
+    const hit = wbLinkCandidateAt(x, y);
+    if (hit) wbShowAnchorHints(hit[0], hit[1], wbNearestAnchor(hit[0], hit[1], x, y));
     else wbClearAnchorHints();
   });
 
@@ -6011,13 +6009,11 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
     });
   }
 
-  const hoveredNodeAt = (px, py) => {
-    for (const node of wbState.nodes) {
-      const box = wbItemBBox("node", node);
-      if (px >= box.minX && px <= box.maxX && py >= box.minY && py <= box.maxY) return node;
-    }
-    return null;
-  };
+  //: Dragging a link's end onto something: any card, text box, sticky or
+  //: shape, tested in its rotated frame. This was cards on their unrotated
+  //: box, so an end dropped on a rotated sticky became a free point that
+  //: floated just off it (reported, with a screenshot).
+  const hoveredItemAt = (px, py) => wbLinkCandidateAt(px, py);
 
   for (const end of ["source", "target"]) {
     const other = end === "source" ? "target" : "source";
@@ -6052,21 +6048,24 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", previewD);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", previewD);
 
-            const hoverNode = hoveredNodeAt(live.x, live.y);
-            if (hoverNode) wbShowAnchorHints("node", hoverNode, wbNearestAnchor("node", hoverNode, live.x, live.y));
+            const hit = hoveredItemAt(live.x, live.y);
+            if (hit) wbShowAnchorHints(hit[0], hit[1], wbNearestAnchor(hit[0], hit[1], live.x, live.y));
             else wbClearAnchorHints();
           })
           .on("end", async () => {
             wbClearAnchorHints();
             const before = WB_KIND_INFO.sketch.payload(sketch);
-            const hoverNode = hoveredNodeAt(live.x, live.y);
+            const hit = hoveredItemAt(live.x, live.y);
             const partial = {};
-            if (hoverNode) {
-              partial[end + "Id"] = hoverNode.id;
-              partial[end + "Anchor"] = wbNearestAnchor("node", hoverNode, live.x, live.y) || undefined;
+            if (hit) {
+              const [kind, item] = hit;
+              partial[end + "Id"] = item.id;
+              partial[end + "Kind"] = kind === "node" ? undefined : kind;
+              partial[end + "Anchor"] = wbNearestAnchor(kind, item, live.x, live.y) || undefined;
               partial[end + "Point"] = undefined;
             } else {
               partial[end + "Id"] = undefined;
+              partial[end + "Kind"] = undefined;
               partial[end + "Anchor"] = undefined;
               partial[end + "Point"] = { x: live.x, y: live.y };
             }

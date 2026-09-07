@@ -136,6 +136,14 @@ list at the end.
 - **Not done**: a per-sub-tab redesign of the Notes tab — asked for, but
   it is a design pass, not a fix; nothing was measured or changed there.
 
+- Rotated stickies, again (screenshot: a link end floating just off a 45°
+  sticky): two more code paths still hit-tested cards only, on the
+  unrotated box — the pre-drag anchor hints and the **link endpoint-handle
+  drag**, whose drop therefore became a free point beside the sticky. Both
+  now go through `wbLinkCandidateAt` (every kind, rotated frame) and the
+  drop stores `sourceKind`/`targetKind`. Verified: a link drawn onto a 45°
+  sticky ends on its rotated border.
+
 ### Open — in the order the user is likely to hit them
 
 1. Whiteboard: group transform of a multi-selection; frames; text on

@@ -44,7 +44,8 @@ def _node(client, board_id, *, parent_id=None, text="", kind="topic", ref_id=Non
 def _purge(client, entry_id):
     """The bin, then the bin emptied — the only path to a permanent delete,
     and the one the Library's own Delete action starts down."""
-    assert client.delete(f"/entries/{entry_id}").status_code == 200
+    binned = client.delete(f"/entries/{entry_id}")
+    assert binned.status_code == 200, binned.text
     purged = client.delete(f"/entries/{entry_id}/purge")
     assert purged.status_code == 200, purged.text
 
@@ -142,7 +143,8 @@ def test_deleting_a_reference_node_leaves_the_note_alone(client, session):
     board = _map(client)
     reference = _node(client, board["id"], kind="note", ref_id=note["id"])
 
-    assert client.delete(f"/whiteboard/objects/{reference['id']}").status_code == 200
+    removed = client.delete(f"/whiteboard/objects/{reference['id']}")
+    assert removed.status_code == 200, removed.text
 
     survivor = session.get(Entry, note["id"])
     assert survivor is not None and not survivor.is_deleted

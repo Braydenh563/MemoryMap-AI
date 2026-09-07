@@ -1833,8 +1833,21 @@ def _parse_opml(content: str) -> tuple[str, list[dict]]:
     Nothing else in this app parses XML from anywhere, and no real OPML file
     needs a DTD — so the door refuses one, which is a check that stays
     correct even if the parser behind it is swapped later.
+
+    The parser behind it is `defusedxml`, not the stdlib: the string check
+    above is belt, this is braces. defusedxml refuses entity declarations at
+    the parser level, and it is also the only shape CodeQL's
+    `py/xml-bomb` query accepts as safe — the stdlib call was flagged as a
+    high-severity alert on this PR even with the guard in front of it.
     """
-    import xml.etree.ElementTree as ET
+    try:
+        from defusedxml import ElementTree as ET
+        from defusedxml.common import DefusedXmlException
+    except ImportError as exc:  # a hand-rolled install that skipped requirements.txt
+        raise HTTPException(
+            status_code=503,
+            detail="OPML import needs the defusedxml package: pip install defusedxml",
+        ) from exc
 
     lowered = content.lower()
     if "<!doctype" in lowered or "<!entity" in lowered:
@@ -1844,7 +1857,7 @@ def _parse_opml(content: str) -> tuple[str, list[dict]]:
         )
     try:
         root = ET.fromstring(content)
-    except ET.ParseError as exc:
+    except (ET.ParseError, DefusedXmlException) as exc:
         raise HTTPException(status_code=422, detail=f"That isn't valid OPML: {exc}") from exc
 
     title = ""

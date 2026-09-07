@@ -2531,8 +2531,31 @@ label.setting-check,
    hidden the editor is the first grid child and auto-places into track one,
    which is capped at 18rem. The sidebar track has to go with the sidebar. */
 .doc-layout:has(> #doc-sidebar.hidden),
-.doc-layout:has(> #doc-sidebar[hidden]) {
-  grid-template-columns: 1fr;
+.doc-layout:has(> #doc-sidebar[hidden]),
+.doc-layout:not(:has(> #doc-sidebar)) {
+  /* `!important` on purpose, and measured: the sidebar's resize handle
+     writes the column widths *inline* (`260px 965px` was the computed value
+     with the sidebar hidden), and an inline style beats every selector
+     there is except this. Without it the editor was pinned to a column that
+     still existed at the sidebar's saved width. */
+  grid-template-columns: 1fr !important;
+}
+
+
+/* Belt to the `:has()` braces above: whatever hides the sidebar (a class this
+   file never heard of, `display: none` from a focus mode, the element removed
+   outright), the editor is pinned to the second track and can never be
+   auto-placed into the sidebar's 18rem one. Measured: with `#doc-sidebar`
+   hidden the dock was 218px wide and the panes 0px tall before this. */
+.doc-layout > :not(#doc-sidebar) {
+  grid-column: 2;
+  min-width: 0;
+}
+
+.doc-layout:has(> #doc-sidebar.hidden) > :not(#doc-sidebar),
+.doc-layout:has(> #doc-sidebar[hidden]) > :not(#doc-sidebar),
+.doc-layout:not(:has(> #doc-sidebar)) > :not(#doc-sidebar) {
+  grid-column: 1;
 }
 
 .doc-layout {

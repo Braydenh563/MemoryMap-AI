@@ -5834,8 +5834,13 @@ function renderWhiteboard() {
     .style("cursor", () => (window.currentTool === "delete" || window.currentTool === "eraser" || window.currentTool === "select") ? "pointer" : "default")
     .call(sketchDrag)
     .on("click", (event, d) => {
-      if (window.currentTool === "select") {
+      // ROADMAP row 0(b), asked for directly: with the Hand active, a plain
+      // click on something switches to Select and selects it. A pan is a
+      // drag; a click that moved nothing is a choice of *this*, and every
+      // whiteboard app (Miro, FigJam, tldraw) reads it that way.
+      if (window.currentTool === "select" || window.currentTool === "pan") {
         event.stopPropagation(); // don't also hit the "empty canvas clears selection" handler
+        if (window.currentTool === "pan") wbSelectToolRef?.("select");
         wbHandleItemClick("sketch", d.id, event);
         return;
       }
@@ -6096,8 +6101,13 @@ function renderWhiteboard() {
       .on("drag", dragging)
       .on("end", dragEndNode))
     .on("click", (event, d) => {
-      if (window.currentTool === "select") {
+      // ROADMAP row 0(b), asked for directly: with the Hand active, a plain
+      // click on something switches to Select and selects it. A pan is a
+      // drag; a click that moved nothing is a choice of *this*, and every
+      // whiteboard app (Miro, FigJam, tldraw) reads it that way.
+      if (window.currentTool === "select" || window.currentTool === "pan") {
         event.stopPropagation();
+        if (window.currentTool === "pan") wbSelectToolRef?.("select");
         wbHandleItemClick("node", d.id, event);
         return;
       }
@@ -6488,8 +6498,13 @@ function renderWbObjects(canvas) {
     .style("z-index", (d) => d.z)
     .call(objDrag)
     .on("click", (event, d) => {
-      if (window.currentTool === "select") {
+      // ROADMAP row 0(b), asked for directly: with the Hand active, a plain
+      // click on something switches to Select and selects it. A pan is a
+      // drag; a click that moved nothing is a choice of *this*, and every
+      // whiteboard app (Miro, FigJam, tldraw) reads it that way.
+      if (window.currentTool === "select" || window.currentTool === "pan") {
         event.stopPropagation();
+        if (window.currentTool === "pan") wbSelectToolRef?.("select");
         wbHandleItemClick("object", d.id, event);
         return;
       }

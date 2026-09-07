@@ -4114,7 +4114,13 @@ function openLightbox(items, startIndex = 0) {
         const updated = await (window.trackOcrRead || ((_i, _l, p) => p))(
           item,
           `${busyText} ${name}`,
-          apiJson(`/media/${item.id}${endpoint}`, { method: "POST" })
+          //: `force: true`, always. Reported: "the image captioning and ocr didnt
+          //: work when I didnt like the output, deleted what was there and
+          //: tried to do it again." A click on Describe / Read *is* the
+          //: request to do it again — the server's "keep what exists" guard is
+          //: for the automatic pass on upload, not for a person pressing the
+          //: button a second time.
+          apiJson(`/media/${item.id}${endpoint}`, { method: "POST", body: JSON.stringify({ force: true }) })
         );
         applyTo(item, updated);
         //: Only if this lightbox is still the one on screen. `renderInfo`

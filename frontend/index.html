@@ -3574,6 +3574,19 @@ Link to another note with [[its first few words]]."></textarea>
            Same ids, so every listener in whiteboard.js is unchanged; the
            panel's own show/hide learns about drawing tools in
            `wbUpdatePropertiesPanel`. -->
+      <!-- Copy a style off one thing and onto another — asked for directly.
+           Here rather than in the tool row because this panel is now where
+           style lives, and because both actions read the current selection,
+           which is what this panel is already about. -->
+      <div class="wb-properties-group" id="wb-style-transfer-group">
+        <span class="wb-properties-group-label">Copy style</span>
+        <div class="wb-properties-row">
+          <button type="button" id="wb-copy-style" class="ghost small"
+            title="Copy this item's colour, thickness and fill (Ctrl+Alt+C)">Copy</button>
+          <button type="button" id="wb-paste-style" class="ghost small"
+            title="Paste the copied style onto what is selected (Ctrl+Alt+V)">Paste</button>
+        </div>
+      </div>
       <div class="wb-properties-group" id="wb-tool-style-group">
         <span class="wb-properties-group-label">Draw with</span>
         <label class="wb-properties-row">

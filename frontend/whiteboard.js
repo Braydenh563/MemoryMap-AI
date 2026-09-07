@@ -1459,6 +1459,101 @@ const WB_STYLE_TOOLS = new Set([
   "triangle", "diamond", "text", "link-straight", "link-curved", "bucket",
 ]);
 
+//: The two "what is selected, if it is of this kind" lookups. Module-level
+//: because both the properties panel's own controls and the copy-style
+//: actions below need them, and they close over nothing but module state.
+function wbSelectedSketchOrNull() {
+  if (!wbSelectedItem || wbSelectedItem.kind !== "sketch") return null;
+  return wbState.sketches.find((s) => s.id === wbSelectedItem.id) || null;
+}
+
+function wbSelectedTextObjectOrNull() {
+  if (!wbSelectedItem || wbSelectedItem.kind !== "object") return null;
+  const obj = wbState.objects?.find((o) => o.id === wbSelectedItem.id);
+  return obj && obj.kind === "text" ? obj : null;
+}
+
+//: **Copy a style off one thing and put it on another.** Asked for directly:
+//: "I want a tool or way to copy styles of shapes and links and add them to
+//: another shape or link connector of a similar type."
+//:
+//: Modelled on Excalidraw's copy/paste-style rather than on PowerPoint's
+//: format-painter *mode*: select a source, copy, select a target, paste. A
+//: painter mode would mean a third cursor state and a "what am I armed with"
+//: question on every click; this reuses the selection the board already has.
+//:
+//: "A similar type" is enforced, not assumed — a text box's style is its
+//: font size and its background, a sketch's is its stroke and fill, and
+//: pasting one onto the other would either do nothing or write fields the
+//: renderer does not read. The copy remembers which kind it came from and
+//: refuses the mismatch out loud.
+let wbCopiedStyle = null; // { kind: "sketch" | "object", style: {...} }
+
+// Only the fields that are style. Deliberately not `d` (the geometry), not
+// `type`, not position — pasting a style must never move or reshape the
+// thing it lands on.
+const WB_SKETCH_STYLE_KEYS = [
+  "color", "width", "dash", "fill", "fillOpacity", "noStroke", "startCap", "endCap",
+];
+const WB_OBJECT_STYLE_KEYS = ["color", "bg", "border_color", "font_size"];
+
+function wbPickStyle(source, keys) {
+  const out = {};
+  for (const key of keys) if (source?.[key] !== undefined) out[key] = source[key];
+  return out;
+}
+
+function wbCopySelectedStyle() {
+  const sketch = wbSelectedSketchOrNull();
+  if (sketch) {
+    let parsed = null;
+    try { parsed = JSON.parse(sketch.data); } catch { parsed = null; }
+    if (!parsed) return toast("That item has no style to copy.");
+    wbCopiedStyle = { kind: "sketch", style: wbPickStyle(parsed, WB_SKETCH_STYLE_KEYS) };
+    return toast("Style copied. Select a shape or link and press Ctrl+Alt+V.");
+  }
+  const obj = wbSelectedTextObjectOrNull();
+  if (obj) {
+    wbCopiedStyle = { kind: "object", style: wbPickStyle(obj.data, WB_OBJECT_STYLE_KEYS) };
+    return toast("Style copied. Select a text box and press Ctrl+Alt+V.");
+  }
+  toast("Select a shape, link or text box first.");
+}
+
+async function wbPasteCopiedStyle() {
+  if (!wbCopiedStyle) return toast("Copy a style first (Ctrl+Alt+C).");
+  // Every item in a multi-selection, so restyling a diagram is one action
+  // rather than one per shape — the same reach `wbApplyBulkMove` already has.
+  const entries = wbMultiSelection.size > 0
+    ? wbSelectionEntries()
+    : (wbSelectedItem ? [wbSelectedItem] : []);
+  if (!entries.length) return toast("Select something to paste the style onto.");
+
+  let applied = 0;
+  let skipped = 0;
+  for (const entry of entries) {
+    const list = wbState[WB_LIST_BY_KIND[entry.kind]] || [];
+    const item = list.find((i) => i.id === entry.id);
+    if (!item) continue;
+    if (entry.kind === "sketch" && wbCopiedStyle.kind === "sketch") {
+      await wbSaveSketchProps(item, { ...wbCopiedStyle.style });
+      applied += 1;
+    } else if (entry.kind === "object" && wbCopiedStyle.kind === "object" && item.kind === "text") {
+      item.data = { ...item.data, ...wbCopiedStyle.style };
+      await wbSaveObject(item);
+      applied += 1;
+    } else {
+      skipped += 1;
+    }
+  }
+  wbScheduleRender();
+  wbUpdatePropertiesPanel();
+  if (!applied) return toast("That style does not fit what you selected.");
+  toast(skipped
+    ? `Style pasted onto ${applied}. ${skipped} skipped — a different kind of item.`
+    : `Style pasted onto ${applied}.`);
+}
+
 function wbUpdatePropertiesPanel() {
   const panel = document.getElementById("wb-properties-panel");
   if (!panel) return;
@@ -3634,16 +3729,11 @@ async function initWhiteboard() {
 
   // The properties panel's own controls — each reads `wbSelectedItem` fresh
   // at change time rather than closing over it, since the panel can stay
-  // open across several edits to the same selection.
-  function wbSelectedSketchOrNull() {
-    if (!wbSelectedItem || wbSelectedItem.kind !== "sketch") return null;
-    return wbState.sketches.find((s) => s.id === wbSelectedItem.id) || null;
-  }
-  function wbSelectedTextObjectOrNull() {
-    if (!wbSelectedItem || wbSelectedItem.kind !== "object") return null;
-    const obj = wbState.objects?.find((o) => o.id === wbSelectedItem.id);
-    return obj && obj.kind === "text" ? obj : null;
-  }
+  // open across several edits to the same selection. The two lookups these
+  // use are module-level (see above `wbCopySelectedStyle`): they read only
+  // `wbSelectedItem`/`wbState`, and the copy-style actions need them too.
+  document.getElementById("wb-copy-style")?.addEventListener("click", wbCopySelectedStyle);
+  document.getElementById("wb-paste-style")?.addEventListener("click", wbPasteCopiedStyle);
   document.getElementById("wb-prop-color")?.addEventListener("change", async (e) => {
     const sketch = wbSelectedSketchOrNull();
     if (sketch) {
@@ -4234,6 +4324,13 @@ async function initWhiteboard() {
       const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
       wbNudgeSelection(dx, dy);
       return;
+    }
+    // Copy/paste style — Ctrl+Alt+C / Ctrl+Alt+V, the chord Excalidraw uses,
+    // and checked before the modifier bail-out below since it *is* a chord.
+    if ((e.ctrlKey || e.metaKey) && e.altKey && !e.shiftKey) {
+      const key = e.key.toLowerCase();
+      if (key === "c") { e.preventDefault(); wbCopySelectedStyle(); return; }
+      if (key === "v") { e.preventDefault(); wbPasteCopiedStyle(); return; }
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser/OS shortcuts alone
     const mapped = WB_TOOL_KEYS[e.key.toLowerCase()];

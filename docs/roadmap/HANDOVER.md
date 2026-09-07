@@ -132,6 +132,36 @@ belongs in the file that registers the listener.**
   the report persists it is one of those, and the same hide-until-placed
   shape applies.
 
+- **v0.2.2, the live-report round.** Fixed and measured: the formatting-toolbar
+  dropdowns (a regression I introduced the session before — the hide-until-
+  placed fix left the menu's whole appearance behind `.is-placed`, and since
+  `clampToolbarMenu` gives up at 0x0 the class was never added; verified after
+  as opaque rgb(24,27,37), flex column, 192x209, 4px under its button); the
+  librarian not stopping when switched off; agent notices ignoring mute and
+  "Panel only"; per-page PDF readings never reaching the library rows (two new
+  tests); chat scroll sticking after a scroll-up (`scroll-behavior: smooth` on
+  a pane written every frame); a caret per finished answer step and the caret
+  landing under a list; the Notes → Capture horizontal scrollbar (measured as
+  exactly the scrollbar's own width of phantom overflow at 1440/1280/1100);
+  model names clipped at both ends and carrying `hf.co/`; the OCR model not
+  counting as in use; line numbers against a soft-wrapping pane; the OCR
+  Workspace's two panes now scroll to each other both ways; Stop gets its icon
+  and the error colour; Tab indents four spaces; one menu shell; one shell
+  gutter; the zoom readout became a HUD so mute cannot hide it.
+  **Open, with plans written**: the skills/agent reform
+  ([AGENT_SKILLS_REFORM.md](AGENT_SKILLS_REFORM.md), all four phases) and six
+  UI items ([UI_MODERNISATION_PLAN.md](UI_MODERNISATION_PLAN.md) Phase 7) —
+  the document lightbox, line numbers as a setting in all three editors,
+  captioning for documents rather than photographs, drag-to-select region OCR,
+  the Files row's long-text problem, and the agent activity panel.
+  **Not reproduced, so not fixed**: "the streaming response animation icon
+  doesnt move" — the trace SVG's keyframes are declared and `data-motion` read
+  `auto` with `prefers-reduced-motion` false in the sandbox, so whatever stops
+  it is not visible from here; and the browser errors after turning battery
+  saver on, which needs the console from a real run. **Not verified**: whether
+  tool calls render in the chat transcript on all three paths (logged as
+  AGENT_SKILLS_REFORM Phase C).
+
 ### Open — carried over from before this session, never started
 
 The user asked, twice, for a scan of the whole conversation so nothing slipped.

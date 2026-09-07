@@ -39,6 +39,17 @@ border budget, the button ramp, one eyebrow, seg semantics, one card radius,
 one shell gutter, the Files tick, toolbar menus hidden until placed, the
 Contents strip. Everything else in the plan is open.
 
+## ► TOP PRIORITY, second half: the agent and skills reform
+
+**[roadmap/AGENT_SKILLS_REFORM.md](roadmap/AGENT_SKILLS_REFORM.md)** — the
+other thing asked for in the same breath as the UI: "the way skills work is
+waaayyy too strict on smaller models ... the models often dont even properly
+complete a step before they are prompted for the next step. its an absolute
+mess. the whole system needs a reform." Four phases: a step gets a
+machine-checkable contract and is re-prompted rather than skipped; a
+small-model mode that offers one tool per step; the run as a collapsible
+object instead of a text dump; and recovery from a stalled step.
+
 ## ► START HERE: the redesign is the priority
 
 A full UX/architecture re-imagining was asked for and is written up in

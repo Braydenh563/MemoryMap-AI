@@ -886,6 +886,32 @@ class PageRead(Base):
     #: this" is the first question when a transcription looks wrong.
     model: Mapped[str] = mapped_column(String(200), default="")
     text: Mapped[str] = mapped_column(Text, default="")
+    #: **A description of this page, which is not the same claim as its text.**
+    #:
+    #: Asked for directly: *"image captioning, how it is done and displayed
+    #: needs to be refined for pdf documents and other similar documents. with
+    #: graphs, images and diagrams in them."*
+    #:
+    #: `MediaUpload.caption` is one caption for one file, which is the right
+    #: shape for a photograph and the wrong one for a twenty-page slide deck:
+    #: the figures are per page, and a single sentence about "the document"
+    #: describes none of them. A page already has a row here — the per-page
+    #: reading lives on it — so the per-page description belongs on the same
+    #: row rather than in a second table keyed the same three ways.
+    #:
+    #: Written and read independently of `text`: a page can be described
+    #: without being transcribed and vice versa, so neither read path clears
+    #: the other's column (see `_remember_page_read` and `_remember_page_caption`
+    #: in routes_files.py, which is why they are two functions).
+    #:
+    #: Additive columns with scalar defaults, so the auto-migrator in this
+    #: module backfills every existing `page_reads` row with `""` rather than
+    #: needing a migration of its own — the same treatment every other column
+    #: added to this schema has had.
+    caption: Mapped[str] = mapped_column(Text, default="")
+    #: Which model wrote `caption`, surfaced in the UI for the same reason
+    #: `model` is: a description is one model's guess, not the app's opinion.
+    caption_model: Mapped[str] = mapped_column(String(200), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 

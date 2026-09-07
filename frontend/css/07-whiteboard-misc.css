@@ -5148,6 +5148,47 @@ button.connection-row {
   background: var(--inner);
 }
 
+/* A page can be *described* without being transcribed (Phase 7.3), which is a
+   state this paragraph had never had to render. Said plainly and not editable
+   — see `ocrRenderRegions` for why typing into it would be worse than nothing.
+   Quiet, because it is an absence, not a warning. */
+.ocr-region-text-empty {
+  color: var(--muted);
+  font-style: italic;
+  cursor: default;
+}
+
+.ocr-region-text-empty:hover {
+  background: none;
+}
+
+/* **What the figures on this page show**, under what the page says (Phase 7.3:
+   "a place to show it… per page — not one line under a thumbnail").
+
+   A description and a transcription are different claims about the same page,
+   so this is a labelled block rather than more text appended to the reading —
+   the same separation the Library tile's own fields already draw, and for the
+   same report ("I feel the image captions and ocr extractions should be
+   separated and labeled"). Tone, not a border: `--surface-3` is the step below
+   the panel this sits in, which is what the surface-tier rule in DESIGN.md
+   asks for instead of a line inside a line. */
+.ocr-region-caption {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+/* The chip is inline with the sentence rather than above it: this is one line
+   of prose with its provenance attached, not a section with a heading. */
+.ocr-region-caption-label {
+  margin-inline-end: var(--space-2);
+  vertical-align: baseline;
+}
+
 .ocr-message:not(.hidden) {
   margin: 0;
 }

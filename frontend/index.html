@@ -4547,12 +4547,20 @@ Link to another note with [[its first few words]]."></textarea>
                  Reported: "the button is also ugly and not good where it is." -->
             <button id="ocr-delete-reading" class="ghost small icon-only danger hidden" type="button"
               title="Delete this reading (you can read it again any time)" aria-label="Delete this reading"><i class="ph ph-trash" aria-hidden="true"></i></button>
-            <!-- Images only (hidden for a document): the caption half of what
-                 the app knows about a picture, written by the same vision
-                 model Settings chose, kept beside the reading half so the
-                 two are managed in one place. -->
+            <!-- The caption half of what the app knows about what is on the
+                 stage, written by the same vision model Settings chose, kept
+                 beside the reading half so the two are managed in one place.
+
+                 **Documents too, a page at a time** (UI_MODERNISATION_PLAN
+                 Phase 7.3). This used to be images-only, which is why a slide
+                 deck full of charts could not be described at all: the
+                 file-level caption route refuses a PDF, and the one surface
+                 built for reading documents hid the button. For a PDF the
+                 label becomes "Describe this page" and it calls the per-page
+                 route, whose prompt asks about figures rather than "what does
+                 this image show". -->
             <button id="ocr-describe" class="ghost small hidden" type="button"
-              title="Describe this image with the vision model (writes its caption)"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Describe</button>
+              title="Describe this image with the vision model (writes its caption)"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> <span id="ocr-describe-label">Describe</span></button>
             <button id="ocr-copy-all" class="ghost small icon-only" type="button"
               title="Copy everything read, in reading order" aria-label="Copy everything read"><i class="ph ph-copy" aria-hidden="true"></i></button>
             <!-- The reading is only worth having if it can leave this window.

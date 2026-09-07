@@ -2427,6 +2427,11 @@ let ocrWorkspaceRegions = [];
 //: are. 0/1 for an image, which is a one-page document with no rail.
 let ocrWorkspacePage = 0;
 let ocrWorkspacePages = 1;
+//: page index -> `{caption, caption_model}` for the document on the stage.
+//: Filled from the `page-reads` response (which carries a page's description
+//: on the same row as its reading), cleared and refilled on every page load so
+//: it can never describe the previous document's page 3.
+const ocrPageCaptions = new Map();
 
 function ocrIsPdf(image) {
   return Boolean(image) && /\.pdf$/i.test(image.original_name || image.filename || "");
@@ -2790,7 +2795,15 @@ function ocrRenderRegions(body) {
     }
     const text = document.createElement("p");
     text.className = "ocr-region-text";
-    text.textContent = region.text;
+    //: **A page can now have a description and no reading** (Phase 7.3), which
+    //: is a state this paragraph had never had to render: an empty
+    //: `contenteditable` box under a filled description reads as a reading that
+    //: was lost rather than one that was never asked for. Said plainly, and not
+    //: editable — typing into it would file invented text as a transcription,
+    //: which is the failure `VisionOcrBody.text` exists to let people *undo*.
+    const hasText = Boolean((region.text || "").trim());
+    text.textContent = hasText ? region.text : "Not transcribed yet.";
+    text.classList.toggle("ocr-region-text-empty", !hasText);
     //: **A misread line is fixable where you can see it.** Every reader gets
     //: words wrong — Tesseract on a bad scan, a vision model inventing a line
     //: that was not there (the failure `VisionOcrBody.text` already exists to
@@ -2805,9 +2818,11 @@ function ocrRenderRegions(body) {
     //: be: this is a working copy of one page, and quietly overwriting the
     //: file's own transcription from a click in a preview would be the app
     //: deciding something it was not asked to decide.
-    text.contentEditable = "plaintext-only";
+    text.contentEditable = hasText ? "plaintext-only" : "false";
     text.spellcheck = false;
-    text.title = "Click to correct what was read";
+    text.title = hasText
+      ? "Click to correct what was read"
+      : "Nothing has been transcribed from this page yet — use Read this page";
     text.addEventListener("input", () => {
       const found = ocrWorkspaceRegions.find((item) => item.index === region.index);
       if (found) found.text = text.textContent;
@@ -2816,6 +2831,35 @@ function ocrRenderRegions(body) {
     //: the row's own handler steals the click and the caret never lands.
     text.addEventListener("click", (event) => event.stopPropagation());
     row.append(head, text);
+    //: **The page's description, under the page's reading** (Phase 7.3, "a
+    //: place to show it… per page — not one line under a thumbnail"). What the
+    //: figures on this page *show* is a different claim from what the page
+    //: *says*, so it is a separate, labelled block rather than more text
+    //: appended to the transcription — the exact confusion the Library tile's
+    //: own labelled fields were built to fix ("I feel the image captions and
+    //: ocr extractions should be separated and labeled").
+    //:
+    //: Not editable, unlike the reading above it: a transcription can be
+    //: *wrong* about what the page says and a person can fix it, while a
+    //: description is one model's reading of a figure — re-describing it is
+    //: the correction, and `Describe this page` is one click away.
+    if ((region.caption || "").trim()) {
+      const figures = document.createElement("p");
+      figures.className = "ocr-region-caption";
+      const label = document.createElement("span");
+      label.className = "chip ocr-region-caption-label";
+      const who = shortModelName(region.caption_model || "");
+      label.textContent = who ? `Figures · ${who}` : "Figures";
+      label.title = region.caption_model
+        ? `Described by ${region.caption_model}`
+        : "What this page's figures, charts and diagrams show";
+      //: `sentence`, not `body` — `body` is this function's own parameter, and
+      //: shadowing it here would silently rebind it for everything below.
+      const sentence = document.createElement("span");
+      sentence.textContent = region.caption;
+      figures.append(label, sentence);
+      row.appendChild(figures);
+    }
     row.addEventListener("click", () => ocrSelectRegion(region.index));
     ocrWireRegionJump(row);
     list.appendChild(row);
@@ -2842,6 +2886,11 @@ async function ocrStoredPageReads(image) {
 async function ocrLoadPage(image, page = 0, opts = {}) {
   ocrWorkspaceCurrent = image;
   ocrWorkspacePage = Math.max(0, page);
+  //: Whatever page descriptions are on screen belong to the *previous* load.
+  //: Cleared here rather than where they are filled, because the two early
+  //: returns below (a text file, a failed request) never reach that point and
+  //: would leave another document's figures described under this one's page.
+  ocrPageCaptions.clear();
   //: What to reopen, if this window is closed while a read is still running.
   ocrLastOpened = { image, page: ocrWorkspacePage };
   //: Which file this is. Four surfaces can open this dialog, and a header
@@ -2976,15 +3025,38 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     //: something: a Tesseract reading with real box positions is a better
     //: answer than stored text, and this must not overwrite it.
     const stored = ocrIsPdf(image) ? await ocrStoredPageReads(image) : null;
-    const storedPages = (stored?.pages || []).filter((p) => (p.text || "").trim());
+    //: **Per-page descriptions, from the same response** (Phase 7.3). A page's
+    //: reading and its description live on one `PageRead` row, so one request
+    //: carries both; keeping them in a map keyed by page is what lets the
+    //: caption line above name the page on screen while the panels below name
+    //: their own. (Cleared at the top of `ocrLoadPage`, not here — an image
+    //: never reaches this branch and would otherwise keep showing the last
+    //: document's page 3.)
+    for (const entry of stored?.pages || []) {
+      if ((entry.caption || "").trim()) {
+        ocrPageCaptions.set(Number(entry.page) || 0, {
+          caption: entry.caption.trim(),
+          caption_model: entry.caption_model || "",
+        });
+      }
+    }
+    const storedPages = (stored?.pages || []).filter(
+      //: A page that has only been *described* still belongs in this list —
+      //: it is something the app knows about that page, and leaving it out
+      //: meant a described-but-unread page rendered as "nothing read yet"
+      //: with its description nowhere on screen.
+      (p) => (p.text || "").trim() || (p.caption || "").trim()
+    );
     if (storedPages.length && body.source !== "tesseract") {
       ocrRenderRegions({
         regions: storedPages.map((entry, index) => ({
           index,
           kind: "text",
-          text: entry.text.trim(),
+          text: (entry.text || "").trim(),
           confidence: 0,
           box: { x: 0, y: 0, w: 1, h: 1 },
+          caption: (entry.caption || "").trim(),
+          caption_model: entry.caption_model || "",
           //: Which page this reading is *of* — the row's own badge and its
           //: delete button both need it, and `body.page` is only the page
           //: currently on screen.
@@ -3002,12 +3074,37 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     //: managed side by side (reported: "a lot of disconnect between files and
     //: images regarding ocr and image captioning").
     const isImage = !ocrIsPdf(image);
-    $("ocr-describe")?.classList.toggle("hidden", !isImage);
+    //: **Describe works for a document too now** (Phase 7.3). It used to be
+    //: images-only, which is why a slide deck full of charts had no way to be
+    //: described at all: the file-level caption route refuses a PDF, and the
+    //: one surface built for reading documents hid the button.
+    $("ocr-describe")?.classList.remove("hidden");
+    const describeLabel = $("ocr-describe-label");
+    if (describeLabel) {
+      describeLabel.textContent = isImage ? "Describe" : "Describe this page";
+    }
+    const describeBtn = $("ocr-describe");
+    if (describeBtn) {
+      describeBtn.title = isImage
+        ? "Describe this image with the vision model (writes its caption)"
+        : "Describe the figures, charts and diagrams on this page";
+    }
     const captionEl = $("ocr-caption");
     if (captionEl) {
-      const cap = (image.caption || "").trim();
-      captionEl.textContent = cap ? `Description: ${cap}` : "";
-      captionEl.classList.toggle("hidden", !cap || !isImage);
+      //: A page's own description, not the file's: `image.caption` is one
+      //: sentence about a whole document, which describes none of its pages.
+      //: `ocrPageCaptions` is filled from the same `page-reads` response the
+      //: stored panels below are built from.
+      const cap = isImage
+        ? (image.caption || "").trim()
+        : (ocrPageCaptions.get(ocrWorkspacePage)?.caption || "").trim();
+      const who = isImage
+        ? ""
+        : shortModelName(ocrPageCaptions.get(ocrWorkspacePage)?.caption_model || "");
+      captionEl.textContent = cap
+        ? (who ? `Figures on this page (${who}): ${cap}` : `Description: ${cap}`)
+        : "";
+      captionEl.classList.toggle("hidden", !cap);
     }
     if (ocrIsPdf(image)) ocrBuildPageRail(image, body.pages || 1);
     ocrSyncPager(image);
@@ -4110,19 +4207,51 @@ document.addEventListener("DOMContentLoaded", () => {
   //: documented way to clear either field, not a new code path.
   $("ocr-describe")?.addEventListener("click", async (event) => {
     const image = ocrWorkspaceCurrent;
-    if (!image || ocrIsPdf(image)) return;
+    if (!image) return;
     const button = event.currentTarget;
     button.disabled = true;
-    $("ocr-message").textContent = `Describing with ${ocrReaders.vision_model || "the vision model"}…`;
+    $("ocr-message").textContent = ocrIsPdf(image)
+      ? `Describing page ${ocrWorkspacePage + 1} with ${ocrReaders.vision_model || "the vision model"}…`
+      : `Describing with ${ocrReaders.vision_model || "the vision model"}…`;
     $("ocr-message").classList.remove("hidden");
     try {
+      //: **A document is described a page at a time** (Phase 7.3). Reported:
+      //: "image captioning, how it is done and displayed needs to be refined
+      //: for pdf documents and other similar documents. with graphs, images
+      //: and diagrams in them." One caption on the file is the right shape for
+      //: a photograph and describes none of a slide deck's twenty pages; the
+      //: page-caption route writes `PageRead.caption` for the page on screen,
+      //: with a prompt that asks about *figures* rather than "what does this
+      //: image show" (ai/captioning.py's `PAGE_CAPTION_PROMPT`).
+      if (ocrIsPdf(image)) {
+        const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
+        const described = await apiJson(
+          `${base}/page-caption?page=${ocrWorkspacePage}`,
+          { method: "POST" }
+        );
+        await ocrLoadPage(image, ocrWorkspacePage);
+        //: The model can be reached, run, and still have nothing to say —
+        //: `message` carries that, and a "Description written." toast over it
+        //: would be the app claiming work it did not do.
+        toast(described?.caption ? `Page ${ocrWorkspacePage + 1} described.` : described?.message
+          || "Nothing was written for that page.", !described?.caption);
+        return;
+      }
       const updated = await analyseMediaRow(image, "caption", { force: true });
       if (updated && typeof updated.caption === "string") image.caption = updated.caption;
       renderLibraryImagesGallery();
       await ocrLoadPage(image, ocrWorkspacePage);
       toast("Description written.");
     } catch (error) {
-      toast(error.message || "Couldn't describe that image.", true);
+      //: **The status line has to stop claiming work that failed.** Measured
+      //: against the running app with no vision model installed: the toast said
+      //: "The AI model isn't running" while the pane underneath still read
+      //: "Describing page 1 with the vision model…", which is the app saying
+      //: two different things about the same click. (The image path had the
+      //: same gap; one `catch` now covers both.)
+      $("ocr-message").textContent = error.message || "Couldn't describe that.";
+      $("ocr-message").classList.remove("hidden");
+      toast(error.message || "Couldn't describe that.", true);
     } finally {
       button.disabled = false;
     }

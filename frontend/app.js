@@ -3821,6 +3821,12 @@ function openLightbox(items, startIndex = 0) {
   let docPageCount = 0;
   let docPage = 0;
   const docPagesRead = new Set();
+  //: page index -> `{text, model, caption, caption_model}`, from the same
+  //: `page-reads` response the chips are built from. **Per page** is the whole
+  //: point (Phase 7.3): one caption under a whole PDF describes none of its
+  //: pages, and the joined reading of every page is not what you are looking
+  //: at when page 4 is on screen.
+  const docPageRows = new Map();
   const pagePrevBtn = actionBtn("ph:caret-left", "Previous page", () => setDocPage(docPage - 1));
   const pageLabel = document.createElement("span");
   pageLabel.className = "muted lightbox-page-label";
@@ -3850,6 +3856,9 @@ function openLightbox(items, startIndex = 0) {
     pageLabel.textContent = docPageCount ? `Page ${docPage + 1} of ${docPageCount}` : "";
     pagePrevBtn.disabled = docPage <= 0;
     pageNextBtn.disabled = docPage >= docPageCount - 1;
+    //: The panel below is about *this* page — its reading, its figures — so
+    //: it is redrawn with the number, not only when the file changes.
+    if (lightboxInfoItem) renderInfo(lightboxInfoItem, true);
     //: The workspace button opens at the page named here, so it has to say so
     //: — a button whose behaviour depends on invisible state is the affordance
     //: problem this app keeps fixing elsewhere.
@@ -3921,6 +3930,7 @@ function openLightbox(items, startIndex = 0) {
     docPageCount = 0;
     docPage = 0;
     docPagesRead.clear();
+    docPageRows.clear();
     showPageControls(false);
     infoPages.replaceChildren();
     infoPages.classList.add("hidden");
@@ -3963,7 +3973,14 @@ function openLightbox(items, startIndex = 0) {
     }
     const body = await apiJson(`${base}/page-reads`).catch(() => null);
     for (const page of body?.pages || []) {
-      if ((page.text || "").trim()) docPagesRead.add(Number(page.page) || 0);
+      const index = Number(page.page) || 0;
+      if ((page.text || "").trim()) docPagesRead.add(index);
+      docPageRows.set(index, {
+        text: (page.text || "").trim(),
+        model: page.model || "",
+        caption: (page.caption || "").trim(),
+        caption_model: page.caption_model || "",
+      });
     }
     renderDocPages();
     //: The facts line carries the same count, so it has to be redrawn with the
@@ -4111,8 +4128,13 @@ function openLightbox(items, startIndex = 0) {
   // hand-rolled version here did not: a non-secure context, permission
   // refused, and a last-resort "here's the text, already selected" UI when
   // both fail, instead of this button just going silent.
+  //: What the info panel is currently showing, which for a document is *one
+  //: page's* reading rather than the file's joined one (see `renderInfo`).
+  //: Copy has to hand over what is on screen: copying every page while the
+  //: panel shows page 4 is the app disagreeing with itself about "this text".
+  let lightboxShownText = "";
   const copyBtn = actionBtn("ph:copy Copy text", "Copy the text read from this image", async (b) => {
-    const value = (items[index].text || "").trim();
+    const value = (lightboxShownText || items[index].text || "").trim();
     if (!value) return;
     await copyToClipboard(value, b);
   });
@@ -5110,17 +5132,46 @@ function openLightbox(items, startIndex = 0) {
 
   // The half of `show()` that draws the panel, split out so `hydrate` can
   // redraw it once the answer arrives without re-running the image load.
+  //: Which item the info panel was last drawn for, so a page change can redraw
+  //: it without `show()` having to hand the item down through the stepper.
+  let lightboxInfoItem = null;
+
   function renderInfo(item, ok) {
-    const caption = (item.caption || "").trim();
-    const text = (item.text || "").trim();
+    lightboxInfoItem = item;
+    //: **For a document, the panel is about the page on screen** (Phase 7.3).
+    //: The file-level values are one caption for a whole PDF — which describes
+    //: none of its pages — and the *joined* reading of every page, which is
+    //: not what you are looking at when page 4 is up. `docPageRows` has both,
+    //: per page, from the `PageRead` store; a page with neither falls back to
+    //: the file's own values so nothing that used to show now disappears.
+    const row = docPageCount ? docPageRows.get(docPage) : null;
+    const perPage = Boolean(row && (row.text || row.caption));
+    const caption = perPage ? row.caption : (item.caption || "").trim();
+    const text = perPage ? row.text : (item.text || "").trim();
+    const captionByline = perPage
+      ? row.caption_model
+        ? `Figures on page ${docPage + 1}, described by ${shortModelName(row.caption_model)}`
+        : ""
+      : item.captionByline || "";
+    const byline = perPage
+      ? row.model
+        ? `Page ${docPage + 1}, read by ${shortModelName(row.model)}`
+        : row.text
+          ? `Page ${docPage + 1}`
+          : ""
+      : item.byline || "";
+    //: What Copy hands over has to be what is on screen: copying every page's
+    //: reading while the panel shows one page's is the app disagreeing with
+    //: itself about what "this text" means.
+    lightboxShownText = text;
     infoCaption.textContent = caption;
     infoCaption.classList.toggle("hidden", !caption);
-    infoCaptionByline.textContent = caption ? item.captionByline || "" : "";
-    infoCaptionByline.classList.toggle("hidden", !caption || !item.captionByline);
+    infoCaptionByline.textContent = caption ? captionByline : "";
+    infoCaptionByline.classList.toggle("hidden", !caption || !captionByline);
     infoText.textContent = text;
     infoText.classList.toggle("hidden", !text);
-    infoByline.textContent = item.byline || "";
-    infoByline.classList.toggle("hidden", !item.byline);
+    infoByline.textContent = byline;
+    infoByline.classList.toggle("hidden", !byline);
     info.classList.toggle("hidden", !caption && !text && !item.filename);
     meta.textContent =
       items.length > 1
@@ -5148,6 +5199,9 @@ function openLightbox(items, startIndex = 0) {
     infoFacts.textContent = facts.join("  ·  ");
     infoFacts.classList.toggle("hidden", !facts.length);
     copyBtn.classList.toggle("hidden", !text);
+    copyBtn.title = perPage
+      ? `Copy the text read from page ${docPage + 1}`
+      : "Copy the text read from this image";
   }
 
   const close = () => {

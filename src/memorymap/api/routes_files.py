@@ -1794,6 +1794,18 @@ class OcrPageReadOut(BaseModel):
     text: str = ""
     model: str = ""
     message: str = ""
+    #: **What the figures on this page show** — a different claim from `text`,
+    #: which is what the page *says*. Asked for directly: "image captioning,
+    #: how it is done and displayed needs to be refined for pdf documents and
+    #: other similar documents. with graphs, images and diagrams in them."
+    #:
+    #: On this model rather than in a separate response so the workspace and
+    #: the lightbox render a page's reading and its description from one
+    #: object; `""` when the page has never been described, which is the
+    #: ordinary case and not an error. Same never-null convention the rest of
+    #: this module keeps.
+    caption: str = ""
+    caption_model: str = ""
 
 
 #: **A vision read scoped to the page you are looking at.**
@@ -1970,6 +1982,46 @@ def _remember_page_read(key: tuple[str, int] | None, result: OcrPageReadOut, rea
         logger.debug("could not store the page reading", exc_info=True)
 
 
+def _remember_page_caption(key: tuple[str, int] | None, page: int, caption: str, model: str) -> None:
+    """Store one page's description, beside that page's reading.
+
+    A near-twin of `_remember_page_read` above, and separate from it on
+    purpose: a page can be described without being transcribed and transcribed
+    without being described, so neither may touch the other's columns. Folding
+    them into one function with optional arguments is how a describe call ends
+    up quietly clearing a reading that took a minute of GPU time to produce.
+
+    Silent on failure and never raises, same contract: a description that
+    reached the caller is a success, and losing the *cache* of it must not turn
+    that into an error the reader sees.
+    """
+    if not key or not (caption or "").strip():
+        return
+    kind, source_id = key
+    try:
+        with deps.get_db().session() as session:
+            row = (
+                session.query(PageRead)
+                .filter(
+                    PageRead.kind == kind,
+                    PageRead.source_id == source_id,
+                    PageRead.page == int(page),
+                )
+                .one_or_none()
+            )
+            if row is None:
+                #: A page described but never read is a real state — the whole
+                #: point of this being its own column — so the row is created
+                #: here rather than requiring a reading to exist first.
+                row = PageRead(kind=kind, source_id=source_id, page=int(page))
+                session.add(row)
+            row.caption = caption.strip()
+            row.caption_model = model or ""
+            session.commit()
+    except Exception:  # noqa: BLE001 - a cache write must never fail a describe
+        logger.debug("could not store the page description", exc_info=True)
+
+
 def _page_read_text_map(kind: str, ids: list[int]) -> dict[int, str]:
     """The joined per-page reading for each of `ids`, page order, one query.
 
@@ -2024,7 +2076,13 @@ def _stored_page_reads(key: tuple[str, int] | None) -> list[OcrPageReadOut]:
                 .all()
             )
             return [
-                OcrPageReadOut(page=row.page, text=row.text or "", model=row.model or "")
+                OcrPageReadOut(
+                    page=row.page,
+                    text=row.text or "",
+                    model=row.model or "",
+                    caption=row.caption or "",
+                    caption_model=row.caption_model or "",
+                )
                 for row in rows
             ]
     except Exception:  # noqa: BLE001 - an unreadable cache is an empty one
@@ -2070,6 +2128,71 @@ def _read_page(
         return result
     finally:
         vision_ocr.finish_page_read(token)
+
+
+def _describe_page(
+    path: Path,
+    index: int,
+    key: tuple[str, int] | None = None,
+) -> OcrPageReadOut:
+    """Describe one page's figures with a vision model, and store the answer.
+
+    Deliberately the same envelope (`OcrPageReadOut`) as a page *read*: the two
+    are the two halves of "what is on page 4", the workspace renders them in
+    one panel, and a second response shape would be a second renderer that can
+    drift from it — the mistake `_stored_range`'s own docstring records.
+
+    `resolve_vision_model`, not `resolve_ocr_model`: describing a figure is the
+    general "can anything here see an image" job, and a dedicated document
+    reader (GLM-OCR and friends) is tuned to transcribe, not to explain. That
+    is also the distinction the reader picker draws between its two AI options
+    — see `READERS` above.
+    """
+    if not pdfpages.available():
+        return OcrPageReadOut(
+            page=index,
+            message=(
+                "Describing a PDF page needs the small PDF rasteriser: install "
+                "the “PDF pages” extra in Settings → Optional extras."
+            ),
+        )
+    if not deps.get_ollama().is_running():
+        raise HTTPException(status_code=409, detail="The AI model isn't running.")
+    model = deps.get_model_manager().resolve_vision_model(deps.get_ollama()) or ""
+    if not model:
+        raise HTTPException(
+            status_code=409,
+            detail="No installed model reports it can see images — install or "
+            "pick one in Settings → Models.",
+        )
+    count = pdfpages.page_count(path)
+    if count <= 0:
+        return OcrPageReadOut(page=index, message="That PDF could not be opened.")
+    index = max(0, min(index, count - 1))
+    png = pdfpages.render_page(path, index)
+    if not png:
+        return OcrPageReadOut(page=index, message=f"Page {index + 1} could not be rendered.")
+    #: Registered in the same running-reads list a page read uses, so a
+    #: describe shows up in Settings → Background tasks like everything else —
+    #: "make sure eveyrhting appears in the bg processes in settings."
+    token = vision_ocr.register_page_read(f"Describing page {index + 1} of {path.name}", model=model)
+    try:
+        with tempfile.TemporaryDirectory(prefix="mm-pagecap-") as scratch:
+            page_path = Path(scratch) / f"page-{index}.png"
+            page_path.write_bytes(png)
+            caption = captioning.page_caption_text(
+                page_path, index, count, model, deps.get_ollama()
+            )
+    finally:
+        vision_ocr.finish_page_read(token)
+    caption = (caption or "").strip()
+    _remember_page_caption(key, index, caption, model)
+    return OcrPageReadOut(
+        page=index,
+        caption=caption,
+        caption_model=model if caption else "",
+        message="" if caption else f"{model} had nothing to say about page {index + 1}.",
+    )
 
 
 def _tesseract_read_page(path: Path, index: int) -> OcrPageReadOut:
@@ -2300,13 +2423,17 @@ def _stored_range(key: tuple[str, int] | None) -> OcrRangeReadOut:
     pages = _stored_page_reads(key)
     if not pages:
         return OcrRangeReadOut()
+    #: Counted on `text`, not on the number of rows: a page that has only been
+    #: *described* (Phase 7.3 — `PageRead.caption` with no reading beside it)
+    #: has a row here too, and calling it "read" would tell the workspace, the
+    #: Files row's badge and the lightbox's page chips that a transcription
+    #: exists where none does.
+    read = sum(1 for page in pages if (page.text or "").strip())
     return OcrRangeReadOut(
         pages=pages,
         requested=len(pages),
-        read=len(pages),
-        message=(
-            f"{len(pages)} page(s) already read." if len(pages) != 1 else "1 page already read."
-        ),
+        read=read,
+        message=(f"{read} page(s) already read." if read != 1 else "1 page already read."),
     )
 
 
@@ -2378,6 +2505,44 @@ def media_ocr_page_read(
     if not path.is_file():
         raise HTTPException(status_code=404, detail="That file is no longer on disk.")
     return _read_page(path, page, reader, _page_read_key(None, upload_id))
+
+
+@router.post("/files/{attachment_id}/page-caption", response_model=OcrPageReadOut)
+def attachment_page_caption(
+    attachment_id: int,
+    page: int = 0,
+    session: Session = Depends(get_session),
+) -> OcrPageReadOut:
+    """Describe the figures on one page of an attached PDF.
+
+    The document half of captioning (UI_MODERNISATION_PLAN Phase 7.3). A file
+    already has one whole-file caption; a slide deck needs one per page, since
+    "a document with charts in it" describes every page in it equally badly.
+    """
+    attachment = _existing_attachment(session, attachment_id)
+    if Path(attachment.filename).suffix.lower() != ".pdf":
+        raise HTTPException(status_code=415, detail="Only PDF pages are described one at a time.")
+    path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="File is missing from disk")
+    return _describe_page(path, page, _page_read_key(attachment_id, None))
+
+
+@router.post("/media/{upload_id}/page-caption", response_model=OcrPageReadOut)
+def media_page_caption(
+    upload_id: int,
+    page: int = 0,
+    session: Session = Depends(get_session),
+) -> OcrPageReadOut:
+    """`attachment_page_caption`'s sibling for a `/media/` upload — two id
+    spaces, two routes, one implementation underneath."""
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    if Path(upload.filename).suffix.lower() != ".pdf":
+        raise HTTPException(status_code=415, detail="Only PDF pages are described one at a time.")
+    path = _within_dir(deps.get_config().data_dir / "media", upload.filename)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="That file is no longer on disk.")
+    return _describe_page(path, page, _page_read_key(None, upload_id))
 
 
 @router.get("/files/{attachment_id}/page-reads", response_model=OcrRangeReadOut)

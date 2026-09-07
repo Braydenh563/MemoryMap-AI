@@ -1089,7 +1089,12 @@ const APPEARANCE_DEFAULTS = {
   "progress-motion": "always", // always | auto | still
   "bg-intensity": "90",
   radius: "14", // global corner rounding, px
-  "glass-blur": "18", // frosted-glass blur strength, px
+  // 14px, not 18. Blur radius is the exponential term in a backdrop-filter's
+  // cost, and the published band worth staying inside is 8-15px. The slider
+  // still reaches higher for anyone who wants it; this is what a fresh
+  // profile gets. See `.glass` in css/03-dashboard-widgets.css for the
+  // measured layer counts this multiplies across.
+  "glass-blur": "14", // frosted-glass blur strength, px
   // Percent of a card's own base alpha that survives — separate dial from
   // blur strength above (how frosted vs. how clear). 100 renders identically
   // to before this setting existed.

@@ -78,7 +78,7 @@
   box-shadow: var(--glass-shadow);
   cursor: pointer;
 
-  /* Glassmorphism and animations. --glass-blur (18px), not a hand-picked
+  /* Glassmorphism and animations. --glass-blur (14px by default, a user preference), not a hand-picked
      8px: this is the same --modal-bg tier as every other popup, and the
      mismatched blur radius was the most visible "frostiness" inconsistency
      across tabs (DESIGN.md/checklist Part B). */

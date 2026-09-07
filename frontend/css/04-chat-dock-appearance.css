@@ -13,7 +13,7 @@
   padding: var(--space-3);
   /* --modal-bg, not --glass-bg (aliased to the page-card tier): this floats
      over the graph canvas, same reasoning as every other popup in
-     DESIGN.md's glass tier. --glass-blur (18px), not a hand-picked 12px. */
+     DESIGN.md's glass tier. --glass-blur (14px by default, a user preference), not a hand-picked 12px. */
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);

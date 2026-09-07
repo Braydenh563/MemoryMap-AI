@@ -949,13 +949,16 @@ Link to another note with [[its first few words]]."></textarea>
 
         <!-- Browse: everything you've saved -->
         <section class="card" id="browse">
-          <!-- Title and refresh share their own row, top-right corner of the
-               panel — the same `.library-head` pattern the Library card and
-               both sidebars use, not another item in the wrapping toolbar
-               row below. Asked for directly: "put the refresh button in the
-               top right corner of the notes panel in the same row as the
-               title." -->
-          <div class="row space-between library-head">
+          <!-- **One control row, not two.** The title and refresh used to have
+               their own `.library-head` row above the toolbar (asked for:
+               "put the refresh button in the top right corner of the notes
+               panel in the same row as the title" — still true: the title
+               opens this row and the refresh closes it). Measured at 1440
+               before the merge: the first note sat at y=243 of 900, with
+               36px of head row plus 13px of gap between the sub-tab strip
+               and the toolbar (MODERNISATION_AUDIT.md Brief 2). One row is
+               what Notion, Linear and Things do above a list. -->
+          <div class="library-toolbar notes-toolbar">
             <!-- The label lives in its own span: the heading also carries the
                  collapse chevron, and writing textContent on the h2 would
                  delete it on every re-render. -->
@@ -972,8 +975,6 @@ Link to another note with [[its first few words]]."></textarea>
                  and its four siblings, not a fifth way of drawing "reload". -->
             <button id="notes-refresh" class="ghost small icon-only" type="button"
               title="Reload notes" aria-label="Reload notes"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
-          </div>
-          <div class="library-toolbar">
             <button id="select-btn" class="ghost small" title="Select several notes to move, tag, or delete together"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Select</button>
             <!-- Reported directly: "half the screen is taken up by poor ui
                  choices or structuring." Measured: a two-line note occupied

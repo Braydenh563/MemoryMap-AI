@@ -7002,3 +7002,18 @@ header#top-bar > #tab-bar {
 .empty-state > button {
   margin-top: var(--space-4);
 }
+
+/* --- the Notes list's one control row --------------------------------------
+   The title opens the row and the refresh closes it (the corner the user
+   asked for); everything else sits between. `order` puts the refresh last
+   without moving it in the DOM, so the tab order stays title → refresh →
+   controls as it was when they shared a head row. */
+.notes-toolbar > .entries-heading {
+  margin: 0 var(--space-2) 0 0;
+  flex: 0 0 auto;
+}
+
+.notes-toolbar > #notes-refresh {
+  order: 100;
+  margin-left: auto;
+}

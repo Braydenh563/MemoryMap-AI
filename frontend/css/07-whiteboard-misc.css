@@ -3258,10 +3258,21 @@ input[type="url"]:hover:not(:focus) {
      visual consequence either way — the element is `position: absolute`,
      `height: 1px`, `border: 0` and clipped by `clip-path: inset(50%)`, so it
      is out of flow and invisible at any width; it only inflates the shell's
-     `scrollWidth`, which is what surfaced it. Left in because the rule is
-     more correct with them, and written down so the next person does not
-     re-derive the same dead end. */
-  min-width: 0;
+     `scrollWidth`, which is what surfaced it.
+
+     **Found, one session later, at phone width.** The 136px/144px come from
+     the *id* rules a few selects carry for their visible shape —
+     `#log-source, #log-level { min-width: 9rem }` (144px), the Timeline's
+     8.5rem (136px) — and an id outranks this class however it is written.
+     Out of flow does not mean out of the scroll: at 390px the absolutely
+     positioned 144px native select was the 7px that made Settings › Logs
+     scroll sideways. So the size here is `!important` — the one place in
+     the stylesheet where it is right, because this element must never have
+     a size and every id rule that gives one is about the visible control
+     that replaced it. */
+  min-width: 0 !important;
+  width: 1px !important;
+  max-width: 1px !important;
   flex: 0 0 auto;
   padding: 0;
   margin: 0;
@@ -7226,4 +7237,50 @@ textarea.has-gutter {
   overflow-x: auto;
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
+}
+
+/* --- Settings at phone width: nothing scrolls sideways (Phase 5.1, 390px) ---
+   Measured with scratchpad/ui-sweeps/errors.js at 390px: six of the
+   settings sections scrolled sideways (309–376px of content in a 302px
+   column), each for a different reason, none of them visible at 1024px:
+   - `.setting-row` stacks its children at ≤640px and stretches them, so a
+     custom select whose *closed* value is a long sentence ("Auto — decide
+     from the model's…") sized the whole row to that sentence: 356px.
+   - `input[type="file"]` has an intrinsic width (the button plus the
+     file-name slot) that ignores the column: 303px.
+   - The 16rem label column of a `.row` form row plus its field is wider
+     than the column, and the row does not wrap.
+   - A long unbroken token (a path in a task's detail line, pip's output in
+     the extras status, a fold's summary) cannot break anywhere.
+   Each fix is the smallest thing that makes the value fit its column. */
+.setting-row .select-shell,
+.setting-row .setting-control {
+  max-width: 100%;
+}
+
+input[type="file"] {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.task-detail,
+#extras-status,
+.settings-fold summary,
+#health-db-size,
+#health-last-error {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  #settings-modal .settings-section .row > label:first-child:not(.setting-check):not(.check-row):not(.checkbox-label) {
+    flex: 1 1 100%;
+  }
+}
+
+/* A fold's summary is a sentence, not a control label: the section-wide
+   `summary { white-space: nowrap }` (added for two-word button labels in
+   36px boxes) ran "Tools this skill may use (optional)" 26px past the
+   column at 390px. */
+#settings-modal .settings-section .settings-fold summary {
+  white-space: normal;
 }

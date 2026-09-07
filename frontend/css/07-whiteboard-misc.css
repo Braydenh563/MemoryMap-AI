@@ -4364,6 +4364,8 @@ button.connection-row {
 
 /* Pressed = wide. It is a mode, so it holds its state visibly rather than
    being a button you press and cannot tell you pressed. */
+/* On is the accent, the same as every other mode toggle in the app. */
+.doc-toolbar-gutter[aria-pressed="true"],
 .doc-toolbar-width[aria-pressed="true"] {
   background: var(--accent-soft);
   color: var(--accent);

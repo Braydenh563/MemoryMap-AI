@@ -128,8 +128,7 @@ function syncDocFileType() {
   // Line numbers, and the monospace/tab behaviour that goes with them.
   const code = !type.previewable;
   $("doc-content")?.classList.toggle("doc-content-code", code);
-  $("doc-gutter")?.classList.toggle("hidden", !code);
-  renderDocGutter();
+  applyDocGutter();
 
   // A menu row, so it can say the whole thing rather than "⬇ .py".
   // `setLabel` because `textContent` here would wipe the icon element the
@@ -3368,6 +3367,56 @@ document.getElementById("doc-toolbar-mode")?.addEventListener("click", () => {
 //: are two toolbars and a third would silently miss out. Pinned to the right
 //: edge with `position: sticky` so that in scroll mode the controls do not
 //: scroll away with the buttons they control.
+//: **Line numbers are a choice, not a file-type consequence.** Asked for
+//: directly: "line numbers should be togglable in the documents". They used to
+//: appear for code files and for nothing else, so a long markdown note -- the
+//: thing most likely to need "the paragraph around line 240" -- could not have
+//: them, and a .py file could not be rid of them.
+//:
+//: Default follows the old behaviour (on for code, off for prose), so nothing
+//: moves for anyone who never touches the control; once touched, the choice is
+//: remembered and wins for every file.
+const DOC_GUTTER_KEY = "doc-gutter";
+
+function docGutterPref() {
+  try {
+    return localStorage.getItem(DOC_GUTTER_KEY); // "1", "0", or null for "follow the file type"
+  } catch {
+    return null;
+  }
+}
+
+function docGutterWanted(isCode) {
+  const pref = docGutterPref();
+  if (pref === "1") return true;
+  if (pref === "0") return false;
+  return Boolean(isCode);
+}
+
+function setDocGutter(on) {
+  try {
+    localStorage.setItem(DOC_GUTTER_KEY, on ? "1" : "0");
+  } catch {
+    /* private mode: the choice holds for this session only */
+  }
+  applyDocGutter();
+}
+
+//: Reads the *current* file's type rather than taking it as an argument, so
+//: the toggle and the file-open path cannot disagree about what "code" means.
+function applyDocGutter() {
+  const box = $("doc-content");
+  const on = docGutterWanted(box?.classList.contains("doc-content-code"));
+  $("doc-gutter")?.classList.toggle("hidden", !on);
+  const button = document.querySelector(".doc-toolbar-gutter");
+  if (button) {
+    button.setAttribute("aria-pressed", on ? "true" : "false");
+    button.title = on ? "Hide line numbers" : "Show line numbers";
+    button.setAttribute("aria-label", button.title);
+  }
+  renderDocGutter();
+}
+
 const DOC_TOOLBAR_COLLAPSED_KEY = "doc-toolbar-collapsed";
 
 function docToolbarCollapsed() {
@@ -3438,6 +3487,15 @@ function mountDocToolbarControlsFor(bar) {
     });
     tools.appendChild(layout);
 
+    const gutter = document.createElement("button");
+    gutter.type = "button";
+    gutter.className = "ghost small icon-only doc-toolbar-gutter";
+    setLabel(gutter, "ph:list-numbers");
+    gutter.addEventListener("click", () => {
+      setDocGutter($("doc-gutter")?.classList.contains("hidden"));
+    });
+    tools.appendChild(gutter);
+
     const collapse = document.createElement("button");
     collapse.type = "button";
     collapse.className = "ghost small icon-only doc-toolbar-collapse";
@@ -3456,6 +3514,7 @@ function mountDocToolbarControlsFor(bar) {
   //: correct background, no glyph and no text.
   applyDocToolbarLayoutButtons(bar);
   applyDocToolbarCollapsed(docToolbarCollapsed(), bar);
+  applyDocGutter();
 }
 
 function mountDocToolbarControls() {

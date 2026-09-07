@@ -524,6 +524,12 @@ def _board_type_of(session: Session, board_id: int) -> str:
     return "map" if parsed.get("type") == "map" else "board"
 
 
+#: The one shape a whiteboard image url may take — the same allowlist as
+#: `routes_whiteboard.MEDIA_URL_RE`, repeated here rather than imported because
+#: the entry manager must not depend on a route module.
+_MEDIA_URL_RE = re.compile(r"^/media/[A-Za-z0-9][A-Za-z0-9._-]{0,119}$")
+
+
 def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | None = None) -> int:
     """Permanently remove entries plus their vectors, links, and files."""
     ids = [e.id for e in entries]
@@ -614,6 +620,37 @@ def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | Non
         if _board_type_of(session, board_id) == "map"
     ]
     if map_board_ids:
+        # A map's objects go with it, so the image files behind them go too
+        # (BACKLOG §116.1 item 1 — dropped from backend sprint 2). The same
+        # allowlist `routes_whiteboard._media_path` applies: only a url that
+        # resolves *inside* `<data>/media` is ever unlinked, so a legacy or
+        # hand-edited row cannot turn a purge into "delete any file". Objects
+        # on an ordinary board are detached below, not deleted, and keep
+        # their files. `uploads_dir` and the media folder are siblings by
+        # construction (config.py); nothing else here knows the data dir.
+        if uploads_dir is not None:
+            media_dir = (uploads_dir.parent / "media").resolve()
+            doomed = session.scalars(
+                select(WhiteboardObject).where(
+                    WhiteboardObject.board_id.in_(map_board_ids),
+                    WhiteboardObject.kind == "image",
+                )
+            )
+            for obj in doomed:
+                try:
+                    url = str(json.loads(obj.data or "{}").get("url") or "")
+                    if not _MEDIA_URL_RE.match(url):
+                        continue
+                    path = (media_dir / url.removeprefix("/media/")).resolve()
+                    if path.is_relative_to(media_dir):
+                        path.unlink(missing_ok=True)
+                except (OSError, ValueError, TypeError) as exc:
+                    logging.getLogger("memorymap.entries").warning(
+                        "couldn't delete the file for whiteboard image %s (%s); "
+                        "removing the record anyway",
+                        int(obj.id),
+                        type(exc).__name__,
+                    )
         session.execute(
             delete(WhiteboardObject).where(WhiteboardObject.board_id.in_(map_board_ids))
         )

@@ -605,3 +605,47 @@ def test_a_text_box_keeps_its_alignment_and_markdown_flag(board_client):
         json={"kind": "text", "data": {"content": "x", "align": "sideways"}, "x": 0, "y": 0},
     )
     assert refused.status_code == 422
+
+
+def test_purging_a_map_unlinks_the_files_behind_its_image_nodes(board_client, session):
+    """A map's objects are deleted with the map (an ordinary board's are
+    detached and keep theirs), so the files behind a map's image objects
+    would otherwise sit in `<data>/media` with no row pointing at them —
+    BACKLOG §116.1 item 1. The allowlist is the same as the delete route's:
+    a url that does not resolve inside the media folder is left alone."""
+    media_dir = deps.get_config().data_dir / "media"
+    media_dir.mkdir(parents=True, exist_ok=True)
+    (media_dir / "onmap.png").write_bytes(b"fake png bytes")
+    (media_dir / "onboard.png").write_bytes(b"fake png bytes")
+    outsider = deps.get_config().data_dir / "NOT_MEDIA.txt"
+    outsider.write_text("must survive")
+
+    the_map = board_client.post(
+        "/whiteboard/boards", json={"name": "Purge me", "type": "map", "layout": "tree-right"}
+    ).json()
+    plain = board_client.post("/whiteboard/boards", json={"name": "Keep my picture"}).json()
+    board_client.post(
+        "/whiteboard/objects",
+        json={"kind": "image", "board_id": the_map["id"], "data": {"url": "/media/onmap.png"}},
+    )
+    board_client.post(
+        "/whiteboard/objects",
+        json={"kind": "image", "board_id": plain["id"], "data": {"url": "/media/onboard.png"}},
+    )
+    # A row that would escape the media folder if the path were trusted.
+    escaped = board_client.post(
+        "/whiteboard/objects",
+        json={"kind": "image", "board_id": the_map["id"], "data": {"url": "/media/../NOT_MEDIA.txt"}},
+    )
+    assert escaped.status_code == 422  # refused on the way in; the purge is the second guard
+
+    for board in (the_map, plain):
+        binned = board_client.delete(f"/entries/{board['id']}")
+        assert binned.status_code == 200, binned.text
+        purged = board_client.delete(f"/entries/{board['id']}/purge")
+        assert purged.status_code == 200, purged.text
+
+    assert not (media_dir / "onmap.png").exists()
+    assert (media_dir / "onboard.png").exists()  # detached with its object, not deleted
+    assert outsider.exists()
+

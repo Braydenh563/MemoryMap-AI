@@ -366,6 +366,7 @@ async function renderHealthBlock() {
   const counts = $("health-counts");
   const jobs = $("health-jobs");
   const lastError = $("health-last-error");
+  const latency = $("health-latency");
   if (!dbSize || !counts || !jobs || !lastError) return; // markup not present yet
   const health = await apiJson("/debug/health", { silent: true }).catch(() => null);
   if (!health) {
@@ -373,7 +374,7 @@ async function renderHealthBlock() {
     // build, a locked notebook mid-request) — a dash across the board reads
     // as "couldn't check", not "empty", so nothing here claims a zero it
     // never actually measured.
-    for (const el of [dbSize, counts, jobs, lastError]) el.textContent = "—";
+    for (const el of [dbSize, counts, jobs, lastError, latency]) if (el) el.textContent = "—";
     return;
   }
   dbSize.textContent = `${formatFileSize(health.db?.size_bytes) || "0 B"} · ${health.data_dir}`;
@@ -388,6 +389,17 @@ async function renderHealthBlock() {
   const errors = health.recent_errors || [];
   const last = errors[errors.length - 1];
   lastError.textContent = last ? `[${last.level}] ${last.message}` : "None recorded";
+  // PLAN B9's p50/p95, per task kind. The endpoint carried them from the
+  // start; the block did not draw them (BACKLOG §116.1 item 2). Seconds with
+  // one decimal, because a caption takes 3.2s and a re-index 40s, and "3210
+  // ms" is a number nobody reads at a glance.
+  if (latency) {
+    const secs = (ms) => `${(ms / 1000).toFixed(ms >= 10000 ? 0 : 1)}s`;
+    const rows = Object.entries(health.latency_ms_by_kind || {})
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([kind, stat]) => `${kind}: ${secs(stat.p50_ms)} typical, ${secs(stat.p95_ms)} slow (${stat.count})`);
+    latency.textContent = rows.length ? rows.join(" · ") : "No timed jobs yet";
+  }
 }
 
 // --- finding a setting (§36B) ------------------------------------------------------

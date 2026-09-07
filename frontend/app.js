@@ -5759,10 +5759,16 @@ function noteEditToolbar(boxId) {
     clone.className = "doc-toolbar note-edit-toolbar";
     clone.setAttribute("aria-label", "Formatting");
     for (const extra of clone.querySelectorAll("[data-md-extra]")) extra.remove();
-    // The capture strip's own preview toggle comes along with the clone as
-    // a dead button with a duplicate id; the edit form has its own
-    // Write / Preview switch.
-    clone.querySelector("#entry-preview-toggle")?.remove();
+    //: **The Preview button stays in the strip.** It used to be cut out of
+    //: the clone because the edit form carried a separate Write / Preview
+    //: pill of its own -- which is precisely what the report was about:
+    //: "if the formatting bar was the same, the preview button would be in
+    //: it". Counted in the browser, the clone came out at 60 controls
+    //: against the capture strip's 61, and Preview was the one missing. It
+    //: is marked here because the id is stripped two lines down, and
+    //: renderEditForm needs to find it again to wire it to *this* note's
+    //: preview pane.
+    clone.querySelector("#entry-preview-toggle")?.setAttribute("data-note-preview", "1");
     //: **Every id goes.** A clone carries the capture strip's ids, and two
     //: elements with one id means `document.getElementById` hands back the
     //: *capture* toolbar's control — so the edit form's dropdowns opened and
@@ -5772,7 +5778,15 @@ function noteEditToolbar(boxId) {
     for (const el of clone.querySelectorAll("[id]")) el.removeAttribute("id");
     delete clone.dataset.mdExtras;
     clone.dataset.mdTarget = boxId;
+    //: The wrap/collapse group is appended by `mountDocToolbarControls`, so a
+    //: clone carries a *dead* copy of it -- two arrow buttons whose listeners
+    //: did not survive cloning -- and, because it was cloned in place rather
+    //: than appended, it sat mid-strip where the capture bar's sits last.
+    //: Dropped and re-mounted, which is the same trick `data-md-extra` plays
+    //: for the dropdown menus.
+    clone.querySelector(".doc-toolbar-tools")?.remove();
     wireMarkdownToolbar(clone);
+    if (typeof mountDocToolbarControlsFor === "function") mountDocToolbarControlsFor(clone);
     return clone;
   }
   const bar = document.createElement("div");
@@ -5872,24 +5886,13 @@ function renderEditForm(li, entry) {
   row.classList.add("note-edit-actions");
   meta.append(tagsInput, categorySelect, row);
   const toolbarEl = noteEditToolbar(textarea.id);
-  //: Write / Preview — reported: "there is no preview". The preview is the
-  //: same renderer every note card uses, over the textarea's current text.
-  const view = document.createElement("div");
-  view.className = "seg seg-compact note-edit-view";
-  view.setAttribute("role", "group");
-  view.setAttribute("aria-label", "Write or preview");
-  const writeBtn = document.createElement("button");
-  writeBtn.type = "button"; writeBtn.textContent = "Write"; writeBtn.className = "active";
-  writeBtn.setAttribute("aria-pressed", "true");
-  const previewBtn = document.createElement("button");
-  previewBtn.type = "button"; previewBtn.textContent = "Preview";
-  previewBtn.setAttribute("aria-pressed", "false");
-  view.append(writeBtn, previewBtn);
-  //: Its own row, so the formatting bar is *exactly* the capture and
-  //: document strip — asked for directly.
-  const viewRow = document.createElement("div");
-  viewRow.className = "row note-edit-viewrow";
-  viewRow.appendChild(view);
+  //: Preview — reported: "there is no preview", then, once there was one,
+  //: "if the formatting bar was the same, the preview button would be in
+  //: it". So there is no second Write / Preview control any more: the
+  //: cloned strip's own Preview button is the switch, exactly as in the
+  //: capture box and the document editor, and it renders the textarea's
+  //: current text with the same renderer every note card uses.
+  const previewBtn = toolbarEl.querySelector("[data-note-preview]");
   const preview = document.createElement("div");
   preview.className = "markdown-body note-edit-preview hidden";
   const setView = (mode) => {
@@ -5897,21 +5900,20 @@ function renderEditForm(li, entry) {
     if (showPreview) renderMarkdown(preview, textarea.value);
     preview.classList.toggle("hidden", !showPreview);
     textarea.classList.toggle("hidden", showPreview);
-    writeBtn.classList.toggle("active", !showPreview);
-    previewBtn.classList.toggle("active", showPreview);
-    writeBtn.setAttribute("aria-pressed", String(!showPreview));
-    previewBtn.setAttribute("aria-pressed", String(showPreview));
+    if (previewBtn) {
+      previewBtn.classList.toggle("active", showPreview);
+      previewBtn.setAttribute("aria-pressed", String(showPreview));
+    }
     if (!showPreview) textarea.focus();
   };
-  writeBtn.addEventListener("click", () => setView("write"));
-  previewBtn.addEventListener("click", () => setView("preview"));
+  previewBtn?.addEventListener("click", () => setView(previewBtn.getAttribute("aria-pressed") === "true" ? "write" : "preview"));
   //: Attachment cards for whatever this note already carries: rename its
   //: caption, generate one, or remove it — and removing takes the markdown
   //: with it, in the edit form exactly as in the capture box.
   const chipsHost = document.createElement("div");
   chipsHost.className = "row attachment-chips hidden";
   chipsHost.id = "entry-edit-attachment-chips";
-  li.append(toolbarEl, viewRow, textarea, preview, chipsHost, meta);
+  li.append(toolbarEl, textarea, preview, chipsHost, meta);
   renderEntryAttachmentChips(textarea, chipsHost);
   textarea.addEventListener("input", () => renderEntryAttachmentChips(textarea, chipsHost));
   renderRelatedWhileEditing(li, entry);

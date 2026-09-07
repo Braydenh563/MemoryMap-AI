@@ -3404,9 +3404,16 @@ function setDocToolbarCollapsed(collapsed) {
   applyDocToolbarCollapsed(collapsed);
 }
 
-function mountDocToolbarControls() {
-  for (const bar of document.querySelectorAll(".doc-toolbar")) {
-    if (bar.querySelector(".doc-toolbar-tools")) continue;
+//: One strip's wrap/collapse group. Split out of the loop below so a bar that
+//: is *not* in the document yet can get one: the note edit form clones the
+//: capture strip, and a clone carries a copy of this group whose listeners did
+//: not survive cloning -- two dead arrow buttons, sitting mid-strip instead of
+//: at the end, because the loop's own `continue` then decided the bar already
+//: had its controls. Counted in the browser: the clone's group sat between the
+//: Preview button and the indent separator, where the capture strip's is last.
+function mountDocToolbarControlsFor(bar) {
+  {
+    if (bar.querySelector(".doc-toolbar-tools")) return;
     const tools = document.createElement("span");
     tools.className = "doc-toolbar-tools";
 
@@ -3434,6 +3441,10 @@ function mountDocToolbarControls() {
 
     bar.appendChild(tools);
   }
+}
+
+function mountDocToolbarControls() {
+  for (const bar of document.querySelectorAll(".doc-toolbar")) mountDocToolbarControlsFor(bar);
   applyDocToolbarLayoutButtons();
   applyDocToolbarCollapsed(docToolbarCollapsed());
 }

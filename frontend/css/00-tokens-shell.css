@@ -1995,8 +1995,15 @@ header#top-bar.tabs-wrapped #tab-bar {
    than its neighbours — the last of the four columns that did not line up.
    `:has()` is the only way to ask "does this row have one", and it is the
    difference between reserving the space and hard-coding a padding that
-   would then be wrong for the rows that do. */
-.library-list .library-card:not(:has(.library-card-thumb))::before {
+   would then be wrong for the rows that do.
+
+   `.has-thumbs` is the other half, added after the report "fix the wierd gap
+   at the start of all the cards in the library line view": reserving the
+   column is right when *some* row has a picture and absurd when none does --
+   it indents the whole list by 48px of nothing, which is what a person sees
+   and calls a gap. CSS cannot ask whether any sibling has a thumbnail, so
+   library.js sets the class after each chunk renders. */
+.library-list.has-thumbs .library-card:not(:has(.library-card-thumb))::before {
   content: "";
   flex: 0 0 3rem;
   order: -1;
@@ -3116,10 +3123,25 @@ header#top-bar.tabs-wrapped #tab-bar {
      lays on a pane is the same size whether the pane is a coaster or a
      window, so the stop is an absolute length and every surface gets the
      same highlight regardless of how big it is. */
+  /* **Second pass, after "I still think it is a bit much and over done".**
+     Three changes, each from the same published guidance:
+
+     - The peak drops from 0.16 to 0.10. The advice on transparency is that
+       the difference between readable and washed-out is a few points of
+       alpha, not a redesign -- "use small opacity tweaks".
+     - The band shortens from 260px to 160px, so it reads as light catching
+       one corner rather than as a wash over the top of the panel. Gradients
+       are called out as the wrong tool over cluttered content, and the
+       largest surfaces here are the most cluttered ones.
+     The stop stays an explicit alpha rather than being derived from
+     `--glass-highlight`: that token is 0.75 on light and 0.06 on dark,
+     because a 1px rim needs to be near-opaque to register at all, and reusing
+     it here multiplied the light theme's sheen by nine. Same colour, two very
+     different jobs. */
   background-image:
     linear-gradient(135deg,
-      color-mix(in srgb, rgba(255, 255, 255, 0.16) calc(var(--glass-sheen-strength) * 100%), transparent) 0,
-      rgba(255, 255, 255, 0) 260px);
+      color-mix(in srgb, rgba(255, 255, 255, 0.10) calc(var(--glass-sheen-strength) * 100%), transparent) 0,
+      rgba(255, 255, 255, 0) 160px);
   /* A 1px inner top-edge highlight — the other half of the same "this
      catches light, it doesn't just sit there tinted" read, independent of
      `--card`'s alpha. The shadowed bottom rim rides along, or this rule
@@ -3146,8 +3168,8 @@ header#top-bar.tabs-wrapped #tab-bar {
 :root:not([data-mode="dark"])[data-glass-sheen="on"]:not([data-glass="off"]) .card {
   background-image:
     linear-gradient(135deg,
-      color-mix(in srgb, rgba(255, 255, 255, 0.08) calc(var(--glass-sheen-strength) * 100%), transparent) 0,
-      rgba(255, 255, 255, 0) 260px);
+      color-mix(in srgb, rgba(255, 255, 255, 0.05) calc(var(--glass-sheen-strength) * 100%), transparent) 0,
+      rgba(255, 255, 255, 0) 160px);
 }
 
 

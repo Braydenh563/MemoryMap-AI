@@ -14139,7 +14139,28 @@ async function notePickerRows(source) {
   if (notePickerCache[source]) return notePickerCache[source];
   const path = source === "documents" ? "/documents" : source === "files" ? "/files/gallery" : "/media";
   const rows = await apiJson(path).catch(() => []);
-  notePickerCache[source] = Array.isArray(rows) ? rows : rows.documents || [];
+  let list = Array.isArray(rows) ? rows : rows.documents || [];
+  //: **Files means files, and a sketch is a picture.** Reported: "sketches
+  //: show in the files section". `/files/gallery` is every attachment
+  //: regardless of type -- it is the Library's own source for *both* its
+  //: Images and its Files sub-tabs, which split it on the mime the same way
+  //: here. Without that split a .png appeared under Files and again under
+  //: Images, which makes the four sources look like they overlap arbitrarily.
+  if (source === "files") list = list.filter((row) => !(row.mime || "").startsWith("image/"));
+  //: And the other half of the same split: an image attached to a note is an
+  //: Attachment row, so the Images source has to reach both tables or the
+  //: picker's Images list silently omits every picture that arrived through a
+  //: note rather than through an upload.
+  if (source === "images") {
+    const attachments = await apiJson("/files/gallery").catch(() => []);
+    list = [
+      ...list,
+      ...(Array.isArray(attachments) ? attachments : []).filter((row) =>
+        (row.mime || "").startsWith("image/")
+      ),
+    ];
+  }
+  notePickerCache[source] = list;
   return notePickerCache[source];
 }
 

@@ -3587,6 +3587,14 @@ summary:not(.icon-only):not(.icon-button) {
    border, filling with the accent and drawing a checkmark when chosen. The
    accessibility tree, focus and keyboard all stay with the real input. */
 .library-card-tick,
+/* **The Files/Images gallery tick was not on this list and rendered as a
+   dead grey square.** Reported: "there is no multi select feature and radio
+   buttons on rows in the files library subtab like in the others." It was
+   there -- built, wired to the bulk bar, 28x28 and visible -- but with no
+   `appearance: none` recipe of its own it had no background, no border and no
+   checkmark, so ticking one changed nothing you could see. That is the third
+   time the enumerated-allowlist shape in the comment below has bitten. */
+.library-tile-tick,
 .select-check,
 /* **`.doc-list-tick` was missing from this list and rendered native.** It is
    the selection tick for the Documents list, the saved-links rows and the
@@ -3626,6 +3634,7 @@ summary:not(.icon-only):not(.icon-button) {
 }
 
 .library-card-tick:hover,
+.library-tile-tick:hover,
 .select-check:hover,
 .doc-list-tick:hover,
 .note-picker-list input[type="checkbox"]:not(.sr-only):hover,
@@ -3635,6 +3644,7 @@ summary:not(.icon-only):not(.icon-button) {
 }
 
 .library-card-tick:checked,
+.library-tile-tick:checked,
 .select-check:checked,
 .doc-list-tick:checked,
 .note-picker-list input[type="checkbox"]:checked,
@@ -3647,6 +3657,7 @@ summary:not(.icon-only):not(.icon-button) {
 /* The checkmark: two borders of a box, rotated. Drawn rather than set as a
    glyph so it needs no font to have loaded and scales with the box. */
 .library-card-tick:checked::after,
+.library-tile-tick:checked::after,
 .select-check:checked::after,
 .doc-list-tick:checked::after,
 .note-picker-list input[type="checkbox"]:checked::after,

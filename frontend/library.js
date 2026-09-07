@@ -428,7 +428,18 @@ function renderLibrary() {
     // documents, images, chats and skills together, so it is the one list that
     // can be larger than any single collection in the app.
     renderIncrementally(grid, items, (item) => libraryCard(item), {
-      afterChunk: renderLibraryContextBars,
+      afterChunk: () => {
+        renderLibraryContextBars();
+        //: **The thumbnail column is only reserved when a thumbnail exists.**
+        //: Reported: "fix the wierd gap at the start of all the cards in the
+        //: library line view in the all subtab." List view reserves a 3rem
+        //: slot on every row *without* a picture so the rows that have one
+        //: still line up -- correct when some rows have pictures, and on a
+        //: notebook where none do it indents the entire list by 48px of
+        //: nothing. CSS cannot ask whether any sibling has one; this can, so
+        //: the class says so and the rule keys off it.
+        grid.classList.toggle("has-thumbs", Boolean(grid.querySelector(".library-card-thumb")));
+      },
     });
 
     const empty = $("library-empty");
@@ -6154,7 +6165,7 @@ function bookmarkRow(bookmark) {
 
   const pin = document.createElement("button");
   pin.type = "button";
-  pin.className = "ghost small";
+  pin.className = "ghost small icon-only";
   pin.title = bookmark.pinned ? "Unpin" : "Pin to the top";
   pin.setAttribute("aria-label", pin.title);
   // No "-fill" pin glyph in this app's bundled Phosphor set (checked: the
@@ -6172,7 +6183,7 @@ function bookmarkRow(bookmark) {
 
   const edit = document.createElement("button");
   edit.type = "button";
-  edit.className = "ghost small";
+  edit.className = "ghost small icon-only";
   edit.title = "Edit";
   edit.setAttribute("aria-label", "Edit this link");
   setLabel(edit, "ph:pencil-simple");
@@ -6225,7 +6236,7 @@ function bookmarkRow(bookmark) {
     save.textContent = "Save";
     const cancel = document.createElement("button");
     cancel.type = "button";
-    cancel.className = "ghost small";
+    cancel.className = "ghost small icon-only";
     cancel.textContent = "Cancel";
     buttons.append(save, cancel);
     form.appendChild(buttons);
@@ -6270,7 +6281,7 @@ function bookmarkRow(bookmark) {
 
   const group = document.createElement("button");
   group.type = "button";
-  group.className = "ghost small";
+  group.className = "ghost small icon-only";
   group.title = "Move to group";
   group.setAttribute("aria-label", "Move this link to a group");
   setLabel(group, "ph:folder-simple");
@@ -6294,7 +6305,7 @@ function bookmarkRow(bookmark) {
 
   const remove = document.createElement("button");
   remove.type = "button";
-  remove.className = "ghost small";
+  remove.className = "ghost small icon-only";
   remove.title = "Delete";
   remove.setAttribute("aria-label", "Delete this link");
   setLabel(remove, "ph:trash");

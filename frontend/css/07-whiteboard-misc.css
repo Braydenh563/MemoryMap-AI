@@ -5829,3 +5829,275 @@ button.connection-row {
   cursor: move;
   pointer-events: auto;
 }
+
+/* ======================================================================
+   Whiteboard chrome, restructured: one top bar, a centred tool dock, a
+   zoom cluster, and a right-hand drawer for properties.
+
+   Reported in the user's own words after four rounds of offset-tuning:
+   "the panels always clash", the UI is "blocky, bulky", and they would
+   "rather use OneNote, draw.io or Microsoft Whiteboard". Every one of
+   those puts navigation and board-level actions in a single strip along
+   the top and keeps the canvas edges clear; none has four draggable
+   corner panels. So: the board picker, the library/look/board panel, the
+   back button and the zoom cluster's search/overview/help are now one
+   `.wb-topbar`; the tool dock is centred on the bottom edge with its
+   section labels moved into tooltips (screen readers still get them);
+   the properties panel is a fixed drawer down the right edge between the
+   top bar and the zoom cluster; nothing is draggable any more.
+
+   These rules come last in the cascade on purpose — they override the
+   corner-panel rules in 06-timeline-dialogs.css, which are left in place
+   because `[data-dock="side"]` and the narrow-window rules still build on
+   them. Every offset here derives from a published measurement
+   (`--wb-h-topbar`, `--wb-h-zoom`, `--wb-w-zoom`, `--wb-h-tools`), never a
+   tuned constant, for the reason the metrics comment in whiteboard.js
+   gives. */
+.wb-topbar {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  right: 0.5rem;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  box-shadow: var(--glass-shadow);
+}
+
+.wb-topbar-left,
+.wb-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.wb-topbar-left {
+  flex: 1 1 auto;
+}
+
+.wb-topbar-divider {
+  width: 1px;
+  height: 1.25rem;
+  background: var(--border);
+  margin: 0 var(--space-1);
+  flex-shrink: 0;
+}
+
+/* Lives in the bar now, so the absolute top-centre placement it needed
+   when it floated alone on the canvas is off. */
+.wb-topbar #wb-back-to-boards {
+  position: static;
+  transform: none;
+  background: transparent;
+  border: 1px solid transparent;
+  box-shadow: none;
+}
+
+.wb-topbar #wb-board-select {
+  max-width: 14rem;
+  min-width: 6rem;
+  height: 2rem;
+}
+
+.wb-topbar button {
+  height: 2rem;
+}
+
+.wb-topbar .wb-panel-primary.is-on {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* The Board menu: look, grid, snap, export, toolbar dock, clear. These are
+   set once per board and then left alone, which is why they were the
+   wrong things to keep permanently on screen. */
+.wb-board-menu-wrap {
+  position: relative;
+}
+
+.wb-board-menu {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 17rem;
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  box-shadow: var(--glass-shadow);
+}
+
+.wb-board-menu .wb-panel-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.wb-board-menu .wb-panel-group-label {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.wb-board-menu .wb-panel-group-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.wb-board-menu select {
+  flex: 1 1 8rem;
+  height: 2rem;
+}
+
+.wb-board-menu button {
+  height: 2rem;
+}
+
+/* The tool dock: centred on the bottom edge, one row of icons with a thin
+   rule between groups — the shape every app the user named uses. The
+   labels stay in the DOM for assistive tech (and as the tooltip on each
+   group's rule) but are clipped from view; the seven uppercase captions
+   were most of what read as "bulky". The reserve on each side is the zoom
+   cluster's measured width plus both insets, symmetric so centring can
+   never put the dock under it. */
+.whiteboard-floating-panel.bottom-center {
+  /* Centred with `left: 0; right: 0; margin: auto`, not `left: 50%` +
+     `translateX(-50%)`: an absolutely positioned box with only `left: 50%`
+     set gets half the container as its available width, so the dock's
+     shrink-to-fit width was capped at 50% and its 656px row wrapped onto
+     two lines at 1100px wide (measured: panel 533px inside a 1067px
+     canvas with an 783px max-width). Spanning both edges gives it the
+     whole canvas to fit into; `width: fit-content` keeps it a pill. */
+  left: 0;
+  right: 0;
+  width: fit-content;
+  margin-inline: auto;
+  bottom: 0.5rem;
+  transform: none;
+  padding: var(--space-1) var(--space-2);
+  gap: var(--space-1);
+  max-width: calc(100% - 2 * (var(--wb-w-zoom) + 1.5rem));
+}
+
+.whiteboard-floating-panel.bottom-center .wb-tool-section-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.whiteboard-floating-panel.bottom-center .wb-tool-section {
+  gap: 0;
+}
+
+.whiteboard-floating-panel.bottom-center .wb-tool-section + .wb-tool-section {
+  padding-left: var(--space-1);
+  margin-left: var(--space-1);
+}
+
+.whiteboard-floating-panel.bottom-center .wb-tool-group {
+  gap: 0;
+  row-gap: var(--space-1);
+}
+
+/* The sidebar dock keeps its own placement (06-timeline-dialogs.css); the
+   centring above and the symmetric reserve are for the bottom dock only.
+   It now starts below the top bar rather than at a tuned 5.5rem. */
+.whiteboard-floating-panel.bottom-center[data-dock="side"] {
+  left: 0.5rem;
+  right: auto;
+  width: auto;
+  margin-inline: 0;
+  top: calc(0.5rem + var(--wb-h-topbar) + var(--space-3));
+  bottom: auto;
+  transform: none;
+  max-width: none;
+  max-height: calc(100% - var(--wb-h-topbar) - 2rem);
+}
+
+.whiteboard-floating-panel.bottom-right {
+  bottom: 0.5rem;
+  right: 0.5rem;
+  padding: var(--space-1);
+  gap: 0;
+}
+
+/* The properties drawer: fixed to the right edge between the top bar and
+   the zoom cluster, scrolling inside itself. Not a floating card any
+   more — a fixed strip cannot land on anything. */
+.whiteboard-floating-panel.mid-right {
+  top: calc(0.5rem + var(--wb-h-topbar) + var(--space-3));
+  right: 0.5rem;
+  /* Clears the tool row, not the zoom cluster: the dock is centred and on
+     a narrow board its wrapped rows reach under this column (measured at
+     820px: dock right edge 609, drawer left edge 584). The row is never
+     shorter than the zoom cluster, so this clears both. */
+  bottom: calc(0.5rem + var(--wb-h-tools) + var(--space-3));
+  width: 13.5rem;
+  max-height: none;
+  padding: var(--space-3);
+}
+
+/* The note library sidebar, the board search and the overview all clear
+   the same two bars by the same measurements. */
+.whiteboard-sidebar {
+  top: calc(0.5rem + var(--wb-h-topbar) + var(--space-3));
+  right: 0.5rem;
+  height: auto;
+  bottom: calc(0.5rem + var(--wb-h-tools) + var(--space-3));
+  max-height: none;
+}
+
+.wb-search-bar {
+  top: calc(0.5rem + var(--wb-h-topbar) + var(--space-3));
+}
+
+.wb-navigator {
+  right: 0.5rem;
+  bottom: calc(0.5rem + var(--wb-h-tools) + var(--space-3));
+}
+
+/* Narrow boards: the top bar's right half wraps under its left half, the
+   dock takes the full width, and the zoom cluster lifts above it (its
+   `bottom` comes from the 40rem rule in 06-timeline-dialogs.css). */
+@media (max-width: 48rem) {
+  .wb-topbar {
+    flex-wrap: wrap;
+  }
+
+  .wb-topbar-right {
+    margin-left: auto;
+  }
+
+  .wb-topbar .wb-panel-primary span,
+  .wb-topbar #wb-back-to-boards {
+    font-size: var(--text-sm);
+  }
+}
+
+@media (max-width: 40rem) {
+  .whiteboard-floating-panel.bottom-center {
+    max-width: calc(100% - 1rem);
+  }
+}

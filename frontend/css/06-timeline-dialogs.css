@@ -2154,6 +2154,10 @@
   --wb-h-library: 6.5rem;
   --wb-h-tools: 4rem;
   --wb-w-zoom: 18rem;
+  /* The top bar and the zoom cluster: the two panels the right-hand drawer
+     (`.mid-right`) and the library sidebar clear top and bottom. */
+  --wb-h-topbar: 3rem;
+  --wb-h-zoom: 2.75rem;
 }
 
 .whiteboard-floating-panel {

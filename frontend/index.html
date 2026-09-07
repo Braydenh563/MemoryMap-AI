@@ -3122,7 +3122,6 @@ Link to another note with [[its first few words]]."></textarea>
       </section>
     </div>
     <div id="wb-canvas-view" class="hidden">
-      <button id="wb-back-to-boards" class="ghost small" type="button"><i class="ph ph-arrow-left ph-lead" aria-hidden="true"></i> Boards</button>
       <!-- **The gestures, on screen, while you still need them.** Reported:
            "concept maps are unlearnable". The map *creates* well — it opens
            with a root selected and a toast naming Tab and Enter — but a toast
@@ -3194,76 +3193,76 @@ Link to another note with [[its first few words]]."></textarea>
         </div>
       </div>
     </div>
-    <div class="whiteboard-floating-panel top-left card glass" data-panel-id="board">
-      <span class="wb-panel-grip" title="Drag to move" aria-hidden="true">⠿</span>
-      <select id="wb-board-select" aria-label="Which whiteboard to show" title="Which whiteboard to show" class="ghost small" title="Switch Board">
-        <option value="">Default board</option>
-      </select>
-      <button id="wb-rename-board" class="ghost small icon-button" type="button" title="Rename this board" aria-label="Rename this board"><i class="ph ph-pencil-simple" aria-hidden="true"></i></button>
-      <button id="wb-new-board" class="ghost small icon-button" type="button" title="Create a new board" aria-label="Create a new board"><i class="ph ph-plus" aria-hidden="true"></i></button>
-    </div>
+    <!-- **One top bar, not two corner panels.** Reported, in the user's own
+         words: "the panels always clash", "blocky, bulky", "I'd rather use
+         OneNote, draw.io or Microsoft Whiteboard". The board picker
+         (top-left), the library/look/board panel (top-right), the back button
+         (top-centre) and the properties panel (mid-right) were four separately
+         draggable, separately wrapping boxes sharing one edge, and every fix
+         so far had been a measured offset between two of them. Every
+         whiteboard app the user named has the same answer: one strip across
+         the top carrying navigation on the left and the board-level actions on
+         the right, with the rarely-used look/export/clear controls behind a
+         single menu. Nothing here is draggable any more — a panel that cannot
+         move cannot be moved onto another one.
 
-    <div class="whiteboard-floating-panel top-right card glass" data-panel-id="library">
-      <span class="wb-panel-grip" title="Drag to move" aria-hidden="true">⠿</span>
-      <!-- **Grouped, and labelled.** This panel held nine controls in source
-           order with nothing separating them: a Library toggle, a colour
-           input, a colour reset, a grid dropdown, a Snap toggle, a background
-           image button, a reset-panels button, a clear-board button and an
-           export button — which laid out as a 3x3 grid of mostly unlabelled
-           icons where two different circular arrows sat next to each other
-           meaning two entirely different things (reset the *colour* vs reset
-           the *panel positions*).
-           Everything still does exactly what it did; it is now sorted into
-           the three questions a person actually has here — how the board
-           looks, what to do with the board, and where the panels sit — with a
-           heading on each so the icons are read in a context rather than
-           guessed at individually. -->
-      <button id="wb-add-note" class="ghost small wb-panel-primary" title="Toggle Library"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i> Library</button>
-
-      <div class="wb-panel-group">
-        <span class="wb-panel-group-label">Look</span>
-        <div class="wb-panel-group-row">
-          <input
-            type="color"
-            id="wb-bg-color-picker" aria-label="Board background colour" title="Board background colour"
-            value="#1b1f2c"
-            class="wb-color-picker"
-          >
-          <button id="wb-bg-color-reset" class="ghost small icon-button" type="button" title="Reset the background colour to the theme default" aria-label="Reset the background colour to the theme default"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
-          <button id="wb-bg-image" class="ghost small icon-button" type="button" title="Set a background image" aria-label="Set a background image"><i class="ph ph-image" aria-hidden="true"></i></button>
-        </div>
-        <div class="wb-panel-group-row">
-          <select id="wb-grid-select" aria-label="Grid style" title="Grid style" class="ghost small">
-            <option value="none">No grid</option>
-            <option value="lines">Grid: lines</option>
-            <option value="dots">Grid: dots</option>
-            <option value="iso">Grid: isometric</option>
-          </select>
-          <label class="wb-snap-label" title="Snap items to the grid while dragging">
-            <input type="checkbox" id="wb-snap-toggle">
-            <span>Snap</span>
-          </label>
-        </div>
+         Same ids throughout, so every listener in whiteboard.js is unchanged;
+         only `#wb-board-menu-toggle`/`#wb-board-menu` are new. -->
+    <div class="wb-topbar card glass" id="wb-topbar" data-panel-id="topbar">
+      <div class="wb-topbar-left">
+        <button id="wb-back-to-boards" class="ghost small" type="button" title="Back to the board list"><i class="ph ph-arrow-left ph-lead" aria-hidden="true"></i> Boards</button>
+        <span class="wb-topbar-divider" aria-hidden="true"></span>
+        <select id="wb-board-select" aria-label="Which whiteboard to show" title="Which whiteboard to show" class="ghost small">
+          <option value="">Default board</option>
+        </select>
+        <button id="wb-rename-board" class="ghost small icon-button" type="button" title="Rename this board" aria-label="Rename this board"><i class="ph ph-pencil-simple" aria-hidden="true"></i></button>
+        <button id="wb-new-board" class="ghost small icon-button" type="button" title="Create a new board" aria-label="Create a new board"><i class="ph ph-plus" aria-hidden="true"></i></button>
       </div>
-      <input type="file" id="wb-bg-image-input" aria-label="Choose a board background image" title="Choose a board background image" accept="image/*" class="hidden" aria-hidden="true">
-
-      <div class="wb-panel-group">
-        <span class="wb-panel-group-label">Board</span>
-        <div class="wb-panel-group-row">
-          <button id="wb-export" class="ghost small icon-button" type="button" title="Export this board" aria-label="Export this board"><i class="ph ph-download-simple" aria-hidden="true"></i></button>
-          <!-- The one destructive control here, so it carries the danger
-               colour rather than sitting in the same grey as Export. -->
-          <button id="wb-clear-board" class="ghost small icon-button wb-panel-danger" type="button" title="Clear this board" aria-label="Clear this board"><i class="ph ph-trash" aria-hidden="true"></i></button>
-          <button id="wb-reset-panels" class="ghost small icon-button" type="button" title="Reset panel positions" aria-label="Reset panel positions"><i class="ph ph-layout" aria-hidden="true"></i></button>
+      <div class="wb-topbar-right">
+        <button id="wb-search-toggle" class="ghost small icon-button" type="button" title="Find a card on this board (Ctrl+F)" aria-label="Find a card on this board" aria-expanded="false" aria-controls="wb-search-bar"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
+        <button id="wb-navigator-toggle" class="ghost small icon-button" type="button" title="Board overview (N)" aria-label="Board overview" aria-expanded="false" aria-controls="wb-navigator"><i class="ph ph-map-trifold" aria-hidden="true"></i></button>
+        <span class="wb-topbar-divider" aria-hidden="true"></span>
+        <button id="wb-add-note" class="ghost small wb-panel-primary" title="Toggle the note library (drag notes onto the board)"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i> Library</button>
+        <div class="wb-board-menu-wrap">
+          <button id="wb-board-menu-toggle" class="ghost small icon-button" type="button" title="Board: look, grid, export, clear" aria-label="Board menu" aria-haspopup="true" aria-expanded="false" aria-controls="wb-board-menu"><i class="ph ph-dots-three-outline" aria-hidden="true"></i></button>
+          <div id="wb-board-menu" class="wb-board-menu card glass hidden" role="menu" aria-label="Board menu">
+            <div class="wb-panel-group">
+              <span class="wb-panel-group-label">Look</span>
+              <div class="wb-panel-group-row">
+                <input type="color" id="wb-bg-color-picker" aria-label="Board background colour" title="Board background colour" value="#1b1f2c" class="wb-color-picker">
+                <button id="wb-bg-color-reset" class="ghost small icon-button" type="button" title="Reset the background colour to the theme default" aria-label="Reset the background colour to the theme default"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
+                <button id="wb-bg-image" class="ghost small icon-button" type="button" title="Set a background image" aria-label="Set a background image"><i class="ph ph-image" aria-hidden="true"></i></button>
+              </div>
+              <div class="wb-panel-group-row">
+                <select id="wb-grid-select" aria-label="Grid style" title="Grid style" class="ghost small">
+                  <option value="none">No grid</option>
+                  <option value="lines">Grid: lines</option>
+                  <option value="dots">Grid: dots</option>
+                  <option value="iso">Grid: isometric</option>
+                </select>
+                <label class="wb-snap-label" title="Snap items to the grid while dragging">
+                  <input type="checkbox" id="wb-snap-toggle">
+                  <span>Snap</span>
+                </label>
+              </div>
+            </div>
+            <input type="file" id="wb-bg-image-input" aria-label="Choose a board background image" title="Choose a board background image" accept="image/*" class="hidden" aria-hidden="true">
+            <div class="wb-panel-group">
+              <span class="wb-panel-group-label">Board</span>
+              <div class="wb-panel-group-row">
+                <button id="wb-export" class="ghost small" type="button" title="Export this board"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export</button>
+                <button id="wb-dock-toggle" class="ghost small" type="button" title="Dock as a sidebar" aria-label="Dock as a sidebar"><i class="ph ph-sidebar-simple ph-lead" aria-hidden="true"></i> Toolbar</button>
+                <button id="wb-clear-board" class="ghost small wb-panel-danger" type="button" title="Clear this board"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Clear</button>
+              </div>
+            </div>
+          </div>
         </div>
+        <span class="wb-topbar-divider" aria-hidden="true"></span>
+        <button id="wb-fullscreen" class="ghost small icon-button" title="Full screen (Esc to leave)" aria-label="Toggle full screen"><i class="ph ph-arrows-out" aria-hidden="true"></i></button>
+        <button id="wb-help-btn" class="ghost small icon-button" title="Show the whiteboard help again" aria-label="Whiteboard help"><i class="ph ph-question" aria-hidden="true"></i></button>
       </div>
     </div>
-
     <div class="whiteboard-floating-panel bottom-center card glass" data-panel-id="tools" id="wb-tools-panel" data-dock="bottom">
-      <span class="wb-panel-grip" title="Drag to move" aria-hidden="true">⠿</span>
-      <button type="button" class="ghost icon-button" id="wb-dock-toggle" title="Dock as a sidebar" aria-label="Dock as a sidebar">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
-      </button>
       <div class="wb-tool-group" id="wb-tool-group">
       <!-- **Seven labelled sections, not forty-two loose icons.**
 
@@ -3495,28 +3494,13 @@ Link to another note with [[its first few words]]."></textarea>
       </div>
     </div>
 
+    <!-- Zoom only. Search, overview, full screen and help moved up into the
+         top bar with the other board-level actions, so this cluster is four
+         controls wide and the centred tool dock has room to clear it. -->
     <div class="whiteboard-floating-panel bottom-right card glass" data-panel-id="zoom">
-      <span class="wb-panel-grip" title="Drag to move" aria-hidden="true">⠿</span>
-      <button id="wb-zoom-in" class="ghost small icon-only" title="Zoom In" aria-label="Zoom In"><i class="ph ph-plus" aria-hidden="true"></i></button>
-      <button id="wb-zoom-out" class="ghost small icon-only" title="Zoom Out" aria-label="Zoom Out"><i class="ph ph-minus" aria-hidden="true"></i></button>
-      <button id="wb-zoom-fit" class="ghost small icon-only" title="Fit to Screen" aria-label="Fit to Screen"><i class="ph ph-frame-corners" aria-hidden="true"></i></button>
-      <!-- Reported directly: "the whiteboard definately needs a fullscreen
-           mode because it feels too squished." Measured before building —
-           the board is 1376x676 in a 1440x900 window, so a quarter of the
-           height goes to the app header, the Library sub-tab bar and the
-           status bar. Sits in the zoom cluster because that is where the
-           graph's own fullscreen toggle sits, and the two should not be in
-           different places. -->
-      <button id="wb-fullscreen" class="ghost small icon-only" title="Full screen (Esc to leave)" aria-label="Toggle full screen"><i class="ph ph-arrows-out" aria-hidden="true"></i></button>
-      <!-- The two navigation controls added with the navigator/search work.
-           They sit in the zoom cluster because that is already the "where am
-           I on this board" group (zoom, fit, full screen) — and because the
-           canvas carries four floating panels already, two of which have a
-           recorded history of colliding with each other on narrow screens, so
-           a fifth always-on panel was the wrong answer. -->
-      <button id="wb-navigator-toggle" class="ghost small icon-only" type="button" title="Board overview (N)" aria-label="Board overview" aria-expanded="false" aria-controls="wb-navigator"><i class="ph ph-map-trifold" aria-hidden="true"></i></button>
-      <button id="wb-search-toggle" class="ghost small icon-only" type="button" title="Find a card on this board (Ctrl+F)" aria-label="Find a card on this board" aria-expanded="false" aria-controls="wb-search-bar"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
-      <button id="wb-help-btn" class="ghost small" title="Show the whiteboard help again">?</button>
+      <button id="wb-zoom-out" class="ghost small icon-only" title="Zoom out" aria-label="Zoom out"><i class="ph ph-minus" aria-hidden="true"></i></button>
+      <button id="wb-zoom-fit" class="ghost small icon-only" title="Fit to screen" aria-label="Fit to screen"><i class="ph ph-frame-corners" aria-hidden="true"></i></button>
+      <button id="wb-zoom-in" class="ghost small icon-only" title="Zoom in" aria-label="Zoom in"><i class="ph ph-plus" aria-hidden="true"></i></button>
     </div>
 
     <!-- The navigator: a live minimap of the whole board with a draggable
@@ -3555,7 +3539,6 @@ Link to another note with [[its first few words]]."></textarea>
          row toggled to whatever the selected kind actually has to edit. -->
     <div class="whiteboard-floating-panel mid-right card glass hidden" data-panel-id="properties" id="wb-properties-panel">
       <div class="wb-panel-header">
-        <span class="wb-panel-grip" title="Drag to move" aria-hidden="true">⠿</span>
         <h3 class="wb-properties-title">Properties</h3>
       </div>
       <!-- **The style controls live with the thing they style, not in the

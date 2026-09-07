@@ -3540,8 +3540,12 @@ async function initWhiteboard() {
   // so a custom position keeps working exactly as before.
   const wbPanelMetricsRoot = document.getElementById("library-view-whiteboard");
   if (wbPanelMetricsRoot && typeof ResizeObserver !== "undefined") {
-    for (const [panelId, name] of [["library", "library"], ["tools", "tools"], ["zoom", "zoom"]]) {
-      const panel = document.querySelector(`.whiteboard-floating-panel[data-panel-id="${panelId}"]`);
+    // "library" is gone (its controls are in the top bar now) but the token
+    // stays declared for the one rule in 06-timeline-dialogs.css that the
+    // later drawer rule overrides; "topbar" and "zoom" are what the drawer,
+    // the sidebar, the search bar and the overview clear today.
+    for (const [panelId, name] of [["topbar", "topbar"], ["tools", "tools"], ["zoom", "zoom"]]) {
+      const panel = document.querySelector(`[data-panel-id="${panelId}"]`);
       if (!panel) continue;
       const publish = () => {
         const box = panel.getBoundingClientRect();
@@ -4158,6 +4162,35 @@ async function initWhiteboard() {
   // only a bottom bar. `data-dock` drives the CSS (row vs. column layout,
   // which edge it's pinned to); persisted so the choice survives a reload
   // the same way panel positions already do.
+  // The Board menu in the top bar: look, grid, snap, export, toolbar dock,
+  // clear. Opens on its button, closes on an outside click or Esc — but
+  // not on a click inside it, since the colour input and the grid select
+  // are both used from within.
+  const boardMenuToggle = document.getElementById("wb-board-menu-toggle");
+  const boardMenu = document.getElementById("wb-board-menu");
+  if (boardMenuToggle && boardMenu) {
+    const setOpen = (open) => {
+      boardMenu.classList.toggle("hidden", !open);
+      boardMenuToggle.setAttribute("aria-expanded", open ? "true" : "false");
+    };
+    boardMenuToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setOpen(boardMenu.classList.contains("hidden"));
+    });
+    document.addEventListener("click", (e) => {
+      if (boardMenu.classList.contains("hidden")) return;
+      if (boardMenu.contains(e.target)) return;
+      setOpen(false);
+    });
+    // Capture phase: the board's own keydown handler sees Escape first from
+    // a focused toolbar button and stops it (measured — a real keypress on
+    // the open menu's toggle left the menu open, a synthetic one on
+    // `document` closed it), so this has to run before any of that.
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !boardMenu.classList.contains("hidden")) setOpen(false);
+    }, true);
+  }
+
   const toolsPanel = document.getElementById("wb-tools-panel");
   const dockToggle = document.getElementById("wb-dock-toggle");
   if (toolsPanel && dockToggle) {

@@ -1833,6 +1833,53 @@ progress {
   margin-bottom: var(--space-4);
 }
 
+/* The Links "Manage groups" dialog. Directly requested: "add buttons for
+   creating and managing groups in the links tab top dock" — before this, a
+   group could only be made by typing its name into the Add form, and renamed
+   only by editing every link in it one at a time.
+
+   Wider than `.confirm-card` because it is a list rather than a sentence, and
+   the rows carry a name, a count and two buttons. Capped and scrollable for
+   the same reason every menu in the app now is: a notebook with thirty groups
+   must not push the Done button off the bottom of the screen. */
+.bookmark-groups-card {
+  max-width: 34rem;
+  width: min(34rem, 92vw);
+}
+
+.bookmark-groups-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 50vh;
+  overflow-y: auto;
+  overflow-x: clip;
+  overscroll-behavior: contain;
+  margin-block: var(--space-3);
+}
+
+.bookmark-group-row {
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+/* Name over count, so the row reads as one item rather than two columns of
+   unrelated text — the same stacked shape `.bookmark-main` uses. */
+.bookmark-group-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.bookmark-group-row-actions {
+  flex-shrink: 0;
+  gap: var(--space-1);
+}
+
 /* Library -> Contents (§30): a hyperlinked outline grouped by category or
    tag, as a grid of bordered cards — reported as "ugly," which the first
    pass earned: plain headings and a bare link list with no containment

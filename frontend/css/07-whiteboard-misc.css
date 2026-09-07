@@ -6814,3 +6814,38 @@ button.connection-row {
 header#top-bar > #tab-bar {
   justify-content: safe center;
 }
+
+/* --- every menu scrolls down, never sideways, and never runs off the page ---
+   Two reports, one rule. "the whiteboard view dropdown has a horizontal
+   scrollbar??" and "all dropdowns need to be scrollable if they take up too
+   much of the page or go down to far so the dont get clipped at the bottom."
+
+   **The horizontal scrollbar is a spec behaviour, not a stray wide child.**
+   When one axis is `auto` and the other is left `visible`, CSS computes the
+   `visible` one to `auto` as well — so `.wb-board-menu`'s `overflow-y: auto`
+   silently made its X axis scrollable too (measured: `overflow-x` computed
+   `auto`), and any sub-pixel overflow then draws a bar. `clip` rather than
+   `hidden` for the same reason as the content column in 00-tokens-shell.css:
+   it stops the scrollbar without making the box a scroll container that
+   focus can shove sideways with no way back.
+
+   **The vertical half is the missing piece.** `.action-menu` (the kebab menus
+   everywhere) and `.doc-dock-menu-list` (the toolbars) had no `max-height` at
+   all, so a long menu simply ran past the bottom of the window — the
+   placement code flips a menu above its button when there is more room there,
+   but nothing helps a menu taller than the viewport itself. A cap plus
+   `overflow-y: auto` is what makes the last item reachable.
+
+   `overscroll-behavior: contain` stops a wheel that reaches the end of the
+   menu from scrolling the page underneath — which would move the very button
+   the menu is anchored to. */
+.action-menu,
+.doc-dock-menu-list,
+.wb-board-menu,
+.wb-export-menu,
+.help-popover {
+  max-height: calc(100vh - var(--space-9) * 2);
+  overflow-y: auto;
+  overflow-x: clip;
+  overscroll-behavior: contain;
+}

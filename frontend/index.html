@@ -4067,6 +4067,17 @@ Link to another note with [[its first few words]]."></textarea>
     <section class="card glass">
       <div class="row space-between library-head">
         <h2>Links</h2>
+        <!-- Groups had no controls of their own: the only way to make one was
+             to type a name into the Add form, and the only way to rename or
+             retire one was to edit every link carrying it, one at a time.
+             Directly requested: "add buttons for creating and managing groups
+             in the links tab top dock". -->
+        <div class="row">
+          <button type="button" id="bookmark-group-new" class="ghost small">
+            <i class="ph ph-folder-plus ph-lead" aria-hidden="true"></i> New group</button>
+          <button type="button" id="bookmark-group-manage" class="ghost small">
+            <i class="ph ph-folders ph-lead" aria-hidden="true"></i> Manage groups</button>
+        </div>
       </div>
       <p class="muted">Save links to websites you visit often — a bookmark
         shelf that lives in the notebook instead of the browser.</p>

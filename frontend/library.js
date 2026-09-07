@@ -5778,6 +5778,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
   $("bookmark-search")?.addEventListener("input", filterBookmarks);
+  $("bookmark-group-new")?.addEventListener("click", newBookmarkGroup);
+  $("bookmark-group-manage")?.addEventListener("click", manageBookmarkGroups);
   $("contents-refresh")?.addEventListener("click", renderContents);
   $("contents-mode")?.querySelectorAll("button").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -6086,11 +6088,218 @@ async function bulkDeleteLibraryLinks() {
   renderBookmarks();
 }
 
+//: **A group is a name on a bookmark, not a row in a table.** There is no
+//: group entity anywhere in the backend — `routes_bookmarks.py` stores
+//: `group_name` as a plain string field on each link, and the chips are
+//: derived from whatever names the current links happen to carry. That is a
+//: good model (nothing to garbage-collect, no join to keep honest), but it
+//: has one hole: a group with no links in it cannot exist server-side, so
+//: "New group" would create something that vanishes the moment you look away.
+//:
+//: This is that hole, filled client-side rather than by adding a table: a
+//: freshly made, still-empty group is remembered here until a link lands in
+//: it, at which point the derived name takes over and the placeholder is
+//: dropped. Kept per-profile in localStorage alongside the sort preference,
+//: for the same reason that one is: it is a view preference, not notebook
+//: content, and it must not travel into an export as if it were data.
+const BOOKMARK_EMPTY_GROUPS_KEY = "library-links-empty-groups";
+
+function emptyBookmarkGroups() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(BOOKMARK_EMPTY_GROUPS_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed.filter((g) => typeof g === "string" && g) : [];
+  } catch {
+    // A hand-edited or half-written value must not take the whole sub-tab
+    // down with it — an unreadable preference is the same as none.
+    return [];
+  }
+}
+
+function setEmptyBookmarkGroups(groups) {
+  try {
+    localStorage.setItem(BOOKMARK_EMPTY_GROUPS_KEY, JSON.stringify([...new Set(groups)].sort()));
+  } catch {
+    /* storage full or blocked: the group just won't survive a reload. */
+  }
+}
+
+//: Every group name the Links sub-tab knows about: the ones links actually
+//: carry, plus the placeholders above that nothing has been filed into yet.
+//: Also the one place that prunes a placeholder whose name is now real, so
+//: the two sources can never both claim the same name.
+function allBookmarkGroups() {
+  const used = new Set(bookmarksCache.map((b) => b.group_name).filter(Boolean));
+  const empties = emptyBookmarkGroups().filter((g) => !used.has(g));
+  if (empties.length !== emptyBookmarkGroups().length) setEmptyBookmarkGroups(empties);
+  return [...new Set([...used, ...empties])].sort();
+}
+
+//: Rename a group across every link carrying it. One PUT per link, because
+//: that is the only endpoint there is — there is no bulk update and no group
+//: row to rename instead. Sequential rather than Promise.all so a notebook
+//: with a hundred links in one group does not open a hundred sockets at once;
+//: a rename is rare and a moment of latency is cheaper than a thundering herd.
+async function renameBookmarkGroup(from, to) {
+  let moved = 0;
+  for (const bookmark of bookmarksCache.filter((b) => b.group_name === from)) {
+    try {
+      await apiJson(`/bookmarks/${bookmark.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ group_name: to }),
+      });
+      moved++;
+    } catch (error) {
+      toast(error.message || "Couldn't move that link.", true);
+    }
+  }
+  const empties = emptyBookmarkGroups().filter((g) => g !== from);
+  if (to) empties.push(to);
+  setEmptyBookmarkGroups(empties);
+  if (bookmarkGroupFilter === from) bookmarkGroupFilter = to || null;
+  return moved;
+}
+
+//: Deleting a group deletes the *grouping*, never the links — clearing the
+//: name on each one drops them back into the ungrouped pile. Deleting the
+//: links themselves is what the row ticks and the bulk bar are for, and
+//: conflating the two here would make a tidy-up destructive by surprise.
+async function deleteBookmarkGroup(group) {
+  return renameBookmarkGroup(group, "");
+}
+
+async function newBookmarkGroup() {
+  const name = (await promptDialog("Name for the new group (e.g. Work/Reading):", "")).trim();
+  if (!name) return;
+  if (allBookmarkGroups().includes(name)) {
+    toast(`"${name}" already exists.`);
+    bookmarkGroupFilter = name;
+    renderBookmarks();
+    return;
+  }
+  setEmptyBookmarkGroups([...emptyBookmarkGroups(), name]);
+  // Pre-fill the Add form so the obvious next move — saving a link into the
+  // group you just made — needs no second trip to the group field.
+  const groupInput = $("bookmark-group-input");
+  if (groupInput) groupInput.value = name;
+  bookmarkGroupFilter = name;
+  renderBookmarks();
+  toast(`Group "${name}" created. Add a link to it, or it'll be forgotten on the next device.`);
+}
+
+//: The manage dialog. Built by hand rather than reusing confirmDialog because
+//: it is a list with two actions per row, and it re-renders itself in place
+//: after each one — reopening it after every rename would lose your place.
+function manageBookmarkGroups() {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay confirm-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "Manage link groups");
+
+  const card = document.createElement("div");
+  card.className = "card modal-card confirm-card bookmark-groups-card";
+  const heading = document.createElement("h3");
+  heading.textContent = "Manage groups";
+  const blurb = document.createElement("p");
+  blurb.className = "muted text-sm";
+  blurb.textContent =
+    "Renaming a group moves every link in it. Deleting one keeps the links and just ungroups them.";
+  const list = document.createElement("div");
+  list.className = "bookmark-groups-list";
+
+  const returnFocus = document.activeElement;
+  let settled = false;
+  const close = () => {
+    if (settled) return;
+    settled = true;
+    document.removeEventListener("keydown", onKey, true);
+    overlay.remove();
+    returnFocus?.focus?.();
+  };
+  const onKey = (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+    }
+  };
+
+  const paint = () => {
+    list.replaceChildren();
+    const groups = allBookmarkGroups();
+    if (!groups.length) {
+      const none = document.createElement("p");
+      none.className = "muted";
+      none.textContent = "No groups yet. Use “New group”, or type a group name when you add a link.";
+      list.appendChild(none);
+      return;
+    }
+    for (const group of groups) {
+      const count = bookmarksCache.filter((b) => b.group_name === group).length;
+      const row = document.createElement("div");
+      row.className = "row space-between bookmark-group-row";
+
+      const label = document.createElement("div");
+      label.className = "bookmark-group-row-main";
+      const name = document.createElement("strong");
+      name.textContent = group.split("/").join(" / ");
+      const meta = document.createElement("span");
+      meta.className = "muted text-sm";
+      meta.textContent = count === 0 ? "Empty" : `${count} link${count === 1 ? "" : "s"}`;
+      label.append(name, meta);
+
+      const actions = document.createElement("div");
+      actions.className = "row bookmark-group-row-actions";
+      actions.append(
+        smallButton("ph:pencil-simple", `Rename "${group}"`, async () => {
+          const next = (await promptDialog(`Rename "${group}" to:`, group)).trim();
+          if (!next || next === group) return;
+          const moved = await renameBookmarkGroup(group, next);
+          await renderBookmarks();
+          paint();
+          toast(moved ? `Moved ${moved} link${moved === 1 ? "" : "s"} to "${next}".` : `Renamed to "${next}".`);
+        }),
+        smallButton("ph:trash", `Delete "${group}"`, async () => {
+          const ok = await confirmDialog(
+            count === 0
+              ? `Delete the empty group "${group}"?`
+              : `Delete the group "${group}"? Its ${count} link${count === 1 ? "" : "s"} stay — they just stop being grouped.`
+          );
+          if (!ok) return;
+          await deleteBookmarkGroup(group);
+          await renderBookmarks();
+          paint();
+        })
+      );
+      row.append(label, actions);
+      list.appendChild(row);
+    }
+  };
+  paint();
+
+  const footer = document.createElement("div");
+  footer.className = "row confirm-actions";
+  footer.append(
+    smallButton("New group", "Create a new group", async () => {
+      close();
+      await newBookmarkGroup();
+    }),
+    smallButton("Done", "Close", close, false)
+  );
+
+  card.append(heading, blurb, list, footer);
+  overlay.appendChild(card);
+  wireBackdropClose(overlay, close);
+  document.addEventListener("keydown", onKey, true);
+  document.body.appendChild(overlay);
+  card.querySelector("button")?.focus();
+}
+
 function renderBookmarkGroupChips() {
   const box = $("bookmark-group-chips");
   const datalist = $("bookmark-group-options");
   if (!box) return;
-  const groups = [...new Set(bookmarksCache.map((b) => b.group_name).filter(Boolean))].sort();
+  const groups = allBookmarkGroups();
   datalist?.replaceChildren(
     ...groups.map((g) => { const opt = document.createElement("option"); opt.value = g; return opt; })
   );

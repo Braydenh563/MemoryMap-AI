@@ -30,6 +30,43 @@ def _stream_events(client, question, **body):
         return [json.loads(line) for line in response.iter_lines() if line]
 
 
+#: A five-step skill whose steps are **plain strings**, for the tests that are
+#: about the runner rather than about a particular built-in.
+#:
+#: A string step is unchecked — it has no contract (see `skills.STEP_EXPECTS`)
+#: and advances on whatever the model says, which is what every skill written
+#: by hand in the settings box does. That is exactly the right scaffolding for
+#: "does a step get its own turn", "does the manual pause land in the right
+#: place", "does step 3 see what step 2 touched": those are properties of the
+#: runner, and they should not change the day a shipped skill changes what it
+#: expects of its own steps.
+#:
+#: These tests used to borrow the "Auto-tag my notes" built-in for this, and
+#: every one of them broke when that built-in started declaring a contract per
+#: step — a coupling worth removing rather than working around, since the fake
+#: model narrates and never calls a tool, so a `tool_called` contract can only
+#: ever end those runs in `stalled`.
+BENCH_SKILL = {
+    "name": "Test bench",
+    "prompt": "Tag the notes in my notebook that have no tags yet.",
+    "steps": [
+        "List the tags I already use.",
+        "Find my notes with no tags.",
+        "Read each of those notes.",
+        "Call tag_note on each one with 2-3 tags.",
+        "Tell me which notes you tagged.",
+    ],
+    "tools": ["list_notes", "get_note", "list_tags", "tag_note"],
+}
+
+
+def _bench(client) -> str:
+    """Save the bench skill and return its name, for `skill=` on a run."""
+    response = client.put("/preferences", json={"skills": [BENCH_SKILL]})
+    assert response.status_code < 400
+    return BENCH_SKILL["name"]
+
+
 # --- what a skill is now -----------------------------------------------------
 
 
@@ -116,6 +153,38 @@ def test_every_built_in_is_a_job_rather_than_a_sentence():
         assert skill["steps"], f"{skill['name']} has no steps"
         assert skill["tools"], f"{skill['name']} names no tools"
         assert skill["description"], f"{skill['name']} says nothing about itself"
+
+
+def test_every_built_in_step_declares_what_it_expects():
+    """Phase A of the skills reform, as a lint. A shipped step with no contract
+    is a step that can be ticked green having done nothing — which is the
+    reported failure, and it is not something a behaviour test can catch,
+    because the fake model happily narrates any step you give it."""
+    for skill in skills.builtins(_known()):
+        for spec in skill["step_specs"]:
+            assert spec["expects"] in skills.STEP_EXPECTS, (
+                f"{skill['name']}: “{spec['text'][:40]}” declares no contract"
+            )
+
+
+def test_no_built_in_step_names_more_than_one_tool():
+    """Phase B's measured target: *"no built-in step names more than one tool"*.
+
+    It is the acceptance test for the atomic rewrite — a step that needs two
+    tools is two steps, and the "and" in the middle of it was the model's
+    licence to do the first half and narrate the second. It is also what makes
+    small-model mode meaningful: that mode offers a step only the tools its
+    contract names, so a step naming three would offer three."""
+    for skill in skills.builtins(_known()):
+        for spec in skill["step_specs"]:
+            assert len(spec["tools"]) <= 1, (
+                f"{skill['name']}: “{spec['text'][:40]}” names {spec['tools']}"
+            )
+            for name in spec["tools"]:
+                # A contract naming a tool the run will not be offered can
+                # never be met: the allowlist refuses the call, the step is
+                # nudged twice, and every run of it stalls.
+                assert name in skill["tools"], f"{skill['name']}: {name} is not in its tools"
 
 
 def test_a_built_in_that_needs_a_value_asks_for_it_instead_of_guessing():
@@ -281,7 +350,8 @@ def test_the_agent_refuses_a_tool_the_skill_did_not_declare(
 
 
 def test_running_a_skill_sends_its_instruction_not_its_name(ai_client, fake_ollama):
-    events = _stream_events(ai_client, "Auto-tag my notes", skill="Auto-tag my notes")
+    name = _bench(ai_client)
+    events = _stream_events(ai_client, name, skill=name)
     plan = [e for e in events if e["type"] == "plan"][0]
     assert plan["steps"]
 
@@ -385,7 +455,7 @@ def test_each_step_is_its_own_turn_and_is_ticked_off(ai_client, fake_ollama):
     """Handing a 3B model four instructions at once gets the first one done
     and the rest narrated. One step per turn is what makes "step 2 happened"
     something the app knows rather than hopes."""
-    events = _stream_events(ai_client, "run", skill="Auto-tag my notes")
+    events = _stream_events(ai_client, "run", skill=_bench(ai_client))
     plan = [e for e in events if e["type"] == "plan"][0]
     steps = [e for e in events if e["type"] == "step"]
 
@@ -419,7 +489,7 @@ def test_a_step_that_produces_nothing_is_not_ticked_done(ai_client, fake_ollama)
 
 
 def test_a_step_only_sees_what_the_earlier_steps_said(ai_client, fake_ollama):
-    _stream_events(ai_client, "run", skill="Auto-tag my notes")
+    _stream_events(ai_client, "run", skill=_bench(ai_client))
     last_turn = fake_ollama.tool_rounds[-1]
     # The history the last step was given carries the earlier steps as turns.
     earlier = [m for m in last_turn if m.get("role") == "user"]
@@ -436,11 +506,12 @@ def test_a_later_step_sees_which_notes_an_earlier_step_actually_touched(
     notes" had only that sentence to work from — too vague to act on. The
     actual note id (from the same `change` event that already backs the
     chat UI's View/Undo buttons) now travels with it."""
+    name = _bench(ai_client)
     note = _saved(ai_client, "a note that wants tagging")
     fake_ollama.tool_script = [
         [{"name": "tag_note", "arguments": {"note_id": note["id"], "add": ["filed"]}}]
     ]
-    _stream_events(ai_client, "run", skill="Auto-tag my notes")
+    _stream_events(ai_client, "run", skill=name)
     last_turn = fake_ollama.tool_rounds[-1]
     history_text = " ".join(
         str(m.get("content", "")) for m in last_turn if m.get("role") == "assistant"
@@ -543,7 +614,7 @@ def test_manual_mode_pauses_after_the_first_step_instead_of_continuing(
     ai_client, fake_ollama
 ):
     events = _stream_events(
-        ai_client, "run", skill="Auto-tag my notes", skill_manual=True
+        ai_client, "run", skill=_bench(ai_client), skill_manual=True
     )
     steps = [e for e in events if e["type"] == "step"]
     result = [e for e in events if e["type"] == "result"][0]
@@ -554,7 +625,7 @@ def test_manual_mode_pauses_after_the_first_step_instead_of_continuing(
 
 
 def test_manual_mode_off_runs_straight_through_as_before(ai_client, fake_ollama):
-    events = _stream_events(ai_client, "run", skill="Auto-tag my notes")
+    events = _stream_events(ai_client, "run", skill=_bench(ai_client))
     result = [e for e in events if e["type"] == "result"][0]
     assert result["stopped_at"] is None
     assert result["paused"] is False
@@ -565,7 +636,7 @@ def test_manual_mode_does_not_pause_after_the_last_step(ai_client, fake_ollama):
     events = _stream_events(
         ai_client,
         "run",
-        skill="Auto-tag my notes",
+        skill=_bench(ai_client),
         skill_manual=True,
         skill_from_step=4,  # the last of the five steps
     )
@@ -576,7 +647,7 @@ def test_manual_mode_does_not_pause_after_the_last_step(ai_client, fake_ollama):
 
 def test_a_paused_run_is_never_reported_as_failed_or_stalled(ai_client, fake_ollama):
     events = _stream_events(
-        ai_client, "run", skill="Auto-tag my notes", skill_manual=True
+        ai_client, "run", skill=_bench(ai_client), skill_manual=True
     )
     steps = [e for e in events if e["type"] == "step"]
     assert not any(s["state"] in ("failed", "stalled") for s in steps)
@@ -591,7 +662,7 @@ def test_manual_note_is_folded_into_the_next_steps_own_instruction(
     _stream_events(
         ai_client,
         "run",
-        skill="Auto-tag my notes",
+        skill=_bench(ai_client),
         skill_manual=True,
         skill_from_step=1,
         skill_manual_note="focus on the work notes only",
@@ -604,10 +675,11 @@ def test_manual_note_only_reaches_the_step_it_was_added_before(ai_client, fake_o
     """Not repeated into every later step's instruction — it was about *this*
     step, and a note that keeps reappearing three steps later would read as
     a standing instruction nobody actually gave."""
+    name = _bench(ai_client)
     events = _stream_events(
         ai_client,
         "run",
-        skill="Auto-tag my notes",
+        skill=name,
         skill_manual=True,
         skill_from_step=1,
         skill_manual_note="focus on the work notes only",
@@ -618,7 +690,7 @@ def test_manual_note_only_reaches_the_step_it_was_added_before(ai_client, fake_o
     later = _stream_events(
         ai_client,
         "run",
-        skill="Auto-tag my notes",
+        skill=name,
         skill_manual=True,
         skill_from_step=2,
     )

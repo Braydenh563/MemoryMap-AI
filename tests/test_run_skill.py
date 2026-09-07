@@ -340,3 +340,341 @@ def test_list_skills_no_longer_tells_the_model_it_cannot_start_one(session, app_
     note = tools.TOOLS["list_skills"].handler(session, {})["note_to_model"]
     assert "cannot start" not in note.lower()
     assert "run_skill" in note
+
+
+# --- a step has a contract (skills reform, Phase A) --------------------------
+#
+# The reported failure, verbatim: *"I ran a skill and it ran no tools... the
+# models often dont even properly complete a step before they are prompted for
+# the next step. its an absolute mess."*
+#
+# What the fake model does here is exactly that failure: it narrates. Every
+# test below is about what the runner does when a step's declared condition is
+# not met — and the answer must never be "tick it green and move on".
+#
+# **What these cannot prove**, and the standing caveat in CLAUDE.md is the
+# reason: whether a real 4B model, handed the nudge, then calls the tool. The
+# fake calls what the script tells it to. What is provable here is the
+# mechanism — that the nudge is sent, that it names the right tool, that a
+# call on the second attempt is accepted, and that running out of attempts
+# stalls rather than passes.
+
+
+CONTRACT_SKILL = {
+    "name": "Tag audit",
+    "prompt": "Check my tags.",
+    "steps": [
+        {"text": "List every tag I use.", "expects": "tool_called", "tools": ["list_tags"]},
+        {"text": "Tell me which ones look duplicated.", "expects": "answer_only"},
+    ],
+    "tools": ["list_tags", "list_notes", "get_note"],
+}
+
+
+def _sent(fake) -> list[str]:
+    """Every user message the fake was handed, across every round."""
+    return [
+        str(message.get("content", ""))
+        for round_messages in fake.tool_rounds
+        for message in round_messages
+        if message.get("role") == "user"
+    ]
+
+
+def test_a_step_that_expects_a_tool_call_is_re_prompted_not_skipped(
+    ai_client, fake_ollama, app_state
+):
+    """The heart of the reform. The model answers in prose and calls nothing;
+    the step is not done, so it is asked again — literally, by name."""
+    _save(CONTRACT_SKILL)
+    events = _events(ai_client, "run", skill="Tag audit")
+    steps = [e for e in events if e["type"] == "step" and e["index"] == 0]
+
+    assert [s["state"] for s in steps] == ["running", "retrying", "retrying", "stalled"]
+    assert [s["attempt"] for s in steps if s["state"] == "retrying"] == [2, 3]
+    # The nudge names the tool, because that is the thing a small model acts
+    # on — not a restatement of the step it has already failed to follow.
+    nudges = [text for text in _sent(fake_ollama) if "You did not call" in text]
+    assert nudges, "the step was never re-prompted"
+    assert "`list_tags`" in nudges[0]
+    # …and it comes before the step it is correcting, rather than being buried
+    # under a restatement of the instruction the model already did not follow.
+    assert nudges[0].index("You did not call") < nudges[0].index("Step 1")
+
+
+def test_a_step_whose_contract_is_never_met_stalls_rather_than_passing(
+    ai_client, fake_ollama, app_state
+):
+    """"Never silently done" is the whole point: a run that did nothing must
+    not report success, and the reason has to name the contract that failed."""
+    _save(CONTRACT_SKILL)
+    events = _events(ai_client, "run", skill="Tag audit")
+    stalled = [e for e in events if e["type"] == "step" and e["state"] == "stalled"]
+    result = [e for e in events if e["type"] == "result"][0]
+
+    assert stalled and stalled[0]["index"] == 0
+    assert "list_tags" in stalled[0]["reason"]
+    assert not any(e["type"] == "step" and e["state"] == "done" for e in events)
+    # Stopped here, so Resume picks up from this step rather than the run
+    # being reported as finished.
+    assert result["stopped_at"] == 0
+
+
+def test_a_step_that_calls_the_tool_on_the_second_attempt_is_done(
+    ai_client, fake_ollama, app_state
+):
+    """The other half: the nudge is a *re-prompt*, not a slower failure. A
+    model that narrates once and then complies gets a finished step."""
+    _save(CONTRACT_SKILL)
+    original = fake_ollama.chat_tools
+
+    def complies_after_the_nudge(model, messages, tools, mode=None):
+        # Stands in for the behaviour the nudge exists to produce. Whether a
+        # real 4B model does this cannot be established from here — see the
+        # note at the top of this section.
+        last = str(messages[-1].get("content", ""))
+        if "You did not call" in last and not fake_ollama.tool_script:
+            fake_ollama.tool_script = [[{"name": "list_tags", "arguments": {}}]]
+        return original(model, messages, tools, mode)
+
+    fake_ollama.chat_tools = complies_after_the_nudge
+    events = _events(ai_client, "run", skill="Tag audit")
+    first_step = [e for e in events if e["type"] == "step" and e["index"] == 0]
+
+    assert [s["state"] for s in first_step] == ["running", "retrying", "done"]
+    assert any(e["type"] == "tool" and e.get("tool") == "list_tags" for e in events)
+    # And the run carries on to the step after it, rather than ending there.
+    assert any(e["type"] == "step" and e["index"] == 1 and e["state"] == "done" for e in events)
+
+
+def test_a_step_that_owed_words_is_asked_for_words(ai_client, fake_ollama, app_state):
+    """The `answer_only` half, and not a corner case: a model that calls a tool
+    and then says nothing has left a step whose deliverable is words with none
+    in it. Nudging *that* model about tool calls would be both false and the
+    opposite of what it needs to hear."""
+    _save(
+        {
+            "name": "Say something",
+            "prompt": "Look and report.",
+            "steps": [{"text": "Tell me what you see.", "expects": "answer_only"}],
+            "tools": ["list_tags"],
+        }
+    )
+    fake_ollama.librarian_reply = ""  # the model calls something and says nothing
+    fake_ollama.tool_script = [[{"name": "list_tags", "arguments": {}}]]
+    events = _events(ai_client, "run", skill="Say something")
+
+    assert any(e["type"] == "step" and e["state"] == "retrying" for e in events)
+    nudges = [text for text in _sent(fake_ollama) if "You did not answer" in text]
+    assert nudges, "the step was never asked for its answer"
+    assert not any(e["type"] == "step" and e["state"] == "done" for e in events)
+
+
+def test_a_step_is_never_marked_done_without_its_contract(ai_client, fake_ollama, app_state):
+    """The regression this whole phase exists to prevent, stated on its own:
+    before contracts, this exact run ticked every step green having called
+    nothing at all."""
+    _save(CONTRACT_SKILL)
+    events = _events(ai_client, "run", skill="Tag audit")
+    assert not any(e["type"] == "tool" for e in events)  # the model called nothing
+    assert not any(e["type"] == "step" and e["state"] == "done" for e in events)
+
+
+# --- legacy steps are untouched ----------------------------------------------
+
+
+def test_a_skill_whose_steps_are_plain_strings_still_runs(ai_client, fake_ollama, app_state):
+    """Backwards compatibility, and not a small point: every skill anyone has
+    ever saved is a list of strings, as is every ad-hoc plan. A string step has
+    no contract, so it advances on what the model said — exactly as before."""
+    _save(
+        {
+            "name": "Old style steps",
+            "prompt": "Summarise my week.",
+            "steps": ["Find this week's notes.", "Summarise them."],
+            "tools": ["list_notes"],
+        }
+    )
+    events = _events(ai_client, "run", skill="Old style steps")
+    steps = [e for e in events if e["type"] == "step"]
+    result = [e for e in events if e["type"] == "result"][0]
+
+    assert [s["state"] for s in steps] == ["running", "done", "running", "done"]
+    assert not any(s["state"] == "retrying" for s in steps)
+    assert result["stopped_at"] is None
+
+
+def test_a_string_step_normalises_to_an_unchecked_contract(app_state):
+    skill = skills.normalise({"name": "S", "prompt": "p", "steps": ["one", "two"]})
+    assert skill["steps"] == ["one", "two"]  # the shape the frontend reads
+    assert [spec["expects"] for spec in skill["step_specs"]] == [None, None]
+    assert [spec["text"] for spec in skill["step_specs"]] == ["one", "two"]
+
+
+def test_a_declared_contract_survives_being_normalised_again(app_state):
+    """`catalog()` re-normalises everything stored, so a skill that lost its
+    contracts on a round trip would work the first time it ran and not the
+    second — the worst shape of bug to be handed."""
+    once = skills.normalise(CONTRACT_SKILL, set(tools.TOOLS))
+    twice = skills.normalise(once, set(tools.TOOLS))
+    assert twice["step_specs"] == once["step_specs"]
+    assert twice["step_specs"][0]["tools"] == ["list_tags"]
+
+
+def test_a_step_cannot_expect_a_tool_the_skill_never_declared(app_state):
+    """A contract nothing could ever meet: the allowlist would refuse the call,
+    so the step would be nudged twice and stall every single run."""
+    with pytest.raises(skills.SkillError, match="does not declare"):
+        skills.normalise(
+            {
+                "name": "Impossible",
+                "prompt": "p",
+                "steps": [{"text": "Tag them.", "expects": "tool_called", "tools": ["tag_note"]}],
+                "tools": ["list_notes"],
+            },
+            set(tools.TOOLS),
+        )
+
+
+def test_a_step_cannot_expect_something_that_is_not_a_contract(app_state):
+    with pytest.raises(skills.SkillError, match="not something a step can expect"):
+        skills.normalise(
+            {"name": "Odd", "prompt": "p", "steps": [{"text": "x", "expects": "vibes"}]}
+        )
+
+
+# --- what one step tells the next (Phase A: structured state) ----------------
+
+
+def test_the_ids_a_step_touched_reach_the_next_steps_instruction(
+    ai_client, fake_ollama, app_state
+):
+    """"Those notes" has to resolve to something. Before this, a later step got
+    the previous one's *prose* about what it did and had to guess."""
+    _save(
+        {
+            "name": "Two parter",
+            "prompt": "Tag things.",
+            "steps": ["Tag a note.", "Now say which notes you touched."],
+            "tools": ["list_notes", "get_note", "tag_note"],
+        }
+    )
+    note = ai_client.post("/entries", json={"content": "a note that wants tagging"}).json()
+    fake_ollama.tool_script = [
+        [{"name": "tag_note", "arguments": {"note_id": note["id"], "add": ["filed"]}}]
+    ]
+    events = _events(ai_client, "run", skill="Two parter")
+
+    second_step_instruction = _sent(fake_ollama)[-1]
+    assert "State so far" in second_step_instruction
+    assert f"#{note['id']}" in second_step_instruction
+    assert "tags: filed" in second_step_instruction
+    # …and the same state comes back with the result, for whatever picks the
+    # run up next.
+    state = [e for e in events if e["type"] == "result"][0]["state"]
+    assert note["id"] in state["note_ids"]
+    assert note["id"] in state["touched"]
+    assert state["tags"] == ["filed"]
+    assert state["last_tool"] == "tag_note"
+
+
+def test_the_state_line_is_empty_until_something_is_known():
+    assert skills.state_line({}) == ""
+    assert skills.state_line(None) == ""
+    assert skills.state_line({"note_ids": [3, 9]}) == "State so far — notes #3, #9."
+
+
+# --- small-model mode (skills reform, Phase B) -------------------------------
+
+
+def test_small_model_mode_offers_only_the_tool_the_step_names(
+    ai_client, fake_ollama, app_state
+):
+    """A 4B model handed five schemas for a step that needs one picks the wrong
+    one. In small-model mode the step is offered exactly what its contract
+    names — the skill's allowlist, one level down."""
+    app_state.set_preference("small_model_mode", "on")
+    _save(CONTRACT_SKILL)
+    offered: list[set[str]] = []
+    original = fake_ollama.chat_tools
+
+    def spy(model, messages, tools, mode=None):
+        offered.append({t["function"]["name"] for t in tools})
+        return original(model, messages, tools, mode)
+
+    fake_ollama.chat_tools = spy
+    _events(ai_client, "run", skill="Tag audit")
+
+    assert offered and offered[0] == {"list_tags"}
+    # The worked example is built from the tool's own schema, so it cannot go
+    # stale when the schema changes.
+    first_instruction = _sent(fake_ollama)[0]
+    assert "list_tags({})" in first_instruction
+
+
+def test_small_model_mode_off_offers_the_whole_skill_allowlist(
+    ai_client, fake_ollama, app_state
+):
+    """The default is unchanged. Narrowing a capable model's toolbox is a real
+    cost, so it happens only when asked for."""
+    app_state.set_preference("small_model_mode", "off")
+    _save(CONTRACT_SKILL)
+    offered: list[set[str]] = []
+    original = fake_ollama.chat_tools
+
+    def spy(model, messages, tools, mode=None):
+        offered.append({t["function"]["name"] for t in tools})
+        return original(model, messages, tools, mode)
+
+    fake_ollama.chat_tools = spy
+    _events(ai_client, "run", skill="Tag audit")
+    assert offered and offered[0] == {"list_tags", "list_notes", "get_note"}
+
+
+def test_a_step_with_no_named_tool_still_gets_the_skills_tools(app_state):
+    """The fallback that stops small-model mode from making a `tool_called`
+    step impossible: offered nothing, it could never call anything."""
+    from memorymap.ai import skill_runner
+
+    spec = {"text": "x", "expects": "tool_called", "tools": []}
+    assert skill_runner._step_tools(spec, ["a", "b"], True) == ["a", "b"]
+    assert skill_runner._step_tools({"tools": ["a"]}, ["a", "b"], True) == ["a"]
+    assert skill_runner._step_tools({"tools": ["a"]}, ["a", "b"], False) == ["a", "b"]
+
+
+def test_auto_small_model_mode_reads_the_size_off_the_models_name(app_state):
+    """Free, offline, and works for every backend — `/api/show` is Ollama's
+    alone. An unrecognised name means "no idea", and no idea means off."""
+    from memorymap.ai.model_manager import ModelManager, parameter_count
+
+    assert parameter_count("qwen3.5:4b") == 4.0
+    assert parameter_count("llama-3.2-3b-instruct") == 3.0
+    assert parameter_count("llama3.2") is None
+
+    manager = ModelManager(app_state)
+    app_state.set_preference("chat_model", "granite4.1:3b")
+    assert manager.chat_model_is_small() is True
+    app_state.set_preference("chat_model", "qwen3.5:35b-a3b")
+    assert manager.chat_model_is_small() is False
+    app_state.set_preference("chat_model", "mistral-nemo")
+    assert manager.chat_model_is_small() is None
+
+
+def test_the_small_model_setting_round_trips(ai_client):
+    assert ai_client.get("/preferences").json()["small_model_mode"] == "auto"
+    ai_client.put("/preferences", json={"small_model_mode": "on"})
+    assert ai_client.get("/preferences").json()["small_model_mode"] == "on"
+
+
+def test_a_worked_example_is_built_from_the_tools_own_schema(app_state):
+    """Never hand-written per tool: a table of examples goes stale silently
+    the first time an argument is renamed."""
+    assert tools.call_example("get_note") == (
+        "A call to get_note looks like this — same shape, your own values: "
+        'get_note({"note_id": 12})'
+    )
+    # Singular and plural forms of the same argument are alternatives, so an
+    # example showing both would teach a call that gets refused.
+    example = tools.call_example("tag_note")
+    assert "note_id" in example and '"note_ids"' not in example
+    assert tools.call_example("no_such_tool") == ""

@@ -436,6 +436,27 @@ def _image_caption_context(
     )
 
 
+def _small_model_mode() -> bool | None:
+    """Whether this run gets the small-model treatment: one tool per step and
+    a worked example of the call.
+
+    Three states, and the third is the useful one. "auto" returns **None**,
+    which is the runner's own "decide from the model" — deliberately not
+    resolved here, because the run is the thing that knows which model it is
+    about to use. `on`/`off` are the override for the two cases a name-based
+    guess cannot get right: a 30B that still can't hold five schemas, and a 4B
+    that copes fine and would rather have the whole toolbox.
+    """
+    setting = str(
+        deps.get_config().get_preference("small_model_mode", "auto") or "auto"
+    ).lower()
+    if setting in ("on", "true", "always"):
+        return True
+    if setting in ("off", "false", "never"):
+        return False
+    return None
+
+
 def _resolve_skill(body: ChatRequest) -> dict | None:
     """Turn "run this skill" into the request the model actually receives.
 
@@ -1394,6 +1415,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                     start_at=body.skill_from_step,
                     manual=body.skill_manual,
                     manual_note=body.skill_manual_note,
+                    small_model=_small_model_mode(),
                     **shared,
                 )
             else:

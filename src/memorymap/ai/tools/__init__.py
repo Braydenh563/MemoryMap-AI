@@ -3480,6 +3480,89 @@ def tool_enabled(name: str) -> bool:
     return name not in set(config.get_preference("disabled_tools", []))
 
 
+#: Stand-in values for a worked example, by JSON-schema type. Chosen to look
+#: obviously like placeholders rather than like an answer: a model shown
+#: `{"note_id": 0}` has copied a real-looking id, while `12` next to the
+#: sentence below reads as "put yours here".
+_EXAMPLE_VALUES: dict[str, object] = {
+    "integer": 12,
+    "number": 12,
+    "string": "…",
+    "boolean": True,
+    "object": {},
+}
+
+#: How many arguments one example shows. Enough to demonstrate the shape (a
+#: link needs both ends of it to read as a link), few enough that the line
+#: stays one line. A tool that *requires* more than this shows all of them —
+#: an example missing a required argument teaches the wrong call.
+EXAMPLE_ARG_LIMIT = 3
+
+
+def call_example(name: str) -> str:
+    """One line showing the shape of a call to `name`, or "" if there is no
+    such tool.
+
+    **Generic, and deliberately not a hand-written example per tool.** Built
+    from the same JSON schema that goes on the wire, so a tool whose arguments
+    change cannot leave a stale example behind it — the failure mode of a
+    hand-maintained table, and one nothing would catch. Phase B of the skills
+    reform: *"a worked example in the prompt, per step, showing the exact call
+    shape. Small models copy structure far more reliably than they follow
+    description."*
+    """
+    spec = TOOLS.get(name)
+    if spec is None:
+        return ""
+    schema = spec.parameters if isinstance(spec.parameters, dict) else {}
+    properties = schema.get("properties") or {}
+    required = [key for key in (schema.get("required") or []) if key in properties]
+    wanted = list(required)
+    for key in properties:
+        if len(wanted) >= EXAMPLE_ARG_LIMIT:
+            break
+        if key in wanted or _is_plural_variant(key, wanted):
+            continue
+        wanted.append(key)
+    arguments = {key: _example_value(properties.get(key) or {}) for key in wanted}
+    return (
+        f"A call to {name} looks like this — same shape, your own values: "
+        f"{name}({json.dumps(arguments, ensure_ascii=False)})"
+    )
+
+
+def _is_plural_variant(key: str, chosen: list[str]) -> bool:
+    """Is `key` the many-at-once form of an argument already in the example?
+
+    Several tools here take `note_id` **or** `note_ids`, `other_note_id` **or**
+    `other_note_ids` — alternatives, never both. Showing both in one worked
+    example is worse than showing neither: a small model copying the shape
+    sends both and gets an argument error on a call it was explicitly taught.
+    A name rule rather than a per-tool table, so a tool added later is covered
+    without anyone remembering to add it.
+    """
+    for other in chosen:
+        if key == f"{other}s" or other == f"{key}s":
+            return True
+        if key.endswith("_ids") and other == f"{key[:-4]}_id":
+            return True
+        if other.endswith("_ids") and key == f"{other[:-4]}_id":
+            return True
+    return False
+
+
+def _example_value(field: dict):
+    """A placeholder of the right JSON type for one schema property."""
+    kind = str(field.get("type") or "string")
+    if kind == "array":
+        item = field.get("items") or {}
+        return [_example_value(item)] if isinstance(item, dict) else ["…"]
+    enum = field.get("enum")
+    if isinstance(enum, list) and enum:
+        return enum[0]
+    return _EXAMPLE_VALUES.get(kind, "…")
+
+
 def ollama_tools(allowed: list[str] | None = None) -> list[dict]:
     """The registry in the shape Ollama's /api/chat 'tools' field wants,
     minus any the user disabled — a model can't be tempted by a tool it

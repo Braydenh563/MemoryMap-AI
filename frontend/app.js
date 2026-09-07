@@ -28585,6 +28585,21 @@ initHelpToggle("skills-help", "skills-intro");
 initHelpToggle("wb-boards-help", "wb-boards-intro");
 initHelpToggle("library-images-help", "library-images-intro");
 initHelpToggle("contents-help", "contents-intro");
+
+//: **The concept-map door, in the tab people look for it in.** Reported: "the
+//: concept map feature is there in the graph but I have no clue how to use it,
+//: it isnt a labeled feature and is it even there actually??" It was real and
+//: it was three levels away -- Library, then a sub-tab called Boards & maps,
+//: then "+ Create", then "New concept map". This tab is already the map of
+//: your notes; the only difference is that this one is drawn for you. So the
+//: counterpart gets a labelled button here that lands on the maps themselves.
+$("graph-concept-maps")?.addEventListener("click", () => {
+  switchTab("library");
+  document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click();
+  // The sub-tab click can leave the last board open on the canvas; a button
+  // called "Concept maps" has to arrive at the list of them.
+  if (typeof wbShowBoardsLanding === "function") wbShowBoardsLanding();
+});
 restoreDraftLocally();
 
 // --- note picker wiring ---

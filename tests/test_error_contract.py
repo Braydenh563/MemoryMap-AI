@@ -16,22 +16,21 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 import memorymap.api.app as app_module
-from memorymap.api.app import create_app
 
 
 def _app_without_frontend_mount(tmp_path, monkeypatch):
-    """`create_app()` mounts the frontend at `"/"` last, and Starlette's
+    """`app_module.create_app()` mounts the frontend at `"/"` last, and Starlette's
     `Mount` matches by prefix — so it would swallow every request to a route
-    added *after* `create_app()` returns, including the test-only ones below,
+    added *after* `app_module.create_app()` returns, including the test-only ones below,
     before routing ever reaches them (reproduced while writing this: the
     test route came back 404 from the static handler, not from FastAPI's
     router). Pointing `FRONTEND_DIR` at a directory that doesn't exist makes
-    `create_app()`'s own `if FRONTEND_DIR.is_dir()` guard skip the mount
+    `app_module.create_app()`'s own `if FRONTEND_DIR.is_dir()` guard skip the mount
     entirely, which is simpler and less brittle than reordering `app.routes`
     by hand after the fact.
     """
     monkeypatch.setattr(app_module, "FRONTEND_DIR", tmp_path / "no-frontend-here")
-    return create_app()
+    return app_module.create_app()
 
 
 def test_a_404_route_returns_the_error_contract_shape(client):

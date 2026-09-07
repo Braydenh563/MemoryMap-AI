@@ -2874,6 +2874,297 @@ function ocrRenderRegions(body) {
   ocrApplyFind();
 }
 
+// --- outline a region, read just that (UI_MODERNISATION_PLAN Phase 7.4) -----
+//
+// Asked as a question, and it is a good one: *"can there be a way for the user
+// to manually outline and single out regions on a pdf or similar document and
+// then the ai will read what is in those regions?? like maybe the user can
+// outline a graph or diagram on a pdf slide and then the user cna get the
+// image or ocr model to analyse and caption that thing."*
+//
+// The pieces were all already here — a page raster on screen, a percentage-
+// positioned overlay measured against it, two readers and a describe prompt.
+// What was missing is the gesture: drag on the page, and the rectangle you
+// drew becomes the thing that gets read.
+//
+// **The rectangle is kept in fractions of the stage, not in pixels**, exactly
+// as `.ocr-box` positions are (core/ocr.py returns fractions for the same
+// reason): the pane resizes, the zoom changes, and a pixel rectangle would
+// drift off the thing it was drawn around. Fractions also convert to *source*
+// pixels for the crop with one multiplication by `naturalWidth`.
+
+//: The rectangle currently drawn, in fractions of the page — or null.
+let ocrRegionRect = null;
+//: The pointer drag in progress: where it started (fractions) and which
+//: element captured the pointer, so a drag that leaves the stage still ends.
+let ocrRegionDrag = null;
+
+//: **How small is a mis-click.** Measured against the running app: a plain
+//: click on the page reports a 0-2px "drag", and treating that as a region
+//: would pop the offer open every time somebody clicked the page to focus it.
+//: In fractions rather than pixels so it means the same thing at every zoom.
+const OCR_REGION_MIN = 0.01;
+
+//: The stage the select layer is currently inside — the single stage in
+//: one-page mode, or the current page's own stage in continuous mode. The page
+//: picture is its `<img>`, which is what the crop is taken from.
+function ocrSelectStage() {
+  return $("ocr-select")?.parentElement || null;
+}
+
+function ocrSelectImage() {
+  return ocrSelectStage()?.querySelector("img") || null;
+}
+
+//: Keep the two overlays together. `#ocr-boxes` is moved into the current
+//: page's stage in continuous mode (see `ocrLoadPage`); the select layer has
+//: to follow it or a drag would be measured against a stage that is not on
+//: screen — and `ocrTearDownScroll` has to bring both home again.
+function ocrMoveOverlays(target) {
+  if (!target) return;
+  const boxes = $("ocr-boxes");
+  const select = $("ocr-select");
+  if (select && select.parentElement !== target) target.appendChild(select);
+  if (boxes && boxes.parentElement !== target) target.appendChild(boxes);
+}
+
+function ocrClearRegionSelection() {
+  ocrRegionRect = null;
+  ocrRegionDrag = null;
+  $("ocr-select")?.replaceChildren();
+  $("ocr-region-popover")?.classList.add("hidden");
+}
+
+//: Draw (or redraw) the marquee for `ocrRegionRect`. Percentages against the
+//: select layer, which is `inset: 0` on the stage — the same geometry every
+//: region box already uses, so the two cannot disagree about where the page is.
+function ocrPaintRegionRect() {
+  const layer = $("ocr-select");
+  if (!layer) return;
+  layer.replaceChildren();
+  if (!ocrRegionRect) return;
+  const marquee = document.createElement("div");
+  marquee.className = "ocr-marquee";
+  marquee.style.left = `${ocrRegionRect.x * 100}%`;
+  marquee.style.top = `${ocrRegionRect.y * 100}%`;
+  marquee.style.width = `${ocrRegionRect.w * 100}%`;
+  marquee.style.height = `${ocrRegionRect.h * 100}%`;
+  layer.appendChild(marquee);
+}
+
+//: Where the offer sits: under the rectangle when there is room below it,
+//: above it when there is not. Measured against `#ocr-page-pane`, which is the
+//: popover's positioned parent, so this stays right as the pane scrolls.
+function ocrPlaceRegionPopover() {
+  const popover = $("ocr-region-popover");
+  const pane = $("ocr-page-pane");
+  const layer = $("ocr-select");
+  if (!popover || !pane || !layer || !ocrRegionRect) return;
+  popover.classList.remove("hidden");
+  const stage = layer.getBoundingClientRect();
+  const box = pane.getBoundingClientRect();
+  const size = popover.getBoundingClientRect();
+  const bottom = stage.top + (ocrRegionRect.y + ocrRegionRect.h) * stage.height;
+  const top = stage.top + ocrRegionRect.y * stage.height;
+  //: `+ 8` is one gap between the rectangle and the offer; `--space-*` cannot
+  //: be read from here, and a bare number in a *measurement* is not a token
+  //: the design lint is about (it lints declarations in CSS, and this is a
+  //: computed pixel offset, not a style rule).
+  const gap = 8;
+  const wantBelow = bottom + gap + size.height <= box.bottom;
+  const y = wantBelow ? bottom + gap : Math.max(box.top + gap, top - gap - size.height);
+  const centre = stage.left + (ocrRegionRect.x + ocrRegionRect.w / 2) * stage.width;
+  //: Clamped the "pin to the margin" way round rather than the "hang off the
+  //: edge" way — the same fix the selection kebab's own comment in app.js
+  //: records, and for the same reason: when the panel is wider than the pane,
+  //: `Math.min(Math.max(...))` puts it at a negative offset.
+  const x = Math.max(
+    box.left + gap,
+    Math.min(centre - size.width / 2, box.right - size.width - gap)
+  );
+  //: `+ scrollLeft/scrollTop` because the offer is absolutely positioned inside
+  //: `#ocr-page-pane`, which is itself a scroll container: `x`/`y` are viewport
+  //: coordinates, and an absolute offset is measured from the pane's padding
+  //: box *before* scrolling. Without these two terms the offer lands correctly
+  //: only while the pane happens to be scrolled to the top.
+  popover.style.left = `${Math.round(x - box.left + pane.scrollLeft)}px`;
+  popover.style.top = `${Math.round(y - box.top + pane.scrollTop)}px`;
+  const label = $("ocr-region-size");
+  if (label) {
+    //: What was outlined, in the page's own terms. A rectangle with no size
+    //: on it is the same offer whether you grabbed one chart or the whole
+    //: page, and the answer that comes back would not say which.
+    label.textContent = `${Math.round(ocrRegionRect.w * 100)}% × ${Math.round(
+      ocrRegionRect.h * 100
+    )}% of page ${ocrWorkspacePage + 1}`;
+  }
+}
+
+//: Pointer position as a fraction of the stage, clamped to it: a drag that
+//: leaves the page still ends on the page's edge rather than describing a
+//: rectangle that is partly off it.
+function ocrRegionPoint(event) {
+  const layer = $("ocr-select");
+  if (!layer) return null;
+  const box = layer.getBoundingClientRect();
+  if (!box.width || !box.height) return null;
+  return {
+    x: Math.min(1, Math.max(0, (event.clientX - box.left) / box.width)),
+    y: Math.min(1, Math.max(0, (event.clientY - box.top) / box.height)),
+  };
+}
+
+//: The crop, as a PNG blob, taken from the page raster at its own resolution.
+//: `naturalWidth`, not the rendered width: the page is rasterised at 2x
+//: (`pdfpages.RENDER_SCALE`) precisely so small type is legible to a model,
+//: and cropping from the displayed size would throw that away before the model
+//: ever saw it. Same-origin image, so the canvas is not tainted.
+async function ocrRegionCrop() {
+  const img = ocrSelectImage();
+  if (!img || !ocrRegionRect || !img.naturalWidth) return null;
+  const sx = Math.round(ocrRegionRect.x * img.naturalWidth);
+  const sy = Math.round(ocrRegionRect.y * img.naturalHeight);
+  const sw = Math.max(1, Math.round(ocrRegionRect.w * img.naturalWidth));
+  const sh = Math.max(1, Math.round(ocrRegionRect.h * img.naturalHeight));
+  const canvas = document.createElement("canvas");
+  canvas.width = sw;
+  canvas.height = sh;
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+  context.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+  return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+}
+
+//: One answer about one rectangle, in the pane where the reading already is.
+//: Focused as it arrives — the request takes seconds and the reader has
+//: usually looked away, so an answer that appears silently below the fold is
+//: an answer nobody reads. `tabIndex = -1` rather than 0: it is a destination
+//: for focus, not another stop on the way through the pane.
+function ocrShowRegionResult({ mode, page, rect, text, model, message }) {
+  const holder = $("ocr-region-results");
+  if (!holder) return;
+  holder.classList.remove("hidden");
+  const card = document.createElement("article");
+  card.className = "ocr-region-result";
+  card.tabIndex = -1;
+  const head = document.createElement("div");
+  head.className = "row ocr-region-head";
+  const where = document.createElement("span");
+  where.className = "chip ocr-region-where";
+  where.textContent = `Page ${page + 1} · region`;
+  where.title = `A ${Math.round(rect.w * 100)}% × ${Math.round(
+    rect.h * 100
+  )}% rectangle you outlined on page ${page + 1}`;
+  const kind = document.createElement("span");
+  kind.className = "chip ocr-region-kind";
+  kind.textContent = mode === "describe" ? "Description" : "Text";
+  head.append(where, kind);
+  if (model) {
+    const who = document.createElement("span");
+    who.className = "muted text-sm";
+    who.textContent = shortModelName(model);
+    who.title = model;
+    head.appendChild(who);
+  }
+  const copy = document.createElement("button");
+  copy.type = "button";
+  copy.className = "ghost small icon-button ocr-region-copy";
+  setLabel(copy, "ph:copy");
+  copy.title = "Copy this answer";
+  copy.setAttribute("aria-label", copy.title);
+  copy.addEventListener("click", (event) => {
+    event.stopPropagation();
+    copyToClipboard(text || message || "", event.currentTarget);
+  });
+  head.appendChild(copy);
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "ghost small icon-button danger ocr-region-delete";
+  setLabel(remove, "ph:x");
+  remove.title = "Dismiss this answer";
+  remove.setAttribute("aria-label", remove.title);
+  remove.addEventListener("click", (event) => {
+    event.stopPropagation();
+    card.remove();
+    holder.classList.toggle("hidden", !holder.childElementCount);
+  });
+  head.appendChild(remove);
+  const body = document.createElement("p");
+  body.className = "ocr-region-text";
+  //: Nothing found is a real answer and is said as one — an empty card would
+  //: read as a request that silently failed.
+  body.textContent = text || message || "Nothing came back for that region.";
+  body.classList.toggle("ocr-region-text-empty", !text);
+  card.append(head, body);
+  //: Newest first: the previous answers are still worth keeping (that is the
+  //: point of outlining several things), but the one just asked for is the one
+  //: being waited on.
+  holder.prepend(card);
+  card.focus();
+}
+
+//: Read or describe whatever is outlined. Everything about *what* to run lives
+//: server-side (`_read_region`, routes_files.py); this decides which file, and
+//: hands over exactly the pixels that were outlined.
+async function ocrRunRegion(mode) {
+  const image = ocrWorkspaceCurrent;
+  if (!image || !ocrRegionRect) return;
+  const rect = { ...ocrRegionRect };
+  const page = ocrWorkspacePage;
+  const buttons = [$("ocr-region-read"), $("ocr-region-describe")];
+  buttons.forEach((b) => b && (b.disabled = true));
+  const blob = await ocrRegionCrop();
+  if (!blob) {
+    buttons.forEach((b) => b && (b.disabled = false));
+    toast("That region couldn't be cut out of the page.", true);
+    return;
+  }
+  const form = new FormData();
+  form.append("crop", blob, "region.png");
+  form.append("page", String(page));
+  form.append("mode", mode);
+  form.append("reader", ocrReader());
+  const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
+  const label = mode === "describe" ? "Describing that region…" : "Reading that region…";
+  $("ocr-message").textContent = label;
+  $("ocr-message").classList.remove("hidden");
+  //: The rectangle goes as soon as the request is away. Asked for: "the
+  //: rectangle is cleared after" — and it is also what makes a second region
+  //: drawable while the first is still being read.
+  ocrClearRegionSelection();
+  try {
+    //: **The headers are replaced, not merged, and that is deliberate.**
+    //: `api()` sends `Content-Type: application/json` by default, and a
+    //: FormData body with that header has no multipart boundary — measured
+    //: against the running app, the server answered 405 before any of this
+    //: request's fields were ever looked at. Overriding `headers` drops that
+    //: default so the browser writes its own boundary; the two headers the
+    //: server actually needs are put back by hand. Same handling as every
+    //: other FormData post in this app (`attachImageFiles` in app.js says so
+    //: in its own comment).
+    const answer = await apiJson(`${base}/region-read`, {
+      method: "POST",
+      headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
+      body: form,
+    });
+    ocrShowRegionResult({
+      mode: answer.mode || mode,
+      page: Number.isInteger(answer.page) ? answer.page : page,
+      rect,
+      text: (answer.text || "").trim(),
+      model: answer.model || "",
+      message: answer.message || "",
+    });
+    $("ocr-message").classList.add("hidden");
+  } catch (error) {
+    $("ocr-message").textContent = error.message || "That region couldn't be read.";
+    $("ocr-message").classList.remove("hidden");
+    toast(error.message || "That region couldn't be read.", true);
+  } finally {
+    buttons.forEach((b) => b && (b.disabled = false));
+  }
+}
+
 //: Everything this document has already had read off it, from the store the
 //: read endpoints write to. Never throws: a document with no readings and a
 //: backend that cannot answer are the same thing here — nothing to show.
@@ -2891,6 +3182,10 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
   //: returns below (a text file, a failed request) never reach that point and
   //: would leave another document's figures described under this one's page.
   ocrPageCaptions.clear();
+  //: A rectangle is drawn on *a page*, so changing page has to take it with
+  //: it — the fractions would otherwise be reinterpreted against a different
+  //: picture and the offer would read a part of the wrong page.
+  ocrClearRegionSelection();
   //: What to reopen, if this window is closed while a read is still running.
   ocrLastOpened = { image, page: ocrWorkspacePage };
   //: Which file this is. Four surfaces can open this dialog, and a header
@@ -2917,7 +3212,10 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     const target = document.querySelector(
       `#ocr-scroll .ocr-stage[data-page="${ocrWorkspacePage}"]`
     );
-    if (target && $("ocr-boxes")) target.appendChild($("ocr-boxes"));
+    //: Both overlays, not just the boxes: the region-select layer is measured
+    //: against the stage it sits in, so leaving it behind would have a drag on
+    //: page 6 outlining part of page 1.
+    ocrMoveOverlays(target);
     if (!opts.fromScroll) ocrScrollToPage(ocrWorkspacePage);
   } else {
     img.src = ocrPageImageUrl(image, ocrWorkspacePage);
@@ -3450,6 +3748,15 @@ function openOcrWorkspace(image, images, page = 0) {
   const startPage = Math.max(0, Number(page) || 0);
   ocrWorkspacePage = startPage;
   ocrWorkspacePages = 1;
+  //: Answers about regions belong to the file they were asked about. They are
+  //: not stored anywhere, so opening another document has to take them away
+  //: rather than leave them looking like something known about the new one.
+  const answers = $("ocr-region-results");
+  if (answers) {
+    answers.replaceChildren();
+    answers.classList.add("hidden");
+  }
+  ocrClearRegionSelection();
   //: The remembered mode is *wanted*, not yet applied: whether it can be
   //: honoured depends on the page count, which only the region response
   //: knows. `ocrLoadPage` turns it on once that comes back. The teardown here
@@ -3742,9 +4049,7 @@ function ocrTearDownScroll() {
   $("ocr-page-pane")?.classList.remove("is-scroll");
   stage?.classList.remove("hidden");
   scroll?.classList.add("hidden");
-  if (stage && $("ocr-boxes") && $("ocr-boxes").parentElement !== stage) {
-    stage.appendChild($("ocr-boxes"));
-  }
+  ocrMoveOverlays(stage);
   if (scroll) {
     scroll.replaceChildren();
     scroll.dataset.pagesFor = "";
@@ -4155,6 +4460,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if (event.key === "Escape") {
       if (document.querySelector(".confirm-overlay")) return;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") { document.activeElement.blur(); return; }
+      //: **Escape cancels the rectangle before it closes the window.** Asked
+      //: for by name in Phase 7.4 ("Escape cancels"), and it is also the only
+      //: sane order: having outlined something by mistake, the key you reach
+      //: for must undo the mistake rather than throw away the whole reading
+      //: session it happened in.
+      if (ocrRegionRect) {
+        event.preventDefault();
+        ocrClearRegionSelection();
+        return;
+      }
       event.preventDefault();
       closeOcrWorkspace();
       return;
@@ -4179,6 +4494,58 @@ document.addEventListener("DOMContentLoaded", () => {
       if (ocrWorkspaceCurrent) ocrLoadPage(ocrWorkspaceCurrent, ocrWorkspacePages - 1);
     }
   });
+  //: **Drag on the page to outline a region** (Phase 7.4). Pointer events, not
+  //: mouse events: the same gesture then works with a stylus on a tablet,
+  //: which is the device somebody reading a scanned page is most likely to be
+  //: circling a chart on.
+  //:
+  //: `setPointerCapture` is what makes a drag that leaves the stage still end
+  //: — without it, releasing the button over the reading pane leaves the app
+  //: convinced a drag is still in progress.
+  $("ocr-select")?.addEventListener("pointerdown", (event) => {
+    //: Left button only, and never while a text file is showing — there is no
+    //: page raster to crop from, so the offer would lead nowhere.
+    if (event.button !== 0) return;
+    if (ocrWorkspaceCurrent && ocrIsTextFile(ocrWorkspaceCurrent)) return;
+    const start = ocrRegionPoint(event);
+    if (!start) return;
+    event.preventDefault();
+    ocrClearRegionSelection();
+    ocrRegionDrag = start;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  });
+  $("ocr-select")?.addEventListener("pointermove", (event) => {
+    if (!ocrRegionDrag) return;
+    const now = ocrRegionPoint(event);
+    if (!now) return;
+    ocrRegionRect = {
+      x: Math.min(ocrRegionDrag.x, now.x),
+      y: Math.min(ocrRegionDrag.y, now.y),
+      w: Math.abs(now.x - ocrRegionDrag.x),
+      h: Math.abs(now.y - ocrRegionDrag.y),
+    };
+    ocrPaintRegionRect();
+  });
+  $("ocr-select")?.addEventListener("pointerup", (event) => {
+    if (!ocrRegionDrag) return;
+    ocrRegionDrag = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    //: A click is a drag of nearly nothing, and offering to read a 2px
+    //: rectangle would make clicking the page feel broken.
+    if (!ocrRegionRect || ocrRegionRect.w < OCR_REGION_MIN || ocrRegionRect.h < OCR_REGION_MIN) {
+      ocrClearRegionSelection();
+      return;
+    }
+    ocrPlaceRegionPopover();
+  });
+  //: A cancelled pointer (the browser taking over for a scroll gesture, the
+  //: window losing focus) has to leave no half-drawn rectangle behind.
+  $("ocr-select")?.addEventListener("pointercancel", () => ocrClearRegionSelection());
+  $("ocr-region-read")?.addEventListener("click", () => ocrRunRegion("read"));
+  $("ocr-region-describe")?.addEventListener("click", () => ocrRunRegion("describe"));
+  $("ocr-region-cancel")?.addEventListener("click", () => ocrClearRegionSelection());
   $("ocr-zoom-in")?.addEventListener("click", () => ocrStepZoom(1));
   $("ocr-zoom-out")?.addEventListener("click", () => ocrStepZoom(-1));
   $("ocr-image")?.addEventListener("load", () => {

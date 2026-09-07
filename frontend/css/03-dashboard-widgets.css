@@ -408,6 +408,12 @@ header#top-bar select,
 :root[data-glass="off"] .note-picker-panel,
 :root[data-glass="off"] .library-image-tile .library-image-edit,
 :root[data-glass="off"] .library-image-tile .library-image-delete,
+/* The region offer (Phase 7.4) is glass like every other floating panel, so it
+   has to be on this list too — DESIGN.md says so in as many words: "Adding a
+   new glass surface means adding it to that list too", and a panel missing
+   from it stays glassy with the setting switched off, which is how three
+   earlier violations were found. */
+:root[data-glass="off"] .ocr-region-popover,
 :root[data-glass="off"] .glass {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;

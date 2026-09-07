@@ -2507,6 +2507,179 @@ def media_ocr_page_read(
     return _read_page(path, page, reader, _page_read_key(None, upload_id))
 
 
+class OcrRegionReadOut(BaseModel):
+    """One rectangle a person drew on a page, read or described.
+
+    Deliberately *not* `OcrPageReadOut`: nothing here is stored, and a shape
+    that carries `page` and looks like a stored page reading would be an
+    invitation to file it as one. Asked as a question and it is a good one:
+    *"can there be a way for the user to manually outline and single out
+    regions on a pdf or similar document and then the ai will read what is in
+    those regions?? like maybe the user can outline a graph or diagram on a pdf
+    slide and then the user cna get the image or ocr model to analyse and
+    caption that thing."*
+    """
+
+    #: Which page the rectangle was drawn on, echoed back so the answer can be
+    #: labelled with it — a result that does not say where it came from is the
+    #: thing the region overlay exists to avoid.
+    page: int = 0
+    #: "read" or "describe", echoed for the same reason.
+    mode: str = "read"
+    text: str = ""
+    model: str = ""
+    message: str = ""
+
+
+#: A drawn rectangle is a crop of a page render, not an upload: at the viewer's
+#: own 2x scale a full page is a few hundred KB and a region is far less. The
+#: cap is generous enough never to refuse a real crop and small enough that a
+#: mistyped request cannot stream 50 MB into memory before anything looks at it.
+MAX_REGION_BYTES = 8 * 1024 * 1024
+
+
+def _region_image(crop: UploadFile) -> bytes:
+    """The uploaded crop's bytes, refused if it is not a PNG or too large.
+
+    **Read into memory rather than streamed to disk**, unlike `/media/upload`:
+    nothing here is stored, the model is handed a data URI built from these
+    bytes, and writing a scratch file the request then has to clean up is more
+    moving parts for no gain. The size cap is what makes that safe.
+
+    The magic-number check is not decoration either: this is the one endpoint
+    in the app that takes an image nobody in the notebook uploaded, and
+    `canvas.toBlob` produces a PNG, so anything else here is a caller doing
+    something other than what this route is for.
+    """
+    data = crop.file.read(MAX_REGION_BYTES + 1)
+    if len(data) > MAX_REGION_BYTES:
+        raise HTTPException(status_code=413, detail="That region is too large to read.")
+    if not data:
+        raise HTTPException(status_code=400, detail="That region came through empty.")
+    if not data.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise HTTPException(status_code=415, detail="A region has to be sent as a PNG.")
+    return data
+
+
+def _read_region(crop: UploadFile, page: int, mode: str, reader: str) -> OcrRegionReadOut:
+    """Read or describe one drawn rectangle. Never stores anything.
+
+    **Why the crop is uploaded rather than described by four numbers.** The
+    obvious alternative is to send the rectangle and let this render and crop
+    the page itself — but the workspace already has the page raster on screen,
+    the person drew the rectangle *on that raster*, and cropping it in the
+    browser guarantees the model is handed exactly what they outlined. It also
+    means the same gesture works on a plain image, which has no page to
+    re-render at all.
+
+    **Why nothing is stored.** `PageRead` is keyed by page, and a region is a
+    part of a page — several of them, usually, each answering a different
+    question. Filing one over the page's reading would destroy a transcription
+    to save a note about one chart in the corner of it.
+    """
+    mode = (mode or "read").strip().lower()
+    if mode not in {"read", "describe"}:
+        raise HTTPException(
+            status_code=400, detail=f"Unknown mode {mode!r} — expected 'read' or 'describe'."
+        )
+    data = _region_image(crop)
+    if mode == "read":
+        reader = _checked_reader(reader)
+    if mode == "read" and reader == "tesseract":
+        if not ocr.tesseract_available():
+            raise HTTPException(
+                status_code=409,
+                detail="Tesseract isn't installed. Install the “OCR” extra in "
+                "Settings → Optional extras, or read this region with the AI instead.",
+            )
+    else:
+        if not deps.get_ollama().is_running():
+            raise HTTPException(status_code=409, detail="The AI model isn't running.")
+    #: A read uses whichever reader the workspace's picker named; a describe is
+    #: always the general vision model, for the same reason `_describe_page`
+    #: is — a dedicated document reader is tuned to transcribe, not to explain.
+    model = (
+        "tesseract"
+        if mode == "read" and reader == "tesseract"
+        else _reader_model(reader)
+        if mode == "read"
+        else deps.get_model_manager().resolve_vision_model(deps.get_ollama()) or ""
+    )
+    if not model:
+        raise HTTPException(
+            status_code=409,
+            detail="No installed model reports it can see images — install or "
+            "pick one in Settings → Models.",
+        )
+    label = "Describing" if mode == "describe" else "Reading"
+    token = vision_ocr.register_page_read(
+        f"{label} a region of page {page + 1}",
+        model="Tesseract" if model == "tesseract" else model,
+    )
+    try:
+        with tempfile.TemporaryDirectory(prefix="mm-region-") as scratch:
+            crop_path = Path(scratch) / "region.png"
+            crop_path.write_bytes(data)
+            if mode == "describe":
+                #: `count=1` and page 0: the prompt's "page N of M" would be a
+                #: lie about a crop, and what is wanted here is a description of
+                #: the *figure*, which is what the prompt asks for either way.
+                text = captioning.page_caption_text(crop_path, 0, 1, model, deps.get_ollama())
+            elif model == "tesseract":
+                text = (ocr.extract_text(crop_path) or "").strip()
+            else:
+                text = (vision_ocr.vision_ocr_text(crop_path, model, deps.get_ollama()) or "").strip()
+    finally:
+        vision_ocr.finish_page_read(token)
+    text = (text or "").strip()
+    nothing = (
+        f"{model} had nothing to say about that region."
+        if mode == "describe"
+        else "No text was found in that region."
+    )
+    return OcrRegionReadOut(
+        page=page,
+        mode=mode,
+        text=text,
+        model=model if text else "",
+        message="" if text else nothing,
+    )
+
+
+@router.post("/files/{attachment_id}/region-read", response_model=OcrRegionReadOut)
+def attachment_region_read(
+    attachment_id: int,
+    crop: UploadFile,
+    page: int = Form(0),
+    mode: str = Form("read"),
+    reader: str = Form("vision"),
+    session: Session = Depends(get_session),
+) -> OcrRegionReadOut:
+    """Read or describe a rectangle drawn on one page of an attached file.
+
+    The attachment is looked up and not otherwise used, and that is the point:
+    it is the authorisation check. Without it this would be "run a model on any
+    image anyone posts", which is a different endpoint from the one that was
+    asked for.
+    """
+    _existing_attachment(session, attachment_id)
+    return _read_region(crop, page, mode, reader)
+
+
+@router.post("/media/{upload_id}/region-read", response_model=OcrRegionReadOut)
+def media_region_read(
+    upload_id: int,
+    crop: UploadFile,
+    page: int = Form(0),
+    mode: str = Form("read"),
+    reader: str = Form("vision"),
+    session: Session = Depends(get_session),
+) -> OcrRegionReadOut:
+    """`attachment_region_read`'s sibling for a `/media/` upload."""
+    deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    return _read_region(crop, page, mode, reader)
+
+
 @router.post("/files/{attachment_id}/page-caption", response_model=OcrPageReadOut)
 def attachment_page_caption(
     attachment_id: int,

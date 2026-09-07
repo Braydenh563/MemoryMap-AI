@@ -528,3 +528,37 @@ def test_the_frontend_sends_the_board_when_it_moves_a_card():
     whiteboard_js = (FRONTEND_DIR / "whiteboard.js").read_text(encoding="utf-8")
     save = whiteboard_js[whiteboard_js.index("// Sync back to API.") :][:900]
     assert "board_id" in save, "the coordinate save must carry the card's board"
+
+
+def test_deleting_an_item_takes_its_links_with_it(board_client, session):
+    """A link is a sketch row that names its two ends. The frontend hides a
+    link whose end is gone, but the row stayed — an orphan on every board a
+    card was ever deleted from. Deleting a card, a text box or a shape now
+    removes the links that touched it, and nothing else."""
+    entry = _note(session)
+    node = board_client.post("/whiteboard/nodes", json={"entry_id": entry.id, "x": 0, "y": 0}).json()
+    obj = board_client.post(
+        "/whiteboard/objects",
+        json={"kind": "text", "data": {"content": "hi"}, "x": 300, "y": 0, "width": 100, "height": 60},
+    ).json()
+    shape = board_client.post(
+        "/whiteboard/sketches", json={"data": '{"type": "rect", "d": "M0 0 h50 v50 h-50 z"}', "x": 0, "y": 0}
+    ).json()
+    link_node_obj = board_client.post(
+        "/whiteboard/sketches",
+        json={"data": f'{{"type": "link-straight", "sourceId": {node["id"]}, "targetId": {obj["id"]}, "targetKind": "object"}}', "x": 0, "y": 0},
+    ).json()
+    link_shape_obj = board_client.post(
+        "/whiteboard/sketches",
+        json={"data": f'{{"type": "link-curved", "sourceId": {shape["id"]}, "sourceKind": "sketch", "targetId": {obj["id"]}, "targetKind": "object"}}', "x": 0, "y": 0},
+    ).json()
+
+    assert board_client.delete(f"/whiteboard/nodes/{node['id']}").status_code == 200
+    ids = {s["id"] for s in board_client.get("/whiteboard/").json()["sketches"]}
+    assert link_node_obj["id"] not in ids
+    assert link_shape_obj["id"] in ids and shape["id"] in ids
+
+    assert board_client.delete(f"/whiteboard/objects/{obj['id']}").status_code == 200
+    ids = {s["id"] for s in board_client.get("/whiteboard/").json()["sketches"]}
+    assert link_shape_obj["id"] not in ids
+    assert shape["id"] in ids

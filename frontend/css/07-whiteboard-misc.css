@@ -6514,3 +6514,27 @@ button.connection-row {
 .whiteboard-floating-panel {
   margin: 0;
 }
+
+/* The reader's footer: one right-aligned row, wrapping only when it must.
+   Measured at 1440x900: "Save as note" fell to a second line on the left
+   while the other three sat on the right. */
+.ocr-regions-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ocr-regions-foot > #ocr-delete-reading {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.ocr-caption {
+  margin: 0 0 var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--inner);
+  font-size: var(--text-sm);
+}

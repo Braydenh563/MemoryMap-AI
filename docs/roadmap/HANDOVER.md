@@ -154,6 +154,19 @@ list at the end.
   Write / Preview switch renders through `renderMarkdown`. Meta row
   controls all 36px.
 
+- **OCR reader, measured with seeded readings** (two `page_reads` rows
+  inserted into the test DB, `kind="upload", source_id=<pdf>`): found and
+  fixed a **reader-breaking bug** — `(body.pages || []).some` threw on the
+  regions response (`pages` is a count there), so every page load since
+  the delete-gating commit ended in an error line. Then: stored panels are
+  badged "Page N" (were "§1"); a one-page document falls back to the Files
+  rail (was an empty rail with no lit tab); the footer is one row (copy and
+  ask are icon-only, Save as note keeps its label, delete at the left); the
+  redundant "Fit" level label hides while Fit is on; images get a
+  **Describe** button and a Description line in the reader, so caption and
+  reading are managed together. Describe itself is unverified here (no
+  vision model) — it reuses the lightbox's `/caption` call.
+
 ### Open — in the order the user is likely to hit them
 
 1. Whiteboard: group transform of a multi-selection; frames; text on

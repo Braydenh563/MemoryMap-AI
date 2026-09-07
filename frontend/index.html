@@ -4434,6 +4434,7 @@ Link to another note with [[its first few words]]."></textarea>
               placeholder="Find in what was read" autocomplete="off">
             <span id="ocr-find-count" class="muted text-sm ocr-find-count" role="status"></span>
           </div>
+          <p id="ocr-caption" class="ocr-caption hidden"></p>
           <p id="ocr-message" class="muted ocr-message" role="status"></p>
           <!-- Asked for directly: "also let the user be able to stop the
                readings." Hidden unless something is actually running
@@ -4458,14 +4459,20 @@ Link to another note with [[its first few words]]."></textarea>
                  Reported: "the button is also ugly and not good where it is." -->
             <button id="ocr-delete-reading" class="ghost small icon-only danger hidden" type="button"
               title="Delete this reading (you can read it again any time)" aria-label="Delete this reading"><i class="ph ph-trash" aria-hidden="true"></i></button>
-            <button id="ocr-copy-all" class="ghost small" type="button"
-              title="Copy every region's text, in reading order"><i class="ph ph-copy ph-lead" aria-hidden="true"></i> Copy all</button>
+            <!-- Images only (hidden for a document): the caption half of what
+                 the app knows about a picture, written by the same vision
+                 model Settings chose, kept beside the reading half so the
+                 two are managed in one place. -->
+            <button id="ocr-describe" class="ghost small hidden" type="button"
+              title="Describe this image with the vision model (writes its caption)"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Describe</button>
+            <button id="ocr-copy-all" class="ghost small icon-only" type="button"
+              title="Copy everything read, in reading order" aria-label="Copy everything read"><i class="ph ph-copy" aria-hidden="true"></i></button>
             <!-- The reading is only worth having if it can leave this window.
                  A transcription you have to re-read in a dialog is a dead end;
                  the two things anyone does with one are ask about it and keep
                  it, so both are one press from where it was read. -->
-            <button id="ocr-to-chat" class="ghost small" type="button"
-              title="Put this reading in the chat composer and ask about it"><i class="ph ph-chat-circle-text ph-lead" aria-hidden="true"></i> Ask about this</button>
+            <button id="ocr-to-chat" class="ghost small icon-only" type="button"
+              title="Ask about this reading in chat" aria-label="Ask about this reading in chat"><i class="ph ph-chat-circle-text" aria-hidden="true"></i></button>
             <button id="ocr-to-note" class="small" type="button"
               title="Save everything read here as a new note"><i class="ph ph-note ph-lead" aria-hidden="true"></i> Save as note</button>
             <!-- **Delete, not just redo.** Reported directly: "there's also no

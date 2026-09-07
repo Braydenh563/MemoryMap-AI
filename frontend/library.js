@@ -2661,14 +2661,20 @@ function ocrRenderRegions(body) {
     const ownPage = Number.isInteger(region.page) ? region.page : Number(body.page) || 0;
     const pageNumber = ownPage + 1;
     const pageCount = Number(body.pages) || 1;
-    where.textContent =
-      pageCount > 1
-        ? `p${pageNumber} \u00b7 \u00a7${region.index + 1}`
-        : `\u00a7${region.index + 1}`;
-    where.title =
-      pageCount > 1
-        ? `Section ${region.index + 1} of page ${pageNumber}`
-        : `Section ${region.index + 1} of this page`;
+    if (Number.isInteger(region.page)) {
+      // A stored reading is one panel per page: say the page, not "§1".
+      where.textContent = `Page ${pageNumber}`;
+      where.title = `The reading of page ${pageNumber}`;
+    } else {
+      where.textContent =
+        pageCount > 1
+          ? `p${pageNumber} \u00b7 \u00a7${region.index + 1}`
+          : `\u00a7${region.index + 1}`;
+      where.title =
+        pageCount > 1
+          ? `Section ${region.index + 1} of page ${pageNumber}`
+          : `Section ${region.index + 1} of this page`;
+    }
     head.appendChild(where);
 
     const kind = document.createElement("span");
@@ -2919,6 +2925,17 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     } else {
       ocrRenderRegions(body);
     }
+    //: An image's description lives here too, so caption and reading are
+    //: managed side by side (reported: "a lot of disconnect between files and
+    //: images regarding ocr and image captioning").
+    const isImage = !ocrIsPdf(image);
+    $("ocr-describe")?.classList.toggle("hidden", !isImage);
+    const captionEl = $("ocr-caption");
+    if (captionEl) {
+      const cap = (image.caption || "").trim();
+      captionEl.textContent = cap ? `Description: ${cap}` : "";
+      captionEl.classList.toggle("hidden", !cap || !isImage);
+    }
     if (ocrIsPdf(image)) ocrBuildPageRail(image, body.pages || 1);
     ocrSyncPager(image);
     //: The mode can only be honoured once the page count is known — a
@@ -3117,6 +3134,9 @@ function ocrRenderRailSwitch(current) {
   //: Always shown — the switch is how the reader moves between everything
   //: in the space, so an empty side reads as "no files yet" (disabled, 0)
   //: rather than as a control that comes and goes.
+  //: A one-page document offers no Pages segment, so "pages" mode would
+  //: leave the rail empty and no tab lit (measured): fall back to Files.
+  if (ocrRailMode === "pages" && !segments.some((segment) => segment.id === "pages")) ocrRailMode = "files";
   const usable = segments;
   host.classList.remove("hidden");
   for (const segment of usable) {
@@ -3390,10 +3410,13 @@ function ocrApplyZoom() {
   if (ocrZoom === null) {
     pane.classList.add("is-fit");
     ocrFitStage();
-    if (label) label.textContent = "Fit";
+    // The Fit button beside it is already lit; a second "Fit" as the level
+    // read as a duplicate control (screenshot). Shown only as a percentage.
+    if (label) { label.textContent = "Fit"; label.hidden = true; }
     return;
   }
   pane.classList.remove("is-fit");
+  if (label) label.hidden = false;
   //: The page's own size on paper is the rendered width divided by the scale
   //: it was rendered at; the zoom multiplies *that*, so 100% is 100%. Applied
   //: to every stage on screen, which in continuous mode is every page.
@@ -3895,6 +3918,25 @@ document.addEventListener("DOMContentLoaded", () => {
   //: `ocr_text`/`vision_ocr_text` field, cleared through the same `analyse`
   //: endpoint the reader already uses to write it — sending `""` is the
   //: documented way to clear either field, not a new code path.
+  $("ocr-describe")?.addEventListener("click", async (event) => {
+    const image = ocrWorkspaceCurrent;
+    if (!image || ocrIsPdf(image)) return;
+    const button = event.currentTarget;
+    button.disabled = true;
+    $("ocr-message").textContent = `Describing with ${ocrReaders.vision_model || "the vision model"}…`;
+    $("ocr-message").classList.remove("hidden");
+    try {
+      const updated = await analyseMediaRow(image, "caption", { force: true });
+      if (updated && typeof updated.caption === "string") image.caption = updated.caption;
+      renderLibraryImagesGallery();
+      await ocrLoadPage(image, ocrWorkspacePage);
+      toast("Description written.");
+    } catch (error) {
+      toast(error.message || "Couldn't describe that image.", true);
+    } finally {
+      button.disabled = false;
+    }
+  });
   $("ocr-delete-reading")?.addEventListener("click", async (event) => {
     const image = ocrWorkspaceCurrent;
     if (!image) return;

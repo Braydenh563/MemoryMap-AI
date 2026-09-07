@@ -85,22 +85,90 @@ merged only then.
   DESIGN.md, and the Timeline/Graph/Reminders empty states carry one action
   (one delegated `data-empty-action` listener), driven in Chromium.
 
-### In flight when this was written (subagents, worktrees)
+### Later in the same session
 
-- Skills reform **Phase C** — the activity panel as a run list, toasts only
-  on start/finish/fail, a `small_model_mode` toggle in Settings, and the
-  three-path verification of tool chips in the chat transcript against a
-  stand-in OpenAI server (`scratchpad/fake_openai_server.py`).
-- Mindmap **Phase 1** backend — `type`/`layout` on the board entry, a parent
-  edge, containment tests, tree/export/import endpoints, `read_mindmap` and
-  three write tools.
+- **Skills reform Phase C** (Opus subagent, reviewed and merged) — the
+  activity panel is a run list (`addAgentRun` / `agentRunStep` /
+  `endAgentRun`), toasts only on start/finish/fail, `small_model_mode` in
+  Settings, and tool chips verified on all three chat paths against
+  `scratchpad/fake_openai_server.py` (`scratchpad/ui-sweeps/phasec.js`).
+- **Mindmap Phase 1 (backend)** and **Phase 2 (frontend)** — both merged;
+  MINDMAP_PLAN.md §9 and §10 record each in full. Phase 2's own sweep,
+  `scratchpad/ui-sweeps/mindmap.js`, is **35/35** on the merged tree: Tab /
+  Enter / Shift+Tab / arrows / F2 / Delete-with-Undo, tidy in three layouts
+  with 0 overlaps, collapse with a count badge, branch colours from the
+  graph's own palette, SVG/Markdown/OPML export, the Maps chip in Boards &
+  maps, preview edges on the Library card. Phase 3 is in flight (below).
+- **Backend sprint 2** (Sonnet subagent, reviewed and merged) — PLAN B9:
+  `GET /debug/health` (db size, counts, running jobs, p50/p95 per task kind
+  from `taskhistory`, last 20 warnings/errors) and a Health block in
+  Settings → About; `taskhistory.record(duration_ms=…)` from every job; the
+  attachment gallery reads `Attachment.size` instead of a `stat()` per row,
+  backfilling once. The sprint's third item (unlinking uploads on map purge)
+  was backed out by the agent as a mindmap dependency — still open.
+- **UI Phase 7.2** — line numbers as one remembered setting in all three
+  editors (`mountGutterFor` in documents.js; the note edit form builds its
+  `<li>` detached, which is why the gutter decides its own initial state and
+  copies metrics on the first attached frame).
+- **Phone width (390px), measured with `errors.js`** — Settings: all ten
+  sections 302/302 (were 309–376; five separate causes, the commit
+  `e5c2625` lists them, including the id-selector width rules that were the
+  stylesheet's documented "136px dead end"); the Notes toolbar 172px → 80px
+  behind a Filters sheet (`initNotesFiltersSheet` *moves* the six secondary
+  controls, never clones them); the category strip's 180px empty band gone
+  (`.layout` at one column names its rows `auto minmax(0,1fr)` — a grid
+  hands spare height to every `auto` row equally); the Chats card 238px →
+  99px. First note at 390px: 445 → 345.
+- **Every empty state offers its next step** (seven more, one delegated
+  listener, each driven in Chromium).
+- **Security/CI** — the OpenAPI document is behind the lock (`docs_url` off,
+  `/openapi.json` locked, `tests/test_openapi_gate.py`); OPML import parses
+  with **defusedxml** (new direct dependency) after CodeQL flagged the stdlib
+  parse as `py/xml-bomb` even behind the DOCTYPE guard; the auth token store
+  is registered with `register_cache_reset` so gate tests do not leak
+  sessions into `test_account`.
+
+### Traps found this session (each cost real time)
+
+- **Two servers on one data dir.** A subagent's uvicorn used the parent's
+  `MEMORYMAP_DATA_DIR` and its sweep recreated the SQLite file under the
+  running parent server. The symptoms were nowhere near the cause:
+  `no such table: spaces` on `/spaces`, then `Could not refresh instance` on
+  `PUT /whiteboard/objects/{id}` and `POST …/nodes` *hours later* — the
+  pool's old connections held the unlinked inode, new ones opened the new
+  file, so an INSERT on one connection was invisible to the SELECT on the
+  next. Every agent brief now names its own port and data dir; `errors.js`
+  reports every 5xx with its URL so this is caught in one run, not six.
+  Restarting the server is the fix once it has happened.
+- **`kill $(pgrep -f "uvicor[n] …")` in the same shell line as a `setsid …
+  uvicorn …`** matches your own shell (the pattern text is in its command
+  line) — exit 144, the CLAUDE.md warning by another route. Restart in a
+  separate command.
+- **A `<li>` built detached** cannot be found by `document.querySelectorAll`
+  and `getComputedStyle` returns empty strings on it — the note edit form's
+  gutter stayed hidden on every open with source that read as correct.
+- **A grid stretched to fill its parent splits the slack across every `auto`
+  row**, which is invisible at two columns and a 180px hole at one.
+
+### In flight when this was written (subagents, worktrees, own ports)
+
+- **UI Phase 7 documents/OCR cluster** (Opus, port 8794): the lightbox for
+  documents, per-page captioning, region OCR, the Files row — four commits
+  on its branch, not yet reviewed/merged.
+- **PLAN sprint 2 editor** (Opus, 8795): D2 selection-driven floating
+  toolbar, D3 document-local undo/redo across Live and Source.
+- **PLAN §4 harness** (Opus, 8796): A1 typed tool-result cards, A2 the
+  visible plan checklist, A6 the eval harness under `tests/eval/`.
+- **Mindmap Phase 3** (Opus, 8797): reference-node picker, import UI,
+  `mapChip()`/`mapPreview()` on dashboard/timeline/chat/notes, maps attached
+  to chat, the map in the graph, and the dark/390px check §10.4 lists.
 
 ### Measured and not a bug (so nobody chases it)
 
-`errors.js` at 390px reports the Notes sub-tab strip's last two tabs
-off-screen — it is a horizontal scroller with an edge fade, by design — and
-the timeline dots the same way. Settings → Data's three file inputs are 1px
-wider than the section at 390px.
+`errors.js` no longer flags the Notes sub-tab strip or the timeline dots at
+390px: both are horizontal scrollers with an edge fade, by design, and the
+sweep now skips anything inside a scrolling strip. Settings → Data's file
+inputs are capped at the column now.
 
 ### Not verified
 

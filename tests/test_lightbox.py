@@ -112,3 +112,59 @@ def test_every_other_caller_still_passes_only_what_it_always_did():
         source = Path(other).read_text(encoding="utf-8")
         if "openLightbox(" in source:
             assert "getUrl" in source
+
+
+# --- a document, shown like a document (UI_MODERNISATION_PLAN Phase 7.1) ------
+#
+# Reported: "the lightbox needs improving for file and pdf previews, no
+# sections or info are below it really compared to the images." An image got
+# facts, caption, reading and bylines; a PDF got the pages and nothing else.
+#
+# These are lints for the same reason the rest of this file is: the geometry
+# and the wiring were measured once in Chromium (page chips render, the stepper
+# steps, the workspace opens at the page named in the readout), and a lint is
+# what stops the wiring being quietly removed between sessions.
+
+
+def test_the_document_block_reuses_the_image_panel():
+    """"Reuse the image block's DOM builders; do not write a second block."
+
+    The page chips and the facts line live in `.lightbox-info` — the same
+    panel, the same `renderInfo`. A second panel for documents would be two
+    places to keep in step, which is the shape this plan is subtracting."""
+    assert "lightbox-pages" in LIGHTBOX
+    assert "info.append(infoFacts, infoPages," in LIGHTBOX, (
+        "the page chips belong inside the existing info panel"
+    )
+    # One renderer for the facts line, called from the document path too.
+    assert "renderInfo(item, true);" in LIGHTBOX
+
+
+def test_a_document_says_how_many_pages_and_how_many_are_read():
+    assert "docPageCount" in LIGHTBOX
+    assert "docPagesRead" in LIGHTBOX
+    assert "page-reads" in LIGHTBOX, "read pages come from the PageRead store"
+
+
+def test_the_stepper_and_the_chips_are_cleared_between_files():
+    """A photograph must not inherit the previous file's page count — the
+    "page 4 of 9" on an image bug this reset exists to prevent."""
+    assert "resetDocPages()" in LIGHTBOX
+    assert LIGHTBOX.count("resetDocPages()") >= 2, (
+        "reset on both the document path and the image path"
+    )
+
+
+def test_the_workspace_opens_at_the_page_on_screen():
+    """Phase 7.1's "a way into the OCR Workspace at that page"."""
+    assert "openOcrWorkspace(lightboxOcrTarget, [], docPageCount ? docPage : 0)" in LIGHTBOX
+    library = Path("frontend/library.js").read_text(encoding="utf-8")
+    assert "function openOcrWorkspace(image, images, page = 0)" in library
+    assert "ocrLoadPage(image, startPage)" in library
+
+
+def test_the_workspace_target_carries_the_url_its_pages_are_served_from():
+    """Measured against the running app: a `/media/` target built with only an
+    id asked for `/media/pdf-page//0` and got a 404, so "open the reader here"
+    opened an empty stage."""
+    assert "url: `/media/${name}`" in LIGHTBOX

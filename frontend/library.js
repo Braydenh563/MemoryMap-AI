@@ -3337,10 +3337,21 @@ function ocrOpenSibling(row) {
   ocrRenderRail(row);
 }
 
-function openOcrWorkspace(image, images) {
+//: `page` is the page to open *at*, zero-based — Phase 7.1's "a way into the
+//: OCR Workspace at that page". It defaults to 0, which is what every caller
+//: that has no page in mind (a gallery row, the reopen toast) still passes by
+//: omitting it; the lightbox passes the page you were looking at, because
+//: opening a fifteen-page scan at page 1 from page 9 is navigation the reader
+//: then has to redo by hand.
+function openOcrWorkspace(image, images, page = 0) {
   const overlay = $("ocr-workspace");
   if (!overlay) return;
-  ocrWorkspacePage = 0;
+  //: Clamped at 0 here rather than trusted: a caller with a stale page number
+  //: (a document re-read since, a negative from an off-by-one) must land on a
+  //: real page, and `ocrLoadPage` clamps the upper end against the count it
+  //: learns from the region response.
+  const startPage = Math.max(0, Number(page) || 0);
+  ocrWorkspacePage = startPage;
   ocrWorkspacePages = 1;
   //: The remembered mode is *wanted*, not yet applied: whether it can be
   //: honoured depends on the page count, which only the region response
@@ -3381,8 +3392,10 @@ function openOcrWorkspace(image, images) {
   overlay.classList.remove("hidden");
   if (ocrIsPdf(image)) {
     ocrWorkspaceImages = [];
-    ocrLoadPage(image, 0);
+    ocrLoadPage(image, startPage);
   } else {
+    //: An image is one page; a `startPage` for it would be a number with
+    //: nothing to point at.
     ocrLoadPage(image);
   }
   //: Fetched after the overlay is up and the first page is loading, so the

@@ -2533,9 +2533,13 @@ function ocrRenderRegions(body) {
   //: *regions*, which only Tesseract produces — a vision-model reading (the
   //: only kind this project actually uses) has text and no boxes, so the
   //: button never appeared for it. Gated on there being a reading at all.
+  //: `body.pages` is a page *count* on the regions response and a list of
+  //: readings on a stored-range response — `.some` on the number threw and
+  //: took the whole page load down with it ("(body.pages || []).some is not
+  //: a function" in the reader's status line, found by measurement).
   const hasReading = ocrWorkspaceRegions.length > 0
     || Boolean((body.text || "").trim())
-    || (body.pages || []).some((page) => (page.text || "").trim());
+    || (Array.isArray(body.pages) && body.pages.some((page) => (page?.text || "").trim()));
   $("ocr-delete-reading")?.classList.toggle("hidden", !hasReading);
   //: **Redo, made discoverable rather than merely possible.** Reported
   //: directly: "there's also no way to delete or redo ocr text extractions."

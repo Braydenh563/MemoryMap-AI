@@ -8805,6 +8805,8 @@ async function streamChat({
   useTools,
   noteIds,
   imageMediaIds,
+  documentIds,
+  fileIds,
   skill,
   skillInputs,
   skillFromStep,
@@ -8856,6 +8858,15 @@ async function streamChat({
   // for drag-and-drop images — see `_resolve_chat_images` (routes_chat.py)
   // for how an id becomes a data URI the provider actually sends.
   if (imageMediaIds && imageMediaIds.length) body.image_media_ids = imageMediaIds;
+  //: **Documents and files were staged, drawn, persisted -- and never sent
+  //: here.** `streamChat` took `noteIds` and `imageMediaIds` and nothing else,
+  //: so an attached document reached `/chat` (the non-streaming path, used by
+  //: Ask) and never `/chat/stream`, which is the path the Chat tab actually
+  //: uses. The chip appeared on the message, the id was saved on the
+  //: conversation, and the model was never given a word of it -- the same
+  //: failure `document_ids` shipped once before, one layer further out.
+  if (documentIds && documentIds.length) body.document_ids = documentIds;
+  if (fileIds && fileIds.length) body.file_ids = fileIds;
   // Running a skill sends its name, not its prompt: the server owns what a
   // skill is — the steps, the values, the tools it may use — so the two
   // definitions can't drift apart.
@@ -11804,6 +11815,21 @@ function chatAttachmentStrip(attachments) {
       continue;
     }
 
+    if (item.kind === "file") {
+      // A Library file. Same shape as the document chip below, and the same
+      // reason -- its text may be a hundred pages -- but it opens in the
+      // Library's Files sub-tab rather than in the Documents editor, because
+      // that is where an Attachment row actually lives.
+      const fileChip = document.createElement("button");
+      fileChip.type = "button";
+      fileChip.className = "chip msg-attachment msg-attachment-doc";
+      setLabel(fileChip, `ph:paperclip ${item.name}`);
+      fileChip.title = `Find “${item.name}” in your library`;
+      fileChip.addEventListener("click", () => focusLibraryFile(item.name, `/files/${item.id}`));
+      strip.appendChild(fileChip);
+      continue;
+    }
+
     // A document: there is nothing to preview inline (its text may be a
     // hundred pages), so the chip is the navigation.
     const chip = document.createElement("button");
@@ -13829,6 +13855,59 @@ let lastChatDocumentAttachments = [];
 //: is already more than most of them can hold alongside a conversation.
 const MAX_CHAT_DOCUMENTS = 4;
 
+//: **Files from the Library, staged on the message.** Asked for directly: "I
+//: want to be able to attach not just existing notes to a chat for context,
+//: but also already uploaded files, documents, and images."
+//:
+//: A third list rather than folding files into `attachedDocuments`, because
+//: they are a third table: a Library file is an Attachment row, a document is
+//: a Document row, and the chat request carries `file_ids` and `document_ids`
+//: separately for exactly that reason (routes_chat.py). Removing one never
+//: deletes the file -- it was in the Library before this message and stays
+//: there after it, the same promise `attachedDocuments` makes.
+let attachedFiles = [];
+let lastChatFileAttachments = [];
+
+//: Four, matching `MAX_CHAT_DOCUMENTS` and the server's own `max_length=4`.
+//: A file's text is capped at 12k characters server-side, so four of them is
+//: already a large fraction of a small local model's context.
+const MAX_CHAT_FILES = 4;
+
+function attachLibraryFile(id, name) {
+  if (attachedFiles.some((f) => f.id === id)) return true;
+  if (attachedFiles.length >= MAX_CHAT_FILES) return false;
+  attachedFiles.push({ id, name: name || "File" });
+  renderFileAttachments();
+  announce(`Attached “${name || "file"}”. ${attachedFiles.length} file(s) attached.`);
+  return true;
+}
+
+function renderFileAttachments() {
+  const box = $("chat-file-attachments");
+  if (!box) return;
+  box.replaceChildren();
+  box.classList.toggle("hidden", attachedFiles.length === 0);
+  for (const file of attachedFiles) {
+    const chipEl = document.createElement("span");
+    chipEl.className = "chip attachment-chip";
+    const label = document.createElement("span");
+    setLabel(label, `ph:paperclip ${file.name}`);
+    const remove = document.createElement("button");
+    remove.className = "attachment-remove";
+    remove.type = "button";
+    remove.textContent = "\u2715";
+    remove.title = `Don't send “${file.name}” with this message`;
+    remove.setAttribute("aria-label", remove.title);
+    remove.addEventListener("click", () => {
+      attachedFiles = attachedFiles.filter((f) => f.id !== file.id);
+      renderFileAttachments();
+      announce(`Removed attachment. ${attachedFiles.length} file(s) attached.`);
+    });
+    chipEl.append(label, remove);
+    box.appendChild(chipEl);
+  }
+}
+
 //: **Stage one document on the message being written.**
 //:
 //: The composer has staged documents as removable chips since files could be
@@ -14042,9 +14121,97 @@ function renderAttachments() {
   }
 }
 
-function renderNotePickerList() {
+//: **Which of the four stores the picker is showing.** Asked for directly:
+//: "I want to be able to attach not just existing notes to a chat for
+//: context, but also already uploaded files, documents, and images." The
+//: paperclip beside this button uploads something new; this picker is for
+//: what the notebook already holds, and until now it could only reach one of
+//: the four tables that hold it.
+let notePickerSource = "notes";
+
+//: Fetched once per opening rather than per keystroke, and per source rather
+//: than all four up front: a notebook can hold thousands of files, and three
+//: of these lists are never looked at in a session that only wanted a note.
+const notePickerCache = { documents: null, files: null, images: null };
+
+async function notePickerRows(source) {
+  if (source === "notes") return null; // notes come from allEntries, already in memory
+  if (notePickerCache[source]) return notePickerCache[source];
+  const path = source === "documents" ? "/documents" : source === "files" ? "/files/gallery" : "/media";
+  const rows = await apiJson(path).catch(() => []);
+  notePickerCache[source] = Array.isArray(rows) ? rows : rows.documents || [];
+  return notePickerCache[source];
+}
+
+//: One row's identity, label and "is it attached" test, per source. Written as
+//: a table rather than four branches inside the renderer because the renderer
+//: is the same list either way -- a checkbox, a label and a chip -- and four
+//: copies of it is how the four drift apart.
+function notePickerShape(source) {
+  if (source === "documents") {
+    return {
+      id: (row) => row.id,
+      label: (row) => row.title || "Untitled document",
+      note: () => "Document",
+      search: (row) => `${row.title || ""} ${row.content || ""}`,
+      isOn: (row) => attachedDocuments.some((d) => d.id === row.id),
+      add: (row) => attachDocumentToChat(row.id, row.title || "Document"),
+      remove: (row) => {
+        attachedDocuments = attachedDocuments.filter((d) => d.id !== row.id);
+        renderDocumentAttachments();
+      },
+      empty: "No documents yet.",
+    };
+  }
+  if (source === "files") {
+    return {
+      id: (row) => row.id,
+      label: (row) => row.original_name || "File",
+      note: (row) => (row.mime || "").split("/").pop() || "file",
+      search: (row) => `${row.original_name || ""} ${row.caption || ""}`,
+      isOn: (row) => attachedFiles.some((f) => f.id === row.id),
+      add: (row) => attachLibraryFile(row.id, row.original_name || "File"),
+      remove: (row) => {
+        attachedFiles = attachedFiles.filter((f) => f.id !== row.id);
+        renderFileAttachments();
+      },
+      empty: "No files yet.",
+    };
+  }
+  return {
+    id: (row) => row.id,
+    label: (row) => row.filename || row.original_name || "Image",
+    note: (row) => (row.caption ? "captioned" : "image"),
+    search: (row) => `${row.filename || ""} ${row.caption || ""}`,
+    isOn: (row) => attachedImages.some((i) => i.id === row.id),
+    //: An already-uploaded image is attached by *id*, with no staging step and
+    //: no object URL: the bytes are already on the server, which is the whole
+    //: difference between this and dropping a photo on the composer.
+    add: (row) => {
+      if (attachedImages.length >= 4) return false;
+      attachedImages.push({
+        id: row.id,
+        url: row.url || `/media/${row.filename}`,
+        name: row.filename || "Image",
+      });
+      renderImageAttachments();
+      return true;
+    },
+    remove: (row) => {
+      attachedImages = attachedImages.filter((i) => i.id !== row.id);
+      renderImageAttachments();
+    },
+    empty: "No images yet.",
+  };
+}
+
+async function renderNotePickerList() {
   const query = $("note-picker-search").value.trim().toLowerCase();
   const list = $("note-picker-list");
+  if (notePickerSource !== "notes") {
+    await renderNotePickerOtherSource(query, list);
+    return;
+  }
   list.replaceChildren();
 
   // Attached notes stay at the top even when the search wouldn't match them,
@@ -14096,11 +14263,67 @@ function renderNotePickerList() {
   updateNotePickerCount();
 }
 
+async function renderNotePickerOtherSource(query, list) {
+  const source = notePickerSource;
+  const shape = notePickerShape(source);
+  const rows = (await notePickerRows(source)) || [];
+  // The source can have been switched while the fetch was in flight.
+  if (notePickerSource !== source) return;
+  list.replaceChildren();
+  const matches = rows.filter(
+    (row) => shape.isOn(row) || !query || shape.search(row).toLowerCase().includes(query)
+  );
+  matches.sort((a, b) => (shape.isOn(a) ? 0 : 1) - (shape.isOn(b) ? 0 : 1));
+  if (!matches.length) {
+    const empty = document.createElement("li");
+    empty.className = "muted note-picker-empty";
+    empty.textContent = query ? "Nothing matches that." : shape.empty;
+    list.appendChild(empty);
+  }
+  for (const row of matches.slice(0, 50)) {
+    const li = document.createElement("li");
+    const label = document.createElement("label");
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = shape.isOn(row);
+    box.addEventListener("change", () => {
+      if (box.checked) {
+        // Refused rather than silently dropped: the caps exist because four
+        // whole files is already more than most local models can hold, and a
+        // tick that comes straight back off with no explanation reads as a
+        // broken checkbox.
+        if (shape.add(row) === false) {
+          box.checked = false;
+          toast("That's as many as one message can carry.", true);
+        }
+      } else {
+        shape.remove(row);
+      }
+      updateNotePickerCount();
+    });
+    const text = document.createElement("span");
+    text.className = "note-picker-text";
+    text.textContent = shape.label(row);
+    const kind = document.createElement("span");
+    kind.className = "chip";
+    kind.textContent = shape.note(row);
+    label.append(box, text, kind);
+    li.appendChild(label);
+    list.appendChild(li);
+  }
+  updateNotePickerCount();
+}
+
 function updateNotePickerCount() {
-  const n = attachedNoteIds.length;
-  $("note-picker-count").textContent = n
-    ? `${n} note${n === 1 ? "" : "s"} attached`
-    : "Nothing attached yet";
+  // Every source, not just notes: the panel is one picker over four stores
+  // now, and a count that only ever mentioned notes would say "Nothing
+  // attached yet" with three files ticked in front of you.
+  const parts = [];
+  if (attachedNoteIds.length) parts.push(`${attachedNoteIds.length} note${attachedNoteIds.length === 1 ? "" : "s"}`);
+  if (attachedDocuments.length) parts.push(`${attachedDocuments.length} document${attachedDocuments.length === 1 ? "" : "s"}`);
+  if (attachedFiles.length) parts.push(`${attachedFiles.length} file${attachedFiles.length === 1 ? "" : "s"}`);
+  if (attachedImages.length) parts.push(`${attachedImages.length} image${attachedImages.length === 1 ? "" : "s"}`);
+  $("note-picker-count").textContent = parts.length ? `${parts.join(", ")} attached` : "Nothing attached yet";
 }
 
 function openNotePicker() {
@@ -14197,6 +14420,7 @@ async function sendChatMessage(preset, opts = {}) {
   const sentAttachments = opts.noteIds || attachedNoteIds.slice();
   const sentImages = opts.imageMediaIds || attachedImages.map((img) => img.id);
   const sentDocuments = opts.documentIds || attachedDocuments.map((d) => d.id);
+  const sentFiles = opts.fileIds || attachedFiles.map((f) => f.id);
   // What the bubble will draw. Built here, while the composer still knows the
   // names and urls — after the clear below there is nothing left to build it
   // from, and a round trip to re-fetch what we already had would show the
@@ -14214,6 +14438,9 @@ async function sendChatMessage(preset, opts = {}) {
       text: "",
     })),
     ...attachedDocuments.map((d) => ({ kind: "document", id: d.id, name: d.name })),
+    // Library files: the same card list as the other kinds, so the bubble
+    // shows every reference the question was given rather than three of four.
+    ...attachedFiles.map((f) => ({ kind: "file", id: f.id, name: f.name })),
     // The paperclip's own attachments. Same card list as the other two kinds
     // so the bubble shows every reference this question was given, not two of
     // the three.
@@ -14229,6 +14456,7 @@ async function sendChatMessage(preset, opts = {}) {
     lastChatAttachments = sentAttachments;
     lastChatImageAttachments = attachedImages.slice();
     lastChatDocumentAttachments = attachedDocuments.slice();
+    lastChatFileAttachments = attachedFiles.slice();
     // The staged bytes are on the server now, so the local Blob references
     // are dead weight — an object URL lives as long as the document unless it
     // is revoked, and a chat session sending several images would hold every
@@ -14241,6 +14469,7 @@ async function sendChatMessage(preset, opts = {}) {
     attachedNoteIds = [];
     attachedImages = [];
     attachedDocuments = [];
+    attachedFiles = [];
     //: Cleared with the rest, and for the same stated reason: a selection that
     //: rode along on every later question would be the app answering about a
     //: paragraph the user stopped talking about three messages ago.
@@ -14248,6 +14477,7 @@ async function sendChatMessage(preset, opts = {}) {
     renderAttachments();
     renderImageAttachments();
     renderDocumentAttachments();
+    renderFileAttachments();
     renderSelectionAttachment();
     closeNotePicker();
   }
@@ -14474,6 +14704,7 @@ async function sendChatMessage(preset, opts = {}) {
         // numbers reported as final would be wrong rather than incomplete.
         image_media_ids: sentImages.length ? sentImages : null,
         document_ids: sentDocuments.length ? sentDocuments : null,
+        file_ids: sentFiles.length ? sentFiles : null,
         note_ids: sentAttachments.length ? sentAttachments : null,
       };
       if (convRef.id === null) {
@@ -14529,6 +14760,8 @@ async function sendChatMessage(preset, opts = {}) {
       useTools: effectiveUseTools,
       noteIds: sentAttachments,
       imageMediaIds: sentImages,
+      documentIds: sentDocuments,
+      fileIds: sentFiles,
       skill: opts.skill,
       skillInputs: opts.skillInputs,
       skillFromStep: opts.skillFromStep,
@@ -15064,6 +15297,7 @@ async function sendChatMessage(preset, opts = {}) {
       // Same reason as the ids above, one kind over: a document attached to a
       // message is what lets the bubble draw its chip again on reopen.
       document_ids: sentDocuments.length ? sentDocuments : null,
+      file_ids: sentFiles.length ? sentFiles : null,
       // And the notes clipped with the paperclip, which until now were used to
       // build one prompt and then forgotten — the bubble showed no sign the
       // answer had been given a note to read.
@@ -28370,6 +28604,28 @@ $("note-picker-search").addEventListener("input", () => {
   clearTimeout(notePickerSearchDebounceTimeout);
   notePickerSearchDebounceTimeout = setTimeout(renderNotePickerList, 150);
 });
+//: Switching source clears the search box: "cover" typed against notes means
+//: nothing against a list of filenames, and a picker that opens on Files with
+//: a stale query and no rows reads as an empty library.
+for (const button of document.querySelectorAll("#note-picker-sources [data-picker-source]")) {
+  button.addEventListener("click", () => {
+    notePickerSource = button.dataset.pickerSource;
+    for (const sibling of document.querySelectorAll("#note-picker-sources [data-picker-source]")) {
+      const on = sibling === button;
+      sibling.classList.toggle("active", on);
+      sibling.setAttribute("aria-selected", String(on));
+    }
+    const search = $("note-picker-search");
+    search.value = "";
+    search.placeholder =
+      notePickerSource === "notes"
+        ? "Search your notes…"
+        : `Search your ${notePickerSource}…`;
+    renderNotePickerList();
+    search.focus();
+  });
+}
+
 $("note-picker-done").addEventListener("click", () => {
   closeNotePicker();
   $("chat-input").focus();

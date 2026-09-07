@@ -38,6 +38,7 @@ from memorymap.ai import (
     skill_runner,
     skills,
     tools,
+    vision_ocr,
 )
 from memorymap.ai.grounding import ground_answer_sentences
 from memorymap.ai.ollama_client import OllamaError
@@ -224,6 +225,14 @@ class ChatRequest(BaseModel):
     # all, since it looks like it worked. Capped at 4, matching the
     # composer's own `attachedDocuments.length >= 4` limit.
     document_ids: list[int] = Field(default_factory=list, max_length=4)
+    # Files from the Library, attached by hand. Asked for directly: "I want to
+    # be able to attach not just existing notes to a chat for context, but also
+    # already uploaded files, documents, and images." A PDF, a spreadsheet or a
+    # source file is an Attachment row, not a Document and not an Entry, so it
+    # needs a field of its own for the same reason document_ids does. Its text
+    # is extracted at request time by the same `core.docview` the file viewer
+    # uses, so what the model reads is what the Files tab shows.
+    file_ids: list[int] = Field(default_factory=list, max_length=4)
     # Vision-capable models (ROADMAP.md's largest open item): ids from the
     # existing `/media/upload` (the same endpoint the document/note editors
     # already use for drag-and-drop images), not a second upload path. Small
@@ -551,6 +560,56 @@ def _attached_documents(session: Session, document_ids: list[int]) -> list[Docum
     return found
 
 
+#: How much of one attached file's text is given to the model. A file can be a
+#: 300-page PDF, and every character here is resent on every round of the turn
+#: -- the same budget reasoning `MEDIA_READING_CHARS` below records. Generous
+#: enough for a report or a source file, bounded enough that four of them
+#: cannot fill a small local model's whole context on their own.
+ATTACHED_FILE_CHARS = 12000
+
+
+def _attached_files(session: Session, file_ids: list[int]) -> list[dict]:
+    """The Library files the user attached, as note-shaped context rows.
+
+    Text is extracted here rather than stored: `core.docview.extract` is the
+    same call `GET /files/{id}/text` makes, so an attached spreadsheet reaches
+    the model as the table the Files tab would show, and a file whose text
+    cannot be read (a scanned PDF with no reader available, an image) still
+    reaches it as its name and kind rather than silently as nothing -- a
+    filename is a real clue, and a chip in the transcript that corresponded to
+    nothing at all is the failure mode `document_ids` already shipped once.
+    """
+    found: list[dict] = []
+    uploads = deps.get_config().uploads_dir
+    for file_id in dict.fromkeys(file_ids):
+        attachment = session.get(Attachment, file_id)
+        if attachment is None:
+            continue
+        body = ""
+        try:
+            viewed = docview.extract(
+                uploads / attachment.stored_name,
+                vision_reader=vision_ocr.pdf_reader_or_none(),
+            )
+            body = (viewed.text or "").strip()
+        except Exception:  # noqa: BLE001 - an unreadable file is still worth naming
+            body = ""
+        if len(body) > ATTACHED_FILE_CHARS:
+            body = body[:ATTACHED_FILE_CHARS] + "\n\n[…truncated]"
+        header = f"File: {attachment.filename}"
+        found.append(
+            {
+                "id": attachment.id,
+                "content": f"{header}\n\n{body}" if body else f"{header}\n\n(no readable text)",
+                "category": "File",
+                "attached": True,
+                "connected": False,
+                "match_info": None,
+            }
+        )
+    return found
+
+
 #: At most this many pictures from one note are described to the model, and at
 #: most this much of each reading. A note can hold a dozen scans; the readings
 #: are a *hint* about what is in the note, not a second copy of the notebook,
@@ -664,6 +723,7 @@ def _prepare(
     force_notes_intent: bool = False,
     attached_notes_only: bool = False,
     document_ids: list[int] | None = None,
+    file_ids: list[int] | None = None,
     surface: str = ASK_SURFACE,
 ) -> dict:
     """The shared first half of both chat endpoints: retrieve entries,
@@ -688,7 +748,8 @@ def _prepare(
     # think?" with three notes clipped to it is a question about those notes.
     attached = _attached_notes(session, note_ids or [])
     attached_docs = _attached_documents(session, document_ids or [])
-    if attached or attached_docs:
+    attached_files = _attached_files(session, file_ids or [])
+    if attached or attached_docs or attached_files:
         detected = intent.NOTES
     #: **A question about the notebook's shape is answered by counting it.**
     #: Asked for directly: "enhance the semantic search so it can pick up stuff
@@ -793,6 +854,8 @@ def _prepare(
         }
         for document in attached_docs
     )
+    # Library files, already shaped as context rows by `_attached_files`.
+    notes.extend(attached_files)
     config = deps.get_config()
     profile = (
         config.get_preference("user_profile", "")
@@ -854,6 +917,7 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         body.note_ids,
         attached_notes_only=body.attached_notes_only,
         document_ids=body.document_ids,
+        file_ids=body.file_ids,
         # This endpoint has no tool loop — it retrieves and answers, nothing
         # else — so every turn through it is an ask by construction.
         surface=ASK_SURFACE,
@@ -1272,6 +1336,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
             force_notes_intent=body.answering_agent,
             attached_notes_only=body.attached_notes_only,
             document_ids=body.document_ids,
+            file_ids=body.file_ids,
             # Asking vs requesting, decided from what the caller can already
             # do rather than from a new flag: `notes_only` is the Notes tab's
             # Ask box, and tools-off is the Chat tab's Ask mode. Anything that

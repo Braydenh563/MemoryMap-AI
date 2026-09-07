@@ -3107,28 +3107,47 @@ header#top-bar.tabs-wrapped #tab-bar {
      `background-image` layers the sheen over whatever fill the element
      already chose, so a card keeps `--card`, a modal keeps `--modal-bg`, and
      the whiteboard panels keep theirs. */
+  /* **A specular highlight has a size; it does not have a percentage.**
+     Reported: "fix the glass sheen and stop it from overpowering large panels
+     like the your notes main panel". The stops used to be `0%` to `45%`, so
+     the wash scaled with the element -- on a 200px chip that is a highlight
+     along one corner, and on a 1200x800 panel it is a white gradient across
+     half the screen. That is not what light does: the band a light source
+     lays on a pane is the same size whether the pane is a coaster or a
+     window, so the stop is an absolute length and every surface gets the
+     same highlight regardless of how big it is. */
   background-image:
     linear-gradient(135deg,
-      color-mix(in srgb, rgba(255, 255, 255, 0.16) calc(var(--glass-sheen-strength) * 100%), transparent) 0%,
-      rgba(255, 255, 255, 0) 45%);
+      color-mix(in srgb, rgba(255, 255, 255, 0.16) calc(var(--glass-sheen-strength) * 100%), transparent) 0,
+      rgba(255, 255, 255, 0) 260px);
   /* A 1px inner top-edge highlight — the other half of the same "this
      catches light, it doesn't just sit there tinted" read, independent of
-     `--card`'s alpha. */
+     `--card`'s alpha. The shadowed bottom rim rides along, or this rule
+     would drop the one `.glass` sets (see 03-dashboard-widgets.css) for
+     every card that has the sheen on. */
   box-shadow:
     var(--glass-shadow),
-    inset 0 1px 0 color-mix(in srgb, rgba(255, 255, 255, 0.25) calc(var(--glass-sheen-strength) * 100%), transparent);
+    inset 0 1px 0 color-mix(in srgb, rgba(255, 255, 255, 0.25) calc(var(--glass-sheen-strength) * 100%), transparent),
+    inset 0 -1px 0 var(--glass-underline);
 }
 
 /* A white sheen on a dark surface reads as light catching glass. On a light
    surface it is white on near-white: it adds nothing to the glass read and
    only flattens the fill it is sitting on. Halved rather than removed, so the
    strength slider still does something in both themes and the two do not look
-   like different components. */
-:root:not([data-theme="dark"])[data-glass-sheen="on"]:not([data-glass="off"]) .card {
+   like different components.
+
+   **`data-mode`, not `data-theme`.** `data-theme` is only stamped when
+   somebody picks Light or Dark by hand; under "System" -- the default -- it is
+   absent entirely, so `:not([data-theme="dark"])` matched a dark desktop too
+   and every such profile got the light theme's halved sheen. `data-mode` is
+   the resolved value and is always present (theme-boot.js says so in its own
+   comment), which is what this selector actually wants to ask. */
+:root:not([data-mode="dark"])[data-glass-sheen="on"]:not([data-glass="off"]) .card {
   background-image:
     linear-gradient(135deg,
-      color-mix(in srgb, rgba(255, 255, 255, 0.08) calc(var(--glass-sheen-strength) * 100%), transparent) 0%,
-      rgba(255, 255, 255, 0) 45%);
+      color-mix(in srgb, rgba(255, 255, 255, 0.08) calc(var(--glass-sheen-strength) * 100%), transparent) 0,
+      rgba(255, 255, 255, 0) 260px);
 }
 
 

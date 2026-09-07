@@ -3818,3 +3818,17 @@ input.doc-title-input::placeholder {
   }
 }
 
+
+/* The picker's source strip. It sits above the search box because it decides
+   what that box searches -- reading order and cause order agree here. A `.seg`
+   rather than a bespoke row so it is the same control the Notes sub-tabs and
+   the Library sub-tabs already are, which is what makes it read as navigation
+   instead of as four more filters. */
+.note-picker-sources {
+  flex: 0 0 auto;
+  align-self: stretch;
+}
+
+.note-picker-sources button {
+  flex: 1 1 0;
+}

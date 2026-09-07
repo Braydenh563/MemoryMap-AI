@@ -1334,6 +1334,13 @@ Link to another note with [[its first few words]]."></textarea>
                  here, sent with the message, then drawn under it. -->
             <div id="chat-doc-attachments" class="chat-attachments hidden"
               role="group" aria-label="Documents attached to your next message"></div>
+            <!-- Library files, staged the same way. A separate row from the
+                 documents one for the same reason that one is separate from
+                 the images: a Library file is an Attachment row and a document
+                 is a Document row, and the chat request carries `file_ids` and
+                 `document_ids` as two fields (routes_chat.py). -->
+            <div id="chat-file-attachments" class="chat-attachments hidden"
+              role="group" aria-label="Files attached to your next message"></div>
             <!-- The passage the user highlighted in a note or a document
                  (REDESIGN.md §R7.1 item 1). Its own line, and only ever one
                  chip on it: a selection is where you are, not a thing you
@@ -1365,12 +1372,25 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="note-picker">
               <button id="attach-note" class="ghost icon-only" type="button"
                 aria-haspopup="dialog" aria-expanded="false"
-                title="Attach notes as references for this question"
-                aria-label="Attach notes"><i class="ph ph-note" aria-hidden="true"></i></button>
+                title="Attach something you already have — a note, a document, a file or an image"
+                aria-label="Attach existing notes, documents, files or images"><i class="ph ph-note" aria-hidden="true"></i></button>
               <div id="note-picker-panel" class="note-picker-panel hidden"
-                role="dialog" aria-label="Choose notes to reference">
+                role="dialog" aria-label="Choose what to reference">
+                <!-- Asked for directly: "I want to be able to attach not just
+                     existing notes to a chat for context, but also already
+                     uploaded files, documents, and images." The paperclip
+                     beside this one uploads something new; this picker is for
+                     what the notebook already holds, so it needs to reach all
+                     four stores rather than only the notes table. -->
+                <div class="seg seg-compact note-picker-sources" id="note-picker-sources" role="tablist"
+                  aria-label="What to attach">
+                  <button type="button" role="tab" data-picker-source="notes" class="active" aria-selected="true">Notes</button>
+                  <button type="button" role="tab" data-picker-source="documents" aria-selected="false">Documents</button>
+                  <button type="button" role="tab" data-picker-source="files" aria-selected="false">Files</button>
+                  <button type="button" role="tab" data-picker-source="images" aria-selected="false">Images</button>
+                </div>
                 <input id="note-picker-search" type="search"
-                  placeholder="Search your notes…" aria-label="Search notes to attach">
+                  placeholder="Search your notes…" aria-label="Search what to attach">
                 <ul id="note-picker-list" class="note-picker-list"></ul>
                 <div class="row space-between note-picker-foot">
                   <span id="note-picker-count" class="muted"></span>

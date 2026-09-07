@@ -645,10 +645,13 @@ function wbItemBBox(kind, item) {
   if ((!w || !h) && kind === "node") {
     const el = document.querySelector(`.node-card[data-id="${item.id}"]`);
     if (el) {
-      const rect = el.getBoundingClientRect();
-      const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-      w = w || rect.width / transform.k;
-      h = h || rect.height / transform.k;
+      // `offsetWidth/Height`, not `getBoundingClientRect()`: the rect is the
+      // axis-aligned box of the *rotated* card, wider and taller than the
+      // card itself, so a rotated note's links landed on a box that does
+      // not exist (reported: "I rotated a note and the connection didn't
+      // stick to the edge"). Layout size is unrotated and unscaled.
+      w = w || el.offsetWidth;
+      h = h || el.offsetHeight;
     }
   }
   w = w || (kind === "node" ? WB_CARD_DEFAULT_SIZE.w : WB_OBJECT_MIN_SIZE);
@@ -2214,6 +2217,17 @@ function selectWbItem(kind, id) {
   wbApplySelectionHighlight();
 }
 
+//: Select everything on the board (Edit → Select all, Ctrl+A on the
+//: canvas). Links are left out: they follow what they join.
+function wbSelectAllItems() {
+  wbSelectedItem = null;
+  wbMultiSelection.clear();
+  for (const [kind, item] of wbLinkCandidates()) wbMultiSelection.add(wbMultiKey(kind, item.id));
+  wbApplySelectionHighlight();
+  wbUpdatePropertiesPanel();
+  wbUpdateSelectionBar();
+}
+
 function clearWbSelection() {
   if (!wbSelectedItem && wbMultiSelection.size === 0) return;
   wbSelectedItem = null;
@@ -2256,13 +2270,17 @@ function wbUpdateSelectionBar() {
   const bottom = rect.top - hostRect.top + t.applyY(box.maxY);
   bar.classList.remove("hidden");
   const w = bar.offsetWidth, h = bar.offsetHeight;
-  const gap = 10;
+  // 44px above, not 10: the rotation handle sits 28px above a card or
+  // text box (`.wb-rotate-handle`, 12px tall), and a bar placed just over
+  // the item covered it — reported: "I can't rotate objects because that
+  // panel appears."
+  const gapAbove = 44, gapBelow = 10;
   const left = Math.max(8, Math.min(hostRect.width - w - 8, cx - w / 2));
   // Above the item; below it when the top bar would cover the bar.
   const topBar = document.getElementById("wb-topbar")?.getBoundingClientRect();
-  const floor = topBar ? topBar.bottom - hostRect.top + gap : 56;
-  let y = top - h - gap;
-  if (y < floor) y = bottom + gap;
+  const floor = topBar ? topBar.bottom - hostRect.top + gapBelow : 56;
+  let y = top - h - gapAbove;
+  if (y < floor) y = bottom + gapBelow;
   bar.style.left = `${Math.round(left)}px`;
   bar.style.top = `${Math.round(y)}px`;
 }
@@ -3374,6 +3392,15 @@ function wbExportBoard() {
   const rect = button.getBoundingClientRect();
   menu.style.top = `${rect.bottom + 6}px`;
   menu.style.right = `${window.innerWidth - rect.right}px`;
+  // Opened from the Board menu the button sits low enough that the nine
+  // options ran off the bottom of the window (reported, with a screenshot).
+  // Measured once it is in the DOM and lifted to fit.
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    if (r.bottom > window.innerHeight - 8) {
+      menu.style.top = `${Math.max(8, window.innerHeight - r.height - 8)}px`;
+    }
+  });
 
   const addHeading = (text) => {
     const h = document.createElement("div");
@@ -3556,6 +3583,9 @@ async function initWhiteboard() {
   }
   $("wb-new-board")?.addEventListener("click", createNewBoard);
   $("wb-rename-board")?.addEventListener("click", renameCurrentBoard);
+  $("wb-empty-hint-close")?.addEventListener("click", () => {
+    $("wb-empty-hint")?.classList.add("hidden");
+  });
   $("wb-empty-hint-dismiss")?.addEventListener("click", () => {
     localStorage.setItem("wbEmptyHintDismissed", "1");
     wbHintForcedOpen = false;
@@ -4398,58 +4428,68 @@ async function initWhiteboard() {
   // only a bottom bar. `data-dock` drives the CSS (row vs. column layout,
   // which edge it's pinned to); persisted so the choice survives a reload
   // the same way panel positions already do.
-  // The Board menu in the top bar: look, grid, snap, export, toolbar dock,
-  // clear. Opens on its button, closes on an outside click or Esc — but
-  // not on a click inside it, since the colour input and the grid select
-  // are both used from within.
-  const boardMenuToggle = document.getElementById("wb-board-menu-toggle");
-  const boardMenu = document.getElementById("wb-board-menu");
-  if (boardMenuToggle && boardMenu) {
-    const setOpen = (open) => {
-      boardMenu.classList.toggle("hidden", !open);
-      boardMenuToggle.setAttribute("aria-expanded", open ? "true" : "false");
-    };
-    boardMenuToggle.addEventListener("click", (e) => {
+  // **Three grouped menus in the top bar — Insert, View, Board.** Asked
+  // for: "add more features in the top bar and spread them out in grouped
+  // section dropdowns." One `.wb-board-menu-wrap` per menu; opening one
+  // closes the others; an outside click or Escape (capture phase — the
+  // board's own keydown swallows Escape from a focused toolbar button)
+  // closes all. The Insert menu reuses the dock's own tool buttons so the
+  // two can never disagree about what a sticky or a text box is.
+  const menuWraps = [...document.querySelectorAll(".wb-board-menu-wrap")];
+  const closeAllWbMenus = () => {
+    for (const wrap of menuWraps) {
+      wrap.querySelector(".wb-board-menu")?.classList.add("hidden");
+      wrap.querySelector("[data-wb-menu-toggle]")?.setAttribute("aria-expanded", "false");
+    }
+  };
+  for (const wrap of menuWraps) {
+    const toggle = wrap.querySelector("[data-wb-menu-toggle]");
+    const menu = wrap.querySelector(".wb-board-menu");
+    if (!toggle || !menu) continue;
+    toggle.addEventListener("click", (e) => {
       e.stopPropagation();
-      setOpen(boardMenu.classList.contains("hidden"));
-    });
-    document.addEventListener("click", (e) => {
-      if (boardMenu.classList.contains("hidden")) return;
-      if (boardMenu.contains(e.target)) return;
-      setOpen(false);
-    });
-    // Capture phase: the board's own keydown handler sees Escape first from
-    // a focused toolbar button and stops it (measured — a real keypress on
-    // the open menu's toggle left the menu open, a synthetic one on
-    // `document` closed it), so this has to run before any of that.
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && !boardMenu.classList.contains("hidden")) setOpen(false);
-    }, true);
-  }
-
-  // The dock is a `role="toolbar"`: one Tab stop, arrow keys move between
-  // its buttons (Home/End to the ends). Without this a keyboard user tabs
-  // through twenty buttons to reach Undo. Only visible, enabled buttons
-  // take part, so a closed shape menu's entries are skipped.
-  const toolGroupEl = document.getElementById("wb-tool-group");
-  if (toolGroupEl) {
-    toolGroupEl.addEventListener("keydown", (e) => {
-      const keys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"];
-      if (!keys.includes(e.key)) return;
-      const buttons = [...toolGroupEl.querySelectorAll("button")].filter(
-        (b) => !b.disabled && b.offsetParent !== null,
-      );
-      const idx = buttons.indexOf(document.activeElement);
-      if (idx < 0 || buttons.length === 0) return;
-      e.preventDefault();
-      let next = idx;
-      if (e.key === "Home") next = 0;
-      else if (e.key === "End") next = buttons.length - 1;
-      else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = (idx - 1 + buttons.length) % buttons.length;
-      else next = (idx + 1) % buttons.length;
-      buttons[next].focus();
+      const wasHidden = menu.classList.contains("hidden");
+      closeAllWbMenus();
+      if (wasHidden) {
+        menu.classList.remove("hidden");
+        toggle.setAttribute("aria-expanded", "true");
+        syncPanelSwitches();
+      }
     });
   }
+  document.addEventListener("click", (e) => {
+    if (e.target.closest(".wb-board-menu, .wb-board-menu-wrap")) return;
+    // A Panels switch forwards to the top bar's own toggle with a synthetic
+    // `.click()`, which bubbled here as an "outside" click and shut the
+    // menu the moment a switch was used (reported). Only a real pointer
+    // or keyboard click outside the menu closes it.
+    if (!e.isTrusted) return;
+    closeAllWbMenus();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeAllWbMenus();
+  }, true);
+  // Edit / Arrange menu items forward to the control that already owns the
+  // action (`data-wb-click`), so a menu can never drift from the dock, the
+  // drawer or the selection bar. `data-wb-fn` is for the one action with
+  // no button of its own.
+  document.addEventListener("click", (e) => {
+    const item = e.target.closest(".wb-board-menu [data-wb-click], .wb-board-menu [data-wb-fn]");
+    if (!item) return;
+    e.stopPropagation();
+    closeAllWbMenus();
+    if (item.dataset.wbFn === "select-all") { wbSelectAllItems(); return; }
+    document.getElementById(item.dataset.wbClick)?.click();
+  });
+  document.getElementById("wb-insert-menu")?.addEventListener("click", (e) => {
+    const choice = e.target.closest("[data-wb-insert]");
+    if (!choice) return;
+    closeAllWbMenus();
+    const what = choice.dataset.wbInsert;
+    if (what === "image") document.getElementById("wb-add-image")?.click();
+    else if (what === "note") document.getElementById("wb-add-note")?.click();
+    else document.querySelector(`#wb-tool-group [data-tool="${what}"]`)?.click();
+  });
 
   // **Panels, managed in one place.** Asked for: "there needs to be a window
   // option to manage what windows are showing and not". Four switches in
@@ -4473,20 +4513,19 @@ async function initWhiteboard() {
     ["wb-panel-library", "whiteboard-sidebar", "wb-add-note"],
     ["wb-panel-search", "wb-search-bar", "wb-search-toggle"],
   ];
-  const syncPanelSwitches = () => {
+  function syncPanelSwitches() {
     for (const [switchId, panelId] of panelSwitches) {
       const sw = document.getElementById(switchId);
       const panel = document.getElementById(panelId);
       if (sw && panel) sw.checked = !panel.classList.contains("hidden");
     }
-  };
+  }
   for (const [switchId, , toggleId] of panelSwitches) {
     document.getElementById(switchId)?.addEventListener("change", () => {
       document.getElementById(toggleId)?.click();
       syncPanelSwitches();
     });
   }
-  document.getElementById("wb-board-menu-toggle")?.addEventListener("click", syncPanelSwitches);
 
   const toolsPanel = document.getElementById("wb-tools-panel");
   const dockToggle = document.getElementById("wb-dock-toggle");
@@ -4736,6 +4775,11 @@ async function initWhiteboard() {
     // Figma, Miro and tldraw share. Implemented as copy+paste through the
     // clipboard the app already has, with the clipboard put back afterwards
     // so a duplicate never overwrites something you meant to paste later.
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "a") {
+      e.preventDefault();
+      wbSelectAllItems();
+      return;
+    }
     if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "d") {
       e.preventDefault();
       const kept = wbClipboard;
@@ -5018,7 +5062,10 @@ async function initWhiteboard() {
     wbLassoEl = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
     wbLassoEl.setAttribute("class", "wb-lasso");
     wbLassoEl.setAttribute("points", `${x},${y}`);
-    document.getElementById("wb-zoom-group").appendChild(wbLassoEl);
+    // The overlay layer, which paints above the HTML card layer — in the
+    // base SVG the loop was drawn *under* every card and sticky (reported:
+    // "the lasso select tool is behind everything").
+    document.getElementById("wb-overlay-zoom-group").appendChild(wbLassoEl);
   });
   containerEl.addEventListener("pointermove", (e) => {
     if (!wbLassoPoints) return;

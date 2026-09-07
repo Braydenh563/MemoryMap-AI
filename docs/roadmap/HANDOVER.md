@@ -59,6 +59,42 @@ list at the end.
 - **Scans**: see AUDIT §I (security greps clean; three functions over
   complexity 25; suite result in `scratchpad/suite3.log`).
 
+### Second pass, same session (all measured in Chromium unless marked)
+
+- **Top bar is a menu bar**: Insert · Edit · Arrange · View · Board, each a
+  `.wb-board-menu-wrap` with name-left/control-right rows; Edit/Arrange
+  items forward to the controls that already own the action
+  (`data-wb-click`), Select all is `wbSelectAllItems` (also Ctrl+A). View
+  carries Look, Panels, Zoom (in/out/fit/full screen) and the toolbar dock.
+  Programmatic clicks no longer close a menu (`e.isTrusted` guard —
+  reported: "toggle something and the dropdown instantly closes").
+- **Shapes popup is shapes only**; line ends, stroke style, no-stroke,
+  fill + opacity and the three guide colours are rows in the drawer's
+  "Draw with" / "Guide colours" groups (same ids). Verified visible with a
+  shape tool active.
+- **Lasso** draws in the overlay layer (was under every card). The
+  **selection bar** sits 44px above an item so the rotation handle stays
+  reachable. **Export menu** is lifted into the window when opened low.
+- **Rotation**: card bbox now uses `offsetWidth/Height` (the rotated
+  `getBoundingClientRect` was a larger box, so a rotated note's links
+  missed its edge). Rotation *persisting* after a move was tested for a
+  note (25°) and a sticky (30°): state, DOM and server all keep it — the
+  reset the user saw is **not reproduced in this build**; the likeliest
+  cause is a stale bundle (assets are version-stamped; Ctrl+Alt+R forces a
+  reload).
+- **Help** is a three-column card (tools · move/selection · connect) with
+  a plain Close as well as "Don't show on new boards"; the reserved strips
+  are derived from the measured bar heights. Still scrolls by ~30px at
+  1280x800 — acceptable, not ideal.
+- **Small screens**: 1024x600 clean; 800x560 clean after the overview lost
+  its `.card` margin; 640x480: search/overview icons and the zoom cluster
+  hide (zoom is in View and on Ctrl+wheel), the dock scrolls in one row,
+  the drawer hides under 30rem of height. The top bar is three rows at
+  640px — tolerable, not designed.
+- **Not done, recorded**: rotated resize handles for *shapes* (their
+  handles are on the axis-aligned box; cards and text boxes rotate their
+  handles with them); orthogonal connector routing; frames.
+
 ### Open — in the order the user is likely to hit them
 
 1. Whiteboard: group transform of a multi-selection; frames; text on

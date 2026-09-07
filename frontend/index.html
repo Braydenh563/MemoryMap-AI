@@ -3204,18 +3204,58 @@ Link to another note with [[its first few words]]."></textarea>
              doesn't depend on guessing the docked toolbar's exact height —
              asked for directly ("the text and button... is overflowing and
              covered by the tool UI"). -->
-        <div class="wb-empty-hint-inner">
-          <p class="wb-empty-hint-title">This board is a note — draw on it, or drag one in</p>
-          <p><i class="ph ph-note-pencil" aria-hidden="true"></i> <strong>Library</strong> (top right) drops an existing note here as a card.</p>
-          <p><i class="ph ph-pencil-simple" aria-hidden="true"></i> <strong>Pen</strong>, <i class="ph ph-ruler" aria-hidden="true"></i> <strong>Line</strong>, ⬜ <strong>Rectangle</strong>, ⭕ <strong>Circle</strong> sketch on the canvas.</p>
-          <p><i class="ph ph-link ph-lead" aria-hidden="true"></i> A <strong>link</strong> tool connects two cards — drag from one to the other.</p>
-          <p><i class="ph ph-text-t" aria-hidden="true"></i> <strong>Text</strong> drops a box you can type in; <i class="ph ph-image" aria-hidden="true"></i> <strong>Image</strong> adds a picture — or just paste/drag one onto the board.</p>
-          <p><i class="ph ph-eraser" aria-hidden="true"></i> <strong>Eraser</strong> removes whatever it drags across; ⟲ <strong>Undo</strong> (Ctrl+Z) brings it back.</p>
-          <p><i class="ph ph-brain ph-lead" aria-hidden="true"></i> Select a linked card, then <strong>Tab</strong> for a new branch, <strong>Enter</strong> for a sibling — or use "Arrange as mind map" in Properties to lay out everything it's linked to.</p>
-          <p><i class="ph ph-mouse-scroll" aria-hidden="true"></i> <strong>Wheel</strong> pans, <strong>Shift+wheel</strong> pans sideways, <strong>Ctrl+wheel</strong> (or pinch) zooms; the middle button drags the board from any tool.</p>
-          <p class="muted">Shortcuts: V select · H hand · K lasso · Space hold to pan · P pen · M highlighter · L line · A arrow · R rectangle · O circle · G triangle · D diamond · T text · E eraser · B fill · X delete · Ctrl+D duplicate · [ ] back / forward · Ctrl+Alt+C / V copy / paste style · Tab new branch · Enter new sibling · Esc clears the selection, then returns to Select</p>
-          <p><i class="ph ph-bezier-curve" aria-hidden="true"></i> <strong>Double-click a line or link</strong> to bend it; drag the handle, double-click it again to straighten. Links attach to cards, text boxes and stickies alike.</p>
-          <button id="wb-empty-hint-dismiss" class="ghost small wb-empty-hint-close" type="button">Don't show this again</button>
+        <div class="wb-empty-hint-inner" role="dialog" aria-label="Whiteboard help">
+          <div class="wb-help-head">
+            <p class="wb-empty-hint-title">Whiteboard</p>
+            <button id="wb-empty-hint-close" class="ghost small icon-only" type="button" title="Close" aria-label="Close the help"><i class="ph ph-x" aria-hidden="true"></i></button>
+          </div>
+          <p class="wb-help-lead">A board is a note you can draw on. Drop notes in from the Library, sketch, connect — links follow whatever they join, even rotated — and it all stays searchable. Paste or drop an image straight onto the board.</p>
+          <div class="wb-help-grid">
+            <section>
+              <h4>Tools</h4>
+              <ul>
+                <li><span><i class="ph ph-cursor" aria-hidden="true"></i> Select</span><kbd>V</kbd></li>
+                <li><span><i class="ph ph-hand" aria-hidden="true"></i> Hand</span><kbd>H</kbd></li>
+                <li><span><i class="ph ph-lasso" aria-hidden="true"></i> Lasso</span><kbd>K</kbd></li>
+                <li><span><i class="ph ph-pen" aria-hidden="true"></i> Pen · Highlighter</span><kbd>P · M</kbd></li>
+                <li><span><i class="ph ph-eraser" aria-hidden="true"></i> Eraser · Fill</span><kbd>E · B</kbd></li>
+                <li><span><i class="ph ph-shapes" aria-hidden="true"></i> Shapes</span><kbd>L · A · R · O</kbd></li>
+                <li><span><i class="ph ph-text-t" aria-hidden="true"></i> Text · Sticky</span><kbd>T</kbd></li>
+                <li><span><i class="ph ph-trash" aria-hidden="true"></i> Delete tool</span><kbd>X</kbd></li>
+              </ul>
+            </section>
+            <section>
+              <h4>Move around</h4>
+              <ul>
+                <li><span>Pan</span><kbd>wheel · 2 fingers · middle</kbd></li>
+                <li><span>Pan sideways</span><kbd>Shift + wheel</kbd></li>
+                <li><span>Zoom</span><kbd>Ctrl+wheel · pinch</kbd></li>
+                <li><span>Pan (any tool)</span><kbd>Space + drag</kbd></li>
+                <li><span>Overview · Find</span><kbd>N · Ctrl+F</kbd></li>
+                <li><span>Back to Select</span><kbd>Esc</kbd></li>
+              </ul>
+            </section>
+            <section>
+              <h4>Connect &amp; arrange</h4>
+              <ul>
+                <li><span>Connect</span><kbd>link tool, drag</kbd></li>
+                <li><span>Bend a line</span><kbd>double-click it</kbd></li>
+                <li><span>New branch · sibling</span><kbd>Tab · Enter</kbd></li>
+                <li><span>Undo · Redo</span><kbd>Ctrl + Z · Y</kbd></li>
+              </ul>
+              <h4>Selection</h4>
+              <ul>
+                <li><span>Duplicate</span><kbd>Ctrl + D</kbd></li>
+                <li><span>Back · Forward</span><kbd>[ · ]</kbd></li>
+                <li><span>Copy · paste style</span><kbd>Ctrl+Alt+C · V</kbd></li>
+                <li><span>Add to selection</span><kbd>Shift + click</kbd></li>
+                <li><span>Rotate</span><kbd>handle above it</kbd></li>
+              </ul>
+            </section>
+          </div>
+          <div class="wb-help-foot">
+            <button id="wb-empty-hint-dismiss" class="ghost small wb-empty-hint-close" type="button">Don't show this on new boards</button>
+          </div>
         </div>
       </div>
     </div>
@@ -3248,15 +3288,72 @@ Link to another note with [[its first few words]]."></textarea>
         <button id="wb-search-toggle" class="ghost small icon-button" type="button" title="Find a card on this board (Ctrl+F)" aria-label="Find a card on this board" aria-expanded="false" aria-controls="wb-search-bar"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
         <button id="wb-navigator-toggle" class="ghost small icon-button" type="button" title="Board overview (N)" aria-label="Board overview" aria-expanded="false" aria-controls="wb-navigator"><i class="ph ph-map-trifold" aria-hidden="true"></i></button>
         <span class="wb-topbar-divider" aria-hidden="true"></span>
-        <button id="wb-add-note" class="ghost small wb-panel-primary" title="Toggle the note library (drag notes onto the board)"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i> Library</button>
+        <!-- Three grouped menus — Insert, View, Board — see whiteboard.js
+             (`menuWraps`). Rows are name-left / control-right throughout. -->
         <div class="wb-board-menu-wrap">
-          <button id="wb-board-menu-toggle" class="ghost small icon-button" type="button" title="Board: look, grid, export, clear" aria-label="Board menu" aria-haspopup="true" aria-expanded="false" aria-controls="wb-board-menu"><i class="ph ph-dots-three-outline" aria-hidden="true"></i></button>
-          <!-- **Rows, not a pile.** Reported with a screenshot: "buttons and
-               things slapped on panels in a general order and just left at
-               that." Every setting here is now one row — its name on the
-               left, its control on the right — the shape every Settings
-               page and every app the user named uses. Same ids as before. -->
-          <div id="wb-board-menu" class="wb-board-menu card glass hidden" role="menu" aria-label="Board menu">
+          <button class="ghost small wb-menu-toggle" type="button" data-wb-menu-toggle title="Add something to the board" aria-haspopup="true" aria-expanded="false" aria-controls="wb-insert-menu"><span class="wb-menu-label">Insert</span><i class="ph ph-caret-down wb-menu-caret" aria-hidden="true"></i></button>
+          <div id="wb-insert-menu" class="wb-board-menu hidden" role="menu" aria-label="Insert">
+            <div class="wb-menu-section">
+              <span class="wb-panel-group-label">Add</span>
+              <button type="button" class="wb-menu-item" data-wb-insert="sticky"><i class="ph ph-note ph-lead" aria-hidden="true"></i><span>Sticky note</span><kbd>click</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-insert="text"><i class="ph ph-text-t ph-lead" aria-hidden="true"></i><span>Text box</span><kbd>T</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-insert="image"><i class="ph ph-image ph-lead" aria-hidden="true"></i><span>Image from a file…</span></button>
+              <button type="button" class="wb-menu-item" data-wb-insert="note"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i><span>A note from the library</span></button>
+            </div>
+            <div class="wb-menu-section">
+              <span class="wb-panel-group-label">Draw</span>
+              <button type="button" class="wb-menu-item" data-wb-insert="rect"><i class="ph ph-square ph-lead" aria-hidden="true"></i><span>Rectangle</span><kbd>R</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-insert="circle"><i class="ph ph-circle ph-lead" aria-hidden="true"></i><span>Circle</span><kbd>O</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-insert="arrow"><i class="ph ph-arrow-up-right ph-lead" aria-hidden="true"></i><span>Arrow</span><kbd>A</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-insert="link-curved"><i class="ph ph-flow-arrow ph-lead" aria-hidden="true"></i><span>Connector</span></button>
+            </div>
+          </div>
+        </div>
+        <div class="wb-board-menu-wrap">
+          <button class="ghost small wb-menu-toggle" type="button" data-wb-menu-toggle title="Undo, select, duplicate, delete" aria-haspopup="true" aria-expanded="false" aria-controls="wb-edit-menu"><span class="wb-menu-label">Edit</span><i class="ph ph-caret-down wb-menu-caret" aria-hidden="true"></i></button>
+          <div id="wb-edit-menu" class="wb-board-menu hidden" role="menu" aria-label="Edit">
+            <div class="wb-menu-section">
+              <button type="button" class="wb-menu-item" data-wb-click="wb-undo"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i><span>Undo</span><kbd>Ctrl+Z</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-click="wb-redo"><i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i><span>Redo</span><kbd>Ctrl+Y</kbd></button>
+            </div>
+            <div class="wb-menu-section">
+              <button type="button" class="wb-menu-item" data-wb-fn="select-all"><i class="ph ph-selection-all ph-lead" aria-hidden="true"></i><span>Select all</span><kbd>Ctrl+A</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-click="wb-selbar-duplicate"><i class="ph ph-copy ph-lead" aria-hidden="true"></i><span>Duplicate</span><kbd>Ctrl+D</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-click="wb-selbar-delete"><i class="ph ph-trash ph-lead" aria-hidden="true"></i><span>Delete</span><kbd>Del</kbd></button>
+            </div>
+            <div class="wb-menu-section">
+              <button type="button" class="wb-menu-item" data-wb-click="wb-copy-style"><i class="ph ph-eyedropper ph-lead" aria-hidden="true"></i><span>Copy style</span><kbd>Ctrl+Alt+C</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-click="wb-paste-style"><i class="ph ph-paint-bucket ph-lead" aria-hidden="true"></i><span>Paste style</span><kbd>Ctrl+Alt+V</kbd></button>
+            </div>
+          </div>
+        </div>
+        <div class="wb-board-menu-wrap">
+          <button class="ghost small wb-menu-toggle" type="button" data-wb-menu-toggle title="Align, distribute, order" aria-haspopup="true" aria-expanded="false" aria-controls="wb-arrange-menu"><span class="wb-menu-label">Arrange</span><i class="ph ph-caret-down wb-menu-caret" aria-hidden="true"></i></button>
+          <div id="wb-arrange-menu" class="wb-board-menu hidden" role="menu" aria-label="Arrange">
+            <div class="wb-menu-section">
+              <span class="wb-panel-group-label">Align (2+ selected)</span>
+              <button type="button" class="wb-menu-item" data-wb-click="wb-align-left"><i class="ph ph-align-left ph-lead" aria-hidden="true"></i><span>Left edges</span></button>
+              <button type="button" class="wb-menu-item" data-wb-click="wb-align-hcenter"><i class="ph ph-align-center-horizontal ph-lead" aria-hidden="true"></i><span>Centres, horizontally</span></button>
+              <button type="button" class="wb-menu-item" data-wb-click="wb-align-right"><i class="ph ph-align-right ph-lead" aria-hidden="true"></i><span>Right edges</span></button>
+              <button type="button" class="wb-menu-item" data-wb-click="wb-align-top"><i class="ph ph-align-top ph-lead" aria-hidden="true"></i><span>Top edges</span></button>
+              <button type="button" class="wb-menu-item" data-wb-click="wb-align-vcenter"><i class="ph ph-align-center-vertical ph-lead" aria-hidden="true"></i><span>Centres, vertically</span></button>
+              <button type="button" class="wb-menu-item" data-wb-click="wb-align-bottom"><i class="ph ph-align-bottom ph-lead" aria-hidden="true"></i><span>Bottom edges</span></button>
+            </div>
+            <div class="wb-menu-section">
+              <span class="wb-panel-group-label">Distribute (3+ selected)</span>
+              <button type="button" class="wb-menu-item" data-wb-click="wb-distribute-h"><i class="ph ph-columns ph-lead" aria-hidden="true"></i><span>Evenly, left to right</span></button>
+              <button type="button" class="wb-menu-item" data-wb-click="wb-distribute-v"><i class="ph ph-rows ph-lead" aria-hidden="true"></i><span>Evenly, top to bottom</span></button>
+            </div>
+            <div class="wb-menu-section">
+              <span class="wb-panel-group-label">Order</span>
+              <button type="button" class="wb-menu-item" data-wb-click="wb-selbar-forward"><i class="ph ph-arrow-line-up ph-lead" aria-hidden="true"></i><span>Bring forward</span><kbd>]</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-click="wb-selbar-back"><i class="ph ph-arrow-line-down ph-lead" aria-hidden="true"></i><span>Send backward</span><kbd>[</kbd></button>
+            </div>
+          </div>
+        </div>
+        <div class="wb-board-menu-wrap">
+          <button class="ghost small wb-menu-toggle" type="button" data-wb-menu-toggle title="How the board looks and which panels are open" aria-haspopup="true" aria-expanded="false" aria-controls="wb-view-menu"><span class="wb-menu-label">View</span><i class="ph ph-caret-down wb-menu-caret" aria-hidden="true"></i></button>
+          <div id="wb-view-menu" class="wb-board-menu hidden" role="menu" aria-label="View">
             <div class="wb-menu-section">
               <span class="wb-panel-group-label">Look</span>
               <div class="wb-menu-row">
@@ -3290,11 +3387,23 @@ Link to another note with [[its first few words]]."></textarea>
               <label class="wb-menu-row wb-snap-label" title="Find a card on this board (Ctrl+F)"><span>Search</span><input type="checkbox" id="wb-panel-search"></label>
             </div>
             <div class="wb-menu-section">
-              <span class="wb-panel-group-label">Board</span>
+              <span class="wb-panel-group-label">Zoom</span>
+              <button type="button" class="wb-menu-item" data-wb-click="wb-zoom-in"><i class="ph ph-plus ph-lead" aria-hidden="true"></i><span>Zoom in</span><kbd>Ctrl + wheel</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-click="wb-zoom-out"><i class="ph ph-minus ph-lead" aria-hidden="true"></i><span>Zoom out</span></button>
+              <button type="button" class="wb-menu-item" data-wb-click="wb-zoom-fit"><i class="ph ph-frame-corners ph-lead" aria-hidden="true"></i><span>Fit everything</span></button>
+              <button type="button" class="wb-menu-item" data-wb-click="wb-fullscreen"><i class="ph ph-arrows-out ph-lead" aria-hidden="true"></i><span>Full screen</span><kbd>Esc leaves</kbd></button>
               <div class="wb-menu-row">
                 <span>Toolbar</span>
                 <button id="wb-dock-toggle" class="ghost small" type="button" title="Dock as a sidebar" aria-label="Dock as a sidebar"><i class="ph ph-sidebar-simple ph-lead" aria-hidden="true"></i> Bottom</button>
               </div>
+            </div>
+          </div>
+        </div>
+        <div class="wb-board-menu-wrap">
+          <button class="ghost small wb-menu-toggle" type="button" data-wb-menu-toggle title="Export, clear, help" aria-haspopup="true" aria-expanded="false" aria-controls="wb-board-menu"><span class="wb-menu-label">Board</span><i class="ph ph-caret-down wb-menu-caret" aria-hidden="true"></i></button>
+          <div id="wb-board-menu" class="wb-board-menu hidden" role="menu" aria-label="Board">
+            <div class="wb-menu-section">
+              <span class="wb-panel-group-label">This board</span>
               <div class="wb-menu-row">
                 <span>Export</span>
                 <button id="wb-export" class="ghost small" type="button" title="Export this board"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export…</button>
@@ -3303,12 +3412,16 @@ Link to another note with [[its first few words]]."></textarea>
                 <span>Everything on it</span>
                 <button id="wb-clear-board" class="ghost small wb-panel-danger" type="button" title="Clear this board"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Clear</button>
               </div>
+              <div class="wb-menu-row">
+                <span>Help &amp; shortcuts</span>
+                <button id="wb-help-btn" class="ghost small" type="button" title="Show the whiteboard help"><i class="ph ph-question ph-lead" aria-hidden="true"></i> Open</button>
+              </div>
             </div>
           </div>
         </div>
         <span class="wb-topbar-divider" aria-hidden="true"></span>
+        <button id="wb-add-note" class="ghost small wb-panel-primary" title="Toggle the note library (drag notes onto the board)"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i><span class="wb-menu-label"> Library</span></button>
         <button id="wb-fullscreen" class="ghost small icon-button" title="Full screen (Esc to leave)" aria-label="Toggle full screen"><i class="ph ph-arrows-out" aria-hidden="true"></i></button>
-        <button id="wb-help-btn" class="ghost small icon-button" title="Show the whiteboard help again" aria-label="Whiteboard help"><i class="ph ph-question" aria-hidden="true"></i></button>
       </div>
     </div>
     <div class="whiteboard-floating-panel bottom-center card glass" data-panel-id="tools" id="wb-tools-panel" data-dock="bottom">
@@ -3432,70 +3545,6 @@ Link to another note with [[its first few words]]."></textarea>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L21 12 L12 21 L3 12 Z"></path></svg>
               </button>
             </div>
-            <div class="wb-shape-menu-divider" role="separator"></div>
-            <label class="wb-shape-menu-row" title="Applies to the Line and Arrow tools">
-              <span>Line ends</span>
-              <select id="wb-arrow-style" aria-label="Arrowhead style" title="Arrowhead style">
-                <option value="end">End</option>
-                <option value="start">Start</option>
-                <option value="both">Both ends</option>
-                <option value="none">Plain</option>
-              </select>
-            </label>
-            <!-- Asked for directly: "can the stroke width, style, and
-                 colour be altered, same with the fill colour/transparency??
-                 options for no border/stroke or background". Stroke colour
-                 already lives on the main toolbar (#wb-color-picker, always
-                 visible — every tool uses it); these three apply
-                 specifically to the shape tools (Rect/Circle/Triangle/
-                 Diamond fill; dash style also applies to Line/Arrow). -->
-            <div class="wb-shape-menu-divider" role="separator"></div>
-            <label class="wb-shape-menu-row" title="Rectangle, Circle, Triangle and Diamond only">
-              <span>Fill</span>
-              <span class="row wb-inline-controls">
-                <input type="color" id="wb-fill-color" aria-label="Shape fill colour" title="Shape fill colour" class="wb-color-picker" value="#3355ff">
-                <input type="range" id="wb-fill-opacity" aria-label="Shape fill opacity" title="Shape fill opacity" min="0" max="100" step="5" value="100" title="Fill opacity">
-                <label class="wb-snap-label" title="No fill — outline only">
-                  <input type="checkbox" id="wb-fill-none" checked>
-                  <span>None</span>
-                </label>
-              </span>
-            </label>
-            <label class="wb-shape-menu-row">
-              <span>Stroke style</span>
-              <select id="wb-stroke-style" aria-label="Line style" title="Line style">
-                <option value="solid">Solid</option>
-                <option value="dashed">Dashed</option>
-                <option value="dotted">Dotted</option>
-              </select>
-            </label>
-            <label class="wb-shape-menu-row">
-              <span>Stroke</span>
-              <label class="wb-snap-label" title="No stroke — fill only">
-                <input type="checkbox" id="wb-stroke-none">
-                <span>None</span>
-              </label>
-            </label>
-            <!-- Asked for directly: "the guides should be colour coded with
-                 default colours for various alignments and spacing
-                 suggestions, and the colours should be alterable". Lives
-                 here rather than a new top menu bar — that redesign is a
-                 separate, larger, deliberately deferred item (see
-                 HISTORY.md); this dropdown is the whiteboard's existing home
-                 for "alter a drawing default", which a guide colour is. -->
-            <div class="wb-shape-menu-divider" role="separator"></div>
-            <label class="wb-shape-menu-row" title="Colour shown while dragging when an edge lines up with another item's edge">
-              <span>Guide: edge</span>
-              <input type="color" id="wb-guide-color-edge" aria-label="Alignment guide colour: edges" title="Alignment guide colour: edges" class="wb-color-picker" value="#ff00ff">
-            </label>
-            <label class="wb-shape-menu-row" title="Colour shown while dragging when a centre lines up with another item's centre">
-              <span>Guide: center</span>
-              <input type="color" id="wb-guide-color-center" aria-label="Alignment guide colour: centres" title="Alignment guide colour: centres" class="wb-color-picker" value="#00c8ff">
-            </label>
-            <label class="wb-shape-menu-row" title="Colour shown while dragging when the gap to two neighbours becomes equal">
-              <span>Guide: spacing</span>
-              <input type="color" id="wb-guide-color-spacing" aria-label="Alignment guide colour: spacing" title="Alignment guide colour: spacing" class="wb-color-picker" value="#3ddc84">
-            </label>
           </div>
         </div>
         </div>
@@ -3648,6 +3697,57 @@ Link to another note with [[its first few words]]."></textarea>
           <input type="range" id="wb-stroke-width" aria-label="Line thickness" title="Pen / shape / eraser size" min="1" max="24" step="1" value="3">
         </label>
         <span id="wb-stroke-width-badge" class="wb-stroke-width-badge hidden"></span>
+        <!-- These were the bottom two thirds of the Shapes popup (reported:
+             "fix the shapes popup menu"). They are drawing defaults, and
+             the drawer's "Draw with" group is where drawing defaults live;
+             the popup is now only the six shapes. Same ids. -->
+        <label class="wb-properties-row" title="Applies to the Line and Arrow tools">
+          <span>Line ends</span>
+          <select id="wb-arrow-style" aria-label="Arrowhead style" title="Arrowhead style">
+            <option value="end">End</option>
+            <option value="start">Start</option>
+            <option value="both">Both ends</option>
+            <option value="none">Plain</option>
+          </select>
+        </label>
+        <label class="wb-properties-row">
+          <span>Stroke style</span>
+          <select id="wb-stroke-style" aria-label="Line style" title="Line style">
+            <option value="solid">Solid</option>
+            <option value="dashed">Dashed</option>
+            <option value="dotted">Dotted</option>
+          </select>
+        </label>
+        <label class="wb-properties-row" title="No stroke — fill only">
+          <span>No stroke</span>
+          <input type="checkbox" id="wb-stroke-none">
+        </label>
+        <label class="wb-properties-row" title="Rectangle, Circle, Triangle and Diamond only">
+          <span>Fill</span>
+          <span class="row wb-inline-controls">
+            <input type="color" id="wb-fill-color" aria-label="Shape fill colour" title="Shape fill colour" class="wb-color-picker" value="#3355ff">
+            <input type="checkbox" id="wb-fill-none" checked title="No fill — outline only" aria-label="No fill">
+          </span>
+        </label>
+        <label class="wb-properties-row" title="Shape fill opacity">
+          <span>Fill opacity</span>
+          <input type="range" id="wb-fill-opacity" aria-label="Shape fill opacity" title="Shape fill opacity" min="0" max="100" step="5" value="100">
+        </label>
+      </div>
+      <div class="wb-properties-group" id="wb-guide-colour-group">
+        <span class="wb-properties-group-label">Guide colours</span>
+        <label class="wb-properties-row" title="Shown while dragging when an edge lines up with another item's edge">
+          <span>Edges</span>
+          <input type="color" id="wb-guide-color-edge" aria-label="Alignment guide colour: edges" title="Alignment guide colour: edges" class="wb-color-picker" value="#ff00ff">
+        </label>
+        <label class="wb-properties-row" title="Shown while dragging when a centre lines up with another item's centre">
+          <span>Centres</span>
+          <input type="color" id="wb-guide-color-center" aria-label="Alignment guide colour: centres" title="Alignment guide colour: centres" class="wb-color-picker" value="#00c8ff">
+        </label>
+        <label class="wb-properties-row" title="Shown while dragging when the gap to two neighbours becomes equal">
+          <span>Spacing</span>
+          <input type="color" id="wb-guide-color-spacing" aria-label="Alignment guide colour: spacing" title="Alignment guide colour: spacing" class="wb-color-picker" value="#3ddc84">
+        </label>
       </div>
       <label class="wb-properties-row" id="wb-prop-color-row">
         <span>Colour</span>

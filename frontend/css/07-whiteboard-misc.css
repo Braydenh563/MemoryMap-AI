@@ -6266,3 +6266,219 @@ button.connection-row {
 .wb-selection-bar .wb-topbar-divider {
   height: 1rem;
 }
+
+/* Top-bar menu toggles: a word and a caret, reading as a menu rather than
+   as a button that does something. */
+.wb-topbar .wb-menu-toggle {
+  gap: var(--space-1);
+  padding-inline: var(--space-2);
+}
+
+.wb-menu-caret {
+  font-size: var(--text-xs);
+  opacity: 0.7;
+}
+
+/* Insert-menu items: icon, name, key — the same row grid as the settings
+   rows, so the three menus read as one family. */
+.wb-menu-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: 2rem;
+  padding: 0 var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.wb-menu-item:hover,
+.wb-menu-item:focus-visible {
+  background: var(--accent-soft);
+}
+
+.wb-menu-item kbd,
+.wb-help-grid kbd {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-xs);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Narrow boards: the menus keep their carets and the Library its icon;
+   the words go, so the bar stays one row down to ~40rem. */
+@media (max-width: 56rem) {
+  .wb-topbar .wb-menu-label {
+    display: none;
+  }
+
+  .wb-topbar .wb-menu-toggle {
+    padding-inline: var(--space-2);
+  }
+}
+
+/* The help: a card of three columns — tools, moving around and selection,
+   connecting — each a list of "what · key" rows. It replaced eight
+   paragraphs of centred prose (reported: "redesign and fix the whiteboard
+   help"). Still click-through outside the card so an empty board can be
+   drawn on with the help up. */
+.wb-empty-hint-inner {
+  text-align: left;
+  max-width: 46rem;
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius);
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.wb-empty-hint-inner > * {
+  max-width: none;
+  text-align: left;
+}
+
+.wb-help-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.wb-help-head .wb-empty-hint-title {
+  margin: 0;
+}
+
+.wb-help-lead {
+  margin: 2px 0 var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.wb-help-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.wb-help-grid h4 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.wb-help-grid h4 + ul + h4 {
+  margin-top: var(--space-3);
+}
+
+.wb-help-grid ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.wb-help-grid li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0;
+  line-height: 1.45;
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
+.wb-help-grid li > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.wb-help-grid li > kbd {
+  text-align: right;
+}
+
+.wb-help-note {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-xs);
+}
+
+.wb-help-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-3);
+}
+
+@media (max-width: 48rem) {
+  .wb-help-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Small boards. Measured at 800x560 and 640x480 with the drawer, the
+   overview and the selection bar all open: the overview ran up into the
+   top bar, the top bar wrapped to three rows, the dock wrapped to two and
+   the drawer collapsed to 18px over the dock. Four rules, all derived from
+   the same measured bar heights as everything above. */
+.wb-navigator {
+  max-height: calc(100% - var(--wb-h-topbar) - var(--wb-h-tools) - 2rem);
+  overflow: auto;
+  /* Border-box, or the cap excludes the padding and the box still lands
+     6px into the top bar (measured at 800x560: 94px box for a 78px cap). */
+  box-sizing: border-box;
+  /* `.card`'s bottom margin again (see the dock): 16px the anchor did not
+     account for, which is exactly how far it overlapped the top bar. */
+  margin: 0;
+}
+
+@media (max-width: 40rem) {
+  /* Search and Overview are also switches in the View menu; the two icons
+     and their divider are what pushed the bar onto a third row. */
+  .wb-topbar #wb-search-toggle,
+  .wb-topbar #wb-navigator-toggle,
+  .wb-topbar #wb-navigator-toggle + .wb-topbar-divider {
+    display: none;
+  }
+
+  /* One scrolling row of tools beats two wrapped rows on a short screen. */
+  .whiteboard-floating-panel.bottom-center {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-height: none;
+  }
+
+  .whiteboard-floating-panel.bottom-center .wb-tool-group {
+    flex-wrap: nowrap;
+  }
+
+  /* The dock takes the whole width here, so the zoom cluster sits above it
+     — the rule in 06-timeline-dialogs.css said so already, but the
+     edge-hugging `bottom` further up this file (same specificity, later)
+     had silently won the cascade. Measured: dock/zoom overlap at 640px. */
+  /* No room for a zoom cluster above a full-width dock on a 480px-tall
+     window (it met the three-row top bar); zoom stays on Ctrl+wheel /
+     pinch and in the View menu's Zoom rows. */
+  .whiteboard-floating-panel.bottom-right {
+    display: none;
+  }
+}
+
+/* Under 30rem of height there is no column left for a drawer between the
+   top bar and the dock; the properties stay reachable through the View
+   menu's Properties switch on a taller window. */
+@media (max-height: 30rem) {
+  #wb-properties-panel {
+    display: none !important;
+  }
+}

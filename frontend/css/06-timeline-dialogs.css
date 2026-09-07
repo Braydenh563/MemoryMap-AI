@@ -2131,7 +2131,11 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: calc(var(--space-9) * 2.5) var(--space-8) calc(var(--space-9) * 3);
+  /* The top bar is 42px and the dock 46px now; the old 5rem/6rem reserve
+     was sized for the two-row corner panels and left a 46rem help card
+     scrolling inside a 1280x800 window (measured: scrollHeight >
+     clientHeight). One bar plus one gap each side. */
+  padding: calc(var(--wb-h-topbar) + var(--space-3) + var(--space-2)) var(--space-8) calc(var(--wb-h-tools) + var(--space-3) + var(--space-2));
   z-index: 1;
   pointer-events: none;
 }

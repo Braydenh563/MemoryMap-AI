@@ -190,6 +190,14 @@ class PreferencesBody(BaseModel):
     # what it plausibly needs (§11a — the schemas are most of the per-round
     # cost); "all" sends the whole registry, as it always did.
     tool_focus: Literal["auto", "all"] | None = None
+    #: Small-model mode for skill runs: each step is offered only the tools its
+    #: own contract names, plus a worked example of the call. "auto" decides
+    #: from the chat model's name (see `model_manager.parameter_count`, which
+    #: answers "no idea" for a name with no size in it — and no idea means
+    #: off). Declared here for the reason the comments above give: a field
+    #: Pydantic does not know about is silently dropped, so a setting that is
+    #: never declared is a switch that never saves.
+    small_model_mode: Literal["auto", "on", "off"] | None = None
     # The ONE feature that goes online — off unless the user opts in.
     web_search_enabled: bool | None = None
     # The other opt-in network call (Settings -> About) — see core.config.
@@ -438,6 +446,7 @@ def get_preferences() -> dict:
         "tools_enabled": config.get_preference("tools_enabled", True),
         "local_only_ai": config.get_preference("local_only_ai", True),
         "tool_focus": config.get_preference("tool_focus", "auto"),
+        "small_model_mode": config.get_preference("small_model_mode", "auto"),
         "web_search_enabled": config.get_preference("web_search_enabled", False),
         "update_check_enabled": config.get_preference("update_check_enabled", False),
         "auto_update_enabled": config.get_preference("auto_update_enabled", False),

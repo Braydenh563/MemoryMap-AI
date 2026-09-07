@@ -43,7 +43,7 @@ def test_collect_does_not_run_ahead_of_its_consumer():
     """The property the fix restores: nothing is produced until it is wanted."""
     recorder = _Recorder()
     events = [{"type": "answer", "delta": "a"}, {"type": "answer", "delta": "b"}]
-    stream = skill_runner._collect(recorder.source(events), [])
+    stream = skill_runner._collect(recorder.source(events), [], {})
 
     assert recorder.log == []  # nothing made yet — the generator is untouched
     next(stream)
@@ -63,7 +63,7 @@ def test_putting_the_first_event_back_stays_lazy():
     first = next(source)
     recorder.log.clear()
 
-    stream = skill_runner._collect(chain([first], source), [])
+    stream = skill_runner._collect(chain([first], source), [], {})
     assert next(stream) is first
     assert recorder.log == []  # the first came from the peek, nothing new made
     next(stream)

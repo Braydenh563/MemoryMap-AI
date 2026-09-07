@@ -9,6 +9,7 @@ saved preferences and falls back to the defaults.
 
 from __future__ import annotations
 
+import re
 import threading
 from dataclasses import dataclass
 from typing import Protocol
@@ -203,6 +204,48 @@ def is_ocr_model(name: str) -> bool:
     return any(marker in lowered for marker in OCR_MODEL_MARKERS)
 
 
+#: Below this many billion parameters, a model is "small" for the purposes of
+#: how much is asked of it in one turn. 8B is where tool calling stops being a
+#: coin flip in this app's own use: the 4B models in the catalogue above narrate
+#: instead of calling, and the 8B entries are described there as "reliable tool
+#: calls" for exactly that reason. A threshold, not a cliff — everything it
+#: gates is a *simplification*, so being wrong in either direction costs
+#: clarity rather than capability.
+SMALL_MODEL_PARAMS_B = 8.0
+
+#: `qwen3.5:4b`, `granite4.1:3b`, `llama-3.2-3b-instruct`, `qwen3.5:35b-a3b`.
+#: The size is written into the tag rather than reported by the API, which is
+#: why this is a name rule: reading it costs nothing, works before the model
+#: has ever been loaded, and works for every provider the app can talk to
+#: (`/api/show` is Ollama's, and llama.cpp/Jan/vLLM answer nothing like it).
+_PARAM_TAG = re.compile(r"(?:^|[:\-_/])(\d{1,3}(?:\.\d)?)\s*b(?![a-z0-9])", re.IGNORECASE)
+
+
+def parameter_count(name: str) -> float | None:
+    """Billions of parameters, read off the model's own name — or None.
+
+    **None means "no idea", and every caller has to treat it as such.** A
+    model called `llama3.2` genuinely is a 3B, and this returns None for it,
+    because the alternative is guessing from a family name and a version
+    number that shifts every release. Silence is the honest answer, and the
+    one setting that reads this defaults to off when it gets one: narrowing a
+    capable model's toolbox on a guess is worse than leaving a small model
+    with the full set it was coping with yesterday.
+
+    A mixture-of-experts tag (`qwen3.5:35b-a3b`) reports the *first* number,
+    which is the total rather than the active count — deliberate: what the
+    active-parameter count predicts is speed, and what this is asked about is
+    instruction-following, which tracks the total far better.
+    """
+    match = _PARAM_TAG.search(str(name or ""))
+    if match is None:
+        return None
+    try:
+        return float(match.group(1))
+    except ValueError:  # pragma: no cover — the regex only matches numbers
+        return None
+
+
 class ModelManager:
     """Reads/writes the active-model preferences."""
 
@@ -211,6 +254,19 @@ class ModelManager:
 
     def chat_model(self) -> str:
         return self._config.get_preference("chat_model", "llama3.2")
+
+    def chat_model_is_small(self) -> bool | None:
+        """Is the chat model small enough to need the simplified treatment?
+
+        True / False / **None for "the name doesn't say"** — the three states
+        matter, the same way `OllamaClient.supports` keeps them apart. A caller
+        that collapses None into True narrows every run on an unrecognised
+        name; one that collapses it into False never turns on for the models
+        this exists for. The one caller (`small_model_mode` = "auto") treats
+        None as off and says so.
+        """
+        size = parameter_count(self.chat_model())
+        return None if size is None else size < SMALL_MODEL_PARAMS_B
 
     def utility_model(self) -> str:
         """The model for quick background jobs — filing (janitor), the

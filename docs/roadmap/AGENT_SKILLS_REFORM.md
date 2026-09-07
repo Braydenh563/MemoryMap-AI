@@ -114,3 +114,72 @@ This is the "text dump in your face" half.
   contract met.
 - The activity panel opens on a run list, not a wall of text.
 - Tool calls are visible in the chat transcript for all three paths.
+
+## Built — Phases A and B, backend only
+
+**What landed.**
+
+- **A step has a contract.** A skill step may now be a plain string (unchanged,
+  and every saved skill and ad-hoc plan is one) or a dict with `expects`
+  (`tool_called` | `notes_changed` | `answer_only`), `tools` and `retries`.
+  `skills.normalise` validates it and returns a canonical `step_specs` list
+  **beside** `steps`, which stays a list of strings — `plan.steps` goes
+  straight into `<li>.textContent` and the skill editor joins it into a
+  textarea, so changing that shape would have broken the plan card and the
+  settings screen. Contracts survive a re-`normalise`, which `catalog()` does
+  to everything stored.
+- **The runner enforces it.** `skill_runner` checks the contract before
+  advancing; a step that has not met it is re-prompted with a literal nudge
+  naming the tool ("You did not call \`list_tags\`. Call it now…"), up to
+  `retries` (default 2), emitting `{"type":"step","state":"retrying",
+  "attempt","of","reason"}` each time. Out of attempts it is `stalled`, never
+  `done`. The existing states, and the existing terminal branches (offline,
+  out of rounds, a failure with no answer, an empty turn), are untouched — an
+  empty turn is deliberately still `failed` rather than retried, because a
+  model that produced nothing is a different failure from one that narrated.
+- **Structured state across steps.** A per-run `state` (`note_ids`,
+  `document_ids`, `tags`, `touched`, `last_tool`, `last_tool_result`) is filled
+  from tool events and change events, appended to every later step's
+  instruction as "State so far — notes #3, #9; tags: …", and returned on the
+  `result` event.
+- **Small-model mode.** `run_skill(small_model=…)`; `None` means auto, which
+  reads the parameter count off the chat model's own name
+  (`model_manager.parameter_count`, `< 8B` is small) — free, offline, and
+  provider-agnostic, where `/api/show` is Ollama's alone. **A name with no size
+  in it (`llama3.2`, `mistral-nemo`) means "no idea", and no idea means off**:
+  narrowing a capable model's toolbox on a guess is the worse mistake. In that
+  mode a step is offered only the tools its contract names (falling back to the
+  skill's list), plus a one-line worked example built from the tool's own JSON
+  schema (`tools.call_example` — generic, never a per-tool table, so it cannot
+  go stale when an argument is renamed).
+- **The built-ins are atomic.** Every shipped step names at most one tool and
+  declares an `expects`; steps that did two things are two steps. Two lint
+  tests hold that. `notes_changed` is used once on purpose (Auto-tag's tagging
+  step): a contract that demands a change stalls a run over a notebook with
+  nothing to change, which is honest but is not what somebody wants to read, so
+  steps that may legitimately be a no-op are `answer_only` and say so in their
+  own text.
+- **The setting.** `small_model_mode` (`auto` | `on` | `off`, default `auto`)
+  on `PUT`/`GET /preferences`, read by the chat route and passed to the run.
+  Backend only — no toggle in the settings UI yet; the settings screen is
+  hand-written HTML rather than schema-driven, so surfacing it is a frontend
+  change and belongs with Phase C.
+
+**What was NOT verified, and cannot be from here.**
+
+- **Whether any of this makes a real small model behave.** Every test runs
+  against the fake transport, which narrates or calls exactly what a script
+  tells it to. That the nudge is sent, names the right tool, and that a call on
+  the second attempt is accepted is proven; that a 4B model *responds* to the
+  nudge by calling the tool is exactly the standing caveat in CLAUDE.md, and
+  the acceptance criterion above ("a five-step built-in against a 4B local
+  model") is still open.
+- **The worked example's wording.** Whether small models copy this shape better
+  than another phrasing is a claim from the research, not a measurement.
+- **The contract choices in the built-ins.** Which steps ought to be
+  `tool_called` versus `answer_only` is a judgement made by reading each step;
+  it has not been watched against a real run over a real notebook.
+- **Nothing in the UI.** No frontend file was touched. The new `retrying` state
+  and the `step_specs` / `state` / `small_model` fields on the plan and result
+  events are additive and ignored by today's `app.js`; how a retrying step
+  *renders* is Phase C and was not looked at in a browser.

@@ -2706,6 +2706,21 @@ function ocrRenderRegions(body) {
     //: the one you are looking at is usually not that page — so the delete
     //: landed on a page with nothing to delete and nothing changed. Each
     //: stored panel now removes its own page's reading.
+    //: An image's reading is one panel; its delete is the header's delete.
+    if (!Number.isInteger(region.page) && ocrWorkspaceCurrent && !ocrIsPdf(ocrWorkspaceCurrent)
+        && (region.text || "").trim()) {
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "ghost small icon-button danger ocr-region-delete";
+      setLabel(remove, "ph:trash");
+      remove.title = "Delete this reading";
+      remove.setAttribute("aria-label", remove.title);
+      remove.addEventListener("click", (event) => {
+        event.stopPropagation();
+        $("ocr-delete-reading")?.click();
+      });
+      head.appendChild(remove);
+    }
     if (Number.isInteger(region.page) && body.source === "stored-text") {
       const remove = document.createElement("button");
       remove.type = "button";
@@ -3087,10 +3102,14 @@ function ocrRenderRailSwitch(current) {
   //: same reason the box-overlay toggle is disabled when there is nothing to
   //: show: a control that cannot do anything teaches that the feature is
   //: broken.
-  const usable = segments.filter((segment) => segment.count > 0);
-  host.classList.toggle("hidden", usable.length < 2);
+  //: Always shown — the switch is how the reader moves between everything
+  //: in the space, so an empty side reads as "no files yet" (disabled, 0)
+  //: rather than as a control that comes and goes.
+  const usable = segments;
+  host.classList.remove("hidden");
   for (const segment of usable) {
     const button = document.createElement("button");
+    button.disabled = segment.count === 0;
     button.type = "button";
     button.className = "ocr-rail-tab";
     button.dataset.mode = segment.id;
@@ -3213,9 +3232,13 @@ function openOcrWorkspace(image, images) {
   //: workspace then loads the rest itself — which is what makes it navigable
   //: when opened from the lightbox, from the reopen toast, or from a
   //: still-running read, all three of which passed nothing.
-  if (Array.isArray(images) && images.length && !ocrSiblingCache) {
-    ocrSiblingCache = images;
-  }
+  //: Reported: "the images/pages selector disappears when on the images
+  //: and only shows on files." The gallery seeded this cache with *its*
+  //: list — images only — and the loader below then treated the cache as
+  //: complete, so the Files count was 0 and the switch hid itself. The
+  //: seed still paints the rail instantly; the full list always follows.
+  const seeded = Array.isArray(images) && images.length && !ocrSiblingCache;
+  if (seeded) ocrSiblingCache = images;
   ocrRailMode = ocrIsPdf(image) ? "pages" : image._isImage ? "images" : "files";
   rail.dataset.pagesFor = "";
   rail.replaceChildren();
@@ -3230,7 +3253,7 @@ function openOcrWorkspace(image, images) {
   //: Fetched after the overlay is up and the first page is loading, so the
   //: rail filling in never delays the thing you actually opened. A failure
   //: leaves the rail empty, which is exactly where it started.
-  ocrLoadSiblings()
+  ocrLoadSiblings({ force: Boolean(seeded) })
     .then(() => ocrRenderRail(image))
     .catch(() => {});
 }

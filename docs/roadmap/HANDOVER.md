@@ -116,6 +116,16 @@ list at the end.
 - The selection bar follows drags and covers a multi-selection (above
   `wbSelectionBounds`); every floating surface has `margin: 0` in one rule.
 
+- OCR reader: the Images/Files/Pages switch is always shown (segments
+  with nothing are disabled, not hidden) and the reader always loads the
+  full media list — the gallery had seeded an images-only cache that the
+  loader then trusted, so opened from an image the Files count was 0 and
+  the switch vanished (reported). An image's reading panel has its own
+  delete (routes to the header's delete). **Still open from the same
+  report**: spreadsheets and other non-PDF files cannot be opened in the
+  reader (`ocrCanOpen` is images + PDFs — there is no rasteriser for them);
+  caption/OCR model selection was not verified against a real model.
+
 ### Open — in the order the user is likely to hit them
 
 1. Whiteboard: group transform of a multi-selection; frames; text on

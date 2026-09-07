@@ -1702,10 +1702,13 @@ body.has-agent-monitor .doc-sidebar .doc-list {
    toolbar gave no indication of which tool you were holding — you found out by
    dragging and seeing what happened. */
 .wb-tool-group button.active {
+  /* The filled recipe, as every other selected toggle: accent fill, white
+     glyph — no accent edge and no 3px halo, which were the only shadowed,
+     bordered button on the board (surfaces.js). */
   background: var(--accent);
-  border-color: var(--accent);
+  border-color: transparent;
   color: #fff;
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  box-shadow: none;
 }
 
 .wb-tool-group button:focus-visible {
@@ -6947,4 +6950,47 @@ header#top-bar > #tab-bar {
 #settings-modal .settings-section .row > label:first-child:not(.setting-check):not(.check-row):not(.checkbox-label) {
   flex: 0 0 16rem;
   min-width: 0;
+}
+
+/* --- the whiteboard top bar and the documents editor join the families ------
+   (UI_MODERNISATION_PLAN Phase 5.7, measured with scratchpad/ui-sweeps/
+   surfaces.js). The whiteboard top bar's buttons were 32px beside 36px zoom
+   and tool buttons; the documents editor had buttons at 19/28/32/36/38px in
+   one view, a bordered tinted status bar and a bordered formatting strip
+   inside the document card (the border budget again), and status-bar chips
+   drawn as outlined pills. */
+.wb-topbar button,
+.wb-topbar .select-opener {
+  height: var(--control-h-lg);
+}
+
+.sidebar-head button {
+  height: var(--sidebar-toggle-size);
+}
+
+.doc-toolbar,
+.doc-toolbar.is-collapsed {
+  background: var(--surface-2);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.doc-statusbar {
+  background: var(--surface-2);
+  border-color: transparent;
+}
+
+.doc-statusbar-button {
+  min-height: var(--target-min);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
+.doc-statusbar .checkbox-label {
+  background: var(--chip-bg);
+  border-color: transparent;
+}
+
+.doc-statusbar .checkbox-label:has(input:checked) {
+  border-color: transparent;
 }

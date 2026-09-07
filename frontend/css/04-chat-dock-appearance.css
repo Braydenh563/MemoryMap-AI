@@ -2997,7 +2997,10 @@ span > .chip {
      it is *used*, not where it is set, does its damage nowhere near the code
      that caused it. Same 2.3rem the Library toolbar picks, so a control is
      the same size in both places. */
-  --control-h: 2.375rem;
+  /* The control-height family's large step, same as the top bar, the
+     Library head and the whiteboard top bar — measured 38px here beside
+     36px everywhere else. */
+  --control-h: var(--control-h-lg);
   gap: var(--space-2);
   flex-wrap: wrap;
   align-items: center;

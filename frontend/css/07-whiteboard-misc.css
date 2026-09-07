@@ -5758,7 +5758,10 @@ button.connection-row {
 
 .library-file-rows .library-image-tile {
   display: grid;
-  grid-template-columns: 4.5rem minmax(0, 1fr);
+  /* Was 4.5rem, and reported straight back as "the left part of the files
+     tab is squashed": a 4.5rem thumb next to a 121KB-PDF's first page is a
+     postage stamp. 7rem reads as a page. */
+  grid-template-columns: 7rem minmax(0, 1fr);
   grid-template-rows: auto;
   gap: var(--space-2) var(--space-4);
   align-items: start;
@@ -5773,17 +5776,13 @@ button.connection-row {
 .library-file-rows .library-image-tile > img {
   grid-column: 1;
   grid-row: 1 / -1;
-  width: 4.5rem;
-  height: 5.5rem;
+  width: 7rem;
+  height: 9rem;
   object-fit: cover;
   align-self: start;
 }
 
-.library-file-rows .library-image-tile > figcaption,
-.library-file-rows .library-image-tile > .library-file-meta,
-.library-file-rows .library-image-tile > .library-read-strip,
-.library-file-rows .library-image-tile > .library-usage,
-.library-file-rows .library-image-tile > .library-image-fields {
+.library-file-rows .library-image-tile > *:not(img):not(.library-file-thumb) {
   grid-column: 2;
   width: 100%;
   text-align: left;

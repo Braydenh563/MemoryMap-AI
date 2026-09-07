@@ -2524,6 +2524,17 @@ label.setting-check,
 }
 
 /* --- documents tab ----------------------------------------------------------- */
+/* Reported with a screenshot: "I clicked some buttons in the documents
+   toolbar and it broke my screen" — the whole editor, toolbars and all,
+   squeezed into a ~18rem column at the left of an empty page. That column
+   is the *sidebar's*: this grid is two tracks, and once the sidebar is
+   hidden the editor is the first grid child and auto-places into track one,
+   which is capped at 18rem. The sidebar track has to go with the sidebar. */
+.doc-layout:has(> #doc-sidebar.hidden),
+.doc-layout:has(> #doc-sidebar[hidden]) {
+  grid-template-columns: 1fr;
+}
+
 .doc-layout {
   display: grid;
   grid-template-columns: minmax(14rem, 18rem) 1fr;

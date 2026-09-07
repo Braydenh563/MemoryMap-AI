@@ -6,7 +6,6 @@ from memorymap.api.schemas import SpaceResponse, SpaceCreate, SpaceUpdate
 from memorymap.core import deps
 from memorymap.core.database import Category, Entry, Space, workspace_scoped_models
 from memorymap.core.deps import get_session, impersonate_workspace
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 router = APIRouter(tags=["Spaces"])
@@ -113,63 +112,110 @@ def delete_space(space_id: str, session: Session = Depends(get_session)):
     # since SQLAlchemy expires it and then finds no row to refresh from.
     response = SpaceResponse.model_validate(space)
 
-    # Reassign every workspace-scoped model, not a hardcoded subset — a
-    # model left out here keeps rows pointing at a space id that no longer
-    # exists, i.e. data that silently stops showing up anywhere.
+    # **Deleting a space deletes what was in it.** Asked for directly: "make
+    # sure that if a specific space is deleted too, that all the content
+    # including notes files and images etc originating in that specific
+    # space get deleted with it as well." This used to *reassign* every row
+    # to "default", which is the opposite of what the word means — the notes
+    # did not go away, they turned up in another space.
     #
     # impersonate_workspace(..., "all") disables the session's ambient
-    # workspace filter (database._add_workspace_filter) for this block. A
-    # request carrying X-Workspace-ID for some *other* space would
-    # otherwise AND that space's id into every UPDATE below, so deleting
-    # "personal" while browsing "work" would silently reassign zero rows.
-    with impersonate_workspace(session, "all"):
-        # **Category first, and never by the generic bulk UPDATE below.**
-        # `Category` carries a `(workspace_id, name)` UNIQUE constraint (see
-        # its own docstring) — right for keeping two spaces' categories
-        # apart, and exactly what a blind
-        # `UPDATE categories SET workspace_id='default' WHERE ...` collides
-        # with the moment the space being deleted has ever auto-created a
-        # category "default" already has. That is not a rare category name:
-        # `get_or_create_category`'s own fallback is "Uncategorised", so
-        # this reproduced on the very first delete of *any* space that had
-        # ever filed a note. Reported live as a bare 500 with a SQLite
-        # IntegrityError traceback — this app's own standard for "the
-        # backend crashed, not the browser".
-        #
-        # Every space's categories are the same *kind* of thing even when
-        # they collide by name — "Uni" in one space and "Uni" in another
-        # both mean "notes filed under Uni" — so a name that already exists
-        # in "default" is a merge, not a conflict: repoint every entry that
-        # used the doomed category onto the one already there, then drop
-        # the now-empty duplicate instead of trying to rename it into
-        # existence.
-        existing_by_name = {
-            name: cat_id
-            for cat_id, name in session.execute(
-                select(Category.id, Category.name).where(Category.workspace_id == "default")
-            ).all()
-        }
-        for cat_id, name in session.execute(
-            select(Category.id, Category.name).where(Category.workspace_id == space_id)
-        ).all():
-            target_id = existing_by_name.get(name)
-            if target_id is not None:
-                session.query(Entry).filter_by(category_id=cat_id).update(
-                    {"category_id": target_id}
-                )
-                session.query(Category).filter_by(id=cat_id).delete()
-            else:
-                session.query(Category).filter_by(id=cat_id).update(
-                    {"workspace_id": "default"}
-                )
+    # workspace filter for this block: a request carrying X-Workspace-ID for
+    # some *other* space would otherwise AND that id into every DELETE, so
+    # deleting "personal" while browsing "work" would remove nothing.
+    #
+    # Dependents before their parents, because the foreign keys are real
+    # (a document delete once failed outright on its revisions). Files on
+    # disk are unlinked after the commit: a row that is gone and a file that
+    # is still there is recoverable; the reverse is not.
+    from pathlib import Path
 
-        for model in workspace_scoped_models():
-            if model is Category:
-                continue  # handled above, name collisions and all
-            session.query(model).filter_by(workspace_id=space_id).update(
-                {"workspace_id": "default"}
+    from memorymap.core.database import (
+        AskTurn, Attachment, Bookmark, Conversation, Document, DocumentAiEdit,
+        DocumentBookmark, DocumentLink, DocumentRevision, EmbeddingRecord,
+        EntityMention, EntryBookmark, EntryDate, EntryLink, EntryRevision, MediaUpload,
+        PageRead, Reminder, WhiteboardNode, WhiteboardObject, WhiteboardSketch,
+    )
+
+    config = deps.get_config()
+    to_unlink: list[Path] = []
+    with impersonate_workspace(session, "all"):
+        def rows(model):
+            return session.query(model).filter_by(workspace_id=space_id)
+
+        attachment_ids = [a.id for a in rows(Attachment).all()]
+        to_unlink += [config.uploads_dir / a.stored_name for a in rows(Attachment).all()]
+        upload_ids = [u.id for u in rows(MediaUpload).all()]
+        to_unlink += [config.data_dir / "media" / u.filename for u in rows(MediaUpload).all()]
+        document_ids = [d.id for d in rows(Document).all()]
+        entry_ids = [e.id for e in rows(Entry).all()]
+        bookmark_ids = [b.id for b in rows(Bookmark).all()]
+
+        # The unscoped side tables: no workspace column of their own, only a
+        # foreign key into a row that is about to go. Each is the table a
+        # plain DELETE of its parent tripped over (real FKs, enforced).
+        def purge(model, column, ids):
+            if ids:
+                session.query(model).filter(column.in_(ids)).delete(synchronize_session=False)
+
+        for model, column in (
+            (EntityMention, EntityMention.entry_id),
+            (EmbeddingRecord, EmbeddingRecord.entry_id),
+            (EntryRevision, EntryRevision.entry_id),
+            (EntryDate, EntryDate.entry_id),
+            (EntryBookmark, EntryBookmark.entry_id),
+            (DocumentLink, DocumentLink.entry_id),
+        ):
+            purge(model, column, entry_ids)
+        for model, column in (
+            (DocumentBookmark, DocumentBookmark.document_id),
+            (DocumentLink, DocumentLink.document_id),
+            (DocumentAiEdit, DocumentAiEdit.document_id),
+        ):
+            purge(model, column, document_ids)
+        purge(EntryBookmark, EntryBookmark.bookmark_id, bookmark_ids)
+        purge(DocumentBookmark, DocumentBookmark.bookmark_id, bookmark_ids)
+
+        # A note in *another* space can point at one of this space's
+        # categories (the reason the old reassign code merged categories by
+        # name). Those notes are not ours to delete; they just lose the
+        # pointer, the same as if the category had been deleted on its own.
+        category_ids = [c.id for c in rows(Category).all()]
+        if category_ids:
+            session.query(Entry).filter(Entry.category_id.in_(category_ids)).update(
+                {"category_id": None}, synchronize_session=False
             )
+
+        if attachment_ids:
+            session.query(PageRead).filter(
+                PageRead.kind == "attachment", PageRead.source_id.in_(attachment_ids)
+            ).delete(synchronize_session=False)
+        if upload_ids:
+            session.query(PageRead).filter(
+                PageRead.kind == "media", PageRead.source_id.in_(upload_ids)
+            ).delete(synchronize_session=False)
+        if document_ids:
+            session.query(DocumentRevision).filter(
+                DocumentRevision.document_id.in_(document_ids)
+            ).delete(synchronize_session=False)
+
+        for model in (
+            EntryLink, Attachment, AskTurn, Conversation, Reminder, Bookmark,
+            WhiteboardSketch, WhiteboardObject, WhiteboardNode, Document,
+            Entry, Category, MediaUpload,
+        ):
+            rows(model).delete(synchronize_session=False)
+
+        # Anything with WorkspaceMixin that the ordered list above does not
+        # name — a model added later must not survive its space.
+        for model in workspace_scoped_models():
+            rows(model).delete(synchronize_session=False)
 
     session.delete(space)
     session.commit()
+    for path in to_unlink:
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            pass  # the row is gone; a stray file is the recoverable failure
     return response

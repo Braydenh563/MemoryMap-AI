@@ -4300,6 +4300,12 @@ Link to another note with [[its first few words]]."></textarea>
                and keeping *the text* are things you do to the pane on the
                right, not to the picture in the middle. -->
           <div class="row ocr-regions-foot">
+            <!-- Destructive, so it sits with the text it destroys and looks like
+                 what it is: one trash icon at the head of the reading's own
+                 actions, not a red sentence in the middle of the read controls.
+                 Reported: "the button is also ugly and not good where it is." -->
+            <button id="ocr-delete-reading" class="ghost small icon-only danger hidden" type="button"
+              title="Delete this reading (you can read it again any time)" aria-label="Delete this reading"><i class="ph ph-trash" aria-hidden="true"></i></button>
             <button id="ocr-copy-all" class="ghost small" type="button"
               title="Copy every region's text, in reading order"><i class="ph ph-copy ph-lead" aria-hidden="true"></i> Copy all</button>
             <!-- The reading is only worth having if it can leave this window.
@@ -4324,8 +4330,6 @@ Link to another note with [[its first few words]]."></textarea>
                  (`ocrSyncDeleteButton`), the same "a control that cannot act
                  must not sit there looking live" rule the Stop-reading button
                  above already follows. -->
-            <button id="ocr-delete-reading" class="ghost small danger hidden" type="button"
-              title="Remove the reading for what you are looking at now"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete this reading</button>
           </div>
         </div>
       </div>
@@ -6273,6 +6277,8 @@ Link to another note with [[its first few words]]."></textarea>
                    style probe confirms it can actually do something. -->
               <div class="row hidden" id="about-restart-row">
                 <button id="about-restart" class="ghost small" type="button">Restart MemoryMap</button>
+                <button id="about-force-reload" class="ghost small" type="button"
+                  title="Reload the app and clear its cached files (Ctrl+Alt+R)">Reload the app</button>
                 <span class="muted">Some changes — an installed extra, a switched model backend — only take effect after a restart.</span>
               </div>
             </div>

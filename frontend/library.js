@@ -2529,7 +2529,14 @@ function ocrRenderRegions(body) {
   //: **A control that cannot act must not sit there looking live** — the same
   //: rule the Stop-reading button and the box-overlay toggle already follow.
   //: Shown only once there is something on screen to remove.
-  $("ocr-delete-reading")?.classList.toggle("hidden", ocrWorkspaceRegions.length === 0);
+  //: Reported: "the delete this reading button doesnt work". It was gated on
+  //: *regions*, which only Tesseract produces — a vision-model reading (the
+  //: only kind this project actually uses) has text and no boxes, so the
+  //: button never appeared for it. Gated on there being a reading at all.
+  const hasReading = ocrWorkspaceRegions.length > 0
+    || Boolean((body.text || "").trim())
+    || (body.pages || []).some((page) => (page.text || "").trim());
+  $("ocr-delete-reading")?.classList.toggle("hidden", !hasReading);
   //: **Redo, made discoverable rather than merely possible.** Reported
   //: directly: "there's also no way to delete or redo ocr text extractions."
   //: Clicking "Read this page"/"Read this image" always re-reads and replaces

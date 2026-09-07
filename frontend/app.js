@@ -24129,6 +24129,16 @@ async function openNotifications() {
     setLabel(readToggle, unread ? "ph:circle" : "ph:check-circle");
     readToggle.addEventListener("click", (event) => {
       event.stopPropagation();
+      // Reported: "the individual mark as complete buttons don't work". A
+      // row from before ids were stamped has no `item.id`, so the override
+      // set had nothing to add and the click changed nothing visible. Stamp
+      // one from its timestamp — stable across renders, unique enough.
+      if (item.id == null) {
+        item.id = `n-${item.at}`;
+        const all = storedNotifications();
+        const same = all.find((entry) => entry.at === item.at && entry.id == null);
+        if (same) { same.id = item.id; localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(all)); }
+      }
       setNotificationUnread(item.id, !unread);
       openNotifications();
     });
@@ -27830,6 +27840,19 @@ $("pref-show-console").addEventListener("change", async (e) => {
 // ROADMAP item C: "several extras only take effect on restart and the app
 // says so without offering one." This is that offer — a plain restart, not
 // tied to any preference changing, for Settings → About.
+async function forceReloadApp() {
+  try {
+    const regs = await navigator.serviceWorker?.getRegistrations?.();
+    await Promise.all((regs || []).map((r) => r.unregister()));
+    const keys = await window.caches?.keys?.();
+    await Promise.all((keys || []).map((k) => caches.delete(k)));
+  } catch {
+    // Nothing to clear, or storage refused — the reload alone still helps.
+  }
+  location.reload();
+}
+$("about-force-reload")?.addEventListener("click", forceReloadApp);
+
 $("about-restart")?.addEventListener("click", async () => {
   if (
     !(await confirmDialog(
@@ -30390,6 +30413,11 @@ const DEFAULT_SHORTCUTS = {
   // makes you navigate first is what makes it not get started at all — the
   // reason this is a shortcut as well as a palette entry and a tray item.
   recordMeeting: { keys: "Ctrl+Shift+R", label: "Record a meeting or lecture" },
+  // Asked for directly: "add a way to force reload the browser or py web
+  // view". A plain F5 keeps the service worker's cache and, in the desktop
+  // webview, sometimes the old app.js with it — which is how a fixed button
+  // gets reported broken again. This drops every cache first.
+  forceReload: { keys: "Ctrl+Alt+R", label: "Reload the app (clearing cached files)" },
   toggleTheme: { keys: "Ctrl+Shift+L", label: "Switch light / dark" },
   undo: { keys: "Ctrl+Z", label: "Undo the last change" },
   redo: { keys: "Ctrl+Shift+Z", label: "Redo" },
@@ -30537,6 +30565,7 @@ function runShortcut(id) {
       createDocument();
     },
     recordMeeting: openMeetingRecorder,
+    forceReload: forceReloadApp,
     toggleTheme,
     undo: performUndo,
     redo: performRedo,

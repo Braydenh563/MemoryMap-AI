@@ -208,6 +208,16 @@ def _images(session: Session) -> list[dict]:
     ).all()
     items = []
     for attachment, entry in rows:
+        # Reported: "sketches appear in the files section in the library all
+        # tab with other file attachments." A sketch is a note whose whole
+        # content is its drawing (`![sketch](...)` and nothing else), stored
+        # as an Attachment — it is a picture, and the Images sub-tab already
+        # lists it as one. Listing its attachment here again as a "file"
+        # put every sketch in two places, one of them wrong.
+        if (attachment.mime or "").startswith("image/") and not strip_inline_markdown(
+            entry.content or ""
+        ).strip():
+            continue
         kind_word = (attachment.mime or "").split("/")[-1].upper() or "FILE"
         items.append(
             {

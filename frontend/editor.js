@@ -42,6 +42,12 @@ const EDITOR_SURFACES = {
   //: one open edit form at a time.
   "entry-edit-content": "note",
   "doc-content": "document",
+  //: The chat composer. Asked for as part of "the chat interface needs
+  //: bugfixing and more utility and features" -- "/" did nothing there, the
+  //: one text box in the app where a slash menu is the *expected* affordance
+  //: (every chat product the user compared this to has one). Its commands are
+  //: chat's own: attach, web, plan, skills, mode. See `chatCommands`.
+  "chat-input": "chat",
 };
 
 //: **What context a textarea is, including the ones with generated ids.**
@@ -223,7 +229,36 @@ function calloutTemplate(kind, fold = "") {
 // "specialised boxes and frames", which is nobody's idea of the word
 // "callout", and a menu you can only search by its internal vocabulary is a
 // menu you have to already know.
+//: **What "/" offers in the chat box.** Not the note commands: a callout box
+//: or a template pasted into a question is nobody's intent, and the document
+//: AI actions have nowhere to run here. Each of these presses a control the
+//: dock already has, so the menu is a second door to the same rooms and can
+//: never drift from what the buttons do. The slash token is removed by
+//: `editorRunItem` before `run` is called, so the question is left clean.
+function chatCommands() {
+  const press = (id) => () => document.getElementById(id)?.click();
+  const pick = (source) => () => {
+    if (typeof openNotePicker === "function") openNotePicker();
+    document.querySelector(`#note-picker-sources [data-picker-source="${source}"]`)?.click();
+  };
+  const mode = (name) => () =>
+    document.querySelector(`#chat-mode-seg button[data-chat-mode="${name}"]`)?.click();
+  return [
+    { id: "chat-attach-note", primary: true, group: "Attach", label: "\u{1F4DD} A note", hint: "as context", keywords: ["attach", "note", "reference", "context"], run: pick("notes") },
+    { id: "chat-attach-document", primary: true, group: "Attach", label: "\u{1F4C4} A document", hint: "from Documents", keywords: ["attach", "document", "doc"], run: pick("documents") },
+    { id: "chat-attach-file", primary: true, group: "Attach", label: "\u{1F4CE} A file", hint: "from the Library", keywords: ["attach", "file", "pdf", "spreadsheet"], run: pick("files") },
+    { id: "chat-attach-image", group: "Attach", label: "\u{1F5BC}\u{FE0F} An image", hint: "from the Library", keywords: ["attach", "image", "picture", "photo", "sketch"], run: pick("images") },
+    { id: "chat-upload", primary: true, group: "Attach", label: "\u{2B06}\u{FE0F} Upload something new", hint: "any file", keywords: ["upload", "new", "file", "attach"], run: press("attach-image") },
+    { id: "chat-web", primary: true, group: "This message", label: "\u{1F310} Web search", hint: "toggle", keywords: ["web", "search", "online", "internet"], run: press("web-search-toggle") },
+    { id: "chat-plan", primary: true, group: "This message", label: "\u{1F9ED} Plan first", hint: "toggle", keywords: ["plan", "steps", "think"], run: press("chat-plan") },
+    { id: "chat-skills", primary: true, group: "This message", label: "\u{26A1} Skills", hint: "run a saved skill", keywords: ["skill", "skills", "run", "workflow"], run: press("chat-skills-btn") },
+    { id: "chat-mode-agent", group: "Mode", label: "\u{1F916} Agent mode", hint: "let it act on the notebook", keywords: ["agent", "mode", "tools", "act"], run: mode("agent") },
+    { id: "chat-mode-chat", group: "Mode", label: "\u{1F4AC} Ask mode", hint: "answer only", keywords: ["ask", "chat", "mode", "answer"], run: mode("chat") },
+  ];
+}
+
 function editorCommands(context) {
+  if (context === "chat") return chatCommands();
   const commands = [];
 
   for (const [kind, meta] of Object.entries(CALLOUT_KINDS)) {

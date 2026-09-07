@@ -6,6 +6,10 @@ const BASE = process.env.BASE || 'http://127.0.0.1:8781';
 async function boot(opts={}) {
   const browser = await chromium.launch();
   const ctx = await browser.newContext({viewport: opts.viewport||{width:1440,height:900}, deviceScaleFactor:1});
+  // Deterministic theme: the app remembers the last theme server-side, so a
+  // sweep after a dark screenshot run would otherwise measure dark. THEME=dark
+  // to sweep the other one.
+  await ctx.addInitScript((t) => { try { localStorage.setItem('theme', t); } catch (e) {} }, process.env.THEME || 'light');
   const page = await ctx.newPage();
   page.on('pageerror', e=>console.log('PAGEERROR:', e.message, '\n', (e.stack||'').split('\n').slice(0,6).join('\n')));
   page.on('console', m=>{ if(m.type()==='error') console.log('CONSOLE-ERR:', m.text().slice(0,160)); });

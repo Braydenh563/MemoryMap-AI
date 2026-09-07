@@ -30,6 +30,22 @@
   flex-wrap: wrap;
 }
 
+/* **The card head row, once.** A `.row` that opens a card with its `h2` is
+   the head row wherever it is — sidebar, library, reminders, a dashboard
+   widget, a plain panel. One height (`--control-h-lg`, the top bar's control
+   size, so a head with a button and a head without one are the same
+   height), one gap below, and the title drops its own bottom margin so the
+   gap is not paid twice. Measured before this: 28, 38 and 40px on three
+   tabs, and 9.6/12.8px under them. */
+.card > .row:has(> h2) {
+  min-height: var(--control-h-lg);
+  margin-bottom: var(--space-5);
+}
+
+.card > .row:has(> h2) > h2 {
+  margin-bottom: 0;
+}
+
 .card > .row.space-between > .row {
   flex: 0 0 auto;
 }
@@ -2912,33 +2928,42 @@ html.modal-open body {
 
 .reminders-head {
   align-items: flex-start;
+  min-height: var(--control-h-lg);
 }
 
 /* Full-width welcome banner across the top of the dashboard. */
+/* **One row, not a banner.** Measured at 1440 before this: 159px of hero for
+   a greeting — wordmark, greeting, name chip, sub-line and a 2.2rem clock
+   stacked in a gradient-washed glass panel. UI_MODERNISATION_PLAN Phase 1:
+   "a hero that is 150px tall for a greeting" is the uneven mass the page
+   reads as performative. The brand is in the top bar already, so the
+   wordmark goes; the greeting, the notebook line and the clock share one
+   baseline; the panel is a plain card with no wash. Target ≤ 64px. */
 .dash-hero {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1.5rem;
-  flex-wrap: wrap;
+  gap: var(--space-6);
+  flex-wrap: nowrap;
   margin: 0 0 var(--space-6);
-  padding: var(--space-7) var(--space-8);
+  padding: var(--space-4) var(--space-6);
   border-radius: var(--radius);
   border: 1px solid var(--glass-border);
-  background:
-    linear-gradient(120deg, var(--accent-soft) 0%, transparent 55%),
-    var(--card);
-  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  background: var(--card);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
   box-shadow: var(--glass-shadow);
+  /* No `min-height` here, on purpose. The hero is a flex item of `.tab-page`
+     (a column flex container that scrolls), and an explicit `min-height` on
+     a flex item *replaces* its automatic min-content floor — measured: with
+     `min-height: 36px` the box was exactly 36px tall with 31px of text
+     hanging 3px past each padding edge. `flex-shrink: 0` is what keeps a row
+     its own height in that container. */
+  flex: 0 0 auto;
 }
 
-/* The emblem and the greeting are one unit, so the clock still pushes to the
-   far end: without this they'd be two flex children and `space-between`
-   would strand the emblem on the left with a gap in the middle. */
 .dash-hero-emblem {
   flex: 0 0 auto;
-  margin-right: -0.6rem;
   /* the emblem's canvas carries its own padding */
 }
 
@@ -2947,33 +2972,37 @@ html.modal-open body {
      the clock off the row — automatic minimum sizing again. */
   min-width: 0;
   flex: 1 1 12rem;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 var(--space-4);
 }
 
+/* The wordmark is gone from the markup; the rule stays so a cached page from
+   an older build renders it hidden rather than as a third line. */
 .dash-wordmark {
-  margin: 0 0 0.1rem;
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-
-/* "AI" set apart, the way the top bar does it. */
-.dash-wordmark span {
-  opacity: 0.6;
+  display: none;
 }
 
 .dash-greeting {
   margin: 0;
-  font-size: 1.7rem;
+  font-size: var(--text-h2);
   font-weight: 700;
   letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .dash-submessage {
-  margin: 0.25rem 0 0;
+  margin: 0;
   color: var(--muted);
-  font-size: 0.92rem;
+  font-size: var(--text-md);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dash-submessage:empty {
@@ -2982,41 +3011,35 @@ html.modal-open body {
 
 .dash-clock {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  align-items: baseline;
+  gap: var(--space-3);
   line-height: 1.15;
   flex: 0 0 auto;
 }
 
+/* Ink, not accent: the accent is for the one filled action, selection and
+   links (Phase 3). A clock is information. */
 .dash-clock-time {
-  font-size: 2.2rem;
-  font-weight: 700;
+  font-size: var(--text-h3);
+  font-weight: 650;
   font-variant-numeric: tabular-nums;
-  color: var(--accent);
+  color: var(--ink);
 }
 
 .dash-clock-date {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: var(--muted);
 }
 
 @media (max-width: 720px) {
   .dash-hero {
-    margin: 0 0 var(--space-6);
-    padding: var(--space-6);
-    gap: var(--space-6);
+    flex-wrap: wrap;
+    padding: var(--space-4) var(--space-5);
+    gap: var(--space-4);
   }
 
-  .dash-greeting {
-    font-size: 1.3rem;
-  }
-
-  .dash-clock {
-    align-items: flex-start;
-  }
-
-  .dash-clock-time {
-    font-size: 1.7rem;
+  .dash-hero-text {
+    flex-basis: 100%;
   }
 
   /* On a phone the emblem is decoration competing with the greeting for a
@@ -3116,7 +3139,11 @@ html.modal-open body {
    renders: the title row sits a fixed gap above a flex-column body, and the
    body's own children lose their ad-hoc margins in favour of one gap. */
 .dash-widget>.row {
-  margin-bottom: 0.6rem;
+  /* The same head row as every other card: one control height, one gap
+     under it. Measured before: 28/38/40px heads on the other tabs and a
+     widget head that was whatever its buttons made it. */
+  min-height: var(--control-h-lg);
+  margin-bottom: var(--space-4);
 }
 
 .dash-widget h2 {

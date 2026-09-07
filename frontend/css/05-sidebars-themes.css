@@ -28,7 +28,7 @@
      difference is the gap that made "Chats", "Categories" and "Recent" all
      sit below the collapse button rather than level with it. The toggle is
      not moved — it was in the right place; the row comes up to meet it. */
-  margin-top: calc(var(--sidebar-toggle-inset) - var(--space-6));
+  margin-top: calc(var(--sidebar-toggle-inset) - var(--card-pad-y));
   margin-bottom: var(--space-5);
   padding-right: var(--sidebar-toggle-lane);
 }
@@ -2442,12 +2442,11 @@ button.is-on {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .dash-hero {
-    padding: var(--space-6);
-  }
-
+  /* The card tightens through its own tokens, so the compact recipe and
+     anything cancelling the padding (the sidebar head) follow it. */
   .card {
-    padding: 0.8rem 1rem;
+    --card-pad-y: var(--space-5);
+    --card-pad-x: var(--space-6);
   }
 
   /* Rows of controls wrap instead of pushing the page sideways. */

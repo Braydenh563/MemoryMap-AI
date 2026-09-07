@@ -302,7 +302,12 @@ select optgroup {
      did, by ~6px, and that was the misaligned sidebar headers. Not spacing
      tokens: a hit target is a control's size and must not shift with the
      density setting. */
-  --sidebar-toggle-size: 28px;
+  /* Was 28px — the one square in the shell outside the control-height
+     family, and the reason the sidebar head row (28px) never matched the
+     Library head (38px) or the Reminders head (40px): each row was as tall as
+     its own control. All three now sit on `--control-h`, and this toggle is
+     the same size as the icon buttons in the top bar beside it. */
+  --sidebar-toggle-size: var(--control-h-lg);
   /* Where the toggle sits inside its card. A token because the heading row
      beside it is aligned to it by arithmetic (see .sidebar-head) — as a
      literal in one rule and a guess in the other, the two drifted apart by
@@ -377,6 +382,11 @@ select optgroup {
      nothing. `--space-6` keeps the shell readable as a shell without paying
      for it twice on every boundary. */
   --page-gutter: clamp(var(--space-3), 1.2vw, var(--space-6));
+  /* The reading measure: the widest a run of prose may be before the eye
+     loses the line. 54rem is what the chat bubble already capped itself at
+     (the recipe most used, so the winner); anything that shows paragraphs in
+     a wide column reads this rather than choosing its own. */
+  --measure: 54rem;
   --page-left: var(--page-gutter);
   --page-right: var(--page-gutter);
   /* 2rem, the inset five rules had by hand */
@@ -835,7 +845,12 @@ header#top-bar {
      slot reserved a fixed 17.5rem that nothing was allowed to reclaim.
      Now the pill shrinks first and the tabs scroll, so nothing wraps. */
   flex-wrap: nowrap;
-  padding: var(--space-4) var(--space-8);
+  /* The page gutter, not a value of its own. Measured at 1440 before this:
+     the logo began at x=24 and the first card at x=16 — the top bar was the
+     one strip in the shell with its own inset, so nothing in it lined up
+     with the content under it. One token, and the logo, the sidebar edge,
+     the first card and the status bar's first item share an x. */
+  padding: var(--space-4) var(--page-gutter);
   background: var(--card);
   border-bottom: 1px solid var(--glass-border);
   backdrop-filter: blur(18px) saturate(150%);
@@ -1333,8 +1348,13 @@ header#top-bar.tabs-wrapped #tab-bar {
    the same card, and a header at one height above a toolbar at another is the
    same complaint one line further down. One card, one control height. */
 .library-head {
-  --control-h: 2.375rem;
-  margin-bottom: var(--space-2);
+  /* `--control-h-lg`, the top bar's control size, rather than the 2.375rem
+     this and `.library-toolbar` used to share: head rows measured 28/38/40px
+     across the tabs (sidebar/library/reminders), each as tall as whatever
+     control it happened to hold. Every head row is now one height —
+     `--control-h-lg` — and its controls with it. */
+  --control-h: var(--control-h-lg);
+  margin-bottom: var(--space-5);
   /* **One title block height, whatever is beside the title.**
      Reported: the vertical gaps under the sub-tab titles differ from tab to
      tab. Measured across all six: the heading sat at y=156 on five and y=154
@@ -1483,7 +1503,7 @@ header#top-bar.tabs-wrapped #tab-bar {
    Not a spacing token: a hit target is a control's own size and must not move
    with the density setting. */
 .library-toolbar {
-  --control-h: 2.375rem;
+  --control-h: var(--control-h-lg);
 }
 
 /* **Every control on a toolbar row, not the four that were remembered.**
@@ -2802,7 +2822,9 @@ header#top-bar.tabs-wrapped #tab-bar {
      compute from it are right rather than nearly right. */
   height: var(--status-bar-h);
   box-sizing: border-box;
-  padding: 0 var(--space-6);
+  /* Same reason as header#top-bar: the bar's inset is the page gutter, so
+     its first item starts where the content above it starts. */
+  padding: 0 var(--page-gutter);
   /* **Opaque, not glass.** Reported: the notes sidebar and its buttons showing
      through the bar, and it is the same fault the notifications panel had —
      `--card` is 55% and assumes the frosting `.card` puts over it, so a
@@ -3199,7 +3221,17 @@ header#top-bar.tabs-wrapped #tab-bar {
      fuller effect remains available as an opt-in later — it is deliberately
      not on by default. */
   box-shadow: var(--glass-shadow), var(--glass-rim);
-  padding: var(--space-6) var(--space-7);
+  /* **Two card sizes, as tokens, and nothing else.** UI_MODERNISATION_PLAN
+     Phase 1: a panel that fills the content column and a widget in a
+     sidebar were both 16/20px, which is dense for an 1100px panel and right
+     for a 260px column. The size is a pair of custom properties so the two
+     recipes below (`.card` panel, `.card.compact` widget/sidebar) change
+     one thing, and so anything that has to *cancel* the padding to bleed
+     to the card edge — the sidebar's head row, a full-width strip — can
+     reference the real value instead of guessing which step it was. */
+  --card-pad-y: var(--space-7);
+  --card-pad-x: var(--space-8);
+  padding: var(--card-pad-y) var(--card-pad-x);
   margin-bottom: var(--space-6);
   /* Cards are flex/grid items nearly everywhere they appear, and a flex item's
      automatic minimum is its content — so a card holding one wide code block
@@ -3207,6 +3239,29 @@ header#top-bar.tabs-wrapped #tab-bar {
      with it. Fixing the `.layout` track alone was not enough: the item inside
      the track carries the same auto-minimum and has to be floored too. */
   min-width: 0;
+}
+
+/* The compact card: widgets, sidebars, anything in a column under ~20rem.
+   Dense inside, because the column is the constraint. */
+.card.compact,
+.sidebar-panel,
+.dash-widget {
+  --card-pad-y: var(--space-6);
+  --card-pad-x: var(--space-6);
+}
+
+/* **A card inside a card is a tone, never a second bordered pane.** The
+   border budget (DESIGN.md → Surface tiers): one hairline on the outermost
+   pane; groups inside it are `--surface-2`. A nested `.card` used to draw
+   the full recipe — blur, edge, shadow, rim — inside a surface that already
+   had all four, which is the "borders inside borders" that reads as
+   assembled. */
+.card .card {
+  background: var(--surface-2);
+  border-color: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* The sheen is what reads as *glass* rather than *tinted paint* — over the

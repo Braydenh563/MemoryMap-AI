@@ -6594,3 +6594,16 @@ button.connection-row {
   margin: 0.2em 0;
   padding-left: 1.2em;
 }
+
+/* The Contents header's two icon buttons sit together at the right edge.
+   `.graph-help-toggle`'s own `margin-left: auto` is a toolbar behaviour and
+   belongs to the button, so it is neutralised here rather than removed from
+   the shared rule -- every toolbar copy of that button still needs it. */
+.contents-head-actions {
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.contents-head-actions .graph-help-toggle {
+  margin-left: 0;
+}

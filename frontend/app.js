@@ -1009,6 +1009,26 @@ function setLabel(el, label) {
   return el;
 }
 
+//: **Is the Settings dialog open?** Defined here, in app.js, and not in
+//: settings.js where the rest of that dialog lives. Reported from a real
+//: session, five times in one second:
+//:
+//:     Uncaught ReferenceError: settingsModalOpen is not defined
+//:       at HTMLDocument.<anonymous> (app.js:30278)
+//:
+//: app.js registers its document-wide keydown handler while it parses, and
+//: settings.js is the last script on the page -- so every key pressed in the
+//: window between the two threw, and the handler that runs Escape, "/" and
+//: every other shortcut died with it. One call site already carried a
+//: `typeof ... === "function"` guard, which is the same bug being worked
+//: around one line at a time. A three-line DOM check has no reason to live in
+//: another file; moving it removes the window entirely rather than papering
+//: over it at each caller.
+function settingsModalOpen() {
+  const modal = document.getElementById("settings-modal");
+  return Boolean(modal) && !modal.classList.contains("hidden");
+}
+
 function chip(text, extraClass = "", onClick = null) {
   const span = document.createElement("span");
   span.className = `chip ${extraClass}`.trim();
@@ -19895,7 +19915,7 @@ async function goToTabHistory(next) {
       paintTabHistory();
       return;
     }
-    if (typeof settingsModalOpen === "function" && settingsModalOpen()) closeSettingsModal();
+    if (settingsModalOpen()) closeSettingsModal();
     switchTab(entry.tab);
     // The sub-tab is restored after the tab, because both restore paths below
     // act on elements the tab switch has just revealed.

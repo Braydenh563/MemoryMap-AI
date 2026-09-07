@@ -107,10 +107,6 @@
 //: panel had five rows in it and a nav button that appeared to do nothing.
 const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "memory", "websearch", "appearance", "templates", "shortcuts", "preferences", "account", "extras", "tasks", "data", "logs", "help", "about"];
 
-function settingsModalOpen() {
-  return !$("settings-modal").classList.contains("hidden");
-}
-
 // Which settings section is on screen. The Background tasks list polls while
 // it is open, and needs to know that it is.
 let currentSettingsSection = "models";

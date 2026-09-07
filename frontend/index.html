@@ -4081,11 +4081,18 @@ Link to another note with [[its first few words]]."></textarea>
              ever needs reading once was pushing the controls a third of the
              way down the card on every visit; the same words now open on
              demand from the same "?" every other page in the app uses. -->
-        <button id="contents-help" class="ghost small icon-only graph-help-toggle" type="button"
-          aria-expanded="false" aria-controls="contents-intro"
-          title="An index of your notebook — by category, by tag, by the month you wrote it, or by the folder it came from if you imported a vault. Filter it, fold a section away, or jump straight to one. For the visual map of how notes link to each other, see the Graph tab."
-          aria-label="What is this page?"><i class="ph ph-question" aria-hidden="true"></i></button>
-        <button id="contents-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+        <!-- The two buttons travel together at the card's right edge.
+             `.graph-help-toggle` carries `margin-left: auto` of its own, which
+             is right in a toolbar and wrong in a `.row.space-between` header:
+             it pushed the "?" to the middle of the row, half a card away from
+             the refresh button it belongs beside. Reported with a screenshot. -->
+        <div class="row contents-head-actions">
+          <button id="contents-help" class="ghost small icon-only graph-help-toggle" type="button"
+            aria-expanded="false" aria-controls="contents-intro"
+            title="An index of your notebook — by category, by tag, by the month you wrote it, or by the folder it came from if you imported a vault. Filter it, fold a section away, or jump straight to one. For the visual map of how notes link to each other, see the Graph tab."
+            aria-label="What is this page?"><i class="ph ph-question" aria-hidden="true"></i></button>
+          <button id="contents-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+        </div>
       </div>
       <p class="muted graph-help-panel hidden" id="contents-intro" role="dialog" aria-label="What is this page?">An index of your notebook — by category, by tag, by the
         month you wrote it, or by the folder it came from if you imported a

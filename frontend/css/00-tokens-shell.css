@@ -133,6 +133,10 @@ select optgroup {
      under more ambient light; a whisper on dark, where a strong white line
      would read as a border rather than as a highlight. */
   --glass-highlight: rgba(255, 255, 255, 0.75);
+  /* The shadowed bottom rim, the other half of a pane with thickness. Much
+     weaker than the highlight on purpose: a rim light comes from somewhere,
+     and two edges of equal strength read as a border instead. */
+  --glass-underline: rgba(31, 38, 135, 0.07);
   --modal-bg: rgba(252, 253, 255, 0.96);
   /* Fully opaque (alpha 1, not 0.96) — for a floating surface read over dense
      text, not just glanced at. Verified by sampling raw screenshot pixels,
@@ -402,8 +406,15 @@ select optgroup {
      for every sidebar the user had never dragged, and nothing in the
      stylesheet said so. */
   --saved-width: 280px;
-  /* pills and round buttons */
-  --glass-blur: 18px;
+  /* pills and round buttons.
+
+     14px, not 18px. Blur radius is the exponential term in a
+     backdrop-filter's cost, and the published band worth staying inside is
+     8-15px; this app renders 15-35 blurred layers on a tab (measured, see
+     `.glass` in 03-dashboard-widgets.css), so the radius is the one number
+     that multiplies across all of them. The look is carried by the lit rim
+     and the tint instead, which draw for free. */
+  --glass-blur: 14px;
   /* How much of each palette's own base alpha survives — 1 means unchanged.
      Reported: "the ratio of transparency and frosted glass amount... has
      become more opaque" — and the two are genuinely separate dials in real
@@ -479,6 +490,7 @@ select,
   --input-bg: color-mix(in srgb, rgba(14, 16, 23, 0.55) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(255, 255, 255, 0.10);
   --glass-highlight: rgba(255, 255, 255, 0.06);
+  --glass-underline: rgba(0, 0, 0, 0.22);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
   --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
   --modal-bg: rgba(24, 27, 37, 0.97);
@@ -518,6 +530,7 @@ select,
     --input-bg: color-mix(in srgb, rgba(14, 16, 23, 0.55) calc(var(--glass-opacity) * 100%), transparent);
     --glass-border: rgba(255, 255, 255, 0.10);
     --glass-highlight: rgba(255, 255, 255, 0.06);
+  --glass-underline: rgba(0, 0, 0, 0.22);
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
     --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
     --modal-bg: rgba(24, 27, 37, 0.97);

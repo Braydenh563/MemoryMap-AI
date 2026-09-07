@@ -404,6 +404,14 @@
        Asked for directly ("customise the set word goal popup... same design
        style as the rest of the application"). Same shape as the space
        dialogs above. -->
+  <dialog id="doc-template-dialog" class="card space-dialog doc-ai-history-dialog">
+    <h3>New from a template</h3>
+    <p class="muted">A starting shape, not a form — every line is yours to change. Today's date is filled in.</p>
+    <ul id="doc-template-list" class="doc-ai-history-list" role="list"></ul>
+    <div class="row right space-dialog-actions">
+      <button type="button" class="ghost" data-close-dialog="doc-template-dialog">Cancel</button>
+    </div>
+  </dialog>
   <dialog id="doc-word-goal-dialog" class="card space-dialog">
     <h3>Word-count goal</h3>
     <p class="muted">
@@ -2146,8 +2154,21 @@ Link to another note with [[its first few words]]."></textarea>
         <div id="doc-sidebar-list" class="doc-sidebar-section">
           <div class="row space-between sidebar-head">
             <h2>Recent</h2>
-            <button id="doc-new" class="small" type="button" title="Start a new document"
-              aria-label="Start a new document"><i class="ph ph-plus ph-lead" aria-hidden="true"></i>New</button>
+            <span class="row">
+              <button id="doc-new" class="small" type="button" title="Start a new document"
+                aria-label="Start a new document"><i class="ph ph-plus ph-lead" aria-hidden="true"></i>New</button>
+              <!-- New from a template — asked for as part of "the documents
+                   editor just doesn't feel up to par": every professional
+                   editor opens with a starting shape (meeting, plan, lecture,
+                   decision, review) rather than an empty page, and a student
+                   using this for assignments has the same five shapes to fill
+                   every week. Templates are plain markdown strings in
+                   documents.js with `{{date}}`/`{{title}}` filled on create —
+                   no backend, no schema, nothing to migrate. -->
+              <button id="doc-new-template" class="ghost small icon-only" type="button"
+                title="New from a template" aria-label="New document from a template"
+                aria-haspopup="dialog" aria-controls="doc-template-dialog"><i class="ph ph-layout" aria-hidden="true"></i></button>
+            </span>
           </div>
           <ul id="doc-list" class="doc-list"></ul>
           <p id="doc-empty" class="muted hidden">No documents yet — start typing on the right, or press ＋ New.</p>

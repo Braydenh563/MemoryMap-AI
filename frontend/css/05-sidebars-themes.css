@@ -3353,3 +3353,16 @@ textarea.autogrow {
   background: color-mix(in srgb, var(--warn) 14%, transparent);
   border-radius: var(--radius-sm);
 }
+
+/* The template picker's rows: name over a one-line hint, full width, so
+   the list reads as choices rather than as a stack of pill buttons. */
+.doc-template-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  width: 100%;
+  height: auto;
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+}

@@ -77,13 +77,15 @@ Status now: **one top bar (navigation left, board actions right, look/grid/expor
 
 Status now: single-row dock, toolbar collapsed by default (chrome 187px → 102px above the first line at 1440px), live/source/split/read, slash menu, `[[` links, outline, backlinks, find & replace, revisions stored, AI edit, print.
 
-1. **No floating selection toolbar** — formatting is a hidden strip or shortcuts. PLAN D2.
+**Corrections after a grep (CLAUDE.md's "already exists" rule, again):** a floating selection toolbar *does* exist (`editor.js` `SELECTION_BAR_ACTIONS`, `.selection-bar`, over `#doc-content`, every `.lp-src` live block and the note editor); `/table` exists in the slash menu; the revision history UI exists (`#doc-history-dialog`, list/preview/restore); focus mode exists (`#doc-focus-toggle`, `.doc-focus`). Templates now exist too (`DOC_TEMPLATES` in `documents.js`, `#doc-template-dialog`, five shapes with `{{date}}`/`{{title}}`). The list below is what is genuinely still missing.
+
+1. ~~No floating selection toolbar~~ — exists (see above).
 2. **Undo breaks across Live↔Source** (browser undo stacks are per-element). PLAN D3.
-3. **Tables**: no `/table`, no cell navigation. PLAN D4.
-4. **Revision history has no UI** (rows exist; nothing to click). PLAN D8.
+3. **Tables**: `/table` exists; **no Tab between cells, no row/column add/remove**. PLAN D4.
+4. ~~Revision history has no UI~~ — exists (`#doc-history-dialog`).
 5. **AI edit replaces text wholesale** — no diff, no per-hunk accept. PLAN D11.
-6. **Templates**: none. PLAN D10.
-7. **Focus/typewriter mode**: none. PLAN D9.
+6. ~~Templates: none~~ — built (`DOC_TEMPLATES`).
+7. ~~Focus/typewriter mode: none~~ — exists (`toggleDocFocus`).
 8. **Live renderer re-renders the whole document per keystroke** (inference from `renderLive` shape; measure with a 20k-word doc before touching). PLAN P4.
 9. **Math, footnotes, task-list progress**: not rendered.
 10. **Accessibility**: the Live pane is `contenteditable` with no `aria-multiline`/role; headings in Live are not real `<h1..h6>` for AT; the toolbar buttons lack `aria-pressed` for active states (some do).

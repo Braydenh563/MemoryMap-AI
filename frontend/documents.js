@@ -556,15 +556,84 @@ async function attachBookmarkToDocument() {
   select.focus();
 }
 
-async function createDocument() {
+//: **Templates: a starting shape for the five documents people make most.**
+//: Plain markdown with two placeholders; the whole feature is these strings,
+//: the dialog in index.html and `createDocument(template)` below. Kept as
+//: data rather than a server resource because a template is nothing but
+//: text, and text that lives in one file is text a fresh session can read.
+const DOC_TEMPLATES = [
+  {
+    id: "blank", title: "Blank", hint: "An empty page.", content: "",
+  },
+  {
+    id: "assignment", title: "Assignment plan", hint: "Brief, criteria, sections, sources, timeline.",
+    content: "# {{title}}\n\n**Due:** \n**Unit:** \n**Weight:** \n\n## The brief, in my own words\n\n\n## Marking criteria\n\n- [ ] \n- [ ] \n\n## Outline\n\n1. Introduction — \n2. \n3. \n4. Conclusion — \n\n## Sources\n\n- \n\n## Timeline\n\n| When | What |\n| --- | --- |\n| {{date}} | Plan written |\n|  | Draft |\n|  | Edit and submit |\n",
+  },
+  {
+    id: "lecture", title: "Lecture notes", hint: "Cornell-style: cues, notes, summary.",
+    content: "# {{title}}\n\n**Date:** {{date}}\n**Unit / lecturer:** \n\n## Key questions\n\n- \n\n## Notes\n\n\n## Terms\n\n| Term | Meaning |\n| --- | --- |\n|  |  |\n\n## Summary (three sentences)\n\n\n## To follow up\n\n- [ ] \n",
+  },
+  {
+    id: "meeting", title: "Meeting notes", hint: "Attendees, agenda, decisions, actions.",
+    content: "# {{title}}\n\n**Date:** {{date}}\n**Attendees:** \n\n## Agenda\n\n1. \n\n## Notes\n\n\n## Decisions\n\n- \n\n## Actions\n\n- [ ] Who — what — by when\n",
+  },
+  {
+    id: "decision", title: "Decision record", hint: "Context, options, decision, consequences.",
+    content: "# {{title}}\n\n**Date:** {{date}}\n**Status:** proposed\n\n## Context\n\n\n## Options considered\n\n1. \n2. \n\n## Decision\n\n\n## Consequences\n\n- \n",
+  },
+  {
+    id: "weekly", title: "Weekly review", hint: "What happened, what's next, what to drop.",
+    content: "# Week of {{date}}\n\n## Went well\n\n- \n\n## Didn't\n\n- \n\n## Next week\n\n- [ ] \n\n## Stop doing\n\n- \n",
+  },
+];
+
+function docTemplateFill(template) {
+  const date = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  const title = template.id === "blank" ? "Untitled" : template.title;
+  return {
+    title,
+    content: (template.content || "").replaceAll("{{date}}", date).replaceAll("{{title}}", title),
+  };
+}
+
+async function createDocument(template = null) {
+  const body = template ? docTemplateFill(template) : { title: "Untitled", content: "" };
   const doc = await apiJson("/documents", {
     method: "POST",
-    body: JSON.stringify({ title: "Untitled", content: "" }),
+    body: JSON.stringify(body),
   });
   loadCaptureDocuments(); // so Capture can attach to it straight away
   await loadDocuments(doc.id);
   $("doc-title").focus();
   $("doc-title").select();
+}
+
+function openDocTemplateDialog() {
+  const dialog = $("doc-template-dialog");
+  const list = $("doc-template-list");
+  if (!dialog || !list) return;
+  list.replaceChildren();
+  for (const template of DOC_TEMPLATES) {
+    const li = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ghost doc-template-choice";
+    button.dataset.template = template.id;
+    const name = document.createElement("strong");
+    name.textContent = template.title;
+    const hint = document.createElement("span");
+    hint.className = "muted text-sm";
+    hint.textContent = template.hint;
+    button.append(name, hint);
+    button.addEventListener("click", async () => {
+      dialog.close();
+      await createDocument(template);
+    });
+    li.appendChild(button);
+    list.appendChild(li);
+  }
+  dialog.showModal();
+  list.querySelector("button")?.focus();
 }
 
 // Guards against creating several documents from one fast burst of typing.
@@ -2729,7 +2798,8 @@ function initDocSidebarTabs() {
 }
 
 // --- documents wiring ---
-$("doc-new").addEventListener("click", createDocument);
+$("doc-new").addEventListener("click", () => createDocument());
+$("doc-new-template")?.addEventListener("click", openDocTemplateDialog);
 // Searching and sorting every document lives in the Library now (§36G), with
 // the notes, chats and files beside them. This is the way there, said out loud
 // — a list that silently stops at eight is a list that has lost your writing.

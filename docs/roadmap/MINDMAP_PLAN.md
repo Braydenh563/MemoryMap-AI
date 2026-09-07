@@ -28,13 +28,18 @@
 > as if they appear in the dashboard widgets and/or the timeline and/or graph
 > etc.
 
-**One naming note, flagged rather than guessed.** "kaggle" / "kaggle.it" does
-not resolve to a mindmapping product — Kaggle is a data-science competition
-platform. The closest matches by description are **Kumu.io** (relationship and
-systems mapping, which is what the "bundled entity with its own attributes"
-idea most resembles) and **Kinopio.club**. The research in §3 covers Kumu plus
-the mainstream mindmappers; **confirm which tool was meant before building the
-parts of §5 that lean on Kumu specifically.**
+**The naming question is settled.** Asked directly, the user confirmed
+"kaggle" was a typo for **Coggle (coggle.it)** — and said all of the tools
+named here are good references, so the feature set below draws on **Coggle**
+(immediacy, branch colours, loops and joins, image nodes, PNG/PDF/text/OPML
+export, `.mm` import), **Kumu** (attributes, perspectives, focus mode, signed
+edges), **XMind** (output quality, structure templates) and **Obsidian Canvas
+Mindmap** (the keyboard set). They also named **Lucidchart** as a reference,
+"but that's more for the whiteboard" — its smart connectors, containers,
+alignment tools and shape libraries map onto PLAN.md W1–W5, not this plan.
+
+**The scope call in §4 is made: option B** (confirmed by the user in the same
+exchange). Everything from §5 on assumes it.
 
 ## 2. What already exists (checked in the code, not assumed)
 
@@ -121,8 +126,32 @@ Three options, with a recommendation.
 | B | Mindmap as a **new board `type`** on the existing board entry (`board.type = "map" \| "board"`) | One data model, two behaviours, two filters in the Library. Clean. **Recommended.** |
 | C | A **separate entity** with its own tables and sub-tab | Duplicates linking, preview, export, permissions and the Library plumbing that boards already have. Not recommended. |
 
-**Recommendation: B.** A board is already an entry; add a `type` and a
-`layout` to it. Everything in §6 assumes B.
+**Decision: B — confirmed by the user.** A board is already an entry; add a
+`type` and a `layout` to it. Everything in §5 and §6 assumes B.
+
+### What Coggle specifically does that the phases below must keep
+
+Recorded because Coggle is the reference the user actually meant:
+
+- **Zero ceremony.** A new map is one click and one central node; a child is
+  the `+` on hover or `Tab`; there is no "mode" to enter. Phase 2 item 5 is
+  the keyboard half of this; the `+` affordance on the hovered node is the
+  pointer half and belongs in the same item.
+- **Branch colour carries down the branch** — every descendant inherits the
+  first-level colour unless overridden. Phase 2 item 8's "inherit-from-parent
+  by default" is exactly this; the default palette is one colour per
+  first-level branch, assigned in order.
+- **Loops and joins**: a second parent link between branches, drawn as a
+  curve distinct from the tree edges. Phase 2 item 9.
+- **Text is markdown-ish** (bold, italics, links, code) and a node may be an
+  image. Node kinds in Phase 1 item 3 cover the image; the text renderer is
+  the whiteboard's existing markdown pass.
+- **Export**: PNG, PDF, plain-text outline, `.mm` (FreeMind) and OPML;
+  **import** `.mm` and OPML. Phase 4 items 16–17 add `.mm` to their list.
+- **Auto-arrange** on demand rather than always: the user can drag a branch
+  and it stays; "tidy" re-lays it out. Phase 2 item 6 becomes a command, with
+  free placement kept per branch (a `pinned` flag on a node).
+- **Presentation/print**: a map fits to page for PDF. Covered by Phase 4.
 
 ## 5. The feature set, in build order
 
@@ -190,10 +219,11 @@ Three options, with a recommendation.
     invented text.
 16. **Export**: PNG and SVG from the existing canvas render, and PDF via the
     same path the app already uses for "Print or save as PDF" in the documents
-    kebab. Also **Markdown outline** and **OPML**, which is the interchange
-    format every mindmapper reads — cheap, and it makes the feature not a
-    lock-in.
-17. **Import**: OPML and indented Markdown, so an existing map can come in.
+    kebab. Also **Markdown outline**, **OPML** and **FreeMind `.mm`** — the
+    interchange formats every mindmapper (Coggle included) reads — cheap, and
+    it makes the feature not a lock-in.
+17. **Import**: OPML, FreeMind `.mm` and indented Markdown, so an existing map
+    can come in.
 
 ### Phase 5 — utility
 18. **Focus mode** (Kumu): start at one node, reveal the network step by step.

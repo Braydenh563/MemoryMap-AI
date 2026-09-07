@@ -52,6 +52,32 @@ belongs in the file that registers the listener.**
   each), Preview inside the bar, no second Write/Preview switch, and the
   cloned wrap/collapse group draws its glyphs instead of two blank boxes.
 - **Concept maps** have a labelled button in the Graph toolbar.
+- **The design-system upgrade** (proposed as five items after the user asked
+  whether there was "a better way to style some of the ui elements and
+  structure alignment grouping, heirarchy etc to be more modern"; approved
+  with "proceed"), every one measured in Chromium before and after:
+  1. **Surface tiers and a border budget.** `--surface-1/2/3` and
+     `--divider`. A hairline on the outermost pane only; groups and rows
+     inside it are a tone. Nested hairlines on Tools it can use 54 → 0,
+     Skills 20 → 0. Inner rows keep `1px solid transparent` so nothing moves
+     and `[data-contrast="on"]` colours it back. Settings is now fully
+     opaque — its sticky tool filter must paint the group's tint over the
+     same base the group does, and a 96% base is "the modal plus 4% of the
+     app", which no rule can name (measured 236 vs 243; now equal ±1).
+  2. **The button ramp.** Filled (one per card/dialog) > tonal (`.ghost`,
+     `.icon-only`: fill, transparent edge, no shadow; the fill went up a
+     step to pay for the edge) > plain. 22 outlined-and-shadowed buttons sat
+     in one Notes toolbar before.
+  3. **One eyebrow recipe.** Card `h3`s were 12px/600/0.04em; the Settings
+     nav labels and dashboard launch rows were 11.2px/700/0.06em at 75%
+     opacity — same job, two voices. The rule is in DESIGN.md → Hierarchy.
+  4. `--form-label-col` / `-wide` for the settings label column.
+  5. Segmented controls: a tab strip is a well or a card; a choice control
+     is a `--chip-bg` well with no edge. The Graph pickers and the chat mode
+     switch were the three drawn as cards.
+  Not checked: every palette (the tints are ink/white alphas so they should
+  hold, but only default light/dark were sampled), and `[data-contrast="on"]`
+  was reasoned from the rules, not screenshotted.
 - **Library**: the Files sub-tab's selection tick was never enrolled in the
   tick recipe, so it drew nothing; list view no longer reserves a 48px
   thumbnail column on a notebook with no thumbnails; the timeline's shine

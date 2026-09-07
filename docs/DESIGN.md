@@ -314,6 +314,20 @@ line count is not. `[data-contrast="on"]` puts the edge back.
 A selected toggle (`.active`) is the filled recipe: on is the accent, not a
 darker tonal.
 
+**Segmented controls are two things, and they are drawn differently on
+purpose.** A *tab strip* (`[role="tablist"]`: the tab bar, the Notes and
+Library sub-tabs) sits on the surface — the tab bar is a `--field-inset`
+well, the sub-tab strips are their own card. A *choice control* (`.seg`,
+`.segmented-control`: view toggles, sort, Ask/Request) is a `--chip-bg` well
+with no edge, whatever else it is inside. Measured: 28 `.seg` groups were
+already that, and the Graph's layout/colour pickers plus the chat dock's
+mode switch were the three drawn as cards — now conformed, not given a
+third recipe.
+
+**Form rows share a label column.** `--form-label-col` (9rem; `-wide`, 11rem,
+for Search relevance) is the width every `.setting-label` reserves, so the
+controls in adjacent rows start on one edge.
+
 ## Icons
 
 Phosphor (`<i class="ph ph-*">`) is the default for every icon in the app.

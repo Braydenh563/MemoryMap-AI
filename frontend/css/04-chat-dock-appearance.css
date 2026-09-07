@@ -878,8 +878,10 @@
 .chat-dock-controls .chat-dock-more>button,
 .chat-dock-controls .seg {
   border-radius: var(--radius-pill);
-  border: 1px solid var(--glass-border);
-  background: var(--card);
+  /* The `.seg` choice-control recipe (a tinted well, no edge), not the card
+     one -- see `.segmented-control` in 03-dashboard-widgets.css. */
+  border: 1px solid transparent;
+  background: var(--chip-bg);
   box-shadow: none;
   overflow: hidden;
 }
@@ -1633,7 +1635,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
-  min-width: 9rem;
+  min-width: var(--form-label-col);
 }
 
 .setting-label>span {

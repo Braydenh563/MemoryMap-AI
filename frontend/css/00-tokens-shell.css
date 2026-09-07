@@ -469,6 +469,14 @@ select optgroup {
      for every sidebar the user had never dragged, and nothing in the
      stylesheet said so. */
   --saved-width: 280px;
+  /* The label column of a settings row (`.setting-label`, and the wider
+     variant Search relevance needs for "Minimum similarity"). Named so every
+     row in a group lines its control up on the same edge -- measured before
+     this, label widths across Settings were whatever each label's text
+     happened to be (36, 59, 71, 180, 246px...), so controls in adjacent rows
+     started at different x positions. */
+  --form-label-col: 9rem;
+  --form-label-col-wide: 11rem;
   /* pills and round buttons.
 
      14px, not 18px. Blur radius is the exponential term in a

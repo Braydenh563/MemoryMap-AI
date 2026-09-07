@@ -128,6 +128,11 @@ select optgroup {
   --inner: color-mix(in srgb, rgba(255, 255, 255, 0.45) calc(var(--glass-opacity) * 100%), transparent);
   --input-bg: color-mix(in srgb, rgba(255, 255, 255, 0.55) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(255, 255, 255, 0.65);
+  /* The lit top rim of a glass pane — see `.glass` in
+     03-dashboard-widgets.css. Brighter on light, where the surface sits
+     under more ambient light; a whisper on dark, where a strong white line
+     would read as a border rather than as a highlight. */
+  --glass-highlight: rgba(255, 255, 255, 0.75);
   --modal-bg: rgba(252, 253, 255, 0.96);
   /* Fully opaque (alpha 1, not 0.96) — for a floating surface read over dense
      text, not just glanced at. Verified by sampling raw screenshot pixels,
@@ -473,6 +478,7 @@ select,
   --inner: color-mix(in srgb, rgba(255, 255, 255, 0.05) calc(var(--glass-opacity) * 100%), transparent);
   --input-bg: color-mix(in srgb, rgba(14, 16, 23, 0.55) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(255, 255, 255, 0.10);
+  --glass-highlight: rgba(255, 255, 255, 0.06);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
   --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
   --modal-bg: rgba(24, 27, 37, 0.97);
@@ -511,6 +517,7 @@ select,
     --inner: color-mix(in srgb, rgba(255, 255, 255, 0.05) calc(var(--glass-opacity) * 100%), transparent);
     --input-bg: color-mix(in srgb, rgba(14, 16, 23, 0.55) calc(var(--glass-opacity) * 100%), transparent);
     --glass-border: rgba(255, 255, 255, 0.10);
+    --glass-highlight: rgba(255, 255, 255, 0.06);
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
     --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
     --modal-bg: rgba(24, 27, 37, 0.97);
@@ -2012,8 +2019,8 @@ header#top-bar.tabs-wrapped #tab-bar {
      without the blur, so whatever sat behind it (the page's own background
      blobs) showed through as an odd, uncontrolled tint. Reported live as a
      "weird coloured background behind the images". */
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
 }
 
 /* Had no styling at all before — a plain inline button between the image
@@ -2109,8 +2116,8 @@ header#top-bar.tabs-wrapped #tab-bar {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   background: var(--modal-bg);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   box-shadow: var(--glass-shadow);
 }
 
@@ -2140,8 +2147,8 @@ header#top-bar.tabs-wrapped #tab-bar {
      used by kebabMenu()) and gets this for free; this is the one place that
      still needed it named explicitly. */
   border-radius: var(--radius-lg);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   box-shadow: var(--glass-shadow);
 }
 
@@ -3001,8 +3008,8 @@ header#top-bar.tabs-wrapped #tab-bar {
 /* --- the glass card -------------------------------------------------------- */
 .card {
   background: var(--card);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   /* Outer depth plus a one-pixel specular lip along the top edge. The lip is

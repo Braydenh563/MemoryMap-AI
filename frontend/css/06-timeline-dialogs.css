@@ -82,8 +82,8 @@
      8px: this is the same --modal-bg tier as every other popup, and the
      mismatched blur radius was the most visible "frostiness" inconsistency
      across tabs (DESIGN.md/checklist Part B). */
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   /* Explicit properties, not `all` — the hover/focus-visible rule below only
      ever touches these four, and `all` also makes the browser watch
      `backdrop-filter` (expensive, and static here) for a change that never
@@ -1517,9 +1517,9 @@
      stays as well, so the panel still reads as part of the same material as
      the header it hangs from rather than as a flat card pasted on top. */
   background: var(--modal-bg);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
   /* **Inherited from `.header-controls`, which sets `nowrap` so "⚙ Settings"
      cannot break in two and make the whole bar taller.** That is right for the
      buttons and wrong for a panel of prose hanging off one: every reminder
@@ -2236,9 +2236,9 @@
      blur at all, so it read visibly thinner than every sibling panel. */
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
 }
 
 /* Reported directly, with a screenshot: the colour swatch and the
@@ -2264,8 +2264,8 @@
   border-radius: var(--radius);
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   box-shadow: var(--glass-shadow);
 }
 
@@ -2678,8 +2678,8 @@
   border-radius: var(--radius);
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   box-shadow: var(--glass-shadow);
   min-width: max-content;
 }
@@ -2843,8 +2843,8 @@
   border-radius: var(--radius-sm);
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   box-shadow: var(--glass-shadow);
   font-size: var(--text-sm);
   font-weight: 600;

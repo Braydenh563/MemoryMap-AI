@@ -261,10 +261,30 @@
    `--card` is the right token regardless: all twelve palettes define it, and
    `[data-glass="off"]` already swaps it for a solid colour, so glass-off keeps
    working here for free. */
-.glass {
+/* **Liquid glass, refined.** Asked for directly. Three things separate a
+   convincing glass surface from a blurred rectangle, and this had only the
+   first: the blur, a *lit top edge* (light catches the rim of a real pane),
+   and a slight brightness lift so the surface reads as material rather than
+   as a hole. `saturate` alone flattened everything behind it.
+
+   Deliberately not more transparent: CLAUDE.md's nav-history story is a
+   4%-see-through popup over dense text being reported as "ghost text", and
+   `--modal-bg` stays exactly where it is for that reason. This changes how
+   the surface *catches light*, not how much shows through it.
+
+   The highlight is an inset shadow rather than a pseudo-element so it costs
+   no DOM and cannot be clipped by a child; `data-glass="off"` already
+   strips the filter below and now the highlight with it. */
+.glass,
+.card.glass {
   background: var(--card);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
+}
+
+:root[data-glass="off"] .glass {
+  box-shadow: var(--shadow-md);
 }
 
 :root[data-glass="off"] .space-menu,
@@ -2365,8 +2385,8 @@
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
 }
 
 .graph-help-panel p {
@@ -2499,8 +2519,8 @@ p.graph-help-panel {
      see that rule's comment. */
   background: var(--modal-bg);
   box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   --control-h: 1.875rem;
 }
 
@@ -2678,8 +2698,8 @@ p.graph-help-panel {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   /* Beats `.setting-hint.is-collapsed`'s own max-height:0 for a Settings
      hint being shown through this component rather than inline. */
   margin: 0;

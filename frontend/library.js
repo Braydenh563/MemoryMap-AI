@@ -4895,6 +4895,127 @@ function mediaReadingBadge(row) {
   return badge;
 }
 
+//: **A document's reading, said in one line** (UI_MODERNISATION_PLAN Phase
+//: 7.5). Asked for directly, twice: "the card format is difficult with files as
+//: they can be quite long and large, a single image or ocr caption doesnt fit
+//: them", and then "the files sub-tab has to show more than a row can hold."
+//:
+//: The row used to render the whole transcription and clamp it — measured on a
+//: three-page reading at 1440, the paragraph was cut mid-glyph two lines in,
+//: with a "Show more" that turned one row into a wall. A clamped paragraph is
+//: the worst of both: too little to read, too much to skim.
+//:
+//: So: the first sentence, and then the two numbers a person is actually
+//: deciding on when they scan this list — how much of the document has been
+//: read, and how much text came out of it.
+function mediaReadingSummary(row) {
+  const reading = mediaReading(row);
+  if (!reading) return null;
+  const words = reading.split(/\s+/).filter(Boolean).length;
+  //: First sentence, or the first line if the reading has no sentence in it —
+  //: a table of figures, a slide title, a scan of a form. Capped, because a
+  //: "sentence" in a bad transcription can run for a paragraph, and the cap is
+  //: what keeps this to one line at every width.
+  const firstLine = reading.split("\n").map((line) => line.trim()).find(Boolean) || reading;
+  //: Deliberately not a `[…]+` run anchored at the end — that is the
+  //: polynomial-backtracking shape CodeQL has already caught in this repo. A
+  //: plain search for the first sentence end, then a slice.
+  const stop = firstLine.search(/[.!?](\s|$)/);
+  let sentence = stop > 0 ? firstLine.slice(0, stop + 1) : firstLine;
+  if (sentence.length > 120) sentence = `${sentence.slice(0, 119).trimEnd()}…`;
+  const facts = [];
+  //: `pages_read` comes from the server (`_page_read_count_map`), so a
+  //: document read page by page can say so. 0 for an image and for a file
+  //: whose reading is one whole-file blob, where "pages read" would be a
+  //: number about nothing.
+  const pages = Number(row?.pages_read) || 0;
+  if (pages) facts.push(`${pages} page${pages === 1 ? "" : "s"} read`);
+  facts.push(`${words.toLocaleString()} word${words === 1 ? "" : "s"}`);
+  return { sentence, facts, words, pages };
+}
+
+//: The gallery's rows in the shape `openLightbox` wants.
+//:
+//: Extracted from the tile's own click handler when Phase 7.5 gave the Files
+//: row a second way in ("Open reading"). Two copies of this mapping would be
+//: two chances for the two doors to open subtly different dialogs — and the
+//: comments below are precisely the kind of hard-won detail that gets copied
+//: once and then diverges.
+function libraryLightboxItems(images) {
+  return images.map((i) => ({
+    filename: i.original_name,
+    getUrl: () => mediaSrc(i.url),
+    // The one caller with a real *MediaUpload* row, so the lightbox's
+    // id-gated actions (rename/describe/OCR/delete) only ever appear
+    // here — every other caller has a url and nothing else, and a
+    // button guaranteed to 404 is worse than no button. `i._isAttachment`
+    // (Attachment rows this gallery also lists now, see
+    // renderLibraryImagesGallery) is the same case: `i.id` is real,
+    // but it names a row in a different table with none of those
+    // actions, so it must stay unset here for exactly the reason this
+    // comment already gives.
+    id: i._isAttachment ? undefined : i.id,
+    // Asked for directly: "if clicking on an image to view expand it in
+    // the lightbox…can the captions and ocr accompany it somehow??"
+    // The tile is the one place these are too small to read.
+    caption: i.caption || "",
+    text: (i.vision_ocr_text || i.ocr_text || "").trim(),
+    byline: i.vision_ocr_text
+      ? `Text read by ${shortModelName(i.vision_ocr_model) || "a model"}`
+      : i.ocr_text
+        ? "Text read with Tesseract OCR"
+        : "",
+    addedAt: i.created_at || "",
+  }));
+}
+
+//: The Files row's reading block: one line of it, and the way to the rest.
+//: See `mediaReadingSummary` for why a clamped paragraph was the wrong answer.
+function buildFileReadingSummary(image, summary, images) {
+  const holder = document.createElement("div");
+  holder.className = "library-file-reading";
+  if (!summary) {
+    //: Not read yet is a state, not an absence — and the offer that goes with
+    //: it is "read it", which the row's own strip already carries, so this
+    //: says the state and stops.
+    const empty = document.createElement("p");
+    empty.className = "library-file-summary muted text-sm library-image-ocr-empty";
+    empty.textContent = "Nothing has been read from this file yet";
+    holder.appendChild(empty);
+    return holder;
+  }
+  const line = document.createElement("p");
+  line.className = "library-file-summary";
+  line.textContent = summary.sentence;
+  //: The whole first line in the tooltip: the summary is clipped to one line
+  //: by CSS, and a title is the cheapest way to see the rest without turning
+  //: the row into a paragraph again.
+  line.title = summary.sentence;
+  const meta = document.createElement("p");
+  meta.className = "muted text-sm library-file-summary-meta";
+  meta.textContent = summary.facts.join("  ·  ");
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "ghost small library-file-open-reading";
+  setLabel(open, "ph:book-open-text Open reading");
+  //: Distinct from the strip's "Open reader" beside it, and the titles have to
+  //: say how: this opens the *document* with its reading under it (the
+  //: lightbox), that opens the workspace where a page is read, corrected and
+  //: re-read. Both were asked for; neither replaces the other.
+  open.title = "Open the file with its reading, page by page";
+  open.addEventListener("click", (event) => {
+    event.stopPropagation();
+    //: The same items the tile's own click builds, so both doors open the same
+    //: dialog — and `focusReading`, which scrolls the panel under the page
+    //: into view and starts on the first page that has a reading. Without it
+    //: the reading is below the fold on a tall document, which is the whole
+    //: complaint this item is answering.
+    openLightbox(libraryLightboxItems(images), images.indexOf(image), { focusReading: true });
+  });
+  holder.append(line, meta, open);
+  return holder;
+}
+
 function mediaRowKey(image) {
   const kind = image._isAttachment ? "attachment" : "media";
   return `${kind}:${image.id}`;
@@ -5182,34 +5303,7 @@ function filterLibraryImagesGallery() {
       // A sketch's "full size" is the board it lives on — there is no file
       // to open in a lightbox, and the board is where it can actually be
       // edited, moved or deleted in context.
-      openLightbox(
-        images.map((i) => ({
-          filename: i.original_name,
-          getUrl: () => mediaSrc(i.url),
-          // The one caller with a real *MediaUpload* row, so the lightbox's
-          // id-gated actions (rename/describe/OCR/delete) only ever appear
-          // here — every other caller has a url and nothing else, and a
-          // button guaranteed to 404 is worse than no button. `i._isAttachment`
-          // (Attachment rows this gallery also lists now, see
-          // renderLibraryImagesGallery) is the same case: `i.id` is real,
-          // but it names a row in a different table with none of those
-          // actions, so it must stay unset here for exactly the reason this
-          // comment already gives.
-          id: i._isAttachment ? undefined : i.id,
-          // Asked for directly: "if clicking on an image to view expand it in
-          // the lightbox…can the captions and ocr accompany it somehow??"
-          // The tile is the one place these are too small to read.
-          caption: i.caption || "",
-          text: (i.vision_ocr_text || i.ocr_text || "").trim(),
-          byline: i.vision_ocr_text
-            ? `Text read by ${shortModelName(i.vision_ocr_model) || "a model"}`
-            : i.ocr_text
-              ? "Text read with Tesseract OCR"
-              : "",
-          addedAt: i.created_at || "",
-        })),
-        images.indexOf(image)
-      );
+      openLightbox(libraryLightboxItems(images), images.indexOf(image));
     });
     // The tick. Same control the Documents list already uses, so selecting
     // works the same way wherever you are in the Library.
@@ -5944,12 +6038,30 @@ function filterLibraryImagesGallery() {
     //: the files tab, the ocr heading still says 'text in this image' when it
     //: should probably say something like 'extracted text from file'".
     //: `_isImage` is already set for every row by the gallery loader.
-    const visionField = field(
-      image._isImage ? "Text in this image" : "Text extracted from this file",
-      visionOcrText,
-      visionOcrToggle,
-      visionOcrBadge
-    );
+    //: **A file's reading is a summary and a way in, not a clamped
+    //: paragraph** (UI_MODERNISATION_PLAN Phase 7.5). Asked for directly: "the
+    //: card format is difficult with files as they can be quite long and
+    //: large, a single image or ocr caption doesnt fit them."
+    //:
+    //: An image keeps the editable, always-visible box: a photo's reading is a
+    //: line or two, correcting it in place is the whole point, and there is no
+    //: "page 3" to open. A document gets the one-line summary
+    //: (`mediaReadingSummary`) and an action that opens it where the reading
+    //: can actually be read — the lightbox, page beside text. Correcting a
+    //: document's reading was never really possible in a two-line clamp
+    //: anyway; the workspace edits it per page, which is where it belongs.
+    const summary = image._isImage ? null : mediaReadingSummary(image);
+    const visionField = image._isImage
+      ? field(
+          "Text in this image",
+          visionOcrText,
+          visionOcrToggle,
+          visionOcrBadge
+        )
+      : field(
+          "Text extracted from this file",
+          buildFileReadingSummary(image, summary, images)
+        );
     // The Tesseract reading is shown only when it actually found something.
     // Tesseract is a system binary this app never installs on its own (by
     // instruction, and `tesseract_available` in /models/status now says so

@@ -198,6 +198,13 @@ class AttachmentGalleryOut(BaseModel):
     #: the first one instead of a generic file glyph — asked for directly:
     #: "in the files tab, there is no preview".
     has_pages: bool = False
+    #: How many of this document's pages have a stored reading (`PageRead`).
+    #: UI_MODERNISATION_PLAN Phase 7.5: the Files row states "N pages read · N
+    #: words" instead of clamping a paragraph nobody can read at that size, and
+    #: counting pages by splitting the joined text would miscount any reading
+    #: that happens to contain a blank line. 0 for anything never read, which
+    #: is also the honest answer for an image.
+    pages_read: int = 0
 
 
 @router.get("/files/gallery", response_model=list[AttachmentGalleryOut])
@@ -224,10 +231,13 @@ def list_attachment_gallery(session: Session = Depends(get_session)) -> list[Att
         )
         .order_by(Attachment.created_at.desc())
     ).all()
-    page_text = _page_read_text_map("attachment", [attachment.id for attachment, _ in rows])
+    ids = [attachment.id for attachment, _ in rows]
+    page_text = _page_read_text_map("attachment", ids)
+    pages_read = _page_read_count_map("attachment", ids)
     return [
         AttachmentGalleryOut(
             id=attachment.id,
+            pages_read=pages_read.get(attachment.id, 0),
             url=f"/files/{attachment.id}",
             original_name=attachment.filename,
             mime=attachment.mime or "application/octet-stream",
@@ -1049,6 +1059,10 @@ class MediaUploadOut(BaseModel):
     #: placeholder for). Asked for directly with the Files sub-tab redesign:
     #: "file details such as the type, size, topic/category".
     size_bytes: int = 0
+    #: How many of this document's pages have a stored reading — see
+    #: `AttachmentGalleryOut.pages_read` for why the count is sent rather than
+    #: derived from the joined text.
+    pages_read: int = 0
 
 
 @router.get("/media", response_model=list[MediaUploadOut])
@@ -1074,9 +1088,11 @@ def list_media(session: Session = Depends(get_session)) -> list[MediaUploadOut]:
             return 0
 
     media_page_text = _page_read_text_map("upload", [u.id for u in uploads])
+    media_pages_read = _page_read_count_map("upload", [u.id for u in uploads])
     return [
         MediaUploadOut(
             id=u.id,
+            pages_read=media_pages_read.get(u.id, 0),
             used_by=used.get(u.filename, []),
             usage_incomplete=usage_incomplete,
             size_bytes=_size_of(u.filename),
@@ -2060,6 +2076,43 @@ def _page_read_text_map(kind: str, ids: list[int]) -> dict[int, str]:
         if text:
             out.setdefault(row.source_id, []).append(text)
     return {source_id: "\n\n".join(parts) for source_id, parts in out.items()}
+
+
+def _page_read_count_map(kind: str, ids: list[int]) -> dict[int, int]:
+    """How many pages of each file have a stored reading, one query.
+
+    **Why the count and not just the text.** UI_MODERNISATION_PLAN Phase 7.5:
+    "OCR text for a long document does not fit where a photo's caption fits.
+    The Files row shows a one-line summary (first sentence / N pages read / N
+    words)". The joined text is already carried (`_page_read_text_map`), but
+    counting pages out of it means splitting a string on a separator and
+    hoping — a reading that happens to contain a blank line would be counted
+    as two pages.
+
+    A count of rows rather than of distinct pages, because `(kind, source_id,
+    page)` is unique on this table: re-reading a page replaces its row, so
+    there is exactly one row per page that has ever been read.
+    """
+    if not ids:
+        return {}
+    try:
+        with deps.get_db().session() as session:
+            rows = (
+                session.query(PageRead.source_id, PageRead.text)
+                .filter(PageRead.kind == kind, PageRead.source_id.in_(ids))
+                .all()
+            )
+    except Exception:  # noqa: BLE001 - an unreadable cache is an empty one
+        logger.debug("could not count stored page readings for a list", exc_info=True)
+        return {}
+    counts: dict[int, int] = {}
+    for source_id, text in rows:
+        #: Only pages with a *reading*. A page that has only been described
+        #: (Phase 7.3) has a row here too, and counting it would tell the row
+        #: that a transcription exists where none does.
+        if (text or "").strip():
+            counts[source_id] = counts.get(source_id, 0) + 1
+    return counts
 
 
 def _stored_page_reads(key: tuple[str, int] | None) -> list[OcrPageReadOut]:

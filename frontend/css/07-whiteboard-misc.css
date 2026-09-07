@@ -6107,6 +6107,45 @@ button.connection-row {
   opacity: 0.5;
 }
 
+/* **A file's reading, in one line** (UI_MODERNISATION_PLAN Phase 7.5). Asked
+   for directly: "the card format is difficult with files as they can be quite
+   long and large, a single image or ocr caption doesnt fit them."
+
+   The row used to render the whole transcription and clamp it — measured at
+   1440 on a three-page reading, the paragraph was sliced mid-glyph two lines
+   in, with a "Show more" that turned one row into a wall. So: the first
+   sentence on one line, the two numbers underneath, and a way in. The clip is
+   the point of the rule, not a side effect: `nowrap` + `ellipsis` is what
+   makes this exactly one line at every width, the same treatment the filename
+   above it already gets and for the same reason. */
+.library-file-reading {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.library-file-summary {
+  margin: 0;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--text-sm);
+}
+
+.library-file-summary-meta {
+  margin: 0;
+}
+
+/* Tonal, like every other row action in the app — the row already has one
+   filled control (the reading strip's own), and two would be two answers to
+   "what is this row for". */
+.library-file-open-reading {
+  margin-top: var(--space-1);
+}
+
 /* The row's own actions stay pinned to its top-right corner, where they are
    in the tile layout too — same place, so the muscle memory survives. */
 .library-file-rows .library-image-tile > .library-image-actions {

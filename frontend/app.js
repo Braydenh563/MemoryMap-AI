@@ -3619,7 +3619,12 @@ async function attachmentObjectUrl(attachment) {
 // `startIndex` is which one was clicked; a single image is just a one-item
 // list. Reported directly: click-anywhere-to-close alone isn't discoverable,
 // so there's now an explicit close button too — both still work.
-function openLightbox(items, startIndex = 0) {
+//: `opts.focusReading` opens the dialog *at the reading* rather than at the
+//: top of the file — Phase 7.5's "an 'Open reading' action that opens the
+//: lightbox at the reading". On a tall document the info panel is below the
+//: fold, so a plain open lands the reader on a page and leaves them to find
+//: the text they asked for.
+function openLightbox(items, startIndex = 0, opts = {}) {
   let index = startIndex;
   const overlay = document.createElement("div");
   overlay.className = "lightbox";
@@ -5255,7 +5260,26 @@ function openLightbox(items, startIndex = 0) {
   overlay.append(closeBtn, column);
   document.body.appendChild(overlay);
   closeBtn.focus();
-  show(startIndex);
+  //: `.then`, not `await`: `openLightbox` is not async and its nine callers
+  //: do not expect it to be. The dialog is already on screen and interactive
+  //: by the time this resolves; all that is left is where to point the reader.
+  Promise.resolve(show(startIndex)).then(() => {
+    if (!opts.focusReading) return;
+    //: Start on the first page that actually has a reading. Page 1 of a scan
+    //: is often a cover, and "open the reading" landing on a page with none is
+    //: the same disappointment as not opening it at all.
+    if (docPageCount && docPagesRead.size) {
+      setDocPage(Math.min(...docPagesRead));
+    }
+    //: `block: "end"` because the panel sits *under* the file: bringing its
+    //: bottom into view is what puts the reading on screen, where "nearest"
+    //: would decide it is already close enough and do nothing.
+    info.scrollIntoView({ block: "end" });
+    //: Focus follows the eye. `-1` so it is a destination rather than another
+    //: stop on the way through the dialog's own controls.
+    infoText.tabIndex = -1;
+    infoText.focus();
+  });
 }
 
 // A small kebab (⋯) near whatever the user just selected, anywhere in the

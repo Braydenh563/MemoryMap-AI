@@ -3241,6 +3241,10 @@ $("doc-content").addEventListener("keydown", (event) => {
   if (key === "s") { event.preventDefault(); saveDocument(); }
   else if (key === "b") { event.preventDefault(); wrapDocSelection("**"); }
   else if (key === "i") { event.preventDefault(); wrapDocSelection("*"); }
+  // Ctrl+1/2/3 headings and Ctrl+E inline code — the Notion / Typora /
+  // Word set, so the hand does not leave the keyboard for the strip.
+  else if (key === "1" || key === "2" || key === "3") { event.preventDefault(); applyMarkdown(`h${key}`); }
+  else if (key === "e") { event.preventDefault(); wrapDocSelection("`"); }
   // The browser's own Ctrl+F can't search a textarea's content at all — it
   // only sees page DOM text, and a textarea's text is its *value*, not DOM
   // text — so this isn't overriding useful native behaviour here.
@@ -4277,12 +4281,96 @@ document.addEventListener("input", (event) => {
   docToolsOnInput(box);
 });
 
+//: **Tab moves between table cells.** `/table` inserts a markdown table, but
+//: editing one meant arrowing past every `|` by hand — the one thing every
+//: editor with tables (Notion, Obsidian, Typora, Word) does for you. On a
+//: line that starts with `|`, Tab selects the next cell's contents and
+//: Shift+Tab the previous cell's; Tab in the last cell of the last row adds
+//: a row. A separator row (`| --- |`) is skipped over. Returns false on any
+//: other line so the indent behaviour below is untouched.
+function docTableTab(event, box) {
+  const value = box.value;
+  const pos = box.selectionStart;
+  const lineStart = value.lastIndexOf("\n", pos - 1) + 1;
+  let lineEnd = value.indexOf("\n", pos);
+  if (lineEnd === -1) lineEnd = value.length;
+  const line = value.slice(lineStart, lineEnd);
+  if (!/^\s*\|/.test(line)) return false;
+  event.preventDefault();
+  const pipes = [];
+  for (let i = 0; i < line.length; i += 1) if (line[i] === "|" && line[i - 1] !== "\\") pipes.push(i);
+  if (pipes.length < 2) return true;
+  const col = pos - lineStart;
+  const cells = [];
+  for (let i = 0; i < pipes.length - 1; i += 1) cells.push([pipes[i] + 1, pipes[i + 1]]);
+  const select = (from, to) => {
+    // The cell's text without its padding spaces, so typing replaces the
+    // placeholder rather than the spaces around it.
+    const raw = value.slice(from, to);
+    const lead = raw.length - raw.trimStart().length;
+    const trail = raw.length - raw.trimEnd().length;
+    const a = from + lead, b = Math.max(a, to - trail);
+    box.setSelectionRange(a, b);
+  };
+  const isSeparator = (text) => /^\s*\|?\s*:?-{2,}/.test(text);
+  if (event.shiftKey) {
+    let index = cells.findIndex(([a, b]) => col >= a && col <= b);
+    if (index <= 0) {
+      // Previous row's last cell, skipping the separator.
+      let prevEnd = lineStart - 1;
+      while (prevEnd > 0) {
+        const prevStart = value.lastIndexOf("\n", prevEnd - 1) + 1;
+        const prev = value.slice(prevStart, prevEnd);
+        if (!/^\s*\|/.test(prev)) return true;
+        if (!isSeparator(prev)) {
+          const last = prev.lastIndexOf("|"), before = prev.lastIndexOf("|", last - 1);
+          if (before >= 0) select(prevStart + before + 1, prevStart + last);
+          return true;
+        }
+        prevEnd = prevStart - 1;
+      }
+      return true;
+    }
+    select(lineStart + cells[index - 1][0], lineStart + cells[index - 1][1]);
+    return true;
+  }
+  let index = cells.findIndex(([a, b]) => col >= a && col <= b);
+  if (index === -1) index = cells.length - 1;
+  if (index < cells.length - 1) {
+    select(lineStart + cells[index + 1][0], lineStart + cells[index + 1][1]);
+    return true;
+  }
+  // Last cell: next row's first cell, skipping the separator; or a new row.
+  let nextStart = lineEnd + 1;
+  while (nextStart <= value.length) {
+    let nextEnd = value.indexOf("\n", nextStart);
+    if (nextEnd === -1) nextEnd = value.length;
+    const next = value.slice(nextStart, nextEnd);
+    if (!/^\s*\|/.test(next)) break;
+    if (!isSeparator(next)) {
+      const first = next.indexOf("|"), second = next.indexOf("|", first + 1);
+      if (second > first) select(nextStart + first + 1, nextStart + second);
+      return true;
+    }
+    nextStart = nextEnd + 1;
+  }
+  const blank = "|" + " |".repeat(cells.length);
+  const insertAt = lineEnd;
+  box.setRangeText("\n" + blank, insertAt, insertAt, "end");
+  box.setSelectionRange(insertAt + 1 + 2, insertAt + 1 + 2);
+  box.dispatchEvent(new Event("input", { bubbles: true }));
+  return true;
+}
+
 document.addEventListener("keydown", (event) => {
   const box = docToolsBoxFor(event.target);
   if (!box) return;
   //: Before anything else this editor binds: Tab and the arrows mean the
   //: popup while it is open, and mean their usual thing the instant it is not.
-  if (docCompleteKeydown(event, box)) event.stopPropagation();
+  if (docCompleteKeydown(event, box)) { event.stopPropagation(); return; }
+  if (event.key === "Tab" && !event.ctrlKey && !event.altKey && docTableTab(event, box)) {
+    event.stopPropagation();
+  }
 }, true);
 
 //: `selectionchange` is the only event that fires for a caret moved by the

@@ -24131,15 +24131,28 @@ async function openNotifications() {
 
     const body = document.createElement("div");
     body.className = "notif-body";
-    const title = document.createElement("div");
+    //: Title and time on one line, detail underneath. Reported with a
+    //: screenshot: the time was glued to the end of a three-line detail
+    //: and the title wrapped under a 2.25rem "mark read" button — the row
+    //: read as a paragraph with a random button, not as a notification.
+    const head = document.createElement("div");
+    head.className = "notif-row-head";
+    const title = document.createElement("span");
     title.className = "notif-title";
     setLabel(title, item.title);
-    const meta = document.createElement("div");
-    meta.className = "notif-meta muted";
-    meta.textContent = [item.detail, relativeTime(new Date(item.at).toISOString())]
-      .filter(Boolean)
-      .join(" · ");
-    body.append(title, meta);
+    const time = document.createElement("time");
+    time.className = "notif-time muted";
+    time.dateTime = new Date(item.at).toISOString();
+    time.textContent = relativeTime(time.dateTime);
+    time.title = new Date(item.at).toLocaleString();
+    head.append(title, time);
+    body.append(head);
+    if (item.detail) {
+      const meta = document.createElement("div");
+      meta.className = "notif-meta muted";
+      meta.textContent = item.detail;
+      body.append(meta);
+    }
     row.append(icon, body);
 
     //: The dot is the control. A row is either new or it is not, so this is a

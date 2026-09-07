@@ -1581,14 +1581,11 @@
    and `auto` on the middle column so the select takes the slack rather than
    the label or the button. */
 .notif-tools {
-  display: grid;
-  /* Two rows, not three columns across a 22rem panel. Measured: with Clear
-     all on the same line the picker's value box came back 97px wide against
-     144px of text, so the option it is showing you was permanently
-     ellipsised — a picker that cannot say what it is set to. The label and
-     the picker keep row one to themselves; the button gets row two, right
-     aligned, which is where a list-level action belongs anyway. */
-  grid-template-columns: auto minmax(0, 1fr);
+  /* One row: label, picker (takes the slack), then the two list actions as
+     icon buttons. The earlier three-row grid existed because the actions
+     were text buttons that did not fit beside the picker; as icons they
+     do, and the picker still gets ~11rem for its longest option. */
+  display: flex;
   align-items: center;
   gap: var(--space-2);
   margin-top: var(--space-3);
@@ -1596,9 +1593,13 @@
   border-top: 1px solid var(--border);
 }
 
+.notif-tools .notif-activity-mode {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .notif-clear {
-  grid-column: 1 / -1;
-  justify-self: end;
+  margin-left: 0;
 }
 
 .notif-tools-label {
@@ -1643,10 +1644,43 @@
 }
 
 .notif-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
   gap: var(--space-3);
   padding: var(--space-3) 0;
   border-top: 1px solid var(--border);
+}
+
+.notif-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.notif-time {
+  flex: 0 0 auto;
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+/* The read toggle is a small circle, not a full toolbar button: it marks
+   state, it is not the row's main action. */
+#notif-panel .notif-row .notif-read-toggle {
+  width: 1.5rem;
+  height: 1.5rem;
+  min-width: 0;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  align-self: center;
+}
+
+#notif-panel .notif-row .notif-read-toggle:hover,
+#notif-panel .notif-row .notif-read-toggle:focus-visible {
+  color: var(--accent);
 }
 
 .notif-list>li:first-child {
@@ -1664,6 +1698,11 @@
 .notif-title {
   font-size: var(--text-md);
   overflow-wrap: anywhere;
+  /* Two lines at most; a long title is a title, not the story. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .notif-meta {

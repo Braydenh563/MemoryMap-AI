@@ -194,7 +194,7 @@
             </span>
             <span class="row notif-head-actions">
               <button id="notif-mute-toggle" class="ghost small icon-only" aria-pressed="false"
-                title="Mute notifications except reminders"><i class="ph ph-bell-slash" aria-hidden="true"></i></button>
+                title="Mute notifications except reminders. Nothing fires while MemoryMap is closed — it has no background service, by design."><i class="ph ph-bell-slash" aria-hidden="true"></i></button>
               <button id="notif-close" class="ghost small icon-only" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
             </span>
           </div>
@@ -213,6 +213,12 @@
                sits here rather than in Settings because this *is* the
                somewhere else — the control belongs beside the place the
                notices go. -->
+          <!-- One row: the activity picker, then the two list actions as
+               icon buttons. It was three stacked rows (label + picker, Mark
+               all read, Clear all) under a sentence of prose — reported as
+               needing "redesigning and restructuring". The sentence now
+               lives in the mute button's tooltip, which is where "why is
+               nothing arriving while the app is closed" gets asked. -->
           <div class="notif-tools">
             <label class="notif-tools-label" for="notif-activity-mode">AI activity</label>
             <select id="notif-activity-mode" class="ghost small notif-activity-mode"
@@ -226,14 +232,11 @@
                  unread needs one gesture that puts the whole list back to
                  read. It also clears the per-row overrides — "all read" means
                  the same thing whichever way a row became unread. -->
-            <button id="notif-mark-all-read" class="ghost small" type="button"
-              title="Mark every notification as read">Mark all read</button>
-            <button id="notif-clear" class="ghost small notif-clear">Clear all</button>
+            <button id="notif-mark-all-read" class="ghost small icon-only" type="button"
+              title="Mark all as read" aria-label="Mark all as read"><i class="ph ph-checks" aria-hidden="true"></i></button>
+            <button id="notif-clear" class="ghost small icon-only notif-clear" type="button"
+              title="Clear all notifications" aria-label="Clear all notifications"><i class="ph ph-trash" aria-hidden="true"></i></button>
           </div>
-          <p class="muted notif-foot">
-            Nothing fires while MemoryMap is closed — it has no background
-            service, by design.
-          </p>
         </div>
       </span>
       <button id="theme-btn" class="ghost small icon-only" title="Toggle light/dark" aria-label="Toggle light or dark theme"><i class="ph ph-circle-half" aria-hidden="true"></i></button>

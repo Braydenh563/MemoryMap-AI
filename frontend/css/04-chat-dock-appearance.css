@@ -3029,6 +3029,7 @@ label.setting-check,
   gap: var(--space-3);
 }
 
+
 .doc-dock > .doc-actions {
   flex: 1 1 100%;
 }
@@ -3782,3 +3783,22 @@ input.doc-title-input::placeholder {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* PLAN.md D1 — one header row, not two. Appended, not inline: it must
+   follow the base `flex: 1 1 100%` rules it overrides (same specificity,
+   so source order decides — measured: placed above them it did nothing). Measured at 1440px: the identity row
+   (44px) and the action row (38px) each claimed 100% of the dock and stacked,
+   so 88px of chrome sat above 83px of toolbar above the first line of text
+   (text started at y=284). Wide enough to share a line, they do. */
+@media (min-width: 64rem) {
+  .doc-dock > .doc-dock-identity {
+    flex: 1 1 22rem;
+    min-width: 0;
+  }
+
+  .doc-dock > .doc-actions {
+    flex: 0 1 auto;
+    justify-content: flex-end;
+  }
+}
+

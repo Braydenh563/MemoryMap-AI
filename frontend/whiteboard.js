@@ -1469,7 +1469,7 @@ async function wbNudgeSelection(dx, dy) {
 // whose settings the properties panel shows when nothing is selected.
 const WB_STYLE_TOOLS = new Set([
   "draw", "highlighter", "eraser", "line", "arrow", "rect", "circle",
-  "triangle", "diamond", "text", "link-straight", "link-curved", "bucket",
+  "triangle", "diamond", "text", "sticky", "link-straight", "link-curved", "bucket",
 ]);
 
 //: The two "what is selected, if it is of this kind" lookups. Module-level
@@ -2721,6 +2721,26 @@ async function wbCreateObject(kind, data, x, y, width, height) {
     toast(err.message || "Couldn't add that to the board.", true);
     return null;
   }
+}
+
+//: **A sticky note is a text box that already looks like one** (PLAN.md W3).
+//: Same object kind, same editor, same properties panel — the difference is
+//: three defaults (a yellow fill, a warm border, a larger face) and a size
+//: that fits a thought rather than a paragraph. Kept as `kind: "text"` on
+//: purpose: no schema change, and every text feature (copy style, AI, undo)
+//: works on a sticky the day it exists.
+async function wbCreateSticky(x, y) {
+  const created = await wbCreateObject(
+    "text",
+    { content: "", bg: "#fff4a3", border_color: "#e8d56a", color: "#2a2a1f", font_size: 16 },
+    x - 90, y - 70, 180, 140
+  );
+  if (!created) return;
+  wbSelectToolRef?.("select");
+  requestAnimationFrame(() => {
+    const el = document.querySelector(`.wb-object[data-id="${created.id}"] .wb-text-content`);
+    if (el) wbBeginTextEdit(el);
+  });
 }
 
 async function wbCreateTextBox(x, y) {
@@ -4345,7 +4365,32 @@ async function initWhiteboard() {
       if (key === "c") { e.preventDefault(); wbCopySelectedStyle(); return; }
       if (key === "v") { e.preventDefault(); wbPasteCopiedStyle(); return; }
     }
+    // Ctrl+D duplicates the selection in place (PLAN.md W6) — the chord
+    // Figma, Miro and tldraw share. Implemented as copy+paste through the
+    // clipboard the app already has, with the clipboard put back afterwards
+    // so a duplicate never overwrites something you meant to paste later.
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "d") {
+      e.preventDefault();
+      const kept = wbClipboard;
+      if (wbCopySelection()) wbPasteClipboard().finally(() => { wbClipboard = kept; });
+      return;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser/OS shortcuts alone
+    // `[` sends the selected item back, `]` brings it forward (PLAN.md W6).
+    // Same keys as Figma/Sketch; the z helpers already existed for the
+    // context menu, this only gives them a key.
+    if ((e.key === "[" || e.key === "]") && wbSelectedItem) {
+      const sel = wbSelectedItem;
+      const item = (wbState[WB_LIST_BY_KIND[sel.kind]] || []).find((i) => i.id === sel.id);
+      if (item) {
+        e.preventDefault();
+        wbSetZOrder(sel.kind, item, e.key === "]").then((undo) => {
+          if (undo) wbPushUndo(undo);
+          wbScheduleRender();
+        });
+        return;
+      }
+    }
     const mapped = WB_TOOL_KEYS[e.key.toLowerCase()];
     if (mapped) {
       if (mapped !== "select") clearWbSelection(); // switching away from Select drops it
@@ -4448,6 +4493,10 @@ async function initWhiteboard() {
     if (window.currentTool === "text") {
       const [x, y] = getLogicalMouse(e);
       wbCreateTextBox(x, y);
+    }
+    if (window.currentTool === "sticky") {
+      const [x, y] = getLogicalMouse(e);
+      wbCreateSticky(x, y);
     }
   });
 

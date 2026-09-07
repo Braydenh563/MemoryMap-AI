@@ -3276,7 +3276,12 @@ const DOC_TOOLBAR_COLLAPSED_KEY = "doc-toolbar-collapsed";
 
 function docToolbarCollapsed() {
   try {
-    return localStorage.getItem(DOC_TOOLBAR_COLLAPSED_KEY) === "1";
+    // Collapsed until you ask for it (PLAN.md D1): Typora, iA Writer and
+    // Notion all start with no formatting strip on screen — the strip is a
+    // 30-control, three-row block that pushed the first line of text to
+    // y=284 at 1440px. The collapsed strip keeps its own name and the
+    // chevron that brings it back, and a choice either way is remembered.
+    return (localStorage.getItem(DOC_TOOLBAR_COLLAPSED_KEY) ?? "1") === "1";
   } catch {
     return false; // private mode — the expanded shape is the safe default
   }

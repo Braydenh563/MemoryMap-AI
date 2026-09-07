@@ -23939,24 +23939,46 @@ function setForcedUnreadIds(ids) {
   }
 }
 
-function isNotificationUnread(item, readAt = notificationsReadAt(), forced = forcedUnreadIds()) {
-  return item.at > readAt || forced.has(item.id);
+//: **Marking one row read must not mark the rest read.** Reported: "when I
+//: tick mark as complete on a single notification it does that for all of
+//: them." The old code moved the *watermark* up to that row's timestamp,
+//: and the watermark is "everything older than this is read" — so ticking
+//: the newest row silently read every row beneath it. A second override set,
+//: the mirror of `forcedUnreadIds`, holds rows read *ahead* of the watermark;
+//: the watermark itself only ever moves on "mark all" / opening the panel.
+const NOTIFICATIONS_READ_IDS_KEY = "notificationsForcedRead";
+
+function forcedReadIds() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(NOTIFICATIONS_READ_IDS_KEY) || "[]");
+    return new Set(Array.isArray(raw) ? raw : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function setForcedReadIds(ids) {
+  try {
+    const known = new Set(storedNotifications().map((n) => n.id));
+    localStorage.setItem(NOTIFICATIONS_READ_IDS_KEY, JSON.stringify([...ids].filter((id) => known.has(id))));
+  } catch {
+    // Storage refused — the flag is lost, the panel is not.
+  }
+}
+
+function isNotificationUnread(item, readAt = notificationsReadAt(), forced = forcedUnreadIds(), read = forcedReadIds()) {
+  if (forced.has(item.id)) return true;
+  if (read.has(item.id)) return false;
+  return item.at > readAt;
 }
 
 function setNotificationUnread(id, unread) {
-  const ids = forcedUnreadIds();
-  if (unread) ids.add(id);
-  else ids.delete(id);
-  setForcedUnreadIds(ids);
-  //: A row marked *read* while the watermark still counts it as new needs the
-  //: watermark moved past it, or the override would be the only thing holding
-  //: it unread and removing it would change nothing.
-  if (!unread) {
-    const item = storedNotifications().find((entry) => entry.id === id);
-    if (item && item.at > notificationsReadAt()) {
-      localStorage.setItem(NOTIFICATIONS_READ_KEY, String(item.at));
-    }
-  }
+  const unreadIds = forcedUnreadIds();
+  const readIds = forcedReadIds();
+  if (unread) { unreadIds.add(id); readIds.delete(id); }
+  else { unreadIds.delete(id); readIds.add(id); }
+  setForcedUnreadIds(unreadIds);
+  setForcedReadIds(readIds);
   renderNotificationBadge();
 }
 
@@ -33100,6 +33122,7 @@ $("chat-jump-latest")?.addEventListener("click", () => {
 $("notif-mark-all-read")?.addEventListener("click", () => {
   localStorage.setItem(NOTIFICATIONS_READ_KEY, String(Date.now()));
   setForcedUnreadIds(new Set());
+  setForcedReadIds(new Set());
   openNotifications();
   toast("All notifications marked as read.");
 });

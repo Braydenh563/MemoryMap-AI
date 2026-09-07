@@ -1,6 +1,6 @@
 # The professional-grade plan — whiteboard, documents, backend, agent harness
 
-**Read after [`../ROADMAP.md`](../ROADMAP.md) and [`HANDOVER.md`](HANDOVER.md).**
+**Read after [`../ROADMAP.md`](../ROADMAP.md) and [`HANDOVER.md`](HANDOVER.md). The findings behind this plan — bugs, schema, per-surface gaps — are in [`AUDIT.md`](AUDIT.md).**
 Asked for directly: *"make the documents text editor be the best one existing,
 and same for the whiteboard. refine the backends, functionality and ui ux for
 both... the app needs to shine and be usable professionally... make sure the
@@ -122,3 +122,33 @@ harness people build on:
 Every sprint: run the full suite, `ruff check .`, `node --check` on every
 touched JS, one Playwright measurement per UI claim, and a HANDOVER.md entry
 that says what was *not* verified.
+
+## 6. Semantic search and the knowledge graph — "the ultimate upgrade"
+
+Asked for directly. Today: keyword `ILIKE` scans everywhere, an optional
+embedding backend (absent on the default install), a graph drawn from explicit
+links plus a "similar notes" spotlight, and `EntityMention` rows that exist
+but drive nothing. The design below is what Obsidian-plus-Cognee would be if it
+were offline, one process, and honest about a CPU-only laptop.
+
+| # | Item | Where | Done when / measure |
+|---|------|-------|---------------------|
+| S1 | **Hybrid retrieval, one function.** `search(q, scope, k)` = FTS5 (trigram tokenizer → typo tolerance for free) **and** embedding kNN, fused by reciprocal-rank fusion; keyword-only when no embedding backend. Every search box, the agent's `search_notes`, `list_documents` and the stats search call *this*. | new `core/search.py`; migrations for FTS5 tables over entries, documents, file readings | Golden set of 40 (query → expected note) over the fixture notebook: MRR ≥ 0.8 with embeddings, ≥ 0.6 without. |
+| S2 | **Embeddings that do not cook the laptop.** Embed on the job queue (PLAN B2) with a bounded worker, chunked (≈300 tokens, 20% overlap), stored in a `chunks(id, ref_kind, ref_id, ord, text, vector BLOB, model)` table; cosine via numpy over a memory-mapped matrix, no torch (CLAUDE.md). Re-embed only chunks whose text hash changed. | `core/embeddings.py`, `core/jobs.py` | Startup does **zero** embedding work (see E14); a 10k-note notebook embeds incrementally at <5% CPU average with the worker's sleep. |
+| S3 | **Entities as first-class graph nodes.** `EntityMention` already links entries to entities; extract with a small local model *on the queue*, dedupe by normalised name, and let the graph show entity hubs (people, projects, places) that connect notes without an explicit link. | `ai/entities.py`, `graph.js` | A note mentioning "Matthew McKague" and a document mentioning the same name share a hub node. |
+| S4 | **Inferred edges with provenance.** Three edge kinds in the graph, each toggleable and each labelled with *why*: explicit `[[link]]`, shared entity, embedding-similar (top-3, cosine ≥ 0.82). | `routes_graph.py`, `graph.js` legend | Hovering an inferred edge shows "similar (0.87)" or "both mention X". |
+| S5 | **Communities and a time axis.** Louvain/label-propagation over the fused graph (pure Python, cached per notebook version) colours clusters; a time slider fades nodes by last edit. | `core/graph.py` | 2k-node graph clusters in <2s, cached until the next mutation. |
+| S6 | **Graph as a query surface.** Click a cluster → "what is this about?" (the agent summarises the cluster's notes); select two nodes → "path between" (Yen's already exists) and "explain the connection". | `graph.js`, agent tools | Works with the fake transport in tests. |
+| S7 | **Backlinks and unlinked mentions everywhere** (Obsidian's killer feature): every note/document panel lists notes that mention its title without linking, with one-click "link it". | `routes_entries.py /connections`, panels | FTS query on the title; test with three unlinked mentions. |
+| S8 | **Index health in Settings**: chunk count, embedded %, model, last run, "rebuild" — and never a silent rebuild on boot. | Settings › Search | Numbers match the tables. |
+
+## 7. Startup and thermal behaviour (reported: "fan noticeably speeds up when starting")
+
+Not yet measured — measure first, then fix. Candidates, in order of likelihood:
+
+1. **Embedding/index rebuild on boot** — grep `startup`/`lifespan` handlers in `api/app.py` and `core/` for anything that walks every entry.
+2. **Model warm-up / `/api/show` per installed model** on the first `/models/status` (HANDOVER records this tripping a 5s abort).
+3. **Four poll loops starting at once** (PLAN P1).
+4. **Media GC / orphan scan** on boot.
+
+Measure: `py-spy top --pid <uvicorn>` for the first 60s after launch, and Chrome's Performance panel for the first 10s of the page. Write both numbers into HANDOVER.md before changing anything. Target: the process is idle (<3% CPU) within 10s of the window appearing, with all indexing deferred to the job queue at low priority.

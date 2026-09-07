@@ -1622,8 +1622,18 @@
   border-top: 1px solid var(--border);
 }
 
+/* **The two list actions sit hard right, and the picker no longer stretches
+   into them.** Reported: "align the mark as read and clear all notifcations
+   button to the right". The picker was `flex: 1 1 auto`, so it swallowed all
+   the slack and the buttons ended up wherever its text happened to end --
+   right-ish, but never on the panel's own right edge, and moving as the
+   selected option changed. */
+.notif-tools #notif-mark-all-read {
+  margin-left: auto;
+}
+
 .notif-tools .notif-activity-mode {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
 }
 

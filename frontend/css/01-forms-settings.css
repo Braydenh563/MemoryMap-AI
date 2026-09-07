@@ -18,6 +18,22 @@
   margin-block: 0;
 }
 
+/* **A card's head row wraps rather than crushing its own controls.**
+   Measured on Notes → Capture: the control cluster beside "Capture a thought"
+   needed 218px and was given 188, so the card scrolled sideways -- reported as
+   "there's a horizontal scrollbar on the notes tab capture subtab". A flex
+   item's automatic minimum size does not protect a nested `.row`, and the head
+   row was `nowrap`, so there was nowhere for the extra 30px to go. Wrapping is
+   the right answer for a title-plus-actions row: on a narrow window the actions
+   drop to their own line instead of the page growing a scrollbar. */
+.card > .row.space-between {
+  flex-wrap: wrap;
+}
+
+.card > .row.space-between > .row {
+  flex: 0 0 auto;
+}
+
 .card h2 {
   margin: 0 0 var(--space-5);
   font-size: var(--text-body);

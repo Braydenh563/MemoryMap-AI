@@ -16643,6 +16643,33 @@ document.addEventListener(
 
 // "12.4k" beats "12417" when the number is a rough sense of scale, which is
 // all a token count ever is.
+//: **A model's name as a badge should say, at a glance, which model.**
+//: Reported: "can you truncate hugging face model names in visual badges
+//: except for in the model settings page to remove the hf.co/ part??"
+//:
+//: A HuggingFace id arrives as `hf.co/LiquidAI/LFM2.5-VL-1.6B` (Ollama's own
+//: form) — three segments of which only the last identifies the model, and
+//: the first two eat the width a badge has. The org is kept off too: two
+//: models from the same org differ in their last segment, never their first.
+//: Settings → Models is deliberately *not* a caller: choosing a model to pull
+//: needs the id you would actually type.
+//:
+//: Only prefixes that are registry addresses are stripped. `llama3.2:3b` and
+//: `gemma3:latest` are already short and are returned untouched, tag and all.
+function shortModelName(name) {
+  const raw = String(name || "").trim();
+  if (!raw) return "";
+  const withoutHost = raw.replace(/^(https?:\/\/)?(hf\.co|huggingface\.co)\//i, "");
+  //: Only when a registry host was actually stripped is the remaining
+  //: `org/model` split safe: a bare `library/llama3` from a private registry
+  //: keeps its shape, because there the org may be the only thing telling two
+  //: models apart.
+  if (withoutHost === raw) return raw;
+  const parts = withoutHost.split("/").filter(Boolean);
+  return parts.at(-1) || withoutHost;
+}
+window.shortModelName = shortModelName;
+
 function formatTokens(n) {
   const count = Number(n) || 0;
   if (count < 1000) return String(count);
@@ -24870,7 +24897,18 @@ function agentActivityQuiet() {
 //: only some of them followed would be a setting that half works.
 function agentActivityNotice(message, { isError = false, kind = "task", detail = "", action = null } = {}) {
   recordNotification({ kind: isError ? "error" : kind, title: message, detail, action });
-  if (agentActivityQuiet()) return;
+  //: **Both switches bind here, errors included.** Reported twice: "the agent
+  //: activity straight up ignores muted notifications even when on panel only"
+  //: and "notifications for the background agent appeared when I had them
+  //: muted??".
+  //:
+  //: `toast()` lets an error through whatever the mute says, and that is right
+  //: for a *failure the user caused and is waiting on* — a save that did not
+  //: save. It is wrong here: a background pass failing to tag a note is
+  //: precisely the unattended chatter these two settings exist to quiet, and
+  //: the notifications centre above has already recorded it, so nothing is
+  //: lost by not flying it past the corner of the screen.
+  if (agentActivityQuiet() || notificationsMuted()) return;
   toast(message, isError);
 }
 
@@ -26524,7 +26562,9 @@ function renderChatActiveModelBadge() {
   if (!badge) return;
   const name = modelStatus && modelStatus.chat_model;
   badge.hidden = !name;
-  badge.textContent = name || "";
+  //: The short form in the badge, the full id in the tooltip below — the
+  //: badge is 22ch wide and a HuggingFace id is routinely longer than that.
+  badge.textContent = shortModelName(name);
   // The badge itself ellipsis-truncates a long id (a full HuggingFace path
   // easily runs past the header) — the full name is still one hover away.
   badge.title = name
@@ -26863,6 +26903,14 @@ function renderInstalledModels(status) {
   const inUse = new Set([status.chat_model]);
   if (status.utility_model) inUse.add(status.utility_model);
   if (status.vision_model) inUse.add(status.vision_model);
+  //: The OCR reader is a fourth assignable role and was missing from this set,
+  //: so a model set as the OCR model showed a Remove button instead of "in
+  //: use" — reported directly. Both the chosen name and what it actually
+  //: resolves to: the setting may be blank ("use the vision model") or name a
+  //: model by a tag Ollama reports differently.
+  if (status.ocr_model) inUse.add(status.ocr_model);
+  if (status.ocr_model_resolved) inUse.add(status.ocr_model_resolved);
+  if (status.vision_model_resolved) inUse.add(status.vision_model_resolved);
   if (status.embedding_backend === "ollama") inUse.add(status.embedding_model);
   const usedBases = new Set([...inUse].map((n) => (n || "").split(":")[0]));
 

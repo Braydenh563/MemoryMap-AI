@@ -3949,6 +3949,34 @@ summary:not(.icon-only):not(.icon-button) {
    metadata, and by the lone-control rule above it is one of a set with
    `#chat-usage` beside it), an underline-on-hover and a real ground on
    hover/focus, so it reads as text until you go near it. */
+/* **A truncating badge is a block, not a centred flex row.**
+   Reported with two screenshots: a model name clipped at *both* ends
+   ("'Gemma-4-E2B-Uncensored-HauhauCS-Aggress"), and "a lot of name badges
+   have their text cut off on either end and are centred so the start and end
+   of the text gets cut off".
+
+   The cause is one line in the base `button` rule (01-forms-settings.css):
+   every button is `display: inline-flex; justify-content: center`, which
+   centres its own text. `text-overflow: ellipsis` applies to a block box, and
+   an anonymous flex item has `min-width: auto`, so it refuses to shrink,
+   overflows its centred container by half on each side, and gets sliced by
+   `overflow: hidden` -- no ellipsis, and the *start* of the name gone, which
+   is the half that says which model it is.
+
+   `display: block` on the ones that truncate hands the ellipsis back and
+   anchors the text at its start. Applied to the badge shapes, not to buttons
+   generally: a normal button wants its label centred. */
+.chat-model-button,
+.library-image-vision-ocr-badge,
+.library-image-ocr-badge,
+.library-image-caption-badge {
+  display: block;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .chat-model-button {
   border: 0;
   background: none;

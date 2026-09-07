@@ -4126,7 +4126,7 @@ document.addEventListener("DOMContentLoaded", () => {
             { index: 0, kind: "text", text, confidence: 0, box: { x: 0, y: 0, w: 1, h: 1 } },
           ],
           source: "stored-text",
-          message: `Read by ${body.model || ocrReaderName()} — text only, no page positions.`,
+          message: `Read by ${shortModelName(body.model || ocrReaderName())} — text only, no page positions.`,
           pages: ocrWorkspacePages,
           page,
         });
@@ -5180,7 +5180,8 @@ function filterLibraryImagesGallery() {
         text || (hasRun ? "No legible text found — click to edit" : "No text yet — click to add");
       visionOcrText.classList.toggle("library-image-ocr-empty", !text);
       visionOcrText.title = text ? "Click to edit or clear this reading" : "Click to add text";
-      visionOcrBadge.textContent = hasRun ? `Read by ${model}` : "";
+      visionOcrBadge.textContent = hasRun ? `Read by ${shortModelName(model)}` : "";
+      visionOcrBadge.title = hasRun ? `Read by ${model}` : "";
       visionOcrBadge.classList.toggle("hidden", !hasRun);
       visionOcrBtn.title = hasRun
         ? `Read the text in “${image.original_name}” again`

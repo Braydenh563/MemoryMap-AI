@@ -5607,6 +5607,11 @@ button.connection-row {
 
 .ocr-rail-switch {
   display: flex;
+  /* Wraps: the rail column is ~9rem wide and "Images 6 · Files 1 · Pages 14"
+     is wider than that, so the row overflowed and the first tab was clipped
+     to "mages 6" (reported, with a screenshot). Three short tabs on two
+     lines beat three tabs of which one is unreadable. */
+  flex-wrap: wrap;
   flex: none;
   gap: var(--space-1);
   padding: var(--space-1);
@@ -5616,7 +5621,7 @@ button.connection-row {
 }
 
 .ocr-rail-tab {
-  flex: 1 1 0;
+  flex: 1 1 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -5768,24 +5773,58 @@ button.connection-row {
   width: 100%;
   max-width: none;
   padding: var(--space-3);
+  /* The thumbnail is taken out of the grid below, so the row itself has to
+     be at least as tall as it — a one-line row would otherwise let the
+     picture hang out of the bottom of its card. */
+  position: relative;
+  min-height: calc(9rem + 2 * var(--space-3));
 }
 
-/* The thumbnail column, spanning every row of the grid so the text beside it
-   starts at the top rather than centring against it. */
+/* **The thumbnail is positioned, not a grid item.** Reported with a
+   screenshot: "the file preview squished and elements in the wrong place" —
+   the title on the first line, then a 108px hole, then the size line. The
+   thumb spanned every row (`grid-row: 1 / -1`) at a fixed 9rem, and a
+   spanning item's height is handed to the tracks it spans: measured, the
+   whole 144px landed in row 1, whose own content is a 36px title. Taking
+   the picture out of flow leaves the first column as a plain 7rem spacer
+   and every row exactly as tall as its text. */
 .library-file-rows .library-image-tile > .library-file-thumb,
 .library-file-rows .library-image-tile > img {
-  grid-column: 1;
-  grid-row: 1 / -1;
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
   width: 7rem;
   height: 9rem;
   object-fit: cover;
-  align-self: start;
 }
 
 .library-file-rows .library-image-tile > *:not(img):not(.library-file-thumb) {
   grid-column: 2;
   width: 100%;
   text-align: left;
+}
+
+/* The selection tick sits on the thumbnail's corner, as it does on an image
+   tile — it had been a grid child in the text column, stretched to the full
+   row width by the rule above, so its focus ring drew a 1000px box across
+   the title (reported: "the selected box on the file title isn't even on the
+   actual title"). */
+.library-file-rows .library-image-tile > input.library-tile-tick {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: start;
+  align-self: start;
+  width: auto;
+  margin: var(--space-1);
+  z-index: 1;
+}
+
+/* Name and kebab share the first row; the name leaves room for the kebab
+   instead of running under it. */
+.library-file-rows .library-image-tile > figcaption {
+  grid-row: 1;
+  padding-right: calc(var(--space-9) + var(--space-6));
+  align-self: center;
 }
 
 .library-file-rows .library-image-tile > figcaption {

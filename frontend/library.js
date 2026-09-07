@@ -2643,7 +2643,11 @@ function ocrRenderRegions(body) {
     //: regions are worth having.
     const where = document.createElement("span");
     where.className = "chip ocr-region-where";
-    const pageNumber = (Number(body.page) || 0) + 1;
+    //: A stored page reading carries its own page; a live region belongs to
+    //: the page on screen. Reported: every stored panel said "p1" because
+    //: this only ever read `body.page`.
+    const ownPage = Number.isInteger(region.page) ? region.page : Number(body.page) || 0;
+    const pageNumber = ownPage + 1;
     const pageCount = Number(body.pages) || 1;
     where.textContent =
       pageCount > 1
@@ -2695,6 +2699,40 @@ function ocrRenderRegions(body) {
       copyToClipboard(region.text, event.currentTarget);
     });
     head.appendChild(copy);
+    //: **Delete this panel.** Asked for: "select on what was read and delete
+    //: each extracted text panel as the delete this reading button doesn't
+    //: do anything." That button deletes the reading of the page on
+    //: *screen*, and with the panels for every stored page listed together
+    //: the one you are looking at is usually not that page — so the delete
+    //: landed on a page with nothing to delete and nothing changed. Each
+    //: stored panel now removes its own page's reading.
+    if (Number.isInteger(region.page) && body.source === "stored-text") {
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "ghost small icon-button danger ocr-region-delete";
+      setLabel(remove, "ph:trash");
+      remove.title = `Delete the reading of page ${region.page + 1}`;
+      remove.setAttribute("aria-label", remove.title);
+      remove.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        const image = ocrWorkspaceCurrent;
+        if (!image) return;
+        if (!(await confirmDialog(`Delete the reading for page ${region.page + 1}? You can read it again any time.`))) {
+          return;
+        }
+        remove.disabled = true;
+        try {
+          const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
+          await apiJson(`${base}/page-reads/${region.page}`, { method: "DELETE" });
+          toast(`Reading of page ${region.page + 1} deleted.`);
+          await ocrLoadPage(image, ocrWorkspacePage);
+        } catch (error) {
+          remove.disabled = false;
+          toast(error.message || "Could not delete that reading.", true);
+        }
+      });
+      head.appendChild(remove);
+    }
     const text = document.createElement("p");
     text.className = "ocr-region-text";
     text.textContent = region.text;
@@ -2838,9 +2876,13 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
         regions: storedPages.map((entry, index) => ({
           index,
           kind: "text",
-          text: `Page ${entry.page + 1}\n\n${entry.text.trim()}`,
+          text: entry.text.trim(),
           confidence: 0,
           box: { x: 0, y: 0, w: 1, h: 1 },
+          //: Which page this reading is *of* — the row's own badge and its
+          //: delete button both need it, and `body.page` is only the page
+          //: currently on screen.
+          page: entry.page,
         })),
         source: "stored-text",
         message: stored.message || `${storedPages.length} page(s) already read.`,
@@ -3128,6 +3170,15 @@ function ocrOpenSibling(row) {
     ocrLoadPage(row, 0);
     return;
   }
+  //: Reported: "when clicking on images, it doesn't even go onto them and
+  //: just stays on the file I was on." Opening an image from a document that
+  //: was in continuous mode hit `ocrLoadPage`'s continuous branch — which
+  //: only moves the region overlay between the pages already on screen and
+  //: never sets the image — so the PDF's pages stayed put. An image is one
+  //: page: leave the document's scroll stages and paging behind first.
+  ocrTearDownScroll();
+  ocrWorkspacePage = 0;
+  ocrWorkspacePages = 1;
   ocrLoadPage(row);
   ocrRenderRail(row);
 }

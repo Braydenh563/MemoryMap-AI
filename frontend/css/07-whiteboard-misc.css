@@ -1373,7 +1373,7 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   background: var(--card);
   backdrop-filter: blur(16px);
   border-radius: var(--radius-lg);
-  padding: var(--space-2);
+  padding: var(--space-1);
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--border);
 }
@@ -1387,7 +1387,9 @@ body.has-agent-monitor .doc-sidebar .doc-list {
 .library-subtabs button {
   min-width: 6.5rem;
   text-align: center;
-  padding: 0.5rem 1.25rem;
+  /* Same height as the Notes strip's buttons — see `.notes-subtabs button`. */
+  height: var(--control-h-lg);
+  padding: 0 1.25rem;
   /* Without this, "user-tunable corner rounding"'s own `.seg button` rule
      (04-chat-dock-appearance.css) is the only other rule of equal
      specificity (class + element) that sets border-radius, and it loads

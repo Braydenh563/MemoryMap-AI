@@ -2556,7 +2556,7 @@ button.is-on {
   background: var(--card);
   backdrop-filter: blur(16px);
   border-radius: var(--radius-lg);
-  padding: var(--space-2);
+  padding: var(--space-1);
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--border);
 }
@@ -2572,7 +2572,12 @@ button.is-on {
   box-shadow: none;
   color: var(--muted);
   font-weight: 500;
-  padding: 0.5rem 1.25rem;
+  /* The control height, not a padding-derived 40px: the strip measured
+     55px (40px buttons in a 6.4px well) on both Notes and Library, a fifth
+     of the chrome above the first line of a document. 36px buttons in a
+     4px well is 46px, and the tab bar in the top bar is the same 36. */
+  height: var(--control-h-lg);
+  padding: 0 1.25rem;
   border-radius: var(--radius-md);
   transition: background var(--motion-slow), color var(--motion-slow), transform var(--motion-fast), box-shadow var(--motion-slow);
 }

@@ -5865,7 +5865,6 @@ button.connection-row {
   align-self: start;
   width: auto;
   margin: var(--space-1);
-  z-index: 1;
 }
 
 /* Name and kebab share the first row; the name leaves room for the kebab

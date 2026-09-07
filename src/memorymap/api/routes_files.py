@@ -174,6 +174,16 @@ class AttachmentGalleryOut(BaseModel):
     #: gallery tile's existing "used in" rendering (ROADMAP item 43) needs
     #: no branch for which kind of row it is looking at.
     used_by: list[dict] = []
+    #: The file's size on disk, in bytes; 0 when it cannot be stat'ed (the
+    #: row outliving its file is a real state — see the "Image deleted"
+    #: placeholder the gallery already renders). The comment above says a
+    #: byte count was left out because it "would cost one `stat` per row on
+    #: every gallery load for a number nobody asked for" — it has since been
+    #: asked for directly ("file details such as the type, size, topic/
+    #: category"), which settles the trade the other way. It is one `stat`
+    #: per row against a local disk, on the same pass that already walks
+    #: every row.
+    size_bytes: int = 0
     #: What this file says — see `Attachment`'s own docstring for why these
     #: now exist on an attachment at all. Never null over the wire, the same
     #: convention `MediaUploadOut` keeps, so the gallery can filter on them
@@ -229,6 +239,7 @@ def list_attachment_gallery(session: Session = Depends(get_session)) -> list[Att
             vision_ocr_text=attachment.vision_ocr_text or "",
             vision_ocr_model=attachment.vision_ocr_model or "",
             has_pages=Path(attachment.filename).suffix.lower() == ".pdf",
+            size_bytes=_attachment_size(attachment),
         )
         for attachment, entry in rows
     ]
@@ -252,6 +263,19 @@ class AttachmentAnalyseBody(BaseModel):
     force: bool = False
 
 
+def _attachment_size(attachment: Attachment) -> int:
+    """Bytes on disk, or 0 when the file is gone.
+
+    Same contract as `MediaUploadOut.size_bytes`: a row can outlive its file,
+    and the gallery draws a placeholder for that rather than dropping the row,
+    so this must report a number instead of raising.
+    """
+    try:
+        return (deps.get_config().uploads_dir / attachment.stored_name).stat().st_size
+    except OSError:
+        return 0
+
+
 def _attachment_out(session: Session, attachment: Attachment) -> AttachmentGalleryOut:
     entry = session.get(Entry, attachment.entry_id)
     return AttachmentGalleryOut(
@@ -272,6 +296,7 @@ def _attachment_out(session: Session, attachment: Attachment) -> AttachmentGalle
         vision_ocr_text=attachment.vision_ocr_text or "",
         vision_ocr_model=attachment.vision_ocr_model or "",
         has_pages=Path(attachment.filename).suffix.lower() == ".pdf",
+        size_bytes=_attachment_size(attachment),
     )
 
 
@@ -1016,6 +1041,11 @@ class MediaUploadOut(BaseModel):
     #: empty `used_by` means "could not check" rather than "not used". The UI
     #: must not call a file unused on this basis.
     usage_incomplete: bool = False
+    #: Size on disk in bytes; 0 when the file cannot be stat'ed (a row
+    #: outliving its file is a real state the gallery already draws a
+    #: placeholder for). Asked for directly with the Files sub-tab redesign:
+    #: "file details such as the type, size, topic/category".
+    size_bytes: int = 0
 
 
 @router.get("/media", response_model=list[MediaUploadOut])
@@ -1029,11 +1059,23 @@ def list_media(session: Session = Depends(get_session)) -> list[MediaUploadOut]:
     # walks each table once and inverts the result, so this stays a single
     # pass no matter how many uploads there are.
     used, usage_incomplete = media_gc.usage_map(session)
+    media_dir = deps.get_config().data_dir / "media"
+
+    def _size_of(name: str) -> int:
+        try:
+            return (media_dir / name).stat().st_size
+        except OSError:
+            # A row whose file is gone still lists — the gallery has a
+            # placeholder for exactly that — so this reports 0 rather than
+            # dropping the row or raising.
+            return 0
+
     return [
         MediaUploadOut(
             id=u.id,
             used_by=used.get(u.filename, []),
             usage_incomplete=usage_incomplete,
+            size_bytes=_size_of(u.filename),
             url=f"/media/{u.filename}",
             original_name=u.original_name,
             ocr_text=u.ocr_text or "",

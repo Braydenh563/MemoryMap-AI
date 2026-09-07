@@ -5735,3 +5735,87 @@ button.connection-row {
   width: 5.5rem;
   min-width: 0;
 }
+
+/* --- Files sub-tab: rows, not cards ----------------------------------------
+   Asked for directly: "the card format is difficult with files as they can be
+   quite long and large, a single image or ocr caption doesnt fit them. there
+   should be details on the name, a generated description that cna happen,
+   file details such as the type, size, topic/category, linked notes and other
+   features... integration with the ocr workspace."
+
+   A tile suits a picture, whose content is the thumbnail. A document's
+   content is text about it — name, description, type/size/pages, what it is
+   used in, whether it has been read — and a fixed-width card either clips all
+   of that or leaves every row a different height. One class on the grid
+   (`library-file-rows`, set for the Files sub-tab only) turns the same tiles
+   the Images sub-tab draws into full-width rows: thumbnail left at a fixed
+   size, everything else in a column beside it. The Images grid is untouched. */
+.library-file-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.library-file-rows .library-image-tile {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  grid-template-rows: auto;
+  gap: var(--space-2) var(--space-4);
+  align-items: start;
+  width: 100%;
+  max-width: none;
+  padding: var(--space-3);
+}
+
+/* The thumbnail column, spanning every row of the grid so the text beside it
+   starts at the top rather than centring against it. */
+.library-file-rows .library-image-tile > .library-file-thumb,
+.library-file-rows .library-image-tile > img {
+  grid-column: 1;
+  grid-row: 1 / -1;
+  width: 4.5rem;
+  height: 5.5rem;
+  object-fit: cover;
+  align-self: start;
+}
+
+.library-file-rows .library-image-tile > figcaption,
+.library-file-rows .library-image-tile > .library-file-meta,
+.library-file-rows .library-image-tile > .library-read-strip,
+.library-file-rows .library-image-tile > .library-usage,
+.library-file-rows .library-image-tile > .library-image-fields {
+  grid-column: 2;
+  width: 100%;
+  text-align: left;
+}
+
+.library-file-rows .library-image-tile > figcaption {
+  font-weight: 650;
+  /* A filename is one line; the description under it is where the length
+     belongs. Wrapping a name over three lines pushes every other fact in the
+     row down and makes a list of files impossible to scan. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.library-file-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.library-file-meta-sep {
+  opacity: 0.5;
+}
+
+/* The row's own actions stay pinned to its top-right corner, where they are
+   in the tile layout too — same place, so the muscle memory survives. */
+.library-file-rows .library-image-tile > .library-image-actions {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+}

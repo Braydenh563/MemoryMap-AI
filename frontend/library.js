@@ -2183,6 +2183,16 @@ let libraryMediaView = localStorage.getItem(LIBRARY_MEDIA_VIEW_KEY) === "type" ?
 function applyLibraryMediaView() {
   const grid = document.getElementById("library-images-grid");
   if (grid) grid.classList.toggle("show-file-types", libraryMediaView === "type");
+  //: **Files are rows, images are tiles.** Asked for directly: "the card
+  //: format is difficult with files as they can be quite long and large, a
+  //: single image or ocr caption doesnt fit them." A tile is the right shape
+  //: for a picture, whose content *is* the thumbnail; it is the wrong shape
+  //: for a document, whose content is a name, a description, a size, a page
+  //: count and a list of the notes it is used in — a card either truncates
+  //: all of that or grows to a different height than its neighbours. The
+  //: grid keeps one class and the CSS does the rest, so both sub-tabs keep
+  //: rendering through the one builder.
+  if (grid) grid.classList.toggle("library-file-rows", libraryMediaKind === "files");
   //: **Hidden on Images, where it would do nothing.** Reported: "the one in
   //: the image subtab doesnt do anything" — correct, and it never could. The
   //: toggle chooses between a file's rendered first page and its type glyph,
@@ -2314,6 +2324,61 @@ function mediaFileIcon(url) {
     zip: "ph-file-archive",
   };
   return map[ext] || "ph-file";
+}
+
+//: **The facts about a file, as facts.** Asked for directly with the Files
+//: sub-tab redesign: "the card format is difficult with files as they can be
+//: quite long and large, a single image or ocr caption doesnt fit them. there
+//: should be details on the name, a generated description that cna happen,
+//: file details such as the type, size, topic/category, linked notes and
+//: other features."
+//:
+//: A tile could show a thumbnail, a name and a caption; everything else a
+//: person actually brings to a file list — how big is it, how many pages,
+//: when did it arrive, has it been read — was either absent or buried. These
+//: are the ones the row can state in one line.
+function formatFileSize(bytes) {
+  const size = Number(bytes) || 0;
+  if (size <= 0) return ""; // unknown, or the file is gone — say nothing
+  if (size < 1024) return `${size} B`;
+  const units = ["KB", "MB", "GB"];
+  let value = size / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  // One decimal below 10 (2.4 MB reads better than 2 MB), none above it.
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
+}
+
+//: The muted "TYPE · SIZE · pages · added" strip under a file's name. Every
+//: part is omitted when it is not known rather than shown empty or as a zero,
+//: since "0 B" and "—" are both claims this list cannot make honestly.
+function fileMetaLine(image) {
+  const line = document.createElement("div");
+  line.className = "library-file-meta";
+  const parts = [];
+  parts.push(mediaFileKind(image.original_name || image.url || ""));
+  const size = formatFileSize(image.size_bytes);
+  if (size) parts.push(size);
+  if (image.page_count) parts.push(`${image.page_count} page${image.page_count === 1 ? "" : "s"}`);
+  if (image.created_at) {
+    const when = new Date(image.created_at);
+    if (!Number.isNaN(when.getTime())) parts.push(`added ${when.toLocaleDateString()}`);
+  }
+  for (const [index, part] of parts.entries()) {
+    if (index) {
+      const dot = document.createElement("span");
+      dot.className = "library-file-meta-sep";
+      dot.textContent = "·";
+      line.appendChild(dot);
+    }
+    const span = document.createElement("span");
+    span.textContent = part;
+    line.appendChild(span);
+  }
+  return line;
 }
 
 function mediaFileKind(url) {
@@ -5182,7 +5247,7 @@ function filterLibraryImagesGallery() {
         openOcrWorkspace(image, libraryImagesCache);
       });
       strip.appendChild(read);
-      fig.append(img, actions, cap, strip, usage, fields);
+      fig.append(img, actions, cap, fileMetaLine(image), strip, usage, fields);
       grid.appendChild(fig);
       continue;
     }

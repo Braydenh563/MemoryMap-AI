@@ -920,11 +920,24 @@ progress {
 }
 
 .entry-list li {
-  background: var(--inner);
-  border: 1px solid var(--border);
+  /* Tier 2 (surface tiers, 00-tokens-shell.css): a row inside a pane is a
+     tone, not a box. The card or modal around the list already draws the
+     one hairline the budget allows; a lined row inside it, holding lined
+     chips, was three nested lines. The transparent border keeps the 1px of
+     geometry that the flash/overdue/priority rules below colour in, and
+     lets high-contrast mode put the line back. */
+  background: var(--surface-2);
+  border: 1px solid transparent;
   border-radius: var(--radius-lg);
   padding: 0.6rem 0.8rem;
   margin-bottom: 0.6rem;
+}
+
+/* One tier deeper when the list itself sits inside a tinted group (Settings
+   → Import & export's backups, Account's sessions): tone on tone at the same
+   alpha would vanish. */
+.settings-group .entry-list li {
+  background: var(--surface-3);
 }
 
 /* ---- Rows: the default way a list of notes is shown --------------------
@@ -2463,6 +2476,18 @@ mark.global-find-hit.global-find-current {
   /* Nearly opaque: unlike page cards, a settings dialog floats over busy
      content — full glass here makes it unreadable. */
   background: var(--modal-bg);
+}
+
+/* Settings alone is *fully* opaque. Its groups are a 4% ink tint over the
+   dialog (the surface tiers in 00-tokens-shell.css), and its sticky filter
+   row has to paint that same tint over the same base to hide the rows
+   scrolling under it. With the dialog at 96% the base is "the modal colour
+   plus 4% of whatever the app behind it is", which no rule can name:
+   measured on light, group 236 against row 243, a visible slab. Over an
+   opaque dialog both resolve to the one composite. Nothing is lost -- the
+   4% see-through was never legible over the blurred app anyway. */
+#settings-modal .modal-card {
+  background: var(--modal-bg-opaque);
 }
 
 .modal-body {

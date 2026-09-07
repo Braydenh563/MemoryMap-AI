@@ -222,6 +222,29 @@ select optgroup {
      an opaque field: --input-bg is translucent and sits over a busy
      gradient, so a heavier inset reads as dirt on the glass. */
   --field-inset: rgba(31, 36, 48, 0.07);
+  /* ============ SURFACE TIERS, and the border budget ========================
+     Three depths, and a rule about which of them may draw a line. Measured
+     before this existed (Settings → Tools it can use): the modal drew a
+     hairline, the group inside it drew a hairline, and all 54 rows inside
+     the group drew one more -- three nested boxes, each saying "this is a
+     thing" with the same 1px line, so none of them said anything. Every
+     mature system (Apple HIG grouped lists, Material's tonal surfaces,
+     Linear) does the opposite: **a line on the outermost surface only, and
+     everything inside grouped by tone and whitespace.**
+
+     --surface-1  the pane: .card, the modal, a popover. Glass, and the one
+                  tier that may carry a hairline/rim.
+     --surface-2  a group inside a pane: a settings group, a list row. A
+                  faint ink tint, no border. Tinted with ink rather than white
+                  so it reads on the near-white modal, where a white tint
+                  (--inner) is invisible.
+     --surface-3  a row inside a group, or a hover: one step deeper.
+     --divider    the line *between* two rows in a list, lighter than
+                  --border -- a separator, not an edge. */
+  --surface-1: var(--card);
+  --surface-2: rgba(31, 36, 48, 0.04);
+  --surface-3: rgba(31, 36, 48, 0.08);
+  --divider: rgba(31, 36, 48, 0.08);
   /* The specular top edge that reads as light catching the lip of a glass
      panel. Kept low in the light theme for the reason the sheen gradient
      below already records — white on near-white adds nothing. */
@@ -557,6 +580,10 @@ select,
   --ghost-btn-bg-hover: rgba(255, 255, 255, 0.20);
   --ghost-btn-border-hover: rgba(255, 255, 255, 0.32);
   --field-inset: rgba(0, 0, 0, 0.28);
+  --surface-1: var(--card);
+  --surface-2: rgba(255, 255, 255, 0.045);
+  --surface-3: rgba(255, 255, 255, 0.09);
+  --divider: rgba(255, 255, 255, 0.08);
   --glass-specular: rgba(255, 255, 255, 0.14);
 }
 
@@ -602,6 +629,10 @@ select,
     --ghost-btn-bg-hover: rgba(255, 255, 255, 0.20);
     --ghost-btn-border-hover: rgba(255, 255, 255, 0.32);
     --field-inset: rgba(0, 0, 0, 0.28);
+    --surface-1: var(--card);
+    --surface-2: rgba(255, 255, 255, 0.045);
+    --surface-3: rgba(255, 255, 255, 0.09);
+    --divider: rgba(255, 255, 255, 0.08);
     --glass-specular: rgba(255, 255, 255, 0.14);
   }
 }
@@ -1147,7 +1178,7 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 .extras-row {
   padding: var(--space-5) 0;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--divider);
 }
 
 .extras-row:first-child {

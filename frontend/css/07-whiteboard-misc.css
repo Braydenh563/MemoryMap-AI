@@ -4231,15 +4231,18 @@ summary:not(.icon-only):not(.icon-button) {
      reported as the "Filter" label and the search field looking broken —
      measured, and the tool list's own top row was bleeding through both,
      legible enough to read as overlapping text.
-     `var(--modal-bg)` is the fix, not a composited two-layer gradient like
-     the Agent Activity panel's own version of this bug needed — that panel
-     floats over the *page*, whose background genuinely is a gradient; this
-     row's parent is a flat, already-defined colour, so naming it directly is
-     both simpler and exactly correct rather than an approximation of it. */
-  background: var(--modal-bg);
+     It was plain `var(--modal-bg)` until the surface tiers arrived
+     (00-tokens-shell.css): the row now sits inside a `.settings-group`,
+     which is `--surface-2` (a translucent ink tint) over the modal -- so a
+     row painted with the modal's colour alone showed as a lighter slab
+     inside the tinted group, in both themes. Hence the composite: the same
+     tint, laid over the opaque modal colour, which is byte-for-byte what
+     the group itself resolves to. Still opaque, so it still hides the rows
+     scrolling up beneath it. */
+  background: linear-gradient(var(--surface-2), var(--surface-2)), var(--modal-bg-opaque);
   padding-block: var(--space-2);
   margin-bottom: var(--space-2);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--divider);
 }
 
 .tool-filter-row #tool-count {

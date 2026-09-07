@@ -233,6 +233,38 @@ and `.timeline-band` (three different blur radii — 8px, 12px, and the
 problem), all fixed by conforming to the rule above rather than by
 inventing a third option.
 
+### Surface tiers, and the border budget
+
+Measured before this existed, on Settings → Tools it can use: the modal drew
+a hairline, the group inside it drew a hairline, and all 54 rows inside the
+group drew one more — three nested boxes, each saying "this is a thing" with
+the same 1px line, so none of them said anything. Skills, Personas, Templates
+and the Notes list had the same shape at two deep.
+
+```
+--surface-1  the pane: .card, .modal-card, a popover. Glass — and the only
+             tier that may carry a hairline or a rim.
+--surface-2  a group inside a pane (.settings-group, .entry-list li). A faint
+             ink tint, no border.
+--surface-3  a row inside a group, or a hover (.provider-option, a list
+             inside a settings group). One step deeper.
+--divider    the line *between* rows in a list (.setting-row, .extras-row).
+             Lighter than --border: a separator, not an edge.
+```
+
+**The rule:** a line on the outermost surface only; everything inside it is
+grouped by tone and whitespace. Inner rows keep a `1px solid transparent`
+border so their geometry does not move and so `[data-contrast="on"]` can
+colour the line back in (`02-chat-graph.css`). A selected row is a fill
+(`--accent-soft`), never a fill plus an accent edge — the edge was the
+innermost of the three lines above. `--surface-2` is tinted with ink rather
+than white on purpose: a white tint (`--inner`) is invisible on the
+near-white modal, which is where most groups live.
+
+A sticky row inside a tinted group (`.tool-filter-row`) has to composite the
+tint over the opaque modal colour, not paint the modal colour alone —
+otherwise it shows as a lighter slab inside the group.
+
 ### Turning it off
 
 `:root[data-glass="off"]` is a standing user preference (Settings →

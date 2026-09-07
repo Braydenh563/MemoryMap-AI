@@ -1540,7 +1540,15 @@ button {
 
 /* --- appearance settings: grouped, scannable rows -------------------------- */
 .settings-group {
-  border: 1px solid var(--border);
+  /* Tier 2 of the surface tiers (00-tokens-shell.css): a tone, not a box.
+     The modal around it already draws the one hairline the budget allows,
+     and the rows inside it are separated by --divider or by their own
+     tone -- a bordered group between those two was the middle of a
+     three-deep stack of identical lines. The transparent 1px keeps the
+     geometry byte-identical (padding, radius, the h3 offsets measured
+     against it) and gives high-contrast mode a border to colour in. */
+  background: var(--surface-2);
+  border: 1px solid transparent;
   border-radius: var(--radius);
   padding: 1rem 1rem 1rem;
   margin-bottom: 1rem;
@@ -1609,7 +1617,7 @@ button {
   justify-content: space-between;
   gap: 1rem;
   padding: 0.6rem 0;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--divider);
   flex-wrap: wrap;
 }
 
@@ -1737,8 +1745,12 @@ label.setting-check,
    the reason `.check-row` records: an unchecked row under the pointer must
    not be pixel-identical to a chosen one. */
 .setting-check:has(input:checked) {
+  /* Tone only -- no accent edge. With 54 of these on one page inside a
+     tinted group inside a bordered modal, the edge was the innermost of
+     three nested lines (see the surface tiers in 00-tokens-shell.css). The
+     switch itself already shows on/off; the fill says which rows are on at
+     a glance, and that is all the row needs to add. */
   background: var(--accent-soft);
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 .setting-check:has(input:checked):hover {
@@ -2038,7 +2050,10 @@ label.setting-check,
   grid-template-columns: minmax(0, 1fr);
   gap: 0.6rem;
   align-items: start;
-  border: 1px solid var(--border);
+  /* Tier 3: a tone inside its group, with a transparent border reserved for
+     high-contrast mode -- the same budget every other settings row keeps. */
+  background: var(--surface-3);
+  border: 1px solid transparent;
   border-radius: calc(var(--radius) * 0.6);
   padding: 0.6rem 0.8rem;
   cursor: pointer;
@@ -2047,12 +2062,15 @@ label.setting-check,
 }
 
 .provider-option:hover {
-  border-color: var(--accent);
+  background: var(--ghost-btn-bg-hover);
 }
 
 .provider-option:has(input:checked) {
-  border-color: var(--accent);
-  background: var(--chip-bg);
+  background: var(--accent-soft);
+}
+
+.provider-option:has(input:checked):hover {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .provider-option input {

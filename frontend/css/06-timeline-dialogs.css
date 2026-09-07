@@ -1112,8 +1112,9 @@
 }
 
 .check-row:has(input:checked) {
+  /* Fill only; the accent edge went with the border budget (surface tiers,
+     00-tokens-shell.css) -- same reasoning as .setting-check. */
   background: var(--accent-soft);
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 .check-row:has(input:checked):hover {

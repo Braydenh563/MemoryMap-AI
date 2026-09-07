@@ -2370,6 +2370,17 @@ kbd {
   border-width: 2px;
 }
 
+/* The border budget (surface tiers, 00-tokens-shell.css) takes the lines
+   off inner groups and rows and keeps them as transparent 1px -- this is
+   where high-contrast mode colours them back in. */
+:root[data-contrast="on"] .settings-group,
+:root[data-contrast="on"] .entry-list li,
+:root[data-contrast="on"] .provider-option,
+:root[data-contrast="on"] .setting-check:has(input:checked),
+:root[data-contrast="on"] .check-row:has(input:checked) {
+  border-color: var(--border);
+}
+
 :root[data-contrast="on"] .muted {
   opacity: 0.9;
 }

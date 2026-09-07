@@ -964,6 +964,30 @@ async function renderDocStorage() {
   el.textContent = storageInfo ? storageInfo.database : "(couldn't read the path)";
 }
 
+// PLAN.md P4. With the preview open (Split/Rendered) every keystroke used to
+// re-parse and re-render the whole document: measured on a 20k-word document
+// with scratchpad/ui-sweeps/doctype.js, 44 keystrokes → 44 full renders,
+// keydown p50 176ms / p95 272ms — the caret visibly lagged the typing. The
+// preview is display, not state, so it can wait for the typing to pause:
+// a 120ms trailing debounce, then an idle callback (with a ceiling, so a
+// busy tab still repaints within a third of a second). Anything that needs
+// the preview *now* — a view switch, a load — still calls renderDocPreview
+// directly.
+let docPreviewTimer = null;
+function scheduleDocPreview() {
+  const preview = $("doc-preview");
+  if (!preview || preview.classList.contains("hidden")) return;
+  clearTimeout(docPreviewTimer);
+  docPreviewTimer = setTimeout(() => {
+    docPreviewTimer = null;
+    if (typeof requestIdleCallback === "function") {
+      requestIdleCallback(() => renderDocPreview(), { timeout: 300 });
+    } else {
+      requestAnimationFrame(() => renderDocPreview());
+    }
+  }, 120);
+}
+
 function renderDocPreview() {
   const preview = $("doc-preview");
   if (preview.classList.contains("hidden")) return;
@@ -2814,10 +2838,10 @@ $("doc-browse-all").addEventListener("click", () => {
 // button and Escape both close it — Close via the generic [data-close-dialog]
 // delegation set up below, Escape for free from <dialog>.showModal().
 $("doc-storage-toggle").addEventListener("click", () => $("doc-storage-dialog").showModal());
-$("doc-title").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
+$("doc-title").addEventListener("input", () => { markDocDirty(); scheduleDocPreview(); });
 $("doc-content").addEventListener("input", () => {
   markDocDirty();
-  renderDocPreview();
+  scheduleDocPreview();
   renderDocGutter();
 });
 // The gutter is a separate element beside the textarea, so it has to be told

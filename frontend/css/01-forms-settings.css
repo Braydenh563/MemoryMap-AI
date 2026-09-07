@@ -1804,8 +1804,13 @@ progress {
   margin: 0 0 var(--space-3);
   padding: var(--space-2) 0;
   border: 0;
-  border-bottom: 1px solid var(--border);
-  border-radius: 0;
+  /* Rounded at rest, not only on hover. Reported: "the collapsible headers in
+     the contents page are fully square and only have curved corners when
+     hovered over" -- the radius lived on the hover rule alone, so the row
+     changed shape under the pointer, and a square row with a rounded hover
+     ground reads as two different controls. The underline is gone with it: a
+     rounded row cannot also be underlined without looking like a tab. */
+  border-radius: var(--radius-md);
   background: none;
   box-shadow: none;
   color: var(--muted);
@@ -3933,7 +3938,6 @@ select {
 .contents-heading:hover,
 .contents-heading:focus-visible {
   background: var(--chip-bg);
-  border-radius: var(--radius-md);
 }
 
 /* --- one gap under every card heading ---------------------------------------
@@ -4196,7 +4200,7 @@ select {
    id plus a class plus an element, so its height won every time and left a
    32x36 pill where a circle belongs. An icon-only button, a help dot and a
    hint dot all size themselves; a fixed row height is not theirs to set. */
-#settings-modal .settings-section button:not([class*="card"]):not([class*="tile"]):not([class*="swatch"]):not([class*="preview"]):not(.icon-only):not(.icon-button):not([class*="help"]):not([class*="hint"]),
+#settings-modal .settings-section button:not([class*="card"]):not([class*="tile"]):not([class*="swatch"]):not([class*="preview"]):not(.icon-only):not(.icon-button):not([class*="help"]):not([class*="hint"]):not(.linklike),
 #settings-modal .settings-section select,
 #settings-modal .settings-section .select-opener,
 #settings-modal .settings-section summary,
@@ -4218,7 +4222,7 @@ select {
    rows wrap, so a wider button moves to the next line instead of pushing
    anything off screen, and a two-line label in a control strip was never the
    intended look. */
-#settings-modal .settings-section button:not([class*="card"]):not([class*="tile"]):not([class*="swatch"]):not([class*="preview"]),
+#settings-modal .settings-section button:not([class*="card"]):not([class*="tile"]):not([class*="swatch"]):not([class*="preview"]):not(.linklike),
 #settings-modal .settings-section summary {
   white-space: nowrap;
 }
@@ -4360,4 +4364,30 @@ select {
 #backup-list .entry-actions button.icon-only {
   width: 2.25rem;
   padding-inline: 0;
+}
+
+/* A link inside a sentence is not a control, whatever element it is made of.
+   Reported with a screenshot: "fix the padding of hyperlinked text" -- the
+   "Settings -> Appearance" link in Preferences rendered inside a 36px bordered
+   pill with the words vertically centred in it. `.linklike` is a <button>, so
+   the one-control-height rule above and `.settings-group .row button` both
+   dressed it as a button; the `:not(.linklike)` exclusions above stop the
+   height, and this restates the rest at a specificity nothing in Settings
+   beats. It flows inline with its sentence, wraps with it, and carries the
+   same underline treatment `.linklike` has everywhere else. */
+#settings-modal .settings-section button.linklike,
+#settings-modal .settings-group .row button.linklike {
+  display: inline;
+  height: auto;
+  min-height: 0;
+  padding: 0 0.1em;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  white-space: normal;
+  line-height: inherit;
+  font-size: inherit;
+  vertical-align: baseline;
 }

@@ -169,9 +169,13 @@ select optgroup {
      --glass-shadow   two layers: a tight contact shadow that seats the pane on
                       the page, and a wide soft ambient one that lifts it. One
                       big blur alone floats; one tight edge alone looks cut out.
-     --glass-catch    the specular. A radial catch in one corner, fixed in
-                      pixels, never a wash across the surface: a light source
-                      lays the same highlight on a coaster and a window. */
+     --glass-catch    the specular. Reported on the first shape: "just a faded
+                      light circular dot in the top left" -- a 220px spot reads
+                      as a dot. Light on a pane lies *along the edge* it enters
+                      from, so this is a wide, shallow ellipse whose centre sits
+                      above the top edge: 70% of the width, 90px tall, fading
+                      by 65%. It reads as the top edge glowing, not as a spot,
+                      and its height is fixed so a tall panel is not washed. */
   --glass-filter: blur(var(--glass-blur)) saturate(150%) brightness(1.02);
   --glass-edge: rgba(255, 255, 255, 0.34);
   --glass-rim:
@@ -181,7 +185,7 @@ select optgroup {
   --glass-shadow:
     0 1px 2px rgba(31, 38, 135, 0.06),
     0 12px 32px rgba(31, 38, 135, var(--shadow-intensity));
-  --glass-catch: radial-gradient(220px 110px at 12% 0%, rgba(255, 255, 255, 0.42), transparent 70%);
+  --glass-catch: radial-gradient(70% 90px at 22% -30px, rgba(255, 255, 255, 0.30), transparent 65%);
   --ink: #1f2430;
   --muted: #5b6472;
   --accent: #4f6df5;
@@ -529,7 +533,7 @@ select,
   --glass-shadow:
     0 1px 2px rgba(0, 0, 0, 0.35),
     0 12px 32px rgba(0, 0, 0, 0.42);
-  --glass-catch: radial-gradient(220px 110px at 12% 0%, rgba(255, 255, 255, 0.10), transparent 70%);
+  --glass-catch: radial-gradient(70% 90px at 22% -30px, rgba(255, 255, 255, 0.075), transparent 65%);
   --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
   --modal-bg: rgba(24, 27, 37, 0.97);
   --modal-bg-opaque: rgb(24, 27, 37);
@@ -574,7 +578,7 @@ select,
     --glass-shadow:
       0 1px 2px rgba(0, 0, 0, 0.35),
       0 12px 32px rgba(0, 0, 0, 0.42);
-    --glass-catch: radial-gradient(220px 110px at 12% 0%, rgba(255, 255, 255, 0.10), transparent 70%);
+    --glass-catch: radial-gradient(70% 90px at 22% -30px, rgba(255, 255, 255, 0.075), transparent 65%);
     --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
     --modal-bg: rgba(24, 27, 37, 0.97);
     --modal-bg-opaque: rgb(24, 27, 37);

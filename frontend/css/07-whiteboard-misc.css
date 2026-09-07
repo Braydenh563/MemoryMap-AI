@@ -3570,6 +3570,17 @@ summary:not(.icon-only):not(.icon-button) {
 }
 
 /* --- the selection tick, in the app's own language ------------------------
+   **`.entry-list:not(#tool-list)` on every selector below, and this is the
+   "black shadow on the tools switches" reported five times.** `#tool-list`
+   carries `class="entry-list"` for its row styling, so the tick recipe here
+   matched its inputs too -- and the checkmark below is drawn as two 2px
+   borders of a box, rotated, on `:checked::after`. On a switch that `::after`
+   is the knob. So every tools switch, in its ON state only, got a 2px
+   near-black border painted onto its white knob, on top of the pill recipe.
+   No `box-shadow`, no `filter`, which is why measuring those said "none"
+   three times; a full computed-style diff against a normal switch found
+   `border: 2px solid rgb(13, 16, 23)` on the knob and nothing else.
+   ---------------------------------------------------------------------
    The switch rule in `06-timeline-dialogs.css` deliberately does *not* cover
    these, and it is right not to: a checkbox in a list means "this one is
    chosen", which is a tick, and a column of switches down the side of a list
@@ -3612,7 +3623,7 @@ summary:not(.icon-only):not(.icon-button) {
    warning, no log and no failing test; it just looks broken. */
 .doc-list-tick,
 .note-picker-list input[type="checkbox"],
-.entry-list input[type="checkbox"]:not(.sr-only),
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only),
 .reminder-item input[type="checkbox"]:not(.sr-only) {
   appearance: none;
   -webkit-appearance: none;
@@ -3625,8 +3636,17 @@ summary:not(.icon-only):not(.icon-button) {
   position: relative;
   border: 1px solid var(--muted);
   border-radius: calc(var(--radius) * 0.4);
-  background: var(--ghost-btn-bg);
-  box-shadow: inset 0 1px 2px var(--field-inset);
+  /* Opaque, on purpose. Reported with two crops: "make sure all the
+     radiobutton multiselect boxes are the same visual style" -- the Files row
+     tick and the Images tile tick are the same recipe, but this used to be a
+     14% white wash, so over a dark row it read as a grey box and over a photo
+     it read as an empty outline. Two backdrops, one translucent surface, two
+     different-looking controls. An opaque surface looks the same on both;
+     the hairline drop shadow is what keeps it legible on a busy picture. */
+  background: var(--modal-bg-opaque);
+  box-shadow:
+    inset 0 1px 2px var(--field-inset),
+    0 1px 2px rgba(0, 0, 0, 0.25);
   cursor: pointer;
   transition:
     background var(--motion-fast) ease,
@@ -3638,7 +3658,7 @@ summary:not(.icon-only):not(.icon-button) {
 .select-check:hover,
 .doc-list-tick:hover,
 .note-picker-list input[type="checkbox"]:not(.sr-only):hover,
-.entry-list input[type="checkbox"]:not(.sr-only):hover,
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):hover,
 .reminder-item input[type="checkbox"]:not(.sr-only):hover {
   border-color: var(--accent);
 }
@@ -3648,7 +3668,7 @@ summary:not(.icon-only):not(.icon-button) {
 .select-check:checked,
 .doc-list-tick:checked,
 .note-picker-list input[type="checkbox"]:checked,
-.entry-list input[type="checkbox"]:not(.sr-only):checked,
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):checked,
 .reminder-item input[type="checkbox"]:not(.sr-only):checked {
   background: var(--accent);
   border-color: var(--accent);
@@ -3661,7 +3681,7 @@ summary:not(.icon-only):not(.icon-button) {
 .select-check:checked::after,
 .doc-list-tick:checked::after,
 .note-picker-list input[type="checkbox"]:checked::after,
-.entry-list input[type="checkbox"]:not(.sr-only):checked::after,
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):checked::after,
 .reminder-item input[type="checkbox"]:not(.sr-only):checked::after {
   content: "";
   position: absolute;

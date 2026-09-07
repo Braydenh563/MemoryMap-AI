@@ -38,7 +38,7 @@ terminal experience needed either way.
 </p>
 
 <details>
-<summary><b>More screenshots</b> — Notes, Chat, Graph, Library, Timeline, Reminders</summary>
+<summary><b>More screenshots</b> — Notes, Chat, Graph, Library, Timeline, Reminders, Documents</summary>
 <br>
 
 <table>
@@ -70,6 +70,14 @@ terminal experience needed either way.
 <td width="50%">
 <img src="docs/screenshots/reminders.png" alt="Reminders tab - due dates with quick-set buttons and priority, linked back to the note they came from">
 <p align="center"><sub><b>Reminders</b> — due dates linked back to the note they came from</sub></p>
+</td>
+</tr>
+<tr>
+<td width="50%">
+<img src="docs/screenshots/documents.png" alt="Documents tab - the long-form editor with a formatting toolbar, a document list, live word count and writing suggestions">
+<p align="center"><sub><b>Documents</b> — a real editor: four views, a formatting toolbar, spelling and style checks, and a full edit history</sub></p>
+</td>
+<td width="50%">
 </td>
 </tr>
 </table>

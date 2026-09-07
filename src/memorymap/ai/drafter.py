@@ -13,6 +13,8 @@ in as many words that the user's wording wins.
 
 from __future__ import annotations
 
+import re
+
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
 
@@ -210,3 +212,86 @@ def suggest_title(draft: str, model_manager: ModelManager, ollama: OllamaClient)
     if not cleaned or len(cleaned) > 80 or len(cleaned.split()) > 10:
         return ""
     return cleaned[0].upper() + cleaned[1:]
+
+#: How many rewordings to ask for. Three is the number Word offers and the
+#: number a person can hold in their head at once; a list of eight is a second
+#: decision rather than an answer to the first.
+REPHRASE_COUNT = 3
+
+REPHRASE_PROMPT = (
+    "You rewrite a short passage. Give exactly {count} alternatives, one per "
+    "line, numbered 1. 2. 3. — nothing else, no preamble, no explanation. "
+    "Keep the author's voice and meaning; fix only what the note below says is "
+    "wrong. Each alternative must be a drop-in replacement for the passage: no "
+    "quotation marks around it, no trailing full stop unless the original had "
+    "one."
+)
+
+
+def rephrase(
+    passage: str,
+    model_manager: ModelManager,
+    ollama: OllamaClient,
+    note: str = "",
+    count: int = REPHRASE_COUNT,
+) -> list[str]:
+    """Alternative wordings for one passage, best-effort.
+
+    Asked for directly: *"the listed errors in suggestions have no way to have
+    the ai write a suggested replacement or multiple for the user to choose."*
+    The app's own checks catch spelling, spacing and sentence length and can
+    offer a fix for the first two; for "this sentence is hard to follow" there
+    is no mechanical answer, and until now the panel simply said so. A local
+    model *can* answer it — the honest way to use one is to offer several
+    wordings and let the writer pick, which is what Word does and what nobody
+    can mistake for the app having rewritten their document.
+
+    Returns `[]` rather than raising on every failure path — offline, an error,
+    an unusable reply. The caller shows what it gets; an empty list is "no
+    suggestions", which is a true statement and not an error the writer caused.
+    """
+    text = (passage or "").strip()
+    if not text or not ollama.is_running():
+        return []
+    ask = f"Passage:\n{text[:1200]}"
+    if note.strip():
+        ask = f"What is wrong with it: {note.strip()[:200]}\n\n{ask}"
+    try:
+        reply = ollama.chat(
+            model_manager.utility_model(),
+            [
+                {"role": "system", "content": REPHRASE_PROMPT.format(count=count)},
+                {"role": "user", "content": ask},
+            ],
+        )
+    except OllamaError:
+        return []
+    return _parse_rephrasings((reply.get("content") or ""), text, count)
+
+
+def _parse_rephrasings(reply: str, original: str, count: int) -> list[str]:
+    """Pull the numbered lines out of a model's reply.
+
+    Deliberately forgiving about the shape and strict about the content: small
+    local models number with "1.", "1)", "-" or nothing at all, and wrap
+    answers in quotes about half the time. What it will not do is return the
+    original unchanged, an empty line, or a duplicate — each of those is a
+    "suggestion" that costs a click and changes nothing.
+    """
+    out: list[str] = []
+    for raw in (reply or "").splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        # "1." / "1)" / "- " / "* " — the numbering, not the words.
+        line = re.sub(r"^\s*(?:\d+\s*[.):-]|[-*\u2022])\s*", "", line).strip()
+        line = line.strip("\"'`")
+        if not line or line == original:
+            continue
+        if line.lower() in {existing.lower() for existing in out}:
+            continue
+        out.append(line)
+        if len(out) >= count:
+            break
+    return out
+

@@ -11,6 +11,7 @@ fallback, so asking a question always returns *something* (plan §4).
 from __future__ import annotations
 
 import logging
+import difflib
 import re
 from dataclasses import dataclass
 from datetime import datetime, time
@@ -113,11 +114,12 @@ def keyword_search(session: Session, query: str, limit: int = 10) -> list[Entry]
         Entry.is_private == False,  # noqa: E712
     )
 
-    def matching(require_all: bool) -> dict[int, float]:
+    def matching(require_all: bool, words: list[str] | None = None) -> dict[int, float]:
         # `terms` are pre-filtered to \W-stripped words by `_meaningful_terms`,
         # so none of them can contain FTS5 query-syntax characters — safe to
-        # join directly rather than needing to quote/escape each one.
-        match_expr = (" AND " if require_all else " OR ").join(terms)
+        # join directly rather than needing to quote/escape each one. (A
+        # trailing `*` from the prefix stage is FTS5's own prefix operator.)
+        match_expr = (" AND " if require_all else " OR ").join(words or terms)
         rows = session.execute(
             text(
                 "SELECT rowid, bm25(entries_fts, 1.0, 4.0) AS score "
@@ -131,12 +133,32 @@ def keyword_search(session: Session, query: str, limit: int = 10) -> list[Entry]
         # bm25() is *lower is better* — more negative means more relevant.
         return {row.rowid: row.score for row in rows}
 
-    scores = matching(require_all=True) or matching(require_all=False)
+    # Four stages, each only when the one before found nothing, each a
+    # little looser: every word exactly → every word as a prefix ("agent"
+    # finds "agents", "prov" finds "proving") → every word corrected to the
+    # nearest word the notebook actually contains ("sourdogh" → "sourdough")
+    # → any of the words. Asked for as "search tolerant of spelling
+    # mistakes": a student typing fast should not get an empty page for one
+    # transposed letter, and the FTS index already knows every word it has.
+    phrase_terms = terms
+    scores = matching(require_all=True)
+    if not scores:
+        prefixed = [f"{t}*" if len(t) >= PREFIX_MIN_LEN else t for t in terms]
+        if prefixed != terms:
+            scores = matching(require_all=True, words=prefixed)
+    if not scores:
+        corrected = _corrected_terms(session, terms)
+        if corrected != terms:
+            scores = matching(require_all=True, words=corrected)
+            if scores:
+                phrase_terms = corrected
+    if not scores:
+        scores = matching(require_all=False)
     if not scores:
         return []
 
     entries = list(session.scalars(select(Entry).where(*base, Entry.id.in_(scores))))
-    phrase = " ".join(terms)
+    phrase = " ".join(phrase_terms)
 
     def sort_key(entry: Entry) -> tuple[int, float, int]:
         has_phrase = phrase in re.sub(r"\W+", " ", (entry.content or "").lower())
@@ -144,6 +166,54 @@ def keyword_search(session: Session, query: str, limit: int = 10) -> list[Entry]
 
     entries.sort(key=sort_key)
     return entries[:limit]
+
+
+# A query word this long or longer is also tried as a prefix when nothing
+# matched it whole. Three letters would turn "the" into "the*" and match
+# "theory", "thermal", "these" — a prefix that short is noise, not intent.
+PREFIX_MIN_LEN = 4
+# Only words this long are ever "corrected": a three-letter word is one
+# edit from dozens of others, and difflib's ratio cannot tell them apart.
+CORRECT_MIN_LEN = 4
+# difflib ratio floor for treating a vocabulary word as the query word
+# misspelt: 0.8 is roughly one wrong letter in five, two in ten.
+CORRECT_CUTOFF = 0.8
+
+
+def _corrected_terms(session: Session, terms: list[str]) -> list[str]:
+    """Each term replaced by the closest word the FTS index holds, when it
+    holds no such word itself. Terms already in the vocabulary, and short
+    terms, are returned unchanged.
+
+    Reads `entries_fts_vocab` (database.py) one first-letter range at a time
+    — a few hundred candidates at most — and lets `difflib` pick. Nothing
+    here is cleverer than that on purpose: it can only ever propose a word
+    that is actually in a note, so a wrong correction still lands on real
+    text rather than inventing a match."""
+    corrected: list[str] = []
+    for term in terms:
+        if len(term) < CORRECT_MIN_LEN:
+            corrected.append(term)
+            continue
+        first = term[0]
+        try:
+            rows = session.execute(
+                text(
+                    "SELECT term FROM entries_fts_vocab "
+                    "WHERE term >= :lo AND term < :hi"
+                ),
+                {"lo": first, "hi": chr(ord(first) + 1)},
+            ).all()
+        except Exception:  # noqa: BLE001 - an older database without the vocab table
+            return terms
+        vocabulary = [row.term for row in rows]
+        if term in vocabulary:
+            corrected.append(term)
+            continue
+        near = [w for w in vocabulary if abs(len(w) - len(term)) <= 2]
+        close = difflib.get_close_matches(term, near, n=1, cutoff=CORRECT_CUTOFF)
+        corrected.append(close[0] if close else term)
+    return corrected
 
 
 # Words that carry no signal in a search. Matching on them is worse than

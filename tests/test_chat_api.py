@@ -183,6 +183,45 @@ def test_an_attached_documents_content_actually_reaches_the_model(ai_client, fak
     assert any("Q3 plan" in m["content"] for m in sent)
 
 
+def test_an_attached_library_files_text_reaches_the_model(ai_client, fake_ollama):
+    """Asked for directly: "I want to be able to attach not just existing notes
+    to a chat for context, but also already uploaded files, documents, and
+    images." A Library file is an Attachment row -- not a Document and not an
+    Entry -- so it needed a field of its own, and its text is extracted at
+    request time by the same core.docview the file viewer uses."""
+    entry = ai_client.post("/entries", json={"content": "holds the file"}).json()
+    updated = ai_client.post(
+        f"/entries/{entry['id']}/files",
+        files={"file": ("plan.md", b"# Roadmap\n\nShip the reader in March.", "text/markdown")},
+    ).json()
+    attachment = updated["attachments"][0]
+
+    ai_client.post(
+        "/chat",
+        json={"question": "what does the file say?", "file_ids": [attachment["id"]]},
+    )
+    sent = fake_ollama.chat_calls[-1]
+    assert any("Ship the reader in March." in m["content"] for m in sent)
+    assert any("plan.md" in m["content"] for m in sent)
+
+
+def test_an_unreadable_attached_file_still_reaches_the_model_by_name(ai_client, fake_ollama):
+    """A file whose text cannot be extracted must not reach the model as
+    silence: the chip is in the transcript either way, and a chip that
+    corresponds to nothing at all is the exact failure document_ids shipped
+    once already. Its name is a real clue on its own."""
+    entry = ai_client.post("/entries", json={"content": "holds the file"}).json()
+    updated = ai_client.post(
+        f"/entries/{entry['id']}/files",
+        files={"file": ("scan.pdf", b"not really a pdf", "application/pdf")},
+    ).json()
+    attachment = updated["attachments"][0]
+
+    ai_client.post("/chat", json={"question": "what is it?", "file_ids": [attachment["id"]]})
+    sent = fake_ollama.chat_calls[-1]
+    assert any("scan.pdf" in m["content"] for m in sent)
+
+
 def test_chat_endpoint_threads_history_to_model(ai_client, fake_ollama):
     _save(ai_client, "a funny scarecrow joke")
     ai_client.post(

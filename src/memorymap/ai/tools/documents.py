@@ -18,6 +18,7 @@ from ._common import (
     PREVIEW_CHARS,
     ToolError,
     _clip,
+    _keyword_context,
     _limit_arg,
 )
 
@@ -50,7 +51,20 @@ def _list_documents(session: Session, args: dict) -> dict:
                 "title": d.title,
                 "words": len(d.content.split()),
                 "updated_at": d.updated_at.isoformat(),
-                "preview": _clip(d.content, PREVIEW_CHARS),
+                #: **Around the match, not the start of the document.**
+                #: Reported directly: "if the ai is searching for something,
+                #: might keywords be flagged in certain pages... then it can
+                #: use a tool or smth simpler to get the full text from
+                #: those areas." This used to be `_clip(d.content,
+                #: PREVIEW_CHARS)` regardless of `term` — so a search that
+                #: correctly found a 40-page document because the word
+                #: appeared on page 30 showed the model page one, which very
+                #: likely does not mention it at all. `_keyword_context`
+                #: falls back to the same head-of-document clip when there
+                #: is no term (the plain "list everything" case), so this is
+                #: strictly an improvement, never a behaviour change for a
+                #: bare list.
+                "preview": _keyword_context(d.content, term, length=PREVIEW_CHARS),
             }
             for d in rows
         ],
@@ -100,6 +114,22 @@ def _get_document(session: Session, args: dict) -> dict:
                     best_chunks = [c for _, c in scored[:3]]
                     clipped = "\n\n...\n\n".join(best_chunks)
                     used_snippets = True
+    used_keyword_fallback = False
+    if clipped is None and query and query.strip().lower() in text.lower():
+        #: **The "or something simpler" this was asked for, by name.** The
+        #: embedding path above needs a working embedding backend
+        #: (`deps.get_embeddings()`), and CLAUDE.md is explicit that this
+        #: project runs without one on purpose — no torch, no
+        #: sentence-transformers — so `q_vec` is `None` there on every
+        #: install that followed that instruction, and this used to fall
+        #: straight through to a plain head-of-document clip: exactly the
+        #: "keyword found the document, the returned text does not contain
+        #: it" gap reported directly. A literal substring search around the
+        #: query costs nothing extra to try before giving up to the
+        #: head-clip, and it is the one path this tool has that works with
+        #: no model and no embeddings at all.
+        clipped = _keyword_context(text, query, radius=900, max_hits=4, length=DOCUMENT_CHARS)
+        used_keyword_fallback = True
     if clipped is None:
         clipped = _clip(text, DOCUMENT_CHARS)
 
@@ -110,7 +140,13 @@ def _get_document(session: Session, args: dict) -> dict:
         "truncated": len(clipped) < len(text),
         "words": len(text.split()),
         "label": f"ph:file-text Read the document “{_clip(document.title, 40)}”"
-        + (" (extracted snippets for query)" if used_snippets else ""),
+        + (
+            " (extracted snippets for query)"
+            if used_snippets
+            else " (text around your search term)"
+            if used_keyword_fallback
+            else ""
+        ),
     }
 
 

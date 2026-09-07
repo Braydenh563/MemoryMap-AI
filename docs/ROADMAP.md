@@ -14,6 +14,84 @@ inference) — see CLAUDE.md's standing caveat for what that covered. UI claims
 are checkable (Chromium is in the sandbox); model *behaviour* claims mostly
 are not — reproduce or say plainly you couldn't.
 
+## ► NEXT SESSION (Fable): read this block, then the five plans, in this order
+
+The user's own framing: *"I want it to proceed with the laid out plans in
+plan.md and ui_modernisation_plan.md along with anything else in the top
+priority of the handover and roadmap."*
+
+**The reading order, before any code:**
+1. [CLAUDE.md](../CLAUDE.md) — the traps, the sandbox recipe, the standing caveat.
+2. [roadmap/HANDOVER.md](roadmap/HANDOVER.md) — the last session first; what was
+   measured, what could not be reproduced, what is half-done.
+3. [roadmap/UI_MODERNISATION_PLAN.md](roadmap/UI_MODERNISATION_PLAN.md) — phases
+   0-7. **Phase 0 first**: the sweep tooling and acceptance gates, or every
+   later phase is unmeasurable.
+4. [roadmap/PLAN.md](roadmap/PLAN.md) — the professional-grade plan (whiteboard,
+   documents, backend, agent harness, performance) in ship order.
+5. [roadmap/AGENT_SKILLS_REFORM.md](roadmap/AGENT_SKILLS_REFORM.md) — phases A-D.
+6. [roadmap/MINDMAP_PLAN.md](roadmap/MINDMAP_PLAN.md) — **first pass, to be
+   extended and refined by Fable, not executed verbatim.** Its §2 records what
+   already exists (a board is already an `Entry`); its §4 asks for a scope call
+   before anything is built.
+7. [DESIGN.md](DESIGN.md) and [ARCHITECTURE.md](ARCHITECTURE.md) as reference.
+
+**The order of work.** Each item is a session or less; each ends green and
+pushed.
+
+| | Work | Why here |
+| --- | --- | --- |
+| 1 | **UI Phase 0** — sweep tooling, `tests/test_ui_signatures.py`, the screenshot set | Nothing after this is measurable without it |
+| 2 | **UI Phases 1-2** — mass and layout, then component consistency by *count* | The largest visible change; the user's standing complaint |
+| 3 | **Skills reform Phases A-B** — step contracts, small-model mode | The app's AI is unusable on a 4B model today; this is the functional half of "feels unprofessional" |
+| 4 | **UI Phase 3-4** — type/colour/glass restraint, placement and motion | Finishes the look; cheap once 1-2 are done |
+| 5 | **Skills reform Phase C** — the run as a collapsible object; verify tool calls in chat | Also closes the agent-activity report |
+| 6 | **UI Phase 7** — document lightbox, note-editor gutters, document captioning, region OCR, the Files row | This round's leftovers |
+| 7 | **UI Phases 5-6** — per-surface passes, designed states and copy | Long tail |
+| 8 | **Mindmaps** — refine [MINDMAP_PLAN.md](roadmap/MINDMAP_PLAN.md), make the §4 scope call, then Phases 1-3 | The user's stated vision; needs 1-2 done first so it is built on a settled design system |
+| 9 | **PLAN.md's remaining tracks** — backend hardening, performance, packaging | Least user-visible, most durable |
+
+**Standing rules for all of it** (from CLAUDE.md, learned expensively):
+measure → change → re-measure, with the number in the commit message; check the
+running app before building anything; say plainly what you could not verify; one
+pushed, green commit per item.
+
+## ► TOP PRIORITY, by direct instruction: modernise and professionalise the UI
+
+The full dev plan — causes, phases, per-family targets, acceptance counts and
+the order of work — is **[roadmap/UI_MODERNISATION_PLAN.md](roadmap/UI_MODERNISATION_PLAN.md)**.
+Start there. The sweep scripts it relies on are in `scratchpad/ui-sweeps/`.
+The instruction, verbatim:
+
+> fix instances like this where there are hard rectangle box background
+> colours behind rows. and there are still a lot of inconsistencies in ui
+> style, sizing, alignment, positioning, spacing, gaps, margins, colour, style
+> aesthetic etc. also sometimes when oeping dropdown menus or panels like for
+> tooltips or in the formatting toolbars, the panels will flicker somewhere
+> else on the screen then appear in the right place. now that you have done
+> the structure fix. I need you to do a consistency fix, and also adjust the
+> larger mass spacing and panels for the app. it needs to be professional and
+> usable, not overly performative. the aesthetic needs to fit, not just be a
+> crude imitation of modern aesthetics. I need you to modernise the ui.
+
+"the application still feels fake, vibe coded and not ready for professional
+use. some things feel performative and not at professional standards in the
+ui and ux." Done so far (HANDOVER.md, "This session"): surface tiers and the
+border budget, the button ramp, one eyebrow, seg semantics, one card radius,
+one shell gutter, the Files tick, toolbar menus hidden until placed, the
+Contents strip. Everything else in the plan is open.
+
+## ► TOP PRIORITY, second half: the agent and skills reform
+
+**[roadmap/AGENT_SKILLS_REFORM.md](roadmap/AGENT_SKILLS_REFORM.md)** — the
+other thing asked for in the same breath as the UI: "the way skills work is
+waaayyy too strict on smaller models ... the models often dont even properly
+complete a step before they are prompted for the next step. its an absolute
+mess. the whole system needs a reform." Four phases: a step gets a
+machine-checkable contract and is re-prompted rather than skipped; a
+small-model mode that offers one tool per step; the run as a collapsible
+object instead of a text dump; and recovery from a stalled step.
+
 ## ► START HERE: the redesign is the priority
 
 A full UX/architecture re-imagining was asked for and is written up in
@@ -37,10 +115,9 @@ section that holds the quoted request and the detail:
 
 | | Work | Why it is first |
 | --- | --- | --- |
+| P | **The professional-grade plan** — whiteboard, documents, backend, agent harness, performance; scoped, measured, in ship order. [roadmap/PLAN.md](roadmap/PLAN.md), with the professional audit behind it in [roadmap/AUDIT.md](roadmap/AUDIT.md). Written by direct instruction as the follow-on to row 0. | Read it before starting any whiteboard, documents or backend work. |
 | 0 | **The whiteboard's panels and controls, in full — moved here by direct instruction, ahead of everything below.** Full narrative in [roadmap/HANDOVER.md](roadmap/HANDOVER.md)'s own top section. | Two asks: (a) the layout/structure/distribution/positioning redesign this row already named as the open half of item 7 below — panels reported clashing with each other and the canvas; (b) new, specific: while the **Pan** tool is active, clicking (or double-clicking — pick one deliberately) directly on a card/sketch/shape should switch to **Selection** and select it, instead of requiring a manual tool switch first. Not built yet — logged here first, per this file's own standing rule. |
 | 0c | **Graph Trace: multiple paths between two nodes, coloured and switchable** ([roadmap/HANDOVER.md](roadmap/HANDOVER.md), "logged, not built" §1). | Reported live. `GET /graph/path` returns one BFS shortest path today; this needs a k-shortest/all-simple-paths search server-side and a path switcher plus per-path colour in `graph.js`'s Trace panel. Scope the cap on N before building — unbounded all-paths search can blow up on a densely-linked notebook. |
-| ~~1, 3, 6, 8~~ | **Done — four rows retired.** The lock audit ([§R8.2](roadmap/REDESIGN.md)); staging every file ([§R7.2](roadmap/REDESIGN.md)); the agent-harness audit ([§R5](roadmap/REDESIGN.md)); managing concept maps ([§R7.6](roadmap/REDESIGN.md)). | Two were built by earlier sessions and only the table was stale — **check a row against the code before taking it**, that is the sixth "already exists" catch. The other two are written up in [roadmap/HANDOVER.md](roadmap/HANDOVER.md)'s harness-audit section, with what §R5's five points actually turned out to be and why the staged-URL guard lives in `api()` rather than in a list of save paths. |
-| ~~2~~ | ~~**The document/file editor**~~ **Done — all six items** ([§R7.1](roadmap/REDESIGN.md)) | Selection → chat context; editing a text or code file in place; syntax highlighting written in-repo because this app has no CDN and no bundler; an HTML preview pane in a scriptless sandbox served with its own CSP; Export text, named after what the text *is* rather than the file it came from; and item 6, which turned out to be true already — the Library's Files tiles have opened into the lightbox all along, and the lightbox is now the editor. Four bugs fell out of building it, each found by measuring rather than looking; all are in [roadmap/HANDOVER.md](roadmap/HANDOVER.md). |
 | 4 | **The pane-based shell** ([§R7.5](roadmap/REDESIGN.md), [§R8.3](roadmap/REDESIGN.md)) | Every remaining UI complaint is downstream of seven screens that each own the whole window. Its acceptance criterion is the distinct-left-edge count in [DESIGN.md](DESIGN.md) — re-baseline it on a fixed fixture first, per §R9. |
 | 5 | **Cross-linking: the `@` picker** ([§R7.3](roadmap/REDESIGN.md)) | Link direction landed; **the Connections block is now built** (`GET /entries/{id}/connections` and `/documents/{id}/connections`, the dialog off both ⋯ menus, `tests/test_connections_block.py`) — it groups links by direction and adds the documents, boards and files each thing is joined to, none of which were surfaced anywhere. What is left of this row is the one universal `@` picker. **§R7.3 item 3 (typed collapsible blocks) is now built too** — `> [!note]-` and `> [!note]+` render as a `<details>`, with a "Collapsible section" slash command; a plain `> [!note]` is unchanged, so old notes are unaffected exactly as that item required. |
 | 7 | **Settings, and the whiteboard's panel layout** ([§R7.5](roadmap/REDESIGN.md)) | Settings has never been measured. Panel control sizes are unified; the layout rethink is now row 0 above, promoted by direct instruction. |
@@ -57,7 +134,7 @@ session:
   to reproduce: an unsaved draft in the capture box. See
   `tests/test_frontend_load_order.py`.
 
-## What is open right now — start here
+## What is open right now (older list — the top section supersedes it)
 
 **The overnight round is in [roadmap/HANDOVER.md](roadmap/HANDOVER.md)'s first
 section — read it before this list.** Built there, do not rebuild: document OCR
@@ -759,24 +836,6 @@ was never updated to say so. Checked directly, per this file's own rule.**
 
 **What's actually still a gap, in order of value:**
 
-1. ~~Retrieval is single-shot and similarity-only.~~ **Already hybrid.**
-   `_rank()` calls `_fuse()` — reciprocal rank fusion over the semantic and
-   keyword result lists — labelling the result `"hybrid"`, wired into
-   `_retrieve()` (every chat/ask question's own retrieval path). Re-ranking
-   and query expansion beyond this are the only parts still genuinely open.
-2. ~~The graph is not used for retrieval.~~ **Already used, and now weighted.**
-   `graph_expansion()` walks linked neighbours of the top hits (and a
-   second, weaker hop — ROADMAP item 33, `GRAPH_EXPANSION_HOP2_LIMIT`) and
-   is called from `_retrieve()`. §87.5's first slice — `link_type`/
-   `reason_confidence` weighting, via the shared `link_strength()` — now
-   makes this walk *smarter*: which neighbours survive the hop-count limit
-   is a real decision (strongest first) rather than database insertion
-   order. §87.5's own text below has the full narrative and what's still
-   genuinely open past this slice.
-~~3. **Memory is a surface, not a system.**~~ **Checked directly — already
-   built, this claim was stale.** Full narrative: HISTORY.md §100.
-~~4. **No token accounting per stage.**~~ **Built.** Full narrative:
-   HISTORY.md §100.
 5. **Tool retrieval is all-or-nothing.** Still genuinely open. Every tool
    definition is sent every round. §33 already scoped semantic tool
    retrieval and rightly said it needs measuring first — item 4's
@@ -789,7 +848,7 @@ be evaluated here at all. Use item 4's new instrumentation and a small
 fixed question set *first*, or this becomes a change nobody can prove
 helped.
 
-## §89 — reported this session, not yet built (start here next)
+## §89 — reported this session, not yet built
 
 Landed live, in one long session, alongside the app.js split's first file
 (documents.js — done, see §88.3) and a vision-chat redesign (also done: see
@@ -950,6 +1009,13 @@ callouts" entry before rebuilding anything that sounds finished.**
     added to a board, opened in the browser: `<img>` loaded with real
     dimensions, auth via the query-param fallback, zero console errors.
 
+10. **The sketch pad: a selection tool** — the one part of this item still
+    open (the rest is in HISTORY.md, "Retired from the live files"). Clicking
+    an existing stroke/shape to move, resize or delete it; today's tools only
+    ever draw a new one. The pad is pure-raster (`ImageData` snapshots for
+    undo, no discrete stroke objects), so this is an architecture change,
+    not a patch — unlike the whiteboard's discrete-object select (item 11).
+    The toolbar redesign comes after it, not before.
 11. **Whether AI-driven work (image captioning, and AI features generally)
     should run asynchronously as a standing design principle**, not just
     get a background-tasks *indicator* (item 6 above, already logged - this
@@ -1439,7 +1505,7 @@ full narrative and the measured numbers.
 11. **AI-authored callouts.** Let the agent emit `> [!question]` blocks. Note
     `agent.PROSE_BUDGET_CHARS` is **asserted** — the prompt has a budget.
 
-## Read these two first
+## Read these two first (older entry point; see the top of this file)
 
 | | What's in it |
 | --- | --- |
@@ -1449,7 +1515,7 @@ full narrative and the measured numbers.
 | [roadmap/ANALYSIS.md](roadmap/ANALYSIS.md) | Judgements: the odysseus read, and the licence constraint — **this project is AGPL-3.0 now, not MIT**, so §34a's "no code crosses either way" is half-lifted. What was deliberately not taken. Also §59: the claude-obsidian/cognee/graphify read behind items 32–36 below, and §60: a second odysseus read after the repo tripled in size — a real non-atomic-write bug it found, an MCP shape worth copying, and its own admission that the backend isn't better designed. **New: §114**, a product-strategy read — a live competitor teardown (NotebookLM, Obsidian, Anytype, Capacities, Khoj, Granola, Kortex), an upgrade list for every existing feature, 18 new-feature proposals, a scored 90-day plan, and the answer to "how do you measure anything in an app with no telemetry". It also strikes three §111.2 items as already built. |
 | [DESIGN.md](DESIGN.md) | The design system. `tests/test_style_scale.py` enforces it. |
 
-## Still open after §105 — start here
+## Still open after §105
 
 §105 (HISTORY.md) closed a long run of live reports. What it did **not** close,
 each already located:
@@ -1465,15 +1531,6 @@ each already located:
    `<textarea>`'s value is a string. Double-click and right-click open the same
    menu off the caret offset. If this keeps being reported, the answer is a
    contenteditable source view, which is a much larger change than it looks.
-5. ~~The prose rules are deliberately shallow~~ **Closed.** A "Check with AI"
-   button in the suggestions panel hands the whole document to the chat with a
-   prompt asking for exactly what the local rules cannot judge — its/it's,
-   agreement, tense, tone, clarity — as a numbered list of issues rather than a
-   silent rewrite. On request, not a pass: verified it does not touch the
-   editor's own instant checks. **Not yet verified against a real model** — no
-   Ollama in this sandbox — only that the composer receives the right prompt
-   (same gap as item 1 above).
-
 ## Next up, ranked by what it unlocks
 
 **One list, four tiers. Work top-down and do not skip.** The failure this
@@ -1508,18 +1565,6 @@ needs real model output to tune against, which this sandbox cannot provide.
 Each is already paid for; a small amount of work turns a frustrating surface
 into a good one.
 
-10. **The sketch pad.** ~~The highlighter at 5% opacity was effectively
-    invisible~~ **Fixed (HISTORY.md §46).** ~~A background colour for the
-    canvas~~ **Done (HISTORY.md §46)**, including a real CSS-vs-canvas-pixel
-    trap the fix hit — see there. ~~Holding Shift while drawing a shape
-    constrains it~~ **Fixed for the rect tool** (forces a square). **Still
-    genuinely open**: a
-    selection tool (clicking an existing stroke/shape to move, resize or
-    delete it; today's tools only ever draw a new one) — the sketch pad is
-    pure-raster (`ImageData` snapshots for undo, no discrete stroke
-    objects), so this needs a real architecture change, not a small patch,
-    unlike the whiteboard's own discrete-object select (item 11). The
-    toolbar redesign comes after it, not before.
 11. **The whiteboard, properly.** ~~Images, text boxes, resize (8-handle
     corner+edge), grid (lines/dots/isometric)+snap, per-board background
     image, export (PNG/SVG/PDF), clear-board, a redesigned board picker,
@@ -1552,13 +1597,6 @@ into a good one.
       §57).** The one real client-side O(cards × notebook size) issue found
       is fixed. **Not done**: a real profile against a large, many-hundred-
       item board — nothing this session was measured against one.
-12. ~~**Links that are links.**~~ **Already done — corrected, not rebuilt
-    (HISTORY.md §47).** Checked before touching anything, per this file's
-    own rule — nothing here needed building.
-13. ~~**"Take me to the thing the agent just changed," the UI half.**~~
-    **All four kinds now done (HISTORY.md §47, §51).** Notes, documents,
-    reminders and categories each get a View button on their change row,
-    verified live end to end.
 14. **Timeline line view, and text placement in grid view.** The grid view's
     text-placement half is **done**: an unprefixed `line-clamp` fixed
     (kept alongside `-webkit-line-clamp`), plus the backend's `preview`
@@ -1614,40 +1652,6 @@ into a good one.
     twice, which this project's own history (HISTORY.md's repeated "checked
     before building" theme) is precisely the failure mode it keeps warning
     about.
-19. **First-run onboarding.** ~~Reachability diagnostics~~, ~~pull a
-    model~~, ~~seeded example notes~~ and ~~a guided tour~~
-    (`ONBOARDING_SLIDES`, nine slides) were **already built** — found by
-    reading `frontend/app.js` first, per this file's own rule, rather than
-    rebuilding what this entry's stale text called still open. **The one
-    real gap — a data-dir writability check — is closed**: `GET /storage`
-    reports `data_dir_writable` and the "Your setup" slide warns on it.
-    Verified live: `"data_dir_writable": true` against this sandbox's dir.
-19b. **A mute-notifications option, asked for directly**, alongside making
-    the toast/notification split clearer: "there can be an option to mute
-    notifications except for reminders." Built as
-    `notifications_muted_except_reminders` (Settings → Preferences →
-    Notifications): `toast()` takes an `exempt` flag (set on the three
-    reminder-alert call sites) and returns early for everything else when
-    muted; `recordNotification` does the same for the persistent panel,
-    keyed off `kind !== "reminder"`. Errors are never muted — silencing a
-    real failure would hide the thing muting is least meant to hide. **Not
-    built**: mirroring ordinary toasts into the notifications panel (the
-    other half of the same message) — every `toast()` call site would need
-    a `kind` to avoid flooding the panel with routine "Saved."/"Linked."
-    noise, which needs a first pass at which toasts actually belong there
-    before it's buildable.
-
-    **Extended (HISTORY.md §49), asked for directly**: a mute toggle inside
-    the notifications panel itself (`#notif-mute-toggle`, reads "🔕 Mute" /
-    "🔔 Unmute" and `aria-pressed`), not only three screens away in Settings
-    — and the bell icon (`#notif-btn`) itself now shows 🔕 instead of 🔔
-    whenever muted, so the state is visible without opening anything. Built
-    and verified live end to end, which is what caught item 4a's real bug —
-    the toggle correctly PUT the preference and correctly re-rendered from
-    the response, and *still* showed unmuted, because `GET /preferences`
-    (which the PUT response is built from) never echoed the new key back.
-    Fixed there, not patched around here.
-
 ### Open questions raised this session, not built
 
 - **Should Capture have its own title field**, separate from the leading-
@@ -1703,18 +1707,6 @@ Worth doing, and worth doing after the above.
     simulation, not a new layout algorithm, per this item's own note that a
     new algorithm probably wasn't the actual gap.~~ **New layouts
     themselves are still open** — nothing above touched that part.
-26. ~~**Widgets: a picker.**~~ **Already done and live-verified this
-    session (checked before building, not after) — the `dash-widgets-dialog`
-    modal (index.html), its own comment already citing "roadmap §26", was
-    merged in from elsewhere and was never re-checked against this item.**
-    Playwright: clicking "Widgets" opens the dialog with all 17
-    `DASH_WIDGETS` rows, the search box filters them, a row's Add/Remove
-    button flips the widget on the dashboard in real time (confirmed the
-    grid actually lost the card, not just the row's own label), and "Done"
-    closes it. Zero console errors. Still open, and genuinely unscoped:
-    **more widgets to fill the picker** — customisable sidebars, and note
-    view options in the Notes tab were the other two asks bundled into this
-    item and neither has a concrete list yet.
 27. **llama.cpp, actually wired in.** A new `ai/provider.py` entry alongside
     Ollama/OpenAI-compatible, a GGUF file picker (files on disk, not a
     registry to pull from), and `core/extras.py`'s `unavailable` string
@@ -1833,23 +1825,6 @@ Worth doing, and worth doing after the above.
     back tagged `stale`. Two new regression tests. The other two candidates
     — proactive digest/on-this-day surfacing, and letting a saved skill run
     on the same schedule — are still open.
-35. ~~No vision-capable image understanding.~~ **Built** —
-    `ai/captioning.py` (background caption on upload, `POST /media/{id}/caption`
-    for a manual re-read), auto-detected vision capability plus a manual
-    override in Settings → Models (`ModelManager.resolve_vision_model`), and
-    the Library's Image Gallery already searches captions alongside OCR text
-    and filenames. Runs alongside OCR, not instead of it, exactly as this item
-    specified.
-
-39. ~~Passive capture~~ **Built** — see item 2 under ANALYSIS.md §60's
-    "Worth building" list, corrected there rather than twice.
-
-40. ~~Help page overhaul, plus an embedded mini AI chat for in-app guidance.~~
-    **Built** — see [roadmap/HISTORY.md](roadmap/HISTORY.md) for the
-    write-up: the docs/guides half was already a 13-topic accordion with
-    cross-links, and the mini AI chat half is now `ai/help_chat.py` +
-    `POST /help/ask`, wired into Settings → Help.
-
 ### Tier 4 — deferred, with the reason
 
 Not a dump: each says why it is not Tier 3.

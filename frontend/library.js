@@ -428,7 +428,18 @@ function renderLibrary() {
     // documents, images, chats and skills together, so it is the one list that
     // can be larger than any single collection in the app.
     renderIncrementally(grid, items, (item) => libraryCard(item), {
-      afterChunk: renderLibraryContextBars,
+      afterChunk: () => {
+        renderLibraryContextBars();
+        //: **The thumbnail column is only reserved when a thumbnail exists.**
+        //: Reported: "fix the wierd gap at the start of all the cards in the
+        //: library line view in the all subtab." List view reserves a 3rem
+        //: slot on every row *without* a picture so the rows that have one
+        //: still line up -- correct when some rows have pictures, and on a
+        //: notebook where none do it indents the entire list by 48px of
+        //: nothing. CSS cannot ask whether any sibling has one; this can, so
+        //: the class says so and the rule keys off it.
+        grid.classList.toggle("has-thumbs", Boolean(grid.querySelector(".library-card-thumb")));
+      },
     });
 
     const empty = $("library-empty");
@@ -526,10 +537,15 @@ function libraryActions(item) {
         reload();
       }),
       makeMenuItem("ph:trash Delete", "Delete this document", async () => {
-        if (!(await confirmDialog(`Delete “${item.title}”? This cannot be undone.`))) return;
-        await apiJson(`/documents/${item.id}`, { method: "DELETE" }).catch((e) =>
-          toast(e.message, true)
-        );
+        if (
+          !(await confirmDialog(`Delete “${item.title}”? You can undo this straight after.`))
+        ) {
+          return;
+        }
+        //: The same helper the Documents tab's own two delete buttons use
+        //: (`documents.js`), so all three doors offer the same Undo rather
+        //: than one of them being permanent because it was written later.
+        await deleteDocumentWithUndo(item).catch((e) => toast(e.message, true));
         reload();
       }),
     ];
@@ -1988,6 +2004,10 @@ async function renderLibraryDocuments() {
               {
                 filename: full.title || "Untitled",
                 id: full.id,
+                //: What tells the lightbox this preview has an editor to open
+                //: — see `openDocBtn` there. Separate from `id`, which the
+                //: lightbox also uses for attachments and uploads.
+                documentId: full.id,
                 kind: full.file_type === "md" ? "markdown" : "code",
                 text: full.content || "",
                 addedAt: full.updated_at || "",
@@ -2013,8 +2033,18 @@ async function renderLibraryDocuments() {
           window.open(`/documents/${doc.id}/export.md`, "_blank");
         }),
         makeMenuItem("ph:trash Delete", "Delete this document", async () => {
-          if (!(await confirmDialog(`Delete "${doc.title || "Untitled"}"? This cannot be undone.`))) return;
-          await apiJson(`/documents/${doc.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
+          if (
+            !(await confirmDialog(
+              `Delete "${doc.title || "Untitled"}"? You can undo this straight after.`
+            ))
+          ) {
+            return;
+          }
+          //: The fourth and last door onto the same delete. All four now go
+          //: through `deleteDocumentWithUndo` — a delete that is recoverable
+          //: from one menu and permanent from another is worse than one that
+          //: is permanent everywhere, because it teaches a rule that is false.
+          await deleteDocumentWithUndo(doc).catch((e) => toast(e.message, true));
           libraryDocsSelection.delete(doc.id);
           renderLibraryDocuments();
         }),
@@ -2164,6 +2194,16 @@ let libraryMediaView = localStorage.getItem(LIBRARY_MEDIA_VIEW_KEY) === "type" ?
 function applyLibraryMediaView() {
   const grid = document.getElementById("library-images-grid");
   if (grid) grid.classList.toggle("show-file-types", libraryMediaView === "type");
+  //: **Files are rows, images are tiles.** Asked for directly: "the card
+  //: format is difficult with files as they can be quite long and large, a
+  //: single image or ocr caption doesnt fit them." A tile is the right shape
+  //: for a picture, whose content *is* the thumbnail; it is the wrong shape
+  //: for a document, whose content is a name, a description, a size, a page
+  //: count and a list of the notes it is used in — a card either truncates
+  //: all of that or grows to a different height than its neighbours. The
+  //: grid keeps one class and the CSS does the rest, so both sub-tabs keep
+  //: rendering through the one builder.
+  if (grid) grid.classList.toggle("library-file-rows", libraryMediaKind === "files");
   //: **Hidden on Images, where it would do nothing.** Reported: "the one in
   //: the image subtab doesnt do anything" — correct, and it never could. The
   //: toggle chooses between a file's rendered first page and its type glyph,
@@ -2243,6 +2283,14 @@ function setLibraryMediaKind(kind) {
   // both — a person who picks a PDF on the Images tab gets the PDF, it just
   // appears under Files — because refusing a file the app can store would be
   // worse than filing it somewhere they then have to look.
+  //: The read filter is a Files idea. An image is not "unread" in any sense a
+  //: person means — dividing pictures by whether OCR happened to have run on
+  //: them would be a control that answers a question nobody asked.
+  const readFilter = $("library-media-read");
+  if (readFilter) {
+    readFilter.classList.toggle("hidden", libraryMediaKind !== "files");
+    if (libraryMediaKind !== "files") readFilter.value = "all";
+  }
   const input = $("library-images-upload-input");
   if (input) {
     input.accept =
@@ -2287,6 +2335,61 @@ function mediaFileIcon(url) {
     zip: "ph-file-archive",
   };
   return map[ext] || "ph-file";
+}
+
+//: **The facts about a file, as facts.** Asked for directly with the Files
+//: sub-tab redesign: "the card format is difficult with files as they can be
+//: quite long and large, a single image or ocr caption doesnt fit them. there
+//: should be details on the name, a generated description that cna happen,
+//: file details such as the type, size, topic/category, linked notes and
+//: other features."
+//:
+//: A tile could show a thumbnail, a name and a caption; everything else a
+//: person actually brings to a file list — how big is it, how many pages,
+//: when did it arrive, has it been read — was either absent or buried. These
+//: are the ones the row can state in one line.
+function formatFileSize(bytes) {
+  const size = Number(bytes) || 0;
+  if (size <= 0) return ""; // unknown, or the file is gone — say nothing
+  if (size < 1024) return `${size} B`;
+  const units = ["KB", "MB", "GB"];
+  let value = size / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  // One decimal below 10 (2.4 MB reads better than 2 MB), none above it.
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
+}
+
+//: The muted "TYPE · SIZE · pages · added" strip under a file's name. Every
+//: part is omitted when it is not known rather than shown empty or as a zero,
+//: since "0 B" and "—" are both claims this list cannot make honestly.
+function fileMetaLine(image) {
+  const line = document.createElement("div");
+  line.className = "library-file-meta";
+  const parts = [];
+  parts.push(mediaFileKind(image.original_name || image.url || ""));
+  const size = formatFileSize(image.size_bytes);
+  if (size) parts.push(size);
+  if (image.page_count) parts.push(`${image.page_count} page${image.page_count === 1 ? "" : "s"}`);
+  if (image.created_at) {
+    const when = new Date(image.created_at);
+    if (!Number.isNaN(when.getTime())) parts.push(`added ${when.toLocaleDateString()}`);
+  }
+  for (const [index, part] of parts.entries()) {
+    if (index) {
+      const dot = document.createElement("span");
+      dot.className = "library-file-meta-sep";
+      dot.textContent = "·";
+      line.appendChild(dot);
+    }
+    const span = document.createElement("span");
+    span.textContent = part;
+    line.appendChild(span);
+  }
+  return line;
 }
 
 function mediaFileKind(url) {
@@ -2434,16 +2537,69 @@ function ocrRenderRegions(body) {
   boxes.replaceChildren();
   list.replaceChildren();
   ocrWorkspaceRegions = body.regions || [];
+  //: **A control that cannot act must not sit there looking live** — the same
+  //: rule the Stop-reading button and the box-overlay toggle already follow.
+  //: Shown only once there is something on screen to remove.
+  //: Reported: "the delete this reading button doesnt work". It was gated on
+  //: *regions*, which only Tesseract produces — a vision-model reading (the
+  //: only kind this project actually uses) has text and no boxes, so the
+  //: button never appeared for it. Gated on there being a reading at all.
+  //: `body.pages` is a page *count* on the regions response and a list of
+  //: readings on a stored-range response — `.some` on the number threw and
+  //: took the whole page load down with it ("(body.pages || []).some is not
+  //: a function" in the reader's status line, found by measurement).
+  const hasReading = body.source !== "text-file" && (ocrWorkspaceRegions.length > 0
+    || Boolean((body.text || "").trim())
+    || (Array.isArray(body.pages) && body.pages.some((page) => (page?.text || "").trim())));
+  $("ocr-delete-reading")?.classList.toggle("hidden", !hasReading);
+  //: **Redo, made discoverable rather than merely possible.** Reported
+  //: directly: "there's also no way to delete or redo ocr text extractions."
+  //: Clicking "Read this page"/"Read this image" always re-reads and replaces
+  //: the stored answer — `PageRead`'s own docstring: "re-reading a page
+  //: replaces its row rather than appending" — but nothing on the button said
+  //: so, and a control that behaves differently from what it looks like it
+  //: does is not discoverable just because it technically works. The label
+  //: stays put (tests and habit both key off it); only the tooltip changes,
+  //: once there is something on screen for it to describe replacing. Set
+  //: here rather than in `ocrLoadPage` because that function calls this one
+  //: to actually paint the page — reading `ocrWorkspaceRegions` before this
+  //: line runs would still hold the *previous* page's count.
+  const readBtn = $("ocr-read-page");
+  if (readBtn) {
+    readBtn.title = ocrWorkspaceRegions.length
+      ? "Read again — replaces the reading shown here"
+      : "Transcribe what you are looking at";
+  }
 
   //: The badge is not decoration: a single whole-page region drawn from
   //: stored text is a *fallback*, and letting it look like something the
   //: reader found there would be a lie about where the text is.
   const labels = {
     tesseract: "ph:scan Read on the page",
+    //: **"reading" is not a fallback badge any more, and it must not read as
+    //: one.** It used to be "stored-text": one region covering the whole page,
+    //: which really was a stand-in. Now the reading is split into its own
+    //: typed blocks in order (`ocr.regions_from_reading`) — real sections,
+    //: real structure, just no rectangles — so the badge says what is true of
+    //: it rather than apologising for what it lacks. The missing half is in
+    //: the message underneath, where the offer to install Tesseract lives.
+    reading: "ph:list-bullets Sections from the reading",
+    //: Kept only so an older cached response does not render as "Nothing read
+    //: yet", which would be wrong in the most alarming direction. Nothing
+    //: emits it.
     "stored-text": "ph:text-align-left Stored text, no page positions",
+    "text-file": "ph:file-text The file's own text",
     none: "ph:warning Nothing read yet",
   };
   setLabel(source, labels[body.source] || labels.none);
+  //: Which model did it — the one Settings chose, named on the result so a
+  //: wrong or missing model is visible here rather than only in Settings
+  //: (asked for: readings "need to use the right models that are set in
+  //: settings… properly manageable").
+  if (body.source === "reading" || body.source === "vision") {
+    source.appendChild(document.createTextNode(` · ${ocrReaderName()}`));
+    source.title = `Read with ${ocrReaderName()} — change the reader above, or the model in Settings`;
+  }
   source.hidden = false;
   source.classList.toggle("ocr-source-weak", body.source !== "tesseract");
   message.textContent = body.message || "";
@@ -2478,7 +2634,12 @@ function ocrRenderRegions(body) {
     $("ocr-boxes").classList.toggle("is-hidden", positioned && !boxToggle.checked);
   }
   for (const region of ocrWorkspaceRegions) {
-    if (positioned) {
+    //: `positioned` says the *reading* has boxes; `region.box` says this block
+    //: does. They are the same thing today and were not always — a payload
+    //: from before `box` became nullable, or a future reader that boxes some
+    //: blocks and not others, would crash on `region.box.x` here. One extra
+    //: check, and the list rows below still render for every block either way.
+    if (positioned && region.box) {
       const box = document.createElement("button");
       box.type = "button";
       box.className = `ocr-box ocr-box-${region.kind}`;
@@ -2496,11 +2657,59 @@ function ocrRenderRegions(body) {
     const row = document.createElement("li");
     row.className = "ocr-region";
     row.dataset.index = String(region.index);
+    //: **The two panes are one document, read from either side.** Asked for
+    //: directly: "each page I am on it aoto scrolls to the extracted text in
+    //: the pannel for extracted text on the right, and if I click on a
+    //: specific text section of extracted text in the right panel it should
+    //: auto scroll me to that page on the file."
+    //:
+    //: This half is the click: the row records which page it came from, and
+    //: `ocrWireRegionJump` (below) turns that into a page change. The other
+    //: half is `ocrRevealRegionsForPage`, called wherever the page changes.
+    row.dataset.page = String(ocrRegionPage(region, body));
     const head = document.createElement("div");
     head.className = "row ocr-region-head";
+    //: **Where this block came from, on the row itself.** Asked for: "make it
+    //: so extracted text is visually linked to the page or section it was
+    //: extracted from". Two halves — *which section* is the number, and
+    //: *which page* is the badge — and both are true whether or not anything
+    //: measured a rectangle, which is the whole reason the reading-derived
+    //: regions are worth having.
+    const where = document.createElement("span");
+    where.className = "chip ocr-region-where";
+    //: A stored page reading carries its own page; a live region belongs to
+    //: the page on screen. Reported: every stored panel said "p1" because
+    //: this only ever read `body.page`.
+    const ownPage = Number.isInteger(region.page) ? region.page : Number(body.page) || 0;
+    const pageNumber = ownPage + 1;
+    const pageCount = Number(body.pages) || 1;
+    if (Number.isInteger(region.page)) {
+      // A stored reading is one panel per page: say the page, not "§1".
+      where.textContent = `Page ${pageNumber}`;
+      where.title = `The reading of page ${pageNumber}`;
+    } else {
+      where.textContent =
+        pageCount > 1
+          ? `p${pageNumber} \u00b7 \u00a7${region.index + 1}`
+          : `\u00a7${region.index + 1}`;
+      where.title =
+        pageCount > 1
+          ? `Section ${region.index + 1} of page ${pageNumber}`
+          : `Section ${region.index + 1} of this page`;
+    }
+    head.appendChild(where);
+
     const kind = document.createElement("span");
     kind.className = `chip ocr-region-kind ocr-region-kind-${region.kind}`;
-    kind.textContent = region.kind === "heading" ? "Heading" : "Text";
+    //: Five kinds now, not two. Tesseract still only ever says heading/text;
+    //: a reading also distinguishes lists, tables and code from prose, read
+    //: off the block's own shape. An unknown kind falls back to "Text" rather
+    //: than rendering `undefined`, which is the shape this repo keeps paying
+    //: for elsewhere.
+    kind.textContent =
+      { heading: "Heading", list: "List", table: "Table", code: "Code", text: "Text" }[
+        region.kind
+      ] || "Text";
     head.appendChild(kind);
     if (region.confidence) {
       //: Confidence is the one number that tells you whether to trust a row,
@@ -2530,6 +2739,55 @@ function ocrRenderRegions(body) {
       copyToClipboard(region.text, event.currentTarget);
     });
     head.appendChild(copy);
+    //: **Delete this panel.** Asked for: "select on what was read and delete
+    //: each extracted text panel as the delete this reading button doesn't
+    //: do anything." That button deletes the reading of the page on
+    //: *screen*, and with the panels for every stored page listed together
+    //: the one you are looking at is usually not that page — so the delete
+    //: landed on a page with nothing to delete and nothing changed. Each
+    //: stored panel now removes its own page's reading.
+    //: An image's reading is one panel; its delete is the header's delete.
+    if (!Number.isInteger(region.page) && ocrWorkspaceCurrent && !ocrIsPdf(ocrWorkspaceCurrent)
+        && body.source !== "text-file" && (region.text || "").trim()) {
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "ghost small icon-button danger ocr-region-delete";
+      setLabel(remove, "ph:trash");
+      remove.title = "Delete this reading";
+      remove.setAttribute("aria-label", remove.title);
+      remove.addEventListener("click", (event) => {
+        event.stopPropagation();
+        $("ocr-delete-reading")?.click();
+      });
+      head.appendChild(remove);
+    }
+    if (Number.isInteger(region.page) && body.source === "stored-text") {
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "ghost small icon-button danger ocr-region-delete";
+      setLabel(remove, "ph:trash");
+      remove.title = `Delete the reading of page ${region.page + 1}`;
+      remove.setAttribute("aria-label", remove.title);
+      remove.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        const image = ocrWorkspaceCurrent;
+        if (!image) return;
+        if (!(await confirmDialog(`Delete the reading for page ${region.page + 1}? You can read it again any time.`))) {
+          return;
+        }
+        remove.disabled = true;
+        try {
+          const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
+          await apiJson(`${base}/page-reads/${region.page}`, { method: "DELETE" });
+          toast(`Reading of page ${region.page + 1} deleted.`);
+          await ocrLoadPage(image, ocrWorkspacePage);
+        } catch (error) {
+          remove.disabled = false;
+          toast(error.message || "Could not delete that reading.", true);
+        }
+      });
+      head.appendChild(remove);
+    }
     const text = document.createElement("p");
     text.className = "ocr-region-text";
     text.textContent = region.text;
@@ -2559,6 +2817,7 @@ function ocrRenderRegions(body) {
     text.addEventListener("click", (event) => event.stopPropagation());
     row.append(head, text);
     row.addEventListener("click", () => ocrSelectRegion(region.index));
+    ocrWireRegionJump(row);
     list.appendChild(row);
   }
   if (!ocrWorkspaceRegions.length && !body.message) {
@@ -2569,6 +2828,15 @@ function ocrRenderRegions(body) {
   //: has to be re-applied or a typed query silently stops filtering the moment
   //: a page is re-read — which is precisely when a reader is looking for it.
   ocrApplyFind();
+}
+
+//: Everything this document has already had read off it, from the store the
+//: read endpoints write to. Never throws: a document with no readings and a
+//: backend that cannot answer are the same thing here — nothing to show.
+async function ocrStoredPageReads(image) {
+  if (!image) return null;
+  const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
+  return apiJson(`${base}/page-reads`).catch(() => null);
 }
 
 async function ocrLoadPage(image, page = 0, opts = {}) {
@@ -2637,9 +2905,110 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
   //: The range box lives or dies with the per-page button — both are PDF-only,
   //: and a "read pages 1-5" control beside a photograph would be a lie.
   $("ocr-read-range-group")?.classList.toggle("hidden", !ocrIsPdf(image));
+
+  //: **A text file needs no model at all.** Its words are already words, so
+  //: the reader shows them straight away — same panes, same Copy / Ask /
+  //: Save as note, and the read controls hidden because there is nothing to
+  //: transcribe. This is what makes the workspace a reader for *every* file
+  //: rather than only the two kinds a vision model is needed for.
+  if (ocrIsTextFile(image)) {
+    $("ocr-read-page")?.classList.add("hidden");
+    $("ocr-describe")?.classList.add("hidden");
+    $("ocr-boxes")?.replaceChildren();
+    $("ocr-stage")?.classList.add("ocr-stage-text");
+    try {
+      const file = await ocrFetchFileText(image);
+      const paragraphs = (file.text || "").split(/\n{2,}/).map((t) => t.trim()).filter(Boolean);
+      ocrRenderRegions({
+        regions: (paragraphs.length ? paragraphs : ["(This file is empty.)"]).map((text, index) => ({
+          index, kind: "text", text, confidence: 0, box: { x: 0, y: 0, w: 1, h: 1 },
+        })),
+        source: "text-file",
+        message: file.source === "converted"
+          ? "Converted to text — no model was needed."
+          : "Read straight from the file — no model was needed.",
+        pages: 1,
+        page: 0,
+      });
+      const stage = $("ocr-stage");
+      if (stage) {
+        //: The page picture belongs to a scan, not to a text file — hidden
+        //: by class on the stage so it stays hidden through a re-render.
+        stage.querySelector("img")?.classList.add("hidden");
+        let pre = stage.querySelector(".ocr-text-view");
+        if (!pre) {
+          pre = document.createElement("pre");
+          pre.className = "ocr-text-view";
+          stage.appendChild(pre);
+        }
+        pre.textContent = file.text || "";
+        $("ocr-image")?.classList.add("hidden");
+      }
+    } catch (error) {
+      $("ocr-message").textContent = error.message || "That file could not be read.";
+      $("ocr-message").classList.remove("hidden");
+    }
+    ocrSyncPager(image);
+    return;
+  }
+  $("ocr-read-page")?.classList.remove("hidden");
+  $("ocr-stage")?.classList.remove("ocr-stage-text");
+  $("ocr-image")?.classList.remove("hidden");
+  $("ocr-stage")?.querySelector(".ocr-text-view")?.remove();
   try {
     const body = await apiJson(ocrRegionsUrl(image, ocrWorkspacePage));
-    ocrRenderRegions(body);
+    //: **What was already read wins over "nothing read yet".** Reported
+    //: twice: "ai read the pages 1-3 in my pdf as I put it, but no text
+    //: appeared in any of the extracted text areas?? notifications appeared
+    //: saying the pages were read but nothing happened after that."
+    //:
+    //: The second sentence was the diagnosis. A page read is announced as a
+    //: background task precisely so this window can be closed while it runs —
+    //: and the result only ever existed in the response and in the DOM that
+    //: response painted. Reopening the document re-ran the *regions* request,
+    //: which knows nothing about page reads, and painted an empty pane over a
+    //: reading that had genuinely happened.
+    //:
+    //: `GET …/page-reads` returns every page of this document the app has
+    //: stored (see the `PageRead` model), in the same envelope a range read
+    //: returns, so it goes straight through the same renderer. Asked for
+    //: after the regions call and preferred over it only when it has
+    //: something: a Tesseract reading with real box positions is a better
+    //: answer than stored text, and this must not overwrite it.
+    const stored = ocrIsPdf(image) ? await ocrStoredPageReads(image) : null;
+    const storedPages = (stored?.pages || []).filter((p) => (p.text || "").trim());
+    if (storedPages.length && body.source !== "tesseract") {
+      ocrRenderRegions({
+        regions: storedPages.map((entry, index) => ({
+          index,
+          kind: "text",
+          text: entry.text.trim(),
+          confidence: 0,
+          box: { x: 0, y: 0, w: 1, h: 1 },
+          //: Which page this reading is *of* — the row's own badge and its
+          //: delete button both need it, and `body.page` is only the page
+          //: currently on screen.
+          page: entry.page,
+        })),
+        source: "stored-text",
+        message: stored.message || `${storedPages.length} page(s) already read.`,
+        pages: body.pages || ocrWorkspacePages,
+        page: ocrWorkspacePage,
+      });
+    } else {
+      ocrRenderRegions(body);
+    }
+    //: An image's description lives here too, so caption and reading are
+    //: managed side by side (reported: "a lot of disconnect between files and
+    //: images regarding ocr and image captioning").
+    const isImage = !ocrIsPdf(image);
+    $("ocr-describe")?.classList.toggle("hidden", !isImage);
+    const captionEl = $("ocr-caption");
+    if (captionEl) {
+      const cap = (image.caption || "").trim();
+      captionEl.textContent = cap ? `Description: ${cap}` : "";
+      captionEl.classList.toggle("hidden", !cap || !isImage);
+    }
     if (ocrIsPdf(image)) ocrBuildPageRail(image, body.pages || 1);
     ocrSyncPager(image);
     //: The mode can only be honoured once the page count is known — a
@@ -2667,6 +3036,16 @@ function ocrBuildPageRail(image, pages) {
   ocrWorkspacePages = Math.max(1, pages || 1);
   const rail = $("ocr-rail");
   if (!rail) return;
+  //: The switch above the rail gains its "Pages" segment only once the page
+  //: count is known, which is here — the region response is the one thing that
+  //: carries it. Redrawn on every page load so the count is right.
+  ocrRenderRailSwitch(image);
+  //: **The rail belongs to whichever list is selected.** Without this, opening
+  //: a page of a PDF while the switch says "Images" would silently replace the
+  //: sibling list with pages and leave the switch claiming otherwise — the
+  //: state and the control disagreeing, which is the shape that makes a
+  //: feature feel broken rather than merely limited.
+  if (ocrRailMode !== "pages") return;
   if (rail.dataset.pagesFor === `${ocrRailKey(image)}:${ocrWorkspacePages}`) {
     for (const thumb of rail.querySelectorAll(".ocr-rail-item")) {
       const active = thumb.dataset.key === `page:${ocrWorkspacePage}`;
@@ -2743,6 +3122,221 @@ function reopenOcrWorkspace() {
 }
 window.reopenOcrWorkspace = reopenOcrWorkspace;
 
+//: **Which list the rail is showing.** "pages" is only reachable while a PDF
+//: is open; the other two are always available, which is the point.
+let ocrRailMode = "images";
+
+//: Every image and every readable file in the notebook, loaded by the
+//: workspace itself.
+//:
+//: **Why this exists.** Reported: *"I cant always switch between viewing
+//: files or images, and if I open it from the lightbox when viewing an image,
+//: no other files or images show."* The rail was built from an `images`
+//: argument, and three of `openOcrWorkspace`'s four call sites passed `[]` —
+//: the lightbox, the reopen toast, and `reopenOcrWorkspace`. So the workspace
+//: was navigable only when it happened to be opened from the gallery grid,
+//: and everywhere else it was a dead end with no error and nothing to click.
+//: A view that can only be navigated when a particular caller remembers to
+//: hand it a list is a view whose navigation does not exist.
+//:
+//: Reuses `/media` and `/files/gallery` — the same two the Library's own
+//: gallery loads, with the same `_isImage`/`_isAttachment` flags set the same
+//: way, because a second shape for the same rows is how the two ended up
+//: disagreeing about what an attachment is once already.
+let ocrSiblingCache = null;
+
+async function ocrLoadSiblings({ force = false } = {}) {
+  if (ocrSiblingCache && !force) return ocrSiblingCache;
+  const [images, attachments] = await Promise.all([
+    apiJson("/media", { silent: true }).catch(() => []),
+    apiJson("/files/gallery", { silent: true }).catch(() => []),
+  ]);
+  for (const item of images || []) item._isImage = isImageUrl(item.url);
+  for (const item of attachments || []) {
+    item._isImage = (item.mime || "").startsWith("image/");
+    item._isAttachment = true;
+    item.ocr_text = item.ocr_text || "";
+    item.caption = item.caption || "";
+    item.vision_ocr_text = item.vision_ocr_text || "";
+  }
+  ocrSiblingCache = [...(images || []), ...(attachments || [])];
+  return ocrSiblingCache;
+}
+
+//: A file the workspace can actually open. Images always; otherwise only what
+//: `ocrIsPdf` recognises — the rail is a list of things to read, and a row
+//: that opens to an empty stage is worse than a shorter rail.
+//: Files whose text the app can read without a model: everything
+//: `GET /files/{id}/text` already handles (plain text, markdown, code, CSV,
+//: and a converted .docx), plus any text-ish upload. Asked for: "make sure
+//: all files are handled and viewable". A spreadsheet workbook (.xlsx) and
+//: other binary formats still cannot be shown — there is no parser for them
+//: in this app, and inventing one is not a UI change.
+const OCR_TEXT_SUFFIXES = /\.(txt|md|markdown|csv|tsv|json|ya?ml|log|py|js|ts|html?|css|sql|sh|ini|toml|docx|rtf)$/i;
+
+function ocrIsTextFile(row) {
+  if (!row || row._isImage || ocrIsPdf(row)) return false;
+  const name = row.original_name || row.filename || "";
+  if (OCR_TEXT_SUFFIXES.test(name)) return true;
+  return (row.mime || "").startsWith("text/");
+}
+
+function ocrCanOpen(row) {
+  return Boolean(row && (row._isImage || ocrIsPdf(row) || ocrIsTextFile(row)));
+}
+
+//: Fetch a readable file's text. Attachments go through the endpoint that
+//: already converts (`/files/{id}/text`); an upload is fetched raw, which
+//: is right for the plain-text kinds `ocrIsTextFile` lets through.
+async function ocrFetchFileText(row) {
+  if (row._isAttachment) {
+    const body = await apiJson(`/files/${row.id}/text`);
+    return { text: body.text || "", kind: body.kind || "plain", source: body.source || "file" };
+  }
+  const res = await fetch(mediaSrc(row.url), { headers: { "X-Auth-Token": localStorage.getItem("token") || "" } });
+  if (!res.ok) throw new Error("That file could not be read.");
+  return { text: await res.text(), kind: "plain", source: "file" };
+}
+
+//: Build the switch above the rail. Rebuilt on every rail render because the
+//: counts change with the notebook and the "Pages" segment only exists while
+//: a paged document is open.
+function ocrRenderRailSwitch(current) {
+  const host = $("ocr-rail-switch");
+  if (!host) return;
+  const siblings = ocrSiblingCache || [];
+  const segments = [
+    {
+      id: "images",
+      label: "Images",
+      count: siblings.filter((row) => row._isImage).length,
+      title: "Every picture in the notebook",
+    },
+    {
+      id: "files",
+      label: "Files",
+      count: siblings.filter((row) => !row._isImage && ocrCanOpen(row)).length,
+      title: "Every document the reader can open",
+    },
+  ];
+  if (ocrIsPdf(current) && ocrWorkspacePages > 1) {
+    segments.push({
+      id: "pages",
+      label: "Pages",
+      count: ocrWorkspacePages,
+      title: "The pages of the document you are reading",
+    });
+  }
+  host.replaceChildren();
+  //: One segment is not a choice. Hidden rather than rendered inert, for the
+  //: same reason the box-overlay toggle is disabled when there is nothing to
+  //: show: a control that cannot do anything teaches that the feature is
+  //: broken.
+  //: Always shown — the switch is how the reader moves between everything
+  //: in the space, so an empty side reads as "no files yet" (disabled, 0)
+  //: rather than as a control that comes and goes.
+  //: A one-page document offers no Pages segment, so "pages" mode would
+  //: leave the rail empty and no tab lit (measured): fall back to Files.
+  if (ocrRailMode === "pages" && !segments.some((segment) => segment.id === "pages")) ocrRailMode = "files";
+  const usable = segments;
+  host.classList.remove("hidden");
+  for (const segment of usable) {
+    const button = document.createElement("button");
+    button.disabled = segment.count === 0;
+    button.type = "button";
+    button.className = "ocr-rail-tab";
+    button.dataset.mode = segment.id;
+    button.setAttribute("role", "tab");
+    const active = segment.id === ocrRailMode;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", String(active));
+    button.title = segment.title;
+    const name = document.createElement("span");
+    name.textContent = segment.label;
+    const count = document.createElement("span");
+    count.className = "ocr-rail-tab-count";
+    count.textContent = String(segment.count);
+    button.append(name, count);
+    button.addEventListener("click", () => {
+      ocrRailMode = segment.id;
+      ocrRenderRail(ocrWorkspaceCurrent || current);
+    });
+    host.appendChild(button);
+  }
+}
+
+//: Fill the rail for whichever mode is selected. "pages" is left to
+//: `ocrLoadPage`, which is the only thing that knows the page count.
+function ocrRenderRail(current) {
+  const rail = $("ocr-rail");
+  if (!rail) return;
+  ocrRenderRailSwitch(current);
+  if (ocrRailMode === "pages") return; // the page rail is built elsewhere
+  const siblings = (ocrSiblingCache || []).filter(
+    (row) => ocrCanOpen(row) && (ocrRailMode === "images" ? row._isImage : !row._isImage)
+  );
+  ocrWorkspaceImages = siblings;
+  rail.dataset.pagesFor = "";
+  rail.replaceChildren();
+  const currentKey = current ? ocrRailKey(current) : "";
+  for (const row of siblings) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "ocr-rail-item";
+    item.dataset.key = ocrRailKey(row);
+    item.classList.toggle("is-active", item.dataset.key === currentKey);
+    if (row._isImage) {
+      const thumb = document.createElement("img");
+      thumb.src = mediaSrc(row.url);
+      thumb.alt = "";
+      thumb.loading = "lazy";
+      item.appendChild(thumb);
+    } else {
+      //: A PDF has no thumbnail to fetch without rasterising it, and a broken
+      //: `<img>` in a rail reads as a missing file rather than as a document.
+      const glyph = document.createElement("span");
+      glyph.className = "ocr-rail-glyph";
+      //: The icon says what the file is — every non-image was a PDF glyph,
+      //: so a .csv and a .docx both claimed to be PDFs in the rail.
+      setLabel(glyph, ocrIsPdf(row) ? "ph:file-pdf" : ocrIsTextFile(row) ? "ph:file-text" : "ph:file");
+      item.appendChild(glyph);
+    }
+    const name = document.createElement("span");
+    name.className = "ocr-rail-name";
+    name.textContent = row.original_name;
+    item.appendChild(name);
+    item.title = row.original_name;
+    item.addEventListener("click", () => ocrOpenSibling(row));
+    rail.appendChild(item);
+  }
+  rail.classList.toggle("hidden", !siblings.length);
+}
+
+//: Opening a *different* thing from the rail, as opposed to a different page
+//: of the same thing. A PDF resets the paging state and takes the page rail;
+//: an image keeps the sibling rail it was picked from.
+function ocrOpenSibling(row) {
+  if (ocrIsPdf(row)) {
+    ocrWorkspacePage = 0;
+    ocrWorkspacePages = 1;
+    ocrRailMode = "pages";
+    ocrTearDownScroll();
+    ocrLoadPage(row, 0);
+    return;
+  }
+  //: Reported: "when clicking on images, it doesn't even go onto them and
+  //: just stays on the file I was on." Opening an image from a document that
+  //: was in continuous mode hit `ocrLoadPage`'s continuous branch — which
+  //: only moves the region overlay between the pages already on screen and
+  //: never sets the image — so the PDF's pages stayed put. An image is one
+  //: page: leave the document's scroll stages and paging behind first.
+  ocrTearDownScroll();
+  ocrWorkspacePage = 0;
+  ocrWorkspacePages = 1;
+  ocrLoadPage(row);
+  ocrRenderRail(row);
+}
+
 function openOcrWorkspace(image, images) {
   const overlay = $("ocr-workspace");
   if (!overlay) return;
@@ -2768,40 +3362,35 @@ function openOcrWorkspace(image, images) {
   //: images beside it. Two different lists in one strip, so the page rail is
   //: built from the region response (which knows the page count) and this
   //: sibling rail is built here.
-  if (ocrIsPdf(image)) {
-    ocrWorkspaceImages = [];
-    rail.dataset.pagesFor = "";
-    rail.replaceChildren();
-    rail.classList.add("hidden");
-    overlay.classList.remove("hidden");
-    ocrLoadPage(image, 0);
-    return;
-  }
-  //: Only images the reader can actually open — the rail is a page list, and
-  //: a row that 404s in it is worse than a shorter rail.
-  ocrWorkspaceImages = (images || []).filter((row) => row._isImage);
+  //: **The rail no longer depends on the caller.** Whatever list was passed
+  //: seeds the cache so a gallery open still paints instantly, but the
+  //: workspace then loads the rest itself — which is what makes it navigable
+  //: when opened from the lightbox, from the reopen toast, or from a
+  //: still-running read, all three of which passed nothing.
+  //: Reported: "the images/pages selector disappears when on the images
+  //: and only shows on files." The gallery seeded this cache with *its*
+  //: list — images only — and the loader below then treated the cache as
+  //: complete, so the Files count was 0 and the switch hid itself. The
+  //: seed still paints the rail instantly; the full list always follows.
+  const seeded = Array.isArray(images) && images.length && !ocrSiblingCache;
+  if (seeded) ocrSiblingCache = images;
+  ocrRailMode = ocrIsPdf(image) ? "pages" : image._isImage ? "images" : "files";
   rail.dataset.pagesFor = "";
   rail.replaceChildren();
-  for (const row of ocrWorkspaceImages) {
-    const item = document.createElement("button");
-    item.type = "button";
-    item.className = "ocr-rail-item";
-    item.dataset.key = ocrRailKey(row);
-    const thumb = document.createElement("img");
-    thumb.src = mediaSrc(row.url);
-    thumb.alt = "";
-    thumb.loading = "lazy";
-    const name = document.createElement("span");
-    name.className = "ocr-rail-name";
-    name.textContent = row.original_name;
-    item.append(thumb, name);
-    item.title = row.original_name;
-    item.addEventListener("click", () => ocrLoadPage(row));
-    rail.appendChild(item);
-  }
-  rail.classList.toggle("hidden", ocrWorkspaceImages.length < 2);
+  rail.classList.add("hidden");
   overlay.classList.remove("hidden");
-  ocrLoadPage(image);
+  if (ocrIsPdf(image)) {
+    ocrWorkspaceImages = [];
+    ocrLoadPage(image, 0);
+  } else {
+    ocrLoadPage(image);
+  }
+  //: Fetched after the overlay is up and the first page is loading, so the
+  //: rail filling in never delays the thing you actually opened. A failure
+  //: leaves the rail empty, which is exactly where it started.
+  ocrLoadSiblings({ force: Boolean(seeded) })
+    .then(() => ocrRenderRail(image))
+    .catch(() => {});
 }
 
 //: **The whole page, in a pane that is the wrong shape for it.** See the
@@ -2924,10 +3513,13 @@ function ocrApplyZoom() {
   if (ocrZoom === null) {
     pane.classList.add("is-fit");
     ocrFitStage();
-    if (label) label.textContent = "Fit";
+    // The Fit button beside it is already lit; a second "Fit" as the level
+    // read as a duplicate control (screenshot). Shown only as a percentage.
+    if (label) { label.textContent = "Fit"; label.hidden = true; }
     return;
   }
   pane.classList.remove("is-fit");
+  if (label) label.hidden = false;
   //: The page's own size on paper is the rendered width divided by the scale
   //: it was rendered at; the zoom multiplies *that*, so 100% is 100%. Applied
   //: to every stage on screen, which in continuous mode is every page.
@@ -3128,6 +3720,10 @@ function ocrScrollToPage(page) {
 //: counter is not decoration in a document reader — without it "next page"
 //: is a button with no idea how many times it can be pressed.
 function ocrSyncPager(image) {
+  //: Every path that changes the page ends here -- the pager buttons, the
+  //: rail, and continuous scrolling -- which makes it the one place the
+  //: reading panel has to be told to follow. See `ocrRevealRegionsForPage`.
+  ocrRevealRegionsForPage(ocrWorkspacePage);
   const pager = $("ocr-pager");
   const label = $("ocr-page-label");
   const multi = ocrIsPdf(image) && ocrWorkspacePages > 1;
@@ -3153,7 +3749,15 @@ function ocrStepPage(delta) {
 //: why rather than being offered and erroring. Refreshed on open because both
 //: answers change while the app is running — a model gets loaded, an extra
 //: gets installed.
-let ocrReaders = { vision: false, tesseract: false, vision_model: "", vision_reason: "" };
+let ocrReaders = {
+  vision: false,
+  tesseract: false,
+  vision_model: "",
+  vision_reason: "",
+  ocr: false,
+  ocr_model: "",
+  ocr_reason: "",
+};
 
 async function ocrLoadReaders() {
   const select = $("ocr-reader");
@@ -3163,16 +3767,49 @@ async function ocrLoadReaders() {
   } catch {
     //: An unreachable status endpoint must not disable reading: leave both
     //: options enabled and let the read itself report what went wrong.
-    ocrReaders = { vision: true, tesseract: true, vision_model: "", vision_reason: "" };
+    ocrReaders = {
+      vision: true,
+      tesseract: true,
+      vision_model: "",
+      vision_reason: "",
+      ocr: false,
+      ocr_model: "",
+      ocr_reason: "",
+    };
   }
   const vision = select.querySelector('option[value="vision"]');
+  const second = select.querySelector('option[value="ocr"]');
   const tess = select.querySelector('option[value="tesseract"]');
   if (vision) {
+    //: "document reader", not "vision model": this option is
+    //: `resolve_ocr_model`, which prefers a model built to transcribe a page
+    //: (GLM-OCR, DeepSeek-OCR, PaddleOCR-VL) and only falls back to a general
+    //: vision model. Calling it "vision model" is what produced the report —
+    //: "my ocr model shows as a vision model" — because the label named the
+    //: wrong one of the two things it could be.
     vision.textContent = ocrReaders.vision_model
-      ? `AI vision model (${ocrReaders.vision_model})`
-      : "AI vision model";
+      ? `AI document reader (${ocrReaders.vision_model})`
+      : "AI document reader";
     vision.disabled = ocrReaders.vision === false;
     vision.title = ocrReaders.vision_reason || "";
+  }
+  if (second) {
+    //: **Hidden unless there is a genuine second choice.** The backend only
+    //: fills `ocr_model` when `resolve_vision_model` returns something
+    //: *different* from the default reader — on the common machine with one
+    //: vision model installed, both resolvers return it, and offering the same
+    //: model twice under two names is a worse picker than offering it once.
+    const has = Boolean(ocrReaders.ocr && ocrReaders.ocr_model);
+    second.hidden = !has;
+    second.disabled = !has;
+    second.textContent = has
+      ? `AI vision model (${shortModelName(ocrReaders.ocr_model)})`
+      : "AI vision model";
+    second.title = has ? ocrReaders.ocr_model : "";
+    second.title = has
+      ? "The general vision model, rather than the dedicated page reader. Worth "
+        + "trying when a page is a photograph or a diagram more than a document."
+      : ocrReaders.ocr_reason || "";
   }
   if (tess) {
     tess.disabled = ocrReaders.tesseract === false;
@@ -3185,7 +3822,7 @@ async function ocrLoadReaders() {
   }
   //: Fall to whichever one works rather than leaving a disabled option
   //: selected, which reads as "this is what will happen" and is not.
-  if (select.selectedOptions[0]?.disabled) {
+  if (select.selectedOptions[0]?.disabled || select.selectedOptions[0]?.hidden) {
     select.value = ocrReaders.tesseract && !ocrReaders.vision ? "tesseract" : "vision";
   }
   //: No repaint call is needed: `enhanceSelect` (app.js) watches each select
@@ -3197,17 +3834,71 @@ async function ocrLoadReaders() {
 }
 
 function ocrReader() {
-  return $("ocr-reader")?.value === "tesseract" ? "tesseract" : "vision";
+  const value = $("ocr-reader")?.value;
+  return value === "tesseract" || value === "ocr" ? value : "vision";
 }
 
 function ocrReaderName() {
-  return ocrReader() === "tesseract" ? "Tesseract" : "AI";
+  const reader = ocrReader();
+  if (reader === "tesseract") return "Tesseract";
+  if (reader === "ocr") return ocrReaders.ocr_model || "the vision model";
+  return ocrReaders.vision_model || "AI";
 }
 
 //: **Find, over the reading.** The point of transcribing a page is that its
 //: words become searchable; until now the result was a list you scrolled with
 //: your eyes. Filters the region rows and says how many matched, so an empty
 //: result is a statement rather than a blank pane.
+//: Which page a region belongs to. A whole-page reading carries `region.page`;
+//: a Tesseract box carries none and belongs to whichever page was read, which
+//: the response records as `body.page`.
+function ocrRegionPage(region, body) {
+  if (Number.isInteger(region.page)) return region.page;
+  return Number(body && body.page) || 0;
+}
+
+//: Panel -> page. Click anywhere in a section that is not already a control
+//: (its Copy and Delete buttons stop propagation of their own) and the page
+//: pane goes to the page that section was read from.
+function ocrWireRegionJump(row) {
+  row.addEventListener("click", (event) => {
+    if (event.target.closest("button, a, input, textarea")) return;
+    const page = Number(row.dataset.page);
+    const image = ocrWorkspaceCurrent;
+    if (!image || !Number.isInteger(page) || page === ocrWorkspacePage) return;
+    if (page < 0 || page >= ocrWorkspacePages) return;
+    ocrLoadPage(image, page);
+  });
+}
+
+//: Page -> panel. Marks every section belonging to the page on screen and
+//: brings the first of them into view, so changing page never leaves the
+//: reading panel showing a different part of the document.
+//:
+//: `ocrRegionScrollLock` is the same guard `ocrScrollToPage` needs and for the
+//: same reason: in continuous mode a programmatic scroll of one pane fires the
+//: scroll listener of the other, and without it the two chase each other.
+let ocrRegionScrollLock = false;
+
+function ocrRevealRegionsForPage(page) {
+  const list = $("ocr-region-list");
+  if (!list || ocrRegionScrollLock) return;
+  const rows = [...list.querySelectorAll(".ocr-region")];
+  if (!rows.length) return;
+  let first = null;
+  for (const row of rows) {
+    const mine = Number(row.dataset.page) === page;
+    row.classList.toggle("is-current-page", mine);
+    if (mine && !first && !row.classList.contains("hidden")) first = row;
+  }
+  if (!first) return;
+  ocrRegionScrollLock = true;
+  first.scrollIntoView({ block: "nearest", behavior: "auto" });
+  setTimeout(() => {
+    ocrRegionScrollLock = false;
+  }, 300);
+}
+
 function ocrApplyFind() {
   const query = ($("ocr-find")?.value || "").trim().toLowerCase();
   const rows = [...document.querySelectorAll("#ocr-region-list .ocr-region")];
@@ -3346,6 +4037,23 @@ document.addEventListener("DOMContentLoaded", () => {
     //: Never while typing: the range box and the find box are both text
     //: fields inside this dialog, and Left/Right belong to the caret there.
     const tag = document.activeElement?.tagName;
+    //: Escape closes the reader (measured: it did not) — unless a confirm
+    //: is up, which owns Escape, or a text field has focus, where Escape
+    //: first drops out of the field. Ctrl+F goes to "Find in what was read"
+    //: rather than the browser's own find, which cannot see this dialog's
+    //: text any better than the page's.
+    if (event.key === "Escape") {
+      if (document.querySelector(".confirm-overlay")) return;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") { document.activeElement.blur(); return; }
+      event.preventDefault();
+      closeOcrWorkspace();
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
+      event.preventDefault();
+      $("ocr-find")?.focus();
+      return;
+    }
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
     if (event.key === "ArrowLeft" || event.key === "PageUp") {
       event.preventDefault();
@@ -3377,6 +4085,66 @@ document.addEventListener("DOMContentLoaded", () => {
     const text = ocrAllText();
     if (!text) return toast("There is nothing to copy yet.", true);
     copyToClipboard(text, event.currentTarget);
+  });
+  //: **Delete, the half of "delete or redo" that redo did not already have.**
+  //: Redo is just clicking "Read this page"/"Read this image" again — the
+  //: backend replaces the stored reading rather than appending to it — but
+  //: there was no way to remove a wrong reading without covering it with a
+  //: better one. This removes it outright: the current PDF page's own stored
+  //: reading (`PageRead`, via the new DELETE route), or a plain image's
+  //: `ocr_text`/`vision_ocr_text` field, cleared through the same `analyse`
+  //: endpoint the reader already uses to write it — sending `""` is the
+  //: documented way to clear either field, not a new code path.
+  $("ocr-describe")?.addEventListener("click", async (event) => {
+    const image = ocrWorkspaceCurrent;
+    if (!image || ocrIsPdf(image)) return;
+    const button = event.currentTarget;
+    button.disabled = true;
+    $("ocr-message").textContent = `Describing with ${ocrReaders.vision_model || "the vision model"}…`;
+    $("ocr-message").classList.remove("hidden");
+    try {
+      const updated = await analyseMediaRow(image, "caption", { force: true });
+      if (updated && typeof updated.caption === "string") image.caption = updated.caption;
+      renderLibraryImagesGallery();
+      await ocrLoadPage(image, ocrWorkspacePage);
+      toast("Description written.");
+    } catch (error) {
+      toast(error.message || "Couldn't describe that image.", true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+  $("ocr-delete-reading")?.addEventListener("click", async (event) => {
+    const image = ocrWorkspaceCurrent;
+    if (!image) return;
+    const isPdf = ocrIsPdf(image);
+    const what = isPdf ? `page ${ocrWorkspacePage + 1}` : "this image";
+    if (!(await confirmDialog(`Delete the reading for ${what}? You can read it again any time.`))) {
+      return;
+    }
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      if (isPdf) {
+        const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
+        await apiJson(`${base}/page-reads/${ocrWorkspacePage}`, { method: "DELETE" });
+      } else {
+        //: Same reader-to-field mapping `ocrReadImage` uses for the read
+        //: itself, so delete clears the field the *current* reader would
+        //: have written rather than guessing at the other one.
+        const kind = ocrReader() === "tesseract" ? "ocr" : "vision-ocr";
+        await analyseMediaRow(image, kind, { text: "" });
+        //: The gallery tile behind this dialog now claims a reading that is
+        //: gone — same repaint `ocrReadImage` triggers after writing one.
+        renderLibraryImagesGallery();
+      }
+      toast("Reading deleted.");
+      await ocrLoadPage(image, ocrWorkspacePage);
+    } catch (error) {
+      toast(error.message || "Could not delete that reading.", true);
+    } finally {
+      button.disabled = false;
+    }
   });
   //: **The document reader.** Tesseract cannot open a PDF at all
   //: (`core/ocr.py`'s OCR_SUFFIXES), and this project was told directly not to
@@ -3426,7 +4194,7 @@ document.addEventListener("DOMContentLoaded", () => {
             { index: 0, kind: "text", text, confidence: 0, box: { x: 0, y: 0, w: 1, h: 1 } },
           ],
           source: "stored-text",
-          message: `Read by ${body.model || ocrReaderName()} — text only, no page positions.`,
+          message: `Read by ${shortModelName(body.model || ocrReaderName())} — text only, no page positions.`,
           pages: ocrWorkspacePages,
           page,
         });
@@ -3584,6 +4352,40 @@ async function analyseMediaRow(image, kind, payload = {}) {
 //: well as its id — `media:12` and `attachment:12` are different files.
 const libraryMediaSelection = new Map();
 
+//: **What the workspace has already read out of a file.**
+//:
+//: A vision model's reading wins over Tesseract's when both exist: the
+//: workspace prefers it everywhere else too (`ocrStoredPageReads`), and a
+//: reading list that disagreed with the reader about which text is current
+//: would be worse than no list.
+function mediaReading(row) {
+  return (row?.vision_ocr_text || row?.ocr_text || "").trim();
+}
+
+function mediaHasBeenRead(row) {
+  return mediaReading(row).length > 0;
+}
+
+//: The badge on a file tile. Two states, and the read one carries a number:
+//: "Read" alone says a job finished, while "Read · 1,240 words" says what came
+//: out of it — which is the thing you are deciding on when you are looking for
+//: the scan that actually had the text in it.
+function mediaReadingBadge(row) {
+  const badge = document.createElement("span");
+  const reading = mediaReading(row);
+  if (!reading) {
+    badge.className = "chip library-read-badge is-unread";
+    badge.textContent = "Not read";
+    badge.title = "Nothing has been transcribed from this yet";
+    return badge;
+  }
+  const words = reading.split(/\s+/).length;
+  badge.className = "chip library-read-badge is-read";
+  badge.textContent = `Read · ${words.toLocaleString()} words`;
+  badge.title = "Open the reader to see it beside the page";
+  return badge;
+}
+
 function mediaRowKey(image) {
   const kind = image._isAttachment ? "attachment" : "media";
   return `${kind}:${image.id}`;
@@ -3730,14 +4532,23 @@ function libraryMediaSort() {
   return LIBRARY_MEDIA_SORTS[stored] ? stored : "newest";
 }
 
+//: The read filter is *not* stored, unlike the sort. A sort is a preference —
+//: how you like lists arranged — but "show me only what I have not read" is a
+//: task you are in the middle of, and a filter that silently persisted across
+//: sessions is how a Library comes back next week apparently missing half its
+//: files. Same reasoning the notes list uses for its own transient filters.
 document.addEventListener("DOMContentLoaded", () => {
   const select = document.getElementById("library-media-sort");
-  if (!select) return;
-  select.value = libraryMediaSort();
-  select.addEventListener("change", () => {
-    localStorage.setItem(LIBRARY_MEDIA_SORT_KEY, select.value);
-    filterLibraryImagesGallery();
-  });
+  if (select) {
+    select.value = libraryMediaSort();
+    select.addEventListener("change", () => {
+      localStorage.setItem(LIBRARY_MEDIA_SORT_KEY, select.value);
+      filterLibraryImagesGallery();
+    });
+  }
+  document
+    .getElementById("library-media-read")
+    ?.addEventListener("change", () => filterLibraryImagesGallery());
 });
 
 function filterLibraryImagesGallery() {
@@ -3751,9 +4562,18 @@ function filterLibraryImagesGallery() {
   // has to be the kind-filtered one — otherwise a notebook holding only PDFs
   // would show the Images tab as "no match for your search" with an empty
   // search box.
-  const ofKind = libraryImagesCache.filter((i) =>
-    libraryMediaKind === "files" ? !i._isImage : i._isImage
-  );
+  const readState = libraryMediaKind === "files" ? $("library-media-read")?.value || "all" : "all";
+  const ofKind = libraryImagesCache
+    .filter((i) => (libraryMediaKind === "files" ? !i._isImage : i._isImage))
+    //: Applied with the kind rather than with the search box, deliberately:
+    //: the empty-state copy below distinguishes "nothing in this sub-tab" from
+    //: "nothing matches your search", and a read filter is part of *which
+    //: files this sub-tab is showing*, not part of the query.
+    .filter((i) => {
+      if (readState === "read") return mediaHasBeenRead(i);
+      if (readState === "unread") return !mediaHasBeenRead(i);
+      return true;
+    });
   const matched = query
     ? ofKind.filter(
         (i) =>
@@ -3873,7 +4693,7 @@ function filterLibraryImagesGallery() {
           caption: i.caption || "",
           text: (i.vision_ocr_text || i.ocr_text || "").trim(),
           byline: i.vision_ocr_text
-            ? `Text read by ${i.vision_ocr_model || "a model"}`
+            ? `Text read by ${shortModelName(i.vision_ocr_model) || "a model"}`
             : i.ocr_text
               ? "Text read with Tesseract OCR"
               : "",
@@ -4091,7 +4911,7 @@ function filterLibraryImagesGallery() {
     captionBadge.className = "library-image-caption-badge muted text-sm hidden";
     const syncCaptionBadge = () => {
       const parts = [];
-      if (image.caption_model) parts.push(image.caption_model);
+      if (image.caption_model) parts.push(shortModelName(image.caption_model));
       if (image.caption_edited) parts.push(image.caption_model ? "edited" : "typed by hand");
       captionBadge.textContent = parts.join(" · ");
       captionBadge.classList.toggle("hidden", !image.caption || parts.length === 0);
@@ -4428,7 +5248,8 @@ function filterLibraryImagesGallery() {
         text || (hasRun ? "No legible text found — click to edit" : "No text yet — click to add");
       visionOcrText.classList.toggle("library-image-ocr-empty", !text);
       visionOcrText.title = text ? "Click to edit or clear this reading" : "Click to add text";
-      visionOcrBadge.textContent = hasRun ? `Read by ${model}` : "";
+      visionOcrBadge.textContent = hasRun ? `Read by ${shortModelName(model)}` : "";
+      visionOcrBadge.title = hasRun ? `Read by ${model}` : "";
       visionOcrBadge.classList.toggle("hidden", !hasRun);
       visionOcrBtn.title = hasRun
         ? `Read the text in “${image.original_name}” again`
@@ -4610,8 +5431,12 @@ function filterLibraryImagesGallery() {
       captionToggle,
       captionBadge
     );
+    //: A PDF is not an image, and the heading said so anyway. Reported: "in
+    //: the files tab, the ocr heading still says 'text in this image' when it
+    //: should probably say something like 'extracted text from file'".
+    //: `_isImage` is already set for every row by the gallery loader.
     const visionField = field(
-      "Text in this image",
+      image._isImage ? "Text in this image" : "Text extracted from this file",
       visionOcrText,
       visionOcrToggle,
       visionOcrBadge
@@ -4704,6 +5529,45 @@ function filterLibraryImagesGallery() {
     // menuList comment above for why that id doesn't belong to this row),
     // and a caption box that looks editable but silently 404s on save is
     // worse than a tile with no caption box at all.
+    //: **The reading strip — the Files sub-tab's whole reason to look
+    //: different from the Images one.** Asked for directly: "because the ocr
+    //: worspace exists, redesign the files library subtab and its
+    //: capabilities." The workspace is where a document gets read; this list
+    //: could not say which ones already had been, so every scan looked the
+    //: same as every other and the only way to find out was to open each one.
+    //:
+    //: Files only. An image "read" or "not read" is a statement about whether
+    //: OCR happened to have run, which is not a thing anybody is looking for
+    //: when they are browsing pictures.
+    if (!image._isImage) {
+      const strip = document.createElement("div");
+      strip.className = "row library-read-strip";
+      strip.appendChild(mediaReadingBadge(image));
+      const read = document.createElement("button");
+      read.type = "button";
+      read.className = "ghost small library-read-open";
+      //: The label follows the state, because "Read" on something already read
+      //: reads as a claim about the file rather than as an invitation.
+      setLabel(
+        read,
+        mediaHasBeenRead(image) ? "ph:book-open-text Open reader" : "ph:scan Read this"
+      );
+      read.title = mediaHasBeenRead(image)
+        ? "Open it in the reader, beside what was found"
+        : "Open the reader and transcribe it";
+      //: A *primary* control on the tile rather than a row in the kebab. The
+      //: workspace only became worth putting a front door on once it could
+      //: find its own siblings — before that, opening it from here was a dead
+      //: end you had to close to get anywhere.
+      read.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openOcrWorkspace(image, libraryImagesCache);
+      });
+      strip.appendChild(read);
+      fig.append(img, actions, cap, fileMetaLine(image), strip, usage, fields);
+      grid.appendChild(fig);
+      continue;
+    }
     fig.append(img, actions, cap, usage, fields);
     grid.appendChild(fig);
   }
@@ -4914,6 +5778,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
   $("bookmark-search")?.addEventListener("input", filterBookmarks);
+  $("bookmark-group-new")?.addEventListener("click", newBookmarkGroup);
+  $("bookmark-group-manage")?.addEventListener("click", manageBookmarkGroups);
   $("contents-refresh")?.addEventListener("click", renderContents);
   $("contents-mode")?.querySelectorAll("button").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -5222,11 +6088,218 @@ async function bulkDeleteLibraryLinks() {
   renderBookmarks();
 }
 
+//: **A group is a name on a bookmark, not a row in a table.** There is no
+//: group entity anywhere in the backend — `routes_bookmarks.py` stores
+//: `group_name` as a plain string field on each link, and the chips are
+//: derived from whatever names the current links happen to carry. That is a
+//: good model (nothing to garbage-collect, no join to keep honest), but it
+//: has one hole: a group with no links in it cannot exist server-side, so
+//: "New group" would create something that vanishes the moment you look away.
+//:
+//: This is that hole, filled client-side rather than by adding a table: a
+//: freshly made, still-empty group is remembered here until a link lands in
+//: it, at which point the derived name takes over and the placeholder is
+//: dropped. Kept per-profile in localStorage alongside the sort preference,
+//: for the same reason that one is: it is a view preference, not notebook
+//: content, and it must not travel into an export as if it were data.
+const BOOKMARK_EMPTY_GROUPS_KEY = "library-links-empty-groups";
+
+function emptyBookmarkGroups() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(BOOKMARK_EMPTY_GROUPS_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed.filter((g) => typeof g === "string" && g) : [];
+  } catch {
+    // A hand-edited or half-written value must not take the whole sub-tab
+    // down with it — an unreadable preference is the same as none.
+    return [];
+  }
+}
+
+function setEmptyBookmarkGroups(groups) {
+  try {
+    localStorage.setItem(BOOKMARK_EMPTY_GROUPS_KEY, JSON.stringify([...new Set(groups)].sort()));
+  } catch {
+    /* storage full or blocked: the group just won't survive a reload. */
+  }
+}
+
+//: Every group name the Links sub-tab knows about: the ones links actually
+//: carry, plus the placeholders above that nothing has been filed into yet.
+//: Also the one place that prunes a placeholder whose name is now real, so
+//: the two sources can never both claim the same name.
+function allBookmarkGroups() {
+  const used = new Set(bookmarksCache.map((b) => b.group_name).filter(Boolean));
+  const empties = emptyBookmarkGroups().filter((g) => !used.has(g));
+  if (empties.length !== emptyBookmarkGroups().length) setEmptyBookmarkGroups(empties);
+  return [...new Set([...used, ...empties])].sort();
+}
+
+//: Rename a group across every link carrying it. One PUT per link, because
+//: that is the only endpoint there is — there is no bulk update and no group
+//: row to rename instead. Sequential rather than Promise.all so a notebook
+//: with a hundred links in one group does not open a hundred sockets at once;
+//: a rename is rare and a moment of latency is cheaper than a thundering herd.
+async function renameBookmarkGroup(from, to) {
+  let moved = 0;
+  for (const bookmark of bookmarksCache.filter((b) => b.group_name === from)) {
+    try {
+      await apiJson(`/bookmarks/${bookmark.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ group_name: to }),
+      });
+      moved++;
+    } catch (error) {
+      toast(error.message || "Couldn't move that link.", true);
+    }
+  }
+  const empties = emptyBookmarkGroups().filter((g) => g !== from);
+  if (to) empties.push(to);
+  setEmptyBookmarkGroups(empties);
+  if (bookmarkGroupFilter === from) bookmarkGroupFilter = to || null;
+  return moved;
+}
+
+//: Deleting a group deletes the *grouping*, never the links — clearing the
+//: name on each one drops them back into the ungrouped pile. Deleting the
+//: links themselves is what the row ticks and the bulk bar are for, and
+//: conflating the two here would make a tidy-up destructive by surprise.
+async function deleteBookmarkGroup(group) {
+  return renameBookmarkGroup(group, "");
+}
+
+async function newBookmarkGroup() {
+  const name = (await promptDialog("Name for the new group (e.g. Work/Reading):", "")).trim();
+  if (!name) return;
+  if (allBookmarkGroups().includes(name)) {
+    toast(`"${name}" already exists.`);
+    bookmarkGroupFilter = name;
+    renderBookmarks();
+    return;
+  }
+  setEmptyBookmarkGroups([...emptyBookmarkGroups(), name]);
+  // Pre-fill the Add form so the obvious next move — saving a link into the
+  // group you just made — needs no second trip to the group field.
+  const groupInput = $("bookmark-group-input");
+  if (groupInput) groupInput.value = name;
+  bookmarkGroupFilter = name;
+  renderBookmarks();
+  toast(`Group "${name}" created. Add a link to it, or it'll be forgotten on the next device.`);
+}
+
+//: The manage dialog. Built by hand rather than reusing confirmDialog because
+//: it is a list with two actions per row, and it re-renders itself in place
+//: after each one — reopening it after every rename would lose your place.
+function manageBookmarkGroups() {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay confirm-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "Manage link groups");
+
+  const card = document.createElement("div");
+  card.className = "card modal-card confirm-card bookmark-groups-card";
+  const heading = document.createElement("h3");
+  heading.textContent = "Manage groups";
+  const blurb = document.createElement("p");
+  blurb.className = "muted text-sm";
+  blurb.textContent =
+    "Renaming a group moves every link in it. Deleting one keeps the links and just ungroups them.";
+  const list = document.createElement("div");
+  list.className = "bookmark-groups-list";
+
+  const returnFocus = document.activeElement;
+  let settled = false;
+  const close = () => {
+    if (settled) return;
+    settled = true;
+    document.removeEventListener("keydown", onKey, true);
+    overlay.remove();
+    returnFocus?.focus?.();
+  };
+  const onKey = (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+    }
+  };
+
+  const paint = () => {
+    list.replaceChildren();
+    const groups = allBookmarkGroups();
+    if (!groups.length) {
+      const none = document.createElement("p");
+      none.className = "muted";
+      none.textContent = "No groups yet. Use “New group”, or type a group name when you add a link.";
+      list.appendChild(none);
+      return;
+    }
+    for (const group of groups) {
+      const count = bookmarksCache.filter((b) => b.group_name === group).length;
+      const row = document.createElement("div");
+      row.className = "row space-between bookmark-group-row";
+
+      const label = document.createElement("div");
+      label.className = "bookmark-group-row-main";
+      const name = document.createElement("strong");
+      name.textContent = group.split("/").join(" / ");
+      const meta = document.createElement("span");
+      meta.className = "muted text-sm";
+      meta.textContent = count === 0 ? "Empty" : `${count} link${count === 1 ? "" : "s"}`;
+      label.append(name, meta);
+
+      const actions = document.createElement("div");
+      actions.className = "row bookmark-group-row-actions";
+      actions.append(
+        smallButton("ph:pencil-simple", `Rename "${group}"`, async () => {
+          const next = (await promptDialog(`Rename "${group}" to:`, group)).trim();
+          if (!next || next === group) return;
+          const moved = await renameBookmarkGroup(group, next);
+          await renderBookmarks();
+          paint();
+          toast(moved ? `Moved ${moved} link${moved === 1 ? "" : "s"} to "${next}".` : `Renamed to "${next}".`);
+        }),
+        smallButton("ph:trash", `Delete "${group}"`, async () => {
+          const ok = await confirmDialog(
+            count === 0
+              ? `Delete the empty group "${group}"?`
+              : `Delete the group "${group}"? Its ${count} link${count === 1 ? "" : "s"} stay — they just stop being grouped.`
+          );
+          if (!ok) return;
+          await deleteBookmarkGroup(group);
+          await renderBookmarks();
+          paint();
+        })
+      );
+      row.append(label, actions);
+      list.appendChild(row);
+    }
+  };
+  paint();
+
+  const footer = document.createElement("div");
+  footer.className = "row confirm-actions";
+  footer.append(
+    smallButton("New group", "Create a new group", async () => {
+      close();
+      await newBookmarkGroup();
+    }),
+    smallButton("Done", "Close", close, false)
+  );
+
+  card.append(heading, blurb, list, footer);
+  overlay.appendChild(card);
+  wireBackdropClose(overlay, close);
+  document.addEventListener("keydown", onKey, true);
+  document.body.appendChild(overlay);
+  card.querySelector("button")?.focus();
+}
+
 function renderBookmarkGroupChips() {
   const box = $("bookmark-group-chips");
   const datalist = $("bookmark-group-options");
   if (!box) return;
-  const groups = [...new Set(bookmarksCache.map((b) => b.group_name).filter(Boolean))].sort();
+  const groups = allBookmarkGroups();
   datalist?.replaceChildren(
     ...groups.map((g) => { const opt = document.createElement("option"); opt.value = g; return opt; })
   );
@@ -5374,7 +6447,7 @@ function bookmarkRow(bookmark) {
 
   const pin = document.createElement("button");
   pin.type = "button";
-  pin.className = "ghost small";
+  pin.className = "ghost small icon-only";
   pin.title = bookmark.pinned ? "Unpin" : "Pin to the top";
   pin.setAttribute("aria-label", pin.title);
   // No "-fill" pin glyph in this app's bundled Phosphor set (checked: the
@@ -5392,7 +6465,7 @@ function bookmarkRow(bookmark) {
 
   const edit = document.createElement("button");
   edit.type = "button";
-  edit.className = "ghost small";
+  edit.className = "ghost small icon-only";
   edit.title = "Edit";
   edit.setAttribute("aria-label", "Edit this link");
   setLabel(edit, "ph:pencil-simple");
@@ -5445,7 +6518,7 @@ function bookmarkRow(bookmark) {
     save.textContent = "Save";
     const cancel = document.createElement("button");
     cancel.type = "button";
-    cancel.className = "ghost small";
+    cancel.className = "ghost small icon-only";
     cancel.textContent = "Cancel";
     buttons.append(save, cancel);
     form.appendChild(buttons);
@@ -5490,7 +6563,7 @@ function bookmarkRow(bookmark) {
 
   const group = document.createElement("button");
   group.type = "button";
-  group.className = "ghost small";
+  group.className = "ghost small icon-only";
   group.title = "Move to group";
   group.setAttribute("aria-label", "Move this link to a group");
   setLabel(group, "ph:folder-simple");
@@ -5514,7 +6587,7 @@ function bookmarkRow(bookmark) {
 
   const remove = document.createElement("button");
   remove.type = "button";
-  remove.className = "ghost small";
+  remove.className = "ghost small icon-only";
   remove.title = "Delete";
   remove.setAttribute("aria-label", "Delete this link");
   setLabel(remove, "ph:trash");

@@ -369,6 +369,9 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
     assert state["objects"][0]["data"] == {
         "content": "Meeting notes", "color": "#ffcc00", "font_size": 18, "url": None,
         "bg": None, "border_color": None,
+        # Added with the text-box formatting controls; None until set.
+        "align": None,
+        "md": None,
     }
 
     moved = board_client.put(
@@ -528,3 +531,70 @@ def test_the_frontend_sends_the_board_when_it_moves_a_card():
     whiteboard_js = (FRONTEND_DIR / "whiteboard.js").read_text(encoding="utf-8")
     save = whiteboard_js[whiteboard_js.index("// Sync back to API.") :][:900]
     assert "board_id" in save, "the coordinate save must carry the card's board"
+
+
+def test_deleting_an_item_takes_its_links_with_it(board_client, session):
+    """A link is a sketch row that names its two ends. The frontend hides a
+    link whose end is gone, but the row stayed — an orphan on every board a
+    card was ever deleted from. Deleting a card, a text box or a shape now
+    removes the links that touched it, and nothing else."""
+    entry = _note(session)
+    node = board_client.post("/whiteboard/nodes", json={"entry_id": entry.id, "x": 0, "y": 0}).json()
+    obj = board_client.post(
+        "/whiteboard/objects",
+        json={"kind": "text", "data": {"content": "hi"}, "x": 300, "y": 0, "width": 100, "height": 60},
+    ).json()
+    shape = board_client.post(
+        "/whiteboard/sketches", json={"data": '{"type": "rect", "d": "M0 0 h50 v50 h-50 z"}', "x": 0, "y": 0}
+    ).json()
+    link_node_obj = board_client.post(
+        "/whiteboard/sketches",
+        json={"data": f'{{"type": "link-straight", "sourceId": {node["id"]}, "targetId": {obj["id"]}, "targetKind": "object"}}', "x": 0, "y": 0},
+    ).json()
+    link_shape_obj = board_client.post(
+        "/whiteboard/sketches",
+        json={"data": f'{{"type": "link-curved", "sourceId": {shape["id"]}, "sourceKind": "sketch", "targetId": {obj["id"]}, "targetKind": "object"}}', "x": 0, "y": 0},
+    ).json()
+
+    # The request runs outside the assert: CodeQL flags a side-effecting
+    # expression inside one, and `-O` would skip it entirely.
+    gone_node = board_client.delete(f"/whiteboard/nodes/{node['id']}")
+    assert gone_node.status_code == 200
+    ids = {s["id"] for s in board_client.get("/whiteboard/").json()["sketches"]}
+    assert link_node_obj["id"] not in ids
+    assert link_shape_obj["id"] in ids and shape["id"] in ids
+
+    gone_obj = board_client.delete(f"/whiteboard/objects/{obj['id']}")
+    assert gone_obj.status_code == 200
+    ids = {s["id"] for s in board_client.get("/whiteboard/").json()["sketches"]}
+    assert link_shape_obj["id"] not in ids
+    assert shape["id"] in ids
+
+
+def test_a_text_box_keeps_its_alignment_and_markdown_flag(board_client):
+    """`align` and `md` are real fields, not extras Pydantic drops. The first
+    version of the text-box formatting controls stored them client-side only,
+    so every toggle came back empty on the next render."""
+    made = board_client.post(
+        "/whiteboard/objects",
+        json={
+            "kind": "text",
+            "data": {"content": "# Plan", "align": "center", "md": True},
+            "x": 0, "y": 0, "width": 200, "height": 120,
+        },
+    )
+    assert made.status_code == 201, made.text
+    body = made.json()
+    assert body["data"]["align"] == "center"
+    assert body["data"]["md"] is True
+
+    round_trip = board_client.get("/whiteboard/").json()["objects"]
+    stored = next(o for o in round_trip if o["id"] == body["id"])
+    assert stored["data"]["align"] == "center"
+    assert stored["data"]["md"] is True
+
+    refused = board_client.post(
+        "/whiteboard/objects",
+        json={"kind": "text", "data": {"content": "x", "align": "sideways"}, "x": 0, "y": 0},
+    )
+    assert refused.status_code == 422

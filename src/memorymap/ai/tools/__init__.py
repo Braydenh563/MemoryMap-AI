@@ -2480,7 +2480,10 @@ TOOLS: dict[str, ToolSpec] = {
             "Read everything the app knows about one file: its caption and "
             "the text read out of it. Takes the `kind` and `id` exactly as "
             "search_files returned them — uploads and attachments are "
-            "different things with their own numbering.",
+            "different things with their own numbering. The extracted text "
+            "is capped; for a multi-page scan or a long document, pass "
+            "query to get the text around where it actually appears "
+            "instead of just the first page.",
             {
                 "type": "object",
                 "properties": {
@@ -2489,6 +2492,13 @@ TOOLS: dict[str, ToolSpec] = {
                         "description": "'upload' or 'attachment', from search_files",
                     },
                     "file_id": {"type": "integer", "description": "The file's id"},
+                    "query": {
+                        "type": "string",
+                        "description": "Optional — a word or phrase you're looking "
+                        "for in this file. Returns the text around where it "
+                        "appears instead of only the start of the reading, which "
+                        "matters for anything longer than a page or two.",
+                    },
                 },
                 "required": ["kind", "file_id"],
             },

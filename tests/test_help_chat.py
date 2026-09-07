@@ -4,6 +4,9 @@ no persisted history. `ai_client`/`fake_ollama` give the happy path;
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 from memorymap.ai import help_chat
 
 
@@ -117,11 +120,34 @@ def test_every_help_topic_has_a_non_empty_body_and_badge():
 
 
 # Reported live: clicking the "Whiteboard" badge (a `data-goto-tab="whiteboard"`
-# button) blanked the whole app — `switchTab()` hides every tab panel and
-# shows none when given a name that matches no real tab, since "whiteboard"
-# and "documents" are Library *sub*-tabs, not top-level tabs, and the badge
-# system only knows how to switch to a top-level one. Same bug on both.
-REAL_TOP_LEVEL_TABS = {"dashboard", "notes", "chat", "graph", "library", "timeline", "reminders"}
+# button) blanked the whole app — `switchTab()` hides every tab panel and shows
+# none when given a name that matches no real tab, since "whiteboard" is a
+# Library *sub*-tab, not a top-level one, and the badge system only knows how to
+# switch to a top-level tab.
+#
+# **Read out of app.js rather than copied into a literal here.** The original
+# list was hand-copied and named "documents" among the sub-tabs — true when it
+# was written, and false since Documents was promoted to a tab of its own. So
+# this test spent that time refusing a badge that would have worked perfectly,
+# which is the failure mode a duplicated constant always eventually has. The
+# whole point of this lint is that Python cannot see `switchTab`; reading its
+# actual `TABS` line is as close as it gets.
+APP_JS = Path(__file__).resolve().parents[1] / "frontend" / "app.js"
+
+
+def _real_top_level_tabs() -> set[str]:
+    match = re.search(r"^const TABS = \[(.*?)\];", APP_JS.read_text(encoding="utf-8"), re.M)
+    assert match, "app.js no longer declares `const TABS = [...]` on one line"
+    return set(re.findall(r'"([a-z-]+)"', match.group(1)))
+
+
+REAL_TOP_LEVEL_TABS = _real_top_level_tabs()
+
+
+def test_the_tab_list_was_actually_found():
+    """A regex that quietly matched nothing would make the lint below vacuous."""
+    assert "dashboard" in REAL_TOP_LEVEL_TABS
+    assert len(REAL_TOP_LEVEL_TABS) >= 7
 
 
 def test_every_badge_tab_is_a_real_top_level_tab():

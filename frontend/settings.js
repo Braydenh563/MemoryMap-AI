@@ -107,10 +107,6 @@
 //: panel had five rows in it and a nav button that appeared to do nothing.
 const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "memory", "websearch", "appearance", "templates", "shortcuts", "preferences", "account", "extras", "tasks", "data", "logs", "help", "about"];
 
-function settingsModalOpen() {
-  return !$("settings-modal").classList.contains("hidden");
-}
-
 // Which settings section is on screen. The Background tasks list polls while
 // it is open, and needs to know that it is.
 let currentSettingsSection = "models";
@@ -1093,7 +1089,12 @@ const APPEARANCE_DEFAULTS = {
   "progress-motion": "always", // always | auto | still
   "bg-intensity": "90",
   radius: "14", // global corner rounding, px
-  "glass-blur": "18", // frosted-glass blur strength, px
+  // 14px, not 18. Blur radius is the exponential term in a backdrop-filter's
+  // cost, and the published band worth staying inside is 8-15px. The slider
+  // still reaches higher for anyone who wants it; this is what a fresh
+  // profile gets. See `.glass` in css/03-dashboard-widgets.css for the
+  // measured layer counts this multiplies across.
+  "glass-blur": "14", // frosted-glass blur strength, px
   // Percent of a card's own base alpha that survives — separate dial from
   // blur strength above (how frosted vs. how clear). 100 renders identically
   // to before this setting existed.
@@ -2999,7 +3000,7 @@ function collapseLongSettingHints(root) {
 
     const toggle = document.createElement("button");
     toggle.type = "button";
-    toggle.className = "ghost small setting-hint-toggle";
+    toggle.className = "ghost small icon-only setting-hint-toggle";
     setLabel(toggle, "ph:question");
     // The label text, so the control says which setting it explains rather
     // than being one of a column of identical "?"s to a screen reader.

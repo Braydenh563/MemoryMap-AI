@@ -11,6 +11,13 @@ The live list — what to do next, and the two sections of freshly reported work
 (§35, §36) — stays in [ROADMAP.md](../ROADMAP.md). Analysis and finished work
 are in [ANALYSIS.md](ANALYSIS.md) and [HISTORY.md](HISTORY.md).
 
+> **Status, 2026-09-07.** Every UI/UX item in this file (§2 quick wins, §15
+> Appearance, §16 Sweeping UI quality-of-life, §19 Accessibility, §24
+> Dashboard, §29b's visual rows, §64's editor chrome) is now governed by
+> [UI_MODERNISATION_PLAN.md](UI_MODERNISATION_PLAN.md), the top priority in
+> ROADMAP.md: do them through its phases, not one by one from here. §6 and
+> §63 are done (kept for their numbers). Everything else stands.
+
 > The rule that governs all of it, unchanged: **check the running app before
 > building anything here.** Three sessions independently rebuilt something that
 > already existed, and an audit of §2 found four of its six "quick wins" done.
@@ -399,8 +406,7 @@ like using Obsidian or Notion."* Ordered by how much each one gets in the way.
 
 ## 6. OpenAI-compatible backends — **done**
 
-Built. Moved to [HISTORY.md](HISTORY.md) with the rest of the finished work;
-the number is kept here so §6 references still land somewhere sensible.
+Built — the detail moved to [HISTORY.md](HISTORY.md) ("Retired from the live files, 2026-09-07"). Kept for its number.
 
 ## 7. Desktop packaging
 
@@ -2157,7 +2163,7 @@ only the fake-transport tests exercise it.
 
 ## 63. Ship a starter skills library — DONE, this claim was stale
 
-**Done.** The claim that this was outstanding was stale when it was written.
+Built — the detail moved to [HISTORY.md](HISTORY.md) ("Retired from the live files, 2026-09-07"). Kept for its number.
 
 ## 64. Documents editor — behind the rest of the app, needs its own pass
 
@@ -2876,19 +2882,7 @@ larger piece.
 
 ### What was built
 
-- **Metadata everywhere, not just the gallery.** `GET /media/meta/{filename}`
-  plus the lightbox asking for anything its caller did not pass. The bug was
-  never in the lightbox: caption/OCR/facts arrived as *arguments* and only
-  the gallery had a media row to pass, so the same picture showed a full
-  description in one tab and an empty panel in another.
-- **An actions bar**: zoom (buttons + wheel, 1x-6x), drag-to-pan, Fit, Copy
-  text, Save. Zoom controls hide in document mode, where they do nothing.
-- **Document preview**: `GET /media/text/{filename}` exposing the
-  `docview.extract` table that already existed for attachments, rendered as
-  real markdown (the app's own `renderMarkdown`) or as preserved-whitespace
-  code/plain, with find-in-document over the rendered text.
-- **Arrows out to the screen edges**, anchored to a new non-scrolling
-  `.lightbox-stage-wrap` rather than to the scrolling stage.
+Built — the detail moved to [HISTORY.md](HISTORY.md) ("Retired from the live files, 2026-09-07"). Kept for its number.
 
 ### Still open — the upload split, and what it collides with
 
@@ -3667,25 +3661,7 @@ the code decided none of them. What decided them was measuring.
 
 ### 109.2 Text highlighting — built
 
-`==highlighted text==`, plus `==green|text==` for a named colour from a
-closed set (yellow, green, blue, pink, purple, orange). Inline markdown, not
-a new data model — the same choice `**bold**`, `~~strike~~` and `[[wiki
-links]]` already made, so a highlight is still just characters in the note's
-own `content` and needs no column, no span-range table, and works everywhere
-content already goes: search, export, and the AI's own reading of the note.
-
-It renders through the one shared `renderInlineMarkdown`, so it lights up in
-notes, documents, chat answers, the digest and link previews at once. The
-colour allowlist lives *inside the regex*, so a colour with no stylesheet
-rule cannot be typed. Uses `mark.text-highlight`, deliberately distinct from
-the bare `<mark>` that `highlightInto` emits for search matches — same tag,
-different meaning, and without the distinction a highlighted note reads as
-"this matched your search" with no search running.
-
-**Still open on this:** there is no toolbar button or keyboard shortcut for
-it, because this editor has no formatting toolbar at all — bold, italic and
-strike are all typed by hand today. A selection toolbar (see 109.4) is where
-a highlight button belongs, and would carry the colour picker with it.
+Built — the detail moved to [HISTORY.md](HISTORY.md) ("Retired from the live files, 2026-09-07"). Kept for its number.
 
 ### 109.3 The competitor gap analysis, triaged
 
@@ -3780,39 +3756,7 @@ Genuinely open, ranked by value-per-effort:
 
 ### 110.1 Built
 
-- **A formatting toolbar for the Notes composer**, asked for as "a toolbar
-  like in the documents but for notes and stuff as well". Deliberately the
-  *same* `.doc-toolbar` markup, `data-md` contract and `MD_ACTIONS` table as
-  the document editor rather than a second implementation —
-  `applyMarkdown`/`wrapDocSelection` now take a target box id instead of
-  hardcoding `#doc-content`. This app already has three places that could
-  independently decide what `**` means (the doc toolbar, the "/" menu in
-  editor.js, and now this); keeping them to one table is what stops them
-  drifting into three dialects.
-- **Highlight, highlight-colour, text-colour and Remove formatting** on both
-  toolbars, plus the same actions on the selection popup.
-- **`++colour|text++`** for a foreground colour, alongside `==highlight==`.
-  Its colour is *required* in the pattern (unlike the highlight's optional
-  one) so an ordinary `++` in prose or code can never begin a match, and the
-  colour set is allowlisted inside the regex itself — a colour with no
-  stylesheet rule cannot be typed. Class names, never inline styles: this
-  app's CSP rejects those outright.
-- **The selection popup now works in text fields.** It never did, and the
-  reason was not the exclusion list: `window.getSelection()` does not see
-  inside a `<textarea>`, whose selection lives on the element as
-  `selectionStart`/`selectionEnd`. A separate `fieldSelection()` path reads
-  that. This is also where highlighting became *discoverable* — a syntax
-  nobody is told about may as well not exist, which is exactly how it was
-  reported ("I still dont know how to highlight text").
-- **Auto-captioning and auto-text-reading are switchable off** in Settings,
-  defaulting on. Two switches, not one: describing a picture is a
-  vision-model round trip and the expensive one; Tesseract is local and
-  cheap, so wanting the text without the description is a real position.
-  (Checked first, per the standing rule: OCR *already* auto-ran alongside
-  captioning — `process_committed_upload` fires all three — so the "make OCR
-  auto-run too" half of that ask needed nothing.)
-- **Bookmark editing is an inline form**, replacing two sequential
-  `promptDialog` calls. See 110.2.
+Built — the detail moved to [HISTORY.md](HISTORY.md) ("Retired from the live files, 2026-09-07"). Kept for its number.
 
 ### 110.2 The five bugs, and the measurement that found each
 
@@ -3944,3 +3888,153 @@ anything already built is named as such so nobody rebuilds it.
   four-view editor. Either the composer stays deliberately small and defers
   to Documents for real writing, or the two converge. Drifting between the
   two is what produces a third dialect of markdown.
+
+## §112 — the strategic pass: what would make this app hard to compete with
+
+Asked for directly: *"brainstorm the future of development for the app in the
+roadmap and backlog, what features are missing, what needs to be done, fixed,
+refined, scaled, refined, optimised and more. how can we professionalise the app
+further and make it stand out from competitors"* — alongside the standing
+instruction to make it *"something that hasn't been done before"* and *"valuable
+that users would be willing to pay for"*.
+
+§111 above is the previous pass and is still the honest inventory of
+inefficiencies; this one is about **positioning**, and every claim here was
+checked against the code rather than imagined.
+
+### 112.1 The one thing this app has that the others structurally cannot
+
+Every competitor in this category is either cloud-first with AI (Notion AI, Mem,
+Reflect, Tana, NotebookLM, Saner) or local-first without it (Obsidian, Logseq,
+Anytype, Zettlr). The first group cannot promise privacy because the model is
+somebody else's server; the second cannot promise intelligence because there is
+nothing to ask. **MemoryMap is local-first *and* has a model**, and that is not a
+feature list — it is a category of its own, and almost nothing in the product
+currently *says* so.
+
+The strategic mistake to avoid is competing on features the cloud tools will
+always win (polish at scale, mobile, real-time collaboration). The strategic
+opening is everything that is only possible when the model is on the same
+machine as the data:
+
+- **It can read everything, not a retrieved sample.** A cloud tool meters
+  tokens, so it retrieves five notes and hopes. A local model costs only time,
+  so a *slow, thorough* pass over the whole notebook is affordable — overnight,
+  or while the laptop charges. `ai/autonomous.py` already has the scheduler for
+  this; what is missing is the framing: "MemoryMap read your whole notebook last
+  night, here is what it noticed."
+- **It can be wrong safely.** Nothing leaves the machine, so a speculative
+  suggestion costs nothing but a dismissal. That is why `tensions.py` (finding
+  contradictions between notes) is a *better* fit here than anywhere else.
+- **It works with no network at all.** Already true and almost never said. The
+  `notebook_stats` work in this session is the shape to repeat: a question
+  answered exactly, instantly, with the model stopped.
+
+**Action:** the product should say this. An honest, visible "what ran, on what,
+and what left this machine (nothing)" surface is worth more than three features.
+Some of it exists (`AuditLog`, Settings → Privacy); none of it is a headline.
+
+### 112.2 Missing features, ranked by "would someone pay for this"
+
+Ranked by the gap between what it costs to build and what it would be worth.
+
+1. **Import from other note apps** — still, and it is still first. A local-first
+   tool cannot lean on a cloud migration service, and until this exists nobody
+   with an existing notebook can *try* the app properly. Markdown folder first
+   (front-matter → tags, `[[wiki links]]` → real links, attachments copied in, a
+   dry-run preview); Obsidian and Notion exports are the same importer with
+   different front-matter dialects. **Needs no model.** Carried from §111.2 item
+   1 unchanged because it has not been done and nothing has displaced it.
+2. **The nightly pass, as a product surface.** `ai/autonomous.py` exists and
+   `tensions.py` exists. What does not exist is the morning artefact: *one card*
+   that says what the model did overnight — new links it proposes, contradictions
+   it found, notes it thinks are stale, questions it thinks are unanswered — each
+   accept/dismissable. This is the single most differentiated thing on this list
+   and most of the machinery is already written.
+3. **Backlinks on the note itself.** The graph knows what links *to* a note and
+   the note never shows it. Half of what people mean by "connected notebook",
+   and cheap. (§111.2 item 2, still not done.)
+4. **Ask the notebook about itself, generally.** `ai/notebook_stats.py` (this
+   session) answers tags/categories/counts/links/timing exactly, with no model.
+   The pattern generalises: "which notes have I not touched in a year", "what did
+   I write about most in March", "which tags always appear together". Each is a
+   query, not a generation — exact, instant, and impossible to hallucinate. **A
+   competitor with a cloud model literally cannot make these fast or free.**
+5. **Export one note or document** (Markdown/PDF). Backups export everything;
+   there is no "send this one to someone". Trivial, and it is the difference
+   between a private tool and a tool you can work with other people through.
+6. **Typed templates with structured fields** — a category-bound schema
+   (decision / owner / due) rendered as a form, queryable afterwards. Tana's
+   whole proposition, achievable here because the data is local and the schema
+   can be a preference rather than a migration.
+7. **A keyboard-shortcut sheet.** `Ctrl+K`, zoom, dictation and the "/" menu all
+   exist and nothing lists them anywhere. Ten minutes of work; it is the
+   difference between "has shortcuts" and "feels professional".
+8. **Per-note pinned AI context** — "always consider this note", instead of
+   hoping retrieval finds it. One preference, one prompt slot.
+9. **Highlights as a queryable collection.** `==highlight==` already parses;
+   "everything I highlighted this month" is a search-index question.
+10. **A conflict-safe editor.** Two windows on one note is last-write-wins.
+    Rare, and infuriating exactly once.
+
+### 112.3 Scaling and optimisation, in the order it will actually bite
+
+- **The notes list still has no virtualisation** (§111.1, unchanged). `renderEntries()`
+  rebuilds a node per entry on every keystroke. Fine at 500 notes, unusable at
+  50,000, and invisible until someone has the second one. **This is the largest
+  scalability item in the app** and the server-side pagination it needs already
+  exists.
+- **`frontend/app.js` is past 30,000 lines.** The four splits (`library.js`,
+  `dashboard.js`, `settings.js`, `documents.js`) worked and stopped. The next
+  natural seams are chat (~6k lines), the lightbox (~1.2k) and the notifications
+  centre. Each is a session's work and each makes the next bug cheaper to find.
+- **Three grammars for markdown** (§111.1). `MD_ACTIONS`, `INLINE_MD`, and
+  editor.js's "/" menu each decide independently what the syntax means. Every
+  bug in the gap between them has been a real reported bug. One module.
+- **The suite is 2,700 tests and ~8 minutes.** Still fine; worth watching. The
+  lints (`test_style_scale`, `test_frontend_ids`, `test_icon_only_buttons`,
+  `test_icon_label_gap`) are the cheapest tests in the file and have caught the
+  most — that ratio is an argument for more of them, not fewer.
+- **Embeddings are optional and the fallback is silent.** Semantic search
+  degrades to keywords with no model; the app should *say* which one answered.
+  It is a one-line badge and it is the difference between "the search is bad"
+  and "the search is in keyword mode".
+
+### 112.4 What "professionalise" actually means here
+
+Not more features. Four things, in order:
+
+1. **Nothing that is broken.** This session alone found a null dereference that
+   silently aborted `openConversation`, a panel that opened five pixels below the
+   fold, a checkbox no click could reach, an OCR result thrown away on close, and
+   a restore that destroyed the version it was restoring. Every one was invisible
+   from reading the code and obvious within a minute of driving the app. **The
+   discipline that finds these — reproduce, measure, then fix — is worth more
+   than any roadmap item**, and the two new lint files exist to stop that class
+   of thing recurring.
+2. **One shape for one thing.** Two ⋯ builders drew different glyphs; two Stop
+   buttons used different icons; the same setting had two controls that could
+   disagree. Each is small; together they are what makes an app feel homemade.
+   `test_icon_only_buttons.py` and `test_icon_label_gap.py` are the start of
+   mechanising this — more of the design system belongs in lints.
+3. **Say what the app is doing.** Background tasks, page reads, captions and the
+   nightly pass all now report themselves. The remaining gap is *what the AI
+   did*, kept where a person can audit it: the AI edit log is per-document, and
+   there is no notebook-wide "what has the model changed" view.
+4. **A first run that explains itself.** The onboarding overlay exists. What
+   does not exist is the answer to "I have 4,000 notes in Obsidian, now what" —
+   which is item 1 of §112.2 again, and the reason it stays first.
+
+### 112.5 Deliberately not doing
+
+Written down so a later session does not spend a week rediscovering why.
+
+- **Mobile apps and sync.** The offline, single-machine promise is the product.
+  Sync is a distributed-systems project that would compromise it, and the export
+  and file-tree work already covers "get my data onto another machine".
+- **Real-time collaboration.** Same reason, more so.
+- **A plugin marketplace.** The skills library covers reusable prompts; arbitrary
+  third-party code in a privacy-first app is a contradiction, not a feature.
+- **Chasing Notion's block editor.** Documents has four views and a real
+  toolbar. Deciding *whether the note composer converges with it* (§111.3) is
+  the open question; rebuilding Notion is not.

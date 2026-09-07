@@ -90,6 +90,13 @@ class TurnBody(BaseModel):
     #: their stored location in the library or documents": with nothing
     #: stored, there was nothing to render and nowhere to navigate to.
     document_ids: list[int] | None = None
+    #: Library files this turn attached — an Attachment row, not a Document
+    #: and not a MediaUpload, so it needs its own list for the same reason
+    #: `document_ids` does. Without it a reopened conversation showed the
+    #: images and documents a question was given and silently dropped the
+    #: files, which is the shape this field's two neighbours were both added
+    #: to fix.
+    file_ids: list[int] | None = None
     #: Notes clipped to this question with the paperclip. Reported: *"if the
     #: user attaches a note to a chat message how does it show that that note
     #: is attached to that message??"* — it did not, anywhere. The ids were
@@ -139,6 +146,8 @@ def _turn_messages(turn: TurnBody) -> list[dict]:
         user["image_media_ids"] = turn.image_media_ids
     if turn.document_ids:
         user["document_ids"] = turn.document_ids
+    if turn.file_ids:
+        user["file_ids"] = turn.file_ids
     if turn.note_ids:
         user["note_ids"] = turn.note_ids
     return [user, assistant]
@@ -326,12 +335,13 @@ def _hydrate_attachments(session: Session, messages: list[dict]) -> None:
     resolves to nothing and the bubble simply shows one fewer thumbnail,
     which is what happened before this existed. Nothing here 404s.
     """
-    from memorymap.core.database import Document, Entry, MediaUpload
+    from memorymap.core.database import Attachment, Document, Entry, MediaUpload
 
     media_ids = {i for m in messages for i in (m.get("image_media_ids") or [])}
     doc_ids = {i for m in messages for i in (m.get("document_ids") or [])}
     note_ids = {i for m in messages for i in (m.get("note_ids") or [])}
-    if not media_ids and not doc_ids and not note_ids:
+    file_ids = {i for m in messages for i in (m.get("file_ids") or [])}
+    if not media_ids and not doc_ids and not note_ids and not file_ids:
         return
 
     media = {}
@@ -354,6 +364,15 @@ def _hydrate_attachments(session: Session, messages: list[dict]) -> None:
                 "id": document.id,
                 "kind": "document",
                 "name": document.title,
+            }
+
+    files = {}
+    if file_ids:
+        for attachment in session.query(Attachment).filter(Attachment.id.in_(file_ids)).all():
+            files[attachment.id] = {
+                "id": attachment.id,
+                "kind": "file",
+                "name": attachment.filename,
             }
 
     notes = {}
@@ -380,6 +399,8 @@ def _hydrate_attachments(session: Session, messages: list[dict]) -> None:
             media[i] for i in (message.get("image_media_ids") or []) if i in media
         ] + [
             documents[i] for i in (message.get("document_ids") or []) if i in documents
+        ] + [
+            files[i] for i in (message.get("file_ids") or []) if i in files
         ] + [
             notes[i] for i in (message.get("note_ids") or []) if i in notes
         ]

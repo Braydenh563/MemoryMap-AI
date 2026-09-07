@@ -1,27 +1,791 @@
 # Handover
 
+**Next: [`PLAN.md`](PLAN.md)** — the scoped professional-grade plan (whiteboard, documents, backend, agent harness, performance), in ship order with measurements. Written by direct instruction; start there.
+
+## ► This session — chat attachments, glass, Settings, and a live ReferenceError
+
+**Next session starts at [UI_MODERNISATION_PLAN.md](UI_MODERNISATION_PLAN.md)**
+— by direct instruction, the UI is to be modernised and professionalised for
+the whole application; the plan has the phases, the counts and the order.
+
+Everything in this block is pushed on `claude/vigilant-pascal-wfo95n` and was
+**measured in Chromium** unless it says otherwise. The user's requests arrived
+faster than they could be finished, so the tail of the list is what is still
+open, in their own words.
+
+### The one that mattered most
+
+`settingsModalOpen is not defined` was thrown five times in one second in a
+real session, from app.js's document-wide `keydown` handler. app.js registers
+that handler while it parses and `settings.js` is the last script on the page,
+so every key pressed in the window between the two threw and took Escape, "/"
+and every other unchorded shortcut with it. One call site already carried a
+`typeof … === "function"` guard, which was the same bug being worked around a
+line at a time. The three-line DOM check now lives in app.js beside its
+callers. **If a cross-file helper is called from a parse-time listener, it
+belongs in the file that registers the listener.**
+
+### Built
+
+- **Chat attachments reach the model.** `streamChat` took `noteIds` and
+  `imageMediaIds` and nothing else, so an attached *document* reached `/chat`
+  (which Ask uses) and never `/chat/stream` (which the Chat tab uses): the
+  chip appeared, the id was persisted, the model saw none of it. Fixed, and
+  `file_ids` added end to end — `ChatRequest`, `_attached_files` (text via the
+  same `core.docview` call the file viewer makes, capped at 12k chars),
+  conversation persistence and re-hydration, a bubble chip, two tests.
+- **The chat context picker reaches all four stores.** Notes · Documents ·
+  Files · Images, one renderer over a per-source shape table. Files excludes
+  images and Images includes image *attachments*, which the Library splits the
+  same way.
+- **Glass, measured rather than adjusted.** 15–35 blurred layers per tab, most
+  of them nested inside another blurred layer, which is a full filter pass to
+  blur an already-blurred surface. Now 4–13, zero nested on six of seven tabs.
+  Default blur 18px → 14px (the published band is 8–15px). The sheen became a
+  fixed 160px band instead of a 45% wash, because a specular highlight has a
+  size and not a percentage, and its light-theme halving keyed on `data-theme`
+  — absent under the default "System" setting, so every system-dark profile
+  had the wrong one.
+- **Settings.** The one-control-height rule was matching cards (palette cards
+  overflowed and overlapped) and squares (help dots rendered as ovals) and
+  wrapping labels (About's buttons broke onto two lines). Heading/hint
+  proximity, row gaps, the backup rows' two button sizes, inline link and chip
+  spacing. Ctrl+F now searches the Settings dialog and jumps to the section
+  holding the answer.
+- **Note edit toolbar** is the capture strip element for element (61 controls
+  each), Preview inside the bar, no second Write/Preview switch, and the
+  cloned wrap/collapse group draws its glyphs instead of two blank boxes.
+- **Concept maps** have a labelled button in the Graph toolbar.
+- **The design-system upgrade** (proposed as five items after the user asked
+  whether there was "a better way to style some of the ui elements and
+  structure alignment grouping, heirarchy etc to be more modern"; approved
+  with "proceed"), every one measured in Chromium before and after:
+  1. **Surface tiers and a border budget.** `--surface-1/2/3` and
+     `--divider`. A hairline on the outermost pane only; groups and rows
+     inside it are a tone. Nested hairlines on Tools it can use 54 → 0,
+     Skills 20 → 0. Inner rows keep `1px solid transparent` so nothing moves
+     and `[data-contrast="on"]` colours it back. Settings is now fully
+     opaque — its sticky tool filter must paint the group's tint over the
+     same base the group does, and a 96% base is "the modal plus 4% of the
+     app", which no rule can name (measured 236 vs 243; now equal ±1).
+  2. **The button ramp.** Filled (one per card/dialog) > tonal (`.ghost`,
+     `.icon-only`: fill, transparent edge, no shadow; the fill went up a
+     step to pay for the edge) > plain. 22 outlined-and-shadowed buttons sat
+     in one Notes toolbar before.
+  3. **One eyebrow recipe.** Card `h3`s were 12px/600/0.04em; the Settings
+     nav labels and dashboard launch rows were 11.2px/700/0.06em at 75%
+     opacity — same job, two voices. The rule is in DESIGN.md → Hierarchy.
+  4. `--form-label-col` / `-wide` for the settings label column.
+  5. Segmented controls: a tab strip is a well or a card; a choice control
+     is a `--chip-bg` well with no edge. The Graph pickers and the chat mode
+     switch were the three drawn as cards.
+  Not checked: every palette (the tints are ink/white alphas so they should
+  hold, but only default light/dark were sampled), and `[data-contrast="on"]`
+  was reasoned from the rules, not screenshotted.
+- **Library**: the Files sub-tab's selection tick was never enrolled in the
+  tick recipe, so it drew nothing; list view no longer reserves a 48px
+  thumbnail column on a notebook with no thumbnails; the timeline's shine
+  circle is raised above its dot, which is the "different style" the search
+  dim was accidentally revealing.
+
+### Open — the user's words, not a summary
+
+- "fix the spacing headings hierarchy alignment sizing and proximity across
+  the rest of the settings pages" — a first pass landed; every section still
+  needs measuring individually.
+- "the tools it can use switches in their active state still have that black
+  shadow" — **does not reproduce on this branch.** Measured in both modes:
+  32×18.4 pill, 12.8px white knob, `box-shadow: none` on both, and the knob
+  screenshot decodes to pure white on pure accent with no dark halo. Either a
+  stale build or something not yet described.
+- "the radio button select boxes in the images subtab in library are different
+  from the others" — the tile tick is now in the shared recipe, which makes it
+  identical by construction; re-check against a fresh build.
+- Notebook constellation widget on the dashboard: check its canvas background
+  in real dark mode (the first look at it used a forced `data-mode`, which the
+  widget does not read).
+
+- **Last request of the session (at 91% of the user's usage), what landed and
+  what did not.** Landed, measured: the Files preview-view tick (the PDF page
+  render painted over it, a z-index tie); toolbar `<details>` menus are
+  invisible until `clampToolbarMenu` has placed them (the "flicker somewhere
+  else then appear" report — the browser painted the open menu before the
+  `toggle` task ran); the Contents sticky heading is a glass strip instead of
+  a second coat of the card's own tint (the "hard rectangle behind rows"
+  shape — the Tools filter row was the same shape, fixed with the surface
+  tiers); one card radius (`--radius`) everywhere; one shell gutter
+  (`--page-gutter` for the top gap, the sidebar gap and the sides — was
+  12/10/18px); card head rows drop the title's own bottom margin. **Not
+  done — the user's words:** "there are still a lot of inconsistencies in ui
+  style, sizing, alignment, positioning, spacing, gaps, margins, colour, style
+  aesthetic etc"; "adjust the larger mass spacing and panels for the app. it
+  needs to be professional and usable, not overly performative. the aesthetic
+  needs to fit, not just be a crude imitation of modern aesthetics";
+  "modernise the ui". Where to start: this session's sweep scripts
+  (`buttons.js`, `borders.js`, `caps.js`, `segs.js`, `rows.js` in the
+  scratchpad — one computed-style signature table per component family per
+  tab) and fix by *count*, not by eye. The measured drift that remains: card
+  head rows at 28/38/40px (driven by their control heights, not margins),
+  `.row` gaps of 4/6.4/8/9.6/16px, the reminders form's 4/6.4/12.8px stack.
+  The flicker fix covers the toolbar menus only; the help popover, action
+  menus and select menus place synchronously and did not flicker here — if
+  the report persists it is one of those, and the same hide-until-placed
+  shape applies.
+
+- **v0.2.2, the live-report round.** Fixed and measured: the formatting-toolbar
+  dropdowns (a regression I introduced the session before — the hide-until-
+  placed fix left the menu's whole appearance behind `.is-placed`, and since
+  `clampToolbarMenu` gives up at 0x0 the class was never added; verified after
+  as opaque rgb(24,27,37), flex column, 192x209, 4px under its button); the
+  librarian not stopping when switched off; agent notices ignoring mute and
+  "Panel only"; per-page PDF readings never reaching the library rows (two new
+  tests); chat scroll sticking after a scroll-up (`scroll-behavior: smooth` on
+  a pane written every frame); a caret per finished answer step and the caret
+  landing under a list; the Notes → Capture horizontal scrollbar (measured as
+  exactly the scrollbar's own width of phantom overflow at 1440/1280/1100);
+  model names clipped at both ends and carrying `hf.co/`; the OCR model not
+  counting as in use; line numbers against a soft-wrapping pane; the OCR
+  Workspace's two panes now scroll to each other both ways; Stop gets its icon
+  and the error colour; Tab indents four spaces; one menu shell; one shell
+  gutter; the zoom readout became a HUD so mute cannot hide it.
+  **Open, with plans written**: the skills/agent reform
+  ([AGENT_SKILLS_REFORM.md](AGENT_SKILLS_REFORM.md), all four phases) and six
+  UI items ([UI_MODERNISATION_PLAN.md](UI_MODERNISATION_PLAN.md) Phase 7) —
+  the document lightbox, line numbers as a setting in all three editors,
+  captioning for documents rather than photographs, drag-to-select region OCR,
+  the Files row's long-text problem, and the agent activity panel.
+  **Not reproduced, so not fixed**: "the streaming response animation icon
+  doesnt move" — the trace SVG's keyframes are declared and `data-motion` read
+  `auto` with `prefers-reduced-motion` false in the sandbox, so whatever stops
+  it is not visible from here; and the browser errors after turning battery
+  saver on, which needs the console from a real run. **Not verified**: whether
+  tool calls render in the chat transcript on all three paths (logged as
+  AGENT_SKILLS_REFORM Phase C).
+
+- **The handover to Fable, and the ordered plan.** The user is switching to
+  Fable for the next session and asked for everything to be logged and ordered:
+  *"I want it to proceed with the laid out plans in plan.md and
+  ui_modernisation_plan.md along with anything else in the top priority of the
+  handover and roadmap."* **ROADMAP.md now opens with that order** — reading
+  order first (CLAUDE.md → this file → UI_MODERNISATION_PLAN → PLAN →
+  AGENT_SKILLS_REFORM → MINDMAP_PLAN → DESIGN/ARCHITECTURE), then nine numbered
+  pieces of work with a reason for each position. `FABLE_BRIEF.md` beside this
+  file is the prompt the user will paste, including their own
+  Lead-Product-Engineer audit brief.
+- **The mindmap vision is written up** in
+  [MINDMAP_PLAN.md](MINDMAP_PLAN.md), researched (Kumu, XMind, MindMeister,
+  Coggle, Whimsical, Obsidian Canvas Mindmap, Excalidraw-in-Obsidian,
+  Reingold–Tilford/d3-flextree layout) and grounded in this codebase. **The
+  finding that changes the shape of the work: a board is already an `Entry`**
+  (`WhiteboardNode.board_id` → `entries.id`), so "a map is its own object that
+  can be attached, linked and referenced" is already true at the data layer —
+  the work is surfacing it, not building it. The plan asks for a scope call
+  (§4) before anything is built, and flags that "kaggle"/"kaggle.it" does not
+  resolve to a mindmapping product; Kumu.io is the closest match by
+  description and should be confirmed. Marked in the file as a first pass for
+  Fable to extend and refine.
+- **Three more fixes after v0.2.2**, all measured: the tab strip is centred on
+  the window above 1200px (it was 21px off at 1440 and 261px off at 1920 —
+  a flex row, so it started wherever the brand ended; a grid was tried first
+  and put the three brand children on separate rows, 59px → 181px, so it was
+  reverted for absolute centring); the HUD is larger, higher and accent-edged
+  ("a bit small and hard to see/notice"); and `shortModelName` now covers the
+  Images sub-tab's "Text read by", the caption byline and the OCR reader row,
+  with Settings and the model stats panel keeping the full id.
+
+### Open — carried over from before this session, never started
+
+The user asked, twice, for a scan of the whole conversation so nothing slipped.
+These are the requests from the earlier part of the session that have no code
+against them yet. Each is a task in this session's task list as well.
+
+- "I want you to do a ui polish and feature improvement and expansion for each
+  of the note subtabs" — Browse, Capture, Write with AI, Ask. The edit form and
+  capture toolbar were brought to parity; the sub-tabs themselves were not
+  touched.
+- "the chat interface needs bugfixing and more utility and features" — the "/"
+  menu is built now (chat's own commands: attach, upload, web, plan, skills,
+  mode). The wider feature pass has not happened.
+- "all elements in the application need proper affordance and semiotics" —
+  icon-only buttons, inline links, chips and the Settings controls were done;
+  the app-wide pass is task #64.
+- "all the settings pages ui needs refining, aligning, made consistent" — one
+  proximity/hierarchy pass landed; every section still needs measuring on its
+  own (task #129).
+- Documents: undo across Live↔Source, per-hunk AI-edit diff, math and
+  footnotes.
+- Whiteboard: rotated resize handles for shapes, orthogonal connector routing,
+  frames.
+- "make sure all files are handled and viewable including spreadsheets" —
+  `.xlsx` has no parser in `core/docview.py`; needs an optional extra.
+- Complexity: `run_agent` (45), `_run_optimization` (31), `chat_stream` (26)
+  — from the security/complexity scan in `AUDIT.md` §I, which found no
+  security defects.
+
+## ► Latest session — whiteboard chrome and geometry, documents, search, Files/OCR, notifications
+
+Everything below is pushed on `claude/vigilant-pascal-wfo95n` (PR #142) and
+was **measured in Chromium** unless marked otherwise. Start from the open
+list at the end.
+
+### Done
+
+- **Whiteboard chrome, restructured** (`index.html`, `07-whiteboard-misc.css`
+  tail, `whiteboard.js`): one top bar (Boards · board picker · rename · new |
+  search · overview · Library · Board menu · full screen · help), a centred
+  icon-only tool dock (`role="toolbar"`, arrow keys), a fixed right-hand
+  properties drawer, a three-button zoom cluster. **Nothing is draggable**;
+  no `.wb-panel-grip` remains. Measured overlap-free at 1440/1100/820. The
+  Board menu holds Look (background, grid, snap), **Panels** (Properties,
+  Overview, Library, Search switches) and Board (toolbar dock, export, clear)
+  as name-left/control-right rows; the drawer rows follow the same grid.
+  Trap found: an absolutely positioned box with only `left: 50%` gets half
+  the container as available width — the dock wrapped at 1100px until it
+  became `left: 0; right: 0; margin: auto; width: fit-content`. Second trap:
+  `.card`'s 1rem bottom margin applies to an absolutely positioned panel,
+  so `bottom: 8px` rendered 24px off the edge.
+- **Connectors**: every card, text box, sticky and drawn shape is a link
+  source and target (`wbLinkCandidates`, `wbLinkCandidateAt`; sketch drag
+  delegates to the node link drag with `_linkKind = "sketch"`). Endpoints
+  follow rotation: `wbEdgePoint` rotates the aim into the item's frame for
+  cards/objects and intersects the ray with the path's own segments for
+  shapes (`wbPathPolyline`); anchors rotate with `wbAnchorPositions`.
+  Verified: a 45° object's endpoint lies on its rotated edge and differs
+  from the AABB answer; shape→sticky link stored with
+  `sourceKind: "sketch"`.
+- **Navigation**: plain wheel pans, Shift+wheel sideways, Ctrl/⌘+wheel or
+  trackpad pinch zooms (`wbZoomFilter` + a native `wheel` listener). Escape
+  cascades (selection → tool). Two-finger trackpad scroll therefore pans.
+- **Documents**: new-from-template (`DOC_TEMPLATES`, five shapes,
+  `{{date}}`/`{{title}}`), Tab/Shift+Tab between table cells with a new row
+  at the end (`docTableTab`), Ctrl+1/2/3 headings, Ctrl+E code. AUDIT §D was
+  corrected: the selection bar, `/table`, history UI and focus mode already
+  existed.
+- **Search**: `keyword_search` is typo-tolerant in two stages before the
+  any-word fallback — prefix (`term*`, ≥4 letters) then correction against
+  the FTS vocabulary (`entries_fts_vocab`, `fts5vocab`, difflib ≥ 0.8).
+  Three tests in `test_keyword_search.py`.
+- **Files rows**: thumbnail taken out of the grid (it spanned every row and
+  handed its 144px to row 1 — a 108px hole under the title); the selection
+  tick sits on the thumbnail corner instead of stretching across the row.
+- **OCR reader**: rail tabs wrap instead of clipping; opening an image from
+  a document in continuous mode tears the scroll stages down first (it
+  "stayed on the file"); each stored page reading has its own page badge
+  and its own delete (the header button only ever deleted the page on
+  screen). **Not driven end-to-end** — no vision model here, so no stored
+  readings to delete; reasoned from the code path only.
+- **Notifications**: title + time on one line, detail below, compact read
+  toggle, one-row footer (activity picker, mark-all, clear as icons).
+- **Scans**: see AUDIT §I (security greps clean; three functions over
+  complexity 25; suite result in `scratchpad/suite3.log`).
+
+### Second pass, same session (all measured in Chromium unless marked)
+
+- **Top bar is a menu bar**: Insert · Edit · Arrange · View · Board, each a
+  `.wb-board-menu-wrap` with name-left/control-right rows; Edit/Arrange
+  items forward to the controls that already own the action
+  (`data-wb-click`), Select all is `wbSelectAllItems` (also Ctrl+A). View
+  carries Look, Panels, Zoom (in/out/fit/full screen) and the toolbar dock.
+  Programmatic clicks no longer close a menu (`e.isTrusted` guard —
+  reported: "toggle something and the dropdown instantly closes").
+- **Shapes popup is shapes only**; line ends, stroke style, no-stroke,
+  fill + opacity and the three guide colours are rows in the drawer's
+  "Draw with" / "Guide colours" groups (same ids). Verified visible with a
+  shape tool active.
+- **Lasso** draws in the overlay layer (was under every card). The
+  **selection bar** sits 44px above an item so the rotation handle stays
+  reachable. **Export menu** is lifted into the window when opened low.
+- **Rotation**: card bbox now uses `offsetWidth/Height` (the rotated
+  `getBoundingClientRect` was a larger box, so a rotated note's links
+  missed its edge). Rotation *persisting* after a move was tested for a
+  note (25°) and a sticky (30°): state, DOM and server all keep it — the
+  reset the user saw is **not reproduced in this build**; the likeliest
+  cause is a stale bundle (assets are version-stamped; Ctrl+Alt+R forces a
+  reload).
+- **Help** is a three-column card (tools · move/selection · connect) with
+  a plain Close as well as "Don't show on new boards"; the reserved strips
+  are derived from the measured bar heights. Still scrolls by ~30px at
+  1280x800 — acceptable, not ideal.
+- **Small screens**: 1024x600 clean; 800x560 clean after the overview lost
+  its `.card` margin; 640x480: search/overview icons and the zoom cluster
+  hide (zoom is in View and on Ctrl+wheel), the dock scrolls in one row,
+  the drawer hides under 30rem of height. The top bar is three rows at
+  640px — tolerable, not designed.
+- **Not done, recorded**: rotated resize handles for *shapes* (their
+  handles are on the axis-aligned box; cards and text boxes rotate their
+  handles with them); orthogonal connector routing; frames.
+
+### Third pass (reported after the second)
+
+- Notifications: the "seen" watermark moves on **close**, not open, so
+  ticking one row marks one row (was: open stamped it, the tick's re-render
+  then showed all read). The list scrolls inside the panel; head and footer
+  stay put.
+- Menus cap their height from their real top and scroll (View ran off a
+  720px window); the help button in Board lost its old round 2rem rule.
+- Link hit-testing is done in the item's rotated frame (`wbPointInItem`),
+  topmost first — the hints no longer flicker across a rotated object's
+  axis-aligned box. A text box's rendered size wins over its stored size.
+- Export from the selection bar (⤴), and the existing PDF-via-Print path
+  gained "What's on screen now". **Note:** `wbExportPdf` already existed
+  — a duplicate was written and removed in the same sitting; grep first.
+
+- Backend: `_forget_links_to` in `routes_whiteboard.py` — deleting a card,
+  text box or shape now deletes the link sketches that touched it (they
+  were invisible orphans before). Test in `test_whiteboard.py`.
+- The selection bar follows drags and covers a multi-selection (above
+  `wbSelectionBounds`); every floating surface has `margin: 0` in one rule.
+
+- OCR reader: the Images/Files/Pages switch is always shown (segments
+  with nothing are disabled, not hidden) and the reader always loads the
+  full media list — the gallery had seeded an images-only cache that the
+  loader then trusted, so opened from an image the Files count was 0 and
+  the switch vanished (reported). An image's reading panel has its own
+  delete (routes to the header's delete). **Still open from the same
+  report**: spreadsheets and other non-PDF files cannot be opened in the
+  reader (`ocrCanOpen` is images + PDFs — there is no rasteriser for them);
+  caption/OCR model selection was not verified against a real model.
+
+- Note edit form: the full formatting strip (headings, inline styles,
+  clear, lists, quote, link, table, code block, divider — grouped by
+  separators, same `data-md` contract) and one meta row (tags · category ·
+  Save/Cancel). Measured: 17 buttons, 3 separators, meta row on one line.
+- Chat composer: `AUTOGROW_MAX_PX` 340 → 480 so the 35vh cap ("about a
+  third") governs on a 1080p window; dragging, persistence and the
+  double-click-the-grabber reset already existed.
+- **Not done**: a per-sub-tab redesign of the Notes tab — asked for, but
+  it is a design pass, not a fix; nothing was measured or changed there.
+
+- Rotated stickies, again (screenshot: a link end floating just off a 45°
+  sticky): two more code paths still hit-tested cards only, on the
+  unrotated box — the pre-drag anchor hints and the **link endpoint-handle
+  drag**, whose drop therefore became a free point beside the sticky. Both
+  now go through `wbLinkCandidateAt` (every kind, rotated frame) and the
+  drop stores `sourceKind`/`targetKind`. Verified: a link drawn onto a 45°
+  sticky ends on its rotated border.
+
+- Note edit form, second report ("toolbar isn't the same as capture and
+  documents, elements out of alignment, no preview"): the strip is now a
+  **clone of the capture strip** (`#note-toolbar`), wired by the new
+  `wireMarkdownToolbar` (split out of `initMarkdownToolbars`; the mount's
+  extras carry `data-md-extra` so a clone drops the dead copies and mounts
+  fresh). Measured: 32 `data-md` buttons and 4 menus on both, menus open
+  from the clone (the toggle handler is delegated on `document`). A
+  Write / Preview switch renders through `renderMarkdown`. Meta row
+  controls all 36px.
+
+- **OCR reader, measured with seeded readings** (two `page_reads` rows
+  inserted into the test DB, `kind="upload", source_id=<pdf>`): found and
+  fixed a **reader-breaking bug** — `(body.pages || []).some` threw on the
+  regions response (`pages` is a count there), so every page load since
+  the delete-gating commit ended in an error line. Then: stored panels are
+  badged "Page N" (were "§1"); a one-page document falls back to the Files
+  rail (was an empty rail with no lit tab); the footer is one row (copy and
+  ask are icon-only, Save as note keeps its label, delete at the left); the
+  redundant "Fit" level label hides while Fit is on; images get a
+  **Describe** button and a Description line in the reader, so caption and
+  reading are managed together. Describe itself is unverified here (no
+  vision model) — it reuses the lightbox's `/caption` call.
+
+- Reader flows driven end-to-end with the seeded readings: find ("1 of
+  2", the miss dimmed), Ask about this (lands in the chat composer), Save
+  as note (entry count +1), per-page delete (server rows 2 → 1). Escape
+  now closes the reader and Ctrl+F focuses its find box (neither did).
+
+- Chat composer, **re-done to the stated rule**: grows with the text to a
+  third of the window, a drag below that height caps it, a drag above it
+  floors it, and emptying the box forgets the drag and returns to one row.
+  Measured at 800px tall: empty 44px → long text 280px (= 35vh) → dragged
+  to 80px holds → emptied 44px, `maxPx` cleared. The old behaviour stored
+  a hand height and applied it forever, which is what stopped it growing.
+- Note edit: Write/Preview is the first thing in the strip and is
+  `position: sticky` at its left edge; every meta-row control shares one
+  top (the tags input's 9.6px form margin was pulling it 5px up).
+- "Tools it can use" switches: `.setting-check input` no longer sets its
+  own 1.1rem box and top margin, so the app-wide pill recipe owns them
+  like every other switch (measured 32x18, `appearance: none`, no shadow).
+- `test_notifications_centre.py` split on `openNotifications()` — the
+  signature gained an options object, so the marker no longer matched.
+  **This is the CI failure on `0691dc3`**; fixed here.
+
+- **The reader opens text files now** — .txt/.md/.csv/.json/code and a
+  converted .docx (via the `/files/{id}/text` endpoint that already
+  existed): its words go straight into the sections pane, the read controls
+  hide, the source chip says "The file's own text", and Copy / Ask / Save
+  as note work as usual. Verified with a real CSV attachment. Rail icons
+  now follow the file kind (every non-image was a PDF glyph). **.xlsx and
+  other binary formats still cannot be opened** — no parser exists in this
+  app for them.
+- Settings: one control height (2.25rem) for every button, select, summary
+  and text/number input inside `#settings-modal .settings-section`, and
+  rows centre their contents. The sampling row alone had been 16/36/28.
+
+- Note edit form, third round: the strip is the capture strip with **every
+  id stripped from the clone** (two elements sharing an id meant
+  `getElementById` handed back the capture toolbar's control, so the edit
+  form's dropdowns formatted the wrong box); toolbar clicks are now
+  **delegated on the bar** in `wireMarkdownToolbar`, so menu items built by
+  the mount cannot be missed. Verified: h1/quote/underline/wikilink from
+  the dropdowns all change the edit box. Write/Preview moved out of the
+  strip onto its own row; the strip wraps instead of scrolling (that
+  scrollbar was the "large gap"). **Attachment cards** render in the edit
+  form (`renderEntryAttachmentChips` now takes elements, images *and*
+  files) and removing one takes its markdown with it.
+- Mic: an icon-only recording button keeps its round shape (the level
+  meter stretched it into a lozenge) and the meter bars use solid `--warn`.
+- The "Tools it can use" switches measure **identical** to every other
+  switch now (32x18, white knob, `box-shadow: none`) — the earlier report
+  was the `.setting-check` sizing override, fixed in `0a93778`.
+
+### Open — in the order the user is likely to hit them
+
+1. Whiteboard: group transform of a multi-selection; frames; text on
+   shapes; a floating selection toolbar above the selection (the drawer
+   covers properties, but Miro/FigJam also put the four most-used actions
+   at the selection). AUDIT §C.
+2. Documents: undo across Live↔Source; AI edit with per-hunk diff; math and
+   footnotes. AUDIT §D.
+3. `run_agent` (complexity 45), `_run_optimization` (31), `chat_stream`
+   (26) — split before the next feature lands in them. AUDIT §I.
+4. The Tesseract/vision OCR paths, translation and Tensions remain
+   unverified against a real model (task #120).
+
+## ► The live report batch this session is working through
+
+Verbatim from the user, kept here so nothing is lost if a session ends
+mid-list. **Struck items are done and pushed**; the rest are open in order.
+Every "done" line names the measurement or the check that closed it, because
+several of these have been reported twice already after being closed on a
+reading of the source rather than a look at the running app.
+
+### Done
+
+Every one of these was reproduced or measured before it was touched, and the
+measurement is in the commit message. Where something turned out to already
+exist, that is said too — with what was actually wrong with it.
+
+- ~~"the popup close buttons are rectangular not square"~~ — nine measured
+  43.6x28 with every popup forced visible, plus the find bar's prev/next, four
+  refresh buttons and the speak button. All 25 square now;
+  `tests/test_icon_only_buttons.py` keeps them that way.
+- ~~"the favourites button in the graph popup is missing text"~~ — the one
+  unlabelled cell in a nine-cell labelled grid.
+- ~~"I used a dropdown in the toolbar in the capture tab and it went off the
+  panel and to the end"~~ — the *toolbar* went off the panel, not the dropdown:
+  `:has(details[open]) { overflow: visible }` dropped the row-mode scroller's
+  clipping to free the popup and freed all ~59 controls with it.
+- ~~"fix the formatting toolbar in the documents to be like the one in
+  notes"~~ — list buttons worded, both `<details>` summaries worded.
+- ~~"the expand toolbar and hide formatting tools dont have curved corners"~~ —
+  not a radius fault: the four `<details>` openers and three icon-only controls
+  rested *already filled* in a strip where everything else rests transparent.
+  `summary` was also missing from the strip's height rule (24.7px against 32).
+- ~~"the widgets button text and icon arent aligned and dont have a gap"~~ —
+  eleven buttons were missing `ph-lead`, which is the whole 0.35em gap.
+- ~~"the popup agent stop button text and icon arent aligned"~~ — it had no
+  icon: `■ Stop` was a typed character. Nineteen of those are real icons now,
+  and `tests/test_icon_label_gap.py` refuses both faults.
+- ~~"the ellipse kebab icons in the notes on the your notes tab are not
+  centred"~~ — two ⋯ builders, one drawing `ph:dots-three` and one the literal
+  U+22EF, which sits above the line box's optical centre.
+- ~~"I cant click the select radio buttons in any of the images"~~ —
+  `elementFromPoint` returned `DIV.library-image-actions` on every tick.
+- ~~"I cant click off the documents or images to close the lightbox and the
+  close button doesnt work all the time"~~ — the column is 1396x134, so the
+  band beside the picture was not the backdrop; and the close button had no
+  z-index over it.
+- ~~"the conversations didnt visibly select in the sidebar"~~ — three causes,
+  the first a **null dereference** (`highlightInto` on `terms=null`) that threw
+  inside `openConversation` and skipped the repaint. Probably also the cause of
+  "my agent question generated with no metadata below the ai response".
+- ~~"clicking the model used in the chat header doesnt work"~~ — it opened the
+  panel at (0, 905) in a 900px window.
+- ~~"the send buttin in the chat is out of place"~~ — `--radius-pill` is the one
+  radius token that does not follow the rounding slider.
+- ~~"allow double tapping the bottom expansion corner … to reset it"~~ — built.
+  (Auto-expand itself already existed and is verified, not rebuilt.)
+- ~~"the text streaming animation stops moving and just shows as 3 lines"~~ —
+  two causes: the stepped cycle walked four elements for three dots, and the
+  interval killed itself the first time its node was re-parented.
+- ~~"I scrolled up while still streaming and the generating animation
+  disappeared"~~ — `#chat-jump-latest`, a sticky "Still writing" pill.
+- ~~"make tool usage and steps fade in"~~ — entry animation on the step column.
+- ~~"files and attachments dont render in the timeline and popups"~~ — both
+  popups filtered to `is_image` and dropped everything else.
+- ~~"the model spelt my name wrong in the dashboard welcome message"~~ — only an
+  *exact* match was normalised, so a near miss survived and the correct name was
+  appended on top.
+- ~~OCR: "no text appeared in any of the extracted text areas"~~ — page reads
+  were never stored, so anything finishing after the workspace closed was lost.
+  `PageRead` + `GET …/page-reads`.
+- ~~OCR: "my ocr model shows as a vision model and my actual vision model
+  doesnt appear at all"~~ — two resolvers, one option, and the picker and the
+  reader disagreed about which model would run.
+- ~~"add an edit document button to previewed documents in the lightbox"~~
+- ~~"the 'check with ai' button … should attach a … badge"~~ — the composer's
+  staged-document chips already existed; nothing but the import path could add
+  to them.
+- ~~"if I click on an issue flagged … auto scroll and temporarily highlight"~~
+- ~~"i still cant … right-click an underlined word"~~ — the handler only ever
+  matched a `<textarea>`, so Live view (the only view that draws a squiggle)
+  fell through to the browser's menu.
+- ~~"no way to have the ai write a suggested replacement or multiple"~~ —
+  `POST /documents/{id}/rephrase`.
+- ~~"can the document have edit history like git logs??"~~ — `DocumentRevision`,
+  coalesced into sittings, with view and restore.
+- ~~"why doesnt the document editor go the full width"~~ — it can (691→1100,
+  measured); the control was one unlabelled icon among twenty-five. Now worded
+  in the ⋯ menu.
+- ~~"allow marking notifications as unread as well"~~
+- ~~"enhance the semantic search so it can pick up … 'what are my most common
+  tags'"~~ — `ai/notebook_stats.py`: counted, exact, and it answers with no
+  model running at all.
+- ~~CodeQL alert #364, "Cyclic import," `ai/embeddings.py:24`~~ — and two more
+  of the same shape nothing had reported (`ai.embeddings -> core.extras ->
+  core.ocr -> core.deps` and `__main__ -> api.app -> api.routes_settings`).
+  All three share one wrong-direction edge — a leaf module naming the
+  container that builds it — broken with `importlib.import_module`, the
+  technique `entry/manager.py` already used and documented. Pinned by
+  `tests/test_no_import_cycles.py`, a new lint that rebuilds the import graph
+  from the AST rather than trusting it not to happen again.
+- ~~"dropdowns are completely broken and dont show in the capture notes and
+  documents toolbars"~~ — two causes in `clampToolbarMenu`. First,
+  right-aligned to the opener (correct for the far-right kebab, 151px off for
+  a toolbar icon — measured dx = -151 on every menu at 1280/1440/1920).
+  Second, `position: fixed` is not fixed to the viewport once an ancestor
+  `.card` gets a containing block (`backdrop-filter`, on whenever Glass is
+  on) — reproduced with `filter` (the sandbox's headless Chromium reports
+  `backdrop-filter: none`) and fixed by measuring where the panel actually
+  landed and correcting by the difference. A third round ("appearing in the
+  top left corner") was the same function's own zeroed fallback: it cleared
+  the previous position by *writing* `left:0;top:0` and could return before
+  overwriting them — now cleared with `""` so a failed measurement falls back
+  to the stylesheet's `auto` (the static position, near the button) instead
+  of a corner.
+- ~~"cut off text of the trace text path"~~ — the chip is a flex container
+  (`<button>`) and the preview text is a `<span>` child, so the overflowing
+  thing was a flex item, not inline text — `text-overflow: ellipsis` on the
+  button never touched it, and a centred item that cannot shrink clips
+  equally on both ends (measured: a 511px span in a 192px box at x = -160
+  relative to it, i.e. "ting is the delivery of computing se"). Fixed on the
+  item that actually holds the text.
+- ~~"allow for multiple paths to be displayed if they exist"~~ —
+  `paths.find_many` (Yen's K-shortest, sharing `_dijkstra` with the existing
+  `find` so they cannot disagree about which route is best), returned as
+  `routes[]` alongside the unchanged top-level shape. The map draws every
+  route at once in its own colour, dashed/faint for the ones not selected;
+  chips above the path switch between them. Seven tests: ordering, distinct,
+  loopless, the limit, `find_many[0] == find`.
+- ~~"improve and extend the generate story from path feature"~~ — one
+  hard-coded "publishable narrative" prompt is six now (narrative, explainer,
+  timeline, argument, teaching notes, brief), one shared preamble so the
+  "use the connections, follow the order" instruction is stated once.
+- ~~"fix the hard line around the find in what was read textbox"~~ — `border:
+  none` measured as `3px solid` (the Appearance system's `border-style: …
+  !important` bringing back the initial `medium` width on a control every
+  stylesheet believes has none). A first `!important` at the class selector
+  still lost on specificity (0,5,1) against the Appearance rule; needed an id,
+  same as `.ask-composer > #question` already had to be. New probe:
+  `tools/browser/find-fat-borders.js`.
+- ~~"a way to switch between images and files within the workspace"~~ / "no
+  other files or images show" opened from the lightbox — the rail was built
+  from whatever list the *caller* passed, and three of four call sites passed
+  `[]`. It loads its own siblings now (same two endpoints the Library gallery
+  uses) and gained an Images/Files/Pages switch above the rail.
+- ~~"the regions dont work without tesseract but surely there's a better
+  way"~~ — `ocr.regions_from_reading` splits a stored reading into typed
+  blocks (heading/list/table/code/text, read off shape — pipes, bullets, a
+  fence) instead of the old one-region whole-page fallback. `box` is nullable
+  and is `None` for these — a rectangle claiming to be the whole page was a
+  wrong answer, not a missing one.
+- ~~"make it so extracted text is visually linked to the page or section it
+  was extracted from"~~ — each region row now carries a "p2 · §4" chip.
+- ~~"redesign the files library subtab … because the ocr workspace exists"~~
+  — Files is a reading list now: a badge ("Read · 1,240 words" / "Not read")
+  and a primary "Read this" / "Open reader" button on every tile, plus a
+  Read/Not-read filter (Files only, not persisted — a task-scoped filter, not
+  a preference).
+- ~~"is everythign wired to the nav history and universal undo/redo"~~ — two
+  real gaps found. Deleting a *document* was the one permanent loss left in
+  the app (notes, chats, files and boards all recover somehow) — all four
+  delete doors now go through one `deleteDocumentWithUndo`, verified end to
+  end (62 -> 61 -> 62 documents, byte-exact restore via the same
+  `performUndo()` Ctrl+Z calls). Opening a whiteboard *board* recorded nothing
+  in tab history — `openWhiteboardBoard` now records `board:{id}` and
+  `goToTabHistory` gained the restore branch (a recorded place with no way
+  back is worse than not recording it).
+- ~~"the stats semantic search needs to be improved and also it doesnt
+  account for spelling mistakes"~~ — every matcher was a regex over literal
+  words, so a typo fell through to retrieval, the exact case
+  `notebook_stats.py` exists because retrieval answers badly. `_despell`
+  corrects the matcher's copy against a 60-word vocabulary (transpositions
+  handled separately from `difflib`, which underrates them — "tgas"/"tags"
+  scores 0.750, at the cutoff, same as "task"/"tags", which must *not*
+  correct). Four questions added: word count, longest notes, stale notes,
+  tag pairs. Caught by the new tests: the pre-filter itself rejected "how
+  many words have I written" before any matcher saw it.
+- ~~"there's also no way to delete or redo ocr text extractions"~~ — redo
+  already worked (`PageRead` replaces its row on re-read) but was unlabelled;
+  the button's tooltip now says so once there is a reading to replace. Delete
+  genuinely did not exist: new `DELETE /{files,media}/{id}/page-reads/{page}`
+  routes plus a "Delete this reading" action, verified end to end in the
+  browser (reading present -> confirm -> "Nothing read yet").
+- ~~"there's also no refresh button on the your notes subtab"~~ — every other
+  Library list had one; the notebook's own front page did not.
+- ~~"in the chat, when an image and/or document is captioned and ocr is used
+  it should be tagged under the image in the chat bubble"~~ — the caption
+  was already shown as a figcaption; the vision-OCR/Tesseract reading
+  (`item.text`) was resolved by the backend the whole time
+  (`_hydrate_attachments`, routes_conversations.py) and handed to the
+  lightbox on click, but nothing in the bubble said a reading existed at
+  all. A "Read · N words" badge now sits under the thumbnail, same shape and
+  colour the Files sub-tab's own reading badge uses, clickable to the same
+  lightbox. Verified end to end: uploaded an image with a stored OCR
+  reading, saved a turn referencing it, reopened the conversation — badge
+  present with the right count, click opens the lightbox on the text.
+- ~~"if the ai is searching for something, might keywords be flagged in
+  certain pages of a file document in the actual document and/or extracted
+  text, then it can use a tool or smth simpler to get the full text from
+  those areas"~~ — a real gap, not a misunderstanding. `search_files` and
+  `list_documents` already found the right file/document (a correct
+  substring/ILIKE scan over the whole text) — the preview and even the full
+  read then clipped from the **start** of the text regardless of where the
+  match was, and `read_file`'s own cap (`FILE_TEXT_CHARS = 2000`, about a
+  page) meant a keyword on page five of a scan was never reachable through
+  that tool at all, however precisely the search had located it. New
+  `_keyword_context` helper (window around each hit, merged when they
+  overlap, head-of-text fallback when there is no match) wired into both
+  search previews and a new optional `query` argument on `read_file` — the
+  "or something simpler" this was asked for by name, and specifically the
+  path that works with **no embedding backend**, which CLAUDE.md says this
+  project runs without on purpose. `get_document`'s existing `query`
+  argument already ranked paragraphs by embedding similarity when one is
+  present; this is its fallback for when one is not, replacing what used to
+  be a silent plain head-of-document clip. 28 new tests.
+- Investigated, not a bug: "I uploaded an image to the chat and it worked,
+  but in the library, it shows the vision model did the image caption AND
+  the ocr which I think is incorrect." It is deliberate and already
+  switchable — `process_committed_upload` (core/media_process.py) runs two
+  genuinely different single-purpose prompts on the same picture ("describe
+  this image" vs "transcribe every piece of text visible in this image"),
+  gated by two independent Settings toggles
+  (`auto_caption_images`/`auto_read_image_text`), both documented at length
+  in that module for exactly this reason. Not changed.
+
+### The sweep, and what it did *not* find
+
+Two of this session's bugs were the same shape — a control that exists, renders
+and is styled correctly, and cannot be clicked because something transparent is
+on top of it (the gallery's select ticks; the lightbox's dismiss area). That is
+worth sweeping for rather than waiting to be reported, so
+`tools/browser/find-unclickable-controls.js` walks every button, link, input, select and `summary` on
+eight tabs, four Notes sections, eight Library sub-tabs and Settings, and asks
+`elementFromPoint` whether the control is actually the thing at its own centre.
+
+**It found no third instance.** Everything it flagged was one of three
+artifacts, and they are written down because the next person to run it will hit
+the same three and should not spend an hour on them:
+
+- **Controls behind an open modal.** Correct, not a bug — filter on
+  `.modal-overlay`, `.lightbox` and dialogs.
+- **Items inside a closed `<details>`.** They report a real 192x209 rect and
+  `visibility: visible`, because Chromium hides `<details>` content with
+  `content-visibility` rather than `display: none` — the box is still measurable.
+  Checked properly by tabbing through the toolbar: **focus never enters a closed
+  menu** (0 stops in 45 tabs), so the browser is handling it correctly and there
+  is nothing to fix.
+- **Elements whose centre is under the sticky status bar mid-scroll.** Checked
+  properly by scrolling each tab's own scroller to the bottom and re-testing:
+  **zero controls are covered** on Notes, Library, Timeline or Documents.
+
+The lesson worth keeping is the one CLAUDE.md already states in another form: a
+sweep that produces 118 hits and 0 bugs is still worth running, but only if you
+finish it. Reporting the 118 would have been worse than not running it.
+
+### Verified after the fact, in one pass
+
+`tools/browser/verify-fixes.js` re-checks this session's fixes against the running app:
+nine popup close buttons square, the note kebab centred at dx/dy 0.00, the graph
+popup's favourite reading "Favourite" beside "Grow"/"Focus", the chat send button
+at the same radius family as its input, the jump-to-latest pill present, the
+model panel placing on screen, 12 of 12 gallery ticks clickable, the Documents
+toolbar at one uniform 32px, and the notifications row toggle and "Mark all
+read" both present.
+
+### Open — what is genuinely left
+
+Everything else from the batch is in the Done list above, each with the
+measurement that closed it. What remains:
+
+1. **"my agent question generated with no metadata or anything below the ai
+   response in the chat."** Very likely the same null dereference that stopped
+   the sidebar repainting (`highlightInto` on `terms=null`, thrown inside
+   `chatSourcesPanel`) — the metadata is rendered *after* the sources panel in
+   the same pass, so an exception there takes everything below it with it. That
+   fix is in; **this has not been confirmed against a real agent turn**, which
+   needs a model that actually calls tools. Confirm before closing it.
+2. **"the whole auto correct and suggestions needs improvement. copy the
+   suggestions from word and vs code."** Three of the four concrete asks under
+   this are built (right-click a flagged word anywhere it is underlined; AI-written
+   alternatives; click-to-scroll-and-flash). What is *not* done is the general
+   ask: the checker is still spelling, spacing and sentence length. Word's value
+   is agreement, tense and register; VS Code's is a per-word quick-fix that
+   learns. Neither is a small change, and neither should be started without
+   deciding whether the checks stay mechanical (fast, offline, no model) or
+   become a model pass (slow, better, needs a running model) — the app currently
+   has both and does not say which is which.
+3. ~~"the agent or ai needs to be more directly integrated into the
+   documents."~~ Built: `/ai` in the "/" menu, Ctrl+J, and a wand in the
+   selection bar open a small bar at the caret — type an instruction, the
+   answer replaces the selection (or is written at the cursor) and arrives
+   *selected*, with Keep / Try again / Undo. No new endpoint —
+   `POST /documents/{id}/ai-edit`, the same one the panel already used.
+   Driven end to end against a stand-in model server: exact-range replace,
+   the review row, and Undo restoring the document byte-for-byte. Found on
+   the way: the live view (the document editor's *default* view) had no "/"
+   menu at all — the wiring gated on a fixed id map that could never contain
+   a live-view block's generated id.
+
+### Not reproduced, and why that matters
+
+- The traced-path text-clipping report (§5 of an earlier round) still has not
+  been reproduced. CLAUDE.md's rule applies: when a report keeps coming back and
+  the code keeps testing clean, the *shape of the interaction* is the bug, or
+  the reporter is running a stale file.
+
+### Then
+
+32. The rest of this file's open items, then ROADMAP.md, then BACKLOG.md.
+33. A brainstorm pass on the app's future: what is missing, what needs
+    fixing, refining, scaling, optimising, and how to professionalise it
+    against competitors — written into ROADMAP.md and BACKLOG.md.
+
 ## ► Top priority, by direct instruction: the whiteboard
 
-Not built this session — logged here and moved to the top of ROADMAP.md's
-priority table on explicit instruction, ahead of everything below. Two asks:
+1. ~~**A full redesign of the whiteboard's panels and controls.**~~ Done for
+   the tools panel — the piece that was actually unsorted. Measured before
+   touching it: 42 controls in one flat `.wb-tool-group` with zero labels —
+   882px wide and wrapping into two rows when docked to the bottom, or a
+   100px-wide column of 42 unlabelled icons when docked to the side. Split
+   into seven labelled sections (Move / Draw / Shapes / Add / Connect / Style
+   / Edit), matching the board panel's own `.wb-panel-group` pattern that had
+   been sitting right next to it the whole time. The sections are nested
+   *inside* `#wb-tool-group`, whose click listener is delegated on that
+   element, so every `[data-tool]` button, the shape/select dropdown pickers
+   and the stroke-width slider kept working with no JS change — verified live
+   in both dock modes: 7/7 sections visible and labelled, the shape picker
+   dropdown opens on screen from either dock, and clicking a tool through the
+   new wrapper still activates it. The board panel, zoom cluster and
+   properties panel were not touched — nothing reported them as the problem,
+   and they already used the labelled-group pattern.
+2. **Pan tool -> selection tool on click, still open.** While the Pan tool is
+   active, clicking (or double-clicking — pick one deliberately) directly on
+   a card, sketch or shape should switch to the Selection tool and select
+   that object, rather than requiring a manual tool switch first. "It is
+   still annoying to use" was the framing. Not started.
 
-1. **A full redesign of the whiteboard's panels and controls.** Reported
-   directly: layout, structure, distribution and positioning are "pretty
-   poor," and the panels clash with each other and with the canvas
-   underneath (screenshot: the right-side Look/Board panel, the bottom
-   toolbar, and the Tab/Enter/Delete hint bar all crowd the same corner).
-   This is the layout rethink ROADMAP.md's row 7 already named as the open
-   half of "Settings, and the whiteboard's panel layout" — not a new item,
-   now the first one.
-2. **Pan tool -> selection tool on click, specifically requested**: while
-   the Pan tool is active, clicking (or double-clicking — asked both ways,
-   pick one deliberately rather than building both) directly on a card,
-   sketch or shape should switch to the Selection tool and select that
-   object, rather than requiring a manual tool switch first. "It is still
-   annoying to use" was the framing — this is the concrete fix named for it.
-
-See ROADMAP.md's priority table for where this sits against the rest of the
-still-open work.
+See ROADMAP.md's priority table for where the remaining item sits against the
+rest of the still-open work.
 
 ## ► This session's tail: fixes shipped, and five items logged for next sprint
 

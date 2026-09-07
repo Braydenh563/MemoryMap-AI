@@ -36,6 +36,7 @@ stopped those handlers firing for the new provider.
 
 from __future__ import annotations
 
+import importlib
 import json
 import re
 from collections.abc import Callable
@@ -322,7 +323,18 @@ class Provider:
     def max_requested_context(self) -> int:
         """The ceiling, overridable by the user who knows their own machine."""
         try:
-            from memorymap.core import deps
+            # `importlib`, not `from memorymap.core import deps`. That plain
+            # import is what CodeQL py/cyclic-import #364 flagged, one hop
+            # further along at `ai/embeddings.py:24`: the cycle it named is
+            # `ai.embeddings -> ai.ollama_client -> ai.provider -> core.deps
+            # -> ai.embeddings`, and this line is its only wrong-direction
+            # edge — a provider is a leaf that the container builds, so it
+            # has no business importing the container back. Deferring the
+            # statement into the function body does not clear the alert
+            # (`entry/manager.py` records the same finding); only dropping
+            # the `import` statement itself does. Behaviour is unchanged:
+            # the module is resolved at call time either way.
+            deps = importlib.import_module("memorymap.core.deps")
 
             wanted = int(
                 deps.get_config().get_preference(

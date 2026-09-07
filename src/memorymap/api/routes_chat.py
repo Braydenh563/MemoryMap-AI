@@ -33,10 +33,12 @@ from memorymap.ai import (
     intent,
     librarian,
     memory,
+    notebook_stats,
     presets,
     skill_runner,
     skills,
     tools,
+    vision_ocr,
 )
 from memorymap.ai.grounding import ground_answer_sentences
 from memorymap.ai.ollama_client import OllamaError
@@ -223,6 +225,14 @@ class ChatRequest(BaseModel):
     # all, since it looks like it worked. Capped at 4, matching the
     # composer's own `attachedDocuments.length >= 4` limit.
     document_ids: list[int] = Field(default_factory=list, max_length=4)
+    # Files from the Library, attached by hand. Asked for directly: "I want to
+    # be able to attach not just existing notes to a chat for context, but also
+    # already uploaded files, documents, and images." A PDF, a spreadsheet or a
+    # source file is an Attachment row, not a Document and not an Entry, so it
+    # needs a field of its own for the same reason document_ids does. Its text
+    # is extracted at request time by the same `core.docview` the file viewer
+    # uses, so what the model reads is what the Files tab shows.
+    file_ids: list[int] = Field(default_factory=list, max_length=4)
     # Vision-capable models (ROADMAP.md's largest open item): ids from the
     # existing `/media/upload` (the same endpoint the document/note editors
     # already use for drag-and-drop images), not a second upload path. Small
@@ -550,6 +560,56 @@ def _attached_documents(session: Session, document_ids: list[int]) -> list[Docum
     return found
 
 
+#: How much of one attached file's text is given to the model. A file can be a
+#: 300-page PDF, and every character here is resent on every round of the turn
+#: -- the same budget reasoning `MEDIA_READING_CHARS` below records. Generous
+#: enough for a report or a source file, bounded enough that four of them
+#: cannot fill a small local model's whole context on their own.
+ATTACHED_FILE_CHARS = 12000
+
+
+def _attached_files(session: Session, file_ids: list[int]) -> list[dict]:
+    """The Library files the user attached, as note-shaped context rows.
+
+    Text is extracted here rather than stored: `core.docview.extract` is the
+    same call `GET /files/{id}/text` makes, so an attached spreadsheet reaches
+    the model as the table the Files tab would show, and a file whose text
+    cannot be read (a scanned PDF with no reader available, an image) still
+    reaches it as its name and kind rather than silently as nothing -- a
+    filename is a real clue, and a chip in the transcript that corresponded to
+    nothing at all is the failure mode `document_ids` already shipped once.
+    """
+    found: list[dict] = []
+    uploads = deps.get_config().uploads_dir
+    for file_id in dict.fromkeys(file_ids):
+        attachment = session.get(Attachment, file_id)
+        if attachment is None:
+            continue
+        body = ""
+        try:
+            viewed = docview.extract(
+                uploads / attachment.stored_name,
+                vision_reader=vision_ocr.pdf_reader_or_none(),
+            )
+            body = (viewed.text or "").strip()
+        except Exception:  # noqa: BLE001 - an unreadable file is still worth naming
+            body = ""
+        if len(body) > ATTACHED_FILE_CHARS:
+            body = body[:ATTACHED_FILE_CHARS] + "\n\n[…truncated]"
+        header = f"File: {attachment.filename}"
+        found.append(
+            {
+                "id": attachment.id,
+                "content": f"{header}\n\n{body}" if body else f"{header}\n\n(no readable text)",
+                "category": "File",
+                "attached": True,
+                "connected": False,
+                "match_info": None,
+            }
+        )
+    return found
+
+
 #: At most this many pictures from one note are described to the model, and at
 #: most this much of each reading. A note can hold a dozen scans; the readings
 #: are a *hint* about what is in the note, not a second copy of the notebook,
@@ -663,6 +723,7 @@ def _prepare(
     force_notes_intent: bool = False,
     attached_notes_only: bool = False,
     document_ids: list[int] | None = None,
+    file_ids: list[int] | None = None,
     surface: str = ASK_SURFACE,
 ) -> dict:
     """The shared first half of both chat endpoints: retrieve entries,
@@ -687,8 +748,26 @@ def _prepare(
     # think?" with three notes clipped to it is a question about those notes.
     attached = _attached_notes(session, note_ids or [])
     attached_docs = _attached_documents(session, document_ids or [])
-    if attached or attached_docs:
+    attached_files = _attached_files(session, file_ids or [])
+    if attached or attached_docs or attached_files:
         detected = intent.NOTES
+    #: **A question about the notebook's shape is answered by counting it.**
+    #: Asked for directly: "enhance the semantic search so it can pick up stuff
+    #: like if I ask 'what are my most common tags', or maybe 'categories with
+    #: the most notes'."
+    #:
+    #: Retrieval cannot answer those, and no amount of tuning would: semantic
+    #: search finds the notes most *like* a question, and "what are my most
+    #: common tags" is not like any note. It used to retrieve five arbitrary
+    #: notes and tell the model to answer from those alone — so the model
+    #: either declined or invented a ranking from a five-note sample.
+    #:
+    #: The facts are computed here, exactly, from rows. The model still writes
+    #: the sentence when it is running (the answer is handed to it as ground
+    #: truth below), which means the phrasing is natural and the numbers cannot
+    #: be invented — and with the model stopped the computed sentence is
+    #: already a complete answer on its own.
+    stats = notebook_stats.answer(question, session) if detected == intent.NOTES else None
     connected_ids: set[int] = set()
     match_info: dict = {}
     when_phrase = ""
@@ -699,7 +778,11 @@ def _prepare(
     # picked. Only takes effect when there is something attached to fall
     # back to; an empty attachment list with this flag set would otherwise
     # search nothing at all and answer from silence.
-    if intent.needs_retrieval(detected) and not (attached_notes_only and attached):
+    if stats is not None:
+        #: Nothing to retrieve: the answer is a count, and five notes about
+        #: whatever the question sounded like would only be noise beside it.
+        entries, mode = [], "stats"
+    elif intent.needs_retrieval(detected) and not (attached_notes_only and attached):
         found = search_manager.retrieve_detailed(
             session, question, deps.get_embeddings(), limit=5
         )
@@ -771,6 +854,8 @@ def _prepare(
         }
         for document in attached_docs
     )
+    # Library files, already shaped as context rows by `_attached_files`.
+    notes.extend(attached_files)
     config = deps.get_config()
     profile = (
         config.get_preference("user_profile", "")
@@ -795,6 +880,16 @@ def _prepare(
     return {
         "notes": notes,
         "intent": detected,
+        #: The computed answer, when this was a question about the notebook's
+        #: shape rather than its contents. `text` is already a complete answer
+        #: — which is what makes these work with the model stopped — and the
+        #: prompt below hands it to the model as ground truth rather than
+        #: asking it to work the numbers out.
+        "stats": (
+            {"kind": stats.kind, "text": stats.text, "facts": stats.facts}
+            if stats is not None
+            else None
+        ),
         "raw_results": [_to_out(session, entry) for entry in entries],
         "search_mode": mode,
         # Ids that came along because they are *connected* to a match, so the
@@ -822,6 +917,7 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         body.note_ids,
         attached_notes_only=body.attached_notes_only,
         document_ids=body.document_ids,
+        file_ids=body.file_ids,
         # This endpoint has no tool loop — it retrieves and answers, nothing
         # else — so every turn through it is an ask by construction.
         surface=ASK_SURFACE,
@@ -837,16 +933,29 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
     image_context = (
         "" if chat_sees_images else _image_caption_context(images_raw, model_manager, ollama)
     )
-    answered = (
-        conversational or bool(prepared["notes"]) or bool(images_raw)
-    ) and ollama_running
+    #: A counted answer *is* an answer, and it does not need a model running to
+    #: be one — which is the whole point of computing it. Without this the
+    #: response would carry a correct sentence and simultaneously report that
+    #: nothing had been answered.
+    answered = prepared["stats"] is not None or (
+        (conversational or bool(prepared["notes"]) or bool(images_raw)) and ollama_running
+    )
     shared = {
         "style": prepared["style"],
         "profile": prepared["profile"],
         "history": [turn.model_dump() for turn in body.history],
         "persona_prompt": _resolve_persona(body.persona, session),
     }
-    if conversational and body.notes_only:
+    if prepared["stats"] is not None:
+        #: **Counted, not generated.** The answer to "what are my most common
+        #: tags" is a fact about rows, and `notebook_stats` has already written
+        #: it as a sentence. Handing it to the model to rephrase would put a
+        #: generator between the user and a number that is already exact, for
+        #: nothing but style — and would make the one feature here that works
+        #: with the model stopped depend on the model. So it is returned as it
+        #: stands, instantly, whether or not anything is running.
+        ai_response, ai_thinking = prepared["stats"]["text"], None
+    elif conversational and body.notes_only:
         # Same rule as the streaming route: this box interrogates the
         # notebook and does not chat (§35A).
         ai_response, ai_thinking = librarian.ASK_IS_FOR_NOTES, None
@@ -891,7 +1000,18 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         connected_ids=prepared["connected_ids"],
         match_info=prepared["match_info"],
         when_phrase=prepared["when_phrase"],
-        answered_by=model_manager.chat_model() if answered else None,
+        #: **A counted answer was not answered by a model, and must not say it
+        #: was.** `answered` is true for one (see its own note above) but
+        #: `answered_by` names *who* wrote the sentence, and for these the
+        #: honest answer is nobody — the numbers came from rows. Naming the
+        #: chat model here would put its name under a sentence it never saw,
+        #: which is exactly the kind of small false claim this app cannot
+        #: afford to make about its own AI.
+        answered_by=(
+            None
+            if prepared["stats"] is not None
+            else (model_manager.chat_model() if answered else None)
+        ),
         ollama_running=ollama_running,
         sentence_grounding=sentence_grounding,
     )
@@ -1048,6 +1168,14 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
 
     def plain_events(prepared: dict, ollama_running: bool) -> Iterator[dict]:
         """The pre-Wave-G behaviour: stream a grounded answer, no tools."""
+        if prepared["stats"] is not None:
+            #: **A counted answer, streamed as one piece.** See the same branch
+            #: in `chat()`: the number is already exact and already a sentence,
+            #: so there is nothing to generate and nothing to wait for. It
+            #: arrives before a local model would have finished loading, and it
+            #: arrives at all when no model is running.
+            yield {"type": "answer", "delta": prepared["stats"]["text"]}
+            return
         conversational = not intent.needs_retrieval(prepared["intent"])
         if conversational and body.notes_only:
             # The Notes tab's Ask box has one job (§35A). A greeting is the one
@@ -1208,6 +1336,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
             force_notes_intent=body.answering_agent,
             attached_notes_only=body.attached_notes_only,
             document_ids=body.document_ids,
+            file_ids=body.file_ids,
             # Asking vs requesting, decided from what the caller can already
             # do rather than from a new flag: `notes_only` is the Notes tab's
             # Ask box, and tools-off is the Chat tab's Ask mode. Anything that

@@ -838,6 +838,95 @@ class DocumentAiEdit(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class PageRead(Base):
+    """One page of one document, as read by one of the OCR workspace's readers.
+
+    **This table exists because the reading was being thrown away.** Reported
+    twice: *"ai read the pages 1-3 in my pdf as I put it, but no text appeared
+    in any of the extracted text areas?? notifications appeared saying the
+    pages were read but nothing happened after that."*
+
+    The second sentence is the diagnosis. A page read is a model round-trip of
+    several seconds, and the app deliberately advertises it as a background
+    task so the workspace can be closed while it runs — that is what those
+    notifications are. But the result only ever existed in the HTTP response
+    and in the DOM the response painted. Close the workspace, switch tab, or
+    simply have the read finish after you have moved on, and the text was
+    gone: reopening the document showed empty extracted-text areas, with the
+    "read" notifications sitting in the panel saying it had worked.
+
+    So each page's reading is stored as it completes, and the workspace loads
+    what is already known when a document is opened. It also makes a range
+    read resumable and idempotent — asking again for a page already read is
+    answered from here rather than costing another pass of the model.
+
+    Keyed by `(kind, source_id, page)`: a page can belong to an Attachment or
+    to a MediaUpload, which are two different id spaces, so the kind has to be
+    part of the identity. Re-reading a page replaces its row rather than
+    appending — the newest reading is the one the workspace should show, and a
+    history of transcriptions of the same page is not something anyone asked
+    for.
+    """
+
+    __tablename__ = "page_reads"
+    __table_args__ = (
+        UniqueConstraint("kind", "source_id", "page", name="uq_page_read_source_page"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    #: "attachment" or "upload" — see the class docstring on why this is part
+    #: of the key rather than a detail.
+    kind: Mapped[str] = mapped_column(String(16), index=True)
+    source_id: Mapped[int] = mapped_column(Integer, index=True)
+    #: Zero-based, matching the API and the page rail's own indexing.
+    page: Mapped[int] = mapped_column(Integer, default=0)
+    #: Which reader produced it: "vision", "ocr" or "tesseract".
+    reader: Mapped[str] = mapped_column(String(16), default="vision")
+    #: The model's name, or "Tesseract". Shown to the reader, because "who read
+    #: this" is the first question when a transcription looks wrong.
+    model: Mapped[str] = mapped_column(String(200), default="")
+    text: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class DocumentRevision(Base):
+    """A document's text as it was before an edit — the history behind "can the
+    document have edit history like git logs??", asked for by name.
+
+    Notes have had `EntryRevision` for a long time and documents had nothing:
+    rewriting one destroyed what it used to say, with no way back beyond the
+    session's own undo stack, which forgets on reload. `DocumentAiEdit` covered
+    the *AI's* edits only — a person's own rewrite left no trace at all.
+
+    Written before the change lands, so the newest revision is always the
+    version being replaced, and stored as whole snapshots rather than diffs for
+    the reason `DocumentAiEdit` already gives: a restore has to reproduce an
+    exact prior state, not replay a patch against text that may have been
+    edited by hand since.
+
+    **Not one row per keystroke.** Autosave fires while you type, and a history
+    with two hundred entries five seconds apart is not a history — it is a log
+    nobody can read. `routes_documents` coalesces: an edit within
+    `REVISION_QUIET_SECONDS` of the last revision replaces it rather than
+    adding one, so a sitting at the keyboard becomes a single entry and
+    coming back an hour later becomes another. That is what makes the list
+    read like a git log rather than like a keylogger.
+    """
+
+    __tablename__ = "document_revisions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), index=True)
+    title: Mapped[str] = mapped_column(String(200), default="")
+    content: Mapped[str] = mapped_column(Text, default="")
+    #: How the change was made: "edit" (a person), "ai" (an accepted AI
+    #: suggestion), "restore" (rolled back to an earlier revision). Shown in
+    #: the list, because "who changed this" is the first question a history
+    #: answers.
+    source: Mapped[str] = mapped_column(String(10), default="edit")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class WhiteboardNode(Base, WorkspaceMixin):
     """A note card placed on the whiteboard canvas."""
 
@@ -1232,6 +1321,17 @@ class DatabaseManager:
                 "CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts USING fts5("
                 "content, tags, content='entries', content_rowid='id'"
                 ")"
+            )
+            # The index's own vocabulary as a table — one row per distinct
+            # term, maintained by FTS5 itself. `keyword_search` reads it to
+            # correct a misspelt query word to the nearest word the notebook
+            # actually contains ("sourdogh" → "sourdough"), which is the
+            # cheap, honest form of typo tolerance: it can only ever suggest
+            # words that exist in the notes, and it costs one range scan on
+            # the term's first letter rather than a second index.
+            connection.exec_driver_sql(
+                "CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts_vocab "
+                "USING fts5vocab('entries_fts', 'row')"
             )
             # A fresh virtual table starts empty even when `entries` already
             # has rows (a database from before this existed) — the

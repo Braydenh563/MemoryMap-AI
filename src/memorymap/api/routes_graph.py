@@ -559,6 +559,7 @@ def graph_path(
     source: int,
     target: int,
     similarity: bool = False,
+    routes: int = paths.MAX_ALTERNATE_PATHS,
     session: Session = Depends(get_session),
 ) -> dict:
     """The chain of connections between two notes (§9).
@@ -613,7 +614,14 @@ def graph_path(
             "reason": "Those are the same note.",
         }
 
-    chain = paths.find(index, source, target)
+    #: Asked for directly: "allow for multiple paths to be displayed if they
+    #: exist." `find_many`'s first entry *is* `find`'s answer — they share one
+    #: Dijkstra — so the single-path shape below is unchanged and the extras
+    #: ride alongside it. `routes=1` gets the old behaviour exactly, for a
+    #: caller that does not want to pay for the alternatives.
+    wanted = max(1, min(int(routes or 1), paths.MAX_ALTERNATE_PATHS))
+    chains = paths.find_many(index, source, target, limit=wanted)
+    chain = chains[0] if chains else None
     if chain is None:
         ends = [
             (note_id, paths.degree(index, note_id)) for note_id in (source, target)
@@ -645,24 +653,52 @@ def graph_path(
             "reason": reason,
         }
 
-    order = [source] + [step.target for step in chain]
-    category_names = manager.bulk_category_names(session, [index.entries[note_id] for note_id in order])
+    #: Every note on *any* of the routes, named once. `bulk_category_names` is
+    #: a query, so calling it per route would issue three where one does.
+    everywhere: list[int] = []
+    for one in chains:
+        for note_id in [source] + [step.target for step in one]:
+            if note_id not in everywhere:
+                everywhere.append(note_id)
+    category_names = manager.bulk_category_names(
+        session, [index.entries[note_id] for note_id in everywhere]
+    )
 
+    def rendered(one: list) -> dict:
+        order = [source] + [step.target for step in one]
+        return {
+            "hops": len(one),
+            "cost": sum(step.weight for step in one),
+            "nodes": [
+                _path_node(index.entries[note_id], category_names) for note_id in order
+            ],
+            "steps": [
+                {
+                    "source": step.source,
+                    "target": step.target,
+                    "kind": step.kind,
+                    "how": step.how,
+                }
+                for step in one
+            ],
+        }
+
+    routes_out = [rendered(one) for one in chains]
+    best = routes_out[0]
     return {
         "found": True,
         "source": source,
         "target": target,
-        "hops": len(chain),
-        "nodes": [_path_node(index.entries[note_id], category_names) for note_id in order],
-        "steps": [
-            {
-                "source": step.source,
-                "target": step.target,
-                "kind": step.kind,
-                "how": step.how,
-            }
-            for step in chain
-        ],
+        #: The best route, spelled at the top level exactly as it always was —
+        #: every existing caller and test reads `nodes`/`steps`/`hops` from
+        #: here, and moving them into `routes[0]` would be a breaking change
+        #: for no gain.
+        "hops": best["hops"],
+        "nodes": best["nodes"],
+        "steps": best["steps"],
+        #: …and all of them, best first. Always at least one element when
+        #: `found` is true, so the UI has one shape to render rather than two.
+        "routes": routes_out,
     }
 
 

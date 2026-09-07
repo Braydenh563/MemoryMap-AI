@@ -53,8 +53,8 @@
      glass opacity turned all the way down, where the mix alone would fall
      to near-transparent. */
   background: color-mix(in srgb, var(--card) calc(max(var(--glass-opacity), 0.55) * 100%), transparent);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   border: 1.5px solid var(--border);
   box-shadow: var(--glass-shadow);
   padding: 0.5rem 0.6rem;
@@ -67,7 +67,20 @@
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;
+  /* **A box you are not editing is a box, not a text field.** Reported:
+     text boxes were "basically unmovable" — the editable body filled the
+     whole box and took every pointerdown, so only the grip could move it.
+     The JS half is in `wbBeginTextEdit`; this is the half that has to match
+     it, because an I-beam over something you can only drag is a promise the
+     box does not keep, and a live text selection would fight the drag for
+     the same gesture. Both come back under `.wb-text-editing` below. */
+  cursor: inherit;
+  user-select: none;
+}
+
+.wb-object-text.wb-text-editing .wb-text-content {
   cursor: text;
+  user-select: text;
 }
 
 /* `outline: none` above had no replacement — a keyboard/screen-reader user
@@ -1130,23 +1143,22 @@ body.has-agent-monitor .doc-sidebar .doc-list {
 
 /* Notes list header and the semantic-search toggle beside the search box.
 
-   Asked for directly: "move the ui controls at the top of the all notes
-   subtab panel to the row below the all notes heading text". The panel's nine
-   controls and its heading shared one `.library-toolbar`, a wrapping flex row,
-   so where the heading ended and the toolbar began depended entirely on the
-   window width — at some sizes "All notes" sat inline with Select and the view
-   toggle as though it were another control, at others it happened to be alone.
-   A basis of 100% makes the heading claim its own line always, and the nine
-   controls wrap onto the row beneath it, which is the arrangement asked for
-   and the one that stays put at every width.
-
-   Done here rather than by wrapping the controls in a second element on
-   purpose: `.library-toolbar`'s own sizing rules (`--control-h`, the
-   `button`/`select`/`.seg` height row) are descendant selectors that a new
-   div would silently change the meaning of, and this panel has already been
-   through one round of those rules fighting each other on specificity. */
+   Asked for directly, twice: first "move the ui controls at the top of the
+   all notes subtab panel to the row below the all notes heading text" (the
+   panel's nine controls and its heading shared one `.library-toolbar`, a
+   wrapping flex row, so where the heading ended and the toolbar began
+   depended entirely on window width), then later "put the refresh button in
+   the top right corner of the notes panel in the same row as the title" —
+   which is what moved `#entries-heading` out of `.library-toolbar` into its
+   own `.library-head` row (index.html), alongside `#notes-refresh` only.
+   The other eight controls (Select, the view toggle, search, Semantic, Save
+   filter, the help disclosure) stay in `.library-toolbar` below, on their
+   own row, same as the first fix left them — moving the heading out of that
+   div is what keeps them from ever sharing a row with it again, so the
+   `flex: 1 0 100%` this rule used to force is no longer what's doing that
+   job, and inside `.library-head` it would instead push `#notes-refresh`
+   onto a second line, exactly the "same row" fix the second ask undoes. */
 .entries-heading {
-  flex: 1 0 100%;
   margin: 0 var(--space-1) 0 0;
 }
 
@@ -1344,7 +1356,12 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   top: 0;
   z-index: 20;
   flex-shrink: 0;
-  margin: 0 0 var(--space-8);
+  /* The same gap the Notes strip leaves, and less of it: measured at 1440px
+     the Library strip left 24px below itself against Notes' 12.8px, so the
+     two tabs put their first card at different heights -- and both left more
+     air under a 55px bar than the bar is worth. Reported as "quite large gaps
+     above and below the sub menubars in the library and notes tabs". */
+  margin: 0 0 var(--space-4);
   background: var(--card);
   backdrop-filter: blur(16px);
   border-radius: var(--radius-lg);
@@ -1984,6 +2001,17 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   display: inline-flex;
   align-items: center;
   max-width: 12rem;
+  /* **The same height as everything else in the bar.** Reported: "the spaces
+     combobox in the top bar isnt the same height as the buttons on the other
+     side" — measured at 28px against 36px for the five icon buttons and the
+     tabs. `--header-control-h` is the token the whole bar is supposed to read,
+     but the rule that applies it is `.header-controls > button`, and this
+     button is not in `.header-controls` — it sits in its own
+     `.space-switcher` wrapper on the opposite side. So it quietly fell back
+     to `button.small`'s 28px floor, which is why nothing in the bar looked
+     wrong except this one control. */
+  height: var(--header-control-h);
+  padding-block: 0;
 }
 
 .space-switcher-name {
@@ -2034,8 +2062,8 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   /* --modal-bg, not --card: this floats over arbitrary page content and has
      to be legible against all of it. Same reasoning as .notif-panel. */
   background: var(--modal-bg);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   box-shadow: var(--glass-shadow);
 }
 
@@ -3332,8 +3360,54 @@ details[open].help-accordion > summary::before {
    that is meant to sit quietly under the app. */
 button.icon-only:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool),
 button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool) {
+  /* Tonal, like `.ghost` (01-forms-settings.css): fill, transparent edge. */
   background: var(--ghost-btn-bg);
-  border: 1px solid var(--ghost-btn-border);
+  border: 1px solid transparent;
+}
+
+/* **The formatting strip is another of those grouped sets, and it took a
+   report to notice.** "the expand toolbar and hide formatting tools dont have
+   curved corners like they look like when hovered over" — a complaint about
+   two buttons that was really about the twenty-five beside them.
+
+   Measured across the note toolbar: every plain `<button>` in it rests
+   transparent and fills on hover, while the four `<details>` openers and the
+   three icon-only controls rested *already filled* (border
+   `rgba(255,255,255,0.22)` over background `rgba(255,255,255,0.14)`) — the
+   rule above, plus the app's default `<summary>` chrome, reaching into a strip
+   the rule above was never meant for. In a bar where seven controls wear a
+   filled box at rest and twenty-five wear nothing, the bare ones read as the
+   broken ones; and since their own box appears only on hover, they read as
+   "square until hovered". Nothing was wrong with any radius: every control in
+   the strip measured the same `var(--radius-md)`.
+
+   `.doc-toolbar` is exactly the case the comment above describes — a bordered,
+   grouped strip that already says "these are buttons", where a per-item ground
+   doubles the bar's visual weight. Like `.seg button`, the class is on the
+   *parent*, so it cannot be another `:not()` up there and is this override
+   instead.
+
+   The selectors below carry the `:not()` chains of the rules they are
+   correcting, and that is deliberate rather than cargo-culted: a plain
+   `.doc-toolbar summary` is (0,1,1) and loses to
+   `summary:not(.icon-only):not(.icon-button)` at (0,3,1) — measured, after a
+   first attempt that read as correct and changed nothing on screen. Matching
+   the chain and adding the ancestor is what actually wins, honestly, without
+   an `!important`. */
+.doc-toolbar summary:not(.icon-only):not(.icon-button),
+.doc-toolbar button.icon-only:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool),
+.doc-toolbar button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool) {
+  padding: 0.25rem 0.4rem;
+  background: none;
+  border: 1px solid transparent;
+}
+
+.doc-toolbar summary:not(.icon-only):not(.icon-button):hover,
+.doc-toolbar button.icon-only:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):hover,
+.doc-toolbar button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):hover,
+.doc-toolbar .doc-toolbar-menu[open] > summary:not(.icon-only):not(.icon-button) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
 }
 
 /* **The `.seg button` exclusion the comment above promised and the selector
@@ -3513,6 +3587,17 @@ summary:not(.icon-only):not(.icon-button) {
 }
 
 /* --- the selection tick, in the app's own language ------------------------
+   **`.entry-list:not(#tool-list)` on every selector below, and this is the
+   "black shadow on the tools switches" reported five times.** `#tool-list`
+   carries `class="entry-list"` for its row styling, so the tick recipe here
+   matched its inputs too -- and the checkmark below is drawn as two 2px
+   borders of a box, rotated, on `:checked::after`. On a switch that `::after`
+   is the knob. So every tools switch, in its ON state only, got a 2px
+   near-black border painted onto its white knob, on top of the pill recipe.
+   No `box-shadow`, no `filter`, which is why measuring those said "none"
+   three times; a full computed-style diff against a normal switch found
+   `border: 2px solid rgb(13, 16, 23)` on the knob and nothing else.
+   ---------------------------------------------------------------------
    The switch rule in `06-timeline-dialogs.css` deliberately does *not* cover
    these, and it is right not to: a checkbox in a list means "this one is
    chosen", which is a tick, and a column of switches down the side of a list
@@ -3530,6 +3615,14 @@ summary:not(.icon-only):not(.icon-button) {
    border, filling with the accent and drawing a checkmark when chosen. The
    accessibility tree, focus and keyboard all stay with the real input. */
 .library-card-tick,
+/* **The Files/Images gallery tick was not on this list and rendered as a
+   dead grey square.** Reported: "there is no multi select feature and radio
+   buttons on rows in the files library subtab like in the others." It was
+   there -- built, wired to the bulk bar, 28x28 and visible -- but with no
+   `appearance: none` recipe of its own it had no background, no border and no
+   checkmark, so ticking one changed nothing you could see. That is the third
+   time the enumerated-allowlist shape in the comment below has bitten. */
+.library-tile-tick,
 .select-check,
 /* **`.doc-list-tick` was missing from this list and rendered native.** It is
    the selection tick for the Documents list, the saved-links rows and the
@@ -3547,7 +3640,7 @@ summary:not(.icon-only):not(.icon-button) {
    warning, no log and no failing test; it just looks broken. */
 .doc-list-tick,
 .note-picker-list input[type="checkbox"],
-.entry-list input[type="checkbox"]:not(.sr-only),
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only),
 .reminder-item input[type="checkbox"]:not(.sr-only) {
   appearance: none;
   -webkit-appearance: none;
@@ -3560,8 +3653,17 @@ summary:not(.icon-only):not(.icon-button) {
   position: relative;
   border: 1px solid var(--muted);
   border-radius: calc(var(--radius) * 0.4);
-  background: var(--ghost-btn-bg);
-  box-shadow: inset 0 1px 2px var(--field-inset);
+  /* Opaque, on purpose. Reported with two crops: "make sure all the
+     radiobutton multiselect boxes are the same visual style" -- the Files row
+     tick and the Images tile tick are the same recipe, but this used to be a
+     14% white wash, so over a dark row it read as a grey box and over a photo
+     it read as an empty outline. Two backdrops, one translucent surface, two
+     different-looking controls. An opaque surface looks the same on both;
+     the hairline drop shadow is what keeps it legible on a busy picture. */
+  background: var(--modal-bg-opaque);
+  box-shadow:
+    inset 0 1px 2px var(--field-inset),
+    0 1px 2px rgba(0, 0, 0, 0.25);
   cursor: pointer;
   transition:
     background var(--motion-fast) ease,
@@ -3569,19 +3671,21 @@ summary:not(.icon-only):not(.icon-button) {
 }
 
 .library-card-tick:hover,
+.library-tile-tick:hover,
 .select-check:hover,
 .doc-list-tick:hover,
 .note-picker-list input[type="checkbox"]:not(.sr-only):hover,
-.entry-list input[type="checkbox"]:not(.sr-only):hover,
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):hover,
 .reminder-item input[type="checkbox"]:not(.sr-only):hover {
   border-color: var(--accent);
 }
 
 .library-card-tick:checked,
+.library-tile-tick:checked,
 .select-check:checked,
 .doc-list-tick:checked,
 .note-picker-list input[type="checkbox"]:checked,
-.entry-list input[type="checkbox"]:not(.sr-only):checked,
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):checked,
 .reminder-item input[type="checkbox"]:not(.sr-only):checked {
   background: var(--accent);
   border-color: var(--accent);
@@ -3590,10 +3694,11 @@ summary:not(.icon-only):not(.icon-button) {
 /* The checkmark: two borders of a box, rotated. Drawn rather than set as a
    glyph so it needs no font to have loaded and scales with the box. */
 .library-card-tick:checked::after,
+.library-tile-tick:checked::after,
 .select-check:checked::after,
 .doc-list-tick:checked::after,
 .note-picker-list input[type="checkbox"]:checked::after,
-.entry-list input[type="checkbox"]:not(.sr-only):checked::after,
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):checked::after,
 .reminder-item input[type="checkbox"]:not(.sr-only):checked::after {
   content: "";
   position: absolute;
@@ -3650,24 +3755,32 @@ summary:not(.icon-only):not(.icon-button) {
    say "this belongs to the thing above". It also tightens the gap above
    itself: a dependent control sitting the same distance from its parent as
    from the next unrelated setting is the ambiguity being fixed. */
+/* Sentence case, not a second run of capitals. Reported with a screenshot of
+   the About page: the group's own heading and this one rendered as two
+   stacked all-caps labels of the same weight, so "Updates" and "Finding new
+   versions" read as rivals instead of a heading and its subdivision. Weight
+   and colour carry the hierarchy now; the shape of the words no longer
+   competes. */
 .setting-subhead {
   margin: var(--space-5) 0 var(--space-2);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .setting-subhead:first-of-type {
   margin-top: var(--space-2);
 }
 
+/* The indent rule runs the full height of what it brackets and starts under
+   the switch it belongs to. At 2px and offset further right it read as a
+   stray tick beside a lone button rather than as a bracket -- visible in the
+   About screenshot next to "Check now". */
 .settings-group .setting-dependent {
   margin-top: var(--space-2);
-  margin-left: var(--space-5);
-  padding-left: var(--space-4);
-  border-left: 2px solid var(--border);
+  margin-left: var(--space-3);
+  padding: var(--space-1) 0 var(--space-1) var(--space-4);
+  border-left: 1px solid var(--border);
 }
 
 .settings-group .setting-dependent:empty {
@@ -3852,6 +3965,34 @@ summary:not(.icon-only):not(.icon-button) {
    metadata, and by the lone-control rule above it is one of a set with
    `#chat-usage` beside it), an underline-on-hover and a real ground on
    hover/focus, so it reads as text until you go near it. */
+/* **A truncating badge is a block, not a centred flex row.**
+   Reported with two screenshots: a model name clipped at *both* ends
+   ("'Gemma-4-E2B-Uncensored-HauhauCS-Aggress"), and "a lot of name badges
+   have their text cut off on either end and are centred so the start and end
+   of the text gets cut off".
+
+   The cause is one line in the base `button` rule (01-forms-settings.css):
+   every button is `display: inline-flex; justify-content: center`, which
+   centres its own text. `text-overflow: ellipsis` applies to a block box, and
+   an anonymous flex item has `min-width: auto`, so it refuses to shrink,
+   overflows its centred container by half on each side, and gets sliced by
+   `overflow: hidden` -- no ellipsis, and the *start* of the name gone, which
+   is the half that says which model it is.
+
+   `display: block` on the ones that truncate hands the ellipsis back and
+   anchors the text at its start. Applied to the badge shapes, not to buttons
+   generally: a normal button wants its label centred. */
+.chat-model-button,
+.library-image-vision-ocr-badge,
+.library-image-ocr-badge,
+.library-image-caption-badge {
+  display: block;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .chat-model-button {
   border: 0;
   background: none;
@@ -4135,15 +4276,18 @@ summary:not(.icon-only):not(.icon-button) {
      reported as the "Filter" label and the search field looking broken —
      measured, and the tool list's own top row was bleeding through both,
      legible enough to read as overlapping text.
-     `var(--modal-bg)` is the fix, not a composited two-layer gradient like
-     the Agent Activity panel's own version of this bug needed — that panel
-     floats over the *page*, whose background genuinely is a gradient; this
-     row's parent is a flat, already-defined colour, so naming it directly is
-     both simpler and exactly correct rather than an approximation of it. */
-  background: var(--modal-bg);
+     It was plain `var(--modal-bg)` until the surface tiers arrived
+     (00-tokens-shell.css): the row now sits inside a `.settings-group`,
+     which is `--surface-2` (a translucent ink tint) over the modal -- so a
+     row painted with the modal's colour alone showed as a lighter slab
+     inside the tinted group, in both themes. Hence the composite: the same
+     tint, laid over the opaque modal colour, which is byte-for-byte what
+     the group itself resolves to. Still opaque, so it still hides the rows
+     scrolling up beneath it. */
+  background: linear-gradient(var(--surface-2), var(--surface-2)), var(--modal-bg-opaque);
   padding-block: var(--space-2);
   margin-bottom: var(--space-2);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--divider);
 }
 
 .tool-filter-row #tool-count {
@@ -4231,6 +4375,8 @@ button.connection-row {
 
 /* Pressed = wide. It is a mode, so it holds its state visibly rather than
    being a button you press and cannot tell you pressed. */
+/* On is the accent, the same as every other mode toggle in the app. */
+.doc-toolbar-gutter[aria-pressed="true"],
 .doc-toolbar-width[aria-pressed="true"] {
   background: var(--accent-soft);
   color: var(--accent);
@@ -4630,6 +4776,14 @@ button.connection-row {
   border-top: 1px solid var(--border);
 }
 
+/* Delete sits apart from the three constructive actions beside it — a
+   destructive one does not belong in the middle of them, and `margin-left:
+   auto` is the same "push this one to the far end" rule the story-mode
+   button and the board panel's primary action already use elsewhere. */
+#ocr-delete-reading {
+  margin-left: auto;
+}
+
 /* Find, over the reading rather than over the picture — the one search this
    workspace can answer that a text search over a transcription cannot, because
    a hit here also dims every box it is not. */
@@ -4653,13 +4807,48 @@ button.connection-row {
 .ocr-find .ocr-find-input {
   flex: 1 1 auto;
   min-width: 0;
-  border: none;
   background: none;
   padding: 0;
+  /* **`border: none` measured as `3px solid rgb(240,242,245)`** — the bright
+     ring reported around this box ("fix the hard line around the find in what
+     was read textbox"). Same cause and same answer as `.ask-composer >
+     #question`, which documents it at length: the Appearance system sets
+     `border-style: var(--border-style) !important` on every input
+     (00-tokens-shell.css) so a user's chosen border style cannot be defeated
+     by a stray local rule, and forcing the style back to `solid` restores the
+     initial `medium` width — 3px — on a control every stylesheet involved
+     believes has no border. An `!important` can only be answered by another.
+     Right everywhere else; wrong here, where the input is the *interior* of
+     the `.ocr-find` field rather than a field of its own, so the ring drew
+     inside the wrapper's own border and read as a hard second box.
+     `box-shadow` goes with it: the recessed inset says "this is the field",
+     and the wrapper is already saying that. */
+  box-shadow: none;
+}
+
+/* **The id is load-bearing, and `!important` alone was not enough.** Two
+   `!important` declarations are settled by specificity, and the Appearance
+   rule's selector — `input` plus five `:not([type=…])` — is (0,5,1), which
+   beats `.ocr-find .ocr-find-input` at (0,2,0). Measured: `border: none
+   !important` at the class selector still computed as `3px solid
+   rgb(240,242,245)`. `#ocr-find` is (1,0,0) and wins outright, which is the
+   same reason `.ask-composer > #question` had to be written with its id.
+   This repo has now paid for the enumerated-`:not()`-chain specificity trap
+   three times; if a fourth borderless input appears, give it an id. */
+.ocr-find #ocr-find {
+  border: none !important;
 }
 
 .ocr-find-input:focus {
   outline: none;
+}
+
+/* The focus ring belongs to the whole row, not to the bare input inside it —
+   otherwise focusing the box lights up the interior and leaves the wrapper,
+   which is what the eye reads as the control, unchanged. Same treatment
+   `.ask-composer` uses for the same reason. */
+.ocr-find:focus-within {
+  border-color: var(--accent);
 }
 
 .ocr-find-count {
@@ -5123,9 +5312,17 @@ button.connection-row {
   /* **Above the tool row, not under it.** Measured at 1440x900: this strip
      rendered 960x40 at (240, 796) and the tools panel 882x54 at (34, 773) —
      an overlap across most of the strip's width, so the gestures it exists to
-     teach were sitting behind the toolbar. The tool row is `bottom: 1rem` and
-     54px tall, so clearing it means starting above ~5rem. */
-  bottom: 5.25rem;
+     teach were sitting behind the toolbar.
+
+     That was fixed with a constant (5.25rem), which held only while the tool
+     row was one 54px line: the row wraps to two or three on a narrow board,
+     and the constant then put this strip straight back underneath it. Then
+     reported the other way round too — "the main tool panel sits right up
+     against the popup notification" — because 5.25rem left under 1rem of
+     visible gap once borders and shadow were counted. `--wb-h-tools` is the
+     row's real measured height (whiteboard.js), so the gap is now one spacing
+     step, always, whatever the row is doing. */
+  bottom: calc(0.5rem + var(--wb-h-tools) + var(--space-4));
   transform: translateX(-50%);
   z-index: 5;
   display: flex;
@@ -5366,4 +5563,1300 @@ button.connection-row {
   width: 6rem;
   margin: 0;
   text-align: center;
+}
+
+/* **"Take me there" has to end with something saying "here".** Asked for:
+   "if I click on an issue flagged in the document suggestions, it should auto
+   scroll to the issue and temporarily highlight the offending area."
+
+   Two flashes, because the two views can say it differently. Live view has a
+   real `<mark>` for the flagged word, so it pulses in place. Source view has
+   only a selection inside a `<textarea>` — nothing there can be marked — so
+   the selection colour itself becomes the flash for as long as it lasts.
+   Both are short: a highlight that stays is a highlight you then have to get
+   rid of. */
+@keyframes doc-flag-flash {
+  0% {
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+
+  100% {
+    background: transparent;
+    color: inherit;
+  }
+}
+
+.doc-flag-flash {
+  animation: doc-flag-flash 1.6s ease-out;
+  border-radius: var(--radius-sm);
+}
+
+.doc-selection-flash::selection {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* Reduced motion keeps the information — the word still goes accent-coloured
+   and fades back — it just does not travel to get there (`scrollIntoView`
+   drops to `auto` in the JS for the same reason). */
+@media (prefers-reduced-motion: reduce) {
+  .doc-flag-flash {
+    animation-duration: 1.6s;
+    animation-timing-function: steps(2, end);
+  }
+}
+
+/* --- Inline AI (editor.js) ------------------------------------------------
+   The AI at the caret. Positioned in viewport coordinates by
+   `inlineAiPosition`, so `fixed`, like `.editor-menu` and `.selection-bar`.
+
+   z-index 61, one above `.editor-menu`'s 60: the "/" menu is how this bar is
+   usually opened, and the bar has to draw over the menu's closing frame
+   rather than under it.
+
+   A card, not a pill: this one holds a text field, three buttons and a line of
+   prose, and the pill shape the selection bar uses reads as a toolbar — which
+   is the wrong promise for something you type a sentence into. */
+.inline-ai {
+  position: fixed;
+  z-index: 61;
+  width: min(30rem, calc(100vw - 2 * var(--space-3)));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--modal-bg);
+  box-shadow: var(--shadow-lg);
+  /* Same reason as `.selection-bar`: `--modal-bg` is 4% see-through by
+     design, and this sits over the densest text in the app. */
+  backdrop-filter: blur(8px);
+}
+
+.inline-ai-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.inline-ai-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  color: var(--accent);
+}
+
+/* `min-width: 0` because a flex item's default `min-width: auto` refuses to
+   shrink below its content, which on a long placeholder pushed the Ask button
+   off the end of the bar. */
+.inline-ai-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The scope line: what this is about to change, and the two keys. Small and
+   muted because it is a statement of state, not a control. */
+.inline-ai-scope {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  /* No clamp and no ellipsis: this line carries the offline message and the
+     model's own error text, and a truncated error is the thing that makes a
+     failure unreadable. It wraps instead. */
+  line-height: 1.4;
+}
+
+.inline-ai-review {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+/* --- the OCR rail's own switch --------------------------------------------
+   Reported: "I cant always switch between viewing files or images, and if I
+   open it from the lightbox when viewing an image, no other files or images
+   show." The rail used to be whatever list the caller passed in, and three of
+   the four call sites passed nothing — so the workspace was navigable only
+   when opened from the gallery grid. It loads its own siblings now, and this
+   is the control that says which list you are looking at.
+
+   A column, so the switch is pinned above a rail that scrolls under it: the
+   rail can be two hundred pages long, and a switch that scrolls away with it
+   is a switch you cannot reach from page 180. */
+.ocr-rail-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: var(--space-2);
+}
+
+.ocr-rail-switch {
+  display: flex;
+  /* Wraps: the rail column is ~9rem wide and "Images 6 · Files 1 · Pages 14"
+     is wider than that, so the row overflowed and the first tab was clipped
+     to "mages 6" (reported, with a screenshot). Three short tabs on two
+     lines beat three tabs of which one is unreadable. */
+  flex-wrap: wrap;
+  flex: none;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--inner);
+}
+
+.ocr-rail-tab {
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  /* The tab labels are one word each and the counts are short, but a notebook
+     with 1,000 files would still push the row wider than the rail. */
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ocr-rail-tab:hover {
+  color: var(--ink);
+}
+
+.ocr-rail-tab.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* The count reads as a quantity rather than as part of the label, which is
+   what stops "Files 12" being mistaken for a filename. */
+.ocr-rail-tab-count {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+/* A document has no thumbnail to fetch without rasterising it, and a broken
+   <img> in the rail reads as a missing file rather than as a PDF. */
+.ocr-rail-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--radius-sm);
+  background: var(--inner);
+  color: var(--muted);
+  font-size: var(--text-h2);
+}
+
+/* --- Files as a reading list ----------------------------------------------
+   Asked for directly: "because the ocr worspace exists, redesign the files
+   library subtab and its capabilities." The workspace is where a document
+   gets read, and this list could not say which files already had been — so
+   every scan looked identical to every other and the only way to find out was
+   to open each one.
+
+   A strip under the filename, not a corner badge: the two halves are a state
+   and the action on it, and separating them across the tile would make the
+   button read as belonging to the picture rather than to the reading. */
+.library-read-strip {
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-top: var(--space-1);
+}
+
+.library-read-badge {
+  /* The number is the point — "Read · 1,240 words" says what came out, where
+     "Read" alone only says a job finished — so it must not be clipped away by
+     the tile's own width. It wraps rather than truncating. */
+  white-space: normal;
+}
+
+/* Read and unread are a *state*, so they are coloured like every other state
+   in this app rather than getting their own pair: `--ok` for done, muted for
+   not-yet. Deliberately not red for unread — an unread file is not a problem. */
+.library-read-badge.is-read {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 35%, transparent);
+}
+
+.library-read-badge.is-unread {
+  color: var(--muted);
+}
+
+.library-read-open {
+  flex: none;
+  white-space: nowrap;
+}
+
+/* --- the contextual properties panel's own groups ---------------------------
+   The style controls moved out of the tool row and into this panel (see the
+   comment on `#wb-tool-style-group` in index.html, and the restructure it is
+   part of). A group needs the same label treatment `.wb-tool-section-label`
+   gives the tool row's own groups, so "Draw with" reads as a heading over the
+   two rows under it rather than as another property whose value went missing. */
+.wb-properties-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-2);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.wb-properties-group-label {
+  font-size: var(--text-xs);
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+/* The thickness slider is the one control here that is not icon-sized, and
+   in an 11rem column it has to give up its intrinsic width or it pushes its
+   own label out of the panel. */
+.wb-properties-group input[type="range"] {
+  width: 5.5rem;
+  min-width: 0;
+}
+
+/* --- Files sub-tab: rows, not cards ----------------------------------------
+   Asked for directly: "the card format is difficult with files as they can be
+   quite long and large, a single image or ocr caption doesnt fit them. there
+   should be details on the name, a generated description that cna happen,
+   file details such as the type, size, topic/category, linked notes and other
+   features... integration with the ocr workspace."
+
+   A tile suits a picture, whose content is the thumbnail. A document's
+   content is text about it — name, description, type/size/pages, what it is
+   used in, whether it has been read — and a fixed-width card either clips all
+   of that or leaves every row a different height. One class on the grid
+   (`library-file-rows`, set for the Files sub-tab only) turns the same tiles
+   the Images sub-tab draws into full-width rows: thumbnail left at a fixed
+   size, everything else in a column beside it. The Images grid is untouched. */
+.library-file-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.library-file-rows .library-image-tile {
+  display: grid;
+  /* Was 4.5rem, and reported straight back as "the left part of the files
+     tab is squashed": a 4.5rem thumb next to a 121KB-PDF's first page is a
+     postage stamp. 7rem reads as a page. */
+  grid-template-columns: 7rem minmax(0, 1fr);
+  grid-template-rows: auto;
+  gap: var(--space-2) var(--space-4);
+  align-items: start;
+  width: 100%;
+  max-width: none;
+  padding: var(--space-3);
+  /* The thumbnail is taken out of the grid below, so the row itself has to
+     be at least as tall as it — a one-line row would otherwise let the
+     picture hang out of the bottom of its card. */
+  position: relative;
+  min-height: calc(9rem + 2 * var(--space-3));
+}
+
+/* **The thumbnail is positioned, not a grid item.** Reported with a
+   screenshot: "the file preview squished and elements in the wrong place" —
+   the title on the first line, then a 108px hole, then the size line. The
+   thumb spanned every row (`grid-row: 1 / -1`) at a fixed 9rem, and a
+   spanning item's height is handed to the tracks it spans: measured, the
+   whole 144px landed in row 1, whose own content is a 36px title. Taking
+   the picture out of flow leaves the first column as a plain 7rem spacer
+   and every row exactly as tall as its text. */
+.library-file-rows .library-image-tile > .library-file-thumb,
+.library-file-rows .library-image-tile > img {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  width: 7rem;
+  height: 9rem;
+  object-fit: cover;
+}
+
+.library-file-rows .library-image-tile > *:not(img):not(.library-file-thumb) {
+  grid-column: 2;
+  width: 100%;
+  text-align: left;
+}
+
+/* The selection tick sits on the thumbnail's corner, as it does on an image
+   tile — it had been a grid child in the text column, stretched to the full
+   row width by the rule above, so its focus ring drew a 1000px box across
+   the title (reported: "the selected box on the file title isn't even on the
+   actual title"). */
+.library-file-rows .library-image-tile > input.library-tile-tick {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: start;
+  /* Above `.library-file-page` (the PDF's rendered first page, absolute at
+     z-index 1, later in the DOM). This rule set 1 too and lost the tie on
+     order -- reported as the tick showing in the filetype view and not the
+     preview view. Only a PDF has a page render, which is why .md/.txt rows
+     never showed it. */
+  z-index: 3;
+  align-self: start;
+  width: auto;
+  margin: var(--space-1);
+}
+
+/* Name and kebab share the first row; the name leaves room for the kebab
+   instead of running under it. */
+.library-file-rows .library-image-tile > figcaption {
+  grid-row: 1;
+  padding-right: calc(var(--space-9) + var(--space-6));
+  align-self: center;
+}
+
+.library-file-rows .library-image-tile > figcaption {
+  font-weight: 650;
+  /* A filename is one line; the description under it is where the length
+     belongs. Wrapping a name over three lines pushes every other fact in the
+     row down and makes a list of files impossible to scan. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.library-file-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.library-file-meta-sep {
+  opacity: 0.5;
+}
+
+/* The row's own actions stay pinned to its top-right corner, where they are
+   in the tile layout too — same place, so the muscle memory survives. */
+.library-file-rows .library-image-tile > .library-image-actions {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+}
+
+/* The bend point on a selected link — a sibling of the endpoint handles,
+   filled with the accent so it reads as "the curve's own control", not a
+   third endpoint. Same pointer-events opt-in, for the same reason. */
+.wb-link-bend-handle {
+  fill: var(--accent);
+  stroke: var(--card);
+  stroke-width: 2px;
+  cursor: move;
+  pointer-events: auto;
+}
+
+/* ======================================================================
+   Whiteboard chrome, restructured: one top bar, a centred tool dock, a
+   zoom cluster, and a right-hand drawer for properties.
+
+   Reported in the user's own words after four rounds of offset-tuning:
+   "the panels always clash", the UI is "blocky, bulky", and they would
+   "rather use OneNote, draw.io or Microsoft Whiteboard". Every one of
+   those puts navigation and board-level actions in a single strip along
+   the top and keeps the canvas edges clear; none has four draggable
+   corner panels. So: the board picker, the library/look/board panel, the
+   back button and the zoom cluster's search/overview/help are now one
+   `.wb-topbar`; the tool dock is centred on the bottom edge with its
+   section labels moved into tooltips (screen readers still get them);
+   the properties panel is a fixed drawer down the right edge between the
+   top bar and the zoom cluster; nothing is draggable any more.
+
+   These rules come last in the cascade on purpose — they override the
+   corner-panel rules in 06-timeline-dialogs.css, which are left in place
+   because `[data-dock="side"]` and the narrow-window rules still build on
+   them. Every offset here derives from a published measurement
+   (`--wb-h-topbar`, `--wb-h-zoom`, `--wb-w-zoom`, `--wb-h-tools`), never a
+   tuned constant, for the reason the metrics comment in whiteboard.js
+   gives. */
+.wb-topbar {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  right: 0.5rem;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
+}
+
+.wb-topbar-left,
+.wb-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.wb-topbar-left {
+  flex: 1 1 auto;
+}
+
+.wb-topbar-divider {
+  width: 1px;
+  height: 1.25rem;
+  background: var(--border);
+  margin: 0 var(--space-1);
+  flex-shrink: 0;
+}
+
+/* Lives in the bar now, so the absolute top-centre placement it needed
+   when it floated alone on the canvas is off. */
+.wb-topbar #wb-back-to-boards {
+  position: static;
+  transform: none;
+  background: transparent;
+  border: 1px solid transparent;
+  box-shadow: none;
+}
+
+.wb-topbar #wb-board-select {
+  max-width: 14rem;
+  min-width: 6rem;
+  height: 2rem;
+}
+
+.wb-topbar button {
+  height: 2rem;
+}
+
+.wb-topbar .wb-panel-primary.is-on {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* The Board menu: look, grid, snap, export, toolbar dock, clear. These are
+   set once per board and then left alone, which is why they were the
+   wrong things to keep permanently on screen. */
+.wb-board-menu-wrap {
+  position: relative;
+}
+
+.wb-board-menu {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 17rem;
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
+}
+
+.wb-board-menu .wb-panel-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.wb-board-menu .wb-panel-group-label {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.wb-board-menu .wb-panel-group-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.wb-board-menu select {
+  flex: 1 1 8rem;
+  height: 2rem;
+}
+
+.wb-board-menu button {
+  height: 2rem;
+}
+
+/* The tool dock: centred on the bottom edge, one row of icons with a thin
+   rule between groups — the shape every app the user named uses. The
+   labels stay in the DOM for assistive tech (and as the tooltip on each
+   group's rule) but are clipped from view; the seven uppercase captions
+   were most of what read as "bulky". The reserve on each side is the zoom
+   cluster's measured width plus both insets, symmetric so centring can
+   never put the dock under it. */
+.whiteboard-floating-panel.bottom-center {
+  /* Centred with `left: 0; right: 0; margin: auto`, not `left: 50%` +
+     `translateX(-50%)`: an absolutely positioned box with only `left: 50%`
+     set gets half the container as its available width, so the dock's
+     shrink-to-fit width was capped at 50% and its 656px row wrapped onto
+     two lines at 1100px wide (measured: panel 533px inside a 1067px
+     canvas with an 783px max-width). Spanning both edges gives it the
+     whole canvas to fit into; `width: fit-content` keeps it a pill. */
+  left: 0;
+  right: 0;
+  width: fit-content;
+  /* `.card` carries a 1rem bottom margin, which an absolutely positioned
+     box still honours — measured: `bottom: 8px` rendered 24px off the
+     edge. Reported: "lower the bottom panel elements closer to the bottom
+     as they take up so much space." Margin zeroed, inset one step smaller. */
+  margin: 0 auto;
+  bottom: var(--space-2);
+  transform: none;
+  padding: var(--space-1) var(--space-2);
+  gap: var(--space-1);
+  max-width: calc(100% - 2 * (var(--wb-w-zoom) + 1.5rem));
+}
+
+.whiteboard-floating-panel.bottom-center .wb-tool-section-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.whiteboard-floating-panel.bottom-center .wb-tool-section {
+  gap: 0;
+}
+
+.whiteboard-floating-panel.bottom-center .wb-tool-section + .wb-tool-section {
+  padding-left: var(--space-1);
+  margin-left: var(--space-1);
+}
+
+.whiteboard-floating-panel.bottom-center .wb-tool-group {
+  gap: 0;
+  row-gap: var(--space-1);
+}
+
+/* The sidebar dock keeps its own placement (06-timeline-dialogs.css); the
+   centring above and the symmetric reserve are for the bottom dock only.
+   It now starts below the top bar rather than at a tuned 5.5rem. */
+.whiteboard-floating-panel.bottom-center[data-dock="side"] {
+  left: 0.5rem;
+  right: auto;
+  width: auto;
+  margin-inline: 0;
+  top: calc(0.5rem + var(--wb-h-topbar) + var(--space-3));
+  bottom: auto;
+  transform: none;
+  max-width: none;
+  max-height: calc(100% - var(--wb-h-topbar) - 2rem);
+}
+
+.whiteboard-floating-panel.bottom-right {
+  bottom: var(--space-2);
+  right: 0.5rem;
+  margin: 0;
+  padding: var(--space-1);
+  gap: 0;
+}
+
+.wb-topbar,
+.whiteboard-floating-panel.mid-right {
+  margin: 0;
+}
+
+/* The properties drawer: fixed to the right edge between the top bar and
+   the zoom cluster, scrolling inside itself. Not a floating card any
+   more — a fixed strip cannot land on anything. */
+.whiteboard-floating-panel.mid-right {
+  top: calc(0.5rem + var(--wb-h-topbar) + var(--space-3));
+  right: 0.5rem;
+  /* Clears the tool row, not the zoom cluster: the dock is centred and on
+     a narrow board its wrapped rows reach under this column (measured at
+     820px: dock right edge 609, drawer left edge 584). The row is never
+     shorter than the zoom cluster, so this clears both. */
+  bottom: calc(var(--space-2) + var(--wb-h-tools) + var(--space-3));
+  width: 13.5rem;
+  max-height: none;
+  padding: var(--space-3);
+}
+
+/* The note library sidebar, the board search and the overview all clear
+   the same two bars by the same measurements. */
+.whiteboard-sidebar {
+  top: calc(0.5rem + var(--wb-h-topbar) + var(--space-3));
+  right: 0.5rem;
+  height: auto;
+  bottom: calc(var(--space-2) + var(--wb-h-tools) + var(--space-3));
+  max-height: none;
+}
+
+.wb-search-bar {
+  top: calc(0.5rem + var(--wb-h-topbar) + var(--space-3));
+}
+
+.wb-navigator {
+  right: 0.5rem;
+  bottom: calc(var(--space-2) + var(--wb-h-tools) + var(--space-3));
+}
+
+/* Narrow boards: the top bar's right half wraps under its left half, the
+   dock takes the full width, and the zoom cluster lifts above it (its
+   `bottom` comes from the 40rem rule in 06-timeline-dialogs.css). */
+@media (max-width: 48rem) {
+  .wb-topbar {
+    flex-wrap: wrap;
+  }
+
+  .wb-topbar-right {
+    margin-left: auto;
+  }
+
+  .wb-topbar .wb-panel-primary span,
+  .wb-topbar #wb-back-to-boards {
+    font-size: var(--text-sm);
+  }
+}
+
+@media (max-width: 40rem) {
+  .whiteboard-floating-panel.bottom-center {
+    max-width: calc(100% - 1rem);
+  }
+}
+
+/* With a link tool active every card, text box, sticky and shape is a
+   possible end, and says so on hover — reported: "only notes light up".
+   The anchor dots themselves come from wbShowAnchorHints during the drag. */
+#whiteboard-container[data-current-tool^="link-"] .node-card:hover,
+#whiteboard-container[data-current-tool^="link-"] .wb-object:hover {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  cursor: crosshair;
+}
+
+#whiteboard-container[data-current-tool^="link-"] .sketch-group:hover .sketch-path {
+  filter: drop-shadow(0 0 3px var(--accent));
+  cursor: crosshair;
+}
+
+/* The overview steps left of the properties drawer while the drawer is
+   open — reported: "it clashes with the board overview which I also can't
+   manage". The drawer's width plus both insets. */
+#wb-canvas-view:has(> #wb-properties-panel:not(.hidden)) .wb-navigator {
+  right: calc(1rem + 13.5rem + var(--space-3));
+}
+
+/* The Panels switch for Properties: off means the drawer never shows,
+   whatever is selected. */
+#library-view-whiteboard.wb-hide-props #wb-properties-panel {
+  display: none !important;
+}
+
+/* Board menu rows: name left, control right, one height. */
+.wb-menu-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.wb-menu-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 2rem;
+  font-size: var(--text-sm);
+  color: var(--ink);
+  cursor: default;
+}
+
+.wb-menu-row.wb-snap-label {
+  cursor: pointer;
+}
+
+.wb-menu-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.wb-board-menu .wb-menu-row select {
+  flex: none;
+  max-width: 8rem;
+}
+
+/* Properties drawer rows follow the same name-left / control-right grid,
+   so a colour swatch, a number box, a select and a switch all line up on
+   the same right edge instead of each sitting wherever flex left it. */
+#wb-properties-panel .wb-properties-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 2rem;
+  padding: 0;
+}
+
+#wb-properties-panel .wb-properties-row > span:first-child {
+  color: var(--ink);
+}
+
+#wb-properties-panel .wb-inline-controls {
+  gap: var(--space-1);
+}
+
+#wb-properties-panel .wb-properties-group input[type="range"] {
+  width: 6.5rem;
+}
+
+/* The floating selection toolbar (wbUpdateSelectionBar): a pill just above
+   the selected item, in the view's coordinates. Above the drawer and the
+   overview (z 22 > 20) but under any modal. */
+.wb-selection-bar {
+  position: absolute;
+  z-index: 22;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
+  white-space: nowrap;
+}
+
+.wb-selection-bar button {
+  height: 1.75rem;
+  width: 1.75rem;
+  min-width: 0;
+  border-radius: var(--radius-pill);
+}
+
+.wb-selection-bar .wb-topbar-divider {
+  height: 1rem;
+}
+
+/* Top-bar menu toggles: a word and a caret, reading as a menu rather than
+   as a button that does something. */
+.wb-topbar .wb-menu-toggle {
+  gap: var(--space-1);
+  padding-inline: var(--space-2);
+}
+
+.wb-menu-caret {
+  font-size: var(--text-xs);
+  opacity: 0.7;
+}
+
+/* Insert-menu items: icon, name, key — the same row grid as the settings
+   rows, so the three menus read as one family. */
+.wb-menu-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: 2rem;
+  padding: 0 var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.wb-menu-item:hover,
+.wb-menu-item:focus-visible {
+  background: var(--accent-soft);
+}
+
+.wb-menu-item kbd,
+.wb-help-grid kbd {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-xs);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Narrow boards: the menus keep their carets and the Library its icon;
+   the words go, so the bar stays one row down to ~40rem. */
+@media (max-width: 56rem) {
+  .wb-topbar .wb-menu-label {
+    display: none;
+  }
+
+  .wb-topbar .wb-menu-toggle {
+    padding-inline: var(--space-2);
+  }
+}
+
+/* The help: a card of three columns — tools, moving around and selection,
+   connecting — each a list of "what · key" rows. It replaced eight
+   paragraphs of centred prose (reported: "redesign and fix the whiteboard
+   help"). Still click-through outside the card so an empty board can be
+   drawn on with the help up. */
+.wb-empty-hint-inner {
+  text-align: left;
+  max-width: 46rem;
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius);
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.wb-empty-hint-inner > * {
+  max-width: none;
+  text-align: left;
+}
+
+.wb-help-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.wb-help-head .wb-empty-hint-title {
+  margin: 0;
+}
+
+.wb-help-lead {
+  margin: 2px 0 var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.wb-help-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.wb-help-grid h4 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.wb-help-grid h4 + ul + h4 {
+  margin-top: var(--space-3);
+}
+
+.wb-help-grid ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.wb-help-grid li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0;
+  line-height: 1.45;
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
+.wb-help-grid li > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.wb-help-grid li > kbd {
+  text-align: right;
+}
+
+.wb-help-note {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-xs);
+}
+
+.wb-help-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-3);
+}
+
+@media (max-width: 48rem) {
+  .wb-help-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Small boards. Measured at 800x560 and 640x480 with the drawer, the
+   overview and the selection bar all open: the overview ran up into the
+   top bar, the top bar wrapped to three rows, the dock wrapped to two and
+   the drawer collapsed to 18px over the dock. Four rules, all derived from
+   the same measured bar heights as everything above. */
+.wb-navigator {
+  max-height: calc(100% - var(--wb-h-topbar) - var(--wb-h-tools) - 2rem);
+  overflow: auto;
+  /* Border-box, or the cap excludes the padding and the box still lands
+     6px into the top bar (measured at 800x560: 94px box for a 78px cap). */
+  box-sizing: border-box;
+  /* `.card`'s bottom margin again (see the dock): 16px the anchor did not
+     account for, which is exactly how far it overlapped the top bar. */
+  margin: 0;
+}
+
+@media (max-width: 40rem) {
+  /* Search and Overview are also switches in the View menu; the two icons
+     and their divider are what pushed the bar onto a third row. */
+  .wb-topbar #wb-search-toggle,
+  .wb-topbar #wb-navigator-toggle,
+  .wb-topbar #wb-navigator-toggle + .wb-topbar-divider {
+    display: none;
+  }
+
+  /* One scrolling row of tools beats two wrapped rows on a short screen. */
+  .whiteboard-floating-panel.bottom-center {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-height: none;
+  }
+
+  .whiteboard-floating-panel.bottom-center .wb-tool-group {
+    flex-wrap: nowrap;
+  }
+
+  /* The dock takes the whole width here, so the zoom cluster sits above it
+     — the rule in 06-timeline-dialogs.css said so already, but the
+     edge-hugging `bottom` further up this file (same specificity, later)
+     had silently won the cascade. Measured: dock/zoom overlap at 640px. */
+  /* No room for a zoom cluster above a full-width dock on a 480px-tall
+     window (it met the three-row top bar); zoom stays on Ctrl+wheel /
+     pinch and in the View menu's Zoom rows. */
+  .whiteboard-floating-panel.bottom-right {
+    display: none;
+  }
+}
+
+/* Under 30rem of height there is no column left for a drawer between the
+   top bar and the dock; the properties stay reachable through the View
+   menu's Properties switch on a taller window. */
+@media (max-height: 30rem) {
+  #wb-properties-panel {
+    display: none !important;
+  }
+}
+
+/* Menus never run off the bottom: cap and scroll (reported with the View
+   menu, which is the tallest). The top bar sits ~5rem below the window
+   top at most. */
+.wb-board-menu {
+  max-height: calc(100vh - 9rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* The help button used to be a round 2rem glyph in the zoom cluster
+   (03-dashboard-widgets.css); in a menu row it is a normal small button. */
+#wb-board-menu #wb-help-btn {
+  width: auto;
+  height: 2rem;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+}
+
+/* Every floating surface on the board is a `.card`, and `.card` carries a
+   1rem bottom margin that an absolutely positioned box still honours —
+   three of these were found one at a time (dock, overview, selection
+   bar). Zeroed once, for all of them. */
+.wb-board-menu,
+.wb-search-bar,
+.whiteboard-sidebar,
+.wb-export-menu,
+.wb-navigator,
+.wb-selection-bar,
+.whiteboard-floating-panel {
+  margin: 0;
+}
+
+/* The reader's footer: one right-aligned row, wrapping only when it must.
+   Measured at 1440x900: "Save as note" fell to a second line on the left
+   while the other three sat on the right. */
+.ocr-regions-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ocr-regions-foot > #ocr-delete-reading {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.ocr-caption {
+  margin: 0 0 var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--inner);
+  font-size: var(--text-sm);
+}
+
+/* A text file in the reader: the file's own words in the page pane, in the
+   same monospace the code blocks use, scrolling inside the stage. */
+.ocr-text-view {
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  max-width: 60rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.ocr-stage.ocr-stage-text {
+  width: 100%;
+  height: auto;
+  background: var(--card);
+  border-radius: var(--radius-md);
+}
+
+/* A text box showing rendered markdown: the app's own markdown body rules
+   apply, at the box's own font size and colour rather than the page's. */
+.wb-text-content.wb-text-md {
+  overflow: auto;
+}
+
+.wb-text-content.wb-text-md > :first-child {
+  margin-top: 0;
+}
+
+.wb-text-content.wb-text-md > :last-child {
+  margin-bottom: 0;
+}
+
+.wb-text-content.wb-text-md h1,
+.wb-text-content.wb-text-md h2,
+.wb-text-content.wb-text-md h3 {
+  font-size: 1.25em;
+  margin: 0.3em 0;
+}
+
+.wb-text-content.wb-text-md ul,
+.wb-text-content.wb-text-md ol {
+  margin: 0.2em 0;
+  padding-left: 1.2em;
+}
+
+/* The Contents header's two icon buttons sit together at the right edge.
+   `.graph-help-toggle`'s own `margin-left: auto` is a toolbar behaviour and
+   belongs to the button, so it is neutralised here rather than removed from
+   the shared rule -- every toolbar copy of that button still needs it. */
+.contents-head-actions {
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.contents-head-actions .graph-help-toggle {
+  margin-left: 0;
+}
+
+/* --- the HUD: a momentary readout, not a notification ----------------------
+   See `hud()` in app.js. Centred rather than in the toast corner on purpose:
+   this answers a key you just pressed, so it belongs where the eye already
+   is, and it must not be mistaken for the notification stack it is
+   deliberately not part of. Nothing here is interactive — `pointer-events`
+   off so a HUD sitting over a button never eats the next click. */
+.hud {
+  position: fixed;
+  left: 50%;
+  /* Nearer the middle of the window than the first version's 18%: reported
+     as "a bit small and hard to see/notice", and a readout you have to hunt
+     for is not a readout. */
+  bottom: 34%;
+  transform: translateX(-50%);
+  z-index: 90;
+  padding: var(--space-4) var(--space-7);
+  border-radius: var(--radius-pill);
+  background: var(--modal-bg-opaque);
+  /* An accent edge and glow, not a hairline: this appears for a second over
+     whatever you were looking at, so it has to arrive rather than blend. */
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: var(--shadow-lg), 0 0 0 6px color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--ink);
+  font-size: var(--text-h3);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+/* The sections belonging to the page on screen, in the reading panel beside
+   it. A tone, not a border: this marks *where you are*, and the panel already
+   has a selected state (`.is-found`) that a second outline would compete
+   with. See `ocrRevealRegionsForPage` in library.js. */
+.ocr-region.is-current-page {
+  background: var(--surface-3);
+}
+
+/* A section you can click is a section that says so. */
+.ocr-region {
+  cursor: pointer;
+}
+
+.ocr-region:hover {
+  background: var(--surface-2);
+}
+
+/* --- the tab strip is centred on the window, not on whatever is left of it --
+   Reported: "the top nav bar with all the tabs isnt actuallly centred and is
+   aligned tot he right. is that an issue??" It is — though the drift is
+   *leftward*, which is why it reads as odd rather than obviously wrong: the
+   bar is a flex row, so the strip simply starts where the brand block ends.
+   Measured, strip centre against window centre: 699 vs 720 at 1440px, and
+   699 vs 960 at 1920px — a 261px error on a wide screen, with the tabs
+   jammed against the wordmark and 646px of empty bar before the controls.
+
+   **Taken out of flow rather than re-laid-out as a grid.** A grid was tried
+   first (`1fr auto 1fr`) and centres perfectly, but the brand block is three
+   separate children of the header rather than one, so they each claimed a
+   grid row and the bar grew from 59px to 181px. Wrapping them would mean
+   touching markup that several other rules position against.
+
+   Absolute centring keeps the flex row exactly as it is and is exact by
+   construction at any width. Two guards make it safe: it only applies where
+   there is demonstrably room either side (the brand needs ~374px and the
+   controls ~231px, so 1200px is the floor with margin to spare), and the
+   strip is capped so it can never reach either. Below that the flex
+   behaviour is untouched, including the degradation ladder that keeps this
+   bar on one row. */
+/* **Centred only where it demonstrably fits, and never capped.** The first
+   version of this rule reserved a symmetric lane of `--tab-bar-side-lane` on
+   each side and capped the strip to what was left. That was wrong twice over:
+   the lane was sized from the *wider* side (the brand block, ~374px) and then
+   applied to both, reserving ~768px of a 1440px window; and capping a strip
+   that cannot shrink just makes it scroll. Reported immediately, with a
+   screenshot of "Reminders" sliced in half at 100% zoom.
+
+   The arithmetic the floor below comes from, all measured on this app at
+   default density: the strip's natural width is 651px, the brand block ends
+   at 374px, and the controls are 231px wide. For a strip centred on the
+   *window* to clear the brand on its left, the window must be at least
+   651 + 2 x 374 = 1399px. 1500px is that with room to spare, so the strip is
+   never capped and never scrolls at any width where this rule applies -- and
+   below it the strip stays in normal flex flow exactly as it always did,
+   where `safe center` (further down) keeps it centred until it has to
+   scroll. */
+/* **The wordmark goes before a tab does.** Asked directly: "can the top bar be
+   altered or improved in any way ui and ux wise to try and reduce this from
+   occuring??" -- "this" being the strip having to scroll.
+
+   The header's own comment (00-tokens-shell.css) already names the answer:
+   "the wordmark is the first thing that may go: it is decoration next to the
+   tabs, and reclaiming it buys a whole tab's worth of room." It was only being
+   dropped at 720px, by which point the layout has already given up and gone to
+   two rows. The window title, the taskbar icon and the logo all still say what
+   this app is; the seven tabs are the only thing in the bar that is *work*.
+
+   Measured: the brand block is ~374px with the wordmark and ~200px without,
+   so this frees ~174px exactly where the bar is tightest -- which is what
+   lets the centred layout below start at 1200px instead of 1500px, covering
+   the common 1366/1440 laptop widths that were reported. */
+@media (max-width: 1499px) {
+  header#top-bar > h1 {
+    display: none;
+  }
+}
+
+@media (min-width: 1200px) {
+  header#top-bar > #tab-bar {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    /* Its own content width: no cap, so nothing is ever clipped. */
+    width: max-content;
+    max-width: none;
+  }
+}
+
+
+/* **Centred when it fits, left-aligned the moment it has to scroll.** Asked
+   for directly: "can you also make the tabs centered in the row but if they
+   becom scrollable on smaller resolutions, they are aligned to the left??"
+
+   `safe center` is precisely that keyword: it centres like `center` while
+   there is room, and falls back to `start` when the content overflows, so the
+   first tab can never end up scrolled off the left edge with no way back --
+   which is what plain `center` does to an overflowing scroller, and why this
+   strip was left-aligned in the first place. */
+header#top-bar > #tab-bar {
+  justify-content: safe center;
+}
+
+/* --- every menu scrolls down, never sideways, and never runs off the page ---
+   Two reports, one rule. "the whiteboard view dropdown has a horizontal
+   scrollbar??" and "all dropdowns need to be scrollable if they take up too
+   much of the page or go down to far so the dont get clipped at the bottom."
+
+   **The horizontal scrollbar is a spec behaviour, not a stray wide child.**
+   When one axis is `auto` and the other is left `visible`, CSS computes the
+   `visible` one to `auto` as well — so `.wb-board-menu`'s `overflow-y: auto`
+   silently made its X axis scrollable too (measured: `overflow-x` computed
+   `auto`), and any sub-pixel overflow then draws a bar. `clip` rather than
+   `hidden` for the same reason as the content column in 00-tokens-shell.css:
+   it stops the scrollbar without making the box a scroll container that
+   focus can shove sideways with no way back.
+
+   **The vertical half is the missing piece.** `.action-menu` (the kebab menus
+   everywhere) and `.doc-dock-menu-list` (the toolbars) had no `max-height` at
+   all, so a long menu simply ran past the bottom of the window — the
+   placement code flips a menu above its button when there is more room there,
+   but nothing helps a menu taller than the viewport itself. A cap plus
+   `overflow-y: auto` is what makes the last item reachable.
+
+   `overscroll-behavior: contain` stops a wheel that reaches the end of the
+   menu from scrolling the page underneath — which would move the very button
+   the menu is anchored to. */
+.action-menu,
+.doc-dock-menu-list,
+.wb-board-menu,
+.wb-export-menu,
+.help-popover {
+  max-height: calc(100vh - var(--space-9) * 2);
+  overflow-y: auto;
+  overflow-x: clip;
+  overscroll-behavior: contain;
 }

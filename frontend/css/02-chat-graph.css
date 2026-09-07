@@ -64,6 +64,68 @@
   max-width: 100%;
 }
 
+/* **Steps arrive, they do not appear.** Asked for directly: "make tool usage
+   and steps fade in not just suddenly spawn in."
+
+   Every row in this column is appended by a streaming callback as the event
+   that produced it happens, so from the reader's side a tool row, a thought
+   or a grounding chip simply exists on one frame having not existed on the
+   previous one. At the rate a local model emits them that is a column that
+   flickers rather than one that builds, and it makes a sequence that *is*
+   ordered in time read as a list that was there all along.
+
+   A short rise-and-fade on the element's own entry animation costs nothing —
+   it runs once per row, never repeats, and needs no JavaScript at all, so a
+   row added by a callback nobody has thought about yet gets it too. 4px of
+   travel rather than a slide: enough for the eye to register the direction
+   the column grows in, not enough to be a movement anyone has to wait out. */
+@keyframes step-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.agent-steps > *,
+.chat-sources > *,
+.agent-step-group-body > * {
+  animation: step-enter var(--motion-slow) ease-out both;
+}
+
+/* The one exception the rule above must make for itself: the pending
+   indicator is *moved* to the end of the column on every delta
+   (`clearPending`), and Blink restarts an entry animation in a re-inserted
+   subtree — so it would fade in again on every token, which is the flicker
+   this is here to remove. */
+.agent-steps > .progress-line {
+  animation: none;
+}
+
+/* Reduced motion keeps the information and drops the movement, per DESIGN.md:
+   the row still fades rather than jumping, it just does not travel. */
+@media (prefers-reduced-motion: reduce) {
+  .agent-steps > *,
+  .chat-sources > *,
+  .agent-step-group-body > * {
+    animation-name: step-fade;
+  }
+
+  @keyframes step-fade {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+}
+
 .agent-steps>* {
   max-width: 100%;
 }
@@ -1195,6 +1257,97 @@ button.ghost.danger {
   pointer-events: none;
 }
 
+/* --- more than one route between the same two notes ------------------------
+   Asked for directly: "allow for multiple paths to be displayed if they
+   exist." All of them are drawn at once, because "is that the only way these
+   connect?" is a question about the picture — switching one at a time would
+   never show you that there are three.
+
+   Three colours, from tokens that already exist and already mean "a different
+   thing" in this app's charts and badges rather than three new hues invented
+   for one feature. The index wraps at 3 in `drawTrace`, so a fourth route (if
+   `MAX_ALTERNATE_PATHS` is ever raised) reuses the first colour rather than
+   computing one nobody chose. */
+.graph-path-route-0 {
+  stroke: var(--accent);
+}
+
+.graph-path-route-1 {
+  stroke: var(--ok);
+}
+
+.graph-path-route-2 {
+  stroke: var(--warn);
+}
+
+/* The routes you are not reading. Thin and faint enough to read as context
+   rather than as the answer, and still visible enough to be worth drawing —
+   a route at 0.2 opacity is a route nobody notices, which is the same as not
+   drawing it. Dashed as well as faint, because colour alone is not a signal
+   everyone can use. */
+.graph-path-line.is-dimmed {
+  stroke-width: 2;
+  stroke-opacity: 0.42;
+  stroke-dasharray: 6 5;
+}
+
+/* The switcher above the path. `role="tablist"` in the markup, so these are
+   tabs and read as a choice between views of one thing — which is what they
+   are — rather than as six unrelated buttons. */
+.graph-trace-routes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.graph-trace-route-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--inner);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.graph-trace-route-chip:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+/* The selected route. A border and the full ink colour rather than a fill:
+   the swatch is already carrying the route's colour, and filling the chip in
+   the same colour would leave the swatch invisible against it. */
+.graph-trace-route-chip.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* The dot that ties a chip to its line on the map. `currentColor` would make
+   every swatch the chip's own text colour, so each one names its route's
+   stroke explicitly — the same three tokens, in the same order. */
+.graph-trace-route-swatch {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+
+.graph-trace-route-chip[data-route="1"] .graph-trace-route-swatch {
+  background: var(--ok);
+}
+
+.graph-trace-route-chip[data-route="2"] .graph-trace-route-swatch {
+  background: var(--warn);
+}
+
 .graph-node.graph-on-path .graph-core {
   stroke: var(--accent);
   stroke-width: 3.5px;
@@ -1651,7 +1804,10 @@ button.recording.live-level {
   width: 3px;
   height: 100%;
   border-radius: var(--radius-pill);
-  background: var(--recording-ring);
+  /* Solid --warn, not the 55%-transparent ring mix: over the dock's dark
+     card the mixed colour rendered as four grey smudges (reported, with a
+     screenshot of the recording mic button). */
+  background: var(--warn);
   transform: scaleY(var(--bar-scale, 0.3));
   transform-origin: bottom;
   transition: transform 90ms linear;
@@ -2214,6 +2370,29 @@ kbd {
   border-width: 2px;
 }
 
+/* The border budget (surface tiers, 00-tokens-shell.css) takes the lines
+   off inner groups and rows and keeps them as transparent 1px -- this is
+   where high-contrast mode colours them back in. */
+:root[data-contrast="on"] .settings-group,
+:root[data-contrast="on"] .entry-list li,
+:root[data-contrast="on"] .provider-option,
+:root[data-contrast="on"] .setting-check:has(input:checked),
+:root[data-contrast="on"] .check-row:has(input:checked) {
+  border-color: var(--border);
+}
+
+/* Same for the tonal button tier: its edge is transparent by default and
+   the tokens it used to draw are kept for exactly this. */
+:root[data-contrast="on"] button.ghost,
+:root[data-contrast="on"] button.icon-only:not(.active),
+:root[data-contrast="on"] button.icon-button:not(.active) {
+  border-color: var(--ghost-btn-border);
+}
+
+:root[data-contrast="on"] button.ghost:hover {
+  border-color: var(--ghost-btn-border-hover);
+}
+
 :root[data-contrast="on"] .muted {
   opacity: 0.9;
 }
@@ -2260,6 +2439,16 @@ kbd {
   display: inline-block;
 }
 
+/* **One shell for every menu in the app.** Reported: "all the dropdown menu
+   styles in the application need to be consistent in their style. keep the
+   'your notes' ones in the note cards as they are as I like their look."
+   That last clause is this rule -- `.action-menu` *is* the note-card kebab
+   menu, so it is the one being matched to, not changed: the toolbar menus
+   (`.doc-dock-menu-list`) and the select listbox (`.select-menu`) were the
+   outliers and now share its surface. Opaque ground, `--border` hairline,
+   `--radius-lg`, `--glass-shadow`, and no backdrop-filter: a menu floats over
+   arbitrary content and has to stay legible, which is what DESIGN.md's own
+   "floats over other content" rule already said. */
 .action-menu {
   position: absolute;
   right: 0;
@@ -2446,6 +2635,18 @@ kbd {
   z-index: 200;
 }
 
+/* **One menu row, everywhere.** Reported: "make the documents ellipse kebab
+   button dropdown menu the same ui style as the one in the chat tab", with
+   both screenshots side by side. The difference was never the panel -- that
+   was matched last round -- it was the rows: the document menu's buttons
+   carried `ghost small`, so each one wore the tonal button fill and the menu
+   read as seven stacked buttons, while the chat's are flat text that tints
+   under the pointer.
+
+   Fixed by giving the document rows these same classes rather than by adding
+   a second rule that overrides `ghost`: a specificity fight between
+   `button.ghost` and `.menu-item` is exactly how two menus drift apart again.
+   `.doc-dock-menu-item` keeps only its layout job (full width, nowrap). */
 .menu-item {
   /* One row, one line — see `.action-menu`'s width note above. */
   white-space: nowrap;
@@ -3080,6 +3281,14 @@ mark.lightbox-hit {
      letting the box's own size centre it. Reported live. */
   display: grid;
   place-items: center;
+  /* **Above everything else in the viewer, explicitly.** Reported: "the close
+     button doesnt work all the time." It is the overlay's *first* child and
+     `.lightbox-column` is the second, so with no z-index on either the column
+     paints over it wherever their boxes overlap — nowhere for a short
+     landscape photo, and the whole top-right corner for the document viewer's
+     tall split pane. "Sometimes" is what an overlap that depends on the
+     content's height looks like from the outside. */
+  z-index: 3;
 }
 
 .lightbox-close:hover,
@@ -3155,6 +3364,24 @@ mark.lightbox-hit {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* **The badge that says a reading exists**, not the reading itself — asked
+   for directly: "when an image and/or document is captioned and ocr is used
+   it should be tagged under the image in the chat bubble." The caption above
+   is the model's *description*; this is its *transcription*, which was
+   already resolved by the backend and handed to the lightbox on click, with
+   nothing in the bubble saying it was there to look at. Same "Read · N
+   words" shape and the same `--ok` "this is done" colour the Files sub-tab's
+   reading list uses (`library-read-badge.is-read`), so the one fact reads
+   the same way in both places. A real `<button>`, `align-self: flex-start`
+   so it does not stretch to the card's width like a block-level chip would. */
+.msg-attachment-read-badge {
+  align-self: flex-start;
+  border: 1px solid color-mix(in srgb, var(--ok) 35%, transparent);
+  color: var(--ok);
+  background: none;
+  cursor: pointer;
 }
 
 .msg-attachment-actions {
@@ -4174,10 +4401,29 @@ mark.lightbox-hit {
    Anchored under the chat header rather than floated at the badge: it is a
    panel about the conversation you are in, and the header is where the
    conversation's own facts already live. */
+/* **`position: absolute` needs a positioned ancestor, and this had none.**
+   Reported: "clicking the model used in the chat header doesnt work." It did
+   work — `#chat-active-model`'s listener fired, `openChatModelPanel` ran, the
+   `hidden` class came off — and the panel opened **off the bottom of the
+   screen**. Measured at 1440x900: the panel's box landed at (0, 905) while
+   the badge it belongs to sits at (487, 86).
+
+   `#chat-model-panel` is a direct child of `<body>` (it lives beside the
+   other app-level panels in index.html, not inside the chat header), so
+   `top: 100%` resolved against the initial containing block — 100% of the
+   viewport's height, five pixels past its bottom edge. A control that opens
+   something nobody can see is indistinguishable from a control that does
+   nothing.
+
+   Fixed rather than absolute, with `openChatModelPanel` placing it under the
+   badge in viewport coordinates — the same treatment `clampToolbarMenu` gives
+   the formatting strip's menus, and for the same reason: where it should go
+   depends on where the badge has ended up, which CSS here cannot know. The
+   `top`/`left` below are only the pre-measurement seed. */
 .chat-model-panel {
-  position: absolute;
+  position: fixed;
   z-index: 40;
-  top: 100%;
+  top: 0;
   left: 0;
   margin-top: var(--space-2);
   min-width: 18rem;
@@ -4221,4 +4467,89 @@ mark.lightbox-hit {
 .chat-model-facts dd {
   margin: 0;
   font-variant-numeric: tabular-nums;
+}
+
+/* **The "still writing" / jump-to-latest pill.** See `#chat-jump-latest` in
+   index.html for the report behind it. Anchored to the bottom of the
+   transcript column rather than to the pane it scrolls with — a control that
+   scrolls away with the content is the very problem it exists to solve. */
+.chat-jump-latest {
+  position: sticky;
+  bottom: var(--space-3);
+  z-index: 4;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 auto;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-pill);
+  background: var(--modal-bg-opaque);
+  box-shadow: var(--shadow-lg);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.chat-jump-latest:hover {
+  background: var(--accent-soft);
+}
+
+/* The dots only exist while a turn is running; an empty span must not open a
+   gap in the pill on the way back to "Jump to latest". */
+.chat-jump-latest-dots:empty {
+  display: none;
+}
+
+/* While a turn is live the pill wears the app's own working state, so it reads
+   as the indicator that scrolled away rather than as a second, unrelated
+   control that happens to have appeared. */
+.chat-jump-latest.is-generating-pill {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* **An icon-only mic keeps its shape while recording.** The level meter is
+   appended *inside* the button, so a round 2rem icon button stretched into
+   a lozenge with a stop-square on one side and four faint bars on the other
+   — reported as "the ui and animation of the speech to text button is
+   broken visually when recording". A labelled recorder ("Stop") still shows
+   the meter; the icon-only one keeps the pulsing ring, which is the same
+   signal in the space it actually has. */
+button.recording.icon-only .mic-bars,
+button.recording.icon-btn .mic-bars {
+  display: none;
+}
+
+button.recording.icon-only,
+button.recording.icon-btn {
+  animation: pulse-rec 1.2s ease-in-out infinite;
+  color: var(--warn);
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  button.recording.icon-only,
+  button.recording.icon-btn {
+    animation: none;
+    box-shadow: 0 0 0 4px var(--recording-ring);
+  }
+}
+
+/* **Stop is the one control you reach for in a hurry.** Reported: "the stop
+   generating button needs aligning for its text and icon and needs
+   affordance". Two of the five stop buttons in the app shipped as bare text
+   while three had `ph-stop` beside a label -- so the same action looked like
+   a different control depending on which surface was generating. All five
+   now carry the icon, and all five wear the error colour: a tonal button in
+   a row of tonal buttons is the wrong weight for the action that interrupts
+   the model, and colour is what the eye finds first. */
+button.ghost.danger {
+  color: var(--error);
+  background: var(--error-soft);
+}
+
+button.ghost.danger:hover {
+  background: color-mix(in srgb, var(--error) 26%, transparent);
 }

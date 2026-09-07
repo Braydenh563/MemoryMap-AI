@@ -128,8 +128,7 @@ function syncDocFileType() {
   // Line numbers, and the monospace/tab behaviour that goes with them.
   const code = !type.previewable;
   $("doc-content")?.classList.toggle("doc-content-code", code);
-  $("doc-gutter")?.classList.toggle("hidden", !code);
-  renderDocGutter();
+  applyDocGutter();
 
   // A menu row, so it can say the whole thing rather than "⬇ .py".
   // `setLabel` because `textContent` here would wipe the icon element the
@@ -309,8 +308,14 @@ function renderDocList() {
           loadDocuments(currentDoc?.id);
         }),
         makeMenuItem("ph:trash Delete", "Delete this document", async () => {
-          if (!(await confirmDialog(`Delete "${doc.title || "Untitled"}"? This cannot be undone.`))) return;
-          await apiJson(`/documents/${doc.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
+          if (
+            !(await confirmDialog(
+              `Delete "${doc.title || "Untitled"}"? You can undo this straight after.`
+            ))
+          ) {
+            return;
+          }
+          await deleteDocumentWithUndo(doc).catch((e) => toast(e.message, true));
           // Cleared, not just left stale: loadDocuments() only opens a
           // replacement when `currentDoc` is falsy - leaving it pointing at
           // the doc that was just deleted would keep the editor showing it.
@@ -550,15 +555,84 @@ async function attachBookmarkToDocument() {
   select.focus();
 }
 
-async function createDocument() {
+//: **Templates: a starting shape for the five documents people make most.**
+//: Plain markdown with two placeholders; the whole feature is these strings,
+//: the dialog in index.html and `createDocument(template)` below. Kept as
+//: data rather than a server resource because a template is nothing but
+//: text, and text that lives in one file is text a fresh session can read.
+const DOC_TEMPLATES = [
+  {
+    id: "blank", title: "Blank", hint: "An empty page.", content: "",
+  },
+  {
+    id: "assignment", title: "Assignment plan", hint: "Brief, criteria, sections, sources, timeline.",
+    content: "# {{title}}\n\n**Due:** \n**Unit:** \n**Weight:** \n\n## The brief, in my own words\n\n\n## Marking criteria\n\n- [ ] \n- [ ] \n\n## Outline\n\n1. Introduction — \n2. \n3. \n4. Conclusion — \n\n## Sources\n\n- \n\n## Timeline\n\n| When | What |\n| --- | --- |\n| {{date}} | Plan written |\n|  | Draft |\n|  | Edit and submit |\n",
+  },
+  {
+    id: "lecture", title: "Lecture notes", hint: "Cornell-style: cues, notes, summary.",
+    content: "# {{title}}\n\n**Date:** {{date}}\n**Unit / lecturer:** \n\n## Key questions\n\n- \n\n## Notes\n\n\n## Terms\n\n| Term | Meaning |\n| --- | --- |\n|  |  |\n\n## Summary (three sentences)\n\n\n## To follow up\n\n- [ ] \n",
+  },
+  {
+    id: "meeting", title: "Meeting notes", hint: "Attendees, agenda, decisions, actions.",
+    content: "# {{title}}\n\n**Date:** {{date}}\n**Attendees:** \n\n## Agenda\n\n1. \n\n## Notes\n\n\n## Decisions\n\n- \n\n## Actions\n\n- [ ] Who — what — by when\n",
+  },
+  {
+    id: "decision", title: "Decision record", hint: "Context, options, decision, consequences.",
+    content: "# {{title}}\n\n**Date:** {{date}}\n**Status:** proposed\n\n## Context\n\n\n## Options considered\n\n1. \n2. \n\n## Decision\n\n\n## Consequences\n\n- \n",
+  },
+  {
+    id: "weekly", title: "Weekly review", hint: "What happened, what's next, what to drop.",
+    content: "# Week of {{date}}\n\n## Went well\n\n- \n\n## Didn't\n\n- \n\n## Next week\n\n- [ ] \n\n## Stop doing\n\n- \n",
+  },
+];
+
+function docTemplateFill(template) {
+  const date = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  const title = template.id === "blank" ? "Untitled" : template.title;
+  return {
+    title,
+    content: (template.content || "").replaceAll("{{date}}", date).replaceAll("{{title}}", title),
+  };
+}
+
+async function createDocument(template = null) {
+  const body = template ? docTemplateFill(template) : { title: "Untitled", content: "" };
   const doc = await apiJson("/documents", {
     method: "POST",
-    body: JSON.stringify({ title: "Untitled", content: "" }),
+    body: JSON.stringify(body),
   });
   loadCaptureDocuments(); // so Capture can attach to it straight away
   await loadDocuments(doc.id);
   $("doc-title").focus();
   $("doc-title").select();
+}
+
+function openDocTemplateDialog() {
+  const dialog = $("doc-template-dialog");
+  const list = $("doc-template-list");
+  if (!dialog || !list) return;
+  list.replaceChildren();
+  for (const template of DOC_TEMPLATES) {
+    const li = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ghost doc-template-choice";
+    button.dataset.template = template.id;
+    const name = document.createElement("strong");
+    name.textContent = template.title;
+    const hint = document.createElement("span");
+    hint.className = "muted text-sm";
+    hint.textContent = template.hint;
+    button.append(name, hint);
+    button.addEventListener("click", async () => {
+      dialog.close();
+      await createDocument(template);
+    });
+    li.appendChild(button);
+    list.appendChild(li);
+  }
+  dialog.showModal();
+  list.querySelector("button")?.focus();
 }
 
 // Guards against creating several documents from one fast burst of typing.
@@ -2124,12 +2198,78 @@ function exportDocumentPdf() {
   });
 }
 
+//: **Deleting a document is the only permanent loss left in this app, and it
+//: is the longest thing anyone writes here.** Notes go to a recycle bin;
+//: conversations, files and whiteboards are all recoverable one way or
+//: another; a document was gone the moment you confirmed, which is why both
+//: delete prompts had to say "This cannot be undone" out loud.
+//:
+//: Asked as part of "is everythign wired to the nav history and universal
+//: undo/redo" — and it was not. This wires it, from the client side, by
+//: keeping the document's own text and re-creating it: `pushUndo` puts it on
+//: the app-wide stack (Ctrl+Z, the status bar's Undo, and its right-click
+//: list of the last fifty), and `toastAction` offers it immediately, which is
+//: when people actually notice.
+//:
+//: **What does not come back, stated plainly:** the id changes, so anything
+//: that pointed at the old one by id — a bookmark, a chat attachment — points
+//: at nothing; and the revision history is genuinely gone, because
+//: `delete_document` removes it deliberately (see its comment: keeping the
+//: text of something the user asked to destroy would be worse). The words come
+//: back. That is the difference between a mistake and a loss.
+async function deleteDocumentWithUndo(doc) {
+  //: Fetched, not taken from the list row: the list carries a summary, and
+  //: restoring from it would bring back a document with its body missing —
+  //: an undo that silently loses the content is worse than no undo at all.
+  const full = await apiJson(`/documents/${doc.id}`).catch(() => null);
+  await apiJson(`/documents/${doc.id}`, { method: "DELETE" });
+  if (!full) {
+    //: Deleted, but nothing to restore from. Say so rather than offering an
+    //: Undo that would quietly do nothing.
+    toast("Document deleted. It could not be read first, so this one can't be undone.", true);
+    return;
+  }
+  const recreate = async () => {
+    const made = await apiJson("/documents", {
+      method: "POST",
+      body: JSON.stringify({
+        title: full.title || "Untitled",
+        content: full.content || "",
+        file_type: full.file_type || "md",
+      }),
+    });
+    await loadDocuments(made.id);
+    return made;
+  };
+  let restored = null;
+  const action = pushUndo(
+    `Deleted “${full.title || "Untitled"}”`,
+    async () => {
+      restored = await recreate();
+    },
+    async () => {
+      if (restored) await apiJson(`/documents/${restored.id}`, { method: "DELETE" });
+      restored = null;
+      await loadDocuments();
+    }
+  );
+  toastAction("Document deleted.", "Undo", async () => {
+    await action.undo();
+    //: `settleUndoFromToast`, not a bare stack pop: the toast's Undo and the
+    //: status bar's Undo are the same action, and without this a later Ctrl+Z
+    //: would run the same restore a second time — the closure works fine
+    //: twice and nothing else stops it.
+    settleUndoFromToast(action);
+    toast("Document restored.");
+  });
+}
+
 async function deleteCurrentDocument() {
   if (!currentDoc) return;
-  if (!(await confirmDialog(`Delete "${currentDoc.title}"? This can't be undone.`))) return;
-  await apiJson(`/documents/${currentDoc.id}`, { method: "DELETE" });
-  toast("Document deleted.");
+  if (!(await confirmDialog(`Delete "${currentDoc.title}"? You can undo this straight after.`))) return;
+  const doomed = currentDoc;
   currentDoc = null;
+  await deleteDocumentWithUndo(doomed);
   await loadDocuments();
 }
 
@@ -2465,6 +2605,155 @@ async function openDocAiHistory() {
   }
 }
 
+//: **The document's own history**, asked for by name: "can the document have
+//: edit history like git logs??"
+//:
+//: `openDocAiHistory` above lists the edits the *model* made and can revert one
+//: of them; this lists every version the document has had, whoever wrote it.
+//: They answer different questions and both are worth having, so this is a
+//: second list rather than a rewrite of that one.
+//:
+//: What makes it read like a log rather than a pile of timestamps is the
+//: signed word delta on each row — a history where every line looks the same
+//: has to be read from the top, which is the work a history exists to save.
+const DOC_HISTORY_SOURCES = {
+  edit: { icon: "ph:pencil-simple", label: "You" },
+  ai: { icon: "ph:magic-wand", label: "AI edit" },
+  restore: { icon: "ph:clock-counter-clockwise", label: "Restored" },
+};
+
+function docHistoryDelta(words) {
+  if (!words) return "no change in length";
+  return words > 0 ? `+${words} words` : `${words} words`;
+}
+
+async function openDocHistory() {
+  if (!currentDoc) return toast("Open a document first.", true);
+  const dialog = $("doc-history-dialog");
+  const list = $("doc-history-list");
+  const empty = $("doc-history-empty");
+  if (!dialog || !list) return;
+  list.replaceChildren();
+  empty.classList.add("hidden");
+  dialog.showModal();
+  const loading = document.createElement("li");
+  loading.className = "muted";
+  loading.textContent = "Loading…";
+  list.appendChild(loading);
+  let entries;
+  try {
+    entries = await apiJson(`/documents/${currentDoc.id}/revisions`);
+  } catch (error) {
+    list.replaceChildren();
+    const failed = document.createElement("li");
+    failed.className = "muted";
+    failed.textContent = error.message || "Couldn't load the history.";
+    list.appendChild(failed);
+    return;
+  }
+  list.replaceChildren();
+  if (!entries.length) {
+    empty.classList.remove("hidden");
+    return;
+  }
+  for (const entry of entries) {
+    const shape = DOC_HISTORY_SOURCES[entry.source] || DOC_HISTORY_SOURCES.edit;
+    const row = document.createElement("li");
+    row.className = "doc-ai-history-entry";
+    const icon = document.createElement("i");
+    icon.className = `ph ${shape.icon.replace("ph:", "ph-")}`;
+    icon.setAttribute("aria-hidden", "true");
+
+    const text = document.createElement("div");
+    text.className = "doc-ai-history-text";
+    const line = document.createElement("p");
+    line.textContent = `${shape.label} · ${docHistoryDelta(entry.word_delta)}`;
+    const meta = document.createElement("p");
+    meta.className = "muted text-sm";
+    meta.textContent = `${new Date(entry.created_at).toLocaleString()} · ${entry.words} words`;
+    //: The opening of the version itself. A row saying only "You, 20 May,
+    //: +140 words" makes you open every entry to find the one you want, which
+    //: is the work this list is supposed to save.
+    const preview = document.createElement("p");
+    preview.className = "muted text-sm doc-history-preview";
+    preview.textContent = entry.preview || "";
+    text.append(line, meta, preview);
+
+    const view = document.createElement("button");
+    view.type = "button";
+    view.className = "ghost small";
+    view.textContent = "View";
+    view.title = "Read this version without changing anything";
+    view.addEventListener("click", async () => {
+      const full = await apiJson(
+        `/documents/${currentDoc.id}/revisions/${entry.id}`
+      ).catch(() => null);
+      if (!full) return toast("Couldn't open that version.", true);
+      dialog.close();
+      //: Through the lightbox, which is already the app's read-only viewer for
+      //: a document's text — including its find bar, which is how anyone
+      //: actually locates what changed in a long version.
+      openLightbox(
+        [
+          {
+            filename: `${full.title || "Untitled"} — ${new Date(full.created_at).toLocaleString()}`,
+            kind: currentDoc.file_type === "md" ? "markdown" : "code",
+            text: full.content || "",
+            addedAt: full.created_at || "",
+          },
+        ],
+        0
+      );
+    });
+
+    const restore = document.createElement("button");
+    restore.type = "button";
+    restore.className = "ghost small";
+    restore.textContent = "Restore";
+    restore.title = "Put the document back to this version";
+    restore.addEventListener("click", async () => {
+      //: Asked first, because this replaces what is on screen. Cheap to undo
+      //: (the restore keeps the version it replaced) but not obviously so from
+      //: the outside, and a confirm is what says it is a real change.
+      const ok = await confirmDialog(
+        `Put this document back to the version from ${new Date(entry.created_at).toLocaleString()}?\n\n` +
+          "The version you have now is kept in the history, so this is undoable.",
+        { confirmLabel: "Restore it" }
+      );
+      if (!ok) return;
+      restore.disabled = true;
+      try {
+        const saved = await apiJson(
+          `/documents/${currentDoc.id}/revisions/${entry.id}/restore`,
+          { method: "POST" }
+        );
+        currentDoc = saved;
+        $("doc-content").value = saved.content || "";
+        $("doc-title").value = saved.title || "";
+        renderDocPreview();
+        docDirty = false;
+        $("doc-saved").textContent = "Saved";
+        docs = docs.map((d) => (d.id === saved.id ? { ...d, ...saved } : d));
+        renderDocList();
+        dialog.close();
+        toast("Restored. The version you had is in the history.");
+      } catch (error) {
+        toast(error.message || "Couldn't restore that version.", true);
+      } finally {
+        restore.disabled = false;
+      }
+    });
+
+    const actions = document.createElement("span");
+    actions.className = "row doc-history-actions";
+    actions.append(view, restore);
+    row.append(icon, text, actions);
+    list.appendChild(row);
+  }
+}
+
+$("doc-history")?.addEventListener("click", openDocHistory);
+
 const DOC_SIDEBAR_SECTIONS = ["list", "outline"];
 const DOC_SIDEBAR_STORE = "docSidebarSection";
 
@@ -2508,7 +2797,8 @@ function initDocSidebarTabs() {
 }
 
 // --- documents wiring ---
-$("doc-new").addEventListener("click", createDocument);
+$("doc-new").addEventListener("click", () => createDocument());
+$("doc-new-template")?.addEventListener("click", openDocTemplateDialog);
 // Searching and sorting every document lives in the Library now (§36G), with
 // the notes, chats and files beside them. This is the way there, said out loud
 // — a list that silently stops at eight is a list that has lost your writing.
@@ -2659,6 +2949,7 @@ function mountEditorToolbarExtras(bar) {
   const sep = () => {
     const el = document.createElement("span");
     el.className = "doc-toolbar-sep";
+    el.dataset.mdExtra = "1";
     el.setAttribute("aria-hidden", "true");
     return el;
   };
@@ -2667,6 +2958,7 @@ function mountEditorToolbarExtras(bar) {
     const button = document.createElement("button");
     button.type = "button";
     button.dataset.md = spec.md;
+    button.dataset.mdExtra = "1";
     button.title = spec.title;
     button.setAttribute("aria-label", spec.title);
     setLabel(button, spec.icon);
@@ -2675,6 +2967,7 @@ function mountEditorToolbarExtras(bar) {
   for (const menu of EDITOR_TOOLBAR_MENUS) {
     const details = document.createElement("details");
     details.className = "doc-dock-menu doc-toolbar-menu";
+    details.dataset.mdExtra = "1";
     //: **Drawn exactly like the two menus written in the markup.** These were
     //: built with different classes and an icon *plus a word* — "Heading",
     //: "Block", "More", "Insert" — sitting in a row where every other control
@@ -2697,7 +2990,9 @@ function mountEditorToolbarExtras(bar) {
     for (const [md, label] of menu.items) {
       const button = document.createElement("button");
       button.type = "button";
-      button.className = "doc-dock-menu-item";
+      //: The one menu-row recipe, shared with the chat's kebab (`.menu-item`,
+      //: 02-chat-graph.css) -- see the comment on `.doc-dock-menu-list`.
+      button.className = "menu-item doc-dock-menu-item";
       button.dataset.md = md;
       button.textContent = label;
       body.appendChild(button);
@@ -2707,48 +3002,67 @@ function mountEditorToolbarExtras(bar) {
   }
 }
 
-function initMarkdownToolbars() {
-  for (const bar of document.querySelectorAll("[data-md-target], #doc-toolbar")) {
-    const boxId = bar.dataset.mdTarget || "doc-content";
-    mountEditorToolbarExtras(bar);
-    for (const button of bar.querySelectorAll("button[data-md]")) {
-      // mousedown-preventDefault keeps the caret in the textarea: without it
-      // the click moves focus to the button first and the selection the
-      // action is about to act on is already gone.
-      button.addEventListener("mousedown", (event) => event.preventDefault());
-      button.addEventListener("click", () => applyMarkdown(button.dataset.md, boxId));
+//: Wire one formatting strip to its textarea: mount the shared extras
+//: (Block menu, colours, …), then every `button[data-md]` and colour
+//: select. Split out of `initMarkdownToolbars` so the note edit form can
+//: clone the capture strip and wire the clone (app.js `noteEditToolbar`).
+//: Everything the mount appends is marked `data-md-extra` so a clone can
+//: drop the stale copies and mount fresh ones with live listeners.
+function wireMarkdownToolbar(bar) {
+  const boxId = bar.dataset.mdTarget || "doc-content";
+  mountEditorToolbarExtras(bar);
+  //: **Delegated, not one listener per button.** The dropdown menus are
+  //: built by the mount above and, in the note edit form, the whole strip
+  //: is a *clone* — so per-button listeners covered whatever existed at
+  //: wiring time and silently missed anything a menu created later
+  //: (reported: "none of the toolbar dropdowns work" in the edit form; a
+  //: browser check confirmed a Block-menu item changed nothing). One
+  //: listener on the bar cannot miss a descendant.
+  bar.addEventListener("mousedown", (event) => {
+    // Keeps the caret in the textarea: a click moves focus first and the
+    // selection the action is about to act on is already gone.
+    if (event.target.closest("button[data-md]")) event.preventDefault();
+  });
+  bar.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-md]");
+    if (!button || !bar.contains(button)) return;
+    applyMarkdown(button.dataset.md, boxId);
+  });
+  for (const select of bar.querySelectorAll("select[data-md-colour]")) {
+    const kind = select.dataset.mdColour;
+    for (const colour of MD_COLOURS) {
+      const option = document.createElement("option");
+      option.value = colour;
+      option.textContent = colour[0].toUpperCase() + colour.slice(1);
+      select.appendChild(option);
     }
-    for (const select of bar.querySelectorAll("select[data-md-colour]")) {
-      const kind = select.dataset.mdColour;
-      for (const colour of MD_COLOURS) {
-        const option = document.createElement("option");
-        option.value = colour;
-        option.textContent = colour[0].toUpperCase() + colour.slice(1);
-        select.appendChild(option);
-      }
-      select.addEventListener("change", () => {
-        const colour = select.value;
-        select.value = "";
-        if (!colour) return;
-        const box = $(boxId);
-        if (!box) return;
-        const { selectionStart: start, selectionEnd: end, value } = box;
-        const selected = value.slice(start, end) || (kind === "ink" ? "coloured text" : "highlighted");
-        // Yellow is the highlight's default, so it needs no colour prefix -
-        // and writing one would put `==yellow|x==` in the note where `==x==`
-        // says the same thing.
-        const open = kind === "ink"
-          ? `++${colour}|`
-          : colour === "yellow" ? "==" : `==${colour}|`;
-        const close = kind === "ink" ? "++" : "==";
-        box.value = value.slice(0, start) + open + selected + close + value.slice(end);
-        box.setSelectionRange(start + open.length, start + open.length + selected.length);
-        finishMarkdownEdit(box, boxId);
-      });
-    }
+    select.addEventListener("change", () => {
+      const colour = select.value;
+      select.value = "";
+      if (!colour) return;
+      const box = $(boxId);
+      if (!box) return;
+      const { selectionStart: start, selectionEnd: end, value } = box;
+      const selected = value.slice(start, end) || (kind === "ink" ? "coloured text" : "highlighted");
+      // Yellow is the highlight's default, so it needs no colour prefix -
+      // and writing one would put `==yellow|x==` in the note where `==x==`
+      // says the same thing.
+      const open = kind === "ink"
+        ? `++${colour}|`
+        : colour === "yellow" ? "==" : `==${colour}|`;
+      const close = kind === "ink" ? "++" : "==";
+      box.value = value.slice(0, start) + open + selected + close + value.slice(end);
+      box.setSelectionRange(start + open.length, start + open.length + selected.length);
+      finishMarkdownEdit(box, boxId);
+    });
   }
 }
 
+function initMarkdownToolbars() {
+  for (const bar of document.querySelectorAll("[data-md-target], #doc-toolbar")) {
+    wireMarkdownToolbar(bar);
+  }
+}
 initMarkdownToolbars();
 
 $("doc-word-goal").addEventListener("click", promptDocWordGoal);
@@ -2804,15 +3118,25 @@ const DOC_WIDTH_KEY = "doc-full-width";
 
 function applyDocWidth(wide) {
   const tab = $("tab-documents");
-  const button = $("doc-width-toggle");
   tab?.classList.toggle("doc-wide", wide);
-  if (button) {
+  const title = wide ? "Back to a comfortable reading width" : "Use the full width of the pane";
+  //: **Both views of one setting, painted together.** The toolbar's icon and
+  //: the ⋯ menu's worded row are the same control, and the app's own rule (see
+  //: `applyDocToolbarMode`) is that painting one without the other is how they
+  //: drift. The menu row exists because the icon alone was not findable —
+  //: reported as "is there a way to make it wider if the user chooses??" about
+  //: a control that was already there.
+  for (const button of [$("doc-width-toggle"), $("doc-width-menu")]) {
+    if (!button) continue;
     button.setAttribute("aria-pressed", String(wide));
-    button.title = wide
-      ? "Back to a comfortable reading width"
-      : "Use the full width of the pane";
-    button.setAttribute("aria-label", button.title);
+    button.title = title;
+    button.setAttribute("aria-label", title);
   }
+  //: The label names what pressing it *does*, not the state it is in — the
+  //: state is `aria-pressed` for a screen reader and the pane's own width for
+  //: everyone else. Same rule the toolbar-mode row follows.
+  const label = $("doc-width-menu-label");
+  if (label) label.textContent = wide ? "Comfortable reading width" : "Use the full width";
 }
 
 function setDocWidth(wide) {
@@ -2824,9 +3148,9 @@ function setDocWidth(wide) {
   applyDocWidth(wide);
 }
 
-$("doc-width-toggle")?.addEventListener("click", () =>
-  setDocWidth(!$("tab-documents")?.classList.contains("doc-wide"))
-);
+const toggleDocWidth = () => setDocWidth(!$("tab-documents")?.classList.contains("doc-wide"));
+$("doc-width-toggle")?.addEventListener("click", toggleDocWidth);
+$("doc-width-menu")?.addEventListener("click", toggleDocWidth);
 
 try {
   applyDocWidth(localStorage.getItem(DOC_WIDTH_KEY) === "wide");
@@ -2940,6 +3264,10 @@ $("doc-content").addEventListener("keydown", (event) => {
   if (key === "s") { event.preventDefault(); saveDocument(); }
   else if (key === "b") { event.preventDefault(); wrapDocSelection("**"); }
   else if (key === "i") { event.preventDefault(); wrapDocSelection("*"); }
+  // Ctrl+1/2/3 headings and Ctrl+E inline code — the Notion / Typora /
+  // Word set, so the hand does not leave the keyboard for the strip.
+  else if (key === "1" || key === "2" || key === "3") { event.preventDefault(); applyMarkdown(`h${key}`); }
+  else if (key === "e") { event.preventDefault(); wrapDocSelection("`"); }
   // The browser's own Ctrl+F can't search a textarea's content at all — it
   // only sees page DOM text, and a textarea's text is its *value*, not DOM
   // text — so this isn't overriding useful native behaviour here.
@@ -3041,18 +3369,78 @@ document.getElementById("doc-toolbar-mode")?.addEventListener("click", () => {
 //: are two toolbars and a third would silently miss out. Pinned to the right
 //: edge with `position: sticky` so that in scroll mode the controls do not
 //: scroll away with the buttons they control.
+//: **Line numbers are a choice, not a file-type consequence.** Asked for
+//: directly: "line numbers should be togglable in the documents". They used to
+//: appear for code files and for nothing else, so a long markdown note -- the
+//: thing most likely to need "the paragraph around line 240" -- could not have
+//: them, and a .py file could not be rid of them.
+//:
+//: Default follows the old behaviour (on for code, off for prose), so nothing
+//: moves for anyone who never touches the control; once touched, the choice is
+//: remembered and wins for every file.
+const DOC_GUTTER_KEY = "doc-gutter";
+
+function docGutterPref() {
+  try {
+    return localStorage.getItem(DOC_GUTTER_KEY); // "1", "0", or null for "follow the file type"
+  } catch {
+    return null;
+  }
+}
+
+function docGutterWanted(isCode) {
+  const pref = docGutterPref();
+  if (pref === "1") return true;
+  if (pref === "0") return false;
+  return Boolean(isCode);
+}
+
+function setDocGutter(on) {
+  try {
+    localStorage.setItem(DOC_GUTTER_KEY, on ? "1" : "0");
+  } catch {
+    /* private mode: the choice holds for this session only */
+  }
+  applyDocGutter();
+}
+
+//: Reads the *current* file's type rather than taking it as an argument, so
+//: the toggle and the file-open path cannot disagree about what "code" means.
+function applyDocGutter() {
+  const box = $("doc-content");
+  const on = docGutterWanted(box?.classList.contains("doc-content-code"));
+  $("doc-gutter")?.classList.toggle("hidden", !on);
+  const button = document.querySelector(".doc-toolbar-gutter");
+  if (button) {
+    button.setAttribute("aria-pressed", on ? "true" : "false");
+    button.title = on ? "Hide line numbers" : "Show line numbers";
+    button.setAttribute("aria-label", button.title);
+  }
+  renderDocGutter();
+}
+
 const DOC_TOOLBAR_COLLAPSED_KEY = "doc-toolbar-collapsed";
 
 function docToolbarCollapsed() {
   try {
-    return localStorage.getItem(DOC_TOOLBAR_COLLAPSED_KEY) === "1";
+    // Collapsed until you ask for it (PLAN.md D1): Typora, iA Writer and
+    // Notion all start with no formatting strip on screen — the strip is a
+    // 30-control, three-row block that pushed the first line of text to
+    // y=284 at 1440px. The collapsed strip keeps its own name and the
+    // chevron that brings it back, and a choice either way is remembered.
+    return (localStorage.getItem(DOC_TOOLBAR_COLLAPSED_KEY) ?? "1") === "1";
   } catch {
     return false; // private mode — the expanded shape is the safe default
   }
 }
 
-function applyDocToolbarCollapsed(collapsed) {
-  for (const bar of document.querySelectorAll(".doc-toolbar")) {
+//: `only`: one strip, which may not be in the document yet. Both appliers are
+//: what actually draw the wrap and collapse glyphs (`setLabel` lives here, not
+//: at the buttons' creation), and both used to walk the document -- so a bar
+//: mounted before insertion, which is exactly what the note edit form's cloned
+//: strip is, ended up with two blank buttons.
+function applyDocToolbarCollapsed(collapsed, only = null) {
+  for (const bar of only ? [only] : document.querySelectorAll(".doc-toolbar")) {
     bar.classList.toggle("is-collapsed", collapsed);
     const button = bar.querySelector(".doc-toolbar-collapse");
     if (!button) continue;
@@ -3072,9 +3460,16 @@ function setDocToolbarCollapsed(collapsed) {
   applyDocToolbarCollapsed(collapsed);
 }
 
-function mountDocToolbarControls() {
-  for (const bar of document.querySelectorAll(".doc-toolbar")) {
-    if (bar.querySelector(".doc-toolbar-tools")) continue;
+//: One strip's wrap/collapse group. Split out of the loop below so a bar that
+//: is *not* in the document yet can get one: the note edit form clones the
+//: capture strip, and a clone carries a copy of this group whose listeners did
+//: not survive cloning -- two dead arrow buttons, sitting mid-strip instead of
+//: at the end, because the loop's own `continue` then decided the bar already
+//: had its controls. Counted in the browser: the clone's group sat between the
+//: Preview button and the indent separator, where the capture strip's is last.
+function mountDocToolbarControlsFor(bar) {
+  {
+    if (bar.querySelector(".doc-toolbar-tools")) return;
     const tools = document.createElement("span");
     tools.className = "doc-toolbar-tools";
 
@@ -3094,6 +3489,15 @@ function mountDocToolbarControls() {
     });
     tools.appendChild(layout);
 
+    const gutter = document.createElement("button");
+    gutter.type = "button";
+    gutter.className = "ghost small icon-only doc-toolbar-gutter";
+    setLabel(gutter, "ph:list-numbers");
+    gutter.addEventListener("click", () => {
+      setDocGutter($("doc-gutter")?.classList.contains("hidden"));
+    });
+    tools.appendChild(gutter);
+
     const collapse = document.createElement("button");
     collapse.type = "button";
     collapse.className = "ghost small icon-only doc-toolbar-collapse";
@@ -3102,13 +3506,29 @@ function mountDocToolbarControls() {
 
     bar.appendChild(tools);
   }
+  //: **Both buttons are drawn here, not by the caller.** Reported with a
+  //: screenshot: "the note edit toolbar buttons on the bottom right dont
+  //: render and show as black boxes". Neither button is given an icon when it
+  //: is created -- `applyDocToolbarLayoutButtons` and `applyDocToolbarCollapsed`
+  //: are what call `setLabel` on them, and both used to run once at the end of
+  //: the document-wide loop below. A bar mounted on its own (the note edit
+  //: form's cloned strip) therefore got two empty buttons: correct size,
+  //: correct background, no glyph and no text.
+  applyDocToolbarLayoutButtons(bar);
+  applyDocToolbarCollapsed(docToolbarCollapsed(), bar);
+  applyDocGutter();
+}
+
+function mountDocToolbarControls() {
+  for (const bar of document.querySelectorAll(".doc-toolbar")) mountDocToolbarControlsFor(bar);
   applyDocToolbarLayoutButtons();
   applyDocToolbarCollapsed(docToolbarCollapsed());
 }
 
-function applyDocToolbarLayoutButtons() {
+function applyDocToolbarLayoutButtons(only = null) {
   const row = docToolbarMode() === "row";
-  for (const button of document.querySelectorAll(".doc-toolbar-layout")) {
+  const scope = only || document;
+  for (const button of scope.querySelectorAll(".doc-toolbar-layout")) {
     button.setAttribute("aria-pressed", row ? "true" : "false");
     //: The tooltip names what pressing it *does*; `aria-pressed` carries the
     //: state. Same rule the dock menu's own label follows.
@@ -3607,10 +4027,47 @@ function renderDocProsePanel() {
   panel.appendChild(list);
 }
 
-//: Show me where. Source view can select the span outright; Live view has to
-//: switch to Source first, because a span the caret cannot reach is not a
-//: place the panel can take you.
+//: **Show me where — and make it obvious for a moment.**
+//:
+//: Asked for directly: "if I click on an issue flagged in the document
+//: suggestions, it should auto scroll to the issue and temporarily highlight
+//: the offending area." The scrolling half was here already; the highlight was
+//: a text selection, which is the quietest mark a screen has — the same grey
+//: as any other selection, in a box the pointer has just left, several
+//: paragraphs from where the eye was. Landing in roughly the right place with
+//: nothing saying "here" is what makes a jump feel like it did not happen.
+//:
+//: Two ways to say it, because the two views can say different things. Live
+//: view has a real element for the flagged word (`docMarkLiveFindings`), so
+//: it is scrolled into view and pulsed where it sits — which is what anyone
+//: coming from Word expects, and it does not throw away the view they were
+//: reading in. Source view has only a string, so the selection stays but the
+//: textarea gets an accent `::selection` for the length of the flash, which
+//: turns "something is selected somewhere" into "that, there".
+const DOC_FLASH_MS = 1600;
+
+function docFlashLiveFinding(finding) {
+  const host = $("doc-live");
+  if (!host) return false;
+  const marks = [...host.querySelectorAll(".doc-flag")];
+  const mark = marks.find((el) => el.textContent === finding.text);
+  if (!mark) return false;
+  mark.scrollIntoView({
+    block: "center",
+    behavior: reducedMotionWanted() ? "auto" : "smooth",
+  });
+  //: Removed and re-added around a forced reflow: without it the browser
+  //: coalesces both writes and a second click on the same row animates
+  //: nothing, which reads as the row having stopped working.
+  mark.classList.remove("doc-flag-flash");
+  void mark.offsetWidth;
+  mark.classList.add("doc-flag-flash");
+  setTimeout(() => mark.classList.remove("doc-flag-flash"), DOC_FLASH_MS);
+  return true;
+}
+
 function docProseJump(finding) {
+  if (docView === "live" && docFlashLiveFinding(finding)) return;
   if (docView !== "source" && docView !== "split") setDocView("source");
   const box = $("doc-content");
   if (!box) return;
@@ -3620,6 +4077,10 @@ function docProseJump(finding) {
   //: it already holds. Without it the caret is right and the view is not.
   box.blur();
   box.focus();
+  box.classList.remove("doc-selection-flash");
+  void box.offsetWidth;
+  box.classList.add("doc-selection-flash");
+  setTimeout(() => box.classList.remove("doc-selection-flash"), DOC_FLASH_MS);
 }
 
 function docProseApply(text, finding) {
@@ -3930,12 +4391,96 @@ document.addEventListener("input", (event) => {
   docToolsOnInput(box);
 });
 
+//: **Tab moves between table cells.** `/table` inserts a markdown table, but
+//: editing one meant arrowing past every `|` by hand — the one thing every
+//: editor with tables (Notion, Obsidian, Typora, Word) does for you. On a
+//: line that starts with `|`, Tab selects the next cell's contents and
+//: Shift+Tab the previous cell's; Tab in the last cell of the last row adds
+//: a row. A separator row (`| --- |`) is skipped over. Returns false on any
+//: other line so the indent behaviour below is untouched.
+function docTableTab(event, box) {
+  const value = box.value;
+  const pos = box.selectionStart;
+  const lineStart = value.lastIndexOf("\n", pos - 1) + 1;
+  let lineEnd = value.indexOf("\n", pos);
+  if (lineEnd === -1) lineEnd = value.length;
+  const line = value.slice(lineStart, lineEnd);
+  if (!/^\s*\|/.test(line)) return false;
+  event.preventDefault();
+  const pipes = [];
+  for (let i = 0; i < line.length; i += 1) if (line[i] === "|" && line[i - 1] !== "\\") pipes.push(i);
+  if (pipes.length < 2) return true;
+  const col = pos - lineStart;
+  const cells = [];
+  for (let i = 0; i < pipes.length - 1; i += 1) cells.push([pipes[i] + 1, pipes[i + 1]]);
+  const select = (from, to) => {
+    // The cell's text without its padding spaces, so typing replaces the
+    // placeholder rather than the spaces around it.
+    const raw = value.slice(from, to);
+    const lead = raw.length - raw.trimStart().length;
+    const trail = raw.length - raw.trimEnd().length;
+    const a = from + lead, b = Math.max(a, to - trail);
+    box.setSelectionRange(a, b);
+  };
+  const isSeparator = (text) => /^\s*\|?\s*:?-{2,}/.test(text);
+  if (event.shiftKey) {
+    let index = cells.findIndex(([a, b]) => col >= a && col <= b);
+    if (index <= 0) {
+      // Previous row's last cell, skipping the separator.
+      let prevEnd = lineStart - 1;
+      while (prevEnd > 0) {
+        const prevStart = value.lastIndexOf("\n", prevEnd - 1) + 1;
+        const prev = value.slice(prevStart, prevEnd);
+        if (!/^\s*\|/.test(prev)) return true;
+        if (!isSeparator(prev)) {
+          const last = prev.lastIndexOf("|"), before = prev.lastIndexOf("|", last - 1);
+          if (before >= 0) select(prevStart + before + 1, prevStart + last);
+          return true;
+        }
+        prevEnd = prevStart - 1;
+      }
+      return true;
+    }
+    select(lineStart + cells[index - 1][0], lineStart + cells[index - 1][1]);
+    return true;
+  }
+  let index = cells.findIndex(([a, b]) => col >= a && col <= b);
+  if (index === -1) index = cells.length - 1;
+  if (index < cells.length - 1) {
+    select(lineStart + cells[index + 1][0], lineStart + cells[index + 1][1]);
+    return true;
+  }
+  // Last cell: next row's first cell, skipping the separator; or a new row.
+  let nextStart = lineEnd + 1;
+  while (nextStart <= value.length) {
+    let nextEnd = value.indexOf("\n", nextStart);
+    if (nextEnd === -1) nextEnd = value.length;
+    const next = value.slice(nextStart, nextEnd);
+    if (!/^\s*\|/.test(next)) break;
+    if (!isSeparator(next)) {
+      const first = next.indexOf("|"), second = next.indexOf("|", first + 1);
+      if (second > first) select(nextStart + first + 1, nextStart + second);
+      return true;
+    }
+    nextStart = nextEnd + 1;
+  }
+  const blank = "|" + " |".repeat(cells.length);
+  const insertAt = lineEnd;
+  box.setRangeText("\n" + blank, insertAt, insertAt, "end");
+  box.setSelectionRange(insertAt + 1 + 2, insertAt + 1 + 2);
+  box.dispatchEvent(new Event("input", { bubbles: true }));
+  return true;
+}
+
 document.addEventListener("keydown", (event) => {
   const box = docToolsBoxFor(event.target);
   if (!box) return;
   //: Before anything else this editor binds: Tab and the arrows mean the
   //: popup while it is open, and mean their usual thing the instant it is not.
-  if (docCompleteKeydown(event, box)) event.stopPropagation();
+  if (docCompleteKeydown(event, box)) { event.stopPropagation(); return; }
+  if (event.key === "Tab" && !event.ctrlKey && !event.altKey && docTableTab(event, box)) {
+    event.stopPropagation();
+  }
 }, true);
 
 //: `selectionchange` is the only event that fires for a caret moved by the
@@ -3979,32 +4524,75 @@ function docOffsetOf(box) {
   return base === null ? null : base + box.selectionStart;
 }
 
-function docOpenSuggestAtCaret(box) {
-  const offset = docOffsetOf(box);
+//: **The character under the pointer, not the character the caret happens to
+//: be at.** Right-clicking a word is how everyone expects to be offered a
+//: correction for *that* word — but a right-click does not reliably move the
+//: caret first, so reading `selectionStart` answered a question about wherever
+//: the caret was last left, which is usually somewhere else entirely. That is
+//: half of "i still cant select on an underlined incorrectly spelled word and
+//: have a popup with suggestions".
+//:
+//: `caretPositionFromPoint` (and WebKit's older `caretRangeFromPoint`) gives
+//: the index inside a `<textarea>` directly. Falls back to the caret when
+//: neither exists or the point is outside the box, which is the old behaviour
+//: rather than a failure.
+function docOffsetAtPoint(box, x, y) {
+  if (typeof x !== "number" || typeof y !== "number") return docOffsetOf(box);
+  let offset = null;
+  if (document.caretPositionFromPoint) {
+    const position = document.caretPositionFromPoint(x, y);
+    if (position && position.offsetNode === box) offset = position.offset;
+  } else if (document.caretRangeFromPoint) {
+    const range = document.caretRangeFromPoint(x, y);
+    if (range && range.startContainer === box) offset = range.startOffset;
+  }
+  if (offset === null) return docOffsetOf(box);
+  if (box.id === "doc-content") return offset;
+  const base = docLiveBlockOffset(box);
+  return base === null ? null : base + offset;
+}
+
+function docOpenSuggestAtCaret(box, point = null) {
+  const offset = point ? docOffsetAtPoint(box, point.x, point.y) : docOffsetOf(box);
   if (offset === null) return false;
   const finding = docFindingAtOffset(offset);
   if (!finding) return false;
-  const point = docCaretPoint(box);
+  const at = docCaretPoint(box);
   openDocSuggest(finding, {
-    left: point.x,
-    top: point.y,
-    bottom: point.y + point.lineHeight,
+    left: at.x,
+    top: at.y,
+    bottom: at.y + at.lineHeight,
   });
   return true;
 }
 
 document.addEventListener("dblclick", (event) => {
   const box = docToolsBoxFor(event.target);
-  if (box) docOpenSuggestAtCaret(box);
+  if (box) docOpenSuggestAtCaret(box, { x: event.clientX, y: event.clientY });
 });
 
 document.addEventListener("contextmenu", (event) => {
+  //: **The underlined word is a real element, so right-clicking it must work.**
+  //: The other half of the same report. `docToolsBoxFor` only ever matched a
+  //: `<textarea>`, so in Live view — the one view that *can* draw a squiggle,
+  //: and therefore the view where anyone would try this — right-clicking the
+  //: mark fell straight through to the browser's own menu. The app's menu was
+  //: reachable only by left-clicking, which is not what an underline means
+  //: anywhere else.
+  const flag = event.target instanceof Element ? event.target.closest(".doc-flag") : null;
+  if (flag && flag._docFinding) {
+    event.preventDefault();
+    openDocSuggest(flag._docFinding, flag.getBoundingClientRect());
+    return;
+  }
   const box = docToolsBoxFor(event.target);
   if (!box) return;
   //: Only when there is something to say. Swallowing the browser's own menu
   //: over ordinary text would take away spell-check, paste and everything else
   //: it carries for the sake of a menu with nothing in it.
-  if (docOpenSuggestAtCaret(box)) event.preventDefault();
+  if (docOpenSuggestAtCaret(box, { x: event.clientX, y: event.clientY })) {
+    event.preventDefault();
+  }
 });
 
 //: Anywhere else closes it — the rule every menu in this app follows.
@@ -4273,6 +4861,59 @@ function openDocSuggest(finding, anchorRect) {
   }
   menu.appendChild(list);
 
+  //: **"Ask the AI for wordings", where the app itself has no answer.** Asked
+  //: for directly: "the listed errors in suggestions have no way to have the
+  //: ai write a suggested replacement or multiple for the user to choose."
+  //:
+  //: A row rather than an automatic call: this costs a model round-trip of
+  //: several seconds, and firing one every time a menu opens would make the
+  //: menu feel broken on a small local model. It replaces itself with the
+  //: options when they arrive, so the menu that asked is the menu that
+  //: answers — pressing an option applies it exactly as a built-in fix does,
+  //: through `docProseFix`, which re-checks the document before writing.
+  const askAi = document.createElement("button");
+  askAi.type = "button";
+  askAi.className = "doc-suggest-item doc-suggest-ai";
+  setLabel(askAi, "ph:magic-wand Ask the AI for wordings…");
+  askAi.title = "Have the local model suggest two or three other ways to put this";
+  askAi.addEventListener("click", async () => {
+    if (!currentDoc || !currentDoc.id) return toast("Save the document first.", true);
+    setLabel(askAi, "ph:hourglass Thinking…");
+    askAi.disabled = true;
+    const body = await apiJson(`/documents/${currentDoc.id}/rephrase`, {
+      method: "POST",
+      body: JSON.stringify({ passage: finding.text, note: finding.message || "" }),
+    }).catch(() => null);
+    //: The menu may have been closed, or opened on something else, while the
+    //: model was thinking. Writing into it then would put one finding's
+    //: suggestions under another finding's heading.
+    if (docSuggestOpenFor !== finding) return;
+    const options = (body && body.options) || [];
+    if (!options.length) {
+      setLabel(askAi, "ph:magic-wand Ask the AI for wordings…");
+      askAi.disabled = false;
+      return toast(
+        (body && body.message) || "No other wordings came back for that one.",
+        true
+      );
+    }
+    askAi.remove();
+    for (const option of options) {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "doc-suggest-item doc-suggest-ai-option";
+      setLabel(item, `ph:magic-wand ${option}`);
+      item.title = `Replace with “${option}”`;
+      item.addEventListener("click", () => {
+        docProseFix({ ...finding, replacement: option });
+        closeDocSuggest();
+      });
+      list.appendChild(item);
+    }
+    placeDocSuggest();
+  });
+  list.appendChild(askAi);
+
   const actions = document.createElement("div");
   actions.className = "doc-suggest-actions";
   if (finding.rule === "spelling" || finding.rule === "variant") {
@@ -4317,16 +4958,30 @@ function openDocSuggest(finding, anchorRect) {
   menu.appendChild(actions);
 
   menu.classList.remove("hidden");
-  //: Placed after it is visible, because a hidden element measures zero and a
-  //: menu positioned against zero opens in the corner.
+  docSuggestAnchor = anchorRect;
+  placeDocSuggest();
+  menu.querySelector("button")?.focus();
+}
+
+//: Kept so the menu can be re-placed after it changes size — the AI wordings
+//: arrive seconds after it opens and make it taller, and a menu that grew
+//: downwards off the bottom of the window is a menu whose best suggestion is
+//: unreachable.
+let docSuggestAnchor = null;
+
+function placeDocSuggest() {
+  const menu = $("doc-suggest-menu");
+  if (!menu || !docSuggestAnchor || menu.classList.contains("hidden")) return;
+  //: Measured after it is visible, because a hidden element measures zero and
+  //: a menu positioned against zero opens in the corner.
   const width = menu.offsetWidth;
   const height = menu.offsetHeight;
-  const left = Math.min(anchorRect.left, window.innerWidth - width - 8);
-  const below = anchorRect.bottom + 4;
-  const top = below + height > window.innerHeight - 8 ? anchorRect.top - height - 4 : below;
+  const left = Math.min(docSuggestAnchor.left, window.innerWidth - width - 8);
+  const below = docSuggestAnchor.bottom + 4;
+  const top =
+    below + height > window.innerHeight - 8 ? docSuggestAnchor.top - height - 4 : below;
   menu.style.left = `${Math.max(8, left)}px`;
   menu.style.top = `${Math.max(8, top)}px`;
-  menu.querySelector("button")?.focus();
 }
 
 //: A passage, a language, and the local model — asked in the chat so the
@@ -4363,29 +5018,70 @@ let docLastTranslateLanguage = "";
 //: is wrong and one suggested fix, is a thing you can read, agree or
 //: disagree with, and apply by hand — same shape as everything else this
 //: checker offers.
-const DOC_AI_REVIEW_CHARS = 6000;
+//: **A badge, not a wall of text.** Asked for directly: "the 'check with ai'
+//: button in the documents should attach a link to the document or an excerpt
+//: from the document to read but in a little attached badge that can be
+//: removed so the document text isnt just pasted below."
+//:
+//: This used to write the whole document into the composer. Three things were
+//: wrong with that and the report names the first: the question you are about
+//: to ask is buried under six thousand characters you did not type, so the
+//: composer stops being somewhere you can write. The second is that there was
+//: no way to change your mind — the text was *in* the box, so unattaching it
+//: meant finding where the prompt ended and the document began. The third is
+//: that it sends a snapshot: the model reads whatever the document said at the
+//: moment the button was pressed, not what it says when the question is
+//: actually asked.
+//:
+//: `attachedDocuments` fixes all three and it already existed — the composer
+//: has staged documents as removable chips since files could be dropped into
+//: chat, and `sendChat` already passes their ids to the backend, which reads
+//: them itself. So this attaches rather than pastes, and the composer is left
+//: holding one short sentence: the question.
+//:
+//: A *selection* is the one case that still travels as text. It is short by
+//: definition, it is the passage the question is about, and there is nothing
+//: in the document's id to say which part of it was meant.
+const DOC_AI_REVIEW_SELECTION_CHARS = 1200;
 
 async function docAiReview() {
-  const text = ($("doc-content")?.value || "").trim();
+  const box = $("doc-content");
+  const text = (box?.value || "").trim();
   if (!text) return toast("Nothing to review yet.", true);
-  const box = document.getElementById("chat-input");
-  if (!box) return toast("The chat isn't available right now.", true);
-  //: Long enough for a real document, short enough that the request itself
-  //: does not become the thing that fills the context window it is trying to
-  //: economise. `docTranslatePassage`'s own OCR-to-chat sibling caps at 4000;
-  //: a whole document is the more common case here, so the cap is higher.
-  const quoted = text.length > DOC_AI_REVIEW_CHARS ? `${text.slice(0, DOC_AI_REVIEW_CHARS)}…` : text;
-  const prompt =
-    "Read this document for the things a spellchecker can't catch: " +
-    "its/it's and other agreement mistakes, tense that shifts partway through, " +
-    "unclear or awkward sentences, and tone. List each one as a numbered point " +
-    `naming the exact wording and a one-line fix — don't rewrite the whole document.
+  const input = document.getElementById("chat-input");
+  if (!input) return toast("The chat isn't available right now.", true);
 
-${quoted}`;
+  const selection = box
+    ? box.value.slice(box.selectionStart || 0, box.selectionEnd || 0).trim()
+    : "";
+  const ask =
+    "Read this for the things a spellchecker can't catch: its/it's and other " +
+    "agreement mistakes, tense that shifts partway through, unclear or awkward " +
+    "sentences, and tone. List each one as a numbered point naming the exact " +
+    "wording and a one-line fix — don't rewrite it.";
+
   switchTab("chat");
-  box.value = prompt;
-  box.focus();
-  box.dispatchEvent(new Event("input", { bubbles: true }));
+  if (selection) {
+    const quoted =
+      selection.length > DOC_AI_REVIEW_SELECTION_CHARS
+        ? `${selection.slice(0, DOC_AI_REVIEW_SELECTION_CHARS)}…`
+        : selection;
+    input.value = `${ask}\n\n${quoted}`;
+  } else {
+    input.value = ask;
+    //: The badge, via the composer's own staging list — the same chip an
+    //: imported file gets, removable by the same ✕, and read by the backend
+    //: from the document itself rather than from a snapshot pasted here.
+    const attached = attachDocumentToChat(currentDoc && currentDoc.id, (currentDoc && currentDoc.title) || $("doc-title")?.value || "This document");
+    if (!attached) {
+      //: The one case where pasting is still the honest answer: the chip
+      //: cannot be added (four already staged, or an unsaved document with no
+      //: id yet), and silently asking about nothing would be worse.
+      input.value = `${ask}\n\n${text.slice(0, 6000)}${text.length > 6000 ? "…" : ""}`;
+    }
+  }
+  input.focus();
+  input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
 //: **Managing the dictionary.** Asked for by name. A list you can add to and
@@ -4467,8 +5163,18 @@ function docMarkLiveFindings() {
         const mark = document.createElement("mark");
         mark.className = `doc-flag doc-flag-${finding.rule}`;
         mark.textContent = finding.text;
-        mark.title = `${finding.message} — click for suggestions`;
+        mark.title = `${finding.message} — click or right-click for suggestions`;
+        //: Hung on the element so the delegated `contextmenu` listener above
+        //: can find it: a right-click has no way back to the closure that
+        //: built this mark, and re-deriving the finding from the text would
+        //: pick the wrong one wherever a word is flagged twice.
+        mark._docFinding = finding;
         mark.addEventListener("mousedown", (event) => {
+          //: Primary button only. `mousedown` fires for the right button too,
+          //: so without this a right-click opened the menu here *and* then let
+          //: `contextmenu` open it again — two placements of the same menu in
+          //: one gesture, the second one usually in the wrong place.
+          if (event.button !== 0) return;
           //: mousedown and `stopPropagation`, because the live view's own
           //: handler turns a click in a block into a caret in that block's
           //: textarea — which would replace this element before the menu

@@ -233,6 +233,38 @@ and `.timeline-band` (three different blur radii — 8px, 12px, and the
 problem), all fixed by conforming to the rule above rather than by
 inventing a third option.
 
+### Surface tiers, and the border budget
+
+Measured before this existed, on Settings → Tools it can use: the modal drew
+a hairline, the group inside it drew a hairline, and all 54 rows inside the
+group drew one more — three nested boxes, each saying "this is a thing" with
+the same 1px line, so none of them said anything. Skills, Personas, Templates
+and the Notes list had the same shape at two deep.
+
+```
+--surface-1  the pane: .card, .modal-card, a popover. Glass — and the only
+             tier that may carry a hairline or a rim.
+--surface-2  a group inside a pane (.settings-group, .entry-list li). A faint
+             ink tint, no border.
+--surface-3  a row inside a group, or a hover (.provider-option, a list
+             inside a settings group). One step deeper.
+--divider    the line *between* rows in a list (.setting-row, .extras-row).
+             Lighter than --border: a separator, not an edge.
+```
+
+**The rule:** a line on the outermost surface only; everything inside it is
+grouped by tone and whitespace. Inner rows keep a `1px solid transparent`
+border so their geometry does not move and so `[data-contrast="on"]` can
+colour the line back in (`02-chat-graph.css`). A selected row is a fill
+(`--accent-soft`), never a fill plus an accent edge — the edge was the
+innermost of the three lines above. `--surface-2` is tinted with ink rather
+than white on purpose: a white tint (`--inner`) is invisible on the
+near-white modal, which is where most groups live.
+
+A sticky row inside a tinted group (`.tool-filter-row`) has to composite the
+tint over the opaque modal colour, not paint the modal colour alone —
+otherwise it shows as a lighter slab inside the group.
+
 ### Turning it off
 
 `:root[data-glass="off"]` is a standing user preference (Settings →
@@ -261,6 +293,41 @@ mechanism for the same effect the toggle already provides everywhere else.
 
 ---
 
+## Buttons — the ramp
+
+Three tiers, and a view should be readable from them alone:
+
+| Tier | Recipe | Use |
+| --- | --- | --- |
+| **Filled** | `button` — accent fill, `--on-accent` text, the accent glow | The one action a surface is *for*. One per card or dialog — a dashboard of widgets has one per widget (Save, Start), not one for the page. |
+| **Tonal** | `button.ghost`, and any `.icon-only` button — `--ghost-btn-bg` fill, transparent 1px edge, no shadow | Every other action: toolbars, row actions, icon buttons. |
+| **Plain** | tab-bar buttons, `.linklike`, `.status-item` — no fill at rest, a tint on hover | Navigation and inline actions that sit in running text or a strip that is already a well. |
+
+Tonal buttons carry themselves on fill, not on an outline. The outline was
+tried (it was the fix for "buttons feel like just shapes with text in them")
+and it worked by making a button look like a *field* — measured on Notes, 22
+outlined-and-shadowed buttons sat in one toolbar beside outlined inputs and
+an outlined card. The fill went up a step (`--ghost-btn-bg` 0.11→0.12 light,
+0.14→0.16 dark) when the edge came off, so the presence is the same and the
+line count is not. `[data-contrast="on"]` puts the edge back.
+
+A selected toggle (`.active`) is the filled recipe: on is the accent, not a
+darker tonal.
+
+**Segmented controls are two things, and they are drawn differently on
+purpose.** A *tab strip* (`[role="tablist"]`: the tab bar, the Notes and
+Library sub-tabs) sits on the surface — the tab bar is a `--field-inset`
+well, the sub-tab strips are their own card. A *choice control* (`.seg`,
+`.segmented-control`: view toggles, sort, Ask/Request) is a `--chip-bg` well
+with no edge, whatever else it is inside. Measured: 28 `.seg` groups were
+already that, and the Graph's layout/colour pickers plus the chat dock's
+mode switch were the three drawn as cards — now conformed, not given a
+third recipe.
+
+**Form rows share a label column.** `--form-label-col` (9rem; `-wide`, 11rem,
+for Search relevance) is the width every `.setting-label` reserves, so the
+controls in adjacent rows start on one edge.
+
 ## Icons
 
 Phosphor (`<i class="ph ph-*">`) is the default for every icon in the app.
@@ -282,9 +349,21 @@ section title was the same size as the subsections beneath it.
 
 | Level | Size | Treatment |
 | --- | --- | --- |
-| `.card h2` | `--text-body` | weight 650, tight tracking |
-| `.card h3` | `--text-sm` | weight 600, muted, uppercase, loose tracking |
+| `.card h2` | `--text-body` | weight 650, tight tracking — **a heading: names a thing** |
+| `.card h3`, `.eyebrow`, `.nav-group-label`, `.launch-label` | `--text-sm` | weight 600, muted, uppercase, 0.04em — **an eyebrow: labels a section of controls** |
+| `h4.setting-subhead` | `--text-md` | weight 600, sentence case — a subdivision inside an eyebrow's group |
 | `.dash-getting-started h2` | `--text-h3` | titles a whole panel, not a card |
+
+**Eyebrow vs heading.** An eyebrow labels a *section of controls* (THEMES,
+WHICH ONES IT MAY USE, THE AI, START SOMETHING); a heading names a *thing*
+(All notes, Recently added, a note's title). They are never both capitals —
+a subdivision under an eyebrow is `h4.setting-subhead` in sentence case, not
+a second run of caps (About → Updates was two stacked caps labels of the
+same weight before this, and read as rivals). There is one eyebrow recipe,
+measured: the app had two (12px/600/0.04em on cards, 11.2px/700/0.06em at
+75% opacity on the Settings nav and the dashboard launch rows) doing the
+same job in two voices. The one place caps sit directly over a title is the
+dashboard hero's wordmark kicker, which is branding, not a section label.
 
 Note that `h3` is **smaller** than `h2`, not one step down from it. Small caps
 carry the distinction, which frees the size to drop — two sizes 0.08rem apart

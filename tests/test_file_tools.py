@@ -135,3 +135,54 @@ def test_the_two_id_spaces_are_kept_apart(session):
 def test_an_unknown_kind_is_refused_rather_than_guessed(session):
     with pytest.raises(ToolError):
         tools.TOOLS["read_file"].handler(session, {"kind": "picture", "file_id": 1})
+
+
+# --- keyword context: the search preview and the full read actually contain
+# the match, not just the start of the reading -------------------------------
+#
+# Reported directly: "if files are fully text extracted by ocr. if the ai is
+# searching for something, might keywords be flagged in certain pages of a
+# file document in the actual document and/or extracted text, then it can use
+# a tool or smth simpler to get the full text from those areas??" Before this,
+# `search_files` correctly found a file whose *reading* contained the word
+# (it scans the whole text), but the `text` field it returned — and even
+# `read_file`'s own full-text field, capped at 2000 characters — always
+# started from the top of the reading, so a match past that point was never
+# actually visible to the model, however precisely it had been located.
+
+
+def test_the_search_preview_contains_the_word_that_matched(session):
+    far_away = "padding " * 400  # comfortably past PREVIEW_CHARS (200)
+    _upload(session, "long-scan.png", text=f"{far_away}the password is hunter2{far_away}")
+    found = tools.TOOLS["search_files"].handler(session, {"query": "password"})
+    assert found["found"] == 1
+    assert "password is hunter2" in found["files"][0]["text"]
+
+
+def test_read_file_with_a_query_returns_text_past_the_old_cap(session):
+    """The concrete failure this fixes: a reading longer than FILE_TEXT_CHARS
+    (2000) whose match sits past that point used to be unreachable through
+    this tool no matter what — the read always started at character zero and
+    stopped at 2000, so `search_files` could point at the file correctly and
+    `read_file` would still come back with nothing useful."""
+    from memorymap.ai.tools.files import FILE_TEXT_CHARS
+
+    filler = "the quick brown fox jumps over the lazy dog. " * 100
+    assert len(filler) > FILE_TEXT_CHARS
+    upload = _upload(session, "manual.png", text=f"{filler}THE SECRET CODE IS 4471{filler}")
+    read = tools.TOOLS["read_file"].handler(
+        session, {"kind": "upload", "file_id": upload.id, "query": "secret code"}
+    )
+    assert "THE SECRET CODE IS 4471" in read["text"]
+    # And the label says a query narrowed it, so the model can tell this
+    # from an ordinary head-of-text read.
+    assert "search term" in read["label"]
+
+
+def test_read_file_with_no_query_keeps_the_old_head_of_text_behaviour(session):
+    """No query, no change — this is additive, not a replacement for the
+    plain "just read it" case."""
+    upload = _upload(session, "short.png", text="Hello, this is a short reading.")
+    read = tools.TOOLS["read_file"].handler(session, {"kind": "upload", "file_id": upload.id})
+    assert read["text"] == "Hello, this is a short reading."
+    assert "search term" not in read["label"]

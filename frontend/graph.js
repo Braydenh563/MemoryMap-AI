@@ -477,6 +477,19 @@ let graphTrace = null;
 //: the nodes they join.
 let graphTraceLines = null;
 
+//: **Every route between the two notes, best first, and which one is showing.**
+//: Asked for directly: "allow for multiple paths to be displayed if they
+//: exist." `/graph/path` now returns `routes: [...]` alongside the best one it
+//: always returned, so `graphTrace` above keeps meaning "the route currently
+//: being read" and nothing that already depended on it had to change.
+//:
+//: The map draws *all* of them at once, each in its own colour, with the
+//: selected one solid and the rest ghosted — because the answer to "is that the
+//: only way these connect?" is a picture, and switching between routes one at a
+//: time never shows you that there are three.
+let graphTraceRoutes = [];
+let graphTraceIndex = 0;
+
 // The two pickers, filled from whatever the map is currently showing. Rebuilt
 // on every render because the map's contents change — and the selection is
 // carried across, since a rebuild that silently forgets which notes you were
@@ -670,6 +683,8 @@ function showTraceMessage(text) {
 
 function clearTrace({ quiet = false } = {}) {
   graphTrace = null;
+  graphTraceRoutes = [];
+  graphTraceIndex = 0;
   traceFromNode = null;
   traceToNode = null;
   if (traceModeActive && !quiet) {
@@ -726,12 +741,16 @@ async function runTrace() {
     applyGraphHighlight();
     return;
   }
-  graphTrace = {
-    ids: result.nodes.map((n) => n.id),
-    steps: result.steps,
-    nodes: result.nodes,
-  };
-  renderTraceReadout(result);
+  //: `routes` is always present and always has the best route first when the
+  //: server says `found` — but an older server (or a cached response from one)
+  //: would not send it, and a readout that renders nothing is worse than one
+  //: with a single route in it. Fall back to the top-level shape, which every
+  //: version has sent.
+  graphTraceRoutes = Array.isArray(result.routes) && result.routes.length
+    ? result.routes
+    : [{ hops: result.hops, nodes: result.nodes, steps: result.steps }];
+  graphTraceIndex = 0;
+  selectTraceRoute(0, { redraw: false });
   drawTrace();
   applyGraphHighlight();
 }
@@ -753,6 +772,111 @@ async function runTrace() {
 // and `.graph-trace-path`'s own `max-height` + scroll (below, in the CSS)
 // as a hard floor under how tall this can ever get, so no path length can
 // repeat this mistake even if the wrapping math is ever wrong again.
+//: Switch which of the routes is being read. Everything downstream —
+//: `graphTrace`, the readout, the highlighted nodes, which overlay line is
+//: solid — hangs off `graphTraceIndex`, so this is the one place that changes
+//: and the four surfaces cannot disagree about which route is selected.
+function selectTraceRoute(index, { redraw = true } = {}) {
+  if (!graphTraceRoutes.length) return;
+  graphTraceIndex = Math.max(0, Math.min(index, graphTraceRoutes.length - 1));
+  const route = graphTraceRoutes[graphTraceIndex];
+  graphTrace = {
+    ids: route.nodes.map((n) => n.id),
+    steps: route.steps,
+    nodes: route.nodes,
+  };
+  renderTraceReadout({ ...route, hops: route.steps.length });
+  if (redraw) {
+    drawTrace();
+    applyGraphHighlight();
+  }
+}
+
+//: The shapes "Generate story from path" can make.
+//:
+//: It was one hard-coded prompt — "write a cohesive, publishable narrative" —
+//: which is one good answer to a question with several. Asked to "improve and
+//: extend the generate story from path feature": the path is a chain of
+//: *reasons*, and what you want built out of it depends entirely on why you
+//: traced it. An explainer, a timeline and an argument are three different
+//: documents from the same five notes, and picking between them is one click
+//: rather than a re-prompt in the chat.
+//:
+//: `ask` is written to be joined onto the shared preamble in `storyPrompt`, so
+//: the part that says "use the connections, follow the order" is stated once
+//: and every shape inherits it. A shape that restated it would be a shape that
+//: could drift from it.
+const TRACE_STORY_SHAPES = [
+  {
+    id: "story",
+    label: "A narrative",
+    icon: "ph:book-open-text",
+    hint: "publishable prose that ties the notes together",
+    ask: "Write a cohesive, publishable narrative weaving these thoughts together.",
+  },
+  {
+    id: "explain",
+    label: "An explainer",
+    icon: "ph:lightbulb",
+    hint: "how these connect, in plain language",
+    ask:
+      "Explain in plain language how these notes connect, as a short essay a " +
+      "colleague could follow without knowing the background.",
+  },
+  {
+    id: "timeline",
+    label: "A timeline",
+    icon: "ph:clock-counter-clockwise",
+    hint: "how the thinking developed, in order",
+    ask:
+      "Lay these out as a timeline of how the thinking developed: what came " +
+      "first, what it led to, and what changed along the way.",
+  },
+  {
+    id: "argument",
+    label: "An argument",
+    icon: "ph:scales",
+    hint: "claim, evidence, caveats",
+    ask:
+      "Build the argument these notes add up to. State the claim, give the " +
+      "evidence from the notes, then the caveats and what would change it.",
+  },
+  {
+    id: "teach",
+    label: "Teaching notes",
+    icon: "ph:graduation-cap",
+    hint: "what to learn first, then next, and why",
+    ask:
+      "Turn this into teaching notes: what someone should learn first, what " +
+      "next, and why each step depends on the one before it.",
+  },
+  {
+    id: "brief",
+    label: "A short brief",
+    icon: "ph:note",
+    hint: "one paragraph, twenty seconds to read",
+    ask:
+      "Write one tight paragraph a busy colleague could read in twenty " +
+      "seconds and come away knowing how these connect.",
+  },
+];
+
+//: The preamble every shape shares. The connection reasons are the whole point
+//: — a story built from the notes alone is a story about five unrelated things,
+//: and the *reasons* are what the traced path actually discovered.
+function storyPrompt(shape, route) {
+  const reasons = route.steps.map((step) => step.how).join("; ");
+  const alternatives =
+    graphTraceRoutes.length > 1
+      ? ` This is route ${graphTraceIndex + 1} of ${graphTraceRoutes.length} between the same two notes; write about this one.`
+      : "";
+  return (
+    `${shape.ask} Follow the exact order the notes are attached in, and use ` +
+    `the connection between each step (${reasons}) as part of what ties it ` +
+    `together, not just the notes' own text.${alternatives}`
+  );
+}
+
 function renderTraceReadout(result) {
   const box = $("graph-trace-result");
   if (!box) return;
@@ -795,6 +919,45 @@ function renderTraceReadout(result) {
 
   const pieces = [header, path];
 
+  //: **The route switcher.** Only drawn when there is more than one route, so
+  //: the common case — the two notes connect one way — is exactly the row it
+  //: has always been rather than a row with a lonely "1 of 1" on it.
+  //:
+  //: Each chip carries the same `data-route` index the overlay lines do, which
+  //: is what ties a chip to a coloured line on the map: chip 2 and the line
+  //: drawn in colour 2 are the same route, and you can see that without
+  //: clicking anything.
+  if (graphTraceRoutes.length > 1) {
+    const switcher = document.createElement("div");
+    switcher.className = "graph-trace-routes";
+    switcher.setAttribute("role", "tablist");
+    switcher.setAttribute("aria-label", "Routes between these two notes");
+    graphTraceRoutes.forEach((route, index) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "graph-trace-route-chip";
+      chip.dataset.route = String(index);
+      chip.setAttribute("role", "tab");
+      const active = index === graphTraceIndex;
+      chip.classList.toggle("is-active", active);
+      chip.setAttribute("aria-selected", String(active));
+      const swatch = document.createElement("span");
+      swatch.className = "graph-trace-route-swatch";
+      swatch.setAttribute("aria-hidden", "true");
+      const label = document.createElement("span");
+      const hops = route.steps.length;
+      label.textContent = `Route ${index + 1} · ${hops} step${hops === 1 ? "" : "s"}`;
+      chip.append(swatch, label);
+      chip.title =
+        index === 0
+          ? "The shortest route — the one the map draws solid by default"
+          : "Another way these two notes connect";
+      chip.addEventListener("click", () => selectTraceRoute(index));
+      switcher.appendChild(chip);
+    });
+    pieces.splice(1, 0, switcher);
+  }
+
   // Story Mode: Synthesize the path into a narrative.
   //
   // Was three inline `.style.x =` assignments against `var(--primary)` /
@@ -804,22 +967,49 @@ function renderTraceReadout(result) {
   // which is what `.style.x =` sets under the hood. Both silently no-op, so
   // the button rendered as a bare `.graph-trace-note` with none of its
   // intended emphasis. A real class with real tokens, per DESIGN.md.
-  const storyBtn = document.createElement("button");
-  storyBtn.className = "graph-trace-note story-mode-btn";
-  setLabel(storyBtn, "ph:magic-wand Generate Story from Path");
-  storyBtn.title = "Weave these notes into a cohesive narrative using the AI locally";
-  storyBtn.addEventListener("click", () => {
-    switchTab("chat");
-    sendChatMessage(
-      "Write a cohesive, publishable narrative weaving together these specific thoughts, " +
-        "and how they connect — use the connection between each step (" +
-        result.steps.map((s) => s.how).join("; ") +
-        ") as part of what ties the story together, not just the notes' own text. " +
-        "Follow the exact chronological sequence in which these notes are attached.",
-      { noteIds: graphTrace.ids, attachedNotesOnly: true }
-    );
-  });
-  header.appendChild(storyBtn);
+  //
+  //: **And it is a menu now, not one button.** It sent a single hard-coded
+  //: "write a publishable narrative" prompt, which is one good answer to a
+  //: question that has several: the same five notes and the same chain of
+  //: reasons make a different document depending on why you traced them.
+  //: `TRACE_STORY_SHAPES` holds the six, `storyPrompt` states the shared part
+  //: once, and the summary still runs the default (a narrative) on a plain
+  //: click so the one-press path nobody has to learn is unchanged.
+  const story = document.createElement("details");
+  story.className = "doc-dock-menu doc-toolbar-menu graph-trace-story";
+  //: `.doc-toolbar-menu` deliberately: it is what `clampToolbarMenu` keys on,
+  //: so this menu gets the app's viewport-fixed placement, its flip-when-there-
+  //: is-no-room and its re-place-on-scroll for free rather than growing a
+  //: fourth opinion about where a dropdown goes.
+  const storyOpener = document.createElement("summary");
+  storyOpener.className = "graph-trace-note story-mode-btn";
+  setLabel(storyOpener, "ph:magic-wand Generate from path");
+  storyOpener.title = "Build something out of this path, using the AI locally";
+  const caret = document.createElement("i");
+  caret.className = "ph ph-caret-down doc-toolbar-menu-caret";
+  caret.setAttribute("aria-hidden", "true");
+  storyOpener.appendChild(caret);
+  const list = document.createElement("div");
+  list.className = "doc-dock-menu-list";
+  for (const shape of TRACE_STORY_SHAPES) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "doc-dock-menu-item";
+    setLabel(item, `${shape.icon} ${shape.label}`);
+    item.title = shape.hint;
+    item.addEventListener("click", () => {
+      story.open = false;
+      const route = graphTraceRoutes[graphTraceIndex] || result;
+      switchTab("chat");
+      sendChatMessage(storyPrompt(shape, route), {
+        noteIds: graphTrace.ids,
+        attachedNotesOnly: true,
+      });
+    });
+    list.appendChild(item);
+  }
+  story.append(storyOpener, list);
+  header.appendChild(story);
 
   box.replaceChildren(...pieces);
 }
@@ -867,15 +1057,38 @@ function positionTraceLines() {
 function drawTrace() {
   if (!graphTraceLayer) return;
   const byId = new Map((graphNodesRef || []).map((n) => [n.id, n]));
-  const segments = !graphTrace
-    ? []
-    : graphTrace.steps
-        .map((step) => ({
-          from: byId.get(step.source),
-          to: byId.get(step.target),
-          kind: step.kind,
-        }))
-        .filter((segment) => segment.from && segment.to);
+  //: **Every route is drawn, not just the selected one.** The question a
+  //: second route answers is "is that the only way these connect?", and that
+  //: is a question about the picture: switching between routes one at a time
+  //: would never show you that there are three. The selected one is solid, the
+  //: rest are ghosted (see `.graph-path-route-*` and `.is-dimmed` in the
+  //: stylesheet), and the colour index matches the route chip's swatch, so a
+  //: line and its chip are the same route without a click.
+  //:
+  //: A segment shared by two routes is drawn twice, deliberately: the second
+  //: draw sits on top, so a shared spine reads in the selected route's colour
+  //: rather than in whichever route happened to be rendered last.
+  const routes = graphTraceRoutes.length
+    ? graphTraceRoutes
+    : graphTrace
+      ? [{ steps: graphTrace.steps }]
+      : [];
+  const segments = [];
+  routes.forEach((route, index) => {
+    if (index === graphTraceIndex) return; // drawn last, so it wins the overlap
+    for (const step of route.steps || []) {
+      const from = byId.get(step.source);
+      const to = byId.get(step.target);
+      if (from && to) segments.push({ from, to, kind: step.kind, route: index, dim: true });
+    }
+  });
+  for (const step of routes[graphTraceIndex]?.steps || []) {
+    const from = byId.get(step.source);
+    const to = byId.get(step.target);
+    if (from && to) {
+      segments.push({ from, to, kind: step.kind, route: graphTraceIndex, dim: false });
+    }
+  }
   // Arc draws the overlay as a <path> (see `tracePath`); every other layout
   // draws it as a <line>. Switching layout while a trace is active must not
   // leave the previous shape's elements behind — `.selectAll(tag)` only ever
@@ -888,9 +1101,17 @@ function drawTrace() {
     .join(isArc ? "path" : "line")
     // `.graph-path-line` already sets `fill: none` — needed for the <path>
     // case, harmless on a <line>.
-    .attr("class", (d) => `graph-path-line graph-path-${d.kind}`);
+    .attr(
+      "class",
+      (d) =>
+        `graph-path-line graph-path-${d.kind} graph-path-route-${d.route % 3}` +
+        (d.dim ? " is-dimmed" : "")
+    );
   positionTraceLines();
   if (graphNodeSelection) {
+    //: Only the *selected* route's notes are marked "on path". The other
+    //: routes are visible as lines; lighting up their notes too would make
+    //: half the map look traced and undo the point of highlighting anything.
     const onPath = new Set(graphTrace ? graphTrace.ids : []);
     graphNodeSelection.classed("graph-on-path", (d) => onPath.has(d.id));
     graphNodeSelection.classed(
@@ -2788,12 +3009,27 @@ function openGraphLinkPanel(edge, nodes) {
 // "Open" only took you to the Notes tab, where you still had to find the card
 // and click its thumbnail. Reported as "sketches don't open from the graph",
 // and that is exactly right: the one thing the note is *about* was missing.
+//: **And the same for everything that is not a picture.** Reported: "files and
+//: attachments dont render in the timeline and popups." This popup and the
+//: timeline's both filtered to `is_image` and dropped the rest, so a note
+//: whose whole point is the PDF attached to it opened a popup with nothing in
+//: it — no hint that anything was attached, which reads as the note having
+//: lost the file. `fileCard` is the app's own control for an attached file
+//: (the note cards, the chat transcript and the widgets all use it); this
+//: surface was the one place a file did not appear at all.
 function renderGraphPopupMedia(entry) {
   const box = $("graph-popup-media");
   box.replaceChildren();
-  const images = (entry.attachments || []).filter((a) => a.is_image);
-  box.classList.toggle("hidden", images.length === 0);
-  if (!images.length) return;
+  const all = entry.attachments || [];
+  const images = all.filter((a) => a.is_image);
+  const files = all.filter((a) => !a.is_image);
+  box.classList.toggle("hidden", all.length === 0);
+  if (!all.length) return;
+  for (const attachment of files) {
+    box.appendChild(
+      fileCard(attachment.filename || attachment.name || "", attachment.url || `/files/${attachment.id}`)
+    );
+  }
   for (const attachment of images) {
     const img = document.createElement("img");
     img.className = "graph-popup-thumb";
@@ -2815,6 +3051,10 @@ function renderGraphPopupMedia(entry) {
     });
     box.appendChild(img);
   }
+  //: A file card is a block with height, and this popup is placed against its
+  //: own — the image path already re-places once the bytes land, and the cards
+  //: need the same or the popup hangs off the edge of the map.
+  placeGraphPopup();
 }
 
 // Clamp the popup inside the graph box. Called on open and again once the
@@ -2872,12 +3112,22 @@ function renderGraphPopupActions(entry) {
   const box = $("graph-popup-actions");
   box.replaceChildren();
 
-  box.appendChild(
-    //: One glyph in both states, coloured when it is on — the note cards'
-    //: own rule, and for the reason `favouriteButton` (app.js) records: the
-    //: "off" version used a *different icon*, and one of those was missing
-    //: from the font and drew nothing at all.
-    smallButton("ph:star", entry.pinned ? "Remove from Favourites" : "Add to Favourites", async () => {
+  //: One glyph in both states, coloured when it is on — the note cards'
+  //: own rule, and for the reason `favouriteButton` (app.js) records: the
+  //: "off" version used a *different icon*, and one of those was missing
+  //: from the font and drew nothing at all.
+  //:
+  //: It also carried **no label**, reported directly with a screenshot of
+  //: this grid: eight cells read "Grow", "Focus", "Similar", "Link",
+  //: "Trace", "Remind", "Open", "Bin", and the ninth was a bare star. In a
+  //: labelled grid an unlabelled cell does not read as "the icon says it
+  //: all", it reads as *text that failed to render* — the whole row of
+  //: siblings is the context that makes it look broken. So it is worded
+  //: like the rest, and the wording carries the state the colour carries.
+  const favourite = smallButton(
+    entry.pinned ? "ph:star Favourited" : "ph:star Favourite",
+    entry.pinned ? "Remove from Favourites" : "Add to Favourites",
+    async () => {
       await apiJson(`/entries/${entry.id}`, {
         method: "PUT",
         body: JSON.stringify({ pinned: !entry.pinned }),
@@ -2886,8 +3136,11 @@ function renderGraphPopupActions(entry) {
       closeGraphPopup();
       await loadEntries().catch(() => {});
       renderGraph();
-    })
+    }
   );
+  favourite.classList.toggle("is-favourite", Boolean(entry.pinned));
+  favourite.setAttribute("aria-pressed", String(Boolean(entry.pinned)));
+  box.appendChild(favourite);
   box.appendChild(
     smallButton("ph:plant Grow", "Add a new note linked to this one", (event) =>
       openGraphNewNote(event, entry.id)

@@ -8,6 +8,32 @@
    One rule per level, stated here, with the difference carried by weight and
    colour as well as by size. Two sizes 0.08rem apart cannot do the job on
    their own — that is what made the old hierarchy invisible. */
+/* Inside a head row (`.row > h2`, the shape every card title with an action
+   beside it uses) the title's own margin is dropped: the row spaces itself.
+   Measured before this, the same title row was 28, 38 and 40px tall across
+   Notes, Library and Reminders because some h2s kept the margin below and
+   some did not. */
+.card .row > h2,
+.card .row > h3 {
+  margin-block: 0;
+}
+
+/* **A card's head row wraps rather than crushing its own controls.**
+   Measured on Notes → Capture: the control cluster beside "Capture a thought"
+   needed 218px and was given 188, so the card scrolled sideways -- reported as
+   "there's a horizontal scrollbar on the notes tab capture subtab". A flex
+   item's automatic minimum size does not protect a nested `.row`, and the head
+   row was `nowrap`, so there was nowhere for the extra 30px to go. Wrapping is
+   the right answer for a title-plus-actions row: on a narrow window the actions
+   drop to their own line instead of the page growing a scrollbar. */
+.card > .row.space-between {
+  flex-wrap: wrap;
+}
+
+.card > .row.space-between > .row {
+  flex: 0 0 auto;
+}
+
 .card h2 {
   margin: 0 0 var(--space-5);
   font-size: var(--text-body);
@@ -17,10 +43,25 @@
 
 .card h3 {
   margin: var(--space-6) 0 var(--space-3);
-  /* A subsection is a label for what follows, not a title competing with the
-     card's own. Small caps carry that distinction, which frees the size to go
-     *down* rather than needing another step between h2 and h3 — two sizes
-     0.08rem apart was what made the old hierarchy invisible. */
+}
+
+/* **The eyebrow — one recipe.** A subsection is a label for what follows,
+   not a title competing with the card's own. Small caps carry that
+   distinction, which frees the size to go *down* rather than needing
+   another step between h2 and h3 — two sizes 0.08rem apart was what made
+   the old hierarchy invisible.
+
+   Measured across every tab and Settings page: the app had two of these.
+   Card and settings-group `h3`s (30 of them) at 12px/600/0.04em, and the
+   Settings nav's group labels plus the dashboard's "Start something" /
+   "Jump to" (26) at 11.2px/700/0.06em with a 0.75 opacity on top — the
+   same job, two voices, and the second one fainter for no reason anyone
+   could name. `.eyebrow` is the class for a new one; the two `p` labels
+   are listed here so their own rules only have to say where they sit. */
+.card h3,
+.eyebrow,
+.nav-group-label,
+.launch-label {
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--muted);
@@ -198,7 +239,6 @@ input[type="datetime-local"] {
   background: var(--input-bg);
   color: var(--ink);
   resize: vertical;
-  backdrop-filter: blur(8px);
   /* Part of the same report as button.ghost's own surface ("controls feel
      like shapes with text in them"): measured, a text field and a ghost
      button rendered with the *same* recipe — translucent fill, one hairline
@@ -354,21 +394,31 @@ button:disabled {
    a button and a label both read as barely-there flat text with the
    faintest outline — nothing said "press me". A dedicated, slightly
    stronger pair of tokens (not the shared chip ones, so actual tag/filter
-   chips elsewhere don't inherit this) plus a real --shadow-sm gives it the
-   lifted-surface look a button needs without changing its size or the
-   spacing scale test cares about. */
+   chips elsewhere don't inherit this) gave it the presence a button needs
+   without changing its size or the spacing scale test cares about.
+
+   **This is the tonal tier of the button ramp** (DESIGN.md → Buttons):
+   filled (accent, one per view) > tonal (this: a tint, no edge, no shadow)
+   > plain (text only). The 1px border and the --shadow-sm that the fix
+   above added are gone again, on purpose and with the fill raised a step
+   to pay for them: measured on the Notes tab, 22 of these sat in one
+   toolbar, each drawing its own hairline and drop shadow next to bordered
+   fields and a bordered card -- the same three-lines-deep texture the
+   surface tiers took out of Settings. A tonal button reads as a control
+   because it is a solid shape on the pane, not because it is outlined; the
+   outline is what made it look like a field. The transparent 1px keeps
+   every height that was measured against it, and is what high-contrast
+   mode colours back in (02-chat-graph.css). */
 button.ghost {
   background: var(--ghost-btn-bg);
-  border: 1px solid var(--ghost-btn-border);
+  border: 1px solid transparent;
   color: var(--ink);
   font-weight: 500;
-  box-shadow: var(--shadow-sm);
-  backdrop-filter: blur(8px);
+  box-shadow: none;
 }
 
 button.ghost:hover {
   background: var(--ghost-btn-bg-hover);
-  border-color: var(--ghost-btn-border-hover);
 }
 
 button.small {
@@ -922,11 +972,24 @@ progress {
 }
 
 .entry-list li {
-  background: var(--inner);
-  border: 1px solid var(--border);
+  /* Tier 2 (surface tiers, 00-tokens-shell.css): a row inside a pane is a
+     tone, not a box. The card or modal around the list already draws the
+     one hairline the budget allows; a lined row inside it, holding lined
+     chips, was three nested lines. The transparent border keeps the 1px of
+     geometry that the flash/overdue/priority rules below colour in, and
+     lets high-contrast mode put the line back. */
+  background: var(--surface-2);
+  border: 1px solid transparent;
   border-radius: var(--radius-lg);
   padding: 0.6rem 0.8rem;
   margin-bottom: 0.6rem;
+}
+
+/* One tier deeper when the list itself sits inside a tinted group (Settings
+   → Import & export's backups, Account's sessions): tone on tone at the same
+   alpha would vanish. */
+.settings-group .entry-list li {
+  background: var(--surface-3);
 }
 
 /* ---- Rows: the default way a list of notes is shown --------------------
@@ -1605,11 +1668,40 @@ progress {
    this the narrower "in use" chip and the wider "Remove" button each sized
    their own column, so no two rows agreed on where either the size or the
    action began — measured at x=980/1070 on one row and 953/1042 on the next. */
-#installed-list li> :last-child {
+/* Reported: "the model button text in the settings isnt centred and has poor
+   affordance". `justify-content: flex-end` shares the column but pushes the
+   label to the right-hand edge *inside* the control, so "in use" sat against
+   the pill's right border with 2.5rem of empty pill beside it. The column is
+   what has to be fixed-width; the label inside it centres like every other
+   button's does. */
+#installed-list li > :last-child {
   flex: 0 0 5.5rem;
   display: inline-flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: center;
   margin: 0;
+}
+
+/* Affordance, same report: the two states were both grey pills, so the one
+   you can press looked exactly like the one you cannot. The chip stops
+   looking like a control (no border, no hover) and the button gains the
+   destructive tint it earns by deleting gigabytes off disk. */
+#installed-list li > .chip {
+  border-color: transparent;
+  background: var(--chip-bg);
+  color: var(--muted);
+  cursor: default;
+}
+
+#installed-list li > button {
+  border-color: var(--border);
+  color: var(--ink);
+}
+
+#installed-list li > button:hover {
+  border-color: var(--error);
+  color: var(--error);
+  background: var(--error-soft);
 }
 
 /* --- lock screen (Phase 4) ------------------------------------------------- */
@@ -1741,6 +1833,53 @@ progress {
   margin-bottom: var(--space-4);
 }
 
+/* The Links "Manage groups" dialog. Directly requested: "add buttons for
+   creating and managing groups in the links tab top dock" — before this, a
+   group could only be made by typing its name into the Add form, and renamed
+   only by editing every link in it one at a time.
+
+   Wider than `.confirm-card` because it is a list rather than a sentence, and
+   the rows carry a name, a count and two buttons. Capped and scrollable for
+   the same reason every menu in the app now is: a notebook with thirty groups
+   must not push the Done button off the bottom of the screen. */
+.bookmark-groups-card {
+  max-width: 34rem;
+  width: min(34rem, 92vw);
+}
+
+.bookmark-groups-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 50vh;
+  overflow-y: auto;
+  overflow-x: clip;
+  overscroll-behavior: contain;
+  margin-block: var(--space-3);
+}
+
+.bookmark-group-row {
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+/* Name over count, so the row reads as one item rather than two columns of
+   unrelated text — the same stacked shape `.bookmark-main` uses. */
+.bookmark-group-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.bookmark-group-row-actions {
+  flex-shrink: 0;
+  gap: var(--space-1);
+}
+
 /* Library -> Contents (§30): a hyperlinked outline grouped by category or
    tag, as a grid of bordered cards — reported as "ugly," which the first
    pass earned: plain headings and a bare link list with no containment
@@ -1777,8 +1916,13 @@ progress {
   margin: 0 0 var(--space-3);
   padding: var(--space-2) 0;
   border: 0;
-  border-bottom: 1px solid var(--border);
-  border-radius: 0;
+  /* Rounded at rest, not only on hover. Reported: "the collapsible headers in
+     the contents page are fully square and only have curved corners when
+     hovered over" -- the radius lived on the hover rule alone, so the row
+     changed shape under the pointer, and a square row with a rounded hover
+     ground reads as two different controls. The underline is gone with it: a
+     rounded row cannot also be underlined without looking like a tab. */
+  border-radius: var(--radius-md);
   background: none;
   box-shadow: none;
   color: var(--muted);
@@ -1793,7 +1937,24 @@ progress {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--card-bg);
+  /* Was `--card-bg` -- the card's own translucent tint painted a second
+     time over itself: a darker (dark) / lighter (light) rectangle behind
+     the row, reported as "hard rectangle box background colours behind
+     rows". A sticky row over a glass card is a glass strip -- the recipe
+     `.notes-subtabs` and `.library-subtabs` already use, one blurred element
+     per page. */
+  background: var(--card);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+}
+
+/* The heading is a <button>, so the "no nested blur on controls" list in
+   03-dashboard-widgets.css (`.card button`) switches its filter off; this
+   one is a sticky strip, not a control, and is the one blurred element the
+   Contents page has. */
+.card .contents-heading {
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
 }
 
 .contents-heading:hover,
@@ -2281,8 +2442,8 @@ li.link-source {
   border-radius: var(--radius-lg);
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   box-shadow: var(--glass-shadow);
 }
 
@@ -2327,8 +2488,8 @@ mark.global-find-hit.global-find-current {
   border-radius: var(--radius-lg);
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   box-shadow: var(--glass-shadow);
 }
 
@@ -2433,6 +2594,18 @@ mark.global-find-hit.global-find-current {
   background: var(--modal-bg);
 }
 
+/* Settings alone is *fully* opaque. Its groups are a 4% ink tint over the
+   dialog (the surface tiers in 00-tokens-shell.css), and its sticky filter
+   row has to paint that same tint over the same base to hide the rows
+   scrolling under it. With the dialog at 96% the base is "the modal colour
+   plus 4% of whatever the app behind it is", which no rule can name:
+   measured on light, group 236 against row 243, a visible slab. Over an
+   opaque dialog both resolve to the one composite. Nothing is lost -- the
+   4% see-through was never legible over the blurred app anyway. */
+#settings-modal .modal-card {
+  background: var(--modal-bg-opaque);
+}
+
 .modal-body {
   display: grid;
   grid-template-columns: 160px 1fr;
@@ -2472,15 +2645,10 @@ mark.global-find-hit.global-find-current {
 }
 
 /* Group labels: quiet enough to scan past, clear enough to orient by. */
+/* Type comes from the eyebrow recipe at the top of this file. */
 .nav-group-label {
   margin: 0.8rem 0 0.15rem;
   padding: 0 0.8rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
-  opacity: 0.75;
 }
 
 .nav-group-label:first-child {
@@ -2760,8 +2928,8 @@ html.modal-open body {
   background:
     linear-gradient(120deg, var(--accent-soft) 0%, transparent 55%),
     var(--card);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   box-shadow: var(--glass-shadow);
 }
 
@@ -3242,8 +3410,22 @@ html.modal-open body {
    belongs — inline, immediately after the last word — and `:not(:has(*))`
    keeps the plain-text case working for a container with no element children
    at all. */
+/* **And one level deeper for a list, which is where it kept landing.**
+   Reported: "the writing cursor dot in the chat is on then line below and
+   doesnt actually move". `> :last-child` is right when the answer ends in a
+   paragraph and wrong when it ends in a `<ul>` or `<ol>`: the pseudo-element
+   is then the *list's* last child, after the final `<li>`, so it starts a row
+   of its own under the bullets -- the same shape the comment above describes
+   for the container, one level down. Answers end in a list constantly (every
+   "here are the steps" answer does), which is why this read as the caret
+   simply being in the wrong place.
+
+   Two levels is the whole ladder: markdown from this app never nests deeper
+   than list > item before running out of block containers to end on. */
 .is-streaming:not(:has(*))::after,
-.is-streaming > :last-child::after {
+.is-streaming > :last-child:not(:is(ul, ol, blockquote))::after,
+.is-streaming > :last-child:is(ul, ol) > li:last-child::after,
+.is-streaming > :last-child:is(blockquote) > :last-child::after {
   content: "\200b";
   display: inline-block;
   width: 0.5rem;
@@ -3906,7 +4088,6 @@ select {
 .contents-heading:hover,
 .contents-heading:focus-visible {
   background: var(--chip-bg);
-  border-radius: var(--radius-md);
 }
 
 /* --- one gap under every card heading ---------------------------------------
@@ -4134,4 +4315,229 @@ select {
 .contents-folder-hint {
   margin: 0 0 var(--space-4);
   font-size: var(--text-sm);
+}
+
+/* ============ SETTINGS: one control height, one right edge ================
+   Reported: "all the settings pages ui needs refining, aligning, made
+   consistent". Measured first — the sampling row alone rendered a 16px
+   slider, a 36px number box and a 28px reset button side by side, and
+   buttons across the panel came in three heights depending on which class
+   they happened to carry.
+
+   Switches and sliders are deliberately exempt: a pill switch is 32x18 by
+   the app-wide recipe (06-timeline-dialogs.css) and a range input draws its
+   own track. Everything else that is a control gets the same 2.25rem box,
+   the same height DESIGN.md's control rule gives the toolbars.
+
+   **Regression this rule caused, and the exclusion list that fixes it.**
+   Reported: "the palette ui is broken and elements overlap and clash".
+   `.theme-card` is a `<button>`, and a palette card is a *column* of a
+   title plus two lines of description -- about 90px of content. Pinning it
+   to 36px did not clip it (nothing here sets `overflow: hidden`); it made
+   the card's border box shorter than its own text, so every card's
+   description spilled over the card below it and the whole grid read as
+   overlapping rectangles. The same shape would hit any card, tile or
+   swatch that happens to be a button.
+
+   So the rule applies to *controls*, not to cards. Matching on the
+   substring rather than naming each class is deliberate: it is what stops
+   the next `something-card` button added to Settings from re-breaking the
+   grid, and a control is never named "card" or "tile" in this codebase.
+
+   Square controls are excluded for the same reason in the other direction.
+   Reported: "the 'keep this on the ai' '?' tooltip button is also an oval".
+   `.setting-hint-toggle` already declares 2rem x 2rem, but this rule is an
+   id plus a class plus an element, so its height won every time and left a
+   32x36 pill where a circle belongs. An icon-only button, a help dot and a
+   hint dot all size themselves; a fixed row height is not theirs to set. */
+#settings-modal .settings-section button:not([class*="card"]):not([class*="tile"]):not([class*="swatch"]):not([class*="preview"]):not(.icon-only):not(.icon-button):not([class*="help"]):not([class*="hint"]):not(.linklike),
+#settings-modal .settings-section select,
+#settings-modal .settings-section .select-opener,
+#settings-modal .settings-section summary,
+#settings-modal .settings-section input[type="text"],
+#settings-modal .settings-section input[type="search"],
+#settings-modal .settings-section input[type="number"],
+#settings-modal .settings-section input[type="password"],
+#settings-modal .settings-section input[type="url"] {
+  height: 2.25rem;
+  min-height: 0;
+  padding-block: 0;
+  box-sizing: border-box;
+}
+
+/* A fixed height and a wrapping label cannot both be right. Reported with a
+   screenshot of the About page: "Restart MemoryMap" and "Reload the app"
+   each broke onto two lines inside a 36px box, so the second line sat over
+   the button's own bottom border. Widening is the correct give here -- these
+   rows wrap, so a wider button moves to the next line instead of pushing
+   anything off screen, and a two-line label in a control strip was never the
+   intended look. */
+#settings-modal .settings-section button:not([class*="card"]):not([class*="tile"]):not([class*="swatch"]):not([class*="preview"]):not(.linklike),
+#settings-modal .settings-section summary {
+  white-space: nowrap;
+}
+
+/* And nothing inside a card wraps by that rule either. Reported: "the palette
+   ui is still broken and text overflows". `nowrap` was added to stop a
+   two-word *control* label breaking onto a second line inside a fixed-height
+   box; a palette card is a paragraph, so the same declaration ran its
+   description off the side of the card and straight through the two cards
+   beside it. A card's text wraps -- that is what a card is. */
+#settings-modal .settings-section [class*="card"],
+#settings-modal .settings-section [class*="card"] * {
+  white-space: normal;
+}
+
+/* A range input has no box of its own to size, so it is centred against the
+   controls beside it rather than stretched to match them. */
+#settings-modal .settings-section input[type="range"] {
+  align-self: center;
+}
+
+/* Rows in this panel line their controls up on one axis instead of each
+   row centring its own contents differently. */
+#settings-modal .settings-section .row {
+  align-items: center;
+}
+
+/* Reported: "the elements have no gap between them", with the search-relevance
+   block as the example. `.row` sets a *column* gap only, so two stacked rows
+   sit flush and read as one crowded block -- three controls with no air
+   between them, which is what makes a settings panel look unformatted even
+   when every control in it is the right size.
+
+   **On the row itself, not between adjacent rows**, and that is the whole
+   point. `.row + .row` was the first version and it caused its own report: "a
+   gap only appears under the search relevance advanced '?' button when it is
+   active". The help panel is a `<p>` sitting between two rows, and opening it
+   lifts it to `<body>` (wireHelpPopover) -- so the two rows became adjacent,
+   `+` started matching, and 8px appeared out of nowhere the moment you asked
+   for help. A margin that does not depend on what is or is not between two
+   elements cannot do that. */
+#settings-modal .settings-section .row {
+  margin-top: var(--space-3);
+}
+
+#settings-modal .settings-section .row:first-child {
+  margin-top: 0;
+}
+
+/* A label-then-control row needs its controls to share a left edge, or the
+   inputs start wherever each label happens to end -- measured at x=320 and
+   x=372 on the two rows of this block, which is the ragged edge in the
+   report's screenshot. */
+#search-relevance-group .row > label {
+  flex: 0 0 var(--form-label-col-wide);
+}
+
+#search-relevance-group .row > input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ============ SETTINGS: spacing, hierarchy and proximity =================
+   Reported: "fix the spacing between the ai answer style and search relevance
+   advanced section... and fix the spacing headings hierarchy alignment sizing
+   and proximity across the rest of the settings pages", plus two specifics --
+   the Effects & Accessibility toggles clashing, and the backup rows' buttons
+   being different heights with an off-centre glyph.
+
+   The organising idea is proximity: things that belong together sit closer
+   than things that do not. Before this, a sub-heading was the same distance
+   from the control above it as from the one it introduces, which is what makes
+   a settings page read as an undifferentiated stack however well each row is
+   drawn on its own. */
+
+/* A heading is close to what it heads and far from what came before. */
+#settings-modal .settings-group h3,
+#settings-modal .settings-group h4 {
+  margin: var(--space-6) 0 var(--space-3);
+  line-height: 1.3;
+}
+
+#settings-modal .settings-group > h3:first-child,
+#settings-modal .settings-group > h4:first-child {
+  margin-top: 0;
+}
+
+/* A sub-section that starts with its own header row rather than a bare
+   heading -- Search relevance is the one the report names -- needs the gap on
+   the wrapper, since its heading is a grandchild and the rule above cannot
+   reach across the row it sits in. */
+#settings-modal .settings-group > .flash-target,
+#settings-modal .settings-group > .settings-subgroup {
+  margin-top: var(--space-6);
+}
+
+#settings-modal .settings-group > .flash-target > .row:first-child h3 {
+  margin-top: 0;
+}
+
+/* The hint under a heading belongs to it, so it sits tight underneath and the
+   next control keeps its distance. */
+#settings-modal .settings-group h3 + p.muted,
+#settings-modal .settings-group h4 + p.muted,
+#settings-modal .settings-group .setting-subhead + p.muted {
+  margin-top: calc(var(--space-2) * -1);
+  margin-bottom: var(--space-4);
+}
+
+/* Two switch rows are two settings, not one block. Reported with a screenshot
+   of Effects & Accessibility, where the pair rendered as a single bordered
+   slab because their borders met exactly. */
+#settings-modal .setting-check + .setting-check,
+#settings-modal .check-row + .check-row {
+  margin-top: var(--space-2);
+}
+
+/* The backup rows' two buttons share one height, and the icon-only one is a
+   square of that height rather than whatever its glyph happens to measure.
+   `.entry-actions button` shrinks both to 0.8rem text with 0.15rem padding,
+   which gives a wide "Restore" and a small "x" that do not line up. */
+#backup-list .entry-actions {
+  align-items: center;
+  gap: var(--space-2);
+}
+
+#backup-list .entry-actions button {
+  /* 2.25rem, matching the panel's one control height above rather than
+     picking a second one here -- that rule's `:not()` chain out-specifies
+     anything shorter this rule could say, so a smaller number would only
+     apply to the icon-only button and re-create the mismatch it is fixing.
+     Measured before: Restore 70x36 beside a 30x30 "x". */
+  height: 2.25rem;
+  padding-block: 0;
+  font-size: var(--text-md);
+  line-height: 1;
+}
+
+#backup-list .entry-actions button.icon-only {
+  width: 2.25rem;
+  padding-inline: 0;
+}
+
+/* A link inside a sentence is not a control, whatever element it is made of.
+   Reported with a screenshot: "fix the padding of hyperlinked text" -- the
+   "Settings -> Appearance" link in Preferences rendered inside a 36px bordered
+   pill with the words vertically centred in it. `.linklike` is a <button>, so
+   the one-control-height rule above and `.settings-group .row button` both
+   dressed it as a button; the `:not(.linklike)` exclusions above stop the
+   height, and this restates the rest at a specificity nothing in Settings
+   beats. It flows inline with its sentence, wraps with it, and carries the
+   same underline treatment `.linklike` has everywhere else. */
+#settings-modal .settings-section button.linklike,
+#settings-modal .settings-group .row button.linklike {
+  display: inline;
+  height: auto;
+  min-height: 0;
+  padding: 0 0.1em;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  white-space: normal;
+  line-height: inherit;
+  font-size: inherit;
+  vertical-align: baseline;
 }

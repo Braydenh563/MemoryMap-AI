@@ -5,6 +5,60 @@ based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows a "waves and phases" development history (see the milestones
 below). Versioning is `0.x` while the app stabilises.
 
+## [0.2.2] — 2026-09-07
+
+A bug-fix and consistency release, from one long round of live reports.
+
+### Fixed
+- **The formatting-toolbar dropdowns rendered as transparent, block-flow
+  text.** The previous release's hide-until-placed fix for menu flicker split
+  the rule wrongly, leaving the menu's whole appearance (flex column, padding,
+  border, background, shadow) behind the `.is-placed` class — and because the
+  placement code gives up when a menu measures 0x0, that class was then never
+  added. Self-sealing, and it affected every `<details>` menu in the note
+  capture, note edit and document toolbars.
+- **Turning the background librarian off did not stop the pass already
+  running** — nor did battery-saver mode. Both now request a stop, which the
+  pass honours at its next checkpoint instead of finishing first.
+- **Agent-activity notices ignored both the mute switch and "Panel only"**
+  whenever they carried an error. The notifications centre records them
+  either way, so nothing is lost by not interrupting.
+- **A PDF read page by page showed "No text yet" everywhere outside the OCR
+  workspace.** The per-page readings are now joined into the file and media
+  list responses, in page order, with a whole-file reading still winning.
+- **Chat: scrolling up left the pane stuck** with the answer cut off until
+  "Jump to latest" was clicked — `scroll-behavior: smooth` on a pane written
+  to every frame turned each auto-scroll into an animation competing with the
+  wheel.
+- **Chat: every finished answer step kept its blinking caret** during an agent
+  run, and the caret sat on a line of its own whenever an answer ended in a
+  list.
+- **The spaces switcher in the top bar was shorter than everything beside
+  it** — 28px against 36px for the tabs and the five icon buttons.
+- **The whiteboard's view dropdown had a horizontal scrollbar**, and long
+  dropdown menus could run off the bottom of the window instead of scrolling.
+  Every popover menu is now capped to the window height and scrolls inside
+  itself.
+- **A horizontal scrollbar on Notes → Capture**: measured at three widths as
+  exactly the scrollbar's own width of phantom overflow, plus a head row that
+  crushed its own controls by 30px.
+- **Model names in badges were clipped at both ends** (centred flex text
+  cannot ellipsis) and carried their `hf.co/` registry prefix.
+- **The OCR model never showed as "in use"** in the installed-models list.
+- **Document line numbers drifted** against a soft-wrapping code pane.
+- The selection tick was hidden under the page render on Files rows in
+  preview view; sticky rows painted a hard rectangle over their own card.
+
+### Changed
+- Tab indents four spaces where a file type has no convention of its own.
+- Zoom feedback is a HUD, not a notification, so muting no longer hides it.
+- One menu shell app-wide, matched to the note-card kebab menu.
+- Stop buttons all carry the stop icon and the error colour.
+- Tighter shell: one `--page-gutter` (ceiling 24px → 18px) for the page edge,
+  the sidebar gap and the top, and one gap under both sub-tab strips.
+- Surface tiers and a border budget, one button ramp, one eyebrow recipe —
+  see `docs/roadmap/UI_MODERNISATION_PLAN.md` for what remains.
+
 ## [Unreleased]
 
 `__version__` and `pyproject.toml` are both `0.2.1`, and a sweep of every
@@ -15,6 +69,36 @@ the bump, not everything it implies — a fuller reconciliation against the
 intervening commits is still owed.
 
 ### Added
+- **Groups for saved links, with buttons to make and manage them.** The Links
+  sub-tab's top dock now has **New group** and **Manage groups**. Renaming a
+  group moves every link in it; deleting one keeps the links and simply
+  ungroups them. A group you make before filing anything into it is remembered
+  until a link lands there.
+- **Document history.** Every version a document has had, with who changed it,
+  how many words it gained or lost, the opening of that version, and a way to
+  read or restore any of them. A stretch of editing coalesces into one entry
+  rather than one per autosave, so the list reads as sittings rather than
+  keystrokes. Restoring keeps the version it replaced.
+- **Ask the notebook about itself.** "What are my most common tags", "which
+  categories have the most notes", "how many notes have no tags", "which are my
+  most linked notes", "when do I write most" are counted from your data rather
+  than generated — exact, instant, and answered with no AI model running at all.
+  Private and binned notes are never counted.
+- **"Ask the AI for wordings"** in the document suggestion menu: where the
+  built-in checks have no mechanical fix, the local model offers two or three
+  alternative phrasings to pick from. Nothing changes until you choose one.
+- **OCR readings are kept.** A page read is stored as it completes, so a read
+  that finishes after you close the workspace is still there when you come
+  back, and a range read that is interrupted keeps the pages it managed.
+- **The OCR reader picker offers both AI readers** where a machine has two
+  different models — a dedicated document reader and a general vision model —
+  instead of one option named after whichever it happened to resolve.
+- **Mark a notification unread**, per row, plus "Mark all read".
+- **"Edit document"** on a previewed document in the lightbox.
+- **A "Still writing" pill** in Chat when you scroll away from a live answer,
+  doubling as jump-to-latest.
+- **Double-tap the chat composer's resize corner** to reset it to the automatic
+  height.
 - **Help → "Ask the guide"**, a small embedded AI chat for "how do I…"
   questions about the app itself. Answers with the utility model, grounded
   in a fixed set of reference notes (`ai/help_chat.py`'s `HELP_TOPICS`) so a
@@ -42,8 +126,90 @@ intervening commits is still owed.
   of several seconds that could not be cancelled and showed up in that panel
   nowhere, so closing the workspace mid-read left no sign the app was still
   working.
+- **Inline AI in the document editor.** `/ai` in the "/" menu, Ctrl+J, and a
+  wand in the selection bar open a small bar at the caret instead of a side
+  panel: type an instruction, the answer replaces the selection (or writes at
+  the cursor) and lands *selected*, with Keep / Try again / Undo underneath.
+  No new endpoint — the existing `POST /documents/{id}/ai-edit`.
+- **Several routes between two notes, not just the best one.** The graph's
+  Trace panel now finds up to three genuinely different, loopless routes
+  (Yen's K-shortest paths) and draws all of them at once, each in its own
+  colour, with switchable chips above the readout.
+- **"Generate story from path" is a menu of six shapes** — narrative,
+  explainer, timeline, argument, teaching notes, short brief — instead of one
+  fixed prompt.
+- **The Files sub-tab is a reading list.** Every file tile carries a
+  "Read · N words" / "Not read" badge and a primary "Read this" / "Open
+  reader" button, plus a Read/Not-read filter.
+- **The OCR workspace finds its own siblings and switches between them.** An
+  Images/Files/Pages switch above the rail, and every entry point (including
+  the lightbox, which previously opened to an empty rail) now populates it.
+- **Sections without Tesseract.** A stored reading is split into typed blocks
+  (heading/list/table/code/text, read off their own shape) instead of one
+  whole-page fallback region, and each region shows which page and section it
+  came from.
+- **Delete a stored OCR reading**, not just overwrite it by reading again —
+  `DELETE /{files,media}/{id}/page-reads/{page}` plus a "Delete this reading"
+  action in the workspace. Redo already worked (a re-read replaces the stored
+  answer); its button now says so.
+- **Ask the notebook about itself, in more ways, and past a typo.** Word
+  count, longest notes, notes gone stale, and which tags keep turning up
+  together — and every question now survives a misspelling ("catagories",
+  "docuemnts") against a small fixed vocabulary, transpositions included.
+- **Undo for deleting a document.** The one permanent loss left in the app —
+  notes, chats, files and boards were all recoverable, a document was not.
+  All four delete doors now offer Undo.
+- **A refresh button on the Your Notes sub-tab**, matching the one every
+  other Library list already had.
+- **A "Read · N words" badge on chat images that have been OCR'd.** The
+  caption already showed under the thumbnail; the vision-OCR/Tesseract
+  reading was resolved by the backend the whole time but nothing in the
+  bubble said it existed. Clicking the badge opens the same lightbox the
+  picture itself does.
+- **`read_file` can target a search term.** A new optional `query` argument
+  returns the text around where it actually appears instead of only the
+  first ~2000 characters — a multi-page scan's later pages were previously
+  unreachable through this tool no matter how precisely `search_files` had
+  already located the match. `list_documents`'s search preview and
+  `get_document`'s no-embedding-backend fallback got the same fix.
 
 ### Fixed
+- **The chat sidebar never marked the open conversation.** A `null` passed as
+  the highlight terms threw inside the Sources panel, which aborted
+  `openConversation` before it repainted the sidebar — the click worked, the
+  transcript rendered, and an unrelated null check stopped the row from ever
+  being marked. A third of each row was also dead to clicks, and the mark it
+  would have got was a 3px bar and a 13% tint.
+- **The chat header's model name opened its panel off the bottom of the
+  window** — `position: absolute` with no positioned ancestor put it at (0, 905)
+  in a 900px viewport, which is indistinguishable from a control that does
+  nothing.
+- **A page read that finished after the OCR workspace was closed was lost**,
+  even though the app announces such reads as background tasks precisely so the
+  window can be closed.
+- **The OCR picker and the OCR reader disagreed about which model would run.**
+- **The gallery's per-image select checkboxes could not be clicked** — the
+  actions row above them stretched across the tile and swallowed every click.
+- **The lightbox could not be dismissed by clicking beside the picture**, and
+  its close button was covered by the content column on taller documents.
+- **The streaming indicator froze and, on a long answer, vanished.** Its
+  animation timer destroyed itself the first time the live turn was re-parented,
+  and one beat in four of the reduced-motion cycle lit nothing at all.
+- **Nineteen buttons drew a typed character where an icon belonged**, and
+  eleven more had no gap between icon and label. Two lint tests now refuse both.
+- **Twenty-five icon-only buttons were rectangular**, including nine popup close
+  buttons measured at 43.6x28.
+- **The formatting toolbar's dropdowns un-clipped the whole toolbar**, spilling
+  every control past the panel edge.
+- **Files and attachments did not render in the timeline or graph popups** —
+  both filtered to images and dropped everything else.
+- **The dashboard greeting could call you by a misspelt or invented name.**
+- **The note cards' ⋯ glyph sat above centre**, drawn as a typed character
+  where the app's other ⋯ builder uses the icon font.
+- **Deleting a document failed** once it had a history, on a foreign key.
+- **Restoring a document version restored the wrong text** — the snapshot taken
+  first coalesced into the very revision being restored. Caught by a test
+  before it shipped.
 - **Short background AI jobs were invisible.** The status loop idles at 10s
   (120s in a hidden tab) and can only announce a job it has seen in a
   `/tasks` payload, so an image caption — often shorter than that gap —
@@ -67,6 +233,22 @@ intervening commits is still owed.
   together.
 - **Attached non-image files rendered as nothing** in dashboard widget note
   lists, and the widget picker listed "On this day" twice.
+- **Toolbar dropdowns in the capture and documents toolbars opened up to
+  151px from the button that opened them**, and after that, in the top-left
+  corner of the panel — three related bugs in the same placement function,
+  in the same viewport-fixed-menu change: wrong alignment axis, no
+  containing-block correction, and a zeroed fallback on a failed measurement.
+- **The traced graph path's chips clipped from both ends** ("ting is the
+  delivery of computing se") — a flex item that could not shrink, centred in
+  its box, overflowing equally on either side; `text-overflow` on the parent
+  button never touched it.
+- **A misspelt "ask the notebook about itself" question fell through to
+  ordinary semantic search**, which is precisely the case that feature exists
+  to answer better — and one new question's own pre-filter accidentally
+  rejected it before any matcher saw it.
+- **`clampToolbarMenu`'s CodeQL-adjacent cousin**: three cyclic imports
+  (one already a CodeQL alert, two more of the same shape unreported)
+  closed and pinned by a new AST-based lint.
 
 ### Verified
 - **A real (non-Ollama) backend, driven live for the first time.** A

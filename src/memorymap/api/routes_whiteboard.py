@@ -117,6 +117,14 @@ class WhiteboardObjectData(BaseModel):
     #: panel). Images have no use for either; left `None` there.
     bg: str | None = Field(default=None, max_length=20)
     border_color: str | None = Field(default=None, max_length=20)
+    #: How the text sits in its box, and whether it is shown as rendered
+    #: markdown — asked for directly ("text alignment, font size etc", "rendered
+    #: md which is togglable in text boxes and sticky notes"). A field the
+    #: schema does not name is dropped silently by Pydantic, which is exactly
+    #: how the first attempt at this looked like a frontend bug: the toggle
+    #: flipped, the PUT succeeded, and the value came back missing.
+    align: str | None = Field(default=None, pattern="^(left|center|right)$")
+    md: bool | None = None
 
 
 class WhiteboardObjectBase(BaseModel):
@@ -210,6 +218,33 @@ def _board_filter(model, board_id: int | None):
     `is_()` is the difference between a working board and a blank one.
     """
     return model.board_id.is_(None) if board_id is None else model.board_id == board_id
+
+
+def _forget_links_to(db: Session, board_id: int | None, kind: str, item_id: int) -> int:
+    """Delete the link sketches on a board whose either end was the item just
+    deleted. Links live as sketch rows whose JSON `data` names their ends
+    (`sourceId`/`targetId` plus a `sourceKind`/`targetKind` of "node",
+    "object" or "sketch", "node" when absent); the frontend already skips a
+    link whose end is gone, so without this a deleted card left an invisible
+    orphan row behind forever. One linear pass over the board's sketches —
+    boards are hundreds of rows, not millions. Returns how many went."""
+    rows = db.scalars(select(WhiteboardSketch).where(_board_filter(WhiteboardSketch, board_id))).all()
+    gone = 0
+    for row in rows:
+        try:
+            data = json.loads(row.data or "{}")
+        except (TypeError, ValueError):
+            continue
+        if not str(data.get("type", "")).startswith("link-"):
+            continue
+        ends = (
+            (data.get("sourceId"), data.get("sourceKind") or "node"),
+            (data.get("targetId"), data.get("targetKind") or "node"),
+        )
+        if any(end_id == item_id and end_kind == kind for end_id, end_kind in ends):
+            db.delete(row)
+            gone += 1
+    return gone
 
 
 def _require_entry(session: Session, entry_id: int) -> Entry:
@@ -705,6 +740,7 @@ def delete_node(node_id: int, db: Session = Depends(get_session)) -> dict:
     # is how a client finds out its board is stale, and swallowing it left
     # ghost cards on screen until a reload.
     node = deps.get_or_404(db, WhiteboardNode, node_id, "Node not found")
+    _forget_links_to(db, node.board_id, "node", node.id)
     db.delete(node)
     db.commit()
     return {"status": "ok"}
@@ -740,6 +776,7 @@ def update_sketch(
 @router.delete("/sketches/{sketch_id}")
 def delete_sketch(sketch_id: int, db: Session = Depends(get_session)) -> dict:
     sketch = deps.get_or_404(db, WhiteboardSketch, sketch_id, "Sketch not found")
+    _forget_links_to(db, sketch.board_id, "sketch", sketch.id)
     db.delete(sketch)
     db.commit()
     return {"status": "ok"}
@@ -817,6 +854,7 @@ def update_object(
 @router.delete("/objects/{object_id}")
 def delete_object(object_id: int, db: Session = Depends(get_session)) -> dict:
     obj = deps.get_or_404(db, WhiteboardObject, object_id, "Object not found")
+    _forget_links_to(db, obj.board_id, "object", obj.id)
     if obj.kind == "image":
         # The only thing that ever pointed at this file — best-effort, the
         # same rule `_hard_delete` already follows for an attachment's own

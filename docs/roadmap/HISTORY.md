@@ -6180,3 +6180,276 @@ tests in `test_providers.py`. Switched back to `ollama` afterward, verified
 stand-in server never sent one, so that half of the caveat is unchanged.
 CLAUDE.md's own standing caveat and ROADMAP.md's opening paragraph are
 updated to say precisely this, not more.
+
+## §115 — Links gets group controls, and one control in the top bar catches up
+
+Two live reports, both small, both worth recording for the shape rather than
+the fix.
+
+**"Add buttons for creating and managing groups in the links tab top dock."**
+The Links sub-tab has always had groups — you type a name into the Add form
+and a filter chip appears — but no way to make, rename or retire one. The
+dock now carries **New group** and **Manage groups**. Rename moves every link
+carrying the name (one `PUT /bookmarks/{id}` each, sequentially, because that
+is the only endpoint there is); delete keeps the links and only clears the
+name, since conflating "tidy up my groups" with "delete my bookmarks" would
+make a housekeeping button destructive by surprise.
+
+**The thing to know before extending this**: *a group is a name on a
+bookmark, not a row in a table.* `routes_bookmarks.py` stores `group_name` as
+a plain string field and the chips are derived from whatever names the
+current links happen to carry. That model is good — nothing to
+garbage-collect — but it has one hole: an empty group cannot exist
+server-side, so "New group" would create something that vanished on the next
+render. The placeholder is remembered in `localStorage`
+(`library-links-empty-groups`) until a link lands in it, and pruned the
+moment the derived name becomes real. That is a patch over the hole, not a
+pattern to copy; a real group entity is the honest fix if grouping ever grows
+teeth (colours, ordering, nesting, sharing).
+
+Measured in Chromium end to end: renaming "Work" moved both its links and the
+chips followed; deleting "Reading" left every link in place with an empty
+group; a new empty group appeared as a chip, in the datalist, and pre-filled
+into the Add form. At 1280x620 with fifteen groups the dialog fits on screen,
+its list scrolls (838/310) and the footer stays visible.
+
+**"The spaces combobox in the top bar isn't the same height as the buttons on
+the other side."** Measured: 28px against 36px for the five icon buttons, the
+divider and the tab strip. `--header-control-h` is the token the whole bar
+reads, but the rule that applies it is `.header-controls > button` — and the
+switcher is not in `.header-controls`, it sits in its own `.space-switcher`
+wrapper on the opposite side. So it silently fell back to `button.small`'s
+28px floor. **The shape worth remembering**: a design token only reaches what
+a selector hands it to, so a control moved out of the container the rule names
+loses the token without anything failing. Verified 36px at five widths and all
+three densities, identical to every other control in the row.
+
+A sweep for the same defect across every tab's toolbars found one other
+height mismatch, and it is deliberate: `#search-help` is a 32px circle beside
+38px controls, already argued for in a comment in `00-tokens-shell.css`.
+Left alone.
+
+## Retired from the live files, 2026-09-07
+
+By direct instruction ("make sure nothing that is already built is still in the roadmap and backlog unless it isnt finished"): every item ROADMAP.md and BACKLOG.md themselves marked done, built or closed, moved here verbatim so the live files hold only open work.
+
+### From ROADMAP.md
+
+1. ~~Retrieval is single-shot and similarity-only.~~ **Already hybrid.**
+   `_rank()` calls `_fuse()` — reciprocal rank fusion over the semantic and
+   keyword result lists — labelling the result `"hybrid"`, wired into
+   `_retrieve()` (every chat/ask question's own retrieval path). Re-ranking
+   and query expansion beyond this are the only parts still genuinely open.
+
+### From ROADMAP.md
+
+2. ~~The graph is not used for retrieval.~~ **Already used, and now weighted.**
+   `graph_expansion()` walks linked neighbours of the top hits (and a
+   second, weaker hop — ROADMAP item 33, `GRAPH_EXPANSION_HOP2_LIMIT`) and
+   is called from `_retrieve()`. §87.5's first slice — `link_type`/
+   `reason_confidence` weighting, via the shared `link_strength()` — now
+   makes this walk *smarter*: which neighbours survive the hop-count limit
+   is a real decision (strongest first) rather than database insertion
+   order. §87.5's own text below has the full narrative and what's still
+   genuinely open past this slice.
+~~3. **Memory is a surface, not a system.**~~ **Checked directly — already
+   built, this claim was stale.** Full narrative: HISTORY.md §100.
+~~4. **No token accounting per stage.**~~ **Built.** Full narrative:
+   HISTORY.md §100.
+
+### From ROADMAP.md
+
+5. ~~The prose rules are deliberately shallow~~ **Closed.** A "Check with AI"
+   button in the suggestions panel hands the whole document to the chat with a
+   prompt asking for exactly what the local rules cannot judge — its/it's,
+   agreement, tense, tone, clarity — as a numbered list of issues rather than a
+   silent rewrite. On request, not a pass: verified it does not touch the
+   editor's own instant checks. **Not yet verified against a real model** — no
+   Ollama in this sandbox — only that the composer receives the right prompt
+   (same gap as item 1 above).
+
+### From ROADMAP.md
+
+12. ~~**Links that are links.**~~ **Already done — corrected, not rebuilt
+    (HISTORY.md §47).** Checked before touching anything, per this file's
+    own rule — nothing here needed building.
+
+### From ROADMAP.md
+
+26. ~~**Widgets: a picker.**~~ **Already done and live-verified this
+    session (checked before building, not after) — the `dash-widgets-dialog`
+    modal (index.html), its own comment already citing "roadmap §26", was
+    merged in from elsewhere and was never re-checked against this item.**
+    Playwright: clicking "Widgets" opens the dialog with all 17
+    `DASH_WIDGETS` rows, the search box filters them, a row's Add/Remove
+    button flips the widget on the dashboard in real time (confirmed the
+    grid actually lost the card, not just the row's own label), and "Done"
+    closes it. Zero console errors. Still open, and genuinely unscoped:
+    **more widgets to fill the picker** — customisable sidebars, and note
+    view options in the Notes tab were the other two asks bundled into this
+    item and neither has a concrete list yet.
+
+### From ROADMAP.md
+
+35. ~~No vision-capable image understanding.~~ **Built** —
+    `ai/captioning.py` (background caption on upload, `POST /media/{id}/caption`
+    for a manual re-read), auto-detected vision capability plus a manual
+    override in Settings → Models (`ModelManager.resolve_vision_model`), and
+    the Library's Image Gallery already searches captions alongside OCR text
+    and filenames. Runs alongside OCR, not instead of it, exactly as this item
+    specified.
+
+### From ROADMAP.md
+
+39. ~~Passive capture~~ **Built** — see item 2 under ANALYSIS.md §60's
+    "Worth building" list, corrected there rather than twice.
+
+### From BACKLOG.md 6. OpenAI-compatible backends — **done**
+
+Built. Moved to [HISTORY.md](HISTORY.md) with the rest of the finished work;
+the number is kept here so §6 references still land somewhere sensible.
+
+### From BACKLOG.md 63. Ship a starter skills library — DONE, this claim was stale
+
+**Done.** The claim that this was outstanding was stale when it was written.
+
+### From BACKLOG.md What was built
+
+- **Metadata everywhere, not just the gallery.** `GET /media/meta/{filename}`
+  plus the lightbox asking for anything its caller did not pass. The bug was
+  never in the lightbox: caption/OCR/facts arrived as *arguments* and only
+  the gallery had a media row to pass, so the same picture showed a full
+  description in one tab and an empty panel in another.
+- **An actions bar**: zoom (buttons + wheel, 1x-6x), drag-to-pan, Fit, Copy
+  text, Save. Zoom controls hide in document mode, where they do nothing.
+- **Document preview**: `GET /media/text/{filename}` exposing the
+  `docview.extract` table that already existed for attachments, rendered as
+  real markdown (the app's own `renderMarkdown`) or as preserved-whitespace
+  code/plain, with find-in-document over the rendered text.
+- **Arrows out to the screen edges**, anchored to a new non-scrolling
+  `.lightbox-stage-wrap` rather than to the scrolling stage.
+
+### From BACKLOG.md 109.2 Text highlighting — built
+
+`==highlighted text==`, plus `==green|text==` for a named colour from a
+closed set (yellow, green, blue, pink, purple, orange). Inline markdown, not
+a new data model — the same choice `**bold**`, `~~strike~~` and `[[wiki
+links]]` already made, so a highlight is still just characters in the note's
+own `content` and needs no column, no span-range table, and works everywhere
+content already goes: search, export, and the AI's own reading of the note.
+
+It renders through the one shared `renderInlineMarkdown`, so it lights up in
+notes, documents, chat answers, the digest and link previews at once. The
+colour allowlist lives *inside the regex*, so a colour with no stylesheet
+rule cannot be typed. Uses `mark.text-highlight`, deliberately distinct from
+the bare `<mark>` that `highlightInto` emits for search matches — same tag,
+different meaning, and without the distinction a highlighted note reads as
+"this matched your search" with no search running.
+
+**Still open on this:** there is no toolbar button or keyboard shortcut for
+it, because this editor has no formatting toolbar at all — bold, italic and
+strike are all typed by hand today. A selection toolbar (see 109.4) is where
+a highlight button belongs, and would carry the colour picker with it.
+
+### From BACKLOG.md 110.1 Built
+
+- **A formatting toolbar for the Notes composer**, asked for as "a toolbar
+  like in the documents but for notes and stuff as well". Deliberately the
+  *same* `.doc-toolbar` markup, `data-md` contract and `MD_ACTIONS` table as
+  the document editor rather than a second implementation —
+  `applyMarkdown`/`wrapDocSelection` now take a target box id instead of
+  hardcoding `#doc-content`. This app already has three places that could
+  independently decide what `**` means (the doc toolbar, the "/" menu in
+  editor.js, and now this); keeping them to one table is what stops them
+  drifting into three dialects.
+- **Highlight, highlight-colour, text-colour and Remove formatting** on both
+  toolbars, plus the same actions on the selection popup.
+- **`++colour|text++`** for a foreground colour, alongside `==highlight==`.
+  Its colour is *required* in the pattern (unlike the highlight's optional
+  one) so an ordinary `++` in prose or code can never begin a match, and the
+  colour set is allowlisted inside the regex itself — a colour with no
+  stylesheet rule cannot be typed. Class names, never inline styles: this
+  app's CSP rejects those outright.
+- **The selection popup now works in text fields.** It never did, and the
+  reason was not the exclusion list: `window.getSelection()` does not see
+  inside a `<textarea>`, whose selection lives on the element as
+  `selectionStart`/`selectionEnd`. A separate `fieldSelection()` path reads
+  that. This is also where highlighting became *discoverable* — a syntax
+  nobody is told about may as well not exist, which is exactly how it was
+  reported ("I still dont know how to highlight text").
+- **Auto-captioning and auto-text-reading are switchable off** in Settings,
+  defaulting on. Two switches, not one: describing a picture is a
+  vision-model round trip and the expensive one; Tesseract is local and
+  cheap, so wanting the text without the description is a real position.
+  (Checked first, per the standing rule: OCR *already* auto-ran alongside
+  captioning — `process_committed_upload` fires all three — so the "make OCR
+  auto-run too" half of that ask needed nothing.)
+- **Bookmark editing is an inline form**, replacing two sequential
+  `promptDialog` calls. See 110.2.
+
+### From ROADMAP.md
+
+10. **The sketch pad.** ~~The highlighter at 5% opacity was effectively
+    invisible~~ **Fixed (HISTORY.md §46).** ~~A background colour for the
+    canvas~~ **Done (HISTORY.md §46)**, including a real CSS-vs-canvas-pixel
+    trap the fix hit — see there. ~~Holding Shift while drawing a shape
+    constrains it~~ **Fixed for the rect tool** (forces a square). **Still
+    genuinely open**: a
+    selection tool (clicking an existing stroke/shape to move, resize or
+    delete it; today's tools only ever draw a new one) — the sketch pad is
+    pure-raster (`ImageData` snapshots for undo, no discrete stroke
+    objects), so this needs a real architecture change, not a small patch,
+    unlike the whiteboard's own discrete-object select (item 11). The
+    toolbar redesign comes after it, not before.
+
+### From ROADMAP.md
+
+13. ~~**"Take me to the thing the agent just changed," the UI half.**~~
+    **All four kinds now done (HISTORY.md §47, §51).** Notes, documents,
+    reminders and categories each get a View button on their change row,
+    verified live end to end.
+
+### From ROADMAP.md
+
+19. **First-run onboarding.** ~~Reachability diagnostics~~, ~~pull a
+    model~~, ~~seeded example notes~~ and ~~a guided tour~~
+    (`ONBOARDING_SLIDES`, nine slides) were **already built** — found by
+    reading `frontend/app.js` first, per this file's own rule, rather than
+    rebuilding what this entry's stale text called still open. **The one
+    real gap — a data-dir writability check — is closed**: `GET /storage`
+    reports `data_dir_writable` and the "Your setup" slide warns on it.
+    Verified live: `"data_dir_writable": true` against this sandbox's dir.
+19b. **A mute-notifications option, asked for directly**, alongside making
+    the toast/notification split clearer: "there can be an option to mute
+    notifications except for reminders." Built as
+    `notifications_muted_except_reminders` (Settings → Preferences →
+    Notifications): `toast()` takes an `exempt` flag (set on the three
+    reminder-alert call sites) and returns early for everything else when
+    muted; `recordNotification` does the same for the persistent panel,
+    keyed off `kind !== "reminder"`. Errors are never muted — silencing a
+    real failure would hide the thing muting is least meant to hide. **Not
+    built**: mirroring ordinary toasts into the notifications panel (the
+    other half of the same message) — every `toast()` call site would need
+    a `kind` to avoid flooding the panel with routine "Saved."/"Linked."
+    noise, which needs a first pass at which toasts actually belong there
+    before it's buildable.
+
+    **Extended (HISTORY.md §49), asked for directly**: a mute toggle inside
+    the notifications panel itself (`#notif-mute-toggle`, reads "🔕 Mute" /
+    "🔔 Unmute" and `aria-pressed`), not only three screens away in Settings
+    — and the bell icon (`#notif-btn`) itself now shows 🔕 instead of 🔔
+    whenever muted, so the state is visible without opening anything. Built
+    and verified live end to end, which is what caught item 4a's real bug —
+    the toggle correctly PUT the preference and correctly re-rendered from
+    the response, and *still* showed unmuted, because `GET /preferences`
+    (which the PUT response is built from) never echoed the new key back.
+    Fixed there, not patched around here.
+
+### From ROADMAP.md
+
+40. ~~Help page overhaul, plus an embedded mini AI chat for in-app guidance.~~
+    **Built** — see [roadmap/HISTORY.md](roadmap/HISTORY.md) for the
+    write-up: the docs/guides half was already a 13-topic accordion with
+    cross-links, and the mini AI chat half is now `ai/help_chat.py` +
+    `POST /help/ask`, wired into Settings → Help.
+

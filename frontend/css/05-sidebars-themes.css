@@ -1257,13 +1257,47 @@ body.resizing-sidebar {
   scrollbar-width: thin;
 }
 
-/* **A menu opening un-clips the strip.** In row mode the toolbar is a
-   scroller, so a `<details>` popup inside it would be trapped again — the
-   second half of the same report. `:has()` (already used elsewhere in this
-   stylesheet) drops the clipping for exactly as long as a menu is open, so
-   the popup escapes and the scroller returns the moment it closes. */
-.doc-toolbar[data-toolbar-mode="row"]:has(details[open]) {
-  overflow: visible;
+/* **Un-clipping the strip to free a menu freed the whole toolbar too.**
+   This used to be `.doc-toolbar[data-toolbar-mode="row"]:has(details[open])
+   { overflow: visible }` — the popup escaped, and so did the ~59 controls
+   the scroller exists to contain. Reported with a screenshot: *"I used a
+   dropdown in the toolbar in the capture tab and it went off the panel and
+   to the end"*. The strip stopped clipping the instant a menu opened, so
+   every button past the panel's right edge painted straight over the pane
+   beside it, and whatever the strip had been scrolled to was thrown away in
+   the same frame.
+
+   `overflow: visible` was always the wrong lever: it is the *popup* that
+   needs to leave the scroller, not the strip that needs to stop being one.
+   So the popup goes `position: fixed` while it is open and is placed against
+   the viewport by `clampToolbarMenu` (app.js) — a fixed box is clipped only
+   by an ancestor that establishes a containing block (a transform, filter or
+   backdrop-filter), and nothing between here and <body> does. The strip
+   keeps clipping and keeps its scroll position throughout.
+
+   It stays where it is in the DOM rather than being reparented to <body>,
+   which is the other way to escape a clipping ancestor: the toolbar's button
+   handlers are delegated from the strip itself, so a menu moved out of it
+   would still render but stop doing anything when clicked. */
+.doc-toolbar .doc-toolbar-menu[open] > .doc-dock-menu-list {
+  position: fixed;
+  /* **`auto`, not `0` — a fixed box at 0,0 lands in the corner of its
+     containing block**, and every one of these menus lives inside a `.card`
+     that becomes one whenever Appearance → Glass is on (`backdrop-filter`
+     creates a containing block for fixed descendants). `clampToolbarMenu`
+     writes real coordinates on open, so these values are only ever seen when
+     it could not measure — and reported, when they were zeros: "the toolbar
+     dropdowns are now appearing in the top left corner of the panel".
+
+     `auto` resolves to the *static* position: where the panel would have sat
+     in normal flow, which inside its own `<details>` is directly under the
+     button. So the un-clamped fallback is approximately right instead of
+     being in a corner nowhere near the control. */
+  top: auto;
+  left: auto;
+  right: auto;
+  /* Above the sticky strip (z-index 3) and the panels around it. */
+  z-index: 60;
 }
 
 /* Nothing in the strip may shrink — a squeezed button is a button whose glyph
@@ -1278,7 +1312,13 @@ body.resizing-sidebar {
 .doc-toolbar button,
 .doc-toolbar select,
 .doc-toolbar .select-opener,
-.doc-toolbar .doc-toolbar-toggle {
+.doc-toolbar .doc-toolbar-toggle,
+/* `summary` was the one control shape this list missed. A `<details>` opener
+   is not a `<button>`, so the four menu openers in this strip sized
+   themselves off their own padding and measured 24.7px against everything
+   else's 32 — the same "five different heights" fault this rule was written
+   to end, surviving in the one element type it did not name. */
+.doc-toolbar summary {
   height: var(--control-h);
   padding-block: 0;
   margin: 0;
@@ -1369,14 +1409,9 @@ body.resizing-sidebar {
   padding-left: 0;
 }
 
-/* A menu inside a scrolling container would be clipped by it. These are
-   `<details>` popovers positioned against the strip, so the strip is told to
-   let them out — `overflow-y: visible` above does that vertically, and this
-   keeps the popover itself out of the scroll calculation. */
-.doc-toolbar .doc-toolbar-menu[open] .doc-dock-menu-list {
-  position: absolute;
-  z-index: 4;
-}
+/* (The open menu's own positioning now lives with the row-mode rule above,
+   which takes it out of the strip's flow entirely. A `position: absolute`
+   here would put it straight back into the scroller it needs to escape.) */
 
 /* The colour pickers are <select>s, and this app styles form controls as
    full-width block inputs by default — so each one claimed its own line and
@@ -1410,7 +1445,34 @@ body.resizing-sidebar {
   background-color: var(--chip-bg);
 }
 
-.doc-toolbar button {
+/* **One chrome for the whole strip, whatever element a control happens to be.**
+   Reported: "the expand toolbar and hide formatting tools dont have curved
+   corners like they look like when hovered over" — a complaint about two
+   buttons that is really about the controls beside them. Measured across the
+   note toolbar: every `<button>` rests transparent (border
+   `rgba(0,0,0,0)`, background `rgba(0,0,0,0)`) and fills on hover, while the
+   four `<details>` menu openers rest *already filled* — border
+   `rgba(255,255,255,0.22)` over background `rgba(255,255,255,0.14)`. They are
+   `<summary>` elements, so this rule never matched them and they kept the
+   app's default button chrome instead.
+
+   The visible consequence is the one reported: in a strip where four controls
+   wear a filled, rounded box at rest and the rest wear nothing, the two bare
+   ones at the right end read as the odd ones out — and since their own box
+   only appears on hover, they read as "square until you hover". Nothing was
+   wrong with their radius (measured identical to every other control in the
+   strip: `var(--radius-md)`, whatever the appearance setting has scaled it
+   to). The fix is to stop four controls from resting in a state the other
+   twenty-five reach only on hover.
+
+   `button.icon-only` is named explicitly for the same reason in reverse: it
+   is a `<button>`, so it did match — but a later sheet's `.icon-only` chrome
+   beat this rule on file order, and the three icon-only controls in this
+   strip picked up the same resting fill the summaries had. */
+.doc-toolbar button,
+.doc-toolbar button.icon-only,
+.doc-toolbar button.icon-button,
+.doc-toolbar summary {
   min-width: 2rem;
   padding: 0.25rem 0.4rem;
   font-size: 0.8rem;
@@ -1422,12 +1484,24 @@ body.resizing-sidebar {
   border-radius: var(--radius-md);
 }
 
-.doc-toolbar button:hover {
+.doc-toolbar button:hover,
+.doc-toolbar button.icon-only:hover,
+.doc-toolbar button.icon-button:hover,
+.doc-toolbar summary:hover {
   background: var(--accent-soft);
   border-color: var(--accent);
 }
 
-.doc-toolbar button:focus-visible {
+/* An open menu keeps the hover fill: the opener is the thing the popup below
+   belongs to, and a popup with no visible source is a popup you have to
+   remember the origin of. */
+.doc-toolbar .doc-toolbar-menu[open] > summary {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.doc-toolbar button:focus-visible,
+.doc-toolbar summary:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
@@ -2474,7 +2548,7 @@ button.is-on {
   position: sticky;
   top: 0;
   z-index: 20;
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-4);
   width: 100%;
   overflow-x: auto;
   flex-wrap: nowrap;
@@ -3279,3 +3353,93 @@ textarea.autogrow {
   background: color-mix(in srgb, var(--warn) 14%, transparent);
   border-radius: var(--radius-sm);
 }
+
+/* The template picker's rows: name over a one-line hint, full width, so
+   the list reads as choices rather than as a stack of pill buttons. */
+.doc-template-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  width: 100%;
+  height: auto;
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+}
+
+/* The note edit form's meta row: tags take the slack, the category sits
+   beside them, Save/Cancel at the right; wraps on a narrow card. */
+.note-edit-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.note-edit-meta > input {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.note-edit-meta > select {
+  flex: 0 1 auto;
+  max-width: 14rem;
+}
+
+.note-edit-meta > .note-edit-actions {
+  margin-left: auto;
+}
+
+/* One height for everything on the meta row — reported: "the ui elements
+   aren't the same height and are out of alignment". */
+.note-edit-meta > input,
+.note-edit-meta select,
+.note-edit-meta .select-opener,
+.note-edit-meta .note-edit-actions button {
+  height: 2.25rem;
+  min-height: 0;
+  padding-block: 0;
+  box-sizing: border-box;
+}
+
+.note-edit-meta .note-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+/* Measured: the tags input sat 5px above its neighbours — same 36px
+   height, different top, because a stretched flex item ignores the row's
+   `align-items: center`. Centred explicitly, margins zeroed. */
+/* Measured: the tags input sat 5px above its neighbours — same 36px
+   height, different top, because the app's form rule gives an `input` a
+   9.6px bottom margin and a centred flex item then splits the difference.
+   The element selectors are needed to beat that rule's own specificity. */
+.note-edit-meta > *,
+.note-edit-meta > input,
+.note-edit-meta > select,
+.note-edit-meta > textarea,
+.note-edit-meta .note-edit-actions > * {
+  margin: 0;
+  align-self: center;
+}
+
+.note-edit-preview {
+  min-height: 6rem;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--inner);
+}
+
+/* The edit form's strip wraps instead of scrolling: a horizontal scrollbar
+   under a toolbar inside a card reads as a gap (reported: "a large gap at
+   the bottom of the toolbar in the section"). */
+.note-edit-toolbar {
+  flex-wrap: wrap;
+  overflow-x: visible;
+  row-gap: var(--space-1);
+}
+

@@ -119,15 +119,28 @@ select optgroup {
   /* --header-h: 4.4rem; */
   --header-h: calc(3.7rem + 1px);
   --page: linear-gradient(135deg, #e9edfb 0%, #f6f2ec 45%, #e6f1f2 100%);
-  --blob-a: rgba(79, 109, 245, 0.20);
+  /* Deeper than before (0.20 / 0.14). A frosted pane over a featureless
+     field is a flat tinted rectangle, and that is what both modes read as in
+     a screenshot: there was nothing behind the glass for the blur to show.
+     The blobs are the only texture the page has, so they carry it. */
+  --blob-a: rgba(79, 109, 245, 0.30);
   /* The dim behind a modal that floats over the app (the command palette),
      as opposed to .lock-overlay, which replaces the app entirely. */
   --scrim: rgba(17, 20, 32, 0.45);
-  --blob-b: rgba(157, 88, 245, 0.14);
+  --blob-b: rgba(157, 88, 245, 0.22);
   --card: color-mix(in srgb, rgba(255, 255, 255, 0.55) calc(var(--glass-opacity) * 100%), transparent);
   --inner: color-mix(in srgb, rgba(255, 255, 255, 0.45) calc(var(--glass-opacity) * 100%), transparent);
   --input-bg: color-mix(in srgb, rgba(255, 255, 255, 0.55) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(255, 255, 255, 0.65);
+  /* The lit top rim of a glass pane — see `.glass` in
+     03-dashboard-widgets.css. Brighter on light, where the surface sits
+     under more ambient light; a whisper on dark, where a strong white line
+     would read as a border rather than as a highlight. */
+  --glass-highlight: rgba(255, 255, 255, 0.75);
+  /* The shadowed bottom rim, the other half of a pane with thickness. Much
+     weaker than the highlight on purpose: a rim light comes from somewhere,
+     and two edges of equal strength read as a border instead. */
+  --glass-underline: rgba(31, 38, 135, 0.07);
   --modal-bg: rgba(252, 253, 255, 0.96);
   /* Fully opaque (alpha 1, not 0.96) — for a floating surface read over dense
      text, not just glanced at. Verified by sampling raw screenshot pixels,
@@ -139,7 +152,40 @@ select optgroup {
      exactly. `--modal-bg` itself is left alone since most of its callers
      (Settings, the command palette) float over a much emptier backdrop. */
   --modal-bg-opaque: rgb(252, 253, 255);
-  --glass-shadow: 0 8px 32px rgba(31, 38, 135, var(--shadow-intensity));
+  /* ============ THE GLASS RECIPE, as tokens =================================
+     Every glass surface (.card, .glass, the modal, the popovers) reads these
+     four and nothing else, which is what "make all the ui elements consistent"
+     needs to be true by construction rather than by review. Each token is one
+     of the four things that make a pane read as glass instead of tinted paint:
+
+     --glass-filter   what happens to the page behind it. Blur plus a little
+                      saturation so what shows through stays colourful.
+                      `brightness` was here too and is gone on dark: it lifted
+                      every surface towards grey.
+     --glass-rim      the edge, as inset shadows: lit along the top, a fainter
+                      light down the left, shade along the bottom. Real glass
+                      is recognised by its edges catching light from one
+                      direction, so the three sides are deliberately unequal.
+     --glass-shadow   two layers: a tight contact shadow that seats the pane on
+                      the page, and a wide soft ambient one that lifts it. One
+                      big blur alone floats; one tight edge alone looks cut out.
+     --glass-catch    the specular. Reported on the first shape: "just a faded
+                      light circular dot in the top left" -- a 220px spot reads
+                      as a dot. Light on a pane lies *along the edge* it enters
+                      from, so this is a wide, shallow ellipse whose centre sits
+                      above the top edge: 70% of the width, 90px tall, fading
+                      by 65%. It reads as the top edge glowing, not as a spot,
+                      and its height is fixed so a tall panel is not washed. */
+  --glass-filter: blur(var(--glass-blur)) saturate(150%) brightness(1.02);
+  --glass-edge: rgba(255, 255, 255, 0.34);
+  --glass-rim:
+    inset 0 1px 0 var(--glass-highlight),
+    inset 1px 0 0 var(--glass-edge),
+    inset 0 -1px 0 var(--glass-underline);
+  --glass-shadow:
+    0 1px 2px rgba(31, 38, 135, 0.06),
+    0 12px 32px rgba(31, 38, 135, var(--shadow-intensity));
+  --glass-catch: radial-gradient(70% 90px at 22% -30px, rgba(255, 255, 255, 0.30), transparent 65%);
   --ink: #1f2430;
   --muted: #5b6472;
   --accent: #4f6df5;
@@ -166,16 +212,42 @@ select optgroup {
      plain tag chip also uses at 7-10% opacity and which read as no surface
      at all on a button (see the comment on button.ghost in
      01-forms-settings.css). Roughly double the presence, still short of a
-     filled control. */
-  --ghost-btn-bg: rgba(31, 36, 48, 0.11);
+     filled control. The *border* tokens are now only read by high-contrast
+     mode: the tonal tier of the button ramp (DESIGN.md) carries a button on
+     its fill alone, and the fill went up a step (0.11→0.12 light,
+     0.14→0.16 dark) to pay for the edge it no longer draws. */
+  --ghost-btn-bg: rgba(31, 36, 48, 0.12);
   --ghost-btn-border: rgba(31, 36, 48, 0.22);
-  --ghost-btn-bg-hover: rgba(31, 36, 48, 0.16);
+  --ghost-btn-bg-hover: rgba(31, 36, 48, 0.18);
   --ghost-btn-border-hover: rgba(31, 36, 48, 0.32);
   /* The inner top edge that makes a text field read as recessed, against a
      button's raised --shadow-sm. Deliberately lighter than it would be on
      an opaque field: --input-bg is translucent and sits over a busy
      gradient, so a heavier inset reads as dirt on the glass. */
   --field-inset: rgba(31, 36, 48, 0.07);
+  /* ============ SURFACE TIERS, and the border budget ========================
+     Three depths, and a rule about which of them may draw a line. Measured
+     before this existed (Settings → Tools it can use): the modal drew a
+     hairline, the group inside it drew a hairline, and all 54 rows inside
+     the group drew one more -- three nested boxes, each saying "this is a
+     thing" with the same 1px line, so none of them said anything. Every
+     mature system (Apple HIG grouped lists, Material's tonal surfaces,
+     Linear) does the opposite: **a line on the outermost surface only, and
+     everything inside grouped by tone and whitespace.**
+
+     --surface-1  the pane: .card, the modal, a popover. Glass, and the one
+                  tier that may carry a hairline/rim.
+     --surface-2  a group inside a pane: a settings group, a list row. A
+                  faint ink tint, no border. Tinted with ink rather than white
+                  so it reads on the near-white modal, where a white tint
+                  (--inner) is invisible.
+     --surface-3  a row inside a group, or a hover: one step deeper.
+     --divider    the line *between* two rows in a list, lighter than
+                  --border -- a separator, not an edge. */
+  --surface-1: var(--card);
+  --surface-2: rgba(31, 36, 48, 0.04);
+  --surface-3: rgba(31, 36, 48, 0.08);
+  --divider: rgba(31, 36, 48, 0.08);
   /* The specular top edge that reads as light catching the lip of a glass
      panel. Kept low in the light theme for the reason the sheen gradient
      below already records — white on near-white adds nothing. */
@@ -297,11 +369,19 @@ select optgroup {
      any content. Both ends of the clamp come in one step: the page keeps a
      comfortable margin at small widths and stops spending a fifth of a
      laptop screen on emptiness at large ones. */
-  --page-gutter: clamp(var(--space-4), 1.5vw, var(--space-8));
+  /* **Tightened, on report.** "I feel like the distance that panels float away
+     from the edges of the screen and each other take up a lot of usable room
+     and space." The ceiling was `--space-8` (24px before density), which at
+     1440px is what every edge and every gap between panels resolved to --
+     three of them across a window is most of a sidebar's width spent on
+     nothing. `--space-6` keeps the shell readable as a shell without paying
+     for it twice on every boundary. */
+  --page-gutter: clamp(var(--space-3), 1.2vw, var(--space-6));
   --page-left: var(--page-gutter);
   --page-right: var(--page-gutter);
   /* 2rem, the inset five rules had by hand */
-  --page-top: var(--space-6);
+  /* Equal to the side gutter -- see `.layout`'s gap for the measurement. */
+  --page-top: var(--page-gutter);
   --page-bottom: var(--space-8);
 
   /* How tall a sticky sidebar may be: the page, minus the page's own padding.
@@ -397,8 +477,24 @@ select optgroup {
      for every sidebar the user had never dragged, and nothing in the
      stylesheet said so. */
   --saved-width: 280px;
-  /* pills and round buttons */
-  --glass-blur: 18px;
+
+  /* The label column of a settings row (`.setting-label`, and the wider
+     variant Search relevance needs for "Minimum similarity"). Named so every
+     row in a group lines its control up on the same edge -- measured before
+     this, label widths across Settings were whatever each label's text
+     happened to be (36, 59, 71, 180, 246px...), so controls in adjacent rows
+     started at different x positions. */
+  --form-label-col: 9rem;
+  --form-label-col-wide: 11rem;
+  /* pills and round buttons.
+
+     14px, not 18px. Blur radius is the exponential term in a
+     backdrop-filter's cost, and the published band worth staying inside is
+     8-15px; this app renders 15-35 blurred layers on a tab (measured, see
+     `.glass` in 03-dashboard-widgets.css), so the radius is the one number
+     that multiplies across all of them. The look is carried by the lit rim
+     and the tint instead, which draw for free. */
+  --glass-blur: 14px;
   /* How much of each palette's own base alpha survives — 1 means unchanged.
      Reported: "the ratio of transparency and frosted glass amount... has
      become more opaque" — and the two are genuinely separate dials in real
@@ -466,14 +562,21 @@ select,
    appears twice: once for the manual toggle, once for the OS default. */
 :root[data-mode="dark"] {
   --page: linear-gradient(135deg, #0e1017 0%, #171a26 45%, #0f1720 100%);
-  --blob-a: rgba(123, 144, 247, 0.16);
+  --blob-a: rgba(123, 144, 247, 0.24);
   --scrim: rgba(5, 7, 14, 0.60);
-  --blob-b: rgba(88, 235, 245, 0.07);
+  --blob-b: rgba(88, 235, 245, 0.13);
   --card: color-mix(in srgb, rgba(29, 33, 46, 0.55) calc(var(--glass-opacity) * 100%), transparent);
   --inner: color-mix(in srgb, rgba(255, 255, 255, 0.05) calc(var(--glass-opacity) * 100%), transparent);
   --input-bg: color-mix(in srgb, rgba(14, 16, 23, 0.55) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(255, 255, 255, 0.10);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  --glass-highlight: rgba(255, 255, 255, 0.11);
+  --glass-underline: rgba(0, 0, 0, 0.28);
+  --glass-edge: rgba(255, 255, 255, 0.05);
+  --glass-filter: blur(var(--glass-blur)) saturate(140%);
+  --glass-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 12px 32px rgba(0, 0, 0, 0.42);
+  --glass-catch: radial-gradient(70% 90px at 22% -30px, rgba(255, 255, 255, 0.075), transparent 65%);
   --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
   --modal-bg: rgba(24, 27, 37, 0.97);
   --modal-bg-opaque: rgb(24, 27, 37);
@@ -492,11 +595,15 @@ select,
   --error-soft: rgba(248, 113, 113, 0.16);
   --border: rgba(255, 255, 255, 0.10);
   --chip-bg: rgba(255, 255, 255, 0.08);
-  --ghost-btn-bg: rgba(255, 255, 255, 0.14);
+  --ghost-btn-bg: rgba(255, 255, 255, 0.16);
   --ghost-btn-border: rgba(255, 255, 255, 0.22);
-  --ghost-btn-bg-hover: rgba(255, 255, 255, 0.20);
+  --ghost-btn-bg-hover: rgba(255, 255, 255, 0.24);
   --ghost-btn-border-hover: rgba(255, 255, 255, 0.32);
   --field-inset: rgba(0, 0, 0, 0.28);
+  --surface-1: var(--card);
+  --surface-2: rgba(255, 255, 255, 0.045);
+  --surface-3: rgba(255, 255, 255, 0.09);
+  --divider: rgba(255, 255, 255, 0.08);
   --glass-specular: rgba(255, 255, 255, 0.14);
 }
 
@@ -504,14 +611,21 @@ select,
   :root:not([data-theme="light"]) {
     color-scheme: dark;
     --page: linear-gradient(135deg, #0e1017 0%, #171a26 45%, #0f1720 100%);
-    --blob-a: rgba(123, 144, 247, 0.16);
+    --blob-a: rgba(123, 144, 247, 0.24);
     --scrim: rgba(5, 7, 14, 0.60);
-    --blob-b: rgba(88, 235, 245, 0.07);
+    --blob-b: rgba(88, 235, 245, 0.13);
     --card: color-mix(in srgb, rgba(29, 33, 46, 0.55) calc(var(--glass-opacity) * 100%), transparent);
     --inner: color-mix(in srgb, rgba(255, 255, 255, 0.05) calc(var(--glass-opacity) * 100%), transparent);
     --input-bg: color-mix(in srgb, rgba(14, 16, 23, 0.55) calc(var(--glass-opacity) * 100%), transparent);
     --glass-border: rgba(255, 255, 255, 0.10);
-    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+    --glass-highlight: rgba(255, 255, 255, 0.11);
+    --glass-underline: rgba(0, 0, 0, 0.28);
+    --glass-edge: rgba(255, 255, 255, 0.05);
+    --glass-filter: blur(var(--glass-blur)) saturate(140%);
+    --glass-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.35),
+      0 12px 32px rgba(0, 0, 0, 0.42);
+    --glass-catch: radial-gradient(70% 90px at 22% -30px, rgba(255, 255, 255, 0.075), transparent 65%);
     --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
     --modal-bg: rgba(24, 27, 37, 0.97);
     --modal-bg-opaque: rgb(24, 27, 37);
@@ -530,11 +644,15 @@ select,
     --error-soft: rgba(248, 113, 113, 0.16);
     --border: rgba(255, 255, 255, 0.10);
     --chip-bg: rgba(255, 255, 255, 0.08);
-    --ghost-btn-bg: rgba(255, 255, 255, 0.14);
+    --ghost-btn-bg: rgba(255, 255, 255, 0.16);
     --ghost-btn-border: rgba(255, 255, 255, 0.22);
-    --ghost-btn-bg-hover: rgba(255, 255, 255, 0.20);
+    --ghost-btn-bg-hover: rgba(255, 255, 255, 0.24);
     --ghost-btn-border-hover: rgba(255, 255, 255, 0.32);
     --field-inset: rgba(0, 0, 0, 0.28);
+    --surface-1: var(--card);
+    --surface-2: rgba(255, 255, 255, 0.045);
+    --surface-3: rgba(255, 255, 255, 0.09);
+    --divider: rgba(255, 255, 255, 0.08);
     --glass-specular: rgba(255, 255, 255, 0.14);
   }
 }
@@ -1080,7 +1198,7 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 .extras-row {
   padding: var(--space-5) 0;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--divider);
 }
 
 .extras-row:first-child {
@@ -1104,10 +1222,28 @@ header#top-bar.tabs-wrapped #tab-bar {
   color: var(--warn);
 }
 
+/* The two state badges are chips (see renderExtras), so they only need their
+   colours here -- the box, padding and radius come from `.chip`. Both are
+   states, never controls: `cursor: default` and no hover keeps them from
+   reading as a third button beside Reinstall and Remove. */
 .extras-installed {
   color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 40%, transparent);
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
   font-weight: 600;
-  font-size: var(--text-md);
+  cursor: default;
+}
+
+/* The action column sits at the row's right edge instead of trailing the
+   title, so every row's buttons share one left edge however long its name is
+   -- the badges no longer have to act as the spacer between the two. */
+.extras-row .entry-meta {
+  gap: var(--space-3);
+}
+
+.extras-row .entry-actions {
+  margin-left: auto;
+  align-items: center;
 }
 
 /* The install-in-progress state: a step description over a progress bar,
@@ -1150,8 +1286,8 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 .extras-soon {
-  font-size: var(--text-sm);
   font-style: italic;
+  cursor: default;
 }
 
 /* --- the Library (§4, §36F) --------------------------------------------------
@@ -1957,8 +2093,15 @@ header#top-bar.tabs-wrapped #tab-bar {
    than its neighbours — the last of the four columns that did not line up.
    `:has()` is the only way to ask "does this row have one", and it is the
    difference between reserving the space and hard-coding a padding that
-   would then be wrong for the rows that do. */
-.library-list .library-card:not(:has(.library-card-thumb))::before {
+   would then be wrong for the rows that do.
+
+   `.has-thumbs` is the other half, added after the report "fix the wierd gap
+   at the start of all the cards in the library line view": reserving the
+   column is right when *some* row has a picture and absurd when none does --
+   it indents the whole list by 48px of nothing, which is what a person sees
+   and calls a gap. CSS cannot ask whether any sibling has a thumbnail, so
+   library.js sets the class after each chunk renders. */
+.library-list.has-thumbs .library-card:not(:has(.library-card-thumb))::before {
   content: "";
   flex: 0 0 3rem;
   order: -1;
@@ -2012,8 +2155,8 @@ header#top-bar.tabs-wrapped #tab-bar {
      without the blur, so whatever sat behind it (the page's own background
      blobs) showed through as an odd, uncontrolled tint. Reported live as a
      "weird coloured background behind the images". */
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
 }
 
 /* Had no styling at all before — a plain inline button between the image
@@ -2109,8 +2252,8 @@ header#top-bar.tabs-wrapped #tab-bar {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   background: var(--modal-bg);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   box-shadow: var(--glass-shadow);
 }
 
@@ -2140,8 +2283,8 @@ header#top-bar.tabs-wrapped #tab-bar {
      used by kebabMenu()) and gets this for free; this is the one place that
      still needed it named explicitly. */
   border-radius: var(--radius-lg);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   box-shadow: var(--glass-shadow);
 }
 
@@ -2156,6 +2299,31 @@ header#top-bar.tabs-wrapped #tab-bar {
    `.action-menu` sibling, and the row no longer fades at all.) */
 .library-image-actions {
   opacity: 0.6;
+}
+
+/* **The row is a container, so only its buttons may take a click.** Reported:
+   "I cant click the select radio buttons in any of the images in the library
+   images subtab." Measured with `elementFromPoint` at the centre of each
+   tick: every one returned `DIV.library-image-actions`, not the checkbox.
+
+   The cause is the `left` that was added to this row (see its main rule
+   above) so the buttons could wrap instead of running off the tile's edge on
+   a narrow window. `left` *and* `right` stretch the box across the full width
+   of the tile, and the tick sits at the tile's top-left — under a transparent
+   part of a box at `z-index: 2` that still takes every pointer event landing
+   on it.
+
+   Raising the tick's own z-index would fix this one control and leave the
+   rest of that strip of thumbnail dead to clicks. `pointer-events` fixes the
+   class: the row itself stops being a target, each control inside it goes
+   back to being one, and the thumbnail underneath is clickable again along
+   its whole top edge. */
+.library-image-actions {
+  pointer-events: none;
+}
+
+.library-image-actions > * {
+  pointer-events: auto;
 }
 
 .library-image-tile:hover .library-image-actions,
@@ -2358,6 +2526,30 @@ header#top-bar.tabs-wrapped #tab-bar {
      line that cannot wrap cannot be line-clamped either, so the same
      unbreakable string defeated "Show more" as well as the card boundary. */
   overflow-wrap: anywhere;
+}
+
+/* **A clamp must cut between lines, never through them.** Reported: "the text
+   in image captions and ocr text in the images and files subtabs gets cut off
+   half way through the letters horizontally if collapsed".
+
+   `-webkit-line-clamp` clips at the line box, and the line box here is
+   fractional -- 1.5 x 11.2px = 16.8px -- so the clip lands mid-pixel and the
+   descenders of the last line (g, j, p, q, y) sit in the part that is thrown
+   away. `overflow: hidden` then slices them horizontally, which is exactly the
+   shape CLAUDE.md records for the nav-history popup: a box a fraction shorter
+   than its own content.
+
+   A taller line box fixes it at any font size: 1.6 puts the descender well
+   inside the line rather than at its edge, and the fraction that is lost is
+   then leading, not ink.
+
+   **Not reproduced in this sandbox** -- there is no OCR'd content in it, so
+   this is the identified cause removed, not an observed repair. If it
+   persists, measure `clientHeight` against `2 * line-height` on the clamped
+   element with real text in it; the remainder is what is being sliced. */
+.library-image-caption.library-image-caption-clamped,
+.library-image-ocr.library-image-ocr-clamped {
+  line-height: 1.6;
 }
 
 .library-image-caption.library-image-caption-clamped {
@@ -2741,7 +2933,15 @@ header#top-bar.tabs-wrapped #tab-bar {
   gap: 0.25rem;
   padding: 0.25rem;
   border-radius: var(--radius-lg);
-  background: var(--chip-bg);
+  /* A well, not a slab. Every raised surface in the app now carries a lit top
+     edge; a bar of tabs is the opposite kind of thing, a channel the active
+     tab sits *in*, so its edge is shaded along the top and lit along the
+     bottom -- the same light, from the same direction, hitting a recess. That
+     inversion is what makes the raised tab read as raised. */
+  background: var(--field-inset);
+  box-shadow:
+    inset 0 1px 2px var(--field-inset),
+    inset 0 -1px 0 var(--glass-edge);
   /* Scroll rather than wrap when the window is genuinely too narrow.
      min-width:0 is what actually lets a flex item shrink below its content.
 
@@ -2933,7 +3133,12 @@ header#top-bar.tabs-wrapped #tab-bar {
      agree on the frame before JS has run, rather than starting at 260px
      and visibly jumping. */
   grid-template-columns: clamp(11rem, 17vw, 16rem) minmax(0, 1fr);
-  gap: var(--space-5);
+  /* The same gutter as the page edge. Measured at 1440px before this: 18px
+     from the window to a card, 12px under the top bar, 10px between the
+     sidebar and the content -- three shell gaps, three sizes. One token,
+     one gap, which is what makes a shell read as designed rather than
+     assembled. */
+  gap: var(--page-gutter);
   /* The gutter belongs to .tab-page now; this is only the column gap. */
   padding: 0;
   /* stretch, not start: with `start` the sidebar shrank to its content and sat
@@ -2976,10 +3181,14 @@ header#top-bar.tabs-wrapped #tab-bar {
 /* --- the glass card -------------------------------------------------------- */
 .card {
   background: var(--card);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
+  /* `--radius`, the user's own corner setting -- not the 0.8 step below it.
+     Measured: dashboard widgets, the modal and the graph box were 14px and
+     every other card 11.2px: two corner sizes on surfaces of the same rank,
+     one tab apart. */
+  border-radius: var(--radius);
   /* Outer depth plus a one-pixel specular lip along the top edge. The lip is
      the cheap half of the "liquid glass" technique going round (an SVG
      feTurbulence/feDisplacementMap referenced from `backdrop-filter`): the
@@ -2989,7 +3198,7 @@ header#top-bar.tabs-wrapped #tab-bar {
      `backdrop-filter: url(#filter)` does parse and compute here, so the
      fuller effect remains available as an opt-in later — it is deliberately
      not on by default. */
-  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-specular);
+  box-shadow: var(--glass-shadow), var(--glass-rim);
   padding: var(--space-6) var(--space-7);
   margin-bottom: var(--space-6);
   /* Cards are flex/grid items nearly everywhere they appear, and a flex item's
@@ -3044,28 +3253,58 @@ header#top-bar.tabs-wrapped #tab-bar {
      `background-image` layers the sheen over whatever fill the element
      already chose, so a card keeps `--card`, a modal keeps `--modal-bg`, and
      the whiteboard panels keep theirs. */
-  background-image:
-    linear-gradient(135deg,
-      color-mix(in srgb, rgba(255, 255, 255, 0.16) calc(var(--glass-sheen-strength) * 100%), transparent) 0%,
-      rgba(255, 255, 255, 0) 45%);
+  /* **A specular highlight has a size; it does not have a percentage.**
+     Reported: "fix the glass sheen and stop it from overpowering large panels
+     like the your notes main panel". The stops used to be `0%` to `45%`, so
+     the wash scaled with the element -- on a 200px chip that is a highlight
+     along one corner, and on a 1200x800 panel it is a white gradient across
+     half the screen. That is not what light does: the band a light source
+     lays on a pane is the same size whether the pane is a coaster or a
+     window, so the stop is an absolute length and every surface gets the
+     same highlight regardless of how big it is. */
+  /* **Second pass, after "I still think it is a bit much and over done".**
+     Three changes, each from the same published guidance:
+
+     - The peak drops from 0.16 to 0.10. The advice on transparency is that
+       the difference between readable and washed-out is a few points of
+       alpha, not a redesign -- "use small opacity tweaks".
+     - The band shortens from 260px to 160px, so it reads as light catching
+       one corner rather than as a wash over the top of the panel. Gradients
+       are called out as the wrong tool over cluttered content, and the
+       largest surfaces here are the most cluttered ones.
+     The stop stays an explicit alpha rather than being derived from
+     `--glass-highlight`: that token is 0.75 on light and 0.06 on dark,
+     because a 1px rim needs to be near-opaque to register at all, and reusing
+     it here multiplied the light theme's sheen by nine. Same colour, two very
+     different jobs. */
+  /* The catch comes from the token, so this rule cannot drift from the rest
+     of the recipe. */
+  background-image: var(--glass-catch);
+  background-repeat: no-repeat;
   /* A 1px inner top-edge highlight — the other half of the same "this
      catches light, it doesn't just sit there tinted" read, independent of
-     `--card`'s alpha. */
-  box-shadow:
-    var(--glass-shadow),
-    inset 0 1px 0 color-mix(in srgb, rgba(255, 255, 255, 0.25) calc(var(--glass-sheen-strength) * 100%), transparent);
+     `--card`'s alpha. The shadowed bottom rim rides along, or this rule
+     would drop the one `.glass` sets (see 03-dashboard-widgets.css) for
+     every card that has the sheen on. */
+  box-shadow: var(--glass-shadow), var(--glass-rim);
 }
 
 /* A white sheen on a dark surface reads as light catching glass. On a light
    surface it is white on near-white: it adds nothing to the glass read and
    only flattens the fill it is sitting on. Halved rather than removed, so the
    strength slider still does something in both themes and the two do not look
-   like different components. */
-:root:not([data-theme="dark"])[data-glass-sheen="on"]:not([data-glass="off"]) .card {
-  background-image:
-    linear-gradient(135deg,
-      color-mix(in srgb, rgba(255, 255, 255, 0.08) calc(var(--glass-sheen-strength) * 100%), transparent) 0%,
-      rgba(255, 255, 255, 0) 45%);
+   like different components.
+
+   **`data-mode`, not `data-theme`.** `data-theme` is only stamped when
+   somebody picks Light or Dark by hand; under "System" -- the default -- it is
+   absent entirely, so `:not([data-theme="dark"])` matched a dark desktop too
+   and every such profile got the light theme's halved sheen. `data-mode` is
+   the resolved value and is always present (theme-boot.js says so in its own
+   comment), which is what this selector actually wants to ask. */
+:root:not([data-mode="dark"])[data-glass-sheen="on"]:not([data-glass="off"]) .card {
+  /* Nothing to halve any more: the catch token already carries a per-mode
+     alpha (0.42 light, 0.10 dark), so both modes read the same rule. */
+  background-image: var(--glass-catch);
 }
 
 
@@ -3404,4 +3643,25 @@ summary.small.icon-button {
 .library-image-tile .library-image-menu-btn:hover {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   color: var(--accent);
+}
+
+/* **The content column scrolls down, never sideways.**
+   Reported: "there's a horizontal scrollbar on the notes tab capture
+   subtab". Measured at 1440, 1280 and 1100px: `main` reported scrollWidth
+   exactly 9px over clientWidth at every one of them -- the same 9px, which
+   is this build's scrollbar width, not any real content. That is the classic
+   pair: the column takes `overflow: auto` on both axes, its vertical
+   scrollbar appears and takes 9px out of `clientWidth`, and a child already
+   laid out to the pre-scrollbar width is then 9px too wide on the axis that
+   is also set to `auto` -- so a second, horizontal scrollbar appears to
+   scroll nine pixels of nothing.
+
+   `clip` rather than `hidden`: both stop the scrollbar, but `hidden` makes
+   the box a scroll container programmatically (scrollLeft still works, and
+   focusing something inside can scroll it sideways with no way back), while
+   `clip` simply does not scroll on that axis. Anything that genuinely needs
+   horizontal room -- a wide table, a code block, the graph legend -- carries
+   its own `overflow-x: auto` and is unaffected. */
+.layout > main {
+  overflow-x: clip;
 }

@@ -579,3 +579,53 @@ def test_pdf_page_returns_a_real_png(ai_client):
     assert page.status_code == 200
     assert page.headers["content-type"] == "image/png"
     assert page.content.startswith(b"\x89PNG\r\n\x1a\n")
+
+
+def test_a_page_by_page_reading_reaches_the_gallery_row(ai_client):
+    """Reported: "the extracted ocr for files doesnt actually appear in the file
+    rows in the files library subtab".
+
+    A whole-file reading lands on the row (`vision_ocr_text`); a PDF read one
+    page at a time in the OCR workspace lands in `page_reads` instead, and the
+    two were never joined — so a document with every page read still said "No
+    text yet" in the library. The list endpoint now falls back to the joined
+    page text, in page order."""
+    from memorymap.core import deps
+    from memorymap.core.database import MediaUpload, PageRead
+
+    with deps.get_db().session() as session:
+        upload = MediaUpload(filename="paged.pdf", original_name="paged.pdf")
+        session.add(upload)
+        session.flush()
+        upload_id = upload.id
+        # Deliberately out of page order: the join must sort, not trust
+        # insertion order.
+        session.add(PageRead(kind="upload", source_id=upload_id, page=1, text="second page"))
+        session.add(PageRead(kind="upload", source_id=upload_id, page=0, text="first page"))
+        session.commit()
+
+    rows = ai_client.get("/media").json()
+    row = next(r for r in rows if r["id"] == upload_id)
+    assert row["vision_ocr_text"] == "first page\n\nsecond page"
+
+
+def test_a_whole_file_reading_still_wins_over_the_page_join(ai_client):
+    """The fallback is a fallback: a reading stored on the row itself is the
+    one the user last made of the whole document, and must not be replaced by
+    older per-page fragments."""
+    from memorymap.core import deps
+    from memorymap.core.database import MediaUpload, PageRead
+
+    with deps.get_db().session() as session:
+        upload = MediaUpload(
+            filename="whole.pdf", original_name="whole.pdf", vision_ocr_text="the whole thing"
+        )
+        session.add(upload)
+        session.flush()
+        upload_id = upload.id
+        session.add(PageRead(kind="upload", source_id=upload_id, page=0, text="a fragment"))
+        session.commit()
+
+    rows = ai_client.get("/media").json()
+    row = next(r for r in rows if r["id"] == upload_id)
+    assert row["vision_ocr_text"] == "the whole thing"

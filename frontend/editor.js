@@ -42,7 +42,35 @@ const EDITOR_SURFACES = {
   //: one open edit form at a time.
   "entry-edit-content": "note",
   "doc-content": "document",
+  //: The chat composer. Asked for as part of "the chat interface needs
+  //: bugfixing and more utility and features" -- "/" did nothing there, the
+  //: one text box in the app where a slash menu is the *expected* affordance
+  //: (every chat product the user compared this to has one). Its commands are
+  //: chat's own: attach, web, plan, skills, mode. See `chatCommands`.
+  "chat-input": "chat",
 };
+
+//: **What context a textarea is, including the ones with generated ids.**
+//:
+//: `EDITOR_SURFACES` is an id-to-context table by construction, and the live
+//: view — the document editor's *default* view — is one textarea per
+//: paragraph, created by `docLiveEditor` with a generated id. The wiring
+//: below used to gate on `textarea.id in EDITOR_SURFACES`, so **the live view
+//: had no "/" menu at all**, and anything that asked the map for a context
+//: got the `|| "note"` fallback and was told the document AI commands did not
+//: apply to it. Neither failure logged or threw: this repo's "a policy
+//: silently refusing the work" shape, in the one view most editing happens
+//: in.
+//:
+//: Keyed on `.lp-src`, the class those blocks carry, because that is what
+//: `isEditorSurface` already keyed on and one predicate is better than two
+//: that can disagree. Returns null — not "note" — for anything that is not an
+//: editing surface, so callers can tell "not a surface" from "a note".
+function editorSurfaceKind(textarea) {
+  if (!(textarea instanceof HTMLTextAreaElement)) return null;
+  if (textarea.id in EDITOR_SURFACES) return EDITOR_SURFACES[textarea.id];
+  return textarea.classList.contains("lp-src") ? "document" : null;
+}
 
 // The callout kinds, their icon and their accessible label. Kept as data
 // because three things read it: the "/" menu builds a command per kind, the
@@ -201,7 +229,36 @@ function calloutTemplate(kind, fold = "") {
 // "specialised boxes and frames", which is nobody's idea of the word
 // "callout", and a menu you can only search by its internal vocabulary is a
 // menu you have to already know.
+//: **What "/" offers in the chat box.** Not the note commands: a callout box
+//: or a template pasted into a question is nobody's intent, and the document
+//: AI actions have nowhere to run here. Each of these presses a control the
+//: dock already has, so the menu is a second door to the same rooms and can
+//: never drift from what the buttons do. The slash token is removed by
+//: `editorRunItem` before `run` is called, so the question is left clean.
+function chatCommands() {
+  const press = (id) => () => document.getElementById(id)?.click();
+  const pick = (source) => () => {
+    if (typeof openNotePicker === "function") openNotePicker();
+    document.querySelector(`#note-picker-sources [data-picker-source="${source}"]`)?.click();
+  };
+  const mode = (name) => () =>
+    document.querySelector(`#chat-mode-seg button[data-chat-mode="${name}"]`)?.click();
+  return [
+    { id: "chat-attach-note", primary: true, group: "Attach", label: "\u{1F4DD} A note", hint: "as context", keywords: ["attach", "note", "reference", "context"], run: pick("notes") },
+    { id: "chat-attach-document", primary: true, group: "Attach", label: "\u{1F4C4} A document", hint: "from Documents", keywords: ["attach", "document", "doc"], run: pick("documents") },
+    { id: "chat-attach-file", primary: true, group: "Attach", label: "\u{1F4CE} A file", hint: "from the Library", keywords: ["attach", "file", "pdf", "spreadsheet"], run: pick("files") },
+    { id: "chat-attach-image", group: "Attach", label: "\u{1F5BC}\u{FE0F} An image", hint: "from the Library", keywords: ["attach", "image", "picture", "photo", "sketch"], run: pick("images") },
+    { id: "chat-upload", primary: true, group: "Attach", label: "\u{2B06}\u{FE0F} Upload something new", hint: "any file", keywords: ["upload", "new", "file", "attach"], run: press("attach-image") },
+    { id: "chat-web", primary: true, group: "This message", label: "\u{1F310} Web search", hint: "toggle", keywords: ["web", "search", "online", "internet"], run: press("web-search-toggle") },
+    { id: "chat-plan", primary: true, group: "This message", label: "\u{1F9ED} Plan first", hint: "toggle", keywords: ["plan", "steps", "think"], run: press("chat-plan") },
+    { id: "chat-skills", primary: true, group: "This message", label: "\u{26A1} Skills", hint: "run a saved skill", keywords: ["skill", "skills", "run", "workflow"], run: press("chat-skills-btn") },
+    { id: "chat-mode-agent", group: "Mode", label: "\u{1F916} Agent mode", hint: "let it act on the notebook", keywords: ["agent", "mode", "tools", "act"], run: mode("agent") },
+    { id: "chat-mode-chat", group: "Mode", label: "\u{1F4AC} Ask mode", hint: "answer only", keywords: ["ask", "chat", "mode", "answer"], run: mode("chat") },
+  ];
+}
+
 function editorCommands(context) {
+  if (context === "chat") return chatCommands();
   const commands = [];
 
   for (const [kind, meta] of Object.entries(CALLOUT_KINDS)) {
@@ -410,6 +467,21 @@ function editorCommands(context) {
   // the user cannot see is worse than not offering the command.
   if (context === "document") {
     commands.push(
+      {
+        //: **The one AI command that does not open a panel.** First in the
+        //: group and `primary`, because it is the one that answers the ask
+        //: ("the agent or ai needs to be more directly integrated into the
+        //: documents") — the other two below are doors to the side pane, which
+        //: is the right place for "review the whole document" and the wrong
+        //: place for "make this shorter".
+        id: "ai-inline",
+        primary: true,
+        group: "AI",
+        label: "\u{2728} Ask the AI to write here",
+        hint: "at the cursor \u{2014} Ctrl+J",
+        keywords: ["ai", "write", "inline", "here", "cursor", "ask", "generate", "continue"],
+        run: (textarea) => inlineAiOpen(textarea),
+      },
       {
         id: "ai-edit",
       primary: true,
@@ -820,7 +892,7 @@ function editorRefreshMenu() {
   if (!token) return editorCloseMenu();
 
   editorMenuState.start = token.start;
-  const context = EDITOR_SURFACES[textarea.id] || "note";
+  const context = editorSurfaceKind(textarea) || "note";
   let items;
   if (trigger === "/") {
     const all = editorCommands(context);
@@ -849,7 +921,7 @@ function editorRefreshMenu() {
 document.addEventListener("input", (event) => {
   const textarea = event.target;
   if (!(textarea instanceof HTMLTextAreaElement)) return;
-  if (!(textarea.id in EDITOR_SURFACES)) return;
+  if (!editorSurfaceKind(textarea)) return;
 
   if (editorMenuState.open && editorMenuState.textarea === textarea) {
     editorRefreshMenu();
@@ -991,6 +1063,13 @@ const SELECTION_BAR_ACTIONS = [
   //: the thing on screen the moment a selection exists — a second control
   //: somewhere else would be a second thing to find.
   { ask: true, label: "ph:chat-teardrop-text", title: "Ask the AI about this selection" },
+  //: **The second half of that pair: change it here, rather than talk about
+  //: it there.** Asking sends the selection to the chat and leaves the text
+  //: alone; this rewrites the selection in place. They belong next to each
+  //: other because the choice between them is the whole decision, and a
+  //: selection is the moment it gets made. Document surfaces only — see
+  //: `inlineAiAvailable` — so the button is skipped where it could not work.
+  { inlineAi: true, label: "ph:magic-wand", title: "Rewrite this with AI (Ctrl+J)" },
 ];
 
 const selectionBarState = { textarea: null };
@@ -1019,6 +1098,7 @@ function selectionBarElement() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "ghost small icon-button";
+    if (action.inlineAi) button.dataset.inlineAi = "1";
     if (action.md) button.dataset.md = action.md;
     button.title = action.title;
     button.setAttribute("aria-label", action.title);
@@ -1033,6 +1113,13 @@ function selectionBarElement() {
       if (action.ask) {
         askAboutSelection(textarea);
         selectionBarHide();
+        return;
+      }
+      if (action.inlineAi) {
+        //: The selection is read from the textarea *before* the bar takes
+        //: focus, which `inlineAiOpen` does on its first two lines — the same
+        //: reason this whole handler is on `mousedown`.
+        inlineAiOpen(textarea);
         return;
       }
       applyMarkdown(action.md, textarea.id);
@@ -1056,6 +1143,11 @@ function selectionBarHide() {
 function selectionBarShow(textarea) {
   const bar = selectionBarElement();
   selectionBarState.textarea = textarea;
+  //: Shown only where it can run. A control that is present and refuses is
+  //: worse than one that is absent: the first teaches that the feature is
+  //: broken, the second that it belongs to documents.
+  const magic = bar.querySelector("[data-inline-ai]");
+  if (magic) magic.hidden = !inlineAiAvailable(textarea);
   bar.classList.remove("hidden");
   //: Anchored to the *start* of the selection, which is where the eye is when
   //: a selection is made left-to-right, and measured after the bar is visible
@@ -1078,17 +1170,20 @@ function selectionBarShow(textarea) {
   bar.style.left = `${Math.round(x)}px`;
 }
 
-//: A `.lp-src` block is one paragraph of the document's live view — the
-//: *default* document view, and each paragraph is its own textarea with no id
-//: (see `docLiveEditor`). Keyed by class rather than added to
-//: `EDITOR_SURFACES` because there is one of them per paragraph, and that map
-//: is an id-to-context table by construction.
+//: One predicate, so the selection bar and the "/" menu cannot disagree about
+//: what an editing surface is. They did: this used to be its own class check
+//: while the "/" menu gated on `EDITOR_SURFACES` alone, which is how the live
+//: view ended up with a selection bar and no slash menu.
 function isEditorSurface(node) {
-  if (!(node instanceof HTMLTextAreaElement)) return false;
-  return node.id in EDITOR_SURFACES || node.classList.contains("lp-src");
+  return editorSurfaceKind(node) !== null;
 }
 
 function selectionBarSync() {
+  //: The inline AI bar anchors to the same caret and leaves its answer
+  //: *selected* on purpose, so without this the two bars stack on top of each
+  //: other the moment an answer lands — and the one underneath is the one with
+  //: Keep and Undo on it.
+  if (inlineAiState.phase !== "idle") return selectionBarHide();
   const active = document.activeElement;
   if (!isEditorSurface(active)) {
     return selectionBarHide();
@@ -1164,7 +1259,7 @@ function selectionOffsets(textarea, start, end) {
   const column = end - (upToCaret.lastIndexOf("\n") + 1) + 1;
   return {
     surfaceId: textarea.id,
-    kind: EDITOR_SURFACES[textarea.id] || "note",
+    kind: editorSurfaceKind(textarea) || "note",
     start,
     end,
     text,
@@ -1435,3 +1530,382 @@ function highlightCodeInto(target, text, filename) {
   }
   if (at < source.length) target.appendChild(document.createTextNode(source.slice(at)));
 }
+
+// ---------------------------------------------------------------------------
+// Inline AI — the AI at the caret, not in a panel
+// ---------------------------------------------------------------------------
+//
+// Asked for directly: *"the agent or ai needs to be more directly integrated
+// into the documents."* Everything the document editor already had — AI edit,
+// extract notes, rephrase, translate, check with AI — is a *panel*: you leave
+// the text, open a side pane, ask, read, accept, come back. That is a fine
+// place for "review this whole document" and the wrong place for "make this
+// sentence shorter", which is the thing writers actually do fifty times an
+// hour. Notion answers it with `/ai`, Cursor with Ctrl+K, Word with the
+// rewrite popover; all three put the request *where the caret is* and put the
+// result *into the text*, with one keystroke to keep it and one to undo it.
+//
+// Three deliberate constraints, each of which is why this is ~200 lines and
+// not a second AI panel:
+//
+// 1. **No new endpoint.** `POST /documents/{id}/ai-edit` already takes an
+//    instruction, an optional selection and a verb, already returns the
+//    revised text without saving it, and already reports `ollama_running`
+//    false with a message when the model is not there. A third code path to
+//    the same model would be a third place for the offline message, the
+//    thinking trace and the token budget to drift.
+// 2. **Nothing is written until it is accepted — and "accepted" is the
+//    default, not a modal.** The result goes straight into the text, selected,
+//    with Keep / Try again / Undo underneath. Undo restores the exact prior
+//    value and caret, because `before` is captured whole; a diff would be
+//    prettier and would not survive the AI reflowing a paragraph.
+// 3. **Document surfaces only.** The endpoint needs a document id, and the
+//    capture box has none. The command and the shortcut both check, rather
+//    than opening a bar that would fail on submit.
+
+const inlineAiState = {
+  textarea: null,
+  //: The range the answer replaces, captured when the bar opens. Held rather
+  //: than re-read on submit because clicking into the bar's own input moves
+  //: focus out of the textarea, and several browsers drop the selection on the
+  //: way — the same trap `selectionBarElement` documents for `mousedown`.
+  start: 0,
+  end: 0,
+  //: The whole textarea value before anything was inserted. Undo restores this
+  //: verbatim. Cheap: a document big enough for this to matter is already
+  //: being held in `.value` twice by the live view.
+  before: "",
+  //: The instruction, kept so "Try again" does not make you retype it.
+  instruction: "",
+  phase: "idle", // idle | asking | working | review
+  controller: null,
+};
+
+//: The bar is one element reused for every invocation, built lazily for the
+//: same reason `selectionBarElement` is: it belongs to this file's behaviour,
+//: and a hidden copy in index.html would be one more thing for the duplicate-id
+//: and duplicate-listener lints to police for nothing.
+function inlineAiElement() {
+  let bar = $("inline-ai");
+  if (bar) return bar;
+
+  bar = document.createElement("div");
+  bar.id = "inline-ai";
+  bar.className = "inline-ai hidden";
+  bar.setAttribute("role", "dialog");
+  bar.setAttribute("aria-label", "Ask the AI to write here");
+
+  const row = document.createElement("div");
+  row.className = "inline-ai-row";
+
+  const icon = document.createElement("span");
+  icon.className = "inline-ai-icon";
+  icon.setAttribute("aria-hidden", "true");
+  setLabel(icon, "ph:magic-wand");
+  row.appendChild(icon);
+
+  const input = document.createElement("input");
+  input.id = "inline-ai-input";
+  input.className = "inline-ai-input";
+  input.type = "text";
+  input.autocomplete = "off";
+  input.setAttribute("aria-label", "What should the AI do here?");
+  row.appendChild(input);
+
+  const run = document.createElement("button");
+  run.id = "inline-ai-run";
+  run.type = "button";
+  run.className = "primary small";
+  run.textContent = "Ask";
+  run.addEventListener("click", () => inlineAiSubmit());
+  row.appendChild(run);
+
+  const close = document.createElement("button");
+  close.id = "inline-ai-close";
+  close.type = "button";
+  close.className = "ghost small icon-button";
+  close.title = "Close (Esc)";
+  close.setAttribute("aria-label", "Close");
+  setLabel(close, "ph:x");
+  close.addEventListener("click", () => inlineAiClose());
+  row.appendChild(close);
+
+  bar.appendChild(row);
+
+  //: The scope line. Without it the bar is a text field floating over a
+  //: document with no statement of what it is about to change, which is the
+  //: one thing a writer needs to know before pressing Enter.
+  const scope = document.createElement("p");
+  scope.id = "inline-ai-scope";
+  scope.className = "inline-ai-scope";
+  bar.appendChild(scope);
+
+  const review = document.createElement("div");
+  review.id = "inline-ai-review";
+  review.className = "inline-ai-review hidden";
+  for (const [act, label, cls] of [
+    ["keep", "Keep", "primary small"],
+    ["retry", "Try again", "ghost small"],
+    ["undo", "Undo", "ghost small"],
+  ]) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = cls;
+    button.dataset.act = act;
+    button.textContent = label;
+    button.addEventListener("click", () => {
+      if (act === "keep") inlineAiClose();
+      else if (act === "undo") inlineAiUndo();
+      else inlineAiRetry();
+    });
+    review.appendChild(button);
+  }
+  bar.appendChild(review);
+
+  document.body.appendChild(bar);
+  return bar;
+}
+
+//: Anchored the same way the "/" menu is, and for the same reason: a bar that
+//: opens at the top of a full-height document editor reads as belonging to the
+//: toolbar rather than to the sentence you were writing. Flips above the line
+//: when there is no room below, and is clamped into the viewport on both axes.
+function inlineAiPosition() {
+  const bar = $("inline-ai");
+  const textarea = inlineAiState.textarea;
+  if (!bar || !textarea) return;
+  const { top, left, lineHeight } = editorCaretPoint(textarea);
+  const size = bar.getBoundingClientRect();
+  const margin = 8;
+  let y = top + (lineHeight || 20) + 6;
+  if (y + size.height > window.innerHeight - margin) {
+    const above = top - size.height - 6;
+    y = above > margin ? above : Math.max(margin, window.innerHeight - size.height - margin);
+  }
+  const x = Math.max(margin, Math.min(left, window.innerWidth - size.width - margin));
+  bar.style.top = `${Math.round(y)}px`;
+  bar.style.left = `${Math.round(x)}px`;
+}
+
+//: What the bar says it is about to do. Two shapes, because "write something
+//: here" and "change this" are different requests and a single placeholder
+//: that covers both ("Ask the AI…") tells you nothing about which one you are
+//: making.
+function inlineAiDescribeScope() {
+  const { before, start, end } = inlineAiState;
+  const selected = before.slice(start, end);
+  const scope = $("inline-ai-scope");
+  const input = $("inline-ai-input");
+  if (!scope || !input) return;
+  if (selected.trim()) {
+    const words = selected.trim().split(/\s+/).length;
+    scope.textContent = `Rewrites the ${words === 1 ? "word" : `${words} words`} you selected. Enter to ask, Esc to cancel.`;
+    input.placeholder = "Tighten this / fix the grammar / make it formal…";
+  } else {
+    scope.textContent = "Writes at the cursor. Enter to ask, Esc to cancel.";
+    input.placeholder = "Write an intro paragraph / a table of the options…";
+  }
+}
+
+//: True when this surface can reach `POST /documents/{id}/ai-edit` — a
+//: document textarea *and* a document actually open. Checked by both doors
+//: (the "/" command and the shortcut) rather than letting the bar open and
+//: fail on submit, which is the shape that teaches people a feature is broken.
+function inlineAiAvailable(textarea) {
+  if (editorSurfaceKind(textarea) !== "document") return false;
+  return Boolean(typeof currentDoc !== "undefined" && currentDoc && currentDoc.id);
+}
+
+function inlineAiOpen(textarea, instruction = "") {
+  if (!inlineAiAvailable(textarea)) {
+    toast("Open a document first — inline AI writes into the document you're editing.");
+    return;
+  }
+  const bar = inlineAiElement();
+  inlineAiState.textarea = textarea;
+  inlineAiState.start = textarea.selectionStart;
+  inlineAiState.end = textarea.selectionEnd;
+  inlineAiState.before = textarea.value;
+  inlineAiState.instruction = instruction;
+  inlineAiState.phase = "asking";
+
+  //: The selection bar and this bar both anchor to the caret, so they would
+  //: sit on top of each other the moment this opens over a selection.
+  selectionBarHide();
+
+  bar.classList.remove("hidden");
+  $("inline-ai-review").classList.add("hidden");
+  const input = $("inline-ai-input");
+  input.disabled = false;
+  input.value = instruction;
+  $("inline-ai-run").disabled = false;
+  $("inline-ai-run").textContent = "Ask";
+  inlineAiDescribeScope();
+  inlineAiPosition();
+  input.focus();
+  input.select();
+}
+
+//: Closing keeps whatever is in the text. That is deliberate and it is the
+//: same choice every editor with this feature makes: the result is already
+//: visible in the document, so the surprising outcome would be it vanishing
+//: when the bar goes away. Undo is a button, and the app's own Ctrl+Z still
+//: works on the textarea afterwards.
+function inlineAiClose() {
+  const textarea = inlineAiState.textarea;
+  inlineAiState.controller?.abort();
+  inlineAiState.controller = null;
+  inlineAiState.textarea = null;
+  inlineAiState.phase = "idle";
+  $("inline-ai")?.classList.add("hidden");
+  //: Focus goes back to the text, not to whatever the browser picks. Without
+  //: this, dismissing the bar leaves the caret nowhere and the next keystroke
+  //: is lost.
+  textarea?.focus();
+}
+
+function inlineAiUndo() {
+  const { textarea, before, start, end } = inlineAiState;
+  if (!textarea) return inlineAiClose();
+  textarea.value = before;
+  textarea.setSelectionRange(start, end);
+  editorNotifyHost(textarea);
+  inlineAiClose();
+}
+
+function inlineAiRetry() {
+  const { textarea, before, start, end, instruction } = inlineAiState;
+  if (!textarea) return;
+  //: Put the text back *before* re-asking, or the second answer is written on
+  //: top of the first and the third on top of that.
+  textarea.value = before;
+  textarea.setSelectionRange(start, end);
+  editorNotifyHost(textarea);
+  inlineAiOpen(textarea, instruction);
+}
+
+async function inlineAiSubmit() {
+  if (inlineAiState.phase === "working") return;
+  const { textarea, start, end, before } = inlineAiState;
+  if (!textarea) return;
+  const instruction = $("inline-ai-input").value.trim();
+  const selection = before.slice(start, end);
+  //: "Write" needs an instruction — there is nothing else to go on. "Edit"
+  //: does too: a selection alone says *what*, never *what to do to it*.
+  if (!instruction) {
+    $("inline-ai-scope").textContent = "Say what you'd like — for example, “make this two sentences”.";
+    $("inline-ai-input").focus();
+    return;
+  }
+  inlineAiState.instruction = instruction;
+  inlineAiState.phase = "working";
+  const run = $("inline-ai-run");
+  run.disabled = true;
+  run.textContent = "Writing…";
+  $("inline-ai-input").disabled = true;
+  $("inline-ai-scope").textContent = "Thinking locally… Esc to cancel.";
+
+  const controller = new AbortController();
+  inlineAiState.controller = controller;
+  try {
+    const data = await apiJson(`/documents/${currentDoc.id}/ai-edit`, {
+      method: "POST",
+      signal: controller.signal,
+      body: JSON.stringify({
+        instruction,
+        selection,
+        verb: selection.trim() ? "edit" : "write",
+      }),
+    });
+    //: The model is not running. Say so *in the bar* and leave it open with
+    //: the instruction intact, rather than closing and firing a toast the
+    //: user has to read somewhere else while their sentence is gone.
+    if (data.ollama_running === false) {
+      inlineAiState.phase = "asking";
+      run.disabled = false;
+      run.textContent = "Ask";
+      $("inline-ai-input").disabled = false;
+      $("inline-ai-scope").textContent = data.message || "The local model isn't running.";
+      inlineAiPosition();
+      return;
+    }
+    const revised = String(data.revised ?? "");
+    if (!revised.trim()) {
+      inlineAiState.phase = "asking";
+      run.disabled = false;
+      run.textContent = "Ask";
+      $("inline-ai-input").disabled = false;
+      $("inline-ai-scope").textContent = "The model returned nothing. Try asking differently.";
+      return;
+    }
+    //: `replaced_selection` comes from the server rather than being inferred
+    //: here, because the server is what decided whether the selection or the
+    //: whole document was the target — inferring it a second time is how the
+    //: two would drift.
+    const to = data.replaced_selection ? end : start;
+    editorSplice(textarea, start, to, revised, { from: 0, to: revised.length });
+    //: The inserted text ends up *selected*. That is the highlight — a
+    //: textarea cannot paint a range any other way — and it also means the
+    //: next thing typed replaces it, which is what "try it and see" should
+    //: feel like.
+    inlineAiState.phase = "review";
+    $("inline-ai-input").disabled = false;
+    $("inline-ai-review").classList.remove("hidden");
+    $("inline-ai-scope").textContent =
+      data.thinking ? `Done. ${data.thinking}` : "Done — keep it, ask again, or undo.";
+    run.disabled = false;
+    run.textContent = "Ask";
+    inlineAiPosition();
+    //: Focus the primary action, so Enter keeps and Esc keeps-and-closes. The
+    //: textarea keeps the selection either way.
+    $("inline-ai-review").querySelector('[data-act="keep"]')?.focus();
+  } catch (error) {
+    if (controller.signal.aborted) return;
+    inlineAiState.phase = "asking";
+    run.disabled = false;
+    run.textContent = "Ask";
+    $("inline-ai-input").disabled = false;
+    $("inline-ai-scope").textContent = error?.message || "That didn't work. Try again.";
+  } finally {
+    if (inlineAiState.controller === controller) inlineAiState.controller = null;
+  }
+}
+
+//: Enter submits, Esc dismisses — handled on the bar rather than globally so
+//: neither key is stolen from the document behind it.
+document.addEventListener("keydown", (event) => {
+  if (inlineAiState.phase === "idle") return;
+  const bar = $("inline-ai");
+  if (!bar || bar.classList.contains("hidden")) return;
+  if (!bar.contains(event.target)) return;
+  if (event.key === "Enter" && event.target.id === "inline-ai-input") {
+    event.preventDefault();
+    inlineAiSubmit();
+    return;
+  }
+  if (event.key === "Escape") {
+    event.preventDefault();
+    event.stopPropagation();
+    //: Esc while the model is still writing cancels the request and leaves the
+    //: document untouched; Esc afterwards keeps the result, matching the
+    //: "closing keeps" rule above.
+    if (inlineAiState.phase === "working") {
+      inlineAiState.controller?.abort();
+      inlineAiClose();
+      return;
+    }
+    inlineAiClose();
+  }
+});
+
+//: Clicking away keeps the result and closes, the same as Esc. Not on
+//: `mousedown` inside the bar, obviously, and not while the model is writing —
+//: a stray click should not throw away work that is seconds from arriving.
+document.addEventListener("mousedown", (event) => {
+  if (inlineAiState.phase === "idle" || inlineAiState.phase === "working") return;
+  const bar = $("inline-ai");
+  if (!bar || bar.contains(event.target)) return;
+  inlineAiClose();
+});
+
+window.addEventListener("resize", () => inlineAiState.textarea && inlineAiPosition());

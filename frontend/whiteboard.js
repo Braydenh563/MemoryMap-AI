@@ -65,9 +65,12 @@
 let wbSpaceHeld = false;
 
 function wbZoomFilter(event) {
-  // Wheel: always. Zooming is a way of looking, not an edit, and there is no
-  // tool for which "you may not zoom right now" is the correct answer.
-  if (event.type === "wheel") return true;
+  // Wheel: zoom only with Ctrl/⌘ held (which is also what a trackpad pinch
+  // arrives as). A plain wheel *pans* — see the native listener in
+  // initWhiteboard — because that is what Miro, FigJam, Figma and draw.io
+  // all do, and reported as "annoying to... pan, navigate the board": a
+  // wheel that zooms leaves no fast way to move around at a fixed zoom.
+  if (event.type === "wheel") return event.ctrlKey || event.metaKey;
   // Middle button pans from anywhere. `buttons` rather than `button` because
   // mousemove reports the held set, and the drag half of the gesture needs to
   // pass the filter too.
@@ -180,17 +183,31 @@ const wbDeleting = new Set();
 //: pivot somewhere that moves as the board's contents change. It is set in
 //: CSS beside the layers rather than here, so it cannot be lost by an edit to
 //: this function.
+// PLAN.md P2: a trackpad emits several wheel events per frame, and each one
+// used to write three transforms, three grid variables and the navigator
+// synchronously. Only the last transform in a frame can be painted, so the
+// rest was work the compositor threw away. One pending write per frame.
+let wbZoomFrame = 0;
+let wbZoomPending = null;
 function handleWbZoom(e) {
-  const css = `translate(${e.transform.x}px, ${e.transform.y}px) scale(${e.transform.k})`;
-  d3.select("#wb-html-layer").style("transform", css);
-  d3.select("#wb-zoom-group").style("transform", css);
-  d3.select("#wb-overlay-zoom-group").style("transform", css);
-  wbSyncGridToTransform(e.transform);
-  // The navigator's viewport rectangle is only true for one transform, so it
-  // is redrawn with every pan and zoom. `wbRenderNavigator` returns
-  // immediately when the navigator is closed, which is the common case — this
-  // costs nothing on a board nobody is navigating.
-  wbRenderNavigator();
+  wbZoomPending = e.transform;
+  if (wbZoomFrame) return;
+  wbZoomFrame = requestAnimationFrame(() => {
+    wbZoomFrame = 0;
+    const t = wbZoomPending;
+    wbZoomPending = null;
+    if (!t) return;
+    const css = `translate(${t.x}px, ${t.y}px) scale(${t.k})`;
+    d3.select("#wb-html-layer").style("transform", css);
+    d3.select("#wb-zoom-group").style("transform", css);
+    d3.select("#wb-overlay-zoom-group").style("transform", css);
+    wbSyncGridToTransform(t);
+    wbUpdateSelectionBar();
+    // The navigator's viewport rectangle is only true for one transform, so
+    // it is redrawn with every pan and zoom. `wbRenderNavigator` returns
+    // immediately when the navigator is closed, which is the common case.
+    wbRenderNavigator();
+  });
 }
 
 //: The grid's spacing in board coordinates. Scaled by the zoom so a square
@@ -526,6 +543,14 @@ function wbCursorForTool(tool, strokeColor, strokeWidth) {
   }
   if (tool === "link-straight" || tool === "link-curved") return "crosshair";
   if (tool === "lasso") return "crosshair";
+  // Reported directly: "the cursor on the selection tool is wrong, it should
+  // be a mouse pointer." Select had no case here, so it fell through to the
+  // same `""` Pan returns — and `""` means "whatever the CSS says", which for
+  // `.whiteboard-container` is `cursor: grab`. So the one tool whose whole
+  // job is clicking things showed the open hand that means "drag the canvas",
+  // and the two modes were indistinguishable from the pointer alone. `default`
+  // (the plain arrow) is what every drawing app shows for select.
+  if (tool === "select") return "default";
   return ""; // pan: the CSS grab/grabbing pair already says it
 }
 
@@ -600,6 +625,10 @@ async function wbUngroupSelection() {
 //: own resize code uses).
 function wbItemBBox(kind, item) {
   if (kind === "sketch") {
+    // Mid-drag the moving path lives in `_dragLiveD`; the stored `data` is
+    // still where the shape started, and a link following it would lag a
+    // whole gesture behind.
+    if (typeof item._dragLiveD === "string") return wbPathBBox(item._dragLiveD);
     const parsed = wbSketchParsedData(item);
     if (!parsed) return null; // a link sketch — no shape of its own to align
     return wbPathBBox(parsed.d);
@@ -613,13 +642,33 @@ function wbItemBBox(kind, item) {
   // instead, converted to board space with the same zoom-transform division
   // every drag handler already uses (`transform.k`) — falls back to the
   // fixed default below only when the element genuinely isn't rendered.
-  if ((!w || !h) && kind === "node") {
+  if (kind === "node") {
     const el = document.querySelector(`.node-card[data-id="${item.id}"]`);
-    if (el) {
-      const rect = el.getBoundingClientRect();
-      const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-      w = w || rect.width / transform.k;
-      h = h || rect.height / transform.k;
+    if (el && el.offsetWidth && el.offsetHeight) {
+      // Rendered size wins over a stored one for the same reason as
+      // objects below: a card's text can push it taller than the height it
+      // was last resized to.
+      w = el.offsetWidth;
+      h = el.offsetHeight;
+    } else if (el) {
+      // `offsetWidth/Height`, not `getBoundingClientRect()`: the rect is the
+      // axis-aligned box of the *rotated* card, wider and taller than the
+      // card itself, so a rotated note's links landed on a box that does
+      // not exist (reported: "I rotated a note and the connection didn't
+      // stick to the edge"). Layout size is unrotated and unscaled.
+      w = w || el.offsetWidth;
+      h = h || el.offsetHeight;
+    }
+  }
+  // A text box or sticky can render taller than its stored height once its
+  // text wraps (the element grows; the row does not), so the rendered size
+  // wins when the element is on screen — a link aimed at the stored box
+  // stopped short of the visible one.
+  if (kind === "object") {
+    const el = document.querySelector(`.wb-object[data-id="${item.id}"]`);
+    if (el && el.offsetWidth && el.offsetHeight) {
+      w = el.offsetWidth;
+      h = el.offsetHeight;
     }
   }
   w = w || (kind === "node" ? WB_CARD_DEFAULT_SIZE.w : WB_OBJECT_MIN_SIZE);
@@ -1014,24 +1063,136 @@ const WB_FIXED_ANCHORS = [
 //: A link only ever connects nodes (cards) today — see `dragEndNode`'s own
 //: hit-test — but takes `kind` rather than assuming "node" so a future
 //: object-to-object link doesn't need this rewritten.
-function wbAnchorPoint(kind, item, anchor) {
-  if (!anchor) return null;
+//: **Endpoints follow rotation.** Reported with a screenshot: "if I rotate
+//: a textbox or shape, the connections no longer fit to the edge and just
+//: float in mid air." Cards and objects store `rotation` (degrees, about
+//: the box centre) and were measured as their *unrotated* box; a drawn
+//: shape bakes its rotation into the path, so its axis-aligned bbox is a
+//: superset of the shape and a ray to the bbox edge stops short of it.
+//: Two plain pieces of geometry fix both: rotate a point about a centre, and
+//: intersect a ray with the shape's own outline.
+function wbItemRotation(kind, item) {
+  if (kind === "sketch") return 0;
+  const deg = Number(item?.rotation);
+  return Number.isFinite(deg) ? deg : 0;
+}
+
+function wbRotatePoint(pt, center, deg) {
+  if (!deg) return pt;
+  const rad = (deg * Math.PI) / 180;
+  const cos = Math.cos(rad), sin = Math.sin(rad);
+  const dx = pt.x - center.x, dy = pt.y - center.y;
+  return { x: center.x + dx * cos - dy * sin, y: center.y + dx * sin + dy * cos };
+}
+
+function wbBoxCenter(box) {
+  return { x: (box.minX + box.maxX) / 2, y: (box.minY + box.maxY) / 2 };
+}
+
+//: The straight segments of a path, for hit-testing a ray against a drawn
+//: shape. Curves (the circle tool's arcs) contribute their endpoints only;
+//: the bbox fallback in `wbEdgePoint` covers a shape with no usable segment.
+function wbPathPolyline(d) {
+  const tokens = (d || "").match(/[MLCHVAZmlchvaz]|-?\d*\.?\d+(?:[eE]-?\d+)?/g);
+  if (!tokens) return [];
+  const segs = [];
+  let i = 0, px = 0, py = 0, sx = 0, sy = 0, cmd = "";
+  const num = () => parseFloat(tokens[i++]);
+  const lineTo = (x, y) => { segs.push([px, py, x, y]); px = x; py = y; };
+  while (i < tokens.length) {
+    if (/^[A-Za-z]$/.test(tokens[i])) cmd = tokens[i++];
+    if (i >= tokens.length && cmd !== "Z" && cmd !== "z") break;
+    switch (cmd) {
+      case "M": px = num(); py = num(); sx = px; sy = py; cmd = "L"; break;
+      case "m": px += num(); py += num(); sx = px; sy = py; cmd = "l"; break;
+      case "L": lineTo(num(), num()); break;
+      case "l": { const x = px + num(); lineTo(x, py + num()); break; }
+      case "H": lineTo(num(), py); break;
+      case "h": lineTo(px + num(), py); break;
+      case "V": lineTo(px, num()); break;
+      case "v": lineTo(px, py + num()); break;
+      case "C": i += 4; lineTo(num(), num()); break;
+      case "c": { i += 4; const x = px + num(); lineTo(x, py + num()); break; }
+      case "A": i += 5; lineTo(num(), num()); break;
+      case "a": { i += 5; const x = px + num(); lineTo(x, py + num()); break; }
+      case "Z": case "z": lineTo(sx, sy); cmd = ""; break;
+      default: i += 1;
+    }
+  }
+  return segs;
+}
+
+//: Where a line from an item's centre toward (towardX, towardY) leaves the
+//: item — on its rotated border for a card or text box, on its own outline
+//: for a drawn shape.
+function wbEdgePoint(kind, item, towardX, towardY) {
   const box = wbItemBBox(kind, item);
   if (!box) return null;
-  return { x: box.minX + anchor.x * (box.maxX - box.minX), y: box.minY + anchor.y * (box.maxY - box.minY) };
+  const c = wbBoxCenter(box);
+  if (kind === "sketch") {
+    const parsed = typeof item._dragLiveD === "string" ? { d: item._dragLiveD } : wbSketchParsedData(item);
+    const segs = parsed ? wbPathPolyline(parsed.d) : [];
+    const dx = towardX - c.x, dy = towardY - c.y;
+    if (segs.length && (dx || dy)) {
+      // Ray c + t·(dx,dy), t ≥ 0, against each segment; nearest hit wins.
+      let best = null;
+      for (const [x1, y1, x2, y2] of segs) {
+        const ex = x2 - x1, ey = y2 - y1;
+        const den = dx * ey - dy * ex;
+        if (Math.abs(den) < 1e-9) continue;
+        const t = ((x1 - c.x) * ey - (y1 - c.y) * ex) / den;
+        const u = ((x1 - c.x) * dy - (y1 - c.y) * dx) / den;
+        if (t >= 0 && u >= 0 && u <= 1 && (best === null || t < best)) best = t;
+      }
+      if (best !== null) return { x: c.x + dx * best, y: c.y + dy * best };
+    }
+    return wbBoxRayIntersection(box, towardX, towardY);
+  }
+  const rot = wbItemRotation(kind, item);
+  if (!rot) return wbBoxRayIntersection(box, towardX, towardY);
+  const local = wbRotatePoint({ x: towardX, y: towardY }, c, -rot);
+  return wbRotatePoint(wbBoxRayIntersection(box, local.x, local.y), c, rot);
+}
+
+//: The direction a curved link should leave an endpoint in: the box's face
+//: normal for an upright card, the outward radial for anything rotated or
+//: drawn (whose faces are not axis-aligned).
+function wbItemEdgeDir(kind, item, pt) {
+  const box = wbItemBBox(kind, item);
+  if (!box || !pt) return null;
+  if (kind !== "sketch" && !wbItemRotation(kind, item)) return wbEdgeNormal(box, pt);
+  const c = wbBoxCenter(box);
+  const len = Math.hypot(pt.x - c.x, pt.y - c.y);
+  return len ? { x: (pt.x - c.x) / len, y: (pt.y - c.y) / len } : null;
+}
+
+//: The eight fixed anchors of an item, in board space, rotated with it.
+function wbAnchorPositions(kind, item) {
+  const box = wbItemBBox(kind, item);
+  if (!box) return [];
+  const w = box.maxX - box.minX, h = box.maxY - box.minY;
+  const c = wbBoxCenter(box);
+  const rot = wbItemRotation(kind, item);
+  return WB_FIXED_ANCHORS.map((a) => {
+    const pt = wbRotatePoint({ x: box.minX + a.x * w, y: box.minY + a.y * h }, c, rot);
+    return { anchor: a, x: pt.x, y: pt.y };
+  });
+}
+
+function wbAnchorPoint(kind, item, anchor) {
+  if (!anchor) return null;
+  const hit = wbAnchorPositions(kind, item).find((p) => p.anchor.x === anchor.x && p.anchor.y === anchor.y);
+  return hit ? { x: hit.x, y: hit.y } : null;
 }
 
 //: The nearest of the 8 fixed points to a board-coordinate click, or `null`
 //: if none is within `thresholdPx` — `null` is the caller's cue to persist
 //: no anchor at all (the free/floating case) rather than a distant one.
 function wbNearestAnchor(kind, item, px, py, thresholdPx = 16) {
-  const box = wbItemBBox(kind, item);
-  if (!box) return null;
-  const w = box.maxX - box.minX, h = box.maxY - box.minY;
   let best = null, bestDist = thresholdPx;
-  for (const a of WB_FIXED_ANCHORS) {
-    const d = Math.hypot(px - (box.minX + a.x * w), py - (box.minY + a.y * h));
-    if (d <= bestDist) { bestDist = d; best = a; }
+  for (const p of wbAnchorPositions(kind, item)) {
+    const d = Math.hypot(px - p.x, py - p.y);
+    if (d <= bestDist) { bestDist = d; best = p.anchor; }
   }
   return best;
 }
@@ -1091,18 +1252,71 @@ function wbBoxRayIntersection(box, towardX, towardY) {
 //: A fixed end resolves to its own point regardless of the other end; a
 //: floating end resolves toward whatever the *other* end actually is (its
 //: fixed point if it has one, its centre otherwise), not always the centre.
-function wbLinkEndpoints(sourceItem, sourceAnchor, targetItem, targetAnchor) {
-  const sourceBox = wbItemBBox("node", sourceItem);
-  const targetBox = wbItemBBox("node", targetItem);
-  const sourceCenter = { x: (sourceBox.minX + sourceBox.maxX) / 2, y: (sourceBox.minY + sourceBox.maxY) / 2 };
-  const targetCenter = { x: (targetBox.minX + targetBox.maxX) / 2, y: (targetBox.minY + targetBox.maxY) / 2 };
-  const fixedSource = wbAnchorPoint("node", sourceItem, sourceAnchor);
-  const fixedTarget = wbAnchorPoint("node", targetItem, targetAnchor);
-  const source = fixedSource || wbBoxRayIntersection(sourceBox, (fixedTarget || targetCenter).x, (fixedTarget || targetCenter).y);
-  const target = fixedTarget || wbBoxRayIntersection(targetBox, (fixedSource || sourceCenter).x, (fixedSource || sourceCenter).y);
+//: **A link end is a card *or a text object*.** Reported: "I cant even link
+//: connections to text boxes or sticky notes." Every end was hard-wired to
+//: `wbState.nodes`; a link stores `sourceKind`/`targetKind` now ("node" when
+//: absent, so every existing link reads exactly as before) and both ends
+//: resolve through the one lookup below.
+function wbLinkItem(kind, id) {
+  if (id == null) return null;
+  const list = kind === "object" ? (wbState.objects || [])
+    : kind === "sketch" ? (wbState.sketches || [])
+    : wbState.nodes;
+  return list.find((i) => i.id === id) || null;
+}
+
+//: Everything a link can start from or land on: cards, text boxes and
+//: stickies, and every drawn shape (a link is a sketch too, and is never a
+//: target). Reported: "only notes light up with edge anchor points... and
+//: nothing else like shapes, sticky notes and text boxes."
+function wbLinkCandidates(excludeKind, excludeId) {
+  const out = [];
+  for (const n of wbState.nodes) out.push(["node", n]);
+  for (const o of wbState.objects || []) if (o.kind === "text") out.push(["object", o]);
+  for (const sk of wbState.sketches || []) {
+    const parsed = wbSketchParsedData(sk);
+    if (!parsed || (parsed.type || "").startsWith("link-")) continue;
+    out.push(["sketch", sk]);
+  }
+  return out.filter(([kind, item]) => !(kind === excludeKind && item.id === excludeId));
+}
+
+//: Is a board point inside an item — in the item's own rotated frame, not
+//: its axis-aligned box. Reported: "hard to put connections on objects that
+//: are rotated as the connection points and borders constantly flicker" —
+//: the pointer crossed in and out of the unrotated box while visibly over
+//: (or off) the rotated card, so the hints came and went with every move.
+function wbPointInItem(kind, item, x, y) {
+  const box = wbItemBBox(kind, item);
+  if (!box) return false;
+  const rot = wbItemRotation(kind, item);
+  const p = rot ? wbRotatePoint({ x, y }, wbBoxCenter(box), -rot) : { x, y };
+  return p.x >= box.minX && p.x <= box.maxX && p.y >= box.minY && p.y <= box.maxY;
+}
+
+function wbLinkCandidateAt(x, y, excludeKind, excludeId) {
+  // Topmost first: objects and cards paint above sketches, and a later
+  // sibling above an earlier one.
+  const candidates = wbLinkCandidates(excludeKind, excludeId).reverse();
+  for (const [kind, item] of candidates) {
+    if (wbPointInItem(kind, item, x, y)) return [kind, item];
+  }
+  return null;
+}
+
+function wbLinkEndpoints(sourceItem, sourceAnchor, targetItem, targetAnchor, sourceKind = "node", targetKind = "node") {
+  const sourceBox = wbItemBBox(sourceKind, sourceItem);
+  const targetBox = wbItemBBox(targetKind, targetItem);
+  if (!sourceBox || !targetBox) return null;
+  const sourceCenter = wbBoxCenter(sourceBox);
+  const targetCenter = wbBoxCenter(targetBox);
+  const fixedSource = wbAnchorPoint(sourceKind, sourceItem, sourceAnchor);
+  const fixedTarget = wbAnchorPoint(targetKind, targetItem, targetAnchor);
+  const source = fixedSource || wbEdgePoint(sourceKind, sourceItem, (fixedTarget || targetCenter).x, (fixedTarget || targetCenter).y);
+  const target = fixedTarget || wbEdgePoint(targetKind, targetItem, (fixedSource || sourceCenter).x, (fixedSource || sourceCenter).y);
   return {
-    source: wbWithDir(source, wbEdgeNormal(sourceBox, source)),
-    target: wbWithDir(target, wbEdgeNormal(targetBox, target)),
+    source: wbWithDir(source, wbItemEdgeDir(sourceKind, sourceItem, source)),
+    target: wbWithDir(target, wbItemEdgeDir(targetKind, targetItem, target)),
   };
 }
 
@@ -1116,31 +1330,36 @@ function wbLinkEndpoints(sourceItem, sourceAnchor, targetItem, targetAnchor) {
 //: Returns `null` for a stale reference (a card end whose id no longer
 //: exists), same as the two call sites already treated a missing node.
 function wbResolveLinkEndpoints(parsed) {
-  const sourceNode = parsed.sourceId != null ? wbState.nodes.find((n) => n.id === parsed.sourceId) : null;
-  const targetNode = parsed.targetId != null ? wbState.nodes.find((n) => n.id === parsed.targetId) : null;
+  const sourceKind = parsed.sourceKind || "node";
+  const targetKind = parsed.targetKind || "node";
+  const sourceNode = wbLinkItem(sourceKind, parsed.sourceId);
+  const targetNode = wbLinkItem(targetKind, parsed.targetId);
   if (parsed.sourceId != null && !sourceNode) return null;
   if (parsed.targetId != null && !targetNode) return null;
   if (!sourceNode && !parsed.sourcePoint) return null;
   if (!targetNode && !parsed.targetPoint) return null;
-  if (sourceNode && targetNode) return wbLinkEndpoints(sourceNode, parsed.sourceAnchor, targetNode, parsed.targetAnchor);
+  if (sourceNode && targetNode) {
+    return wbLinkEndpoints(sourceNode, parsed.sourceAnchor, targetNode, parsed.targetAnchor, sourceKind, targetKind);
+  }
+  if ((sourceNode && !wbItemBBox(sourceKind, sourceNode)) || (targetNode && !wbItemBBox(targetKind, targetNode))) return null;
 
-  const sourceBox = sourceNode ? wbItemBBox("node", sourceNode) : null;
-  const targetBox = targetNode ? wbItemBBox("node", targetNode) : null;
+  const sourceBox = sourceNode ? wbItemBBox(sourceKind, sourceNode) : null;
+  const targetBox = targetNode ? wbItemBBox(targetKind, targetNode) : null;
   // A free point is always fixed — there's no card border for it to "aim
   // toward" the way a floating card-end resolves. A card-end with no fixed
   // anchor of its own still floats toward whatever the other end actually
   // is, same as the node/node case.
-  const sourceFixed = sourceNode ? wbAnchorPoint("node", sourceNode, parsed.sourceAnchor) : parsed.sourcePoint;
-  const targetFixed = targetNode ? wbAnchorPoint("node", targetNode, parsed.targetAnchor) : parsed.targetPoint;
-  const targetCenter = targetBox && { x: (targetBox.minX + targetBox.maxX) / 2, y: (targetBox.minY + targetBox.maxY) / 2 };
-  const sourceCenter = sourceBox && { x: (sourceBox.minX + sourceBox.maxX) / 2, y: (sourceBox.minY + sourceBox.maxY) / 2 };
-  const source = sourceFixed || wbBoxRayIntersection(sourceBox, (targetFixed || targetCenter).x, (targetFixed || targetCenter).y);
-  const target = targetFixed || wbBoxRayIntersection(targetBox, (sourceFixed || sourceCenter).x, (sourceFixed || sourceCenter).y);
+  const sourceFixed = sourceNode ? wbAnchorPoint(sourceKind, sourceNode, parsed.sourceAnchor) : parsed.sourcePoint;
+  const targetFixed = targetNode ? wbAnchorPoint(targetKind, targetNode, parsed.targetAnchor) : parsed.targetPoint;
+  const targetCenter = targetBox && wbBoxCenter(targetBox);
+  const sourceCenter = sourceBox && wbBoxCenter(sourceBox);
+  const source = sourceFixed || wbEdgePoint(sourceKind, sourceNode, (targetFixed || targetCenter).x, (targetFixed || targetCenter).y);
+  const target = targetFixed || wbEdgePoint(targetKind, targetNode, (sourceFixed || sourceCenter).x, (sourceFixed || sourceCenter).y);
   // Only a card end has an edge to leave perpendicular to. A free dangling
   // point has no box, so it keeps the plain chord behaviour.
   return {
-    source: wbWithDir(source, sourceBox && wbEdgeNormal(sourceBox, source)),
-    target: wbWithDir(target, targetBox && wbEdgeNormal(targetBox, target)),
+    source: wbWithDir(source, sourceNode && wbItemEdgeDir(sourceKind, sourceNode, source)),
+    target: wbWithDir(target, targetNode && wbItemEdgeDir(targetKind, targetNode, target)),
   };
 }
 
@@ -1204,7 +1423,22 @@ function wbLinkCaps(parsed) {
 //: link between adjacent cards loop absurdly. An endpoint with no direction
 //: — a free dangling point, or the live drag preview — keeps the original
 //: horizontal behaviour, which is correct for a point with no edge.
-function wbLinkPathD(type, sPt, tPt, caps, width) {
+//: `bend` — asked for directly: "I want to be able to double click on lines,
+//: add points for curving lines and connections." An offset from the chord's
+//: midpoint, in board units; when set, the link is a single quadratic curve
+//: through that control point (straight *or* curved kind — a bent straight
+//: line is a curve, which is what "add a point" means). Absent, both kinds
+//: draw exactly as they always did.
+function wbLinkPathD(type, sPt, tPt, caps, width, bend) {
+  if (bend && (bend.x || bend.y)) {
+    const ctrl = { x: (sPt.x + tPt.x) / 2 + bend.x, y: (sPt.y + tPt.y) / 2 + bend.y };
+    let d = `M ${sPt.x} ${sPt.y} Q ${ctrl.x} ${ctrl.y}, ${tPt.x} ${tPt.y}`;
+    const startCap = caps?.startCap || "none", endCap = caps?.endCap || "none";
+    const headLen = (width || 3) * 4 + 6;
+    if (endCap !== "none") d += " " + wbCapPath(endCap, tPt.x, tPt.y, Math.atan2(tPt.y - ctrl.y, tPt.x - ctrl.x), headLen);
+    if (startCap !== "none") d += " " + wbCapPath(startCap, sPt.x, sPt.y, Math.atan2(sPt.y - ctrl.y, sPt.x - ctrl.x), headLen);
+    return d;
+  }
   const straight = type === "link-straight";
   const dx = tPt.x - sPt.x;
   const dy = tPt.y - sPt.y;
@@ -1259,14 +1493,11 @@ function wbShowAnchorHints(kind, item, nearAnchor) {
   }
   hints.innerHTML = "";
   if (!item) return;
-  const box = wbItemBBox(kind, item);
-  if (!box) return;
-  const w = box.maxX - box.minX, h = box.maxY - box.minY;
-  for (const a of WB_FIXED_ANCHORS) {
+  for (const { anchor: a, x, y } of wbAnchorPositions(kind, item)) {
     const near = nearAnchor && nearAnchor.x === a.x && nearAnchor.y === a.y;
     const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    dot.setAttribute("cx", box.minX + a.x * w);
-    dot.setAttribute("cy", box.minY + a.y * h);
+    dot.setAttribute("cx", x);
+    dot.setAttribute("cy", y);
     dot.setAttribute("r", near ? 6 : 4);
     dot.setAttribute("fill", near ? "var(--accent)" : "var(--card)");
     dot.setAttribute("stroke", "var(--accent)");
@@ -1444,9 +1675,112 @@ async function wbNudgeSelection(dx, dy) {
 // for a mixed multi-selection. A node (note card) and an image object have
 // nothing here to edit yet (a card's own text is the note; an image has no
 // stroke/fill of its own), so the panel just stays hidden for those.
+// The tools that draw something with a colour and a thickness — the ones
+// whose settings the properties panel shows when nothing is selected.
+const WB_STYLE_TOOLS = new Set([
+  "draw", "highlighter", "eraser", "line", "arrow", "rect", "circle",
+  "triangle", "diamond", "text", "sticky", "link-straight", "link-curved", "bucket",
+]);
+
+//: The two "what is selected, if it is of this kind" lookups. Module-level
+//: because both the properties panel's own controls and the copy-style
+//: actions below need them, and they close over nothing but module state.
+function wbSelectedSketchOrNull() {
+  if (!wbSelectedItem || wbSelectedItem.kind !== "sketch") return null;
+  return wbState.sketches.find((s) => s.id === wbSelectedItem.id) || null;
+}
+
+function wbSelectedTextObjectOrNull() {
+  if (!wbSelectedItem || wbSelectedItem.kind !== "object") return null;
+  const obj = wbState.objects?.find((o) => o.id === wbSelectedItem.id);
+  return obj && obj.kind === "text" ? obj : null;
+}
+
+//: **Copy a style off one thing and put it on another.** Asked for directly:
+//: "I want a tool or way to copy styles of shapes and links and add them to
+//: another shape or link connector of a similar type."
+//:
+//: Modelled on Excalidraw's copy/paste-style rather than on PowerPoint's
+//: format-painter *mode*: select a source, copy, select a target, paste. A
+//: painter mode would mean a third cursor state and a "what am I armed with"
+//: question on every click; this reuses the selection the board already has.
+//:
+//: "A similar type" is enforced, not assumed — a text box's style is its
+//: font size and its background, a sketch's is its stroke and fill, and
+//: pasting one onto the other would either do nothing or write fields the
+//: renderer does not read. The copy remembers which kind it came from and
+//: refuses the mismatch out loud.
+let wbCopiedStyle = null; // { kind: "sketch" | "object", style: {...} }
+
+// Only the fields that are style. Deliberately not `d` (the geometry), not
+// `type`, not position — pasting a style must never move or reshape the
+// thing it lands on.
+const WB_SKETCH_STYLE_KEYS = [
+  "color", "width", "dash", "fill", "fillOpacity", "noStroke", "startCap", "endCap",
+];
+const WB_OBJECT_STYLE_KEYS = ["color", "bg", "border_color", "font_size"];
+
+function wbPickStyle(source, keys) {
+  const out = {};
+  for (const key of keys) if (source?.[key] !== undefined) out[key] = source[key];
+  return out;
+}
+
+function wbCopySelectedStyle() {
+  const sketch = wbSelectedSketchOrNull();
+  if (sketch) {
+    let parsed = null;
+    try { parsed = JSON.parse(sketch.data); } catch { parsed = null; }
+    if (!parsed) return toast("That item has no style to copy.");
+    wbCopiedStyle = { kind: "sketch", style: wbPickStyle(parsed, WB_SKETCH_STYLE_KEYS) };
+    return toast("Style copied. Select a shape or link and press Ctrl+Alt+V.");
+  }
+  const obj = wbSelectedTextObjectOrNull();
+  if (obj) {
+    wbCopiedStyle = { kind: "object", style: wbPickStyle(obj.data, WB_OBJECT_STYLE_KEYS) };
+    return toast("Style copied. Select a text box and press Ctrl+Alt+V.");
+  }
+  toast("Select a shape, link or text box first.");
+}
+
+async function wbPasteCopiedStyle() {
+  if (!wbCopiedStyle) return toast("Copy a style first (Ctrl+Alt+C).");
+  // Every item in a multi-selection, so restyling a diagram is one action
+  // rather than one per shape — the same reach `wbApplyBulkMove` already has.
+  const entries = wbMultiSelection.size > 0
+    ? wbSelectionEntries()
+    : (wbSelectedItem ? [wbSelectedItem] : []);
+  if (!entries.length) return toast("Select something to paste the style onto.");
+
+  let applied = 0;
+  let skipped = 0;
+  for (const entry of entries) {
+    const list = wbState[WB_LIST_BY_KIND[entry.kind]] || [];
+    const item = list.find((i) => i.id === entry.id);
+    if (!item) continue;
+    if (entry.kind === "sketch" && wbCopiedStyle.kind === "sketch") {
+      await wbSaveSketchProps(item, { ...wbCopiedStyle.style });
+      applied += 1;
+    } else if (entry.kind === "object" && wbCopiedStyle.kind === "object" && item.kind === "text") {
+      item.data = { ...item.data, ...wbCopiedStyle.style };
+      await wbSaveObject(item);
+      applied += 1;
+    } else {
+      skipped += 1;
+    }
+  }
+  wbScheduleRender();
+  wbUpdatePropertiesPanel();
+  if (!applied) return toast("That style does not fit what you selected.");
+  toast(skipped
+    ? `Style pasted onto ${applied}. ${skipped} skipped — a different kind of item.`
+    : `Style pasted onto ${applied}.`);
+}
+
 function wbUpdatePropertiesPanel() {
   const panel = document.getElementById("wb-properties-panel");
   if (!panel) return;
+  wbUpdateSelectionBar();
   const rows = {
     color: document.getElementById("wb-prop-color-row"),
     width: document.getElementById("wb-prop-width-row"),
@@ -1461,8 +1795,22 @@ function wbUpdatePropertiesPanel() {
     nostroke: document.getElementById("wb-prop-nostroke-row"),
     shapefill: document.getElementById("wb-prop-shapefill-row"),
     extractNotes: document.getElementById("wb-extract-notes-row"),
+    textstyle: document.getElementById("wb-prop-textstyle-row"),
+    align: document.getElementById("wb-prop-align-row"),
+    md: document.getElementById("wb-prop-md-row"),
   };
   Object.values(rows).forEach((r) => r?.classList.add("hidden"));
+
+  // The style controls moved here out of the tool row (see index.html), so
+  // this panel is no longer only about a *selection*: it is also where the
+  // settings a drawing tool is about to use live. It therefore has to be
+  // open whenever one of those tools is active, not just when something is
+  // selected — otherwise picking the pen would hide the pen's own colour.
+  // This is the split every whiteboard app makes: tools in the row,
+  // properties in the panel.
+  const styleGroup = document.getElementById("wb-tool-style-group");
+  const toolDraws = WB_STYLE_TOOLS.has(window.currentTool);
+  styleGroup?.classList.toggle("hidden", !toolDraws);
 
   // A multi-selection has no one fill/stroke to edit (mixed kinds), but it
   // does have grouping and alignment, which only make sense here — shown
@@ -1478,7 +1826,9 @@ function wbUpdatePropertiesPanel() {
     return;
   }
   if (!wbSelectedItem) {
-    panel.classList.add("hidden");
+    // Still open if a drawing tool is active — it is showing that tool's own
+    // colour and thickness, which is the point of putting them here.
+    panel.classList.toggle("hidden", !toolDraws);
     return;
   }
   const { kind, id } = wbSelectedItem;
@@ -1553,6 +1903,13 @@ function wbUpdatePropertiesPanel() {
     rows.bg.classList.remove("hidden");
     rows.border.classList.remove("hidden");
     rows.fontsize.classList.remove("hidden");
+    rows.textstyle.classList.remove("hidden");
+    rows.align.classList.remove("hidden");
+    rows.md.classList.remove("hidden");
+    for (const button of document.querySelectorAll("#wb-prop-align button")) {
+      button.classList.toggle("active", button.dataset.align === (item.data.align || "left"));
+    }
+    document.getElementById("wb-prop-md").checked = Boolean(item.data.md);
     document.getElementById("wb-prop-color").value = item.data.color || "#1f2430";
     document.getElementById("wb-prop-bg").value = item.data.bg === "transparent" ? "#ffffff" : (item.data.bg || "#ffffff");
     document.getElementById("wb-prop-bg-none").checked = item.data.bg === "transparent";
@@ -1902,11 +2259,81 @@ function selectWbItem(kind, id) {
   wbApplySelectionHighlight();
 }
 
+//: Select everything on the board (Edit → Select all, Ctrl+A on the
+//: canvas). Links are left out: they follow what they join.
+function wbSelectAllItems() {
+  wbSelectedItem = null;
+  wbMultiSelection.clear();
+  for (const [kind, item] of wbLinkCandidates()) wbMultiSelection.add(wbMultiKey(kind, item.id));
+  wbApplySelectionHighlight();
+  wbUpdatePropertiesPanel();
+  wbUpdateSelectionBar();
+}
+
 function clearWbSelection() {
   if (!wbSelectedItem && wbMultiSelection.size === 0) return;
   wbSelectedItem = null;
   wbMultiSelection.clear();
   wbApplySelectionHighlight();
+  wbUpdateSelectionBar();
+}
+
+//: **The floating selection toolbar.** The four or five things you do to a
+//: selected item most — duplicate it, copy or paste its style, send it back
+//: or forward, delete it — sit in a small bar just above the item, the way
+//: Miro, FigJam, tldraw and draw.io all do. The drawer still holds every
+//: property; this is the short list at the point of attention, so a shape
+//: is not managed from a panel a screen-width away (reported: "annoying
+//: to... manage shapes"). Positioned in the view's own coordinates from the
+//: item's board bbox through the live zoom transform, and re-placed on
+//: every render and every pan/zoom frame.
+function wbUpdateSelectionBar() {
+  const bar = document.getElementById("wb-selection-bar");
+  if (!bar) return;
+  const sel = wbSelectedItem;
+  const multi = wbMultiSelection.size > 1;
+  const container = document.getElementById("whiteboard-container");
+  const host = document.getElementById("library-view-whiteboard");
+  const editing = document.querySelector(".wb-object.wb-text-editing");
+  if ((!sel && !multi) || !container || !host || editing || wbLinkDragActive) {
+    bar.classList.add("hidden");
+    return;
+  }
+  // A multi-selection gets the bar above the whole group — that is where
+  // Arrange's align/distribute and Export "just the selection" matter.
+  let box = null;
+  if (multi) {
+    const b = wbSelectionBounds();
+    if (b) box = { minX: b.minX, minY: b.minY, maxX: b.minX + b.width, maxY: b.minY + b.height };
+  } else {
+    const item = (wbState[WB_LIST_BY_KIND[sel.kind]] || []).find((i) => i.id === sel.id);
+    box = item ? wbItemBBox(sel.kind, item) : null;
+  }
+  if (!box) {
+    bar.classList.add("hidden");
+    return;
+  }
+  const t = d3.zoomTransform(container);
+  const rect = container.getBoundingClientRect();
+  const hostRect = host.getBoundingClientRect();
+  const cx = rect.left - hostRect.left + t.applyX((box.minX + box.maxX) / 2);
+  const top = rect.top - hostRect.top + t.applyY(box.minY);
+  const bottom = rect.top - hostRect.top + t.applyY(box.maxY);
+  bar.classList.remove("hidden");
+  const w = bar.offsetWidth, h = bar.offsetHeight;
+  // 44px above, not 10: the rotation handle sits 28px above a card or
+  // text box (`.wb-rotate-handle`, 12px tall), and a bar placed just over
+  // the item covered it — reported: "I can't rotate objects because that
+  // panel appears."
+  const gapAbove = 44, gapBelow = 10;
+  const left = Math.max(8, Math.min(hostRect.width - w - 8, cx - w / 2));
+  // Above the item; below it when the top bar would cover the bar.
+  const topBar = document.getElementById("wb-topbar")?.getBoundingClientRect();
+  const floor = topBar ? topBar.bottom - hostRect.top + gapBelow : 56;
+  let y = top - h - gapAbove;
+  if (y < floor) y = bottom + gapBelow;
+  bar.style.left = `${Math.round(left)}px`;
+  bar.style.top = `${Math.round(y)}px`;
 }
 
 // Shared by every item's own click handler (sketch/node/object) — a plain
@@ -2392,6 +2819,123 @@ const WB_KIND_INFO = {
 //: element's own untransformed box, so the rotation pivots on the box's own
 //: centre regardless of where the translate moved it to — the reverse order
 //: would instead swing the box around a point offset from its own body.
+//: **A drag handle that lives inside the thing it moves needs a container
+//: that doesn't.** Reported directly: text boxes "spasm positions and are
+//: basically unmovable".
+//:
+//: `d3.drag` measures each frame's `event.dx/dy` between two `d3.pointer`
+//: readings taken against its *container*, and that container defaults to
+//: `this.parentNode`. For a drag bound to the item itself (`objDrag`) the
+//: parent is `#wb-html-layer`, which holds still while one object moves — so
+//: the deltas are true screen pixels and `/ transform.k` converts them to
+//: board units correctly. But `.wb-object-grip` and `.wb-resize-handle` are
+//: *children* of the item, so their default container is the item, and the
+//: item's own `transform` is rewritten on every frame of the drag. For an
+//: HTML element `d3.pointer` returns `clientX - getBoundingClientRect().left`,
+//: so the origin it measures from moves by exactly the amount just applied
+//: and the next frame's delta is cancelled against it. The box judders in
+//: place instead of following the cursor.
+//:
+//: Only text objects get a grip (an image has no contenteditable competing
+//: for its body), which is why this was reported for text boxes alone. The
+//: resize handles have the same flaw on the `w`/`n` corners only — those are
+//: the ones that move `x`/`y` as well as the size — which is the standing
+//: "zoom-drift in move/resize handles" report.
+//:
+//: Pointing every such drag at the item's own parent is a no-op for the
+//: handles that were already fine (a stable origin either way) and a fix for
+//: the ones that were not.
+function wbStableDragContainer(itemSelector) {
+  return function () {
+    return this.closest(itemSelector)?.parentNode || this.parentNode;
+  };
+}
+
+//: **A text box is a box first and a text field second.** The other half of
+//: the same report ("I can't drag text boxes... basically unmovable"): the
+//: `.wb-text-content` was `contenteditable` from the moment it rendered and
+//: fills the box edge to edge, so it swallowed every pointerdown before the
+//: object's own drag could see one. The only draggable surface left was the
+//: grip and a ~0.5rem strip of padding — and grabbing anywhere else did
+//: nothing at all, which reads as "broken" rather than "aim for the handle".
+//:
+//: So the box is only editable once you ask it to be, which is what every
+//: canvas app with text does (Figma, Excalidraw, PowerPoint): drag it like
+//: any other object, double-click to get a caret, blur to go back. A box
+//: made by the text tool starts in edit mode, since the whole point of
+//: click-to-place is typing straight away.
+//: **Rendered markdown in a text box or sticky, toggleable.** Asked for
+//: directly. Editing always shows the raw text — markdown you cannot see is
+//: markdown you cannot fix — so this paints the rendered form only when the
+//: box is not being edited, and `wbBeginTextEdit` puts the source back.
+function wbPaintTextContent(contentEl, d) {
+  if (!contentEl) return;
+  const raw = d.data.content || "";
+  if (d.data.md && raw.trim() && typeof renderMarkdown === "function") {
+    contentEl.replaceChildren();
+    contentEl.classList.add("wb-text-md");
+    renderMarkdown(contentEl, raw);
+    return;
+  }
+  contentEl.classList.remove("wb-text-md");
+  contentEl.textContent = raw;
+}
+
+//: Wrap the selection inside a text box (or the whole text, when nothing is
+//: selected) in a markdown marker — the formatting bar a text box never had.
+function wbWrapTextSelection(marker) {
+  const item = wbSelectedTextObjectOrNull();
+  if (!item) return;
+  const el = document.querySelector(`.wb-object[data-id="${item.id}"] .wb-text-content`);
+  const raw = item.data.content || "";
+  const sel = window.getSelection();
+  let next;
+  if (el && el.isContentEditable && sel && sel.rangeCount && !sel.isCollapsed && el.contains(sel.anchorNode)) {
+    const picked = sel.toString();
+    next = raw.replace(picked, `${marker}${picked}${marker}`);
+  } else {
+    next = raw.trim() ? `${marker}${raw}${marker}` : raw;
+  }
+  item.data = { ...item.data, content: next };
+  wbSaveObject(item);
+  wbScheduleRender();
+}
+
+function wbBulletTextLines() {
+  const item = wbSelectedTextObjectOrNull();
+  if (!item) return;
+  const lines = (item.data.content || "").split("\n");
+  const allBulleted = lines.every((line) => !line.trim() || line.trimStart().startsWith("- "));
+  item.data = {
+    ...item.data,
+    content: lines
+      .map((line) => (!line.trim() ? line : allBulleted ? line.replace(/^(\s*)- /, "$1") : `- ${line}`))
+      .join("\n"),
+  };
+  wbSaveObject(item);
+  wbScheduleRender();
+}
+
+function wbBeginTextEdit(contentEl) {
+  if (!contentEl || contentEl.isContentEditable) return;
+  //: Back to the source while editing, whatever the rendered view showed.
+  const objectEl = contentEl.closest(".wb-object");
+  const item = (wbState.objects || []).find((o) => String(o.id) === objectEl?.dataset.id);
+  if (item) {
+    contentEl.classList.remove("wb-text-md");
+    contentEl.textContent = item.data.content || "";
+  }
+  contentEl.setAttribute("contenteditable", "true");
+  contentEl.closest(".wb-object")?.classList.add("wb-text-editing");
+  contentEl.focus();
+}
+
+function wbEndTextEdit(contentEl) {
+  if (!contentEl) return;
+  contentEl.setAttribute("contenteditable", "false");
+  contentEl.closest(".wb-object")?.classList.remove("wb-text-editing");
+}
+
 function wbItemTransform(d) {
   const rot = d.rotation ? ` rotate(${d.rotation}deg)` : "";
   return `translate(${d.x}px, ${d.y}px)${rot}`;
@@ -2529,6 +3073,26 @@ async function wbCreateObject(kind, data, x, y, width, height) {
   }
 }
 
+//: **A sticky note is a text box that already looks like one** (PLAN.md W3).
+//: Same object kind, same editor, same properties panel — the difference is
+//: three defaults (a yellow fill, a warm border, a larger face) and a size
+//: that fits a thought rather than a paragraph. Kept as `kind: "text"` on
+//: purpose: no schema change, and every text feature (copy style, AI, undo)
+//: works on a sticky the day it exists.
+async function wbCreateSticky(x, y) {
+  const created = await wbCreateObject(
+    "text",
+    { content: "", bg: "#fff4a3", border_color: "#e8d56a", color: "#2a2a1f", font_size: 16 },
+    x - 90, y - 70, 180, 140
+  );
+  if (!created) return;
+  wbSelectToolRef?.("select");
+  requestAnimationFrame(() => {
+    const el = document.querySelector(`.wb-object[data-id="${created.id}"] .wb-text-content`);
+    if (el) wbBeginTextEdit(el);
+  });
+}
+
 async function wbCreateTextBox(x, y) {
   const created = await wbCreateObject(
     "text",
@@ -2543,7 +3107,7 @@ async function wbCreateTextBox(x, y) {
   // looked up fresh rather than kept from before the render.
   requestAnimationFrame(() => {
     const el = document.querySelector(`.wb-object[data-id="${created.id}"] .wb-text-content`);
-    el?.focus();
+    if (el) wbBeginTextEdit(el);
   });
 }
 
@@ -2928,9 +3492,9 @@ function wbCloseExportMenu() {
   }
 }
 
-function wbExportBoard() {
+function wbExportBoard(anchor) {
   wbCloseExportMenu();
-  const button = document.getElementById("wb-export");
+  const button = anchor instanceof Element ? anchor : document.getElementById("wb-export");
   if (!button) return;
   const menu = document.createElement("div");
   menu.id = "wb-export-menu";
@@ -2938,6 +3502,15 @@ function wbExportBoard() {
   const rect = button.getBoundingClientRect();
   menu.style.top = `${rect.bottom + 6}px`;
   menu.style.right = `${window.innerWidth - rect.right}px`;
+  // Opened from the Board menu the button sits low enough that the nine
+  // options ran off the bottom of the window (reported, with a screenshot).
+  // Measured once it is in the DOM and lifted to fit.
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    if (r.bottom > window.innerHeight - 8) {
+      menu.style.top = `${Math.max(8, window.innerHeight - r.height - 8)}px`;
+    }
+  });
 
   const addHeading = (text) => {
     const h = document.createElement("div");
@@ -2976,9 +3549,10 @@ function wbExportBoard() {
   addHeading("Vector (SVG)");
   if (hasSelection) addOption("Just the selection", () => wbExportSvg("selection"));
   addOption("The whole board", () => wbExportSvg("whole"));
-  addHeading("PDF");
-  if (hasSelection) addOption("Just the selection, via Print", () => wbExportPdf("selection"));
-  addOption("The whole board, via Print", () => wbExportPdf("whole"));
+  addHeading("PDF (via Print)");
+  if (hasSelection) addOption("Just the selection", () => wbExportPdf("selection"));
+  addOption("What's on screen now", () => wbExportPdf("visible"));
+  addOption("The whole board", () => wbExportPdf("whole"));
 
   document.body.appendChild(menu);
   wbExportMenuOutsideClick = (event) => {
@@ -2993,6 +3567,21 @@ async function initWhiteboard() {
   
   const container = d3.select("#whiteboard-container");
   container.call(wbZoom).on("dblclick.zoom", null);
+  // Plain wheel pans (Shift+wheel pans sideways); Ctrl/⌘+wheel is left to
+  // d3-zoom's own handler by `wbZoomFilter`. `passive: false` so the page
+  // behind the board does not scroll as well.
+  if (!container.node().dataset.wbWheelPan) {
+    container.node().dataset.wbWheelPan = "1";
+    container.node().addEventListener("wheel", (e) => {
+      if (e.ctrlKey || e.metaKey) return;
+      e.preventDefault();
+      const k = d3.zoomTransform(container.node()).k || 1;
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+      let dx = e.deltaX * unit, dy = e.deltaY * unit;
+      if (e.shiftKey && !dx) { dx = dy; dy = 0; }
+      container.call(wbZoom.translateBy, -dx / k, -dy / k);
+    }, { passive: false });
+  }
   
   // Toolbar hooks
   document.getElementById("wb-zoom-in").addEventListener("click", () => container.transition().call(wbZoom.scaleBy, 1.2));
@@ -3105,6 +3694,9 @@ async function initWhiteboard() {
   }
   $("wb-new-board")?.addEventListener("click", createNewBoard);
   $("wb-rename-board")?.addEventListener("click", renameCurrentBoard);
+  $("wb-empty-hint-close")?.addEventListener("click", () => {
+    $("wb-empty-hint")?.classList.add("hidden");
+  });
   $("wb-empty-hint-dismiss")?.addEventListener("click", () => {
     localStorage.setItem("wbEmptyHintDismissed", "1");
     wbHintForcedOpen = false;
@@ -3270,6 +3862,51 @@ async function initWhiteboard() {
   document.querySelectorAll(".whiteboard-floating-panel[data-panel-id]").forEach((panel) => {
     makeWbPanelDraggable(panel, `wb-panel-pos-${panel.dataset.panelId}`);
   });
+
+  // **The panels clear each other by measurement, not by a tuned constant.**
+  //
+  // Reported a third time, as "the properties and top right panel overlap
+  // each other... they need to be better and more responsive". The properties
+  // panel sat at a hardcoded `top: 11rem`, which is a guess at how tall the
+  // top-right panel happens to be — and the CSS comment on it records the
+  // guess being bumped from 6rem, then from 10rem, after the same report each
+  // time. It cannot be a constant: that panel wraps its eight controls onto
+  // one, two or three rows depending on the board's width, so its height is a
+  // function of the viewport. The same guessing shows up twice more — the
+  // gesture strip's own `bottom`, and the narrow-window rule that lifts the
+  // zoom cluster by `30vh` because, as its comment says, "CSS cannot measure
+  // a sibling".
+  //
+  // A ResizeObserver can. Each panel that others have to clear publishes its
+  // own height as a custom property on the view, and every rule that needs to
+  // sit above or below one derives its offset from that — so the layout is
+  // correct at every width, at every wrap count, and after any change to a
+  // panel's contents, with no number left to re-tune.
+  //
+  // Deliberately *not* wired into the drag system: a panel the reader has
+  // dragged carries inline `top`/`left`, which wins over these rules anyway,
+  // so a custom position keeps working exactly as before.
+  const wbPanelMetricsRoot = document.getElementById("library-view-whiteboard");
+  if (wbPanelMetricsRoot && typeof ResizeObserver !== "undefined") {
+    // "library" is gone (its controls are in the top bar now) but the token
+    // stays declared for the one rule in 06-timeline-dialogs.css that the
+    // later drawer rule overrides; "topbar" and "zoom" are what the drawer,
+    // the sidebar, the search bar and the overview clear today.
+    for (const [panelId, name] of [["topbar", "topbar"], ["tools", "tools"], ["zoom", "zoom"]]) {
+      const panel = document.querySelector(`[data-panel-id="${panelId}"]`);
+      if (!panel) continue;
+      const publish = () => {
+        const box = panel.getBoundingClientRect();
+        // A hidden panel measures 0, and a 0 here would collapse the offset
+        // of whatever is clearing it right on top of the panel above. The
+        // CSS fallbacks stay in charge until there is a real size to use.
+        if (box.height > 0) wbPanelMetricsRoot.style.setProperty(`--wb-h-${name}`, `${Math.round(box.height)}px`);
+        if (box.width > 0) wbPanelMetricsRoot.style.setProperty(`--wb-w-${name}`, `${Math.round(box.width)}px`);
+      };
+      publish();
+      new ResizeObserver(publish).observe(panel);
+    }
+  }
 
   // Asked for directly: once a panel's been dragged there was no way back to
   // its default corner short of clearing localStorage by hand. Clears every
@@ -3507,15 +4144,59 @@ async function initWhiteboard() {
 
   // The properties panel's own controls — each reads `wbSelectedItem` fresh
   // at change time rather than closing over it, since the panel can stay
-  // open across several edits to the same selection.
-  function wbSelectedSketchOrNull() {
-    if (!wbSelectedItem || wbSelectedItem.kind !== "sketch") return null;
-    return wbState.sketches.find((s) => s.id === wbSelectedItem.id) || null;
-  }
-  function wbSelectedTextObjectOrNull() {
-    if (!wbSelectedItem || wbSelectedItem.kind !== "object") return null;
-    const obj = wbState.objects?.find((o) => o.id === wbSelectedItem.id);
-    return obj && obj.kind === "text" ? obj : null;
+  // open across several edits to the same selection. The two lookups these
+  // use are module-level (see above `wbCopySelectedStyle`): they read only
+  // `wbSelectedItem`/`wbState`, and the copy-style actions need them too.
+  document.getElementById("wb-copy-style")?.addEventListener("click", wbCopySelectedStyle);
+  document.getElementById("wb-paste-style")?.addEventListener("click", wbPasteCopiedStyle);
+  document.getElementById("wb-prop-bold")?.addEventListener("click", () => wbWrapTextSelection("**"));
+  document.getElementById("wb-prop-italic")?.addEventListener("click", () => wbWrapTextSelection("*"));
+  document.getElementById("wb-prop-bullets")?.addEventListener("click", wbBulletTextLines);
+  document.getElementById("wb-prop-align")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-align]");
+    const item = wbSelectedTextObjectOrNull();
+    if (!button || !item) return;
+    item.data = { ...item.data, align: button.dataset.align };
+    wbSaveObject(item);
+    wbScheduleRender();
+    wbUpdatePropertiesPanel();
+  });
+  document.getElementById("wb-prop-md")?.addEventListener("change", (event) => {
+    const item = wbSelectedTextObjectOrNull();
+    if (!item) return;
+    item.data = { ...item.data, md: event.target.checked };
+    wbSaveObject(item);
+    wbScheduleRender();
+  });
+  // The floating selection bar's buttons reuse the keyboard paths exactly
+  // (Ctrl+D, Ctrl+Alt+C/V, [ ], Delete) so the two can never disagree.
+  const selBar = document.getElementById("wb-selection-bar");
+  if (selBar) {
+    selBar.addEventListener("mousedown", (e) => e.preventDefault()); // keep the board's focus
+    const zOrder = (toFront) => {
+      const sel = wbSelectedItem;
+      const item = sel && (wbState[WB_LIST_BY_KIND[sel.kind]] || []).find((i) => i.id === sel.id);
+      if (!item) return;
+      wbSetZOrder(sel.kind, item, toFront).then((undo) => {
+        if (undo) wbPushUndo(undo);
+        wbScheduleRender();
+      });
+    };
+    const actions = {
+      "wb-selbar-duplicate": () => {
+        const kept = wbClipboard;
+        if (wbCopySelection()) wbPasteClipboard().finally(() => { wbClipboard = kept; });
+      },
+      "wb-selbar-copy-style": () => wbCopySelectedStyle(),
+      "wb-selbar-paste-style": () => wbPasteCopiedStyle(),
+      "wb-selbar-back": () => zOrder(false),
+      "wb-selbar-forward": () => zOrder(true),
+      "wb-selbar-delete": () => deleteWbSelection(),
+      "wb-selbar-export": () => wbExportBoard(document.getElementById("wb-selbar-export")),
+    };
+    for (const [id, fn] of Object.entries(actions)) {
+      document.getElementById(id)?.addEventListener("click", (e) => { e.stopPropagation(); fn(); });
+    }
   }
   document.getElementById("wb-prop-color")?.addEventListener("change", async (e) => {
     const sketch = wbSelectedSketchOrNull();
@@ -3680,14 +4361,8 @@ async function initWhiteboard() {
   const shapeToggleIcon = document.getElementById("wb-shape-toggle-icon");
   const shapeMenu = document.getElementById("wb-shape-menu");
 
-  // Same dropdown pattern, for the two selection tools — asked for directly
-  // ("have the selection tools as their own dropdown... like with the
-  // shapes and lines").
-  const WB_SELECT_TOOLS = new Set(["select", "lasso"]);
-  let lastSelectTool = "select"; // what a plain click on the toggle (not the caret) selects
-  const selectToggle = document.getElementById("wb-select-toggle");
-  const selectToggleIcon = document.getElementById("wb-select-toggle-icon");
-  const selectMenu = document.getElementById("wb-select-menu");
+  // The selection tools were a dropdown; they are three peer buttons now
+  // (see index.html) so there is no toggle left to keep in sync.
 
   // The one place a tool switch happens, so the toolbar click and the
   // keyboard shortcuts below can never drift out of sync with each other.
@@ -3719,17 +4394,11 @@ async function initWhiteboard() {
       shapeToggle.classList.remove("active");
     }
     if (shapeMenu && shapeToggle) wbCloseDockedMenu(shapeMenu, shapeToggle);
-    if (selectToggle && WB_SELECT_TOOLS.has(tool)) {
-      lastSelectTool = tool;
-      const chosen = selectMenu?.querySelector(`button[data-tool="${tool}"] svg`);
-      if (chosen && selectToggleIcon) selectToggleIcon.innerHTML = chosen.innerHTML;
-      selectToggle.classList.add("active");
-    } else if (selectToggle) {
-      selectToggle.classList.remove("active");
-    }
-    if (selectMenu && selectToggle) wbCloseDockedMenu(selectMenu, selectToggle);
     wbRefreshArrowStyleControlRef?.();
     updateWbCursor();
+    // The properties panel now also carries the style a drawing tool will
+    // use, so a tool switch has to reopen/close it — see its own comment.
+    wbUpdatePropertiesPanel();
   }
 
   wbSelectToolRef = selectWbTool;
@@ -3885,18 +4554,122 @@ async function initWhiteboard() {
   }
 
   wbWireToggleGestures(shapeToggle, shapeMenu, () => lastShapeTool);
-  wbWireToggleGestures(selectToggle, selectMenu, () => lastSelectTool);
 
   // Asked for directly: the toolbar should be adjustable as a sidebar, not
   // only a bottom bar. `data-dock` drives the CSS (row vs. column layout,
   // which edge it's pinned to); persisted so the choice survives a reload
   // the same way panel positions already do.
+  // **Three grouped menus in the top bar — Insert, View, Board.** Asked
+  // for: "add more features in the top bar and spread them out in grouped
+  // section dropdowns." One `.wb-board-menu-wrap` per menu; opening one
+  // closes the others; an outside click or Escape (capture phase — the
+  // board's own keydown swallows Escape from a focused toolbar button)
+  // closes all. The Insert menu reuses the dock's own tool buttons so the
+  // two can never disagree about what a sticky or a text box is.
+  const menuWraps = [...document.querySelectorAll(".wb-board-menu-wrap")];
+  const closeAllWbMenus = () => {
+    for (const wrap of menuWraps) {
+      wrap.querySelector(".wb-board-menu")?.classList.add("hidden");
+      wrap.querySelector("[data-wb-menu-toggle]")?.setAttribute("aria-expanded", "false");
+    }
+  };
+  for (const wrap of menuWraps) {
+    const toggle = wrap.querySelector("[data-wb-menu-toggle]");
+    const menu = wrap.querySelector(".wb-board-menu");
+    if (!toggle || !menu) continue;
+    toggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const wasHidden = menu.classList.contains("hidden");
+      closeAllWbMenus();
+      if (wasHidden) {
+        menu.classList.remove("hidden");
+        toggle.setAttribute("aria-expanded", "true");
+        syncPanelSwitches();
+        // Never past the bottom of the window (reported with the View
+        // menu): cap to what is left below the menu's own top, and scroll.
+        const top = menu.getBoundingClientRect().top;
+        menu.style.maxHeight = `${Math.max(160, window.innerHeight - top - 12)}px`;
+      }
+    });
+  }
+  document.addEventListener("click", (e) => {
+    if (e.target.closest(".wb-board-menu, .wb-board-menu-wrap")) return;
+    // A Panels switch forwards to the top bar's own toggle with a synthetic
+    // `.click()`, which bubbled here as an "outside" click and shut the
+    // menu the moment a switch was used (reported). Only a real pointer
+    // or keyboard click outside the menu closes it.
+    if (!e.isTrusted) return;
+    closeAllWbMenus();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeAllWbMenus();
+  }, true);
+  // Edit / Arrange menu items forward to the control that already owns the
+  // action (`data-wb-click`), so a menu can never drift from the dock, the
+  // drawer or the selection bar. `data-wb-fn` is for the one action with
+  // no button of its own.
+  document.addEventListener("click", (e) => {
+    const item = e.target.closest(".wb-board-menu [data-wb-click], .wb-board-menu [data-wb-fn]");
+    if (!item) return;
+    e.stopPropagation();
+    closeAllWbMenus();
+    if (item.dataset.wbFn === "select-all") { wbSelectAllItems(); return; }
+    document.getElementById(item.dataset.wbClick)?.click();
+  });
+  document.getElementById("wb-insert-menu")?.addEventListener("click", (e) => {
+    const choice = e.target.closest("[data-wb-insert]");
+    if (!choice) return;
+    closeAllWbMenus();
+    const what = choice.dataset.wbInsert;
+    if (what === "image") document.getElementById("wb-add-image")?.click();
+    else if (what === "note") document.getElementById("wb-add-note")?.click();
+    else document.querySelector(`#wb-tool-group [data-tool="${what}"]`)?.click();
+  });
+
+  // **Panels, managed in one place.** Asked for: "there needs to be a window
+  // option to manage what windows are showing and not". Four switches in
+  // the Board menu: Properties (a preference — off means the drawer never
+  // opens, even with a selection; the class is read by CSS), and Overview,
+  // Library and Search, which are the same toggles the top bar carries,
+  // shown as on/off so their state can be read without hunting for them.
+  const propsPref = document.getElementById("wb-panel-props");
+  const viewHost = document.getElementById("library-view-whiteboard");
+  const applyPropsPref = (on) => {
+    viewHost?.classList.toggle("wb-hide-props", !on);
+    if (propsPref) propsPref.checked = on;
+  };
+  applyPropsPref(localStorage.getItem("wb-panel-props") !== "off");
+  propsPref?.addEventListener("change", () => {
+    localStorage.setItem("wb-panel-props", propsPref.checked ? "on" : "off");
+    applyPropsPref(propsPref.checked);
+  });
+  const panelSwitches = [
+    ["wb-panel-overview", "wb-navigator", "wb-navigator-toggle"],
+    ["wb-panel-library", "whiteboard-sidebar", "wb-add-note"],
+    ["wb-panel-search", "wb-search-bar", "wb-search-toggle"],
+  ];
+  function syncPanelSwitches() {
+    for (const [switchId, panelId] of panelSwitches) {
+      const sw = document.getElementById(switchId);
+      const panel = document.getElementById(panelId);
+      if (sw && panel) sw.checked = !panel.classList.contains("hidden");
+    }
+  }
+  for (const [switchId, , toggleId] of panelSwitches) {
+    document.getElementById(switchId)?.addEventListener("change", () => {
+      document.getElementById(toggleId)?.click();
+      syncPanelSwitches();
+    });
+  }
+
   const toolsPanel = document.getElementById("wb-tools-panel");
   const dockToggle = document.getElementById("wb-dock-toggle");
   if (toolsPanel && dockToggle) {
     const applyDock = (dock) => {
       toolsPanel.dataset.dock = dock;
       dockToggle.title = dock === "bottom" ? "Dock as a sidebar" : "Dock as a bottom bar";
+      // The button reads as the current state, the tooltip as the action.
+      setLabel(dockToggle, dock === "bottom" ? "ph:sidebar-simple Bottom" : "ph:sidebar-simple Side");
     };
     applyDock(localStorage.getItem("wb-toolbar-dock") || "bottom");
     dockToggle.addEventListener("click", () => {
@@ -3935,7 +4708,10 @@ async function initWhiteboard() {
   // contenteditable note), the same guard the app's other global shortcuts
   // already use.
   const WB_TOOL_KEYS = {
-    v: "pan",
+    // V selects and H is the hand, the way every whiteboard people already
+    // know binds them. V used to be Pan (and S Select); S stays as an alias
+    // so the old habit still works.
+    v: "select",
     h: "pan",
     s: "select",
     k: "lasso",
@@ -3972,6 +4748,20 @@ async function initWhiteboard() {
   // A board left while space is down would otherwise stay stuck in pan.
   window.addEventListener("blur", () => wbSetSpaceHeld(false));
 
+  // **Clicking the board gives the board the keyboard.** Single-key
+  // shortcuts are guarded (correctly) against firing while a field has
+  // focus, but a canvas is not focusable by default, so clicking it left
+  // focus wherever it happened to be — on whatever control was touched last,
+  // or on the lock screen's own password field for a freshly unlocked app.
+  // `tabindex="-1"` (index.html) plus this makes the board take focus the way
+  // every other surface does, so the tool keys work after clicking the thing
+  // they act on. Out of the tab order deliberately: it is a canvas, not a
+  // stop on the keyboard path through the page.
+  container.node()?.addEventListener("pointerdown", (e) => {
+    if (e.target.closest(".whiteboard-floating-panel, .wb-text-content")) return;
+    document.getElementById("whiteboard-container")?.focus({ preventScroll: true });
+  });
+
   document.addEventListener("keydown", (e) => {
     const view = document.getElementById("library-view-whiteboard");
     if (!view || view.classList.contains("hidden")) return;
@@ -3982,7 +4772,19 @@ async function initWhiteboard() {
     // browser. `openGlobalFind` in app.js now hands off to the board search
     // when a board is open, which is one owner for one shortcut and the same
     // shape as the handoff it already does for the lightbox's find.
-    if (tag === "input" || tag === "textarea" || document.activeElement?.isContentEditable) return;
+    // `offsetParent` is the visibility half, and it is load-bearing: the lock
+    // overlay's own password field keeps DOM focus after the overlay is
+    // hidden, so on a freshly unlocked app `activeElement` is an `<input>`
+    // that nobody can see or type into — and this guard then swallowed every
+    // single-key shortcut on the board (V/H/P, `n`, `/`) for the whole
+    // session. Measured, not guessed: `document.activeElement` read
+    // `INPUT#lock-password` on a board that had been open for minutes. A
+    // field you cannot see is not a field you are typing in.
+    const active = document.activeElement;
+    const typing = active
+      && (tag === "input" || tag === "textarea" || active.isContentEditable)
+      && active.offsetParent !== null;
+    if (typing) return;
     // Bare "n" for the overview, matching the single-letter tool keys this
     // board already uses (V/S/P/R/O...). Modifier chords are left alone so
     // Ctrl+N still opens a browser window.
@@ -4004,9 +4806,14 @@ async function initWhiteboard() {
       wbSetSpaceHeld(true);
       return;
     }
+    // Escape cascades one level at a time, the way every editor does it:
+    // with something selected it clears the selection and leaves the tool
+    // alone; with nothing selected it returns to Select. One key that did
+    // both at once meant deselecting a shape mid-pen-session also threw
+    // away the pen.
     if (e.key === "Escape") {
-      clearWbSelection();
-      selectWbTool("pan");
+      if (wbSelectedItem || wbMultiSelection.size > 0) clearWbSelection();
+      else selectWbTool("select");
       return;
     }
     // Delete/Backspace with a selection — the other half of Select as a
@@ -4092,7 +4899,44 @@ async function initWhiteboard() {
       wbNudgeSelection(dx, dy);
       return;
     }
+    // Copy/paste style — Ctrl+Alt+C / Ctrl+Alt+V, the chord Excalidraw uses,
+    // and checked before the modifier bail-out below since it *is* a chord.
+    if ((e.ctrlKey || e.metaKey) && e.altKey && !e.shiftKey) {
+      const key = e.key.toLowerCase();
+      if (key === "c") { e.preventDefault(); wbCopySelectedStyle(); return; }
+      if (key === "v") { e.preventDefault(); wbPasteCopiedStyle(); return; }
+    }
+    // Ctrl+D duplicates the selection in place (PLAN.md W6) — the chord
+    // Figma, Miro and tldraw share. Implemented as copy+paste through the
+    // clipboard the app already has, with the clipboard put back afterwards
+    // so a duplicate never overwrites something you meant to paste later.
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "a") {
+      e.preventDefault();
+      wbSelectAllItems();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "d") {
+      e.preventDefault();
+      const kept = wbClipboard;
+      if (wbCopySelection()) wbPasteClipboard().finally(() => { wbClipboard = kept; });
+      return;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser/OS shortcuts alone
+    // `[` sends the selected item back, `]` brings it forward (PLAN.md W6).
+    // Same keys as Figma/Sketch; the z helpers already existed for the
+    // context menu, this only gives them a key.
+    if ((e.key === "[" || e.key === "]") && wbSelectedItem) {
+      const sel = wbSelectedItem;
+      const item = (wbState[WB_LIST_BY_KIND[sel.kind]] || []).find((i) => i.id === sel.id);
+      if (item) {
+        e.preventDefault();
+        wbSetZOrder(sel.kind, item, e.key === "]").then((undo) => {
+          if (undo) wbPushUndo(undo);
+          wbScheduleRender();
+        });
+        return;
+      }
+    }
     const mapped = WB_TOOL_KEYS[e.key.toLowerCase()];
     if (mapped) {
       if (mapped !== "select") clearWbSelection(); // switching away from Select drops it
@@ -4100,7 +4944,9 @@ async function initWhiteboard() {
     }
   });
 
-  selectWbTool("pan"); // the initial state
+  // Opens in Select, like every whiteboard app — panning is always
+  // available on held space and the middle mouse button regardless.
+  selectWbTool("select"); // the initial state
 
   // Drawing event handlers on the SVG itself or container
   const svgCanvas = document.getElementById("wb-svg-layer");
@@ -4194,6 +5040,10 @@ async function initWhiteboard() {
       const [x, y] = getLogicalMouse(e);
       wbCreateTextBox(x, y);
     }
+    if (window.currentTool === "sticky") {
+      const [x, y] = getLogicalMouse(e);
+      wbCreateSticky(x, y);
+    }
   });
 
   // Rectangle marquee select — reported directly ("area select... missing").
@@ -4265,12 +5115,10 @@ async function initWhiteboard() {
     if (!window.currentTool || !window.currentTool.startsWith("link-")) return;
     if (wbLinkDragActive) return;
     const [x, y] = getLogicalMouse(e);
-    let hoverNode = null;
-    for (const node of wbState.nodes || []) {
-      const box = wbItemBBox("node", node);
-      if (box && x >= box.minX && x <= box.maxX && y >= box.minY && y <= box.maxY) { hoverNode = node; break; }
-    }
-    if (hoverNode) wbShowAnchorHints("node", hoverNode, wbNearestAnchor("node", hoverNode, x, y));
+    // Every linkable thing, in its rotated frame — this was cards only, on
+    // their unrotated box (reported: stickies "light up" wrong).
+    const hit = wbLinkCandidateAt(x, y);
+    if (hit) wbShowAnchorHints(hit[0], hit[1], wbNearestAnchor(hit[0], hit[1], x, y));
     else wbClearAnchorHints();
   });
 
@@ -4347,7 +5195,10 @@ async function initWhiteboard() {
     wbLassoEl = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
     wbLassoEl.setAttribute("class", "wb-lasso");
     wbLassoEl.setAttribute("points", `${x},${y}`);
-    document.getElementById("wb-zoom-group").appendChild(wbLassoEl);
+    // The overlay layer, which paints above the HTML card layer — in the
+    // base SVG the loop was drawn *under* every card and sticky (reported:
+    // "the lasso select tool is behind everything").
+    document.getElementById("wb-overlay-zoom-group").appendChild(wbLassoEl);
   });
   containerEl.addEventListener("pointermove", (e) => {
     if (!wbLassoPoints) return;
@@ -5206,13 +6057,51 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
   wbClearSketchHandles();
   const group = d3.select("#wb-overlay-zoom-group").append("g").attr("class", "wb-sketch-handle-group");
 
-  const hoveredNodeAt = (px, py) => {
-    for (const node of wbState.nodes) {
-      const box = wbItemBBox("node", node);
-      if (px >= box.minX && px <= box.maxX && py >= box.minY && py <= box.maxY) return node;
-    }
-    return null;
-  };
+  // The bend handle: drag to curve the link, double-click to straighten it.
+  // Sits at the control point (or the chord midpoint when there is none) so
+  // the thing you grab is the thing that moves.
+  {
+    const mid = { x: (endpoints.source.x + endpoints.target.x) / 2, y: (endpoints.source.y + endpoints.target.y) / 2 };
+    const bendLive = { x: parsed.bend?.x || 0, y: parsed.bend?.y || 0 };
+    const paths = () => [".sketch-path", ".sketch-hitbox"].map((c) => document.querySelector(`.sketch-group[data-id="${sketch.id}"] ${c}`));
+    const repaint = () => {
+      const d = wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, bendLive);
+      for (const el of paths()) el?.setAttribute("d", d);
+    };
+    const handle = group.append("circle")
+      .attr("class", "wb-link-bend-handle")
+      .attr("cx", mid.x + bendLive.x).attr("cy", mid.y + bendLive.y)
+      .attr("r", 6);
+    handle.append("title").text("Drag to bend this link · double-click to straighten");
+    handle.call(
+      d3.drag()
+        .on("start", (event) => event.sourceEvent.stopPropagation())
+        .on("drag", function (event) {
+          bendLive.x += event.dx;
+          bendLive.y += event.dy;
+          d3.select(this).attr("cx", mid.x + bendLive.x).attr("cy", mid.y + bendLive.y);
+          repaint();
+        })
+        .on("end", async () => {
+          const before = WB_KIND_INFO.sketch.payload(sketch);
+          await wbSaveSketchProps(sketch, { bend: (bendLive.x || bendLive.y) ? { x: bendLive.x, y: bendLive.y } : undefined });
+          wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
+          wbScheduleRender();
+        })
+    ).on("dblclick", async (event) => {
+      event.stopPropagation();
+      const before = WB_KIND_INFO.sketch.payload(sketch);
+      await wbSaveSketchProps(sketch, { bend: undefined });
+      wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
+      wbScheduleRender();
+    });
+  }
+
+  //: Dragging a link's end onto something: any card, text box, sticky or
+  //: shape, tested in its rotated frame. This was cards on their unrotated
+  //: box, so an end dropped on a rotated sticky became a free point that
+  //: floated just off it (reported, with a screenshot).
+  const hoveredItemAt = (px, py) => wbLinkCandidateAt(px, py);
 
   for (const end of ["source", "target"]) {
     const other = end === "source" ? "target" : "source";
@@ -5243,25 +6132,28 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
             live.y += event.dy;
             d3.select(this).attr("cx", live.x).attr("cy", live.y);
             const previewPts = end === "source" ? [live, endpoints[other]] : [endpoints[other], live];
-            const previewD = wbLinkPathD(parsed.type, previewPts[0], previewPts[1], wbLinkCaps(parsed), parsed.width);
+            const previewD = wbLinkPathD(parsed.type, previewPts[0], previewPts[1], wbLinkCaps(parsed), parsed.width, parsed.bend);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", previewD);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", previewD);
 
-            const hoverNode = hoveredNodeAt(live.x, live.y);
-            if (hoverNode) wbShowAnchorHints("node", hoverNode, wbNearestAnchor("node", hoverNode, live.x, live.y));
+            const hit = hoveredItemAt(live.x, live.y);
+            if (hit) wbShowAnchorHints(hit[0], hit[1], wbNearestAnchor(hit[0], hit[1], live.x, live.y));
             else wbClearAnchorHints();
           })
           .on("end", async () => {
             wbClearAnchorHints();
             const before = WB_KIND_INFO.sketch.payload(sketch);
-            const hoverNode = hoveredNodeAt(live.x, live.y);
+            const hit = hoveredItemAt(live.x, live.y);
             const partial = {};
-            if (hoverNode) {
-              partial[end + "Id"] = hoverNode.id;
-              partial[end + "Anchor"] = wbNearestAnchor("node", hoverNode, live.x, live.y) || undefined;
+            if (hit) {
+              const [kind, item] = hit;
+              partial[end + "Id"] = item.id;
+              partial[end + "Kind"] = kind === "node" ? undefined : kind;
+              partial[end + "Anchor"] = wbNearestAnchor(kind, item, live.x, live.y) || undefined;
               partial[end + "Point"] = undefined;
             } else {
               partial[end + "Id"] = undefined;
+              partial[end + "Kind"] = undefined;
               partial[end + "Anchor"] = undefined;
               partial[end + "Point"] = { x: live.x, y: live.y };
             }
@@ -5427,6 +6319,7 @@ function wbScheduleRender() {
   requestAnimationFrame(() => {
     wbRenderQueued = false;
     renderWhiteboard();
+    wbUpdateSelectionBar();
   });
 }
 
@@ -5513,10 +6406,18 @@ function renderWhiteboard() {
   // pan in particular, since the canvas's own zoom/pan drag needs an
   // unclaimed pointerdown to reach it.
   const sketchDrag = d3.drag()
-    .filter(() => window.currentTool === "select")
-    .on("start", (event, d) => {
+    .filter(() => window.currentTool === "select" || Boolean(window.currentTool?.startsWith("link-")))
+    .on("start", function (event, d) {
       event.sourceEvent.stopPropagation();
+      // A link tool drags a *link* out of the shape, not the shape — the same
+      // delegation `objDrag` does for text boxes and stickies.
+      if (window.currentTool?.startsWith("link-")) {
+        if (!wbSketchParsedData(d)) return;
+        d._linkKind = "sketch";
+        return dragStart.call(this, event, d);
+      }
       const parsed = wbSketchParsedData(d);
+      d._linkedSketches = wbLinkedSketchesFor(d.id, "sketch");
       d._dragOriginalD = parsed ? parsed.d : null;
       d._moveUndoBefore = WB_KIND_INFO.sketch.payload(d);
       // Raw (never-snapped) running totals, applied fresh from the
@@ -5537,7 +6438,8 @@ function renderWhiteboard() {
       // `d._bulkOrigin` itself is decided lazily, on the first real "drag"
       // frame below, for the same reason.
     })
-    .on("drag", (event, d) => {
+    .on("drag", function (event, d) {
+      if (d._linkKind === "sketch") return dragging.call(this, event, d);
       if (d._dragOriginalD == null) return;
       // First real movement of this gesture — decide once whether this is
       // a solo move or a bulk move of the whole multi-selection. Deferred
@@ -5558,12 +6460,20 @@ function renderWhiteboard() {
       const el = document.querySelector(`.sketch-group[data-id="${d.id}"]`);
       el?.querySelector(".sketch-path")?.setAttribute("d", newD);
       el?.querySelector(".sketch-hitbox")?.setAttribute("d", newD);
+      if (d._linkedSketches?.length) wbUpdateLinkedSketches(d.id, d._linkedSketches);
+      wbUpdateSelectionBar();
       if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, dx, dy);
       // Handles would otherwise trail the sketch by a whole render — cheap
       // to keep in step since there are at most 8 of them.
       wbClearSketchHandles();
     })
-    .on("end", async (event, d) => {
+    .on("end", async function (event, d) {
+      if (d._linkKind === "sketch") {
+        const r = dragEndNode.call(this, event, d);
+        d._linkKind = null;
+        return r;
+      }
+      delete d._linkedSketches;
       if (d._dragOriginalD == null) return;
       const finalD = d._dragLiveD;
       const bulkOrigin = d._bulkOrigin;
@@ -5591,9 +6501,39 @@ function renderWhiteboard() {
     .attr("data-id", d => d.id)
     .style("cursor", () => (window.currentTool === "delete" || window.currentTool === "eraser" || window.currentTool === "select") ? "pointer" : "default")
     .call(sketchDrag)
+    .on("dblclick", async (event, d) => {
+      // Asked for directly: "double click on lines, add points for curving
+      // lines and connections." Only a link has a bend; a drawn shape's own
+      // double-click is left to whatever else wants it.
+      let parsed = null;
+      try { parsed = JSON.parse(d.data); } catch { parsed = null; }
+      if (!parsed || !(parsed.type || "").startsWith("link-")) return;
+      event.stopPropagation();
+      const endpoints = wbResolveLinkEndpoints(parsed);
+      if (!endpoints) return;
+      const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+      const rect = document.getElementById("wb-svg-layer").getBoundingClientRect();
+      const px = (event.clientX - rect.left - transform.x) / transform.k;
+      const py = (event.clientY - rect.top - transform.y) / transform.k;
+      const mid = { x: (endpoints.source.x + endpoints.target.x) / 2, y: (endpoints.source.y + endpoints.target.y) / 2 };
+      // A quadratic through the click: the control point is twice as far from
+      // the chord as the point you want the curve to pass through.
+      const bend = { x: (px - mid.x) * 2, y: (py - mid.y) * 2 };
+      const before = WB_KIND_INFO.sketch.payload(d);
+      await wbSaveSketchProps(d, { bend });
+      wbPushUndo({ action: "move", kind: "sketch", id: d.id, before });
+      wbSelectToolRef?.("select");
+      selectWbItem("sketch", d.id);
+      wbScheduleRender();
+    })
     .on("click", (event, d) => {
-      if (window.currentTool === "select") {
+      // ROADMAP row 0(b), asked for directly: with the Hand active, a plain
+      // click on something switches to Select and selects it. A pan is a
+      // drag; a click that moved nothing is a choice of *this*, and every
+      // whiteboard app (Miro, FigJam, tldraw) reads it that way.
+      if (window.currentTool === "select" || window.currentTool === "pan") {
         event.stopPropagation(); // don't also hit the "empty canvas clears selection" handler
+        if (window.currentTool === "pan") wbSelectToolRef?.("select");
         wbHandleItemClick("sketch", d.id, event);
         return;
       }
@@ -5668,7 +6608,7 @@ function renderWhiteboard() {
         strokeWidth = String(parsed.width || 3);
         dashArray = wbDashArray(parsed.dash || "solid", parsed.width || 3);
         const endpoints = wbResolveLinkEndpoints(parsed);
-        pathData = endpoints ? wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width) : "";
+        pathData = endpoints ? wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, parsed.bend) : "";
       }
     } catch(e) {}
     d3.select(this).select(".sketch-hitbox").attr("d", pathData);
@@ -5725,6 +6665,9 @@ function renderWhiteboard() {
   function nodeResizeDrag(handle) {
     let rawDX = 0, rawDY = 0;
     return d3.drag()
+      // The handle sits inside the card it resizes — see
+      // `wbStableDragContainer`. Matters for `w`/`n`, which move x/y too.
+      .container(wbStableDragContainer(".node-card"))
       .on("start", (event, d) => {
         event.sourceEvent.stopPropagation();
         rawDX = 0;
@@ -5851,8 +6794,13 @@ function renderWhiteboard() {
       .on("drag", dragging)
       .on("end", dragEndNode))
     .on("click", (event, d) => {
-      if (window.currentTool === "select") {
+      // ROADMAP row 0(b), asked for directly: with the Hand active, a plain
+      // click on something switches to Select and selects it. A pan is a
+      // drag; a click that moved nothing is a choice of *this*, and every
+      // whiteboard app (Miro, FigJam, tldraw) reads it that way.
+      if (window.currentTool === "select" || window.currentTool === "pan") {
         event.stopPropagation();
+        if (window.currentTool === "pan") wbSelectToolRef?.("select");
         wbHandleItemClick("node", d.id, event);
         return;
       }
@@ -6046,6 +6994,10 @@ function renderWbObjects(canvas) {
   // the same convention `resizeDrag`'s own "drag" handler already uses.
   function objDragStart(event, d) {
     if (window.currentTool === "eraser" || window.currentTool === "delete" || window.currentTool === "bucket") return;
+    // A link tool on a text box starts a *link* from it, through the same
+    // three handlers the cards use — see `wbLinkItem`.
+    if (window.currentTool?.startsWith("link-")) { d._linkKind = "object"; return dragStart.call(this, event, d); }
+    d._linkedSketches = wbLinkedSketchesFor(d.id, "object");
     // `.raise()` deliberately does NOT happen here — moved to objDragMove.
     // See the matching comment on the card drag's own `dragging` for the
     // real bug this caused (raising mid-`start` breaks the browser's click
@@ -6065,6 +7017,7 @@ function renderWbObjects(canvas) {
   }
   function objDragMove(event, d) {
     if (window.currentTool === "eraser" || window.currentTool === "delete" || window.currentTool === "bucket") return;
+    if (window.currentTool?.startsWith("link-")) return dragging.call(this, event, d);
     if (d._bulkOrigin === undefined) {
       d._bulkOrigin = wbDragIsBulkMove("object", d.id)
         ? wbCaptureBulkMoveOrigin(wbMultiKey("object", d.id))
@@ -6094,10 +7047,14 @@ function renderWbObjects(canvas) {
       wbClearAlignmentGuides();
     }
     d3.select(this.closest(".wb-object")).style("transform", wbItemTransform(d));
+    if (d._linkedSketches?.length) wbUpdateLinkedSketches(d.id, d._linkedSketches);
+    wbUpdateSelectionBar();
     if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, d.x - d._dragOriginX, d.y - d._dragOriginY);
   }
   async function objDragEnd(event, d) {
     if (window.currentTool === "eraser" || window.currentTool === "delete" || window.currentTool === "bucket") return;
+    if (window.currentTool?.startsWith("link-")) { const r = dragEndNode.call(this, event, d); d._linkKind = null; return r; }
+    d._linkedSketches = null;
     wbClearAlignmentGuides();
     const bulkOrigin = d._bulkOrigin;
     // Reset unconditionally — a solo drag sets this to `null` (see
@@ -6129,7 +7086,18 @@ function renderWbObjects(canvas) {
     // object's listener catching a bubbled grip click" apart. `gripDrag`
     // below exists precisely because that distinction needs two behaviour
     // objects, not one filter.
-    .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso" && !event.target.closest(".wb-resize-handle, .wb-rotate-handle, .wb-text-content, .wb-object-grip"))
+    .filter((event) => {
+      if (WB_BRUSH_TOOLS.has(window.currentTool) || window.currentTool === "lasso") return false;
+      if (event.target.closest(".wb-resize-handle, .wb-rotate-handle, .wb-object-grip")) return false;
+      // `.wb-text-content` used to be excluded outright, which is what left a
+      // text box draggable only by its grip — see `wbBeginTextEdit`. It only
+      // needs to keep the pointer while it is *being edited*, for the caret
+      // and for selecting words; the rest of the time it is just the face of
+      // a box and drags like one.
+      const text = event.target.closest(".wb-text-content");
+      if (text && text.isContentEditable) return false;
+      return true;
+    })
     .on("start", objDragStart)
     .on("drag", objDragMove)
     .on("end", objDragEnd);
@@ -6139,6 +7107,8 @@ function renderWbObjects(canvas) {
   // keep their own handle grabs from also bubbling into the object's own
   // `objDrag` listener.
   const gripDrag = d3.drag()
+    // The grip sits inside the box it moves — see `wbStableDragContainer`.
+    .container(wbStableDragContainer(".wb-object"))
     .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso")
     .on("start", function (event, d) {
       event.sourceEvent.stopPropagation();
@@ -6149,6 +7119,9 @@ function renderWbObjects(canvas) {
 
   function resizeDrag(handle) {
     return d3.drag()
+      // The handle sits inside the object it resizes — see
+      // `wbStableDragContainer`. Matters for `w`/`n`, which move x/y too.
+      .container(wbStableDragContainer(".wb-object"))
       .on("start", function (event, d) {
         event.sourceEvent.stopPropagation(); // don't also start objDrag
         d._resizeUndoBefore = WB_KIND_INFO.object.payload(d);
@@ -6227,8 +7200,13 @@ function renderWbObjects(canvas) {
     .style("z-index", (d) => d.z)
     .call(objDrag)
     .on("click", (event, d) => {
-      if (window.currentTool === "select") {
+      // ROADMAP row 0(b), asked for directly: with the Hand active, a plain
+      // click on something switches to Select and selects it. A pan is a
+      // drag; a click that moved nothing is a choice of *this*, and every
+      // whiteboard app (Miro, FigJam, tldraw) reads it that way.
+      if (window.currentTool === "select" || window.currentTool === "pan") {
         event.stopPropagation();
+        if (window.currentTool === "pan") wbSelectToolRef?.("select");
         wbHandleItemClick("object", d.id, event);
         return;
       }
@@ -6286,7 +7264,8 @@ function renderWbObjects(canvas) {
         .call(gripDrag);
       const content = el.append("div")
         .attr("class", "wb-text-content")
-        .attr("contenteditable", "true")
+        // Not editable until asked — see `wbBeginTextEdit` for why.
+        .attr("contenteditable", "false")
         .style("color", d.data.color || "")
         .style("font-size", d.data.font_size ? `${d.data.font_size}px` : "")
         .text(d.data.content || "");
@@ -6294,14 +7273,26 @@ function renderWbObjects(canvas) {
       // flood the server and make undo/redo of everything *else* land
       // between two half-typed states.
       content.on("blur", function () {
+        wbEndTextEdit(this);
         d.data = { ...d.data, content: this.textContent };
         wbSaveObject(d);
       });
       // Typing is text-box business, not the canvas's — Delete/Backspace
       // here must edit the text, not delete the whole box the way the same
-      // keys do when an object is merely *selected*.
-      content.on("keydown", (event) => event.stopPropagation());
-      content.on("pointerdown", (event) => event.stopPropagation());
+      // keys do when an object is merely *selected*. Both of these are gated
+      // on actually being in edit mode now: a box that is not being edited
+      // has to let the pointer through to the object's own drag, and its
+      // Delete key belongs to the canvas again.
+      content.on("keydown", function (event) {
+        if (this.isContentEditable) event.stopPropagation();
+      });
+      content.on("pointerdown", function (event) {
+        if (this.isContentEditable) event.stopPropagation();
+      });
+      content.on("dblclick", function (event) {
+        event.stopPropagation();
+        wbBeginTextEdit(this);
+      });
     }
     for (const handle of ["nw", "n", "ne", "e", "se", "s", "sw", "w"]) {
       el.append("div")
@@ -6335,8 +7326,10 @@ function renderWbObjects(canvas) {
     } else {
       el.style("background", d.data.bg || "").style("border-color", d.data.border_color || "");
       const textEl = el.select(".wb-text-content");
-      textEl.style("color", d.data.color || "").style("font-size", d.data.font_size ? `${d.data.font_size}px` : "");
-      if (document.activeElement !== textEl.node()) textEl.text(d.data.content || "");
+      textEl.style("color", d.data.color || "")
+        .style("font-size", d.data.font_size ? `${d.data.font_size}px` : "")
+        .style("text-align", d.data.align || "");
+      if (document.activeElement !== textEl.node()) wbPaintTextContent(textEl.node(), d);
     }
   });
 
@@ -6350,7 +7343,7 @@ function renderWbObjects(canvas) {
 //: parses a second, visible as stutter on a busy board. `dragStart` below
 //: builds this list once per drag instead; a card gains or loses a link only
 //: between drags, never mid-drag, so it doesn't need to be live.
-function wbLinkedSketchesFor(nodeId) {
+function wbLinkedSketchesFor(nodeId, kind = "node") {
   const found = [];
   for (const sketch of wbState.sketches) {
     let parsed;
@@ -6360,7 +7353,9 @@ function wbLinkedSketchesFor(nodeId) {
       continue;
     }
     if (!parsed.type || !parsed.type.startsWith("link-")) continue;
-    if (parsed.sourceId !== nodeId && parsed.targetId !== nodeId) continue;
+    const atSource = parsed.sourceId === nodeId && (parsed.sourceKind || "node") === kind;
+    const atTarget = parsed.targetId === nodeId && (parsed.targetKind || "node") === kind;
+    if (!atSource && !atTarget) continue;
     found.push({ sketch, parsed });
   }
   return found;
@@ -6381,7 +7376,7 @@ function wbUpdateLinkedSketches(nodeId, precomputed) {
   for (const { sketch, parsed } of pairs) {
     const endpoints = wbResolveLinkEndpoints(parsed);
     if (!endpoints) continue;
-    const pathData = wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width);
+    const pathData = wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, parsed.bend);
     const el = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
     el?.querySelector(".sketch-path")?.setAttribute("d", pathData);
     el?.querySelector(".sketch-hitbox")?.setAttribute("d", pathData);
@@ -6402,9 +7397,9 @@ function dragStart(event, d) {
     const startRect = document.getElementById("wb-svg-layer").getBoundingClientRect();
     const startX = (event.sourceEvent.clientX - startRect.left - startTransform.x) / startTransform.k;
     const startY = (event.sourceEvent.clientY - startRect.top - startTransform.y) / startTransform.k;
-    d.linkSourceAnchor = wbNearestAnchor("node", d, startX, startY);
+    d.linkSourceAnchor = wbNearestAnchor(d._linkKind || "node", d, startX, startY);
     wbLinkDragActive = true;
-    wbShowAnchorHints("node", d, d.linkSourceAnchor);
+    wbShowAnchorHints(d._linkKind || "node", d, d.linkSourceAnchor);
     d.linkingPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
     d.linkingPath.setAttribute("fill", "none");
     d.linkingPath.setAttribute("stroke", window.currentStrokeColor || "#ffffff");
@@ -6450,20 +7445,16 @@ function dragging(event, d) {
     // A fixed source anchor stays put; a floating one re-aims at the live
     // pointer every frame — the same rectangle-intersection the render path
     // uses, not the old fixed centre-point.
-    const fixedStart = wbAnchorPoint("node", d, d.linkSourceAnchor);
-    const start = fixedStart || wbBoxRayIntersection(wbItemBBox("node", d), mx, my);
+    const fixedStart = wbAnchorPoint(d._linkKind || "node", d, d.linkSourceAnchor);
+    const start = fixedStart || wbEdgePoint(d._linkKind || "node", d, mx, my);
     d.linkingPath.setAttribute("d", wbLinkPathD(window.currentTool, start, { x: mx, y: my }));
 
-    // Anchor hints follow whichever node the pointer is currently over, so
-    // the drop target's own snap points are visible before release.
-    let hoverNode = null;
-    for (const node of wbState.nodes) {
-      if (node.id === d.id) continue;
-      const box = wbItemBBox("node", node);
-      if (mx >= box.minX && mx <= box.maxX && my >= box.minY && my <= box.maxY) { hoverNode = node; break; }
-    }
-    if (hoverNode) wbShowAnchorHints("node", hoverNode, wbNearestAnchor("node", hoverNode, mx, my));
-    else wbShowAnchorHints("node", d, d.linkSourceAnchor);
+    // Anchor hints follow whichever card, text box, sticky or shape the
+    // pointer is over, so the drop target's own snap points are visible
+    // before release.
+    const hover = wbLinkCandidateAt(mx, my, d._linkKind || "node", d.id);
+    if (hover) wbShowAnchorHints(hover[0], hover[1], wbNearestAnchor(hover[0], hover[1], mx, my));
+    else wbShowAnchorHints(d._linkKind || "node", d, d.linkSourceAnchor);
   } else {
     // Pre-existing gap, not introduced this session, caught while adding
     // snap-to-grid here: event.dx/dy are raw screen pixels — the
@@ -6511,6 +7502,7 @@ function dragging(event, d) {
       wbClearAlignmentGuides();
     }
     d3.select(this).style("transform", wbItemTransform(d));
+    wbUpdateSelectionBar();
     // Update this card's own link lines directly rather than a full
     // wbScheduleRender() — see wbUpdateLinkedSketches's own comment for why
     // that was the "glitchy and slow to update" report.
@@ -6531,25 +7523,23 @@ async function dragEndNode(event, d) {
     const mx = (event.sourceEvent.clientX - rect.left - transform.x) / transform.k;
     const my = (event.sourceEvent.clientY - rect.top - transform.y) / transform.k;
 
-    let targetNode = null;
-    for (const node of wbState.nodes) {
-       if (node.id === d.id) continue;
-       const box = wbItemBBox("node", node);
-       if (mx >= box.minX && mx <= box.maxX && my >= box.minY && my <= box.maxY) {
-           targetNode = node; break;
-       }
-    }
+    const sourceKind = d._linkKind || "node";
+    const hit = wbLinkCandidateAt(mx, my, sourceKind, d.id);
+    const targetNode = hit ? hit[1] : null;
+    const targetKind = hit ? hit[0] : "node";
 
     if (targetNode) {
        // The release point's own nearest anchor on the target, same as the
        // source got at drag-start — `null` (nothing near enough) persists
        // as a free/floating end, same as the source's own case.
-       const targetAnchor = wbNearestAnchor("node", targetNode, mx, my);
+       const targetAnchor = wbNearestAnchor(targetKind, targetNode, mx, my);
        const sketchData = {
          data: JSON.stringify({
             type: window.currentTool,
             sourceId: d.id,
             targetId: targetNode.id,
+            sourceKind: sourceKind === "node" ? undefined : sourceKind,
+            targetKind: targetKind === "node" ? undefined : targetKind,
             color: window.currentStrokeColor || "#ffffff",
             sourceAnchor: d.linkSourceAnchor || undefined,
             targetAnchor: targetAnchor || undefined,
@@ -6958,6 +7948,17 @@ async function openWhiteboardBoard(boardId) {
   wbScheduleRender();
   wbApplyBgImage();
   renderWbGestureHints();
+  //: **A board is a place, so opening one is a navigation.** Asked as part of
+  //: "is everythign wired to the nav history and universal undo/redo": it was
+  //: not. `switchTab("library")` above records "library", and then opening
+  //: board after board recorded nothing at all — so Back from the fourth board
+  //: you looked at left the Library entirely rather than returning to the
+  //: third. Documents, graph focus and chat conversations all already record
+  //: their own identity this way (`doc:{id}`, `focus:{id}`, `conv:{id}`); this
+  //: is the same key for the same reason.
+  if (typeof recordTabVisit === "function") {
+    recordTabVisit("library", boardId ? `board:${boardId}` : "library-view-whiteboard");
+  }
 }
 
 //: Where "concept maps are unlearnable" is actually answered.

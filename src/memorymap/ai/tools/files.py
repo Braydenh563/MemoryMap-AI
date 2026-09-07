@@ -28,7 +28,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ._common import DEFAULT_LIST_LIMIT, PREVIEW_CHARS, ToolError, _clip, _limit_arg
+from ._common import DEFAULT_LIST_LIMIT, PREVIEW_CHARS, ToolError, _clip, _keyword_context, _limit_arg
 
 #: How much extracted text one `read_file` may return. A scanned page can run
 #: to thousands of characters and every one of them is prompt tokens; a
@@ -80,26 +80,36 @@ def _matches(row, needle: str) -> bool:  # noqa: ANN001
     return needle in haystack.lower()
 
 
-def _media_row(upload) -> dict:  # noqa: ANN001
+def _media_row(upload, needle: str = "") -> dict:  # noqa: ANN001
     return {
         "kind": "upload",
         "id": upload.id,
         "name": upload.original_name,
         "url": f"/media/{upload.filename}",
         "caption": _clip(upload.caption or "", PREVIEW_CHARS),
-        "text": _clip(_file_text(upload), PREVIEW_CHARS),
+        #: **Around the match, not the start of the reading.** Reported
+        #: directly: "if files are fully text extracted by ocr... might
+        #: keywords be flagged... then it can use a tool or smth simpler to
+        #: get the full text from those areas." `_matches` below already
+        #: finds this row correctly (it scans the whole reading); this is
+        #: what makes the preview it comes back with actually contain the
+        #: word that matched, instead of whatever the reading happened to
+        #: start with. `needle=""` (every caller except `_search_files`)
+        #: keeps the old head-of-text behaviour exactly, via
+        #: `_keyword_context`'s own no-needle fallback.
+        "text": _keyword_context(_file_text(upload), needle, length=PREVIEW_CHARS),
         "created_at": upload.created_at.isoformat() if upload.created_at else None,
     }
 
 
-def _attachment_row(attachment, entry) -> dict:  # noqa: ANN001
+def _attachment_row(attachment, entry, needle: str = "") -> dict:  # noqa: ANN001
     return {
         "kind": "attachment",
         "id": attachment.id,
         "name": attachment.filename,
         "url": f"/files/{attachment.id}",
         "caption": _clip(getattr(attachment, "caption", None) or "", PREVIEW_CHARS),
-        "text": _clip(_file_text(attachment), PREVIEW_CHARS),
+        "text": _keyword_context(_file_text(attachment), needle, length=PREVIEW_CHARS),
         #: Which note it is attached to, because "the PDF from the lecture
         #: note" is how people actually refer to a file — and it gives the
         #: model a note id it can then read.
@@ -117,7 +127,7 @@ def _search_files(session: Session, args: dict) -> dict:
 
     for upload in session.scalars(select(MediaUpload).order_by(MediaUpload.id.desc())):
         if _matches(upload, needle):
-            rows.append(_media_row(upload))
+            rows.append(_media_row(upload, needle))
         if len(rows) >= limit:
             break
 
@@ -130,7 +140,7 @@ def _search_files(session: Session, args: dict) -> dict:
         )
         for attachment, entry in pairs:
             if _matches(attachment, needle):
-                rows.append(_attachment_row(attachment, entry))
+                rows.append(_attachment_row(attachment, entry, needle))
             if len(rows) >= limit:
                 break
 
@@ -147,11 +157,28 @@ def _search_files(session: Session, args: dict) -> dict:
     }
 
 
+#: How far `query` reaches either side of a hit in the full-read path — wider
+#: than a search-result preview (`PREVIEW_CHARS`/`_KEYWORD_CONTEXT_RADIUS`)
+#: because this is the call a model makes once it has already decided this
+#: is the right file and wants to actually read the passage, not merely
+#: recognise it.
+FILE_TEXT_QUERY_RADIUS = 800
+
+
 def _read_file(session: Session, args: dict) -> dict:
     from memorymap.core.database import Attachment, Entry, MediaUpload
 
     kind = str(args.get("kind") or "").strip().lower()
     raw_id = args.get("file_id")
+    #: **The other half of "get the full text from those areas."**
+    #: `FILE_TEXT_CHARS` is 2000 — a page or so — and a vision-OCR'd
+    #: multi-page scan routinely runs past that from page two onward, so a
+    #: keyword `search_files` had already located correctly on page five was
+    #: never reachable through this tool at all: the read always started
+    #: from the top and stopped at 2000 characters regardless of where the
+    #: match was. Optional and additive — omitting `query` keeps exactly the
+    #: old head-of-text behaviour via `_keyword_context`'s own fallback.
+    query = str(args.get("query") or "").strip()
     try:
         file_id = int(raw_id)
     except (TypeError, ValueError):
@@ -162,9 +189,13 @@ def _read_file(session: Session, args: dict) -> dict:
         if upload is None:
             raise ToolError(f"No uploaded file with id {file_id}.")
         row = _media_row(upload)
-        row["text"] = _clip(_file_text(upload), FILE_TEXT_CHARS)
+        row["text"] = _keyword_context(
+            _file_text(upload), query, radius=FILE_TEXT_QUERY_RADIUS, length=FILE_TEXT_CHARS
+        )
         row["content_is_data"] = FILE_CONTENT_IS_DATA
-        row["label"] = f"ph:folder-open Read “{upload.original_name}”"
+        row["label"] = f"ph:folder-open Read “{upload.original_name}”" + (
+            " (text around your search term)" if query and query.lower() in _file_text(upload).lower() else ""
+        )
         return row
 
     if kind == "attachment":
@@ -177,9 +208,15 @@ def _read_file(session: Session, args: dict) -> dict:
         if entry is None or entry.is_deleted or entry.is_private:
             raise ToolError("That file belongs to a note that isn't available.")
         row = _attachment_row(attachment, entry)
-        row["text"] = _clip(_file_text(attachment), FILE_TEXT_CHARS)
+        row["text"] = _keyword_context(
+            _file_text(attachment), query, radius=FILE_TEXT_QUERY_RADIUS, length=FILE_TEXT_CHARS
+        )
         row["content_is_data"] = FILE_CONTENT_IS_DATA
-        row["label"] = f"ph:folder-open Read “{attachment.filename}”"
+        row["label"] = f"ph:folder-open Read “{attachment.filename}”" + (
+            " (text around your search term)"
+            if query and query.lower() in _file_text(attachment).lower()
+            else ""
+        )
         return row
 
     raise ToolError("kind must be 'upload' or 'attachment' — search_files says which.")

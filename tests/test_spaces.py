@@ -108,130 +108,6 @@ def test_deleting_missing_space_404s(client):
     assert resp.status_code == 404
 
 
-def test_delete_reassigns_every_workspace_scoped_model_to_default(client, session):
-    created = client.post("/spaces", json={"name": "Doomed"}).json()
-    space_id = created["id"]
-
-    category = _row(session, Category, name="doomed-cat", workspace_id=space_id)
-    entry = _row(session, Entry, content="a note", workspace_id=space_id)
-    other_entry = _row(session, Entry, content="another note", workspace_id=space_id)
-    link = _row(
-        session,
-        EntryLink,
-        source_entry_id=entry.id,
-        target_entry_id=other_entry.id,
-        workspace_id=space_id,
-    )
-    document = _row(
-        session, Document, title="doomed doc", content="", workspace_id=space_id
-    )
-
-    resp = client.delete(f"/spaces/{space_id}")
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["id"] == space_id  # response captured before the row was gone
-
-    session.expire_all()
-    assert session.get(Category, category.id).workspace_id == "default"
-    assert session.get(Entry, entry.id).workspace_id == "default"
-    assert session.get(Entry, other_entry.id).workspace_id == "default"
-    assert session.get(EntryLink, link.id).workspace_id == "default"
-    assert session.get(Document, document.id).workspace_id == "default"
-
-
-# --- deleting a space whose category name collides with "default" -----------
-#
-# Reported live via a raw 500: `sqlalchemy.exc.IntegrityError: UNIQUE
-# constraint failed: categories.workspace_id, categories.name`. The blind
-# bulk UPDATE that reassigns every workspace-scoped row to "default" is
-# exactly wrong for Category, which carries a `(workspace_id, name)` unique
-# constraint on purpose (see the model's own docstring — two spaces must be
-# able to have their own "Uni" without colliding). The moment the space being
-# deleted has a category "default" already has — and "Uncategorised",
-# get_or_create_category's own fallback, is that category on nearly every
-# space that has ever filed a note — the UPDATE collides with itself.
-
-
-def test_deleting_a_space_merges_a_same_named_category_instead_of_crashing(
-    client, session
-):
-    created = client.post("/spaces", json={"name": "Doomed Twin"}).json()
-    space_id = created["id"]
-
-    # "Uncategorised" is get_or_create_category's own fallback name, so on a
-    # real notebook it exists in "default" almost the moment the first note
-    # is ever filed there — this collision is not a contrived category name,
-    # it is the ordinary one. The test fixture starts empty, so both sides
-    # are created explicitly rather than assumed.
-    default_uncat = _row(session, Category, name="Uncategorised", workspace_id="default")
-    doomed_uncat = _row(
-        session, Category, name="Uncategorised", workspace_id=space_id
-    )
-    entry_in_doomed = _row(
-        session,
-        Entry,
-        content="filed under the doomed space's own Uncategorised",
-        workspace_id=space_id,
-        category_id=doomed_uncat.id,
-    )
-    # Captured as plain values before the delete: every ORM object created
-    # above lives in this same session, and session.expire_all() below marks
-    # all of their attributes (PK included) expired — reading so much as
-    # `doomed_uncat.id` afterwards would try to refresh it from a row the
-    # fix is about to delete, and raise ObjectDeletedError before the
-    # assertion even runs. A plain int has no such state to expire.
-    default_uncat_id = default_uncat.id
-    doomed_uncat_id = doomed_uncat.id
-    entry_id = entry_in_doomed.id
-
-    resp = client.delete(f"/spaces/{space_id}")
-    assert resp.status_code == 200, resp.text
-
-    session.expire_all()
-    # The duplicate is gone rather than renamed into existence — there is
-    # still exactly one "Uncategorised" in "default".
-    assert session.query(Category).filter_by(id=doomed_uncat_id).first() is None
-    remaining = (
-        session.query(Category).filter_by(workspace_id="default", name="Uncategorised").all()
-    )
-    assert len(remaining) == 1
-    assert remaining[0].id == default_uncat_id
-
-    # The note that was filed under the doomed category now points at the
-    # survivor, not at nothing — a bare workspace_id reassignment without
-    # this would have left category_id pointing at a deleted row.
-    refetched = session.query(Entry).filter_by(id=entry_id).one()
-    assert refetched.category_id == default_uncat_id
-    assert refetched.workspace_id == "default"
-
-
-def test_deleting_a_space_still_moves_a_category_with_no_name_collision(
-    client, session
-):
-    """The merge path above must not swallow the ordinary case: a category
-    name that is genuinely new to "default" still just moves, exactly as it
-    did before the collision fix."""
-    created = client.post("/spaces", json={"name": "Doomed Unique"}).json()
-    space_id = created["id"]
-    category = _row(session, Category, name="doomed-only-cat", workspace_id=space_id)
-
-    resp = client.delete(f"/spaces/{space_id}")
-    assert resp.status_code == 200, resp.text
-
-    session.expire_all()
-    assert session.get(Category, category.id).workspace_id == "default"
-
-
-# --- chats are workspace-scoped too -------------------------------------------
-#
-# Reported directly, with a screenshot: the Library showed every chat
-# regardless of which space was active — 13 chats and 200 activity rows on a
-# space that should have had zero of either — while Notes and Documents
-# (which already carried WorkspaceMixin) correctly scoped to zero. Conversation
-# was the one model that had shipped without the mixin the whole feature
-# depends on.
-
-
 def test_a_chat_made_in_one_space_is_invisible_from_another(client):
     created = client.post("/spaces", json={"name": "Focus Room"}).json()
     space_id = created["id"]
@@ -266,22 +142,6 @@ def test_a_chat_made_in_one_space_is_invisible_from_another(client):
             "/conversations", headers={"X-Workspace-ID": other["id"]}
         ).json()
     ]
-
-
-def test_deleting_a_space_reassigns_its_chats_to_default(client, session):
-    from memorymap.core.database import Conversation
-
-    created = client.post("/spaces", json={"name": "Temporary"}).json()
-    space_id = created["id"]
-    conversation = _row(
-        session, Conversation, title="doomed chat", messages="[]", workspace_id=space_id
-    )
-
-    resp = client.delete(f"/spaces/{space_id}")
-    assert resp.status_code == 200
-
-    session.expire_all()
-    assert session.get(Conversation, conversation.id).workspace_id == "default"
 
 
 def test_a_hidden_space_leaves_all_spaces_but_still_works_when_selected(client):
@@ -340,3 +200,94 @@ def test_the_default_space_cannot_be_hidden(client):
     """
     refused = client.put("/spaces/default", json={"hidden_from_all": True})
     assert refused.status_code == 400
+
+
+# --- delete cascades ---------------------------------------------------------
+#
+# These four replaced the "reassign everything to default" tests. Asked for
+# directly: "make sure that if a specific space is deleted too, that all the
+# content including notes files and images etc originating in that specific
+# space get deleted with it as well." Reassigning was the opposite of what
+# the word means: the notes did not go away, they turned up in another space.
+
+
+def _gone(session, model, row_id) -> bool:
+    # `session.get` on an instance the identity map still holds raises
+    # ObjectDeletedError once the row is gone; a fresh query just says no.
+    session.expunge_all()
+    return session.query(model).filter_by(id=row_id).first() is None
+
+
+def test_delete_removes_every_workspace_scoped_row_of_that_space(client, session):
+    created = client.post("/spaces", json={"name": "Doomed"}).json()
+    space_id = created["id"]
+    category = _row(session, Category, name="doomed-cat", workspace_id=space_id)
+    entry = _row(session, Entry, content="a note", workspace_id=space_id)
+    other_entry = _row(session, Entry, content="another note", workspace_id=space_id)
+    link = _row(
+        session, EntryLink, source_entry_id=entry.id, target_entry_id=other_entry.id,
+        workspace_id=space_id,
+    )
+    document = _row(session, Document, title="doomed doc", content="", workspace_id=space_id)
+    survivor = _row(session, Entry, content="stays", workspace_id="default")
+    doomed = [
+        (Category, category.id), (Entry, entry.id), (Entry, other_entry.id),
+        (EntryLink, link.id), (Document, document.id),
+    ]
+    survivor_id = survivor.id
+
+    resp = client.delete(f"/spaces/{space_id}")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["id"] == space_id  # response captured before the row was gone
+
+    for model, row_id in doomed:
+        assert _gone(session, model, row_id), f"{model.__name__} survived its space"
+    assert not _gone(session, Entry, survivor_id), "another space's note was taken too"
+
+
+def test_deleting_a_space_with_a_same_named_category_does_not_crash(client, session):
+    """The old merge-by-name code existed because a blind UPDATE collided on
+    `(workspace_id, name)`. A delete has no such collision; this pins that the
+    default space's own category is untouched."""
+    created = client.post("/spaces", json={"name": "Doomed Twin"}).json()
+    space_id = created["id"]
+    default_uncat = _row(session, Category, name="Uncategorised", workspace_id="default")
+    doomed_uncat = _row(session, Category, name="Uncategorised", workspace_id=space_id)
+    _row(session, Entry, content="filed", workspace_id=space_id, category_id=doomed_uncat.id)
+    doomed_id, default_id = doomed_uncat.id, default_uncat.id
+
+    resp = client.delete(f"/spaces/{space_id}")
+    assert resp.status_code == 200, resp.text
+    assert _gone(session, Category, doomed_id)
+    assert not _gone(session, Category, default_id)
+
+
+def test_a_foreign_note_pointing_at_a_doomed_category_keeps_the_note(client, session):
+    """A note in *another* space that was filed under this space's category
+    is not ours to delete — it loses the pointer, exactly as if the category
+    had been deleted on its own."""
+    created = client.post("/spaces", json={"name": "Doomed Unique"}).json()
+    space_id = created["id"]
+    category = _row(session, Category, name="doomed-only-cat", workspace_id=space_id)
+    foreign = _row(session, Entry, content="elsewhere", workspace_id="default",
+                   category_id=category.id)
+    category_id, foreign_id = category.id, foreign.id
+
+    resp = client.delete(f"/spaces/{space_id}")
+    assert resp.status_code == 200, resp.text
+    assert _gone(session, Category, category_id)
+    kept = session.query(Entry).filter_by(id=foreign_id).first()
+    assert kept is not None and kept.category_id is None
+
+
+def test_deleting_a_space_deletes_its_chats(client, session):
+    from memorymap.core.database import Conversation
+
+    created = client.post("/spaces", json={"name": "Temporary"}).json()
+    space_id = created["id"]
+    conversation = _row(
+        session, Conversation, title="doomed chat", messages="[]", workspace_id=space_id
+    )
+    deleted = client.delete(f"/spaces/{space_id}")
+    assert deleted.status_code == 200
+    assert _gone(session, Conversation, conversation.id)

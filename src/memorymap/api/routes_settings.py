@@ -9,6 +9,7 @@ import csv
 import io
 import json
 import logging
+import importlib
 import os
 import platform
 import re
@@ -586,6 +587,29 @@ def update_preferences(
     if changed_keys & _AUTONOMOUS_PREFS:
         from memorymap.ai import autonomous
 
+        #: **Switching it off stops the pass that is running, not only the next
+        #: one.** Reported: "autonomous background agent tasks need to be fixed
+        #: as I have accidentally turned them on multiple times and then I cant
+        #: quit them, and then I turn battery saver mode on to try and stop
+        #: them". Both are true of the code as it was: `wake()` only shortens
+        #: the *sleep* between passes, and the enabled/battery checks run at the
+        #: top of a pass — so a pass already walking the notebook read neither
+        #: until it finished, which for a large notebook is many minutes of an
+        #: agent the user has just told to stop.
+        #:
+        #: `request_stop()` sets the same flag the Quit button in the tasks
+        #: panel sets, and `_run_optimization` checks it between every step, so
+        #: the pass ends at its next checkpoint. Only on the way *off*: turning
+        #: the librarian on, or changing its interval, should not kill a pass
+        #: that is midway through being useful.
+        turned_off = "autonomous_tasks_enabled" in changed_keys and not config.get_preference(
+            "autonomous_tasks_enabled", False
+        )
+        battery_on = "battery_efficient_mode" in changed_keys and config.get_preference(
+            "battery_efficient_mode", False
+        )
+        if turned_off or battery_on:
+            autonomous.request_stop()
         autonomous.wake()
     return get_preferences()
 
@@ -629,7 +653,14 @@ def set_console_mode(
         and os.getenv("MEMORYMAP_DESKTOP") == "1"
         and sys.platform == "win32"
     ):
-        from memorymap.__main__ import restart_in_console_mode
+        # `importlib`, not an `import` statement: `memorymap.__main__` imports
+        # `api.app`, which imports this module, so a statement here closes a
+        # CodeQL py/cyclic-import loop — and deferring it into the function
+        # body does not clear that, only dropping the statement does. The
+        # desktop entry point is the caller here, not a dependency.
+        restart_in_console_mode = importlib.import_module(
+            "memorymap.__main__"
+        ).restart_in_console_mode
 
         restarting = True
         background_tasks.add_task(restart_in_console_mode, not show_console)
@@ -654,7 +685,9 @@ def restart_app(background_tasks: BackgroundTasks) -> dict:
     """
     if os.getenv("MEMORYMAP_DESKTOP") != "1" or sys.platform != "win32":
         return {"restarting": False}
-    from memorymap.__main__ import restart_in_console_mode
+    restart_in_console_mode = importlib.import_module(
+        "memorymap.__main__"
+    ).restart_in_console_mode  # same cycle break as above
 
     show_console = bool(deps.get_config().get_preference("show_console_on_startup", True))
     background_tasks.add_task(restart_in_console_mode, not show_console)

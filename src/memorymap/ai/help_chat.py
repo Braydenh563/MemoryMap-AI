@@ -367,6 +367,108 @@ HELP_TOPICS: list[dict] = [
         ),
         "badge": {"label": "Notes", "tab": "notes"},
     },
+    #: **Five topics added after an audit against what the app can actually
+    #: do.** Asked for directly: "did you make sure full usage guides exist in
+    #: the docs for the help ai to use??" The answer was mostly yes — every tab
+    #: had an entry — but the checker found five features the help AI could not
+    #: describe at all, which means it would have guessed. A help assistant that
+    #: guesses is worse than one that says it does not know, so anything it can
+    #: be asked about needs an entry here.
+    {
+        "id": "ocr-workspace",
+        "keywords": (
+            "ocr", "read text", "scan", "scanned", "extract text", "transcribe",
+            "tesseract", "vision model", "page read", "pdf text",
+        ),
+        "body": (
+            "OCR workspace: open any image or PDF from the Library or a note and "
+            "choose \"Read text\". Pick the reader at the top — the AI document "
+            "reader (a model built to transcribe a page), the general vision "
+            "model where you have a different one installed, or Tesseract, which "
+            "needs no model, is about ten times faster and is the only reader "
+            "that tells you where on the page each block sits. Read one page, a "
+            "range like 1-5, or the whole document. A read keeps running if you "
+            "close the window — it shows in Settings -> Background tasks and can "
+            "be stopped from there or from the workspace — and every page that "
+            "has been read is remembered, so reopening the document shows the "
+            "text again rather than starting over."
+        ),
+        "badge": {"label": "Library", "tab": "library"},
+    },
+    {
+        "id": "document-history",
+        "keywords": (
+            "history", "version", "revision", "restore", "undo edit", "previous version",
+            "git log", "rollback", "ai edit log", "old version", "earlier version",
+            "what it used to say", "roll back",
+        ),
+        "body": (
+            "Documents keep a history. The ... menu -> History lists every "
+            "version the document has had, newest first, with who changed it "
+            "(you, an AI edit, or a restore), how many words it gained or lost, "
+            "and the opening of that version. \"View\" reads an old version "
+            "without changing anything; \"Restore\" puts it back and keeps the "
+            "version it replaced, so a restore is itself undoable. A stretch of "
+            "editing counts as one entry rather than one per autosave. The AI "
+            "panel has a separate \"AI edits\" log for reverting one specific "
+            "suggestion the model made."
+        ),
+        "badge": {"label": "Documents", "tab": "documents"},
+    },
+    {
+        "id": "writing-checks",
+        "keywords": (
+            "spelling", "spellcheck", "suggestion", "proofread", "grammar",
+            "dictionary", "rephrase", "wording", "autocorrect", "flagged",
+        ),
+        "body": (
+            "The document editor checks spelling, spacing and sentence length as "
+            "you write. In Live view a flagged word is underlined: click or "
+            "right-click it for corrections, \"Add to dictionary\" or \"Ignore "
+            "this for now\". The Suggestions panel lists every finding; clicking "
+            "one scrolls to it and highlights it briefly. Where there is no "
+            "mechanical fix — an awkward sentence — \"Ask the AI for wordings\" "
+            "has the local model offer two or three alternatives to pick from. "
+            "Nothing is changed until you choose it. Manage the dictionary and "
+            "the British/American spelling preference from the editor's own "
+            "dictionary dialog."
+        ),
+        "badge": {"label": "Documents", "tab": "documents"},
+    },
+    {
+        "id": "notebook-questions",
+        "keywords": (
+            "how many", "most common", "statistics", "stats", "count", "top tags",
+            "busiest", "untagged", "orphan", "most linked",
+        ),
+        "body": (
+            "You can ask about the notebook itself, not just what is in it: "
+            "\"what are my most common tags\", \"which categories have the most "
+            "notes\", \"how many notes do I have\", \"how many notes have no "
+            "tags\", \"which are my most linked notes\", \"when do I write "
+            "most\". These are counted from your data rather than generated, so "
+            "the numbers are exact, the answer is instant, and it works even "
+            "with no AI model running at all. Private and binned notes are never "
+            "counted."
+        ),
+        "badge": {"label": "Chat", "tab": "chat"},
+    },
+    {
+        "id": "contradictions",
+        "keywords": (
+            "contradict", "contradiction", "tension", "disagree", "conflict",
+            "inconsistent", "changed my mind", "out of date",
+        ),
+        "body": (
+            "MemoryMap can look for places where two of your notes disagree — a "
+            "decision you reversed, a fact you later corrected — and show them "
+            "side by side with the dates, so you can see which is current. It "
+            "runs on demand rather than constantly, because it is a real pass "
+            "over the notebook with the local model. It never edits anything: "
+            "the point is to show you the pair and let you decide."
+        ),
+        "badge": {"label": "Dashboard", "tab": "dashboard"},
+    },
 ]
 
 #: A tight window — this is guidance, not a conversation to reminisce in.

@@ -7,6 +7,8 @@ AI's retrieved context unless the user asks for them by name.
 
 from __future__ import annotations
 
+import logging
+
 import re
 import tempfile
 from pathlib import Path
@@ -19,7 +21,14 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai import drafter, vision_ocr
 from memorymap.core import deps, docview, filetypes
-from memorymap.core.database import Bookmark, Document, DocumentAiEdit, DocumentBookmark, utcnow
+from memorymap.core.database import (
+    Bookmark,
+    Document,
+    DocumentAiEdit,
+    DocumentBookmark,
+    DocumentRevision,
+    utcnow,
+)
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import (
     entries_for_document,
@@ -28,6 +37,8 @@ from memorymap.entry.manager import (
     log_action,
     unlink_document,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -65,6 +76,11 @@ class DocumentPatch(BaseModel):
     #: above, so an autosave sending only `content` cannot reset a
     #: document's type back to markdown.
     file_type: str | None = Field(default=None, max_length=40)
+    #: Who is making this change, for the history: "edit" (a person typing),
+    #: "ai" (an accepted suggestion), "restore" (rolling back). The frontend
+    #: says so because only it knows — by the time a PATCH arrives the text
+    #: looks the same whoever wrote it.
+    revision_source: Literal["edit", "ai", "restore"] = "edit"
 
 
 class AiEditBody(BaseModel):
@@ -416,6 +432,12 @@ def update_document(
     if body.title is not None:
         document.title = body.title.strip() or document.title
     content_changed = body.content is not None and body.content != document.content
+    #: Before the change lands, so the newest revision is always the version
+    #: being replaced — the same rule `record_revision` follows for notes.
+    #: Only on a real content change: a title-only edit or an autosave that
+    #: sends the identical text must not add an entry saying nothing happened.
+    if content_changed:
+        _record_document_revision(session, document, source=body.revision_source)
     if body.content is not None:
         document.content = body.content
     if body.file_type is not None:
@@ -431,10 +453,95 @@ def update_document(
     return _full(document, session)
 
 
+#: How long a burst of editing counts as one revision. Autosave fires while you
+#: type, so without coalescing a ten-minute sitting would leave a hundred
+#: entries seconds apart — a log nobody can read rather than a history. Five
+#: minutes is long enough that one sitting is one entry and short enough that
+#: coming back after lunch is a new one.
+REVISION_QUIET_SECONDS = 300
+
+#: Enough to answer "what did it say before?" several edits back without the
+#: table growing without bound. Matches the spirit of `MAX_REVISIONS` for notes.
+MAX_DOCUMENT_REVISIONS = 40
+
+
+def _record_document_revision(session: Session, document: Document, source: str = "edit") -> None:
+    """Snapshot the document as it is *now*, before the caller changes it.
+
+    Coalesced: an edit soon after the last snapshot replaces it, so the history
+    reads as sittings rather than keystrokes. See `DocumentRevision`.
+
+    Never raises — a history that fails to record must not fail the save it was
+    recording. Losing one entry is a much smaller harm than refusing to let
+    someone save their work.
+    """
+    try:
+        latest = (
+            session.query(DocumentRevision)
+            .filter(DocumentRevision.document_id == document.id)
+            .order_by(DocumentRevision.id.desc())
+            .first()
+        )
+        now = utcnow()
+        if latest is not None:
+            #: Both sides made naive-UTC before comparing: `utcnow()` here is
+            #: naive and a value read back from SQLite is too, but a future
+            #: backend could hand back an aware one and a mixed comparison
+            #: raises rather than being wrong quietly.
+            previous = latest.created_at
+            if previous.tzinfo is not None:
+                previous = previous.replace(tzinfo=None)
+            reference = now.replace(tzinfo=None) if now.tzinfo is not None else now
+            if (reference - previous).total_seconds() < REVISION_QUIET_SECONDS:
+                latest.title = document.title
+                latest.content = document.content
+                latest.source = source
+                latest.created_at = now
+                return
+        session.add(
+            DocumentRevision(
+                document_id=document.id,
+                title=document.title,
+                content=document.content,
+                source=source,
+            )
+        )
+        session.flush()
+        stale = (
+            session.query(DocumentRevision)
+            .filter(DocumentRevision.document_id == document.id)
+            .order_by(DocumentRevision.id.desc())
+            .offset(MAX_DOCUMENT_REVISIONS)
+            .all()
+        )
+        for row in stale:
+            session.delete(row)
+    except Exception:  # noqa: BLE001 - a history must never block a save
+        logger.debug("could not record a document revision", exc_info=True)
+
+
 @router.delete("/{document_id}")
 def delete_document(document_id: int, session: Session = Depends(get_session)) -> dict:
     document = _existing(session, document_id)
     log_action(session, "deleted", "document", document.id, document.title[:80])
+    #: **The history goes with the document.** `DocumentRevision` and
+    #: `DocumentAiEdit` both hold a real foreign key to `documents.id`, and
+    #: there is no ORM cascade on either — deleting a document that had been
+    #: edited raised `FOREIGN KEY constraint failed` and the delete failed
+    #: outright. Caught by `test_documents_api.py::test_create_read_update_delete`
+    #: the moment revisions started being written, which is the argument for
+    #: running the whole suite rather than the tests for the thing you touched.
+    #:
+    #: Deleted rather than orphaned deliberately: a document's history is
+    #: about *that document*, and keeping the text of something the user asked
+    #: to delete would be the app quietly retaining what it was told to
+    #: destroy. The bin covers "I did not mean that" for the document itself.
+    session.query(DocumentRevision).filter(
+        DocumentRevision.document_id == document.id
+    ).delete(synchronize_session=False)
+    session.query(DocumentAiEdit).filter(
+        DocumentAiEdit.document_id == document.id
+    ).delete(synchronize_session=False)
     session.delete(document)
     session.commit()
     return {"deleted": True}
@@ -652,6 +759,164 @@ def ai_edit(
         "message": drafter.OFFLINE_MESSAGE if offline else "",
         "ollama_running": not offline,
     }
+
+
+class RephraseBody(BaseModel):
+    """A passage the writer wants alternatives for, and what is wrong with it."""
+
+    passage: str = Field(min_length=1, max_length=2000)
+    #: The checker's own message ("This sentence runs long", "its/it's"), so
+    #: the model fixes the thing that was flagged rather than rewriting to
+    #: taste. Optional: the toolbar can ask for alternatives to any selection.
+    note: str = Field(default="", max_length=200)
+
+
+@router.post("/{document_id}/rephrase")
+def rephrase_passage(
+    document_id: int, body: RephraseBody, session: Session = Depends(get_session)
+) -> dict:
+    """Two or three other ways to word one passage.
+
+    Asked for directly: *"the listed errors in suggestions have no way to have
+    the ai write a suggested replacement or multiple for the user to choose."*
+    The app's own checks catch spelling, spacing and sentence length, and can
+    offer a fix for the first two; for "this sentence is hard to follow" there
+    is no mechanical answer and the panel could only say so.
+
+    Nothing is saved. The alternatives come back for the writer to pick from —
+    the same rule `ai_edit` follows and for the same reason: a writing aid that
+    edits the document by itself is the most destructive thing in the app.
+    `options` is empty rather than an error when the model is offline or its
+    reply is unusable, because "no suggestions" is a true statement and not a
+    failure the writer caused.
+    """
+    _existing(session, document_id)
+    options = drafter.rephrase(
+        body.passage,
+        deps.get_model_manager(),
+        deps.get_ollama(),
+        note=body.note,
+    )
+    running = deps.get_ollama().is_running()
+    return {
+        "options": options,
+        "ollama_running": running,
+        "message": "" if running else drafter.OFFLINE_MESSAGE,
+    }
+
+
+class DocumentRevisionOut(BaseModel):
+    """One entry in a document's history."""
+
+    id: int
+    title: str
+    source: str
+    created_at: str
+    #: The size of the change, so the list says *how much* happened without
+    #: making anyone open each entry: a history where every row looks the same
+    #: is a history you have to read linearly.
+    words: int
+    #: Signed, against the version that replaced it: +120 words, -8 words.
+    word_delta: int
+    preview: str
+
+
+@router.get("/{document_id}/revisions", response_model=list[DocumentRevisionOut])
+def document_revisions(
+    document_id: int, session: Session = Depends(get_session)
+) -> list[DocumentRevisionOut]:
+    """This document's history, newest first.
+
+    Asked for by name: *"can the document have edit history like git logs??"*
+    Notes have had revisions for a long time and documents had none — a rewrite
+    destroyed what the document used to say, with nothing but the session's own
+    undo stack, which forgets on reload.
+
+    Each row carries a word count and the signed difference against whatever
+    replaced it, which is the part that makes a list of timestamps readable: a
+    git log is useful because every line says how big the change was.
+    """
+    document = _existing(session, document_id)
+    rows = (
+        session.query(DocumentRevision)
+        .filter(DocumentRevision.document_id == document_id)
+        .order_by(DocumentRevision.id.desc())
+        .all()
+    )
+    out: list[DocumentRevisionOut] = []
+    #: Newest first, and each row is compared with the version that *came
+    #: after* it — for the newest revision that is the document as it stands
+    #: now, which is why this walks with `newer` seeded from the document.
+    newer_words = len((document.content or "").split())
+    for row in rows:
+        words = len((row.content or "").split())
+        out.append(
+            DocumentRevisionOut(
+                id=row.id,
+                title=row.title or document.title,
+                source=row.source or "edit",
+                created_at=row.created_at.isoformat(),
+                words=words,
+                word_delta=newer_words - words,
+                preview=_preview(row.content or ""),
+            )
+        )
+        newer_words = words
+    return out
+
+
+@router.get("/{document_id}/revisions/{revision_id}")
+def document_revision(
+    document_id: int, revision_id: int, session: Session = Depends(get_session)
+) -> dict:
+    """One past version, in full, so it can be read or diffed before restoring."""
+    _existing(session, document_id)
+    row = session.get(DocumentRevision, revision_id)
+    if row is None or row.document_id != document_id:
+        raise HTTPException(status_code=404, detail="No revision with that id")
+    return {
+        "id": row.id,
+        "title": row.title,
+        "content": row.content,
+        "source": row.source,
+        "created_at": row.created_at.isoformat(),
+    }
+
+
+@router.post("/{document_id}/revisions/{revision_id}/restore")
+def restore_document_revision(
+    document_id: int, revision_id: int, session: Session = Depends(get_session)
+) -> dict:
+    """Put the document back to how it was, keeping the version being replaced.
+
+    A restore is itself an edit, so the current text is snapshotted first —
+    restoring the wrong entry must be as undoable as the edit that made you
+    want to restore. Marked `source="restore"` so the history says what
+    happened rather than looking like an ordinary rewrite.
+    """
+    document = _existing(session, document_id)
+    row = session.get(DocumentRevision, revision_id)
+    if row is None or row.document_id != document_id:
+        raise HTTPException(status_code=404, detail="No revision with that id")
+    #: **Read before writing, and this is not a style preference.** The
+    #: snapshot below coalesces into the most recent revision when one is
+    #: recent enough — and on the common path ("I rewrote this, undo that")
+    #: the most recent revision *is* the one being restored. Recording first
+    #: and reading `row.content` afterwards therefore restored the document to
+    #: the text it had just overwritten that row with: the restore silently
+    #: did nothing, and the version being rescued was destroyed on the way.
+    #: Caught by `test_restoring_puts_the_text_back_and_keeps_the_one_it_replaced`.
+    wanted_content = row.content or ""
+    wanted_title = row.title
+    _record_document_revision(session, document, source="restore")
+    document.content = wanted_content
+    if wanted_title:
+        document.title = wanted_title
+    document.updated_at = utcnow()
+    log_action(session, "restored", "document", document.id, document.title[:80])
+    session.commit()
+    return _full(document, session)
+
 
 
 class DocumentAiEditLogBody(BaseModel):

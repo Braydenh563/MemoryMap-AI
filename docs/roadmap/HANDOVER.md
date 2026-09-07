@@ -167,6 +167,11 @@ list at the end.
   reading are managed together. Describe itself is unverified here (no
   vision model) — it reuses the lightbox's `/caption` call.
 
+- Reader flows driven end-to-end with the seeded readings: find ("1 of
+  2", the miss dimmed), Ask about this (lands in the chat composer), Save
+  as note (entry count +1), per-page delete (server rows 2 → 1). Escape
+  now closes the reader and Ctrl+F focuses its find box (neither did).
+
 ### Open — in the order the user is likely to hit them
 
 1. Whiteboard: group transform of a multi-selection; frames; text on

@@ -3877,6 +3877,23 @@ document.addEventListener("DOMContentLoaded", () => {
     //: Never while typing: the range box and the find box are both text
     //: fields inside this dialog, and Left/Right belong to the caret there.
     const tag = document.activeElement?.tagName;
+    //: Escape closes the reader (measured: it did not) — unless a confirm
+    //: is up, which owns Escape, or a text field has focus, where Escape
+    //: first drops out of the field. Ctrl+F goes to "Find in what was read"
+    //: rather than the browser's own find, which cannot see this dialog's
+    //: text any better than the page's.
+    if (event.key === "Escape") {
+      if (document.querySelector(".confirm-overlay")) return;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") { document.activeElement.blur(); return; }
+      event.preventDefault();
+      closeOcrWorkspace();
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
+      event.preventDefault();
+      $("ocr-find")?.focus();
+      return;
+    }
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
     if (event.key === "ArrowLeft" || event.key === "PageUp") {
       event.preventDefault();

@@ -4135,3 +4135,41 @@ select {
   margin: 0 0 var(--space-4);
   font-size: var(--text-sm);
 }
+
+/* ============ SETTINGS: one control height, one right edge ================
+   Reported: "all the settings pages ui needs refining, aligning, made
+   consistent". Measured first — the sampling row alone rendered a 16px
+   slider, a 36px number box and a 28px reset button side by side, and
+   buttons across the panel came in three heights depending on which class
+   they happened to carry.
+
+   Switches and sliders are deliberately exempt: a pill switch is 32x18 by
+   the app-wide recipe (06-timeline-dialogs.css) and a range input draws its
+   own track. Everything else that is a control gets the same 2.25rem box,
+   the same height DESIGN.md's control rule gives the toolbars. */
+#settings-modal .settings-section button,
+#settings-modal .settings-section select,
+#settings-modal .settings-section .select-opener,
+#settings-modal .settings-section summary,
+#settings-modal .settings-section input[type="text"],
+#settings-modal .settings-section input[type="search"],
+#settings-modal .settings-section input[type="number"],
+#settings-modal .settings-section input[type="password"],
+#settings-modal .settings-section input[type="url"] {
+  height: 2.25rem;
+  min-height: 0;
+  padding-block: 0;
+  box-sizing: border-box;
+}
+
+/* A range input has no box of its own to size, so it is centred against the
+   controls beside it rather than stretched to match them. */
+#settings-modal .settings-section input[type="range"] {
+  align-self: center;
+}
+
+/* Rows in this panel line their controls up on one axis instead of each
+   row centring its own contents differently. */
+#settings-modal .settings-section .row {
+  align-items: center;
+}

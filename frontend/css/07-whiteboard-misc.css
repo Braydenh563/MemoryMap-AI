@@ -6538,3 +6538,24 @@ button.connection-row {
   background: var(--inner);
   font-size: var(--text-sm);
 }
+
+/* A text file in the reader: the file's own words in the page pane, in the
+   same monospace the code blocks use, scrolling inside the stage. */
+.ocr-text-view {
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  max-width: 60rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.ocr-stage.ocr-stage-text {
+  width: 100%;
+  height: auto;
+  background: var(--card);
+  border-radius: var(--radius-md);
+}

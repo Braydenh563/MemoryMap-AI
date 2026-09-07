@@ -188,6 +188,18 @@ list at the end.
   signature gained an options object, so the marker no longer matched.
   **This is the CI failure on `0691dc3`**; fixed here.
 
+- **The reader opens text files now** — .txt/.md/.csv/.json/code and a
+  converted .docx (via the `/files/{id}/text` endpoint that already
+  existed): its words go straight into the sections pane, the read controls
+  hide, the source chip says "The file's own text", and Copy / Ask / Save
+  as note work as usual. Verified with a real CSV attachment. Rail icons
+  now follow the file kind (every non-image was a PDF glyph). **.xlsx and
+  other binary formats still cannot be opened** — no parser exists in this
+  app for them.
+- Settings: one control height (2.25rem) for every button, select, summary
+  and text/number input inside `#settings-modal .settings-section`, and
+  rows centre their contents. The sampling row alone had been 16/36/28.
+
 ### Open — in the order the user is likely to hit them
 
 1. Whiteboard: group transform of a multi-selection; frames; text on

@@ -2537,9 +2537,9 @@ function ocrRenderRegions(body) {
   //: readings on a stored-range response — `.some` on the number threw and
   //: took the whole page load down with it ("(body.pages || []).some is not
   //: a function" in the reader's status line, found by measurement).
-  const hasReading = ocrWorkspaceRegions.length > 0
+  const hasReading = body.source !== "text-file" && (ocrWorkspaceRegions.length > 0
     || Boolean((body.text || "").trim())
-    || (Array.isArray(body.pages) && body.pages.some((page) => (page?.text || "").trim()));
+    || (Array.isArray(body.pages) && body.pages.some((page) => (page?.text || "").trim())));
   $("ocr-delete-reading")?.classList.toggle("hidden", !hasReading);
   //: **Redo, made discoverable rather than merely possible.** Reported
   //: directly: "there's also no way to delete or redo ocr text extractions."
@@ -2577,6 +2577,7 @@ function ocrRenderRegions(body) {
     //: yet", which would be wrong in the most alarming direction. Nothing
     //: emits it.
     "stored-text": "ph:text-align-left Stored text, no page positions",
+    "text-file": "ph:file-text The file's own text",
     none: "ph:warning Nothing read yet",
   };
   setLabel(source, labels[body.source] || labels.none);
@@ -2726,7 +2727,7 @@ function ocrRenderRegions(body) {
     //: stored panel now removes its own page's reading.
     //: An image's reading is one panel; its delete is the header's delete.
     if (!Number.isInteger(region.page) && ocrWorkspaceCurrent && !ocrIsPdf(ocrWorkspaceCurrent)
-        && (region.text || "").trim()) {
+        && body.source !== "text-file" && (region.text || "").trim()) {
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "ghost small icon-button danger ocr-region-delete";
@@ -2882,6 +2883,56 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
   //: The range box lives or dies with the per-page button — both are PDF-only,
   //: and a "read pages 1-5" control beside a photograph would be a lie.
   $("ocr-read-range-group")?.classList.toggle("hidden", !ocrIsPdf(image));
+
+  //: **A text file needs no model at all.** Its words are already words, so
+  //: the reader shows them straight away — same panes, same Copy / Ask /
+  //: Save as note, and the read controls hidden because there is nothing to
+  //: transcribe. This is what makes the workspace a reader for *every* file
+  //: rather than only the two kinds a vision model is needed for.
+  if (ocrIsTextFile(image)) {
+    $("ocr-read-page")?.classList.add("hidden");
+    $("ocr-describe")?.classList.add("hidden");
+    $("ocr-boxes")?.replaceChildren();
+    $("ocr-stage")?.classList.add("ocr-stage-text");
+    try {
+      const file = await ocrFetchFileText(image);
+      const paragraphs = (file.text || "").split(/\n{2,}/).map((t) => t.trim()).filter(Boolean);
+      ocrRenderRegions({
+        regions: (paragraphs.length ? paragraphs : ["(This file is empty.)"]).map((text, index) => ({
+          index, kind: "text", text, confidence: 0, box: { x: 0, y: 0, w: 1, h: 1 },
+        })),
+        source: "text-file",
+        message: file.source === "converted"
+          ? "Converted to text — no model was needed."
+          : "Read straight from the file — no model was needed.",
+        pages: 1,
+        page: 0,
+      });
+      const stage = $("ocr-stage");
+      if (stage) {
+        //: The page picture belongs to a scan, not to a text file — hidden
+        //: by class on the stage so it stays hidden through a re-render.
+        stage.querySelector("img")?.classList.add("hidden");
+        let pre = stage.querySelector(".ocr-text-view");
+        if (!pre) {
+          pre = document.createElement("pre");
+          pre.className = "ocr-text-view";
+          stage.appendChild(pre);
+        }
+        pre.textContent = file.text || "";
+        $("ocr-image")?.classList.add("hidden");
+      }
+    } catch (error) {
+      $("ocr-message").textContent = error.message || "That file could not be read.";
+      $("ocr-message").classList.remove("hidden");
+    }
+    ocrSyncPager(image);
+    return;
+  }
+  $("ocr-read-page")?.classList.remove("hidden");
+  $("ocr-stage")?.classList.remove("ocr-stage-text");
+  $("ocr-image")?.classList.remove("hidden");
+  $("ocr-stage")?.querySelector(".ocr-text-view")?.remove();
   try {
     const body = await apiJson(ocrRegionsUrl(image, ocrWorkspacePage));
     //: **What was already read wins over "nothing read yet".** Reported
@@ -3093,8 +3144,36 @@ async function ocrLoadSiblings({ force = false } = {}) {
 //: A file the workspace can actually open. Images always; otherwise only what
 //: `ocrIsPdf` recognises — the rail is a list of things to read, and a row
 //: that opens to an empty stage is worse than a shorter rail.
+//: Files whose text the app can read without a model: everything
+//: `GET /files/{id}/text` already handles (plain text, markdown, code, CSV,
+//: and a converted .docx), plus any text-ish upload. Asked for: "make sure
+//: all files are handled and viewable". A spreadsheet workbook (.xlsx) and
+//: other binary formats still cannot be shown — there is no parser for them
+//: in this app, and inventing one is not a UI change.
+const OCR_TEXT_SUFFIXES = /\.(txt|md|markdown|csv|tsv|json|ya?ml|log|py|js|ts|html?|css|sql|sh|ini|toml|docx|rtf)$/i;
+
+function ocrIsTextFile(row) {
+  if (!row || row._isImage || ocrIsPdf(row)) return false;
+  const name = row.original_name || row.filename || "";
+  if (OCR_TEXT_SUFFIXES.test(name)) return true;
+  return (row.mime || "").startsWith("text/");
+}
+
 function ocrCanOpen(row) {
-  return Boolean(row && (row._isImage || ocrIsPdf(row)));
+  return Boolean(row && (row._isImage || ocrIsPdf(row) || ocrIsTextFile(row)));
+}
+
+//: Fetch a readable file's text. Attachments go through the endpoint that
+//: already converts (`/files/{id}/text`); an upload is fetched raw, which
+//: is right for the plain-text kinds `ocrIsTextFile` lets through.
+async function ocrFetchFileText(row) {
+  if (row._isAttachment) {
+    const body = await apiJson(`/files/${row.id}/text`);
+    return { text: body.text || "", kind: body.kind || "plain", source: body.source || "file" };
+  }
+  const res = await fetch(mediaSrc(row.url), { headers: { "X-Auth-Token": localStorage.getItem("token") || "" } });
+  if (!res.ok) throw new Error("That file could not be read.");
+  return { text: await res.text(), kind: "plain", source: "file" };
 }
 
 //: Build the switch above the rail. Rebuilt on every rail render because the
@@ -3195,7 +3274,9 @@ function ocrRenderRail(current) {
       //: `<img>` in a rail reads as a missing file rather than as a document.
       const glyph = document.createElement("span");
       glyph.className = "ocr-rail-glyph";
-      setLabel(glyph, "ph:file-pdf");
+      //: The icon says what the file is — every non-image was a PDF glyph,
+      //: so a .csv and a .docx both claimed to be PDFs in the rail.
+      setLabel(glyph, ocrIsPdf(row) ? "ph:file-pdf" : ocrIsTextFile(row) ? "ph:file-text" : "ph:file");
       item.appendChild(glyph);
     }
     const name = document.createElement("span");

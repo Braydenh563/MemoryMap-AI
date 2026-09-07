@@ -1098,12 +1098,14 @@ Link to another note with [[its first few words]]."></textarea>
           <div id="empty-message" class="empty-state hidden">
             <span class="empty-icon" aria-hidden="true"><i class="ph ph-note-pencil" aria-hidden="true"></i></span>
             <p class="empty-title">Your notebook is empty</p>
-            <p class="muted">Type a thought above and the AI files it for you.</p>
+            <p class="muted">Type a thought and the AI files it for you.</p>
+            <button class="ghost small" type="button" data-empty-action="capture"><i class="ph ph-pencil-simple ph-lead" aria-hidden="true"></i> Capture a note</button>
           </div>
           <div id="no-match-message" class="empty-state hidden">
             <span class="empty-icon" aria-hidden="true"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></span>
             <p class="empty-title">No notes match your filter</p>
             <p class="muted">Try a different word, or clear the search box.</p>
+            <button class="ghost small" type="button" data-empty-action="clear-filter"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear the filter</button>
           </div>
         </section>
       </main>
@@ -3112,7 +3114,8 @@ Link to another note with [[its first few words]]."></textarea>
         <div id="library-docs-empty" class="empty-state hidden">
           <span class="empty-icon" aria-hidden="true"><i class="ph ph-file-text ph-lead" aria-hidden="true"></i></span>
           <p class="empty-title">No documents yet</p>
-          <p>Press ＋ New document to start one.</p>
+          <p>A document is a longer piece of writing with its own editor, outline and history.</p>
+          <button class="ghost small" type="button" data-empty-action="new-document"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New document</button>
         </div>
         <p id="library-docs-no-match" class="muted hidden"></p>
       </section>
@@ -3219,7 +3222,8 @@ Link to another note with [[its first few words]]."></textarea>
         <div id="library-boards-empty" class="empty-state hidden">
           <span class="empty-icon" aria-hidden="true"><i class="ph ph-squares-four ph-lead" aria-hidden="true"></i></span>
           <p class="empty-title">No boards yet</p>
-          <p>Create one from <strong>＋ Create → New concept map</strong>, or draw on the default board below.</p>
+          <p>A board is a canvas for notes, sketches and images; a mind map is a board with a tree on it.</p>
+          <button class="ghost small" type="button" data-empty-action="new-board"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New board</button>
         </div>
         <p id="library-boards-no-match" class="muted hidden"></p>
       </section>
@@ -4092,6 +4096,7 @@ Link to another note with [[its first few words]]."></textarea>
         <span class="empty-icon" aria-hidden="true"><i id="library-media-empty-icon" class="ph ph-images-square ph-lead" aria-hidden="true"></i></span>
         <p class="empty-title" id="library-media-empty-title">No images yet</p>
         <p id="library-media-empty-body">Paste, drop, or attach one to a note and it shows up here.</p>
+        <button class="ghost small" type="button" data-empty-action="capture"><i class="ph ph-pencil-simple ph-lead" aria-hidden="true"></i> Capture a note</button>
       </div>
       <p id="library-images-no-match" class="muted hidden">Nothing here matches your search.</p>
     </section>
@@ -4151,7 +4156,8 @@ Link to another note with [[its first few words]]."></textarea>
       <div id="bookmark-empty" class="empty-state hidden">
         <span class="empty-icon" aria-hidden="true"><i class="ph ph-link ph-lead" aria-hidden="true"></i></span>
         <p class="empty-title">No links saved yet</p>
-        <p>Add a website above to keep it a click away.</p>
+        <p>Add a website to keep it a click away.</p>
+        <button class="ghost small" type="button" data-empty-action="add-link"><i class="ph ph-link-simple ph-lead" aria-hidden="true"></i> Add a link</button>
       </div>
       <p id="bookmark-no-match" class="muted hidden">No links match your search.</p>
     </section>
@@ -4223,6 +4229,7 @@ Link to another note with [[its first few words]]."></textarea>
         <span class="empty-icon" aria-hidden="true"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i></span>
         <p class="empty-title">Nothing to outline yet</p>
         <p>Write a few notes and they'll show up here, grouped and linked.</p>
+        <button class="ghost small" type="button" data-empty-action="capture"><i class="ph ph-pencil-simple ph-lead" aria-hidden="true"></i> Capture a note</button>
       </div>
     </section>
   </div>

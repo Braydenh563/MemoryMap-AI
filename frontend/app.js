@@ -20492,6 +20492,21 @@ document.addEventListener("click", (event) => {
   } else if (action === "reminder") {
     const field = $("reminder-text") || $("reminder-magic");
     if (field) field.focus();
+  } else if (action === "clear-filter") {
+    // The same path as typing into the box and deleting it: the handler on
+    // #note-search owns `noteSearch`, the Save-filter button and the render.
+    const search = $("note-search");
+    if (search) {
+      search.value = "";
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+      search.focus();
+    }
+  } else if (action === "new-document") {
+    $("library-docs-new")?.click();
+  } else if (action === "new-board") {
+    $("wb-boards-new")?.click();
+  } else if (action === "add-link") {
+    $("bookmark-url-input")?.focus();
   }
 });
 

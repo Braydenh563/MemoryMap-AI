@@ -200,6 +200,23 @@ list at the end.
   and text/number input inside `#settings-modal .settings-section`, and
   rows centre their contents. The sampling row alone had been 16/36/28.
 
+- Note edit form, third round: the strip is the capture strip with **every
+  id stripped from the clone** (two elements sharing an id meant
+  `getElementById` handed back the capture toolbar's control, so the edit
+  form's dropdowns formatted the wrong box); toolbar clicks are now
+  **delegated on the bar** in `wireMarkdownToolbar`, so menu items built by
+  the mount cannot be missed. Verified: h1/quote/underline/wikilink from
+  the dropdowns all change the edit box. Write/Preview moved out of the
+  strip onto its own row; the strip wraps instead of scrolling (that
+  scrollbar was the "large gap"). **Attachment cards** render in the edit
+  form (`renderEntryAttachmentChips` now takes elements, images *and*
+  files) and removing one takes its markdown with it.
+- Mic: an icon-only recording button keeps its round shape (the level
+  meter stretched it into a lozenge) and the meter bars use solid `--warn`.
+- The "Tools it can use" switches measure **identical** to every other
+  switch now (32x18, white knob, `box-shadow: none`) — the earlier report
+  was the `.setting-check` sizing override, fixed in `0a93778`.
+
 ### Open — in the order the user is likely to hit them
 
 1. Whiteboard: group transform of a multi-selection; frames; text on

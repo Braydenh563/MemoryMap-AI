@@ -5752,6 +5752,13 @@ function noteEditToolbar(boxId) {
     // a dead button with a duplicate id; the edit form has its own
     // Write / Preview switch.
     clone.querySelector("#entry-preview-toggle")?.remove();
+    //: **Every id goes.** A clone carries the capture strip's ids, and two
+    //: elements with one id means `document.getElementById` hands back the
+    //: *capture* toolbar's control — so the edit form's dropdowns opened and
+    //: then applied their formatting to the capture box instead of the note
+    //: being edited (reported: "none of the toolbar dropdowns work"). Nothing
+    //: in `wireMarkdownToolbar` needs an id; it walks elements.
+    for (const el of clone.querySelectorAll("[id]")) el.removeAttribute("id");
     delete clone.dataset.mdExtras;
     clone.dataset.mdTarget = boxId;
     wireMarkdownToolbar(clone);
@@ -5867,7 +5874,11 @@ function renderEditForm(li, entry) {
   previewBtn.type = "button"; previewBtn.textContent = "Preview";
   previewBtn.setAttribute("aria-pressed", "false");
   view.append(writeBtn, previewBtn);
-  toolbarEl.prepend(view);
+  //: Its own row, so the formatting bar is *exactly* the capture and
+  //: document strip — asked for directly.
+  const viewRow = document.createElement("div");
+  viewRow.className = "row note-edit-viewrow";
+  viewRow.appendChild(view);
   const preview = document.createElement("div");
   preview.className = "markdown-body note-edit-preview hidden";
   const setView = (mode) => {
@@ -5883,7 +5894,15 @@ function renderEditForm(li, entry) {
   };
   writeBtn.addEventListener("click", () => setView("write"));
   previewBtn.addEventListener("click", () => setView("preview"));
-  li.append(toolbarEl, textarea, preview, meta);
+  //: Attachment cards for whatever this note already carries: rename its
+  //: caption, generate one, or remove it — and removing takes the markdown
+  //: with it, in the edit form exactly as in the capture box.
+  const chipsHost = document.createElement("div");
+  chipsHost.className = "row attachment-chips hidden";
+  chipsHost.id = "entry-edit-attachment-chips";
+  li.append(toolbarEl, viewRow, textarea, preview, chipsHost, meta);
+  renderEntryAttachmentChips(textarea, chipsHost);
+  textarea.addEventListener("input", () => renderEntryAttachmentChips(textarea, chipsHost));
   renderRelatedWhileEditing(li, entry);
   renderNoteBookmarksWhileEditing(li, entry);
 }
@@ -31000,11 +31019,19 @@ async function resolveMediaUploadByUrl(url) {
   return uploads.find((u) => u.url === url) || null;
 }
 
-function renderEntryAttachmentChips() {
-  const box = $("entry-attachment-chips");
-  const textarea = $("entry-content");
+//: The capture box's attachment cards, reusable by any editing surface —
+//: the note *edit* form had none, so an image, sketch or file attached to a
+//: note could not be seen, renamed or removed while editing it (reported).
+//: The pattern now also matches a plain link to `/media` or `/files`, which
+//: is how a non-image attachment is written into a note.
+//: Ids or elements: the note edit form builds its host and its textarea and
+//: calls this *before* the row is in the document, so a `getElementById`
+//: lookup would find neither (measured: zero chips on a note that has one).
+function renderEntryAttachmentChips(boxId = "entry-content", hostId = "entry-attachment-chips") {
+  const box = hostId instanceof HTMLElement ? hostId : $(hostId);
+  const textarea = boxId instanceof HTMLElement ? boxId : $(boxId);
   if (!box || !textarea) return;
-  const pattern = /!\[([^\]]{0,200})\]\((\/media\/[^)\s]{1,500})\)/g;
+  const pattern = /!?\[([^\]]{0,200})\]\(((?:\/media|\/files)\/[^)\s]{1,500})\)/g;
   const matches = [...textarea.value.matchAll(pattern)];
   box.replaceChildren();
   box.classList.toggle("hidden", matches.length === 0);
@@ -31012,13 +31039,19 @@ function renderEntryAttachmentChips() {
     const [full, name, url] = match;
     const chip = document.createElement("span");
     chip.className = "chip attachment-chip attachment-chip-image";
-    const img = document.createElement("img");
-    img.src = mediaSrc(url);
-    img.alt = name;
-    img.loading = "lazy";
-    img.addEventListener("click", () =>
-      openLightbox([{ filename: name, getUrl: () => mediaSrc(url) }], 0)
-    );
+    const isImage = full.startsWith("!") || /\.(png|jpe?g|gif|webp|bmp|svg|avif)$/i.test(url);
+    const img = document.createElement(isImage ? "img" : "i");
+    if (isImage) {
+      img.src = mediaSrc(url);
+      img.alt = name;
+      img.loading = "lazy";
+      img.addEventListener("click", () =>
+        openLightbox([{ filename: name, getUrl: () => mediaSrc(url) }], 0)
+      );
+    } else {
+      img.className = attachmentIconClass(url, name);
+      img.setAttribute("aria-hidden", "true");
+    }
     const label = document.createElement("span");
     label.textContent = name || url;
     label.title = name || url;

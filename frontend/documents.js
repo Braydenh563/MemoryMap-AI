@@ -3010,13 +3010,23 @@ function mountEditorToolbarExtras(bar) {
 function wireMarkdownToolbar(bar) {
   const boxId = bar.dataset.mdTarget || "doc-content";
   mountEditorToolbarExtras(bar);
-  for (const button of bar.querySelectorAll("button[data-md]")) {
-    // mousedown-preventDefault keeps the caret in the textarea: without it
-    // the click moves focus to the button first and the selection the
-    // action is about to act on is already gone.
-    button.addEventListener("mousedown", (event) => event.preventDefault());
-    button.addEventListener("click", () => applyMarkdown(button.dataset.md, boxId));
-  }
+  //: **Delegated, not one listener per button.** The dropdown menus are
+  //: built by the mount above and, in the note edit form, the whole strip
+  //: is a *clone* — so per-button listeners covered whatever existed at
+  //: wiring time and silently missed anything a menu created later
+  //: (reported: "none of the toolbar dropdowns work" in the edit form; a
+  //: browser check confirmed a Block-menu item changed nothing). One
+  //: listener on the bar cannot miss a descendant.
+  bar.addEventListener("mousedown", (event) => {
+    // Keeps the caret in the textarea: a click moves focus first and the
+    // selection the action is about to act on is already gone.
+    if (event.target.closest("button[data-md]")) event.preventDefault();
+  });
+  bar.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-md]");
+    if (!button || !bar.contains(button)) return;
+    applyMarkdown(button.dataset.md, boxId);
+  });
   for (const select of bar.querySelectorAll("select[data-md-colour]")) {
     const kind = select.dataset.mdColour;
     for (const colour of MD_COLOURS) {

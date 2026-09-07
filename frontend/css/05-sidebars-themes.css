@@ -3444,3 +3444,17 @@ textarea.autogrow {
   border-radius: var(--radius-md);
   background: var(--inner);
 }
+
+/* The edit form's strip wraps instead of scrolling: a horizontal scrollbar
+   under a toolbar inside a card reads as a gap (reported: "a large gap at
+   the bottom of the toolbar in the section"). */
+.note-edit-toolbar {
+  flex-wrap: wrap;
+  overflow-x: visible;
+  row-gap: var(--space-1);
+}
+
+.note-edit-viewrow {
+  justify-content: flex-end;
+  margin: var(--space-2) 0 var(--space-1);
+}

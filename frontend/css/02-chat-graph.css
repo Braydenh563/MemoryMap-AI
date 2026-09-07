@@ -1804,7 +1804,10 @@ button.recording.live-level {
   width: 3px;
   height: 100%;
   border-radius: var(--radius-pill);
-  background: var(--recording-ring);
+  /* Solid --warn, not the 55%-transparent ring mix: over the dock's dark
+     card the mixed colour rendered as four grey smudges (reported, with a
+     screenshot of the recording mic button). */
+  background: var(--warn);
   transform: scaleY(var(--bar-scale, 0.3));
   transform-origin: bottom;
   transition: transform 90ms linear;
@@ -4460,4 +4463,31 @@ mark.lightbox-hit {
 .chat-jump-latest.is-generating-pill {
   border-color: var(--accent);
   background: var(--accent-soft);
+}
+
+/* **An icon-only mic keeps its shape while recording.** The level meter is
+   appended *inside* the button, so a round 2rem icon button stretched into
+   a lozenge with a stop-square on one side and four faint bars on the other
+   — reported as "the ui and animation of the speech to text button is
+   broken visually when recording". A labelled recorder ("Stop") still shows
+   the meter; the icon-only one keeps the pulsing ring, which is the same
+   signal in the space it actually has. */
+button.recording.icon-only .mic-bars,
+button.recording.icon-btn .mic-bars {
+  display: none;
+}
+
+button.recording.icon-only,
+button.recording.icon-btn {
+  animation: pulse-rec 1.2s ease-in-out infinite;
+  color: var(--warn);
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  button.recording.icon-only,
+  button.recording.icon-btn {
+    animation: none;
+    box-shadow: 0 0 0 4px var(--recording-ring);
+  }
 }

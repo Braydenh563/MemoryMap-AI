@@ -152,6 +152,21 @@ clipped (the wordmark now goes at 1499px rather than 720px, which is what
 freed the room); a mouse wheel can scroll any horizontal strip; the Files
 tab's OCR heading; the caption/OCR clamp line-height.
 
+And a third round: the documents kebab menu now uses the chat kebab's exact
+row style; the whiteboard's view dropdown lost its phantom horizontal
+scrollbar (`overflow-y: auto` beside `overflow-x: visible` makes the visible
+axis `auto` — the same spec rule that caused the `main` scrollbar, and the
+second bug it has caused here); every popover menu is now capped to the
+viewport and scrolls rather than clipping at the bottom; and the Links
+sub-tab's top dock gained **New group** and **Manage groups**, with rename
+moving every link in a group, delete keeping the links and only ungrouping
+them, and a freshly made empty group remembered client-side until something
+is filed into it. That last one is worth knowing about before you extend
+Links: **a group is a name on a bookmark, not a row in a table** — there is
+no group entity in `routes_bookmarks.py`, so an empty group has nowhere
+server-side to live, and the localStorage placeholder is a deliberate patch
+over that hole rather than a design you should copy.
+
 Not reproduced here, so not fixed, and named as such: the writing-trace
 animation not moving, browser errors after enabling battery saver, and the
 caption/OCR clamp slicing descenders (no OCR'd content exists in the sandbox

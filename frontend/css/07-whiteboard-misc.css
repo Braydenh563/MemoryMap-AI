@@ -2001,6 +2001,17 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   display: inline-flex;
   align-items: center;
   max-width: 12rem;
+  /* **The same height as everything else in the bar.** Reported: "the spaces
+     combobox in the top bar isnt the same height as the buttons on the other
+     side" — measured at 28px against 36px for the five icon buttons and the
+     tabs. `--header-control-h` is the token the whole bar is supposed to read,
+     but the rule that applies it is `.header-controls > button`, and this
+     button is not in `.header-controls` — it sits in its own
+     `.space-switcher` wrapper on the opposite side. So it quietly fell back
+     to `button.small`'s 28px floor, which is why nothing in the bar looked
+     wrong except this one control. */
+  height: var(--header-control-h);
+  padding-block: 0;
 }
 
 .space-switcher-name {

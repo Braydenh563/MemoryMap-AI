@@ -2,6 +2,98 @@
 
 **Next: [`PLAN.md`](PLAN.md)** — the scoped professional-grade plan (whiteboard, documents, backend, agent harness, performance), in ship order with measurements. Written by direct instruction; start there.
 
+## ► The Fable session — UI Phases 0-4, skills reform A-B, backend sprint 1, the audit
+
+Everything in this block is pushed on `claude/epic-ramanujan-8xocc0` (PR
+#144) and was **measured in Chromium** unless it says otherwise. The user
+went to sleep after answering four questions — "kaggle" was a typo for
+**Coggle**, every mindmap reference tool is good, **Lucidchart is a
+whiteboard reference**, mindmap scope is **option B**, one long-running PR —
+and asked for the plans to be worked in order without stopping, with
+Opus/Sonnet subagents for small well-scoped pieces under my review. Each
+subagent's diff was read line by line, its tests re-run and its worktree
+merged only then.
+
+### Built, in order
+
+- **UI Phase 0** — `tests/test_ui_signatures.py` (a ratchet on distinct
+  values per component family: row gap / row padding / surface radius, now
+  3 / 11 / 4), `scratchpad/ui-sweeps/all.sh` (every sweep into one file),
+  `shots.js` (96 screenshots per run: every tab + Settings section, light and
+  dark, 1440 and 1024), `seed.js` (a populated notebook), plus new sweeps
+  `shell.js`, `glass.js`, `type.js`, `menus.js`, `errors.js` (three widths,
+  page errors, overflow, clipping) and `rules.js` (which stylesheet rule sets
+  a property on an element — the one that finds cascade fights in seconds).
+- **UI Phase 1** — the top bar and status bar take `--page-gutter` (logo x
+  24 → 16, level with the first card); `--card-pad-y/x` with a panel recipe
+  (20/24) and a compact one (16/16) for sidebars and widgets; `.card .card`
+  is a tone; the dashboard hero 159px → 53px on one row (wordmark gone,
+  clock in ink); head rows 28/38/40 → 36 (`--sidebar-toggle-size` joined
+  the control-height family; `.card > .row:has(> h2)` is the one head row);
+  `--measure` token.
+- **UI Phase 2** — buttons on the ramp (chat 19 → 15 signatures, notes
+  15 → 12, every remaining one a named family); one button radius
+  (`--radius-md` — a late `calc(var(--radius)*0.7)` override was why buttons
+  were 9.8px beside 8.4px tiles); the tile recipe; the filter chip
+  (`--chip-bg`, no outline) shared by Library chips and the chat composer
+  toggles; the graph zoom strip and the sidebar toggle onto the tonal
+  recipe; row gaps 5 → 3; **one popover shell** for the five floating
+  surfaces (opaque, `--border`, `--radius-lg`, glass shadow, no blur —
+  measured after on all five). The plan said `--radius-md`; the note-card
+  kebab menu is the user's stated reference and it is `--radius-lg`.
+- **UI Phases 3-4** — glass off widgets and library cards (Dashboard 28 → 4
+  blurred layers, Library 25 → 5), background art 90% → 45%, inputs/selects
+  one size (`--text-md`; textareas `--text-body`), three decorative accent
+  edges removed, hover lifts removed, the collapsed sidebar's width
+  transition removed, one focus ring. DESIGN.md has a new section recording
+  all of it.
+- **Skills reform Phases A-B** (Opus subagent, reviewed) — step contracts
+  (`expects` / `tools` / `retries`, `step_specs` beside the string `steps`
+  the UI renders), re-prompt-not-skip with a literal nudge and a `retrying`
+  event, structured `state` across steps, small-model mode (auto from the
+  model name, `< 8B`; unknown name = off), `call_example` built from each
+  tool's own schema, every built-in step atomic with a contract, a
+  `small_model_mode` preference. 20 new tests. **Not verified against a
+  real model** (no model in the sandbox) — the acceptance criterion in
+  AGENT_SKILLS_REFORM.md is still open.
+- **Backend sprint 1** (Sonnet subagent, reviewed) — PLAN P5's remaining
+  indexes and `temp_store=MEMORY` (WAL/synchronous/busy_timeout were already
+  there — the audit caught that before it was rebuilt), B3's error contract
+  (`{detail, code, hint}` on every HTTPException, `500 {code:"internal",
+  ref}` with the traceback only in the log), P6 `size_bytes` stored at
+  upload and backfilled once. 14 new tests.
+- **`docs/roadmap/MODERNISATION_AUDIT.md`** (Opus subagent, reviewed) — the
+  brief's standing task, 1,541 lines, every number from a real Chromium with
+  the scripts under `scratchpad/audit/`. Read its §D6 before building
+  anything: three things the plans list as missing are already built (SQLite
+  tuning, FTS5 for notes, `/entries` pagination).
+- **MINDMAP_PLAN.md** — the naming question and the scope call recorded as
+  settled, plus what Coggle specifically does that the phases must keep.
+
+### In flight when this was written (subagents, worktrees)
+
+- Skills reform **Phase C** — the activity panel as a run list, toasts only
+  on start/finish/fail, a `small_model_mode` toggle in Settings, and the
+  three-path verification of tool chips in the chat transcript against a
+  stand-in OpenAI server (`scratchpad/fake_openai_server.py`).
+- Mindmap **Phase 1** backend — `type`/`layout` on the board entry, a parent
+  edge, containment tests, tree/export/import endpoints, `read_mindmap` and
+  three write tools.
+
+### Measured and not a bug (so nobody chases it)
+
+`errors.js` at 390px reports the Notes sub-tab strip's last two tabs
+off-screen — it is a horizontal scroller with an edge fade, by design — and
+the timeline dots the same way. Settings → Data's three file inputs are 1px
+wider than the section at 390px.
+
+### Not verified
+
+Dark theme was screenshotted, not pixel-sampled; the whiteboard, documents
+editor and OCR workspace were not swept; the un-blurred widgets over the
+45% art were judged by eye, not by `pngpixel.py`; every model-behaviour
+claim in the skills reform is from the fake transport.
+
 ## ► This session — chat attachments, glass, Settings, and a live ReferenceError
 
 **Next session starts at [UI_MODERNISATION_PLAN.md](UI_MODERNISATION_PLAN.md)**

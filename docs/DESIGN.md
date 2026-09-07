@@ -428,6 +428,57 @@ had to learn the same lesson about markup comments quoting ids.
 
 ---
 
+## Surfaces, tiles, chips and the popover shell (UI modernisation, Phases 1-3)
+
+Added by the modernisation pass; every rule here was measured before and
+after in Chromium (`scratchpad/ui-sweeps/`), and `tests/test_ui_signatures.py`
+ratchets the counts so they cannot drift back.
+
+- **Two card sizes, as tokens.** `.card` sets `--card-pad-y`/`--card-pad-x`
+  (panel: `--space-7`/`--space-8`); `.card.compact`, `.sidebar-panel` and
+  `.dash-widget` set both to `--space-6`. Anything that has to cancel the
+  padding to reach the card edge (the sidebar head row) references the token,
+  never a step. The 720px block tightens the tokens, not `padding`.
+- **A card inside a card is a tone** (`--surface-2`, transparent edge, no
+  shadow, no blur), never a second bordered pane.
+- **One head row.** `.card > .row:has(> h2)` is `--control-h-lg` tall with
+  `--space-5` under it, and the `h2` drops its own bottom margin. The sidebar
+  collapse toggle is `--control-h-lg` square, so the sidebar head, the
+  Library head and a widget head are one height.
+- **The shell's inset is `--page-gutter` everywhere**: the top bar, the
+  status bar and the page share one x for the logo, the first card and the
+  first status item.
+- **Rows have two gaps.** `--space-3` inside a control group, `--space-4`
+  between groups. The two 60-control formatting strips (`.doc-toolbar`,
+  `.note-toolbar`) are the one `--space-1` exception.
+- **One button radius**: `--radius-md`, from the base `button` rule. Tiles
+  (`.quick-link`, `.stat-tile`, `.start-step`) are one recipe: `--card` fill,
+  `--glass-border`, `--radius-md`, no shadow, `--accent-soft` on hover; a tile
+  inside a card is `--surface-2`.
+- **The interactive filter chip** (`.library-chip`, the chat composer's
+  Skills/Web/Plan): `--chip-bg` tint, transparent 1px edge, pill radius;
+  active is the filled recipe. Not an outlined pill.
+- **The floating control** (`.scroll-top`, `.graph-zoom`): `--card` fill,
+  `--glass-border`, `--glass-shadow`, `--radius-md`; the buttons inside a
+  strip are plain. **The help dot** is the one round icon button, on purpose
+  (every "?" in the app is it).
+- **One popover shell.** `.action-menu`, `.select-menu`, the toolbar menus,
+  the nav-history menu, the chat model panel, the help popover, the
+  notifications panel and the AI status popup share one rule at the end of
+  `07-whiteboard-misc.css`: `--modal-bg-opaque`, `--border`, `--radius-lg`,
+  `--glass-shadow`, no blur. Opaque because CLAUDE.md records the ghost-text
+  bug the 96% tint caused over the note editor. A new floating surface joins
+  that selector list; it does not declare its own shell.
+- **Glass is material, not effect.** `backdrop-filter` stays on the top bar,
+  status bar, sidebars, sub-tab strips, panels and floating controls, and is
+  off on dashboard widgets and library cards (measured 28 → 4 blurred layers
+  on the Dashboard, 25 → 5 on the Library). Background art defaults to 45%.
+- **One control size.** Text fields and selects read `--text-md` from the
+  base rule; a textarea is a writing surface and reads `--text-body`.
+- **Hover changes tone, never position.** No `translateY`/`scale` on hover;
+  no transitions on `left/top/width/height` except a progress bar filling.
+- **One focus ring**: the base `:focus-visible` (2px `--accent`, 2px offset).
+
 ## Control height
 
 One more thing has to match for a row of controls to read as a strip rather

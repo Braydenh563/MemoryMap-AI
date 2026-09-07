@@ -57,6 +57,22 @@ pushed.
 | 8 | **Mindmaps** — refine [MINDMAP_PLAN.md](roadmap/MINDMAP_PLAN.md), make the §4 scope call, then Phases 1-3 | The user's stated vision; needs 1-2 done first so it is built on a settled design system |
 | 9 | **PLAN.md's remaining tracks** — backend hardening, performance, packaging | Least user-visible, most durable |
 
+**Status after the Fable session** (each line is measured and pushed on
+PR #144; the numbers are in the commit messages and in
+[roadmap/HANDOVER.md](roadmap/HANDOVER.md)):
+
+| | Status |
+| --- | --- |
+| 1 UI Phase 0 | **Done.** `tests/test_ui_signatures.py`, `scratchpad/ui-sweeps/*`, the screenshot set. |
+| 2 UI Phases 1-2 | **Done.** Row gaps 5 → 3, buttons on the ramp, one popover shell, one radius. |
+| 3 Skills reform A-B | **Done** (fake transport only — the real-model acceptance in AGENT_SKILLS_REFORM.md is still open). |
+| 4 UI Phases 3-4 | **Done.** Glass 28 → 4 layers on the Dashboard, one focus ring, no hover lifts. |
+| 5 Skills reform C | **Done.** The run as a list; tool chips verified on all three chat paths against the stand-in server. |
+| 6 UI Phase 7 | 7.2 (gutters) done; lightbox/captioning/region OCR/Files row in review from a subagent branch. |
+| 7 UI Phases 5-6 | Settings, reminders, whiteboard bar, editor chrome, sub-tabs, phone width (Settings 10/10 sections fit, Notes toolbar 172 → 80px, first note 445 → 345), every empty state has an action. Open: a phone pass on Library/Graph/Whiteboard/Documents, a dark-theme pixel pass, the copy pass. |
+| 8 Mindmaps | Scope call made (option B); Phases 1 and 2 done and swept (35/35); Phase 3 in flight; Phases 4-5 open — see [roadmap/BACKLOG.md §116](roadmap/BACKLOG.md). |
+| 9 PLAN.md tracks | Sprint 1 done (P1, P2 was already there, P5, B3, P6); B9 done; D1/D5 done; W5/W6-part were already built; D2/D3 and A1/A2/A6 in flight. Open: the rest of §1-§4 — listed in [roadmap/BACKLOG.md §116](roadmap/BACKLOG.md). |
+
 **Standing rules for all of it** (from CLAUDE.md, learned expensively):
 measure → change → re-measure, with the number in the commit message; check the
 running app before building anything; say plainly what you could not verify; one

@@ -4038,3 +4038,83 @@ Written down so a later session does not spend a week rediscovering why.
 - **Chasing Notion's block editor.** Documents has four views and a real
   toolbar. Deciding *whether the note composer converges with it* (§111.3) is
   the open question; rebuilding Notion is not.
+
+## §116 — capability gaps identified in the Fable session
+
+Everything here was found while working the plans — by measuring the running
+app, by reading a subagent's diff, or by an item a subagent had to drop. Each
+line says where it came from so the next session does not re-derive it. Items
+already in [PLAN.md](PLAN.md) are referenced by their row id rather than
+restated.
+
+### 116.1 Dropped or half-done, and therefore first
+
+1. **Unlink uploads when a map's entry is purged.** Backend sprint 2's third
+   item; the agent backed it out as a mindmap dependency. A purged board
+   `Entry` leaves its objects' image files on disk. `entry/manager.py`'s purge
+   path plus a test that counts files in `uploads/` before and after.
+2. **The Health block shows no latency.** `GET /debug/health` returns
+   `latency_ms_by_kind` (p50/p95/count per task kind); Settings → About draws
+   size, counts, jobs and the last error and not that row. One more
+   `.setting-row`, filled by `renderHealthBlock`.
+3. **A phone pass on the other four tabs.** Only Notes, Chat and Settings were
+   measured at 390px. Library (the boards landing's head row, the docs list),
+   Graph (the toolbar), Whiteboard (the top bar, the properties panel) and the
+   documents editor (`.doc-dock`) have not been. `errors.js` at 390 is the
+   gate; `phone*.js` in the session scratchpad are the probes.
+4. **A dark-theme pixel pass.** Every new surface this session (the popover
+   shell, the Filters sheet, map nodes, the Health block) was measured in
+   light only. `THEME=dark` is honoured by `lib.js`; `scratchpad/pngpixel.py`
+   is the tool; the bar is 4.5:1 for text.
+5. **Real-model verification of the skills reform** — still the open
+   acceptance criterion in AGENT_SKILLS_REFORM.md; needs a machine with a
+   4B model, not the sandbox.
+
+### 116.2 Mindmaps, Phases 4-5 (MINDMAP_PLAN.md §5 items 14-21)
+
+6. **FreeMind `.mm` import and export** (item 16/17) — OPML and Markdown
+   exist; `.mm` is the third interchange format and the one XMind and
+   Freeplane speak natively. Same `_parse_opml`/`export` shape, defusedxml.
+7. **"Make a map of these notes"** (item 15) as a first-class action: the
+   tools exist (`create_mindmap`, `add_map_node`); what is missing is the
+   entry point (a selection in Notes → "Map these", a chat suggestion chip)
+   and the accept/edit step before anything is written.
+8. **Focus mode, filter/perspective, metrics, templates** (items 18-21).
+   Templates first — an empty map is the reason the feature goes unused;
+   `createNewBoard` already seeds one root, so a template is "seed these
+   nodes" through the same `POST /nodes` calls.
+9. **Layout performance at scale** (§8 risk): build a 500-node map with the
+   API in a script and time `wbMapTidy` and first paint. Argued linear,
+   never measured.
+10. **Cross-links need a gesture.** The dashed rendering exists and the tree
+    endpoint reports them; nothing in the UI *draws* one between two map
+    nodes except the generic link sketch tool. A "link to…" on the selected
+    node, reusing the reference picker Phase 3 adds.
+
+### 116.3 PLAN.md rows not started (by track)
+
+11. **Whiteboard** — W1 group resize, W2 smart connectors, W3 sticky notes,
+    W4 frames, W6's flip keys, W7 undo that survives reload, W8 minimap in
+    fullscreen, W9 touch/pen, W10 selection export, W11 AI on the board.
+    W5 and `[`/`]` were already built (found by grep before building).
+12. **Documents** — D4 tables, D6 outline drag-to-reorder, D7 callouts/
+    footnotes/math, D8 revision UI, D9 focus mode, D11 AI edit with a diff
+    preview. D10 (templates) exists (`{{date}}`/`{{title}}` in
+    documents.js) — do not rebuild.
+13. **Backend** — B1 one file model, B2 the job queue, B6 migration check,
+    B7 workspace scoping as a dependency, B8 backups as a product feature.
+    B4/B5: `/entries` pagination and FTS5 for notes already exist
+    (MODERNISATION_AUDIT.md §D6); the open half is the *other* lists.
+14. **Harness** — A3 memory with provenance, A4 skills as files, A5 budgets
+    and a Stop that cancels, A7 MCP in and out.
+
+### 116.4 Tooling
+
+15. **One launcher per agent.** `scratchpad/ui-sweeps/serve.sh PORT DIR`
+    starts a server with its own data dir and log, so two servers can never
+    share a SQLite file again (HANDOVER.md, "Traps found this session").
+    Every brief to a subagent should name a port and use it.
+16. **A phone run and a dark run of `all.sh`.** `all.sh` sweeps 1440/1024
+    light. Add `WIDTH=390` and `THEME=dark` passes so 116.3 and 116.4 have
+    a gate rather than a probe.
+

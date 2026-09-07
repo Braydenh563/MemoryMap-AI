@@ -15,7 +15,11 @@
     separate, smaller drawing.
   -->
   <defs>
-    <linearGradient id="tileMask" x1="0" y1="0" x2="1" y2="1">
+    <!-- `userSpaceOnUse` across the whole 100x100 tile, so any shape filled
+         with this gradient samples the *tile's* colour at that spot rather
+         than restarting the gradient inside its own box. That is what lets
+         the hub ring below continue the background instead of sitting on it. -->
+    <linearGradient id="tileMask" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100" y2="100">
       <stop offset="0%" stop-color="#5b7cff" />
       <stop offset="55%" stop-color="#4f6df5" />
       <stop offset="100%" stop-color="#a927d8" />
@@ -40,6 +44,15 @@
     <circle cx="21.5" cy="40.7" r="7.5" />
   </g>
 
-  <circle cx="50" cy="50" r="13" fill="#4f6df5" />
+  <!-- Reported: "the splash logo and icon logo have a weird blue ring around
+       the middle circle and it doesnt continue the gradient like it should".
+       The ring was a flat #4f6df5 disc -- the tile colour at one point of
+       its gradient -- so at the tile's centre, where the gradient has
+       already moved off that value, it read as a blue washer on a purple
+       field. Filled with the tile gradient itself (user-space units, above)
+       it is invisible against the background, and the separation the ring
+       was for still exists: the spokes stop short of the hub, so the gap
+       between them and the white centre is the ring. -->
+  <circle cx="50" cy="50" r="13" fill="url(#tileMask)" />
   <circle cx="50" cy="50" r="9.5" fill="#ffffff" />
 </svg>

@@ -16,7 +16,8 @@ import zlib
 
 
 def read_png(path):
-    data = open(path, "rb").read()
+    with open(path, "rb") as handle:
+        data = handle.read()
     assert data[:8] == b"\x89PNG\r\n\x1a\n", "not a PNG"
     i, idat, w, h, ct = 8, b"", None, None, None
     while i < len(data):

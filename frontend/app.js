@@ -12141,7 +12141,7 @@ function agentTimeline(holder) {
     plans.push(entry);
     // Replaying a finished run: paint the states it ended with.
     for (const [index, state] of Object.entries(entry.plan.states)) {
-      markStep(entry, Number(index), state.state, state.reason);
+      markStep(entry, Number(index), state.state, state.reason, state);
     }
     current = null;
     return el;
@@ -12149,18 +12149,31 @@ function agentTimeline(holder) {
 
   // A step's state, shown on the plan itself. The timeline records what
   // happened; this is the only place that says how far through it got.
-  const markStep = (entry, index, state, reason) => {
+  const markStep = (entry, index, state, reason, event = {}) => {
     const item = entry.items[index];
     if (!item) return;
-    entry.plan.states[index] = { state, reason };
+    //: `attempt`/`of` ride along with the state so a replayed run shows the
+    //: same "attempt 2 of 3" a live one did. They are only present on a
+    //: `retrying` event, and an older saved run has neither — which
+    //: `stepStateWords` renders as attempt 1 of 1 rather than as a crash.
+    entry.plan.states[index] = { state, reason, attempt: event.attempt, of: event.of };
     item.className = `plan-step plan-step-${state}`;
     item.dataset.state = state;
     const note = item.querySelector(".plan-step-reason");
     if (note) note.remove();
-    if (state === "failed" && reason) {
+    //: **`retrying` says why, in the same words the activity panel uses.**
+    //: Phase A's runner re-prompts a step whose contract was not met and emits
+    //: this state for each attempt; without the sentence, a step being
+    //: re-prompted for the third time is indistinguishable on screen from one
+    //: quietly running, which is the "it ran no tools and moved on" report all
+    //: over again one layer up. `stalled` gets it for the same reason: it is
+    //: the state that *ends* a run, and "why did this stall?" should not need
+    //: a second click.
+    if ((state === "failed" || state === "stalled" || state === "retrying") && (reason || state === "retrying")) {
       const why = document.createElement("span");
       why.className = "plan-step-reason";
-      why.textContent = ` — ${reason}`;
+      why.textContent =
+        state === "retrying" ? ` — ${stepStateWords(state, { ...event, reason })}` : ` — ${reason}`;
       item.appendChild(why);
     }
   };
@@ -12172,7 +12185,7 @@ function agentTimeline(holder) {
     },
     step(event) {
       const entry = plans.at(-1);
-      if (entry) markStep(entry, event.index, event.state, event.reason);
+      if (entry) markStep(entry, event.index, event.state, event.reason, event);
       // Each step's prose is its own block. Without this, step 2's first
       // sentence lands on the end of step 1's paragraph ("…with no tags.Read
       // them.") because nothing between them closed the step.
@@ -14692,6 +14705,12 @@ async function sendChatMessage(preset, opts = {}) {
   // "still working" signal down with it.
   bubble.classList.add("is-generating");
   let meta = null;
+  //: This turn's row in the Agent Activity panel, or null while the turn has
+  //: done nothing worth a row. **Created lazily, on the first plan or the
+  //: first tool call**, and that is deliberate: a plain question with a plain
+  //: answer is not a "run", and a row per chat message would rebuild the wall
+  //: of text this panel was just taken apart to stop being.
+  let activityRun = null;
   let toolsActed = false;
   let stats = null;
   // Captured so the final save below can persist it. Reported directly: the
@@ -14895,6 +14914,16 @@ async function sendChatMessage(preset, opts = {}) {
       onPlan: (event) => {
         clearPending();
         timeline.plan(event);
+        // …and the same run as one row in the activity panel. Both are drawn
+        // from this one event, so they cannot disagree about how many steps
+        // there are or what the run is called.
+        activityRun = addAgentRun({
+          kind: event.kind === "plan" ? "plan" : "skill",
+          name: event.skill || "Run",
+          icon: event.kind === "plan" ? "ph:compass" : "ph:lightning",
+          steps: event.steps || [],
+        });
+        openPanelForRun(activityRun);
         status.textContent =
           event.kind === "plan"
             ? `Working through ${(event.steps || []).length} steps…`
@@ -14904,6 +14933,7 @@ async function sendChatMessage(preset, opts = {}) {
       onStep: (event) => {
         clearPending();
         timeline.step(event);
+        agentRunStep(activityRun, event);
         if (event.state === "running") {
           status.textContent = `Step ${event.index + 1}: ${event.text}`;
         }
@@ -14956,6 +14986,22 @@ async function sendChatMessage(preset, opts = {}) {
           ? event.label
           : `ph:warning ${(event.error || event.label || "").replace(/^ph:[\w-]+\s*/, "")}`;
         timeline.tool(toolChip(label, event.ok, event));
+        //: The same call, filed in the panel under the step that made it. A
+        //: second `toolChip` rather than the same node: one element cannot be
+        //: in two places, and the panel's copy has to survive the chat being
+        //: cleared or the conversation being closed.
+        if (!activityRun) {
+          // An agent turn with no plan is still a run — it is what the report
+          // called "agent model activity" — and its first tool call is the
+          // moment it becomes one.
+          activityRun = addAgentRun({
+            kind: "agent",
+            name: agentRunTitle(question),
+            icon: "ph:robot",
+          });
+          openPanelForRun(activityRun);
+        }
+        agentRunTool(activityRun, toolChip(label, event.ok, event));
         toolEvents.push(event); // remember for persistence
         for (const item of event.touched || []) {
           touchedItems.set(`${item.kind}:${item.id}`, item);
@@ -15116,6 +15162,22 @@ async function sendChatMessage(preset, opts = {}) {
     //: Whatever step group is still open stops saying "Working" — see
     //: `agentTimeline.finish`.
     timeline.finish?.();
+    //: …and the same for this turn's row in the activity panel, on the same
+    //: every-exit reasoning: a row still saying "Running" after the turn
+    //: errored or was stopped is the panel telling a lie for the rest of the
+    //: session. `stoppedAtStep`/`pausedForManual` come from the `result`
+    //: event, so the row can say *how* it ended rather than only that it did.
+    endAgentRun(activityRun, {
+      state: stopped
+        ? "stalled"
+        : pausedForManual
+          ? "paused"
+          : typeof stoppedAtStep === "number"
+            ? activityRun?.steps?.[stoppedAtStep]?.state === "failed"
+              ? "failed"
+              : "stalled"
+            : "done",
+    });
     // Only if it is still ours. Switching away and sending a second message
     // installs a new controller, and this line firing late would null it —
     // leaving Stop wired to nothing while a stream was genuinely running.
@@ -18159,6 +18221,45 @@ function renderToolFocus(current) {
   }
 }
 
+//: **The Phase B setting, given the control it never had.** `small_model_mode`
+//: has been on GET/PUT /preferences since the skills reform's backend half,
+//: read by the chat route on every run — with nothing anywhere in the app that
+//: could change it, so every notebook ran on `auto` whatever its owner wanted.
+//: Saved on change for the same reason the tool-focus radios above are: a
+//: control that waits for an Apply button reads as broken here, because the
+//: next preferences render paints the old value back over it.
+function renderSmallModelMode(current) {
+  const select = $("small-model-mode");
+  if (!select) return;
+  select.value = current || "auto";
+}
+
+$("small-model-mode")?.addEventListener("change", async () => {
+  const select = $("small-model-mode");
+  const status = $("small-model-mode-status");
+  if (status) status.textContent = "Saving…";
+  try {
+    prefsCache = await apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify({ small_model_mode: select.value }),
+    });
+  } catch (error) {
+    if (status) {
+      status.classList.add("error");
+      status.textContent = error.message;
+    }
+    return;
+  }
+  if (!status) return;
+  status.classList.remove("error");
+  status.textContent =
+    select.value === "on"
+      ? "Every skill step is offered only the tool it names."
+      : select.value === "off"
+        ? "Every step is offered the skill's whole toolbox."
+        : "Decided per run from the chat model's name.";
+});
+
 async function renderToolSettings() {
   const list = $("tool-list");
   const [catalog, prefs] = await Promise.all([
@@ -18167,6 +18268,7 @@ async function renderToolSettings() {
   ]);
   prefsCache = prefs;
   renderToolFocus(prefs.tool_focus || "auto");
+  renderSmallModelMode(prefs.small_model_mode || "auto");
   const disabled = new Set(prefs.disabled_tools || []);
   list.replaceChildren();
   for (const tool of catalog) {
@@ -26093,6 +26195,13 @@ async function refreshBackgroundTasks() {
 //: without needing the poll it vanished from to still carry it.
 const seenRunningTasks = new Map();
 
+//: The activity panel's row for each of those jobs, keyed the same way. Kept
+//: beside `seenRunningTasks` rather than inside it because the two answer
+//: different questions — that map is "did this session see it start", which is
+//: what decides whether its end is announced, and this one is "which row on
+//: screen is it".
+const backgroundRunRows = new Map();
+
 function taskKey(task) {
   // `name` distinguishes two downloads running at once; `kind` alone would
   // merge them into one job that appears to start twice and finish once.
@@ -26102,9 +26211,32 @@ function taskKey(task) {
 function noticeTaskTransitions(running, history) {
   const now = new Map(running.map((task) => [taskKey(task), task]));
 
+  //: A running job's row keeps its fraction and its own status line up to
+  //: date. It is the same run list the chat's skill runs land in — an
+  //: autonomous pass rewriting tags in the background is exactly the "agent
+  //: model activity" the report was about, and reading it off `/tasks` is how
+  //: it gets a progress bar the chat runs cannot have.
+  for (const [key, task] of now) {
+    const run = backgroundRunRows.get(key);
+    if (!run) continue;
+    run.progress = typeof task.progress === "number" ? task.progress : null;
+    run.detail = task.detail || "";
+    renderAgentRunSummary(run);
+  }
+
   for (const [key, task] of now) {
     if (seenRunningTasks.has(key)) continue;
     seenRunningTasks.set(key, task);
+    const run = addAgentRun({
+      kind: "job",
+      name: task.label,
+      icon: "ph:gear",
+      detail: task.detail || "",
+    });
+    run.progress = typeof task.progress === "number" ? task.progress : null;
+    renderAgentRunSummary(run);
+    backgroundRunRows.set(key, run);
+    openPanelForRun(run);
     recordNotification({
       kind: "task",
       title: `Started: ${task.label}`,
@@ -26123,6 +26255,8 @@ function noticeTaskTransitions(running, history) {
   for (const [key, task] of [...seenRunningTasks]) {
     if (now.has(key)) continue;
     seenRunningTasks.delete(key);
+    const row = backgroundRunRows.get(key);
+    backgroundRunRows.delete(key);
     // The outcome comes from the server's own history, on this same payload —
     // "it stopped appearing in the running list" is true of a job that died as
     // much as one that succeeded, and a cheerful toast over a failure is how
@@ -26130,12 +26264,15 @@ function noticeTaskTransitions(running, history) {
     // that just happened rather than a previous run of the same job.
     const ended = history.find((item) => (item.kind || "job") === (task.kind || "job"));
     if (ended && ended.outcome === "failed") {
+      endAgentRun(row, { state: "failed" });
       agentActivityNotice(`Failed: ${ended.label || task.label}`, { isError: true });
     } else if (ended && ended.outcome === "cancelled") {
+      endAgentRun(row, { state: "stalled", detail: "cancelled" });
       // Not an error and not an achievement — the user stopped it and already
       // knows. Recorded in the centre by renderTaskHistory; no toast.
       continue;
     } else {
+      endAgentRun(row, { state: "done" });
       agentActivityNotice(`Finished: ${(ended && ended.label) || task.label}`);
     }
   }
@@ -32641,10 +32778,364 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && statusClockDetailPinned) closeStatusClockDetail(true);
 });
 
-// --- Twitch-style Agent Monitor ---
+// --- Agent Activity: a list of runs, not a log -------------------------------
+//
+// Reported, verbatim: *"make a better way to view and access agent model
+// activity and logs that appear in the agent activity toast panels then how
+// they appear now, they just spawn in and its a bunch of text dump in your
+// face and just gets annoying. it should still be accessible though."*
+//
+// What it was: a live tail of every log record from `memorymap.*`, opened by
+// the arrival of a line. One agent turn writes its context budget, its prompt
+// composition and its tool budget — three paragraphs of arithmetic — so the
+// panel's whole content was machinery nobody asked to read, and it opened
+// itself to show it.
+//
+// What it is (AGENT_SKILLS_REFORM.md, Phase C): **one row per run**, collapsed.
+// Opening a row shows its steps; opening a step shows the tool calls it made
+// and what they returned. Three levels, each collapsed until asked for — and
+// deliberately the *same* `<details>` shape and CSS the chat transcript uses
+// for Thinking (`agent-step step-thinking`) and for a skill's plan
+// (`agent-step step-plan`), so this is that component in another place rather
+// than a fourth thing to maintain.
+//
+// The log is not gone and is not summarised: it is behind "Show log", with the
+// same lines it always had. That is the "it should still be accessible though"
+// half, and it is why `appendAgentLog` below is unchanged apart from no longer
+// forcing the panel open.
 const agentMonitor = $("agent-monitor");
 const agentMonitorLogs = $("agent-monitor-logs");
+const agentMonitorRuns = $("agent-monitor-runs");
+const agentMonitorEmpty = $("agent-monitor-empty");
+const agentMonitorLogToggle = $("agent-monitor-log-toggle");
 const agentMonitorClose = $("agent-monitor-close");
+
+//: Runs kept in the panel for this session, oldest first. Twelve because the
+//: panel is 350px wide and a row is one line collapsed: past that it is a list
+//: to scroll rather than a thing to glance at, and the audit log
+//: (Library → AI Skills) is the real history.
+const AGENT_RUN_LIMIT = 12;
+const agentRuns = [];
+let agentRunSeq = 0;
+
+//: Whether the reader opened the panel themselves. A manual open must not be
+//: taken away by the idle timer twelve seconds later — that timer exists for
+//: a panel that opened *itself*.
+let agentMonitorPinned = false;
+
+//: **One wording for a step's state, used in both places it is shown.** The
+//: chat's plan card and this panel are two renderings of the same run, and
+//: two different sentences for `retrying` would read as two different things
+//: happening. Phase A's runner emits `attempt`/`of`/`reason` with the event;
+//: this is where they become words.
+function stepStateWords(state, event = {}) {
+  const reason = event.reason ? ` — ${event.reason}` : "";
+  if (state === "retrying") {
+    const attempt = event.attempt || 1;
+    const of = event.of || attempt;
+    return `retrying, attempt ${attempt} of ${of}${reason}`;
+  }
+  if (state === "running") return "running";
+  if (state === "done") return "done";
+  if (state === "earlier") return "done in the run this resumed";
+  if (state === "failed") return `failed${reason}`;
+  if (state === "stalled") return `stalled${reason}`;
+  return `${state}${reason}`;
+}
+
+//: The icon and word for a whole run, in the same "ph:icon Text" shape every
+//: other label in this app uses (`setLabel` resolves it).
+function runStateLabel(state) {
+  if (state === "running") return "ph:circle-notch Running";
+  if (state === "done") return "ph:check-circle Done";
+  if (state === "failed") return "ph:x-circle Failed";
+  if (state === "stalled") return "ph:pause-circle Stalled";
+  if (state === "paused") return "ph:pause-circle Waiting for you";
+  return state;
+}
+
+function renderAgentRunSummary(run) {
+  if (!run) return;
+  setLabel(run.nameEl, run.icon ? `${run.icon} ${run.name}` : run.name);
+  // "Step 2 of 5" only when the run declared steps. A background job knows how
+  // far along it is as a fraction and not as a step number; an agent turn with
+  // no plan has no steps at all, and inventing one for either would be the
+  // progress bar that guesses.
+  const done = run.steps.filter((step) => step.state === "done" || step.state === "earlier").length;
+  if (run.stepCount) {
+    const at = Math.min(run.stepCount, (run.currentIndex ?? done) + 1);
+    run.metaEl.textContent =
+      run.state === "running" ? `Step ${at} of ${run.stepCount}` : `${done} of ${run.stepCount} steps`;
+  } else {
+    run.metaEl.textContent = run.detail || "";
+  }
+  setLabel(run.stateEl, runStateLabel(run.state));
+  run.stateEl.className = `agent-run-state plan-step-${run.state}`;
+  // A fraction, or nothing at all — the same rule the Tasks panel follows for
+  // exactly the same reason (`renderTasks`): a bar that guesses is worse than
+  // one that admits it cannot say.
+  const fraction =
+    typeof run.progress === "number"
+      ? run.progress
+      : run.stepCount
+        ? done / run.stepCount
+        : null;
+  run.bar.classList.toggle("hidden", fraction === null);
+  if (fraction !== null) run.bar.value = Math.max(0, Math.min(1, fraction));
+  // An agent turn has neither a step count nor a fraction, and an empty second
+  // line under its name is a gap that looks like something failed to load.
+  run.progressWrap.classList.toggle("hidden", fraction === null && !run.metaEl.textContent);
+  run.el.classList.toggle("is-running", run.state === "running");
+}
+
+//: What to call a run that has no name of its own. An agent turn is titled by
+//: the question that started it, trimmed to something that fits one line of a
+//: 350px panel — the alternative is a row called "Agent turn" fourteen times.
+function agentRunTitle(question) {
+  const text = String(question || "").replace(/\s+/g, " ").trim();
+  if (!text) return "Agent turn";
+  return text.length > 48 ? `${text.slice(0, 47)}…` : text;
+}
+
+//: A run row. Built once and updated in place — re-rendering the list on every
+//: event would slam shut any `<details>` the reader had just opened, which is
+//: the one thing this panel exists to let them do.
+function addAgentRun({ kind, name, icon = "", steps = [], detail = "" }) {
+  //: A desktop shell running a cached `index.html` against a fresh `app.js`
+  //: is a thing that has actually happened here (CLAUDE.md, the static-cache
+  //: header bug), and the failure mode must be "no run list", not a TypeError
+  //: that takes the chat turn down with it.
+  if (!agentMonitorRuns) return null;
+  const run = {
+    id: `run-${++agentRunSeq}`,
+    kind,
+    name: name || "Run",
+    icon,
+    detail,
+    state: "running",
+    steps: [],
+    stepCount: steps.length,
+    currentIndex: null,
+    progress: null,
+  };
+
+  const el = document.createElement("details");
+  // The chat's own plan card, reused wholesale: same fold, same marker, same
+  // type scale.
+  el.className = "agent-step step-plan agent-run-row";
+  const summary = document.createElement("summary");
+  summary.className = "agent-run-summary";
+  run.nameEl = document.createElement("span");
+  run.nameEl.className = "agent-run-name";
+  run.metaEl = document.createElement("span");
+  run.metaEl.className = "agent-run-meta";
+  run.stateEl = document.createElement("span");
+  run.stateEl.className = "agent-run-state";
+  run.bar = document.createElement("progress");
+  run.bar.className = "task-progress";
+  run.bar.max = 1;
+  run.bar.value = 0;
+  //: **The bar goes inside the `<summary>`, and it has to.** A row is
+  //: collapsed by default — that is the whole point of the rebuild — so
+  //: anything in the `<details>` body is invisible exactly when the run is
+  //: worth watching. `<progress>` and `<span>` are phrasing content, which is
+  //: what a `<summary>` may contain.
+  //:
+  //: The second line is a wrapper rather than two more items in the summary's
+  //: own flex row: measured on the 350px panel, "Step 1 of 3" and "Running"
+  //: beside the name left it 125px — a run called "Summarise my week" showed
+  //: as "Summarise …". The step count belongs with the bar it describes, and
+  //: moving it there gives the name back most of the row.
+  run.progressWrap = document.createElement("span");
+  run.progressWrap.className = "agent-run-progress";
+  run.progressWrap.append(run.metaEl, run.bar);
+  summary.append(run.nameEl, run.stateEl, run.progressWrap);
+  run.body = document.createElement("div");
+  run.body.className = "agent-run-body";
+  el.append(summary, run.body);
+  run.el = el;
+
+  for (const [index, text] of steps.entries()) agentRunAddStep(run, index, text);
+
+  agentMonitorRuns.appendChild(el);
+  agentRuns.push(run);
+  // Oldest first out, and never one that is still going: a run scrolled off
+  // the list while it was running is a run whose end is never shown.
+  while (agentRuns.length > AGENT_RUN_LIMIT) {
+    const oldest = agentRuns.findIndex((item) => item.state !== "running");
+    if (oldest === -1) break;
+    agentRuns.splice(oldest, 1)[0].el.remove();
+  }
+  renderAgentRunSummary(run);
+  renderActivityStatusItem();
+  agentMonitorEmpty?.classList.add("hidden");
+  //: The list is chronological and it scrolls, so without this a run that
+  //: starts while eight are already listed is appended out of sight — the
+  //: same tail-following the log it replaced has always done.
+  agentMonitorRuns.scrollTop = agentMonitorRuns.scrollHeight;
+  return run;
+}
+
+function agentRunAddStep(run, index, text) {
+  const step = { index, state: "pending", text, toolCount: 0 };
+  const el = document.createElement("details");
+  // The Thinking disclosure, reused: quieter than the run row above it, folds
+  // the same way, and the marker is drawn inside the summary rather than in
+  // the rail's gutter (see its rule in 02-chat-graph.css).
+  el.className = "agent-step step-thinking agent-run-step";
+  const summary = document.createElement("summary");
+  summary.className = "plan-step";
+  step.summary = summary;
+  step.tools = document.createElement("div");
+  step.tools.className = "agent-run-tools";
+  el.append(summary, step.tools);
+  step.el = el;
+  run.body.appendChild(el);
+  run.steps.push(step);
+  agentRunPaintStep(run, step);
+  return step;
+}
+
+function agentRunPaintStep(run, step, event = {}) {
+  const words = step.state === "pending" ? "not started yet" : stepStateWords(step.state, event);
+  const number = `${step.index + 1}. `;
+  step.summary.textContent = `${number}${step.text} — ${words}`;
+  step.summary.className = `plan-step plan-step-${step.state}`;
+  step.summary.dataset.state = step.state;
+}
+
+//: One step event from the runner. `retrying` is Phase A's own state and is
+//: the reason this panel had to change: a step that is being re-prompted looks
+//: exactly like one that is running unless it says so.
+function agentRunStep(run, event) {
+  if (!run) return;
+  let step = run.steps[event.index];
+  if (!step) step = agentRunAddStep(run, event.index, event.text || `Step ${event.index + 1}`);
+  if (event.text) step.text = event.text;
+  step.state = event.state;
+  agentRunPaintStep(run, step, event);
+  run.currentIndex = event.index;
+  if (event.state === "running" || event.state === "retrying") run.currentStep = step;
+  //: A step that stopped the run opens itself. Everything else stays folded —
+  //: which is the point of the panel — but a failure nobody can see without a
+  //: click is a failure reported as silence.
+  if (event.state === "failed" || event.state === "stalled") step.el.open = true;
+  renderAgentRunSummary(run);
+}
+
+//: A tool call, filed under the step that made it. A run with no steps (a
+//: plain agent turn) keeps its calls at the top level: inventing a "step 1 of
+//: 1" for it would be a level that says nothing.
+function agentRunTool(run, node) {
+  if (!run || !node) return;
+  const holder = run.currentStep ? run.currentStep.tools : run.body;
+  holder.appendChild(node);
+  if (run.currentStep) {
+    run.currentStep.toolCount += 1;
+    run.currentStep.el.classList.add("has-tools");
+  }
+  renderAgentRunSummary(run);
+}
+
+function endAgentRun(run, { state = "done", detail = "" } = {}) {
+  if (!run || run.state !== "running") return;
+  run.state = state;
+  if (detail) run.detail = detail;
+  run.currentStep = null;
+  // Anything still marked running when the run ended did not finish. Saying so
+  // is the difference between a record and a wish.
+  for (const step of run.steps) {
+    if (step.state !== "running" && step.state !== "retrying") continue;
+    step.state = state === "done" ? "done" : state;
+    agentRunPaintStep(run, step);
+  }
+  renderAgentRunSummary(run);
+  renderActivityStatusItem();
+  //: **The only toast a chat run raises, and only when nobody could have seen
+  //: it end.** Phase C's rule is start / finished / failed and nothing else;
+  //: the *start* of a run the reader is not watching is already announced by
+  //: this panel opening itself, so the end is the half with nothing saying it.
+  //: A run that ended in the transcript the reader is looking at needs no
+  //: notice at all — the transcript is the notice.
+  //:
+  //: Through `agentActivityNotice`, never `toast`, so the mute and "Panel
+  //: only" switches keep working: it records into the notifications centre
+  //: either way and only flies a toast past the corner of the screen when the
+  //: reader has asked for those. Background jobs are not included — they have
+  //: announced their own ends since before this panel existed
+  //: (`noticeTaskTransitions`), and doing it here as well would say it twice.
+  if (run.kind !== "job" && agentRunWantsPanel(run)) {
+    const failed = state === "failed" || state === "stalled";
+    agentActivityNotice(failed ? `Stopped: ${run.name}` : `Finished: ${run.name}`, {
+      isError: state === "failed",
+      detail: failed ? "Open Agent Activity to see which step stopped it." : "",
+    });
+  }
+}
+
+//: Whether a starting run should also *open* the panel.
+//:
+//: The old rule was "any log line opens it", which is the reported complaint.
+//: The new one: a run the reader is already watching does not need a panel
+//: over the top of it — a skill run in the Chat tab is drawn step by step in
+//: the transcript — but a background pass, or a run left behind on another
+//: tab, has nowhere else to show itself.
+function agentRunWantsPanel(run) {
+  if (run.kind === "job") return true;
+  //: The tab the app is actually showing, read the way every other caller
+  //: reads it — `switchTab` writes it, and there is no in-memory copy to go
+  //: stale against a reload.
+  return (localStorage.getItem("activeTab") || "") !== "chat";
+}
+
+function openPanelForRun(run) {
+  if (!run || !agentRunWantsPanel(run)) return;
+  if (!agentMonitor.classList.contains("hidden")) return;
+  if (Date.now() - agentMonitorDismissedAt < AGENT_MONITOR_REOPEN_AFTER_MS) return;
+  setAgentMonitorVisible(true);
+  nudgeAgentMonitorIdle();
+}
+
+//: The way back in. See index.html for why it exists: log lines no longer open
+//: this panel, so without a control naming it, a finished run would be
+//: unreachable the moment the panel timed out.
+function renderActivityStatusItem() {
+  const button = $("status-activity");
+  if (!button) return;
+  button.classList.toggle("hidden", agentRuns.length === 0);
+  if (!agentRuns.length) return;
+  const running = agentRuns.filter((run) => run.state === "running").length;
+  paintStatusItem("status-activity", {
+    icon: "ph:robot",
+    value: running || agentRuns.length,
+    label: running ? "running" : agentRuns.length === 1 ? "run" : "runs",
+    title: "Agent activity — every run this session, and the log.\n\nClick to show or hide the panel.",
+  });
+}
+
+function setAgentMonitorLogVisible(show) {
+  if (!agentMonitorLogToggle || !agentMonitorRuns) return;
+  agentMonitorLogs.classList.toggle("hidden", !show);
+  agentMonitorRuns.classList.toggle("hidden", show);
+  agentMonitorEmpty?.classList.toggle("hidden", show || agentRuns.length > 0);
+  agentMonitorLogToggle.textContent = show ? "Show runs" : "Show log";
+  agentMonitorLogToggle.setAttribute("aria-expanded", String(show));
+}
+
+if (agentMonitorLogToggle) {
+  agentMonitorLogToggle.addEventListener("click", () => {
+    setAgentMonitorLogVisible(agentMonitorLogs.classList.contains("hidden"));
+  });
+}
+
+$("status-activity")?.addEventListener("click", () => {
+  const showing = !agentMonitor.classList.contains("hidden");
+  agentMonitorPinned = !showing;
+  setAgentMonitorVisible(!showing);
+  // Opened by hand, so the dismissal window that keeps a run from reopening it
+  // is spent — otherwise pressing this within 90s of an X does nothing.
+  if (!showing) agentMonitorDismissedAt = 0;
+});
 
 // The monitor is `position: fixed` in the bottom-right corner, which is also
 // where the whiteboard keeps its zoom controls — so while it was open those
@@ -32681,11 +33172,23 @@ let agentMonitorDismissedAt = 0;
 
 function nudgeAgentMonitorIdle() {
   clearTimeout(agentMonitorIdleTimer);
+  //: **A panel somebody opened on purpose is never taken away.** The timer
+  //: below exists for a panel that opened *itself*; applying it to a manual
+  //: open would close the run list twelve seconds into reading it.
+  if (agentMonitorPinned) return;
   agentMonitorIdleTimer = setTimeout(() => {
     // Never yank it away from under a pointer or a keyboard focus: someone
     // reading a line or reaching for the X is the one case where the panel
     // is doing its job.
     if (agentMonitor.matches(":hover") || agentMonitor.contains(document.activeElement)) {
+      nudgeAgentMonitorIdle();
+      return;
+    }
+    //: Nor while something is still going: a run row that is still ticking is
+    //: the live thing this panel is for, and it used to be a log line every
+    //: few seconds that kept the panel awake. There are no log lines keeping
+    //: it awake any more, so the run itself has to.
+    if (agentRuns.some((run) => run.state === "running")) {
       nudgeAgentMonitorIdle();
       return;
     }
@@ -32696,6 +33199,7 @@ function nudgeAgentMonitorIdle() {
 if (agentMonitorClose) {
   agentMonitorClose.addEventListener("click", () => {
     agentMonitorDismissedAt = Date.now();
+    agentMonitorPinned = false;
     setAgentMonitorVisible(false);
   });
 }
@@ -32714,12 +33218,14 @@ function appendAgentLog(record) {
     logger.includes("agent");
   if (!isAgent) return;
 
-  if (agentMonitor.classList.contains("hidden")) {
-    // Respect a dismissal for the rest of the burst — see the constant.
-    if (Date.now() - agentMonitorDismissedAt < AGENT_MONITOR_REOPEN_AFTER_MS) return;
-    setAgentMonitorVisible(true);
-  }
-
+  //: **A log line no longer opens this panel** (Phase C). It is the whole of
+  //: the reported complaint: one agent turn writes its context budget, its
+  //: prompt composition and its tool budget, and each of those three
+  //: paragraphs was enough to throw the panel over whatever you were reading.
+  //: The lines are still collected — identically, and still capped at fifty —
+  //: and Show log is one click. What opens the panel now is a *run* starting
+  //: (`openPanelForRun`), which is a thing that happened rather than a
+  //: sentence that was written about it.
   const div = document.createElement("div");
   div.className = "monitor-log-item " + record.level.toLowerCase();
   div.textContent = record.message;
@@ -32731,7 +33237,10 @@ function appendAgentLog(record) {
   }
 
   agentMonitorLogs.scrollTop = agentMonitorLogs.scrollHeight;
-  nudgeAgentMonitorIdle();
+  //: Only while the log is the view being read — otherwise a burst of lines
+  //: from a background pass would keep a panel awake that is showing a list
+  //: nothing is changing in.
+  if (!agentMonitorLogs.classList.contains("hidden")) nudgeAgentMonitorIdle();
 }
 
 let agentLogStreamStarted = false;

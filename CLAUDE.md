@@ -65,8 +65,16 @@ switched the live app to it, and `/help/ask`, `/voice/summarize` and a full
 order) all round-tripped correctly, including the SSE `data:`/`[DONE]`
 framing `OpenAICompatClient.chat_stream` parses. **Not covered**: real
 inference (the stand-in server returns a canned string, not a model's own
-output) and `chat_tools`/`chat_tools_stream`'s tool-call fragment parsing —
-that half of the caveat still stands.
+output). **The tool-call half is now covered for the OpenAI dialect too**:
+`scratchpad/fake_openai_server.py` (stdlib, a real socket) answers
+`/v1/chat/completions` with one streamed tool call — index 0, id and
+function name on the first fragment, arguments split across chunks — then
+a plain answer, and `scratchpad/ui-sweeps/phasec.js` drove plain chat,
+Request mode and a skill run through it and found tool chips rendered on
+all three paths (AGENT_SKILLS_REFORM.md, "Built — Phase C"). Still
+uncovered: two concurrent tool calls at index 1+, Ollama's native
+tool-call dialect, and every claim about how a *real* small model
+responds to a re-prompt.
 
 **The UI half of that caveat is now lifted, and you should use it.** The
 sandbox has Chromium and Playwright, and the app runs on localhost:

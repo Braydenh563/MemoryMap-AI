@@ -183,3 +183,110 @@ This is the "text dump in your face" half.
   and the `step_specs` / `state` / `small_model` fields on the plan and result
   events are additive and ignored by today's `app.js`; how a retrying step
   *renders* is Phase C and was not looked at in a browser.
+
+## Built — Phase C, the run as a readable object
+
+Driven in a real Chromium against a real socket, not reasoned about: the app
+ran on `localhost:8792` pointed at `scratchpad/fake_openai_server.py` (a stdlib
+`http.server` speaking the OpenAI `/v1` dialect, tool calls included) and was
+driven by `scratchpad/ui-sweeps/phasec.js`. Every claim below is something that
+script printed or measured.
+
+**What landed.**
+
+- **The activity panel is a run list.** `#agent-monitor` was a live tail of
+  every `memorymap.*` log record, opened by the arrival of a line — one agent
+  turn writes its context budget, its prompt composition and its tool budget,
+  which is the reported "bunch of text dump in your face". It is now one row
+  per run, **collapsed**: name · step *k* of *n* · a thin progress bar ·
+  running/done/failed/stalled/paused. Opening a row shows its steps; opening a
+  step shows its tool calls with their arguments and results. Three levels.
+- **It is the chat transcript's own components, not a fourth one.** A run row
+  is `details.agent-step.step-plan` (the skill plan card), a step is
+  `details.agent-step.step-thinking` (the Thinking disclosure), a call is
+  `toolChip()`. The new CSS is a container, a three-part summary line and the
+  colours for one state — roughly 60 lines in
+  `frontend/css/07-whiteboard-misc.css`, all on the token scale.
+- **The full log stays one click away**, unchanged: "Show log" in the panel's
+  header swaps the run list for the same lines, same 50-line cap, same
+  formatting. Measured after a three-run session: 20 log lines still there.
+- **Log lines no longer open the panel; runs do.** And not every run: a chat
+  run is drawn step by step in the transcript already, so it opens the panel
+  only when the reader is on another tab. A background job always does.
+- **A way back in.** `#status-activity` in the status bar ("3 runs") appears
+  once a run exists and toggles the panel — needed precisely *because* log
+  lines no longer open it, or a finished run would be unreachable the moment
+  the idle timer closed the panel.
+- **Background jobs are runs too.** `/tasks` already reports label, detail and
+  a fraction, so an autonomous pass gets a row with a real progress bar
+  alongside the chat's runs, and its row ends when the job leaves the list.
+- **Toasts.** Measured over a full skill run (three steps, two contract
+  retries, a stall, six tool calls) watched in the Chat tab: **zero toasts**.
+  There were no per-step toasts to remove — the per-step noise was the panel
+  opening itself on log lines, which is what changed. One notice was *added*
+  and it is the only one a chat run raises: when a run ends while the reader
+  is on another tab, `agentActivityNotice` says "Finished: …" / "Stopped: …".
+  Both switches were re-checked live: with "Panel only" and with mute, that
+  notice raises no toast and is still recorded in the notifications centre.
+- **`retrying` renders in both places, in the same words.** Caught live, twice,
+  in the same run: the chat's plan card reads "Find the notes I saved in the
+  last 7 days. — retrying, attempt 2 of 3 — this step had to call list_notes
+  and it wasn't called", and the panel's step row reads the same with its
+  number. `stepStateWords()` is the single source of that sentence.
+- **The small-model toggle.** Settings → Tools it can use → "Small model mode",
+  a three-way Auto/On/Off select beside "How many are offered at once", bound
+  to the `small_model_mode` preference Phase B added and nothing could reach.
+  Round-trip measured: `off` → select `on` → `GET /preferences` says `on` →
+  re-render of the section still says `on`.
+
+**The three paths, verified for real (Phase C's own acceptance criterion).**
+
+All three render tool calls in the chat transcript. Counted as
+`.tool-chip`/`.tool-chip-wrap` elements inside `#chat-messages`:
+
+| Path | Result |
+| --- | --- |
+| Plain chat (Ask) with tools enabled | 1 chip — `ph:list Listed your tags`, inside a "Finished 1 step" group |
+| Request (agent) mode | 2 chips, one per round |
+| A built-in skill run (*Summarise my week*) | 5–8 chips, filed under the plan card's steps |
+
+**Nothing needed fixing on any of the three** — `toolChip()` was already
+reached by all of them. That was the open question in the Phase C plan
+("whether every path reaches it was not confirmed"), and the answer is yes.
+
+**Half of CLAUDE.md's standing caveat is now closed.** The stand-in server
+streams tool calls the way OpenAI does — index 0 with the `id` and
+`function.name` on the first fragment only, then `function.arguments` split
+across several chunks carrying nothing else — over a real socket, and
+`OpenAICompatClient.chat_tools_stream` / `_accumulate_tool_calls` reassembled
+them correctly on every run: the app called `list_tags`, `search_notes`,
+`list_notes` and `get_note` with parsed arguments, and a run in small-model
+mode completed all three of its steps. **Covered**: `/v1/models` discovery,
+`POST /models/provider` switching the live app, non-streaming and streamed
+tool calls, fragment reassembly, a tool result going back up as a `tool`
+message, and the second round answering in prose. **Still not covered**: real
+inference (the stand-in returns a canned answer and a scripted call, not a
+model's own output), two concurrent tool calls in one turn (index 1+), and
+Ollama's native dialect, which has its own path.
+
+**What was NOT verified.**
+
+- **A real small model.** Unchanged from Phase B: whether a 4B model responds
+  to a nudge is still the standing caveat, and the acceptance line "a five-step
+  built-in against a 4B local model" is still open. What is now proven is the
+  *machinery* around it — the retry is emitted, worded and rendered, and
+  small-model mode narrows the toolbox enough that a stand-in which always
+  calls the first tool it is offered completes every step.
+- **Dark theme and narrow widths.** Every measurement above was taken at
+  1440×900 in the light theme. The panel's own mobile rule
+  (`max-width: 600px`, which shrinks the log to two lines) was not re-checked
+  against the run list, and neither was `body.has-agent-monitor`'s scroll
+  buffer, which is sized against the panel's old height.
+- **A background job's row end-to-end.** The rows are built from `/tasks`
+  payloads and the code path is shared with the chat runs, but no autonomous
+  pass or model download was run in the browser to watch one appear, progress
+  and finish.
+- **The audit log and Phase D.** Resume-from-stalled, editing a step and
+  re-running it are Phase D and untouched. The panel keeps twelve runs for the
+  session and nothing more — reopening the app forgets them, by design, since
+  Library → AI Skills holds the real history.

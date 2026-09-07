@@ -1149,6 +1149,147 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   font-size: var(--text-md);
 }
 
+/* --- the run list (AGENT_SKILLS_REFORM.md, Phase C) --------------------------
+   One row per run, collapsed. The rows themselves are the chat transcript's
+   own components — `.agent-step.step-plan` for a run, `.agent-step
+   .step-thinking` for a step, `.tool-chip` for a call — so almost nothing is
+   needed here: the container, the three-part summary line, and the marker for
+   the one state the chat did not have a colour for.
+
+   Same max-height as the log it replaces on screen, for the same reason: this
+   panel is a glance, and past eight rows it is a list to scroll. */
+.monitor-runs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-height: 12.5rem;
+  padding-top: var(--space-3);
+  overflow-y: auto;
+}
+
+.monitor-empty {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-md);
+}
+
+/* The summary is already `display: flex` (`.agent-step.step-plan summary`);
+   this only decides who absorbs the leftover width. The name does, so the
+   step count and the state stay together on the right and do not move from
+   row to row — a column that jitters as names change length is the thing
+   that makes a list read as noise. */
+.agent-run-name {
+  /* **`flex: 1 1 0`, and each of those three numbers is load-bearing.** The
+     summary wraps (so the progress bar can take a line of its own), and a
+     wrapping flex row moves an item to the next line rather than shrinking it
+     — so with an `auto` basis the name claimed the whole 300px and pushed the
+     step count and the state onto a second line, measured. A zero basis makes
+     the name fit by definition, grow into whatever the other two leave, and
+     ellipsise inside it. `min-width: 0` is the other half: without it a flex
+     item cannot shrink below its own content and the ellipsis never happens. */
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-run-meta,
+.agent-run-state {
+  flex: none;
+  font-weight: 400;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+/* Nested one level in, so a step's tool calls read as belonging to the step
+   rather than to the run. `--space-5` is the same indent the plan card's own
+   ordered list uses for exactly this. */
+.agent-run-step {
+  margin-left: var(--space-5);
+}
+
+/* A step's own text is content, not a heading: the same normal weight the
+   chat's plan card gives its `<li>`s. The summary rule it inherits from is
+   written for a one-line label and puts 600 on it, which over three lines of
+   wrapped step text reads as shouting. */
+.monitor-runs .agent-run-step > summary {
+  font-weight: 400;
+}
+
+.agent-run-tools {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-top: var(--space-1);
+}
+
+/* A step with nothing under it must not pretend to be openable: an empty
+   disclosure that a reader clicks twice is a control that reports as broken.
+   `:not(.has-tools)` is set by the panel when a call is filed under it. */
+.agent-run-step:not(.has-tools) > summary::before {
+  visibility: hidden;
+}
+
+/* **The one state the chat's plan card never had a mark for.** Phase A
+   re-prompts a step whose contract was not met, and the app now says so in
+   both places it draws a run; `.plan-step-retrying` is what makes it look
+   different from a step that is merely running. Warn, not error: it has not
+   failed, it is being asked again. */
+.plan-step-retrying {
+  color: var(--warn);
+}
+
+.plan-step-retrying::after {
+  content: " ↻";
+}
+
+/* A run row's own state word borrows the same colours (`plan-step-*` is set on
+   it by `renderAgentRunSummary`), and the two that only a *run* can be need
+   their own: a run has no ✓/✕ suffix, because the word is already there. */
+.agent-run-state.plan-step-done::after,
+.agent-run-state.plan-step-failed::after,
+.agent-run-state.plan-step-stalled::after,
+.agent-run-state.plan-step-retrying::after,
+.agent-run-state.plan-step-running::after {
+  content: none;
+}
+
+/* The summary is the row, and it carries the step count and the progress bar
+   as a second line — see the comment where they are appended. Wrapping is what
+   puts them there: the name and the state are one line of flex items, and the
+   wrapper below is given the whole width so it lands under them. */
+.agent-run-summary {
+  flex-wrap: wrap;
+}
+
+.agent-run-progress {
+  flex: 1 0 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.agent-run-row .task-progress {
+  flex: 1 1 auto;
+  height: var(--space-1);
+  margin: 0;
+}
+
+/* **A step's state has to beat the summary's own colour.** The step rows reuse
+   `.agent-step.step-thinking summary`, which paints every summary `--muted` at
+   (0,2,1) — so a bare `.plan-step-retrying` (0,1,0) lost, and a retrying step
+   was the same grey as a running one. Measured: `rgb(76,85,99)`, which is
+   `--muted`, on a row that should have been `--warn`. Scoped through the
+   container so it wins on specificity rather than on file order. */
+.monitor-runs .agent-run-step > summary[data-state="retrying"],
+.monitor-runs .agent-run-step > summary[data-state="stalled"] {
+  color: var(--warn);
+}
+
+.monitor-runs .agent-run-step > summary[data-state="failed"] {
+  color: var(--error);
+}
+
 /* Notes list header and the semantic-search toggle beside the search box.
 
    Asked for directly, twice: first "move the ui controls at the top of the

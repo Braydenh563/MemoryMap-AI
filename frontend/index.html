@@ -322,13 +322,28 @@
     </div>
   </div>
 
-  <!-- Agent Monitor (Twitch-style) -->
+  <!-- Agent Activity: a list of runs, not a log (AGENT_SKILLS_REFORM.md,
+       Phase C). Reported as "they just spawn in and its a bunch of text dump
+       in your face" — it was a live tail of every `memorymap.*` log record,
+       so a single agent turn filled it with context-budget arithmetic.
+
+       It is one row per run now (skill / plan / agent turn / background job),
+       collapsed, with the steps one click in and each step's tool calls one
+       click further. The raw log it used to *be* is still here, behind Show
+       log, with exactly the same content — that is the "it should still be
+       accessible though" half of the same report. -->
   <aside id="agent-monitor" class="card glass agent-monitor hidden">
     <div class="row space-between monitor-header">
       <h3 class="monitor-title"><i class="ph ph-robot ph-lead" aria-hidden="true"></i> Agent Activity</h3>
-      <button id="agent-monitor-close" class="ghost small icon-only" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+      <div class="row monitor-header-actions">
+        <button id="agent-monitor-log-toggle" class="ghost small" type="button"
+          aria-controls="agent-monitor-logs" aria-expanded="false">Show log</button>
+        <button id="agent-monitor-close" class="ghost small icon-only" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+      </div>
     </div>
-    <div id="agent-monitor-logs" class="monitor-logs"></div>
+    <div id="agent-monitor-runs" class="monitor-runs"></div>
+    <p id="agent-monitor-empty" class="muted monitor-empty">Nothing has run yet this session.</p>
+    <div id="agent-monitor-logs" class="monitor-logs hidden"></div>
   </aside>
 
 
@@ -4248,6 +4263,13 @@ Link to another note with [[its first few words]]."></textarea>
          is happening" for hours is the decoration the caveat above warns
          about; a slot that appears is a thing you notice. -->
     <button id="status-task" class="status-item status-task hidden" type="button"></button>
+    <!-- The way back to the Agent Activity panel. It used to open itself on
+         every agent log line and there was no other way to reach it, so the
+         only two states were "in your face" and "gone for good". Log lines no
+         longer open it (app.js: `appendAgentLog`), so this slot is what makes
+         a finished run still reachable — and, like the job slot above, it
+         appears only once there is something to show. -->
+    <button id="status-activity" class="status-item hidden" type="button"></button>
     <span id="power-saver-indicator" class="chip warning hidden" title="Power Saver Mode is On"><i class="ph ph-battery-full ph-lead" aria-hidden="true"></i> Saver On</span>
     <!-- Offline badge. MemoryMap works offline by design — that is the whole
          point of it — so this is not an error state and must not read as one.
@@ -5146,6 +5168,38 @@ Link to another note with [[its first few words]]."></textarea>
                   AI ever misses a tool you asked for</span>
               </label>
               <p id="tool-focus-status" class="status" role="status"></p>
+            </div>
+            <!-- The other half of the same idea, one level down: which tools a
+                 *step* of a skill is offered. The backend has had this since
+                 the skills reform's Phase B (`small_model_mode` on
+                 /preferences) with no control anywhere, so the answer was
+                 whatever auto decided. -->
+            <div class="settings-group">
+              <h3>Small model mode</h3>
+              <p class="muted">
+                A model under about 8 billion parameters does far better with
+                <strong>one</strong> tool in front of it than with twenty. In
+                this mode each step of a skill is offered only the tool that
+                step needs, with a worked example of the call.
+              </p>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>When to use it</span>
+                  <small class="muted">
+                    Auto reads the size out of the chat model's own name
+                    (<code>qwen3:4b</code> is small, <code>llama3.3:70b</code>
+                    is not). A name with no size in it means "no idea", and no
+                    idea means off.
+                  </small>
+                </div>
+                <select id="small-model-mode" class="small-select setting-control"
+                  aria-label="Small model mode">
+                  <option value="auto">Auto — decide from the model's name</option>
+                  <option value="on">On — always narrow it to one tool</option>
+                  <option value="off">Off — always offer the whole set</option>
+                </select>
+              </div>
+              <p id="small-model-mode-status" class="status" role="status"></p>
             </div>
             <div class="settings-group">
               <h3>Which ones it may use</h3>

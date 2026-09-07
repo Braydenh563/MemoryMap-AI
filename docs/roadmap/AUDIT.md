@@ -33,6 +33,7 @@ next session does not re-diagnose them.
 | A12 | Hand-tool click did nothing on items (had to switch tools). | ROADMAP row 0b | ✅ |
 | A13 | Lightbox Describe/Read never regenerated after a clear (no `force`). | `app.js` lightbox `run()` | ✅ |
 | A14 | The test suite's fake embedding backend *succeeds*, so the no-embeddings fallback path (this project's default install) had no coverage until a monkeypatch forced it. | `tests/test_document_tools.py` | ✅ for documents; **files.py's equivalent path is still untested** |
+| A16 | **Text tool and Sticky tool did not place an object on a synthetic canvas click** in the Playwright harness (rect *drag* creates fine; `currentTool` stayed `text`/`sticky`, no object row). Either a harness limitation (d3-zoom click suppression on a synthetic `mouse.click`) or a real bug in the canvas click path that owns `wbCreateTextBox` (`whiteboard.js:4448`). **Unresolved — reproduce by hand first**: if a real click also fails, this is a P0. | `scratchpad/wbf.js` this session | open |
 | A15 | `notify()` (OS notification) and the in-app notification history are two systems; the history lives in `localStorage`, capped, unsynced with reminders' own `done` state. | `app.js:23867`, `:18620` | open → B-section |
 
 ## B. Schema and backend — what a professional backend would change

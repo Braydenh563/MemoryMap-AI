@@ -7060,6 +7060,7 @@ header#top-bar > #tab-bar {
 .graph-help-panel,
 .graph-help-panel.search-help,
 .notif-panel,
+.notes-filters-pop,
 .ai-status-popup {
   background: var(--modal-bg-opaque);
   border: 1px solid var(--border);
@@ -7283,4 +7284,66 @@ input[type="file"] {
    column at 390px. */
 #settings-modal .settings-section .settings-fold summary {
   white-space: normal;
+}
+
+/* --- the Notes toolbar on a phone (MODERNISATION_AUDIT Brief 2) ------------
+   Measured at 390px: the one control row wrapped to four rows, 172px tall,
+   and the first note began at y=445. Below 600px the row keeps the title,
+   the search field and the refresh, and a funnel button opens a sheet that
+   `initNotesFiltersSheet` (app.js) has moved the other six controls into —
+   moved, not duplicated, so every id and listener is the one the desktop
+   row uses. The sheet is a sixth floating surface and takes the shared
+   shell above rather than drawing its own; `--control-h` is repeated here
+   because the controls left `.library-toolbar`, which is where they got it. */
+.notes-filters-toggle {
+  display: none;
+}
+
+.notes-filters-pop {
+  --control-h: var(--control-h-lg);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.notes-filters-pop select,
+.notes-filters-pop .seg,
+.notes-filters-pop button {
+  height: var(--control-h);
+  padding-block: 0;
+  margin: 0;
+  font-size: var(--text-md);
+}
+
+.notes-filters-pop .graph-help-toggle {
+  width: 2rem;
+  height: 2rem;
+}
+
+.notes-filters-pop select {
+  width: auto;
+  max-width: 100%;
+}
+
+@media (max-width: 600px) {
+  .notes-toolbar > .notes-filters-toggle {
+    display: inline-flex;
+    order: 99;
+    margin-left: auto;
+  }
+
+  .notes-toolbar > #notes-refresh {
+    margin-left: 0;
+  }
+
+  /* The search takes its own full row under the title, so it is never a
+     sliver between two buttons. */
+  .notes-toolbar > #note-search,
+  .notes-toolbar > #save-search {
+    order: 101;
+    flex: 1 1 100%;
+  }
 }

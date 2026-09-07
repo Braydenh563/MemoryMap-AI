@@ -4580,3 +4580,34 @@ button.ghost.danger {
 button.ghost.danger:hover {
   background: color-mix(in srgb, var(--error) 26%, transparent);
 }
+
+/* --- the chat sidebar on a phone ---------------------------------------------
+   Measured at 390px: the Chats card took 238px of an 844px screen before
+   the conversation began — a heading, a sort select, an empty-state
+   sentence and a "Browse all" button, for a list that on a phone is one
+   or two rows. Below 600px the card keeps its head row (the title and
+   New) and the list itself; sorting and browsing are the Library's job
+   and are one tap away there. Same shape as the Notes category strip
+   above, which already drops its head row at this width. */
+@media (max-width: 600px) {
+  #chat-sidebar {
+    --card-pad-y: var(--space-3);
+  }
+
+  /* The select is dressed by `enhanceSelect` (a `.select-shell` wraps it),
+     so the shell is what has to go, not the hidden native control. */
+  #chat-sidebar .chat-sidebar-sort,
+  #chat-sidebar .select-shell:has(> .chat-sidebar-sort),
+  #chat-sidebar .conv-browse-all {
+    display: none;
+  }
+
+  #chat-sidebar #conv-empty {
+    margin: 0;
+  }
+
+  #chat-sidebar #conversation-list {
+    max-height: calc(3 * var(--control-h-lg));
+    overflow-y: auto;
+  }
+}

@@ -1048,7 +1048,19 @@ Link to another note with [[its first few words]]."></textarea>
               <option value="50">50 per page</option>
               <option value="100">100 per page</option>
             </select>
+            <!-- Phone only (<=600px, MODERNISATION_AUDIT Brief 2): the row
+                 above was four rows and 172px tall at 390px, with the first
+                 note starting below the fold. `initNotesFiltersSheet` (app.js)
+                 moves the secondary controls — select, view, semantic, help,
+                 sort, page size — into the sheet below and back again when
+                 the window grows; the search field and refresh stay. -->
+            <button id="notes-filters-toggle" class="ghost small icon-only notes-filters-toggle" type="button"
+              aria-expanded="false" aria-controls="notes-filters-pop"
+              title="Sort, view and filter options" aria-label="Sort, view and filter options">
+              <i class="ph ph-funnel-simple" aria-hidden="true"></i>
+            </button>
           </div>
+          <div id="notes-filters-pop" class="notes-filters-pop hidden" role="group" aria-label="Sort, view and filter options"></div>
           <!-- Batch actions bar: appears in select mode -->
           <div id="batch-bar" class="row hidden">
             <span id="batch-count" class="muted" role="status">0 selected</span>

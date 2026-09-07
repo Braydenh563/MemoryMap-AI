@@ -30460,6 +30460,50 @@ $("shortcuts-reset-settings").addEventListener("click", resetShortcuts);
 initHelpToggle("search-help", "search-help-hint");
 initHelpToggle("capture-help", "capture-help-hint");
 
+//: Below 600px the Notes toolbar's secondary controls fold into a sheet
+//: (`#notes-filters-pop`, MODERNISATION_AUDIT Brief 2). The controls are
+//: *moved* between the row and the sheet, never cloned: `#note-sort`,
+//: `#select-btn` and the rest each have listeners and ids that the rest of
+//: the file looks up, and a second copy would be a second, dead control.
+//: Restored in reverse with each control's original next sibling, so the
+//: row comes back in exactly its markup order when the window grows.
+function initNotesFiltersSheet() {
+  const bar = document.querySelector(".notes-toolbar");
+  const toggle = $("notes-filters-toggle");
+  const pop = $("notes-filters-pop");
+  if (!bar || !toggle || !pop) return;
+  const controls = ["#select-btn", ".notes-view-toggle", ".semantic-toggle", "#search-help", "#note-sort", "#notes-page-size"];
+  const moved = [];
+  // A <select> may be wrapped by `enhanceSelect` before or after the move;
+  // the shell is the thing to move whenever it exists.
+  const shellOf = (el) => el?.closest(".select-shell") || el;
+  const setOpen = (open) => {
+    pop.classList.toggle("hidden", !open);
+    toggle.setAttribute("aria-expanded", String(open));
+  };
+  const fold = (on) => {
+    if (on && !moved.length) {
+      for (const sel of controls) {
+        const el = shellOf(bar.querySelector(sel));
+        if (!el) continue;
+        moved.push({ el, next: el.nextSibling });
+        pop.append(el);
+      }
+    } else if (!on && moved.length) {
+      for (const { el, next } of moved.reverse()) {
+        bar.insertBefore(shellOf(el), next && next.parentNode === bar ? next : null);
+      }
+      moved.length = 0;
+      setOpen(false);
+    }
+  };
+  const mq = window.matchMedia("(max-width: 600px)");
+  mq.addEventListener("change", (e) => fold(e.matches));
+  fold(mq.matches);
+  toggle.addEventListener("click", () => setOpen(pop.classList.contains("hidden")));
+}
+initNotesFiltersSheet();
+
 $("prefs-save").addEventListener("click", savePrefs);
 $("pref-search-reset").addEventListener("click", () => {
   $("pref-search-min-sim").value = 0.25;

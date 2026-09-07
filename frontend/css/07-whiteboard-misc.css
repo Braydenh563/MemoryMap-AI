@@ -90,7 +90,7 @@
    the editable area reads as an ordinary text-field focus state rather than
    a stray rectangle on the canvas. */
 .wb-object-text .wb-text-content:focus-visible {
-  outline: 2px solid var(--accent-soft);
+  outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
@@ -391,7 +391,11 @@
   width: 48px !important;
   white-space: nowrap;
   overflow: hidden !important;
-  transition: width var(--motion-slow) cubic-bezier(0.4, 0, 0.2, 1), box-shadow var(--motion-slow) ease;
+  /* No width transition: the grid track the sidebar sits in is set
+     instantly by applySidebarWidth, so animating the aside's own width
+     only made it lag its track. Opacity and transform are the only
+     animated properties in the shell (Phase 4). */
+  transition: box-shadow var(--motion-slow) ease;
   box-shadow: none;
   border-right: 1px solid var(--border);
 }
@@ -507,7 +511,9 @@
 
 .card.interactive:hover,
 .wb-card:hover:not(.dragging) {
-  transform: translateY(-4px) scale(1.01);
+  /* Tone and edge, never a lift: a card that moves 4px on hover is the
+     "things that move when they should not" cause in UI_MODERNISATION_PLAN,
+     and on a board it shifts every link attached to it. */
   box-shadow: var(--shadow-lg);
   border-color: var(--accent);
 }
@@ -545,7 +551,6 @@
 }
 
 .skill-card:hover {
-  transform: translateY(-2px);
   border-color: var(--accent);
 }
 
@@ -1057,7 +1062,7 @@ body.has-agent-monitor .doc-sidebar .doc-list {
    `:focus-visible`, not `:focus`, so a mouse click into it doesn't draw a
    ring that keyboard use actually needs. */
 .command-palette-input:focus-visible {
-  outline: 2px solid var(--accent-soft);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
@@ -5148,7 +5153,7 @@ button.connection-row {
 }
 
 .ocr-region-text:focus {
-  outline: 1px solid var(--accent);
+  outline: 2px solid var(--accent);
   background: var(--inner);
 }
 
@@ -6908,4 +6913,19 @@ header#top-bar > #tab-bar {
 
 .help-popover::after {
   background: var(--modal-bg-opaque);
+}
+
+/* --- glass restraint (UI_MODERNISATION_PLAN.md, Phase 3) --------------------
+   `backdrop-filter` is material on the shell (top bar, status bar), the
+   sidebars, floating panels and sticky strips. On a dashboard widget or a
+   library card it is an effect: measured, the Dashboard carried 28 blurred
+   layers (24 of them widgets) and the Library 25 (21 of them cards), each a
+   full filter pass over the page gradient to blur something that was already
+   a smooth gradient. A tone reads the same and costs nothing; the page stops
+   shimmering as it scrolls. The fill stays `--card` so the surfaces keep
+   their rank; only the filter goes. */
+.dash-widget,
+.library-card {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }

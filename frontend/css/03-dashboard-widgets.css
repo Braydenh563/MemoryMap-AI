@@ -72,7 +72,7 @@
 }
 
 #improve-result {
-  border-color: var(--accent);
+  border-color: var(--border);
 }
 
 .link-suggestion {
@@ -1711,7 +1711,7 @@ header#top-bar select,
   min-height: 2.75rem;
   margin-bottom: 0;
   padding-block: 0;
-  font-size: 0.92rem;
+  font-size: var(--text-md);
   box-sizing: border-box;
 }
 
@@ -1725,7 +1725,7 @@ header#top-bar select,
   background: var(--input-bg);
   color: var(--ink);
   font: inherit;
-  font-size: 0.92rem;
+  font-size: var(--text-md);
 }
 
 @media (max-width: 860px) {

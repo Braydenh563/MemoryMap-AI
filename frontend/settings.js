@@ -1087,7 +1087,10 @@ const APPEARANCE_DEFAULTS = {
   //: still obeyed (see `progressMotionWanted` in app.js), and the indicator
   //: steps through a colour rather than freezing when it is.
   "progress-motion": "always", // always | auto | still
-  "bg-intensity": "90",
+  // Half strength (was 90): a professional product has a quiet page
+  // (UI_MODERNISATION_PLAN Phase 3). theme-boot.js and index.html carry the
+  // same default — keep the three in step.
+  "bg-intensity": "45",
   radius: "14", // global corner rounding, px
   // 14px, not 18. Blur radius is the exponential term in a backdrop-filter's
   // cost, and the published band worth staying inside is 8-15px. The slider

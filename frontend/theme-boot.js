@@ -50,7 +50,7 @@
   _r.dataset.themePreset = localStorage.getItem("themePreset") || "";
   _r.style.setProperty("--radius", pref("radius", "14") + "px");
   _r.style.setProperty("--glass-blur", pref("glass-blur", "14") + "px");
-  _r.style.setProperty("--bg-art-opacity", Number(pref("bg-intensity", "90")) / 100);
+  _r.style.setProperty("--bg-art-opacity", Number(pref("bg-intensity", "45")) / 100);
   const page = pref("page-bg", null);
   if (page) _r.style.setProperty("--page", page);
 })();

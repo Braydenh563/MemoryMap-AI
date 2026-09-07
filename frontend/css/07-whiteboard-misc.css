@@ -5223,11 +5223,17 @@ button.connection-row {
   /* **Above the tool row, not under it.** Measured at 1440x900: this strip
      rendered 960x40 at (240, 796) and the tools panel 882x54 at (34, 773) —
      an overlap across most of the strip's width, so the gestures it exists to
-     teach were sitting behind the toolbar. The tool row was `bottom: 1rem`
-     and 54px tall, so clearing it meant starting above ~5rem; it is now
-     `bottom: 0.5rem` (see `.bottom-center` in 06-timeline-dialogs.css), which
-     only widens the gap this value already leaves. */
-  bottom: 5.25rem;
+     teach were sitting behind the toolbar.
+
+     That was fixed with a constant (5.25rem), which held only while the tool
+     row was one 54px line: the row wraps to two or three on a narrow board,
+     and the constant then put this strip straight back underneath it. Then
+     reported the other way round too — "the main tool panel sits right up
+     against the popup notification" — because 5.25rem left under 1rem of
+     visible gap once borders and shadow were counted. `--wb-h-tools` is the
+     row's real measured height (whiteboard.js), so the gap is now one spacing
+     step, always, whatever the row is doing. */
+  bottom: calc(0.5rem + var(--wb-h-tools, 3.5rem) + var(--space-4));
   transform: translateX(-50%);
   z-index: 5;
   display: flex;

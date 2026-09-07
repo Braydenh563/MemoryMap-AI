@@ -3337,6 +3337,47 @@ async function initWhiteboard() {
     makeWbPanelDraggable(panel, `wb-panel-pos-${panel.dataset.panelId}`);
   });
 
+  // **The panels clear each other by measurement, not by a tuned constant.**
+  //
+  // Reported a third time, as "the properties and top right panel overlap
+  // each other... they need to be better and more responsive". The properties
+  // panel sat at a hardcoded `top: 11rem`, which is a guess at how tall the
+  // top-right panel happens to be — and the CSS comment on it records the
+  // guess being bumped from 6rem, then from 10rem, after the same report each
+  // time. It cannot be a constant: that panel wraps its eight controls onto
+  // one, two or three rows depending on the board's width, so its height is a
+  // function of the viewport. The same guessing shows up twice more — the
+  // gesture strip's own `bottom`, and the narrow-window rule that lifts the
+  // zoom cluster by `30vh` because, as its comment says, "CSS cannot measure
+  // a sibling".
+  //
+  // A ResizeObserver can. Each panel that others have to clear publishes its
+  // own height as a custom property on the view, and every rule that needs to
+  // sit above or below one derives its offset from that — so the layout is
+  // correct at every width, at every wrap count, and after any change to a
+  // panel's contents, with no number left to re-tune.
+  //
+  // Deliberately *not* wired into the drag system: a panel the reader has
+  // dragged carries inline `top`/`left`, which wins over these rules anyway,
+  // so a custom position keeps working exactly as before.
+  const wbPanelMetricsRoot = document.getElementById("library-view-whiteboard");
+  if (wbPanelMetricsRoot && typeof ResizeObserver !== "undefined") {
+    for (const [panelId, name] of [["library", "library"], ["tools", "tools"], ["zoom", "zoom"]]) {
+      const panel = document.querySelector(`.whiteboard-floating-panel[data-panel-id="${panelId}"]`);
+      if (!panel) continue;
+      const publish = () => {
+        const box = panel.getBoundingClientRect();
+        // A hidden panel measures 0, and a 0 here would collapse the offset
+        // of whatever is clearing it right on top of the panel above. The
+        // CSS fallbacks stay in charge until there is a real size to use.
+        if (box.height > 0) wbPanelMetricsRoot.style.setProperty(`--wb-h-${name}`, `${Math.round(box.height)}px`);
+        if (box.width > 0) wbPanelMetricsRoot.style.setProperty(`--wb-w-${name}`, `${Math.round(box.width)}px`);
+      };
+      publish();
+      new ResizeObserver(publish).observe(panel);
+    }
+  }
+
   // Asked for directly: once a panel's been dragged there was no way back to
   // its default corner short of clearing localStorage by hand. Clears every
   // panel's saved position and its drag-time inline styles (left/top/right/

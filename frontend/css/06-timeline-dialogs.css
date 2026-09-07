@@ -2285,10 +2285,23 @@
      against the viewport left the row 56px too wide and it still reached under
      the zoom cluster, which is what a first attempt did.
 
-     Nothing changes on a wide screen: 100% - 18rem is far more than the row
-     needs, so it stays one line and stays a pill. */
+     Nothing changes on a wide screen: the reserve is far more than the row
+     needs, so it stays one line and stays a pill.
+
+     **The 18rem this reserved was still too small, and by a measured
+     amount.** At 1280x800 the zoom cluster renders 339px wide; 18rem is
+     288px, so the tool row was licensed to grow 51px *underneath* it, and
+     did — the two overlapped by 33px at every width tested (1280, 900 and
+     760). That is the same class of bug as the properties panel's own magic
+     `top`: a constant standing in for a sibling's real size. `--wb-w-zoom`
+     is that cluster's measured width (whiteboard.js), so the reserve is now
+     exactly the cluster plus its margin and a gap, whatever it grows to.
+
+     The two `1rem`s are the two panels' own insets from this file: this
+     row's own `left` and the zoom cluster's `right`. Subtracting only one
+     of them left a measured 8px overlap. */
   flex-wrap: wrap;
-  max-width: calc(100% - 18rem);
+  max-width: calc(100% - var(--wb-w-zoom, 18rem) - 2rem - var(--space-3));
 }
 
 /* A pill is a single row of controls. Once it has wrapped it is a block of
@@ -2315,23 +2328,46 @@
     overflow-y: auto;
   }
 
+  /* Was `calc(30vh + 2rem)` — derived from the `max-height: 30vh` cap above
+     rather than from the tool row's actual height, which its own comment
+     admitted was guessing the clearance. `--wb-h-tools` is the measured
+     height (whiteboard.js), so this now sits exactly one gap above whatever
+     the row really is, at every width and wrap count. */
   .whiteboard-floating-panel.bottom-right {
-    bottom: calc(30vh + 2rem);
+    bottom: calc(0.5rem + var(--wb-h-tools, 30vh) + var(--space-3));
   }
 }
 
 /* Below the "library"/top-right panel, so a shown properties panel never
-   overlaps it. Bumped from 6rem, then again from 10rem: the top-right
-   panel's own `flex-wrap` fix (above) lets its 8 controls wrap onto 2-3
-   rows on a narrow board, growing taller than the single-row height this
-   value was first tuned against — reported directly, twice, as the two
-   panels visually touching with no gap between them. */
+   overlaps it.
+
+   This was `top: 11rem` — bumped from 6rem, then from 10rem, and reported a
+   third time as the two panels overlapping. It cannot be a constant: the
+   top-right panel wraps its 8 controls onto 1-3 rows depending on the
+   board's width, so its height is a function of the viewport, and no single
+   number is right at more than one size. `--wb-h-library` is that panel's
+   real measured height, published by a ResizeObserver in whiteboard.js (CSS
+   cannot measure a sibling); the fallback is only used for the frame before
+   the first measurement lands. */
 .whiteboard-floating-panel.mid-right {
-  top: 11rem;
+  top: calc(1rem + var(--wb-h-library, 6.5rem) + var(--space-3));
   right: 1rem;
   flex-direction: column;
   align-items: stretch;
   width: 11rem;
+  /* The other half of "more responsive": this panel grows with its contents
+     (a shape's properties are a longer list than a link's), and on a short
+     window it used to simply run off the bottom of the board, taking its own
+     last rows with it. Bounded by what is actually left between the panel
+     above it and the tool row below, so it scrolls instead of escaping. */
+     Only what is *above* it is subtracted. A first version also subtracted
+     the tool row's height and went negative on a short window — measured at
+     900x700, where the board is 394px and the sum came to 399, collapsing
+     this panel to 18px. The tool row is bottom-*left*; this panel is 11rem
+     wide on the right, so the two do not share a column. */
+  max-height: calc(100% - var(--wb-h-library, 6.5rem) - 3.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* Asked for directly, with a screenshot: the title sat on its own row well

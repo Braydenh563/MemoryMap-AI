@@ -278,9 +278,9 @@
 .glass,
 .card.glass {
   background: var(--card);
-  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
-  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-shadow), var(--glass-rim);
 }
 
 :root[data-glass="off"] .glass {
@@ -368,10 +368,7 @@ header#top-bar select,
    direction, and two equal edges read as a border. */
 .glass,
 .card.glass {
-  box-shadow:
-    var(--glass-shadow),
-    inset 0 1px 0 var(--glass-highlight),
-    inset 0 -1px 0 var(--glass-underline);
+  box-shadow: var(--glass-shadow), var(--glass-rim);
 }
 
 /* Some people ask their operating system for less of this, and a browser that

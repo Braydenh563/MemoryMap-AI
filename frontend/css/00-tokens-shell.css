@@ -119,11 +119,15 @@ select optgroup {
   /* --header-h: 4.4rem; */
   --header-h: calc(3.7rem + 1px);
   --page: linear-gradient(135deg, #e9edfb 0%, #f6f2ec 45%, #e6f1f2 100%);
-  --blob-a: rgba(79, 109, 245, 0.20);
+  /* Deeper than before (0.20 / 0.14). A frosted pane over a featureless
+     field is a flat tinted rectangle, and that is what both modes read as in
+     a screenshot: there was nothing behind the glass for the blur to show.
+     The blobs are the only texture the page has, so they carry it. */
+  --blob-a: rgba(79, 109, 245, 0.30);
   /* The dim behind a modal that floats over the app (the command palette),
      as opposed to .lock-overlay, which replaces the app entirely. */
   --scrim: rgba(17, 20, 32, 0.45);
-  --blob-b: rgba(157, 88, 245, 0.14);
+  --blob-b: rgba(157, 88, 245, 0.22);
   --card: color-mix(in srgb, rgba(255, 255, 255, 0.55) calc(var(--glass-opacity) * 100%), transparent);
   --inner: color-mix(in srgb, rgba(255, 255, 255, 0.45) calc(var(--glass-opacity) * 100%), transparent);
   --input-bg: color-mix(in srgb, rgba(255, 255, 255, 0.55) calc(var(--glass-opacity) * 100%), transparent);
@@ -148,7 +152,36 @@ select optgroup {
      exactly. `--modal-bg` itself is left alone since most of its callers
      (Settings, the command palette) float over a much emptier backdrop. */
   --modal-bg-opaque: rgb(252, 253, 255);
-  --glass-shadow: 0 8px 32px rgba(31, 38, 135, var(--shadow-intensity));
+  /* ============ THE GLASS RECIPE, as tokens =================================
+     Every glass surface (.card, .glass, the modal, the popovers) reads these
+     four and nothing else, which is what "make all the ui elements consistent"
+     needs to be true by construction rather than by review. Each token is one
+     of the four things that make a pane read as glass instead of tinted paint:
+
+     --glass-filter   what happens to the page behind it. Blur plus a little
+                      saturation so what shows through stays colourful.
+                      `brightness` was here too and is gone on dark: it lifted
+                      every surface towards grey.
+     --glass-rim      the edge, as inset shadows: lit along the top, a fainter
+                      light down the left, shade along the bottom. Real glass
+                      is recognised by its edges catching light from one
+                      direction, so the three sides are deliberately unequal.
+     --glass-shadow   two layers: a tight contact shadow that seats the pane on
+                      the page, and a wide soft ambient one that lifts it. One
+                      big blur alone floats; one tight edge alone looks cut out.
+     --glass-catch    the specular. A radial catch in one corner, fixed in
+                      pixels, never a wash across the surface: a light source
+                      lays the same highlight on a coaster and a window. */
+  --glass-filter: blur(var(--glass-blur)) saturate(150%) brightness(1.02);
+  --glass-edge: rgba(255, 255, 255, 0.34);
+  --glass-rim:
+    inset 0 1px 0 var(--glass-highlight),
+    inset 1px 0 0 var(--glass-edge),
+    inset 0 -1px 0 var(--glass-underline);
+  --glass-shadow:
+    0 1px 2px rgba(31, 38, 135, 0.06),
+    0 12px 32px rgba(31, 38, 135, var(--shadow-intensity));
+  --glass-catch: radial-gradient(220px 110px at 12% 0%, rgba(255, 255, 255, 0.42), transparent 70%);
   --ink: #1f2430;
   --muted: #5b6472;
   --accent: #4f6df5;
@@ -482,16 +515,21 @@ select,
    appears twice: once for the manual toggle, once for the OS default. */
 :root[data-mode="dark"] {
   --page: linear-gradient(135deg, #0e1017 0%, #171a26 45%, #0f1720 100%);
-  --blob-a: rgba(123, 144, 247, 0.16);
+  --blob-a: rgba(123, 144, 247, 0.24);
   --scrim: rgba(5, 7, 14, 0.60);
-  --blob-b: rgba(88, 235, 245, 0.07);
+  --blob-b: rgba(88, 235, 245, 0.13);
   --card: color-mix(in srgb, rgba(29, 33, 46, 0.55) calc(var(--glass-opacity) * 100%), transparent);
   --inner: color-mix(in srgb, rgba(255, 255, 255, 0.05) calc(var(--glass-opacity) * 100%), transparent);
   --input-bg: color-mix(in srgb, rgba(14, 16, 23, 0.55) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(255, 255, 255, 0.10);
-  --glass-highlight: rgba(255, 255, 255, 0.06);
-  --glass-underline: rgba(0, 0, 0, 0.22);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  --glass-highlight: rgba(255, 255, 255, 0.11);
+  --glass-underline: rgba(0, 0, 0, 0.28);
+  --glass-edge: rgba(255, 255, 255, 0.05);
+  --glass-filter: blur(var(--glass-blur)) saturate(140%);
+  --glass-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 12px 32px rgba(0, 0, 0, 0.42);
+  --glass-catch: radial-gradient(220px 110px at 12% 0%, rgba(255, 255, 255, 0.10), transparent 70%);
   --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
   --modal-bg: rgba(24, 27, 37, 0.97);
   --modal-bg-opaque: rgb(24, 27, 37);
@@ -522,16 +560,21 @@ select,
   :root:not([data-theme="light"]) {
     color-scheme: dark;
     --page: linear-gradient(135deg, #0e1017 0%, #171a26 45%, #0f1720 100%);
-    --blob-a: rgba(123, 144, 247, 0.16);
+    --blob-a: rgba(123, 144, 247, 0.24);
     --scrim: rgba(5, 7, 14, 0.60);
-    --blob-b: rgba(88, 235, 245, 0.07);
+    --blob-b: rgba(88, 235, 245, 0.13);
     --card: color-mix(in srgb, rgba(29, 33, 46, 0.55) calc(var(--glass-opacity) * 100%), transparent);
     --inner: color-mix(in srgb, rgba(255, 255, 255, 0.05) calc(var(--glass-opacity) * 100%), transparent);
     --input-bg: color-mix(in srgb, rgba(14, 16, 23, 0.55) calc(var(--glass-opacity) * 100%), transparent);
     --glass-border: rgba(255, 255, 255, 0.10);
-    --glass-highlight: rgba(255, 255, 255, 0.06);
-  --glass-underline: rgba(0, 0, 0, 0.22);
-    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+    --glass-highlight: rgba(255, 255, 255, 0.11);
+    --glass-underline: rgba(0, 0, 0, 0.28);
+    --glass-edge: rgba(255, 255, 255, 0.05);
+    --glass-filter: blur(var(--glass-blur)) saturate(140%);
+    --glass-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.35),
+      0 12px 32px rgba(0, 0, 0, 0.42);
+    --glass-catch: radial-gradient(220px 110px at 12% 0%, rgba(255, 255, 255, 0.10), transparent 70%);
     --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
     --modal-bg: rgba(24, 27, 37, 0.97);
     --modal-bg-opaque: rgb(24, 27, 37);
@@ -2811,7 +2854,15 @@ header#top-bar.tabs-wrapped #tab-bar {
   gap: 0.25rem;
   padding: 0.25rem;
   border-radius: var(--radius-lg);
-  background: var(--chip-bg);
+  /* A well, not a slab. Every raised surface in the app now carries a lit top
+     edge; a bar of tabs is the opposite kind of thing, a channel the active
+     tab sits *in*, so its edge is shaded along the top and lit along the
+     bottom -- the same light, from the same direction, hitting a recess. That
+     inversion is what makes the raised tab read as raised. */
+  background: var(--field-inset);
+  box-shadow:
+    inset 0 1px 2px var(--field-inset),
+    inset 0 -1px 0 var(--glass-edge);
   /* Scroll rather than wrap when the window is genuinely too narrow.
      min-width:0 is what actually lets a flex item shrink below its content.
 
@@ -3046,8 +3097,8 @@ header#top-bar.tabs-wrapped #tab-bar {
 /* --- the glass card -------------------------------------------------------- */
 .card {
   background: var(--card);
-  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   /* Outer depth plus a one-pixel specular lip along the top edge. The lip is
@@ -3059,7 +3110,7 @@ header#top-bar.tabs-wrapped #tab-bar {
      `backdrop-filter: url(#filter)` does parse and compute here, so the
      fuller effect remains available as an opt-in later — it is deliberately
      not on by default. */
-  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-specular);
+  box-shadow: var(--glass-shadow), var(--glass-rim);
   padding: var(--space-6) var(--space-7);
   margin-bottom: var(--space-6);
   /* Cards are flex/grid items nearly everywhere they appear, and a flex item's
@@ -3138,19 +3189,16 @@ header#top-bar.tabs-wrapped #tab-bar {
      because a 1px rim needs to be near-opaque to register at all, and reusing
      it here multiplied the light theme's sheen by nine. Same colour, two very
      different jobs. */
-  background-image:
-    linear-gradient(135deg,
-      color-mix(in srgb, rgba(255, 255, 255, 0.10) calc(var(--glass-sheen-strength) * 100%), transparent) 0,
-      rgba(255, 255, 255, 0) 160px);
+  /* The catch comes from the token, so this rule cannot drift from the rest
+     of the recipe. */
+  background-image: var(--glass-catch);
+  background-repeat: no-repeat;
   /* A 1px inner top-edge highlight — the other half of the same "this
      catches light, it doesn't just sit there tinted" read, independent of
      `--card`'s alpha. The shadowed bottom rim rides along, or this rule
      would drop the one `.glass` sets (see 03-dashboard-widgets.css) for
      every card that has the sheen on. */
-  box-shadow:
-    var(--glass-shadow),
-    inset 0 1px 0 color-mix(in srgb, rgba(255, 255, 255, 0.25) calc(var(--glass-sheen-strength) * 100%), transparent),
-    inset 0 -1px 0 var(--glass-underline);
+  box-shadow: var(--glass-shadow), var(--glass-rim);
 }
 
 /* A white sheen on a dark surface reads as light catching glass. On a light
@@ -3166,10 +3214,9 @@ header#top-bar.tabs-wrapped #tab-bar {
    the resolved value and is always present (theme-boot.js says so in its own
    comment), which is what this selector actually wants to ask. */
 :root:not([data-mode="dark"])[data-glass-sheen="on"]:not([data-glass="off"]) .card {
-  background-image:
-    linear-gradient(135deg,
-      color-mix(in srgb, rgba(255, 255, 255, 0.05) calc(var(--glass-sheen-strength) * 100%), transparent) 0,
-      rgba(255, 255, 255, 0) 160px);
+  /* Nothing to halve any more: the catch token already carries a per-mode
+     alpha (0.42 light, 0.10 dark), so both modes read the same rule. */
+  background-image: var(--glass-catch);
 }
 
 

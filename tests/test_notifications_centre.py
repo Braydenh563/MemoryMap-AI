@@ -70,7 +70,7 @@ def test_the_store_is_bounded():
 def test_the_panel_folds_in_what_is_overdue_on_the_server():
     """The one case an event log cannot cover: a reminder that came due while
     nothing was running to notice. The reminders table knows regardless."""
-    opener = APP_JS.split("async function openNotifications()", 1)[1][:2000]
+    opener = APP_JS.split("async function openNotifications(", 1)[1][:2000]
     assert 'apiJson("/reminders"' in opener
 
 

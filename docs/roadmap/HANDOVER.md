@@ -172,6 +172,22 @@ list at the end.
   as note (entry count +1), per-page delete (server rows 2 → 1). Escape
   now closes the reader and Ctrl+F focuses its find box (neither did).
 
+- Chat composer, **re-done to the stated rule**: grows with the text to a
+  third of the window, a drag below that height caps it, a drag above it
+  floors it, and emptying the box forgets the drag and returns to one row.
+  Measured at 800px tall: empty 44px → long text 280px (= 35vh) → dragged
+  to 80px holds → emptied 44px, `maxPx` cleared. The old behaviour stored
+  a hand height and applied it forever, which is what stopped it growing.
+- Note edit: Write/Preview is the first thing in the strip and is
+  `position: sticky` at its left edge; every meta-row control shares one
+  top (the tags input's 9.6px form margin was pulling it 5px up).
+- "Tools it can use" switches: `.setting-check input` no longer sets its
+  own 1.1rem box and top margin, so the app-wide pill recipe owns them
+  like every other switch (measured 32x18, `appearance: none`, no shadow).
+- `test_notifications_centre.py` split on `openNotifications()` — the
+  signature gained an options object, so the marker no longer matched.
+  **This is the CI failure on `0691dc3`**; fixed here.
+
 ### Open — in the order the user is likely to hit them
 
 1. Whiteboard: group transform of a multi-selection; frames; text on

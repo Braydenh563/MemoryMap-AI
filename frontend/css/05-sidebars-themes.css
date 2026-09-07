@@ -3410,8 +3410,31 @@ textarea.autogrow {
   margin: 0;
 }
 
+/* Write / Preview leads the strip and stays put while the strip scrolls
+   sideways (reported: "make the write and preview toggle stay sticky to the
+   left or actually on the left of the toolbar"). */
 .note-edit-toolbar .note-edit-view {
-  margin-left: auto;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  margin-right: var(--space-2);
+  background: inherit;
+}
+
+/* Measured: the tags input sat 5px above its neighbours — same 36px
+   height, different top, because a stretched flex item ignores the row's
+   `align-items: center`. Centred explicitly, margins zeroed. */
+/* Measured: the tags input sat 5px above its neighbours — same 36px
+   height, different top, because the app's form rule gives an `input` a
+   9.6px bottom margin and a centred flex item then splits the difference.
+   The element selectors are needed to beat that rule's own specificity. */
+.note-edit-meta > *,
+.note-edit-meta > input,
+.note-edit-meta > select,
+.note-edit-meta > textarea,
+.note-edit-meta .note-edit-actions > * {
+  margin: 0;
+  align-self: center;
 }
 
 .note-edit-preview {

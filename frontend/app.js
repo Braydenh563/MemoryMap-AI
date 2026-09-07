@@ -5867,7 +5867,7 @@ function renderEditForm(li, entry) {
   previewBtn.type = "button"; previewBtn.textContent = "Preview";
   previewBtn.setAttribute("aria-pressed", "false");
   view.append(writeBtn, previewBtn);
-  toolbarEl.appendChild(view);
+  toolbarEl.prepend(view);
   const preview = document.createElement("div");
   preview.className = "markdown-body note-edit-preview hidden";
   const setView = (mode) => {
@@ -21596,8 +21596,23 @@ function autoGrow(el) {
   // So a hand-set height is the height. It is what "manually adjustable"
   // means: the box stays where it was put, and only scrolls once the text
   // outgrows it.
+  //: **Revised, by direct instruction**: "should auto expand to about a
+  //: third of the screen if large amounts of text are in it but should be
+  //: able to be lowered in height manually and should go back to normal
+  //: when empty or the text reduces." A fixed hand-set height (the previous
+  //: rule) is exactly what stopped the box expanding. Now a drag *below*
+  //: the automatic height is a cap, a drag *above* it is a floor, and an
+  //: empty box forgets the drag altogether.
+  if (!el.value.trim() && el.dataset.maxPx) {
+    delete el.dataset.maxPx;
+    try { localStorage.removeItem(COMPOSER_HEIGHT_KEY); } catch { /* storage may be unavailable */ }
+  }
   const chosen = Number(el.dataset.maxPx || 0);
-  const next = chosen > 0 ? chosen : Math.min(el.scrollHeight, limit);
+  const viewportLimit = Math.min(AUTOGROW_MAX_PX, Math.round(window.innerHeight * AUTOGROW_MAX_VIEWPORT));
+  const auto = Math.min(el.scrollHeight, viewportLimit);
+  const next = chosen > 0
+    ? (chosen < auto ? chosen : Math.max(auto, Math.min(chosen, viewportLimit)))
+    : Math.min(el.scrollHeight, limit);
   el.style.height = `${next}px`;
   el.style.overflowY = el.scrollHeight > next ? "auto" : "hidden";
   // What this function chose, so a later resize can be told apart from a drag
@@ -21679,11 +21694,11 @@ function initComposerResize() {
   if (!box || box.dataset.resizeReady) return;
   box.dataset.resizeReady = "1";
 
-  const saved = Number(localStorage.getItem(COMPOSER_HEIGHT_KEY) || 0);
-  if (saved > 0) {
-    box.dataset.maxPx = String(saved);
-    autoGrow(box);
-  }
+  //: A saved drag is no longer applied on load: the box starts at its
+  //: automatic size and a drag is remembered only until the box is emptied
+  //: (see autoGrow). The key is still cleared here for profiles that have
+  //: one from before.
+  try { localStorage.removeItem(COMPOSER_HEIGHT_KEY); } catch { /* storage may be unavailable */ }
 
   //: **Double-tap the grabber to put it back.** Asked for directly: "allow
   //: double tapping the bottom expansion corner of the chat text box to reset

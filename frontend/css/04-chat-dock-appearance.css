@@ -1783,10 +1783,12 @@ label.setting-check,
   margin-top: calc(var(--space-1) * -1);
 }
 
+/* Sizing and the top margin removed: the app-wide pill-switch recipe in
+   06-timeline-dialogs.css owns this input's look, and the 1.1rem box with a
+   0.15rem top offset it used to get here left the "Tools it can use" knobs
+   a different shape and a hair lower than every other switch (reported,
+   with a screenshot). */
 .setting-check input[type="checkbox"] {
-  width: 1.1rem;
-  height: 1.1rem;
-  margin: 0.15rem 0 0;
   flex: 0 0 auto;
   accent-color: var(--accent);
 }

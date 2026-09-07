@@ -7549,3 +7549,55 @@ input[type="file"] {
   stroke-dasharray: 7 5;
   opacity: 0.85;
 }
+
+/* --- the Library on a phone (BACKLOG §116.1 item 3) -------------------------
+   Measured at 390px with the session's phone probes: the eight sub-tabs
+   wrapped to four rows (161px), the Everything filter chips to five rows
+   (205px) and the toolbar to four (162px), so the first card began at
+   y=793 — below the fold of an 844px screen. The Documents and Boards head
+   rows were 727px wide inside a 330px card and scrolled sideways: the
+   control run is a flex item whose basis is its max-content width, and
+   `justify-content: space-between` never shrinks it.
+
+   Same recipes as the Notes tab at this width: a strip that scrolls
+   sideways (the sub-tabs, the chips — `.notes-subtabs` and the category
+   strip already do this), the search on its own row, and one control per
+   choice (the sort select stays, the segmented sort that repeats it goes). */
+@media (max-width: 600px) {
+  .library-subtabs,
+  .library-filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .library-subtabs::-webkit-scrollbar,
+  .library-filters::-webkit-scrollbar {
+    display: none;
+  }
+
+  .library-subtabs button,
+  .library-filters > * {
+    flex: 0 0 auto;
+    min-width: 0;
+    white-space: nowrap;
+  }
+
+  .library-head > .row,
+  #library-view-docs .row.space-between > .row {
+    flex: 1 1 100%;
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .library-head .library-search,
+  #library-view-docs .row.space-between > .row > .library-search,
+  #library-view-documents .library-toolbar > .library-search {
+    flex: 1 1 100%;
+  }
+
+  #library-sort-seg {
+    display: none;
+  }
+}

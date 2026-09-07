@@ -1322,6 +1322,17 @@ class DatabaseManager:
                 "content, tags, content='entries', content_rowid='id'"
                 ")"
             )
+            # The index's own vocabulary as a table — one row per distinct
+            # term, maintained by FTS5 itself. `keyword_search` reads it to
+            # correct a misspelt query word to the nearest word the notebook
+            # actually contains ("sourdogh" → "sourdough"), which is the
+            # cheap, honest form of typo tolerance: it can only ever suggest
+            # words that exist in the notes, and it costs one range scan on
+            # the term's first letter rather than a second index.
+            connection.exec_driver_sql(
+                "CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts_vocab "
+                "USING fts5vocab('entries_fts', 'row')"
+            )
             # A fresh virtual table starts empty even when `entries` already
             # has rows (a database from before this existed) — the
             # external-content trick means FTS5 never scanned the real table

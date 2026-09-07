@@ -138,3 +138,22 @@ def test_a_saved_search_needs_a_name_and_a_query(client):
     assert too_short.status_code == 422
     no_query = client.put("/preferences", json={"saved_searches": [{"name": "x", "query": ""}]})
     assert no_query.status_code == 422
+
+
+def test_a_misspelt_word_still_finds_the_note(notes):
+    """"sourdogh" is one letter off a word the notebook holds; the FTS
+    vocabulary knows that word, so the search lands on it instead of on an
+    empty page."""
+    hits = _contents(search_manager.keyword_search(notes, "sourdogh starter"))
+    assert hits == ["sourdough starter needs feeding daily"]
+
+
+def test_a_word_stem_matches_its_longer_forms(notes):
+    """"sourdo" matches nothing whole, so it is tried as a prefix."""
+    hits = _contents(search_manager.keyword_search(notes, "sourdo"))
+    assert hits == ["sourdough starter needs feeding daily"]
+
+
+def test_a_short_word_is_never_corrected(notes):
+    """Three letters are one edit from too many words to guess at."""
+    assert search_manager.keyword_search(notes, "zzz") == []

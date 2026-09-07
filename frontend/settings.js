@@ -156,6 +156,7 @@ function showSettingsSection(name) {
   }
   if (name === "tasks") renderTasks(); // fill it in now, then poll
   if (name === "extras") renderExtras();
+  if (name === "about") renderHealthBlock().catch(() => {});
 }
 
 // Peek fades the settings panel so a colour change is visible on the page
@@ -351,6 +352,42 @@ async function loadChangelog() {
   fold.addEventListener("toggle", () => {
     if (fold.open) paint();
   });
+}
+
+//: PLAN.md B9's frontend half: `GET /debug/health` already assembled every
+//: number cheaply (its own docstring's whole design constraint is <20ms on
+//: an empty notebook), so this just paints them — no polling, since About is
+//: somewhere you glance at, not a status bar. Read once per section open,
+//: the same "rebuilt each open rather than cached" rule `openSettingsModal`
+//: already uses for the model-status and backup rows just above this one in
+//: the file.
+async function renderHealthBlock() {
+  const dbSize = $("health-db-size");
+  const counts = $("health-counts");
+  const jobs = $("health-jobs");
+  const lastError = $("health-last-error");
+  if (!dbSize || !counts || !jobs || !lastError) return; // markup not present yet
+  const health = await apiJson("/debug/health", { silent: true }).catch(() => null);
+  if (!health) {
+    // The endpoint itself is one more thing that can be down (offline
+    // build, a locked notebook mid-request) — a dash across the board reads
+    // as "couldn't check", not "empty", so nothing here claims a zero it
+    // never actually measured.
+    for (const el of [dbSize, counts, jobs, lastError]) el.textContent = "—";
+    return;
+  }
+  dbSize.textContent = `${formatFileSize(health.db?.size_bytes) || "0 B"} · ${health.data_dir}`;
+  const c = health.counts || {};
+  counts.textContent =
+    `${c.entries ?? 0} notes · ${c.documents ?? 0} documents · ` +
+    `${c.media ?? 0} files · ${c.attachments ?? 0} attachments · ${c.reminders ?? 0} reminders`;
+  const running = health.jobs?.running || [];
+  jobs.textContent = running.length
+    ? running.map((job) => job.label).join(", ")
+    : "Nothing running";
+  const errors = health.recent_errors || [];
+  const last = errors[errors.length - 1];
+  lastError.textContent = last ? `[${last.level}] ${last.message}` : "None recorded";
 }
 
 // --- finding a setting (§36B) ------------------------------------------------------

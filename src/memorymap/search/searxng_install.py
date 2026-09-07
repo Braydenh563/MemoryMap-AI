@@ -369,6 +369,7 @@ def install_source(data_dir: Path, on_ready=None) -> None:
             }
         )
     _install_stage(1, "Creating a virtualenv…")
+    install_started = time.monotonic()
 
     def work() -> None:
         try:
@@ -450,6 +451,7 @@ def install_source(data_dir: Path, on_ready=None) -> None:
                 "Installing SearXNG",
                 outcome,
                 _install_state.get("error", "Install finished successfully."),
+                duration_ms=(time.monotonic() - install_started) * 1000,
             )
         if on_ready is None or _install_state.get("error"):
             return

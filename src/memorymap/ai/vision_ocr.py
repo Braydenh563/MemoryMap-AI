@@ -28,6 +28,7 @@ import logging
 import mimetypes
 import tempfile
 import threading
+import time
 from pathlib import Path
 
 from memorymap.core import pdfpages
@@ -250,13 +251,19 @@ def vision_ocr_and_store(upload_id: int, image_path: Path, force: bool = False) 
         model = deps.get_model_manager().resolve_vision_model(deps.get_ollama())
         if not model:
             return None
+        started = time.monotonic()
         text = vision_ocr_text(image_path, model, deps.get_ollama())
+        elapsed_ms = (time.monotonic() - started) * 1000
         if text is None:
             # The attempt itself failed (unreachable backend, request
             # error) — the genuine failure case, distinct from "asked the
             # model and it found no text" just below.
             taskhistory.record(
-                "vision_ocr", f"Reading text from {upload.original_name}", "failed", name=model
+                "vision_ocr",
+                f"Reading text from {upload.original_name}",
+                "failed",
+                name=model,
+                duration_ms=elapsed_ms,
             )
             return None
         upload.vision_ocr_text = text
@@ -268,6 +275,7 @@ def vision_ocr_and_store(upload_id: int, image_path: Path, force: bool = False) 
             "completed",
             name=model,
             detail="no legible text found" if not text else "",
+            duration_ms=elapsed_ms,
         )
         return text
 
@@ -315,11 +323,18 @@ def pdf_vision_ocr_and_store(upload_id: int, pdf_path: Path, force: bool = False
     reader = pdf_reader_or_none()
     if reader is None:
         return None  # no model, no rasteriser, or the backend is down
+    started = time.monotonic()
     try:
         text = (reader(pdf_path) or "").strip()
     except Exception:  # noqa: BLE001 — same reasoning as vision_ocr_text's own
-        taskhistory.record("vision_ocr", f"Reading text from {original}", "failed")
+        taskhistory.record(
+            "vision_ocr",
+            f"Reading text from {original}",
+            "failed",
+            duration_ms=(time.monotonic() - started) * 1000,
+        )
         return None
+    elapsed_ms = (time.monotonic() - started) * 1000
 
     model = deps.get_model_manager().resolve_ocr_model(deps.get_ollama()) or ""
     with deps.get_db().session() as session:
@@ -335,6 +350,7 @@ def pdf_vision_ocr_and_store(upload_id: int, pdf_path: Path, force: bool = False
         "completed",
         name=model,
         detail="no legible text found" if not text else "",
+        duration_ms=elapsed_ms,
     )
     return text or None
 

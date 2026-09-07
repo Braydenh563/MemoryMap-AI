@@ -23,6 +23,7 @@ import base64
 import logging
 import mimetypes
 import threading
+import time
 from pathlib import Path
 
 logger = logging.getLogger("memorymap.captioning")
@@ -117,11 +118,13 @@ def caption_and_store(upload_id: int, image_path: Path, force: bool = False) -> 
             return None
         with _running_lock:
             _running[upload_id] = upload.original_name
+        started = time.monotonic()
         try:
             text = caption_text(image_path, model, deps.get_ollama())
         finally:
             with _running_lock:
                 _running.pop(upload_id, None)
+        elapsed_ms = (time.monotonic() - started) * 1000
         if not text:
             # A real attempt was made (a model was resolved) and produced
             # nothing — the actual failure the report was about: a caption
@@ -129,7 +132,11 @@ def caption_and_store(upload_id: int, image_path: Path, force: bool = False) -> 
             # but the log console, and Settings → Background tasks showing
             # captioning as if it had never run at all.
             taskhistory.record(
-                "caption", f"Captioning {upload.original_name}", "failed", name=model
+                "caption",
+                f"Captioning {upload.original_name}",
+                "failed",
+                name=model,
+                duration_ms=elapsed_ms,
             )
             return None
         upload.caption = text
@@ -140,7 +147,11 @@ def caption_and_store(upload_id: int, image_path: Path, force: bool = False) -> 
         upload.caption_edited = False
         session.commit()
         taskhistory.record(
-            "caption", f"Captioning {upload.original_name}", "completed", name=model
+            "caption",
+            f"Captioning {upload.original_name}",
+            "completed",
+            name=model,
+            duration_ms=elapsed_ms,
         )
         return text
 

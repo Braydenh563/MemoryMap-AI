@@ -10,6 +10,7 @@ saved preferences and falls back to the defaults.
 from __future__ import annotations
 
 import threading
+import time
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -476,6 +477,7 @@ def start_reindex(db: DatabaseManager, embeddings: Embedder) -> bool:
 
 
 def _run_reindex(db: DatabaseManager, embeddings: Embedder, job: Job) -> None:
+    started = time.monotonic()
     session = db.session()
     try:
         entries = list(
@@ -490,6 +492,7 @@ def _run_reindex(db: DatabaseManager, embeddings: Embedder, job: Job) -> None:
                     "Re-indexing your notes",
                     "cancelled",
                     f"stopped after {job.done} of {job.total}",
+                    duration_ms=(time.monotonic() - started) * 1000,
                 )
                 return
             # Drop the stale vector first so a failed re-embed never
@@ -513,6 +516,7 @@ def _run_reindex(db: DatabaseManager, embeddings: Embedder, job: Job) -> None:
             "Re-indexing your notes",
             "completed",
             f"{job.done} notes re-embedded with {embeddings.backend_id()}",
+            duration_ms=(time.monotonic() - started) * 1000,
         )
     except Exception as exc:  # a failed job must report, never crash the app
         job.status = "error"
@@ -521,7 +525,11 @@ def _run_reindex(db: DatabaseManager, embeddings: Embedder, job: Job) -> None:
         # dies halfway used to leave exactly the same empty screen as one that
         # finished, with the reason only in the log console.
         taskhistory.record(
-            "reindex", "Re-indexing your notes", "failed", str(exc)
+            "reindex",
+            "Re-indexing your notes",
+            "failed",
+            str(exc),
+            duration_ms=(time.monotonic() - started) * 1000,
         )
     finally:
         session.close()
@@ -543,13 +551,18 @@ def start_pull(client: OllamaClient, name: str) -> bool:
 
 
 def _run_pull(client: OllamaClient, name: str, job: Job) -> None:
+    started = time.monotonic()
     try:
         # Ollama streams progress lines with completed/total bytes (§6.5).
         for update in client.pull(name):
             if job.cancel_requested:  # user quit it from the tasks manager
                 job.status = "cancelled"
                 taskhistory.record(
-                    "pull", f"Downloading {name}", "cancelled", name=name
+                    "pull",
+                    f"Downloading {name}",
+                    "cancelled",
+                    name=name,
+                    duration_ms=(time.monotonic() - started) * 1000,
                 )
                 return
             if update.get("error"):
@@ -558,12 +571,23 @@ def _run_pull(client: OllamaClient, name: str, job: Job) -> None:
                 job.total = int(update["total"])
                 job.done = int(update.get("completed", job.done))
         job.status = "success"
-        taskhistory.record("pull", f"Downloaded {name}", "completed", name=name)
+        taskhistory.record(
+            "pull",
+            f"Downloaded {name}",
+            "completed",
+            name=name,
+            duration_ms=(time.monotonic() - started) * 1000,
+        )
     except OllamaError as exc:
         # Surface the failure so the UI can offer a retry — never leave
         # a half-download looking installed (§6.5).
         job.status = "error"
         job.error = str(exc)
         taskhistory.record(
-            "pull", f"Downloading {name}", "failed", str(exc), name=name
+            "pull",
+            f"Downloading {name}",
+            "failed",
+            str(exc),
+            name=name,
+            duration_ms=(time.monotonic() - started) * 1000,
         )

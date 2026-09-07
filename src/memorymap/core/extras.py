@@ -608,6 +608,7 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
             f"Installing {extra.label}",
             _state.outcome,
             _state.step,
+            duration_ms=(time.time() - _state.started) * 1000 if _state.started else None,
         )
         if constraints_copy is not None:
             constraints_copy.unlink(missing_ok=True)

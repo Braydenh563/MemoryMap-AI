@@ -4524,3 +4524,20 @@ button.recording.icon-btn {
     box-shadow: 0 0 0 4px var(--recording-ring);
   }
 }
+
+/* **Stop is the one control you reach for in a hurry.** Reported: "the stop
+   generating button needs aligning for its text and icon and needs
+   affordance". Two of the five stop buttons in the app shipped as bare text
+   while three had `ph-stop` beside a label -- so the same action looked like
+   a different control depending on which surface was generating. All five
+   now carry the icon, and all five wear the error colour: a tonal button in
+   a row of tonal buttons is the wrong weight for the action that interrupts
+   the model, and colour is what the eye finds first. */
+button.ghost.danger {
+  color: var(--error);
+  background: var(--error-soft);
+}
+
+button.ghost.danger:hover {
+  background: color-mix(in srgb, var(--error) 26%, transparent);
+}

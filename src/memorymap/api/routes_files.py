@@ -224,6 +224,7 @@ def list_attachment_gallery(session: Session = Depends(get_session)) -> list[Att
         )
         .order_by(Attachment.created_at.desc())
     ).all()
+    page_text = _page_read_text_map("attachment", [attachment.id for attachment, _ in rows])
     return [
         AttachmentGalleryOut(
             id=attachment.id,
@@ -236,7 +237,9 @@ def list_attachment_gallery(session: Session = Depends(get_session)) -> list[Att
             caption_model=attachment.caption_model or "",
             caption_edited=bool(attachment.caption_edited),
             ocr_text=attachment.ocr_text or "",
-            vision_ocr_text=attachment.vision_ocr_text or "",
+            #: Falls back to the page-by-page reading -- see
+            #: `_page_read_text_map` for why the two were not joined before.
+            vision_ocr_text=attachment.vision_ocr_text or page_text.get(attachment.id, ""),
             vision_ocr_model=attachment.vision_ocr_model or "",
             has_pages=Path(attachment.filename).suffix.lower() == ".pdf",
             size_bytes=_attachment_size(attachment),
@@ -1070,6 +1073,7 @@ def list_media(session: Session = Depends(get_session)) -> list[MediaUploadOut]:
             # dropping the row or raising.
             return 0
 
+    media_page_text = _page_read_text_map("upload", [u.id for u in uploads])
     return [
         MediaUploadOut(
             id=u.id,
@@ -1082,7 +1086,7 @@ def list_media(session: Session = Depends(get_session)) -> list[MediaUploadOut]:
             caption=u.caption or "",
             caption_model=u.caption_model or "",
             caption_edited=u.caption_edited,
-            vision_ocr_text=u.vision_ocr_text or "",
+            vision_ocr_text=u.vision_ocr_text or media_page_text.get(u.id, ""),
             vision_ocr_model=u.vision_ocr_model or "",
             created_at=u.created_at.isoformat() if u.created_at else "",
         )
@@ -1964,6 +1968,46 @@ def _remember_page_read(key: tuple[str, int] | None, result: OcrPageReadOut, rea
             session.commit()
     except Exception:  # noqa: BLE001 - a cache write must never fail a read
         logger.debug("could not store the page reading", exc_info=True)
+
+
+def _page_read_text_map(kind: str, ids: list[int]) -> dict[int, str]:
+    """The joined per-page reading for each of `ids`, page order, one query.
+
+    **Why a list endpoint needs this at all.** Reported: "the extracted ocr for
+    files doesnt actually appear in the file rows in the files library subtab".
+    A whole-file reading is stored on the row itself (`vision_ocr_text`); a PDF
+    read *page by page* in the OCR workspace is stored as `PageRead` rows
+    instead, and nothing joined the two — so a document with every page read
+    still said "No text yet" everywhere outside the workspace, including to
+    anyone scanning the library for it.
+
+    One grouped query rather than one per row: these endpoints render whole
+    galleries, and the same lookup done per row is the N+1 that makes a library
+    of a hundred files feel broken.
+    """
+    #: `kind` is the same vocabulary `_page_read_key` writes: "attachment" for
+    #: a file hanging off a note, "upload" for one in the media gallery. Using
+    #: the route prefixes ("file"/"media") here instead would match no rows at
+    #: all and fail silently, which is the shape this join exists to fix.
+    if not ids:
+        return {}
+    try:
+        with deps.get_db().session() as session:
+            rows = (
+                session.query(PageRead)
+                .filter(PageRead.kind == kind, PageRead.source_id.in_(ids))
+                .order_by(PageRead.source_id.asc(), PageRead.page.asc())
+                .all()
+            )
+    except Exception:  # noqa: BLE001 - an unreadable cache is an empty one
+        logger.debug("could not load stored page readings for a list", exc_info=True)
+        return {}
+    out: dict[int, list[str]] = {}
+    for row in rows:
+        text = (row.text or "").strip()
+        if text:
+            out.setdefault(row.source_id, []).append(text)
+    return {source_id: "\n\n".join(parts) for source_id, parts in out.items()}
 
 
 def _stored_page_reads(key: tuple[str, int] | None) -> list[OcrPageReadOut]:

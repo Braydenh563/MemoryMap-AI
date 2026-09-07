@@ -6704,3 +6704,20 @@ button.connection-row {
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
+
+/* The sections belonging to the page on screen, in the reading panel beside
+   it. A tone, not a border: this marks *where you are*, and the panel already
+   has a selected state (`.is-found`) that a second outline would compete
+   with. See `ocrRevealRegionsForPage` in library.js. */
+.ocr-region.is-current-page {
+  background: var(--surface-3);
+}
+
+/* A section you can click is a section that says so. */
+.ocr-region {
+  cursor: pointer;
+}
+
+.ocr-region:hover {
+  background: var(--surface-2);
+}

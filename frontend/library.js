@@ -2657,6 +2657,16 @@ function ocrRenderRegions(body) {
     const row = document.createElement("li");
     row.className = "ocr-region";
     row.dataset.index = String(region.index);
+    //: **The two panes are one document, read from either side.** Asked for
+    //: directly: "each page I am on it aoto scrolls to the extracted text in
+    //: the pannel for extracted text on the right, and if I click on a
+    //: specific text section of extracted text in the right panel it should
+    //: auto scroll me to that page on the file."
+    //:
+    //: This half is the click: the row records which page it came from, and
+    //: `ocrWireRegionJump` (below) turns that into a page change. The other
+    //: half is `ocrRevealRegionsForPage`, called wherever the page changes.
+    row.dataset.page = String(ocrRegionPage(region, body));
     const head = document.createElement("div");
     head.className = "row ocr-region-head";
     //: **Where this block came from, on the row itself.** Asked for: "make it
@@ -2807,6 +2817,7 @@ function ocrRenderRegions(body) {
     text.addEventListener("click", (event) => event.stopPropagation());
     row.append(head, text);
     row.addEventListener("click", () => ocrSelectRegion(region.index));
+    ocrWireRegionJump(row);
     list.appendChild(row);
   }
   if (!ocrWorkspaceRegions.length && !body.message) {
@@ -3709,6 +3720,10 @@ function ocrScrollToPage(page) {
 //: counter is not decoration in a document reader — without it "next page"
 //: is a button with no idea how many times it can be pressed.
 function ocrSyncPager(image) {
+  //: Every path that changes the page ends here -- the pager buttons, the
+  //: rail, and continuous scrolling -- which makes it the one place the
+  //: reading panel has to be told to follow. See `ocrRevealRegionsForPage`.
+  ocrRevealRegionsForPage(ocrWorkspacePage);
   const pager = $("ocr-pager");
   const label = $("ocr-page-label");
   const multi = ocrIsPdf(image) && ocrWorkspacePages > 1;
@@ -3831,6 +3846,56 @@ function ocrReaderName() {
 //: words become searchable; until now the result was a list you scrolled with
 //: your eyes. Filters the region rows and says how many matched, so an empty
 //: result is a statement rather than a blank pane.
+//: Which page a region belongs to. A whole-page reading carries `region.page`;
+//: a Tesseract box carries none and belongs to whichever page was read, which
+//: the response records as `body.page`.
+function ocrRegionPage(region, body) {
+  if (Number.isInteger(region.page)) return region.page;
+  return Number(body && body.page) || 0;
+}
+
+//: Panel -> page. Click anywhere in a section that is not already a control
+//: (its Copy and Delete buttons stop propagation of their own) and the page
+//: pane goes to the page that section was read from.
+function ocrWireRegionJump(row) {
+  row.addEventListener("click", (event) => {
+    if (event.target.closest("button, a, input, textarea")) return;
+    const page = Number(row.dataset.page);
+    const image = ocrWorkspaceCurrent;
+    if (!image || !Number.isInteger(page) || page === ocrWorkspacePage) return;
+    if (page < 0 || page >= ocrWorkspacePages) return;
+    ocrLoadPage(image, page);
+  });
+}
+
+//: Page -> panel. Marks every section belonging to the page on screen and
+//: brings the first of them into view, so changing page never leaves the
+//: reading panel showing a different part of the document.
+//:
+//: `ocrRegionScrollLock` is the same guard `ocrScrollToPage` needs and for the
+//: same reason: in continuous mode a programmatic scroll of one pane fires the
+//: scroll listener of the other, and without it the two chase each other.
+let ocrRegionScrollLock = false;
+
+function ocrRevealRegionsForPage(page) {
+  const list = $("ocr-region-list");
+  if (!list || ocrRegionScrollLock) return;
+  const rows = [...list.querySelectorAll(".ocr-region")];
+  if (!rows.length) return;
+  let first = null;
+  for (const row of rows) {
+    const mine = Number(row.dataset.page) === page;
+    row.classList.toggle("is-current-page", mine);
+    if (mine && !first && !row.classList.contains("hidden")) first = row;
+  }
+  if (!first) return;
+  ocrRegionScrollLock = true;
+  first.scrollIntoView({ block: "nearest", behavior: "auto" });
+  setTimeout(() => {
+    ocrRegionScrollLock = false;
+  }, 300);
+}
+
 function ocrApplyFind() {
   const query = ($("ocr-find")?.value || "").trim().toLowerCase();
   const rows = [...document.querySelectorAll("#ocr-region-list .ocr-region")];

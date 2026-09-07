@@ -6181,6 +6181,54 @@ stand-in server never sent one, so that half of the caveat is unchanged.
 CLAUDE.md's own standing caveat and ROADMAP.md's opening paragraph are
 updated to say precisely this, not more.
 
+## §115 — Links gets group controls, and one control in the top bar catches up
+
+Two live reports, both small, both worth recording for the shape rather than
+the fix.
+
+**"Add buttons for creating and managing groups in the links tab top dock."**
+The Links sub-tab has always had groups — you type a name into the Add form
+and a filter chip appears — but no way to make, rename or retire one. The
+dock now carries **New group** and **Manage groups**. Rename moves every link
+carrying the name (one `PUT /bookmarks/{id}` each, sequentially, because that
+is the only endpoint there is); delete keeps the links and only clears the
+name, since conflating "tidy up my groups" with "delete my bookmarks" would
+make a housekeeping button destructive by surprise.
+
+**The thing to know before extending this**: *a group is a name on a
+bookmark, not a row in a table.* `routes_bookmarks.py` stores `group_name` as
+a plain string field and the chips are derived from whatever names the
+current links happen to carry. That model is good — nothing to
+garbage-collect — but it has one hole: an empty group cannot exist
+server-side, so "New group" would create something that vanished on the next
+render. The placeholder is remembered in `localStorage`
+(`library-links-empty-groups`) until a link lands in it, and pruned the
+moment the derived name becomes real. That is a patch over the hole, not a
+pattern to copy; a real group entity is the honest fix if grouping ever grows
+teeth (colours, ordering, nesting, sharing).
+
+Measured in Chromium end to end: renaming "Work" moved both its links and the
+chips followed; deleting "Reading" left every link in place with an empty
+group; a new empty group appeared as a chip, in the datalist, and pre-filled
+into the Add form. At 1280x620 with fifteen groups the dialog fits on screen,
+its list scrolls (838/310) and the footer stays visible.
+
+**"The spaces combobox in the top bar isn't the same height as the buttons on
+the other side."** Measured: 28px against 36px for the five icon buttons, the
+divider and the tab strip. `--header-control-h` is the token the whole bar
+reads, but the rule that applies it is `.header-controls > button` — and the
+switcher is not in `.header-controls`, it sits in its own `.space-switcher`
+wrapper on the opposite side. So it silently fell back to `button.small`'s
+28px floor. **The shape worth remembering**: a design token only reaches what
+a selector hands it to, so a control moved out of the container the rule names
+loses the token without anything failing. Verified 36px at five widths and all
+three densities, identical to every other control in the row.
+
+A sweep for the same defect across every tab's toolbars found one other
+height mismatch, and it is deliberate: `#search-help` is a 32px circle beside
+38px controls, already argued for in a comment in `00-tokens-shell.css`.
+Left alone.
+
 ## Retired from the live files, 2026-09-07
 
 By direct instruction ("make sure nothing that is already built is still in the roadmap and backlog unless it isnt finished"): every item ROADMAP.md and BACKLOG.md themselves marked done, built or closed, moved here verbatim so the live files hold only open work.

@@ -33,6 +33,12 @@ A bug-fix and consistency release, from one long round of live reports.
 - **Chat: every finished answer step kept its blinking caret** during an agent
   run, and the caret sat on a line of its own whenever an answer ended in a
   list.
+- **The spaces switcher in the top bar was shorter than everything beside
+  it** — 28px against 36px for the tabs and the five icon buttons.
+- **The whiteboard's view dropdown had a horizontal scrollbar**, and long
+  dropdown menus could run off the bottom of the window instead of scrolling.
+  Every popover menu is now capped to the window height and scrolls inside
+  itself.
 - **A horizontal scrollbar on Notes → Capture**: measured at three widths as
   exactly the scrollbar's own width of phantom overflow, plus a head row that
   crushed its own controls by 30px.
@@ -63,6 +69,11 @@ the bump, not everything it implies — a fuller reconciliation against the
 intervening commits is still owed.
 
 ### Added
+- **Groups for saved links, with buttons to make and manage them.** The Links
+  sub-tab's top dock now has **New group** and **Manage groups**. Renaming a
+  group moves every link in it; deleting one keeps the links and simply
+  ungroups them. A group you make before filing anything into it is remembered
+  until a link lands there.
 - **Document history.** Every version a document has had, with who changed it,
   how many words it gained or lost, the opening of that version, and a way to
   read or restore any of them. A stretch of editing coalesces into one entry

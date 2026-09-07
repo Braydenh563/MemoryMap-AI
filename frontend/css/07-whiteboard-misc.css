@@ -6029,8 +6029,12 @@ button.connection-row {
   left: 0;
   right: 0;
   width: fit-content;
-  margin-inline: auto;
-  bottom: 0.5rem;
+  /* `.card` carries a 1rem bottom margin, which an absolutely positioned
+     box still honours — measured: `bottom: 8px` rendered 24px off the
+     edge. Reported: "lower the bottom panel elements closer to the bottom
+     as they take up so much space." Margin zeroed, inset one step smaller. */
+  margin: 0 auto;
+  bottom: var(--space-2);
   transform: none;
   padding: var(--space-1) var(--space-2);
   gap: var(--space-1);
@@ -6076,10 +6080,16 @@ button.connection-row {
 }
 
 .whiteboard-floating-panel.bottom-right {
-  bottom: 0.5rem;
+  bottom: var(--space-2);
   right: 0.5rem;
+  margin: 0;
   padding: var(--space-1);
   gap: 0;
+}
+
+.wb-topbar,
+.whiteboard-floating-panel.mid-right {
+  margin: 0;
 }
 
 /* The properties drawer: fixed to the right edge between the top bar and
@@ -6092,7 +6102,7 @@ button.connection-row {
      a narrow board its wrapped rows reach under this column (measured at
      820px: dock right edge 609, drawer left edge 584). The row is never
      shorter than the zoom cluster, so this clears both. */
-  bottom: calc(0.5rem + var(--wb-h-tools) + var(--space-3));
+  bottom: calc(var(--space-2) + var(--wb-h-tools) + var(--space-3));
   width: 13.5rem;
   max-height: none;
   padding: var(--space-3);
@@ -6104,7 +6114,7 @@ button.connection-row {
   top: calc(0.5rem + var(--wb-h-topbar) + var(--space-3));
   right: 0.5rem;
   height: auto;
-  bottom: calc(0.5rem + var(--wb-h-tools) + var(--space-3));
+  bottom: calc(var(--space-2) + var(--wb-h-tools) + var(--space-3));
   max-height: none;
 }
 
@@ -6114,7 +6124,7 @@ button.connection-row {
 
 .wb-navigator {
   right: 0.5rem;
-  bottom: calc(0.5rem + var(--wb-h-tools) + var(--space-3));
+  bottom: calc(var(--space-2) + var(--wb-h-tools) + var(--space-3));
 }
 
 /* Narrow boards: the top bar's right half wraps under its left half, the
@@ -6169,8 +6179,59 @@ button.connection-row {
   display: none !important;
 }
 
-.wb-panel-switches {
+/* Board menu rows: name left, control right, one height. */
+.wb-menu-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.wb-menu-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-1) var(--space-3);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 2rem;
+  font-size: var(--text-sm);
+  color: var(--ink);
+  cursor: default;
+}
+
+.wb-menu-row.wb-snap-label {
+  cursor: pointer;
+}
+
+.wb-menu-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.wb-board-menu .wb-menu-row select {
+  flex: none;
+  max-width: 8rem;
+}
+
+/* Properties drawer rows follow the same name-left / control-right grid,
+   so a colour swatch, a number box, a select and a switch all line up on
+   the same right edge instead of each sitting wherever flex left it. */
+#wb-properties-panel .wb-properties-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 2rem;
+  padding: 0;
+}
+
+#wb-properties-panel .wb-properties-row > span:first-child {
+  color: var(--ink);
+}
+
+#wb-properties-panel .wb-inline-controls {
+  gap: var(--space-1);
+}
+
+#wb-properties-panel .wb-properties-group input[type="range"] {
+  width: 6.5rem;
 }

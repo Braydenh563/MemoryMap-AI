@@ -3251,42 +3251,56 @@ Link to another note with [[its first few words]]."></textarea>
         <button id="wb-add-note" class="ghost small wb-panel-primary" title="Toggle the note library (drag notes onto the board)"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i> Library</button>
         <div class="wb-board-menu-wrap">
           <button id="wb-board-menu-toggle" class="ghost small icon-button" type="button" title="Board: look, grid, export, clear" aria-label="Board menu" aria-haspopup="true" aria-expanded="false" aria-controls="wb-board-menu"><i class="ph ph-dots-three-outline" aria-hidden="true"></i></button>
+          <!-- **Rows, not a pile.** Reported with a screenshot: "buttons and
+               things slapped on panels in a general order and just left at
+               that." Every setting here is now one row — its name on the
+               left, its control on the right — the shape every Settings
+               page and every app the user named uses. Same ids as before. -->
           <div id="wb-board-menu" class="wb-board-menu card glass hidden" role="menu" aria-label="Board menu">
-            <div class="wb-panel-group">
+            <div class="wb-menu-section">
               <span class="wb-panel-group-label">Look</span>
-              <div class="wb-panel-group-row">
-                <input type="color" id="wb-bg-color-picker" aria-label="Board background colour" title="Board background colour" value="#1b1f2c" class="wb-color-picker">
-                <button id="wb-bg-color-reset" class="ghost small icon-button" type="button" title="Reset the background colour to the theme default" aria-label="Reset the background colour to the theme default"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
-                <button id="wb-bg-image" class="ghost small icon-button" type="button" title="Set a background image" aria-label="Set a background image"><i class="ph ph-image" aria-hidden="true"></i></button>
+              <div class="wb-menu-row">
+                <span>Background</span>
+                <span class="wb-menu-controls">
+                  <input type="color" id="wb-bg-color-picker" aria-label="Board background colour" title="Board background colour" value="#1b1f2c" class="wb-color-picker">
+                  <button id="wb-bg-color-reset" class="ghost small icon-button" type="button" title="Reset the background colour to the theme default" aria-label="Reset the background colour to the theme default"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
+                  <button id="wb-bg-image" class="ghost small icon-button" type="button" title="Set a background image" aria-label="Set a background image"><i class="ph ph-image" aria-hidden="true"></i></button>
+                </span>
               </div>
-              <div class="wb-panel-group-row">
+              <div class="wb-menu-row">
+                <span>Grid</span>
                 <select id="wb-grid-select" aria-label="Grid style" title="Grid style" class="ghost small">
-                  <option value="none">No grid</option>
-                  <option value="lines">Grid: lines</option>
-                  <option value="dots">Grid: dots</option>
-                  <option value="iso">Grid: isometric</option>
+                  <option value="none">None</option>
+                  <option value="lines">Lines</option>
+                  <option value="dots">Dots</option>
+                  <option value="iso">Isometric</option>
                 </select>
-                <label class="wb-snap-label" title="Snap items to the grid while dragging">
-                  <input type="checkbox" id="wb-snap-toggle">
-                  <span>Snap</span>
-                </label>
               </div>
+              <label class="wb-menu-row wb-snap-label" title="Snap items to the grid while dragging">
+                <span>Snap to grid</span>
+                <input type="checkbox" id="wb-snap-toggle">
+              </label>
             </div>
             <input type="file" id="wb-bg-image-input" aria-label="Choose a board background image" title="Choose a board background image" accept="image/*" class="hidden" aria-hidden="true">
-            <div class="wb-panel-group">
+            <div class="wb-menu-section">
               <span class="wb-panel-group-label">Panels</span>
-              <div class="wb-panel-group-row wb-panel-switches">
-                <label class="wb-snap-label" title="Show the properties drawer when something is selected or a drawing tool is active"><input type="checkbox" id="wb-panel-props" checked><span>Properties</span></label>
-                <label class="wb-snap-label" title="The board overview (N)"><input type="checkbox" id="wb-panel-overview"><span>Overview</span></label>
-                <label class="wb-snap-label" title="The note library"><input type="checkbox" id="wb-panel-library"><span>Library</span></label>
-                <label class="wb-snap-label" title="Find a card on this board (Ctrl+F)"><input type="checkbox" id="wb-panel-search"><span>Search</span></label>
-              </div>
+              <label class="wb-menu-row wb-snap-label" title="Show the properties drawer when something is selected or a drawing tool is active"><span>Properties</span><input type="checkbox" id="wb-panel-props" checked></label>
+              <label class="wb-menu-row wb-snap-label" title="The board overview (N)"><span>Overview</span><input type="checkbox" id="wb-panel-overview"></label>
+              <label class="wb-menu-row wb-snap-label" title="The note library"><span>Library</span><input type="checkbox" id="wb-panel-library"></label>
+              <label class="wb-menu-row wb-snap-label" title="Find a card on this board (Ctrl+F)"><span>Search</span><input type="checkbox" id="wb-panel-search"></label>
             </div>
-            <div class="wb-panel-group">
+            <div class="wb-menu-section">
               <span class="wb-panel-group-label">Board</span>
-              <div class="wb-panel-group-row">
-                <button id="wb-export" class="ghost small" type="button" title="Export this board"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export</button>
-                <button id="wb-dock-toggle" class="ghost small" type="button" title="Dock as a sidebar" aria-label="Dock as a sidebar"><i class="ph ph-sidebar-simple ph-lead" aria-hidden="true"></i> Toolbar</button>
+              <div class="wb-menu-row">
+                <span>Toolbar</span>
+                <button id="wb-dock-toggle" class="ghost small" type="button" title="Dock as a sidebar" aria-label="Dock as a sidebar"><i class="ph ph-sidebar-simple ph-lead" aria-hidden="true"></i> Bottom</button>
+              </div>
+              <div class="wb-menu-row">
+                <span>Export</span>
+                <button id="wb-export" class="ghost small" type="button" title="Export this board"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export…</button>
+              </div>
+              <div class="wb-menu-row">
+                <span>Everything on it</span>
                 <button id="wb-clear-board" class="ghost small wb-panel-danger" type="button" title="Clear this board"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Clear</button>
               </div>
             </div>
@@ -3602,10 +3616,13 @@ Link to another note with [[its first few words]]."></textarea>
       <div class="wb-properties-group" id="wb-style-transfer-group">
         <span class="wb-properties-group-label">Copy style</span>
         <div class="wb-properties-row">
-          <button type="button" id="wb-copy-style" class="ghost small"
-            title="Copy this item's colour, thickness and fill (Ctrl+Alt+C)">Copy</button>
-          <button type="button" id="wb-paste-style" class="ghost small"
-            title="Paste the copied style onto what is selected (Ctrl+Alt+V)">Paste</button>
+          <span>Colour, thickness, fill</span>
+          <span class="row wb-inline-controls">
+            <button type="button" id="wb-copy-style" class="ghost small icon-button"
+              title="Copy this item's style (Ctrl+Alt+C)" aria-label="Copy style"><i class="ph ph-copy" aria-hidden="true"></i></button>
+            <button type="button" id="wb-paste-style" class="ghost small icon-button"
+              title="Paste the copied style onto what is selected (Ctrl+Alt+V)" aria-label="Paste style"><i class="ph ph-clipboard-text" aria-hidden="true"></i></button>
+          </span>
         </div>
       </div>
       <div class="wb-properties-group" id="wb-tool-style-group">

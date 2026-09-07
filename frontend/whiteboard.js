@@ -4417,6 +4417,8 @@ async function initWhiteboard() {
     const applyDock = (dock) => {
       toolsPanel.dataset.dock = dock;
       dockToggle.title = dock === "bottom" ? "Dock as a sidebar" : "Dock as a bottom bar";
+      // The button reads as the current state, the tooltip as the action.
+      setLabel(dockToggle, dock === "bottom" ? "ph:sidebar-simple Bottom" : "ph:sidebar-simple Side");
     };
     applyDock(localStorage.getItem("wb-toolbar-dock") || "bottom");
     dockToggle.addEventListener("click", () => {

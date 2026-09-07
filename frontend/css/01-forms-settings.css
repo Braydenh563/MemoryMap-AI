@@ -4218,9 +4218,20 @@ select {
    rows wrap, so a wider button moves to the next line instead of pushing
    anything off screen, and a two-line label in a control strip was never the
    intended look. */
-#settings-modal .settings-section button,
+#settings-modal .settings-section button:not([class*="card"]):not([class*="tile"]):not([class*="swatch"]):not([class*="preview"]),
 #settings-modal .settings-section summary {
   white-space: nowrap;
+}
+
+/* And nothing inside a card wraps by that rule either. Reported: "the palette
+   ui is still broken and text overflows". `nowrap` was added to stop a
+   two-word *control* label breaking onto a second line inside a fixed-height
+   box; a palette card is a paragraph, so the same declaration ran its
+   description off the side of the card and straight through the two cards
+   beside it. A card's text wraps -- that is what a card is. */
+#settings-modal .settings-section [class*="card"],
+#settings-modal .settings-section [class*="card"] * {
+  white-space: normal;
 }
 
 /* A range input has no box of its own to size, so it is centred against the
@@ -4255,4 +4266,85 @@ select {
 #search-relevance-group .row > input {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+/* ============ SETTINGS: spacing, hierarchy and proximity =================
+   Reported: "fix the spacing between the ai answer style and search relevance
+   advanced section... and fix the spacing headings hierarchy alignment sizing
+   and proximity across the rest of the settings pages", plus two specifics --
+   the Effects & Accessibility toggles clashing, and the backup rows' buttons
+   being different heights with an off-centre glyph.
+
+   The organising idea is proximity: things that belong together sit closer
+   than things that do not. Before this, a sub-heading was the same distance
+   from the control above it as from the one it introduces, which is what makes
+   a settings page read as an undifferentiated stack however well each row is
+   drawn on its own. */
+
+/* A heading is close to what it heads and far from what came before. */
+#settings-modal .settings-group h3,
+#settings-modal .settings-group h4 {
+  margin: var(--space-6) 0 var(--space-3);
+  line-height: 1.3;
+}
+
+#settings-modal .settings-group > h3:first-child,
+#settings-modal .settings-group > h4:first-child {
+  margin-top: 0;
+}
+
+/* A sub-section that starts with its own header row rather than a bare
+   heading -- Search relevance is the one the report names -- needs the gap on
+   the wrapper, since its heading is a grandchild and the rule above cannot
+   reach across the row it sits in. */
+#settings-modal .settings-group > .flash-target,
+#settings-modal .settings-group > .settings-subgroup {
+  margin-top: var(--space-6);
+}
+
+#settings-modal .settings-group > .flash-target > .row:first-child h3 {
+  margin-top: 0;
+}
+
+/* The hint under a heading belongs to it, so it sits tight underneath and the
+   next control keeps its distance. */
+#settings-modal .settings-group h3 + p.muted,
+#settings-modal .settings-group h4 + p.muted,
+#settings-modal .settings-group .setting-subhead + p.muted {
+  margin-top: calc(var(--space-2) * -1);
+  margin-bottom: var(--space-4);
+}
+
+/* Two switch rows are two settings, not one block. Reported with a screenshot
+   of Effects & Accessibility, where the pair rendered as a single bordered
+   slab because their borders met exactly. */
+#settings-modal .setting-check + .setting-check,
+#settings-modal .check-row + .check-row {
+  margin-top: var(--space-2);
+}
+
+/* The backup rows' two buttons share one height, and the icon-only one is a
+   square of that height rather than whatever its glyph happens to measure.
+   `.entry-actions button` shrinks both to 0.8rem text with 0.15rem padding,
+   which gives a wide "Restore" and a small "x" that do not line up. */
+#backup-list .entry-actions {
+  align-items: center;
+  gap: var(--space-2);
+}
+
+#backup-list .entry-actions button {
+  /* 2.25rem, matching the panel's one control height above rather than
+     picking a second one here -- that rule's `:not()` chain out-specifies
+     anything shorter this rule could say, so a smaller number would only
+     apply to the icon-only button and re-create the mismatch it is fixing.
+     Measured before: Restore 70x36 beside a 30x30 "x". */
+  height: 2.25rem;
+  padding-block: 0;
+  font-size: var(--text-md);
+  line-height: 1;
+}
+
+#backup-list .entry-actions button.icon-only {
+  width: 2.25rem;
+  padding-inline: 0;
 }

@@ -2082,14 +2082,44 @@ label.setting-check,
 /* A button that reads as a link — used for "that setting lives over there"
    cross-links, which must be buttons for the keyboard but must not look like
    one more thing to press. */
+/* An inline link inside a sentence, and it has to read as one. Reported:
+   "a lot of the inline hyperlinks and badges have poor spacing and padding
+   around the text" -- with `padding: 0` and a default underline the rule sat
+   straight through the descenders of "open Settings -> Web search" and the
+   whole phrase ran into the words either side of it with no air at all.
+
+   The three properties that fix an inline link are all typographic rather
+   than box-model: drop the underline away from the baseline, thin it so it
+   reads as a link and not as a strikethrough one line down, and let it skip
+   descenders. A hair of inline padding gives the phrase its own space in the
+   sentence without changing the line box, which real padding would. */
 .linklike {
   background: none;
   border: none;
-  padding: 0;
+  padding: 0 0.1em;
   font: inherit;
   color: var(--accent);
   text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  text-decoration-skip-ink: auto;
   cursor: pointer;
+}
+
+.linklike:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* A badge sitting *in* a sentence, rather than in a row of its own. In a row
+   the parent's `gap` spaces it; in prose there is no gap, so two chips or a
+   chip and a word butt straight together. Margin rather than padding, so the
+   pill itself keeps the shape it has everywhere else. */
+p .chip,
+li > .chip,
+.muted .chip,
+span > .chip {
+  margin-inline: 0.15em;
+  vertical-align: baseline;
 }
 
 /* --- back-to-top button ---------------------------------------------------- */

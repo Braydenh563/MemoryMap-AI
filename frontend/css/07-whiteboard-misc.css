@@ -7040,3 +7040,18 @@ header#top-bar > #tab-bar {
   top: calc((1.15rem - var(--target-min)) / 2 - 0.1rem);
   bottom: calc((1.15rem - var(--target-min)) / 2 - 0.1rem);
 }
+
+/* --- PLAN.md D1: the documents dock's formatting strip hides entirely ------
+   Only `#doc-toolbar` — the note capture and edit strips keep the collapsed
+   36px shape, because they have no header button to bring them back and a
+   control that hides its own way back is a trap (05-sidebars-themes.css).
+   Here the header's Formatting button is that way back, so the strip can
+   give all of its height to the text: chrome above the panes measured
+   139px → see the commit. */
+#doc-toolbar.is-collapsed {
+  display: none;
+}
+
+#doc-format-toggle[aria-pressed="true"] {
+  background: var(--ghost-btn-bg-hover);
+}

@@ -3464,6 +3464,17 @@ function docToolbarCollapsed() {
 //: mounted before insertion, which is exactly what the note edit form's cloned
 //: strip is, ended up with two blank buttons.
 function applyDocToolbarCollapsed(collapsed, only = null) {
+  // The documents dock's own strip has a toggle in the header row (PLAN.md
+  // D1); the strip itself hides entirely while collapsed, so the header
+  // button is the way back and must say which state it is in.
+  const headerToggle = $("doc-format-toggle");
+  if (headerToggle && (!only || only.id === "doc-toolbar")) {
+    headerToggle.setAttribute("aria-pressed", collapsed ? "false" : "true");
+    headerToggle.title = collapsed
+      ? "Show the formatting tools"
+      : "Hide the formatting tools";
+    headerToggle.setAttribute("aria-label", headerToggle.title);
+  }
   for (const bar of only ? [only] : document.querySelectorAll(".doc-toolbar")) {
     bar.classList.toggle("is-collapsed", collapsed);
     const button = bar.querySelector(".doc-toolbar-collapse");
@@ -3544,6 +3555,9 @@ function mountDocToolbarControlsFor(bar) {
 }
 
 function mountDocToolbarControls() {
+  $("doc-format-toggle")?.addEventListener("click", () =>
+    setDocToolbarCollapsed(!docToolbarCollapsed())
+  );
   for (const bar of document.querySelectorAll(".doc-toolbar")) mountDocToolbarControlsFor(bar);
   applyDocToolbarLayoutButtons();
   applyDocToolbarCollapsed(docToolbarCollapsed());

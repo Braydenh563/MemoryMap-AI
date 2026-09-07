@@ -2365,10 +2365,18 @@ Link to another note with [[its first few words]]."></textarea>
               <button type="button" data-doc-view="rendered"
                 title="The finished document on its own, full width, with no editor"><i class="ph ph-book-open ph-lead" aria-hidden="true"></i> Read</button>
             </div>
+            <!-- PLAN.md D1: the formatting strip is hidden until asked for,
+                 and this is what asks. It used to collapse to a 36px strip of
+                 its own ("Formatting ▾" and three icons) under this row —
+                 measured, 139px of chrome above the first line at 1440. One
+                 button here, one strip that appears below only while on. -->
+            <button id="doc-format-toggle" class="ghost small icon-only" type="button"
+              aria-controls="doc-toolbar" aria-pressed="false" aria-label="Show the formatting tools"
+              title="Show the formatting tools"><i class="ph ph-text-aa" aria-hidden="true"></i></button>
             <button id="doc-ai" class="ghost small" type="button"
               title="Ask the AI to rewrite this document, or the text you've selected"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> AI edit</button>
-            <button id="doc-extract" class="ghost small" type="button"
-              title="Turn this document (or the text you've selected) into one or more notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Extract notes</button>
+            <button id="doc-extract" class="ghost small icon-only" type="button"
+              title="Turn this document (or the text you've selected) into one or more notes, auto-linked to what they relate to" aria-label="Extract notes"><i class="ph ph-scissors" aria-hidden="true"></i></button>
             <!-- Export and delete, folded away. Same `<details>` disclosure
                  the Library's image tiles use, for the same reason: the
                  browser gives the open/close, the keyboard handling and the

@@ -1155,7 +1155,22 @@ function selectionBarShow(textarea) {
   const { top, left, lineHeight } = editorCaretPoint(textarea);
   const size = bar.getBoundingClientRect();
   const margin = 8;
-  const boxTop = textarea.getBoundingClientRect().top;
+  //: **The boundary is the editing *pane*, not the box the caret is in**, and
+  //: the two are only the same thing when the surface is one textarea.
+  //:
+  //: The Live view gives every paragraph its own `.lp-src` box, so
+  //: `textarea.getBoundingClientRect().top` is the top of *that paragraph* —
+  //: and the rule below then read every selection in Live as "on the first
+  //: line, flip the bar below it". Measured: selecting inside the third
+  //: paragraph put the bar at y=358 against a selection at y=328, i.e. under
+  //: the words instead of above them, covering the next line of the document
+  //: every single time. What is actually above a Live paragraph is more
+  //: document, which the bar may sit over quite happily; the thing it must not
+  //: cover is the formatting row above the *pane*.
+  const surface = textarea.classList.contains("lp-src")
+    ? document.getElementById("doc-live") || textarea
+    : textarea;
+  const boxTop = surface.getBoundingClientRect().top;
   let y = top - size.height - 6;
   //: **Above the line, unless that means on top of the fixed toolbar.** Every
   //: editing surface in this app has its own formatting row immediately above

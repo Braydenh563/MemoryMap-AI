@@ -1294,11 +1294,45 @@ function docLiveBlockOffset(box) {
   return found === -1 ? null : found;
 }
 
+//: **True while `renderDocLive` is replacing the pane's children.**
+//:
+//: Tearing out the block the caret is in fires that textarea's own `blur`, and
+//: the blur handler's job is to re-render the view — so it re-entered
+//: `renderDocLive` *from inside* `host.replaceChildren()` and the browser threw
+//: `NotFoundError: The node to be removed is no longer a child of this node.
+//: Perhaps it was moved in a 'blur' event handler?`.
+//:
+//: Measured, not reasoned: type one character in Live view and wait out the
+//: 400ms prose debounce — `renderDocProse` calls `renderDocLive(true)`, the
+//: exception escapes, and `document.activeElement` is `<body>`. Your caret was
+//: dropped mid-sentence, and nothing in the UI said so. It only shows up on
+//: the *pause* after a keystroke, which is why it reads as the editor randomly
+//: losing focus rather than as a crash.
+//:
+//: A blur caused by a render needs no render: the render already knows what it
+//: is about to draw.
+let docLiveRendering = false;
+
 function renderDocLive(keepActive = false) {
   const host = $("doc-live");
   if (!host || docView !== "live") return;
+  //: Re-entered from a blur this very render caused. Returning is correct
+  //: rather than merely safe — the outer call is still mid-flight and is
+  //: about to draw the state this one would have drawn.
+  if (docLiveRendering) return;
   const blocks = docLiveBlocks($("doc-content").value);
   if (!keepActive) docLiveActive = -1;
+  docLiveRendering = true;
+  try {
+    renderDocLiveBlocks(host, blocks, keepActive);
+  } finally {
+    docLiveRendering = false;
+  }
+}
+
+//: The body of `renderDocLive`, split out only so the guard above can wrap it
+//: in one `try`/`finally` without re-indenting fifty lines of block building.
+function renderDocLiveBlocks(host, blocks) {
   host.replaceChildren();
 
   // An empty document still needs somewhere to click. Without this the pane
@@ -1570,6 +1604,20 @@ function docLiveEditor(source, index) {
   });
 
   box.addEventListener("blur", () => {
+    //: **A blur this box did not cause is not a blur.** `renderDocLive`
+    //: replaces the whole pane, which detaches this textarea and fires `blur`
+    //: on the way out — and this handler then set `docLiveActive = -1` *in the
+    //: middle of the render that was about to re-create this very block*. The
+    //: loop reading `docLiveActive` a few lines later therefore matched
+    //: nothing, no editor was drawn, and the caret ended up on `<body>`.
+    //:
+    //: Measured, and it is the whole bug behind "the editor keeps losing my
+    //: cursor in Live view": type one character and wait 400ms, and the
+    //: debounced prose pass (`renderDocProse` -> `renderDocLive(true)`) does
+    //: exactly this. Before the re-entrancy guard was added it also threw
+    //: `NotFoundError` out of `replaceChildren`; silencing the throw alone
+    //: left the focus loss, because this line is the cause of it.
+    if (docLiveRendering) return;
     // Leaving the block renders it. Guarded on still being the active one:
     // a blur caused by clicking straight into another block already moved
     // `docLiveActive` on, and re-rendering for the old one would undo that.

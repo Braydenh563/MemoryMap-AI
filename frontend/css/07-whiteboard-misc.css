@@ -1130,23 +1130,22 @@ body.has-agent-monitor .doc-sidebar .doc-list {
 
 /* Notes list header and the semantic-search toggle beside the search box.
 
-   Asked for directly: "move the ui controls at the top of the all notes
-   subtab panel to the row below the all notes heading text". The panel's nine
-   controls and its heading shared one `.library-toolbar`, a wrapping flex row,
-   so where the heading ended and the toolbar began depended entirely on the
-   window width — at some sizes "All notes" sat inline with Select and the view
-   toggle as though it were another control, at others it happened to be alone.
-   A basis of 100% makes the heading claim its own line always, and the nine
-   controls wrap onto the row beneath it, which is the arrangement asked for
-   and the one that stays put at every width.
-
-   Done here rather than by wrapping the controls in a second element on
-   purpose: `.library-toolbar`'s own sizing rules (`--control-h`, the
-   `button`/`select`/`.seg` height row) are descendant selectors that a new
-   div would silently change the meaning of, and this panel has already been
-   through one round of those rules fighting each other on specificity. */
+   Asked for directly, twice: first "move the ui controls at the top of the
+   all notes subtab panel to the row below the all notes heading text" (the
+   panel's nine controls and its heading shared one `.library-toolbar`, a
+   wrapping flex row, so where the heading ended and the toolbar began
+   depended entirely on window width), then later "put the refresh button in
+   the top right corner of the notes panel in the same row as the title" —
+   which is what moved `#entries-heading` out of `.library-toolbar` into its
+   own `.library-head` row (index.html), alongside `#notes-refresh` only.
+   The other eight controls (Select, the view toggle, search, Semantic, Save
+   filter, the help disclosure) stay in `.library-toolbar` below, on their
+   own row, same as the first fix left them — moving the heading out of that
+   div is what keeps them from ever sharing a row with it again, so the
+   `flex: 1 0 100%` this rule used to force is no longer what's doing that
+   job, and inside `.library-head` it would instead push `#notes-refresh`
+   onto a second line, exactly the "same row" fix the second ask undoes. */
 .entries-heading {
-  flex: 1 0 100%;
   margin: 0 var(--space-1) 0 0;
 }
 
@@ -5211,8 +5210,10 @@ button.connection-row {
   /* **Above the tool row, not under it.** Measured at 1440x900: this strip
      rendered 960x40 at (240, 796) and the tools panel 882x54 at (34, 773) —
      an overlap across most of the strip's width, so the gestures it exists to
-     teach were sitting behind the toolbar. The tool row is `bottom: 1rem` and
-     54px tall, so clearing it means starting above ~5rem. */
+     teach were sitting behind the toolbar. The tool row was `bottom: 1rem`
+     and 54px tall, so clearing it meant starting above ~5rem; it is now
+     `bottom: 0.5rem` (see `.bottom-center` in 06-timeline-dialogs.css), which
+     only widens the gap this value already leaves. */
   bottom: 5.25rem;
   transform: translateX(-50%);
   z-index: 5;

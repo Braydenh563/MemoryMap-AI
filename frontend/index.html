@@ -939,7 +939,13 @@ Link to another note with [[its first few words]]."></textarea>
 
         <!-- Browse: everything you've saved -->
         <section class="card" id="browse">
-          <div class="library-toolbar">
+          <!-- Title and refresh share their own row, top-right corner of the
+               panel — the same `.library-head` pattern the Library card and
+               both sidebars use, not another item in the wrapping toolbar
+               row below. Asked for directly: "put the refresh button in the
+               top right corner of the notes panel in the same row as the
+               title." -->
+          <div class="row space-between library-head">
             <!-- The label lives in its own span: the heading also carries the
                  collapse chevron, and writing textContent on the h2 would
                  delete it on every re-render. -->
@@ -952,10 +958,12 @@ Link to another note with [[its first few words]]."></textarea>
                  something changed the notebook elsewhere — another device
                  syncing to the same data dir, a restore, an import — and the
                  list on screen is stale until the next full reload. Same icon,
-                 same class, same place in the toolbar as `#library-refresh`
+                 same class, same place in the row as `#library-refresh`
                  and its four siblings, not a fifth way of drawing "reload". -->
             <button id="notes-refresh" class="ghost small icon-only" type="button"
               title="Reload notes" aria-label="Reload notes"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+          </div>
+          <div class="library-toolbar">
             <button id="select-btn" class="ghost small" title="Select several notes to move, tag, or delete together"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Select</button>
             <!-- Reported directly: "half the screen is taken up by poor ui
                  choices or structuring." Measured: a two-line note occupied

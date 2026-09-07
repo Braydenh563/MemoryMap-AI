@@ -526,6 +526,14 @@ function wbCursorForTool(tool, strokeColor, strokeWidth) {
   }
   if (tool === "link-straight" || tool === "link-curved") return "crosshair";
   if (tool === "lasso") return "crosshair";
+  // Reported directly: "the cursor on the selection tool is wrong, it should
+  // be a mouse pointer." Select had no case here, so it fell through to the
+  // same `""` Pan returns — and `""` means "whatever the CSS says", which for
+  // `.whiteboard-container` is `cursor: grab`. So the one tool whose whole
+  // job is clicking things showed the open hand that means "drag the canvas",
+  // and the two modes were indistinguishable from the pointer alone. `default`
+  // (the plain arrow) is what every drawing app shows for select.
+  if (tool === "select") return "default";
   return ""; // pan: the CSS grab/grabbing pair already says it
 }
 

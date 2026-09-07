@@ -2247,8 +2247,16 @@
   max-width: min(18rem, 34vw);
 }
 
+/* Asked for directly: "the main tool panel sits right up against the
+   [gesture hint] popup notification" — both bottom-docked panels shared
+   `bottom: 1rem` with `#wb-gestures` fixed at `bottom: 5.25rem` above them,
+   which cleared the toolbar's own height but left under 1rem of visible
+   gap once borders and shadow were counted. Dropping both panels' own
+   `bottom` to 0.5rem does not touch the hint's position — it just leaves
+   more of that 5.25rem as open canvas above the panels instead of as
+   toolbar height. Both panels move together so they still share one edge. */
 .whiteboard-floating-panel.bottom-right {
-  bottom: 1rem;
+  bottom: 0.5rem;
   right: 1rem;
 }
 
@@ -2256,7 +2264,7 @@
    move and is left as-is since it's also the drag/reset storage key
    (`wb-panel-pos-tools`) and the [data-dock="side"] override below. */
 .whiteboard-floating-panel.bottom-center {
-  bottom: 1rem;
+  bottom: 0.5rem;
   left: 1rem;
   border-radius: var(--radius-pill);
   /* Measured across eight viewports: this row is ~900px of tools and the zoom

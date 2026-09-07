@@ -3136,7 +3136,12 @@ Link to another note with [[its first few words]]."></textarea>
     <div id="wb-boards-landing">
       <section class="card glass">
         <div class="row space-between library-head">
-          <h2>Whiteboards</h2>
+          <!-- "Boards & maps", matching the sub-tab that opens it. It read
+               "Whiteboards" while the tab above it read "Boards & maps", which
+               was survivable when a map was only a board someone had drawn a
+               tree on — and stops being so now that a map is a first-class
+               kind with its own filter chip two lines below this heading. -->
+          <h2>Boards &amp; maps</h2>
           <span class="row">
             <!-- Parity with the Documents subtab's own search box (reported:
                  the two lists sat side by side with only one able to filter
@@ -3170,6 +3175,13 @@ Link to another note with [[its first few words]]."></textarea>
               <button class="icon-only" data-library-view="list" type="button" title="Rows" aria-label="Rows"><i class="ph ph-list" aria-hidden="true"></i></button>
             </div>
             <button id="wb-boards-new" class="small" type="button"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New board</button>
+            <!-- A map is a board with a `type` (MINDMAP_PLAN.md §4 option B),
+                 so this is the same dialog with the Mind map segment already
+                 chosen — not a second creation path. Beside "New board"
+                 because the two are the same decision made two ways, and a
+                 mind map that could only be reached by opening a board dialog
+                 and changing a control is one nobody finds. -->
+            <button id="wb-boards-new-map" class="ghost small" type="button" title="Start a mind map"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> New mind map</button>
             <button id="library-media-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
             <button type="button" id="wb-boards-help" class="icon-only ghost small graph-help-toggle"
               aria-expanded="false" aria-controls="wb-boards-intro"
@@ -3180,6 +3192,14 @@ Link to another note with [[its first few words]]."></textarea>
           </span>
         </div>
         <p class="muted graph-help-panel hidden" id="wb-boards-intro" role="dialog" aria-label="What is this?">Every board and concept map you have made — they are the same kind of thing, so a map you build here can be drawn on, and a board can be branched with Tab. Pick one to open it, or start a new map from <strong>＋ Create → New concept map</strong>.</p>
+        <!-- Maps / Boards / All (MINDMAP_PLAN.md §5 item 10, the user's own
+             stated preference: maps live in Boards & maps behind a filter
+             chip, not in a sub-tab of their own). `.library-filters` and
+             `.library-chip` are the recipe the Everything sub-tab already
+             uses, so this is a control the user has met — filled by
+             `renderBoardTypeFilter` in whiteboard.js. -->
+        <div id="library-boards-filter" class="library-filters" role="group"
+          aria-label="Filter boards by kind"></div>
         <div id="library-boards-grid" class="library-grid"></div>
         <div id="library-boards-empty" class="empty-state hidden">
           <span class="empty-icon" aria-hidden="true"><i class="ph ph-squares-four ph-lead" aria-hidden="true"></i></span>
@@ -3287,6 +3307,19 @@ Link to another note with [[its first few words]]."></textarea>
                 <li><span>New branch · sibling</span><kbd>Tab · Enter</kbd></li>
                 <li><span>Undo · Redo</span><kbd>Ctrl + Z · Y</kbd></li>
               </ul>
+              <!-- A map's own keys (MINDMAP_PLAN.md §5 item 5). Published
+                   here rather than only in a toast, for the reason the gesture
+                   strip below already records: a key you were told about once
+                   is a key you do not have. -->
+              <h4>Mind map</h4>
+              <ul>
+                <li><span>Child · sibling</span><kbd>Tab · Enter</kbd></li>
+                <li><span>Outdent a branch</span><kbd>Shift + Tab</kbd></li>
+                <li><span>Walk the tree</span><kbd>arrow keys</kbd></li>
+                <li><span>Rename a topic</span><kbd>F2 · double-click</kbd></li>
+                <li><span>Delete the subtree</span><kbd>Delete</kbd></li>
+                <li><span>Fold a branch</span><kbd>the chevron on it</kbd></li>
+              </ul>
               <h4>Selection</h4>
               <ul>
                 <li><span>Duplicate</span><kbd>Ctrl + D</kbd></li>
@@ -3327,6 +3360,20 @@ Link to another note with [[its first few words]]."></textarea>
         </select>
         <button id="wb-rename-board" class="ghost small icon-button" type="button" title="Rename this board" aria-label="Rename this board"><i class="ph ph-pencil-simple" aria-hidden="true"></i></button>
         <button id="wb-new-board" class="ghost small icon-button" type="button" title="Create a new board" aria-label="Create a new board"><i class="ph ph-plus" aria-hidden="true"></i></button>
+        <!-- The map controls (MINDMAP_PLAN.md §5 Phase 2). All three are
+             `hidden` until `wbSyncMapChrome` finds the open board is a map,
+             rather than disabled: a control that can never apply to an
+             ordinary whiteboard is not one worth reading past on every board.
+             The chip is `.library-chip`, the app's own filter-chip recipe,
+             not a badge invented for this bar. -->
+        <span id="wb-map-chip" class="library-chip active" hidden><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> Map</span>
+        <select id="wb-map-layout" class="ghost small" aria-label="How this map is laid out" title="How this map is laid out" hidden>
+          <option value="tree-right">Tree, sideways</option>
+          <option value="tree-down">Tree, downward</option>
+          <option value="radial">Radial</option>
+          <option value="free">Free</option>
+        </select>
+        <button id="wb-map-tidy" class="ghost small" type="button" title="Lay every unpinned node out again" hidden><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> Tidy</button>
       </div>
       <div class="wb-topbar-right">
         <button id="wb-search-toggle" class="ghost small icon-button" type="button" title="Find a card on this board (Ctrl+F)" aria-label="Find a card on this board" aria-expanded="false" aria-controls="wb-search-bar"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>

@@ -409,3 +409,136 @@ Reingold-Tilford layout, collapse/expand, the Maps chip itself, `mapChip()` /
   it did not before — every duplicated text box and image used to land at
   (0, 0). That is a fix, not a mindmap change, and it is called out here
   because it changes existing behaviour.
+
+## 10. Built — Phase 2 (frontend)
+
+§5 items 5-9 and the Library half of §5 item 10, plus the two text export
+formats from item 16. **§9.3's blocker is closed: `topic` and reference nodes
+are drawn.** Everything below was driven in a real Chromium against the running
+app — `scratchpad/ui-sweeps/mindmap.js`, 35 assertions, all passing — rather
+than reasoned about; §10.4 says what that still does not cover.
+
+### 10.1 What landed
+
+**Nodes are drawn (§5 item 1 of this session's list).** `renderWbObjects` grew
+a branch for the five map kinds ahead of its "everything that isn't an image is
+a text box" `else`, which is what had been drawing a topic as a blank box. A
+topic renders its text with inline `**bold**` / `*italic*` / `` `code` ``,
+built as DOM nodes (`wbMapInlineText`) rather than through `innerHTML`; a
+reference node shows the item's Phosphor icon and its **resolved** title from
+`GET /tree`, and opens the item on double-click. Parent→child edges are cubic
+curves in their own SVG group under everything, anchored right/left for
+`tree-right` and bottom/top for `tree-down`; cross-links stay link sketches and
+are simply drawn dashed (`.wb-map-crosslink`). Branch colour follows Coggle:
+a first-level topic takes the next entry of `d3.schemeTableau10` — the scale
+`graph.js` already colours clusters with, not a new list of hex — and every
+descendant inherits it unless `data.color` overrides.
+
+**A map is a mode chosen at creation (item 2).** `promptDialog` gained one
+optional segmented control, so "name it" and "say what kind it is" are one
+dialog rather than two — CLAUDE.md's bookmark-URL lesson applied before it
+could be re-learned. A map is created `type: "map"`, `layout: "tree-right"`,
+with one root topic named after the map and already selected, so Tab works on
+the first keystroke. The top bar gains a `.library-chip` "Map" chip, a layout
+picker and Tidy, all `hidden` on an ordinary board.
+
+**Keyboard-first (item 3).** Tab child, Enter sibling, Shift+Tab outdent (via
+`/move`, the only endpoint that runs the cycle check), arrows walk the tree,
+F2/double-click renames in place, Delete takes the subtree with an Undo toast
+that re-creates it parent-order-first. A `+` affordance appears on the hovered
+or selected node. All of it is published in the `?` help sheet.
+
+**Tidy (item 4).** Reingold–Tilford in Buchheim's linear-time form, written
+here, with d3-flextree's variable-size extension on the breadth axis; depth is
+one offset per level from the widest node on it, as `d3.tree` does. Runs off
+the paint path in three phases — compute (pure), one `wbApplyBulkMove` + one
+render, then `wbSaveBulkMove` — reusing the two functions a multi-item drag
+already uses. Dragging a node sets `pinned` and Tidy then leaves it alone.
+
+**Collapse (item 5), Library (item 6), export (item 7).** A chevron toggles
+`data.collapsed`; the branch leaves the DOM (not `display: none` — the export,
+the bounds and every `querySelector` read the DOM) and the node carries a count
+badge of the whole buried subtree. Boards & maps gained a Maps/Boards/All
+`.library-chip` row with counts, a "New mind map" action, a map icon and node
+wording on the card, and `preview_edges` drawn as lines under the dots. The
+export menu gained "Markdown (.md)" and "OPML (.opml)" on a map only, and the
+canvas SVG/PNG path now draws map nodes and their edges — it exported a blank
+rectangle for a map before.
+
+### 10.2 Decisions taken while building
+
+- **Structure is rebuilt locally every render; only labels come from `/tree`.**
+  `parent_id` is already on every object `GET /whiteboard/` returns, so Tab
+  redraws immediately instead of waiting on a round trip to be told what it
+  already knew. `GET /tree` is called once per board load, for the two facts
+  only the server has: the board's `type`/`layout` and a reference node's
+  resolved title.
+- **A map node is `height: auto`.** Its text decides how tall it is, so a long
+  topic can never be sliced by `overflow: hidden`. Measured: a long label grew
+  its node 44px → 91px with the label itself unclipped. The stored `height` is
+  synced from the DOM after each render so the bounds and the layout agree with
+  what is on screen.
+- **No resize or rotate handles on a map node.** A vertical resize fights the
+  content, a rotated node's edges no longer meet its anchors, and the eight
+  handles sit exactly where the chevron and `+` do.
+- **A new topic is called "New topic", not "".** The first version created
+  empty nodes, and the screenshot was four blank white boxes with no way to
+  tell an unnamed node from a rendering fault. The label is selected on
+  creation, so the first keystroke replaces it either way.
+
+### 10.3 Bugs this found in the doing
+
+Each was found by measuring, not by reading — which is the point of the rule.
+
+- **Delete deleted one node and drew four.** The map key block was first placed
+  below the board's generic `Delete` handler, so `deleteWbSelection` claimed
+  the key: the server removed the whole subtree (it always did) while the
+  client removed one row, leaving descendants on the canvas pointing at rows
+  that no longer existed. Fixed by moving the block above that handler **and**
+  by making the generic `deleteObject` honour the `deleted[]` the endpoint
+  returns, which had the same bug for the delete tool, the eraser and the
+  context menu.
+- **Undo brought the branch back as a root.** The re-create fell back to
+  `null` whenever `remap` had no entry — true for exactly one row, the top of
+  the deleted subtree, whose parent was never deleted. Five nodes restored,
+  four parent links down to three. Only a parent *inside* `deleted` needs
+  translating.
+- **Radial overlapped near the middle.** Breadth was measured in pixels, so a
+  fixed gap bought a wide angle at the first ring and a narrow one at the
+  fifth. Each node's breadth is now divided by its own ring number — d3's
+  `separation / a.depth` in another form. Two overlaps out of five → none.
+- **The count badge sat on the collapse chevron.** Twice: hanging off the
+  corner overlapped it by 20×12px, insetting it still left 6×5px — small
+  enough to pass a glance and still cover the control you press to unfold the
+  branch. It now sits directly above the chevron.
+- **`--wb-branch` was declared *and* used with a fallback**, which
+  `test_style_scale.py` refuses on the grounds that a fallback on a declared
+  token is a way for a rename to stop applying silently. It was right.
+
+### 10.4 Not verified
+
+- **No real inference, and no AI tool was exercised from the UI.** The four map
+  tools from §9 are unchanged and untested by this session; §7's "verified
+  against a real local model" is still open.
+- **PDF export was not driven.** It goes through the browser's print dialog,
+  which Playwright cannot complete; the SVG it prints from is asserted, the
+  print itself is not. The Markdown/OPML downloads were asserted at the
+  endpoint, not at the file that lands on disk, and the **desktop** `saveFile`
+  path (`/files/save`) was not exercised at all.
+- **One theme, one viewport, one scale.** Everything was measured in light
+  theme at 1440×900, DPR 1. Dark mode and a narrow viewport are reasoned, not
+  observed — the node uses `--card`/`--border`/`--text`, which are theme-aware,
+  but nothing has looked at it.
+- **Small maps only.** Every measurement is on a five-node map. The tidy walk
+  is linear and the layout runs off the paint path by construction, but no map
+  of hundreds of nodes was built to time it, so §8's layout-performance risk is
+  argued rather than measured.
+- **Cross-link dashing was not seen.** The code path is exercised only when a
+  link sketch joins two map nodes, and no cross-link was drawn during the
+  sweep; the class is applied from `wbMapState.crossLinks`, which the tree
+  endpoint fills and `tests/test_mindmap.py` covers server-side.
+- **`import_board` has no UI.** §5 item 17 (import) is still backend-only.
+- **A reference node was never placed by hand.** Nodes of kind
+  `note`/`document`/`file`/`link` render and are covered by the label and icon
+  code, but nothing in the UI yet *creates* one — that is §5 item 11's work,
+  and until it exists a reference node can only arrive from the AI tools.

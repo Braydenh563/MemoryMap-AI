@@ -1356,7 +1356,12 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   top: 0;
   z-index: 20;
   flex-shrink: 0;
-  margin: 0 0 var(--space-8);
+  /* The same gap the Notes strip leaves, and less of it: measured at 1440px
+     the Library strip left 24px below itself against Notes' 12.8px, so the
+     two tabs put their first card at different heights -- and both left more
+     air under a 55px bar than the bar is worth. Reported as "quite large gaps
+     above and below the sub menubars in the library and notes tabs". */
+  margin: 0 0 var(--space-4);
   background: var(--card);
   backdrop-filter: blur(16px);
   border-radius: var(--radius-lg);
@@ -6674,4 +6679,28 @@ button.connection-row {
 
 .contents-head-actions .graph-help-toggle {
   margin-left: 0;
+}
+
+/* --- the HUD: a momentary readout, not a notification ----------------------
+   See `hud()` in app.js. Centred rather than in the toast corner on purpose:
+   this answers a key you just pressed, so it belongs where the eye already
+   is, and it must not be mistaken for the notification stack it is
+   deliberately not part of. Nothing here is interactive — `pointer-events`
+   off so a HUD sitting over a button never eats the next click. */
+.hud {
+  position: fixed;
+  left: 50%;
+  bottom: 18%;
+  transform: translateX(-50%);
+  z-index: 90;
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-pill);
+  background: var(--modal-bg-opaque);
+  border: 1px solid var(--border);
+  box-shadow: var(--glass-shadow);
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
 }

@@ -6696,6 +6696,12 @@ Link to another note with [[its first few words]]."></textarea>
 
   <!-- aria-live so screen readers hear saves, undos, and errors -->
   <div id="toast-box" aria-live="polite"></div>
+  <!-- A readout, not a notification: what a control you are holding down is
+       doing, centred, for about a second. See `hud()` in app.js for why this
+       is deliberately outside the mute preference and outside the
+       notifications centre. `aria-live="polite"` so it is announced once;
+       `role` is left off because it carries no landmark meaning. -->
+  <div id="hud" class="hud hidden" aria-live="polite"></div>
   <!-- Off-screen announcements for things with no visible message of their
        own — jumping to a note, for instance, is only a colour change. -->
   <div id="live-region" class="visually-hidden" role="status" aria-live="polite"></div>

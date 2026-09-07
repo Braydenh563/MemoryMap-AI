@@ -2548,7 +2548,7 @@ button.is-on {
   position: sticky;
   top: 0;
   z-index: 20;
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-4);
   width: 100%;
   overflow-x: auto;
   flex-wrap: nowrap;

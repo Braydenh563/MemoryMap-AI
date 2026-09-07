@@ -369,7 +369,14 @@ select optgroup {
      any content. Both ends of the clamp come in one step: the page keeps a
      comfortable margin at small widths and stops spending a fifth of a
      laptop screen on emptiness at large ones. */
-  --page-gutter: clamp(var(--space-4), 1.5vw, var(--space-8));
+  /* **Tightened, on report.** "I feel like the distance that panels float away
+     from the edges of the screen and each other take up a lot of usable room
+     and space." The ceiling was `--space-8` (24px before density), which at
+     1440px is what every edge and every gap between panels resolved to --
+     three of them across a window is most of a sidebar's width spent on
+     nothing. `--space-6` keeps the shell readable as a shell without paying
+     for it twice on every boundary. */
+  --page-gutter: clamp(var(--space-3), 1.2vw, var(--space-6));
   --page-left: var(--page-gutter);
   --page-right: var(--page-gutter);
   /* 2rem, the inset five rules had by hand */
@@ -470,6 +477,7 @@ select optgroup {
      for every sidebar the user had never dragged, and nothing in the
      stylesheet said so. */
   --saved-width: 280px;
+
   /* The label column of a settings row (`.setting-label`, and the wider
      variant Search relevance needs for "Minimum similarity"). Named so every
      row in a group lines its control up on the same edge -- measured before
@@ -3611,4 +3619,25 @@ summary.small.icon-button {
 .library-image-tile .library-image-menu-btn:hover {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   color: var(--accent);
+}
+
+/* **The content column scrolls down, never sideways.**
+   Reported: "there's a horizontal scrollbar on the notes tab capture
+   subtab". Measured at 1440, 1280 and 1100px: `main` reported scrollWidth
+   exactly 9px over clientWidth at every one of them -- the same 9px, which
+   is this build's scrollbar width, not any real content. That is the classic
+   pair: the column takes `overflow: auto` on both axes, its vertical
+   scrollbar appears and takes 9px out of `clientWidth`, and a child already
+   laid out to the pre-scrollbar width is then 9px too wide on the axis that
+   is also set to `auto` -- so a second, horizontal scrollbar appears to
+   scroll nine pixels of nothing.
+
+   `clip` rather than `hidden`: both stop the scrollbar, but `hidden` makes
+   the box a scroll container programmatically (scrollLeft still works, and
+   focusing something inside can scroll it sideways with no way back), while
+   `clip` simply does not scroll on that axis. Anything that genuinely needs
+   horizontal room -- a wide table, a code block, the graph legend -- carries
+   its own `overflow-x: auto` and is unaffected. */
+.layout > main {
+  overflow-x: clip;
 }

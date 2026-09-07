@@ -1996,7 +1996,21 @@ header#top-bar select,
   /* the flex layout owns the height now */
   gap: 0.8rem;
   padding: 0.6rem 0.4rem 0.25rem;
-  scroll-behavior: smooth;
+  /* **No `scroll-behavior: smooth` here.** Reported: "I scrolled up on a chat
+     and then I couldnt scroll back down to the bottom unless I clicked the
+     'jump to latest' button, the scrollbar just shortened at the bottom and
+     cut the response off visually."
+
+     This pane is written to on every frame of a streaming answer, and
+     `keepAtBottom` follows by assigning `scrollTop`. Declared smooth, each of
+     those assignments starts a *scroll animation*, and a wheel gesture during
+     one is competing with it: the animation keeps re-targeting from wherever
+     the user just got to, the stuck/not-stuck test reads a position that is
+     mid-flight, and the pane parks partway with the newest text below the
+     fold -- which is the shortened scrollbar and the cut-off answer.
+
+     The jump-to-latest button asks for smooth explicitly (app.js), so the one
+     place the animation was actually wanted still has it. */
 }
 
 /* A quiet entrance so replies feel like they arrive. */

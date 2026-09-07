@@ -22980,9 +22980,35 @@ function setZoom(percent) {
   return next;
 }
 
+//: **Feedback for a control you just used, which muting must not swallow.**
+//: Reported: "the mute notifications button mutes things like if I hot key
+//: zooming in and out, I cant see what zoom level Im at if the notifications
+//: dont appear, maybe they can appear some other way visually??"
+//:
+//: The answer is that this was never a notification. A notification tells you
+//: about something that happened elsewhere -- a background pass, a reminder --
+//: and muting it is a real preference. Confirming a key you are holding down
+//: is a *readout*: it belongs on screen for a moment, centred, with no history
+//: and no dismiss button, and it has nothing to do with whether the app is
+//: allowed to interrupt you. Every editor with a zoom shortcut does this.
+//:
+//: Deliberately not recorded in the notifications centre either: "Zoom 110%"
+//: is not something anyone wants to scroll back through tomorrow.
+let hudTimer = null;
+
+function hud(text) {
+  const box = $("hud");
+  if (!box) return;
+  box.textContent = text;
+  box.classList.remove("hidden");
+  clearTimeout(hudTimer);
+  hudTimer = setTimeout(() => box.classList.add("hidden"), 1100);
+}
+window.hud = hud;
+
 function nudgeZoom(direction) {
   const next = setZoom(currentZoom() + direction * ZOOM_STEP);
-  toast(`Zoom ${next}%`);
+  hud(`Zoom ${next}%`);
 }
 
 // Ctrl/Cmd with + or - . On `capture` so a focused textarea cannot swallow it,
@@ -23005,7 +23031,7 @@ document.addEventListener(
     } else if (event.key === "0") {
       event.preventDefault();
       setZoom(100);
-      toast("Zoom 100%");
+      hud("Zoom 100%");
     }
   },
   true
@@ -23016,7 +23042,7 @@ function paletteCommands() {
     { label: "ph:clipboard Go to Dashboard", run: () => switchTab("dashboard") },
     { label: "ph:magnifying-glass-plus Zoom in", run: () => nudgeZoom(1) },
     { label: "ph:magnifying-glass-minus Zoom out", run: () => nudgeZoom(-1) },
-    { label: "ph:arrow-counter-clockwise Reset zoom to 100%", run: () => { setZoom(100); toast("Zoom 100%"); } },
+    { label: "ph:arrow-counter-clockwise Reset zoom to 100%", run: () => { setZoom(100); hud("Zoom 100%"); } },
     { label: "ph:note-pencil Go to Notes", run: () => switchTab("notes") },
     { label: "ph:chat-circle Go to Chat", run: () => switchTab("chat") },
     { label: "ph:graph Go to Graph", run: () => switchTab("graph") },

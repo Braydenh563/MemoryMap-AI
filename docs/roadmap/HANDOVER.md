@@ -1,5 +1,7 @@
 # Handover
 
+**Next: [`PLAN.md`](PLAN.md)** — the scoped professional-grade plan (whiteboard, documents, backend, agent harness, performance), in ship order with measurements. Written by direct instruction; start there.
+
 ## ► The live report batch this session is working through
 
 Verbatim from the user, kept here so nothing is lost if a session ends

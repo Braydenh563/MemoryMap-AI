@@ -180,17 +180,30 @@ const wbDeleting = new Set();
 //: pivot somewhere that moves as the board's contents change. It is set in
 //: CSS beside the layers rather than here, so it cannot be lost by an edit to
 //: this function.
+// PLAN.md P2: a trackpad emits several wheel events per frame, and each one
+// used to write three transforms, three grid variables and the navigator
+// synchronously. Only the last transform in a frame can be painted, so the
+// rest was work the compositor threw away. One pending write per frame.
+let wbZoomFrame = 0;
+let wbZoomPending = null;
 function handleWbZoom(e) {
-  const css = `translate(${e.transform.x}px, ${e.transform.y}px) scale(${e.transform.k})`;
-  d3.select("#wb-html-layer").style("transform", css);
-  d3.select("#wb-zoom-group").style("transform", css);
-  d3.select("#wb-overlay-zoom-group").style("transform", css);
-  wbSyncGridToTransform(e.transform);
-  // The navigator's viewport rectangle is only true for one transform, so it
-  // is redrawn with every pan and zoom. `wbRenderNavigator` returns
-  // immediately when the navigator is closed, which is the common case — this
-  // costs nothing on a board nobody is navigating.
-  wbRenderNavigator();
+  wbZoomPending = e.transform;
+  if (wbZoomFrame) return;
+  wbZoomFrame = requestAnimationFrame(() => {
+    wbZoomFrame = 0;
+    const t = wbZoomPending;
+    wbZoomPending = null;
+    if (!t) return;
+    const css = `translate(${t.x}px, ${t.y}px) scale(${t.k})`;
+    d3.select("#wb-html-layer").style("transform", css);
+    d3.select("#wb-zoom-group").style("transform", css);
+    d3.select("#wb-overlay-zoom-group").style("transform", css);
+    wbSyncGridToTransform(t);
+    // The navigator's viewport rectangle is only true for one transform, so
+    // it is redrawn with every pan and zoom. `wbRenderNavigator` returns
+    // immediately when the navigator is closed, which is the common case.
+    wbRenderNavigator();
+  });
 }
 
 //: The grid's spacing in board coordinates. Scaled by the zoom so a square

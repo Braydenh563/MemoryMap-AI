@@ -935,9 +935,13 @@ from .files import (  # noqa: E402
 )
 from .whiteboard import (  # noqa: E402
     MAX_DIAGRAM_NODES,
+    _add_map_node,
     _add_whiteboard_card,
     _add_whiteboard_link,
+    _create_mindmap,
     _generate_diagram,
+    _link_map_nodes,
+    _read_mindmap,
     _read_whiteboard,
     _search_whiteboard,
 )
@@ -2665,6 +2669,99 @@ TOOLS: dict[str, ToolSpec] = {
             },
             _generate_diagram,
         ),
+        # --- mindmaps (MINDMAP_PLAN.md §5 item 14) -------------------------
+        #
+        # One tool per step, and each description names the tool that comes
+        # before it: these are written to AGENT_SKILLS_REFORM.md's Phase A/B
+        # contract shape, for a 4B model that will otherwise narrate a step
+        # instead of calling anything. `generate_diagram` above is the bulk
+        # alternative for *cards*; these four are the map's own, and the one
+        # thing they never ask the model for is a coordinate.
+        ToolSpec(
+            "read_mindmap",
+            "Read a mindmap as an indented outline — the map's title, then "
+            "every node with its own id, its kind, and the id of any note or "
+            "document it stands for. Use this before adding to a map, and "
+            "for 'what's in my X map?'. Needs the map's board_id; "
+            "search_whiteboard finds it by name.",
+            {
+                "type": "object",
+                "properties": {
+                    "board_id": {
+                        "type": "integer",
+                        "description": "The map's own note id.",
+                    },
+                },
+                "required": ["board_id"],
+            },
+            _read_mindmap,
+        ),
+        ToolSpec(
+            "create_mindmap",
+            "Create an empty mindmap with one root topic on it, for 'start a "
+            "mind map about X'. Returns board_id and root_id — pass those to "
+            "add_map_node to build the tree, one node per call.",
+            {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "What the map is called"},
+                    "root_text": {
+                        "type": "string",
+                        "description": "The centre node's text (defaults to the title)",
+                    },
+                },
+                "required": ["title"],
+            },
+            _create_mindmap,
+        ),
+        ToolSpec(
+            "add_map_node",
+            "Add ONE node to a mindmap, under a parent node or as a new "
+            "root. Call read_mindmap (or create_mindmap) first for the ids. "
+            "Positions are worked out automatically — never invent x/y. Use "
+            "kind 'topic' for plain text, or kind 'note' with note_id to put "
+            "an existing note on the map.",
+            {
+                "type": "object",
+                "properties": {
+                    "board_id": {"type": "integer", "description": "The map's own note id."},
+                    "parent_id": {
+                        "type": "integer",
+                        "description": "The node this one hangs off. Omit for a new root.",
+                    },
+                    "text": {"type": "string", "description": "The node's text"},
+                    "kind": {
+                        "type": "string",
+                        "description": "'topic' (default) or 'note'/'document'/'file'/'link'",
+                    },
+                    "note_id": _NOTE_ID,
+                    "ref_id": {
+                        "type": "integer",
+                        "description": "For a document/file/link node: the id it stands for",
+                    },
+                },
+                "required": ["board_id"],
+            },
+            _add_map_node,
+        ),
+        ToolSpec(
+            "link_map_nodes",
+            "Draw a cross-link between two nodes on the same mindmap — the "
+            "connection a tree can't express ('this branch depends on that "
+            "one'). Both nodes must already exist; read_mindmap gives their "
+            "ids.",
+            {
+                "type": "object",
+                "properties": {
+                    "board_id": {"type": "integer", "description": "The map's own note id."},
+                    "from_id": {"type": "integer", "description": "The node the link starts at"},
+                    "to_id": {"type": "integer", "description": "The node it points at"},
+                    "label": {"type": "string", "description": "What the link means (optional)"},
+                },
+                "required": ["from_id", "to_id"],
+            },
+            _link_map_nodes,
+        ),
         ToolSpec(
             "search_chat_history",
             "Look through earlier conversations with the user, including "
@@ -3175,6 +3272,9 @@ WRITE_TOOLS = {
     "add_whiteboard_card",
     "add_whiteboard_link",
     "generate_diagram",
+    "create_mindmap",
+    "add_map_node",
+    "link_map_nodes",
 }
 
 
@@ -3331,6 +3431,11 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         (
             "read_whiteboard", "search_whiteboard", "add_whiteboard_card",
             "add_whiteboard_link", "generate_diagram",
+            # Same group and the same cues: "mind map" already fires this
+            # one, and a question about a map that was offered the board
+            # tools and not the map tools is the worst of both — the model
+            # answers by placing cards on a canvas instead.
+            "read_mindmap", "create_mindmap", "add_map_node", "link_map_nodes",
         ),
         (
             "whiteboard", "board", "canvas", "diagram", "mind map", "mindmap",

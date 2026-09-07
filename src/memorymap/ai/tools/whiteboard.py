@@ -433,3 +433,289 @@ def _generate_diagram(session: Session, args: dict) -> dict:
     }
 
 
+
+
+# --- mindmaps (MINDMAP_PLAN.md §5 item 14) ----------------------------------
+#
+# Four tools, one job each, because that is the shape a small model can
+# actually use: AGENT_SKILLS_REFORM.md's Phase A/B contract is "one tool per
+# step", and the failure it is written against is a 4B model handed a
+# compound instruction that narrates instead of calling anything. So
+# `read_mindmap` reads and never writes, `add_map_node` adds exactly one node
+# per call and never invents coordinates, and every description below names
+# the tool that comes before it.
+#
+# The tree itself is read through `routes_whiteboard`'s own helpers rather
+# than walked again here. Imported inside the functions, not at module scope:
+# the API layer sits on top of this one, and the walk has three edge cases
+# (a dangling parent, a ring, board scoping) that must have exactly one
+# implementation — a second copy is how two readers of the same map come to
+# disagree about what is on it.
+
+#: The most nodes one `read_mindmap` will spell out. A map is meant to fit in
+#: the model's window beside the question; past this the outline stops being
+#: context and becomes the whole window, the same reason every list tool here
+#: has a limit.
+MAX_OUTLINE_NODES = 200
+
+
+def _outline_lines(nodes: list[dict], depth: int, out: list[str], budget: list[int]) -> None:
+    """The tree as indented text — the form the plan asks for by name, and
+    the one a small model handles best: an id per line, so the next call can
+    name a node instead of describing it."""
+    for node in nodes:
+        if budget[0] <= 0:
+            return
+        budget[0] -= 1
+        marks = [f"id {node['id']}"]
+        if node["kind"] != "topic":
+            # The kind and what it stands for, so "which of these is a real
+            # note?" is answerable from the outline without a second call.
+            marks.append(
+                f"{node['kind']} {node['ref_id']}" if node["ref_id"] is not None else node["kind"]
+            )
+        if node["collapsed"]:
+            marks.append("collapsed")
+        out.append(f"{'  ' * depth}- {node['text'] or '(untitled)'} [{', '.join(marks)}]")
+        _outline_lines(node["children"], depth + 1, out, budget)
+
+
+def _read_mindmap(session: Session, args: dict) -> dict:
+    """A whole map as an indented outline (MINDMAP_PLAN.md §5 item 14).
+
+    Deliberately *not* `read_whiteboard` with a flag. That tool answers
+    "what is on this board" as three flat lists — cards, text boxes, links —
+    which is the right answer for a canvas and the wrong one for a map, where
+    the structure is the content. A model handed a flat list of twenty topics
+    and a separate list of parent ids will reconstruct the tree wrongly, or
+    not at all.
+    """
+    from memorymap.api.routes_whiteboard import _board_settings, _build_tree, _map_objects
+
+    raw_board_id = args.get("board_id")
+    if raw_board_id in (None, ""):
+        raise ToolError(
+            "board_id is required — call search_whiteboard or read_whiteboard first to find the map's id."
+        )
+    board_id = int(raw_board_id)
+    board = session.get(Entry, board_id)
+    if board is None or board.is_deleted:
+        raise ToolError(f"No board with id {board_id}")
+    # A board is an Entry and can be marked private after being used as one —
+    # same rule, and the same reason, as `_read_whiteboard`'s own board title
+    # check: this result becomes part of the agent's context.
+    if board.is_private:
+        raise ToolError(f"Board {board_id} is a private note and can't be read by the AI.")
+
+    board_type, layout = _board_settings(board)
+    objects = _map_objects(session, board_id)
+    roots = _build_tree(session, objects)
+    budget = [MAX_OUTLINE_NODES]
+    lines: list[str] = []
+    _outline_lines(roots, 0, lines, budget)
+    title = manager.extract_title(board.content) or _clip(board.content, 40)
+    outline = "\n".join([title, *lines]) if lines else f"{title}\n(empty — no nodes yet)"
+
+    result = {
+        "board_id": board_id,
+        "board_title": title,
+        "type": board_type,
+        "layout": layout,
+        "node_count": len(objects),
+        "outline": outline,
+        "label": f"ph:tree-structure Read the mindmap “{title}”",
+    }
+    if budget[0] <= 0 and len(objects) > MAX_OUTLINE_NODES:
+        result["truncated"] = (
+            f"Only the first {MAX_OUTLINE_NODES} of {len(objects)} nodes are shown."
+        )
+    return result
+
+
+def _create_mindmap(session: Session, args: dict) -> dict:
+    """A new, empty map with one root topic on it.
+
+    A map *is* a board, which is itself a note (`routes_whiteboard.py`'s own
+    opening line), so this creates one note and one object — not a new kind
+    of thing. The root is created here rather than left to a second
+    `add_map_node` call because a map with no root has nothing to hang the
+    next node off, and a small model handed an empty map reliably stalls
+    there.
+    """
+    from memorymap.api.routes_whiteboard import (
+        MAP_TOPIC_KIND,
+        _store_board_settings,
+    )
+    from memorymap.core.database import WhiteboardObject
+
+    title = str(args.get("title") or "").strip()
+    if not title:
+        raise ToolError("title is required — what is this map about?")
+    root_text = str(args.get("root_text") or "").strip() or title
+
+    entry = Entry(content=f"# {title}", is_board=True)
+    # "tree-right", not the API's own "free" default: every position this
+    # module computes is a tree-right ladder (`_next_position`), so telling
+    # the client anything else would be describing a map it isn't.
+    _store_board_settings(entry, "map", "tree-right")
+    session.add(entry)
+    session.flush()
+    root = WhiteboardObject(
+        board_id=entry.id,
+        kind=MAP_TOPIC_KIND,
+        data=json.dumps({"content": root_text}),
+        x=0.0,
+        y=0.0,
+        z=1,
+    )
+    session.add(root)
+    manager.log_action(session, "created", "mindmap", entry.id, title[:80])
+    session.commit()
+    session.refresh(entry)
+    session.refresh(root)
+    return {
+        "board_id": entry.id,
+        "root_id": root.id,
+        "title": title,
+        "next": "Add nodes with add_map_node, passing this board_id and parent_id.",
+        "label": f"ph:tree-structure Created the mindmap “{_clip(title, 40)}”",
+    }
+
+
+def _add_map_node(session: Session, args: dict) -> dict:
+    """One node, under one parent, per call.
+
+    The single-step shape on purpose (AGENT_SKILLS_REFORM Phase B): a bulk
+    "here is my whole tree" call already exists as `generate_diagram`, and
+    it exists precisely because the *card* version of this needed the model
+    to invent x/y across many chained calls. Here the model never sees a
+    coordinate at all — the server places the node beside its parent — so
+    the only thing it has to get right is which node is the parent.
+    """
+    from memorymap.api.routes_whiteboard import (
+        MAP_REFERENCE_KINDS,
+        MAP_TOPIC_KIND,
+        _next_position,
+    )
+    from memorymap.core.database import WhiteboardObject
+
+    raw_board_id = args.get("board_id")
+    if raw_board_id in (None, ""):
+        raise ToolError("board_id is required — call create_mindmap or read_mindmap first.")
+    board_id = int(raw_board_id)
+    board = session.get(Entry, board_id)
+    if board is None or board.is_deleted:
+        raise ToolError(f"No board with id {board_id}")
+
+    kind = str(args.get("kind") or MAP_TOPIC_KIND).strip() or MAP_TOPIC_KIND
+    if kind != MAP_TOPIC_KIND and kind not in MAP_REFERENCE_KINDS:
+        raise ToolError(
+            f"Unknown node kind '{kind}' — use 'topic' for text, or 'note' to put an existing note on the map."
+        )
+
+    text = str(args.get("text") or "").strip()
+    ref_id = None
+    if kind == "note":
+        # **`_require_note`, not `session.get`.** It is the one lookup that
+        # refuses a private note, and a map is a place a note's title would
+        # otherwise be copied into and read straight back out through
+        # `read_mindmap`. (CLAUDE.md's "a guard removed while the shape
+        # around it was kept" is exactly this line going missing.)
+        entry = _require_note(session, args, "note_id")
+        ref_id = entry.id
+        text = text or _clip(manager.readable_content(entry), 80)
+    elif kind in MAP_REFERENCE_KINDS:
+        raw_ref = args.get("ref_id")
+        if raw_ref in (None, ""):
+            raise ToolError(f"A '{kind}' node needs ref_id — the id of the {kind} it stands for.")
+        ref_id = int(raw_ref)
+    elif not text:
+        raise ToolError("text is required for a topic node.")
+
+    parent = None
+    raw_parent = args.get("parent_id")
+    if raw_parent not in (None, ""):
+        parent = session.get(WhiteboardObject, int(raw_parent))
+        if parent is None or parent.board_id != board_id:
+            raise ToolError(
+                f"No node with id {raw_parent} on board {board_id} — call read_mindmap for the ids."
+            )
+
+    x, y = _next_position(session, board_id, parent)
+    data = {"content": text}
+    if ref_id is not None:
+        data["ref_id"] = ref_id
+    node = WhiteboardObject(
+        board_id=board_id,
+        kind=kind,
+        data=json.dumps(data),
+        x=x,
+        y=y,
+        z=1,
+        parent_id=parent.id if parent is not None else None,
+    )
+    session.add(node)
+    manager.log_action(session, "created", "mindmap_node", board_id, text[:80])
+    session.commit()
+    session.refresh(node)
+    return {
+        "node_id": node.id,
+        "board_id": board_id,
+        "parent_id": node.parent_id,
+        "kind": kind,
+        "text": text,
+        "label": f"ph:tree-structure Added “{_clip(text, 40)}” to the map",
+    }
+
+
+def _link_map_nodes(session: Session, args: dict) -> dict:
+    """A cross-link: an edge between two nodes that are *not* parent and
+    child.
+
+    Every serious mindmapper has this and calls it a relationship or a
+    cross-link, and it is the one edge a tree cannot express. Stored as a
+    link sketch — the same row a link between two cards already is — so the
+    canvas draws it, `_forget_links_to` cleans it up when either end goes,
+    and there is no second kind of edge to maintain.
+    """
+    from memorymap.core.database import WhiteboardObject, WhiteboardSketch
+
+    source = session.get(WhiteboardObject, int(args.get("from_id") or 0))
+    target = session.get(WhiteboardObject, int(args.get("to_id") or 0))
+    if source is None:
+        raise ToolError(f"No map node with id {args.get('from_id')}")
+    if target is None:
+        raise ToolError(f"No map node with id {args.get('to_id')}")
+    if source.id == target.id:
+        raise ToolError("Can't link a node to itself.")
+    if source.board_id != target.board_id:
+        raise ToolError("Both nodes must be on the same map to link them.")
+    raw_board_id = args.get("board_id")
+    if raw_board_id not in (None, "") and int(raw_board_id) != (source.board_id or 0):
+        raise ToolError(
+            f"Those nodes are on board {source.board_id}, not board {raw_board_id}."
+        )
+
+    label = _clip(str(args.get("label") or "").strip(), 80)
+    data = {
+        "type": "link-curved",
+        "sourceId": source.id,
+        "sourceKind": "object",
+        "targetId": target.id,
+        "targetKind": "object",
+        "color": "#8899ff",
+        "label": label,
+    }
+    sketch = WhiteboardSketch(board_id=source.board_id, data=json.dumps(data), x=0, y=0, z=1)
+    session.add(sketch)
+    manager.log_action(session, "created", "mindmap_link", source.board_id, f"{source.id} -> {target.id}")
+    session.commit()
+    session.refresh(sketch)
+    return {
+        "link_id": sketch.id,
+        "board_id": source.board_id,
+        "from_id": source.id,
+        "to_id": target.id,
+        "label_text": label,
+        "label": "ph:link Linked two nodes on the map",
+    }

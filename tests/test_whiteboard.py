@@ -372,6 +372,13 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         # Added with the text-box formatting controls; None until set.
         "align": None,
         "md": None,
+        # Added with mindmaps (MINDMAP_PLAN.md Phase 1). A text box is not a
+        # map node, so all three stay None — asserted rather than omitted
+        # because this test's whole job is to catch a field that silently
+        # stops round-tripping, and it can only do that by naming every one.
+        "ref_id": None,
+        "collapsed": None,
+        "pinned": None,
     }
 
     moved = board_client.put(

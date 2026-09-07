@@ -341,6 +341,29 @@ class Entry(Base, WorkspaceMixin):
     # stays visible regardless (its counts are still nonzero), so nothing
     # already in someone's board list disappears from this change.
     is_board: Mapped[bool] = mapped_column(Boolean, default=False)
+    #: Board-level settings, as a small JSON object, for a note being used as
+    #: a board: `{"type": "board"|"map", "layout": "free"|"tree-right"|
+    #: "tree-down"|"radial"}`. NULL — the overwhelmingly common case, since
+    #: almost no note is a board — means "every default", never "unknown", so
+    #: the auto-migrator's own NULL backfill leaves every existing board
+    #: reading exactly as it did before this column existed: a free-layout
+    #: whiteboard.
+    #:
+    #: **One JSON column rather than a column per setting**, and rather than a
+    #: `board_settings` table (MINDMAP_PLAN.md §4, option B: "a `type` and a
+    #: `layout` on the existing board entry"). `entries` is the notebook's
+    #: widest and busiest table, and board-level settings are a family that
+    #: keeps growing — type, layout, a default node colour, tidy-on-drop —
+    #: none of which any *note* has any use for. Two more booleans on every
+    #: row of `entries` to describe the handful of rows that are boards is the
+    #: wrong shape; a table with one row per board, joined on every list, is
+    #: the wrong shape in the other direction. `WhiteboardObject.kind` is this
+    #: file's own precedent for not adding structure per idea.
+    #:
+    #: Nothing queries *inside* it in SQL: `list_boards` already materialises
+    #: every board to build its preview, so the `?type=map` filter reads this
+    #: in Python over a list that is tens of rows long, not thousands.
+    board_settings: Mapped[str | None] = mapped_column(Text, default=None)
     #: Where this note came from in an imported vault — a **relative** path
     #: like `Projects/Roadmap.md`, empty for everything written in this app.
     #:
@@ -993,7 +1016,37 @@ class WhiteboardObject(Base, WorkspaceMixin):
     board_id: Mapped[int | None] = mapped_column(ForeignKey("entries.id"), default=None)
     kind: Mapped[str] = mapped_column(String(20))
     #: image: {"url": "/media/..."}. text: {"content": str, "color": str, "font_size": int}.
+    #: A mindmap node (MINDMAP_PLAN.md §5.3) uses the same two shapes: a
+    #: `topic` carries its own `content`, a `note`/`document`/`file`/`link`
+    #: node carries the id of the library item it stands for in `ref_id`, and
+    #: both may carry `collapsed`/`pinned`.
     data: Mapped[str] = mapped_column(Text)
+    #: This node's parent in a mindmap's tree — NULL for a root topic and for
+    #: every object on an ordinary whiteboard, which is what makes the map a
+    #: *mode* of the board rather than a second data model (MINDMAP_PLAN.md
+    #: §4, option B). Cross-branch links stay what they always were: link
+    #: sketches, which are a general graph and are not this.
+    #:
+    #: **Deliberately not a `ForeignKey("whiteboard_objects.id")`**, for the
+    #: same reason `Entry.filing_similar_id` isn't one either, plus one that
+    #: is specific to this column:
+    #:
+    #: - the additive auto-migrator (`_add_missing_columns`) can only `ALTER
+    #:   TABLE ... ADD COLUMN`, so a declared constraint would exist on
+    #:   freshly created databases and *not* on any database that predates
+    #:   this column. A rule enforced on some installs and not others is worse
+    #:   than one enforced in code on all of them;
+    #: - `PRAGMA foreign_keys=ON` is set, so a bulk `DELETE` that happens to
+    #:   remove a parent before its child (deleting a space, purging a board)
+    #:   would fail on row order alone.
+    #:
+    #: So the tree is enforced where it is read and written —
+    #: `routes_whiteboard.py` deletes a subtree with its root and refuses a
+    #: re-parent that would make a node its own ancestor — and every reader
+    #: treats a `parent_id` pointing at a row that is gone, or at a row on
+    #: another board, as a root. That is the behaviour a dangling pointer
+    #: should have anyway: a branch whose parent vanished is still a branch.
+    parent_id: Mapped[int | None] = mapped_column(Integer, default=None, index=True)
     x: Mapped[float] = mapped_column(Float, default=0.0)
     y: Mapped[float] = mapped_column(Float, default=0.0)
     z: Mapped[int] = mapped_column(Integer, default=0)

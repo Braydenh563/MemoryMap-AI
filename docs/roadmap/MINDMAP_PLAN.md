@@ -287,3 +287,125 @@ Recorded because Coggle is the reference the user actually meant:
 - [Spatial canvases and your notes](https://tfthacker.substack.com/p/spatial-canvases-and-your-notes)
 - [d3-hierarchy `tree()` — Reingold–Tilford](https://d3js.org/d3-hierarchy/tree) · [d3-flextree](https://github.com/Klortho/d3-flextree)
 - [Radial tree component — Observable](https://observablehq.com/@d3/radial-tree-component)
+
+## 9. Built — Phase 1 (backend)
+
+Phase 1 (items 1-4) and Phase 4 item 14 landed as **backend only**. No
+frontend JavaScript was written, so nothing below is visible in the app yet —
+the canvas still renders only `image` and `text` objects (`whiteboard.js`
+~3354), so a map's `topic` nodes are stored, served and exportable but **not
+drawn**. That is the next session's work, and §9.3 lists exactly what it has
+to call.
+
+### 9.1 What landed
+
+**The map object (§5 items 1-3).**
+
+- `Entry.board_settings` — a small JSON column (`{"type", "layout"}`) added by
+  the additive auto-migrator, NULL on every existing board and read as "an
+  ordinary free-layout whiteboard". One column rather than one per setting,
+  and rather than a table: `entries` is the widest table in the notebook and
+  board-level settings are a growing family. `type` is `board` | `map`,
+  `layout` is `free` | `tree-right` | `tree-down` | `radial`.
+- `WhiteboardObject.parent_id` — the tree edge, **deliberately not a
+  ForeignKey**. The auto-migrator can only `ADD COLUMN`, so a declared
+  constraint would exist on fresh databases and not on upgraded ones, and
+  `PRAGMA foreign_keys=ON` would turn any bulk delete that happens to remove a
+  parent first into a failure on row order. The tree is enforced in code
+  instead, and every reader treats a dangling parent as a root.
+- Node kinds on the existing discriminator: `topic` plus `note` / `document` /
+  `file` / `link` (each with `data.ref_id`), alongside the `image` / `text` a
+  board already had. `collapsed` and `pinned` live in `data`, per Coggle.
+- Cross-branch links are unchanged: they are still link sketches, with
+  `sourceKind`/`targetKind` of `"object"`. There is no second kind of edge.
+
+**Containment (§5 item 4) — written test-first, `tests/test_mindmap.py`.**
+
+- Purging a **map** deletes its objects outright; purging an ordinary board
+  still detaches them to the default scratch board, exactly as before. The
+  split is in `entry/manager._hard_delete`.
+- A `note`/`document`/`file` node is a *pointer*: the pointer goes, the note
+  stays. Asserted in both directions in the first test in that file.
+- Deleting a topic deletes its **subtree** (Coggle's choice, made
+  deliberately over re-parenting), and `DELETE /whiteboard/objects/{id}` now
+  returns the whole deleted subtree — rows and positions — so the frontend can
+  offer a real undo rather than a confirm dialog.
+
+**Preview (§5 item 10, the thumbnail half).** `_board_preview` now returns
+`(items, edges)` and `BoardOut` carries `preview_edges` — parent→child
+segments in the same normalised 0..1 space, emitted only when both ends
+survived sampling. A map's Library card can draw a tree instead of a scatter
+of dots. Topic nodes contribute their text as the item label.
+
+**The AI can read a map (§5 item 14).** Four tools in
+`ai/tools/whiteboard.py`, registered in the same group and gated the same way
+as the board tools (so they appear in Settings → Tools automatically):
+`read_mindmap` (an indented outline, one id per line, kind and ref id for
+reference nodes), `create_mindmap`, `add_map_node` (one node per call, never
+asks the model for a coordinate) and `link_map_nodes`. The three writers are
+in `WRITE_TOOLS`. `_require_note` is called on every write that names a note,
+and `read_mindmap` refuses a private board and renders a private note as
+"Private note" — the guard, on the way in *and* on the way out.
+
+**Export/import (§5 items 16-17, the text formats only).** Markdown outline
+and OPML both ways, round-tripped in a test. PNG/SVG/PDF are still the
+frontend's and were not attempted.
+
+### 9.2 Decisions taken while building
+
+- **Option B, as recommended in §4.** A map is a board with a `type`; there is
+  no second entity, no second table and no second CRUD.
+- **`WhiteboardObject`, not `WhiteboardNode`, carries a map node.** A
+  `WhiteboardNode` *is* a note by construction, and a `topic` must be able to
+  exist without one; the `kind` discriminator was already the extension point.
+  A note on a map is a `note`-kind object holding the note's id, not a card —
+  which keeps "editing a node edits the note" a deliberate frontend decision
+  rather than an accident of the data model.
+- **A reference node's label is resolved on read, never copied on write.**
+  Copied titles go stale the moment a note is renamed.
+- **The import creates topics only.** Guessing that a line reading "Chapter
+  three" means a particular note in *this* notebook is the kind of
+  helpfulness whose mistakes are invisible until much later.
+- **OPML import refuses a `<!DOCTYPE>`** rather than trusting the parser's
+  defaults — `xml.etree` expands internal entities, which is the billion-laughs
+  shape, and no real OPML file needs a DTD.
+
+### 9.3 What the frontend now has to do
+
+Endpoints available (everything else on `/whiteboard` is unchanged):
+
+| Endpoint | What it does |
+| --- | --- |
+| `GET /whiteboard/boards?type=map` | The Library's Maps chip. `type=board` excludes maps; the default scratch board is a `board`. |
+| `POST /whiteboard/boards` | Now takes `type` and `layout` alongside `name`. |
+| `PUT /whiteboard/boards/{id}` | `title`, `type` and `layout` are all optional; only what is sent is applied. |
+| `GET /whiteboard/boards/{id}/tree` | `{board_id, title, type, layout, roots[], cross_links[]}`; each node is `{id, kind, text, ref_id, x, y, color, collapsed, pinned, children[]}`. |
+| `POST /whiteboard/boards/{id}/nodes` | Add one node under `parent_id` (or as a root). Omit `x`/`y` and the server places it. |
+| `PUT /whiteboard/boards/{id}/nodes/{node_id}/move` | Re-parent, with the cycle check. `parent_id: null` promotes to a root. |
+| `DELETE /whiteboard/objects/{id}` | Unchanged for text/images; on a map it takes the subtree and returns it as `deleted[]` for undo. |
+| `PUT /whiteboard/objects/{id}` | Still the way to edit a node's text/colour/`collapsed`/`pinned`. **Deliberately does not touch `parent_id`** — re-parenting goes through `/move` so the cycle check cannot be bypassed. |
+| `GET /whiteboard/boards/{id}/export?format=markdown\|opml` | A text file, with a `Content-Disposition` filename. |
+| `POST /whiteboard/boards/import` | `{format, content, name?}` → a new map. |
+| `BoardOut.preview_edges` | Line segments for the Library thumbnail. |
+
+Still to build, all frontend: rendering `topic` and reference nodes on the
+canvas at all (this is the blocker), the keyboard editing of §5 Phase 2, the
+Reingold-Tilford layout, collapse/expand, the Maps chip itself, `mapChip()` /
+`mapPreview()`, and PNG/SVG/PDF export.
+
+### 9.4 Not verified
+
+- **Nothing was seen in a browser.** No JS was written, and the canvas does
+  not render the new kinds, so there was nothing to look at. Everything above
+  is asserted by tests against the API, not observed.
+- **No local model ran.** `read_mindmap`'s outline is written for a 4B model
+  and is asserted for *shape* (indentation, one id per line) only — §7's "an
+  outline a 4B model can act on, verified against a real local model" is still
+  open, and the standing caveat in CLAUDE.md applies.
+- **No large map was measured.** The tree walks are iterative and guarded, and
+  the preview samples as it always did, but no board with hundreds of nodes was
+  built to time any of it.
+- **`duplicate_board` now copies object positions** (`x`/`y`/`z`/size), which
+  it did not before — every duplicated text box and image used to land at
+  (0, 0). That is a fix, not a mindmap change, and it is called out here
+  because it changes existing behaviour.

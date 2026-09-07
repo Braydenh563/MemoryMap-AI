@@ -501,6 +501,29 @@ def unarchive_entry(session: Session, entry: Entry) -> None:
     session.commit()
 
 
+def _board_type_of(session: Session, board_id: int) -> str:
+    """"map" or "board" for the note with this id.
+
+    A one-line read of `Entry.board_settings`, duplicated from
+    `routes_whiteboard._board_settings` rather than imported: `entry/manager`
+    is the layer the API sits on top of, and importing an API module from
+    here would invert that (and, in practice, import a router at delete time).
+    Tolerant of every shape a JSON text column can hold, for the same reason
+    the original is — a bad value must degrade to "an ordinary board", never
+    to an exception in the middle of emptying the bin.
+    """
+    entry = session.get(Entry, board_id)
+    if entry is None:
+        return "board"
+    try:
+        parsed = json.loads(entry.board_settings or "{}")
+    except (TypeError, ValueError):
+        return "board"
+    if not isinstance(parsed, dict):
+        return "board"
+    return "map" if parsed.get("type") == "map" else "board"
+
+
 def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | None = None) -> int:
     """Permanently remove entries plus their vectors, links, and files."""
     ids = [e.id for e in entries]
@@ -568,6 +591,32 @@ def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | Non
         .where(WhiteboardSketch.board_id.in_(ids))
         .values(board_id=None)
     )
+    # **A map contains its own contents; an ordinary board does not.**
+    #
+    # The rule, asked for in those words ("any and all text boxes and things
+    # that are in the map stay bundled within the map"), and the reason the
+    # objects on a board being purged are split in two here rather than all
+    # detached alike:
+    #
+    # - a `topic` exists only in the map. Detaching it dumps loose text onto
+    #   the one board nobody ever deletes, which is how a deleted map comes
+    #   back as litter on the default board;
+    # - a `note`/`document`/`file`/`link` node is a *pointer* at something in
+    #   the library. The pointer goes with the map; the thing it pointed at
+    #   is a note, and notes are not deleted by deleting a picture of one.
+    #   That distinction is the whole of `tests/test_mindmap.py`'s first test;
+    # - everything on a plain whiteboard keeps the behaviour it always had —
+    #   detached, not destroyed. See the comment above: "delete this one
+    #   note" must not silently wipe an entire whiteboard.
+    map_board_ids = [
+        board_id
+        for board_id in ids
+        if _board_type_of(session, board_id) == "map"
+    ]
+    if map_board_ids:
+        session.execute(
+            delete(WhiteboardObject).where(WhiteboardObject.board_id.in_(map_board_ids))
+        )
     session.execute(
         WhiteboardObject.__table__.update()
         .where(WhiteboardObject.board_id.in_(ids))

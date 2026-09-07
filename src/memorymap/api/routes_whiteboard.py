@@ -56,7 +56,34 @@ MAX_SKETCH_CHARS = 400_000
 #: — but still bounded for the same reason every other free-text field here is.
 MAX_OBJECT_TEXT_CHARS = 20_000
 
-VALID_OBJECT_KINDS = {"image", "text"}
+#: What a board *is*. A map is a board with tree semantics turned on
+#: (MINDMAP_PLAN.md §4, option B) — the same rows, the same endpoints, one
+#: extra edge per node. "board" is the default, and is what NULL settings
+#: mean, so every board that existed before maps did stays exactly what it
+#: was.
+BOARD_TYPES = {"board", "map"}
+DEFAULT_BOARD_TYPE = "board"
+
+#: How a map arranges itself. "free" means "wherever you dragged it", which
+#: is the only thing an ordinary whiteboard has ever done; the other three
+#: are the standard mindmap arrangements (MINDMAP_PLAN.md §3.1). Stored
+#: rather than computed because it is a property of the map, not of the
+#: session looking at it — the layout you chose has to be there tomorrow.
+BOARD_LAYOUTS = {"free", "tree-right", "tree-down", "radial"}
+DEFAULT_BOARD_LAYOUT = "free"
+
+#: A map node that stands for something that lives in the library. The node
+#: is a *pointer*: deleting it removes the pointer and never the thing, which
+#: is the half of containment that must not be got wrong (MINDMAP_PLAN.md
+#: §5.4). `image` is deliberately not in here — an image object owns its file
+#: and `delete_object` unlinks it, which is the opposite rule.
+MAP_REFERENCE_KINDS = {"note", "document", "file", "link"}
+
+#: A topic is text that exists only in the map. It is the one node kind with
+#: nothing behind it, which is why deleting the map deletes it.
+MAP_TOPIC_KIND = "topic"
+
+VALID_OBJECT_KINDS = {"image", "text", MAP_TOPIC_KIND} | MAP_REFERENCE_KINDS
 
 
 #: A card/sketch/object's own persisted group — asked for directly (Ctrl+G).
@@ -125,6 +152,16 @@ class WhiteboardObjectData(BaseModel):
     #: flipped, the PUT succeeded, and the value came back missing.
     align: str | None = Field(default=None, pattern="^(left|center|right)$")
     md: bool | None = None
+    #: A map reference node's target: the note / document / file / bookmark id
+    #: this node stands for. Only meaningful for `MAP_REFERENCE_KINDS`; a
+    #: topic has nothing to point at and leaves it None.
+    ref_id: int | None = Field(default=None, ge=1)
+    #: A collapsed branch hides its children (Coggle's "tidy on demand"), and
+    #: a pinned node keeps the position it was dragged to when the map is
+    #: re-laid-out. Both are per-node view state on a node that already
+    #: carries a JSON blob, so neither earns a column.
+    collapsed: bool | None = None
+    pinned: bool | None = None
 
 
 class WhiteboardObjectBase(BaseModel):
@@ -143,7 +180,10 @@ class WhiteboardObjectBase(BaseModel):
     @classmethod
     def _known_kind(cls, value: str) -> str:
         if value not in VALID_OBJECT_KINDS:
-            raise ValueError(f"Unknown object kind {value!r} — expected image or text")
+            raise ValueError(
+                f"Unknown object kind {value!r} — expected one of "
+                + ", ".join(sorted(VALID_OBJECT_KINDS))
+            )
         return value
 
 
@@ -159,6 +199,8 @@ class WhiteboardObjectOut(BaseModel):
     height: float
     rotation: float | None
     group_id: str | None
+    #: A map node's parent, NULL for everything on an ordinary whiteboard.
+    parent_id: int | None = None
 
 
 def _object_to_out(obj: WhiteboardObject) -> WhiteboardObjectOut:
@@ -174,6 +216,7 @@ def _object_to_out(obj: WhiteboardObject) -> WhiteboardObjectOut:
         height=obj.height,
         rotation=obj.rotation,
         group_id=obj.group_id,
+        parent_id=obj.parent_id,
     )
 
 
@@ -183,8 +226,19 @@ def _require_object_data(body: WhiteboardObjectBase) -> None:
             raise HTTPException(
                 status_code=422, detail="An image object needs a /media/... url"
             )
-    elif body.kind == "text" and body.data.content is None:
-        raise HTTPException(status_code=422, detail="A text object needs content")
+    elif body.kind in ("text", MAP_TOPIC_KIND) and body.data.content is None:
+        raise HTTPException(
+            status_code=422, detail=f"A {body.kind} object needs content"
+        )
+    elif body.kind in MAP_REFERENCE_KINDS and body.data.ref_id is None:
+        # A reference node with nothing to reference is the map equivalent of
+        # a card pointing at note 9999 (this module's own opening comment): it
+        # stores fine, draws as an empty box, and there is no way to tell from
+        # the UI what it was ever meant to be.
+        raise HTTPException(
+            status_code=422,
+            detail=f"A {body.kind} node needs a ref_id — the id of the {body.kind} it stands for",
+        )
 
 
 def _media_path(url: str):
@@ -301,6 +355,59 @@ def get_whiteboard_state(
     )
 
 
+def _board_settings(entry: Entry | None) -> tuple[str, str]:
+    """This board's `(type, layout)`, defaulted and validated on the way out.
+
+    Everything here is defensive on purpose, because the column is JSON in a
+    text field and this is the only place that reads it: NULL (every board
+    that predates maps), a blob that isn't JSON, a blob that is JSON but not
+    an object, and a value outside the known set all mean the same thing —
+    an ordinary free-layout whiteboard. A board is a note someone can still
+    edit by other means; a bad value here must degrade to the default, never
+    to a 500 on the Library's own board list.
+    """
+    if entry is None:
+        return DEFAULT_BOARD_TYPE, DEFAULT_BOARD_LAYOUT
+    try:
+        parsed = json.loads(entry.board_settings or "{}")
+    except (TypeError, ValueError):
+        parsed = {}
+    if not isinstance(parsed, dict):
+        parsed = {}
+    board_type = parsed.get("type")
+    layout = parsed.get("layout")
+    return (
+        board_type if board_type in BOARD_TYPES else DEFAULT_BOARD_TYPE,
+        layout if layout in BOARD_LAYOUTS else DEFAULT_BOARD_LAYOUT,
+    )
+
+
+def _store_board_settings(
+    entry: Entry, board_type: str | None = None, layout: str | None = None
+) -> tuple[str, str]:
+    """Write `type`/`layout` back, leaving whatever this board already had
+    for the one that wasn't given. Returns the pair as it now stands.
+
+    Read-modify-write rather than replace, because a settings blob is a
+    family that will keep growing (a default node colour, tidy-on-drop) and
+    the failure mode of replacing is silent: changing the layout would clear
+    every setting added after this function was written.
+    """
+    current_type, current_layout = _board_settings(entry)
+    resolved_type = board_type or current_type
+    resolved_layout = layout or current_layout
+    try:
+        existing = json.loads(entry.board_settings or "{}")
+    except (TypeError, ValueError):
+        existing = {}
+    if not isinstance(existing, dict):
+        existing = {}
+    existing["type"] = resolved_type
+    existing["layout"] = resolved_layout
+    entry.board_settings = json.dumps(existing)
+    return resolved_type, resolved_layout
+
+
 class BoardOut(BaseModel):
     #: None is the one unnamed scratch board every notebook starts with.
     id: int | None
@@ -308,6 +415,9 @@ class BoardOut(BaseModel):
     node_count: int
     sketch_count: int
     object_count: int = 0
+    #: "board" (a free canvas) or "map" (tree semantics). See BOARD_TYPES.
+    type: str = DEFAULT_BOARD_TYPE
+    layout: str = DEFAULT_BOARD_LAYOUT
     #: A miniature of where things actually sit on this board: up to
     #: Up to `PREVIEW_POINTS` items — `{x, y, kind, label}` — each position
     #: normalised into 0..1 against the board's own bounding box. The
@@ -330,9 +440,44 @@ class BoardOut(BaseModel):
     #: the whole board — and a list of twenty boards would ship twenty whole
     #: boards to draw twenty thumbnails.
     preview_items: list[dict] = []
+    #: A map's parent→child edges as line segments, `{x1, y1, x2, y2}`, in the
+    #: same normalised 0..1 space as `preview_items` and sampled with it.
+    #:
+    #: Empty for an ordinary board, which has no tree to draw. It exists
+    #: because a map whose thumbnail is a scatter of dots is indistinguishable
+    #: from a board — and structure is the entire difference between the two,
+    #: so the one thing the picture has to show is the one thing points alone
+    #: cannot.
+    preview_edges: list[dict] = []
 
 
-class BoardCreate(BaseModel):
+class BoardTypeMixin(BaseModel):
+    """`type` and `layout` as a request field, validated once for every
+    endpoint that takes them rather than three times slightly differently."""
+
+    type: str | None = None
+    layout: str | None = None
+
+    @field_validator("type")
+    @classmethod
+    def _known_type(cls, value: str | None) -> str | None:
+        if value is not None and value not in BOARD_TYPES:
+            raise ValueError(
+                f"Unknown board type {value!r} — expected " + " or ".join(sorted(BOARD_TYPES))
+            )
+        return value
+
+    @field_validator("layout")
+    @classmethod
+    def _known_layout(cls, value: str | None) -> str | None:
+        if value is not None and value not in BOARD_LAYOUTS:
+            raise ValueError(
+                f"Unknown layout {value!r} — expected one of " + ", ".join(sorted(BOARD_LAYOUTS))
+            )
+        return value
+
+
+class BoardCreate(BoardTypeMixin):
     name: str = Field(min_length=1, max_length=100)
 
 
@@ -397,12 +542,19 @@ def _preview_items(rows: list[tuple[float, float, str, str]]) -> list[dict]:
     ]
 
 
-def _board_preview(db: Session, board_id: int | None) -> list[dict]:
-    """Everything placed on one board, as a thumbnail.
+def _board_preview(db: Session, board_id: int | None) -> tuple[list[dict], list[dict]]:
+    """Everything placed on one board, as a thumbnail: `(items, edges)`.
 
     Cards, sketches *and* objects. Cards alone was the first version and it
     is why a sketch-only board previewed as an empty rectangle: the count
     line said "2 sketches" beside a picture of nothing.
+
+    **Edges are computed from the sampled items, not from the board.** The
+    sampler drops items on a large board (`PREVIEW_POINTS`), and an edge
+    whose other end was dropped would be a line to nowhere — so an edge is
+    emitted only when both of its ends survived sampling, and it reuses the
+    normalised coordinates the items already got rather than normalising a
+    second time against different bounds.
     """
     from memorymap.entry import manager
 
@@ -412,6 +564,11 @@ def _board_preview(db: Session, board_id: int | None) -> list[dict]:
         )
 
     rows: list[tuple[float, float, str, str]] = []
+    #: Which object each row came from, positionally — `None` for a card or a
+    #: sketch, which have no tree. Only map nodes ever claim a parent, so an
+    #: ordinary board leaves `parent_of` empty and pays for nothing.
+    owners: list[int | None] = []
+    parent_of: dict[int, int] = {}
 
     for node in db.scalars(select(WhiteboardNode).where(on(WhiteboardNode))):
         entry = db.get(Entry, node.entry_id)
@@ -426,18 +583,51 @@ def _board_preview(db: Session, board_id: int | None) -> list[dict]:
                 :PREVIEW_LABEL_CHARS
             ]
         rows.append((float(node.x), float(node.y), "card", label))
+        owners.append(None)
 
     for sketch in db.scalars(select(WhiteboardSketch).where(on(WhiteboardSketch))):
         rows.append((float(sketch.x), float(sketch.y), "sketch", ""))
+        owners.append(None)
 
     for obj in db.scalars(select(WhiteboardObject).where(on(WhiteboardObject))):
-        rows.append((float(obj.x), float(obj.y), obj.kind or "object", ""))
+        label = ""
+        if obj.kind == MAP_TOPIC_KIND:
+            # A map's thumbnail is mostly topics, and a topic *is* its text —
+            # a tree of unlabelled boxes tells two maps apart no better than
+            # a scatter of dots did.
+            try:
+                label = str(json.loads(obj.data).get("content") or "")[:PREVIEW_LABEL_CHARS]
+            except (TypeError, ValueError):
+                label = ""
+        rows.append((float(obj.x), float(obj.y), obj.kind or "object", label))
+        owners.append(obj.id)
+        if obj.parent_id is not None:
+            parent_of[obj.id] = obj.parent_id
 
-    return _preview_items(rows)
+    # Sample here rather than inside `_preview_items` so the edges can be
+    # drawn against the *same* survivors: passing an already-sampled list
+    # back through it is a no-op (its own stride is 1 for anything at or
+    # under PREVIEW_POINTS), so nothing about the items changes.
+    stride = max(1, len(rows) // PREVIEW_POINTS)
+    kept = list(range(len(rows)))[::stride][:PREVIEW_POINTS]
+    items = _preview_items([rows[i] for i in kept])
+
+    edges: list[dict] = []
+    if parent_of:
+        at = {owners[i]: n for n, i in enumerate(kept) if owners[i] is not None}
+        for child_id, parent_id in parent_of.items():
+            if child_id in at and parent_id in at:
+                child, parent = items[at[child_id]], items[at[parent_id]]
+                edges.append(
+                    {"x1": parent["x"], "y1": parent["y"], "x2": child["x"], "y2": child["y"]}
+                )
+    return items, edges
 
 
 @router.get("/boards", response_model=list[BoardOut])
-def list_boards(db: Session = Depends(get_session)) -> list[BoardOut]:
+def list_boards(
+    type: str | None = None, db: Session = Depends(get_session)
+) -> list[BoardOut]:
     """Boards actually in use — not, as the client used to build this list
     itself, every note in the notebook.
 
@@ -450,7 +640,20 @@ def list_boards(db: Session = Depends(get_session)) -> list[BoardOut]:
     with no way to tell which one, if any, was actually a board someone had
     drawn on. This lists only notes with at least one card or sketch on them,
     plus the always-present default board.
+
+    `?type=map` (or `board`) narrows it to one kind — the Library's Maps
+    chip. Filtered in Python rather than in SQL because a board's type lives
+    inside a JSON settings blob (`Entry.board_settings`), and because this
+    function already materialises every board to build its preview: the list
+    is tens of rows long, not thousands. An unknown value returns nothing
+    rather than everything — a filter that silently ignores itself reads as
+    "you have no maps" only after the user has read every row.
     """
+    if type is not None and type not in BOARD_TYPES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown board type {type!r} — expected " + " or ".join(sorted(BOARD_TYPES)),
+        )
     node_counts = dict(
         db.execute(
             select(WhiteboardNode.board_id, func.count())
@@ -481,6 +684,10 @@ def list_boards(db: Session = Depends(get_session)) -> list[BoardOut]:
     default_objects = db.scalar(
         select(func.count()).select_from(WhiteboardObject).where(WhiteboardObject.board_id.is_(None))
     )
+    # The default scratch board has no note behind it, so it has nowhere to
+    # store settings and is always an ordinary board — which is why it is
+    # excluded by `?type=map` rather than being special-cased into it.
+    default_items, default_edges = _board_preview(db, None)
     boards = [
         BoardOut(
             id=None,
@@ -488,9 +695,10 @@ def list_boards(db: Session = Depends(get_session)) -> list[BoardOut]:
             node_count=default_nodes,
             sketch_count=default_sketches,
             object_count=default_objects,
-            preview_items=_board_preview(db, None),
+            preview_items=default_items,
+            preview_edges=default_edges,
         )
-    ]
+    ] if type in (None, DEFAULT_BOARD_TYPE) else []
     # `is_board` entries are included even at zero counts — see its own
     # comment on the model and on `_require_board` above: a board that is
     # currently empty (just created, or cleared back to empty) is still a
@@ -507,7 +715,11 @@ def list_boards(db: Session = Depends(get_session)) -> list[BoardOut]:
             select(Entry).where(Entry.id.in_(board_ids), Entry.is_deleted.is_(False))
         ).all()
         for entry in entries:
+            board_type, layout = _board_settings(entry)
+            if type is not None and board_type != type:
+                continue
             title = extract_title(entry.content) or entry.content.strip()[:40] or f"Note {entry.id}"
+            items, edges = _board_preview(db, entry.id)
             boards.append(
                 BoardOut(
                     id=entry.id,
@@ -515,7 +727,10 @@ def list_boards(db: Session = Depends(get_session)) -> list[BoardOut]:
                     node_count=node_counts.get(entry.id, 0),
                     sketch_count=sketch_counts.get(entry.id, 0),
                     object_count=object_counts.get(entry.id, 0),
-                    preview_items=_board_preview(db, entry.id),
+                    type=board_type,
+                    layout=layout,
+                    preview_items=items,
+                    preview_edges=edges,
                 )
             )
     return boards
@@ -574,10 +789,22 @@ def create_board(body: BoardCreate, db: Session = Depends(get_session)) -> Board
     """
     name = body.name.strip()
     entry = Entry(content=f"# {name}", is_board=True)
+    # Written before the first commit rather than in a second UPDATE after
+    # it: a map created as a board and turned into one a moment later is a
+    # window in which the Library, the board list and any other reader see it
+    # as an ordinary whiteboard.
+    board_type, layout = _store_board_settings(entry, body.type, body.layout)
     db.add(entry)
     db.commit()
     db.refresh(entry)
-    return BoardOut(id=entry.id, title=name, node_count=0, sketch_count=0)
+    return BoardOut(
+        id=entry.id,
+        title=name,
+        node_count=0,
+        sketch_count=0,
+        type=board_type,
+        layout=layout,
+    )
 
 
 @router.post("/boards/{board_id}/duplicate", response_model=BoardOut, status_code=201)
@@ -607,6 +834,10 @@ def duplicate_board(board_id: int, db: Session = Depends(get_session)) -> BoardO
     source = deps.get_or_404(db, Entry, board_id, "Board not found")
     title = extract_title(source.content) or "Untitled board"
     copy = Entry(content=f"# {title} (copy)", is_board=True)
+    # A copy of a map is a map. Copying the settings blob wholesale (rather
+    # than reading the two fields and writing them back) is what keeps that
+    # true for every board-level setting added after this line was written.
+    copy.board_settings = source.board_settings
     db.add(copy)
     db.flush()  # the new board needs its id before anything can point at it
 
@@ -637,24 +868,57 @@ def duplicate_board(board_id: int, db: Session = Depends(get_session)) -> BoardO
     ).all():
         db.add(WhiteboardSketch(board_id=copy.id, data=sketch.data))
 
-    for obj in db.scalars(
+    # **The copy's tree has to point at the copy.** A row-by-row copy carries
+    # `parent_id` verbatim, which would leave every node in the duplicate
+    # parented to the *original's* rows — a map that looks right in the object
+    # list and renders as a flat pile of roots, because the tree walk on this
+    # board finds no parent of its own on it. So: copy first, then re-wire by
+    # the old id → new id map, which needs the new ids and therefore a flush.
+    copied_by_source: dict[int, WhiteboardObject] = {}
+    sources = db.scalars(
         select(WhiteboardObject).where(_board_filter(WhiteboardObject, board_id))
-    ).all():
-        db.add(WhiteboardObject(board_id=copy.id, kind=obj.kind, data=obj.data))
+    ).all()
+    for obj in sources:
+        clone = WhiteboardObject(
+            board_id=copy.id,
+            kind=obj.kind,
+            data=obj.data,
+            x=obj.x,
+            y=obj.y,
+            z=obj.z,
+            width=obj.width,
+            height=obj.height,
+        )
+        db.add(clone)
+        copied_by_source[obj.id] = clone
+    db.flush()
+    for obj in sources:
+        if obj.parent_id is not None and obj.parent_id in copied_by_source:
+            copied_by_source[obj.id].parent_id = copied_by_source[obj.parent_id].id
 
     db.commit()
     db.refresh(copy)
+    items, edges = _board_preview(db, copy.id)
+    board_type, layout = _board_settings(copy)
     return BoardOut(
         id=copy.id,
         title=f"{title} (copy)",
         node_count=len(nodes),
         sketch_count=0,
-        preview_items=_board_preview(db, copy.id),
+        object_count=len(sources),
+        type=board_type,
+        layout=layout,
+        preview_items=items,
+        preview_edges=edges,
     )
 
 
-class BoardRename(BaseModel):
-    title: str = Field(min_length=1, max_length=100)
+class BoardRename(BoardTypeMixin):
+    #: Optional since maps: `PUT` used to be rename-only and required a
+    #: title, so a client changing the *layout* had to resend the name it was
+    #: not touching — which is how a rename made in another tab gets silently
+    #: overwritten by a stale one. `None` means "leave the title alone".
+    title: str | None = Field(default=None, min_length=1, max_length=100)
 
 
 @router.put("/boards/{board_id}", response_model=BoardOut)
@@ -666,13 +930,27 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
     no underlying note to rename; `board_id=0` and negative ids can't
     resolve to a real note either, so both 404 the same way a stale or
     guessed id does.
+
+    Also where a board becomes a map and back (`type`), and where a map's
+    `layout` is chosen. Every field is optional and only what was sent is
+    applied — the same shape `PATCH` would have, kept as `PUT` because the
+    route, the client call and this function's name already existed.
     """
     entry = db.get(Entry, board_id) if board_id > 0 else None
     if entry is None or entry.is_deleted:
         raise HTTPException(status_code=404, detail=f"No board with id {board_id}")
-    title = body.title.strip()
     entry.is_board = True
-    update_entry(db, entry, content=apply_title(entry.content, title))
+    if body.type is not None or body.layout is not None:
+        _store_board_settings(entry, body.type, body.layout)
+    if body.title is not None:
+        title = body.title.strip()
+        update_entry(db, entry, content=apply_title(entry.content, title))
+    else:
+        # `update_entry` commits for us; without a title change nothing else
+        # would, and the settings above would be lost on session close.
+        db.commit()
+        title = extract_title(entry.content) or entry.content.strip()[:40] or f"Note {entry.id}"
+    board_type, layout = _board_settings(entry)
     node_count = db.scalar(
         select(func.count()).select_from(WhiteboardNode).where(WhiteboardNode.board_id == board_id)
     )
@@ -682,8 +960,17 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
     object_count = db.scalar(
         select(func.count()).select_from(WhiteboardObject).where(WhiteboardObject.board_id == board_id)
     )
+    items, edges = _board_preview(db, board_id)
     return BoardOut(
-        id=board_id, title=title, node_count=node_count, sketch_count=sketch_count, object_count=object_count
+        id=board_id,
+        title=title,
+        node_count=node_count,
+        sketch_count=sketch_count,
+        object_count=object_count,
+        type=board_type,
+        layout=layout,
+        preview_items=items,
+        preview_edges=edges,
     )
 
 
@@ -853,7 +1140,63 @@ def update_object(
 
 @router.delete("/objects/{object_id}")
 def delete_object(object_id: int, db: Session = Depends(get_session)) -> dict:
+    """Delete an object — and, on a map, everything hanging off it.
+
+    **Coggle's rule, chosen deliberately over re-parenting** (MINDMAP_PLAN.md
+    §5.4). The alternative, promoting a deleted node's children to its
+    parent, reads as the gentler option and is worse: a branch you meant to
+    remove reappears as loose children under a node that never had them, and
+    there is no single action that puts it back. Deleting the subtree is one
+    action, so it can be undone as one — which is why the whole subtree comes
+    back in the response, rows and positions included, rather than a count.
+
+    An ordinary object has no children, so this is exactly what it always
+    was for a text box or an image.
+    """
     obj = deps.get_or_404(db, WhiteboardObject, object_id, "Object not found")
+    doomed = _subtree(db, obj)
+    deleted = [_object_to_out(row).model_dump() for row in doomed]
+    for row in doomed:
+        _delete_one_object(db, row)
+    db.commit()
+    return {"status": "ok", "deleted": deleted}
+
+
+def _subtree(db: Session, root: WhiteboardObject) -> list[WhiteboardObject]:
+    """`root` and every map node under it, deepest last.
+
+    Breadth-first with a seen-set rather than recursion, because `parent_id`
+    is a plain integer with no database-level constraint behind it (see the
+    column's own comment): a cycle written by a bad client, or by a bug in
+    something that has not been written yet, must end this walk rather than
+    the process. Scoped to `root`'s own board for the same reason every other
+    write here is — a child claiming a parent on another board is not part of
+    this tree.
+    """
+    found = [root]
+    seen = {root.id}
+    frontier = [root.id]
+    while frontier:
+        children = db.scalars(
+            select(WhiteboardObject).where(
+                WhiteboardObject.parent_id.in_(frontier),
+                _board_filter(WhiteboardObject, root.board_id),
+            )
+        ).all()
+        frontier = []
+        for child in children:
+            if child.id in seen:
+                continue
+            seen.add(child.id)
+            found.append(child)
+            frontier.append(child.id)
+    return found
+
+
+def _delete_one_object(db: Session, obj: WhiteboardObject) -> None:
+    """The per-row half of `delete_object`: forget its links, unlink its file
+    if it owned one, remove the row. Does not commit — a subtree is one
+    delete, so it is one transaction."""
     _forget_links_to(db, obj.board_id, "object", obj.id)
     if obj.kind == "image":
         # The only thing that ever pointed at this file — best-effort, the
@@ -867,19 +1210,783 @@ def delete_object(object_id: int, db: Session = Depends(get_session)) -> dict:
             if path is not None:
                 path.unlink(missing_ok=True)
         except (OSError, ValueError) as exc:
-            # `int(object_id)` rather than the path parameter as it arrived.
-            # FastAPI already rejects a non-integer with a 422 before this
-            # function runs, so it cannot carry the newline a forged log line
-            # would need — but a path parameter reaching a log record is a
-            # flow CodeQL flags on principle (py/log-injection), and the
+            # `int(obj.id)` rather than anything that came off the request.
+            # FastAPI already rejects a non-integer path parameter with a 422
+            # before any of this runs, so it cannot carry the newline a forged
+            # log line would need — but a path parameter reaching a log record
+            # is a flow CodeQL flags on principle (py/log-injection), and the
             # explicit conversion keeps that guarantee true even if the
             # signature is ever loosened to a str.
             logging.getLogger("memorymap.whiteboard").warning(
                 "couldn't delete the file for whiteboard image %s (%s); "
                 "removing the record anyway",
-                int(object_id),
+                int(obj.id),
                 type(exc).__name__,
             )
     db.delete(obj)
+
+
+# --- maps: the same board, with a tree on it --------------------------------
+#
+# MINDMAP_PLAN.md §4 chose option B — a mindmap is a board with `type: "map"`,
+# not a second entity with its own tables. Everything below therefore reads
+# and writes the rows that already exist (`WhiteboardObject`, and link
+# sketches for cross-branch connections); the only genuinely new endpoints are
+# the ones that would otherwise force a client to invent a tree out of a flat
+# list, and to invent coordinates for it.
+
+
+#: How far a map's own tree walks will go before deciding the tree is not
+#: one. `parent_id` has no database constraint behind it (see the column's
+#: comment), so a cycle is possible in principle; every walk here is
+#: iterative and seen-set guarded, and this is the second belt — a map 200
+#: levels deep is a bug, not a map.
+MAX_MAP_DEPTH = 200
+
+#: Where a node lands when the caller does not say. Mirrored from
+#: `ai/tools/whiteboard.py`'s `_DIAGRAM_ROW`/`_DIAGRAM_COL`, which are
+#: themselves mirrored from the whiteboard's own `wbArrangeMindMap`, so a
+#: node added by the AI, by an import, and by a person's own Tab key all land
+#: on the same spacing convention instead of three different ones.
+MAP_ROW = 170.0
+MAP_COL = 320.0
+
+#: An imported outline's ceiling, in characters and in nodes. An import is
+#: the one door in this app that takes a document written somewhere else, so
+#: it is the one that needs a size the parser cannot be argued out of.
+MAX_IMPORT_CHARS = 400_000
+MAX_IMPORT_NODES = 2_000
+
+#: How deep an imported outline may nest. Deeper than any real map, shallow
+#: enough that a file of nothing but indentation cannot build a stack.
+MAX_IMPORT_DEPTH = 40
+
+
+def _map_kind_ok(kind: str) -> None:
+    if kind != MAP_TOPIC_KIND and kind not in MAP_REFERENCE_KINDS:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Unknown map node kind {kind!r} — expected "
+                + ", ".join(sorted({MAP_TOPIC_KIND} | MAP_REFERENCE_KINDS))
+            ),
+        )
+
+
+def _require_reference(db: Session, kind: str, ref_id: int | None) -> None:
+    """A reference node has to point at something that exists.
+
+    The same rule, and the same reason, as `_require_entry` at the top of
+    this file: an unvalidated id is a node that stores fine, draws as an
+    empty box, and cannot be identified or removed from the UI afterwards,
+    because the thing you would click is the item that isn't there.
+
+    Privacy is deliberately *not* checked here, and that is not an oversight.
+    Putting your own private note on your own map is the same act as dropping
+    it on a board (`create_node` does not refuse it either) — the app is
+    behind the lock either way. The refusal that matters is the AI's, and it
+    lives where the AI is: `_require_note` in `ai/tools/_common.py`, which
+    every map tool in `ai/tools/whiteboard.py` calls before it writes, and
+    `read_mindmap`, which will not read a private note's text back out.
+    """
+    from memorymap.core.database import Attachment, Bookmark, Document
+
+    if ref_id is None:
+        raise HTTPException(status_code=422, detail=f"A {kind} node needs a ref_id")
+    if kind == "note":
+        _require_entry(db, ref_id)
+        return
+    model, label = {
+        "document": (Document, "document"),
+        "file": (Attachment, "file"),
+        "link": (Bookmark, "bookmark"),
+    }[kind]
+    if db.get(model, ref_id) is None:
+        raise HTTPException(status_code=404, detail=f"No {label} with id {ref_id}")
+
+
+def _reference_label(db: Session, kind: str, ref_id: int | None, fallback: str) -> str:
+    """What a reference node is *called*, resolved from the thing it points
+    at rather than copied into the map when the node was made.
+
+    Copied text goes stale the moment the note is renamed, and a map full of
+    names that no longer match the notes is worse than one with no names at
+    all. A private note contributes the fact of the reference and nothing
+    else — the same rule the board preview and the Connections block follow.
+    """
+    from memorymap.core.database import Attachment, Bookmark, Document
+    from memorymap.entry import manager
+
+    if ref_id is None:
+        return fallback
+    if kind == "note":
+        entry = db.get(Entry, ref_id)
+        if entry is None or entry.is_deleted:
+            return fallback or "(note missing)"
+        if entry.is_private:
+            return "Private note"
+        text = manager.readable_content(entry)
+        return manager.extract_title(text) or text.strip().split("\n")[0][:80] or fallback
+    if kind == "document":
+        document = db.get(Document, ref_id)
+        return (document.title if document is not None else "") or fallback
+    if kind == "file":
+        attachment = db.get(Attachment, ref_id)
+        return (attachment.filename if attachment is not None else "") or fallback
+    if kind == "link":
+        bookmark = db.get(Bookmark, ref_id)
+        if bookmark is None:
+            return fallback
+        return bookmark.title or bookmark.url or fallback
+    return fallback
+
+
+def _object_data(obj: WhiteboardObject) -> dict:
+    """An object's JSON blob, never raising. A row edited by hand, or written
+    by an older version, must not take a whole board's tree down with it."""
+    try:
+        parsed = json.loads(obj.data or "{}")
+    except (TypeError, ValueError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _map_node_dict(db: Session, obj: WhiteboardObject) -> dict:
+    """One node, flat — `_build_tree` fills in `children`."""
+    data = _object_data(obj)
+    content = str(data.get("content") or "")
+    raw_ref = data.get("ref_id")
+    ref_id = int(raw_ref) if isinstance(raw_ref, int) else None
+    text = (
+        content
+        if obj.kind in (MAP_TOPIC_KIND, "text")
+        else _reference_label(db, obj.kind, ref_id, content)
+    )
+    return {
+        "id": obj.id,
+        "kind": obj.kind,
+        "text": text,
+        "ref_id": ref_id,
+        "x": obj.x,
+        "y": obj.y,
+        "color": data.get("color"),
+        "collapsed": bool(data.get("collapsed")),
+        "pinned": bool(data.get("pinned")),
+        "children": [],
+    }
+
+
+def _build_tree(db: Session, objects: list[WhiteboardObject]) -> list[dict]:
+    """The board's objects as nested roots.
+
+    **A node whose parent is not on this board is a root**, and that is the
+    reason this is not a two-line recursion down from `parent_id IS NULL`.
+    `parent_id` is a plain integer (see the column's comment), so a pointer
+    can go stale — and a walk that starts only from NULL silently drops every
+    node under a broken pointer. The board still holds them; the map just
+    stops showing them, which is the worst way to lose something.
+    """
+    nodes = {obj.id: _map_node_dict(db, obj) for obj in objects}
+    roots: list[dict] = []
+    for obj in objects:
+        parent = nodes.get(obj.parent_id) if obj.parent_id is not None else None
+        if parent is None:
+            roots.append(nodes[obj.id])
+        else:
+            parent["children"].append(nodes[obj.id])
+
+    # A ring (a → b → a) leaves both nodes attached to each other and neither
+    # in `roots`, so the outline would simply not mention them. They are
+    # still on the board, so the lowest id of each unreachable ring is
+    # re-rooted and the rest follows it, rather than pretending the rows are
+    # not there.
+    reachable: set[int] = set()
+
+    def claim(start: dict) -> None:
+        frontier = [start]
+        while frontier:
+            node = frontier.pop()
+            if node["id"] in reachable:
+                continue
+            reachable.add(node["id"])
+            frontier.extend(node["children"])
+
+    for root in list(roots):
+        claim(root)
+    for obj in objects:
+        if obj.id not in reachable:
+            roots.append(nodes[obj.id])
+            claim(nodes[obj.id])
+    return roots
+
+
+def _map_objects(db: Session, board_id: int | None) -> list[WhiteboardObject]:
+    """Every object on a board, oldest first — creation order, which is the
+    order a person built the map in and the only one an outline can be read
+    in without surprises. Position decides where a node is *drawn*; it does
+    not decide what the map says."""
+    return list(
+        db.scalars(
+            select(WhiteboardObject)
+            .where(_board_filter(WhiteboardObject, board_id))
+            .order_by(WhiteboardObject.id)
+        )
+    )
+
+
+def _cross_links(db: Session, board_id: int | None, node_ids: set[int]) -> list[dict]:
+    """The non-tree edges: link sketches whose two ends are both map nodes.
+
+    Kept as link sketches rather than given a table of their own, because
+    that is what a link between two things on a board already is — the
+    frontend draws them and `_forget_links_to` cleans them up, and a second
+    representation would need both written again.
+    """
+    out: list[dict] = []
+    for sketch in db.scalars(
+        select(WhiteboardSketch)
+        .where(_board_filter(WhiteboardSketch, board_id))
+        .order_by(WhiteboardSketch.id)
+    ):
+        try:
+            data = json.loads(sketch.data or "{}")
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(data, dict) or not str(data.get("type", "")).startswith("link-"):
+            continue
+        source_kind = data.get("sourceKind") or "node"
+        target_kind = data.get("targetKind") or "node"
+        if source_kind != "object" or target_kind != "object":
+            continue
+        source, target = data.get("sourceId"), data.get("targetId")
+        if source in node_ids and target in node_ids:
+            out.append(
+                {"from_id": source, "to_id": target, "label": str(data.get("label") or "")}
+            )
+    return out
+
+
+class MapTreeOut(BaseModel):
+    board_id: int
+    title: str
+    type: str
+    layout: str
+    #: Nested `{id, kind, text, ref_id, x, y, color, collapsed, pinned,
+    #: children}`. Typed as `list[dict]` rather than as a self-referencing
+    #: model: OpenAPI's handling of recursive schemas buys nothing here, and
+    #: the shape is documented above and asserted in `tests/test_mindmap.py`.
+    roots: list[dict]
+    cross_links: list[dict]
+
+
+def _board_entry(db: Session, board_id: int) -> Entry:
+    """The note behind a board, or the 404 `rename_board` already gives —
+    `board_id=0` and negative ids can't resolve to a real note either."""
+    entry = db.get(Entry, board_id) if board_id > 0 else None
+    if entry is None or entry.is_deleted:
+        raise HTTPException(status_code=404, detail=f"No board with id {board_id}")
+    return entry
+
+
+@router.get("/boards/{board_id}/tree", response_model=MapTreeOut)
+def board_tree(board_id: int, db: Session = Depends(get_session)) -> MapTreeOut:
+    """The board as a nested tree, plus its cross-links.
+
+    The one endpoint a map client cannot do without: `GET /whiteboard/` hands
+    back a flat list of objects, and rebuilding the tree from it client-side
+    means every reader (the canvas, the Library thumbnail, an export, the
+    agent) writes the same walk again — including the dangling-parent and
+    ring cases, which is exactly the sort of thing four copies get subtly
+    differently.
+    """
+    entry = _board_entry(db, board_id)
+    board_type, layout = _board_settings(entry)
+    objects = _map_objects(db, board_id)
+    return MapTreeOut(
+        board_id=board_id,
+        title=extract_title(entry.content) or entry.content.strip()[:40] or f"Note {board_id}",
+        type=board_type,
+        layout=layout,
+        roots=_build_tree(db, objects),
+        cross_links=_cross_links(db, board_id, {obj.id for obj in objects}),
+    )
+
+
+class MapNodeCreate(BaseModel):
+    kind: str = MAP_TOPIC_KIND
+    #: The parent this node hangs off, or None for a root topic.
+    parent_id: int | None = None
+    text: str = Field(default="", max_length=MAX_OBJECT_TEXT_CHARS)
+    #: For a `note`/`document`/`file`/`link` node: what it stands for.
+    ref_id: int | None = Field(default=None, ge=1)
+    #: Omitted means "put it somewhere sensible" — see `_next_position`. A
+    #: caller that has to invent coordinates gets them wrong, which is the
+    #: whole reason `generate_diagram` computes them server-side too.
+    x: float | None = None
+    y: float | None = None
+    color: str | None = Field(default=None, max_length=20)
+
+
+def _next_position(
+    db: Session, board_id: int, parent: WhiteboardObject | None
+) -> tuple[float, float]:
+    """Where a new node goes when the caller did not say.
+
+    One column right of its parent, one row below the last sibling — the same
+    row/column convention `wbArrangeMindMap` and `generate_diagram` already
+    use, so a map built by hand, by import and by the agent does not read as
+    three different tools' opinions. Roots stack down the left edge.
+    """
+    siblings = db.scalars(
+        select(func.count())
+        .select_from(WhiteboardObject)
+        .where(
+            _board_filter(WhiteboardObject, board_id),
+            WhiteboardObject.parent_id == parent.id
+            if parent is not None
+            else WhiteboardObject.parent_id.is_(None),
+        )
+    ).one()
+    if parent is None:
+        return 0.0, float(siblings) * MAP_ROW
+    return float(parent.x) + MAP_COL, float(parent.y) + float(siblings) * MAP_ROW
+
+
+@router.post(
+    "/boards/{board_id}/nodes", response_model=WhiteboardObjectOut, status_code=201
+)
+def create_map_node(
+    board_id: int, body: MapNodeCreate, db: Session = Depends(get_session)
+) -> WhiteboardObjectOut:
+    """Add a node under a parent, or as a new root.
+
+    Not a second CRUD for `whiteboard_objects` — `PUT`/`DELETE /objects/{id}`
+    still own the rest of a node's life. This exists for the two things the
+    generic create cannot do without a client that already knows the whole
+    tree: attach the node to a parent (with the board scoping that implies)
+    and work out where it goes.
+    """
+    _require_board(db, board_id)
+    _map_kind_ok(body.kind)
+    if body.kind in MAP_REFERENCE_KINDS:
+        _require_reference(db, body.kind, body.ref_id)
+
+    parent = None
+    if body.parent_id is not None:
+        parent = db.get(WhiteboardObject, body.parent_id)
+        # Scoped to the board it claims — the rule this module opens with. A
+        # parent on another board would build a tree spanning two boards,
+        # which renders on neither.
+        if parent is None or parent.board_id != board_id:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No node with id {body.parent_id} on this board",
+            )
+
+    if body.x is not None and body.y is not None:
+        x, y = body.x, body.y
+    else:
+        x, y = _next_position(db, board_id, parent)
+    data = WhiteboardObjectData(
+        content=body.text,
+        ref_id=body.ref_id if body.kind in MAP_REFERENCE_KINDS else None,
+        color=body.color,
+    )
+    obj = WhiteboardObject(
+        board_id=board_id,
+        kind=body.kind,
+        data=data.model_dump_json(exclude_none=True),
+        x=x,
+        y=y,
+        z=1,
+        parent_id=parent.id if parent is not None else None,
+    )
+    db.add(obj)
     db.commit()
-    return {"status": "ok"}
+    db.refresh(obj)
+    return _object_to_out(obj)
+
+
+class MapNodeMove(BaseModel):
+    #: The new parent, or None to promote the node to a root. The node keeps
+    #: its own children either way — moving a node moves its branch.
+    parent_id: int | None = None
+
+
+def _is_descendant(
+    db: Session, node_id: int, candidate_id: int, board_id: int | None
+) -> bool:
+    """Is `candidate_id` somewhere under `node_id`?
+
+    Walks down rather than up, and iteratively: walking up from the candidate
+    follows `parent_id` pointers that may already be broken, and a recursive
+    walk of a tree that is not one is a stack overflow rather than a refusal.
+    """
+    seen = {node_id}
+    frontier = [node_id]
+    depth = 0
+    while frontier and depth < MAX_MAP_DEPTH:
+        children = list(
+            db.scalars(
+                select(WhiteboardObject.id).where(
+                    WhiteboardObject.parent_id.in_(frontier),
+                    _board_filter(WhiteboardObject, board_id),
+                )
+            )
+        )
+        if candidate_id in children:
+            return True
+        frontier = [child for child in children if child not in seen]
+        seen.update(frontier)
+        depth += 1
+    return False
+
+
+@router.put(
+    "/boards/{board_id}/nodes/{node_id}/move", response_model=WhiteboardObjectOut
+)
+def move_map_node(
+    board_id: int, node_id: int, body: MapNodeMove, db: Session = Depends(get_session)
+) -> WhiteboardObjectOut:
+    """Re-parent a node, and with it its whole branch.
+
+    **The cycle check is why this endpoint exists at all**, and why `PUT
+    /objects/{id}` deliberately does not touch `parent_id`: a node made its
+    own descendant produces a ring no tree walk can leave, so the map becomes
+    unreadable — and the only UI that could undo it is the one that has just
+    stopped rendering.
+    """
+    _require_board(db, board_id)
+    node = db.get(WhiteboardObject, node_id)
+    if node is None or node.board_id != board_id:
+        raise HTTPException(
+            status_code=404, detail=f"No node with id {node_id} on this board"
+        )
+
+    if body.parent_id is None:
+        node.parent_id = None
+    else:
+        if body.parent_id == node.id:
+            raise HTTPException(
+                status_code=422,
+                detail="A node can't be its own parent — that makes it a descendant of itself.",
+            )
+        parent = db.get(WhiteboardObject, body.parent_id)
+        if parent is None or parent.board_id != board_id:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No node with id {body.parent_id} on this board",
+            )
+        if _is_descendant(db, node.id, parent.id, board_id):
+            raise HTTPException(
+                status_code=422,
+                detail="That would make the node a descendant of itself — move the branch out first.",
+            )
+        node.parent_id = parent.id
+    db.commit()
+    db.refresh(node)
+    return _object_to_out(node)
+
+
+# --- export and import: text formats, so a map is not a lock-in -------------
+#
+# MINDMAP_PLAN.md §5 items 16-17. PNG/SVG/PDF come from the canvas and are the
+# frontend's; Markdown and OPML are text, cost nothing, and are what every
+# other mindmapper reads — which is the difference between a map you can take
+# with you and a map you can only look at here.
+
+
+def _outline_rows(roots: list[dict]) -> list[tuple[int, dict]]:
+    """The tree flattened to `(depth, node)` in reading order. Iterative for
+    the same reason every other walk in this file is."""
+    rows: list[tuple[int, dict]] = []
+    stack = [(0, node) for node in reversed(roots)]
+    while stack:
+        depth, node = stack.pop()
+        rows.append((depth, node))
+        for child in reversed(node["children"]):
+            stack.append((depth + 1, child))
+    return rows
+
+
+def _export_markdown(title: str, roots: list[dict]) -> str:
+    """`# Title`, then a two-space-per-level bullet outline.
+
+    A reference node carries what it points at on the same line — `- Sources
+    (note 12)` — because an outline of bare titles is a picture of the map
+    rather than a working document: the ids are what let it be read back, or
+    followed by hand.
+    """
+    lines = [f"# {title}"]
+    rows = _outline_rows(roots)
+    if rows:
+        lines.append("")
+    for depth, node in rows:
+        text = node["text"] or "(untitled)"
+        suffix = ""
+        if node["kind"] != MAP_TOPIC_KIND and node["ref_id"] is not None:
+            suffix = f" ({node['kind']} {node['ref_id']})"
+        lines.append(f"{'  ' * depth}- {text}{suffix}")
+    return "\n".join(lines) + "\n"
+
+
+def _export_opml(title: str, roots: list[dict]) -> str:
+    """OPML 2.0 — the interchange format every mindmapper reads.
+
+    Built with ElementTree rather than by formatting strings, so that a topic
+    containing `&`, `<` or a quote is escaped by something that knows the
+    rules — which hand-written XML reliably gets wrong on the first
+    apostrophe.
+    """
+    import xml.etree.ElementTree as ET
+
+    opml = ET.Element("opml", {"version": "2.0"})
+    head = ET.SubElement(opml, "head")
+    ET.SubElement(head, "title").text = title
+    body = ET.SubElement(opml, "body")
+
+    def add(parent_element, node: dict) -> None:
+        attrs = {"text": node["text"] or "(untitled)"}
+        if node["kind"] != MAP_TOPIC_KIND:
+            # `_kind`/`_ref`, not `type`/`ref`: OPML's own `type` attribute
+            # already means something else (how a reader should treat the
+            # outline), and quietly redefining it would make this file wrong
+            # for every other tool that opens it. An unknown attribute is
+            # ignored by other readers and survives a round trip through
+            # this one.
+            attrs["_kind"] = node["kind"]
+            if node["ref_id"] is not None:
+                attrs["_ref"] = str(node["ref_id"])
+        element = ET.SubElement(parent_element, "outline", attrs)
+        for child in node["children"]:
+            add(element, child)
+
+    for root in roots:
+        add(body, root)
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        + ET.tostring(opml, encoding="unicode")
+        + "\n"
+    )
+
+
+@router.get("/boards/{board_id}/export")
+def export_board(board_id: int, format: str = "markdown", db: Session = Depends(get_session)):
+    """A map as an indented Markdown outline, or as OPML.
+
+    Returned as a text response with a filename rather than as JSON: what a
+    caller wants from this is a file, and a JSON envelope means every client
+    writes the same unwrapping code before it can save one.
+    """
+    from fastapi.responses import Response
+
+    if format not in ("markdown", "opml"):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown export format {format!r} — expected markdown or opml",
+        )
+    entry = _board_entry(db, board_id)
+    title = extract_title(entry.content) or entry.content.strip()[:40] or f"Note {board_id}"
+    roots = _build_tree(db, _map_objects(db, board_id))
+    if format == "markdown":
+        text, media, suffix = _export_markdown(title, roots), "text/markdown", "md"
+    else:
+        text, media, suffix = _export_opml(title, roots), "text/x-opml", "opml"
+    # The filename is built from the board's id, never from its title: a
+    # title is free text, and a Content-Disposition header is exactly where
+    # free text becomes a header-injection question nobody wants to answer
+    # twice.
+    return Response(
+        content=text,
+        media_type=f"{media}; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="board-{int(board_id)}.{suffix}"'
+        },
+    )
+
+
+class MapImport(BaseModel):
+    format: str
+    content: str = Field(max_length=MAX_IMPORT_CHARS)
+    #: What to call the new map. Omitted means "whatever the document calls
+    #: itself" — an OPML `<head><title>`, or a Markdown `#` heading.
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+
+    @field_validator("format")
+    @classmethod
+    def _known_format(cls, value: str) -> str:
+        if value not in ("markdown", "opml"):
+            raise ValueError(
+                f"Unknown import format {value!r} — expected markdown or opml"
+            )
+        return value
+
+
+def _parse_opml(content: str) -> tuple[str, list[dict]]:
+    """OPML in, `(title, nested {text, children})` out.
+
+    **A document type declaration is refused outright**, before the parser
+    ever sees the string. `xml.etree` does not resolve *external* entities,
+    but it does expand internal ones, which is the billion-laughs shape: a
+    dozen nested entity definitions turn a 1KB file into gigabytes of memory
+    inside the parse call, where no size cap on the way in can see it coming.
+    Nothing else in this app parses XML from anywhere, and no real OPML file
+    needs a DTD — so the door refuses one, which is a check that stays
+    correct even if the parser behind it is swapped later.
+    """
+    import xml.etree.ElementTree as ET
+
+    lowered = content.lower()
+    if "<!doctype" in lowered or "<!entity" in lowered:
+        raise HTTPException(
+            status_code=422,
+            detail="That OPML declares a document type. Remove the <!DOCTYPE ...> line and try again.",
+        )
+    try:
+        root = ET.fromstring(content)
+    except ET.ParseError as exc:
+        raise HTTPException(status_code=422, detail=f"That isn't valid OPML: {exc}") from exc
+
+    title = ""
+    head_title = root.find("./head/title")
+    if head_title is not None and head_title.text:
+        title = head_title.text.strip()
+
+    body = root.find("./body")
+    if body is None:
+        # Some exporters leave out <body> and hang the outlines off the root.
+        body = root
+
+    counted = [0]
+
+    def walk(element, depth: int) -> list[dict]:
+        out: list[dict] = []
+        if depth >= MAX_IMPORT_DEPTH:
+            return out
+        for child in element.findall("outline"):
+            counted[0] += 1
+            if counted[0] > MAX_IMPORT_NODES:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"That outline has more than {MAX_IMPORT_NODES} nodes — split it up first.",
+                )
+            text = (child.get("text") or child.get("title") or "").strip()
+            out.append(
+                {"text": text[:MAX_OBJECT_TEXT_CHARS], "children": walk(child, depth + 1)}
+            )
+        return out
+
+    return title, walk(body, 0)
+
+
+def _parse_markdown_outline(content: str) -> tuple[str, list[dict]]:
+    """An indented `- bullet` outline in, `(title, nested nodes)` out.
+
+    Indentation decides depth, and a jump of more than one level is treated
+    as one level: a hand-written outline that indents four spaces in one
+    place and two in another is a normal thing to be handed, and refusing it
+    would make the import useless for exactly the files people have.
+    """
+    title = ""
+    roots: list[dict] = []
+    #: (indent, node) down the path from the current root to the last node
+    #: seen — the standard outline-parsing stack.
+    stack: list[tuple[int, dict]] = []
+    counted = 0
+    for raw in content.splitlines():
+        line = raw.rstrip()
+        stripped = line.lstrip()
+        if not stripped:
+            continue
+        if stripped.startswith("#"):
+            if not title:
+                title = stripped.lstrip("#").strip()
+            continue
+        if stripped[0] not in "-*+":
+            continue
+        text = stripped[1:].strip()
+        if not text:
+            continue
+        counted += 1
+        if counted > MAX_IMPORT_NODES:
+            raise HTTPException(
+                status_code=422,
+                detail=f"That outline has more than {MAX_IMPORT_NODES} nodes — split it up first.",
+            )
+        # A tab counts as one level however wide it is drawn, so a file
+        # indented with tabs nests the same way one indented with spaces does.
+        prefix = line[: len(line) - len(stripped)]
+        indent = len(prefix) + prefix.count("\t")
+        node: dict = {"text": text[:MAX_OBJECT_TEXT_CHARS], "children": []}
+        while stack and stack[-1][0] >= indent:
+            stack.pop()
+        if stack and len(stack) < MAX_IMPORT_DEPTH:
+            stack[-1][1]["children"].append(node)
+        else:
+            roots.append(node)
+            stack = []
+        stack.append((indent, node))
+    return title, roots
+
+
+@router.post("/boards/import", response_model=BoardOut, status_code=201)
+def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOut:
+    """Create a map from an OPML file or an indented Markdown outline.
+
+    Every node comes in as a `topic`: an imported outline is text written
+    somewhere else, and guessing that a line reading "Chapter three" means a
+    particular note in *this* notebook is the kind of helpfulness that
+    silently attaches the wrong thing. Linking a topic to a note afterwards
+    is one action; finding out which of two hundred nodes was mis-linked is
+    not.
+    """
+    title, parsed = (
+        _parse_opml(body.content)
+        if body.format == "opml"
+        else _parse_markdown_outline(body.content)
+    )
+    name = (body.name or title or "Imported map").strip()[:100] or "Imported map"
+    entry = Entry(content=f"# {name}", is_board=True)
+    _store_board_settings(entry, "map", DEFAULT_BOARD_LAYOUT)
+    db.add(entry)
+    db.flush()  # the nodes need the board's id before they can point at it
+
+    created = 0
+    #: A single running row counter shared by the whole walk, so an imported
+    #: map lands as a readable ladder rather than with every branch stacked
+    #: on top of the last one at y=0.
+    row = [0]
+
+    def place(nodes: list[dict], parent: WhiteboardObject | None, depth: int) -> None:
+        nonlocal created
+        for node in nodes:
+            obj = WhiteboardObject(
+                board_id=entry.id,
+                kind=MAP_TOPIC_KIND,
+                data=json.dumps({"content": node["text"]}),
+                x=float(depth) * MAP_COL,
+                y=float(row[0]) * MAP_ROW,
+                z=1,
+                parent_id=parent.id if parent is not None else None,
+            )
+            row[0] += 1
+            db.add(obj)
+            db.flush()  # its children need its id
+            created += 1
+            place(node["children"], obj, depth + 1)
+
+    place(parsed, None, 0)
+    db.commit()
+    db.refresh(entry)
+    items, edges = _board_preview(db, entry.id)
+    return BoardOut(
+        id=entry.id,
+        title=name,
+        node_count=0,
+        sketch_count=0,
+        object_count=created,
+        type="map",
+        layout=DEFAULT_BOARD_LAYOUT,
+        preview_items=items,
+        preview_edges=edges,
+    )

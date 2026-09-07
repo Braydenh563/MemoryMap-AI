@@ -3707,24 +3707,32 @@ summary:not(.icon-only):not(.icon-button) {
    say "this belongs to the thing above". It also tightens the gap above
    itself: a dependent control sitting the same distance from its parent as
    from the next unrelated setting is the ambiguity being fixed. */
+/* Sentence case, not a second run of capitals. Reported with a screenshot of
+   the About page: the group's own heading and this one rendered as two
+   stacked all-caps labels of the same weight, so "Updates" and "Finding new
+   versions" read as rivals instead of a heading and its subdivision. Weight
+   and colour carry the hierarchy now; the shape of the words no longer
+   competes. */
 .setting-subhead {
   margin: var(--space-5) 0 var(--space-2);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .setting-subhead:first-of-type {
   margin-top: var(--space-2);
 }
 
+/* The indent rule runs the full height of what it brackets and starts under
+   the switch it belongs to. At 2px and offset further right it read as a
+   stray tick beside a lone button rather than as a bracket -- visible in the
+   About screenshot next to "Check now". */
 .settings-group .setting-dependent {
   margin-top: var(--space-2);
-  margin-left: var(--space-5);
-  padding-left: var(--space-4);
-  border-left: 2px solid var(--border);
+  margin-left: var(--space-3);
+  padding: var(--space-1) 0 var(--space-1) var(--space-4);
+  border-left: 1px solid var(--border);
 }
 
 .settings-group .setting-dependent:empty {

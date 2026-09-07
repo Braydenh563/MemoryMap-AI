@@ -1589,6 +1589,20 @@ button {
   text-align: left;
 }
 
+/* The sentence explaining why you would restart takes its own line rather
+   than a third of the row. Reported with a screenshot: two buttons squeezed
+   against the left edge with a two-line paragraph running off to the right,
+   which reads as three unrelated things rather than an action and its
+   reason. `flex-basis: 100%` in a wrapping row is the whole change. */
+#about-restart-row {
+  flex-wrap: wrap;
+  row-gap: var(--space-2);
+}
+
+#about-restart-row > span {
+  flex: 1 0 100%;
+}
+
 .setting-row {
   display: flex;
   align-items: center;

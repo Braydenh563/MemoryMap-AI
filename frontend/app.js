@@ -28447,8 +28447,33 @@ function escapeForFind(s) {
 let globalFindMatches = [];
 let globalFindActive = -1;
 
+//: **Ctrl+F searches whatever is actually in front of you.** Asked for
+//: directly: "allow the ctrl f find function to work within the settings
+//: modal". Settings is a modal over the tab page, so a find rooted in the
+//: visible `.tab-page` walked the notebook *behind* the dialog -- it found
+//: nothing you could see and scrolled a page you were not looking at.
 function globalFindWalkableRoot() {
+  const settings = document.getElementById("settings-modal");
+  if (settings && !settings.classList.contains("hidden")) return settings;
   return document.querySelector(".tab-page:not(.hidden)");
+}
+
+//: Settings hides fifteen of its sixteen sections, so a find rooted in the
+//: modal only ever sees the one you are on. When a search comes up empty
+//: there, this asks the other sections whether any of them contains the
+//: words -- a plain `textContent.includes`, no walking and no highlighting --
+//: and switches to the first that does, so Ctrl+F answers "where is the
+//: setting for X" rather than "not on this page".
+function settingsSectionContaining(needle) {
+  const modal = document.getElementById("settings-modal");
+  if (!modal || modal.classList.contains("hidden")) return null;
+  const lower = needle.toLowerCase();
+  for (const section of modal.querySelectorAll(".settings-section.hidden")) {
+    if ((section.textContent || "").toLowerCase().includes(lower)) {
+      return section.id.replace(/^settings-/, "");
+    }
+  }
+  return null;
 }
 
 function globalFindClearHighlights() {
@@ -28459,6 +28484,8 @@ function globalFindClearHighlights() {
   globalFindMatches = [];
   globalFindActive = -1;
 }
+
+let globalFindJumping = false;
 
 function globalFindRun(needle) {
   globalFindClearHighlights();
@@ -28490,6 +28517,26 @@ function globalFindRun(needle) {
   const targets = [];
   let node;
   while ((node = walker.nextNode())) targets.push(node);
+  // Nothing on this Settings page — try the other fifteen before giving up.
+  //
+  // `globalFindJumping` is not belt-and-braces. showSettingsSection hides the
+  // section it moves away from, so without it a needle that lives only inside
+  // a *collapsed* part of some section would switch to that section, find
+  // nothing again, and be free to switch to the next one for ever — the
+  // sections take it in turns being the hidden one.
+  if (!targets.length && !globalFindJumping) {
+    const jump = settingsSectionContaining(needle);
+    if (jump && typeof showSettingsSection === "function") {
+      globalFindJumping = true;
+      try {
+        showSettingsSection(jump);
+        globalFindRun(needle);
+      } finally {
+        globalFindJumping = false;
+      }
+      return;
+    }
+  }
   const pattern = new RegExp(escapeForFind(needle), "gi");
   for (const textNode of targets) {
     const parts = textNode.nodeValue.split(new RegExp(`(${escapeForFind(needle)})`, "gi"));
@@ -28581,6 +28628,11 @@ $("global-find-input")?.addEventListener("keydown", (e) => {
     globalFindStep(e.shiftKey ? -1 : 1);
   } else if (e.key === "Escape") {
     e.preventDefault();
+    // Without this the same Escape also reaches the app-wide handler and
+    // closes whatever dialog the find bar is searching -- Settings, now that
+    // Ctrl+F works inside it. Escape closes the find bar; a second one closes
+    // the dialog.
+    e.stopPropagation();
     closeGlobalFind();
   }
 });

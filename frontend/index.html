@@ -944,6 +944,18 @@ Link to another note with [[its first few words]]."></textarea>
                  collapse chevron, and writing textContent on the h2 would
                  delete it on every re-render. -->
             <h2 id="entries-heading" class="entries-heading"><span id="entries-heading-label">All notes</span></h2>
+            <!-- **Every other list in the Library got a refresh button — this
+                 one, the notebook's actual front page, did not.** Reported
+                 directly: "there's also no refresh button on the your notes
+                 subtab." Notes autosave and the list re-renders on every
+                 local change, so this exists for the case those don't cover:
+                 something changed the notebook elsewhere — another device
+                 syncing to the same data dir, a restore, an import — and the
+                 list on screen is stale until the next full reload. Same icon,
+                 same class, same place in the toolbar as `#library-refresh`
+                 and its four siblings, not a fifth way of drawing "reload". -->
+            <button id="notes-refresh" class="ghost small icon-only" type="button"
+              title="Reload notes" aria-label="Reload notes"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
             <button id="select-btn" class="ghost small" title="Select several notes to move, tag, or delete together"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Select</button>
             <!-- Reported directly: "half the screen is taken up by poor ui
                  choices or structuring." Measured: a two-line note occupied
@@ -3245,6 +3257,32 @@ Link to another note with [[its first few words]]."></textarea>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
       </button>
       <div class="wb-tool-group" id="wb-tool-group">
+      <!-- **Seven labelled sections, not forty-two loose icons.**
+
+           Asked for directly: "finish the whiteboard panels and tools
+           interface complete redesign and restructure." Measured before
+           touching anything: this panel holds 42 controls, and it had exactly
+           one group and zero labels — 42 icons in a row when docked to the
+           bottom (882px, 63% of the canvas width, two wrapped rows), or 42
+           icons in a column when docked to the side (592px tall, 18 rows).
+           Neither is a design; both are an inventory. The board panel beside
+           it has used `.wb-panel-group` + `.wb-panel-group-label` ("Look",
+           "Board") the whole time, so this is that pattern arriving here
+           rather than an eighth way of grouping controls in this app.
+
+           The sections are inside `#wb-tool-group` on purpose: its click
+           listener is delegated on that element, so every `[data-tool]`
+           button keeps working through the new wrappers with no JS change at
+           all. That is also why the order could be rearranged — eraser and
+           bucket moved up beside the pen, delete/undo/redo down to the end —
+           without touching a single handler.
+
+           The `.header-divider` spans that used to separate a few of these
+           are gone: a label says what a group *is*, which a rule never
+           could. -->
+      <div class="wb-tool-section" role="group" aria-label="Move">
+        <span class="wb-tool-section-label" title="Pan the board, or pick things up">Move</span>
+        <div class="wb-tool-section-row">
         <button class="ghost icon-button active" data-tool="pan" title="Pan (V)" aria-label="Pan (V)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"></polyline><polyline points="9 5 12 2 15 5"></polyline><polyline points="15 19 12 22 9 19"></polyline><polyline points="19 9 22 12 19 15"></polyline><line x1="2" y1="12" x2="22" y2="12"></line><line x1="12" y1="2" x2="12" y2="22"></line></svg>
         </button>
@@ -3271,12 +3309,28 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
           </div>
         </div>
+        </div>
+      </div>
+      <div class="wb-tool-section" role="group" aria-label="Draw">
+        <span class="wb-tool-section-label" title="Freehand, highlighter, eraser and fill">Draw</span>
+        <div class="wb-tool-section-row">
         <button class="ghost icon-button" data-tool="draw" title="Pen (P)" aria-label="Pen (P)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
         </button>
         <button class="ghost icon-button" data-tool="highlighter" title="Highlighter (M)" aria-label="Highlighter (M)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l6-6 4 4-6 6H9v-4z"></path><path d="M4 20l3.5-3.5"></path><path d="M13 5l4-4"></path></svg>
         </button>
+        <button class="ghost icon-button" data-tool="eraser" title="Eraser (E) — drag over strokes and cards to remove them" aria-label="Eraser (E)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16C2.5 15.5 2.5 14.5 3 14L13 4C13.5 3.5 14.5 3.5 15 4L20 9C20.5 9.5 20.5 10.5 20 11L11 20"></path><path d="M17 14L7 14"></path></svg>
+        </button>
+        <button class="ghost icon-button" data-tool="bucket" title="Fill (B) — click a shape to fill it with the stroke colour" aria-label="Fill (B)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 11l-8-8-8.5 8.5a2 2 0 0 0 0 2.83l5.67 5.67a2 2 0 0 0 2.83 0L19 11z"></path><path d="M5 7l8 8"></path><path d="M22 17c0 1.66-1.34 3-3 3s-3-1.34-3-3c0-1.5 3-5 3-5s3 3.5 3 5z"></path></svg>
+        </button>
+        </div>
+      </div>
+      <div class="wb-tool-section" role="group" aria-label="Shapes">
+        <span class="wb-tool-section-label" title="Lines, arrows and boxes, with their fill and stroke">Shapes</span>
+        <div class="wb-tool-section-row">
         <!-- Six shape tools (line/arrow/rect/circle/triangle/diamond) collapsed
              into one dropdown — asked for directly ("the tool bar is getting
              quite long"). Still plain `data-tool` buttons underneath, so the
@@ -3385,6 +3439,11 @@ Link to another note with [[its first few words]]."></textarea>
             </label>
           </div>
         </div>
+        </div>
+      </div>
+      <div class="wb-tool-section" role="group" aria-label="Add">
+        <span class="wb-tool-section-label" title="Text and pictures">Add</span>
+        <div class="wb-tool-section-row">
         <button class="ghost icon-button" data-tool="text" title="Text box (T) — click the canvas to place one" aria-label="Text box (T)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="12" y1="4" x2="12" y2="20"></line><line x1="9" y1="20" x2="15" y2="20"></line></svg>
         </button>
@@ -3392,31 +3451,22 @@ Link to another note with [[its first few words]]."></textarea>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
         </button>
         <input type="file" id="wb-image-file-input" aria-label="Choose an image to place on the board" title="Choose an image to place on the board" accept="image/*" class="hidden" aria-hidden="true">
-        <button class="ghost icon-button" data-tool="eraser" title="Eraser (E) — drag over strokes and cards to remove them" aria-label="Eraser (E)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16C2.5 15.5 2.5 14.5 3 14L13 4C13.5 3.5 14.5 3.5 15 4L20 9C20.5 9.5 20.5 10.5 20 11L11 20"></path><path d="M17 14L7 14"></path></svg>
-        </button>
-        <button class="ghost icon-button" data-tool="bucket" title="Fill (B) — click a shape to fill it with the stroke colour" aria-label="Fill (B)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 11l-8-8-8.5 8.5a2 2 0 0 0 0 2.83l5.67 5.67a2 2 0 0 0 2.83 0L19 11z"></path><path d="M5 7l8 8"></path><path d="M22 17c0 1.66-1.34 3-3 3s-3-1.34-3-3c0-1.5 3-5 3-5s3 3.5 3 5z"></path></svg>
-        </button>
-        <span class="header-divider" aria-hidden="true"></span>
+        </div>
+      </div>
+      <div class="wb-tool-section" role="group" aria-label="Connect">
+        <span class="wb-tool-section-label" title="Join two things together">Connect</span>
+        <div class="wb-tool-section-row">
         <button class="ghost icon-button" data-tool="link-straight" title="Straight link — drag from one card to another" aria-label="Straight link">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="20" y2="4"></line><circle cx="4" cy="20" r="2.2"></circle><circle cx="20" cy="4" r="2.2"></circle></svg>
         </button>
         <button class="ghost icon-button" data-tool="link-curved" title="Curved link — drag from one card to another" aria-label="Curved link">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 Q4 4 20 4"></path><circle cx="4" cy="20" r="2.2"></circle><circle cx="20" cy="4" r="2.2"></circle></svg>
         </button>
-        <span class="header-divider" aria-hidden="true"></span>
-        <button class="ghost icon-button" data-tool="delete" title="Delete (X) — click a stroke or card" aria-label="Delete (X)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-        </button>
-        <span class="header-divider" aria-hidden="true"></span>
-        <button id="wb-undo" class="ghost icon-button" title="Undo (Ctrl+Z)" disabled aria-label="Undo (Ctrl+Z)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
-        </button>
-        <button id="wb-redo" class="ghost icon-button" title="Redo (Ctrl+Y)" disabled aria-label="Redo (Ctrl+Y)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"></polyline><path d="M4 20v-7a4 4 0 0 1 4-4h12"></path></svg>
-        </button>
-        <span class="header-divider" aria-hidden="true"></span>
+        </div>
+      </div>
+      <div class="wb-tool-section" role="group" aria-label="Style">
+        <span class="wb-tool-section-label" title="Colour and thickness for whatever you draw next">Style</span>
+        <div class="wb-tool-section-row">
         <input type="color" id="wb-color-picker" aria-label="Drawing colour" title="Drawing colour" value="#ffffff" title="Stroke Color" class="wb-color-picker">
         <!-- Asked for directly ("pen size, eraser size, line/shape width").
              The sketch pad's own `#sketch-size` already reaches every one of
@@ -3432,6 +3482,22 @@ Link to another note with [[its first few words]]."></textarea>
              the timeline popup bug this same session found is the reason
              this doesn't use position:absolute against a card ancestor. -->
         <span id="wb-stroke-width-badge" class="wb-stroke-width-badge hidden"></span>
+        </div>
+      </div>
+      <div class="wb-tool-section" role="group" aria-label="Edit">
+        <span class="wb-tool-section-label" title="Undo, redo, delete">Edit</span>
+        <div class="wb-tool-section-row">
+        <button class="ghost icon-button" data-tool="delete" title="Delete (X) — click a stroke or card" aria-label="Delete (X)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+        </button>
+        <button id="wb-undo" class="ghost icon-button" title="Undo (Ctrl+Z)" disabled aria-label="Undo (Ctrl+Z)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
+        </button>
+        <button id="wb-redo" class="ghost icon-button" title="Redo (Ctrl+Y)" disabled aria-label="Redo (Ctrl+Y)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"></polyline><path d="M4 20v-7a4 4 0 0 1 4-4h12"></path></svg>
+        </button>
+        </div>
+      </div>
       </div>
     </div>
 
@@ -4209,6 +4275,22 @@ Link to another note with [[its first few words]]."></textarea>
               title="Put this reading in the chat composer and ask about it"><i class="ph ph-chat-circle-text ph-lead" aria-hidden="true"></i> Ask about this</button>
             <button id="ocr-to-note" class="small" type="button"
               title="Save everything read here as a new note"><i class="ph ph-note ph-lead" aria-hidden="true"></i> Save as note</button>
+            <!-- **Delete, not just redo.** Reported directly: "there's also no
+                 way to delete or redo ocr text extractions in the ocr
+                 workspace." Redo already existed and was just unlabelled —
+                 "Read this page" always re-reads and replaces the stored
+                 answer (`PageRead`'s own docstring: "re-reading a page
+                 replaces its row rather than appending"). Delete genuinely did
+                 not: there was no way to remove a wrong reading without either
+                 covering it with a fresh one (which still needs a working
+                 reader) or leaving it there. `margin-left: auto` — a
+                 destructive action does not belong in the middle of three
+                 constructive ones. Hidden until there is something to remove
+                 (`ocrSyncDeleteButton`), the same "a control that cannot act
+                 must not sit there looking live" rule the Stop-reading button
+                 above already follows. -->
+            <button id="ocr-delete-reading" class="ghost small danger hidden" type="button"
+              title="Remove the reading for what you are looking at now"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete this reading</button>
           </div>
         </div>
       </div>

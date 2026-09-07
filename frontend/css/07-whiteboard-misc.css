@@ -4675,6 +4675,14 @@ button.connection-row {
   border-top: 1px solid var(--border);
 }
 
+/* Delete sits apart from the three constructive actions beside it — a
+   destructive one does not belong in the middle of them, and `margin-left:
+   auto` is the same "push this one to the far end" rule the story-mode
+   button and the board panel's primary action already use elsewhere. */
+#ocr-delete-reading {
+  margin-left: auto;
+}
+
 /* Find, over the reading rather than over the picture — the one search this
    workspace can answer that a text search over a transcription cannot, because
    a hit here also dims every box it is not. */

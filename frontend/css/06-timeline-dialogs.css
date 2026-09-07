@@ -2371,6 +2371,65 @@
   gap: 0.25rem;
 }
 
+/* --- the tools panel, sorted into what each group of icons does -----------
+   Asked for directly: "finish the whiteboard panels and tools interface
+   complete redesign and restructure." Measured before touching anything:
+   this row held 42 controls in one flat `.wb-tool-group` with zero labels —
+   the only unsorted control panel left in the whiteboard, next to the board
+   panel's own `.wb-panel-group` pattern (07-whiteboard-misc.css) which has
+   used labelled groups the whole time. Same idea, applied here: a label says
+   what a group *of tools* is, which an icon row alone cannot.
+
+   `.wb-tool-section` wraps a label and its `.wb-tool-section-row` of
+   buttons; both stay flex children of `#wb-tool-group`, whose click listener
+   is delegated on that element — see index.html's own comment on the same
+   markup for why every `[data-tool]` button still works unchanged. */
+.wb-tool-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  /* A section is one unit — "Shapes" wrapping its label onto the next line
+     while its icons stayed behind would read as two unrelated pieces. */
+  flex-shrink: 0;
+}
+
+.wb-tool-section-label {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.wb-tool-section-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+/* One rule for the gap between sections, not eight separate dividers: the
+   `.header-divider` spans this replaced were hand-placed between whichever
+   controls happened to be adjacent, which is how a fill tool and a link tool
+   ended up sharing one divider and delete/undo/redo shared none. */
+.wb-tool-section + .wb-tool-section {
+  border-left: 1px solid var(--border);
+  padding-left: var(--space-2);
+  margin-left: var(--space-1);
+}
+
+/* The row itself may now need to wrap onto a second line — seven labelled
+   sections take more width than 42 bare icons did, and a section that broke
+   mid-group would be worse than the row wrapping between groups instead. */
+.wb-tool-group {
+  flex-wrap: wrap;
+  row-gap: var(--space-2);
+}
+
 /* Every control inside a whiteboard toolbar panel shares one height — asked
    for directly, with a screenshot: a text+icon button (Library) stood
    visibly taller than its round colour-swatch neighbour, and a `<select>`
@@ -2571,6 +2630,24 @@
 
 .whiteboard-floating-panel[data-dock="side"] .wb-tool-group {
   flex-direction: column;
+  align-items: stretch;
+}
+
+/* Sections stack top-to-bottom in the sidebar instead of sitting side by
+   side, and the divider between them moves from the left edge to the top —
+   a vertical rule down a 100px-wide column would run through the icons
+   themselves rather than between groups. */
+.whiteboard-floating-panel[data-dock="side"] .wb-tool-section {
+  width: 100%;
+}
+
+.whiteboard-floating-panel[data-dock="side"] .wb-tool-section + .wb-tool-section {
+  border-left: none;
+  border-top: 1px solid var(--border);
+  padding-left: 0;
+  margin-left: 0;
+  padding-top: var(--space-2);
+  margin-top: var(--space-1);
 }
 
 .whiteboard-floating-panel[data-dock="side"] .wb-tool-group .header-divider {

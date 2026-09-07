@@ -67,6 +67,41 @@ intervening commits is still owed.
   of several seconds that could not be cancelled and showed up in that panel
   nowhere, so closing the workspace mid-read left no sign the app was still
   working.
+- **Inline AI in the document editor.** `/ai` in the "/" menu, Ctrl+J, and a
+  wand in the selection bar open a small bar at the caret instead of a side
+  panel: type an instruction, the answer replaces the selection (or writes at
+  the cursor) and lands *selected*, with Keep / Try again / Undo underneath.
+  No new endpoint — the existing `POST /documents/{id}/ai-edit`.
+- **Several routes between two notes, not just the best one.** The graph's
+  Trace panel now finds up to three genuinely different, loopless routes
+  (Yen's K-shortest paths) and draws all of them at once, each in its own
+  colour, with switchable chips above the readout.
+- **"Generate story from path" is a menu of six shapes** — narrative,
+  explainer, timeline, argument, teaching notes, short brief — instead of one
+  fixed prompt.
+- **The Files sub-tab is a reading list.** Every file tile carries a
+  "Read · N words" / "Not read" badge and a primary "Read this" / "Open
+  reader" button, plus a Read/Not-read filter.
+- **The OCR workspace finds its own siblings and switches between them.** An
+  Images/Files/Pages switch above the rail, and every entry point (including
+  the lightbox, which previously opened to an empty rail) now populates it.
+- **Sections without Tesseract.** A stored reading is split into typed blocks
+  (heading/list/table/code/text, read off their own shape) instead of one
+  whole-page fallback region, and each region shows which page and section it
+  came from.
+- **Delete a stored OCR reading**, not just overwrite it by reading again —
+  `DELETE /{files,media}/{id}/page-reads/{page}` plus a "Delete this reading"
+  action in the workspace. Redo already worked (a re-read replaces the stored
+  answer); its button now says so.
+- **Ask the notebook about itself, in more ways, and past a typo.** Word
+  count, longest notes, notes gone stale, and which tags keep turning up
+  together — and every question now survives a misspelling ("catagories",
+  "docuemnts") against a small fixed vocabulary, transpositions included.
+- **Undo for deleting a document.** The one permanent loss left in the app —
+  notes, chats, files and boards were all recoverable, a document was not.
+  All four delete doors now offer Undo.
+- **A refresh button on the Your Notes sub-tab**, matching the one every
+  other Library list already had.
 
 ### Fixed
 - **The chat sidebar never marked the open conversation.** A `null` passed as
@@ -128,6 +163,22 @@ intervening commits is still owed.
   together.
 - **Attached non-image files rendered as nothing** in dashboard widget note
   lists, and the widget picker listed "On this day" twice.
+- **Toolbar dropdowns in the capture and documents toolbars opened up to
+  151px from the button that opened them**, and after that, in the top-left
+  corner of the panel — three related bugs in the same placement function,
+  in the same viewport-fixed-menu change: wrong alignment axis, no
+  containing-block correction, and a zeroed fallback on a failed measurement.
+- **The traced graph path's chips clipped from both ends** ("ting is the
+  delivery of computing se") — a flex item that could not shrink, centred in
+  its box, overflowing equally on either side; `text-overflow` on the parent
+  button never touched it.
+- **A misspelt "ask the notebook about itself" question fell through to
+  ordinary semantic search**, which is precisely the case that feature exists
+  to answer better — and one new question's own pre-filter accidentally
+  rejected it before any matcher saw it.
+- **`clampToolbarMenu`'s CodeQL-adjacent cousin**: three cyclic imports
+  (one already a CodeQL alert, two more of the same shape unreported)
+  closed and pinned by a new AST-based lint.
 
 ### Verified
 - **A real (non-Ollama) backend, driven live for the first time.** A

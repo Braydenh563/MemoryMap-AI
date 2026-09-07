@@ -28852,6 +28852,11 @@ function toggleGraphFullscreen() {
 $("graph-fullscreen")?.addEventListener("click", toggleGraphFullscreen);
 
 // Wave M: batch operations + skill/persona sharing.
+// Reported directly: "there's also no refresh button on the your notes
+// subtab" — every other list in the Library had one (`#library-refresh` and
+// its four siblings); the notebook's own front page did not. `loadEntries`
+// is the same reload every autosave and filter change already calls.
+$("notes-refresh")?.addEventListener("click", () => loadEntries());
 $("select-btn").addEventListener("click", () =>
   selectMode ? exitSelectMode() : enterSelectMode()
 );

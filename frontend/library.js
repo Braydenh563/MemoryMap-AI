@@ -2461,6 +2461,28 @@ function ocrRenderRegions(body) {
   boxes.replaceChildren();
   list.replaceChildren();
   ocrWorkspaceRegions = body.regions || [];
+  //: **A control that cannot act must not sit there looking live** — the same
+  //: rule the Stop-reading button and the box-overlay toggle already follow.
+  //: Shown only once there is something on screen to remove.
+  $("ocr-delete-reading")?.classList.toggle("hidden", ocrWorkspaceRegions.length === 0);
+  //: **Redo, made discoverable rather than merely possible.** Reported
+  //: directly: "there's also no way to delete or redo ocr text extractions."
+  //: Clicking "Read this page"/"Read this image" always re-reads and replaces
+  //: the stored answer — `PageRead`'s own docstring: "re-reading a page
+  //: replaces its row rather than appending" — but nothing on the button said
+  //: so, and a control that behaves differently from what it looks like it
+  //: does is not discoverable just because it technically works. The label
+  //: stays put (tests and habit both key off it); only the tooltip changes,
+  //: once there is something on screen for it to describe replacing. Set
+  //: here rather than in `ocrLoadPage` because that function calls this one
+  //: to actually paint the page — reading `ocrWorkspaceRegions` before this
+  //: line runs would still hold the *previous* page's count.
+  const readBtn = $("ocr-read-page");
+  if (readBtn) {
+    readBtn.title = ocrWorkspaceRegions.length
+      ? "Read again — replaces the reading shown here"
+      : "Transcribe what you are looking at";
+  }
 
   //: The badge is not decoration: a single whole-page region drawn from
   //: stored text is a *fallback*, and letting it look like something the
@@ -3705,6 +3727,47 @@ document.addEventListener("DOMContentLoaded", () => {
     const text = ocrAllText();
     if (!text) return toast("There is nothing to copy yet.", true);
     copyToClipboard(text, event.currentTarget);
+  });
+  //: **Delete, the half of "delete or redo" that redo did not already have.**
+  //: Redo is just clicking "Read this page"/"Read this image" again — the
+  //: backend replaces the stored reading rather than appending to it — but
+  //: there was no way to remove a wrong reading without covering it with a
+  //: better one. This removes it outright: the current PDF page's own stored
+  //: reading (`PageRead`, via the new DELETE route), or a plain image's
+  //: `ocr_text`/`vision_ocr_text` field, cleared through the same `analyse`
+  //: endpoint the reader already uses to write it — sending `""` is the
+  //: documented way to clear either field, not a new code path.
+  $("ocr-delete-reading")?.addEventListener("click", async (event) => {
+    const image = ocrWorkspaceCurrent;
+    if (!image) return;
+    const isPdf = ocrIsPdf(image);
+    const what = isPdf ? `page ${ocrWorkspacePage + 1}` : "this image";
+    if (!(await confirmDialog(`Delete the reading for ${what}? You can read it again any time.`))) {
+      return;
+    }
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      if (isPdf) {
+        const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
+        await apiJson(`${base}/page-reads/${ocrWorkspacePage}`, { method: "DELETE" });
+      } else {
+        //: Same reader-to-field mapping `ocrReadImage` uses for the read
+        //: itself, so delete clears the field the *current* reader would
+        //: have written rather than guessing at the other one.
+        const kind = ocrReader() === "tesseract" ? "ocr" : "vision-ocr";
+        await analyseMediaRow(image, kind, { text: "" });
+        //: The gallery tile behind this dialog now claims a reading that is
+        //: gone — same repaint `ocrReadImage` triggers after writing one.
+        renderLibraryImagesGallery();
+      }
+      toast("Reading deleted.");
+      await ocrLoadPage(image, ocrWorkspacePage);
+    } catch (error) {
+      toast(error.message || "Could not delete that reading.", true);
+    } finally {
+      button.disabled = false;
+    }
   });
   //: **The document reader.** Tesseract cannot open a PDF at all
   //: (`core/ocr.py`'s OCR_SUFFIXES), and this project was told directly not to

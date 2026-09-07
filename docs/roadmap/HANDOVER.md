@@ -90,6 +90,98 @@ exist, that is said too — with what was actually wrong with it.
 - ~~"enhance the semantic search so it can pick up … 'what are my most common
   tags'"~~ — `ai/notebook_stats.py`: counted, exact, and it answers with no
   model running at all.
+- ~~CodeQL alert #364, "Cyclic import," `ai/embeddings.py:24`~~ — and two more
+  of the same shape nothing had reported (`ai.embeddings -> core.extras ->
+  core.ocr -> core.deps` and `__main__ -> api.app -> api.routes_settings`).
+  All three share one wrong-direction edge — a leaf module naming the
+  container that builds it — broken with `importlib.import_module`, the
+  technique `entry/manager.py` already used and documented. Pinned by
+  `tests/test_no_import_cycles.py`, a new lint that rebuilds the import graph
+  from the AST rather than trusting it not to happen again.
+- ~~"dropdowns are completely broken and dont show in the capture notes and
+  documents toolbars"~~ — two causes in `clampToolbarMenu`. First,
+  right-aligned to the opener (correct for the far-right kebab, 151px off for
+  a toolbar icon — measured dx = -151 on every menu at 1280/1440/1920).
+  Second, `position: fixed` is not fixed to the viewport once an ancestor
+  `.card` gets a containing block (`backdrop-filter`, on whenever Glass is
+  on) — reproduced with `filter` (the sandbox's headless Chromium reports
+  `backdrop-filter: none`) and fixed by measuring where the panel actually
+  landed and correcting by the difference. A third round ("appearing in the
+  top left corner") was the same function's own zeroed fallback: it cleared
+  the previous position by *writing* `left:0;top:0` and could return before
+  overwriting them — now cleared with `""` so a failed measurement falls back
+  to the stylesheet's `auto` (the static position, near the button) instead
+  of a corner.
+- ~~"cut off text of the trace text path"~~ — the chip is a flex container
+  (`<button>`) and the preview text is a `<span>` child, so the overflowing
+  thing was a flex item, not inline text — `text-overflow: ellipsis` on the
+  button never touched it, and a centred item that cannot shrink clips
+  equally on both ends (measured: a 511px span in a 192px box at x = -160
+  relative to it, i.e. "ting is the delivery of computing se"). Fixed on the
+  item that actually holds the text.
+- ~~"allow for multiple paths to be displayed if they exist"~~ —
+  `paths.find_many` (Yen's K-shortest, sharing `_dijkstra` with the existing
+  `find` so they cannot disagree about which route is best), returned as
+  `routes[]` alongside the unchanged top-level shape. The map draws every
+  route at once in its own colour, dashed/faint for the ones not selected;
+  chips above the path switch between them. Seven tests: ordering, distinct,
+  loopless, the limit, `find_many[0] == find`.
+- ~~"improve and extend the generate story from path feature"~~ — one
+  hard-coded "publishable narrative" prompt is six now (narrative, explainer,
+  timeline, argument, teaching notes, brief), one shared preamble so the
+  "use the connections, follow the order" instruction is stated once.
+- ~~"fix the hard line around the find in what was read textbox"~~ — `border:
+  none` measured as `3px solid` (the Appearance system's `border-style: …
+  !important` bringing back the initial `medium` width on a control every
+  stylesheet believes has none). A first `!important` at the class selector
+  still lost on specificity (0,5,1) against the Appearance rule; needed an id,
+  same as `.ask-composer > #question` already had to be. New probe:
+  `tools/browser/find-fat-borders.js`.
+- ~~"a way to switch between images and files within the workspace"~~ / "no
+  other files or images show" opened from the lightbox — the rail was built
+  from whatever list the *caller* passed, and three of four call sites passed
+  `[]`. It loads its own siblings now (same two endpoints the Library gallery
+  uses) and gained an Images/Files/Pages switch above the rail.
+- ~~"the regions dont work without tesseract but surely there's a better
+  way"~~ — `ocr.regions_from_reading` splits a stored reading into typed
+  blocks (heading/list/table/code/text, read off shape — pipes, bullets, a
+  fence) instead of the old one-region whole-page fallback. `box` is nullable
+  and is `None` for these — a rectangle claiming to be the whole page was a
+  wrong answer, not a missing one.
+- ~~"make it so extracted text is visually linked to the page or section it
+  was extracted from"~~ — each region row now carries a "p2 · §4" chip.
+- ~~"redesign the files library subtab … because the ocr workspace exists"~~
+  — Files is a reading list now: a badge ("Read · 1,240 words" / "Not read")
+  and a primary "Read this" / "Open reader" button on every tile, plus a
+  Read/Not-read filter (Files only, not persisted — a task-scoped filter, not
+  a preference).
+- ~~"is everythign wired to the nav history and universal undo/redo"~~ — two
+  real gaps found. Deleting a *document* was the one permanent loss left in
+  the app (notes, chats, files and boards all recover somehow) — all four
+  delete doors now go through one `deleteDocumentWithUndo`, verified end to
+  end (62 -> 61 -> 62 documents, byte-exact restore via the same
+  `performUndo()` Ctrl+Z calls). Opening a whiteboard *board* recorded nothing
+  in tab history — `openWhiteboardBoard` now records `board:{id}` and
+  `goToTabHistory` gained the restore branch (a recorded place with no way
+  back is worse than not recording it).
+- ~~"the stats semantic search needs to be improved and also it doesnt
+  account for spelling mistakes"~~ — every matcher was a regex over literal
+  words, so a typo fell through to retrieval, the exact case
+  `notebook_stats.py` exists because retrieval answers badly. `_despell`
+  corrects the matcher's copy against a 60-word vocabulary (transpositions
+  handled separately from `difflib`, which underrates them — "tgas"/"tags"
+  scores 0.750, at the cutoff, same as "task"/"tags", which must *not*
+  correct). Four questions added: word count, longest notes, stale notes,
+  tag pairs. Caught by the new tests: the pre-filter itself rejected "how
+  many words have I written" before any matcher saw it.
+- ~~"there's also no way to delete or redo ocr text extractions"~~ — redo
+  already worked (`PageRead` replaces its row on re-read) but was unlabelled;
+  the button's tooltip now says so once there is a reading to replace. Delete
+  genuinely did not exist: new `DELETE /{files,media}/{id}/page-reads/{page}`
+  routes plus a "Delete this reading" action, verified end to end in the
+  browser (reading present -> confirm -> "Nothing read yet").
+- ~~"there's also no refresh button on the your notes subtab"~~ — every other
+  Library list had one; the notebook's own front page did not.
 
 ### The sweep, and what it did *not* find
 
@@ -153,13 +245,17 @@ measurement that closed it. What remains:
    deciding whether the checks stay mechanical (fast, offline, no model) or
    become a model pass (slow, better, needs a running model) — the app currently
    has both and does not say which is which.
-3. **"the agent or ai needs to be more directly integrated into the documents."**
-   The document AI is a *panel*: you open it, ask, read, accept. Everything the
-   editor now has (AI edit, extract notes, rephrase, translate, check with AI)
-   is reachable from a toolbar or a menu. The ask is for the AI to be present
-   *in the writing*, the way `/ai` is in Notion and Ctrl+K is in Cursor —
-   at the cursor, on the selection, without a panel. `frontend/editor.js`
-   already has a "/" menu, which is where this starts.
+3. ~~"the agent or ai needs to be more directly integrated into the
+   documents."~~ Built: `/ai` in the "/" menu, Ctrl+J, and a wand in the
+   selection bar open a small bar at the caret — type an instruction, the
+   answer replaces the selection (or is written at the cursor) and arrives
+   *selected*, with Keep / Try again / Undo. No new endpoint —
+   `POST /documents/{id}/ai-edit`, the same one the panel already used.
+   Driven end to end against a stand-in model server: exact-range replace,
+   the review row, and Undo restoring the document byte-for-byte. Found on
+   the way: the live view (the document editor's *default* view) had no "/"
+   menu at all — the wiring gated on a fixed id map that could never contain
+   a live-view block's generated id.
 
 ### Not reproduced, and why that matters
 
@@ -177,26 +273,30 @@ measurement that closed it. What remains:
 
 ## ► Top priority, by direct instruction: the whiteboard
 
-Not built this session — logged here and moved to the top of ROADMAP.md's
-priority table on explicit instruction, ahead of everything below. Two asks:
+1. ~~**A full redesign of the whiteboard's panels and controls.**~~ Done for
+   the tools panel — the piece that was actually unsorted. Measured before
+   touching it: 42 controls in one flat `.wb-tool-group` with zero labels —
+   882px wide and wrapping into two rows when docked to the bottom, or a
+   100px-wide column of 42 unlabelled icons when docked to the side. Split
+   into seven labelled sections (Move / Draw / Shapes / Add / Connect / Style
+   / Edit), matching the board panel's own `.wb-panel-group` pattern that had
+   been sitting right next to it the whole time. The sections are nested
+   *inside* `#wb-tool-group`, whose click listener is delegated on that
+   element, so every `[data-tool]` button, the shape/select dropdown pickers
+   and the stroke-width slider kept working with no JS change — verified live
+   in both dock modes: 7/7 sections visible and labelled, the shape picker
+   dropdown opens on screen from either dock, and clicking a tool through the
+   new wrapper still activates it. The board panel, zoom cluster and
+   properties panel were not touched — nothing reported them as the problem,
+   and they already used the labelled-group pattern.
+2. **Pan tool -> selection tool on click, still open.** While the Pan tool is
+   active, clicking (or double-clicking — pick one deliberately) directly on
+   a card, sketch or shape should switch to the Selection tool and select
+   that object, rather than requiring a manual tool switch first. "It is
+   still annoying to use" was the framing. Not started.
 
-1. **A full redesign of the whiteboard's panels and controls.** Reported
-   directly: layout, structure, distribution and positioning are "pretty
-   poor," and the panels clash with each other and with the canvas
-   underneath (screenshot: the right-side Look/Board panel, the bottom
-   toolbar, and the Tab/Enter/Delete hint bar all crowd the same corner).
-   This is the layout rethink ROADMAP.md's row 7 already named as the open
-   half of "Settings, and the whiteboard's panel layout" — not a new item,
-   now the first one.
-2. **Pan tool -> selection tool on click, specifically requested**: while
-   the Pan tool is active, clicking (or double-clicking — asked both ways,
-   pick one deliberately rather than building both) directly on a card,
-   sketch or shape should switch to the Selection tool and select that
-   object, rather than requiring a manual tool switch first. "It is still
-   annoying to use" was the framing — this is the concrete fix named for it.
-
-See ROADMAP.md's priority table for where this sits against the rest of the
-still-open work.
+See ROADMAP.md's priority table for where the remaining item sits against the
+rest of the still-open work.
 
 ## ► This session's tail: fixes shipped, and five items logged for next sprint
 

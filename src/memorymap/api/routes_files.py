@@ -2320,6 +2320,67 @@ def media_page_reads(
     return _stored_range(_page_read_key(None, upload_id))
 
 
+def _forget_page_read(key: tuple[str, int] | None, page: int) -> None:
+    """Remove one page's stored reading, if there is one.
+
+    **The half of "delete or redo" that redo already had.** Reported directly:
+    *"there's also no way to delete or redo ocr text extractions in the ocr
+    workspace."* Redo was already there — `PageRead`'s own docstring notes that
+    re-reading a page replaces its row rather than appending — it was just
+    never labelled as such. Delete genuinely was not: the only way to get rid
+    of a wrong reading was to cover it with a better one, which still needs a
+    working reader, and there was no way at all to simply take a note off the
+    list of "already read" pages.
+
+    Idempotent and quiet either way, matching `_remember_page_read`'s own
+    stance that this table is a cache of a reading, not the reading itself —
+    deleting a row that is not there is not an error, it is the state the
+    caller wanted.
+    """
+    if not key:
+        return
+    kind, source_id = key
+    with deps.get_db().session() as session:
+        row = (
+            session.query(PageRead)
+            .filter(
+                PageRead.kind == kind,
+                PageRead.source_id == source_id,
+                PageRead.page == int(page),
+            )
+            .one_or_none()
+        )
+        if row is not None:
+            session.delete(row)
+            session.commit()
+
+
+@router.delete("/files/{attachment_id}/page-reads/{page}", response_model=OcrRangeReadOut)
+def delete_attachment_page_read(
+    attachment_id: int,
+    page: int,
+    session: Session = Depends(get_session),
+) -> OcrRangeReadOut:
+    """Forget one page's reading. Returns what is left, in the same envelope
+    `GET .../page-reads` uses, so the workspace can repaint from the response
+    rather than issuing a second request."""
+    _existing_attachment(session, attachment_id)
+    _forget_page_read(_page_read_key(attachment_id, None), page)
+    return _stored_range(_page_read_key(attachment_id, None))
+
+
+@router.delete("/media/{upload_id}/page-reads/{page}", response_model=OcrRangeReadOut)
+def delete_media_page_read(
+    upload_id: int,
+    page: int,
+    session: Session = Depends(get_session),
+) -> OcrRangeReadOut:
+    """Forget one page's reading."""
+    deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    _forget_page_read(_page_read_key(None, upload_id), page)
+    return _stored_range(_page_read_key(None, upload_id))
+
+
 class VisionOcrBody(BaseModel):
     #: Same "already there and not forced, leave it alone" rule as
     #: `CaptionBody.force` — a manual re-read the user pressed the button

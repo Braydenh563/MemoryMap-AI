@@ -140,3 +140,106 @@ def test_a_range_read_stores_every_page_it_managed(client, monkeypatch):
     assert body["read"] >= 1
     stored = client.get(f"/files/{attachment_id}/page-reads").json()
     assert [page["text"] for page in stored["pages"]] == ["page 1"]
+
+
+# --- delete -------------------------------------------------------------
+#
+# Reported directly: "there's also no way to delete or redo ocr text
+# extractions in the ocr workspace." Redo already worked (the test just above
+# this one pins it — a re-read replaces the row); delete genuinely did not,
+# and these are its coverage.
+
+
+def test_deleting_a_page_read_removes_it(client, monkeypatch):
+    attachment_id = _attach(client, "scan.pdf", ONE_PAGE_PDF)
+    if not pdfpages.available():
+        pytest.skip("the PDF rasteriser extra is not installed here")
+
+    monkeypatch.setattr(
+        routes_files,
+        "_vision_read_page",
+        lambda path, index, reader="vision": routes_files.OcrPageReadOut(
+            page=index, text="a reading worth deleting", model="stub-vision"
+        ),
+    )
+    client.post(f"/files/{attachment_id}/ocr-page-read?page=0")
+    assert client.get(f"/files/{attachment_id}/page-reads").json()["read"] == 1
+
+    deleted = client.delete(f"/files/{attachment_id}/page-reads/0")
+    assert deleted.status_code == 200, deleted.text
+    # The delete route hands back what is left, so the workspace can repaint
+    # without a second request.
+    assert deleted.json()["pages"] == []
+
+    after = client.get(f"/files/{attachment_id}/page-reads").json()
+    assert after["pages"] == []
+    assert after["read"] == 0
+
+
+def test_deleting_a_page_that_was_never_read_is_not_an_error(client):
+    """Idempotent, matching the rest of this table's own stance that it is a
+    cache of a reading rather than the reading itself — deleting a row that
+    was never there is the state the caller wanted, not a failure."""
+    attachment_id = _attach(client, "blank.pdf", ONE_PAGE_PDF)
+    response = client.delete(f"/files/{attachment_id}/page-reads/0")
+    assert response.status_code == 200, response.text
+    assert response.json()["pages"] == []
+
+
+def test_deleting_one_page_leaves_the_others(client, monkeypatch):
+    """A delete is scoped to the page you are looking at, not the whole
+    document — the OCR workspace reads and deletes one page at a time, and a
+    delete that took the rest with it would silently undo work on pages the
+    person never touched."""
+    attachment_id = _attach(client, "scan.pdf", ONE_PAGE_PDF)
+    if not pdfpages.available():
+        pytest.skip("the PDF rasteriser extra is not installed here")
+
+    monkeypatch.setattr(
+        routes_files,
+        "_vision_read_page",
+        lambda path, index, reader="vision": routes_files.OcrPageReadOut(
+            page=index, text=f"page {index + 1}", model="stub-vision"
+        ),
+    )
+    client.post(f"/files/{attachment_id}/ocr-page-read?page=0")
+    # Fake a second page's reading directly, since this fixture PDF has only
+    # one real page — the identity this test cares about is the (kind,
+    # source_id, page) key, not whether the document actually has two pages.
+    from memorymap.core import deps
+    from memorymap.core.database import PageRead
+
+    with deps.get_db().session() as session:
+        session.add(PageRead(kind="attachment", source_id=attachment_id, page=1, text="page 2"))
+        session.commit()
+
+    client.delete(f"/files/{attachment_id}/page-reads/0")
+    remaining = client.get(f"/files/{attachment_id}/page-reads").json()["pages"]
+    assert [p["page"] for p in remaining] == [1]
+
+
+def test_media_page_reads_can_be_deleted_too(client, monkeypatch):
+    """The upload-table sibling of the attachment route above — two id
+    spaces, two routes, one shared implementation underneath."""
+    upload = client.post(
+        "/media/upload",
+        files={"file": ("scan.pdf", io.BytesIO(ONE_PAGE_PDF), "application/pdf")},
+    )
+    assert upload.status_code == 200, upload.text
+    upload_id = upload.json()["id"]
+    if not pdfpages.available():
+        pytest.skip("the PDF rasteriser extra is not installed here")
+
+    monkeypatch.setattr(
+        routes_files,
+        "_vision_read_page",
+        lambda path, index, reader="vision": routes_files.OcrPageReadOut(
+            page=index, text="read from an upload", model="stub-vision"
+        ),
+    )
+    client.post(f"/media/{upload_id}/ocr-page-read?page=0")
+    assert client.get(f"/media/{upload_id}/page-reads").json()["read"] == 1
+
+    deleted = client.delete(f"/media/{upload_id}/page-reads/0")
+    assert deleted.status_code == 200, deleted.text
+    assert client.get(f"/media/{upload_id}/page-reads").json()["pages"] == []

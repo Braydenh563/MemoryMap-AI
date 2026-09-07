@@ -14,8 +14,8 @@
     parts of the logo simply weren't there.
   -->
   <defs>
-    <!-- `userSpaceOnUse` across the whole 100x100 tile, so any shape filled
-         with this gradient samples the *tile's* colour at that spot rather
+    <!-- userSpaceOnUse across the whole 100x100 tile, so any shape filled
+         with this gradient samples the tile's colour at that spot rather
          than restarting the gradient inside its own box. That is what lets
          the hub ring below continue the background instead of sitting on it. -->
     <linearGradient id="tile" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100" y2="100">
@@ -55,13 +55,12 @@
 
   <!-- Reported: "the splash logo and icon logo have a weird blue ring around
        the middle circle and it doesnt continue the gradient like it should".
-       The ring was a flat #4f6df5 disc -- the tile colour at one point of
-       its gradient -- so at the tile's centre, where the gradient has
-       already moved off that value, it read as a blue washer on a purple
-       field. Filled with the tile gradient itself (user-space units, above)
-       it is invisible against the background, and the separation the ring
-       was for still exists: the spokes stop short of the hub, so the gap
-       between them and the white centre is the ring. -->
+       The ring was a flat #4f6df5 disc, the tile colour at one stop of its
+       gradient, so at the tile's centre (where the gradient has moved off
+       that value) it read as a blue washer on a purple field. Filled with the
+       tile gradient itself (user-space units, above) it vanishes into the
+       background; the separation the ring was for still exists because the
+       spokes stop short of the hub, and that gap is the ring. -->
   <circle cx="50" cy="50" r="13" fill="url(#tile)" />
   <circle cx="50" cy="50" r="9.5" fill="#ffffff" />
 </svg>

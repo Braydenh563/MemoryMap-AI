@@ -335,9 +335,21 @@ section title was the same size as the subsections beneath it.
 
 | Level | Size | Treatment |
 | --- | --- | --- |
-| `.card h2` | `--text-body` | weight 650, tight tracking |
-| `.card h3` | `--text-sm` | weight 600, muted, uppercase, loose tracking |
+| `.card h2` | `--text-body` | weight 650, tight tracking — **a heading: names a thing** |
+| `.card h3`, `.eyebrow`, `.nav-group-label`, `.launch-label` | `--text-sm` | weight 600, muted, uppercase, 0.04em — **an eyebrow: labels a section of controls** |
+| `h4.setting-subhead` | `--text-md` | weight 600, sentence case — a subdivision inside an eyebrow's group |
 | `.dash-getting-started h2` | `--text-h3` | titles a whole panel, not a card |
+
+**Eyebrow vs heading.** An eyebrow labels a *section of controls* (THEMES,
+WHICH ONES IT MAY USE, THE AI, START SOMETHING); a heading names a *thing*
+(All notes, Recently added, a note's title). They are never both capitals —
+a subdivision under an eyebrow is `h4.setting-subhead` in sentence case, not
+a second run of caps (About → Updates was two stacked caps labels of the
+same weight before this, and read as rivals). There is one eyebrow recipe,
+measured: the app had two (12px/600/0.04em on cards, 11.2px/700/0.06em at
+75% opacity on the Settings nav and the dashboard launch rows) doing the
+same job in two voices. The one place caps sit directly over a title is the
+dashboard hero's wordmark kicker, which is branding, not a section label.
 
 Note that `h3` is **smaller** than `h2`, not one step down from it. Small caps
 carry the distinction, which frees the size to drop — two sizes 0.08rem apart

@@ -1130,14 +1130,9 @@ header#top-bar select,
   min-width: 0;
 }
 
+/* Type comes from the eyebrow recipe (01-forms-settings.css, `.card h3`). */
 .launch-label {
   margin: 0;
-  font-size: var(--text-xs);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
-  opacity: 0.75;
 }
 
 .launch-row {

@@ -17,10 +17,25 @@
 
 .card h3 {
   margin: var(--space-6) 0 var(--space-3);
-  /* A subsection is a label for what follows, not a title competing with the
-     card's own. Small caps carry that distinction, which frees the size to go
-     *down* rather than needing another step between h2 and h3 — two sizes
-     0.08rem apart was what made the old hierarchy invisible. */
+}
+
+/* **The eyebrow — one recipe.** A subsection is a label for what follows,
+   not a title competing with the card's own. Small caps carry that
+   distinction, which frees the size to go *down* rather than needing
+   another step between h2 and h3 — two sizes 0.08rem apart was what made
+   the old hierarchy invisible.
+
+   Measured across every tab and Settings page: the app had two of these.
+   Card and settings-group `h3`s (30 of them) at 12px/600/0.04em, and the
+   Settings nav's group labels plus the dashboard's "Start something" /
+   "Jump to" (26) at 11.2px/700/0.06em with a 0.75 opacity on top — the
+   same job, two voices, and the second one fainter for no reason anyone
+   could name. `.eyebrow` is the class for a new one; the two `p` labels
+   are listed here so their own rules only have to say where they sit. */
+.card h3,
+.eyebrow,
+.nav-group-label,
+.launch-label {
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--muted);
@@ -2540,15 +2555,10 @@ mark.global-find-hit.global-find-current {
 }
 
 /* Group labels: quiet enough to scan past, clear enough to orient by. */
+/* Type comes from the eyebrow recipe at the top of this file. */
 .nav-group-label {
   margin: 0.8rem 0 0.15rem;
   padding: 0 0.8rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
-  opacity: 0.75;
 }
 
 .nav-group-label:first-child {

@@ -3802,7 +3802,10 @@ async function ocrLoadReaders() {
     const has = Boolean(ocrReaders.ocr && ocrReaders.ocr_model);
     second.hidden = !has;
     second.disabled = !has;
-    second.textContent = has ? `AI vision model (${ocrReaders.ocr_model})` : "AI vision model";
+    second.textContent = has
+      ? `AI vision model (${shortModelName(ocrReaders.ocr_model)})`
+      : "AI vision model";
+    second.title = has ? ocrReaders.ocr_model : "";
     second.title = has
       ? "The general vision model, rather than the dedicated page reader. Worth "
         + "trying when a page is a photograph or a diagram more than a document."
@@ -4690,7 +4693,7 @@ function filterLibraryImagesGallery() {
           caption: i.caption || "",
           text: (i.vision_ocr_text || i.ocr_text || "").trim(),
           byline: i.vision_ocr_text
-            ? `Text read by ${i.vision_ocr_model || "a model"}`
+            ? `Text read by ${shortModelName(i.vision_ocr_model) || "a model"}`
             : i.ocr_text
               ? "Text read with Tesseract OCR"
               : "",
@@ -4908,7 +4911,7 @@ function filterLibraryImagesGallery() {
     captionBadge.className = "library-image-caption-badge muted text-sm hidden";
     const syncCaptionBadge = () => {
       const parts = [];
-      if (image.caption_model) parts.push(image.caption_model);
+      if (image.caption_model) parts.push(shortModelName(image.caption_model));
       if (image.caption_edited) parts.push(image.caption_model ? "edited" : "typed by hand");
       captionBadge.textContent = parts.join(" · ");
       captionBadge.classList.toggle("hidden", !image.caption || parts.length === 0);

@@ -817,6 +817,12 @@ header#top-bar {
      height, and every control in the bar moves together because they all
      read this one token. */
   --header-control-h: var(--control-h-lg);
+  /* The room the centred tab strip must leave on each side of the bar — the
+     brand block on the left and the controls on the right. Measured at
+     1440px: brand ends at 374, controls start at 1191 (231px wide). The
+     larger of the two, rounded up, so the strip is symmetric and can never
+     reach either. See the centring rule in 07-whiteboard-misc.css. */
+  --tab-bar-side-lane: 24rem;
   /* Kept `sticky` rather than made `static`: it costs nothing in a
      non-scrolling flex parent, and it means the bar still behaves if this
      layout is ever loaded somewhere the body does scroll. */

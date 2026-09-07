@@ -62,7 +62,7 @@ Read `core/database.py` end to end. These are structural, ordered by damage.
 Status now: **one top bar (navigation left, board actions right, look/grid/export/clear behind a Board menu), a centred icon-only tool dock (`role="toolbar"`, arrow-key focus), a fixed right-hand properties drawer, a three-button zoom cluster — nothing draggable, measured overlap-free at 1440/1100/820**; Select/Hand/Lasso peers, Select home, copy/paste style, Ctrl+D, `[`/`]`, hand-click selects, sticky tool, connectors to text/stickies, bend points, Escape cascade (selection → tool), one zoom write per frame. Still missing, in order of how often a professional hits it:
 
 1. **Group transform of a multi-selection** (resize/rotate the set). Marquee selects; handles don't appear for the set. PLAN W1.
-2. **Connector routing**: links attach at card centre and draw *through* cards; no anchor snapping, no midpoint handle, no orthogonal mode. PLAN W2.
+2. **Connector routing**: ~~attach at card centre~~ — ends now sit on the item's rotated border or a shape's own outline, with eight snapping anchors and a bend handle; **still no orthogonal mode**. PLAN W2.
 3. **Frames** (titled containers that move their contents; export a frame). PLAN W4.
 4. **Text on shapes**: a rectangle cannot carry a label without a separate text box on top. Add `data.label` to shape sketches; render centred.
 5. **Snap to objects** exists (alignment guides); **snap to grid while resizing** does not.
@@ -71,7 +71,7 @@ Status now: **one top bar (navigation left, board actions right, look/grid/expor
 8. **Selection export** (PNG/SVG of the selection only). PLAN W10.
 9. **Keyboard**: no `Ctrl+Shift+H/V` flip, no `Alt+drag` duplicate-drag, `Escape` does not cascade (edit → selection → tool).
 10. **AI on the board** — the differentiator nobody else has offline: summarise a frame, cluster stickies, explain a link. Tools exist; the panel actions do not. PLAN W11.
-11. **Accessibility**: the canvas has no roving tabindex over items; a keyboard user cannot select the third card. Add `tabindex="0"` per item + arrow navigation + `aria-label` from content.
+11. **Accessibility**: the tool dock is a `role="toolbar"` with arrow-key focus now; the canvas itself still has no roving tabindex over items — a keyboard user cannot select the third card. Add `tabindex="0"` per item + arrow navigation + `aria-label` from content.
 
 ## D. Documents — sub-par against Obsidian / Typora / iA Writer
 
@@ -125,6 +125,37 @@ Status now: single-row dock, toolbar collapsed by default (chrome 187px → 102p
 - No test for the lock-screen rate limiter's empty-submit behaviour (E9).
 - No test asserts that hidden inputs don't swallow shortcuts (A2) — add one that hides `#lock-password` and presses `v` on the board.
 - Style-scale lint caught undeclared tokens this session (good); add a lint that fails on `grid-template-columns`/`top`/`bottom` values expressed as bare `rem` constants inside `.whiteboard-floating-panel*` rules — the exact class of bug in A3.
+
+## I. Bug, security and complexity scan (asked for directly)
+
+**Security — what was looked for and what was found.**
+
+| Check | Result |
+|---|---|
+| `subprocess` with `shell=True`, `os.system`, `eval`/`exec`, `pickle`, `yaml.load` | None. The three `subprocess.Popen` calls (`routes_files.py` open-exports-folder, `__main__.py` launcher) pass argv lists, no shell. |
+| SQL built from strings | None. The two raw `text()` queries (FTS `MATCH`, `entries_fts_vocab` range) take bound parameters; the MATCH terms are `\W`-stripped words, and the vocab range is a single first letter. |
+| Path traversal on file routes | Guarded: `os.path.basename` on upload names (`routes_files.py:785`), `resolve()` + `is_relative_to(media_dir)` on delete (`:1390`). CodeQL runs in CI. |
+| `innerHTML` in the frontend | Six sites; all static markup or `escapeHtml()`-wrapped (`app.js:12496` diff viewer). The CSP forbids inline handlers regardless. |
+| Auth | Every route sits behind the `X-Auth-Token` gate in `app.py`; the lock has a wrong-password rate limit (hit it twice from the harness this session). |
+| Dependencies | No new packages this session. |
+
+**Complexity (ruff `C901`, threshold 25):** `ai/agent.py run_agent` **45**,
+`ai/autonomous.py _run_optimization` **31**, `api/routes_chat.py chat_stream`
+**26**. Nothing else in `src/` is over 25. These are the three places a
+future bug is most likely to hide, and the three to split before adding to
+them — none was touched this session. No algorithm added this session is
+worse than linear in the board's item count (`wbLinkCandidateAt` is a
+linear scan; `wbEdgePoint` is linear in a path's segments; the vocabulary
+correction is one range scan per query word).
+
+**Bugs found by measurement this session, all fixed:** the dock wrapping at
+50% width (abs-pos `left: 50%`); a `.card` margin offsetting every bottom
+panel by 16px; the Files thumbnail's spanned-row height creating a 108px
+hole; the selection tick stretched to the row width; the OCR rail tabs
+clipped at 9rem; opening an image from a continuous-mode document; stored
+page readings all badged as the on-screen page; Escape not closing the
+Board menu from a focused toolbar button (the board's keydown swallowed it —
+now a capture-phase listener).
 
 ## H. Suggested order (feeds PLAN.md's sprints)
 

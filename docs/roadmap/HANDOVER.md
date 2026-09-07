@@ -2,6 +2,76 @@
 
 **Next: [`PLAN.md`](PLAN.md)** — the scoped professional-grade plan (whiteboard, documents, backend, agent harness, performance), in ship order with measurements. Written by direct instruction; start there.
 
+## ► Latest session — whiteboard chrome and geometry, documents, search, Files/OCR, notifications
+
+Everything below is pushed on `claude/vigilant-pascal-wfo95n` (PR #142) and
+was **measured in Chromium** unless marked otherwise. Start from the open
+list at the end.
+
+### Done
+
+- **Whiteboard chrome, restructured** (`index.html`, `07-whiteboard-misc.css`
+  tail, `whiteboard.js`): one top bar (Boards · board picker · rename · new |
+  search · overview · Library · Board menu · full screen · help), a centred
+  icon-only tool dock (`role="toolbar"`, arrow keys), a fixed right-hand
+  properties drawer, a three-button zoom cluster. **Nothing is draggable**;
+  no `.wb-panel-grip` remains. Measured overlap-free at 1440/1100/820. The
+  Board menu holds Look (background, grid, snap), **Panels** (Properties,
+  Overview, Library, Search switches) and Board (toolbar dock, export, clear)
+  as name-left/control-right rows; the drawer rows follow the same grid.
+  Trap found: an absolutely positioned box with only `left: 50%` gets half
+  the container as available width — the dock wrapped at 1100px until it
+  became `left: 0; right: 0; margin: auto; width: fit-content`. Second trap:
+  `.card`'s 1rem bottom margin applies to an absolutely positioned panel,
+  so `bottom: 8px` rendered 24px off the edge.
+- **Connectors**: every card, text box, sticky and drawn shape is a link
+  source and target (`wbLinkCandidates`, `wbLinkCandidateAt`; sketch drag
+  delegates to the node link drag with `_linkKind = "sketch"`). Endpoints
+  follow rotation: `wbEdgePoint` rotates the aim into the item's frame for
+  cards/objects and intersects the ray with the path's own segments for
+  shapes (`wbPathPolyline`); anchors rotate with `wbAnchorPositions`.
+  Verified: a 45° object's endpoint lies on its rotated edge and differs
+  from the AABB answer; shape→sticky link stored with
+  `sourceKind: "sketch"`.
+- **Navigation**: plain wheel pans, Shift+wheel sideways, Ctrl/⌘+wheel or
+  trackpad pinch zooms (`wbZoomFilter` + a native `wheel` listener). Escape
+  cascades (selection → tool). Two-finger trackpad scroll therefore pans.
+- **Documents**: new-from-template (`DOC_TEMPLATES`, five shapes,
+  `{{date}}`/`{{title}}`), Tab/Shift+Tab between table cells with a new row
+  at the end (`docTableTab`), Ctrl+1/2/3 headings, Ctrl+E code. AUDIT §D was
+  corrected: the selection bar, `/table`, history UI and focus mode already
+  existed.
+- **Search**: `keyword_search` is typo-tolerant in two stages before the
+  any-word fallback — prefix (`term*`, ≥4 letters) then correction against
+  the FTS vocabulary (`entries_fts_vocab`, `fts5vocab`, difflib ≥ 0.8).
+  Three tests in `test_keyword_search.py`.
+- **Files rows**: thumbnail taken out of the grid (it spanned every row and
+  handed its 144px to row 1 — a 108px hole under the title); the selection
+  tick sits on the thumbnail corner instead of stretching across the row.
+- **OCR reader**: rail tabs wrap instead of clipping; opening an image from
+  a document in continuous mode tears the scroll stages down first (it
+  "stayed on the file"); each stored page reading has its own page badge
+  and its own delete (the header button only ever deleted the page on
+  screen). **Not driven end-to-end** — no vision model here, so no stored
+  readings to delete; reasoned from the code path only.
+- **Notifications**: title + time on one line, detail below, compact read
+  toggle, one-row footer (activity picker, mark-all, clear as icons).
+- **Scans**: see AUDIT §I (security greps clean; three functions over
+  complexity 25; suite result in `scratchpad/suite3.log`).
+
+### Open — in the order the user is likely to hit them
+
+1. Whiteboard: group transform of a multi-selection; frames; text on
+   shapes; a floating selection toolbar above the selection (the drawer
+   covers properties, but Miro/FigJam also put the four most-used actions
+   at the selection). AUDIT §C.
+2. Documents: undo across Live↔Source; AI edit with per-hunk diff; math and
+   footnotes. AUDIT §D.
+3. `run_agent` (complexity 45), `_run_optimization` (31), `chat_stream`
+   (26) — split before the next feature lands in them. AUDIT §I.
+4. The Tesseract/vision OCR paths, translation and Tensions remain
+   unverified against a real model (task #120).
+
 ## ► The live report batch this session is working through
 
 Verbatim from the user, kept here so nothing is lost if a session ends

@@ -1722,3 +1722,41 @@ lowest-confidence item on the board.
    of speech on CPU, record the wall-clock. That single number decides whether
    the offline studio (the strongest headline available) is a Phase-3 feature
    or a nice idea, and no amount of further reading answers it.
+
+
+### §114 addendum — after the whiteboard / documents / search sprint
+
+The strategy prompt was re-sent verbatim after this sprint; the teardown,
+per-feature upgrades, inventions, RICE scores, 90-day plan, moats and
+metrics above still stand, so this is the delta, not a rewrite.
+
+**What moved from "Now" to shipped (PR #142):** the whiteboard's chrome is
+a top bar + centred dock + drawer (no draggable panels), connectors attach
+to everything and follow rotation, wheel-pan/pinch-zoom, templates and
+table navigation in Documents, typo-tolerant keyword search, the Files rows
+and OCR reader defects, the notifications panel. See HANDOVER.md.
+
+**What this changes in the ranking.** Two wedges got cheaper and should
+move up a phase:
+
+1. *AI on the board* (§114's category-B item; PLAN W11) — now that every
+   item is a first-class link endpoint and the drawer is a stable surface,
+   "summarise this cluster / explain this link / turn these stickies into
+   a note" is a drawer group and three agent tools, not a redesign.
+2. *Backlinks and unlinked mentions everywhere* (PLAN S7) — the FTS
+   vocabulary table exists now, so "notes that mention this title without
+   linking" is one `MATCH` per panel open.
+
+One item should move down: *frames* (PLAN W4). Group-move exists through
+multi-select; a frame's remaining value is export-by-frame and titling,
+which templates on the Documents side now cover for the assignment
+use-case the user named.
+
+**Start tomorrow (revised):**
+1. Floating selection toolbar on the whiteboard (align, distribute, colour,
+   delete) — the one thing every app the user named has that this does not.
+2. Split `run_agent` (complexity 45) before adding board tools to it.
+3. Unlinked mentions on the note and document panels (S7).
+4. Undo across Live↔Source in Documents (D3) — the last "feels fake" seam.
+5. Run the OCR readers, translation and Tensions against a real model and
+   record the hit rates (task #120).

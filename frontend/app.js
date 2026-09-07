@@ -11995,6 +11995,15 @@ function agentTimeline(holder) {
   };
 
   const startAnswer = () => {
+    //: **Only the step being written wears the caret.** Reported with a
+    //: screenshot of an agent run: "the blinking cursor bubbles at the end of
+    //: the text stayed at the end of each paragraph and didnt disappear" --
+    //: every finished answer step in the run still carried one, so a five-step
+    //: run showed five carets and only the last of them meant anything.
+    //:
+    //: `finalise()` cleared them, but only once the whole run ended. A step is
+    //: finished the moment the next one starts, which is here.
+    for (const step of answerSteps) step.el.classList.remove("is-streaming", "is-generating");
     foldEarlierThinking();
     //: The steps that led here fold up as the prose begins, which is exactly
     //: what Perplexity does and why its answers read as answers rather than

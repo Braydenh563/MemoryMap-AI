@@ -3141,34 +3141,55 @@ span > .chip {
   top: calc(100% + var(--space-2));
   right: 0;
   z-index: 5;
-  /* Reported: "when opening dropdown menus or panels ... the panels will
-     flicker somewhere else on the screen then appear in the right place."
-     A toolbar menu is a <details>; the browser paints it open at the
-     stylesheet position (right-aligned under its button) before the
-     `toggle` event -- a task, not a microtask -- runs clampToolbarMenu, and
-     one more frame passes when the first measurement finds no layout yet.
-     So it is invisible until placed: the class is set at the end of the
-     clamp and cleared on close (app.js). `visibility`, not `display`, so
-     it still has a box to measure. */
+  min-width: 15rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1px;
+  /* The one menu shell, matched to `.action-menu` (02-chat-graph.css) -- the
+     note-card kebab menu the user asked to keep as the reference ("keep the
+     'your notes' ones in the note cards as they are as I like their look").
+     Padding, hairline colour and radius are now that menu's, so the two read
+     as one component.
+
+     The one deliberate difference is the ground: `--modal-bg-opaque` rather
+     than `--modal-bg`. These menus open directly over the note editor, which
+     is the densest small text in the app, and CLAUDE.md records what
+     `--modal-bg`'s own 4% see-through does there -- the form underneath
+     survives as legible ghost text. The kebab menus float over cards and
+     list rows, where 96% is fine. */
+  padding: 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--modal-bg-opaque);
+  box-shadow: var(--glass-shadow);
+}
+
+/* **Hidden until placed, and only that.** Reported: "when opening dropdown
+   menus or panels ... the panels will flicker somewhere else on the screen
+   then appear in the right place." A toolbar menu is a `<details>`: the
+   browser paints it open at the stylesheet position (right-aligned under its
+   button) before the `toggle` event -- a task, not a microtask -- runs
+   `clampToolbarMenu`, and another frame passes when the first measurement
+   finds no layout yet.
+
+   **Everything above stays unconditional, and that is the whole lesson
+   here.** A first pass put the *rest of this rule* behind `.is-placed` too,
+   which produced the transparent, block-display, zero-size menus reported as
+   "all the formatting toolbar dropdowns are visually broken and clear" -- and
+   worse, it was self-sealing: `clampToolbarMenu` gives up when the box
+   measures 0x0, so the class that would have restored the appearance was
+   never added. A menu must have its full box *before* it is measured; only
+   whether it is painted may wait.
+
+   `visibility`, not `display`: the box has to exist to be measured. */
+.doc-dock-menu-list {
   visibility: hidden;
 }
 
 .doc-dock-menu-list.is-placed,
 :not(.doc-toolbar-menu) > .doc-dock-menu-list {
   visibility: visible;
-}
-  min-width: 15rem;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 1px;
-  padding: var(--space-2);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  background: var(--modal-bg);
-  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
-  box-shadow: var(--glass-shadow);
 }
 
 .doc-dock-menu-item {
@@ -3255,6 +3276,22 @@ span > .chip {
   line-height: 1.6;
   padding-top: 0.5rem;
   padding-bottom: 0.5rem;
+}
+
+/* **The code pane must not soft-wrap, or the numbers cannot be right.**
+   Reported: "the document line numbers in the documents dont actually work or
+   go all the way". A `<textarea>` wraps by default, so one logical line can
+   occupy three visual rows; the gutter prints one number per *logical* line
+   (`white-space: pre`), so from the first wrapped line onwards every number is
+   against the wrong row, and the column ends short of the bottom of the text
+   by however many rows the wrapping added. Matching the font and line-height
+   -- which the rule above is careful about -- cannot fix that on its own.
+
+   Horizontal scrolling is the accepted trade in every editor that shows line
+   numbers, and it is what makes the two columns agree line for line. */
+#doc-content.doc-content-code {
+  white-space: pre;
+  overflow-x: auto;
 }
 
 .doc-gutter {

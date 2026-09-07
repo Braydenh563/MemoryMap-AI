@@ -2439,6 +2439,16 @@ kbd {
   display: inline-block;
 }
 
+/* **One shell for every menu in the app.** Reported: "all the dropdown menu
+   styles in the application need to be consistent in their style. keep the
+   'your notes' ones in the note cards as they are as I like their look."
+   That last clause is this rule -- `.action-menu` *is* the note-card kebab
+   menu, so it is the one being matched to, not changed: the toolbar menus
+   (`.doc-dock-menu-list`) and the select listbox (`.select-menu`) were the
+   outliers and now share its surface. Opaque ground, `--border` hairline,
+   `--radius-lg`, `--glass-shadow`, and no backdrop-filter: a menu floats over
+   arbitrary content and has to stay legible, which is what DESIGN.md's own
+   "floats over other content" rule already said. */
 .action-menu {
   position: absolute;
   right: 0;

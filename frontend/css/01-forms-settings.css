@@ -3363,8 +3363,22 @@ html.modal-open body {
    belongs — inline, immediately after the last word — and `:not(:has(*))`
    keeps the plain-text case working for a container with no element children
    at all. */
+/* **And one level deeper for a list, which is where it kept landing.**
+   Reported: "the writing cursor dot in the chat is on then line below and
+   doesnt actually move". `> :last-child` is right when the answer ends in a
+   paragraph and wrong when it ends in a `<ul>` or `<ol>`: the pseudo-element
+   is then the *list's* last child, after the final `<li>`, so it starts a row
+   of its own under the bullets -- the same shape the comment above describes
+   for the container, one level down. Answers end in a list constantly (every
+   "here are the steps" answer does), which is why this read as the caret
+   simply being in the wrong place.
+
+   Two levels is the whole ladder: markdown from this app never nests deeper
+   than list > item before running out of block containers to end on. */
 .is-streaming:not(:has(*))::after,
-.is-streaming > :last-child::after {
+.is-streaming > :last-child:not(:is(ul, ol, blockquote))::after,
+.is-streaming > :last-child:is(ul, ol) > li:last-child::after,
+.is-streaming > :last-child:is(blockquote) > :last-child::after {
   content: "\200b";
   display: inline-block;
   width: 0.5rem;

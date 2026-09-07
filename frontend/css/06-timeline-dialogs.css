@@ -252,14 +252,23 @@
   max-height: calc(1.45em * 3);
 }
 
-/* Search Highlighting */
-/* Search Highlighting */
+/* Search highlighting: what does not match steps back. */
 .timeline-dim {
   opacity: 0.2;
   pointer-events: none;
 }
 
-.timeline-branch-dot.timeline-dim {
+/* Reported first as "the look of the timeline line view changes when I type in
+   the highlight search box??", then, on being asked which was right: "I prefer
+   it in the different style". So this stays flat opacity, and the *resting*
+   dot changed instead -- app.js now raises the shine above the dot, which is
+   what search was accidentally revealing by fading the disc that covered it.
+
+   The shine dims with its dot. Left bright it would sit as a full-strength
+   highlight on a 15% disc, which is the one combination that never looked
+   like anything. */
+.timeline-branch-dot.timeline-dim,
+.timeline-branch-shine.timeline-dim {
   opacity: 0.15;
 }
 

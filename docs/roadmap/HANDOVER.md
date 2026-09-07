@@ -2,6 +2,79 @@
 
 **Next: [`PLAN.md`](PLAN.md)** — the scoped professional-grade plan (whiteboard, documents, backend, agent harness, performance), in ship order with measurements. Written by direct instruction; start there.
 
+## ► This session — chat attachments, glass, Settings, and a live ReferenceError
+
+Everything in this block is pushed on `claude/vigilant-pascal-wfo95n` and was
+**measured in Chromium** unless it says otherwise. The user's requests arrived
+faster than they could be finished, so the tail of the list is what is still
+open, in their own words.
+
+### The one that mattered most
+
+`settingsModalOpen is not defined` was thrown five times in one second in a
+real session, from app.js's document-wide `keydown` handler. app.js registers
+that handler while it parses and `settings.js` is the last script on the page,
+so every key pressed in the window between the two threw and took Escape, "/"
+and every other unchorded shortcut with it. One call site already carried a
+`typeof … === "function"` guard, which was the same bug being worked around a
+line at a time. The three-line DOM check now lives in app.js beside its
+callers. **If a cross-file helper is called from a parse-time listener, it
+belongs in the file that registers the listener.**
+
+### Built
+
+- **Chat attachments reach the model.** `streamChat` took `noteIds` and
+  `imageMediaIds` and nothing else, so an attached *document* reached `/chat`
+  (which Ask uses) and never `/chat/stream` (which the Chat tab uses): the
+  chip appeared, the id was persisted, the model saw none of it. Fixed, and
+  `file_ids` added end to end — `ChatRequest`, `_attached_files` (text via the
+  same `core.docview` call the file viewer makes, capped at 12k chars),
+  conversation persistence and re-hydration, a bubble chip, two tests.
+- **The chat context picker reaches all four stores.** Notes · Documents ·
+  Files · Images, one renderer over a per-source shape table. Files excludes
+  images and Images includes image *attachments*, which the Library splits the
+  same way.
+- **Glass, measured rather than adjusted.** 15–35 blurred layers per tab, most
+  of them nested inside another blurred layer, which is a full filter pass to
+  blur an already-blurred surface. Now 4–13, zero nested on six of seven tabs.
+  Default blur 18px → 14px (the published band is 8–15px). The sheen became a
+  fixed 160px band instead of a 45% wash, because a specular highlight has a
+  size and not a percentage, and its light-theme halving keyed on `data-theme`
+  — absent under the default "System" setting, so every system-dark profile
+  had the wrong one.
+- **Settings.** The one-control-height rule was matching cards (palette cards
+  overflowed and overlapped) and squares (help dots rendered as ovals) and
+  wrapping labels (About's buttons broke onto two lines). Heading/hint
+  proximity, row gaps, the backup rows' two button sizes, inline link and chip
+  spacing. Ctrl+F now searches the Settings dialog and jumps to the section
+  holding the answer.
+- **Note edit toolbar** is the capture strip element for element (61 controls
+  each), Preview inside the bar, no second Write/Preview switch, and the
+  cloned wrap/collapse group draws its glyphs instead of two blank boxes.
+- **Concept maps** have a labelled button in the Graph toolbar.
+- **Library**: the Files sub-tab's selection tick was never enrolled in the
+  tick recipe, so it drew nothing; list view no longer reserves a 48px
+  thumbnail column on a notebook with no thumbnails; the timeline's shine
+  circle is raised above its dot, which is the "different style" the search
+  dim was accidentally revealing.
+
+### Open — the user's words, not a summary
+
+- "fix the spacing headings hierarchy alignment sizing and proximity across
+  the rest of the settings pages" — a first pass landed; every section still
+  needs measuring individually.
+- "the tools it can use switches in their active state still have that black
+  shadow" — **does not reproduce on this branch.** Measured in both modes:
+  32×18.4 pill, 12.8px white knob, `box-shadow: none` on both, and the knob
+  screenshot decodes to pure white on pure accent with no dark halo. Either a
+  stale build or something not yet described.
+- "the radio button select boxes in the images subtab in library are different
+  from the others" — the tile tick is now in the shared recipe, which makes it
+  identical by construction; re-check against a fresh build.
+- Notebook constellation widget on the dashboard: check its canvas background
+  in real dark mode (the first look at it used a forced `data-mode`, which the
+  widget does not read).
+
 ## ► Latest session — whiteboard chrome and geometry, documents, search, Files/OCR, notifications
 
 Everything below is pushed on `claude/vigilant-pascal-wfo95n` (PR #142) and

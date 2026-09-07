@@ -20758,6 +20758,18 @@ function renderTimelineBranch(body) {
       .ease(d3.easeElasticOut)
       .attr("r", TIMELINE_DOT_R);
 
+    //: **The shine belongs on top of the dot, not under it.** Reported: "the
+    //: timeline doesnt just dim, the whole style of the circle nodes changes,
+    //: I prefer it in the different style". Both halves of that are the same
+    //: fact: the shine is drawn before the dots, so DOM order buried it under
+    //: an opaque disc and you only ever saw it when the search dimmed the disc
+    //: to 15% and let it through. The glass-bead look the report prefers was
+    //: therefore only reachable by typing something that matched nothing.
+    //:
+    //: `raise()` after the dots exist is the whole fix -- the shine already
+    //: carries `pointer-events: none`, so putting it in front costs the dot
+    //: none of its hover or click. This is what `.graph-orb-shine` does in the
+    //: graph, which is where the pattern came from.
     const dots = laneGroup
       .selectAll("circle.timeline-branch-dot")
       .data(here)
@@ -20802,6 +20814,9 @@ function renderTimelineBranch(body) {
       .on("click", (event, n) => {
         openTimelinePopup(event, n);
       });
+
+    // See the note above the dots: in front, so every dot reads as a bead.
+    shines.raise();
 
     dots.transition()
       .delay((_, i) => Math.min(i * 30, 800))
@@ -21288,7 +21303,10 @@ function applyTimelineSearch() {
   });
 
   // Branch View dots (D3)
-  d3.selectAll(".timeline-branch-dot")
+  // The shine is a second circle over the same datum (see `shines.raise()` in
+  // renderTimelineBranch), so it has to be dimmed with its dot -- otherwise a
+  // filtered-out note keeps a full-strength highlight sitting on a 15% disc.
+  d3.selectAll(".timeline-branch-dot, .timeline-branch-shine")
     .classed("timeline-dim", function(d) {
       const matchText = (d.preview || "").toLowerCase();
       return query && !matchText.includes(query);

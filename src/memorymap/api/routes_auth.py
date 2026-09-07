@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.core import crypto, vault
 from memorymap.core.config import ConfigManager
-from memorymap.core.deps import get_config, get_session
+from memorymap.core.deps import get_config, get_session, register_cache_reset
 from memorymap.core.database import Entry, User, Vault
 from memorymap.entry.manager import log_action
 
@@ -54,6 +54,13 @@ _SESSION_MAX_AGE = 7 * 24 * 60 * 60  # this old → expired, however busy
 
 # token -> [issued_at, last_used_at]
 _active_tokens: dict[str, list[float]] = {}
+# Module state, not app state — so `deps.reset_app_state()` (the thing every
+# test's `app_state` fixture calls) threw the database away and kept the
+# tokens. Any test that ran `/auth/setup` before `test_account.py` in the same
+# process left it counting four active sessions instead of one; the suite only
+# stayed green because of alphabetical order. Registered as a cache reset so
+# the store is dropped with everything else.
+register_cache_reset(_active_tokens.clear)
 
 
 def _sweep_expired(idle_ttl: int) -> None:

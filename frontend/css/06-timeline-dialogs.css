@@ -1411,6 +1411,20 @@
   border-radius: var(--radius-md);
 }
 
+/* **On a touch screen the actions are always visible, so they must not sit
+   on the text.** Measured (MODERNISATION_AUDIT.md B2, scratchpad/audit/
+   overlap.js) at 390×844 with a touch context: the four action buttons had
+   `opacity: 1` and covered the card's own first line by 650/650/650/464
+   px², and `elementFromPoint` in the overlap returned the button — a tap on
+   the note's text pressed Favourite. With a mouse the strip is hidden until
+   hover, so a desktop screenshot never showed it. The strip stays where it
+   is; the card keeps a lane for it above the text, one control high. */
+@media (hover: none) {
+  #entry-list>li:not(:has(textarea)) {
+    padding-top: calc(var(--space-3) + var(--control-h-lg));
+  }
+}
+
 /* The strip whose ⋯ menu is open, lifted above the other notes' strips.
    Positioning this strip made it a stacking context, so the menu inside it
    could never rise past a sibling strip on the same z-index that happened to

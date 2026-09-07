@@ -345,7 +345,22 @@ def create_app() -> FastAPI:
         # line in the log.
         bgtasks.stop_all()
 
-    app = FastAPI(title="MemoryMap AI", version=__version__, lifespan=lifespan)
+    # No auto-mounted `/docs`, `/redoc` or `/openapi.json`. Two reasons, and
+    # the second is the one that matters. The Swagger and ReDoc pages load
+    # their scripts from a CDN, which this offline app's own CSP refuses, so
+    # they never rendered anyway. And the schema — every route, parameter and
+    # model name, 238 paths — was served to anyone who could reach the port,
+    # before the unlock: MODERNISATION_AUDIT.md D5, the one security finding
+    # in that audit not already handled. The schema is mounted again below,
+    # behind the same `locked` dependency every data route carries.
+    app = FastAPI(
+        title="MemoryMap AI",
+        version=__version__,
+        lifespan=lifespan,
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+    )
     _register_error_handlers(app)
 
     # Middleware is added inside-out: the LAST one added is the outermost, so
@@ -451,6 +466,16 @@ def create_app() -> FastAPI:
     app.include_router(routes_timeline.router, dependencies=locked)
     app.include_router(routes_library.router, dependencies=locked)
     app.include_router(routes_whiteboard.router, dependencies=locked)
+
+    @app.get("/openapi.json", include_in_schema=False, dependencies=locked)
+    def openapi_schema() -> JSONResponse:
+        """The API schema, for whoever has unlocked the notebook.
+
+        `openapi_url=None` above stops FastAPI serving it to the whole
+        network; this is the same document, behind the unlock. Tooling that
+        wants it sends `X-Auth-Token` like every other call.
+        """
+        return JSONResponse(app.openapi())
 
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str | bool]:

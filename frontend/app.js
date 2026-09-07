@@ -5707,17 +5707,31 @@ function similarNoteRow(entry, other, onLinked) {
 //: The same `data-md` contract the other two toolbars use, wired here rather
 //: than through `initMarkdownToolbars` (documents.js) because that runs once
 //: over the markup at load and this row is built each time a note is opened.
+//: The same set the document editor's strip carries (minus colours), in
+//: the same groups — asked for: "the ui and features when editing a note
+//: need to be updated with the new upgraded formatting toolbar". `null`
+//: entries are group separators.
 const NOTE_EDIT_TOOLBAR = [
-  { md: "h2", label: "ph:text-h", title: "Heading" },
+  { md: "h1", label: "ph:text-h-one", title: "Heading 1 (Ctrl+1)" },
+  { md: "h2", label: "ph:text-h-two", title: "Heading 2 (Ctrl+2)" },
+  { md: "h3", label: "ph:text-h-three", title: "Heading 3 (Ctrl+3)" },
+  null,
   { md: "bold", label: "ph:text-b", title: "Bold (Ctrl+B)" },
   { md: "italic", label: "ph:text-italic", title: "Italic (Ctrl+I)" },
   { md: "strike", label: "ph:text-strikethrough", title: "Strikethrough" },
   { md: "highlight", label: "ph:highlighter", title: "Highlight" },
-  { md: "code", label: "ph:code", title: "Inline code" },
+  { md: "code", label: "ph:code", title: "Inline code (Ctrl+E)" },
+  { md: "clearformat", label: "ph:eraser", title: "Clear highlight and colour" },
+  null,
   { md: "ul", label: "ph:list-bullets", title: "Bulleted list" },
+  { md: "ol", label: "ph:list-numbers", title: "Numbered list" },
   { md: "task", label: "ph:check-square", title: "Task list" },
   { md: "quote", label: "ph:quotes", title: "Quote" },
+  null,
   { md: "link", label: "ph:link", title: "Link" },
+  { md: "table", label: "ph:table", title: "Table (Tab moves between cells)" },
+  { md: "codeblock", label: "ph:brackets-curly", title: "Code block" },
+  { md: "hr", label: "ph:minus", title: "Divider" },
 ];
 
 function noteEditToolbar(boxId) {
@@ -5726,6 +5740,13 @@ function noteEditToolbar(boxId) {
   bar.setAttribute("role", "toolbar");
   bar.setAttribute("aria-label", "Formatting");
   for (const action of NOTE_EDIT_TOOLBAR) {
+    if (!action) {
+      const sep = document.createElement("span");
+      sep.className = "doc-toolbar-sep";
+      sep.setAttribute("aria-hidden", "true");
+      bar.appendChild(sep);
+      continue;
+    }
     const button = document.createElement("button");
     button.type = "button";
     button.dataset.md = action.md;
@@ -5803,7 +5824,14 @@ function renderEditForm(li, entry) {
     })
   );
 
-  li.append(noteEditToolbar(textarea.id), textarea, tagsInput, categorySelect, row);
+  //: One meta row — tags, category, then Save/Cancel at the right — instead
+  //: of three stacked full-width rows under the text (reported with a
+  //: screenshot: "better ui structure").
+  const meta = document.createElement("div");
+  meta.className = "note-edit-meta";
+  row.classList.add("note-edit-actions");
+  meta.append(tagsInput, categorySelect, row);
+  li.append(noteEditToolbar(textarea.id), textarea, meta);
   renderRelatedWhileEditing(li, entry);
   renderNoteBookmarksWhileEditing(li, entry);
 }
@@ -21453,7 +21481,9 @@ function syncScrollLock() {
 // but the last couple of lines the moment a note runs long, which is exactly
 // when you most want to see it (user request). Height follows content, up to a
 // cap so the page never gets pushed around; past that it scrolls.
-const AUTOGROW_MAX_PX = 340;
+// 480, not 340: "about a third of the screen" (asked for) is the 0.35 cap
+// below on any window under ~1370px tall; 340 undercut it on a 1080p display.
+const AUTOGROW_MAX_PX = 480;
 
 // How much of the window a growing box may take before it scrolls instead.
 //

@@ -126,6 +126,16 @@ list at the end.
   reader (`ocrCanOpen` is images + PDFs — there is no rasteriser for them);
   caption/OCR model selection was not verified against a real model.
 
+- Note edit form: the full formatting strip (headings, inline styles,
+  clear, lists, quote, link, table, code block, divider — grouped by
+  separators, same `data-md` contract) and one meta row (tags · category ·
+  Save/Cancel). Measured: 17 buttons, 3 separators, meta row on one line.
+- Chat composer: `AUTOGROW_MAX_PX` 340 → 480 so the 35vh cap ("about a
+  third") governs on a 1080p window; dragging, persistence and the
+  double-click-the-grabber reset already existed.
+- **Not done**: a per-sub-tab redesign of the Notes tab — asked for, but
+  it is a design pass, not a fix; nothing was measured or changed there.
+
 ### Open — in the order the user is likely to hit them
 
 1. Whiteboard: group transform of a multi-selection; frames; text on

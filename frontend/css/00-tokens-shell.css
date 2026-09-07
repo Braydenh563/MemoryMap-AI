@@ -212,10 +212,13 @@ select optgroup {
      plain tag chip also uses at 7-10% opacity and which read as no surface
      at all on a button (see the comment on button.ghost in
      01-forms-settings.css). Roughly double the presence, still short of a
-     filled control. */
-  --ghost-btn-bg: rgba(31, 36, 48, 0.11);
+     filled control. The *border* tokens are now only read by high-contrast
+     mode: the tonal tier of the button ramp (DESIGN.md) carries a button on
+     its fill alone, and the fill went up a step (0.11→0.12 light,
+     0.14→0.16 dark) to pay for the edge it no longer draws. */
+  --ghost-btn-bg: rgba(31, 36, 48, 0.12);
   --ghost-btn-border: rgba(31, 36, 48, 0.22);
-  --ghost-btn-bg-hover: rgba(31, 36, 48, 0.16);
+  --ghost-btn-bg-hover: rgba(31, 36, 48, 0.18);
   --ghost-btn-border-hover: rgba(31, 36, 48, 0.32);
   /* The inner top edge that makes a text field read as recessed, against a
      button's raised --shadow-sm. Deliberately lighter than it would be on
@@ -575,9 +578,9 @@ select,
   --error-soft: rgba(248, 113, 113, 0.16);
   --border: rgba(255, 255, 255, 0.10);
   --chip-bg: rgba(255, 255, 255, 0.08);
-  --ghost-btn-bg: rgba(255, 255, 255, 0.14);
+  --ghost-btn-bg: rgba(255, 255, 255, 0.16);
   --ghost-btn-border: rgba(255, 255, 255, 0.22);
-  --ghost-btn-bg-hover: rgba(255, 255, 255, 0.20);
+  --ghost-btn-bg-hover: rgba(255, 255, 255, 0.24);
   --ghost-btn-border-hover: rgba(255, 255, 255, 0.32);
   --field-inset: rgba(0, 0, 0, 0.28);
   --surface-1: var(--card);
@@ -624,9 +627,9 @@ select,
     --error-soft: rgba(248, 113, 113, 0.16);
     --border: rgba(255, 255, 255, 0.10);
     --chip-bg: rgba(255, 255, 255, 0.08);
-    --ghost-btn-bg: rgba(255, 255, 255, 0.14);
+    --ghost-btn-bg: rgba(255, 255, 255, 0.16);
     --ghost-btn-border: rgba(255, 255, 255, 0.22);
-    --ghost-btn-bg-hover: rgba(255, 255, 255, 0.20);
+    --ghost-btn-bg-hover: rgba(255, 255, 255, 0.24);
     --ghost-btn-border-hover: rgba(255, 255, 255, 0.32);
     --field-inset: rgba(0, 0, 0, 0.28);
     --surface-1: var(--card);

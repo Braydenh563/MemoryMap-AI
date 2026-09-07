@@ -293,6 +293,27 @@ mechanism for the same effect the toggle already provides everywhere else.
 
 ---
 
+## Buttons — the ramp
+
+Three tiers, and a view should be readable from them alone:
+
+| Tier | Recipe | Use |
+| --- | --- | --- |
+| **Filled** | `button` — accent fill, `--on-accent` text, the accent glow | The one action a surface is *for*. One per card or dialog — a dashboard of widgets has one per widget (Save, Start), not one for the page. |
+| **Tonal** | `button.ghost`, and any `.icon-only` button — `--ghost-btn-bg` fill, transparent 1px edge, no shadow | Every other action: toolbars, row actions, icon buttons. |
+| **Plain** | tab-bar buttons, `.linklike`, `.status-item` — no fill at rest, a tint on hover | Navigation and inline actions that sit in running text or a strip that is already a well. |
+
+Tonal buttons carry themselves on fill, not on an outline. The outline was
+tried (it was the fix for "buttons feel like just shapes with text in them")
+and it worked by making a button look like a *field* — measured on Notes, 22
+outlined-and-shadowed buttons sat in one toolbar beside outlined inputs and
+an outlined card. The fill went up a step (`--ghost-btn-bg` 0.11→0.12 light,
+0.14→0.16 dark) when the edge came off, so the presence is the same and the
+line count is not. `[data-contrast="on"]` puts the edge back.
+
+A selected toggle (`.active`) is the filled recipe: on is the accent, not a
+darker tonal.
+
 ## Icons
 
 Phosphor (`<i class="ph ph-*">`) is the default for every icon in the app.

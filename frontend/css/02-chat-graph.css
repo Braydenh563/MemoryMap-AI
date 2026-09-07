@@ -2381,6 +2381,18 @@ kbd {
   border-color: var(--border);
 }
 
+/* Same for the tonal button tier: its edge is transparent by default and
+   the tokens it used to draw are kept for exactly this. */
+:root[data-contrast="on"] button.ghost,
+:root[data-contrast="on"] button.icon-only:not(.active),
+:root[data-contrast="on"] button.icon-button:not(.active) {
+  border-color: var(--ghost-btn-border);
+}
+
+:root[data-contrast="on"] button.ghost:hover {
+  border-color: var(--ghost-btn-border-hover);
+}
+
 :root[data-contrast="on"] .muted {
   opacity: 0.9;
 }

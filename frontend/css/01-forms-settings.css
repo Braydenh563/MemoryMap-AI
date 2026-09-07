@@ -353,20 +353,31 @@ button:disabled {
    a button and a label both read as barely-there flat text with the
    faintest outline — nothing said "press me". A dedicated, slightly
    stronger pair of tokens (not the shared chip ones, so actual tag/filter
-   chips elsewhere don't inherit this) plus a real --shadow-sm gives it the
-   lifted-surface look a button needs without changing its size or the
-   spacing scale test cares about. */
+   chips elsewhere don't inherit this) gave it the presence a button needs
+   without changing its size or the spacing scale test cares about.
+
+   **This is the tonal tier of the button ramp** (DESIGN.md → Buttons):
+   filled (accent, one per view) > tonal (this: a tint, no edge, no shadow)
+   > plain (text only). The 1px border and the --shadow-sm that the fix
+   above added are gone again, on purpose and with the fill raised a step
+   to pay for them: measured on the Notes tab, 22 of these sat in one
+   toolbar, each drawing its own hairline and drop shadow next to bordered
+   fields and a bordered card -- the same three-lines-deep texture the
+   surface tiers took out of Settings. A tonal button reads as a control
+   because it is a solid shape on the pane, not because it is outlined; the
+   outline is what made it look like a field. The transparent 1px keeps
+   every height that was measured against it, and is what high-contrast
+   mode colours back in (02-chat-graph.css). */
 button.ghost {
   background: var(--ghost-btn-bg);
-  border: 1px solid var(--ghost-btn-border);
+  border: 1px solid transparent;
   color: var(--ink);
   font-weight: 500;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 button.ghost:hover {
   background: var(--ghost-btn-bg-hover);
-  border-color: var(--ghost-btn-border-hover);
 }
 
 button.small {

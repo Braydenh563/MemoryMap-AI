@@ -225,6 +225,85 @@ that need building rather than fixing.
 6. **The agent activity panel** — see
    [AGENT_SKILLS_REFORM.md](AGENT_SKILLS_REFORM.md) Phase C, which owns it.
 
+### Built — items 1, 3, 4 and 5
+
+Four commits, one per item, each measured at 1440 in Chromium against a
+seeded 3-page PDF. **Item 2 (line numbers as a setting) is untouched and
+still open.**
+
+**1 — the lightbox shows a document like a document.** The document path
+now goes through the *same* `.lightbox-info` panel and the same `renderInfo`
+as an image (it never called it at all before, so an attachment PDF showed
+whatever the previous item had left there), plus what only a document has:
+page count and how many pages have a stored reading in the facts line, one
+`.chip` per page marked read/unread and clickable, and a page readout with
+prev/next in the actions bar kept in sync by a scroll listener. "Read text
+with AI" opens the workspace **at the page you are on** —
+`openOcrWorkspace(image, images, page)`. Measured: chips 1/2/3 at 24px,
+stepper "Page 1 of 3" → "Page 3 of 3" and back via a chip, actions bar
+scrollWidth 844 = clientWidth 844 and scrollHeight 28 = clientHeight 28
+(eleven controls, one row); an image shows no chips and no stepper.
+
+**3 — captioning for documents.** `PAGE_CAPTION_PROMPT` (ai/captioning.py)
+names the page ("page 4 of 18"), asks about figures/charts/diagrams/tables,
+forbids transcribing and forbids describing the page as an object. Stored
+per page on `PageRead.caption`/`caption_model` — two writers, never one with
+a flag, so a describe cannot clear a reading. `POST
+/files/{id}/page-caption` and `/media/{id}/page-caption`. Shown per page: a
+labelled "Figures" block under each page's reading in the workspace, and the
+*current page's* caption, reading and bylines in the lightbox instead of the
+file's single caption and every page's joined text. Describe works for a
+document now (it was images-only, so a deck of charts could not be described
+anywhere). A described-but-unread page is not counted as read.
+
+**4 — region select.** Drag on the page in the workspace and a small offer
+appears under the rectangle: Read text, Describe. Own drag layer (the
+region-box layer is `display:none` whenever Regions is unticked); the boxes
+layer is pointer-transparent and the boxes put `pointer-events` back, so a
+reader's box is still clickable — measured with an injected box. The crop is
+cut in the browser at the page's own resolution and posted to `POST
+…/region-read`; nothing is stored. Measured: a 55% × 30% drag produced a
+440×180 PNG out of an 800×600 raster, multipart with its own boundary; the
+offer rendered 408×43 inside the pane, three 28px buttons, no overflow; the
+answer came back as a focusable card (`tabIndex -1`, `activeElement`) tagged
+"Page 1 · region"; a second region stacked; Escape cleared the rectangle and
+left the workspace open, a second Escape closed it.
+
+**5 — the Files row.** The clamped paragraph is gone for files (an image
+keeps its editable box). The row shows the first sentence on one line,
+"N pages read · N words" under it, and an "Open reading" action that opens
+the lightbox at the reading — first page that has one, info panel scrolled
+into view, `.lightbox-text` focused. `pages_read` is a new field on both
+gallery payloads. Measured at 1440 and 1024: `.library-image-tile`
+scrollHeight 311 = clientHeight 311, summary exactly 1 line, no "Show more",
+and the same with a 500-character reading whose first sentence runs 160
+characters.
+
+**What was NOT verified.** There is no OCR engine and no vision model in
+this sandbox, so **nothing here was ever run by a real reader.** Specifically:
+
+- `page_caption_text` and the new `PAGE_CAPTION_PROMPT` ran only against the
+  fake transport (`tests/test_page_captions.py`) — what a real vision model
+  answers to that prompt is untested, which is the one thing item 3 is
+  actually about.
+- `_describe_page` and `_read_region`'s model branches ran only with
+  `vision_ocr.vision_ocr_text` / `captioning.page_caption_text` stubbed
+  (`tests/test_region_read.py`). The Tesseract branch of `_read_region` never
+  ran at all — the binary is not installed.
+- In the browser, every page reading and page caption on screen was written
+  straight into `PageRead` rows, which is what a real read stores; the
+  region round trip was driven end to end against a stubbed 200 (the client
+  half is real, the answer is not) and against the live 409 the app gives
+  when no model is running.
+- `pypdfium2` + `Pillow` were installed into `.venv` so PDF pages would
+  actually render — without them the whole viewer degrades to "no pages" and
+  none of this is visible. They are the documented optional extra, not a new
+  dependency.
+- Only the default palette in light mode was screenshotted. Dark mode, the
+  other seven palettes and `[data-glass="off"]` were **not** looked at; the
+  new popover was added to the glass-off selector list by rule, not by
+  observation.
+
 ## Not in this plan
 
 New features. The plan is subtraction and alignment; the feature backlog

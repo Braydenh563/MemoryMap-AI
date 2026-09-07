@@ -4603,7 +4603,39 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="ocr-page" id="ocr-page-pane">
           <div id="ocr-stage" class="ocr-stage">
             <img id="ocr-image" alt="">
+            <!-- **Drag to outline a region, then read or describe just that.**
+                 Asked as a question, UI_MODERNISATION_PLAN Phase 7.4: "can
+                 there be a way for the user to manually outline and single out
+                 regions on a pdf or similar document and then the ai will read
+                 what is in those regions?? like maybe the user can outline a
+                 graph or diagram on a pdf slide and then the user cna get the
+                 image or ocr model to analyse and caption that thing."
+
+                 Its own layer rather than `#ocr-boxes`: that one is hidden
+                 outright when Regions is off (`.ocr-boxes.is-hidden`), and a
+                 drag gesture that stops working because a checkbox was
+                 unticked is a feature nobody would find twice. First in the
+                 stack so the reader's boxes paint over the marquee; the boxes
+                 layer passes pointer events through to this one (see the CSS)
+                 so a drag on empty page still lands here while a click on a
+                 box still selects that box. -->
+            <div id="ocr-select" class="ocr-select"></div>
             <div id="ocr-boxes" class="ocr-boxes"></div>
+          </div>
+          <!-- The offer, once a rectangle exists. The app's floating-panel
+               shell (see the `.action-menu, .doc-dock-menu-list, …` rule at
+               the end of 07-whiteboard-misc.css) rather than a fourth kind of
+               popup: capped height, scrolls down and never sideways, and its
+               wheel does not scroll the page the rectangle is drawn on. -->
+          <div id="ocr-region-popover" class="ocr-region-popover hidden" role="group"
+            aria-label="What to do with the region you outlined">
+            <span id="ocr-region-size" class="muted text-xs ocr-region-size"></span>
+            <button type="button" id="ocr-region-read" class="ghost small"
+              title="Transcribe the text inside the rectangle"><i class="ph ph-text-aa ph-lead" aria-hidden="true"></i> Read text</button>
+            <button type="button" id="ocr-region-describe" class="ghost small"
+              title="Describe the figure, chart or diagram inside the rectangle"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Describe</button>
+            <button type="button" id="ocr-region-cancel" class="ghost small icon-only"
+              title="Clear the rectangle (Escape)" aria-label="Clear the rectangle"><i class="ph ph-x" aria-hidden="true"></i></button>
           </div>
           <!-- Continuous mode's pages. Empty and `hidden` in one-page mode so
                nothing is rendered or requested until it is asked for — a
@@ -4631,6 +4663,15 @@ Link to another note with [[its first few words]]."></textarea>
           <button type="button" id="ocr-stop-read" class="ghost small hidden">
             <i class="ph ph-stop-circle ph-lead" aria-hidden="true"></i> Stop reading
           </button>
+          <!-- **Answers about a rectangle somebody drew** (Phase 7.4). Above
+               the page's own reading, not mixed into it: these are replies to
+               a question the reader asked about one part of the page, they are
+               not stored, and filing them among the transcription's sections
+               would make them look like part of what the page says. Each one
+               is focusable and says which page and which rectangle it came
+               from. -->
+          <div id="ocr-region-results" class="ocr-region-results hidden"
+            aria-label="Answers about regions you outlined"></div>
           <ol id="ocr-region-list" class="ocr-region-list" aria-label="What was read, section by section"></ol>
           <!-- **The reading's own actions belong under the reading.**
                Measured: with these three in the header the tool row needed
@@ -4646,12 +4687,20 @@ Link to another note with [[its first few words]]."></textarea>
                  Reported: "the button is also ugly and not good where it is." -->
             <button id="ocr-delete-reading" class="ghost small icon-only danger hidden" type="button"
               title="Delete this reading (you can read it again any time)" aria-label="Delete this reading"><i class="ph ph-trash" aria-hidden="true"></i></button>
-            <!-- Images only (hidden for a document): the caption half of what
-                 the app knows about a picture, written by the same vision
-                 model Settings chose, kept beside the reading half so the
-                 two are managed in one place. -->
+            <!-- The caption half of what the app knows about what is on the
+                 stage, written by the same vision model Settings chose, kept
+                 beside the reading half so the two are managed in one place.
+
+                 **Documents too, a page at a time** (UI_MODERNISATION_PLAN
+                 Phase 7.3). This used to be images-only, which is why a slide
+                 deck full of charts could not be described at all: the
+                 file-level caption route refuses a PDF, and the one surface
+                 built for reading documents hid the button. For a PDF the
+                 label becomes "Describe this page" and it calls the per-page
+                 route, whose prompt asks about figures rather than "what does
+                 this image show". -->
             <button id="ocr-describe" class="ghost small hidden" type="button"
-              title="Describe this image with the vision model (writes its caption)"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Describe</button>
+              title="Describe this image with the vision model (writes its caption)"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> <span id="ocr-describe-label">Describe</span></button>
             <button id="ocr-copy-all" class="ghost small icon-only" type="button"
               title="Copy everything read, in reading order" aria-label="Copy everything read"><i class="ph ph-copy" aria-hidden="true"></i></button>
             <!-- The reading is only worth having if it can leave this window.

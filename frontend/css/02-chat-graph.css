@@ -3190,6 +3190,7 @@ html {
 }
 
 .lightbox-action.hidden,
+.lightbox-page-label.hidden,
 .lightbox-zoom-label.hidden,
 .lightbox-find.hidden,
 .lightbox-find-count.hidden {
@@ -3522,6 +3523,77 @@ mark.lightbox-hit {
   margin-bottom: 0;
   padding-bottom: 0;
   border-bottom: none;
+}
+
+/* **A document's pages, as chips** (UI_MODERNISATION_PLAN Phase 7.1).
+   Reported: "the lightbox needs improving for file and pdf previews, no
+   sections or info are below it really compared to the images."
+
+   Three facts a photograph cannot have — how many pages, which of them have
+   a stored reading, and which one is on screen — drawn with the app's own
+   `.chip` recipe rather than a fourth kind of badge. The colours are
+   overridden here for the same reason `.lightbox-caption` and
+   `.lightbox-facts` override theirs: this panel is a fixed dark surface
+   (rgba(10, 12, 20, 0.86) above), so `--accent-soft` — a pale tint meant for
+   a light page — reads as almost nothing on it. Measured white-on-dark
+   values, matching the rest of the panel's own ramp. */
+.lightbox-pages {
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.lightbox-pages.hidden {
+  display: none;
+}
+
+.lightbox-pages-lead {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.lightbox-page-chip {
+  /* Digits, so a fixed minimum keeps "1" and "12" the same size and the row
+     from re-flowing as the reader steps through a long document. */
+  min-width: 1.5rem;
+  justify-content: center;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.lightbox-page-chip:hover,
+.lightbox-page-chip:focus-visible {
+  background: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.96);
+}
+
+/* Read is a *fill*, current is an *edge* — two different claims about the same
+   chip, so they have to be legible together (a page can be both). The surface
+   tiers rule in DESIGN.md says a selected row is a fill and never a fill plus
+   an edge; this is the case that rule's own exception is for, since "read" and
+   "you are here" are orthogonal states rather than two names for selection. */
+.lightbox-page-chip.is-read {
+  background: rgba(255, 255, 255, 0.22);
+  color: rgba(255, 255, 255, 0.96);
+}
+
+.lightbox-page-chip.is-current {
+  border-color: var(--accent);
+  color: rgba(255, 255, 255, 0.96);
+}
+
+/* The page readout beside the stepper buttons. Deliberately the same recipe as
+   `.lightbox-zoom-label` two rules down — the two numbers in this bar are the
+   same kind of thing (where you are), and giving the new one its own colour and
+   size is exactly the "many recipes for one thing" the modernisation plan is
+   subtracting. Only the width differs: "Page 12 of 34" is longer than "100%".
+   Colour comes from the `.muted` class both labels carry. */
+.lightbox-page-label {
+  min-width: 6rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .lightbox-text {

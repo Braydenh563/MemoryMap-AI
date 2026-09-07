@@ -5133,6 +5133,11 @@ button.connection-row {
 .ocr-page {
   min-width: 0;
   min-height: 0;
+  /* The containing block for the region offer (Phase 7.4). Absolute against
+     this rather than fixed against the viewport, so the offer scrolls with the
+     page it is anchored to — a fixed panel would stay put while the rectangle
+     it points at slid away underneath it. */
+  position: relative;
   /* `hidden` in Fit (nothing overflows, so a scrollbar would be furniture),
      `auto` at Actual size — set on the mode class below rather than here. */
   overflow: auto;
@@ -5206,10 +5211,56 @@ button.connection-row {
 .ocr-boxes {
   position: absolute;
   inset: 0;
+  /* **Transparent to the pointer, so the drag layer underneath can be
+     reached** (UI_MODERNISATION_PLAN Phase 7.4). This layer is `inset: 0` over
+     the whole page, so with the default `pointer-events: auto` it swallowed
+     every press on the page — including the ones meant to start a region
+     drag. The boxes themselves put it back (below), so clicking a region still
+     selects that region: the layer stops being a lid and becomes exactly the
+     boxes it draws. */
+  pointer-events: none;
 }
 
 .ocr-boxes.is-hidden {
   display: none;
+}
+
+/* **Drag here to outline a region.** Asked as a question (Phase 7.4): "can
+   there be a way for the user to manually outline and single out regions on a
+   pdf or similar document and then the ai will read what is in those
+   regions??"
+
+   Its own layer rather than `#ocr-boxes`, because that one is `display: none`
+   whenever Regions is unticked, and a gesture that stops existing because of a
+   checkbox is a feature nobody finds twice. `crosshair` is the whole
+   affordance: nothing else on this stage says a drag will do something. */
+.ocr-select {
+  position: absolute;
+  inset: 0;
+  cursor: crosshair;
+  /* A drag is a drag, not a text selection or a picture drag — without this,
+     dragging across a page picks up the browser's own image-drag ghost. */
+  touch-action: none;
+  user-select: none;
+}
+
+/* A text file has no page raster to crop, so there is nothing here to outline
+   — and a crosshair over a wall of text promising a gesture that leads nowhere
+   is the affordance problem this workspace keeps fixing elsewhere. */
+.ocr-stage-text .ocr-select {
+  display: none;
+}
+
+/* The rectangle as it is drawn. Deliberately the same accent-fill-plus-edge
+   `.ocr-box` uses — this is the same kind of object (a region on this page),
+   drawn by a person instead of by a reader, and a second visual language for
+   it would say they were different things. Dashed says "not committed yet". */
+.ocr-marquee {
+  position: absolute;
+  border: 1.5px dashed var(--accent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  pointer-events: none;
 }
 
 /* A button, not a div: a region is clickable, and the thing that reads out
@@ -5218,6 +5269,10 @@ button.connection-row {
    pointing at. */
 .ocr-box {
   position: absolute;
+  /* Put back what `.ocr-boxes` gives up: the layer is transparent to the
+     pointer so a region drag can reach the layer beneath it, and the boxes are
+     the part that still has to be clickable. */
+  pointer-events: auto;
   padding: 0;
   border: 1.5px solid var(--accent);
   border-radius: var(--radius-sm);
@@ -5331,8 +5386,116 @@ button.connection-row {
   background: var(--inner);
 }
 
+/* A page can be *described* without being transcribed (Phase 7.3), which is a
+   state this paragraph had never had to render. Said plainly and not editable
+   — see `ocrRenderRegions` for why typing into it would be worse than nothing.
+   Quiet, because it is an absence, not a warning. */
+.ocr-region-text-empty {
+  color: var(--muted);
+  font-style: italic;
+  cursor: default;
+}
+
+.ocr-region-text-empty:hover {
+  background: none;
+}
+
+/* **What the figures on this page show**, under what the page says (Phase 7.3:
+   "a place to show it… per page — not one line under a thumbnail").
+
+   A description and a transcription are different claims about the same page,
+   so this is a labelled block rather than more text appended to the reading —
+   the same separation the Library tile's own fields already draw, and for the
+   same report ("I feel the image captions and ocr extractions should be
+   separated and labeled"). Tone, not a border: `--surface-3` is the step below
+   the panel this sits in, which is what the surface-tier rule in DESIGN.md
+   asks for instead of a line inside a line. */
+.ocr-region-caption {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+/* The chip is inline with the sentence rather than above it: this is one line
+   of prose with its provenance attached, not a section with a heading. */
+.ocr-region-caption-label {
+  margin-inline-end: var(--space-2);
+  vertical-align: baseline;
+}
+
 .ocr-message:not(.hidden) {
   margin: 0;
+}
+
+/* **The offer, once a rectangle exists** (Phase 7.4). The app's floating-panel
+   material — `--modal-bg` over the glass border and shadow, exactly what
+   `.help-popover`, the action menus and the toolbar menus are made of — rather
+   than a fifth recipe for "a small box that floats". It is also in the shell
+   rule at the end of this file, which is what caps its height, keeps its
+   scroll vertical and stops its wheel scrolling the page underneath it.
+
+   Absolute against `#ocr-page-pane` (see that rule) and placed by
+   `ocrPlaceRegionPopover`, which puts it below the rectangle when there is
+   room and above it when there is not. */
+.ocr-region-popover {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
+}
+
+.ocr-region-popover.hidden {
+  display: none;
+}
+
+/* What was outlined, in the page's own terms. Sits with the actions rather
+   than above them: it is the subject of the two buttons, not a heading. */
+.ocr-region-size {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Answers about outlined regions, above the page's own reading. Separated by
+   tone and a rule rather than by a border round each card — the reading pane
+   is already a list of bordered panels, and a second bordered list inside it
+   is the "borders inside borders" the modernisation plan is subtracting. */
+.ocr-region-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--divider);
+}
+
+.ocr-region-results.hidden {
+  display: none;
+}
+
+.ocr-region-result {
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+/* It takes focus when its answer arrives (see `ocrShowRegionResult`), and a
+   focus ring is the only thing that says so — the request takes seconds and
+   the reader has usually looked away by the time it lands. */
+.ocr-region-result:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* Under 1100px the rail is the first thing to go — which page you are on is
@@ -6125,6 +6288,45 @@ button.connection-row {
 
 .library-file-meta-sep {
   opacity: 0.5;
+}
+
+/* **A file's reading, in one line** (UI_MODERNISATION_PLAN Phase 7.5). Asked
+   for directly: "the card format is difficult with files as they can be quite
+   long and large, a single image or ocr caption doesnt fit them."
+
+   The row used to render the whole transcription and clamp it — measured at
+   1440 on a three-page reading, the paragraph was sliced mid-glyph two lines
+   in, with a "Show more" that turned one row into a wall. So: the first
+   sentence on one line, the two numbers underneath, and a way in. The clip is
+   the point of the rule, not a side effect: `nowrap` + `ellipsis` is what
+   makes this exactly one line at every width, the same treatment the filename
+   above it already gets and for the same reason. */
+.library-file-reading {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.library-file-summary {
+  margin: 0;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--text-sm);
+}
+
+.library-file-summary-meta {
+  margin: 0;
+}
+
+/* Tonal, like every other row action in the app — the row already has one
+   filled control (the reading strip's own), and two would be two answers to
+   "what is this row for". */
+.library-file-open-reading {
+  margin-top: var(--space-1);
 }
 
 /* The row's own actions stay pinned to its top-right corner, where they are
@@ -7037,6 +7239,7 @@ header#top-bar > #tab-bar {
 .doc-dock-menu-list,
 .wb-board-menu,
 .wb-export-menu,
+.ocr-region-popover,
 .help-popover {
   max-height: calc(100vh - var(--space-9) * 2);
   overflow-y: auto;

@@ -2427,6 +2427,11 @@ let ocrWorkspaceRegions = [];
 //: are. 0/1 for an image, which is a one-page document with no rail.
 let ocrWorkspacePage = 0;
 let ocrWorkspacePages = 1;
+//: page index -> `{caption, caption_model}` for the document on the stage.
+//: Filled from the `page-reads` response (which carries a page's description
+//: on the same row as its reading), cleared and refilled on every page load so
+//: it can never describe the previous document's page 3.
+const ocrPageCaptions = new Map();
 
 function ocrIsPdf(image) {
   return Boolean(image) && /\.pdf$/i.test(image.original_name || image.filename || "");
@@ -2790,7 +2795,15 @@ function ocrRenderRegions(body) {
     }
     const text = document.createElement("p");
     text.className = "ocr-region-text";
-    text.textContent = region.text;
+    //: **A page can now have a description and no reading** (Phase 7.3), which
+    //: is a state this paragraph had never had to render: an empty
+    //: `contenteditable` box under a filled description reads as a reading that
+    //: was lost rather than one that was never asked for. Said plainly, and not
+    //: editable — typing into it would file invented text as a transcription,
+    //: which is the failure `VisionOcrBody.text` exists to let people *undo*.
+    const hasText = Boolean((region.text || "").trim());
+    text.textContent = hasText ? region.text : "Not transcribed yet.";
+    text.classList.toggle("ocr-region-text-empty", !hasText);
     //: **A misread line is fixable where you can see it.** Every reader gets
     //: words wrong — Tesseract on a bad scan, a vision model inventing a line
     //: that was not there (the failure `VisionOcrBody.text` already exists to
@@ -2805,9 +2818,11 @@ function ocrRenderRegions(body) {
     //: be: this is a working copy of one page, and quietly overwriting the
     //: file's own transcription from a click in a preview would be the app
     //: deciding something it was not asked to decide.
-    text.contentEditable = "plaintext-only";
+    text.contentEditable = hasText ? "plaintext-only" : "false";
     text.spellcheck = false;
-    text.title = "Click to correct what was read";
+    text.title = hasText
+      ? "Click to correct what was read"
+      : "Nothing has been transcribed from this page yet — use Read this page";
     text.addEventListener("input", () => {
       const found = ocrWorkspaceRegions.find((item) => item.index === region.index);
       if (found) found.text = text.textContent;
@@ -2816,6 +2831,35 @@ function ocrRenderRegions(body) {
     //: the row's own handler steals the click and the caret never lands.
     text.addEventListener("click", (event) => event.stopPropagation());
     row.append(head, text);
+    //: **The page's description, under the page's reading** (Phase 7.3, "a
+    //: place to show it… per page — not one line under a thumbnail"). What the
+    //: figures on this page *show* is a different claim from what the page
+    //: *says*, so it is a separate, labelled block rather than more text
+    //: appended to the transcription — the exact confusion the Library tile's
+    //: own labelled fields were built to fix ("I feel the image captions and
+    //: ocr extractions should be separated and labeled").
+    //:
+    //: Not editable, unlike the reading above it: a transcription can be
+    //: *wrong* about what the page says and a person can fix it, while a
+    //: description is one model's reading of a figure — re-describing it is
+    //: the correction, and `Describe this page` is one click away.
+    if ((region.caption || "").trim()) {
+      const figures = document.createElement("p");
+      figures.className = "ocr-region-caption";
+      const label = document.createElement("span");
+      label.className = "chip ocr-region-caption-label";
+      const who = shortModelName(region.caption_model || "");
+      label.textContent = who ? `Figures · ${who}` : "Figures";
+      label.title = region.caption_model
+        ? `Described by ${region.caption_model}`
+        : "What this page's figures, charts and diagrams show";
+      //: `sentence`, not `body` — `body` is this function's own parameter, and
+      //: shadowing it here would silently rebind it for everything below.
+      const sentence = document.createElement("span");
+      sentence.textContent = region.caption;
+      figures.append(label, sentence);
+      row.appendChild(figures);
+    }
     row.addEventListener("click", () => ocrSelectRegion(region.index));
     ocrWireRegionJump(row);
     list.appendChild(row);
@@ -2830,6 +2874,297 @@ function ocrRenderRegions(body) {
   ocrApplyFind();
 }
 
+// --- outline a region, read just that (UI_MODERNISATION_PLAN Phase 7.4) -----
+//
+// Asked as a question, and it is a good one: *"can there be a way for the user
+// to manually outline and single out regions on a pdf or similar document and
+// then the ai will read what is in those regions?? like maybe the user can
+// outline a graph or diagram on a pdf slide and then the user cna get the
+// image or ocr model to analyse and caption that thing."*
+//
+// The pieces were all already here — a page raster on screen, a percentage-
+// positioned overlay measured against it, two readers and a describe prompt.
+// What was missing is the gesture: drag on the page, and the rectangle you
+// drew becomes the thing that gets read.
+//
+// **The rectangle is kept in fractions of the stage, not in pixels**, exactly
+// as `.ocr-box` positions are (core/ocr.py returns fractions for the same
+// reason): the pane resizes, the zoom changes, and a pixel rectangle would
+// drift off the thing it was drawn around. Fractions also convert to *source*
+// pixels for the crop with one multiplication by `naturalWidth`.
+
+//: The rectangle currently drawn, in fractions of the page — or null.
+let ocrRegionRect = null;
+//: The pointer drag in progress: where it started (fractions) and which
+//: element captured the pointer, so a drag that leaves the stage still ends.
+let ocrRegionDrag = null;
+
+//: **How small is a mis-click.** Measured against the running app: a plain
+//: click on the page reports a 0-2px "drag", and treating that as a region
+//: would pop the offer open every time somebody clicked the page to focus it.
+//: In fractions rather than pixels so it means the same thing at every zoom.
+const OCR_REGION_MIN = 0.01;
+
+//: The stage the select layer is currently inside — the single stage in
+//: one-page mode, or the current page's own stage in continuous mode. The page
+//: picture is its `<img>`, which is what the crop is taken from.
+function ocrSelectStage() {
+  return $("ocr-select")?.parentElement || null;
+}
+
+function ocrSelectImage() {
+  return ocrSelectStage()?.querySelector("img") || null;
+}
+
+//: Keep the two overlays together. `#ocr-boxes` is moved into the current
+//: page's stage in continuous mode (see `ocrLoadPage`); the select layer has
+//: to follow it or a drag would be measured against a stage that is not on
+//: screen — and `ocrTearDownScroll` has to bring both home again.
+function ocrMoveOverlays(target) {
+  if (!target) return;
+  const boxes = $("ocr-boxes");
+  const select = $("ocr-select");
+  if (select && select.parentElement !== target) target.appendChild(select);
+  if (boxes && boxes.parentElement !== target) target.appendChild(boxes);
+}
+
+function ocrClearRegionSelection() {
+  ocrRegionRect = null;
+  ocrRegionDrag = null;
+  $("ocr-select")?.replaceChildren();
+  $("ocr-region-popover")?.classList.add("hidden");
+}
+
+//: Draw (or redraw) the marquee for `ocrRegionRect`. Percentages against the
+//: select layer, which is `inset: 0` on the stage — the same geometry every
+//: region box already uses, so the two cannot disagree about where the page is.
+function ocrPaintRegionRect() {
+  const layer = $("ocr-select");
+  if (!layer) return;
+  layer.replaceChildren();
+  if (!ocrRegionRect) return;
+  const marquee = document.createElement("div");
+  marquee.className = "ocr-marquee";
+  marquee.style.left = `${ocrRegionRect.x * 100}%`;
+  marquee.style.top = `${ocrRegionRect.y * 100}%`;
+  marquee.style.width = `${ocrRegionRect.w * 100}%`;
+  marquee.style.height = `${ocrRegionRect.h * 100}%`;
+  layer.appendChild(marquee);
+}
+
+//: Where the offer sits: under the rectangle when there is room below it,
+//: above it when there is not. Measured against `#ocr-page-pane`, which is the
+//: popover's positioned parent, so this stays right as the pane scrolls.
+function ocrPlaceRegionPopover() {
+  const popover = $("ocr-region-popover");
+  const pane = $("ocr-page-pane");
+  const layer = $("ocr-select");
+  if (!popover || !pane || !layer || !ocrRegionRect) return;
+  popover.classList.remove("hidden");
+  const stage = layer.getBoundingClientRect();
+  const box = pane.getBoundingClientRect();
+  const size = popover.getBoundingClientRect();
+  const bottom = stage.top + (ocrRegionRect.y + ocrRegionRect.h) * stage.height;
+  const top = stage.top + ocrRegionRect.y * stage.height;
+  //: `+ 8` is one gap between the rectangle and the offer; `--space-*` cannot
+  //: be read from here, and a bare number in a *measurement* is not a token
+  //: the design lint is about (it lints declarations in CSS, and this is a
+  //: computed pixel offset, not a style rule).
+  const gap = 8;
+  const wantBelow = bottom + gap + size.height <= box.bottom;
+  const y = wantBelow ? bottom + gap : Math.max(box.top + gap, top - gap - size.height);
+  const centre = stage.left + (ocrRegionRect.x + ocrRegionRect.w / 2) * stage.width;
+  //: Clamped the "pin to the margin" way round rather than the "hang off the
+  //: edge" way — the same fix the selection kebab's own comment in app.js
+  //: records, and for the same reason: when the panel is wider than the pane,
+  //: `Math.min(Math.max(...))` puts it at a negative offset.
+  const x = Math.max(
+    box.left + gap,
+    Math.min(centre - size.width / 2, box.right - size.width - gap)
+  );
+  //: `+ scrollLeft/scrollTop` because the offer is absolutely positioned inside
+  //: `#ocr-page-pane`, which is itself a scroll container: `x`/`y` are viewport
+  //: coordinates, and an absolute offset is measured from the pane's padding
+  //: box *before* scrolling. Without these two terms the offer lands correctly
+  //: only while the pane happens to be scrolled to the top.
+  popover.style.left = `${Math.round(x - box.left + pane.scrollLeft)}px`;
+  popover.style.top = `${Math.round(y - box.top + pane.scrollTop)}px`;
+  const label = $("ocr-region-size");
+  if (label) {
+    //: What was outlined, in the page's own terms. A rectangle with no size
+    //: on it is the same offer whether you grabbed one chart or the whole
+    //: page, and the answer that comes back would not say which.
+    label.textContent = `${Math.round(ocrRegionRect.w * 100)}% × ${Math.round(
+      ocrRegionRect.h * 100
+    )}% of page ${ocrWorkspacePage + 1}`;
+  }
+}
+
+//: Pointer position as a fraction of the stage, clamped to it: a drag that
+//: leaves the page still ends on the page's edge rather than describing a
+//: rectangle that is partly off it.
+function ocrRegionPoint(event) {
+  const layer = $("ocr-select");
+  if (!layer) return null;
+  const box = layer.getBoundingClientRect();
+  if (!box.width || !box.height) return null;
+  return {
+    x: Math.min(1, Math.max(0, (event.clientX - box.left) / box.width)),
+    y: Math.min(1, Math.max(0, (event.clientY - box.top) / box.height)),
+  };
+}
+
+//: The crop, as a PNG blob, taken from the page raster at its own resolution.
+//: `naturalWidth`, not the rendered width: the page is rasterised at 2x
+//: (`pdfpages.RENDER_SCALE`) precisely so small type is legible to a model,
+//: and cropping from the displayed size would throw that away before the model
+//: ever saw it. Same-origin image, so the canvas is not tainted.
+async function ocrRegionCrop() {
+  const img = ocrSelectImage();
+  if (!img || !ocrRegionRect || !img.naturalWidth) return null;
+  const sx = Math.round(ocrRegionRect.x * img.naturalWidth);
+  const sy = Math.round(ocrRegionRect.y * img.naturalHeight);
+  const sw = Math.max(1, Math.round(ocrRegionRect.w * img.naturalWidth));
+  const sh = Math.max(1, Math.round(ocrRegionRect.h * img.naturalHeight));
+  const canvas = document.createElement("canvas");
+  canvas.width = sw;
+  canvas.height = sh;
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+  context.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+  return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+}
+
+//: One answer about one rectangle, in the pane where the reading already is.
+//: Focused as it arrives — the request takes seconds and the reader has
+//: usually looked away, so an answer that appears silently below the fold is
+//: an answer nobody reads. `tabIndex = -1` rather than 0: it is a destination
+//: for focus, not another stop on the way through the pane.
+function ocrShowRegionResult({ mode, page, rect, text, model, message }) {
+  const holder = $("ocr-region-results");
+  if (!holder) return;
+  holder.classList.remove("hidden");
+  const card = document.createElement("article");
+  card.className = "ocr-region-result";
+  card.tabIndex = -1;
+  const head = document.createElement("div");
+  head.className = "row ocr-region-head";
+  const where = document.createElement("span");
+  where.className = "chip ocr-region-where";
+  where.textContent = `Page ${page + 1} · region`;
+  where.title = `A ${Math.round(rect.w * 100)}% × ${Math.round(
+    rect.h * 100
+  )}% rectangle you outlined on page ${page + 1}`;
+  const kind = document.createElement("span");
+  kind.className = "chip ocr-region-kind";
+  kind.textContent = mode === "describe" ? "Description" : "Text";
+  head.append(where, kind);
+  if (model) {
+    const who = document.createElement("span");
+    who.className = "muted text-sm";
+    who.textContent = shortModelName(model);
+    who.title = model;
+    head.appendChild(who);
+  }
+  const copy = document.createElement("button");
+  copy.type = "button";
+  copy.className = "ghost small icon-button ocr-region-copy";
+  setLabel(copy, "ph:copy");
+  copy.title = "Copy this answer";
+  copy.setAttribute("aria-label", copy.title);
+  copy.addEventListener("click", (event) => {
+    event.stopPropagation();
+    copyToClipboard(text || message || "", event.currentTarget);
+  });
+  head.appendChild(copy);
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "ghost small icon-button danger ocr-region-delete";
+  setLabel(remove, "ph:x");
+  remove.title = "Dismiss this answer";
+  remove.setAttribute("aria-label", remove.title);
+  remove.addEventListener("click", (event) => {
+    event.stopPropagation();
+    card.remove();
+    holder.classList.toggle("hidden", !holder.childElementCount);
+  });
+  head.appendChild(remove);
+  const body = document.createElement("p");
+  body.className = "ocr-region-text";
+  //: Nothing found is a real answer and is said as one — an empty card would
+  //: read as a request that silently failed.
+  body.textContent = text || message || "Nothing came back for that region.";
+  body.classList.toggle("ocr-region-text-empty", !text);
+  card.append(head, body);
+  //: Newest first: the previous answers are still worth keeping (that is the
+  //: point of outlining several things), but the one just asked for is the one
+  //: being waited on.
+  holder.prepend(card);
+  card.focus();
+}
+
+//: Read or describe whatever is outlined. Everything about *what* to run lives
+//: server-side (`_read_region`, routes_files.py); this decides which file, and
+//: hands over exactly the pixels that were outlined.
+async function ocrRunRegion(mode) {
+  const image = ocrWorkspaceCurrent;
+  if (!image || !ocrRegionRect) return;
+  const rect = { ...ocrRegionRect };
+  const page = ocrWorkspacePage;
+  const buttons = [$("ocr-region-read"), $("ocr-region-describe")];
+  buttons.forEach((b) => b && (b.disabled = true));
+  const blob = await ocrRegionCrop();
+  if (!blob) {
+    buttons.forEach((b) => b && (b.disabled = false));
+    toast("That region couldn't be cut out of the page.", true);
+    return;
+  }
+  const form = new FormData();
+  form.append("crop", blob, "region.png");
+  form.append("page", String(page));
+  form.append("mode", mode);
+  form.append("reader", ocrReader());
+  const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
+  const label = mode === "describe" ? "Describing that region…" : "Reading that region…";
+  $("ocr-message").textContent = label;
+  $("ocr-message").classList.remove("hidden");
+  //: The rectangle goes as soon as the request is away. Asked for: "the
+  //: rectangle is cleared after" — and it is also what makes a second region
+  //: drawable while the first is still being read.
+  ocrClearRegionSelection();
+  try {
+    //: **The headers are replaced, not merged, and that is deliberate.**
+    //: `api()` sends `Content-Type: application/json` by default, and a
+    //: FormData body with that header has no multipart boundary — measured
+    //: against the running app, the server answered 405 before any of this
+    //: request's fields were ever looked at. Overriding `headers` drops that
+    //: default so the browser writes its own boundary; the two headers the
+    //: server actually needs are put back by hand. Same handling as every
+    //: other FormData post in this app (`attachImageFiles` in app.js says so
+    //: in its own comment).
+    const answer = await apiJson(`${base}/region-read`, {
+      method: "POST",
+      headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
+      body: form,
+    });
+    ocrShowRegionResult({
+      mode: answer.mode || mode,
+      page: Number.isInteger(answer.page) ? answer.page : page,
+      rect,
+      text: (answer.text || "").trim(),
+      model: answer.model || "",
+      message: answer.message || "",
+    });
+    $("ocr-message").classList.add("hidden");
+  } catch (error) {
+    $("ocr-message").textContent = error.message || "That region couldn't be read.";
+    $("ocr-message").classList.remove("hidden");
+    toast(error.message || "That region couldn't be read.", true);
+  } finally {
+    buttons.forEach((b) => b && (b.disabled = false));
+  }
+}
+
 //: Everything this document has already had read off it, from the store the
 //: read endpoints write to. Never throws: a document with no readings and a
 //: backend that cannot answer are the same thing here — nothing to show.
@@ -2842,6 +3177,15 @@ async function ocrStoredPageReads(image) {
 async function ocrLoadPage(image, page = 0, opts = {}) {
   ocrWorkspaceCurrent = image;
   ocrWorkspacePage = Math.max(0, page);
+  //: Whatever page descriptions are on screen belong to the *previous* load.
+  //: Cleared here rather than where they are filled, because the two early
+  //: returns below (a text file, a failed request) never reach that point and
+  //: would leave another document's figures described under this one's page.
+  ocrPageCaptions.clear();
+  //: A rectangle is drawn on *a page*, so changing page has to take it with
+  //: it — the fractions would otherwise be reinterpreted against a different
+  //: picture and the offer would read a part of the wrong page.
+  ocrClearRegionSelection();
   //: What to reopen, if this window is closed while a read is still running.
   ocrLastOpened = { image, page: ocrWorkspacePage };
   //: Which file this is. Four surfaces can open this dialog, and a header
@@ -2868,7 +3212,10 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     const target = document.querySelector(
       `#ocr-scroll .ocr-stage[data-page="${ocrWorkspacePage}"]`
     );
-    if (target && $("ocr-boxes")) target.appendChild($("ocr-boxes"));
+    //: Both overlays, not just the boxes: the region-select layer is measured
+    //: against the stage it sits in, so leaving it behind would have a drag on
+    //: page 6 outlining part of page 1.
+    ocrMoveOverlays(target);
     if (!opts.fromScroll) ocrScrollToPage(ocrWorkspacePage);
   } else {
     img.src = ocrPageImageUrl(image, ocrWorkspacePage);
@@ -2976,15 +3323,38 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     //: something: a Tesseract reading with real box positions is a better
     //: answer than stored text, and this must not overwrite it.
     const stored = ocrIsPdf(image) ? await ocrStoredPageReads(image) : null;
-    const storedPages = (stored?.pages || []).filter((p) => (p.text || "").trim());
+    //: **Per-page descriptions, from the same response** (Phase 7.3). A page's
+    //: reading and its description live on one `PageRead` row, so one request
+    //: carries both; keeping them in a map keyed by page is what lets the
+    //: caption line above name the page on screen while the panels below name
+    //: their own. (Cleared at the top of `ocrLoadPage`, not here — an image
+    //: never reaches this branch and would otherwise keep showing the last
+    //: document's page 3.)
+    for (const entry of stored?.pages || []) {
+      if ((entry.caption || "").trim()) {
+        ocrPageCaptions.set(Number(entry.page) || 0, {
+          caption: entry.caption.trim(),
+          caption_model: entry.caption_model || "",
+        });
+      }
+    }
+    const storedPages = (stored?.pages || []).filter(
+      //: A page that has only been *described* still belongs in this list —
+      //: it is something the app knows about that page, and leaving it out
+      //: meant a described-but-unread page rendered as "nothing read yet"
+      //: with its description nowhere on screen.
+      (p) => (p.text || "").trim() || (p.caption || "").trim()
+    );
     if (storedPages.length && body.source !== "tesseract") {
       ocrRenderRegions({
         regions: storedPages.map((entry, index) => ({
           index,
           kind: "text",
-          text: entry.text.trim(),
+          text: (entry.text || "").trim(),
           confidence: 0,
           box: { x: 0, y: 0, w: 1, h: 1 },
+          caption: (entry.caption || "").trim(),
+          caption_model: entry.caption_model || "",
           //: Which page this reading is *of* — the row's own badge and its
           //: delete button both need it, and `body.page` is only the page
           //: currently on screen.
@@ -3002,12 +3372,37 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     //: managed side by side (reported: "a lot of disconnect between files and
     //: images regarding ocr and image captioning").
     const isImage = !ocrIsPdf(image);
-    $("ocr-describe")?.classList.toggle("hidden", !isImage);
+    //: **Describe works for a document too now** (Phase 7.3). It used to be
+    //: images-only, which is why a slide deck full of charts had no way to be
+    //: described at all: the file-level caption route refuses a PDF, and the
+    //: one surface built for reading documents hid the button.
+    $("ocr-describe")?.classList.remove("hidden");
+    const describeLabel = $("ocr-describe-label");
+    if (describeLabel) {
+      describeLabel.textContent = isImage ? "Describe" : "Describe this page";
+    }
+    const describeBtn = $("ocr-describe");
+    if (describeBtn) {
+      describeBtn.title = isImage
+        ? "Describe this image with the vision model (writes its caption)"
+        : "Describe the figures, charts and diagrams on this page";
+    }
     const captionEl = $("ocr-caption");
     if (captionEl) {
-      const cap = (image.caption || "").trim();
-      captionEl.textContent = cap ? `Description: ${cap}` : "";
-      captionEl.classList.toggle("hidden", !cap || !isImage);
+      //: A page's own description, not the file's: `image.caption` is one
+      //: sentence about a whole document, which describes none of its pages.
+      //: `ocrPageCaptions` is filled from the same `page-reads` response the
+      //: stored panels below are built from.
+      const cap = isImage
+        ? (image.caption || "").trim()
+        : (ocrPageCaptions.get(ocrWorkspacePage)?.caption || "").trim();
+      const who = isImage
+        ? ""
+        : shortModelName(ocrPageCaptions.get(ocrWorkspacePage)?.caption_model || "");
+      captionEl.textContent = cap
+        ? (who ? `Figures on this page (${who}): ${cap}` : `Description: ${cap}`)
+        : "";
+      captionEl.classList.toggle("hidden", !cap);
     }
     if (ocrIsPdf(image)) ocrBuildPageRail(image, body.pages || 1);
     ocrSyncPager(image);
@@ -3337,11 +3732,31 @@ function ocrOpenSibling(row) {
   ocrRenderRail(row);
 }
 
-function openOcrWorkspace(image, images) {
+//: `page` is the page to open *at*, zero-based — Phase 7.1's "a way into the
+//: OCR Workspace at that page". It defaults to 0, which is what every caller
+//: that has no page in mind (a gallery row, the reopen toast) still passes by
+//: omitting it; the lightbox passes the page you were looking at, because
+//: opening a fifteen-page scan at page 1 from page 9 is navigation the reader
+//: then has to redo by hand.
+function openOcrWorkspace(image, images, page = 0) {
   const overlay = $("ocr-workspace");
   if (!overlay) return;
-  ocrWorkspacePage = 0;
+  //: Clamped at 0 here rather than trusted: a caller with a stale page number
+  //: (a document re-read since, a negative from an off-by-one) must land on a
+  //: real page, and `ocrLoadPage` clamps the upper end against the count it
+  //: learns from the region response.
+  const startPage = Math.max(0, Number(page) || 0);
+  ocrWorkspacePage = startPage;
   ocrWorkspacePages = 1;
+  //: Answers about regions belong to the file they were asked about. They are
+  //: not stored anywhere, so opening another document has to take them away
+  //: rather than leave them looking like something known about the new one.
+  const answers = $("ocr-region-results");
+  if (answers) {
+    answers.replaceChildren();
+    answers.classList.add("hidden");
+  }
+  ocrClearRegionSelection();
   //: The remembered mode is *wanted*, not yet applied: whether it can be
   //: honoured depends on the page count, which only the region response
   //: knows. `ocrLoadPage` turns it on once that comes back. The teardown here
@@ -3381,8 +3796,10 @@ function openOcrWorkspace(image, images) {
   overlay.classList.remove("hidden");
   if (ocrIsPdf(image)) {
     ocrWorkspaceImages = [];
-    ocrLoadPage(image, 0);
+    ocrLoadPage(image, startPage);
   } else {
+    //: An image is one page; a `startPage` for it would be a number with
+    //: nothing to point at.
     ocrLoadPage(image);
   }
   //: Fetched after the overlay is up and the first page is loading, so the
@@ -3632,9 +4049,7 @@ function ocrTearDownScroll() {
   $("ocr-page-pane")?.classList.remove("is-scroll");
   stage?.classList.remove("hidden");
   scroll?.classList.add("hidden");
-  if (stage && $("ocr-boxes") && $("ocr-boxes").parentElement !== stage) {
-    stage.appendChild($("ocr-boxes"));
-  }
+  ocrMoveOverlays(stage);
   if (scroll) {
     scroll.replaceChildren();
     scroll.dataset.pagesFor = "";
@@ -4045,6 +4460,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if (event.key === "Escape") {
       if (document.querySelector(".confirm-overlay")) return;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") { document.activeElement.blur(); return; }
+      //: **Escape cancels the rectangle before it closes the window.** Asked
+      //: for by name in Phase 7.4 ("Escape cancels"), and it is also the only
+      //: sane order: having outlined something by mistake, the key you reach
+      //: for must undo the mistake rather than throw away the whole reading
+      //: session it happened in.
+      if (ocrRegionRect) {
+        event.preventDefault();
+        ocrClearRegionSelection();
+        return;
+      }
       event.preventDefault();
       closeOcrWorkspace();
       return;
@@ -4069,6 +4494,58 @@ document.addEventListener("DOMContentLoaded", () => {
       if (ocrWorkspaceCurrent) ocrLoadPage(ocrWorkspaceCurrent, ocrWorkspacePages - 1);
     }
   });
+  //: **Drag on the page to outline a region** (Phase 7.4). Pointer events, not
+  //: mouse events: the same gesture then works with a stylus on a tablet,
+  //: which is the device somebody reading a scanned page is most likely to be
+  //: circling a chart on.
+  //:
+  //: `setPointerCapture` is what makes a drag that leaves the stage still end
+  //: — without it, releasing the button over the reading pane leaves the app
+  //: convinced a drag is still in progress.
+  $("ocr-select")?.addEventListener("pointerdown", (event) => {
+    //: Left button only, and never while a text file is showing — there is no
+    //: page raster to crop from, so the offer would lead nowhere.
+    if (event.button !== 0) return;
+    if (ocrWorkspaceCurrent && ocrIsTextFile(ocrWorkspaceCurrent)) return;
+    const start = ocrRegionPoint(event);
+    if (!start) return;
+    event.preventDefault();
+    ocrClearRegionSelection();
+    ocrRegionDrag = start;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  });
+  $("ocr-select")?.addEventListener("pointermove", (event) => {
+    if (!ocrRegionDrag) return;
+    const now = ocrRegionPoint(event);
+    if (!now) return;
+    ocrRegionRect = {
+      x: Math.min(ocrRegionDrag.x, now.x),
+      y: Math.min(ocrRegionDrag.y, now.y),
+      w: Math.abs(now.x - ocrRegionDrag.x),
+      h: Math.abs(now.y - ocrRegionDrag.y),
+    };
+    ocrPaintRegionRect();
+  });
+  $("ocr-select")?.addEventListener("pointerup", (event) => {
+    if (!ocrRegionDrag) return;
+    ocrRegionDrag = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    //: A click is a drag of nearly nothing, and offering to read a 2px
+    //: rectangle would make clicking the page feel broken.
+    if (!ocrRegionRect || ocrRegionRect.w < OCR_REGION_MIN || ocrRegionRect.h < OCR_REGION_MIN) {
+      ocrClearRegionSelection();
+      return;
+    }
+    ocrPlaceRegionPopover();
+  });
+  //: A cancelled pointer (the browser taking over for a scroll gesture, the
+  //: window losing focus) has to leave no half-drawn rectangle behind.
+  $("ocr-select")?.addEventListener("pointercancel", () => ocrClearRegionSelection());
+  $("ocr-region-read")?.addEventListener("click", () => ocrRunRegion("read"));
+  $("ocr-region-describe")?.addEventListener("click", () => ocrRunRegion("describe"));
+  $("ocr-region-cancel")?.addEventListener("click", () => ocrClearRegionSelection());
   $("ocr-zoom-in")?.addEventListener("click", () => ocrStepZoom(1));
   $("ocr-zoom-out")?.addEventListener("click", () => ocrStepZoom(-1));
   $("ocr-image")?.addEventListener("load", () => {
@@ -4097,19 +4574,51 @@ document.addEventListener("DOMContentLoaded", () => {
   //: documented way to clear either field, not a new code path.
   $("ocr-describe")?.addEventListener("click", async (event) => {
     const image = ocrWorkspaceCurrent;
-    if (!image || ocrIsPdf(image)) return;
+    if (!image) return;
     const button = event.currentTarget;
     button.disabled = true;
-    $("ocr-message").textContent = `Describing with ${ocrReaders.vision_model || "the vision model"}…`;
+    $("ocr-message").textContent = ocrIsPdf(image)
+      ? `Describing page ${ocrWorkspacePage + 1} with ${ocrReaders.vision_model || "the vision model"}…`
+      : `Describing with ${ocrReaders.vision_model || "the vision model"}…`;
     $("ocr-message").classList.remove("hidden");
     try {
+      //: **A document is described a page at a time** (Phase 7.3). Reported:
+      //: "image captioning, how it is done and displayed needs to be refined
+      //: for pdf documents and other similar documents. with graphs, images
+      //: and diagrams in them." One caption on the file is the right shape for
+      //: a photograph and describes none of a slide deck's twenty pages; the
+      //: page-caption route writes `PageRead.caption` for the page on screen,
+      //: with a prompt that asks about *figures* rather than "what does this
+      //: image show" (ai/captioning.py's `PAGE_CAPTION_PROMPT`).
+      if (ocrIsPdf(image)) {
+        const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
+        const described = await apiJson(
+          `${base}/page-caption?page=${ocrWorkspacePage}`,
+          { method: "POST" }
+        );
+        await ocrLoadPage(image, ocrWorkspacePage);
+        //: The model can be reached, run, and still have nothing to say —
+        //: `message` carries that, and a "Description written." toast over it
+        //: would be the app claiming work it did not do.
+        toast(described?.caption ? `Page ${ocrWorkspacePage + 1} described.` : described?.message
+          || "Nothing was written for that page.", !described?.caption);
+        return;
+      }
       const updated = await analyseMediaRow(image, "caption", { force: true });
       if (updated && typeof updated.caption === "string") image.caption = updated.caption;
       renderLibraryImagesGallery();
       await ocrLoadPage(image, ocrWorkspacePage);
       toast("Description written.");
     } catch (error) {
-      toast(error.message || "Couldn't describe that image.", true);
+      //: **The status line has to stop claiming work that failed.** Measured
+      //: against the running app with no vision model installed: the toast said
+      //: "The AI model isn't running" while the pane underneath still read
+      //: "Describing page 1 with the vision model…", which is the app saying
+      //: two different things about the same click. (The image path had the
+      //: same gap; one `catch` now covers both.)
+      $("ocr-message").textContent = error.message || "Couldn't describe that.";
+      $("ocr-message").classList.remove("hidden");
+      toast(error.message || "Couldn't describe that.", true);
     } finally {
       button.disabled = false;
     }
@@ -4384,6 +4893,127 @@ function mediaReadingBadge(row) {
   badge.textContent = `Read · ${words.toLocaleString()} words`;
   badge.title = "Open the reader to see it beside the page";
   return badge;
+}
+
+//: **A document's reading, said in one line** (UI_MODERNISATION_PLAN Phase
+//: 7.5). Asked for directly, twice: "the card format is difficult with files as
+//: they can be quite long and large, a single image or ocr caption doesnt fit
+//: them", and then "the files sub-tab has to show more than a row can hold."
+//:
+//: The row used to render the whole transcription and clamp it — measured on a
+//: three-page reading at 1440, the paragraph was cut mid-glyph two lines in,
+//: with a "Show more" that turned one row into a wall. A clamped paragraph is
+//: the worst of both: too little to read, too much to skim.
+//:
+//: So: the first sentence, and then the two numbers a person is actually
+//: deciding on when they scan this list — how much of the document has been
+//: read, and how much text came out of it.
+function mediaReadingSummary(row) {
+  const reading = mediaReading(row);
+  if (!reading) return null;
+  const words = reading.split(/\s+/).filter(Boolean).length;
+  //: First sentence, or the first line if the reading has no sentence in it —
+  //: a table of figures, a slide title, a scan of a form. Capped, because a
+  //: "sentence" in a bad transcription can run for a paragraph, and the cap is
+  //: what keeps this to one line at every width.
+  const firstLine = reading.split("\n").map((line) => line.trim()).find(Boolean) || reading;
+  //: Deliberately not a `[…]+` run anchored at the end — that is the
+  //: polynomial-backtracking shape CodeQL has already caught in this repo. A
+  //: plain search for the first sentence end, then a slice.
+  const stop = firstLine.search(/[.!?](\s|$)/);
+  let sentence = stop > 0 ? firstLine.slice(0, stop + 1) : firstLine;
+  if (sentence.length > 120) sentence = `${sentence.slice(0, 119).trimEnd()}…`;
+  const facts = [];
+  //: `pages_read` comes from the server (`_page_read_count_map`), so a
+  //: document read page by page can say so. 0 for an image and for a file
+  //: whose reading is one whole-file blob, where "pages read" would be a
+  //: number about nothing.
+  const pages = Number(row?.pages_read) || 0;
+  if (pages) facts.push(`${pages} page${pages === 1 ? "" : "s"} read`);
+  facts.push(`${words.toLocaleString()} word${words === 1 ? "" : "s"}`);
+  return { sentence, facts, words, pages };
+}
+
+//: The gallery's rows in the shape `openLightbox` wants.
+//:
+//: Extracted from the tile's own click handler when Phase 7.5 gave the Files
+//: row a second way in ("Open reading"). Two copies of this mapping would be
+//: two chances for the two doors to open subtly different dialogs — and the
+//: comments below are precisely the kind of hard-won detail that gets copied
+//: once and then diverges.
+function libraryLightboxItems(images) {
+  return images.map((i) => ({
+    filename: i.original_name,
+    getUrl: () => mediaSrc(i.url),
+    // The one caller with a real *MediaUpload* row, so the lightbox's
+    // id-gated actions (rename/describe/OCR/delete) only ever appear
+    // here — every other caller has a url and nothing else, and a
+    // button guaranteed to 404 is worse than no button. `i._isAttachment`
+    // (Attachment rows this gallery also lists now, see
+    // renderLibraryImagesGallery) is the same case: `i.id` is real,
+    // but it names a row in a different table with none of those
+    // actions, so it must stay unset here for exactly the reason this
+    // comment already gives.
+    id: i._isAttachment ? undefined : i.id,
+    // Asked for directly: "if clicking on an image to view expand it in
+    // the lightbox…can the captions and ocr accompany it somehow??"
+    // The tile is the one place these are too small to read.
+    caption: i.caption || "",
+    text: (i.vision_ocr_text || i.ocr_text || "").trim(),
+    byline: i.vision_ocr_text
+      ? `Text read by ${shortModelName(i.vision_ocr_model) || "a model"}`
+      : i.ocr_text
+        ? "Text read with Tesseract OCR"
+        : "",
+    addedAt: i.created_at || "",
+  }));
+}
+
+//: The Files row's reading block: one line of it, and the way to the rest.
+//: See `mediaReadingSummary` for why a clamped paragraph was the wrong answer.
+function buildFileReadingSummary(image, summary, images) {
+  const holder = document.createElement("div");
+  holder.className = "library-file-reading";
+  if (!summary) {
+    //: Not read yet is a state, not an absence — and the offer that goes with
+    //: it is "read it", which the row's own strip already carries, so this
+    //: says the state and stops.
+    const empty = document.createElement("p");
+    empty.className = "library-file-summary muted text-sm library-image-ocr-empty";
+    empty.textContent = "Nothing has been read from this file yet";
+    holder.appendChild(empty);
+    return holder;
+  }
+  const line = document.createElement("p");
+  line.className = "library-file-summary";
+  line.textContent = summary.sentence;
+  //: The whole first line in the tooltip: the summary is clipped to one line
+  //: by CSS, and a title is the cheapest way to see the rest without turning
+  //: the row into a paragraph again.
+  line.title = summary.sentence;
+  const meta = document.createElement("p");
+  meta.className = "muted text-sm library-file-summary-meta";
+  meta.textContent = summary.facts.join("  ·  ");
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "ghost small library-file-open-reading";
+  setLabel(open, "ph:book-open-text Open reading");
+  //: Distinct from the strip's "Open reader" beside it, and the titles have to
+  //: say how: this opens the *document* with its reading under it (the
+  //: lightbox), that opens the workspace where a page is read, corrected and
+  //: re-read. Both were asked for; neither replaces the other.
+  open.title = "Open the file with its reading, page by page";
+  open.addEventListener("click", (event) => {
+    event.stopPropagation();
+    //: The same items the tile's own click builds, so both doors open the same
+    //: dialog — and `focusReading`, which scrolls the panel under the page
+    //: into view and starts on the first page that has a reading. Without it
+    //: the reading is below the fold on a tall document, which is the whole
+    //: complaint this item is answering.
+    openLightbox(libraryLightboxItems(images), images.indexOf(image), { focusReading: true });
+  });
+  holder.append(line, meta, open);
+  return holder;
 }
 
 function mediaRowKey(image) {
@@ -4673,34 +5303,7 @@ function filterLibraryImagesGallery() {
       // A sketch's "full size" is the board it lives on — there is no file
       // to open in a lightbox, and the board is where it can actually be
       // edited, moved or deleted in context.
-      openLightbox(
-        images.map((i) => ({
-          filename: i.original_name,
-          getUrl: () => mediaSrc(i.url),
-          // The one caller with a real *MediaUpload* row, so the lightbox's
-          // id-gated actions (rename/describe/OCR/delete) only ever appear
-          // here — every other caller has a url and nothing else, and a
-          // button guaranteed to 404 is worse than no button. `i._isAttachment`
-          // (Attachment rows this gallery also lists now, see
-          // renderLibraryImagesGallery) is the same case: `i.id` is real,
-          // but it names a row in a different table with none of those
-          // actions, so it must stay unset here for exactly the reason this
-          // comment already gives.
-          id: i._isAttachment ? undefined : i.id,
-          // Asked for directly: "if clicking on an image to view expand it in
-          // the lightbox…can the captions and ocr accompany it somehow??"
-          // The tile is the one place these are too small to read.
-          caption: i.caption || "",
-          text: (i.vision_ocr_text || i.ocr_text || "").trim(),
-          byline: i.vision_ocr_text
-            ? `Text read by ${shortModelName(i.vision_ocr_model) || "a model"}`
-            : i.ocr_text
-              ? "Text read with Tesseract OCR"
-              : "",
-          addedAt: i.created_at || "",
-        })),
-        images.indexOf(image)
-      );
+      openLightbox(libraryLightboxItems(images), images.indexOf(image));
     });
     // The tick. Same control the Documents list already uses, so selecting
     // works the same way wherever you are in the Library.
@@ -5435,12 +6038,30 @@ function filterLibraryImagesGallery() {
     //: the files tab, the ocr heading still says 'text in this image' when it
     //: should probably say something like 'extracted text from file'".
     //: `_isImage` is already set for every row by the gallery loader.
-    const visionField = field(
-      image._isImage ? "Text in this image" : "Text extracted from this file",
-      visionOcrText,
-      visionOcrToggle,
-      visionOcrBadge
-    );
+    //: **A file's reading is a summary and a way in, not a clamped
+    //: paragraph** (UI_MODERNISATION_PLAN Phase 7.5). Asked for directly: "the
+    //: card format is difficult with files as they can be quite long and
+    //: large, a single image or ocr caption doesnt fit them."
+    //:
+    //: An image keeps the editable, always-visible box: a photo's reading is a
+    //: line or two, correcting it in place is the whole point, and there is no
+    //: "page 3" to open. A document gets the one-line summary
+    //: (`mediaReadingSummary`) and an action that opens it where the reading
+    //: can actually be read — the lightbox, page beside text. Correcting a
+    //: document's reading was never really possible in a two-line clamp
+    //: anyway; the workspace edits it per page, which is where it belongs.
+    const summary = image._isImage ? null : mediaReadingSummary(image);
+    const visionField = image._isImage
+      ? field(
+          "Text in this image",
+          visionOcrText,
+          visionOcrToggle,
+          visionOcrBadge
+        )
+      : field(
+          "Text extracted from this file",
+          buildFileReadingSummary(image, summary, images)
+        );
     // The Tesseract reading is shown only when it actually found something.
     // Tesseract is a system binary this app never installs on its own (by
     // instruction, and `tesseract_available` in /models/status now says so

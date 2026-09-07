@@ -63,6 +63,87 @@ CAPTION_PROMPT = (
 #: same page-rasterisation step neither of them has.
 CAPTION_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"})
 
+#: **A page of a document is not a photograph, and the prompt above assumes it
+#: is.** Reported directly: *"image captioning, how it is done and displayed
+#: needs to be refined for pdf documents and other similar documents. with
+#: graphs, images and diagrams in them."*
+#:
+#: `CAPTION_PROMPT` asks "what does this image show", and a vision model handed
+#: a rendered slide answers exactly that question — *"a white page with black
+#: text and a bar chart"* — which is true, useless, and very nearly the same
+#: sentence for every page in the deck. What a reader actually wants from page
+#: 7 is what is *in* the figures on page 7.
+#:
+#: So three changes, each one earning its characters:
+#:
+#: 1. **It says where it is.** "Page 4 of 18" is context the model cannot see
+#:    (a rendered page carries no reliable page number of its own) and it is
+#:    what stops the answer describing the document instead of the page.
+#: 2. **It names the subjects.** Figures, charts, diagrams and tables — the
+#:    things a document has and a photograph does not.
+#: 3. **It rules out the photographic reading explicitly.** Without the last
+#:    clause the most common failure is a description of the *page* as an
+#:    object: its layout, its margins, the colour of the paper.
+#:
+#: Deliberately not a transcription: `ai/vision_ocr.py` already asks for the
+#: words, the reading is stored in the same row's `text`, and asking one call
+#: to do both gets a worse version of each.
+PAGE_CAPTION_PROMPT = (
+    "This is page {page} of {count} of a document, not a photograph. Describe "
+    "what the figures, charts, diagrams and tables on this page show — what is "
+    "being compared, the trend or the structure — in two or three short, "
+    "factual sentences. Do not transcribe the body text and do not describe "
+    "the page as an object (its layout, margins or paper). If the page has no "
+    "figures, say what the page is about in one sentence."
+)
+
+
+def page_caption_prompt(index: int, count: int) -> str:
+    """`PAGE_CAPTION_PROMPT` with this page's position filled in.
+
+    One-based on the way out, because that is what the page rail shows and
+    what a person means by "page 1" — the same convention `_parse_page_spec`
+    in routes_files.py already keeps for the other direction.
+    """
+    return PAGE_CAPTION_PROMPT.format(page=max(1, index + 1), count=max(1, count))
+
+
+def page_caption_text(image_path: Path, index: int, count: int, model: str, ollama) -> str:
+    """Best-effort description of one rendered page. Never raises.
+
+    A near-copy of `caption_text` above and deliberately *not* folded into it
+    behind a flag: the two differ only in the prompt, and a `caption_text(path,
+    model, ollama, page=None)` that silently changes what it asks for based on
+    an optional argument is exactly the call shape this project has been caught
+    by before ("a guard removed while the shape around it was kept"). The
+    failure contract is identical — a missing file, an unreachable backend or a
+    model that ignores the image all mean "no description was produced".
+    """
+    try:
+        data = image_path.read_bytes()
+    except OSError:
+        return ""
+    mime = mimetypes.guess_type(image_path.name)[0] or "image/png"
+    uri = f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"
+    try:
+        reply = ollama.chat(
+            model,
+            [
+                {
+                    "role": "user",
+                    "content": page_caption_prompt(index, count),
+                    "images": [uri],
+                }
+            ],
+        )
+        return (reply.get("content") or "").strip()
+    except Exception:
+        # Same reasoning as `caption_text`'s own bare except: one bad page (a
+        # render that produced garbage, a model that errors on this specific
+        # image) must never take down the range read looping over it.
+        logger.warning("Page captioning failed for %s", image_path.name, exc_info=True)
+        return ""
+
 
 def caption_text(image_path: Path, model: str, ollama) -> str:
     """Best-effort caption for one image file. Never raises — a missing

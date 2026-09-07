@@ -3666,7 +3666,12 @@ async function attachmentObjectUrl(attachment) {
 // `startIndex` is which one was clicked; a single image is just a one-item
 // list. Reported directly: click-anywhere-to-close alone isn't discoverable,
 // so there's now an explicit close button too — both still work.
-function openLightbox(items, startIndex = 0) {
+//: `opts.focusReading` opens the dialog *at the reading* rather than at the
+//: top of the file — Phase 7.5's "an 'Open reading' action that opens the
+//: lightbox at the reading". On a tall document the info panel is below the
+//: fold, so a plain open lands the reader on a page and leaves them to find
+//: the text they asked for.
+function openLightbox(items, startIndex = 0, opts = {}) {
   let index = startIndex;
   const overlay = document.createElement("div");
   overlay.className = "lightbox";
@@ -3737,7 +3742,21 @@ function openLightbox(items, startIndex = 0) {
   // picture this is; the readings below it are about what is in it.
   const infoFacts = document.createElement("p");
   infoFacts.className = "lightbox-facts";
-  info.append(infoFacts, infoCaption, infoCaptionByline, infoText, infoByline);
+  //: **What only a document has** (UI_MODERNISATION_PLAN Phase 7.1). Reported:
+  //: "the lightbox needs improving for file and pdf previews, no sections or
+  //: info are below it really compared to the images." An image already got
+  //: facts, caption, reading and bylines under it; a PDF got the pages and
+  //: nothing else — and the three things a *document* can say that a
+  //: photograph cannot (how many pages it has, which of them have been read,
+  //: and which one you are looking at) had nowhere to be said.
+  //:
+  //: One row of `.chip`s, one per page, in the panel that already exists —
+  //: not a second info block. A chip is a page: it says whether that page has
+  //: a stored reading, and clicking it scrolls the pages column to it, which
+  //: is also what makes "open the reader at *this* page" a meaningful offer.
+  const infoPages = document.createElement("div");
+  infoPages.className = "row lightbox-pages hidden";
+  info.append(infoFacts, infoPages, infoCaption, infoCaptionByline, infoText, infoByline);
   // Clicking the panel must not dismiss the dialog — someone selecting a line
   // of transcribed text to copy is the whole reason it is here.
   info.addEventListener("click", (e) => e.stopPropagation());
@@ -3837,6 +3856,210 @@ function openLightbox(items, startIndex = 0) {
   actions.appendChild(zoomLabel);
   const zoomInBtn = actionBtn("ph:magnifying-glass-plus", "Zoom in", () => setZoom(zoom + 0.5));
   const resetBtn = actionBtn("ph:arrows-in Fit", "Back to fit", () => setZoom(1));
+
+  //: **The page stepper** — Phase 7.1's "a way to say which page you are on".
+  //:
+  //: The pages column already scrolls, and scrolling is the right way to read
+  //: a document; what it could not do is *name* the page under your eye, which
+  //: is the one fact everything else here hangs off — the read/unread chip that
+  //: is current, and which page "open the reader here" opens. So this is a
+  //: readout with two buttons, not a pager that replaces scrolling: both
+  //: directions still work and they stay in sync (the scroll listener wired in
+  //: `wireDocPageTracking` below writes the label back).
+  //:
+  //: Built here rather than further down because `actionBtn` appends in
+  //: creation order and "where you are" belongs beside the zoom controls,
+  //: which are the other thing that answers "what am I looking at".
+  let docPageCount = 0;
+  let docPage = 0;
+  const docPagesRead = new Set();
+  //: page index -> `{text, model, caption, caption_model}`, from the same
+  //: `page-reads` response the chips are built from. **Per page** is the whole
+  //: point (Phase 7.3): one caption under a whole PDF describes none of its
+  //: pages, and the joined reading of every page is not what you are looking
+  //: at when page 4 is on screen.
+  const docPageRows = new Map();
+  const pagePrevBtn = actionBtn("ph:caret-left", "Previous page", () => setDocPage(docPage - 1));
+  const pageLabel = document.createElement("span");
+  pageLabel.className = "muted lightbox-page-label";
+  //: `role="status"`, matching the OCR workspace's own page label: the page
+  //: changes without focus moving, so a screen reader is otherwise never told.
+  pageLabel.setAttribute("role", "status");
+  actions.appendChild(pageLabel);
+  const pageNextBtn = actionBtn("ph:caret-right", "Next page", () => setDocPage(docPage + 1));
+  const pageControls = [pagePrevBtn, pageLabel, pageNextBtn];
+  const showPageControls = (on) =>
+    pageControls.forEach((el) => el.classList.toggle("hidden", !on));
+  showPageControls(false);
+
+  //: Whichever box actually scrolls the pages. In the plain document view that
+  //: is `.lightbox-doc`; once the reading is showing beside the pages
+  //: (`lightbox-doc-split`) the pages column becomes its own scroller. Asking
+  //: the DOM rather than tracking the mode: the split is toggled in three
+  //: places and a fourth would silently scroll the wrong box.
+  const pageScroller = () =>
+    pdfPages.scrollHeight > pdfPages.clientHeight + 1 ? pdfPages : doc;
+
+  function syncPageChips() {
+    for (const chip of infoPages.querySelectorAll(".lightbox-page-chip")) {
+      chip.classList.toggle("is-current", Number(chip.dataset.page) === docPage);
+      chip.setAttribute("aria-current", Number(chip.dataset.page) === docPage ? "true" : "false");
+    }
+    pageLabel.textContent = docPageCount ? `Page ${docPage + 1} of ${docPageCount}` : "";
+    pagePrevBtn.disabled = docPage <= 0;
+    pageNextBtn.disabled = docPage >= docPageCount - 1;
+    //: The panel below is about *this* page — its reading, its figures — so
+    //: it is redrawn with the number, not only when the file changes.
+    if (lightboxInfoItem) renderInfo(lightboxInfoItem, true);
+    //: The workspace button opens at the page named here, so it has to say so
+    //: — a button whose behaviour depends on invisible state is the affordance
+    //: problem this app keeps fixing elsewhere.
+    readWithAiBtn.title = docPageCount
+      ? `Open the page reader at page ${docPage + 1}: the page beside what it says`
+      : "Open the page reader: see each page beside what it says";
+  }
+
+  //: Set the current page *and* scroll to it. `setDocPage` is the user asking
+  //: for a page; `noteDocPage` (below) is the scroll position telling us which
+  //: one arrived — they must not call each other, or a scroll would fight the
+  //: scroll it triggered.
+  function setDocPage(next) {
+    if (!docPageCount) return;
+    docPage = Math.max(0, Math.min(docPageCount - 1, next));
+    const target = pdfPages.children[docPage];
+    if (target) {
+      const scroller = pageScroller();
+      //: Rects rather than `offsetTop`: `offsetTop` is measured against the
+      //: nearest *positioned* ancestor, which is not the scroller in either
+      //: of the two layouts this has to work in.
+      scroller.scrollTop += target.getBoundingClientRect().top
+        - scroller.getBoundingClientRect().top;
+    }
+    syncPageChips();
+  }
+
+  //: One chip per page, marked with whether that page has a stored reading.
+  //: This is Phase 7.1's "which pages have been read", and it is deliberately
+  //: the same `.chip` recipe the rest of the app uses rather than a bespoke
+  //: badge — a page is a thing you can pick, which is what a chip is for.
+  function renderDocPages() {
+    infoPages.replaceChildren();
+    infoPages.classList.toggle("hidden", docPageCount < 1);
+    if (docPageCount < 1) return;
+    const lead = document.createElement("span");
+    lead.className = "muted text-sm lightbox-pages-lead";
+    lead.textContent = docPagesRead.size
+      ? `${docPagesRead.size} of ${docPageCount} pages read`
+      : `${docPageCount} page${docPageCount === 1 ? "" : "s"} · none read yet`;
+    infoPages.appendChild(lead);
+    for (let i = 0; i < docPageCount; i++) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip chip-interactive lightbox-page-chip";
+      chip.classList.toggle("is-read", docPagesRead.has(i));
+      chip.dataset.page = String(i);
+      chip.textContent = String(i + 1);
+      //: The number alone is not a label — "3" tells a screen reader nothing
+      //: about what it is or what pressing it does.
+      chip.setAttribute(
+        "aria-label",
+        docPagesRead.has(i) ? `Page ${i + 1}, already read` : `Page ${i + 1}, not read yet`
+      );
+      chip.title = chip.getAttribute("aria-label");
+      chip.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setDocPage(i);
+      });
+      infoPages.appendChild(chip);
+    }
+    syncPageChips();
+  }
+
+  //: Back to "this is not a document" — called wherever the lightbox changes
+  //: what it is showing, so a photograph never inherits the previous file's
+  //: page count and a stale stepper never offers page 7 of an image.
+  function resetDocPages() {
+    docPageCount = 0;
+    docPage = 0;
+    docPagesRead.clear();
+    docPageRows.clear();
+    showPageControls(false);
+    infoPages.replaceChildren();
+    infoPages.classList.add("hidden");
+  }
+
+  //: Which pages already have a stored reading (`PageRead`, see the model's
+  //: own docstring). Best-effort and never throws: the pages themselves render
+  //: with no AI in the loop at all, and this panel must not be the thing that
+  //: makes a document unviewable when the store cannot answer.
+  async function loadDocPageReads(attachmentId, name, item) {
+    let base = attachmentId ? `/files/${attachmentId}` : "";
+    if (!base) {
+      //: A `/media/` upload is addressed by *id* here and by *stored name*
+      //: everywhere else in this function. The Library gallery is the one
+      //: caller that already holds the id; every other one has a url, so the
+      //: id is looked up the same way `hydrate` looks up the rest of the
+      //: metadata rather than leaving the panel empty for eight of nine
+      //: callers.
+      let id = item.id;
+      if (!id && name) {
+        const row = await apiJson(`/media/meta/${encodeURIComponent(name)}`).catch(() => null);
+        id = row?.id;
+      }
+      if (!id) return;
+      //: Now that the id is known the workspace can be addressed too — the
+      //: same button previously fell back to the flat inline reading for
+      //: exactly this case.
+      if (!lightboxOcrTarget) {
+        lightboxOcrTarget = {
+          id,
+          _isAttachment: false,
+          original_name: item.filename || name,
+          //: See the note beside the other place this target is built: the
+          //: page images are addressed by stored name, so leaving `url` off
+          //: opens the workspace on a stage that 404s.
+          url: `/media/${name}`,
+        };
+      }
+      base = `/media/${id}`;
+    }
+    const body = await apiJson(`${base}/page-reads`).catch(() => null);
+    for (const page of body?.pages || []) {
+      const index = Number(page.page) || 0;
+      if ((page.text || "").trim()) docPagesRead.add(index);
+      docPageRows.set(index, {
+        text: (page.text || "").trim(),
+        model: page.model || "",
+        caption: (page.caption || "").trim(),
+        caption_model: page.caption_model || "",
+      });
+    }
+    renderDocPages();
+    //: The facts line carries the same count, so it has to be redrawn with the
+    //: chips or the panel says "none read yet" above a row of read pages.
+    renderInfo(item, true);
+  }
+
+  function noteDocPage() {
+    if (!docPageCount) return;
+    const scroller = pageScroller();
+    const top = scroller.getBoundingClientRect().top;
+    let nearest = 0;
+    let best = Infinity;
+    for (let i = 0; i < pdfPages.children.length; i++) {
+      //: The page whose top edge is closest to the top of the viewport, from
+      //: either side — a page scrolled half off the top is still the page you
+      //: are reading, so `Math.abs` rather than "the first one still below".
+      const distance = Math.abs(pdfPages.children[i].getBoundingClientRect().top - top);
+      if (distance < best) {
+        best = distance;
+        nearest = i;
+      }
+    }
+    if (nearest === docPage) return;
+    docPage = nearest;
+    syncPageChips();
+  }
   //: **"Open this in the editor", from the preview.** Asked for directly: "add
   //: an edit document button to previewed documents in the lightbox." The
   //: Library's own kebab offers Preview *and* Open, but once you are in the
@@ -3957,8 +4180,13 @@ function openLightbox(items, startIndex = 0) {
   // hand-rolled version here did not: a non-secure context, permission
   // refused, and a last-resort "here's the text, already selected" UI when
   // both fail, instead of this button just going silent.
+  //: What the info panel is currently showing, which for a document is *one
+  //: page's* reading rather than the file's joined one (see `renderInfo`).
+  //: Copy has to hand over what is on screen: copying every page while the
+  //: panel shows page 4 is the app disagreeing with itself about "this text".
+  let lightboxShownText = "";
   const copyBtn = actionBtn("ph:copy Copy text", "Copy the text read from this image", async (b) => {
-    const value = (items[index].text || "").trim();
+    const value = (lightboxShownText || items[index].text || "").trim();
     if (!value) return;
     await copyToClipboard(value, b);
   });
@@ -4014,8 +4242,12 @@ function openLightbox(items, startIndex = 0) {
     //: Falls back to the old inline text when the workspace cannot be
     //: addressed (no id resolved, or library.js absent on this surface):
     //: degrading to the flat reading beats a button that does nothing.
+    //: **At the page you are looking at, not at page 1.** Phase 7.1 asked for
+    //: "a way into the OCR Workspace at that page", and the third argument is
+    //: it: a fifteen-page scan opened at its first page from page nine is a
+    //: navigation the reader has to redo by hand, every time.
     if (lightboxOcrTarget && typeof window.openOcrWorkspace === "function") {
-      window.openOcrWorkspace(lightboxOcrTarget, []);
+      window.openOcrWorkspace(lightboxOcrTarget, [], docPageCount ? docPage : 0);
       return;
     }
     lightboxLoadExtractedText?.();
@@ -4389,6 +4621,18 @@ function openLightbox(items, startIndex = 0) {
   const pdfPages = document.createElement("div");
   pdfPages.className = "lightbox-pdf-pages hidden";
   bindPan(pdfPages);
+  //: Bound here rather than beside `noteDocPage` itself, and for the same
+  //: reason `bindPan` exists: `doc` and `pdfPages` are created further down
+  //: this function, so touching either from the block that defines the page
+  //: stepper is a temporal-dead-zone ReferenceError the instant the lightbox
+  //: opens. Bound once each, never rebound per document — a listener added on
+  //: every `showDocument` is the unbounded accumulation
+  //: `test_frontend_handlers.py` exists to catch.
+  //:
+  //: Both boxes, because which one scrolls depends on the layout (see
+  //: `pageScroller`), and `noteDocPage` is a no-op when there are no pages.
+  doc.addEventListener("scroll", noteDocPage, { passive: true });
+  pdfPages.addEventListener("scroll", noteDocPage, { passive: true });
   //: **Editing a file in place** (REDESIGN.md §R7.1 item 2, and the request:
   //: *"all the files should be managable, viewable and editable in the
   //: library and document/file/text editor"*). A plain textarea over the
@@ -4513,6 +4757,9 @@ function openLightbox(items, startIndex = 0) {
     lightboxPreviewSource = null;
     lightboxExtractedText = null;
     lightboxOcrTarget = null;
+    //: A new file, so the previous one's page count, stepper and read-chips go
+    //: with it — the PDF branch below re-establishes them when there are pages.
+    resetDocPages();
     exportTextBtn.classList.add("hidden");
     clearDocPreview();
     previewHtmlBtn.classList.add("hidden");
@@ -4672,10 +4919,21 @@ function openLightbox(items, startIndex = 0) {
         //: the one place that knows whether the open file is an attachment or
         //: a media upload. `original_name` rather than the stored name: the
         //: workspace's own `ocrIsPdf` tests the extension of exactly that.
+        //: `url` matters as much as `id` for an upload: the workspace renders a
+        //: page through `/media/pdf-page/{stored name}/{n}`, not by id, so a
+        //: target without it asked for `/media/pdf-page//0` and got a 404 — the
+        //: workspace opened on an empty stage. Measured against the running app
+        //: while wiring the "open at this page" route in; the attachment side
+        //: has an id-addressed page endpoint and never hit it.
         lightboxOcrTarget = attachmentId
           ? { id: attachmentId, _isAttachment: true, original_name: item.filename || name }
           : item.id
-          ? { id: item.id, _isAttachment: false, original_name: item.filename || name }
+          ? {
+              id: item.id,
+              _isAttachment: false,
+              original_name: item.filename || name,
+              url: `/media/${name}`,
+            }
           : null;
         readWithAiBtn.classList.remove("hidden");
         pdfPages.classList.remove("hidden");
@@ -4694,6 +4952,22 @@ function openLightbox(items, startIndex = 0) {
           pageImg.src = mediaSrc(pageUrl(i));
           pdfPages.appendChild(pageImg);
         }
+        //: **The document block** (Phase 7.1). The page count is known right
+        //: here and nowhere else, so this is where the stepper, the chips and
+        //: the facts line are told about it. The chips render immediately as
+        //: "not read yet" and the stored readings fill them in when they
+        //: arrive — a panel that waits for a request before showing the page
+        //: count would leave the viewer blank for the one fact it already has.
+        docPageCount = info.pages;
+        docPage = 0;
+        showPageControls(info.pages > 1);
+        renderDocPages();
+        //: `renderInfo`, not the inline copy in `show()`'s image path: a
+        //: document reaches the early return below, so nothing else would ever
+        //: draw the facts line for it. Reported as part of the same item —
+        //: "no sections or info are below it really compared to the images."
+        renderInfo(item, true);
+        loadDocPageReads(attachmentId, name, item).catch(() => {});
         return;
       }
       // pdfpages isn't installed, or this particular file can't be opened —
@@ -4778,6 +5052,10 @@ function openLightbox(items, startIndex = 0) {
     lightboxPreviewSource = null;
     lightboxExtractedText = null;
     lightboxOcrTarget = null;
+    //: A picture has no pages. Paging from a PDF to an image must take the
+    //: stepper and the page chips with it, or the panel keeps offering "page 4
+    //: of 9" for a photograph.
+    resetDocPages();
     exportTextBtn.classList.add("hidden");
     clearDocPreview();
     previewHtmlBtn.classList.add("hidden");
@@ -4906,24 +5184,65 @@ function openLightbox(items, startIndex = 0) {
 
   // The half of `show()` that draws the panel, split out so `hydrate` can
   // redraw it once the answer arrives without re-running the image load.
+  //: Which item the info panel was last drawn for, so a page change can redraw
+  //: it without `show()` having to hand the item down through the stepper.
+  let lightboxInfoItem = null;
+
   function renderInfo(item, ok) {
-    const caption = (item.caption || "").trim();
-    const text = (item.text || "").trim();
+    lightboxInfoItem = item;
+    //: **For a document, the panel is about the page on screen** (Phase 7.3).
+    //: The file-level values are one caption for a whole PDF — which describes
+    //: none of its pages — and the *joined* reading of every page, which is
+    //: not what you are looking at when page 4 is up. `docPageRows` has both,
+    //: per page, from the `PageRead` store; a page with neither falls back to
+    //: the file's own values so nothing that used to show now disappears.
+    const row = docPageCount ? docPageRows.get(docPage) : null;
+    const perPage = Boolean(row && (row.text || row.caption));
+    const caption = perPage ? row.caption : (item.caption || "").trim();
+    const text = perPage ? row.text : (item.text || "").trim();
+    const captionByline = perPage
+      ? row.caption_model
+        ? `Figures on page ${docPage + 1}, described by ${shortModelName(row.caption_model)}`
+        : ""
+      : item.captionByline || "";
+    const byline = perPage
+      ? row.model
+        ? `Page ${docPage + 1}, read by ${shortModelName(row.model)}`
+        : row.text
+          ? `Page ${docPage + 1}`
+          : ""
+      : item.byline || "";
+    //: What Copy hands over has to be what is on screen: copying every page's
+    //: reading while the panel shows one page's is the app disagreeing with
+    //: itself about what "this text" means.
+    lightboxShownText = text;
     infoCaption.textContent = caption;
     infoCaption.classList.toggle("hidden", !caption);
-    infoCaptionByline.textContent = caption ? item.captionByline || "" : "";
-    infoCaptionByline.classList.toggle("hidden", !caption || !item.captionByline);
+    infoCaptionByline.textContent = caption ? captionByline : "";
+    infoCaptionByline.classList.toggle("hidden", !caption || !captionByline);
     infoText.textContent = text;
     infoText.classList.toggle("hidden", !text);
-    infoByline.textContent = item.byline || "";
-    infoByline.classList.toggle("hidden", !item.byline);
+    infoByline.textContent = byline;
+    infoByline.classList.toggle("hidden", !byline);
     info.classList.toggle("hidden", !caption && !text && !item.filename);
     meta.textContent =
       items.length > 1
         ? `${item.filename || ""} — ${index + 1} of ${items.length}`
         : item.filename || "";
     const facts = [];
-    if (ok && img.naturalWidth) facts.push(`${img.naturalWidth} × ${img.naturalHeight}`);
+    //: A document's dimensions are its *pages*, and the picture's pixel size
+    //: is meaningless for one — `docPageCount` is 0 for anything that is not a
+    //: rendered PDF, so an image is unaffected.
+    if (docPageCount) {
+      facts.push(`${docPageCount} page${docPageCount === 1 ? "" : "s"}`);
+      facts.push(
+        docPagesRead.size
+          ? `${docPagesRead.size} read`
+          : "none read yet"
+      );
+    } else if (ok && img.naturalWidth) {
+      facts.push(`${img.naturalWidth} × ${img.naturalHeight}`);
+    }
     if (item.addedAt) {
       const when = new Date(item.addedAt);
       if (!Number.isNaN(when.valueOf())) facts.push(`Added ${when.toLocaleDateString()}`);
@@ -4932,6 +5251,9 @@ function openLightbox(items, startIndex = 0) {
     infoFacts.textContent = facts.join("  ·  ");
     infoFacts.classList.toggle("hidden", !facts.length);
     copyBtn.classList.toggle("hidden", !text);
+    copyBtn.title = perPage
+      ? `Copy the text read from page ${docPage + 1}`
+      : "Copy the text read from this image";
   }
 
   const close = () => {
@@ -4985,7 +5307,26 @@ function openLightbox(items, startIndex = 0) {
   overlay.append(closeBtn, column);
   document.body.appendChild(overlay);
   closeBtn.focus();
-  show(startIndex);
+  //: `.then`, not `await`: `openLightbox` is not async and its nine callers
+  //: do not expect it to be. The dialog is already on screen and interactive
+  //: by the time this resolves; all that is left is where to point the reader.
+  Promise.resolve(show(startIndex)).then(() => {
+    if (!opts.focusReading) return;
+    //: Start on the first page that actually has a reading. Page 1 of a scan
+    //: is often a cover, and "open the reading" landing on a page with none is
+    //: the same disappointment as not opening it at all.
+    if (docPageCount && docPagesRead.size) {
+      setDocPage(Math.min(...docPagesRead));
+    }
+    //: `block: "end"` because the panel sits *under* the file: bringing its
+    //: bottom into view is what puts the reading on screen, where "nearest"
+    //: would decide it is already close enough and do nothing.
+    info.scrollIntoView({ block: "end" });
+    //: Focus follows the eye. `-1` so it is a destination rather than another
+    //: stop on the way through the dialog's own controls.
+    infoText.tabIndex = -1;
+    infoText.focus();
+  });
 }
 
 // A small kebab (⋯) near whatever the user just selected, anywhere in the

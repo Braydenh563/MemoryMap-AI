@@ -1533,6 +1533,25 @@
   display: none;
 }
 
+/* The list scrolls; the head and the footer stay put. Reported: "I have to
+   scroll all the way to the bottom of the notifications panel to access
+   the other features." */
+.notif-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.notif-panel .notif-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.notif-panel .notif-tools {
+  flex: 0 0 auto;
+}
+
 .notif-head {
   /* Two icon-only buttons beside a title now, where five controls of three
      different widths used to fight for one row — so this no longer needs to

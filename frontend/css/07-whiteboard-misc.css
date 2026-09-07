@@ -6482,3 +6482,21 @@ button.connection-row {
     display: none !important;
   }
 }
+
+/* Menus never run off the bottom: cap and scroll (reported with the View
+   menu, which is the tallest). The top bar sits ~5rem below the window
+   top at most. */
+.wb-board-menu {
+  max-height: calc(100vh - 9rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* The help button used to be a round 2rem glyph in the zoom cluster
+   (03-dashboard-widgets.css); in a menu row it is a normal small button. */
+#wb-board-menu #wb-help-btn {
+  width: auto;
+  height: 2rem;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+}

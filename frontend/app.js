@@ -24057,7 +24057,10 @@ const NOTIFICATION_ICONS = {
   info: "•",
 };
 
-async function openNotifications() {
+//: `keepWatermark`: a re-render from a row's own read/unread toggle must
+//: not also stamp the "seen everything" watermark — that is what made one
+//: tick mark every unread row as read (reported twice).
+async function openNotifications({ keepWatermark = false } = {}) {
   const panel = $("notif-panel");
   const list = $("notif-list");
   panel.classList.remove("hidden");
@@ -24181,7 +24184,7 @@ async function openNotifications() {
         if (same) { same.id = item.id; localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(all)); }
       }
       setNotificationUnread(item.id, !unread);
-      openNotifications();
+      openNotifications({ keepWatermark: true });
     });
     row.append(readToggle);
 
@@ -24211,12 +24214,22 @@ async function openNotifications() {
   // The overrides survive it: a row deliberately kept unread must not be
   // cleared by looking at the panel, or "mark as unread" would last exactly
   // until the next time the bell is opened, which is no time at all.
-  localStorage.setItem(NOTIFICATIONS_READ_KEY, String(Date.now()));
+  // The watermark moves on *close*, not on open (see closeNotifications):
+  // while the panel is up, an unread row stays unread, so ticking one row
+  // changes one row. Opening used to stamp it, and the next re-render —
+  // the one a tick causes — then showed every row as read (reported twice
+  // as "mark one, all get marked").
   renderNotificationBadge();
 }
 
 function closeNotifications() {
-  $("notif-panel").classList.add("hidden");
+  const panel = $("notif-panel");
+  if (panel.classList.contains("hidden")) return;
+  panel.classList.add("hidden");
+  // Closing the panel is reading it: everything shown is now old news,
+  // except rows deliberately kept unread (the override set survives).
+  localStorage.setItem(NOTIFICATIONS_READ_KEY, String(Date.now()));
+  renderNotificationBadge();
 }
 
 // Asked when a reminder is SET, not on first load. A permission prompt with no

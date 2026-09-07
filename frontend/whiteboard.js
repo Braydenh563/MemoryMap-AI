@@ -654,6 +654,17 @@ function wbItemBBox(kind, item) {
       h = h || el.offsetHeight;
     }
   }
+  // A text box or sticky can render taller than its stored height once its
+  // text wraps (the element grows; the row does not), so the rendered size
+  // wins when the element is on screen — a link aimed at the stored box
+  // stopped short of the visible one.
+  if (kind === "object") {
+    const el = document.querySelector(`.wb-object[data-id="${item.id}"]`);
+    if (el && el.offsetWidth && el.offsetHeight) {
+      w = el.offsetWidth;
+      h = el.offsetHeight;
+    }
+  }
   w = w || (kind === "node" ? WB_CARD_DEFAULT_SIZE.w : WB_OBJECT_MIN_SIZE);
   h = h || (kind === "node" ? WB_CARD_DEFAULT_SIZE.h : WB_OBJECT_MIN_SIZE);
   return { minX: item.x, minY: item.y, maxX: item.x + w, maxY: item.y + h };
@@ -1264,10 +1275,25 @@ function wbLinkCandidates(excludeKind, excludeId) {
   return out.filter(([kind, item]) => !(kind === excludeKind && item.id === excludeId));
 }
 
+//: Is a board point inside an item — in the item's own rotated frame, not
+//: its axis-aligned box. Reported: "hard to put connections on objects that
+//: are rotated as the connection points and borders constantly flicker" —
+//: the pointer crossed in and out of the unrotated box while visibly over
+//: (or off) the rotated card, so the hints came and went with every move.
+function wbPointInItem(kind, item, x, y) {
+  const box = wbItemBBox(kind, item);
+  if (!box) return false;
+  const rot = wbItemRotation(kind, item);
+  const p = rot ? wbRotatePoint({ x, y }, wbBoxCenter(box), -rot) : { x, y };
+  return p.x >= box.minX && p.x <= box.maxX && p.y >= box.minY && p.y <= box.maxY;
+}
+
 function wbLinkCandidateAt(x, y, excludeKind, excludeId) {
-  for (const [kind, item] of wbLinkCandidates(excludeKind, excludeId)) {
-    const box = wbItemBBox(kind, item);
-    if (box && x >= box.minX && x <= box.maxX && y >= box.minY && y <= box.maxY) return [kind, item];
+  // Topmost first: objects and cards paint above sketches, and a later
+  // sibling above an earlier one.
+  const candidates = wbLinkCandidates(excludeKind, excludeId).reverse();
+  for (const [kind, item] of candidates) {
+    if (wbPointInItem(kind, item, x, y)) return [kind, item];
   }
   return null;
 }
@@ -3382,9 +3408,9 @@ function wbCloseExportMenu() {
   }
 }
 
-function wbExportBoard() {
+function wbExportBoard(anchor) {
   wbCloseExportMenu();
-  const button = document.getElementById("wb-export");
+  const button = anchor instanceof Element ? anchor : document.getElementById("wb-export");
   if (!button) return;
   const menu = document.createElement("div");
   menu.id = "wb-export-menu";
@@ -3439,9 +3465,10 @@ function wbExportBoard() {
   addHeading("Vector (SVG)");
   if (hasSelection) addOption("Just the selection", () => wbExportSvg("selection"));
   addOption("The whole board", () => wbExportSvg("whole"));
-  addHeading("PDF");
-  if (hasSelection) addOption("Just the selection, via Print", () => wbExportPdf("selection"));
-  addOption("The whole board, via Print", () => wbExportPdf("whole"));
+  addHeading("PDF (via Print)");
+  if (hasSelection) addOption("Just the selection", () => wbExportPdf("selection"));
+  addOption("What's on screen now", () => wbExportPdf("visible"));
+  addOption("The whole board", () => wbExportPdf("whole"));
 
   document.body.appendChild(menu);
   wbExportMenuOutsideClick = (event) => {
@@ -4062,6 +4089,7 @@ async function initWhiteboard() {
       "wb-selbar-back": () => zOrder(false),
       "wb-selbar-forward": () => zOrder(true),
       "wb-selbar-delete": () => deleteWbSelection(),
+      "wb-selbar-export": () => wbExportBoard(document.getElementById("wb-selbar-export")),
     };
     for (const [id, fn] of Object.entries(actions)) {
       document.getElementById(id)?.addEventListener("click", (e) => { e.stopPropagation(); fn(); });
@@ -4454,6 +4482,10 @@ async function initWhiteboard() {
         menu.classList.remove("hidden");
         toggle.setAttribute("aria-expanded", "true");
         syncPanelSwitches();
+        // Never past the bottom of the window (reported with the View
+        // menu): cap to what is left below the menu's own top, and scroll.
+        const top = menu.getBoundingClientRect().top;
+        menu.style.maxHeight = `${Math.max(160, window.innerHeight - top - 12)}px`;
       }
     });
   }

@@ -95,6 +95,21 @@ list at the end.
   handles are on the axis-aligned box; cards and text boxes rotate their
   handles with them); orthogonal connector routing; frames.
 
+### Third pass (reported after the second)
+
+- Notifications: the "seen" watermark moves on **close**, not open, so
+  ticking one row marks one row (was: open stamped it, the tick's re-render
+  then showed all read). The list scrolls inside the panel; head and footer
+  stay put.
+- Menus cap their height from their real top and scroll (View ran off a
+  720px window); the help button in Board lost its old round 2rem rule.
+- Link hit-testing is done in the item's rotated frame (`wbPointInItem`),
+  topmost first — the hints no longer flicker across a rotated object's
+  axis-aligned box. A text box's rendered size wins over its stored size.
+- Export from the selection bar (⤴), and the existing PDF-via-Print path
+  gained "What's on screen now". **Note:** `wbExportPdf` already existed
+  — a duplicate was written and removed in the same sitting; grep first.
+
 ### Open — in the order the user is likely to hit them
 
 1. Whiteboard: group transform of a multi-selection; frames; text on

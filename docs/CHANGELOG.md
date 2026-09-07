@@ -5,6 +5,54 @@ based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows a "waves and phases" development history (see the milestones
 below). Versioning is `0.x` while the app stabilises.
 
+## [0.2.2] — 2026-09-07
+
+A bug-fix and consistency release, from one long round of live reports.
+
+### Fixed
+- **The formatting-toolbar dropdowns rendered as transparent, block-flow
+  text.** The previous release's hide-until-placed fix for menu flicker split
+  the rule wrongly, leaving the menu's whole appearance (flex column, padding,
+  border, background, shadow) behind the `.is-placed` class — and because the
+  placement code gives up when a menu measures 0x0, that class was then never
+  added. Self-sealing, and it affected every `<details>` menu in the note
+  capture, note edit and document toolbars.
+- **Turning the background librarian off did not stop the pass already
+  running** — nor did battery-saver mode. Both now request a stop, which the
+  pass honours at its next checkpoint instead of finishing first.
+- **Agent-activity notices ignored both the mute switch and "Panel only"**
+  whenever they carried an error. The notifications centre records them
+  either way, so nothing is lost by not interrupting.
+- **A PDF read page by page showed "No text yet" everywhere outside the OCR
+  workspace.** The per-page readings are now joined into the file and media
+  list responses, in page order, with a whole-file reading still winning.
+- **Chat: scrolling up left the pane stuck** with the answer cut off until
+  "Jump to latest" was clicked — `scroll-behavior: smooth` on a pane written
+  to every frame turned each auto-scroll into an animation competing with the
+  wheel.
+- **Chat: every finished answer step kept its blinking caret** during an agent
+  run, and the caret sat on a line of its own whenever an answer ended in a
+  list.
+- **A horizontal scrollbar on Notes → Capture**: measured at three widths as
+  exactly the scrollbar's own width of phantom overflow, plus a head row that
+  crushed its own controls by 30px.
+- **Model names in badges were clipped at both ends** (centred flex text
+  cannot ellipsis) and carried their `hf.co/` registry prefix.
+- **The OCR model never showed as "in use"** in the installed-models list.
+- **Document line numbers drifted** against a soft-wrapping code pane.
+- The selection tick was hidden under the page render on Files rows in
+  preview view; sticky rows painted a hard rectangle over their own card.
+
+### Changed
+- Tab indents four spaces where a file type has no convention of its own.
+- Zoom feedback is a HUD, not a notification, so muting no longer hides it.
+- One menu shell app-wide, matched to the note-card kebab menu.
+- Stop buttons all carry the stop icon and the error colour.
+- Tighter shell: one `--page-gutter` (ceiling 24px → 18px) for the page edge,
+  the sidebar gap and the top, and one gap under both sub-tab strips.
+- Surface tiers and a border budget, one button ramp, one eyebrow recipe —
+  see `docs/roadmap/UI_MODERNISATION_PLAN.md` for what remains.
+
 ## [Unreleased]
 
 `__version__` and `pyproject.toml` are both `0.2.1`, and a sweep of every

@@ -1003,3 +1003,12 @@ summary > .ph-lead,
   padding-bottom: 0;
   margin-bottom: 0;
 }
+
+/* An enhanced select's list is a menu, but not a tall one: the menu recipe's
+   viewport-high ceiling overrode .select-menu's 18rem because the element
+   carries both classes, so the skills picker ran the full height of the
+   window (reported with a screenshot). The select's own ceiling wins. */
+.action-menu.select-menu {
+  max-height: min(18rem, 60vh);
+  overflow-y: auto;
+}

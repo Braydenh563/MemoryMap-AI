@@ -69,7 +69,7 @@ takes them top-down inside each block.
    settling: position is computed after first paint. Compute before
    removing `hidden` (measure with `visibility:hidden`), then show. Owner:
    consistency.md.
-6. **Skill picker and other long comboboxes fill the screen**: enhanced
+6. **(fixed)** **Skill picker and other long comboboxes fill the screen**: enhanced
    select lists need `max-height` with scroll and a search field over ~12
    items. Owner: consistency.md.
 7. **"Still writing / Jump to latest" pill takes a row of the chat
@@ -93,8 +93,7 @@ takes them top-down inside each block.
 14. **Bottom bar icons and text misaligned; spaces combobox icon and text
     misaligned; popup-agent input icon misaligned.** Owner: consistency.md
     item 4 (the alignment sweep must include these three).
-15. **Modal backdrop blur does not cover the full viewport height** (a
-    strip at the top under the desktop title bar). Owner: consistency.md.
+15. **Modal backdrop blur does not cover the full viewport height.** Read: `.modal-overlay` is `position: fixed; inset: 0`, so the unblurred strip is the desktop shell's native title bar, outside the page. Not a CSS bug; if it matters, the shell (pywebview/Electron) must draw a frameless window with the app's own title bar. Owner: packaging.
 16. **(fixed)** **Chat header kebab has a filled ground while other kebabs do not.**
     Decision: no fill; one icon recipe. Owner: consistency.md.
 17. **(fixed)** **Chat dock has no bottom padding; the bottom bar's distance from the

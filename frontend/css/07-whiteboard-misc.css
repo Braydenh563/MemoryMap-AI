@@ -8196,6 +8196,8 @@ input[type="file"] {
   line-height: 1.5;
   color: var(--ink);
   user-select: text;
+}
+
 /* ==========================================================================
    RESPONSIVE BY DEVICE (UI_MODERNISATION_PLAN.md — Phase 9)
    ==========================================================================

@@ -7435,6 +7435,17 @@ function unlatex(text) {
 //     text, so it stays off for that mode to keep behaviour unchanged.
 // Every default matches renderInlineMarkdown's original, options-less
 // behaviour exactly, so no existing call site needs to change.
+// The allow-list for anything a note's own text can turn into an href:
+// web links, mail, this app's own paths and in-page anchors. Everything
+// else (javascript:, data:, vbscript:, file:) becomes a dead link rather
+// than a live one. Kept beside the renderer that needs it.
+function safeHref(url) {
+  const value = String(url || "").trim();
+  if (/^(https?:|mailto:|tel:)/i.test(value)) return value;
+  if (/^[/#?.]/.test(value) || !/^[a-z][a-z0-9+.-]*:/i.test(value)) return value;
+  return "#";
+}
+
 function renderInlineMarkdown(element, text, terms, compact = false, options = {}) {
   const {
     dismissible = true,
@@ -7597,7 +7608,11 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
           );
         } else {
           const a = document.createElement("a");
-          a.href = linkUrl;
+          // Only schemes a note may point at. A `[x](javascript:...)` link
+          // would otherwise be a click-to-run script in a note that came
+          // from an import or a shared file; the CSP blocks it today, and
+          // this is the second lock in case the CSP is ever loosened.
+          a.href = safeHref(linkUrl);
           if (/^https?:\/\//i.test(linkUrl)) {
             a.target = "_blank";
             a.rel = "noopener noreferrer";

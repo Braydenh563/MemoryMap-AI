@@ -290,3 +290,164 @@
 .wb-export-menu {
   gap: var(--space-2);
 }
+
+/* ---------------------------------------------------------------------------
+   2. A disclosure inside a card is a header, not a button
+   ---------------------------------------------------------------------------
+
+   Reported with a screenshot of the Help guide: "Capturing notes", "Asking &
+   chatting" and the six topics under them each render as a grey button
+   inside a grey card inside the page. The same shape appears on Settings →
+   Models, where "Advanced response settings" is a grey button inside a card.
+
+   Measured before this rule, at 1440, light theme:
+
+     .help-accordion details   border 1px rgba(31,36,48,0.10), radius 8.4px
+     its > summary             background rgba(31,36,48,0.12) (--ghost-btn-bg)
+                               border 1px rgba(31,36,48,0.22)  radius 8.4px
+     #sampling-box             background rgba(31,36,48,0.04), radius 14px
+     its > summary             the same fill, border and radius as above
+
+   So: two borders, two radii and a fill, all inside a section that already
+   draws the page. Nothing in that stack tells you which box is the thing.
+
+   **The cause is two rounds that decided the opposite thing, both still in
+   the file.** 07-whiteboard-misc.css:3053 gives every `<summary>` a hover
+   tint and says, in its own comment, that a resting fill was deliberately
+   refused because it "would turn every collapsed section into a
+   button-looking slab and compete with the real buttons inside them". Six
+   hundred lines later, 07-whiteboard-misc.css:3640 adds exactly that resting
+   fill and border, under the heading "a disclosure row reads as a control at
+   rest". The second rule wins on order, so what actually ships is the thing
+   the first comment predicted would go wrong.
+
+   Both were right about their own case, which is why this is a split rather
+   than a revert. A `<summary>` in a dock or a toolbar *is* a control in a
+   row of controls, and it has to carry the tonal fill or it reads as a gap
+   between two buttons. A `<summary>` that heads a folded section of a card
+   is a heading with a chevron, and a fill there is the third box in a stack
+   of three. The rule below names the second set; every other summary in the
+   app keeps the resting fill.
+
+   Specificity, since it is not obvious: the rule being overridden is
+   `summary:not(.icon-only):not(.icon-button)`, which is (0,2,1) — the two
+   `:not()`s each count as a class. A container class plus the element is
+   (0,1,2) and loses. Each selector below carries the two `:not()`s of its
+   own plus a container class, so it lands at (0,3,1) or better and wins on
+   weight rather than on which file happens to be later. */
+.help-accordion details > summary:not(.icon-only):not(.icon-button),
+.settings-group > summary:not(.icon-only):not(.icon-button),
+.settings-fold > summary:not(.icon-only):not(.icon-button),
+.advanced-css > summary:not(.icon-only):not(.icon-button),
+.task-log > summary:not(.icon-only):not(.icon-button) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  box-shadow: none;
+  color: var(--ink);
+  font-weight: 600;
+  list-style: none;
+  cursor: pointer;
+}
+
+.help-accordion details > summary::-webkit-details-marker,
+.settings-group > summary::-webkit-details-marker,
+.settings-fold > summary::-webkit-details-marker,
+.advanced-css > summary::-webkit-details-marker,
+.task-log > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* The chevron the native marker was hiding. Borrowed exactly from the chat
+   timeline's thinking step (02-chat-graph.css) — a triangle built from
+   borders, so it needs no icon font, inherits `currentColor`, and the two
+   disclosures in the app read as one component. */
+.help-accordion details > summary:not(.icon-only):not(.icon-button)::before,
+.settings-group > summary:not(.icon-only):not(.icon-button)::before,
+.settings-fold > summary:not(.icon-only):not(.icon-button)::before,
+.advanced-css > summary:not(.icon-only):not(.icon-button)::before,
+.task-log > summary:not(.icon-only):not(.icon-button)::before {
+  content: "";
+  flex: none;
+  width: 0;
+  height: 0;
+  border-left: 0.32rem solid currentColor;
+  border-top: 0.24rem solid transparent;
+  border-bottom: 0.24rem solid transparent;
+  color: var(--muted);
+  transform-origin: 40% 50%;
+  transition: transform var(--motion-base) ease;
+}
+
+.help-accordion details[open] > summary::before,
+.settings-group[open] > summary::before,
+.settings-fold[open] > summary::before,
+.advanced-css[open] > summary::before,
+.task-log[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .help-accordion details > summary::before,
+  .settings-group > summary::before,
+  .settings-fold > summary::before,
+  .advanced-css > summary::before,
+  .task-log > summary::before {
+    transition: none;
+  }
+}
+
+/* Hover is the only state that fills. Restated because the flat rule above
+   outranks 07-whiteboard-misc.css's `summary:…:hover` and would otherwise
+   take the pointer feedback away with the resting fill. */
+.help-accordion details > summary:not(.icon-only):not(.icon-button):hover,
+.settings-group > summary:not(.icon-only):not(.icon-button):hover,
+.settings-fold > summary:not(.icon-only):not(.icon-button):hover,
+.advanced-css > summary:not(.icon-only):not(.icon-button):hover,
+.task-log > summary:not(.icon-only):not(.icon-button):hover {
+  background: var(--ghost-btn-bg);
+}
+
+/* The accordion is one group, not eight boxes. `--surface-2` with no border
+   is the group tier DESIGN.md already defines, and it is exactly what
+   `.settings-group` next door computes to — so the Help guide and the
+   Settings panes stop being two different-looking lists of foldable things.
+   Rows inside it are separated by the divider tier, which is the line
+   *between* rows rather than an edge around each one. */
+.help-accordion {
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+.help-accordion > details {
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+}
+
+.help-accordion > details + details {
+  border-top: 1px solid var(--divider);
+}
+
+/* The topic body indents to the chevron's text column so a paragraph does
+   not start under the arrow. `--space-7` (1.25rem) is the scale step nearest
+   the real offset — the chevron's 0.32rem plus the summary's `--space-3` gap
+   and `--space-2` inset come to 1.22rem — and a token is what the spacing
+   lint asks for rather than a fourth almost-the-same literal. */
+.help-accordion > details > :not(summary) {
+  margin-left: var(--space-7);
+}
+
+/* The "Related:" row under a topic separates metadata from the paragraph
+   above it, which is the divider tier's job — it was drawing `--border`, the
+   edge tier, so it read heavier than the lines separating whole topics. */
+.help-accordion p.help-topic-links {
+  border-top-color: var(--divider);
+}

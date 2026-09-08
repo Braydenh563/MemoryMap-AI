@@ -351,14 +351,30 @@ mm_status() {
   # phases that did not match the five-step list every other surface drew.
   # Only on a real terminal: a redirected run gets the plain lines below
   # and the log gets both.
-  if [ "$MM_TTY" = "1" ]; then
-    local mark=" ${TEAL}*${RESET}"
+  # Printed on every run, not only on a terminal: this is also the launcher
+  # log's narrative, and the log is the whole answer to "it did not start"
+  # for the runs that have no terminal at all - a .desktop entry, a Finder
+  # double-click. Dropping these when stdout is redirected left the log with
+  # a header, a logo and pip's output, and nothing saying which phase any of
+  # it belonged to.
+  #
+  # Ticks on a terminal, the doctor's ASCII pair everywhere else. A log file
+  # gets opened in whatever editor and code page someone has, and start.bat
+  # prints the same table through cmd's own 437; the terminal is the one
+  # place the nicer characters are certain to render.
+  local mark=" ${TEAL}*${RESET}"
+  case "$state" in
+    done) mark=" ${TEAL}\xe2\x9c\x93${RESET}" ;;
+    failed) mark=" ${RED}\xc3\x97${RESET}" ;;
+  esac
+  if [ "$MM_TTY" != "1" ]; then
+    mark=" [..]"
     case "$state" in
-      done) mark=" ${TEAL}\xe2\x9c\x93${RESET}" ;;
-      failed) mark=" ${RED}\xc3\x97${RESET}" ;;
+      done) mark=" [ok]" ;;
+      failed) mark=" [x] " ;;
     esac
-    printf '%b [%s/%s] %-15s %s\n' "$mark" "$step" "$MM_STEP_TOTAL" "$title" "$detail"
   fi
+  printf '%b [%s/%s] %-15s %s\n' "$mark" "$step" "$MM_STEP_TOTAL" "$title" "$detail"
   # Only the active step is worth a banner or a label change; a "done" line
   # is immediately followed by the next step's "active" one.
   [ "$state" = "done" ] && return 0

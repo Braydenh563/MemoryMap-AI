@@ -28,13 +28,20 @@ after a usage reset. Either way, without asking anything:
    record them. Keep `HANDOVER.md`, `ROADMAP.md` and `BACKLOG.md` true as
    you go. Commit per step, push per batch, five-line reports. Never
    wait for a prompt; never ask permission for work inside the plans.
+1a. **The "Now" line.** The first line under "State of the branch" below
+   always says what is in flight and what its gate is. Update it when a
+   step starts and when it ends. A session that resumes after a pile-up
+   reads it before the pile.
 1b. **Things the owner drops in mid-work** (a screenshot, a complaint, a
    feature, "X% usage") are not a change of task: finish the step in
    hand, add the new item to the task list with the owner's words, place
    it by impact (a bug in something just built goes next; a new feature
    goes into the relevant plan or BACKLOG with a brief row), and say in
-   one line where it landed. A usage figure means: commit and push now,
-   then continue more tersely.
+   one line where it landed. The mechanism is `INBOX.md`: append
+   verbatim on arrival, triage only at a step boundary, in one pass. A
+   usage figure means: commit and push now, then continue more tersely.
+   Never finish a step early, never drop quality, never lose the "Now"
+   line to the pile: the owner has said this is the recurring failure.
 2. **A batch of issues** means: for each one, reproduce it in the running
    app first (Chromium, `scratchpad/ui-sweeps/lib.js`), fix it to the
    standard (measured, a sweep check added where one exists), commit it
@@ -56,6 +63,11 @@ after a usage reset. Either way, without asking anything:
    plan file; find it.
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
+
+**Now:** all eight agents merged; Brief 1 (em-dash sweep and lint) done;
+the local full-suite run on the swept tree is the open gate. Next: Brief 2
+(consistency lints) or the top of `agent-remaining/*.md`, whichever the
+standing orders reach first.
 
 - CI, ruff and CodeQL green as of `315825a`; the merge commit `dca50c6`
   (six agents' work) is pushed and its checks are running.

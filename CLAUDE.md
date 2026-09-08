@@ -36,8 +36,9 @@ block at the top of [`docs/roadmap/HANDOVER.md`](docs/roadmap/HANDOVER.md):
 merge agent worktrees, work the owner's flagged items, then
 `docs/roadmap/SESSION_BRIEFS.md` in order, then ROADMAP and BACKLOG by
 impact; reproduce every reported issue in the running app before fixing
-it; add mid-work requests to the task list without dropping the step in
-hand; commit per fix, push per batch, keep PR #144 green.
+it; mid-work requests go into `docs/roadmap/INBOX.md` and are triaged at
+the next step boundary, never by cutting the step short; commit per fix,
+push per batch, keep PR #144 green.
 
 ## Where things are written down
 

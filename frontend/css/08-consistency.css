@@ -1,0 +1,292 @@
+/* ============================================================================
+   08-consistency.css — one recipe per repeated shape
+   ============================================================================
+
+   Reported, with screenshots, after a round of real use:
+
+   > "in a lot of the application areas, each of the menu items and elements
+   > feel very disconnected and separate, maybe due to their backgrounds or
+   > obviousness as separate elements ... the dropdown menus and elements in
+   > them need to not feel disconnected ... I feel like all these top docks
+   > need a unified bar where the buttons and dropdowns and comboboxes feel a
+   > part of that and not just separated buttons chucked together at the top
+   > of the panel ... there are areas where the icons and accompanying text
+   > dont align."
+
+   Every rule in this file exists because a shape the app already has was
+   drawn two or more ways. It is the last stylesheet index.html loads on
+   purpose: everything it settles is a decision the earlier files each made
+   for themselves, and the point is that one answer now wins over all of
+   them without any earlier file having to be reopened. A ninth family joins
+   this file rather than declaring its own recipe somewhere else.
+
+   Why a new file rather than edits in place: 00-07 are cut at
+   section-comment boundaries and their concatenation order is load-bearing
+   (tests/_css_paths.py says why). A cross-cutting decision has no single
+   section it belongs in, so putting it at the end is both the correct
+   cascade position and the only one that does not disturb the split. */
+
+/* ---------------------------------------------------------------------------
+   1. One menu row
+   ---------------------------------------------------------------------------
+
+   The report, exactly: the Graph dock's "more" menu (Save this view / Delete
+   saved view / Export as PNG) drew every row as a filled lavender block with
+   a gap under it, so the menu read as three buttons that happened to be
+   stacked rather than as a list you run your eye down.
+
+   Measured before this rule, at 1440 in the light theme:
+
+     Graph  ⋯  menu   3/3 rows  bg oklab(0.4966 -0.0027 -0.1868)  (the accent)
+                                white text, 40px tall, 8/16px padding
+     Graph View menu  2/2 action rows  the same accent fill
+     Note-card kebab  0/10 rows filled  transparent, ink text, 24px tall
+     nav-history      0/4 rows filled   transparent, ink text, 34.5px tall
+
+   The cause is one missing class, and it is worth writing down because the
+   shape recurs: `.menu-item` (02-chat-graph.css) is the flat recipe, and 20
+   of the 27 `.doc-dock-menu-item` buttons in index.html never carried it.
+   A `<button>` with no class is the app's *filled primary* — so a menu row
+   that forgets `.menu-item` does not fall back to something neutral, it
+   falls all the way up to the loudest control in the design system. The
+   previous round fixed this by adding the class at seven call sites; adding
+   a class per call site is a fix that has to be repeated by every future
+   menu, so this rule decides it by container instead.
+
+   Three rows drifted for a second reason, and it is the same one CLAUDE.md
+   records for the nav-history popup: these are `<button>`s, so the app's
+   generic control-height rule applies to them, and a menu row's height must
+   come from its content. `height: auto; min-height: 0` is what stops a row
+   from being sliced by an inherited fixed height.
+
+   The measured spread of row paddings was 0.15/0.5rem (the note kebab, where
+   `.entry-actions button` at 0,1,1 quietly outranked `.menu-item` at 0,1,0),
+   0.4/0.5rem (nav-history), 0.5/0.8rem (`.menu-item`'s own declaration) and
+   0.5/0.6rem (`.wb-export-menu button`). One padding, `--space-2
+   --space-5`, lands every menu in the app on a 34px row: nav-history's
+   height, which is the one nothing has ever been reported against.
+
+   **Specificity is the whole reason this is written as shell-plus-row.**
+   `.menu-item` on its own is 0,1,0 and loses to `.entry-actions button`
+   (0,1,1) and to `.wb-board-menu button` (0,1,1) — both of which are real
+   rules doing a real job elsewhere in their own file. Pairing the shell
+   class with the row class makes every declaration here 0,2,0, which wins
+   without any `!important` and without touching the rules it outranks. */
+:is(
+  .action-menu,
+  .select-menu,
+  .doc-dock-menu-list,
+  .nav-history-menu,
+  .library-image-menu-list,
+  .wb-export-menu,
+  .wb-board-menu
+) :is(
+  .menu-item,
+  .doc-dock-menu-item,
+  .nav-history-item,
+  .library-image-menu-item,
+  .action-menu-item,
+  .wb-menu-item,
+  .select-option
+) {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: var(--space-2) var(--space-5);
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  box-shadow: none;
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 500;
+  line-height: 1.6;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* The export menu's rows are bare `<button>`s with no row class of their own
+   (06-timeline-dialogs.css drew them directly). 0,1,1 here, and this file is
+   later than that one, so it wins on order rather than on weight. */
+.wb-export-menu > button,
+.wb-export-menu > div > button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: var(--space-2) var(--space-5);
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  box-shadow: none;
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 500;
+  line-height: 1.6;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Hover is a ghost tint; accent-soft is reserved for *selected*.
+   Before this they were the same colour, which is why an open select listbox
+   could not show you which option you were already on once the pointer
+   entered it — the chosen row and the hovered row were both `--accent-soft`.
+   Two states need two tints. */
+:is(
+  .action-menu,
+  .select-menu,
+  .doc-dock-menu-list,
+  .nav-history-menu,
+  .library-image-menu-list,
+  .wb-export-menu,
+  .wb-board-menu
+) :is(
+  .menu-item,
+  .doc-dock-menu-item,
+  .nav-history-item,
+  .library-image-menu-item,
+  .action-menu-item,
+  .wb-menu-item,
+  .select-option
+):hover,
+:is(
+  .action-menu,
+  .select-menu,
+  .doc-dock-menu-list,
+  .nav-history-menu,
+  .library-image-menu-list,
+  .wb-export-menu,
+  .wb-board-menu
+) :is(
+  .menu-item,
+  .doc-dock-menu-item,
+  .nav-history-item,
+  .library-image-menu-item,
+  .action-menu-item,
+  .wb-menu-item,
+  .select-option
+):focus-visible,
+.wb-export-menu > button:hover,
+.wb-export-menu > button:focus-visible,
+.wb-export-menu > div > button:hover,
+.wb-export-menu > div > button:focus-visible {
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
+}
+
+/* Selected: the accent fill, and only here. */
+.select-menu .select-option.is-chosen,
+.doc-dock-menu-list .doc-dock-menu-item[aria-pressed="true"],
+.action-menu .menu-item[aria-pressed="true"],
+.nav-history-menu .nav-history-item.nav-history-current {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.nav-history-menu .nav-history-item.nav-history-current {
+  cursor: default;
+}
+
+/* Two rows keep a layout the shared recipe would flatten, and say why.
+
+   `.wb-menu-item` is a three-track grid (icon · name · shortcut key) so the
+   `<kbd>` sits on one right edge down the whole menu; a flex row would let
+   each key land wherever its label ended.
+
+   `.has-submenu` pushes its ▸ to the far edge for the same reason. */
+.wb-board-menu .wb-menu-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.action-menu .menu-item.has-submenu,
+.doc-dock-menu-list .menu-item.has-submenu {
+  justify-content: space-between;
+}
+
+/* Danger and unavailable are colour changes on the one row, not other rows.
+   Restated at 0,3,0 because the shared rule above sets `color` at 0,2,0 and
+   would otherwise put the ink colour back on "Move to bin". */
+.action-menu .menu-item.menu-danger,
+.doc-dock-menu-list .menu-item.menu-danger,
+.doc-dock-menu-list .doc-dock-menu-item.menu-danger {
+  color: var(--error);
+}
+
+.action-menu .menu-item.menu-item-unavailable,
+.doc-dock-menu-list .menu-item.menu-item-unavailable {
+  color: var(--muted);
+}
+
+.action-menu .menu-item.menu-item-unavailable:hover,
+.action-menu .menu-item.menu-item-unavailable:focus-visible {
+  background: none;
+}
+
+/* A select's opener inside a dock menu is a *field*, not a menu row — it is
+   the control the section's label names. Excluded from the row recipe by not
+   being in its list; restated here only so the row padding above cannot be
+   read as applying to it by someone skimming. */
+.dock-menu-list .select-shell > .select-opener {
+  width: 100%;
+}
+
+/* The whiteboard's own two menus were the last floating surfaces outside the
+   one popover shell: glass fill, `--glass-border`, `--radius`, an inset
+   highlight and a full blur pass each. 07-whiteboard-misc.css's shell rule
+   lists eleven surfaces and these two were not among them. Same job, so the
+   same shell — opaque, because a menu that floats over a board full of
+   sticky notes has the same legibility problem the note editor gave the
+   toolbar menus (CLAUDE.md's ghost-text story). */
+.wb-board-menu,
+.wb-export-menu {
+  background: var(--modal-bg-opaque);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Section boundaries inside a menu are one hairline, in `--divider` — the
+   separator tier, not the edge tier (DESIGN.md, "the border budget"). Three
+   menus drew this three ways: `--divider` on the dock menus, `--glass-border`
+   on the shape menu, `--border` on the space menu. */
+.wb-shape-menu-divider,
+.space-menu-divider {
+  background: var(--divider);
+}
+
+.wb-board-menu .wb-menu-section + .wb-menu-section,
+.wb-export-menu > div + div {
+  border-top: 1px solid var(--divider);
+  padding-top: var(--space-2);
+}
+
+/* One padding on the shell, so the gap above the first row equals the gap
+   beside it. `.wb-board-menu` was on `--space-3` with a `--space-3` row gap
+   between sections, which put more air between two rows than around the
+   whole list. */
+.action-menu,
+.select-menu,
+.doc-dock-menu-list,
+.nav-history-menu,
+.wb-export-menu,
+.wb-board-menu {
+  padding: var(--space-2);
+}
+
+.wb-board-menu,
+.wb-export-menu {
+  gap: var(--space-2);
+}

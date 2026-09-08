@@ -1012,7 +1012,7 @@ if [ -n "${MM_DESKTOP:-}" ]; then
   exec "$VENV_PY" -m memorymap --desktop
 fi
 
-echo "        $MM_URL"
+echo "        MemoryMap AI is at $MM_URL"
 if [ "$MM_NO_BROWSER" = "1" ]; then
   echo "        No browser will be opened (--no-browser). Press Ctrl+C to stop."
 else

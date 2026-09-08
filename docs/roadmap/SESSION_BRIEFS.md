@@ -69,6 +69,8 @@ use `el.style.x =` or a class).
 
 ## Brief 1 (Mon, Sonnet): the em-dash sweep and its lint
 
+**Status: done on 2026-09-08 (sweep 7b9ed67, lint `tests/test_no_em_dashes.py`, suite green in CI). Start at Brief 2.**
+
 **Goal.** Zero em-dashes in `frontend/` and `src/`, with a lint that keeps
 it so, and no test broken by the change.
 

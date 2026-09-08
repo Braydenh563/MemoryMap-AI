@@ -198,8 +198,9 @@ new" is a fact rather than a guess.
   rule.
 - The executable specs for the backend moves are strict-xfail tests
   (`tests/test_events.py`, `test_search_engine_spec.py`,
-  `test_harness_verifier_spec.py`): remove a marker only when its test
-  passes on its own.
+  `test_harness_verifier_spec.py`, `test_learned_spec.py`,
+  `test_resurface_spec.py`): remove a marker only when its test passes on
+  its own.
 - Comments explain why, at length; a comment that restates the code is
   noise. Prompt text is budgeted (`agent.PROSE_BUDGET_CHARS`).
 

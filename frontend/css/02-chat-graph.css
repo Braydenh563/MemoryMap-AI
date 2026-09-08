@@ -5052,3 +5052,47 @@ button.ghost.danger:hover {
   right: auto;
   z-index: 1020;
 }
+
+
+/* GRAPH_PLAN Phase 3: groups in the display options and the legend. */
+.graph-group-add-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+.graph-group-add-row > input {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+.graph-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.graph-group-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h-lg);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+}
+.graph-group-row:hover {
+  background: var(--surface-2);
+}
+.graph-group-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.graph-groups-empty {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-sm);
+}
+.legend-group {
+  font-weight: 500;
+}

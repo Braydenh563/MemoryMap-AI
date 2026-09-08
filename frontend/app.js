@@ -22429,9 +22429,9 @@ function switchTab(name) {
     // Same for what the colours mean: a saved setting the control does not
     // show is a control that lies about the map beside it.
     const savedColour = localStorage.getItem("graph-colour");
-    if (savedColour === "cluster" || savedColour === "category") {
-      const colourInput = document.querySelector(`input[name="graph-colour"][value="${savedColour}"]`);
-      if (colourInput) colourInput.checked = true;
+    const colourSelect = document.getElementById("graph-colour");
+    if (savedColour && colourSelect && [...colourSelect.options].some((o) => o.value === savedColour)) {
+      colourSelect.value = savedColour;
     }
     // Match the saved layout on arrival, not only on change, otherwise a
     // notebook left on Tree comes back with two live-looking dead sliders.

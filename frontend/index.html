@@ -2010,10 +2010,20 @@ Link to another note with [[its first few words]]."></textarea>
                 </div>
                 <div class="dock-menu-section">
                   <span class="muted dock-menu-label" id="graph-colour-label">Colour</span>
-                  <div id="graph-colour" class="segmented-control" role="group" aria-labelledby="graph-colour-label">
-                    <label><input type="radio" name="graph-colour" value="category" checked> Category</label>
-                    <label><input type="radio" name="graph-colour" value="cluster"> Cluster</label>
-                  </div>
+                  <!-- GRAPH_PLAN Phase 3: "Colour by" is a rule, not a pair of radios.
+                       The legend follows the rule and every legend entry toggles
+                       the notes it names; groups (below, in display options) paint
+                       over whichever rule is on. -->
+                  <select id="graph-colour" class="ghost small" aria-labelledby="graph-colour-label"
+                    title="What the colours mean">
+                    <option value="category">Category</option>
+                    <option value="cluster">Cluster</option>
+                    <option value="kind">Kind</option>
+                    <option value="age">Age</option>
+                    <option value="space">Space</option>
+                    <option value="tag">First tag</option>
+                    <option value="file">Has a file</option>
+                  </select>
                 </div>
               <!-- **Moved out of the find zone for the seven-control
                    ceiling** (docks.md section 2, which names this move and the
@@ -2228,6 +2238,22 @@ Link to another note with [[its first few words]]."></textarea>
                once and leave is exactly the "tuned once" shape this panel
                exists for, not a control you reach for while reading the map.
                Reported as crowding the strip. -->
+          <!-- GRAPH_PLAN Phase 3, groups: a saved search painted one colour,
+               listed in the legend, stored with the view. A group wins over the
+               colour rule for the notes it matches, so "everything about the
+               thesis" stays one colour whatever the rest of the map is coloured
+               by. Resolved through /entries?q= on each render, never stored as
+               ids, so a note written tomorrow joins its group by itself. -->
+          <div class="dock-menu-section" id="graph-groups-section" role="group" aria-labelledby="graph-groups-label">
+            <span class="muted dock-menu-label" id="graph-groups-label">Groups</span>
+            <div class="graph-option-row graph-group-add-row">
+              <input id="graph-group-query" type="search" placeholder="Search words, e.g. thesis"
+                aria-label="Words a note must match to join the group" autocomplete="off">
+              <button id="graph-group-add" class="ghost small" type="button"
+                title="Paint every note matching these words one colour"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Add</button>
+            </div>
+            <div id="graph-groups" class="graph-groups" role="list"></div>
+          </div>
           <div class="dock-menu-section"
             role="group" aria-labelledby="graph-minimap-label">
             <span class="muted dock-menu-label" id="graph-minimap-label">Minimap</span>

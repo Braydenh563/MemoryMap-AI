@@ -21,11 +21,21 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai.embeddings import bytes_to_vector, similar_pairs
 from memorymap.core import deps
-from memorymap.core.database import EmbeddingRecord, Entry, EntryLink
+from memorymap.core.database import Attachment, EmbeddingRecord, Entry, EntryLink
 from memorymap.core.deps import get_session
 from memorymap.entry import manager, paths
+from memorymap.search import search_manager
 
 router = APIRouter(tags=["graph"])
+
+
+def _tags_of(entry: Entry) -> list[str]:
+    """The note's tags as a list, whatever shape the column holds."""
+    try:
+        tags = json.loads(entry.tags or "[]")
+    except (TypeError, ValueError):
+        return []
+    return [str(t) for t in tags if isinstance(t, (str, int))]
 
 # Below this cosine similarity two notes aren't "about the same thing"
 # enough to draw a line between them.
@@ -183,6 +193,24 @@ def _centrality(session: Session, index: paths.Connections, similarity: bool) ->
 
 
 
+
+@router.get("/graph/match")
+def graph_match(q: str = Query(default="", max_length=200), session: Session = Depends(get_session)) -> dict:
+    """The note ids a group's words match (GRAPH_PLAN Phase 3).
+
+    A group is a saved search painted one colour, resolved on every render
+    so a note written tomorrow joins it by itself. `/entries?q=` only filters
+    when `semantic=true` (the list is filtered client-side by keyword), so a
+    group needs the keyword engine directly: the same `keyword_search` the
+    Notes tab uses, ids only, capped so a one-word group over a big notebook
+    is one small reply rather than five thousand previews.
+    """
+    words = q.strip()
+    if not words:
+        return {"ids": []}
+    hits = search_manager.keyword_search(session, words, limit=5000)
+    return {"ids": [entry.id for entry in hits]}
+
 @router.get("/graph")
 def graph(
     similarity: bool = False,
@@ -206,9 +234,18 @@ def graph(
     )
     node_ids = {e.id for e in entries}
     category_names = manager.bulk_category_names(session, entries)
+    # GRAPH_PLAN Phase 3: "colour by" is a rule picker (category, cluster,
+    # kind, age, space, tag, has a file), so every note carries the fields
+    # each rule reads. One query for the file rule rather than a join per
+    # node; tags are the column's JSON list, never the raw string.
+    with_files = set(session.scalars(select(Attachment.entry_id).distinct()))
     nodes = [
         {
             "id": e.id,
+            "kind": "note",
+            "tags": _tags_of(e),
+            "space_id": e.workspace_id,
+            "has_file": e.id in with_files,
             # Through the manager, never off the column: a private note's
             # `content` is ciphertext at rest, so `_preview(e.content)` labelled
             # it with a base64 blob. `readable_content` names the graph in its

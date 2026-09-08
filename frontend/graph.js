@@ -1377,8 +1377,126 @@ async function linkByDrop(from, to) {
 //: colours without three round trips.
 let graphStructure = null;
 
+//: GRAPH_PLAN Phase 3. The rule the colours follow; anything the select
+//: does not offer collapses to category, so a stale saved view cannot ask
+//: for a rule that no longer exists.
+const GRAPH_COLOUR_RULES = ["category", "cluster", "kind", "age", "space", "tag", "file"];
+
 function graphColourMode() {
-  return document.querySelector('input[name="graph-colour"]:checked')?.value === "cluster" ? "cluster" : "category";
+  const value = document.getElementById("graph-colour")?.value;
+  return GRAPH_COLOUR_RULES.includes(value) ? value : "category";
+}
+
+//: Legend toggles for the non-category rules, keyed "rule:value". Category
+//: keeps its own set (graphHiddenCategories) because saved views already
+//: store it under that name.
+let graphHiddenKeys = new Set();
+
+// --- Groups: a saved search painted one colour (GRAPH_PLAN Phase 3) -------------
+const GRAPH_GROUPS_KEY = "graph-groups";
+const GRAPH_GROUP_COLOURS = ["#e4572e", "#17bebb", "#ffc914", "#76b041", "#a06cd5", "#f07ca2", "#2f80ed", "#8d6e63"];
+//: id -> group index, rebuilt on every render from the live search results.
+let graphGroupOf = new Map();
+
+function graphGroups() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(GRAPH_GROUPS_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed.filter((g) => g && typeof g.query === "string" && g.query.trim()) : [];
+  } catch {
+    return [];
+  }
+}
+
+function graphSetGroups(groups) {
+  localStorage.setItem(GRAPH_GROUPS_KEY, JSON.stringify(groups));
+  graphRenderGroups();
+  renderGraph();
+}
+
+function graphGroupColour(index) {
+  return GRAPH_GROUP_COLOURS[index % GRAPH_GROUP_COLOURS.length];
+}
+
+//: Which notes each group paints, from the same search the Notes tab runs.
+//: Resolved per render so a group is a rule, not a snapshot. A failed search
+//: paints nothing rather than everything.
+async function graphResolveGroups() {
+  const groups = graphGroups();
+  const map = new Map();
+  await Promise.all(
+    groups.map(async (group, index) => {
+      const reply = await apiJson(`/graph/match?q=${encodeURIComponent(group.query)}`).catch(() => null);
+      for (const id of reply?.ids || []) {
+        if (typeof id === "number" && !map.has(id)) map.set(id, index);
+      }
+    })
+  );
+  graphGroupOf = map;
+  return groups;
+}
+
+function graphRenderGroups() {
+  const list = document.getElementById("graph-groups");
+  if (!list) return;
+  list.replaceChildren();
+  const groups = graphGroups();
+  if (!groups.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted graph-groups-empty";
+    empty.textContent = "No groups yet. Add a search and its notes take one colour.";
+    list.appendChild(empty);
+    return;
+  }
+  groups.forEach((group, index) => {
+    const row = document.createElement("div");
+    row.className = "graph-group-row";
+    row.setAttribute("role", "listitem");
+    const dot = document.createElement("span");
+    dot.className = "legend-dot";
+    dot.style.background = graphGroupColour(index);
+    const name = document.createElement("span");
+    name.className = "graph-group-name";
+    name.textContent = group.query;
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "ghost small icon-only";
+    remove.title = `Remove the group “${group.query}”`;
+    remove.setAttribute("aria-label", remove.title);
+    setLabel(remove, "ph:x");
+    remove.addEventListener("click", () => graphSetGroups(groups.filter((_, i) => i !== index)));
+    row.append(dot, name, remove);
+    list.appendChild(row);
+  });
+}
+
+function initGraphGroups() {
+  const add = document.getElementById("graph-group-add");
+  const input = document.getElementById("graph-group-query");
+  if (!add || !input || add._wired) return;
+  add._wired = true;
+  const submit = () => {
+    const query = input.value.trim();
+    if (!query) return;
+    const groups = graphGroups();
+    if (groups.some((g) => g.query.toLowerCase() === query.toLowerCase())) {
+      toast("That group already exists.");
+      return;
+    }
+    if (groups.length >= GRAPH_GROUP_COLOURS.length) {
+      toast(`Up to ${GRAPH_GROUP_COLOURS.length} groups, so each keeps its own colour.`);
+      return;
+    }
+    input.value = "";
+    graphSetGroups([...groups, { query }]);
+  };
+  add.addEventListener("click", submit);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      submit();
+    }
+  });
+  graphRenderGroups();
 }
 
 let graphFocusModeId = null;
@@ -3824,6 +3942,8 @@ function graphCaptureView() {
     layout: localStorage.getItem("graph-layout") || "force",
     colour: localStorage.getItem("graph-colour") || "",
     hiddenCategories: [...graphHiddenCategories],
+    hiddenKeys: [...graphHiddenKeys],
+    groups: graphGroups(),
     // graph.md section 1: `#graph-physics` is the Physics *section*
     // (`.dock-menu-section`, index.html), not a checkbox -- it was never
     // anything a saved view could read `.checked` off, so every view stored
@@ -3881,6 +4001,11 @@ function graphApplyView(view) {
   set("graph-hide-orphans", view.orphans);
   set("graph-time-slider", view.time);
   graphHiddenCategories = new Set(view.hiddenCategories || []);
+  graphHiddenKeys = new Set(view.hiddenKeys || []);
+  if (Array.isArray(view.groups)) {
+    localStorage.setItem(GRAPH_GROUPS_KEY, JSON.stringify(view.groups));
+    graphRenderGroups();
+  }
 
   // The transform lands *after* the rebuild those change events kick off, 
   // restoring the pan/zoom first would only have it overwritten by the
@@ -3924,6 +4049,7 @@ function initGraphViews() {
     const view = graphSavedViews().find((v) => v.name === select.value);
     if (view) graphApplyView(view);
   });
+  initGraphGroups();
   document.getElementById("graph-view-save")?.addEventListener("click", graphSaveCurrentView);
   document.getElementById("graph-view-delete")?.addEventListener("click", async () => {
     const name = select.value;

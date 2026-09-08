@@ -149,6 +149,32 @@ assumed, before it is adopted.
 
 ---
 
+## Built, Phase 3 (colour rules and groups), 2026-09-09
+
+Measured with `scratchpad/ui-sweeps/graph3.js` on a six-note fixture
+(canvas renderer; the SVG renderer behind its flag stays category-only).
+
+- **Colour by is a rule.** The two radios became a select: Category,
+  Cluster, Kind, Age, Space, First tag, Has a file. Every note on `/graph`
+  now carries `kind`, `tags`, `space_id` and `has_file` (one query for the
+  file rule, never a join per node), and the age buckets read `created_at`
+  on the client. The legend follows the rule and every entry toggles the
+  notes it names: hiding the tag "uni" took the map from 6 notes to 4,
+  with the entry marked off.
+- **Groups.** A saved search painted one colour, added in the display
+  options panel, resolved on every render through `GET /graph/match?q=`
+  (the keyword engine, ids only; `/entries?q=` filters only in semantic
+  mode), listed first in the legend with its count, and hidden or shown
+  from there. A group paints over the rule for the notes it matches. Up
+  to eight groups, one colour each.
+- **Saved views** store the rule, the hidden legend keys and the groups,
+  and restore all three.
+
+Not verified: the rule scales in dark theme (the palettes are fixed hex
+by design, chosen to read on both grounds; `contrast.js` does not sample
+canvas pixels); the SVG renderer with a non-category rule (it falls back
+to category, by design, until it is retired).
+
 ## Built — Phase 1 (the canvas renderer and physical drag)
 
 ### What landed

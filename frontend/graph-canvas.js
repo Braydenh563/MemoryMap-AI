@@ -1150,14 +1150,32 @@ async function renderGraphCanvas() {
   graphStructure =
     colourMode === "cluster" ? await apiJson("/graph/structure").catch(() => null) : null;
   if (sequence !== gcRenderSeq) return;
+  // GRAPH_PLAN Phase 3: the colour follows a rule, and a group (a saved
+  // search) paints over the rule for the notes it matches.
+  const groups = await graphResolveGroups();
+  if (sequence !== gcRenderSeq) return;
+  const ruleColour = gcRuleScale(colourMode, data);
   gcColourOf = (node) => {
-    if (colourMode === "category" || !graphStructure || node.isGroup) return colour(node.category);
-    const cluster = graphStructure.cluster_of[String(node.id)];
-    return cluster === undefined ? gcTokens.muted : clusterColour(String(cluster));
+    const groupIndex = graphGroupOf.get(node.id);
+    if (groupIndex !== undefined && !node.isGroup) return graphGroupColour(groupIndex);
+    if (node.isGroup) return colour(node.category);
+    if (colourMode === "category") return colour(node.category);
+    if (colourMode === "cluster") {
+      if (!graphStructure) return colour(node.category);
+      const cluster = graphStructure.cluster_of[String(node.id)];
+      return cluster === undefined ? gcTokens.muted : clusterColour(String(cluster));
+    }
+    return ruleColour(gcRuleKey(colourMode, node));
   };
-  graphRenderLegend(data, colourMode, colour, clusterColour);
+  graphRenderLegend(data, colourMode, colour, clusterColour, ruleColour, groups);
 
-  let visibleNodes = data.nodes.filter((n) => !graphHiddenCategories.has(n.category));
+  const ruleHides = colourMode !== "category" && colourMode !== "cluster";
+  let visibleNodes = data.nodes.filter(
+    (n) =>
+      !graphHiddenCategories.has(n.category) &&
+      !(ruleHides && graphHiddenKeys.has(`${colourMode}:${gcRuleKey(colourMode, n)}`)) &&
+      !(graphGroupOf.has(n.id) && groups[graphGroupOf.get(n.id)]?.hiddenOnMap)
+  );
   const kept = new Set(visibleNodes.map((n) => n.id));
   const visibleEdges = data.edges.filter((e) => kept.has(e.source) && kept.has(e.target));
   const hideOrphans = document.getElementById("graph-hide-orphans");
@@ -1287,10 +1305,81 @@ async function renderGraphCanvas() {
 //: One entry per category (click to filter) or per cluster (click to
 //: spotlight). A legend whose dots do not match the colours on screen is worse
 //: than no legend, so which of the two it shows follows the colour mode.
-function graphRenderLegend(data, colourMode, colour, clusterColour) {
+//: The key a rule reads off a node, and the order its legend lists them in.
+const GC_AGE_BUCKETS = ["Today", "This week", "This month", "This quarter", "Older"];
+function gcRuleKey(rule, node) {
+  if (rule === "kind") return node.kind || "note";
+  if (rule === "space") return node.space_id || "default";
+  if (rule === "tag") return (node.tags && node.tags[0]) || "No tag";
+  if (rule === "file") return node.has_file ? "Has a file" : "No file";
+  if (rule === "age") {
+    const days = node.created_at ? (Date.now() - Date.parse(node.created_at)) / 86400000 : Infinity;
+    if (days <= 1) return GC_AGE_BUCKETS[0];
+    if (days <= 7) return GC_AGE_BUCKETS[1];
+    if (days <= 30) return GC_AGE_BUCKETS[2];
+    if (days <= 90) return GC_AGE_BUCKETS[3];
+    return GC_AGE_BUCKETS[4];
+  }
+  return node.category;
+}
+function gcRuleDomain(rule, data) {
+  if (rule === "age") return GC_AGE_BUCKETS;
+  if (rule === "file") return ["Has a file", "No file"];
+  const keys = new Set(data.nodes.filter((n) => !n.isGroup).map((n) => gcRuleKey(rule, n)));
+  return [...keys].sort((a, b) => String(a).localeCompare(String(b)));
+}
+function gcRuleScale(rule, data) {
+  if (rule === "age") return d3.scaleOrdinal(GC_AGE_BUCKETS, ["#2f80ed", "#56a3f5", "#8ec2f7", "#c3dcf7", "#9aa1ad"]);
+  if (rule === "file") return d3.scaleOrdinal(["Has a file", "No file"], ["#17bebb", "#9aa1ad"]);
+  return d3.scaleOrdinal(gcRuleDomain(rule, data), d3.schemeTableau10.concat(d3.schemeSet3));
+}
+
+function graphRenderLegend(data, colourMode, colour, clusterColour, ruleColour = null, groups = []) {
   const legend = document.getElementById("graph-legend");
   if (!legend) return;
   legend.replaceChildren();
+  // Groups lead the legend whatever the rule: they paint over it.
+  groups.forEach((group, index) => {
+    const off = Boolean(group.hiddenOnMap);
+    const item = document.createElement("button");
+    item.className = "legend-item legend-toggle legend-group";
+    item.title = off ? `Show the notes matching “${group.query}” again` : `Hide the notes matching “${group.query}”`;
+    item.classList.toggle("legend-off", off);
+    item.setAttribute("aria-pressed", String(!off));
+    const dot = document.createElement("span");
+    dot.className = "legend-dot";
+    dot.style.background = graphGroupColour(index);
+    const count = [...graphGroupOf.values()].filter((i) => i === index).length;
+    item.append(dot, document.createTextNode(`${group.query} (${count})`));
+    item.addEventListener("click", () => {
+      const next = graphGroups();
+      if (next[index]) next[index].hiddenOnMap = !next[index].hiddenOnMap;
+      graphSetGroups(next);
+    });
+    legend.appendChild(item);
+  });
+  if (ruleColour && colourMode !== "category" && colourMode !== "cluster") {
+    for (const key of gcRuleDomain(colourMode, data)) {
+      const token = `${colourMode}:${key}`;
+      const off = graphHiddenKeys.has(token);
+      const item = document.createElement("button");
+      item.className = "legend-item legend-toggle";
+      item.title = off ? `Show ${key} again` : `Hide ${key} from the map`;
+      item.classList.toggle("legend-off", off);
+      item.setAttribute("aria-pressed", String(!off));
+      const dot = document.createElement("span");
+      dot.className = "legend-dot";
+      dot.style.background = ruleColour(key);
+      item.append(dot, document.createTextNode(String(key)));
+      item.addEventListener("click", () => {
+        if (graphHiddenKeys.has(token)) graphHiddenKeys.delete(token);
+        else graphHiddenKeys.add(token);
+        renderGraph();
+      });
+      legend.appendChild(item);
+    }
+    return;
+  }
   const entry = (title, dotColour, text, onClick, off) => {
     const item = document.createElement("button");
     item.className = "legend-item legend-toggle";

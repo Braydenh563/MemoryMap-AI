@@ -1,5 +1,5 @@
 /* ============================================================================
-   08-consistency.css — one recipe per repeated shape
+   08-consistency.css - one recipe per repeated shape
    ============================================================================
 
    Reported, with screenshots, after a round of real use:
@@ -46,7 +46,7 @@
    The cause is one missing class, and it is worth writing down because the
    shape recurs: `.menu-item` (02-chat-graph.css) is the flat recipe, and 20
    of the 27 `.doc-dock-menu-item` buttons in index.html never carried it.
-   A `<button>` with no class is the app's *filled primary* — so a menu row
+   A `<button>` with no class is the app's *filled primary* - so a menu row
    that forgets `.menu-item` does not fall back to something neutral, it
    falls all the way up to the loudest control in the design system. The
    previous round fixed this by adding the class at seven call sites; adding
@@ -68,7 +68,7 @@
 
    **Specificity is the whole reason this is written as shell-plus-row.**
    `.menu-item` on its own is 0,1,0 and loses to `.entry-actions button`
-   (0,1,1) and to `.wb-board-menu button` (0,1,1) — both of which are real
+   (0,1,1) and to `.wb-board-menu button` (0,1,1) - both of which are real
    rules doing a real job elsewhere in their own file. Pairing the shell
    class with the row class makes every declaration here 0,2,0, which wins
    without any `!important` and without touching the rules it outranks. */
@@ -139,7 +139,7 @@
 /* Hover is a ghost tint; accent-soft is reserved for *selected*.
    Before this they were the same colour, which is why an open select listbox
    could not show you which option you were already on once the pointer
-   entered it — the chosen row and the hovered row were both `--accent-soft`.
+   entered it - the chosen row and the hovered row were both `--accent-soft`.
    Two states need two tints. */
 :is(
   .action-menu,
@@ -233,7 +233,7 @@
   background: none;
 }
 
-/* A select's opener inside a dock menu is a *field*, not a menu row — it is
+/* A select's opener inside a dock menu is a *field*, not a menu row - it is
    the control the section's label names. Excluded from the row recipe by not
    being in its list; restated here only so the row padding above cannot be
    read as applying to it by someone skimming. */
@@ -245,7 +245,7 @@
    one popover shell: glass fill, `--glass-border`, `--radius`, an inset
    highlight and a full blur pass each. 07-whiteboard-misc.css's shell rule
    lists eleven surfaces and these two were not among them. Same job, so the
-   same shell — opaque, because a menu that floats over a board full of
+   same shell - opaque, because a menu that floats over a board full of
    sticky notes has the same legibility problem the note editor gave the
    toolbar menus (CLAUDE.md's ghost-text story). */
 .wb-board-menu,
@@ -258,7 +258,7 @@
   -webkit-backdrop-filter: none;
 }
 
-/* Section boundaries inside a menu are one hairline, in `--divider` — the
+/* Section boundaries inside a menu are one hairline, in `--divider` - the
    separator tier, not the edge tier (DESIGN.md, "the border budget"). Three
    menus drew this three ways: `--divider` on the dock menus, `--glass-border`
    on the shape menu, `--border` on the space menu. */
@@ -330,7 +330,7 @@
    app keeps the resting fill.
 
    Specificity, since it is not obvious: the rule being overridden is
-   `summary:not(.icon-only):not(.icon-button)`, which is (0,2,1) — the two
+   `summary:not(.icon-only):not(.icon-button)`, which is (0,2,1) - the two
    `:not()`s each count as a class. A container class plus the element is
    (0,1,2) and loses. Each selector below carries the two `:not()`s of its
    own plus a container class, so it lands at (0,3,1) or better and wins on
@@ -364,7 +364,7 @@
 }
 
 /* The chevron the native marker was hiding. Borrowed exactly from the chat
-   timeline's thinking step (02-chat-graph.css) — a triangle built from
+   timeline's thinking step (02-chat-graph.css) - a triangle built from
    borders, so it needs no icon font, inherits `currentColor`, and the two
    disclosures in the app read as one component. */
 .help-accordion details > summary:not(.icon-only):not(.icon-button)::before,
@@ -415,7 +415,7 @@
 
 /* The accordion is one group, not eight boxes. `--surface-2` with no border
    is the group tier DESIGN.md already defines, and it is exactly what
-   `.settings-group` next door computes to — so the Help guide and the
+   `.settings-group` next door computes to - so the Help guide and the
    Settings panes stop being two different-looking lists of foldable things.
    Rows inside it are separated by the divider tier, which is the line
    *between* rows rather than an edge around each one. */
@@ -438,15 +438,15 @@
 
 /* The topic body indents to the chevron's text column so a paragraph does
    not start under the arrow. `--space-7` (1.25rem) is the scale step nearest
-   the real offset — the chevron's 0.32rem plus the summary's `--space-3` gap
-   and `--space-2` inset come to 1.22rem — and a token is what the spacing
+   the real offset - the chevron's 0.32rem plus the summary's `--space-3` gap
+   and `--space-2` inset come to 1.22rem - and a token is what the spacing
    lint asks for rather than a fourth almost-the-same literal. */
 .help-accordion > details > :not(summary) {
   margin-left: var(--space-7);
 }
 
 /* The "Related:" row under a topic separates metadata from the paragraph
-   above it, which is the divider tier's job — it was drawing `--border`, the
+   above it, which is the divider tier's job - it was drawing `--border`, the
    edge tier, so it read heavier than the lines separating whole topics. */
 .help-accordion p.help-topic-links {
   border-top-color: var(--divider);
@@ -469,7 +469,7 @@
      every .dock   background rgba(0,0,0,0)   no border   no radius   no padding
 
    So the bar is nothing. The controls sit directly on the page, and the only
-   thing telling you they are related is that they happen to be on one line —
+   thing telling you they are related is that they happen to be on one line -
    which is the report, almost word for word.
 
    The second half is that the controls do not agree with each other either.
@@ -490,17 +490,17 @@
    One of those transparents was a bug rather than a choice: the ⋯ "more"
    opener is a `<summary class="ghost small icon-only …">`, and the rule that
    dresses a summary excludes `.icon-only`, so it measured
-   `background rgba(0,0,0,0)  border 0px  radius 0px` — no fill, no edge, no
-   corner — sitting immediately beside a refresh button wearing the full
+   `background rgba(0,0,0,0)  border 0px  radius 0px` - no fill, no edge, no
+   corner - sitting immediately beside a refresh button wearing the full
    tonal treatment. It was the one control in the row with no appearance at
    all.
 
    The design here is the one the report asks for: the bar carries the
    surface, the controls are quiet inside it, and exactly three things are
-   allowed to be loud — the search field and the sort select (inset, because
+   allowed to be loud - the search field and the sort select (inset, because
    they take input), the one primary action (filled, because it is what the
    surface is for), and a selected segment (accent, because on is the
-   accent — DESIGN.md's rule, unchanged). Everything else earns its presence
+   accent - DESIGN.md's rule, unchanged). Everything else earns its presence
    from the bar behind it and answers the pointer with a tint. */
 .dock {
   padding: var(--space-3) var(--space-4);
@@ -526,7 +526,7 @@
 }
 
 /* Search takes the slack, with a ceiling. Measured on the Library at 1440
-   the search field was 760px wide — a single-line query in a box wide enough
+   the search field was 760px wide - a single-line query in a box wide enough
    for a paragraph, with the rest of the row crowded into the last third. */
 .dock .dock-find {
   flex: 1 1 14rem;
@@ -551,7 +551,7 @@
 }
 
 /* Quiet by default. A control in a bar does not need its own fill to be
-   findable — the bar is what makes it findable — and 22 filled boxes in one
+   findable - the bar is what makes it findable - and 22 filled boxes in one
    strip is what "separated buttons chucked together" describes. The tint
    arrives under the pointer, which is the same shape an unselected segment
    already uses. `1px solid transparent` rather than `none` so the geometry
@@ -562,7 +562,7 @@
    (07-whiteboard-misc.css) is (0,2,1); `.dock > * > details > summary` is
    (0,1,3) and loses on class count, which is why the *labelled* menu openers
    ("Filter", "View", "Options") kept the tonal fill through a first pass
-   while the icon-only ⋯ — excluded from that rule — did not. Restating the
+   while the icon-only ⋯ - excluded from that rule - did not. Restating the
    selector with the exclusions makes it (0,3,3) and settles both. */
 .dock > * > button.ghost,
 .dock > * > details > summary,
@@ -598,7 +598,7 @@
 
 /* A segmented control is a choice, not a button run, so it keeps its well
    and its accent-filled selection (DESIGN.md: "on is the accent"). Only its
-   corners join the rest of the bar — a 15.4px pill beside 8.4px buttons was
+   corners join the rest of the bar - a 15.4px pill beside 8.4px buttons was
    two of the five radii on its own. */
 .dock .seg,
 .dock .segmented-control {
@@ -657,7 +657,7 @@
   margin-left: calc(var(--space-1) - var(--space-3));
 }
 
-/* The documents editor's head already *is* a bar — `.doc-toolbar`
+/* The documents editor's head already *is* a bar - `.doc-toolbar`
    (05-sidebars-themes.css) has carried a `--card` fill, an edge and a radius
    since the "fix the toolbar" round, so there is nothing to build here, only
    to match: it drew `--glass-border` at `--radius` against the dock's
@@ -671,4 +671,76 @@
 .doc-toolbar {
   border-color: var(--border);
   border-radius: var(--radius-lg);
+}
+
+/* ---------------------------------------------------------------------------
+   6. One toggle-row recipe: the switch says on, not the row
+   ---------------------------------------------------------------------------
+
+   Reported: "some rows are full-width lavender-tinted bars (the 'Ask the AI
+   where each note belongs' group) while the sibling 'Enable autonomous
+   optimization' is a bare toggle."
+
+   Measured on Settings, light theme, before: 54 of the 56 rows on Tools it
+   can use, and 5 of 6 in the Autonomous background AI group, carried
+   `rgba(79, 109, 245, 0.14)` - `--accent-soft` - as a full-width fill. The
+   two that did not (web search, read url) were simply the two that default
+   off. So the panel is a wall of lavender slabs with two gaps in it, and the
+   pattern the eye picks up is not "these are on", it is "these two rows are
+   different kinds of thing".
+
+   The fill was a deliberate decision in an earlier round and its comment is
+   still in 04-chat-dock-appearance.css: "the fill says which rows are on at
+   a glance, and that is all the row needs to add." That reasoning is exactly
+   right for the case it was written against and exactly wrong here, and the
+   difference is whether the row's control is visible:
+
+   - A **radio** `.check-row` hides its own circle (06-timeline-dialogs.css
+     does this on purpose, so a group of options reads as one control with
+     one answer). There the row's fill *is* the selection indicator, and
+     removing it would leave a chosen option with nothing marking it. It
+     stays.
+   - A **checkbox** `.check-row` and a `.setting-check` both draw a real,
+     visible switch. The fill repeats what the switch already says, and at 54
+     rows the repetition is louder than the information.
+
+   So the fill is scoped to the row that needs it and the rest get a
+   `--divider` hairline instead - the separator tier, which is what tells you
+   these are one stack of settings rather than a run of separate cards. */
+.check-row:has(input[type="checkbox"]:checked),
+.setting-check:has(input[type="checkbox"]:checked) {
+  background: none;
+}
+
+.check-row:has(input[type="checkbox"]:checked):hover,
+.setting-check:has(input[type="checkbox"]:checked):hover {
+  background: var(--ghost-btn-bg-hover);
+}
+
+/* One stack, one line between its rows. The negative margin that used to
+   collapse the gap between consecutive rows goes with it: it existed to make
+   separate-looking rows read as a set, which is now the hairline's job.
+
+   The `li` form is not redundant. Every `.setting-check` on Tools it can use
+   is built (app.js `renderToolFocus`'s loop) as `<li><label class="tool-row
+   setting-check">`, so the rows are never each other's siblings and a plain
+   `.setting-check + .setting-check` matched nothing at all - measured: 60
+   rows, 0 hairlines, after a first pass that only had the sibling form. */
+.check-row:has(input[type="checkbox"]) + .check-row:has(input[type="checkbox"]),
+#settings-modal .check-row:has(input[type="checkbox"])
+  + .check-row:has(input[type="checkbox"]),
+.setting-check + .setting-check,
+#settings-modal .setting-check + .setting-check,
+li:has(> .setting-check) + li:has(> .setting-check) > .setting-check,
+li:has(> .check-row) + li:has(> .check-row) > .check-row {
+  margin-top: 0;
+  border-top-color: var(--divider);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.check-row:has(input[type="checkbox"]):has(+ .check-row input[type="checkbox"]),
+.setting-check:has(+ .setting-check) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
 }

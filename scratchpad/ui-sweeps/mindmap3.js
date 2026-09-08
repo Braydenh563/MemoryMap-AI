@@ -186,6 +186,66 @@ const VIEWPORT = (() => {
     pickerTabs.join(",") === "note,document,file,link",
     pickerTabs.join(",")
   );
+  //: **The row geometry, reported against this dialog**: "the list rows
+  //: overflow their width (long titles run past the row edges, icons drift
+  //: off-centre, rows are centred text instead of left-aligned)". All three
+  //: were one cause — the row is a `<button>`, so the generic button rule
+  //: centred it, and `text-overflow` on a flex container does nothing to a
+  //: flex item that will not shrink. Measured before the fix: 63px of title
+  //: past the row's own edge.
+  const pickRows = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll(".confirm-overlay .entry-pick-row")];
+    if (!rows.length) return null;
+    return rows.map((r) => {
+      const rr = r.getBoundingClientRect();
+      const label = r.querySelector(".ph-text");
+      const icon = r.querySelector(".ph-lead");
+      const lr = label && label.getBoundingClientRect();
+      const ir = icon && icon.getBoundingClientRect();
+      const s = getComputedStyle(r);
+      return {
+        justify: s.justifyContent,
+        shadow: s.boxShadow,
+        h: Math.round(rr.height),
+        rowOverflow: r.scrollWidth - r.clientWidth,
+        labelInside: lr ? Math.round(rr.right - lr.right) : null,
+        labelLeft: lr ? Math.round(lr.left - rr.left) : null,
+        iconLeft: ir ? Math.round(ir.left - rr.left) : null,
+        ellipsis: label ? getComputedStyle(label).textOverflow : null,
+      };
+    });
+  });
+  check("(D) every picker row is left-aligned and none overflows its width",
+    Boolean(pickRows) && pickRows.every((r) => r.justify === "flex-start" && r.rowOverflow === 0),
+    JSON.stringify(pickRows && pickRows[0]));
+  check("(D) the title ellipsises inside the row instead of running past it",
+    Boolean(pickRows) && pickRows.every((r) => r.ellipsis === "ellipsis" && r.labelInside >= 0),
+    JSON.stringify(pickRows && pickRows.map((r) => r.labelInside)));
+  check("(D) the icon column is fixed, so every title starts at the same x",
+    Boolean(pickRows) && new Set(pickRows.map((r) => r.labelLeft)).size === 1
+      && new Set(pickRows.map((r) => r.iconLeft)).size === 1,
+    JSON.stringify(pickRows && pickRows.map((r) => [r.iconLeft, r.labelLeft])));
+  check("(D) row height is consistent and no row carries the button glow",
+    Boolean(pickRows) && new Set(pickRows.map((r) => r.h)).size === 1
+      && pickRows.every((r) => r.shadow === "none"),
+    JSON.stringify(pickRows && [pickRows[0].h, pickRows[0].shadow]));
+  const pickBox = await page.evaluate(() => {
+    const card = document.querySelector(".confirm-overlay .entry-pick-card");
+    const list = document.querySelector(".confirm-overlay .entry-pick-list");
+    const cr = card.getBoundingClientRect();
+    return {
+      onModalRecipe: card.classList.contains("modal-card") && card.classList.contains("confirm-card"),
+      fitsViewport: cr.top >= 0 && cr.bottom <= window.innerHeight,
+      listScrolls: getComputedStyle(list).overflowY,
+      listContains: getComputedStyle(list).overscrollBehavior,
+      bodyOverflow: document.body.scrollWidth - document.body.clientWidth,
+    };
+  });
+  check("(D) the dialog is on the app's modal recipe and the scroll is in the list",
+    pickBox.onModalRecipe && pickBox.fitsViewport && pickBox.listScrolls === "auto"
+      && pickBox.listContains === "contain" && pickBox.bodyOverflow === 0,
+    JSON.stringify(pickBox));
+
   await page.fill(".confirm-overlay input[type=search]", noteTitle.slice(0, 18));
   await page.waitForTimeout(700);
   const rowCount = await page.$$eval(".confirm-overlay .entry-pick-row", (r) => r.length);

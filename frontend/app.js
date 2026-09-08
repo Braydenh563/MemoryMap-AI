@@ -1670,6 +1670,32 @@ function mapBoardById(id) {
   return mapBoardIndexCache?.get(id) || null;
 }
 
+//: The board whose title is `needle` (already lower-cased), or null.
+//:
+//: One matcher for the `[[wiki]]` resolver and the editor's `@` picker, so
+//: the link the picker inserts and the link the renderer resolves cannot
+//: drift apart. A board's own row carries `title` with the `# ` already
+//: stripped; the raw `# My map` form is matched too, because that is what
+//: the picker inserted before it learned better and those links are in real
+//: notes now.
+function mapBoardTitled(needle) {
+  if (!needle || !mapBoardIndexCache) return null;
+  for (const board of mapBoardIndexCache.values()) {
+    const title = String(board.title || "").trim().toLowerCase();
+    if (!title) continue;
+    if (title === needle || `# ${title}` === needle) return board;
+  }
+  return null;
+}
+
+//: Every board the notebook has, newest-looking order preserved from
+//: `/whiteboard/boards` — the editor's `@`/`[[` picker's own source. Empty
+//: until `loadMapBoardIndex` has run once, which is the same "a surface that
+//: has not asked for boards yet" degradation `mapBoardById` documents.
+function mapBoardRows() {
+  return mapBoardIndexCache ? [...mapBoardIndexCache.values()] : [];
+}
+
 //: **The star that says a note is a favourite, in both states.**
 //:
 //: Reported with a screenshot: the active one rendered as an **empty circle**
@@ -7725,11 +7751,14 @@ function resolveWikiTarget(name) {
   //: the raw content underneath, because both forms exist in real notes: the
   //: picker used to insert the whole first line (`[[# My map]]`) and now
   //: inserts the title (`[[My map]]`).
-  const board = entries.find((e) => {
-    if (!e.is_board || e.is_private) return false;
-    const first = (e.content || "").split("\n")[0].trim();
-    return first.replace(/^#+\s*/, "").toLowerCase() === needle || first.toLowerCase() === needle;
-  });
+  //:
+  //: **Read from the board index, not from `allEntries`.** `GET /entries` is
+  //: the notes list and no longer carries boards at all (see its `boards`
+  //: parameter — a map called "test" was showing up as a note, reported), so
+  //: this used to resolve against a list that will not have the board in it.
+  //: `mapBoardIndexCache` is `/whiteboard/boards`, which is the list of
+  //: boards by definition, and it is already loaded for the map chips.
+  const board = mapBoardTitled(needle);
   if (board) return { kind: "board", entry: board };
   const note = entries.find(
     (e) => !e.is_private && !e.is_board && (e.content || "").toLowerCase().startsWith(needle)

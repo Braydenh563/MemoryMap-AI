@@ -3729,19 +3729,79 @@ span > .chip {
   flex-direction: column;
   gap: var(--space-1);
   max-height: 40vh;
-  margin-top: var(--space-3);
+  /* No `margin-top`: `.modal-card` is a flex column and `.confirm-card` sets
+     its gap to 1rem, so the margin was a second gap on top of the first —
+     28px between the search field and the first row against 16px everywhere
+     else in the same dialog. */
   overflow-y: auto;
+  /* The scroll stays inside the list. Without it a long notebook grew the
+     card until the dialog itself scrolled, which moves the search field you
+     are typing into off the top of the screen. */
+  overscroll-behavior: contain;
 }
 
+/* **A row is an icon and a title, left-aligned, and the title ellipsises.**
+   Reported against the map's "Point a new node at…" picker: long titles ran
+   past the row edge, icons drifted off centre, and the rows read as centred
+   text. All three are one cause and it was measured, not guessed:
+
+   - The row is a `<button>`, so the app's generic button rule gives it
+     `justify-content: center`. With one short title that centres the whole
+     icon-plus-title pair, and the pair's position then moves with the length
+     of the title — which is the "icons drift off-centre" in the report.
+   - `text-overflow: ellipsis` on the row itself does nothing, because the row
+     is a flex container: its children are flex items, not line boxes. The
+     title is a `.ph-text` span from `setLabel`, and a flex item will not
+     shrink below its content without `min-width: 0`, so it simply overflowed.
+     Measured on a real note title: 63px past the row's own edge.
+
+   Same fix, and the same reasoning, as `.library-image-usage-chip` in
+   07-whiteboard-misc.css — put the rule where the text actually is, and stop
+   the icon shrinking with it. */
 .entry-pick-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-3);
+  /* A stated height rather than one inferred from the tallest label, so a row
+     with an icon and one without are the same size in the same list. */
+  min-height: 2.25rem;
   padding: var(--space-3);
   overflow: hidden;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: none;
-  color: inherit;
+  /* **A row in a list is not a raised button.** Measured on the live dialog:
+     every row carried the base button rule's accent glow —
+     `rgba(70,100,240,0.25) 0 2px 10px` — over a transparent background, which
+     paints as a blue smear under each row and is plainly visible in a
+     screenshot of the picker. The row's own hover state (border plus
+     `--card-bg-hover`, below) is the affordance here. */
+  box-shadow: none;
+  color: var(--ink);
   font-size: var(--text-md);
+  /* `.menu-item`'s weight (02-chat-graph.css), which is this app's own recipe
+     for a row in a list of choices. The base button weight made seven note
+     titles read as seven buttons stacked on top of each other. */
+  font-weight: 500;
   text-align: left;
+}
+
+/* A fixed icon column: every title in the list starts at the same x, which is
+   what makes a list of them scannable rather than ragged. */
+.entry-pick-row > .ph-lead {
+  flex: 0 0 auto;
+  /* `setLabel`'s own trailing margin would add to the row's `gap` and double
+     it — the gap is the row's business here. */
+  margin-inline-end: 0;
+  width: 1.25rem;
+  text-align: center;
+}
+
+.entry-pick-row > .ph-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

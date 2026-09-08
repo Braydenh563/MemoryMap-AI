@@ -649,3 +649,48 @@ def test_purging_a_map_unlinks_the_files_behind_its_image_nodes(board_client, se
     assert (media_dir / "onboard.png").exists()  # detached with its object, not deleted
     assert outsider.exists()
 
+
+def test_a_created_map_does_not_appear_in_the_notes_list(board_client, session):
+    """Reported: "I made a mindmap naming it test and I think it came up as a
+    new note??" It did.
+
+    A board — and a mind map, which is a board with `type: "map"` — is an
+    `Entry` (`Entry.is_board`), and `GET /entries` had no filter for that at
+    all, so every board in the notebook was in the notes list, in its count,
+    and in everything else built on that response. Measured in a real browser
+    on a notebook with nine maps: twelve rows in the Notes list, ten of them
+    maps.
+
+    The three modes are asserted together deliberately: the default excluding
+    boards is only safe because `boards=only` still exists for the two callers
+    that genuinely want them (the `[[wiki]]` resolver and the editor's `@`
+    picker), and a regression in either direction breaks one of those.
+    """
+    note = _note(session, "# A real note")
+    made = board_client.post(
+        "/whiteboard/boards", json={"name": "test", "type": "map", "layout": "tree-right"}
+    )
+    assert made.status_code == 201, made.text
+    map_id = made.json()["id"]
+    plain = board_client.post("/whiteboard/boards", json={"name": "A plain board"}).json()
+
+    listed = board_client.get("/entries")
+    assert listed.status_code == 200, listed.text
+    ids = [row["id"] for row in listed.json()]
+    assert note.id in ids
+    assert map_id not in ids, "a mind map is not a note"
+    assert plain["id"] not in ids, "nor is an ordinary board"
+    # The header has to agree with the list under it, or the Notes tab counts
+    # rows nobody can see.
+    assert int(listed.headers["X-Total-Count"]) == len(ids)
+
+    only = board_client.get("/entries?boards=only").json()
+    only_ids = [row["id"] for row in only]
+    assert map_id in only_ids and plain["id"] in only_ids
+    assert note.id not in only_ids
+
+    both = board_client.get("/entries?boards=include").json()
+    both_ids = [row["id"] for row in both]
+    assert {note.id, map_id, plain["id"]} <= set(both_ids)
+
+    assert board_client.get("/entries?boards=sideways").status_code == 422

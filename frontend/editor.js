@@ -738,28 +738,39 @@ function editorLinkMatches(needle) {
       markdown: `${file._isImage ? "!" : ""}[${(file.original_name || "file").replace(/[[\]]/g, "")}](${file.url})`,
     }));
 
-  //: **Boards.** A board *is* an Entry (`is_board`), so it is already in
-  //: `allEntries` — but it is filtered out of the notes list above by the
-  //: same rule that keeps boards out of the note list everywhere else, and a
-  //: notebook with boards had no way to link to one at all.
-  const boards = (typeof allEntries !== "undefined" ? allEntries : [])
-    .filter((e) => e.is_board && !e.is_private)
-    .filter((e) => !query || (e.content || "").toLowerCase().includes(query))
+  //: **Boards.** A board *is* an Entry (`is_board`) and used to be found in
+  //: `allEntries` — but `GET /entries` is the notes list and no longer
+  //: returns boards at all (reported: a mind map called "test" appeared in
+  //: the Notes list as a note), so the source is now `/whiteboard/boards`
+  //: through the same index the map chips read. A notebook with boards still
+  //: has to be able to link to one.
+  //: Not awaited, and only when the index is empty: this function is
+  //: synchronous (it runs on every keystroke of a `[[` token), so the most it
+  //: can do is ask for the list and let the *next* keystroke show it. The
+  //: request itself is cached for 8s inside `loadMapBoardIndex`, so a burst
+  //: of typing costs one call.
+  if (typeof mapBoardRows === "function" && !mapBoardRows().length
+      && typeof loadMapBoardIndex === "function") {
+    loadMapBoardIndex();
+  }
+  const boards = (typeof mapBoardRows === "function" ? mapBoardRows() : [])
+    .filter((b) => b.id != null)
+    .filter((b) => !query || String(b.title || "").toLowerCase().includes(query))
     .slice(0, 3)
-    .map((entry) => ({
-      id: `board-${entry.id}`,
+    .map((board) => ({
+      id: `board-${board.id}`,
       group: "Boards",
-      label: noteLabel(entry, 60),
-      hint: "board",
+      label: String(board.title || "Untitled board").slice(0, 60),
+      hint: board.type === "map" ? "mind map" : "board",
       //: **The board's title, not its first raw line.** A board's content is
       //: `# My map`, so this used to insert `[[# My map]]` — which resolved
       //: (the resolver matched by prefix) and read as a stray heading marker
       //: inside a sentence. `resolveWikiTarget` matches a board title with or
-      //: without the `#`, so links written the old way still resolve.
-      value: (entry.content || "")
-        .split("\n")[0]
+      //: without the `#`, so links written the old way still resolve. The
+      //: board row's own `title` arrives with the `# ` already stripped, so
+      //: the cleaning below is only about brackets and runs of whitespace.
+      value: String(board.title || "")
         .replace(/\[\[|\]\]/g, "")
-        .replace(/^#+\s*/, "")
         .replace(/\s+/g, " ")
         .trim()
         .slice(0, 60),

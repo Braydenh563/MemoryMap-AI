@@ -119,6 +119,33 @@ let wbDeleteObjectRef = null;
 // outside it — placing a text box switches back to Select once typed —
 // can still call it, the same shape the delete-refs above already use.
 let wbSelectToolRef = null;
+// Same shape again, for the marquee/lasso selection drag. Reported directly:
+// "there's a permanent selection box on my mindmap" — a dashed accent
+// rectangle sitting on the canvas at rest, ~330x375, with nothing selected.
+//
+// Measured, not guessed: the rect is a real `.wb-marquee` element, and it
+// leaked three different ways, all of them because the *only* thing that
+// removed it was a `pointerup` on the board container. Release the button
+// anywhere else (over the top bar, over the left rail, off the window) and
+// the pointerup never reaches that listener; a second pointerdown then
+// overwrote `wbMarqueeEl` and orphaned the first rect for good. It survives
+// a re-render and a board reopen too, because it lives in `#wb-zoom-group`,
+// which the render joins by data and never clears wholesale.
+//
+// So the drag now captures the pointer and ends on `pointerup`,
+// `pointercancel` or `lostpointercapture` — and this ref lets Escape, a
+// click on empty canvas and every board load sweep up anything that still
+// got left behind.
+let wbCancelSelectionDragRef = null;
+//: Remove any marquee/lasso rectangle still on the canvas, wherever it came
+//: from. Safe to call at any time: with no drag in flight there is nothing
+//: to find. Deliberately a DOM sweep rather than "remove the element I am
+//: holding" — the leak this fixes was precisely an element nothing was
+//: holding any more.
+function wbClearSelectionOverlays() {
+  wbCancelSelectionDragRef?.();
+  for (const stray of document.querySelectorAll(".wb-marquee, .wb-lasso")) stray.remove();
+}
 // Same shape, for refreshing the "Line ends" control's displayed value when
 // the active tool switches between Line and Arrow (each now has its own
 // remembered end-style — see the live-reported bug fix in `initWhiteboard`).
@@ -6189,7 +6216,11 @@ async function initWhiteboard() {
   // they act on. Out of the tab order deliberately: it is a canvas, not a
   // stop on the keyboard path through the page.
   container.node()?.addEventListener("pointerdown", (e) => {
-    if (e.target.closest(".whiteboard-floating-panel, .wb-text-content")) return;
+    // Any editable body, not the two class names that were editable when
+    // this was written: pulling focus to the canvas out from under a map
+    // node's editor is the other half of "I cant highlight text in mindmap
+    // text boxes" — the caret went to the container mid-gesture.
+    if (e.target.closest(".whiteboard-floating-panel, [contenteditable=true]")) return;
     document.getElementById("whiteboard-container")?.focus({ preventScroll: true });
   });
 
@@ -6243,6 +6274,10 @@ async function initWhiteboard() {
     // both at once meant deselecting a shape mid-pen-session also threw
     // away the pen.
     if (e.key === "Escape") {
+      // A selection drag in flight (or a rectangle a previous one left
+      // behind) goes first — Escape is where people reach when something is
+      // stuck on the canvas, and it did nothing about this before.
+      wbClearSelectionOverlays();
       if (wbSelectedItem || wbMultiSelection.size > 0) clearWbSelection();
       else selectWbTool("select");
       return;
@@ -6503,6 +6538,9 @@ async function initWhiteboard() {
         wbMarqueeJustSelected = false;
       } else {
         clearWbSelection();
+        // The other half of the Escape fix: a click on empty canvas is the
+        // first thing anyone tries on a rectangle that will not go away.
+        wbClearSelectionOverlays();
       }
     }
     // A text box is placed by clicking, not dragged like a shape — it has
@@ -6557,10 +6595,27 @@ async function initWhiteboard() {
   let wbMarqueeStart = null;
   let wbMarqueeEl = null;
   let wbMarqueeJustSelected = false;
+  //: End the marquee gesture and take its rectangle off the canvas. Every
+  //: exit from the drag goes through here — the completed one, the cancelled
+  //: one, and the sweep `wbClearSelectionOverlays` runs — so there is exactly
+  //: one place that can forget to remove the element.
+  function wbEndMarqueeDrag() {
+    wbMarqueeEl?.remove();
+    wbMarqueeEl = null;
+    wbMarqueeStart = null;
+  }
   containerEl.addEventListener("pointerdown", (e) => {
     if (window.currentTool !== "select" || !wbIsEmptyCanvasTarget(e.target)) return;
+    // Primary button only. A right-click opens the context menu and a middle
+    // click pans; neither ends with the pointerup this drag is waiting for,
+    // so both used to start a rectangle that nothing would ever remove.
+    if (e.button !== 0 || !e.isPrimary) return;
+    // A gesture already in flight loses its rectangle rather than orphaning
+    // it: `wbMarqueeEl` is one variable, so a second pointerdown overwrote
+    // the reference to the first rect and left it on the canvas forever.
+    wbEndMarqueeDrag();
     const [x, y] = getLogicalMouse(e);
-    wbMarqueeStart = { x, y, shiftKey: e.shiftKey };
+    wbMarqueeStart = { x, y, shiftKey: e.shiftKey, pointerId: e.pointerId };
     wbMarqueeEl = document.createElementNS("http://www.w3.org/2000/svg", "rect");
     wbMarqueeEl.setAttribute("class", "wb-marquee");
     wbMarqueeEl.setAttribute("x", x);
@@ -6568,8 +6623,18 @@ async function initWhiteboard() {
     wbMarqueeEl.setAttribute("width", 0);
     wbMarqueeEl.setAttribute("height", 0);
     document.getElementById("wb-zoom-group").appendChild(wbMarqueeEl);
+    // **The capture is the fix.** Without it every pointermove and pointerup
+    // outside the container went to whatever element was under the cursor,
+    // so a drag that ended over the top bar, over the left rail or off the
+    // window simply never finished — and left its rectangle behind.
+    try {
+      containerEl.setPointerCapture(e.pointerId);
+    } catch (err) {
+      // A synthetic pointerdown (a test, an assistive tool) has no real
+      // pointer to capture. The window-level listeners below still end it.
+    }
   });
-  containerEl.addEventListener("pointermove", (e) => {
+  window.addEventListener("pointermove", (e) => {
     if (!wbMarqueeStart) return;
     const [x, y] = getLogicalMouse(e);
     const mx = Math.min(wbMarqueeStart.x, x), my = Math.min(wbMarqueeStart.y, y);
@@ -6599,15 +6664,20 @@ async function initWhiteboard() {
     else wbClearAnchorHints();
   });
 
-  containerEl.addEventListener("pointerup", (e) => {
+  // On `window`, not on the container, and for three event names rather than
+  // one. The container's own pointerup is not enough: a capture can be lost
+  // (`lostpointercapture`), a gesture can be taken over by the browser
+  // (`pointercancel`), and a synthetic pointerdown was never captured at all.
+  // Every one of those used to leave the rectangle on the board.
+  window.addEventListener("pointercancel", () => wbEndMarqueeDrag());
+  window.addEventListener("lostpointercapture", () => wbEndMarqueeDrag());
+  window.addEventListener("pointerup", (e) => {
     if (!wbMarqueeStart) return;
     const [x, y] = getLogicalMouse(e);
     const mx = Math.min(wbMarqueeStart.x, x), my = Math.min(wbMarqueeStart.y, y);
     const mw = Math.abs(x - wbMarqueeStart.x), mh = Math.abs(y - wbMarqueeStart.y);
     const shiftKey = wbMarqueeStart.shiftKey;
-    wbMarqueeEl?.remove();
-    wbMarqueeEl = null;
-    wbMarqueeStart = null;
+    wbEndMarqueeDrag();
     // Too small to be a deliberate drag — the plain "click" listener above
     // already handles this as a click-to-clear-selection instead.
     if (mw < 4 && mh < 4) return;
@@ -6658,6 +6728,19 @@ async function initWhiteboard() {
   let wbLassoPoints = null;
   let wbLassoEl = null;
   let wbLassoShift = false;
+  //: The lasso's half of `wbEndMarqueeDrag`, and it exists for the same
+  //: reported bug: a loop released outside the container left its polyline
+  //: on the canvas with nothing holding a reference to it.
+  function wbEndLassoDrag() {
+    wbLassoEl?.remove();
+    wbLassoEl = null;
+    wbLassoPoints = null;
+  }
+  //: Both drags, from anywhere in the file — see `wbCancelSelectionDragRef`.
+  wbCancelSelectionDragRef = () => {
+    wbEndMarqueeDrag();
+    wbEndLassoDrag();
+  };
   containerEl.addEventListener("pointerdown", (e) => {
     // Unlike the marquee (`wbIsEmptyCanvasTarget`, above — empty canvas
     // only, since a drag starting *on* a card there means "move it"), a
@@ -6666,6 +6749,8 @@ async function initWhiteboard() {
     // lasso tool doesn't work properly". Still excludes an actual handle,
     // which needs its own drag gesture to keep working.
     if (window.currentTool !== "lasso" || e.target.closest?.(".wb-resize-handle, .wb-rotate-handle, .wb-object-grip, .wb-link-endpoint-handle")) return;
+    if (e.button !== 0 || !e.isPrimary) return;
+    wbEndLassoDrag();
     const [x, y] = getLogicalMouse(e);
     wbLassoPoints = [[x, y]];
     wbLassoShift = e.shiftKey;
@@ -6676,19 +6761,24 @@ async function initWhiteboard() {
     // base SVG the loop was drawn *under* every card and sticky (reported:
     // "the lasso select tool is behind everything").
     document.getElementById("wb-overlay-zoom-group").appendChild(wbLassoEl);
+    try {
+      containerEl.setPointerCapture(e.pointerId);
+    } catch (err) {
+      // See the marquee's own comment: a synthetic pointer cannot be caught.
+    }
   });
-  containerEl.addEventListener("pointermove", (e) => {
+  window.addEventListener("pointercancel", () => wbEndLassoDrag());
+  window.addEventListener("lostpointercapture", () => wbEndLassoDrag());
+  window.addEventListener("pointermove", (e) => {
     if (!wbLassoPoints) return;
     const [x, y] = getLogicalMouse(e);
     wbLassoPoints.push([x, y]);
     wbLassoEl.setAttribute("points", wbLassoPoints.map(([px, py]) => `${px},${py}`).join(" "));
   });
-  containerEl.addEventListener("pointerup", () => {
+  window.addEventListener("pointerup", () => {
     if (!wbLassoPoints) return;
     const points = wbLassoPoints, shiftKey = wbLassoShift;
-    wbLassoEl?.remove();
-    wbLassoEl = null;
-    wbLassoPoints = null;
+    wbEndLassoDrag();
     if (points.length < 3) return; // a tap, not a loop — nothing to select
     if (!shiftKey) wbMultiSelection.clear();
     for (const node of wbState.nodes) {
@@ -8671,7 +8761,19 @@ function renderWbObjects(canvas) {
       // needs to keep the pointer while it is *being edited*, for the caret
       // and for selecting words; the rest of the time it is just the face of
       // a box and drags like one.
-      const text = event.target.closest(".wb-text-content");
+      //
+      // **Asked for by class, this missed the map node entirely.** Reported:
+      // "I cant highlight text in mindmap text boxes." A map node's editor is
+      // `.wb-map-text`, not `.wb-text-content`, so this filter let the drag
+      // run: measured, a click-drag across a node being edited selected the
+      // empty string and moved the node 165px instead. The node's own
+      // `pointerdown` stopPropagation cannot help — d3-drag listens for
+      // `mousedown`, and this file already records that two event families
+      // cannot cancel each other (see the marquee's handle-layer comment).
+      // Asking the *element* whether it is editable rather than naming the
+      // classes that happen to be editable today is what stops the next
+      // editable surface on the canvas from re-learning this.
+      const text = event.target.closest("[contenteditable]");
       if (text && text.isContentEditable) return false;
       return true;
     })
@@ -9575,6 +9677,11 @@ async function openWhiteboardBoard(boardId) {
   wbShowCanvasView();
   await new Promise((resolve) => setTimeout(resolve, 60));
   window.currentBoardId = boardId ?? null;
+  // Anything a previous board's selection drag left behind goes now. The
+  // rectangle lives in `#wb-zoom-group`, which the render joins by data and
+  // never empties, so without this a stray one followed you from board to
+  // board and read as "a permanent selection box on my mindmap".
+  wbClearSelectionOverlays();
   await fetchWhiteboardState();
   wbScheduleRender();
   wbApplyBgImage();

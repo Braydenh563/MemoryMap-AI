@@ -2805,6 +2805,68 @@ function wbMapEdgeAnchors(parent, child, layout) {
   };
 }
 
+//: One tree edge's `d`, from the two nodes' live `x`/`y` and their rendered
+//: sizes. Factored out of `wbRenderMapEdges` below so the per-frame drag
+//: follow (`wbUpdateMapEdges`) recomputes an edge with exactly the maths the
+//: render uses: two copies of a cubic drifted apart is precisely the bug
+//: `wbUpdateLinkedSketches` warns about for link sketches.
+function wbMapEdgePathD(parent, child, layout) {
+  const a = wbMapEdgeAnchors(parent, child, layout);
+  // Control points on the axis the edge leaves by, at half the span: the
+  // curve leaves the parent square to its own edge and arrives square to
+  // the child's, which is what makes a column of siblings read as one
+  // branch rather than a fan of straight lines crossing each other.
+  return a.horizontal
+    ? `M${a.x1} ${a.y1} C${(a.x1 + a.x2) / 2} ${a.y1} ${(a.x1 + a.x2) / 2} ${a.y2} ${a.x2} ${a.y2}`
+    : `M${a.x1} ${a.y1} C${a.x1} ${(a.y1 + a.y2) / 2} ${a.x2} ${(a.y1 + a.y2) / 2} ${a.x2} ${a.y2}`;
+}
+
+//: The tree edges touching `id` (its own edge up to its parent, and one per
+//: child), each with the `<path>` that drew it, collected once per drag.
+//:
+//: **This is the single-node half of the "connections get left behind when i
+//: move the notes/nodes around" report** (INBOX 42, with a screenshot of a
+//: curve attached to neither node). A tree edge is not a link sketch, so
+//: `wbUpdateLinkedSketches` never touched one, and nothing else ran between
+//: `dragStart` and the drop: measured before this fix, the edge sat 155.6px
+//: from the node it joins through a single-node drag, and stayed there after
+//: the drop for any node already pinned (`wbMapPinOnDrag` returns early once
+//: `data.pinned` is set, so its `wbScheduleRender` never fired a second
+//: time). Precomputed for the same reason `wbLinkedSketchesFor` is: a node
+//: gains or loses a parent between drags, never during one.
+function wbMapEdgesFor(id) {
+  if (!wbIsMap()) return [];
+  const index = wbMapIndex();
+  const self = index.byId.get(id);
+  if (!self) return [];
+  const layout = wbMapLayout();
+  const found = [];
+  const add = (parent, child) => {
+    const el = document.querySelector(
+      `.wb-map-edges .wb-map-edge[data-parent="${parent.id}"][data-child="${child.id}"]`
+    );
+    // No element means the edge is not drawn right now (a collapsed or
+    // filtered branch), which is not an error: there is simply nothing to
+    // follow the drag.
+    if (el) found.push({ parent, child, el, layout });
+  };
+  const parent = self.parent_id != null ? index.byId.get(self.parent_id) : null;
+  if (parent) add(parent, self);
+  for (const child of index.childrenOf.get(id) || []) add(self, child);
+  return found;
+}
+
+//: Redraws the edges `wbMapEdgesFor` collected, without a full render. Same
+//: bargain as `wbUpdateLinkedSketches`: a full `renderWhiteboardNow()` on
+//: every mousemove frame re-binds every card, sketch and object on the board
+//: for the sake of two curves, which is the "glitchy and slow to update"
+//: report this file already carries.
+function wbUpdateMapEdges(edges) {
+  for (const { parent, child, el, layout } of edges || []) {
+    el.setAttribute("d", wbMapEdgePathD(parent, child, layout));
+  }
+}
+
 //: The parent→child edges, drawn as cubic curves into their own group.
 //:
 //: A tree edge is deliberately **not** a link sketch. A sketch is a row in the
@@ -2840,17 +2902,15 @@ function wbRenderMapEdges() {
     if (hidden.has(parent.id) || parent.data?.collapsed) continue;
     for (const child of index.childrenOf.get(parent.id) || []) {
       if (hidden.has(child.id)) continue;
-      const a = wbMapEdgeAnchors(parent, child, layout);
-      // Control points on the axis the edge leaves by, at half the span: the
-      // curve leaves the parent square to its own edge and arrives square to
-      // the child's, which is what makes a column of siblings read as one
-      // branch rather than a fan of straight lines crossing each other.
-      const d = a.horizontal
-        ? `M${a.x1} ${a.y1} C${(a.x1 + a.x2) / 2} ${a.y1} ${(a.x1 + a.x2) / 2} ${a.y2} ${a.x2} ${a.y2}`
-        : `M${a.x1} ${a.y1} C${a.x1} ${(a.y1 + a.y2) / 2} ${a.x2} ${(a.y1 + a.y2) / 2} ${a.x2} ${a.y2}`;
       const path = document.createElementNS(NS, "path");
       path.setAttribute("class", "wb-map-edge");
-      path.setAttribute("d", d);
+      path.setAttribute("d", wbMapEdgePathD(parent, child, layout));
+      // The two ends' ids, so a drag can find *this* edge again and redraw it
+      // per frame (`wbMapEdgesFor`). The render itself still replaces the
+      // whole group wholesale, see the note below; these attributes are the
+      // identity a mid-drag update needs and nothing else reads.
+      path.setAttribute("data-parent", String(parent.id));
+      path.setAttribute("data-child", String(child.id));
       const colour = colors.get(child.id);
       if (colour) path.setAttribute("stroke", colour);
       next.push(path);
@@ -3849,7 +3909,14 @@ function wbCaptureBulkMoveOrigin(excludeKey) {
       // connections/edges get left behind when i move the notes/nodes
       // around", which is exactly the shape of a bug that only shows on a
       // multi-card drag, a single card was always fine.
-      origin.set(key, { kind, id, item, x: item.x, y: item.y, linked: wbLinkedSketchesFor(id, kind) });
+      // `mapEdges` only for an object: a map node *is* an object, and a card
+      // and an object can share an id, so asking for a card's tree edges
+      // would follow the wrong node's branch.
+      origin.set(key, {
+        kind, id, item, x: item.x, y: item.y,
+        linked: wbLinkedSketchesFor(id, kind),
+        mapEdges: kind === "object" ? wbMapEdgesFor(id) : [],
+      });
     }
   }
   return origin;
@@ -3872,6 +3939,9 @@ function wbApplyBulkMove(origin, dx, dy) {
       // this, only the card the pointer is actually on kept its edges live
       // during a multi-select drag.
       wbUpdateLinkedSketches(entry.id, entry.linked);
+      // Same for a map's tree edges, which are not sketches at all: a marquee
+      // drag of half a branch left every one of its curves behind.
+      if (entry.mapEdges?.length) wbUpdateMapEdges(entry.mapEdges);
     }
   }
 }
@@ -8733,6 +8803,10 @@ function renderWbObjects(canvas) {
     // three handlers the cards use, see `wbLinkItem`.
     if (window.currentTool?.startsWith("link-")) { d._linkKind = "object"; return dragStart.call(this, event, d); }
     d._linkedSketches = wbLinkedSketchesFor(d.id, "object");
+    // A map node's tree edges are not sketches (see `wbMapEdgesFor`), so the
+    // line above finds none of them: collected here for the same reason and
+    // at the same moment.
+    d._mapEdges = wbMapEdgesFor(d.id);
     // `.raise()` deliberately does NOT happen here, moved to objDragMove.
     // See the matching comment on the card drag's own `dragging` for the
     // real bug this caused (raising mid-`start` breaks the browser's click
@@ -8783,6 +8857,7 @@ function renderWbObjects(canvas) {
     }
     d3.select(this.closest(".wb-object")).style("transform", wbItemTransform(d));
     if (d._linkedSketches?.length) wbUpdateLinkedSketches(d.id, d._linkedSketches);
+    if (d._mapEdges?.length) wbUpdateMapEdges(d._mapEdges);
     wbUpdateSelectionBar();
     if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, d.x - d._dragOriginX, d.y - d._dragOriginY);
   }
@@ -8790,6 +8865,10 @@ function renderWbObjects(canvas) {
     if (window.currentTool === "eraser" || window.currentTool === "delete" || window.currentTool === "bucket") return;
     if (window.currentTool?.startsWith("link-")) { const r = dragEndNode.call(this, event, d); d._linkKind = null; return r; }
     d._linkedSketches = null;
+    // Dropped: the paths this drag held references to are about to be
+    // replaced by the next render, and a stale element would be updated in
+    // place forever (invisibly, since it is no longer in the document).
+    d._mapEdges = null;
     wbClearAlignmentGuides();
     const bulkOrigin = d._bulkOrigin;
     // Reset unconditionally: a solo drag sets this to `null` (see

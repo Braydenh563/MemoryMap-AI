@@ -750,6 +750,178 @@ function check(label, ok, detail) {
     `before=${pathBefore}  during=${pathDuring}`
   );
 
+
+  // --- INBOX 42: a tree edge follows a SINGLE node's drag ------------------
+  //
+  // Reported with a screenshot: "a dangling curve not attached to either
+  // node after a drag; the root and New topic far apart". The bulk-drag half
+  // was fixed in c2912cd; a map's tree edges are not link sketches at all
+  // (`wbRenderMapEdges` derives them from `parent_id`), so nothing updated
+  // them during a one-node drag. Measured before the fix: 155.6px from the
+  // node the edge is meant to touch mid-drag, and still 155.6px after the
+  // drop once the node was pinned, because `wbMapPinOnDrag` only renders the
+  // first time it pins.
+  //
+  // The measurement is deliberately geometric rather than "the `d` string
+  // changed": every parent/child pair is matched to the edge nearest it and
+  // the answer is the worst distance, in screen px, from an endpoint to the
+  // rect of the node it belongs to. Zero is attached; anything else is the
+  // dangling curve in the screenshot.
+  const EDGE_PROBE = () => {
+    const svg = document.getElementById("wb-svg-layer").getBoundingClientRect();
+    const t = d3.zoomTransform(document.getElementById("whiteboard-container"));
+    const toScreen = (p) => ({ x: svg.left + t.x + p.x * t.k, y: svg.top + t.y + p.y * t.k });
+    const rectOf = (id) => document.querySelector(`.wb-object[data-id="${id}"]`)?.getBoundingClientRect();
+    const dist = (p, r) => Math.hypot(Math.max(r.left - p.x, 0, p.x - r.right), Math.max(r.top - p.y, 0, p.y - r.bottom));
+    const paths = [...document.querySelectorAll(".wb-map-edges .wb-map-edge")];
+    const kinds = new Set(["topic", "note", "document", "file", "link"]);
+    const objs = (wbState.objects || []).filter((o) => kinds.has(o.kind));
+    let worst = 0;
+    let pairs = 0;
+    for (const o of objs) {
+      if (o.parent_id == null || !objs.some((p) => p.id === o.parent_id)) continue;
+      pairs += 1;
+      const pr = rectOf(o.parent_id), cr = rectOf(o.id);
+      if (!pr || !cr) { worst = Infinity; continue; }
+      let best = Infinity;
+      for (const path of paths) {
+        const a = toScreen(path.getPointAtLength(0));
+        const b = toScreen(path.getPointAtLength(path.getTotalLength()));
+        best = Math.min(best, Math.max(Math.min(dist(a, pr), dist(b, pr)), Math.min(dist(a, cr), dist(b, cr))));
+      }
+      worst = Math.max(worst, best);
+    }
+    return { edges: paths.length, pairs, worst: Math.round(worst * 10) / 10 };
+  };
+  const dragBy = async (selector, dx, dy) => {
+    const el = await page.$(selector);
+    const b = await el.boundingBox();
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(b.x + b.width / 2 + dx, b.y + b.height / 2 + dy, { steps: 12 });
+    await page.waitForTimeout(150);
+    const during = await page.evaluate(EDGE_PROBE);
+    await page.mouse.up();
+    await page.waitForTimeout(700);
+    const after = await page.evaluate(EDGE_PROBE);
+    return { during, after };
+  };
+
+  await page.click("#wb-back-to-boards").catch(() => {});
+  await page.waitForTimeout(500);
+  await page.click("#wb-boards-new");
+  await page.waitForTimeout(700);
+  await page.fill(".confirm-overlay input[type=text]", "Edge drag check");
+  await page.click('.confirm-overlay .seg button[data-value="map"]');
+  await page.waitForTimeout(150);
+  await page.click(".confirm-overlay .confirm-actions button:last-child");
+  await page.waitForTimeout(2500);
+  const dragBoard = await page.evaluate(() => window.currentBoardId);
+  await page.evaluate(() => document.getElementById("whiteboard-container")?.focus());
+  await page.keyboard.press("Tab");
+  await page.waitForTimeout(1200);
+  await page.evaluate(() => document.activeElement?.blur?.());
+  await page.waitForTimeout(400);
+
+  // The other half of the screenshot: "the root and New topic far apart". The
+  // server places a child (§9.3), so this asserts the placement lands beside
+  // the parent and inside the visible canvas, not off-screen.
+  const childPlacement = await page.evaluate(() => {
+    const kinds = new Set(["topic", "note", "document", "file", "link"]);
+    const objs = (wbState.objects || []).filter((o) => kinds.has(o.kind));
+    const child = objs.find((o) => o.parent_id != null);
+    if (!child) return null;
+    const cr = document.querySelector(`.wb-object[data-id="${child.id}"]`)?.getBoundingClientRect();
+    const pr = document.querySelector(`.wb-object[data-id="${child.parent_id}"]`)?.getBoundingClientRect();
+    const cont = document.getElementById("whiteboard-container").getBoundingClientRect();
+    if (!cr || !pr) return null;
+    return {
+      gap: Math.round(cr.left - pr.right),
+      inside: cr.left >= cont.left - 1 && cr.right <= cont.right + 1 && cr.top >= cont.top - 1 && cr.bottom <= cont.bottom + 1,
+      id: child.id, parent: child.parent_id,
+    };
+  });
+  check("(42) a new child lands beside its parent, on screen",
+    childPlacement && childPlacement.inside && childPlacement.gap > 0 && childPlacement.gap < 240,
+    JSON.stringify(childPlacement));
+
+  const atRest = await page.evaluate(EDGE_PROBE);
+  check("(42) at rest, the tree edge meets both of its nodes",
+    atRest.pairs === 1 && atRest.edges === 1 && atRest.worst < 2, JSON.stringify(atRest));
+
+  const childDrag = await dragBy(`.wb-object[data-id="${childPlacement.id}"]`, 150, 100);
+  check("(42) the edge follows a single-node drag of the child, mid-drag",
+    childDrag.during.worst < 2, `worst ${childDrag.during.worst}px mid-drag`);
+  check("(42) and is still attached after the drop",
+    childDrag.after.worst < 2, `worst ${childDrag.after.worst}px`);
+
+  // The second drag is the one the screenshot caught: the node is pinned by
+  // now, so `wbMapPinOnDrag` returns early and nothing re-renders after the
+  // drop. Only the per-frame follow can keep this one attached.
+  const childDrag2 = await dragBy(`.wb-object[data-id="${childPlacement.id}"]`, -80, 60);
+  check("(42) a second drag of the now-pinned node keeps its edge attached",
+    childDrag2.during.worst < 2 && childDrag2.after.worst < 2,
+    `during ${childDrag2.during.worst}px, after ${childDrag2.after.worst}px`);
+
+  const rootDrag = await dragBy(`.wb-object[data-id="${childPlacement.parent}"]`, -120, -70);
+  check("(42) the edge follows a single-node drag of the root",
+    rootDrag.during.worst < 2 && rootDrag.after.worst < 2,
+    `during ${rootDrag.during.worst}px, after ${rootDrag.after.worst}px`);
+
+  await page.evaluate((id) => window.openWhiteboardBoard(id), dragBoard);
+  await page.waitForTimeout(1500);
+  const edgeAfterReload = await page.evaluate(EDGE_PROBE);
+  check("(42) and after a reload of the board",
+    edgeAfterReload.worst < 2, JSON.stringify(edgeAfterReload));
+
+  // The concept map is the *other* creation path (`createConceptMap`, not
+  // `createNewBoard("map")`), and it is a plain board of note cards joined by
+  // link sketches, not a map board with derived tree edges: a fix to one is
+  // not a fix to the other (agent-remaining/inbox.md records the same trap).
+  // Its single-card drag goes through `dragging()` and `wbUpdateLinkedSketches`.
+  const conceptDrag = await page.evaluate(async () => {
+    const board = await window.apiJson("/whiteboard/boards", { method: "POST", body: JSON.stringify({ name: "Concept drag check" }) });
+    const a = await window.apiJson("/entries", { method: "POST", body: JSON.stringify({ content: "Concept root", tags: [], defer_filing: true }) });
+    const b = await window.apiJson("/entries", { method: "POST", body: JSON.stringify({ content: "Concept child", tags: [], defer_filing: true }) });
+    const n1 = await window.apiJson("/whiteboard/nodes", { method: "POST", body: JSON.stringify({ entry_id: a.id, board_id: board.id, x: 200, y: 200, z: 1 }) });
+    const n2 = await window.apiJson("/whiteboard/nodes", { method: "POST", body: JSON.stringify({ entry_id: b.id, board_id: board.id, x: 520, y: 260, z: 1 }) });
+    await window.apiJson("/whiteboard/sketches", {
+      method: "POST",
+      body: JSON.stringify({
+        board_id: board.id, x: 0, y: 0, z: 1,
+        data: JSON.stringify({ type: "link-curved", sourceId: n1.id, sourceKind: "node", targetId: n2.id, targetKind: "node" }),
+      }),
+    });
+    await window.loadEntries();
+    return { board: board.id, n2: n2.id };
+  });
+  await page.evaluate((id) => window.openWhiteboardBoard(id), conceptDrag.board);
+  await page.waitForTimeout(1400);
+  const conceptCard = await page.$(`.node-card[data-id="${conceptDrag.n2}"]`);
+  const cb = await conceptCard.boundingBox();
+  const cardProbe = (id) => {
+    const svg = document.getElementById("wb-svg-layer").getBoundingClientRect();
+    const t = d3.zoomTransform(document.getElementById("whiteboard-container"));
+    const path = document.querySelector(".sketch-group .sketch-path");
+    const r = document.querySelector(`.node-card[data-id="${id}"]`).getBoundingClientRect();
+    const ends = [0, path.getTotalLength()].map((l) => {
+      const p = path.getPointAtLength(l);
+      return { x: svg.left + t.x + p.x * t.k, y: svg.top + t.y + p.y * t.k };
+    });
+    const dist = (p) => Math.hypot(Math.max(r.left - p.x, 0, p.x - r.right), Math.max(r.top - p.y, 0, p.y - r.bottom));
+    return Math.round(Math.min(dist(ends[0]), dist(ends[1])) * 10) / 10;
+  };
+  await page.mouse.move(cb.x + cb.width / 2, cb.y + cb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(cb.x + cb.width / 2 + 140, cb.y + cb.height / 2 + 90, { steps: 12 });
+  await page.waitForTimeout(150);
+  const conceptDuring = await page.evaluate(cardProbe, conceptDrag.n2);
+  await page.mouse.up();
+  await page.waitForTimeout(600);
+  const conceptAfter = await page.evaluate(cardProbe, conceptDrag.n2);
+  check("(42) on the concept map path, a single card's connector follows it too",
+    conceptDuring < 2 && conceptAfter < 2, `during ${conceptDuring}px, after ${conceptAfter}px`);
+
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed.`);
   if (failed.length) console.log("FAILED: " + failed.map((f) => f.label).join(" ; "));

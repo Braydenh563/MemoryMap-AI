@@ -1512,3 +1512,26 @@ summary > .ph-lead,
 .dash-widgets-dialog #dash-widgets-search {
   margin: 0;
 }
+
+/* ---------------------------------------------------------------------------
+   The last icon-to-label gap family
+
+   consistency.md item 4 left two buckets open and named the space switcher as
+   "a markup question, not a CSS one: inspect that button's children directly".
+   Done, with `scratchpad/ui-sweeps/gapwhy.js`, which dumps child nodes
+   including text nodes because a computed-style dump cannot show a stray
+   space. There was no stray space. `.space-switcher-name` carries
+   `margin-inline-start: var(--space-1)` on top of the container's own 6.4px
+   gap, and 6.4 + 4 is the 10.4px the sweep reported.
+
+   The margin goes and the container's gap does the job, which puts these 14
+   controls in the same bucket as the other 228. The caret's own `--space-1`
+   stays: its rule says why (it was a negative margin, reported as too tight,
+   and a caret separated from the label is not read as part of it), and that is
+   a gap between two icons rather than an icon-to-label gap.
+
+   The 8px `<summary>` bucket the item also named is gone: the sweep now finds
+   three distinct gaps, not four, and no summary in any of them. */
+.space-switcher-name {
+  margin-inline-start: 0;
+}

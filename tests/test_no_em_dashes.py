@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ROOTS = (ROOT / "frontend", ROOT / "src", ROOT / "tests")
 EXTS = {".js", ".html", ".css", ".py", ".json", ".md", ".txt"}
 SKIP_PARTS = {"vendor", "node_modules", "__pycache__"}
+EM_DASH = "\\u2014"  # written as an escape so this file passes its own check
 
 
 def _files():
@@ -26,7 +27,7 @@ def test_the_apps_own_files_carry_no_em_dash():
     hits = []
     for path in _files():
         for number, line in enumerate(path.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
-            if "—" in line:
+            if EM_DASH in line:
                 hits.append(f"{path.relative_to(ROOT)}:{number}")
     assert not hits, (
         "an em-dash in the app's own files; rewrite the sentence "

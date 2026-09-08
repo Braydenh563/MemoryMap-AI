@@ -64,10 +64,13 @@ after a usage reset. Either way, without asking anything:
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 
-**Now:** all eight agents merged; Brief 1 (em-dash sweep and lint) done;
-the local full-suite run on the swept tree is the open gate. Next: Brief 2
-(consistency lints) or the top of `agent-remaining/*.md`, whichever the
-standing orders reach first.
+**Now:** all eight agents merged; Brief 1 done; the owner's 10:30 pile is
+placed in `INBOX.md` (open items 2, 5 to 20 remain; 1, 3, 4 and part of 2
+fixed); three Fable plans written (TIMELINE, WHITEBOARD, CHAT). Next, in
+order: INBOX open items top-down (6 skill picker height, 8 chip clipping,
+10 sketches in Files, 13 reminder inputs, 14 alignment, 15 backdrop, 16
+kebab fill, 17 chat dock padding, 20 chips gap, then 18 and 19 with
+DOCUMENTS Phase 1), then agent-remaining/*.md, then Briefs 2 to 15.
 
 - CI, ruff and CodeQL green as of `315825a`; the merge commit `dca50c6`
   (six agents' work) is pushed and its checks are running.

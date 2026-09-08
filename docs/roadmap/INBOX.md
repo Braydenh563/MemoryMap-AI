@@ -65,7 +65,7 @@ takes them top-down inside each block.
 4. **(fixed)** **Back/forward in the bottom bar need two clicks.** The nav-history
    handler probably records the click's own navigation as a new entry.
    Owner: bug now.
-5. **Tooltips and popovers flicker at another position for a frame** before
+5. **(fixed)** **Tooltips and popovers flicker at another position for a frame** before
    settling: position is computed after first paint. Compute before
    removing `hidden` (measure with `visibility:hidden`), then show. Owner:
    consistency.md.

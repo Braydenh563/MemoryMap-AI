@@ -1180,7 +1180,30 @@ Link to another note with [[its first few words]]."></textarea>
                thread rather than a control. Previously it was a chip wedged
                between the title and the buttons, which read as a third button
                and pushed the actions around whenever the number grew a digit. -->
-          <div class="chat-toolbar">
+          <!-- **The dock (UI_MODERNISATION_PLAN.md Phase 8).** This row already
+               had the grammar's shape, argued for in the comments above and
+               below: identity on the left, one group of actions at the far
+               end. What it did not have was the grammar's *size*. Measured at
+               1440 with the sidebar head beside it: Fork, Compress and the
+               kebab rendered 28px while "New" in the Chats head next to them
+               was 36px, so the two head rows of one tab sat at two heights.
+
+               `.dock` alongside `.chat-toolbar` rather than instead of it: the
+               hairline, the sticky positioning and the recessed ground below
+               belong to this row and nothing else, while the height, the two
+               gaps and the zones belong to every dock. Ids are unchanged
+               throughout.
+
+               The title and its subline stay in identity, which is where they
+               belong: `#chat-title` is the heading and the subline is metadata
+               about the thread, not a control run. `.dock > * > button` is
+               deliberately shallow, so the subline's own chips
+               (`#chat-active-model`, `#chat-context`, Undo) keep their small
+               size instead of being stretched to a control height they are not
+               and should not be. -->
+          <div class="chat-toolbar dock" data-dock-name="chat" role="toolbar"
+            aria-label="Conversation controls">
+            <div class="dock-identity">
             <!-- **The thread has a face.** Reported: the header "feels fake,
                  with features and ui elements like buttons just slapped on
                  there with no design thought". Half of that is this: a bare
@@ -1239,6 +1262,7 @@ Link to another note with [[its first few words]]."></textarea>
                 </span>
               </span>
             </div>
+            </div>
             <!-- **One primary action and one menu, not three buttons and a
                  red one.** Asked for: "upgrade and expand the top, the
                  metadata, model used, chat functions, token usage data and
@@ -1274,17 +1298,17 @@ Link to another note with [[its first few words]]."></textarea>
                  handlers and simply stop being visible: the menu rows click
                  them, which is the pattern the Library's own kebab already
                  uses. Nothing in app.js has to know this happened. -->
-            <div class="chat-tool-group chat-tool-group-end" role="group" aria-label="This conversation">
+            <div class="dock-actions chat-tool-group chat-tool-group-end"
+              role="group" aria-label="This conversation">
               <button id="chat-fork" class="ghost small icon-only"
                 aria-label="Fork this conversation"
-                title="Fork — copy this conversation so you can try a different direction without losing this one"><i class="ph ph-git-branch" aria-hidden="true"></i></button>
+                title="Fork: copy this conversation so you can try a different direction without losing this one"><i class="ph ph-git-branch" aria-hidden="true"></i></button>
               <button id="chat-compress" class="ghost small icon-only"
                 aria-label="Compress the earlier messages"
-                title="Compress — summarise the earlier messages, so the model keeps the gist instead of losing the start of a long chat"><i class="ph ph-arrows-in" aria-hidden="true"></i></button>
-              <span id="chat-actions-menu" class="chat-actions-menu"></span>
+                title="Compress: summarise the earlier messages, so the model keeps the gist instead of losing the start of a long chat"><i class="ph ph-arrows-in" aria-hidden="true"></i></button>
               <button id="chat-export" class="ghost small visually-hidden" tabindex="-1" title="Download this chat as a Markdown file"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export</button>
               <!-- The saved-chat list has its own Delete, and deleting a
-                   conversation's last turn deletes the conversation with it —
+                   conversation's last turn deletes the conversation with it,
                    but the chat you're looking at right now, including a
                    brand-new one that hasn't sent a message yet, had no delete
                    of its own; "+ New" abandons it but doesn't say so. This
@@ -1292,6 +1316,13 @@ Link to another note with [[its first few words]]."></textarea>
                    was ever saved to lose), and a saved one asks first, same
                    as the sidebar's Delete does. -->
               <button id="chat-delete" class="ghost small danger visually-hidden" tabindex="-1" title="Delete this conversation"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
+              <!-- Last, and marked `dock-more`: the kebab is the grammar's
+                   final utility and the two buttons above it are
+                   `visually-hidden` proxies the menu rows click, not controls
+                   anyone sees. In DOM order they were sitting after it, so the
+                   row's last *tabbable* thing was not the one the eye ends
+                   on. -->
+              <span id="chat-actions-menu" class="chat-actions-menu dock-more"></span>
             </div>
           </div>
           <!-- The summary, before it is used. Editable on purpose: this is

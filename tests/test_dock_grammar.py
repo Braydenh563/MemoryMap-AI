@@ -8,7 +8,13 @@ and this lint holds the parts of it that can be read from the markup:
   find → arrange → actions, and each at most once.
 - **One primary.** At most one filled button (a `<button>` with neither
   `ghost` nor `icon-only`) per dock. A second filled button is the "two
-  answers to what this row is for" defect the plan names.
+  answers to what this row is for" defect the plan names. "In the dock" here
+  means the same thing the stylesheet means by it: a direct child of a zone,
+  the run of controls `.dock > * > button` sizes. A clickable chip nested
+  further in (the Chat header's model badge and context pill live inside the
+  headline, as metadata you can press) is not in that run and is not a
+  primary; keeping the lint and the stylesheet on one definition is what
+  stops the two drifting.
 - **Settings live in menus.** No checkbox or radio directly in a dock zone —
   a switch is a setting, and belongs in a popover or in Settings. Inside a
   `.dock-menu` they are fine (that is what the View menu is for).
@@ -45,6 +51,7 @@ ZONES = ["dock-identity", "dock-find", "dock-arrange", "dock-actions"]
 #: surface lands; the test below fails if the markup and this list disagree,
 #: so the ratchet cannot silently loosen.
 ON_THE_GRAMMAR = {
+    "chat",
     "graph",
     "library",
     "library-boards",
@@ -115,6 +122,10 @@ class _Parser(HTMLParser):
         current_zone = next(
             (z for f in reversed(self.stack) for z in ZONES if z in f["classes"]), None
         )
+        # Whether this element is a *direct* child of its zone, which is the
+        # stylesheet's own test for "in the control run" (`.dock > * > button`).
+        parent = self.stack[-2] if len(self.stack) > 1 else None
+        in_run = bool(parent) and any(z in parent["classes"] for z in ZONES)
         # A cell of a segmented control is not a primary, and this had to be
         # said explicitly: `.seg button` is transparent by design (the fill is
         # the *selected* state), so a segment carries neither `ghost` nor, once
@@ -130,6 +141,7 @@ class _Parser(HTMLParser):
         if not in_menu and current_zone:
             if (
                 tag == "button"
+                and in_run
                 and not in_seg
                 and "ghost" not in classes
                 and "icon-only" not in classes

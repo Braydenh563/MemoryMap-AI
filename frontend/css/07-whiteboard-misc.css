@@ -7780,6 +7780,19 @@ input[type="file"] {
   flex: 0 1 auto;
 }
 
+/* **A dock with nothing to find gives the middle to its title.** `flex: 0 1
+   auto` above is right when a search box sits next to the title and should
+   own the leftover width. The Chat header has no find zone, and shrinking its
+   identity to content wrapped the subline onto a second line: measured at
+   390, the header went from 41px to 85px the moment it became a dock, because
+   `.chat-headline` had been taking that space through a `margin-right: auto`
+   the zone was now absorbing. Stated as the rule rather than as an id, so the
+   next dock without a search box does not have to rediscover it. */
+.dock:not(:has(.dock-find)) .dock-identity {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .dock-identity h2 {
   margin: 0;
   white-space: nowrap;
@@ -7821,6 +7834,19 @@ input[type="file"] {
 .dock .graph-help-toggle {
   width: 2rem;
   height: 2rem;
+}
+
+/* A kebab built by `kebabMenu` arrives wrapped in its own `.menu-wrap`, so it
+   is a great-grandchild of the dock and the rule above (deliberately shallow,
+   so a chip nested inside the identity zone is not stretched to a control
+   height) does not reach it. Measured on the Chat header: Fork and Compress
+   came up to 36px and the kebab beside them stayed at 28. `.menu-wrap >
+   button` is the opener only; the menu itself is `.action-menu`, and its rows
+   are its own children. */
+.dock .menu-wrap > button {
+  height: var(--control-h);
+  padding-block: 0;
+  margin: 0;
 }
 
 /* **A segment's cells fill the segment, and the segment fills the dock.**
@@ -7923,6 +7949,16 @@ input[type="file"] {
 
 @media (max-width: 600px) {
   .dock-identity .dock-link {
+    display: none;
+  }
+
+  /* The Chat thread mark is decoration: `aria-hidden`, and it says "this is a
+     conversation" on a screen where the conversation is the only thing there.
+     It costs 40px of a 330px row, and that is exactly what one height costs
+     here. Measured at 390: with the mark, the header wraps to two rows (85px)
+     once its controls come up to the dock height; without it, one row (45px).
+     The same trade `.dock-link` above already makes. */
+  .dock .chat-thread-mark {
     display: none;
   }
 

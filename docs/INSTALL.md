@@ -13,48 +13,48 @@ rather manage the virtual environment yourself).
 
 ## Windows installer
 
-The simplest way in on Windows, no terminal or Python install required:
+The simplest way in on Windows: no terminal, no Python install.
 
 1. Download the latest `MemoryMap-AI-Setup-*.exe` from
    [Releases](https://github.com/Braydenh563/MemoryMap-AI/releases).
-2. Run it. **Windows will show a blue "Windows protected your PC" screen** —
-   this build isn't code-signed yet (a certificate costs money per year, and
-   isn't worth it before there's a real user base to justify it), which is
-   why Windows flags it as from an unrecognised publisher. Click **More
-   info**, then **Run anyway**. The installer itself does nothing but copy
-   the app into your own user folder — nothing system-wide, no admin prompt.
+2. Run it. Windows shows a blue "Windows protected your PC" screen: this
+   build isn't code-signed yet (a certificate costs money every year, and
+   isn't worth it before there's a real user base to justify it), so
+   Windows flags it as from an unrecognised publisher. Click **More info**,
+   then **Run anyway**. The installer itself does nothing but copy the app
+   into your own user folder: nothing system-wide, no admin prompt.
 3. It installs a Start Menu shortcut (and, optionally, a desktop one) and
    offers to launch the app when it finishes.
 
-Your notes live in `%APPDATA%\MemoryMap AI` — untouched by an update or
+Your notes live in `%APPDATA%\MemoryMap AI`, untouched by an update or
 reinstall, and left alone if you uninstall the app itself. Voice dictation,
-search-by-meaning, and the desktop window are all still installed the same
-way afterwards: **Settings → Packages**.
+search by meaning, and the desktop window all install the same way
+afterwards, from **Settings → Packages**.
 
-**The installer is a snapshot, not a subscription.** It doesn't phone home or
-patch itself — a release built today is exactly what you'll be running a year
-from now unless you download a newer one by hand. Turn on **Settings → About
-→ "Check GitHub for a newer version"** (off by default, same "100% offline
-unless you ask" rule as web search) and the app will tell you when a newer
-release exists — it only ever checks, it never downloads or installs
-anything on its own.
+**The installer is a snapshot, not a subscription.** It doesn't phone home
+or patch itself. A release built today is exactly what you'll be running a
+year from now, unless you download a newer one by hand. Turn on **Settings
+→ About → "Check GitHub for a newer version"** (off by default, the same
+"100% offline unless you ask" rule as web search) and the app tells you
+when a newer release exists. It only ever checks: it never downloads or
+installs anything on its own.
 
-**No terminal window.** The desktop app runs its server in the background and
-puts an icon in the system tray — closing the window minimizes it there
+**No terminal window.** The desktop app runs its server in the background
+and puts an icon in the system tray. Closing the window minimizes it there
 rather than quitting, and the tray menu (Open / View Logs / Restart / Quit)
 is how you get it back or shut it down for real. If Settings → Packages
 shows the desktop extra as installed but no tray icon appears, the tray
-piece (`pystray` + `Pillow`) didn't come along with it — reinstall the
+piece (`pystray` and `Pillow`) didn't come along with it: reinstall the
 desktop extra from that same panel.
 
-Prefer to build it yourself, or want it on macOS/Linux? See below —
+Prefer to build it yourself, or want it on macOS or Linux? See below:
 `start.sh`/`start.bat` work on all three, today.
 
 ## Launcher script
 
-**You need Python 3.11 or newer.** That's it to get running. If you've never
-used a terminal before, follow the numbered steps below exactly — every grey
-box is a command to copy and paste, one line at a time.
+**You need Python 3.11 or newer.** That's it to get running. If you've
+never used a terminal before, follow the numbered steps below exactly:
+every grey box is a command to copy and paste, one line at a time.
 
 ### 1. Open a terminal
 
@@ -64,11 +64,11 @@ box is a command to copy and paste, one line at a time.
 
 ### 2. Get the app onto your machine
 
-Pick whichever of these two you find easier — both end up in the same place,
-a folder called `MemoryMap-AI`.
+Pick whichever of these two you find easier. Both end up in the same
+place, a folder called `MemoryMap-AI`.
 
-**With git** (if you're not sure, you probably don't have it — skip to the
-next option):
+**With git** (if you're not sure, you probably don't have it, so skip to
+the next option):
 
 ```
 cd ~
@@ -76,50 +76,50 @@ git clone https://github.com/Braydenh563/MemoryMap-AI.git
 cd MemoryMap-AI
 ```
 
-**Without git** — download instead:
+**Without git**, download instead:
 
 1. Open <https://github.com/Braydenh563/MemoryMap-AI> in your browser.
 2. Click the green **Code** button, then **Download ZIP**.
 3. Unzip it wherever you like (double-click the downloaded file on
    Windows/macOS).
 4. Back in your terminal, `cd` into the folder you just unzipped. The
-   easiest way: type `cd ` (with a trailing space), then **drag the unzipped
-   folder from your file browser into the terminal window** — most
-   terminals fill in the correct path for you — then press Enter.
+   easiest way: type `cd ` (with a trailing space), then **drag the
+   unzipped folder from your file browser into the terminal window** (most
+   terminals fill in the correct path for you), then press Enter.
 
 Either way, you should now be sitting *inside* the `MemoryMap-AI` folder.
-`ls` (macOS/Linux) or `dir` (Windows) should list `start.sh`, `start-desktop.bat`
-and this repo's `README.md` among the files.
+`ls` (macOS/Linux) or `dir` (Windows) should list `start.sh`,
+`start-desktop.bat` and this repo's `README.md` among the files.
 
 ### 3. Run the launcher
 
 From inside that same folder:
 
-- **Windows** — double-click **`start-desktop.bat`** in File Explorer, or
+- **Windows.** Double-click **`start-desktop.bat`** in File Explorer, or
   type `start-desktop.bat` and press Enter in the terminal you're already
-  in. This opens the app in its own window rather than a browser tab —
-  prefer it unless you specifically want a browser tab (`start.bat`, no
+  in. This opens the app in its own window rather than a browser tab:
+  prefer it, unless you specifically want a browser tab (`start.bat`, no
   arguments, does that instead).
-- **macOS / Linux** — run **`./start.sh`** for a browser tab, or
+- **macOS / Linux.** Run **`./start.sh`** for a browser tab, or
   `./start.sh --desktop` for the app's own window.
 
-The launcher builds the virtual environment, installs everything, starts the
-app and opens <http://localhost:8000> (or <http://127.0.0.1:8000>). The
-first run takes a few minutes; after that it goes straight to launching, and
-only re-installs when `requirements.txt` changes.
+The launcher builds the virtual environment, installs everything, starts
+the app and opens <http://localhost:8000> (or <http://127.0.0.1:8000>).
+The first run takes a few minutes; after that it goes straight to
+launching, and only re-installs when `requirements.txt` changes.
 
-**Losing track of the folder is the single most common stumbling block here**
-— so every launch prints exactly where it's running from and the command to
-get back, right above the browser opening:
+**Losing track of the folder is the single most common stumbling block
+here**, so every launch prints exactly where it's running from and the
+command to get back, right above the browser opening:
 
 ```
 Installed at: /home/you/MemoryMap-AI
 Next time:    open a terminal there and run ./start.sh again
 ```
 
-That line is your answer any time you can't remember where you put it —
-scroll up in that terminal window, or just re-run the launcher from the same
-place you ran it the first time.
+That line is your answer any time you can't remember where you put it.
+Scroll up in that terminal window, or just re-run the launcher from the
+same place you ran it the first time.
 
 Prefer a browser tab over the app's own window? `start.bat`/`./start.sh`
 with no arguments does that instead.
@@ -135,7 +135,7 @@ source .venv/bin/activate        # Windows: .venv\Scripts\activate
 
 # 2. Dependencies, then the app itself
 pip install -r requirements.txt
-pip install -e .                 # the dot matters - it means "this folder"
+pip install -e .                 # the dot matters, it means "this folder"
 
 # 3. Optional: relocate your data or point at a different Ollama
 cp .env.example .env             # Windows: copy .env.example .env
@@ -146,11 +146,11 @@ Optional extras, installed only if you want them:
 ```
 pip install pywebview        # the --desktop window
 pip install pystray Pillow   # tray icon for the desktop window above
-pip install faster-whisper   # local speech-to-text for the 🎙 buttons
+pip install faster-whisper   # local speech-to-text for the mic buttons
 pip install pytesseract Pillow   # OCR text on uploaded images (Library -> Image Gallery search)
 ```
 
-The OCR extra also needs the `tesseract` **system binary** on your PATH —
+The OCR extra also needs the `tesseract` **system binary** on your PATH.
 `pip` can't install that part for you, since it isn't a Python package:
 
 ```
@@ -161,7 +161,7 @@ brew install tesseract
 # Windows: https://github.com/UB-Mannheim/tesseract/wiki
 ```
 
-Without it, uploaded images just don't get searchable text — nothing else
+Without it, uploaded images just don't get searchable text. Nothing else
 about the app is affected, and no upload ever fails because of it.
 
 ## Running it
@@ -174,24 +174,25 @@ python -m memorymap --desktop   # the same app in its own window
 Without `pywebview`, `--desktop` falls back to a browser tab rather than
 failing.
 
-On first run you choose a password (bcrypt-hashed, stays on your machine).
-The interactive API explorer lives at <http://localhost:8000/docs>.
+On first run you choose a password (bcrypt-hashed, stays on your
+machine). The interactive API explorer lives at
+<http://localhost:8000/docs>.
 
 ## Updating
 
-Same command — `start.sh`/`start.bat` pull the latest code and re-install
-dependencies automatically every time you run them, before the app starts.
+Same command: `start.sh`/`start.bat` pull the latest code and re-install
+dependencies automatically every time you run them, before the app
+starts.
 
-**Schema upgrades happen automatically at startup** — new columns are added
-in place, your notes are never touched. You do *not* need to delete
-`data/memorymap.db` when updating.
+**Schema upgrades happen automatically at startup.** New columns are
+added in place, and your notes are never touched. You do *not* need to
+delete `data/memorymap.db` when updating.
 
 ## Uninstalling
 
 Run `./uninstall.sh` (or `uninstall.bat`). It removes the virtual
-environment `start.sh` built and leaves your notes untouched unless you
-explicitly pass `--delete-data` — see the script's own `--help`-style
-comment header for the full options. Optional extras (dictation, the desktop
-window, search-by-meaning) can be installed, reinstalled or removed
-individually and without touching a terminal at all, from **Settings →
-Packages**.
+environment `start.sh` built and leaves your notes untouched, unless you
+explicitly pass `--delete-data` (see the script's own `--help` for the
+full options). Optional extras (dictation, the desktop window, search by
+meaning) can be installed, reinstalled or removed individually, without
+touching a terminal at all, from **Settings → Packages**.

@@ -1412,9 +1412,30 @@ class DatabaseManager:
         the same additive convention `_add_missing_columns` already uses.
         """
         with self.engine.begin() as connection:
+            # Stemming, so "proving" finds "prove" and "proved", and "boots"
+            # finds "boot". The index shipped on FTS5's default tokenizer,
+            # which matches whole words only; with no AI running keyword
+            # search is the whole of search, and a query in a different
+            # inflection than the note found nothing. `porter unicode61`
+            # is built into SQLite's FTS5, no dependency. A tokenizer is
+            # fixed at CREATE time, so an index built before this has to be
+            # rebuilt once: the table's own DDL in sqlite_master says which
+            # it is, and dropping the index (never the notes: it is an
+            # external-content table holding no text of its own) lets the
+            # back-fill below repopulate it, guarded by the trigger it also
+            # drops.
+            existing_ddl = connection.exec_driver_sql(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='entries_fts'"
+            ).scalar()
+            if existing_ddl and "porter" not in existing_ddl:
+                for trigger in ("entries_fts_ai", "entries_fts_ad", "entries_fts_au"):
+                    connection.exec_driver_sql(f"DROP TRIGGER IF EXISTS {trigger}")
+                connection.exec_driver_sql("DROP TABLE IF EXISTS entries_fts_vocab")
+                connection.exec_driver_sql("DROP TABLE IF EXISTS entries_fts")
             connection.exec_driver_sql(
                 "CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts USING fts5("
-                "content, tags, content='entries', content_rowid='id'"
+                "content, tags, content='entries', content_rowid='id', "
+                "tokenize='porter unicode61'"
                 ")"
             )
             # The index's own vocabulary as a table, one row per distinct

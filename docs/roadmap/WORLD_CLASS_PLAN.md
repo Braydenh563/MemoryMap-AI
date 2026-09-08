@@ -754,3 +754,62 @@ Each of these was found by measuring and deferred with evidence; the
   Owner: docks.md.
 - Tidy layout never measured past five nodes; a newly opened map leaves
   its root under the top bar. Owner: mindmap.md item H.
+
+## 14. The core algorithms, read line by line (2026-09-08)
+
+The owner asked whether the core algorithms are the best they can be, and
+what would revolutionise the app decisively. Read, not assumed:
+`search_manager.py`, `embeddings.py`, `janitor.categorise`, `intent.py`,
+`grounding.py`, `_ensure_fts5`.
+
+### What is already good
+
+- Keyword search is FTS5 with `bm25()`, tag boost, prefix fallback,
+  vocabulary-based spelling correction, then an OR fallback. Sound.
+- Semantic search is brute-force cosine with a z-score relative floor,
+  scored on `(id, vector)` tuples, fine to about 50k notes.
+- Fusion is reciprocal rank fusion, then a two-hop graph expansion.
+- Filing asks the model first, falls back to the embedding centroid, and
+  logs the method. Every decision is explainable.
+
+### What was wrong, and is fixed this session
+
+- **No stemming.** The FTS index used the default tokenizer, so "prove"
+  never found "proving" and "boot" never found "boots". With no AI
+  running that was the whole of search. Now `porter unicode61`, with a
+  one-time rebuild of an older index (`tests/test_keyword_search.py`).
+- **Grounding scored only the retrieval set at 40% word overlap.** A
+  paraphrase, and every note the model read through a tool mid-turn, went
+  uncited. Now touched notes are candidates and a note's distinctive words
+  ground from 20% (`tests/test_grounding.py`).
+
+### The moves that would outshine everything else, in order of leverage
+
+1. **A learning loop that never leaves the machine.** Every correction the
+   owner makes is a training signal nobody uses: a re-filed note, a
+   dismissed link suggestion, a result opened after a question, an
+   accepted "related" chip. Store each as an event (B1), and let three
+   algorithms read them: filing gets the nearest already-filed notes and
+   the owner's past corrections as evidence in the prompt (k-NN
+   few-shot from the notebook itself, which is the single biggest
+   accuracy lever for a small model); search gets a per-note boost from
+   what was opened after similar questions, with decay; link suggestions
+   never resurface a dismissed pair and raise the prior of an accepted
+   neighbourhood. No competitor does this offline. Size M; spec tests
+   first (`tests/test_learning_spec.py`, strict xfail).
+2. **Index everything** (B3). Documents, files' extracted text, board
+   nodes and bookmarks are not in FTS5 or the vector table, so Ask cannot
+   see them unless attached by hand. This is the largest capability hole
+   in the app and is already specified; it goes first among the backend
+   moves.
+3. **Chunked vectors and sentence-level citations.** One vector per note
+   loses long notes and every document. Embed paragraphs (one row per
+   chunk, `entry_id, ordinal, vector`), retrieve chunks, and ground each
+   answer sentence by cosine against chunks when an embedding backend is
+   up, falling back to the lexical scorer. A citation then points at the
+   paragraph, and the chip quotes it. Size M.
+4. **Claims and tensions** (B4): the invention that no notebook has. It is
+   expensive (a model idle loop) and depends on 1 to 3; keep it after them.
+
+What is not worth doing: replacing RRF, replacing bm25, or an approximate
+nearest-neighbour index below 50k notes. The measured costs are elsewhere.

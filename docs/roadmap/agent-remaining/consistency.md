@@ -1,4 +1,4 @@
-# Consistency sweep: what is done, what is left
+# Consistency sweep: what is left
 
 The brief behind this file is the owner's report, in his words:
 
@@ -12,22 +12,24 @@ The brief behind this file is the owner's report, in his words:
 > areas where the icons and accompanying text dont align", "consistent design,
 > things flowing and feeling connected".
 
-Eight numbered items came out of that. **Nothing here is dropped, only
-deferred** - this file is the resume point.
+Eight numbered items came out of that. **Seven are closed with measurements.**
+Everything below is what a next session can still pick up.
 
-All new CSS from this work is in **`frontend/css/08-consistency.css`**, linked
-last in `index.html` and registered in `tests/_css_paths.py` so every CSS lint
-covers it. `00-07` are untouched by design: their concatenation order is
-load-bearing (`tests/_css_paths.py` says why), and a cross-cutting decision has
-no single section it belongs in. **Keep adding to 08 rather than reopening the
-earlier files.**
-
-Sweep scripts used, all runnable against a local server:
+All CSS from this work is in **`frontend/css/08-consistency.css`**, linked last
+in `index.html` and registered in `tests/_css_paths.py`. `00-07` are untouched
+by design: their concatenation order is load-bearing, and a cross-cutting
+decision has no single section it belongs in. **Keep adding to 08 rather than
+reopening the earlier files.**
 
 ```bash
-bash scratchpad/ui-sweeps/serve.sh 8815 /tmp/mm-menus
-BASE=http://127.0.0.1:8815 SCRATCH=/tmp/mm-menus PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
-  node scratchpad/ui-sweeps/iconalign.js      # TOL=1 W=1024 THEME=dark all work
+bash scratchpad/ui-sweeps/serve.sh 8821 /tmp/mm-consist
+cd scratchpad/ui-sweeps
+BASE=http://127.0.0.1:8821 SCRATCH=/tmp/mm-consist PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
+  node seed.js && node seed-images.js       # once per data dir
+# then any of: wbmenus.js menurows.js imagechips.js imagebadges.js docksurface.js
+#              dockodd.js heads2.js wraps.js capturebtns.js setindent.js
+#              dialogs.js widgetdrive.js promptdrive.js iconalign.js gapwhy.js
+#              keys.js wbtopbar.js whichrule.js dompath.js selcheck.js
 ```
 
 ---
@@ -36,162 +38,100 @@ BASE=http://127.0.0.1:8815 SCRATCH=/tmp/mm-menus PLAYWRIGHT_BROWSERS_PATH=/opt/p
 
 | # | Item | State |
 | --- | --- | --- |
-| 1 | One menu recipe, no fill at rest | **Done** (`78a309b`) |
-| 2 | `details > summary` in a card is a flat header | **Done** (`f266bf5`) |
-| 3 | Top docks as one bar | **Mostly done** (`c011779`) - see below |
-| 4 | Icon and text alignment | **Done** (`2644ad5`) - see the leftover gaps below |
-| 5 | Form footers as one action bar, FAB clearance | **Mostly done** (`baa0616`) - see below |
-| 6 | One toggle-row recipe | **Done** (`493aa0b`) |
-| 7 | Meta looks like meta | **Mostly done** (`13a625c`) - image chips unverified |
-| 8 | No em-dashes in new copy or comments | **Held** - 0 in `08-consistency.css` |
+| 1 | One menu recipe, no fill at rest | **Done**, all five whiteboard menus now measured too |
+| 2 | `details > summary` in a card is a flat header | **Done** |
+| 3 | Top docks as one bar | **Done** for all twelve docks plus the Dashboard toolbar and the whiteboard top bar's controls |
+| 4 | Icon and text alignment | **Done**, 2 gap families left and both are deliberate |
+| 5 | Form footers as one action bar, FAB clearance | **Done**, including the two 1024 wraps |
+| 6 | One toggle-row recipe | **Done** |
+| 7 | Meta looks like meta | **Done**, image chips now measured on a seeded gallery |
+| 8 | No em-dashes in new copy or comments | **Held**, 0 in `08-consistency.css` |
 
 ---
 
-## 1. Menus - done, with one surface unverified
+## What is actually left
 
-Every menu row is now flat: measured 0 of 27 rows across six menus carrying a
-non-transparent background at rest, all 34.53px tall with 6.4/12.8px padding.
-The recipe is decided by container (shell class plus row class, 0,2,0) rather
-than by remembering to add `.menu-item` at each call site.
+### 1. The documents editor toolbar (`.doc-toolbar`)
 
-**Left to verify:** the five whiteboard menus (Insert, Edit, Arrange, View,
-Board). The same rules cover them - `.wb-board-menu` and `.wb-export-menu` were
-added to the one opaque popover shell and `.wb-menu-item` to the row recipe -
-but the board itself could not be opened in the driver in the time available,
-so they are reasoned from the cascade and not measured.
+**The one surface in item 3's list still off the recipe.** It has had the bar
+surface since the "fix the toolbar" round, so only its *controls* are open:
+apply the `.dock > * > button.ghost` half of the recipe scoped to
+`.doc-toolbar` and re-measure fills, radii and heights the way
+`scratchpad/ui-sweeps/heads2.js` does.
 
-- **Next step:** open Library, click the `[role="tab"][data-target="library-view-whiteboard"]`
-  sub-tab, open a board, then click each `[data-wb-menu-toggle]` and probe
-  `#wb-insert-menu`, `#wb-edit-menu`, `#wb-arrange-menu`, `#wb-view-menu`,
-  `#wb-board-menu` for a non-transparent row background at rest. A ready
-  script is at `scratchpad/audit-wb.js` in this session's scratchpad; it needs
-  the correct "open a board" click, which is what defeated it.
+Not done here because another agent owns the documents toolbar this round. Do
+not start it until that work has landed, then compare its controls against
+`.dock`'s and reconcile in 08.
 
----
+### 2. The OCR workspace head
 
-## 3. Docks - five done, four surfaces not yet on the recipe
+Not in the original brief, but it is the same shape and
+`05-sidebars-themes.css:1269` names it alongside `.doc-toolbar` and
+`.library-head` as having had the same fault.
 
-Done and measured, per dock (fills / radii / borders / heights), before to
-after:
+**Could not be measured**: `.ocr-toolbar` only exists once a file is open in
+the OCR workspace, and the seeded notebook has no path to one without a real
+scan. `wbtopbar.js` already has a probe pointed at it; the missing piece is a
+way to get a scanned file into the sweep's notebook. Nothing is assumed about
+it either way.
 
-| Dock | Before | After |
-| --- | --- | --- |
-| Notes | 5 / 6 / 5 / 4 | 3 / 2 / 4 / 3 |
-| Graph | 4 / 5 / 5 / 3 | 3 / 1 / 3 / 2 |
-| Timeline | 5 / 5 / 5 / 5 | 3 / 2 / 4 / 3 |
-| Reminders | 3 / 2 / 3 / 3 | 3 / 2 / 3 / 3 |
-| Library | 5 / 5 / 5 / 2 | 3 / 2 / 4 / 3 |
+### 3. Two icon-gap outliers, both judged deliberate
 
-The bar is `--card` at `1px --border`, radius 11.2px, padding 8/9.6, h=54 on
-all five. Only five elements carry `class="dock"` in `index.html` (lines 990,
-1744, 1876, 2801, 2914) and all five are done.
+- **10 meta chips at 3.6px** (`.chip.when`, `.map-chip`) against the app's
+  242 controls at 6.4px. `--space-1` for a 12px chip is a size relationship,
+  not drift. Revisit only if the owner reads them as inconsistent.
+- **`#conv-browse-all` at 17.7px, at 1024 only.** It is `width: 100%` with
+  `justify-content: center`, so its visible gap is a function of the sidebar's
+  width rather than a gap declaration that drifted. One control.
 
-### Surfaces named in the brief that are NOT on the recipe
+### 4. "Advanced response settings" sits 20.8px right of its siblings
 
-| Surface | Selector | File | Next step |
-| --- | --- | --- | --- |
-| Chat head | `.chat-dock` | `04-chat-dock-appearance.css:1175` and around | **Owned by another agent this round** (worktree `agent-a9ca1fcf2f7eb318b`). Do not touch until that work lands, then compare its surface against `.dock`'s and reconcile in 08. |
-| Dashboard head | `.dash-*` heads | `03-dashboard-widgets.css` | Same agent. Same reconcile step. Note the brief also says do not touch the dashboard hero. |
-| Library sub-tab heads (All / Documents / Boards & maps / Images / Files / Links / Contents) | `.library-toolbar`, `#library-view-* .row.space-between` | `07-whiteboard-misc.css` around line 7780 | Same agent. The outer Library dock (line 2914) IS done; these are the per-view heads inside each sub-tab. |
-| Documents editor head | `.doc-toolbar` | `05-sidebars-themes.css:1263` | **Partly done.** It already had a bar surface (`--card` fill, edge, radius) since the "fix the toolbar" round, so only its edge colour and radius were moved onto the dock's. Its *controls* are not yet quiet: apply the `.dock > * > button.ghost` half of the recipe, scoped to `.doc-toolbar`, and re-measure fills/radii/borders the way `scratchpad/audit-dock.js` does. Do not touch the documents editor **body** - another agent owns it. |
-| Whiteboard top bar | `.wb-topbar` | `07-whiteboard-misc.css:6403` | **Deliberately excluded, and this is a decision to keep, not an omission.** It floats over the canvas, so DESIGN.md's floating-surface rule makes `--modal-bg` with `--glass-border` correct there rather than the dock's `--card` and `--border`. What is still open is the *controls inside it*: `.wb-topbar button` should get the same quiet treatment. |
-| OCR workspace header | `.ocr-*` head | `07-whiteboard-misc.css` | Not in the brief, but it is the same shape and `05-sidebars-themes.css:1269` names it alongside `.doc-toolbar` and `.library-head` as having had the same fault. Worth folding in. |
+54 of the 55 Settings headings now share one left edge (546px). The one left
+is inside a `<summary>` (`#sampling-box`) and the disclosure marker precedes
+it. Fixing it means hiding the native marker, and hiding it without drawing a
+replacement trades a visible affordance for an alignment. Decide that
+trade-off before touching it.
 
-### Also open on the docks
+### 5. One cross-theme difference, in a token pair rather than a surface
 
-- **1024 wrapping is correct but untuned.** At 1024 Notes and Graph wrap to two
-  rows (h=98) and the actions zone lands right-aligned by its own
-  `margin-left: auto`, so no stray leading hairline appears. Measured, no
-  clipping (`scrollWidth == clientWidth` on all five at 1440 and 1024). If a
-  future change makes a zone other than `.dock-actions` wrap first, the
-  `.dock > * + *` border-left will show as a stray line at the left edge of the
-  second row. The check for that is already in `scratchpad/shot-docks.js`
-  (`strayHairline`), keep running it.
-- **Dark theme not re-measured after the dock change.** The numbers above are
-  light theme at 1440. `THEME=dark` on the same script is the check.
+In light, `--field-inset` and the segmented track are both
+`rgba(31, 36, 48, 0.07)`, so a search field and a segment track are one tone.
+In dark they are `rgba(0, 0, 0, 0.28)` and `rgba(255, 255, 255, 0.08)`, two
+tones. Light flattens a distinction dark makes. Found while re-measuring the
+docks in both themes; it belongs to whoever owns the token file, not to a dock.
 
 ---
 
-## 4. Icon and text alignment - done, two gap families left
+## The measurement lessons worth keeping
 
-Vertical: **0 of 274 icon-and-text controls off by more than 1px**, worst in the
-app 0.87px. This half of the report did not reproduce and nothing was changed
-for it.
+These cost a round each here and will cost the next session the same.
 
-Horizontal: **10 distinct icon-to-label gaps before, 3 after**, with 229 of 243
-now on `--space-2` exactly.
-
-**The two that remain:**
-
-| Gap | Count | Where | Next step |
-| --- | ---: | --- | --- |
-| 8px | 12 | a bare `<summary>` outside the families named in 08 | Find which by re-running `iconalign.js` and reading the `e.g.` line it prints for the 8px bucket; then add that container to the `gap: var(--space-2)` list in 08. |
-| 10.4px | 14 | `#space-switcher-btn.ghost.small.space-sw` and siblings; the container gap is already 6.4px and the icon margin is already 0, so the extra 4px comes from something else in the row (most likely a leading space in a text node or a wrapper span with its own margin) | Inspect that button's children directly. This one is a markup question, not a CSS one. |
-
-Also not run: `THEME=dark` and `W=1024` sweeps. The script takes both.
-
----
-
-## 5. Form footers - one row at 1440, still two at 1024
-
-Done: both `.draft-controls` rows are one line at 1440 with the primary
-rightmost, and `coversAFormPrimary` (app.js) guarantees the scroll-to-top
-button never comes within `--space-3` of a form's primary, proven on four
-cases in the browser.
-
-**Left:**
-
-- **The Writing Room wraps at 1024** (both rows, h=88, 2 lines). The section is
-  a two-column layout, so each column is about 340px there and four controls
-  cannot fit on one line at any distribution of the space. The real fix is for
-  `.draft-columns` to collapse to a single column below about 1100px, which is
-  a layout change to a surface this brief did not scope. **Next step:** add a
-  `@media (max-width: 1100px)` rule in 08 setting the draft columns to
-  `grid-template-columns: 1fr` (or `flex-direction: column`), then re-run
-  `scratchpad/verify5.js` at 1024 and confirm `LINES=1` on both rows.
-- **The capture attachments row wraps at 1024** (`.capture-field-row`, h=88,
-  3 lines): a label, a select and five labelled buttons in about 675px. The
-  row is a deliberate split (the comment at `index.html:708` explains why the
-  attach family was moved out of the commit row), so the fix is to let the
-  five buttons become icon-only below some width rather than to re-merge the
-  rows. **Next step:** hide the label text on `#entry-attach-file`,
-  `#entry-attach-existing`, `#sketch-btn`, `#mic-note`, `#improve-btn` under a
-  media query the way `.wb-topbar .wb-menu-label` already does at 56rem, and
-  re-measure `LINES`.
-- **The Ask composer** (`.ask-query-row`, h=55, LINES=2 at both widths) was
-  measured but not touched. It is `flex-wrap: nowrap` with 5 children, so the
-  two "lines" are a taller child rather than a wrap. Confirm that reading
-  before changing anything.
-
----
-
-## 7. Meta chips - skills done, image cards unverified
-
-Done and measured on the Library skill cards: before, four heights (21.2,
-31.6, 31.6, 24.8), three radii (15.4, 8.4, 4.2) and three fills (accent-soft,
-ghost-btn-bg, chip-bg) for four pieces of the same kind of information in one
-card. After: two fills (`--chip-bg` and transparent), the two chips within
-1.2px of each other in height, and "Never run." is plain `--muted` text.
-
-**Left to verify:** `.library-image-usage-chip`, `.library-image-model-chip`
-and `.library-image-tile .chip` are covered by the same rules but the seeded
-notebook has no images, so they are reasoned from the cascade and not measured.
-
-- **Next step:** seed an image (POST an entry with an image attachment, or use
-  the Images sub-tab's upload), then run `scratchpad/audit-meta.js` against
-  `[role="tab"][data-target="library-view-media"]` and check the chips against
-  the persona reference: `--chip-bg`, no border, pill radius, 1.6/9.6 padding,
-  12px, `--muted`.
-
----
-
-## 8. Em-dashes
-
-`08-consistency.css` has **0**. Every comment in it was written with hyphens
-after a first pass put 26 in. The wider sweep over the rest of the tree is
-somebody else's item and is not started here.
-
----
+- **Park the pointer before measuring a rest state.** The first whiteboard-menu
+  run reported a row filled at rest that was only under the virtual mouse.
+  Hover is not rest. `wbmenus.js` does `page.mouse.move(1430, 890)` first.
+- **`--control-h` has no root value.** It is declared fourteen times in scoped
+  blocks at 1.875rem, 2rem, 2.25rem and 2.5rem, so a rule that can land
+  anywhere resolves to whichever surface it happens to sit inside. Using it in
+  the menu recipe returned 34/33/35.17/22.39px in one popover.
+  **`--control-h-lg` is declared once, at the root.**
+- **Ask the browser which rule wins, and ask for the shorthand.**
+  `scratchpad/ui-sweeps/whichrule.js` lists every rule matching an element and
+  declaring a property, in cascade order, which grep cannot do: it cannot see
+  specificity and it cannot see that a selector matches nothing. Ask it for
+  `background`, not `background-color`: a `var()` inside a shorthand is stored
+  as a pending substitution, so the longhand reads empty and the winning rule
+  looks absent.
+- **A selector written from the feature rather than from the markup matches
+  nothing, silently.** `.library-image-model-chip` was in 08 for a whole round
+  and `document.querySelectorAll` for it returns 0.
+- **`getBoundingClientRect().left` does not move when something is indented
+  with padding.** A landed fix measured as no change at all until the sweep
+  read the content edge instead.
+- **Count the way the grammar counts.** A segmented control is one control, not
+  its track plus its items, and the visually hidden native `<select>` behind an
+  enhanced one is not a control at all. Counting them reports four of five
+  docks at two heights and the Timeline at three, which is a fact about the
+  counter.
 
 ## The one bug shape worth carrying forward
 
@@ -213,11 +153,6 @@ tint on the same selector and its comment says a resting fill was *deliberately
 refused* because it "would turn every collapsed section into a button-looking
 slab and compete with the real buttons inside them". The later rule wins on
 order, so what ships is the thing the first comment predicted.
-
-It surfaced as: the Help accordion rows (item 2), the "Advanced response
-settings" header (item 2), and the Skills cards' "2 steps"/"1 tool" chips
-(item 7), which are `<summary class="chip skill-fact">` and lost to it 0,2,1
-against 0,1,0.
 
 **If a fourth `<summary>` is reported as "looking like a button", this is why.**
 The split 08 makes is: a summary in a dock or a toolbar *is* a control in a row

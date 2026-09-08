@@ -9410,14 +9410,19 @@ document.addEventListener("DOMContentLoaded", () => {
   $("wb-import-map-file")?.addEventListener("change", wbImportOutlineFile);
   $("wb-back-to-boards")?.addEventListener("click", wbShowBoardsLanding);
   $("library-boards-search")?.addEventListener("input", renderLibraryBoardsGallery);
-  // The Reload button beside "+ New board". Its id says `library-media-refresh`
-  //, a copy-paste leftover from the Media sub-tab's own refresh button, and
-  // the reason it was missed: library.js wires the Media one by that name, so
-  // a search for the id finds a listener, just not one attached to *this*
-  // button. It sits in the Whiteboards header and had none of its own, so it
-  // did nothing. Renaming the id would be the tidier fix and is not worth
-  // breaking a selector over; wiring it is what makes it work.
-  $("library-media-refresh")?.addEventListener("click", renderLibraryBoardsGallery);
+  // The Reload button beside "+ New board", now named after what it reloads.
+  // It was `library-media-refresh`, a copy-paste leftover from the Media
+  // sub-tab, and that name is why it sat unwired for so long: searching the id
+  // found a listener that a reader assumed was this button's. Checked before
+  // renaming rather than after: the id appears exactly once in index.html and
+  // exactly once in the JS, here, and `library.js` does not mention it at all,
+  // so the comment this replaces was itself out of date about the Media
+  // sub-tab wiring it. `library-boards-refresh` matches the
+  // `#library-boards-search` beside it.
+  //
+  // Its title and aria-label said only "Reload", which on a header holding
+  // New board, Import outline and Help does not say reload what.
+  $("library-boards-refresh")?.addEventListener("click", renderLibraryBoardsGallery);
 });
 
 // The Whiteboards tab has two views sharing one subtab: a boards gallery

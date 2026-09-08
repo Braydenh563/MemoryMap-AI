@@ -472,13 +472,25 @@
   <!-- Widget picker (roadmap §26): a dedicated surface for the same
        dashboard_layout preference the inline "Edit layout" mode writes.
        Rows are built by renderDashWidgetsList() in app.js. -->
+  <!-- **Title row, body, footer**, the shape every other dialog in the app
+       has, reported as one of two that did not. Before, this card's children
+       were a heading, a paragraph, a search field, the list and an action row,
+       all at one level, so the heading and the filter scrolled with the
+       twenty-four rows they were meant to sit above. The three parts are
+       `.modal-head`, `.modal-body` and `.modal-foot` here rather than the
+       generic `.row`s, because a dialog with a scrolling body needs its head
+       and foot pinned and its middle to be the only thing that moves. -->
   <dialog id="dash-widgets-dialog" class="card space-dialog dash-widgets-dialog">
-    <h3>Widgets</h3>
-    <p class="muted">Add, remove or widen any dashboard widget. Changes save right away.</p>
-    <input type="search" id="dash-widgets-search" placeholder="Filter widgets…" autocomplete="off">
-    <div id="dash-widgets-list" class="dash-widgets-list"></div>
-    <div class="row right space-dialog-actions">
-      <button type="button" class="ghost" data-close-dialog="dash-widgets-dialog">Done</button>
+    <div class="modal-head row space-between">
+      <h3>Widgets</h3>
+    </div>
+    <div class="modal-body">
+      <p class="muted">Add, remove or widen any dashboard widget. Changes save right away.</p>
+      <input type="search" id="dash-widgets-search" placeholder="Filter widgets…" autocomplete="off">
+      <div id="dash-widgets-list" class="dash-widgets-list"></div>
+    </div>
+    <div class="modal-foot row right space-dialog-actions">
+      <button type="button" data-close-dialog="dash-widgets-dialog">Done</button>
     </div>
   </dialog>
 
@@ -987,7 +999,7 @@ Link to another note with [[its first few words]]."></textarea>
                help, more: notes per page). The sheet is gone: the menus are
                the overflow at every width, and the dock wraps the search onto
                its own row on a phone by itself. Every id is unchanged. -->
-          <div class="dock" data-dock-name="notes" role="toolbar" aria-label="Notes controls">
+          <div class="dock" data-dock-name="notes" role="group" aria-label="Notes controls">
             <div class="dock-identity">
               <h2 id="entries-heading" class="entries-heading"><span id="entries-heading-label">All notes</span></h2>
             </div>
@@ -1022,7 +1034,6 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
             </div>
             <div class="dock-actions">
-              <button id="select-btn" class="ghost small" title="Select several notes to move, tag, or delete together"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Select</button>
               <button id="notes-refresh" class="ghost small icon-only" type="button"
                 title="Reload notes" aria-label="Reload notes"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
               <button id="search-help" class="icon-only ghost small graph-help-toggle" type="button"
@@ -1048,6 +1059,25 @@ Link to another note with [[its first few words]]."></textarea>
                        used sometimes. `updateExpandAllButton` still hides it
                        outside rows view and still writes both its label and its
                        icon, so nothing about app.js changes. -->
+                  <!-- **Moved out of the actions zone, and this is the
+                       seven-control ceiling being kept rather than an
+                       aesthetic preference.** The Notes dock counted eight
+                       visible controls against rule 5's ceiling of seven
+                       (docs/roadmap/agent-remaining/docks.md section 2, which
+                       names this exact move). "Select" is a mode you enter
+                       occasionally, which is rule 5's own case for what belongs
+                       in the overflow, and it sits above "Expand all" because
+                       both are things you do to the list rather than ways of
+                       looking at it.
+
+                       Nothing about app.js changes: the listener is
+                       `$("select-btn")`, `enterSelectMode` still adds `.active`
+                       to it, and the delegated `.dock-menu` handler closes the
+                       menu on the click, which is right for entering a mode.
+                       The `.active` state is drawn by 08-consistency.css,
+                       because the menu-row recipe would otherwise flatten it. -->
+                  <button id="select-btn" class="doc-dock-menu-item" type="button"
+                    title="Select several notes to move, tag, or delete together"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Select</button>
                   <button type="button" id="notes-expand-all" class="doc-dock-menu-item hidden"
                     title="Open every note in this list" aria-label="Open every note in this list"></button>
                   <div class="dock-menu-section">
@@ -1203,7 +1233,7 @@ Link to another note with [[its first few words]]."></textarea>
                (`#chat-active-model`, `#chat-context`, Undo) keep their small
                size instead of being stretched to a control height they are not
                and should not be. -->
-          <div class="chat-toolbar dock" data-dock-name="chat" role="toolbar"
+          <div class="chat-toolbar dock" data-dock-name="chat" role="group"
             aria-label="Conversation controls">
             <div class="dock-identity">
             <!-- **The thread has a face.** Reported: the header "feels fake,
@@ -1805,7 +1835,7 @@ Link to another note with [[its first few words]]."></textarea>
            bands and range), actions (Today as the one filled control, help).
            `#timeline-view` stays as the hidden native select every handler
            reads, driven by the segment. -->
-      <div class="dock" data-dock-name="timeline" role="toolbar" aria-label="Timeline controls">
+      <div class="dock" data-dock-name="timeline" role="group" aria-label="Timeline controls">
         <div class="dock-identity">
           <h2>Timeline</h2>
           <span id="timeline-count" class="muted dock-context"></span>
@@ -1937,7 +1967,7 @@ Link to another note with [[its first few words]]."></textarea>
            are verbs used sometimes and live in the kebab. The phone-only
            "more" toggle is gone: the menus are the overflow at every width.
            Every id is unchanged, so graph.js and app.js need no wiring. -->
-      <div class="dock" data-dock-name="graph" role="toolbar" aria-label="Graph controls">
+      <div class="dock" data-dock-name="graph" role="group" aria-label="Graph controls">
         <div class="dock-identity">
           <h2>Graph</h2>
           <button id="graph-concept-maps" class="ghost small dock-link" type="button"
@@ -1946,8 +1976,6 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="dock-group dock-find">
           <input id="graph-search" type="search" placeholder="Highlight notes…"
             aria-label="Highlight matching notes in the graph">
-          <button id="graph-trace-toggle" class="ghost small" aria-expanded="false"
-            title="Find how two notes connect"><i class="ph ph-path ph-lead" aria-hidden="true"></i> Trace</button>
           <button id="graph-highlight-clear" class="ghost small hidden" title="Clear the similar-notes highlight"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear highlight</button>
           <button id="graph-focus-clear" class="ghost small hidden" title="Exit focus mode and return to the global map"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Exit focus</button>
         </div>
@@ -1971,6 +1999,19 @@ Link to another note with [[its first few words]]."></textarea>
                   <label><input type="radio" name="graph-colour" value="cluster"> Cluster</label>
                 </div>
               </div>
+              <!-- **Moved out of the find zone for the seven-control
+                   ceiling** (docks.md section 2, which names this move and the
+                   decision behind it). Trace is a mode, and this menu already
+                   holds the modes: layout, colour, legend, display options.
+                   `#graph-concept-maps` was settled as NOT a control on this
+                   bar: it is a `.dock-link` in the identity zone pointing at a
+                   sibling surface, the same kind of thing as the heading beside
+                   it, so the bar counts eight without it and seven with Trace
+                   moved. Nothing about the handlers changes: app.js and
+                   graph.js both reach it as `$("graph-trace-toggle")`, and the
+                   `.is-on` state it sets is drawn by 08-consistency.css. -->
+              <button id="graph-trace-toggle" class="doc-dock-menu-item" type="button" aria-expanded="false"
+                title="Find how two notes connect"><i class="ph ph-path ph-lead" aria-hidden="true"></i> Trace</button>
               <button id="graph-legend-toggle" class="doc-dock-menu-item" type="button"
                 title="Hide the legend" aria-label="Hide the legend" aria-expanded="true"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i> Legend</button>
               <button id="graph-options-toggle" class="doc-dock-menu-item" type="button" aria-expanded="false"
@@ -2890,7 +2931,7 @@ Link to another note with [[its first few words]]."></textarea>
            done, more: completed per page); the Open/All/Done filter is the
            chip row under the dock, the same shape the Library gives its
            filters. Ids are unchanged. -->
-      <div class="dock" data-dock-name="reminders" role="toolbar" aria-label="Reminder list controls">
+      <div class="dock" data-dock-name="reminders" role="group" aria-label="Reminder list controls">
         <div class="dock-identity">
           <h2>Your reminders</h2>
         </div>
@@ -3003,7 +3044,7 @@ Link to another note with [[its first few words]]."></textarea>
                The chip row below stays: it is the visible filter. Every id
                is unchanged, so library.js needs no wiring beyond dropping the
                segmented sort's own click loop. -->
-          <div class="dock" data-dock-name="library" role="toolbar" aria-label="Library controls">
+          <div class="dock" data-dock-name="library" role="group" aria-label="Library controls">
             <div class="dock-identity">
               <h2>Library</h2>
             </div>
@@ -3119,7 +3160,7 @@ Link to another note with [[its first few words]]."></textarea>
                actions:  New document, refresh, more (documents per page)
              Every id is unchanged; the page-size select simply moves inside
              the ⋯ menu, exactly where the All dock keeps its own. -->
-        <div class="dock" data-dock-name="library-docs" role="toolbar"
+        <div class="dock" data-dock-name="library-docs" role="group"
           aria-label="Document list controls">
           <div class="dock-identity">
             <h2>Documents</h2>
@@ -3224,7 +3265,7 @@ Link to another note with [[its first few words]]."></textarea>
                rather than creating it. It keeps its id and its class, so the
                `.skills-search` rule and `renderSkillCards(search.value)`
                still mean what they meant. -->
-          <div class="dock" data-dock-name="library-skills" role="toolbar"
+          <div class="dock" data-dock-name="library-skills" role="group"
             aria-label="Skill library controls">
             <div class="dock-identity">
               <h2>AI skill library</h2>
@@ -3292,7 +3333,7 @@ Link to another note with [[its first few words]]."></textarea>
              and the comment it carries is the reason: a mind map reachable
              only by opening the board dialog and changing a control inside it
              is one nobody finds. One filled control, one quiet one beside it. -->
-        <div class="dock" data-dock-name="library-boards" role="toolbar"
+        <div class="dock" data-dock-name="library-boards" role="group"
           aria-label="Boards and maps controls">
           <div class="dock-identity">
             <!-- "Boards & maps", matching the sub-tab that opens it. It read
@@ -3355,7 +3396,7 @@ Link to another note with [[its first few words]]."></textarea>
             <input id="wb-import-map-file" type="file" accept=".opml,.xml,.md,.markdown,.txt" class="hidden"
               aria-label="Choose an OPML or Markdown outline to import as a mind map"
               title="Choose an OPML or Markdown outline to import as a mind map">
-            <button id="library-media-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+            <button id="library-boards-refresh" class="ghost small icon-only" type="button" title="Reload the boards list" aria-label="Reload the boards list"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
             <button type="button" id="wb-boards-help" class="icon-only ghost small graph-help-toggle"
               aria-expanded="false" aria-controls="wb-boards-intro"
               title="Every board and concept map you have made. Pick one to open it, or start a mind map from the button beside New board."
@@ -4194,7 +4235,7 @@ Link to another note with [[its first few words]]."></textarea>
              arrange:  one sort select, one view segment (Files only)
              actions:  Upload, refresh, help
            Ids are unchanged, so library.js needs no rewiring. -->
-      <div class="dock" data-dock-name="library-media" role="toolbar"
+      <div class="dock" data-dock-name="library-media" role="group"
         aria-label="Gallery controls">
         <div class="dock-identity">
           <h2 id="library-media-title">Images</h2>
@@ -4324,7 +4365,7 @@ Link to another note with [[its first few words]]."></textarea>
            action this app already routes (app.js) from the empty state's own
            button, so it needs no listener of its own and cannot drift from
            what that button does: it puts the cursor in the URL field. -->
-      <div class="dock" data-dock-name="library-links" role="toolbar"
+      <div class="dock" data-dock-name="library-links" role="group"
         aria-label="Saved link controls">
         <div class="dock-identity">
           <h2>Links</h2>
@@ -4420,7 +4461,7 @@ Link to another note with [[its first few words]]."></textarea>
            The words stay beside the icons because "By month" and "By folder"
            are not guessable from a picture, and the folder option keeps the
            tooltip that answers the question it was reported with. -->
-      <div class="dock" data-dock-name="library-contents" role="toolbar"
+      <div class="dock" data-dock-name="library-contents" role="group"
         aria-label="Contents controls">
         <div class="dock-identity">
           <h2>Contents</h2>

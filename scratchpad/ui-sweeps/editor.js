@@ -401,6 +401,181 @@ function ok(name, condition, detail) {
       Math.abs(scrolled.before - scrolled.after - 200) < 3,
     `top ${scrolled.before.toFixed(0)} -> ${scrolled.after.toFixed(0)} for a 200px scroll`);
 
+  // =========================================================================
+  // DOCUMENTS_PLAN.md Phase 0 — click an underline, see suggestions
+  // =========================================================================
+  //
+  // Its own document, because the D2/D3 run above ends with 120 lines of
+  // `Line N …` written straight into `.value` — no findings in it, and none
+  // of the offsets the checks below need.
+  const P0 = [
+    "Alpha teh beta gamma.",
+    "Gamma the the delta.",
+    "A line with  double spaces and a seperate word.",
+  ].join("\n\n");
+  const p0doc = await page.evaluate(async (content) => {
+    const r = await api("/documents", {
+      method: "POST",
+      body: JSON.stringify({ title: "Phase 0 sweep", content }),
+    });
+    return await r.json();
+  }, P0);
+  await page.evaluate(async (id) => {
+    await openDocument(id);
+    setDocView("source");
+  }, p0doc.id);
+  await page.waitForTimeout(900);
+
+  // --- 1. the backdrop -----------------------------------------------------
+  const back = await page.evaluate(() => {
+    const box = document.getElementById("doc-content");
+    const el = document.querySelector(".doc-backdrop");
+    if (!el) return { missing: true };
+    const boxStyle = getComputedStyle(box);
+    const marks = [...el.querySelectorAll("mark")].map((m) => {
+      const style = getComputedStyle(m);
+      return {
+        text: m.textContent,
+        cls: m.className,
+        line: style.textDecorationLine,
+        style: style.textDecorationStyle,
+        colour: style.textDecorationColor,
+      };
+    });
+    return {
+      marks,
+      // The ink moved: the textarea is transparent, the caret is not.
+      ink: boxStyle.color,
+      caret: boxStyle.caretColor,
+      inked: box.classList.contains("has-backdrop"),
+      // Built from text nodes, never innerHTML — a document containing
+      // `<img onerror=…>` is an ordinary markdown document.
+      elements: [...el.querySelectorAll("*")].every((n) => n.tagName === "MARK"),
+      // Same scroll height, or the two layers drift apart down a long file.
+      scrollH: [box.scrollHeight, el.scrollHeight],
+      boxRect: box.getBoundingClientRect().left,
+      backRect: el.getBoundingClientRect().left,
+    };
+  });
+  ok("P0 backdrop exists in Source view", !back.missing);
+  ok("P0 the textarea's own ink is transparent, its caret is not",
+    back.ink === "rgba(0, 0, 0, 0)" && back.caret !== "rgba(0, 0, 0, 0)" && back.inked,
+    `${back.ink} / caret ${back.caret}`);
+  ok("P0 the backdrop is built from text nodes and <mark>s only", back.elements);
+  ok("P0 backdrop and textarea have the same scroll height",
+    back.scrollH[0] === back.scrollH[1], back.scrollH.join(" vs "));
+  ok("P0 backdrop is placed on the textarea's exact sub-pixel left edge",
+    Math.abs(back.boxRect - back.backRect) < 0.01,
+    `${back.boxRect} vs ${back.backRect}`);
+  const kinds = Object.fromEntries(back.marks.map((m) => [m.text, m]));
+  ok("P0 a misspelling is a red wavy underline",
+    kinds.teh && kinds.teh.style === "wavy" && /0.7\d+, 0.1\d+/.test(kinds.teh.colour),
+    kinds.teh && `${kinds.teh.style} ${kinds.teh.colour}`);
+  ok("P0 a repeated word is dotted",
+    kinds["the the"] && kinds["the the"].style === "dotted",
+    kinds["the the"] && kinds["the the"].style);
+  ok("P0 a style note is a blue wavy underline",
+    kinds["  "] && kinds["  "].style === "wavy" && kinds["  "].cls.includes("doc-finding-style"),
+    kinds["  "] && `${kinds["  "].style} ${kinds["  "].colour}`);
+
+  // **The measurement that makes the backdrop worth having.** A mark that
+  // does not sit exactly over the glyph it is about points at the wrong word,
+  // and every click on it is then wrong too. `docCaretPoint` is the app's own
+  // mirror-div measurement of where a character sits inside the textarea — an
+  // independent oracle, since the backdrop does not use it.
+  const align = await page.evaluate(() => {
+    const box = document.getElementById("doc-content");
+    const el = document.querySelector(".doc-backdrop");
+    const out = [];
+    for (const mark of el.querySelectorAll("mark")) {
+      const finding = docProseFound.find((f) => f.text === mark.textContent);
+      if (!finding) continue;
+      box.setSelectionRange(finding.start, finding.start);
+      const point = docCaretPoint(box);
+      const rect = mark.getBoundingClientRect();
+      out.push({ text: finding.text, dx: rect.left - point.x, dy: rect.top - point.y });
+    }
+    return out;
+  });
+  ok("P0 every mark's box coincides with its glyph's box within 1px",
+    align.length === 3 && align.every((a) => Math.abs(a.dx) <= 1 && Math.abs(a.dy) <= 1),
+    align.map((a) => `${a.text}: dx ${a.dx.toFixed(2)} dy ${a.dy.toFixed(2)}`).join(", "));
+
+  // Scrolled, because a backdrop that is right at the top of the file and a
+  // line out at the bottom is the failure mode this technique actually has.
+  const scrolledBack = await page.evaluate(async () => {
+    const box = document.getElementById("doc-content");
+    const el = document.querySelector(".doc-backdrop");
+    box.value = `${Array.from({ length: 60 }, (_, i) => `Filler line ${i}.`).join("\n")}\nA seperate word down here.`;
+    box.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 500));
+    box.scrollTop = box.scrollHeight;
+    box.dispatchEvent(new Event("scroll", { bubbles: true }));
+    await new Promise((r) => requestAnimationFrame(r));
+    const finding = docProseFound.find((f) => f.text === "seperate");
+    if (!finding) return { noFinding: true };
+    box.setSelectionRange(finding.start, finding.start);
+    const point = docCaretPoint(box);
+    const mark = [...el.querySelectorAll("mark")].find((m) => m.textContent === "seperate");
+    if (!mark) return { noMark: true };
+    const rect = mark.getBoundingClientRect();
+    return {
+      inStep: el.scrollTop === box.scrollTop,
+      scrollTop: box.scrollTop,
+      dx: rect.left - point.x,
+      dy: rect.top - point.y,
+    };
+  });
+  ok("P0 the backdrop follows the textarea's scroll",
+    scrolledBack.inStep === true, `scrollTop ${scrolledBack.scrollTop}`);
+  ok("P0 a mark 60 lines down is still within 1px of its glyph",
+    !scrolledBack.noMark && Math.abs(scrolledBack.dx) <= 1 && Math.abs(scrolledBack.dy) <= 1,
+    scrolledBack.noMark ? "no mark" : `dx ${scrolledBack.dx.toFixed(2)} dy ${scrolledBack.dy.toFixed(2)}`);
+
+  // ACCEPTANCE: type a misspelt word in Source, an underline appears within
+  // 300ms. Measured from the keystroke to the frame the mark exists in, by
+  // polling — not by waiting a fixed time and then looking.
+  await page.evaluate(async (content) => {
+    document.getElementById("doc-content").value = content;
+    document.getElementById("doc-content").dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 400));
+  }, "The quick brown fox. ");
+  await page.evaluate(() => {
+    const box = document.getElementById("doc-content");
+    box.focus();
+    box.setSelectionRange(box.value.length, box.value.length);
+  });
+  const typedAt = await page.evaluate(() => performance.now());
+  await page.keyboard.type("recieve");
+  const underlineMs = await page.evaluate(async (t0) => {
+    const el = document.querySelector(".doc-backdrop");
+    for (let i = 0; i < 120; i += 1) {
+      const hit = [...el.querySelectorAll("mark")].some((m) => m.textContent === "recieve");
+      if (hit) return performance.now() - t0;
+      await new Promise((r) => requestAnimationFrame(r));
+    }
+    return null;
+  }, typedAt);
+  ok("P0 ACCEPTANCE: a misspelt word is underlined within 300ms of typing it",
+    underlineMs !== null && underlineMs < 300,
+    underlineMs === null ? "never underlined" : `${underlineMs.toFixed(0)}ms`);
+
+  // Off where it cannot be right: Live and Rendered have no textarea to sit
+  // behind, and a code file has no prose findings to draw.
+  const offWhenNotSource = await page.evaluate(async () => {
+    const el = document.querySelector(".doc-backdrop");
+    setDocView("live");
+    await new Promise((r) => setTimeout(r, 300));
+    const live = el.classList.contains("hidden");
+    const inkedInLive = document.getElementById("doc-content").classList.contains("has-backdrop");
+    setDocView("source");
+    await new Promise((r) => setTimeout(r, 300));
+    return { live, inkedInLive, backInSource: !el.classList.contains("hidden") };
+  });
+  ok("P0 the backdrop is off in Live view and back on in Source",
+    offWhenNotSource.live && !offWhenNotSource.inkedInLive && offWhenNotSource.backInSource,
+    JSON.stringify(offWhenNotSource));
+
   await page.waitForTimeout(400);
   ok("no console errors", consoleErrors.length === 0, JSON.stringify(consoleErrors.slice(0, 4)));
 

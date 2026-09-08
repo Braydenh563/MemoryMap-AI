@@ -3339,24 +3339,46 @@ textarea.autogrow {
   );
 }
 
-/* The squiggle. Only in Live view, where the text is real DOM — a textarea's
-   value is a string and cannot carry a mark, which is why Source view offers
-   the same menu on double-click instead. A wavy underline rather than a
-   highlight: the word still has to read as the word, and a coloured block
-   behind it is the thing that makes a checked document unreadable. */
-.doc-flag {
+/* The squiggle, and it is now one recipe for both views. Live view marks the
+   rendered blocks (`docMarkLiveFindings`); Source view marks the backdrop
+   behind the textarea (`docPaintBackdrop`, DOCUMENTS_PLAN Phase 0). Two views
+   that flag the same word in two different colours would read as two
+   different checkers, so `.doc-flag` (Live, clickable) says only *that this
+   is a flag*, and `.doc-finding-*` (both views) says *what kind* — which is
+   the half a reader is actually decoding.
+
+   A wavy underline rather than a highlight: the word still has to read as the
+   word, and a coloured block behind it is the thing that makes a checked
+   document unreadable. */
+.doc-flag,
+.doc-finding {
   background: none;
   color: inherit;
   text-decoration: underline wavy color-mix(in srgb, var(--warn) 80%, transparent);
   text-decoration-thickness: 1.5px;
   text-underline-offset: 3px;
+}
+
+.doc-flag {
   cursor: pointer;
 }
 
-/* A spelling is a stronger claim than a style note, so it is marked in the
-   colour this app already uses for "this is wrong" rather than "look here". */
-.doc-flag-spelling {
+/* Three kinds, three marks, and the difference is the strength of the claim.
+   A spelling is "this is wrong" and takes the colour this app uses for that;
+   a style note is "look here" and takes the accent; a word typed twice is
+   neither — it is a thing your eye skipped, so it is dotted rather than wavy,
+   which reads as a note rather than an error. */
+.doc-finding-spelling {
   text-decoration-color: color-mix(in srgb, var(--error) 80%, transparent);
+}
+
+.doc-finding-style {
+  text-decoration-color: color-mix(in srgb, var(--accent) 80%, transparent);
+}
+
+.doc-finding-repeat {
+  text-decoration-style: dotted;
+  text-decoration-thickness: 2px;
 }
 
 .doc-flag:hover {

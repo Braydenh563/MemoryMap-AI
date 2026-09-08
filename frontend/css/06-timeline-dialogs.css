@@ -494,8 +494,15 @@
   max-width: 11rem;
 }
 
-/* A heading that sits in a row beside a button supplies its own spacing. */
-.row h3.flush {
+/* A heading that sits in a row beside a button supplies its own spacing.
+
+   `h3` alone for as long as this rule has existed, which made `flush` a class
+   that silently did nothing on any other level. Measured on Settings then
+   Help: `<h4 class="flush">Ask the guide</h4>` kept the whole
+   `#settings-modal .settings-group h4` margin and sat off the centre line of
+   the button beside it. The class names an intention ("this heading is in a
+   row"), and the intention has no opinion about the level. */
+.row :is(h2, h3, h4).flush {
   margin: 0;
 }
 

@@ -4496,9 +4496,16 @@ select {
    a settings page read as an undifferentiated stack however well each row is
    drawn on its own. */
 
-/* A heading is close to what it heads and far from what came before. */
-#settings-modal .settings-group h3,
-#settings-modal .settings-group h4 {
+/* A heading is close to what it heads and far from what came before.
+
+   `:not(.flush)` because this rule is id-scoped and `.row :is(h2, h3, h4)
+   .flush` (06-timeline-dialogs.css) is not, so it was quietly winning against
+   the class whose entire job is "this heading is in a row and supplies its own
+   spacing". Measured on Settings then Help: the "Ask the guide" h4 kept a
+   16px top margin inside a centred row and sat 4px below the centre line of
+   the button beside it. */
+#settings-modal .settings-group h3:not(.flush),
+#settings-modal .settings-group h4:not(.flush) {
   margin: var(--space-6) 0 var(--space-3);
   line-height: 1.3;
 }

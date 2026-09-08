@@ -1535,3 +1535,55 @@ summary > .ph-lead,
 .space-switcher-name {
   margin-inline-start: 0;
 }
+
+/* ---------------------------------------------------------------------------
+   The whiteboard top bar's controls
+
+   consistency.md section 3 settled the bar's SURFACE as a deliberate exception
+   and left its controls open: it floats over the canvas, so DESIGN.md's
+   floating-surface rule makes `--modal-bg` with `--glass-border` right there
+   rather than the dock's `--card` and `--border`. That decision stands and
+   nothing here touches the surface.
+
+   Its controls were the worst remaining bar in the app. Measured
+   (`scratchpad/ui-sweeps/wbtopbar.js`, dark, 1440): 14 controls, 13 of them
+   drawing a resting fill, at 2 heights (32 and 36) and 3 radii (8.4, 9.8,
+   11.2). Thirteen filled boxes in one strip is the owner's report in its
+   original words, on the surface it was probably written about.
+
+   The same treatment the docks had: quiet at rest, the tint under the pointer,
+   one height, one radius. Fields keep their inset, because a box you type into
+   should look like one; they join the height and radius instead. */
+.wb-topbar button,
+.wb-topbar summary {
+  height: var(--control-h-lg);
+  min-height: var(--control-h-lg);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  box-shadow: none;
+  color: var(--ink);
+}
+
+.wb-topbar button:hover:not(:disabled),
+.wb-topbar button:focus-visible,
+.wb-topbar summary:hover,
+.wb-topbar summary:focus-visible {
+  background: var(--ghost-btn-bg);
+}
+
+/* On stays visible: a toggle that is doing something says so, and this is the
+   one fill the strip keeps besides its fields. */
+.wb-topbar button[aria-expanded="true"],
+.wb-topbar button.is-on,
+.wb-topbar button.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.wb-topbar select,
+.wb-topbar input,
+.wb-topbar .select-shell > .select-opener {
+  height: var(--control-h-lg);
+  border-radius: var(--radius-md);
+}

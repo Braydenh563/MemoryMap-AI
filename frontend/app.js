@@ -29403,6 +29403,78 @@ function initKeyboardInset() {
 
 initKeyboardInset();
 
+// --- the settings section jump list -------------------------------------------
+// UI_MODERNISATION_PLAN.md Phase 9, band 4.
+//
+// **This one already existed, and that was not the same as it being good
+// enough.** Below 640 the Settings dialog already collapses to a single
+// column with the seventeen sections laid out as a strip that scrolls
+// sideways, and the comment on that rule explains why a vertical list was
+// worse: stacked, the nav's natural height is about 700px and the content
+// pane was left twenty pixels tall.
+//
+// The strip fixed that and left its own problem, which is only visible if you
+// measure it: at 390 the strip needs **2337px of scroll inside 308px**. Seven
+// and a half screen widths of chips, with the group headings hidden because
+// they do not work horizontally, to reach "About". Every section is reachable
+// and none of them is findable.
+//
+// A native `<select>` with an `<optgroup>` per heading is the whole answer on
+// a phone: it opens the platform's own picker, shows all seventeen at once
+// under the three headings the desktop nav uses, is keyboard and screen
+// reader accessible for free, and adds no custom popup to a dialog that is
+// already a popup. It is built from the nav rather than declared beside it,
+// so a section added to the markup appears here with nothing to remember.
+function buildSettingsJumpList() {
+  const nav = document.getElementById("settings-nav");
+  if (!nav || document.getElementById("settings-jump")) return;
+
+  const select = document.createElement("select");
+  select.id = "settings-jump";
+  select.className = "settings-jump";
+  select.setAttribute("aria-label", "Jump to a settings section");
+
+  for (const group of nav.querySelectorAll(":scope > div[role='group']")) {
+    const heading = document.getElementById(group.getAttribute("aria-labelledby"));
+    const optgroup = document.createElement("optgroup");
+    optgroup.label = heading ? heading.textContent.trim() : "Sections";
+    for (const button of group.querySelectorAll("button[data-section]")) {
+      const option = document.createElement("option");
+      option.value = button.dataset.section;
+      option.textContent = button.textContent.trim();
+      if (button.classList.contains("active")) option.selected = true;
+      optgroup.appendChild(option);
+    }
+    if (optgroup.children.length) select.appendChild(optgroup);
+  }
+  if (!select.children.length) return;
+
+  // The select drives the real buttons rather than duplicating what they do.
+  // Every handler, every side effect and the section history stay in one
+  // place, and a hidden button still answers `.click()`.
+  select.addEventListener("change", () => {
+    nav.querySelector(`button[data-section="${CSS.escape(select.value)}"]`)?.click();
+  });
+
+  // And follows them: the section can also change from a search result, from
+  // a deep link, or from the dialog's own back and forward pair.
+  new MutationObserver(() => {
+    const active = nav.querySelector("button[data-section].active");
+    if (active && select.value !== active.dataset.section) {
+      select.value = active.dataset.section;
+    }
+  }).observe(nav, { subtree: true, attributes: true, attributeFilter: ["class"] });
+
+  // After the search field, which stays: searching the sections' contents and
+  // jumping to one by name are different questions (the search field's own
+  // comment makes that case).
+  const search = document.getElementById("settings-search");
+  const count = document.getElementById("settings-search-count");
+  (count || search || nav.firstElementChild)?.after(select);
+}
+
+buildSettingsJumpList();
+
 // --- the dock's arrange zone folds into its own overflow menu ------------------
 // UI_MODERNISATION_PLAN.md Phase 9, bands 2 and 3.
 //

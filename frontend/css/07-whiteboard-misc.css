@@ -8791,3 +8791,50 @@ header#top-bar {
     height: var(--control-h-lg);
   }
 }
+
+/* --- the settings jump list ----------------------------------------------
+   `buildSettingsJumpList` (app.js) writes a native `<select>` of all
+   seventeen sections, grouped by the same three headings the desktop nav
+   uses, into the Settings nav. It shows only where the nav has stopped being
+   a list: below 640, where the seventeen buttons are a strip that needed
+   2337px of scroll inside 308px at 390, with the group headings hidden
+   because they do not read horizontally.
+
+   The buttons go with it, and this is the one place in Phase 9 where a
+   control is hidden rather than moved. It is a one-for-one replacement: the
+   select drives those exact buttons by clicking them, so every section is
+   still reachable, still in the tab order through the select, and still
+   handled by the code that always handled it. Hiding the strip while its
+   replacement is on screen is not the same as taking a control away. */
+.settings-jump {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  /* Beside the search field, not under it. Given its own row the nav grew
+     from 61px to 111px and took 50px off the content pane, which is half of
+     what the strip's removal just bought back. */
+  .settings-jump {
+    display: block;
+    flex: 1 1 9rem;
+    min-width: 0;
+    min-height: var(--target-min);
+  }
+
+  .modal-nav input[type="search"] {
+    flex: 1 1 8rem;
+    min-width: 0;
+  }
+
+  .modal-nav > div[role="group"] {
+    display: none;
+  }
+
+  /* With the strip gone the nav is one row of two controls, so it stops
+     being a sideways scroller and stops drawing the rule that separated the
+     strip from the content under it. */
+  .modal-nav {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+}

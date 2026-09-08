@@ -16516,12 +16516,34 @@ function layoutIsStacked() {
 //: every rule. So the cap belongs here, where the number is decided.
 const SIDEBAR_VIEWPORT_SHARE = 0.24;
 
+//: The iPad-landscape band (UI_MODERNISATION_PLAN.md Phase 9, 820-1100).
+//:
+//: The share above is a ratio, and a ratio alone gets this band wrong in
+//: both directions: 24% of 1024 is 246px, which is a desktop sidebar on a
+//: tablet, and 24% of 820 is 197px, which is a different sidebar again on
+//: the same device held the other way. A band is supposed to look like one
+//: design, so this one names an absolute ceiling instead: 12rem, the width
+//: at which a category name and a conversation title still read.
+//:
+//: It has to live here rather than in the stylesheet. The sidebar's width is
+//: written as an inline `grid-template-columns` on the parent (see
+//: applySidebarWidth below), and an inline style beats every rule in every
+//: file, media query or not. A `clamp()` in CSS would have looked correct,
+//: passed review, and done nothing at all.
+const SIDEBAR_TABLET_MAX = 192;
+const SIDEBAR_TABLET_BAND = "(min-width: 820px) and (max-width: 1099.98px)";
+
+function layoutIsTablet() {
+  return window.matchMedia(SIDEBAR_TABLET_BAND).matches;
+}
+
 //: What the sidebar may actually occupy right now — the user's own width
 //: where there is room for it, less where there is not, never below the
 //: floor a category name needs to stay readable.
 function sidebarFittedWidth(saved) {
   const cap = Math.max(SIDEBAR_MIN, Math.round(window.innerWidth * SIDEBAR_VIEWPORT_SHARE));
-  return Math.min(saved, cap);
+  const banded = layoutIsTablet() ? Math.min(cap, SIDEBAR_TABLET_MAX) : cap;
+  return Math.min(saved, banded);
 }
 
 function applySidebarWidth(aside, width, { remember = true } = {}) {
@@ -16568,14 +16590,21 @@ window.addEventListener("resize", () => {
 
 // Rotating a phone, or dragging a desktop window narrow, crosses the
 // threshold without reloading — so re-decide then too.
-window.matchMedia(STACKED_LAYOUT).addEventListener("change", () => {
-  for (const id of ["sidebar", "chat-sidebar", "doc-sidebar"]) {
-    const aside = document.getElementById(id);
-    if (aside?.dataset.resizable) {
-      applySidebarWidth(aside, sidebarWidth(id, sidebarDefault(id)));
+// Rotating a phone, or dragging a desktop window narrow, crosses a band
+// boundary without reloading, so both boundaries re-decide the width. The
+// tablet band is listed with the stacking one because forgetting it is
+// exactly the failure the band exists to prevent: an iPad turned from
+// portrait to landscape would come back with the portrait sheet's width.
+for (const query of [STACKED_LAYOUT, SIDEBAR_TABLET_BAND]) {
+  window.matchMedia(query).addEventListener("change", () => {
+    for (const id of ["sidebar", "chat-sidebar", "doc-sidebar"]) {
+      const aside = document.getElementById(id);
+      if (aside?.dataset.resizable) {
+        applySidebarWidth(aside, sidebarWidth(id, sidebarDefault(id)), { remember: false });
+      }
     }
-  }
-});
+  });
+}
 
 function makeSidebarResizable(aside) {
   if (!aside || aside.dataset.resizable) return;

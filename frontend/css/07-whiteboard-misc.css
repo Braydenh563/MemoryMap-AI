@@ -8191,3 +8191,44 @@ header#top-bar {
     transition: none;
   }
 }
+
+/* --- band 2: 820-1100, iPad landscape and small laptops -------------------
+   The layout above, with two things given room they do not have at this
+   width.
+
+   **The sidebars.** Their width is capped at 12rem by `SIDEBAR_TABLET_MAX`
+   in app.js, not here, and the reason is worth stating where a reader will
+   look for the rule: a resizable sidebar writes its width as an inline
+   `grid-template-columns` on `.layout`, and an inline style beats every rule
+   in every file whatever the media query says. A `clamp()` in this block
+   would have looked right and done nothing. What the stylesheet still owns
+   is the frame before that code runs, and `.layout`'s own starting track
+   (`clamp(11rem, 17vw, 16rem)`) already resolves to 174px at 1024 and 187px
+   at 1099, both inside the cap, so there is nothing to restate here.
+
+   **The whiteboard properties drawer becomes a sheet.** As a floating column
+   it is 13.5rem wide, held 0.5rem off the right edge, with a card's rounded
+   corners on all four. At 1440 that reads as a panel over a canvas. At 1024
+   it reads as a card that has run out of room: the sliders inside it are the
+   narrowest controls in the app, and the gap behind it is 8px of canvas too
+   thin to use for anything. Flush to the edge, wider, square on the side it
+   is attached to, scrolling inside itself, it reads as part of the window
+   rather than as something dropped on it.
+
+   It stops above the tool row rather than running to the bottom of the
+   canvas, and that is deliberate: the tool dock is centred with a fit-content
+   width, so on a narrow board its wrapped rows reach under this column. The
+   existing `bottom` calc already clears it and is kept. Markup and
+   whiteboard.js are untouched. */
+@media (min-width: 820px) and (max-width: 1099.98px) {
+  .whiteboard-floating-panel.mid-right {
+    right: 0;
+    width: 17rem;
+    max-width: 55vw;
+    /* Square where it meets the window edge, rounded where it meets the
+       canvas: the shape that says "attached" rather than "floating". */
+    border-radius: var(--radius) 0 0 var(--radius);
+    border-right: none;
+    overflow-y: auto;
+  }
+}

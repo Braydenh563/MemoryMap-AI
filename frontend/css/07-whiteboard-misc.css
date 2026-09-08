@@ -7561,6 +7561,8 @@ input[type="file"] {
     order: 101;
     flex: 1 1 100%;
   }
+}
+
 /* --- map nodes and their edges (MINDMAP_PLAN.md §5, Phase 2) ---------------
    A map node is a `.wb-object` like an image or a text box, so everything
    above about positioning, selection and the drag cursor already applies; only
@@ -7802,5 +7804,182 @@ input[type="file"] {
 
   #library-sort-seg {
     display: none;
+  }
+}
+
+/* --- the dock (UI_MODERNISATION_PLAN.md Phase 8) -----------------------------
+   One recipe for the control row at the top of every tab and sub-tab. Four
+   zones, always in this order, the grammar the plan states in full:
+
+     .dock-identity   the title and its context (a count, a link to a sibling
+                      surface); never a control that changes the list
+     .dock-find       search first, then anything that narrows what is shown
+     .dock-arrange    order and view — a select, a segmented control, a View
+                      menu; never two controls for the same choice
+     .dock-actions    the one filled control, then the utilities in a fixed
+                      order: refresh · help · more
+
+   One height (`--control-h-lg`, the same the library toolbar and the chat
+   dock already fix), one baseline, and two gaps: `--space-3` inside a group,
+   `--space-4` between groups — the group boundary is the gap alone, never a
+   rule. Measured on the Graph before this existed: 28 controls at four
+   heights (1/24/25/32) in one strip with a second row of options under it. */
+.dock {
+  --control-h: var(--control-h-lg);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.dock-identity,
+.dock-group,
+.dock-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.dock-identity {
+  flex: 0 1 auto;
+}
+
+.dock-identity h2 {
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* Search grows into what is left of the row and never drops below a
+   readable width; the row wraps under it before it does. */
+.dock-find {
+  flex: 1 1 14rem;
+}
+
+.dock-find input[type="search"] {
+  flex: 1 1 10rem;
+  min-width: 8rem;
+}
+
+.dock-actions {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+/* Every control in a dock is exactly the dock's height — the same rule the
+   library toolbar states, repeated here because a dock may hold controls
+   that never sat in one. Checkboxes and radios are excluded for the reason
+   that rule gives: stretching a tick box makes an oval. */
+.dock input:not([type="checkbox"]):not([type="radio"]),
+.dock select,
+.dock .seg,
+.dock .segmented-control,
+.dock > * > button,
+.dock > * > details > summary,
+.dock .select-shell > .select-opener {
+  height: var(--control-h);
+  padding-block: 0;
+  margin: 0;
+  font-size: var(--text-md);
+}
+
+.dock .graph-help-toggle {
+  width: 2rem;
+  height: 2rem;
+}
+
+.dock select {
+  width: auto;
+  min-width: 9rem;
+  max-width: 14rem;
+}
+
+/* A menu in a dock is the app's own toolbar menu (`.doc-dock-menu`), with two
+   additions: it can hold a labelled section (a segmented control under a
+   word), and it opens under its own button rather than right-aligned, so a
+   View menu on the left of the row does not fly to the far right of it. */
+.dock-menu > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+.dock-menu-caret {
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
+.dock-menu > .dock-menu-list {
+  left: 0;
+  right: auto;
+  min-width: 16rem;
+  gap: var(--space-1);
+}
+
+.dock-more > .dock-menu-list {
+  left: auto;
+  right: 0;
+}
+
+.dock-menu-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+}
+
+.dock-menu-section + .dock-menu-section {
+  border-top: 1px solid var(--divider);
+}
+
+.dock-menu-label {
+  font-size: var(--text-sm);
+}
+
+.dock-menu .segmented-control {
+  height: var(--control-h);
+}
+
+.dock-menu .segmented-control label {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding-block: 0;
+}
+
+/* A link to a sibling surface sits with the title as a quiet ghost, not as
+   one more button in the control run. */
+.dock-link {
+  white-space: nowrap;
+}
+
+.graph-fullscreen .dock[data-dock-name="graph"] {
+  padding: var(--space-3) var(--space-6);
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+
+@media (max-width: 600px) {
+  .dock-identity .dock-link {
+    display: none;
+  }
+
+  /* Search on its own row; arrange and actions share the next one, the
+     actions pushed to its right edge. Measured on the Graph: five rows
+     (172px) with the desktop rules, three (108px) with these. */
+  .dock-find {
+    flex-basis: 100%;
+  }
+
+  .dock select {
+    min-width: 0;
+    max-width: 9rem;
+  }
+
+  .dock-actions {
+    flex: 1 1 auto;
+    justify-content: flex-end;
   }
 }

@@ -1848,147 +1848,83 @@ Link to another note with [[its first few words]]."></textarea>
            adding a note. Everything that is tuned once and left (physics,
            three display toggles, the AI's link suggestions) is behind the gear button, which
            remembers whether it was open. Nothing was removed. -->
-      <div class="graph-toolbar">
-        <h2>Graph</h2>
-        <!-- Moved out of #graph-toolbar-secondary and onto the header's own
-             line, so the header row actually carries some of the toolbar
-             instead of just the title and the two end buttons — asked for
-             directly: "have some on the top row so the dock isn't taking up
-             three rows". `#graph-toolbar-secondary` uses `display: contents`
-             (for the mobile collapse below), and a flex item inside a
-             `display: contents` wrapper would not size to its own content no
-             matter what was tried in CSS — a real child of `.graph-toolbar`
-             does, with no such fight. -->
-        <div class="graph-toolbar-group graph-toolbar-group-header">
+      <!-- The Graph dock (UI_MODERNISATION_PLAN.md Phase 8, the first surface
+           onto the dock grammar). Measured before: 28 controls at four heights
+           (1/24/25/32), two segmented controls, a select and eight buttons in
+           one strip, plus a filled New note and a Concept maps button pinned
+           absolutely at the right. Every feature the tab has, in a row.
+
+           Now four zones, the same four every dock will have:
+             identity   — the title, and the link to the map's own counterpart
+             find       — search, Trace, and the two "leave this state" buttons
+                          that only appear while a state is on
+             arrange    — one View menu (layout, colour, legend, the options
+                          panel) and the saved-views select
+             actions    — the one filled control, then refresh · help · more
+           Layout and Colour are *views* of the same map and change a few times
+           a session, so they live behind one menu; Save/Delete view and Export
+           are verbs used sometimes and live in the kebab. The phone-only
+           "more" toggle is gone — the menus are the overflow at every width.
+           Every id is unchanged, so graph.js and app.js need no wiring. -->
+      <div class="dock" data-dock-name="graph" role="toolbar" aria-label="Graph controls">
+        <div class="dock-identity">
+          <h2>Graph</h2>
+          <button id="graph-concept-maps" class="ghost small dock-link" type="button"
+            title="A concept map is one you draw yourself: your own cards, your own links, your own arrangement — where this map is built for you from what your notes already say."><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> Concept maps</button>
+        </div>
+        <div class="dock-group dock-find">
           <input id="graph-search" type="search" placeholder="Highlight notes…"
             aria-label="Highlight matching notes in the graph">
           <button id="graph-trace-toggle" class="ghost small" aria-expanded="false"
-            aria-controls="graph-trace"
             title="Find how two notes connect"><i class="ph ph-path ph-lead" aria-hidden="true"></i> Trace</button>
-        </div>
-        <button id="graph-mobile-more-toggle" class="ghost small icon-only mobile-only" aria-expanded="false" aria-controls="graph-toolbar-secondary" title="More options" aria-label="More options"><i class="ph ph-dots-three" aria-hidden="true"></i></button>
-
-        <div id="graph-toolbar-secondary" class="graph-toolbar-secondary">
-          <!-- One flexible row, not two forced ones. It used to be a hard
-               split (reading-the-map controls above, acting-on-it controls
-               below) regardless of whether that much actually fit on one
-               line. flex-wrap now decides the break from real available
-               width, so a wide window gets one continuous row and only a
-               narrow one wraps — and only where a group actually runs out of
-               room, never mid-group, because .graph-toolbar-group itself
-               never splits. -->
-          <div class="graph-toolbar-row">
-          <!-- The strip is grouped rather than being one flat run of a dozen
-               controls. Reported directly ("the docked ui at the top of the
-               graph needs a cleanup and redesign") and visible in the
-               screenshot that came with it: everything carried the same
-               weight, so nothing read as related to anything else and the
-               second row was mostly empty space. The groups below are the
-               actual categories — shape, panels, saved views, export — and
-               .graph-toolbar-group draws one separator between each. Find
-               (search/Trace) moved up to the header row, above. -->
-          <div class="graph-toolbar-group">
-            <label class="muted" for="graph-layout">Layout</label>
-            <div id="graph-layout" class="segmented-control" aria-label="How the notes are arranged">
-              <label><input type="radio" name="graph-layout" value="force" checked> Force</label>
-              <label><input type="radio" name="graph-layout" value="tree"> Tree</label>
-              <label><input type="radio" name="graph-layout" value="radial"> Radial</label>
-              <label><input type="radio" name="graph-layout" value="arc"> Arc</label>
-            </div>
-          </div>
-
-          <!-- Split from the Layout group above, which it used to sit inside
-               with no label of its own — the two segmented controls read as
-               one continuous group ("Layout: Force Tree Radial Arc Category
-               Cluster"), so it was unclear the second pair set colour, not
-               shape. Reported as unclear grouping; a hairline now separates
-               them and "Colour" names what these radios actually do. -->
-          <div class="graph-toolbar-group">
-            <label class="muted" for="graph-colour">Colour</label>
-            <div id="graph-colour" class="segmented-control" aria-label="What the note colours mean">
-              <label><input type="radio" name="graph-colour" value="category" checked> Category</label>
-              <label><input type="radio" name="graph-colour" value="cluster"> Cluster</label>
-            </div>
-          </div>
-
-          <div class="graph-toolbar-group">
-            <button id="graph-options-toggle" class="ghost small" aria-expanded="false"
-              aria-controls="graph-options"
-              title="Physics, labels, similarity lines, minimap and link suggestions"><i class="ph ph-gear ph-lead" aria-hidden="true"></i> Options</button>
-            <!-- Moved up from its own dedicated row below the legend —
-                 direct instruction: "move the collapse legend button to the
-                 row above so it doesnt take the whole row by itself." Sits
-                 beside Options rather than alone: both are map-display
-                 toggles, and this is the row that already exists for that
-                 kind of control. -->
-            <button id="graph-legend-toggle" class="ghost small icon-only"
-              title="Hide the legend" aria-label="Hide the legend" aria-expanded="true">
-              <i class="ph ph-caret-up" aria-hidden="true"></i>
-            </button>
-          </div>
-
-          <div class="graph-toolbar-group">
-            <select id="graph-view-picker" class="ghost small" aria-label="Saved views"></select>
-            <button id="graph-view-save" class="ghost small" type="button"
-              title="Save the current layout, filters and position as a named view"><i class="ph ph-bookmark-simple ph-lead" aria-hidden="true"></i> Save view</button>
-            <button id="graph-view-delete" class="ghost small icon-only" type="button"
-              title="Delete the selected saved view" aria-label="Delete the selected saved view"><i class="ph ph-trash" aria-hidden="true"></i></button>
-          </div>
-
-          <div class="graph-toolbar-group">
-            <button id="graph-refresh" class="ghost small" title="Reload the map from your notes"><i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i> Refresh</button>
-            <button id="graph-export-png" class="ghost small" title="Save what's currently on screen as a PNG image"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export</button>
-          </div>
-
-          <!-- Contextual: each appears only in the mode it exits, so they sit
-               apart from the permanent controls rather than in a group. -->
-          <button id="graph-focus-clear" class="ghost small hidden" title="Exit focus mode and return to the global map"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Exit focus</button>
-          <!-- The "≈ Similar" popup button (graph.js) sets graphHighlightIds
-               with no clear affordance of its own - reported directly. Same
-               shape as Exit Focus above: hidden until that state is active. -->
           <button id="graph-highlight-clear" class="ghost small hidden" title="Clear the similar-notes highlight"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear highlight</button>
-          </div>
-          <!-- No separate "Close Full Screen" button here any more — direct
-               instruction: "move the close full screen button in the graph
-               to be next to the new graph button or smth so it isnt making
-               an extra row." It called the exact same toggleGraphFullscreen()
-               as #graph-fullscreen (the zoom-cluster icon button, floating
-               over the canvas so it's already reachable in full screen too)
-               and existed only because that button gave no sign it also
-               exits. Rather than relocate a second, redundant button, that
-               one now swaps its own icon/title between the two states
-               (app.js's toggleGraphFullscreen). -->
+          <button id="graph-focus-clear" class="ghost small hidden" title="Exit focus mode and return to the global map"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Exit focus</button>
         </div>
-
-        <!-- Grouped rather than "+ New note" living beside the "Graph" title
-             and "?" living alone at the far end — two unrelated single
-             controls bookending the strip read as leftovers, not a group.
-             Reported directly: move it next to Help so the header row is
-             "title, then the two things that aren't part of any toolbar
-             group" instead of "title plus one loose action, then a gap,
-             then another loose action". -->
-        <div class="graph-toolbar-end">
+        <div class="dock-group dock-arrange">
+          <details class="doc-dock-menu dock-menu" id="graph-view-menu">
+            <summary class="ghost small doc-dock-menu-btn" title="Layout, colour, legend and display options"><i class="ph ph-eye ph-lead" aria-hidden="true"></i> View <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
+            <div class="doc-dock-menu-list dock-menu-list">
+              <div class="dock-menu-section">
+                <span class="muted dock-menu-label" id="graph-layout-label">Layout</span>
+                <div id="graph-layout" class="segmented-control" role="group" aria-labelledby="graph-layout-label">
+                  <label><input type="radio" name="graph-layout" value="force" checked> Force</label>
+                  <label><input type="radio" name="graph-layout" value="tree"> Tree</label>
+                  <label><input type="radio" name="graph-layout" value="radial"> Radial</label>
+                  <label><input type="radio" name="graph-layout" value="arc"> Arc</label>
+                </div>
+              </div>
+              <div class="dock-menu-section">
+                <span class="muted dock-menu-label" id="graph-colour-label">Colour</span>
+                <div id="graph-colour" class="segmented-control" role="group" aria-labelledby="graph-colour-label">
+                  <label><input type="radio" name="graph-colour" value="category" checked> Category</label>
+                  <label><input type="radio" name="graph-colour" value="cluster"> Cluster</label>
+                </div>
+              </div>
+              <button id="graph-legend-toggle" class="doc-dock-menu-item" type="button"
+                title="Hide the legend" aria-label="Hide the legend" aria-expanded="true"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i> Legend</button>
+              <button id="graph-options-toggle" class="doc-dock-menu-item" type="button" aria-expanded="false"
+                title="Physics, labels, similarity lines, minimap and link suggestions"><i class="ph ph-gear ph-lead" aria-hidden="true"></i> Display options…</button>
+            </div>
+          </details>
+          <select id="graph-view-picker" class="ghost small" aria-label="Saved views"></select>
+        </div>
+        <div class="dock-actions">
           <button id="graph-add-node" class="small" title="Add a new note straight onto the map"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New note</button>
-          <!-- Reported: "the concept map feature is there in the graph but I
-               have no clue how to use it, it isnt a labeled feature and is it
-               even there actually?? the help agent said it was."
-
-               It was real and it was nowhere near here. A concept map is a
-               whiteboard with a name, and it lived behind Library ->
-               Whiteboards -> "+ Create" -> "New concept map" -- three levels
-               down a tab called Whiteboards. This tab is where somebody
-               looking for "a map of my ideas" actually looks, because it is
-               already the map of them; the difference is that this one is
-               drawn for you and a concept map is drawn by you. So the door is
-               here, labelled, next to the graph it is the counterpart to. -->
-          <button id="graph-concept-maps" class="ghost small"
-            title="A concept map is one you draw yourself: your own cards, your own links, your own arrangement — where this map is built for you from what your notes already say."><i class="ph ph-graph ph-lead" aria-hidden="true"></i> Concept maps</button>
+          <button id="graph-refresh" class="ghost small icon-only" type="button" title="Reload the map from your notes" aria-label="Reload the map from your notes"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
           <button type="button" id="graph-help-toggle" class="icon-only ghost small graph-help-toggle"
-            aria-expanded="false" aria-controls="graph-help-panel"
-            title="Drag a note to place it — it stays where you put it, and is still there after a reload. Double-click a placed note to hand it back to the layout. Solid lines are links you made, dashed lines are trains of thought, dotted lines are notes that mean similar things. Hover a note to spotlight its connections, scroll or use the buttons to zoom, click a note to edit it right here, and click a legend colour to hide that category. Double-click empty space to add a note there. Drop one note onto another to link them, and use Trace to see how any two notes connect."
             aria-label="How to use this map">
             <i class="ph ph-question" aria-hidden="true"></i>
           </button>
+          <details class="doc-dock-menu dock-menu dock-more" id="graph-more-menu">
+            <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
+            <div class="doc-dock-menu-list dock-menu-list">
+              <button id="graph-view-save" class="doc-dock-menu-item" type="button"
+                title="Save the current layout, filters and position as a named view"><i class="ph ph-bookmark-simple ph-lead" aria-hidden="true"></i> Save this view</button>
+              <button id="graph-view-delete" class="doc-dock-menu-item" type="button"
+                title="Delete the selected saved view"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete saved view</button>
+              <button id="graph-export-png" class="doc-dock-menu-item" type="button" title="Save what's currently on screen as a PNG image"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export as PNG</button>
+            </div>
+          </details>
         </div>
       </div>
       <div id="graph-help-panel" class="graph-help-panel hidden" role="dialog" aria-label="How to use this map">

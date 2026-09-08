@@ -20867,6 +20867,46 @@ async function goToTabHistory(next) {
 // One delegated listener rather than one per button, so a fourth empty
 // state adds a `data-empty-action` and nothing else (and
 // test_frontend_handlers.py has one listener to count, not four).
+//: Every dock menu (UI_MODERNISATION_PLAN.md Phase 8) is a `<details>`: the
+//: browser gives open-on-click, Enter/Space, Escape and the ARIA. What it does
+//: not give is closing when you pick an item or click away, and both are what
+//: make a menu feel like a menu rather than a panel you have to shut. One
+//: delegated pair for every `.dock-menu` on every tab — the same shape the
+//: documents kebab wires for itself in documents.js — so a dock added later
+//: gets the behaviour without anyone remembering to add it. A segmented
+//: control inside a menu (Layout, Colour) keeps the menu open: picking a
+//: layout and then a colour is one visit, not two.
+document.addEventListener("click", (event) => {
+  const item = event.target.closest(".dock-menu .doc-dock-menu-item");
+  if (item) {
+    const menu = item.closest("details.dock-menu");
+    // After the item's own handler has run: closing first would move focus
+    // and, for a toggle, leave its aria-expanded one step behind.
+    if (menu) setTimeout(() => { menu.open = false; }, 0);
+  }
+  for (const menu of document.querySelectorAll("details.dock-menu[open]")) {
+    if (!menu.contains(event.target)) menu.open = false;
+  }
+});
+//: Escape closes an open dock menu and puts focus back on its button —
+//: `<details>` does not do this on its own, whatever a comment elsewhere in
+//: this codebase once claimed; measured with a keyboard-only probe. Capture
+//: phase, so the graph's own Escape (leave trace mode) and the lock screen's
+//: never see a key that was meant for the menu.
+document.addEventListener(
+  "keydown",
+  (event) => {
+    if (event.key !== "Escape") return;
+    const open = document.querySelector("details.dock-menu[open]");
+    if (!open) return;
+    event.preventDefault();
+    event.stopPropagation();
+    open.open = false;
+    open.querySelector("summary")?.focus();
+  },
+  true
+);
+
 document.addEventListener("click", (event) => {
   const button = event.target.closest("[data-empty-action]");
   if (!button) return;
@@ -30062,14 +30102,6 @@ $("graph-documents")?.addEventListener("change", renderGraph);
 // physics sliders on screen is a property of how you use the map rather than
 // of one visit — and because a panel that reopens closed every time is one
 // people stop opening.
-$("graph-mobile-more-toggle")?.addEventListener("click", () => {
-  const panel = $("graph-toolbar-secondary");
-  if (!panel) return;
-  const open = panel.classList.toggle("open");
-  $("graph-mobile-more-toggle").setAttribute("aria-expanded", String(open));
-  $("graph-mobile-more-toggle").classList.toggle("is-on", open);
-});
-
 $("graph-options-toggle").addEventListener("click", () => {
   const panel = $("graph-options");
   const open = panel.classList.toggle("hidden") === false;
@@ -30136,7 +30168,10 @@ $("graph-trace-clear").addEventListener("click", () => clearTrace());
     toggle.setAttribute("aria-expanded", String(!collapsed));
     toggle.title = collapsed ? "Show the legend" : "Hide the legend";
     toggle.setAttribute("aria-label", toggle.title);
-    setLabel(toggle, collapsed ? "ph:caret-down" : "ph:caret-up");
+    // A menu item, not the bare caret it was when it sat in the strip: the
+    // dock's View menu (Phase 8) names what each row does, and a row that is
+    // only an arrow names nothing.
+    setLabel(toggle, collapsed ? "ph:eye Show legend" : "ph:eye-slash Hide legend");
   };
   apply(localStorage.getItem("graphLegendCollapsed") === "1");
   toggle.addEventListener("click", () => {

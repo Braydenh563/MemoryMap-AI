@@ -26,6 +26,19 @@ const { boot } = require("./lib.js");
 
 const round = (n) => Math.round(n * 10) / 10;
 
+// Every probe states its expectation as a `check`, not as a printed line
+// somebody has to read and compare against a plan. A sweep whose output is
+// only prose is a sweep whose regression nobody notices: the pan/hover bug
+// (INBOX 28) was reported by the owner twice, and this file printed the
+// number that would have caught it both times. Failures collect here and the
+// run exits non-zero with a FAIL block, so "did it pass" is answerable
+// without reading the whole log.
+const failures = [];
+const check = (ok, what) => {
+  if (!ok) failures.push(what);
+  return ok;
+};
+
 (async () => {
   const { browser, page } = await boot();
   await page.evaluate(() => {
@@ -205,11 +218,16 @@ const round = (n) => Math.round(n * 10) / 10;
   await page.waitForTimeout(300);
   const afterPan = await page.evaluate(() => window.__graphDebug.hovered);
   const hoveredDuringPan = during.filter((h) => h != null).length;
+  const activeDuringPan = await page.evaluate(
+    () => document.activeElement && document.activeElement.id
+  );
   console.log("== hover during a pan ==");
   console.log(
     `drag across the map: ${hoveredDuringPan}/8 samples had a hovered node ` +
-      `(want 0); after mouseup hovered=${afterPan}`
+      `(want 0); after mouseup hovered=${afterPan}, activeElement=${activeDuringPan}`
   );
+  check(hoveredDuringPan === 0, `a pan lit up a node in ${hoveredDuringPan}/8 samples`);
+  check(afterPan == null, `hover survived the mouseup of a pan: ${afterPan}`);
 
   // The other half of the same bug, and the half that actually fired:
   // `#graph-box` is `tabIndex = 0`, so a press on the map focuses it, and its
@@ -235,6 +253,15 @@ const round = (n) => Math.round(n * 10) / 10;
       `(want neither equal to the first node in the payload, ${afterPress.first}, ` +
       `unless that is the node pressed: ${hoverProbe.id})`
   );
+  // The bug itself: `#graph-box` takes focus from the press, and the focus
+  // listener used to hand the keyboard and the hover to `graphNodesRef[0]`.
+  // Focus on the box is fine and expected; a node chosen by that focus is not.
+  const arbitrary = (id) => id != null && id === afterPress.first && id !== hoverProbe.id;
+  check(!arbitrary(afterPress.hovered), `a press focused the box and hovered node ${afterPress.hovered}`);
+  check(
+    !arbitrary(afterPress.keyboardId),
+    `a press focused the box and selected node ${afterPress.keyboardId}`
+  );
 
   // A wheel zoom with the pointer parked over empty space: the map slides
   // under a stationary cursor, and Chromium replays a move at the same client
@@ -251,6 +278,10 @@ const round = (n) => Math.round(n * 10) / 10;
   console.log(
     `wheel zoom under a stationary cursor: hovered ${beforeWheel} -> ${afterWheel} ` +
       `(want unchanged)`
+  );
+  check(
+    beforeWheel === afterWheel,
+    `a wheel zoom changed the hover: ${beforeWheel} -> ${afterWheel}`
   );
 
   // 5. Fullscreen keeps the card's radius and hides the app chrome.
@@ -288,4 +319,11 @@ const round = (n) => Math.round(n * 10) / 10;
   await page.waitForTimeout(600);
 
   await browser.close();
+  if (failures.length) {
+    console.log(`== FAIL (${failures.length}) ==`);
+    for (const line of failures) console.log(`  - ${line}`);
+    process.exitCode = 1;
+  } else {
+    console.log("== every probe passed ==");
+  }
 })();

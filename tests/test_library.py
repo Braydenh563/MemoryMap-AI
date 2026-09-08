@@ -49,9 +49,9 @@ def test_every_kind_appears_in_one_list(client, session):
     session.add(
         Attachment(
             entry_id=entry.id,
-            filename="loaf.png",
-            stored_name="abc123.png",
-            mime="image/png",
+            filename="loaf.pdf",
+            stored_name="abc123.pdf",
+            mime="application/pdf",
             size=2048,
         )
     )

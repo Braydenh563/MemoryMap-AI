@@ -51,11 +51,13 @@ after a usage reset. Either way, without asking anything:
    than a fix gets a row in the relevant `agent-remaining` file or a
    SESSION_BRIEFS brief, and the owner is told which.
 3. **Agents, by specialty, at most two at once** (the owner's rule):
-   **Sonnet** takes bug lists (`INBOX.md`), lints (Brief 2), copy and
-   popovers (Brief 4), docs condensation (Brief 14) and any brief whose
-   decisions are all written down; **Opus** takes plan phases (DOCUMENTS,
-   GRAPH, TIMELINE, WHITEBOARD, CHAT, MINDMAP) and the backend moves
-   (Briefs 6 to 13), each against its spec tests
+   **Sonnet** takes the mechanical and the verifiable: lints (Brief 2),
+   copy moves and popovers (Brief 4), docs condensation (Brief 14), test
+   fixture edits, sweeps, and bugs whose fix is already named in
+   `INBOX.md`; **Opus** takes anything with a design judgement in it:
+   frontend layout and visual fixes, the one-bar and alignment work, plan
+   phases (DOCUMENTS, GRAPH, TIMELINE, WHITEBOARD, CHAT, MINDMAP) and the
+   backend moves (Briefs 6 to 13), each against its spec tests
    (`tests/test_events.py`, `test_search_engine_spec.py`,
    `test_harness_verifier_spec.py`: strict-xfail, remove the marker as
    each passes); **Fable**, when available, writes plans and specs,

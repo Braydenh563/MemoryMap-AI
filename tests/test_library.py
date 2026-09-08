@@ -140,7 +140,9 @@ def test_a_chat_is_previewed_by_its_first_question(client, session):
 
 
 def test_an_attachment_carries_the_note_it_hangs_on(client, session):
-    """A filename with no context is a filename. The reason you kept it is the
+    """A filename with no context is a filename. (A PDF, not an image: image
+    attachments are never "file" items, they belong to the Images sub-tab.)
+    The reason you kept it is the
     note, so the card shows the note and the click can go there."""
     entry = Entry(content="the loaf that finally worked")
     session.add(entry)
@@ -148,9 +150,9 @@ def test_an_attachment_carries_the_note_it_hangs_on(client, session):
     session.add(
         Attachment(
             entry_id=entry.id,
-            filename="loaf.png",
-            stored_name="x.png",
-            mime="image/png",
+            filename="loaf.pdf",
+            stored_name="x.pdf",
+            mime="application/pdf",
             size=4096,
         )
     )
@@ -159,7 +161,7 @@ def test_an_attachment_carries_the_note_it_hangs_on(client, session):
     item = _of_kind(client.get("/library").json(), "file")[0]
     assert item["entry_id"] == entry.id
     assert item["preview"] == "the loaf that finally worked"
-    assert item["detail"] == "4 KB · PNG"
+    assert item["detail"] == "4 KB · PDF"
 
 
 def test_a_private_note_keeps_its_attachments_out_of_the_library(client, session):

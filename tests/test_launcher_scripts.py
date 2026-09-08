@@ -342,10 +342,14 @@ class TestTheDoctorRunsHere:
         )
         assert result.returncode in (0, 1), result.stdout + result.stderr
         out = result.stdout
-        assert "MemoryMap AI - checks" in out
+        # Every assertion below carries the whole table: this failed once,
+        # under a full suite running beside it, and did not reproduce in
+        # forty runs afterwards, so the next occurrence needs to arrive
+        # with its own evidence rather than a bare label name.
+        assert "MemoryMap AI - checks" in out, out + result.stderr
         for label in ("Python", ".venv", "Disk", "Port", "Updates", "Notes", "Last run"):
-            assert label in out, label
-        assert "[ok]" in out or "[x]" in out
+            assert label in out, f"{label} missing from:\n{out}"
+        assert "[ok]" in out or "[x]" in out, out
 
     def test_an_unknown_flag_exits_2_with_the_help(self, tmp_path):
         env = dict(os.environ, MEMORYMAP_DATA_DIR=str(tmp_path / "data"))

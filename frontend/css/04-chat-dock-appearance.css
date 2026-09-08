@@ -3275,18 +3275,27 @@ span > .chip {
 
 /* A textarea cannot render per-line content, so the numbers are a sibling
    painted from the same text and scroll-locked to it (documents.js,
-   `renderDocGutter`). Everything that affects where a line sits vertically —
-   font, size, line-height, vertical padding — MUST match #doc-content
+   `renderDocGutter`). Everything that affects where a line sits vertically
+   (font, size, line-height, vertical padding) MUST match #doc-content
    exactly, or the numbers drift out of step with the code by one row per
-   screenful and the whole thing reads as broken. That is why they are
-   declared together here rather than each near its own rule. */
+   screenful and the whole thing reads as broken.
+
+   **This copy is a fallback, and it was wrong.** It said `padding-top: 0.5rem`
+   while the textarea takes the base input rule's `--space-4`, which is
+   `calc(0.6rem * var(--density))`: measured at density 1, every number sat
+   1.59px above the line it belonged to, and turning the density down would
+   have widened that with nothing in the stylesheet to say so. Two static
+   copies of one value cannot be kept in step by care, so the real copy is
+   made through the CSSOM now, from the textarea itself, by
+   `syncDocGutterMetrics`. What is left here is what the column should look
+   like in the frame before that runs. */
 .doc-gutter,
 #doc-content.doc-content-code {
   font-family: var(--mono, ui-monospace, monospace);
   font-size: 0.92rem;
   line-height: 1.6;
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
 }
 
 /* **The code pane must not soft-wrap, or the numbers cannot be right.**
@@ -3307,6 +3316,14 @@ span > .chip {
 
 .doc-gutter {
   flex: 0 0 auto;
+  /* **Not stretched to the row.** Both wrappers are `align-items: stretch`
+     flex rows, so the column took the row's height while the textarea took
+     its own, and dragging #doc-content's resize handle shorter left the
+     numbers running on down the card: measured, a 260px textarea beside a
+     585px gutter, 325.4px of numbers past the end of the box they number.
+     `flex-start` lets the explicit height JS gives it (the textarea's own)
+     be the height it has. */
+  align-self: flex-start;
   overflow: hidden;
   padding-right: 0.5rem;
   padding-left: 0.5rem;

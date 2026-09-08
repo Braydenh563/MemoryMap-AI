@@ -231,8 +231,10 @@ function setDocView(mode) {
   if (docView === "live") renderDocLive();
   //: After the panes have been shown and hidden, never before: the backdrop's
   //: geometry is copied from a textarea that reports zeros while its wrapper
-  //: is `display: none`.
+  //: is `display: none`. The gutter's height has the same problem and the same
+  //: answer.
   docSyncBackdrop();
+  syncDocGutterMetrics();
 }
 
 async function loadDocuments(selectId = null) {
@@ -1118,6 +1120,64 @@ function docGutters() {
     .filter((pair) => pair.box);
 }
 
+//: Everything that decides where a *row* sits. The stylesheet carries a static
+//: copy of these so the column is not unstyled before this runs, but the
+//: static copy is what went wrong: it said `padding-top: 0.5rem` while the
+//: textarea's own padding is `--space-4`, which is `calc(0.6rem *
+//: var(--density))`. Measured, at density 1, every number sat 1.59px above its
+//: line, and the density setting could widen that at will. A number beside the
+//: wrong line is not a small cosmetic error: it is the one thing a gutter is
+//: for.
+const DOC_GUTTER_PROPS = [
+  "fontFamily", "fontSize", "fontWeight", "fontStyle", "letterSpacing",
+  "lineHeight", "paddingTop", "paddingBottom",
+];
+
+//: **The gutter is clipped to the textarea, not to the row it sits in.**
+//: Reported with a screenshot: numbers 1 to 18 continuing below a textarea
+//: that ended at 11. Both wrappers (`.doc-source-wrap` and `.gutter-wrap`) are
+//: `align-items: stretch` flex rows, so the gutter took the row's height while
+//: the textarea took its own; dragging `#doc-content`'s native resize handle
+//: shorter left the column running on down the card. Measured before this: a
+//: 260px textarea beside a 585px gutter, 325.4px of numbers past the end of
+//: the box they number, and even untouched the gutter was 9.6px too tall.
+//:
+//: The height is also what makes the scroll lock-step possible at all. A
+//: gutter that is taller than its textarea has a *shorter* scrollable range,
+//: so `gutter.scrollTop = box.scrollTop` silently clamps: measured, the box at
+//: 200 and the gutter stuck at 139, which is two and a half lines of drift
+//: that grows the further down you scroll. Same height, same content height,
+//: same range, and the assignment is then exact.
+function syncDocGutterMetrics(only = null) {
+  for (const { gutter, box } of docGutters()) {
+    if (only && box !== only) continue;
+    if (gutter.classList.contains("hidden")) continue;
+    const metrics = getComputedStyle(box);
+    for (const prop of DOC_GUTTER_PROPS) gutter.style[prop] = metrics[prop];
+    gutter.style.height = `${box.offsetHeight}px`;
+  }
+}
+
+//: **The box changes height for reasons no event reports.** Dragging
+//: `#doc-content`'s own `resize: vertical` handle, opening or closing the chat
+//: dock, switching to Split, a note's textarea growing as it is typed into: a
+//: `window.resize` listener sees none of them, and the height is exactly what
+//: was wrong. One observer, every numbered box.
+let docGutterObserver = null;
+
+function watchDocGutter(box) {
+  if (!box || typeof ResizeObserver !== "function") return;
+  if (!docGutterObserver) {
+    docGutterObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) syncDocGutterMetrics(entry.target);
+    });
+  }
+  //: Observing the same element twice replaces the registration rather than
+  //: adding a second one, so this is safe to call on every mount and every
+  //: toggle.
+  docGutterObserver.observe(box);
+}
+
 function renderDocGutter(only = null) {
   for (const { gutter, box } of docGutters()) {
     if (only && box !== only) continue;
@@ -1127,6 +1187,10 @@ function renderDocGutter(only = null) {
     // is 5,000 elements to build and lay out on every keystroke otherwise,
     // and the gutter is doing nothing that needs per-line nodes.
     gutter.textContent = Array.from({ length: lines }, (_, i) => i + 1).join("\n");
+    //: Height on every paint, not only on mount: the textarea grows and
+    //: shrinks with the pane, with the chat dock, and with its own resize
+    //: handle, and none of those tells this code anything.
+    gutter.style.height = `${box.offsetHeight}px`;
     gutter.scrollTop = box.scrollTop;
   }
 }
@@ -1158,13 +1222,13 @@ function mountGutterFor(textarea) {
   const on = docGutterPref() === "1";
   gutter.classList.toggle("hidden", !on);
   textarea.classList.toggle("has-gutter", on);
+  //: One copy routine for every gutter in the app, so the documents editor's
+  //: static `#doc-gutter` and the two note boxes' mounted ones cannot disagree
+  //: about which properties matter. It grew `height` and the font weight and
+  //: style when the column was measured against the text it numbers.
   const copyMetrics = () => {
-    const metrics = getComputedStyle(textarea);
-    gutter.style.fontFamily = metrics.fontFamily;
-    gutter.style.fontSize = metrics.fontSize;
-    gutter.style.lineHeight = metrics.lineHeight;
-    gutter.style.paddingTop = metrics.paddingTop;
-    gutter.style.paddingBottom = metrics.paddingBottom;
+    syncDocGutterMetrics(textarea);
+    watchDocGutter(textarea);
     renderDocGutter(textarea);
   };
   if (textarea.isConnected) copyMetrics();
@@ -3621,11 +3685,23 @@ function applyDocGutter() {
       ? docGutterWanted(box.classList.contains("doc-content-code"))
       : docGutterPref() === "1";
     gutter.classList.toggle("hidden", !on);
-    // Numbers only line up against hard lines, so a numbered box stops
-    // soft-wrapping — the same rule `.doc-content-code` already applies.
-    if (!isDoc) box.classList.toggle("has-gutter", on);
+    //: Numbers only line up against hard lines, so a numbered box stops
+    //: soft-wrapping, which is the same rule `.doc-content-code` already
+    //: applies.
+    //:
+    //: **The documents editor used to be excluded from this**, on the
+    //: assumption that a numbered document is always a code file and so
+    //: already has `.doc-content-code`. It is not: `docGutterWanted` honours a
+    //: remembered "1", so anyone who turned line numbers on sees them on a
+    //: markdown document too, where the textarea soft-wraps and the column
+    //: does not. That is one number lost per wrapped line, accumulating down
+    //: the file, which is exactly the "line numbers drift out of sync with the
+    //: text" that was reported.
+    box.classList.toggle("has-gutter", on);
     anyOn = anyOn || on;
   }
+  syncDocGutterMetrics();
+  watchDocGutter($("doc-content"));
   for (const button of document.querySelectorAll(".doc-toolbar-gutter")) {
     const bar = button.closest(".doc-toolbar");
     const own = bar?.id === "doc-toolbar"

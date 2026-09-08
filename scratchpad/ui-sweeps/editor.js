@@ -859,6 +859,154 @@ function ok(name, condition, detail) {
   await page.click("#doc-prose");
   await page.waitForTimeout(200);
 
+  // =========================================================================
+  // The line-number gutter, in all three editors
+  // =========================================================================
+  //
+  // Reported with a screenshot: gutter rows 1..18 continuing below a textarea
+  // that ended at row 11, and numbers out of step with the text. Measured
+  // before the fix, in the documents editor: the column was 9.6px taller than
+  // the box even untouched, 325.4px taller once the resize handle was dragged
+  // shorter, every number sat 1.59px above its line (the stylesheet's static
+  // `padding-top: 0.5rem` against the textarea's `--space-4`), and a 200px
+  // scroll moved the column only 139px because a too-tall gutter has a
+  // shorter scrollable range.
+  //
+  // The check is the one the report implies: put 30 lines in, compare the top
+  // of gutter row N with where the textarea actually draws line N, scroll,
+  // and compare again.
+  const GUTTER_LINES = Array.from(
+    { length: 30 }, (_, i) => `Line ${i + 1} of the document under test.`
+  ).join("\n");
+
+  //: Runs in the page. Row tops come from a Range over the numbers' own text
+  //: node; line tops come from `docCaretPoint`, which is the app's independent
+  //: measurement of where a character sits inside the textarea.
+  const gutterMeasure = (boxId) => {
+    const box = document.getElementById(boxId);
+    const gutter = [...document.querySelectorAll(".doc-gutter")]
+      .find((g) => (g.dataset.for ? g.dataset.for : "doc-content") === boxId);
+    if (!gutter || gutter.classList.contains("hidden")) return { missing: true };
+    const boxRect = box.getBoundingClientRect();
+    const gutRect = gutter.getBoundingClientRect();
+    const node = gutter.firstChild;
+    const text = gutter.textContent;
+    const rowTop = (n) => {
+      const start = text.split("\n").slice(0, n - 1).join("\n").length + (n > 1 ? 1 : 0);
+      const range = document.createRange();
+      range.setStart(node, start);
+      range.setEnd(node, start + String(n).length);
+      return range.getBoundingClientRect().top;
+    };
+    const lineTop = (n) => {
+      const at = box.value.split("\n").slice(0, n - 1).join("\n").length + (n > 1 ? 1 : 0);
+      box.setSelectionRange(at, at);
+      return docCaretPoint(box).y;
+    };
+    const rows = [1, 5, 11, 20, 30].map((n) => ({ n, delta: rowTop(n) - lineTop(n) }));
+    const style = getComputedStyle(gutter);
+    const boxStyle = getComputedStyle(box);
+    return {
+      overflow: gutRect.bottom - boxRect.bottom,
+      heights: [boxRect.height, gutRect.height],
+      scroll: [box.scrollTop, gutter.scrollTop],
+      metrics: [boxStyle.paddingTop === style.paddingTop, boxStyle.lineHeight === style.lineHeight,
+        boxStyle.fontSize === style.fontSize],
+      worst: Math.max(...rows.map((r) => Math.abs(r.delta))),
+      rows,
+    };
+  };
+
+  const gutterOk = (where, m) => {
+    ok(`gutter (${where}) is clipped to the textarea, not the row`,
+      !m.missing && Math.abs(m.overflow) <= 1,
+      m.missing ? "no gutter" : `${m.overflow.toFixed(1)}px past the box, heights ${m.heights.map((h) => h.toFixed(0)).join(" vs ")}`);
+    ok(`gutter (${where}) takes the textarea's own padding, line-height and size`,
+      !m.missing && m.metrics.every(Boolean), JSON.stringify(m.metrics));
+    ok(`gutter (${where}) scrolls in lock-step`,
+      !m.missing && m.scroll[0] === m.scroll[1], `box ${m.scroll[0]}, gutter ${m.scroll[1]}`);
+    ok(`gutter (${where}) rows sit on their lines within 1px`,
+      !m.missing && m.worst <= 1,
+      m.missing ? "no gutter" : m.rows.map((r) => `${r.n}:${r.delta.toFixed(2)}`).join(" "));
+  };
+
+  // --- the documents editor, including a textarea dragged shorter
+  await page.evaluate(async (content) => {
+    localStorage.setItem("doc-gutter", "1");
+    setDocView("source");
+    const box = document.getElementById("doc-content");
+    box.value = content;
+    box.dispatchEvent(new Event("input", { bubbles: true }));
+    applyDocGutter();
+    // What the report's screenshot shows: the native resize handle dragged up.
+    box.style.height = "260px";
+    await new Promise((r) => setTimeout(r, 400));
+  }, GUTTER_LINES);
+  await page.waitForTimeout(300);
+  gutterOk("documents", await page.evaluate(`(${gutterMeasure})("doc-content")`));
+  // The reading measure centres the textarea in its row while the gutter sits
+  // at the row's left edge, so turning numbers on used to put 178px of empty
+  // card between the column and the code, each with a squared-off shared edge
+  // facing nothing.
+  const gutterGap = await page.evaluate(() => {
+    const g = document.getElementById("doc-gutter").getBoundingClientRect();
+    const b = document.getElementById("doc-content").getBoundingClientRect();
+    return b.left - g.right;
+  });
+  ok("gutter (documents) touches the textarea it numbers", Math.abs(gutterGap) < 1,
+    `${gutterGap.toFixed(1)}px between them`);
+  await page.evaluate(async () => {
+    const box = document.getElementById("doc-content");
+    box.scrollTop = 200;
+    box.dispatchEvent(new Event("scroll", { bubbles: true }));
+    await new Promise((r) => requestAnimationFrame(r));
+  });
+  gutterOk("documents, scrolled", await page.evaluate(`(${gutterMeasure})("doc-content")`));
+
+  // --- the capture form. `#capture` is a hidden card until the section is
+  // shown, and a textarea inside `display: none` measures zero.
+  await page.evaluate(async (content) => {
+    switchTab("notes");
+    showNotesSection("capture", { focus: true });
+    await new Promise((r) => setTimeout(r, 400));
+    const box = document.getElementById("entry-content");
+    box.value = content;
+    box.dispatchEvent(new Event("input", { bubbles: true }));
+    applyDocGutter();
+    await new Promise((r) => setTimeout(r, 400));
+  }, GUTTER_LINES);
+  await page.waitForTimeout(500);
+  await page.evaluate(async () => {
+    const box = document.getElementById("entry-content");
+    box.scrollTop = 120;
+    box.dispatchEvent(new Event("scroll", { bubbles: true }));
+    await new Promise((r) => requestAnimationFrame(r));
+  });
+  gutterOk("capture form", await page.evaluate(`(${gutterMeasure})("entry-content")`));
+
+  // --- the note edit form, whose gutter is built by `mountGutterFor` into a
+  // detached <li> and whose line-height (24px) differs from the capture
+  // form's (23.2px). One static CSS value could not have been right for both,
+  // which is the argument for copying each box's own metrics.
+  const editBox = await page.evaluate(async (content) => {
+    const r = await api("/entries", { method: "POST", body: JSON.stringify({ content, tags: ["gutter"] }) });
+    const made = await r.json();
+    showNotesSection("browse");
+    await loadEntries();
+    editingId = made.id;
+    renderEntries();
+    await new Promise((wait) => setTimeout(wait, 600));
+    applyDocGutter();
+    const box = document.querySelector(".gutter-wrap > textarea:not(#entry-content)");
+    if (!box) return { missing: true };
+    box.scrollTop = 90;
+    box.dispatchEvent(new Event("scroll", { bubbles: true }));
+    return { id: box.id };
+  }, GUTTER_LINES);
+  await page.waitForTimeout(500);
+  gutterOk("note edit form",
+    editBox.missing ? { missing: true } : await page.evaluate(`(${gutterMeasure})("${editBox.id}")`));
+
   await page.waitForTimeout(400);
   ok("no console errors", consoleErrors.length === 0, JSON.stringify(consoleErrors.slice(0, 4)));
 

@@ -4407,6 +4407,30 @@ summary:not(.icon-only):not(.icon-button) {
   margin-inline: auto;
 }
 
+/* **The numbers have to touch the text they number.** The measure above
+   centres the textarea in its row with `margin-inline: auto`, and the gutter
+   is a flex sibling at the row's left edge, so turning line numbers on put a
+   measured 178px of empty card between column and code (gutter ending at
+   x=351.7, textarea starting at x=529.8) with a squared-off shared edge on
+   each of them facing nothing. A number that far from its line is not a
+   gutter, it is a second column of unrelated digits.
+
+   The pair is centred as one thing instead: the free space goes to the left
+   of the gutter and to the right of the textarea, and the shared edge in the
+   middle closes up. Only when the gutter is actually showing, so a document
+   without line numbers is centred exactly as before. */
+.doc-source-wrap > .doc-gutter:not(.hidden) {
+  margin-left: auto;
+}
+
+/* `~`, not `+`: the Phase 0 backdrop is inserted between the gutter and the
+   textarea, so an adjacent-sibling selector matched only on a code file (which
+   has no backdrop) and left a markdown file's numbers 118.7px adrift.
+   Measured both ways before this was written down. */
+.doc-source-wrap > .doc-gutter:not(.hidden) ~ #doc-content {
+  margin-left: 0;
+}
+
 /* Task #41: a brand-new (or emptied-out) document's Live pane rendered as a
    sliver — measured at 42px inside a 1100px pane. `margin-inline: auto`
    above only centres a box that already has a width; per the flex spec, an

@@ -7654,7 +7654,7 @@ function wbRegenerateShapeCaps(d, startCap, endCap, headLen) {
   return out;
 }
 
-//: What style a drawn line/arrow's own path is *actually* carrying, 
+//: What style a drawn line/arrow's own path is *actually* carrying,
 //: needed because the properties panel used to just show whatever the
 //: active drawing tool's current default was (live-reported bug, same
 //: session as the Line-tool-always-drew-an-arrowhead one above), which
@@ -7668,7 +7668,18 @@ function wbDetectArrowStyle(d) {
   if (!m) return "none";
   const sx = parseFloat(m[1]), sy = parseFloat(m[2]), ex = parseFloat(m[3]), ey = parseFloat(m[4]);
   let hasEnd = false, hasStart = false;
-  for (const extra of d.matchAll(/M\s*(-?[\d.]+(?:e-?\d+)?)\s+(-?[\d.]+(?:e-?\d+)?)/g)) {
+  //: **Scanned from *after* the shaft's own `M`, not from the start of `d`.**
+  //: Reported: "arrow drawn shows both caps as Arrow in properties" -
+  //: reproduced live: an arrow with only an end head stored no `startCap`/
+  //: `endCap` fields at all (an older/legacy shape), so this ran, and `m[0]`
+  //: (the shaft's own leading `M sx sy L ex ey`, matched above) begins with
+  //: exactly the same `M sx sy` a *real* start-cap marker would - the loop
+  //: below used to scan the whole string including that leading `M`, so
+  //: every plain shaft with no start cap at all still measured a
+  //: zero-distance "hit" on its own start point and reported one anyway.
+  //: Slicing it off leaves only the head subpaths `wbArrowHeadPath` actually
+  //: appended, which is what this function is supposed to be reading.
+  for (const extra of d.slice(m[0].length).matchAll(/M\s*(-?[\d.]+(?:e-?\d+)?)\s+(-?[\d.]+(?:e-?\d+)?)/g)) {
     const x = parseFloat(extra[1]), y = parseFloat(extra[2]);
     if (Math.hypot(x - ex, y - ey) < 0.5) hasEnd = true;
     else if (Math.hypot(x - sx, y - sy) < 0.5) hasStart = true;

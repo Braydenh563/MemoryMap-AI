@@ -214,9 +214,12 @@ def _images(session: Session) -> list[dict]:
         # as an Attachment: it is a picture, and the Images sub-tab already
         # lists it as one. Listing its attachment here again as a "file"
         # put every sketch in two places, one of them wrong.
-        if (attachment.mime or "").startswith("image/") and not strip_inline_markdown(
-            entry.content or ""
-        ).strip():
+        # An image attachment is never a "file" here: it has the Images
+        # sub-tab and the note card's own thumbnail. Reported with a
+        # screenshot: "sketches still show in the library all tab's files
+        # section". The old rule only skipped images on notes with no text,
+        # so a captioned sketch counted as a PDF-shaped file.
+        if (attachment.mime or "").startswith("image/"):
             continue
         kind_word = (attachment.mime or "").split("/")[-1].upper() or "FILE"
         items.append(

@@ -78,7 +78,7 @@ takes them top-down inside each block.
    consistency.md (chip recipe: left aligned, ellipsis).
 9. **Streaming icon is a static three-dot triangle**; step "Working" rows
    render above the step content. Owner: AGENT_SKILLS_REFORM Phase D.
-10. **Sketches appear in Library All > Files.** Filter by kind. Owner:
+10. **(fixed)** **Sketches appear in Library All > Files.** Filter by kind. Owner:
     docks.md / Library dossier.
 11. **New mind map's first node under the top bar; dragged map nodes leave
     their edges behind.** Owner: mindmap.md item H (already listed) plus

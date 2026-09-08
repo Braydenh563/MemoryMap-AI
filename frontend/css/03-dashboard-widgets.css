@@ -2643,16 +2643,24 @@ p.graph-help-panel {
   margin-left: 0;
 }
 
-/* The tuned-once controls, folded away behind ⚙. Same control-strip rule as
-   the trace row and the chat dock: one height, no outside margins, the row's
-   own gap between them. */
+/* The tuned-once controls, behind the dock's gear (INBOX 41). **A column of
+   sections, not a strip.** It was `flex-wrap: wrap` across the card, which
+   put two sliders, six pill switches, a select and two buttons in whatever
+   order they had been added, wrapped into two rows of unrelated things, and
+   left the reader to work out which control belonged to which idea. A
+   popover's contents are a list: the sections carry their own padding and
+   dividers (`.dock-menu-section`), so this element sets none of its own.
+
+   The shell (ground, edge, radius, shadow) comes from `.graph-overlay
+   .graph-options` in 02-chat-graph.css, which is the one every floating panel
+   over the map shares; the glass-off variant below still overrides it. */
 .graph-options {
   display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-  margin: 0 0 var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  margin: 0;
+  padding: 0;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   /* Same tier/blur fix as .graph-trace directly above it in the cascade, 
@@ -2662,6 +2670,53 @@ p.graph-help-panel {
   backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   --control-h: 1.875rem;
+}
+
+/* One setting, one row: what it is on the left, the control that changes it
+   on the right, at one height down the whole panel. It is the shape every
+   settings list in this app already uses, and the thing the old strip could
+   not do, because a wrapping row cannot align anything vertically. */
+.graph-option-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  /* `max`, not `--control-h` alone: below 820 the pointer is a finger and
+     `--target-min` becomes 44px (07-whiteboard-misc.css, "touch targets, one
+     step, one block"), which the buttons in this panel already take. Measured
+     at 390x844 before this: the two button rows stood at 44 and the ten
+     others at 30, so the phone got a list at two heights, which is exactly
+     the defect the panel was rebuilt to fix, one width down. The whole row is
+     the hit area on a phone, which is what a person aims at anyway. */
+  min-height: max(var(--control-h), var(--target-min));
+  margin: 0;
+  font-size: var(--text-md);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* The label half never shrinks below its words; the control half is the
+   elastic one. A row whose name is squeezed to fit a slider is the failure
+   `.graph-temporal` was fixed for once already, one axis over. */
+.graph-option-row > label,
+.graph-option-row > span {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.graph-option-row > input[type="range"] {
+  flex: 1 1 auto;
+  width: auto;
+  max-width: 9.5rem;
+  min-width: 5rem;
+  margin: 0;
+}
+
+.graph-option-row > button,
+.graph-option-row > select {
+  flex: 0 0 auto;
 }
 
 :root[data-glass="off"] .graph-options {

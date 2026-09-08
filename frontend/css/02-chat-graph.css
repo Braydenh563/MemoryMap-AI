@@ -1098,6 +1098,26 @@ details.tool-chip[open] > .tool-chip-body {
   justify-self: stretch;
 }
 
+/* **The app chrome goes with it** (INBOX 29: "the top bar stays"). The card
+   above covers the screen, inset by one spacing step and fixed, but the top
+   bar (which holds the tab bar and the space switcher) and the status bar
+   were still laid out behind it and still visible through that inset, so
+   full screen read as a card resting on the app rather than as the map
+   taking the screen. `display: none` rather than `visibility: hidden`: the
+   body is a flex column and leaving two rows reserved would keep exactly the
+   gap this is here to close.
+
+   The sidebars are on the list for completeness rather than for the Graph:
+   the tab has none, but they are the app's other piece of chrome and a
+   split view is the direction the plans point in. Everything comes back on
+   the same class, which is removed by the button, by Escape, and by leaving
+   the tab (app.js). */
+body.graph-fullscreen-on > #top-bar,
+body.graph-fullscreen-on > #status-bar,
+body.graph-fullscreen-on .sidebar-panel {
+  display: none;
+}
+
 /* Reported: the Options panel's suggested-links list "runs off the bottom
    without scrolling" in full screen. `#graph-card`'s own `overflow: hidden`
    (above, for a different bug, see its own comment) still applies here,
@@ -4840,6 +4860,12 @@ button.ghost.danger:hover {
   top: var(--space-3);
   left: var(--space-3);
   right: var(--space-3);
+  /* Bounded at the bottom as well as the top, which it was not, so that a
+     panel in the column can cap itself against the card it floats over
+     (`.graph-overlay .graph-options` below) instead of against the viewport.
+     A percentage max-height needs a containing block with a definite height,
+     and `top` alone does not give one. */
+  bottom: var(--space-3);
   z-index: 6;
   display: flex;
   flex-direction: column;
@@ -4850,6 +4876,10 @@ button.ghost.danger:hover {
 
 .graph-overlay > * {
   pointer-events: auto;
+  /* A definite column height means flex may now shrink these to fit it, and
+     a squashed dock is not a thing anyone asked for: the panels cap
+     themselves, in their own rules, by their own reasons. */
+  flex: 0 0 auto;
 }
 
 /* One shell for every panel in the column, so the dock, the options, the trace
@@ -4885,14 +4915,45 @@ button.ghost.danger:hover {
   width: min(26rem, 100%);
 }
 
+/* The display options, on the same footing (INBOX 21 and 41). They opened as
+   a full-width strip under the dock, which is what a settings panel looks
+   like when it is part of the page and not what one looks like when it is a
+   popover the gear beside it opened. Right-aligned under that gear, at a
+   menu's width, it reads as the dock's own menu: the same ground, edge,
+   radius and shadow the `.dock-menu-list` recipe uses, which the shared rule
+   above already gives every panel in this column. */
+.graph-overlay .graph-options {
+  align-self: flex-end;
+  width: min(22rem, 100%);
+}
+
 /* A panel over the map is capped and scrolls inside itself. Reported once in
    full screen ("the suggested-links list runs off the bottom without
    scrolling"), and floating panels make that the general case rather than one
    window's bug: the column has no height of its own to push against. */
-.graph-overlay .graph-options,
 .graph-overlay .graph-help-panel,
 .graph-overlay #link-suggestions {
   max-height: min(60vh, 26rem);
+  overflow-y: auto;
+}
+
+/* The options panel is capped against the card, not the viewport, and the
+   number it subtracts is the zoom strip's own room at the bottom right.
+   Measured at 1440x900 while fixing it: at a 40rem cap the panel ran to
+   y=771 and the zoom strip starts at y=688, so the panel took the top two
+   zoom buttons with it, a panel that covers a control has removed that
+   control. `--graph-chrome-top` is the dock's own room at the top (the same
+   token the minimap's top corners use), and 12rem is the four zoom buttons
+   plus their gutter and a gap. What does not fit scrolls inside the panel,
+   with the cut-off row visible, which is the affordance; running off the
+   card, or over the buttons, is not. */
+.graph-overlay .graph-options {
+  /* The `max()` is the floor, and it is not decoration: on a short window the
+     subtraction goes negative, and a negative `max-height` is not an error
+     that shows up anywhere near the rule that caused it, it is a panel that
+     opens with no height at all. 12rem is four rows and a heading, which is
+     enough to see that a list is there and scroll it. */
+  max-height: max(12rem, calc(100% - var(--graph-chrome-top) - 12rem));
   overflow-y: auto;
 }
 

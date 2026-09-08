@@ -95,6 +95,48 @@ const DRAG_ALPHA = 0.3;
 //: world walls. Six is "labels do not sit on top of each other".
 const COLLIDE_PAD = 6;
 
+//: **How far the map spreads, and why it must depend on how many notes there
+//: are.** Reported as "the max gravity in the graph is quite separated", and
+//: measured before touching anything (35 notes, settled, default sliders:
+//: world box 721x760, fit zoom 0.8; 300 notes: 2162x1828, fit zoom 0.3, with
+//: 138 of the 300 outside the box at zoom 1).
+//:
+//: A fixed charge and a fixed link length give a layout whose span grows like
+//: the square root of the note count, because that is how many notes have to
+//: fit around each other. The fit zoom then falls the same way, and a
+//: notebook of any size opens as a field of dots you have to zoom into before
+//: it says anything. The layout is *right* at every size; the default view of
+//: it is not.
+//:
+//: So the two dials are scaled by the size of the notebook: below the
+//: reference count nothing changes at all, above it the repulsion and the
+//: link length come down together, which packs the map without touching the
+//: shape a cluster has (that is set by the local balance between the two, and
+//: they move together). The floor stops a very large notebook from being
+//: squeezed into a mat: past it the fit zoom has to fall, because 5,000
+//: circles genuinely do not fit on a screen at 1:1.
+const DENSITY_REFERENCE = 40;
+const DENSITY_FLOOR = 0.3;
+const DENSITY_EXPONENT = 0.42;
+//: A flat trim on top of the scaling, for the small maps the reference leaves
+//: alone: at 35 notes the fit zoom was 0.8, which is not "a note is a note"
+//: either, it is a map framed a fifth smaller than the screen it is on.
+const SPREAD_TRIM = 0.78;
+
+function densityScale(count) {
+  const n = Math.max(Number(count) || 1, 1);
+  return Math.min(1, Math.max(DENSITY_FLOOR, Math.pow(DENSITY_REFERENCE / n, DENSITY_EXPONENT)));
+}
+
+//: How much harder the centre pulls on a big notebook. See the forces below
+//: for why this exists rather than a deeper cut to the repulsion.
+const CENTRE_CEILING = 6;
+
+function centreScale(count) {
+  const n = Math.max(Number(count) || 1, 1);
+  return Math.min(CENTRE_CEILING, Math.max(1, Math.sqrt(n / DENSITY_REFERENCE)));
+}
+
 //: Slider (0-100, default 50) -> force. Kept here rather than on the main
 //: thread so the whole physics story is in one file: `gravity` is repulsion
 //: (more gravity -> weaker repulsion -> tighter clusters) and `spread` is the
@@ -105,9 +147,10 @@ function tuning(params) {
   const spread = Number(params && params.spread != null ? params.spread : 50);
   const gravityScale = 0.4 + gravity / 41.7; // 0.4x-2.8x
   const spreadScale = 0.5 + spread / 50; // 0.5x-2.5x
+  const density = SPREAD_TRIM * densityScale(nodes.length);
   return {
-    charge: -340 / gravityScale,
-    linkDistance: (edge) => (edge.kind === "similar" ? 130 : 80) * spreadScale,
+    charge: (-340 * density) / gravityScale,
+    linkDistance: (edge) => (edge.kind === "similar" ? 130 : 80) * density * spreadScale,
   };
 }
 
@@ -286,13 +329,23 @@ self.onmessage = (event) => {
             // fraction of the per-tick cost on thousands of nodes.
             .theta(1.1)
         )
-        // **A weak centre, not a strong one.** §2's complaint is "gravity that
-        // pulls everything into one clump": a strong centring force flattens
-        // the structure the repulsion just produced. These two are strong
-        // enough that a detached cluster drifts back into frame eventually and
-        // weak enough that clusters keep their shape.
-        .force("x", d3.forceX(0).strength(0.015))
-        .force("y", d3.forceY(0).strength(0.02))
+        // **A weak centre, not a strong one, and weak relative to how many
+        // notes it is holding.** §2's complaint is "gravity that pulls
+        // everything into one clump": a strong centring force flattens the
+        // structure the repulsion just produced. These two are strong enough
+        // that a detached cluster drifts back into frame eventually and weak
+        // enough that clusters keep their shape.
+        //
+        // The scaling is the other half of `densityScale`, and it is the dial
+        // that actually decides the *total* span: trimming the repulsion alone
+        // runs into the collision radius (measured on the 300-note fixture:
+        // the median nearest-neighbour gap was already down at 33px against a
+        // collide diameter of 26, so there was nothing left to squeeze out of
+        // it) while the centre keeps pulling the whole cloud in without
+        // changing anything about how a cluster is arranged inside itself. It
+        // is 1x up to the reference count, so a small notebook is untouched.
+        .force("x", d3.forceX(0).strength(0.015 * centreScale(nodes.length)))
+        .force("y", d3.forceY(0).strength(0.02 * centreScale(nodes.length)))
         .force(
           "collide",
           d3.forceCollide().radius((d) => (d.r || 8) + COLLIDE_PAD)

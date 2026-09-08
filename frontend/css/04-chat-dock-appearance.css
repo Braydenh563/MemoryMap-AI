@@ -1362,21 +1362,12 @@
   text-overflow: ellipsis;
 }
 
-.graph-physics {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  flex-wrap: wrap;
-}
-
-.graph-physics input[type="range"] {
-  width: 6.5rem;
-  margin: 0;
-}
-
-.graph-physics label {
-  font-size: 0.8rem;
-}
+/* Gravity, Spread and Unpin all used to be an inline-flex row inside the
+   options strip, with their own 0.8rem labels and a fixed 6.5rem slider: one
+   of the four label sizes that row was reported for. They are a section of
+   the options popover now (`.dock-menu-section`), one row per setting, so the
+   only rule left here is the one that says the section keeps its shape when
+   the layout has nothing for it to act on (`.is-disabled`, 06). */
 
 /* The text-selection toolbar: save-as-draft / search-notebook / ask-AI,
    near wherever the user just highlighted something. position:fixed (not

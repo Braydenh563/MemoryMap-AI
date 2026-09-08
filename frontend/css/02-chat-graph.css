@@ -4952,3 +4952,17 @@ button.ghost.danger:hover {
     right: var(--space-2);
   }
 }
+
+/* INBOX 31: `escapeMenuIfClipped` reparents a `details.dock-menu`'s list to
+   <body> the same way it already does for `.action-menu` (see that rule's
+   own comment, above in this file), so a dock menu inside a scrolling
+   ancestor can leave the box that was clipping it. `.action-menu-escaped`
+   was written only for `.action-menu`'s selector, so `.doc-dock-menu-list`
+   needs the same three declarations under its own name; kept as its own
+   rule rather than folded into the other one so neither reads as if it
+   were written for a shape it wasn't. */
+.doc-dock-menu-list.action-menu-escaped {
+  position: fixed;
+  right: auto;
+  z-index: 1020;
+}

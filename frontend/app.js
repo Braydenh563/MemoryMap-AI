@@ -22005,15 +22005,24 @@ async function goToTabHistory(next) {
 //: control inside a menu (Layout, Colour) keeps the menu open: picking a
 //: layout and then a colour is one visit, not two.
 document.addEventListener("click", (event) => {
-  const item = event.target.closest(".dock-menu .doc-dock-menu-item");
+  // `.action-menu-escaped` covers a list `escapeMenuIfClipped` has reparented
+  // to <body> (see the toggle listener below): it is then a sibling of its
+  // `details.dock-menu`, not a descendant, so `menu.contains(event.target)`
+  // below would read every click inside the still-open list as an outside
+  // click and shut it on the first interaction. Same widening
+  // `.action-menu-escaped` already gets in the pointerdown-close listener
+  // for `.action-menu` (search this file for that class).
+  const item = event.target.closest(".dock-menu .doc-dock-menu-item, .action-menu-escaped .doc-dock-menu-item");
   if (item) {
-    const menu = item.closest("details.dock-menu");
+    const menu = item.closest("details.dock-menu") || item.closest(".doc-dock-menu-list")?._escapedHome?.parent;
     // After the item's own handler has run: closing first would move focus
     // and, for a toggle, leave its aria-expanded one step behind.
     if (menu) setTimeout(() => { menu.open = false; }, 0);
   }
   for (const menu of document.querySelectorAll("details.dock-menu[open]")) {
-    if (!menu.contains(event.target)) menu.open = false;
+    if (menu.contains(event.target)) continue;
+    if (event.target.closest(".action-menu-escaped")) continue;
+    menu.open = false;
   }
 });
 //: A dock menu opens under its own button, which is right for a button on
@@ -22021,16 +22030,52 @@ document.addEventListener("click", (event) => {
 //: Timeline's Options list ran 41px past the viewport. On open, the list is
 //: measured once and flipped to right-align when it would overflow, a class,
 //: not a computed left, so the stylesheet still owns the geometry.
+//:
+//: **Vertical clipping was the same shape and had no fix at all.** Reported
+//: (INBOX 31, whiteboard's View menu screenshot): "dropdown menus clip off
+//: the bottom of the panel and do not scroll, app-wide." The stylesheet caps
+//: `.doc-dock-menu-list` at a flat `calc(100vh - space-9*2)`, which is blind
+//: to *where* the menu opened: a button in the lower half of a short window
+//: opens a list well under that flat cap and still lands with its own
+//: bottom edge past the viewport, nothing to scroll because nothing
+//: overflowed the box the stylesheet gave it. Measured before this fix,
+//: Reminders' Quick set menu at 1024x560: rect.bottom 732 against a 560px
+//: viewport, 172px unreachable, no internal scrollbar
+//: (`scrollHeight === clientHeight`). After: the cap is recomputed from the
+//: list's own top on every open, so it can never claim more room than is
+//: actually left below it.
+//:
+//: `escapeMenuIfClipped` (written for `.action-menu`, see its own comment)
+//: is the same recipe for the other half of the report -- a dock menu whose
+//: panel sits inside a scrolling ancestor (`overflow` anything but
+//: `visible`) is still cut by that ancestor even once its own height is
+//: capped correctly, and only reparenting to <body> escapes it. It is a
+//: no-op whenever there is no such ancestor, which is most of these menus,
+//: so this changes nothing for a dock menu that already had room.
 document.addEventListener(
   "toggle",
   (event) => {
     const menu = event.target;
-    if (!(menu instanceof HTMLElement) || !menu.matches("details.dock-menu") || !menu.open) return;
-    const list = menu.querySelector(".dock-menu-list");
+    if (!(menu instanceof HTMLElement) || !menu.matches("details.dock-menu")) return;
+    // Once escaped, the list is a child of <body>, not of `menu`: cache the
+    // reference the first time so a later close/reopen can still find it.
+    const list = menu._dockMenuList || menu.querySelector(".dock-menu-list");
     if (!list) return;
+    menu._dockMenuList = list;
+    if (!menu.open) {
+      // Closed: put an escaped list back where it lives in the DOM (a no-op
+      // if it was never escaped) and drop this open's inline cap, so the
+      // next open starts from the stylesheet's own numbers, not a stale one.
+      restoreEscapedMenu(list);
+      list.style.maxHeight = "";
+      return;
+    }
     menu.classList.remove("dock-menu-flip");
-    const rect = list.getBoundingClientRect();
-    if (rect.right > window.innerWidth - 8) menu.classList.add("dock-menu-flip");
+    if (list.getBoundingClientRect().right > window.innerWidth - 8) menu.classList.add("dock-menu-flip");
+    escapeMenuIfClipped(list, menu.querySelector("summary") || menu);
+    const margin = 8;
+    const available = window.innerHeight - list.getBoundingClientRect().top - margin;
+    list.style.maxHeight = `${Math.max(120, Math.round(available))}px`;
   },
   true
 );

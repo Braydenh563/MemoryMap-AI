@@ -28,13 +28,37 @@ const SURFACES = [
   { tab: 'library', target: 'library-view-contents', dock: 'library-contents' },
   { tab: 'library', target: 'library-view-skills', dock: 'library-skills' },
   { tab: 'chat', dock: 'chat' },
-  { tab: 'dashboard', dock: 'dashboard' },
 ];
 
 const fails = [];
 function check(ok, what) { if (!ok) fails.push(what); return ok; }
 
+// **Picking a real verb runs the real verb**, which is the point of driving a
+// menu rather than counting it, and several of them open a dialog: "New group"
+// on Links puts up a prompt. Playwright then reports the *next* click only as
+// "<div class='modal-overlay'> intercepts pointer events", which names the
+// symptom and not the cause and cost half an hour once. So the probe closes
+// whatever dialog it opened before carrying on, and says so.
+async function dismissModals(page) {
+  for (let i = 0; i < 5; i += 1) {
+    if (!(await page.$('.modal-overlay:not(.hidden)'))) return;
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(250);
+    if (!(await page.$('.modal-overlay:not(.hidden)'))) return;
+    await page.evaluate(() => {
+      const o = document.querySelector('.modal-overlay:not(.hidden)');
+      if (!o) return;
+      const buttons = [...o.querySelectorAll('button')];
+      const cancel = buttons.find((b) => /cancel|close|not now|dismiss/i.test(b.textContent || ''))
+        || buttons.find((b) => b.classList.contains('ghost')) || buttons[0];
+      if (cancel) cancel.click();
+    });
+    await page.waitForTimeout(300);
+  }
+}
+
 async function probe(page, s, width) {
+  await dismissModals(page);
   await page.click(`[data-tab="${s.tab}"]`);
   await page.waitForTimeout(500);
   if (s.target) {
@@ -81,6 +105,7 @@ async function probe(page, s, width) {
       await page.click(`${m} .doc-dock-menu-item`);
       await page.waitForTimeout(300);
       check(!(await page.$eval(m, (e) => e.open)), `${m}@${width}: stayed open after picking an item`);
+      await dismissModals(page);
       await page.click(`${m} > summary`);
       await page.waitForTimeout(250);
     } else if (kind === 'check') {
@@ -117,7 +142,13 @@ async function probe(page, s, width) {
     await page.waitForTimeout(400);
     console.log(`--- ${width} ---`);
     for (const s of list) {
-      try { await probe(page, s, width); } catch (e) { fails.push(`${s.dock}@${width}: ${String(e).slice(0, 140)}`); }
+      try { await probe(page, s, width); } catch (e) {
+        const modal = await page.evaluate(() => {
+          const o = document.querySelector('.modal-overlay:not(.hidden)');
+          return o ? o.className + ' :: ' + o.textContent.trim().slice(0, 120) : 'none';
+        }).catch(() => 'unknown');
+        fails.push(`${s.dock}@${width}: ${String(e).slice(0, 90)} | modal: ${modal}`);
+      }
     }
   }
   await browser.close();

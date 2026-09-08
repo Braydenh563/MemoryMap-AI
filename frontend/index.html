@@ -4146,21 +4146,75 @@ Link to another note with [[its first few words]]."></textarea>
        else to file, search by content, or auto-categorise. -->
   <div id="library-view-links" class="library-view-section hidden">
     <section class="card glass">
-      <div class="row space-between library-head">
-        <h2>Links</h2>
-        <!-- Groups had no controls of their own: the only way to make one was
-             to type a name into the Add form, and the only way to rename or
-             retire one was to edit every link carrying it, one at a time.
-             Directly requested: "add buttons for creating and managing groups
-             in the links tab top dock". -->
-        <div class="row">
-          <button type="button" id="bookmark-group-new" class="ghost small">
-            <i class="ph ph-folder-plus ph-lead" aria-hidden="true"></i> New group</button>
-          <button type="button" id="bookmark-group-manage" class="ghost small">
-            <i class="ph ph-folders ph-lead" aria-hidden="true"></i> Manage groups</button>
+      <!-- **The dock (UI_MODERNISATION_PLAN.md Phase 8).** Before: two rows
+           and a form between them. A `.row.space-between` head carrying the
+           title and two group buttons, the Add form, then a
+           `.library-toolbar` with search and sort a full form below the
+           title. So the two things that choose what the list shows sat
+           underneath the thing that adds to it, which is the reverse of how
+           the other six sub-tabs read.
+
+           One row, the four zones every Library head now uses:
+             identity: the title
+             find:     search
+             arrange:  one sort select
+             actions:  Add link, then the two group verbs in the kebab
+           The group chips below the dock stay: they are the visible filter,
+           the same recipe the Everything sub-tab uses.
+
+           "New group" and "Manage groups" move into the kebab because of
+           rule 5: a menu is for verbs used sometimes, and a person who has
+           made their groups does not make another this week. They were
+           directly requested ("add buttons for creating and managing groups
+           in the links tab top dock") and they are still in the top dock,
+           one click further in. Ids unchanged, so library.js keeps both
+           listeners exactly as they are.
+
+           "Add link" carries `data-empty-action="add-link"`, the delegated
+           action this app already routes (app.js) from the empty state's own
+           button, so it needs no listener of its own and cannot drift from
+           what that button does: it puts the cursor in the URL field. -->
+      <div class="dock" data-dock-name="library-links" role="toolbar"
+        aria-label="Saved link controls">
+        <div class="dock-identity">
+          <h2>Links</h2>
+        </div>
+        <div class="dock-group dock-find">
+          <input id="bookmark-search" type="search" class="library-search"
+            placeholder="Search saved links…" aria-label="Search saved links">
+        </div>
+        <div class="dock-group dock-arrange">
+          <!-- Same shape and same place as the Notes and Files sort controls.
+               The Library sub-tabs were reported as "missing sorting and
+               filtering options", and this is the third of them to get one. -->
+          <select id="bookmark-sort" aria-label="Sort links" title="Sort links">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="az">Title A → Z</option>
+            <option value="za">Title Z → A</option>
+            <option value="site">By site</option>
+          </select>
+        </div>
+        <div class="dock-actions">
+          <button id="bookmark-add" class="small" type="button"
+            data-empty-action="add-link" title="Save a new link">
+            <i class="ph ph-plus ph-lead" aria-hidden="true"></i> Add link</button>
+          <details class="doc-dock-menu dock-menu dock-more" id="bookmark-more-menu">
+            <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
+            <div class="doc-dock-menu-list dock-menu-list">
+              <!-- Groups had no controls of their own: the only way to make one
+                   was to type a name into the Add form, and the only way to
+                   rename or retire one was to edit every link carrying it, one
+                   at a time. -->
+              <button type="button" id="bookmark-group-new" class="doc-dock-menu-item">
+                <i class="ph ph-folder-plus ph-lead" aria-hidden="true"></i> New group</button>
+              <button type="button" id="bookmark-group-manage" class="doc-dock-menu-item">
+                <i class="ph ph-folders ph-lead" aria-hidden="true"></i> Manage groups</button>
+            </div>
+          </details>
         </div>
       </div>
-      <p class="muted">Save links to websites you visit often — a bookmark
+      <p class="muted">Save links to websites you visit often: a bookmark
         shelf that lives in the notebook instead of the browser.</p>
       <form id="bookmark-form" class="row">
         <input id="bookmark-url-input" type="text" class="library-search"
@@ -4172,23 +4226,6 @@ Link to another note with [[its first few words]]."></textarea>
         <datalist id="bookmark-group-options"></datalist>
         <button type="submit" class="small"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Add</button>
       </form>
-      <!-- Same shape and same place as the Notes and Files sort controls —
-           the Library sub-tabs were reported as "missing sorting and filtering
-           options", and this is the third of them to get one. Wrapped in a
-           `.library-toolbar` so the select takes the shared control height
-           rather than being the one dropdown in the Library sized by nothing,
-           which is exactly how the Files sort went wrong first time. -->
-      <div class="library-toolbar library-links-toolbar">
-        <input id="bookmark-search" type="search" class="library-search"
-          placeholder="Search saved links…" aria-label="Search saved links">
-        <select id="bookmark-sort" aria-label="Sort links" title="Sort links">
-          <option value="newest">Newest first</option>
-          <option value="oldest">Oldest first</option>
-          <option value="az">Title A → Z</option>
-          <option value="za">Title Z → A</option>
-          <option value="site">By site</option>
-        </select>
-      </div>
       <div id="bookmark-group-chips" class="row bookmark-group-chips"></div>
       <div id="bookmark-list" class="bookmark-list"></div>
       <div id="bookmark-empty" class="empty-state hidden">

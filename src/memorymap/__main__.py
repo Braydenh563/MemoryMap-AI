@@ -243,8 +243,11 @@ _LOADING_HTML = """<!doctype html>
     // docstring for why the loading window can't ask the server itself.
     window.__mmSetStatus = function (text, pct) {
       document.getElementById("status").textContent = text;
-      if (mmOwn) {
-        mmOwn.detail = text;
+      // The row keeps the launcher's own detail for this step and the line
+      // below carries the phase inside it. Writing the phase into both put
+      // the same sentence on screen twice, one above the other, which reads
+      // as a rendering bug rather than as two pieces of information.
+      if (mmOwn && mmOwn.state !== "active") {
         mmOwn.state = "active";
         mmRender();
       }

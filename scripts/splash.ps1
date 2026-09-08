@@ -355,6 +355,7 @@ try {
     activeSince = (Get-Date)
     tipAt       = 0
     tipSince    = (Get-Date)
+    started     = (Get-Date)
     cancelled   = $false
     failed      = $false
     lastRaw     = ""
@@ -620,7 +621,18 @@ try {
       Update-Rows $steps
       Update-Hint $steps
 
-      $detailText = $current.Detail
+      # Not the current step's detail: the active row already shows that,
+      # and the same sentence twice, one above the other, reads as a
+      # rendering fault rather than as two pieces of information. The total
+      # elapsed time is the thing neither the list nor the bar can say, and
+      # it is what someone watching a slow first run actually wants.
+      $elapsed = [int]((Get-Date) - $st.started).TotalSeconds
+      if ($elapsed -lt 60) {
+        $detailText = "$done of $total steps done, running for $($elapsed)s."
+      } else {
+        $mins = [int]($elapsed / 60)
+        $detailText = "$done of $total steps done, running for $($mins)m $($elapsed % 60)s."
+      }
       if ($st.cancelled) { $detailText = "Cancelling after this step finishes." }
       if ($status.Text -ne $detailText) { $status.Text = $detailText }
 

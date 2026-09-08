@@ -178,6 +178,17 @@ class EntryOut(BaseModel):
     #: "" for one written here. The Contents index groups on it, and the
     #: wiki-link resolver matches its filename, see `Entry.source_path`.
     source_path: str = ""
+    #: Which space this note is filed in. Added for INBOX 1a/38: notes
+    #: carried this on the row (`Entry.workspace_id`) all along, but nothing
+    #: sent it to the frontend, so a note card had no way to say which space
+    #: it belonged to, and "notes from a deleted space appear in All spaces"
+    #: could not be told apart from "the space's own notes were correctly
+    #: kept, and these are unrelated notes that were always in Default
+    #: Space." "default" is where a deleted space's notes land (see
+    #: routes_spaces.py); it is a real row in `spaces`, not a sentinel, so
+    #: the frontend can always resolve this against the spaces list it
+    #: already loads for the switcher.
+    workspace_id: str = "default"
     created_at: datetime
     deleted_at: datetime | None = None  # set only in the recycle-bin view
     archived_at: datetime | None = None  # set only when archived (BACKLOG §30b)

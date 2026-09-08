@@ -1551,9 +1551,14 @@ body.has-agent-monitor #tab-library .library-view-section {
   flex: 1;
   overflow-y: auto;
   /* See `--scroll-top-clearance`'s own comment (00-tokens-shell.css): the
-     same shape as `#tab-notes .layout > main` below (04-chat-dock-
-     appearance.css), a card's own kebab scrolled flush to the bottom edge
-     sits directly under the fixed back-to-top button here too. */
+     same shape as `#tab-notes .layout > main` (04-chat-dock-appearance.css),
+     a card's own kebab scrolled flush to the bottom edge sits directly
+     under the fixed back-to-top button here too. INBOX 33: the padding
+     itself now lives on `body.scroll-top-visible .library-view-section`
+     below, active only while that button is actually on screen. */
+}
+
+body.scroll-top-visible .library-view-section {
   padding-bottom: var(--scroll-top-clearance);
 }
 

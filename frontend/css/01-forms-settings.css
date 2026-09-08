@@ -3563,10 +3563,10 @@ html.modal-open body {
    MemoryMap's emblem is a small constellation, nodes joined by edges, which
    is what a notebook of linked notes looks like from above. So the indicator
    is that: three nodes on a hairline edge, with the signal travelling along
-   the edge and lighting each node as it passes. It is the same three elements
-   the dots always were (no new DOM, so every caller and the stepped
-   reduced-motion variant keep working), read as a graph rather than as a
-   loading spinner borrowed from somewhere else.
+   the edge and lighting each node as it passes, read as a graph rather than
+   as a loading spinner borrowed from somewhere else. The reduced-motion
+   variant no longer shares this DOM (see `.typing-dots-stepped`, below):
+   INBOX 36 replaced it with a word, which needed its own shape.
 
    The edge is a `::before` on the row, positioned behind the nodes, so a node
    that is "off" still reads as sitting on a line rather than floating. */
@@ -3621,24 +3621,67 @@ html.modal-open body {
   animation-delay: 0.3s;
 }
 
-/* **The stepped variant: alive without moving.**
-   Built by `typingDots` (app.js) when progress motion is off, see its
-   comment for why "reduced motion" must not mean a frozen italic word, which
-   is what a user photographed and called broken. Nothing translates, nothing
-   fades in or out: a class moves from one dot to the next once a second, so
-   the only thing that changes is a colour. That is a value changing, not a
-   gesture, and it is the one signal available that a hung app cannot fake. */
-.typing-dots-stepped span {
-  animation: none;
-  will-change: auto;
-  background: var(--border);
-  /* No transition either: a fade is movement's quieter cousin, and the point
-     of this variant is that there is none. */
-  transition: none;
+/* **The stepped variant: a word, not three dots (INBOX 36).**
+   Built by `typingDots` (app.js) when progress motion is off. The previous
+   version of this kept the three constellation nodes and moved a `.is-on`
+   class between them once a second, a colour swap with no size or position
+   change, reasoned to read as "alive" and reported, unchanged, as not: "the
+   streaming indicator still does not animate." `typingDots` now swaps the
+   dots for a single word (`.typing-word`) instead, so there is no line of
+   nodes for `.typing-dots::before`'s hairline edge to sit under. */
+.typing-dots-stepped::before {
+  display: none;
 }
 
-.typing-dots-stepped span.is-on {
-  background: var(--accent);
+/* `.typing-dots-stepped .typing-word`, not the bare class: `.typing-dots
+   span` above (a class + a type, specificity 0-1-1) outranks a single class
+   selector (0-1-0) regardless of source order, so a plain `.typing-word`
+   rule here lost the cascade to the bouncing-dot animation it exists to
+   replace -- the word inherited `dot-bounce` and `will-change:
+   transform, opacity` from a rule meant for a 0.45rem circle, not text.
+   Two classes beats one. */
+.typing-dots-stepped .typing-word {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: none;
+  will-change: opacity;
+  /* Opacity only, over several seconds: the one kind of movement
+     `prefers-reduced-motion` guidance treats as safe (no translation, no
+     scaling), and slow enough that it reads as a pulse, not a flicker. */
+  animation: typing-word-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes typing-word-pulse {
+
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* **Declared, not exempted.** DESIGN.md's Motion rule ("every indefinite
+     animation needs a prefers-reduced-motion branch, and the branch keeps
+     the information") is right for decoration; this element only exists
+     *because* motion is already reduced ("still", or "auto" plus the OS
+     setting, see typingDots in app.js) or because "always" made a
+     deliberate, reviewed choice to override the OS setting for progress
+     indicators specifically (`progressMotionWanted`'s own comment: "it is
+     the user's own app, the choice is theirs"). Turning it off here would
+     recreate the exact bug this fix closes: a reduced-motion reader with no
+     way to tell the app is still working. Re-declared explicitly, identical
+     to the base rule, so this is a stated decision this lint (and the next
+     person reading it) can see rather than a component the branch missed. */
+  .typing-dots-stepped .typing-word {
+    animation: typing-word-pulse 2.4s ease-in-out infinite;
+  }
 }
 
 @keyframes dot-bounce {

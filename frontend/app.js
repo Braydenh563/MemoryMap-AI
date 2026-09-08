@@ -2050,6 +2050,33 @@ function entryItem(entry, options = {}) {
     meta.appendChild(mark);
   }
 
+  //: **Which space this note is actually filed in (INBOX 1a/38).** "Notes
+  //: from a deleted space appear in All spaces" turned out to be
+  //: unanswerable without this: there was no way to tell a survivor's real
+  //: space apart from a note that always lived in Default Space, so a
+  //: report and a non-bug looked identical. Shown whenever the picker at
+  //: the top of the tab does not already say it: every card while "All
+  //: spaces" is selected, or a card whose own space differs from the one
+  //: picked. `spacesCache` is the same list the switcher menu reads, so a
+  //: name/icon here can never disagree with the one shown there.
+  if (entry.workspace_id) {
+    const active = activeSpaceId();
+    if (active === SPACE_ALL || entry.workspace_id !== active) {
+      const space = spacesCache.find((s) => s.id === entry.workspace_id);
+      // Stored as "ph-house" (a full class name, see the switcher's own
+      // `iconEl.className`), not the "ph:house" `setLabel` shorthand
+      // expects; stripping the prefix once here is cheaper than a second
+      // icon convention.
+      const iconName = (space?.icon || "ph-circles-four").replace(/^ph-/, "");
+      const spaceName = space ? space.name : "a space that no longer exists";
+      const spaceChip = chip(`ph:${iconName} ${spaceName}`, "tag", () =>
+        setActiveSpace(entry.workspace_id)
+      );
+      spaceChip.title = `Filed in ${spaceName}. Click to switch there.`;
+      meta.appendChild(spaceChip);
+    }
+  }
+
   // While the AI is re-evaluating this note, show a live spinner chip so
   // it's obvious something is running on this specific card.
   if (entry.id === busyEntryId) {
@@ -9600,7 +9627,16 @@ function renderRelatedElsewhere(target, items) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "chip chip-interactive answer-related-chip";
-    setLabel(button, `${icons[item.kind] || "ph:link"} ${item.label || item.kind}`);
+    //: INBOX 35: `item.label` is a raw document title or note preview from
+    //: the backend, unlike every other chip label in this file, which
+    //: goes through `noteLabel` first. Reported with a screenshot: a
+    //: document titled `# CAB432` and a note opening `**Ice Breakers:**`
+    //: printed their own markdown markers as chip text. `noteLabel` already
+    //: strips them (INLINE_MD, headings) for exactly this reason; routing
+    //: through it here too, `{content: item.label}` because that is the
+    //: shape it expects.
+    const label = noteLabel({ content: item.label || item.kind }, 40);
+    setLabel(button, `${icons[item.kind] || "ph:link"} ${label}`);
     button.title = `Open this ${item.kind}`;
     button.addEventListener("click", () => {
       if (item.kind === "document") {
@@ -12314,10 +12350,6 @@ function progressMotionWanted() {
   return !reducedMotionWanted();
 }
 
-//: How long each of the three dots takes to step, when it is stepping rather
-//: than bouncing. One second reads as deliberate rather than as a stutter.
-const PROGRESS_STEP_MS = 1000;
-
 // `label` is the reduced-motion fallback: with animations off the dots can't
 // convey "working", so a word has to. Callers that already print their own
 // sentence beside the indicator pass theirs in, the weekly digest used to
@@ -12482,50 +12514,49 @@ function typingDots(label = "Thinking…") {
   dots.dataset.phase = "thinking";
   dots.setAttribute("role", "status");
   dots.setAttribute("aria-label", label);
-  for (let i = 0; i < 3; i++) dots.appendChild(document.createElement("span"));
-  dots.appendChild(aiWritingTrace());
   dots.setStatus = (next) => {
     dots.setAttribute("aria-label", next);
   };
-  //: Idempotent, because the streaming callbacks that drive this fire on
-  //: every delta: setting the same phase again must not restart the
-  //: cross-fade or the line would stutter on each token.
+  if (progressMotionWanted()) {
+    for (let i = 0; i < 3; i++) dots.appendChild(document.createElement("span"));
+    dots.appendChild(aiWritingTrace());
+    //: Idempotent, because the streaming callbacks that drive this fire on
+    //: every delta: setting the same phase again must not restart the
+    //: cross-fade or the line would stutter on each token.
+    dots.setPhase = (phase) => {
+      const next = phase === "writing" ? "writing" : "thinking";
+      if (dots.dataset.phase !== next) dots.dataset.phase = next;
+    };
+    return dots;
+  }
+
+  //: **INBOX 36: stepping a dot's colour once a second did not read as
+  //: alive.** The previous fix here (a class moving from dot to dot) was
+  //: reasoned, not observed, and the owner's desktop shell still showed a
+  //: flat row of dots: `.typing-dots-stepped span.is-on` swapped `--border`
+  //: for `--accent`, a colour change with no size, position or brightness
+  //: cue big enough to notice out of the corner of an eye while reading an
+  //: answer. Reported again, unchanged: "the streaming indicator still does
+  //: not animate."
+  //:
+  //: A word that changes is unambiguous in a way three near-identical dots
+  //: never were, and a *slow* opacity pulse is movement of the one kind
+  //: `prefers-reduced-motion` guidance treats as safe: no translation, no
+  //: scaling, nothing that can trigger vestibular symptoms, just a fade
+  //: between two brightness levels over several seconds. The word itself
+  //: still changes with the phase, the same "value changing is information"
+  //: reasoning the old stepped dots were built on, just legible this time.
+  dots.classList.add("typing-dots-stepped");
+  const word = document.createElement("span");
+  word.className = "typing-word";
+  word.textContent = "Thinking";
+  dots.appendChild(word);
   dots.setPhase = (phase) => {
     const next = phase === "writing" ? "writing" : "thinking";
-    if (dots.dataset.phase !== next) dots.dataset.phase = next;
+    if (dots.dataset.phase === next) return;
+    dots.dataset.phase = next;
+    word.textContent = next === "writing" ? "Writing" : "Thinking";
   };
-  if (progressMotionWanted()) return dots;
-
-  //: **Motion is off, so this steps instead of moving.**
-  //:
-  //: The old answer was to replace the dots with one static italic word, and
-  //: that is the thing the user photographed and called broken, correctly,
-  //: because a sentence that never changes is exactly what a *hung* app also
-  //: shows. Reduced motion means no *movement*; a value that changes is
-  //: information, and information is still allowed.
-  //:
-  //: So the dots stay, nothing translates or fades, and the highlight moves
-  //: from one to the next once a second by swapping a class. The element is
-  //: in the same place from frame to frame, there is no animation to make
-  //: anyone unwell: and it is unmistakably alive.
-  dots.classList.add("typing-dots-stepped");
-  let at = 0;
-  //: **The dots only**: `aiWritingTrace()`'s `<svg>` is appended into this
-  //: same box (see its own note on why it goes after the spans), so a plain
-  //: `[...dots.children]` walked four elements for three dots. Every fourth
-  //: tick lit the SVG, which shows nothing in this mode, so one beat in four
-  //: had no dot on at all: a second of stillness that reads exactly like the
-  //: animation having stopped. Measured on the running app before the fix, 
-  //: the highlighted index cycled 0, 1, 2, 3 across four spans-and-an-SVG.
-  const children = [...dots.querySelectorAll(":scope > span")];
-  const tick = () => {
-    children.forEach((dot, i) => dot.classList.toggle("is-on", i === at));
-    at = (at + 1) % children.length;
-  };
-  tick();
-  //: Stops itself once the node is really gone, but not the instant it is
-  //: merely being moved. See `livingInterval`.
-  livingInterval(dots, tick, PROGRESS_STEP_MS);
   return dots;
 }
 
@@ -12737,7 +12768,20 @@ function syncChatJumpLatest() {
   const button = $("chat-jump-latest");
   const pane = $("chat-messages");
   if (!button || !pane) return;
-  const scrolledAway = pane.dataset.stuck === "0";
+  //: INBOX 34: this used to trust `pane.dataset.stuck`, which only the
+  //: `scroll` listener in `followBottom` ever writes. `newChatConversation`
+  //: clears the pane with `replaceChildren()`, which fires no scroll event,
+  //: so a reader who had scrolled away in the *previous* conversation left
+  //: `dataset.stuck === "0"` behind, and this pill read that stale flag as
+  //: "still scrolled away" on a brand-new, empty transcript with nothing to
+  //: scroll to. Re-derived from the live rect on every call instead, so a
+  //: cleared or shrunk pane can never leave the pill (or, before this
+  //: change, the reused down-arrow, see NO_SCROLL_TOP_TABS) showing for a
+  //: transcript that has nothing left below the fold. Also keeps
+  //: `dataset.stuck` itself current for `keepAtBottom`'s own check.
+  const distance = pane.scrollHeight - pane.scrollTop - pane.clientHeight;
+  const scrolledAway = distance > SCROLL_STICK_SLACK;
+  pane.dataset.stuck = scrolledAway ? "0" : "1";
   const overflowing = pane.scrollHeight - pane.clientHeight > SCROLL_STICK_SLACK;
   button.classList.toggle("hidden", !(scrolledAway && overflowing));
   const streaming = Boolean(chatStreaming);
@@ -17196,6 +17240,16 @@ function newChatConversation() {
   renderChatContextMeter(null);
   renderChatEmptyState();
   loadChatSuggestions();
+  //: INBOX 34: `replaceChildren()` above fires no scroll event, so without
+  //: this the jump-to-latest pill (and, before NO_SCROLL_TOP_TABS below,
+  //: the reused down-arrow button) kept whatever visibility the *previous*
+  //: conversation left them in, both correctly hidden on the tab's own
+  //: first load but stale, and wrongly showing, the moment "+ New" was
+  //: clicked from a conversation you had scrolled away in. Both controls
+  //: re-check the actual (now empty) pane immediately instead of waiting
+  //: for a scroll or resize that a brand-new chat may never get.
+  syncChatJumpLatest();
+  scrollTopUpdate?.();
 }
 
 // Delete the conversation open in the main pane, saved or not.
@@ -22005,15 +22059,24 @@ async function goToTabHistory(next) {
 //: control inside a menu (Layout, Colour) keeps the menu open: picking a
 //: layout and then a colour is one visit, not two.
 document.addEventListener("click", (event) => {
-  const item = event.target.closest(".dock-menu .doc-dock-menu-item");
+  // `.action-menu-escaped` covers a list `escapeMenuIfClipped` has reparented
+  // to <body> (see the toggle listener below): it is then a sibling of its
+  // `details.dock-menu`, not a descendant, so `menu.contains(event.target)`
+  // below would read every click inside the still-open list as an outside
+  // click and shut it on the first interaction. Same widening
+  // `.action-menu-escaped` already gets in the pointerdown-close listener
+  // for `.action-menu` (search this file for that class).
+  const item = event.target.closest(".dock-menu .doc-dock-menu-item, .action-menu-escaped .doc-dock-menu-item");
   if (item) {
-    const menu = item.closest("details.dock-menu");
+    const menu = item.closest("details.dock-menu") || item.closest(".doc-dock-menu-list")?._escapedHome?.parent;
     // After the item's own handler has run: closing first would move focus
     // and, for a toggle, leave its aria-expanded one step behind.
     if (menu) setTimeout(() => { menu.open = false; }, 0);
   }
   for (const menu of document.querySelectorAll("details.dock-menu[open]")) {
-    if (!menu.contains(event.target)) menu.open = false;
+    if (menu.contains(event.target)) continue;
+    if (event.target.closest(".action-menu-escaped")) continue;
+    menu.open = false;
   }
 });
 //: A dock menu opens under its own button, which is right for a button on
@@ -22021,16 +22084,52 @@ document.addEventListener("click", (event) => {
 //: Timeline's Options list ran 41px past the viewport. On open, the list is
 //: measured once and flipped to right-align when it would overflow, a class,
 //: not a computed left, so the stylesheet still owns the geometry.
+//:
+//: **Vertical clipping was the same shape and had no fix at all.** Reported
+//: (INBOX 31, whiteboard's View menu screenshot): "dropdown menus clip off
+//: the bottom of the panel and do not scroll, app-wide." The stylesheet caps
+//: `.doc-dock-menu-list` at a flat `calc(100vh - space-9*2)`, which is blind
+//: to *where* the menu opened: a button in the lower half of a short window
+//: opens a list well under that flat cap and still lands with its own
+//: bottom edge past the viewport, nothing to scroll because nothing
+//: overflowed the box the stylesheet gave it. Measured before this fix,
+//: Reminders' Quick set menu at 1024x560: rect.bottom 732 against a 560px
+//: viewport, 172px unreachable, no internal scrollbar
+//: (`scrollHeight === clientHeight`). After: the cap is recomputed from the
+//: list's own top on every open, so it can never claim more room than is
+//: actually left below it.
+//:
+//: `escapeMenuIfClipped` (written for `.action-menu`, see its own comment)
+//: is the same recipe for the other half of the report -- a dock menu whose
+//: panel sits inside a scrolling ancestor (`overflow` anything but
+//: `visible`) is still cut by that ancestor even once its own height is
+//: capped correctly, and only reparenting to <body> escapes it. It is a
+//: no-op whenever there is no such ancestor, which is most of these menus,
+//: so this changes nothing for a dock menu that already had room.
 document.addEventListener(
   "toggle",
   (event) => {
     const menu = event.target;
-    if (!(menu instanceof HTMLElement) || !menu.matches("details.dock-menu") || !menu.open) return;
-    const list = menu.querySelector(".dock-menu-list");
+    if (!(menu instanceof HTMLElement) || !menu.matches("details.dock-menu")) return;
+    // Once escaped, the list is a child of <body>, not of `menu`: cache the
+    // reference the first time so a later close/reopen can still find it.
+    const list = menu._dockMenuList || menu.querySelector(".dock-menu-list");
     if (!list) return;
+    menu._dockMenuList = list;
+    if (!menu.open) {
+      // Closed: put an escaped list back where it lives in the DOM (a no-op
+      // if it was never escaped) and drop this open's inline cap, so the
+      // next open starts from the stylesheet's own numbers, not a stale one.
+      restoreEscapedMenu(list);
+      list.style.maxHeight = "";
+      return;
+    }
     menu.classList.remove("dock-menu-flip");
-    const rect = list.getBoundingClientRect();
-    if (rect.right > window.innerWidth - 8) menu.classList.add("dock-menu-flip");
+    if (list.getBoundingClientRect().right > window.innerWidth - 8) menu.classList.add("dock-menu-flip");
+    escapeMenuIfClipped(list, menu.querySelector("summary") || menu);
+    const margin = 8;
+    const available = window.innerHeight - list.getBoundingClientRect().top - margin;
+    list.style.maxHeight = `${Math.max(120, Math.round(available))}px`;
   },
   true
 );
@@ -23427,7 +23526,19 @@ function scrollPageToTop() {
 // Library tab (Documents/AI Skills/Whiteboards/Image Gallery) turned out to
 // have the identical shape and was still missing it. One lookup table, one
 // target per tab, rather than a growing pile of hardcoded special cases.
-const NO_SCROLL_TOP_TABS = new Set(["graph"]);
+//
+// **Chat is excluded too, but for the opposite reason (INBOX 34).** This
+// button used to flip into a "jump to the newest message" arrow there,
+// reading the same distance-from-bottom `#chat-jump-latest` (the pill
+// above the composer) already does. Reported and reproduced: both showed
+// at once on a brand-new chat with nothing to scroll, because starting one
+// clears `#chat-messages` without firing the scroll/resize event this
+// button's own `update()` waits for, leaving whichever state the *previous*
+// conversation left it in. Decision: one control in chat, the pill (it is
+// already wired to `syncChatJumpLatest`, called right after that clear);
+// this button simply never shows there any more rather than needing to be
+// kept in sync with a second copy of the same "scrolled away" logic.
+const NO_SCROLL_TOP_TABS = new Set(["graph", "chat"]);
 const NESTED_SCROLL_TABS = {
   chat: () => chatMessagesEl(),
   notes: () => document.querySelector("#tab-notes .layout > main"),
@@ -23629,10 +23740,17 @@ function initScrollTopButton() {
     const label = chat ? "Jump to the newest message" : "Back to top";
     button.title = label;
     button.setAttribute("aria-label", label);
-    button.classList.toggle(
-      "visible",
-      show && !NO_SCROLL_TOP_TABS.has(tab) && !coversAFormPrimary(button),
-    );
+    const visible = show && !NO_SCROLL_TOP_TABS.has(tab) && !coversAFormPrimary(button);
+    button.classList.toggle("visible", visible);
+    //: INBOX 33: `--scroll-top-clearance` used to be unconditional
+    //: `padding-bottom` on every scrolling list, so a short page (an empty
+    //: Ask sub-tab, three notes on a fresh space) scrolled a hundred-odd
+    //: pixels of nothing at its own bottom even though this button was
+    //: nowhere near visible to need clearing. Read by 04-chat-dock-
+    //: appearance.css and 07-whiteboard-misc.css, which now apply the
+    //: clearance only while this class says the button is actually there
+    //: to clear.
+    document.body.classList.toggle("scroll-top-visible", visible);
     positionScrollTopForNested(button, tab);
   };
   // Capture, because scroll events do not bubble: the listener has to see them
@@ -23902,9 +24020,28 @@ function autoGrow(el) {
   const chosen = Number(el.dataset.maxPx || 0);
   const viewportLimit = Math.min(AUTOGROW_MAX_PX, Math.round(window.innerHeight * AUTOGROW_MAX_VIEWPORT));
   const auto = Math.min(el.scrollHeight, viewportLimit);
+  //: **INBOX 37: an empty box is pinned to its CSS floor, not measured.**
+  //: Reported with a screenshot: Reminders' Magic add field taller than its
+  //: own Add button on the owner's desktop shell; measured 44/44 (equal) in
+  //: this sandbox's headless Chromium, on the bundled system font, in light
+  //: mode. `el.scrollHeight` on an *empty* box is still a function of the
+  //: rendered line box, which is a function of the actual font in use, and
+  //: that is exactly what differs: a fallback font before a webfont has
+  //: finished loading, a heavier weight dark mode's own stylesheet may pick,
+  //: a different system font entirely on another OS. Every one of those can
+  //: round `scrollHeight` a pixel or two past the button's fixed height,
+  //: which is why this was invisible here and not there. `min-height` in
+  //: rem is none of that, it is a fixed length the browser converts from the
+  //: root font size alone, so reading it back is the one measurement that
+  //: cannot drift with the textarea's own font. Only while there is nothing
+  //: to measure: the moment real content wraps past this floor, `scrollHeight`
+  //: takes back over below, which is the box actually growing to fit typed
+  //: text rather than a static height with nothing behind it.
   const next = chosen > 0
     ? (chosen < auto ? chosen : Math.max(auto, Math.min(chosen, viewportLimit)))
-    : Math.min(el.scrollHeight, limit);
+    : !el.value.trim()
+      ? (parseFloat(getComputedStyle(el).minHeight) || auto)
+      : Math.min(el.scrollHeight, limit);
   el.style.height = `${next}px`;
   el.style.overflowY = el.scrollHeight > next ? "auto" : "hidden";
   // What this function chose, so a later resize can be told apart from a drag
@@ -35807,8 +35944,16 @@ function cmdPaletteTouchedRow(items) {
       const chip = document.createElement("button");
       chip.type = "button";
       chip.className = "cmd-source-row";
-      const label = String(item.label || `#${item.id}`);
-      setLabel(chip, `${spec.icon} ${label.length > 44 ? `${label.slice(0, 44)}…` : label}`);
+      //: INBOX 35: `item.label` is a raw title/preview from the backend
+      //: (a document's own title, a note's opening words), unlike
+      //: `cmdPaletteResultRow` just above, which already runs every label
+      //: through `noteLabel`. Reported with a screenshot: a document
+      //: titled `# CAB432` and a note opening `**Ice Breakers:**` printed
+      //: their own markdown markers here. `noteLabel` already strips them
+      //: for exactly this reason, and its own 40-char elision replaces the
+      //: plain character slice this row used to do by hand.
+      const label = noteLabel({ content: item.label || `#${item.id}` }, 44);
+      setLabel(chip, `${spec.icon} ${label}`);
       chip.title = spec.title;
       chip.addEventListener("click", () =>
         item.kind === "document" ? cmdPaletteGoToDocument(item.id) : cmdPaletteGoToNote(item.id),
@@ -36467,6 +36612,28 @@ async function loadSpaces() {
     spacesCache = [];
   }
   renderSpaceMenu();
+  updateCaptureSpaceLabel();
+}
+
+//: INBOX 1a/38: says which space the capture form actually files into,
+//: because the answer is not always the one picked at the top. Selecting
+//: "All spaces" turns off the workspace filter for *reading*, but a new
+//: note still has to land somewhere concrete, and `database.py`'s own
+//: insert hook only stamps a workspace when one is actually selected: with
+//: "all" sent, a fresh row keeps its column default, "default" (Default
+//: Space). Read that off the same rule rather than re-deciding it here, so
+//: this label and the server's own behaviour cannot drift apart.
+function updateCaptureSpaceLabel() {
+  const label = $("capture-space-hint");
+  if (!label) return;
+  const active = activeSpaceId();
+  const filingId = active === SPACE_ALL ? "default" : active;
+  const space = spacesCache.find((s) => s.id === filingId);
+  const name = space ? space.name : "Default Space";
+  label.textContent =
+    active === SPACE_ALL
+      ? `Filing into ${name} (pick a space above to file there instead).`
+      : `Filing into ${name}.`;
 }
 
 function initSpaceSwitcher() {

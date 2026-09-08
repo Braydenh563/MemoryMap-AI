@@ -507,6 +507,7 @@
     <!-- At-a-glance numbers: part of the page, not a widget you can hide -->
     <div class="dash-stats" id="dash-stats" role="group" aria-label="At a glance"></div>
     <div class="dash-toolbar">
+      <span class="muted dash-toolbar-label">Your dashboard</span>
       <span class="muted hidden" id="dash-hint">Drag to rearrange · ＋Add / <i class="ph ph-x ph-lead" aria-hidden="true"></i>Remove widgets · ▭Wide makes a full-width section, your layout is remembered.</span>
       <span id="dash-hint-spacer"></span>
       <div class="dash-toolbar-actions">
@@ -746,6 +747,15 @@ Link to another note with [[its first few words]]."></textarea>
                401 page with no way back. Empty and hidden until something
                is staged; `renderCaptureFiles` fills it. -->
           <div id="entry-file-strip" class="file-strip hidden" aria-label="Files attached to this note"></div>
+          <!-- INBOX 1a/38: "notes captured while 'All spaces' was selected
+               carry the default workspace, not the space" was invisible from
+               here, so a capture that landed somewhere other than where the
+               person thought looked like a bug in filing rather than a
+               question this form never answered. One line, filled in by
+               `updateCaptureSpaceLabel` (app.js) from the same `spacesCache`
+               the switcher reads, so it can never name a different space
+               than the one actually selected. -->
+          <p class="muted text-sm capture-space-hint" id="capture-space-hint"></p>
           <!-- File it, then commit it, and the commit pair sits at the far
                end, after a spacer, so "Save" is the last thing on the row and
                the only filled button in the panel. -->

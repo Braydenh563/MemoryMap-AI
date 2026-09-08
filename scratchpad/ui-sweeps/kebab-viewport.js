@@ -173,7 +173,80 @@ async function run(viewport) {
   return out;
 }
 
+// INBOX 31: the `details.dock-menu` family (Notes Filter, Graph View,
+// Timeline Options, Reminders Quick set, Library Filter) is a different
+// component from `.action-menu` and had no vertical-clipping story at all --
+// the stylesheet's cap on `.doc-dock-menu-list` is a flat `calc(100vh -
+// space-9*2)`, blind to where the menu actually opened, so a button in the
+// lower part of a short window could open a list well under that cap and
+// still land with its own bottom edge past the viewport: nothing to scroll,
+// because nothing overflowed the box the stylesheet gave it. 1440 wide so
+// the graph dock's own Arrange group is not folded into its "..." overflow
+// menu first (a separate, unrelated responsive behaviour); three notes
+// seeded first, since the graph's View menu does not exist on the "nothing
+// to map yet" empty state.
+const DOCK_MENUS = [
+  { tab: 'notes', menu: '#notes-filter-menu' },
+  { tab: 'graph', menu: '#graph-view-menu' },
+  { tab: 'timeline', menu: '#timeline-options-menu' },
+  { tab: 'reminders', menu: '#reminder-presets-menu' },
+  { tab: 'library', menu: '#library-filter-menu' },
+];
+
+async function runDockMenus(viewport) {
+  const out = [];
+  const { browser, page } = await boot({ viewport });
+  const vw = viewport.width, vh = viewport.height;
+  await page.evaluate(async () => {
+    for (let i = 0; i < 3; i++) {
+      try { await api('/entries', { method: 'POST', body: JSON.stringify({ content: `Dock menu sweep note ${i}`, tags: ['sweep'] }) }); } catch (e) {}
+    }
+  });
+  for (const c of DOCK_MENUS) {
+    await page.click(`[data-tab="${c.tab}"]`);
+    await page.waitForTimeout(900);
+    const summary = await page.$(`${c.menu} > summary`);
+    if (!summary) { out.push(`${c.menu}: opener not found`); continue; }
+    await summary.click();
+    await page.waitForTimeout(300);
+    const info = await page.evaluate((sel) => {
+      // `escapeMenuIfClipped` may have reparented the list to <body> if a
+      // scrolling ancestor was clipping it: look there first.
+      const escaped = document.querySelector('body > .doc-dock-menu-list.action-menu-escaped');
+      const details = document.querySelector(sel);
+      const list = escaped || details?.querySelector(':scope > .dock-menu-list, :scope .doc-dock-menu-list');
+      if (!list) return null;
+      const r = list.getBoundingClientRect();
+      return {
+        rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height },
+        scrollHeight: list.scrollHeight,
+        clientHeight: list.clientHeight,
+      };
+    }, c.menu);
+    if (!info) {
+      out.push(`${c.menu}: menu did not open`);
+    } else {
+      assertInside(c.menu, info.rect, vw, vh, out);
+      // A list that had to be capped shorter than its content must be the
+      // one thing that scrolls, not the one thing that silently loses items.
+      const capped = info.rect.height < info.scrollHeight - 1;
+      const scrolls = info.scrollHeight > info.clientHeight + 1;
+      out.push(`  scrollHeight=${info.scrollHeight} clientHeight=${info.clientHeight} capped=${capped} scrolls=${capped ? scrolls : 'n/a (not capped)'}`);
+    }
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(150);
+  }
+  console.log(`\n=== dock-menu family ${vw}x${vh} ===`);
+  console.log(out.join('\n'));
+  await browser.close();
+  return out;
+}
+
 (async () => {
   await run({ width: 1440, height: 900 });
   await run({ width: 1024, height: 768 });
+  await runDockMenus({ width: 1440, height: 900 });
+  // Short enough that every one of these lists opens with less room below
+  // its button than its own content needs -- the shape actually reported.
+  await runDockMenus({ width: 1440, height: 300 });
 })();

@@ -131,19 +131,21 @@ are only just begun or half done." True; this table is the state.
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 
-**Now (2026-09-08 19:40 UTC):** GRAPH_PLAN Phase 2 is complete and merged
-(5e87d86: gear button, options panel redesigned as five sections, spread
-scaled by note count, fullscreen hides the chrome, label probe; numbers
-in GRAPH_PLAN "Built, Phase 2"; graph.md holds the two leftovers, saved
-views never storing physics and INBOX 46 the transparent switch track).
-In flight: Sonnet on INBOX batch A (31 to 38, worktree
-agent-a057fd4e2452c6efc, seven commits so far); Opus on CHAT batch B
-(INBOX 39 and 40, worktree agent-aaf982b12113f9499). Queue after them,
-two at a time: `agent-remaining/mindmap.md` item H plus INBOX 42 (Opus);
-INBOX 46 and the three-dock control count from graph.md (Sonnet); Brief 17
-remainder (Opus, launcher.md); Brief 16 docs in the README's voice
-(Sonnet); DOCUMENTS Phase 1 (carries 44); GRAPH 3 to 5; UI Phase 9
-remainder; SKILLS Phase D; MINDMAP 4 to 5. The owner's order for the rest of
+**Now (2026-09-08 20:10 UTC):** merged today, in order: GRAPH Phase 2
+complete (5e87d86) and INBOX batch A (3f8e07e: dock menus stay in the
+viewport and scroll, the dashboard toolbar has room and a name, scroll
+clearance only with the button, one jump-to-latest control, chips strip
+Markdown, reduced-motion progress is a pulsing word, autogrow fields pin
+to the control height, notes carry a space chip and capture says where it
+files; `agent-remaining/batch-a.md` has one found-not-fixed). In flight:
+Opus on CHAT batch B (INBOX 39 and 40, worktree agent-aaf982b12113f9499,
+Request renamed to Agent already committed); Opus on the mind map (INBOX
+42, mindmap.md H, whiteboard menus at short heights, previews if time;
+worktree agent-<new>). Queue after them, two at a time: INBOX 46 (the
+transparent switch track) and the three-dock control count from graph.md
+(Sonnet); Brief 17 remainder (Opus, launcher.md); Brief 16 docs in the
+README's voice (Sonnet); DOCUMENTS Phase 1 (carries 44); GRAPH 3 to 5;
+UI Phase 9 remainder; SKILLS Phase D; MINDMAP 4 to 5. The owner's order for the rest of
 this session stands: **finish the phases of the plans already in
 progress; TIMELINE, WHITEBOARD, CHAT, WORLD_CLASS and the Briefs wait for
 the next session.** Queue, two agents at a time, each merged and gated

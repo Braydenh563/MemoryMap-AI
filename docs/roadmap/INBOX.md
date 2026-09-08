@@ -498,6 +498,39 @@ named beside it in HANDOVER's completion table.
     would need one new decision line each rather than either being moved on
     a solo guess. Owner: UI_MODERNISATION_PLAN Phase 8.
 
+### Performance on small laptops, measured 2026-09-08 23:30 UTC (Chromium, 1366x768, no GPU)
+
+Numbers from `scratchpad/weight.js`: first load 6.7 MB over 71 requests
+(uncompressed; the gzip layer is scoped to non-streaming API replies and
+does not cover static files); unlock to ready 4.0s; idle traffic 4
+requests a minute (was 14 in the audit); DOM 5,870 elements; JS heap 16 MB;
+four blurred surfaces covering 32% of the viewport at rest; frame p95
+16.7ms scrolling Notes. Script weight: app.js 1.6 MB, whiteboard.js 469 KB,
+library.js 348 KB, documents.js 280 KB, graph.js 177 KB, all loaded at boot,
+plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
+
+47. **Static assets are not compressed.** Decision: extend the gzip layer
+    to `/static` and the root JS and CSS (they are not streams), with the
+    existing `?v=` stamps for caching; expected wire size about 1.2 MB.
+    Owner: Sonnet, one session, measured by weight.js. Size S.
+48. **Every module parses at boot, whichever tab opens.** Decision: load
+    whiteboard.js, documents.js, library.js and graph.js on first use of
+    their tab (a small loader in app.js, `tests/test_frontend_load_order.py`
+    updated for the split; boot stays synchronous for app.js and the
+    guards). Expected: the parse cost of about 1.3 MB of JavaScript leaves
+    the startup path. Owner: Opus. Size M.
+49. **Glass is drawn on too much of the screen.** Four blurred surfaces
+    cover a third of the viewport at rest; on an integrated GPU each is a
+    repaint on every scroll. Decision (WORLD_CLASS 1.1 and Brief 2,
+    restated): glass only on the top bar, floating docks and popovers,
+    never on cards or content panels; a "Performance mode" switch in
+    Appearance (glass off, motion off, graph worker at half rate) that the
+    app suggests once when `navigator.deviceMemory <= 4` or
+    `hardwareConcurrency <= 4`, and that `prefers-reduced-transparency`
+    turns on by itself. Owner: Opus, with the glass count in
+    `scratchpad/ui-sweeps/glass.js` as the gate (blurred area at rest under
+    10% of the viewport). Size M.
+
 ## Placed (last 20, newest first)
 
 - 2026-09-08: dashboard hero preference, New note tile colours, sub-tab

@@ -2731,66 +2731,82 @@ Link to another note with [[its first few words]]."></textarea>
            a control in it, and it was competing with a live status readout
            for the same line. -->
       <div class="reminder-when">
-      <div class="row" id="reminder-presets">
-        <span class="muted reminder-when-label">Quick set:</span>
-        <button class="ghost small" data-preset="30m">In 30 min</button>
-        <button class="ghost small" data-preset="1h">In 1 hour</button>
-        <button class="ghost small" data-preset="3h">In 3 hours</button>
-        <button class="ghost small" data-preset="tonight">Tonight 7pm</button>
-        <button class="ghost small" data-preset="tomorrow">Tomorrow 9am</button>
-        <button class="ghost small" data-preset="tomorrowpm">Tomorrow 2pm</button>
-        <button class="ghost small" data-preset="weekend">This weekend</button>
-        <button class="ghost small" data-preset="nextweek">Next week</button>
-      </div>
-      <div class="row" id="reminder-due-row">
-        <span class="muted" id="reminder-due-readout" role="status"></span>
-        <button id="reminder-due-nudge-down" class="ghost small"
-          title="15 minutes earlier" aria-label="15 minutes earlier">−15m</button>
-        <button id="reminder-due-nudge-up" class="ghost small"
-          title="15 minutes later" aria-label="15 minutes later">+15m</button>
-        <button id="reminder-due-day-down" class="ghost small"
-          title="A day earlier" aria-label="A day earlier">−1d</button>
-        <button id="reminder-due-day-up" class="ghost small"
-          title="A day later" aria-label="A day later">+1d</button>
-      </div>
+      <!-- One "when" row (Phase 8): the eight quick-set presets were a row
+             of eight ghost buttons, and the nudges a second row — three rows
+             of ghost buttons on one form. The presets are one Quick set menu
+             (`#reminder-presets` keeps its id on the list, so the click
+             wiring in app.js is unchanged); the readout and the four nudges
+             sit beside it. -->
+        <div class="row" id="reminder-due-row">
+          <details class="doc-dock-menu dock-menu" id="reminder-presets-menu">
+            <summary class="ghost small doc-dock-menu-btn" title="Set the time with one click"><i class="ph ph-clock ph-lead" aria-hidden="true"></i> Quick set <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
+            <div class="doc-dock-menu-list dock-menu-list" id="reminder-presets" role="group" aria-label="Quick set">
+              <button type="button" class="doc-dock-menu-item" data-preset="30m">In 30 min</button>
+              <button type="button" class="doc-dock-menu-item" data-preset="1h">In 1 hour</button>
+              <button type="button" class="doc-dock-menu-item" data-preset="3h">In 3 hours</button>
+              <button type="button" class="doc-dock-menu-item" data-preset="tonight">Tonight 7pm</button>
+              <button type="button" class="doc-dock-menu-item" data-preset="tomorrow">Tomorrow 9am</button>
+              <button type="button" class="doc-dock-menu-item" data-preset="tomorrowpm">Tomorrow 2pm</button>
+              <button type="button" class="doc-dock-menu-item" data-preset="weekend">This weekend</button>
+              <button type="button" class="doc-dock-menu-item" data-preset="nextweek">Next week</button>
+            </div>
+          </details>
+          <span class="muted" id="reminder-due-readout" role="status"></span>
+          <button id="reminder-due-nudge-down" class="ghost small"
+            title="15 minutes earlier" aria-label="15 minutes earlier">−15m</button>
+          <button id="reminder-due-nudge-up" class="ghost small"
+            title="15 minutes later" aria-label="15 minutes later">+15m</button>
+          <button id="reminder-due-day-down" class="ghost small"
+            title="A day earlier" aria-label="A day earlier">−1d</button>
+          <button id="reminder-due-day-up" class="ghost small"
+            title="A day later" aria-label="A day later">+1d</button>
+        </div>
       </div>
       <p class="muted reminder-hint">Notifications fire while the app is open — or hit Remind on any note.</p>
     </section>
 
     <!-- The list, with its own toolbar -->
     <section class="card reminders-card" id="reminder-list-card">
-      <div class="reminder-listbar">
-        <h2>Your reminders</h2>
-        <div class="seg" id="reminder-filter" role="group" aria-label="Filter reminders">
-          <button data-filter="open" class="active">Open</button>
-          <button data-filter="all">All</button>
-          <button data-filter="done">Done</button>
+      <!-- The Reminders list dock (Phase 8, surface 5). Before: a heading, a
+           text filter segment, a text view segment, a page-size select and
+           Clear done in one bar at 40px. Now the zones: identity (the
+           heading), arrange (the view as an icon segment), actions (Clear
+           done, more — completed per page); the Open/All/Done filter is the
+           chip row under the dock, the same shape the Library gives its
+           filters. Ids are unchanged. -->
+      <div class="dock" data-dock-name="reminders" role="toolbar" aria-label="Reminder list controls">
+        <div class="dock-identity">
+          <h2>Your reminders</h2>
         </div>
-        <!-- List/Calendar is a display mode, not a data filter, so it's a
-             second .seg rather than folded into reminder-filter above — the
-             two answer different questions ("which reminders" vs. "shown
-             how") and DESIGN.md's own toolbars keep those apart elsewhere
-             (Notes' category sidebar vs. its sort order, for one). -->
-        <div class="seg" id="reminder-view-toggle" role="group" aria-label="List or calendar view">
-          <button data-view="list" class="active">List</button>
-          <button data-view="calendar">Calendar</button>
+        <div class="dock-group dock-arrange">
+          <div class="seg seg-compact" id="reminder-view-toggle" role="group" aria-label="List or calendar view">
+            <button type="button" data-view="list" class="active icon-only" title="List" aria-label="List view"><i class="ph ph-list" aria-hidden="true"></i></button>
+            <button type="button" data-view="calendar" class="icon-only" title="Calendar" aria-label="Calendar view"><i class="ph ph-calendar-blank" aria-hidden="true"></i></button>
+          </div>
         </div>
-        <!-- BACKLOG §77's own pattern, extended here (§89 item 1): Notes'
-             page-size control, applied only to the Done group below.
-             Deliberately narrower than Notes' own version — Overdue/Today/
-             Upcoming are never paginated, in any filter, because an overdue
-             reminder pushed onto page 2 is a reminder that stops being seen,
-             which is worse than no pagination at all. Done has no such
-             urgency and is the one group that can grow unbounded between
-             "Clear done" presses, so it's the one this control affects. -->
-        <select id="reminders-page-size" aria-label="Completed reminders per page" title="Completed reminders per page">
-          <option value="all">All completed</option>
-          <option value="25">25 per page</option>
-          <option value="50">50 per page</option>
-          <option value="100">100 per page</option>
-        </select>
-        <button id="reminder-clear-done" class="ghost small"
-          title="Delete every completed reminder"><i class="ph ph-broom ph-lead" aria-hidden="true"></i> Clear done</button>
+        <div class="dock-actions">
+          <button id="reminder-clear-done" class="ghost small"
+            title="Delete every completed reminder"><i class="ph ph-broom ph-lead" aria-hidden="true"></i> Clear done</button>
+          <details class="doc-dock-menu dock-menu dock-more" id="reminders-more-menu">
+            <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
+            <div class="doc-dock-menu-list dock-menu-list">
+              <div class="dock-menu-section">
+                <label class="muted dock-menu-label" for="reminders-page-size">Completed per page</label>
+                <select id="reminders-page-size" aria-label="Completed reminders per page" title="Completed reminders per page">
+                  <option value="all">All completed</option>
+                  <option value="25">25 per page</option>
+                  <option value="50">50 per page</option>
+                  <option value="100">100 per page</option>
+                </select>
+              </div>
+            </div>
+          </details>
+        </div>
+      </div>
+      <div class="library-filters" id="reminder-filter" role="group" aria-label="Filter reminders">
+        <button type="button" class="library-chip active" data-filter="open"><i class="ph ph-circle ph-lead" aria-hidden="true"></i> Open</button>
+        <button type="button" class="library-chip" data-filter="all"><i class="ph ph-list-checks ph-lead" aria-hidden="true"></i> All</button>
+        <button type="button" class="library-chip" data-filter="done"><i class="ph ph-check-circle ph-lead" aria-hidden="true"></i> Done</button>
       </div>
       <div id="reminder-groups"></div>
       <!-- Only ever appears under the Done group — see the note on

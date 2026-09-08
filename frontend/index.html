@@ -2069,80 +2069,128 @@ Link to another note with [[its first few words]]."></textarea>
             <strong>Trace</strong> to see how any two notes connect.
           </p>
         </div>
-        <!-- The tuned-once controls. One row, one control height, margins
-             zeroed: the control-strip rule in DESIGN.md. -->
+        <!-- The display options, on the dock-menu recipe (INBOX 41: "the
+             options panel needs a redesign"). It was one wrapping strip of
+             mixed controls: two bare sliders, a third slider with a read-out,
+             six pill switches, a select and two buttons, in whatever order
+             they had been added over the sessions, at three label sizes,
+             wrapping into two rows of unrelated things.
+
+             Now it is the same list a dock menu is: named sections in the
+             order you reach for them, one row per setting, the words on the
+             left and the control on the right, one control height down the
+             panel, and `.dock-menu-section`'s own padding and dividers. The
+             sections are what the settings are *about*, which is the part the
+             strip never said out loud: how the layout moves, what is drawn,
+             how far back in time, where the minimap sits, and the one action
+             that asks the AI for something. Every id is unchanged, so
+             graph.js, graph-canvas.js and app.js need no wiring. -->
         <div class="graph-options hidden" id="graph-options" role="group"
           aria-label="Map display options">
           <!-- Both sliders feed the force simulation and nothing else, so they
                have no effect under Tree or Radial tree, where positions come
-               from the hierarchy. setGraphPhysicsEnabled() disables them there
-               rather than leaving two controls that silently do nothing. -->
-          <span class="graph-physics" id="graph-physics">
-            <label for="graph-gravity" class="muted">Gravity</label>
-            <input id="graph-gravity" type="range" min="0" max="100" value="50"
-              title="How strongly notes pull together">
-            <label for="graph-spread" class="muted">Spread</label>
-            <input id="graph-spread" type="range" min="0" max="100" value="50"
-              title="How far apart linked notes sit">
+               from the hierarchy. setGraphPhysicsEnabled() disables the whole
+               section there rather than leaving controls that silently do
+               nothing; `#graph-physics` is the element it dims, which is why
+               the id is on the section and not on a wrapper inside it. -->
+          <div class="dock-menu-section graph-physics" id="graph-physics"
+            role="group" aria-labelledby="graph-physics-label">
+            <span class="muted dock-menu-label" id="graph-physics-label">Physics</span>
+            <div class="graph-option-row">
+              <label for="graph-gravity">Gravity</label>
+              <input id="graph-gravity" type="range" min="0" max="100" value="50"
+                title="How strongly notes pull together">
+            </div>
+            <div class="graph-option-row">
+              <label for="graph-spread">Spread</label>
+              <input id="graph-spread" type="range" min="0" max="100" value="50"
+                title="How far apart linked notes sit">
+            </div>
             <!-- Direct instruction: "I want to be able to unroot and reset
-                 the graph to free float if I want with a button." Lives
-                 beside Gravity/Spread rather than the main toolbar (Refresh,
-                 Export) on purpose: an occasional reset, not a control
-                 reached for while reading the map, the same "tuned once"
-                 reasoning this whole panel already exists for. -->
-            <button id="graph-unpin-all" class="ghost small" type="button"
-              title="Release every node you've pinned in place, so the layout can move freely again">
-              <i class="ph ph-arrows-out-cardinal ph-lead" aria-hidden="true"></i> Unpin all
-            </button>
-          </span>
-          <span class="graph-temporal" id="graph-temporal">
-            <label for="graph-time-slider" class="muted">Time Filter</label>
-            <input id="graph-time-slider" class="graph-time-slider" type="range" min="0" max="100" value="100" title="Slide back in time to hide newer notes">
-            <span id="graph-time-label" class="muted text-sm graph-time-label">All Time</span>
-          </span>
-          <span class="graph-toggle-group" id="graph-toggle-group">
-            <label class="muted tools-toggle checkbox-label" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
-              <input type="checkbox" id="graph-similarity"> Similarity
+                 the graph to free float if I want with a button." It stays
+                 with the physics it undoes: releasing what you pinned is what
+                 hands the layout back to Gravity and Spread. -->
+            <div class="graph-option-row">
+              <span class="muted">Pinned notes</span>
+              <button id="graph-unpin-all" class="ghost small" type="button"
+                title="Release every note you have pinned in place, so the layout can move freely again">
+                <i class="ph ph-arrows-out-cardinal ph-lead" aria-hidden="true"></i> Unpin all
+              </button>
+            </div>
+          </div>
+          <div class="dock-menu-section" id="graph-toggle-group"
+            role="group" aria-labelledby="graph-show-label">
+            <span class="muted dock-menu-label" id="graph-show-label">Show</span>
+            <label class="graph-option-row tools-toggle" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
+              <span>Similarity</span>
+              <input type="checkbox" id="graph-similarity">
             </label>
-            <label class="muted tools-toggle checkbox-label" title="Show people/projects/things a local model has found mentioned across your notes, as their own nodes">
-              <input type="checkbox" id="graph-entities"> Entities
+            <label class="graph-option-row tools-toggle" title="Show people, projects and things a local model has found mentioned across your notes, as their own nodes">
+              <span>Entities</span>
+              <input type="checkbox" id="graph-entities">
             </label>
-            <label class="muted tools-toggle checkbox-label" title="Show documents linked to a note, as their own nodes">
-              <input type="checkbox" id="graph-documents"> Documents
+            <label class="graph-option-row tools-toggle" title="Show documents linked to a note, as their own nodes">
+              <span>Documents</span>
+              <input type="checkbox" id="graph-documents">
             </label>
             <!-- MINDMAP_PLAN.md §5 item 13. A mind map is already a node here (a
                  board IS an entry), so this adds no node, it marks the ones
                  that are maps and draws a line to every note *on* a map. The
                  §3.3 rule, decided once: a map's membership is a link; where a
                  node sits on the canvas is not. -->
-            <label class="muted tools-toggle checkbox-label" title="Draw a line from each mind map to the notes on it">
-              <input type="checkbox" id="graph-maps"> Mind maps
+            <label class="graph-option-row tools-toggle" title="Draw a line from each mind map to the notes on it">
+              <span>Mind maps</span>
+              <input type="checkbox" id="graph-maps">
             </label>
-            <label class="muted tools-toggle checkbox-label" title="Hide notes that aren't linked to anything, to declutter the map">
-              <input type="checkbox" id="graph-hide-orphans"> Hide unlinked
+            <label class="graph-option-row tools-toggle" title="Hide notes that are not linked to anything, to declutter the map">
+              <span>Hide unlinked</span>
+              <input type="checkbox" id="graph-hide-orphans">
             </label>
-            <label class="muted tools-toggle checkbox-label" title="Show a short label under every note (off = labels only when you hover)">
-              <input type="checkbox" id="graph-labels" checked> Labels
+            <label class="graph-option-row tools-toggle" title="Show a short label under every note (off = labels only when you hover)">
+              <span>Labels</span>
+              <input type="checkbox" id="graph-labels" checked>
             </label>
-          </span>
+          </div>
+          <div class="dock-menu-section graph-temporal" id="graph-temporal"
+            role="group" aria-labelledby="graph-time-heading">
+            <span class="muted dock-menu-label" id="graph-time-heading">Time</span>
+            <div class="graph-option-row">
+              <label for="graph-time-slider">Filter</label>
+              <input id="graph-time-slider" class="graph-time-slider" type="range" min="0" max="100" value="100" title="Slide back in time to hide newer notes">
+            </div>
+            <!-- The read-out sits under the slider that sets it, right
+                 aligned, rather than as a third item in a row: it is the
+                 slider's value, and a value that changes width as you drag
+                 must not be able to move the control it belongs to. -->
+            <span id="graph-time-label" class="muted text-sm graph-time-label">All Time</span>
+          </div>
           <!-- Moved out of the main toolbar strip: a corner position you set
                once and leave is exactly the "tuned once" shape this panel
-               exists for (see the comment on .graph-options above), not a
-               control you reach for while reading the map. Reported as
-               crowding the strip; one fewer label+select pair up top. -->
-          <span class="graph-minimap-option">
-            <label class="muted" for="graph-minimap-corner">Minimap</label>
-            <select id="graph-minimap-corner" class="ghost small" aria-label="Minimap position"
-              title="Where the minimap sits, or off">
-              <option value="off">Off</option>
-              <option value="tl">Top left</option>
-              <option value="tr">Top right</option>
-              <option value="bl">Bottom left</option>
-              <option value="br">Bottom right</option>
-            </select>
-          </span>
-          <button id="link-suggest-btn" class="ghost small"
-            title="Let the AI suggest links between notes that mean similar things"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Suggest links</button>
+               exists for, not a control you reach for while reading the map.
+               Reported as crowding the strip. -->
+          <div class="dock-menu-section graph-minimap-option"
+            role="group" aria-labelledby="graph-minimap-label">
+            <span class="muted dock-menu-label" id="graph-minimap-label">Minimap</span>
+            <div class="graph-option-row">
+              <label for="graph-minimap-corner">Position</label>
+              <select id="graph-minimap-corner" class="ghost small" aria-label="Minimap position"
+                title="Where the minimap sits, or off">
+                <option value="off">Off</option>
+                <option value="tl">Top left</option>
+                <option value="tr">Top right</option>
+                <option value="bl">Bottom left</option>
+                <option value="br">Bottom right</option>
+              </select>
+            </div>
+          </div>
+          <div class="dock-menu-section" role="group" aria-labelledby="graph-links-label">
+            <span class="muted dock-menu-label" id="graph-links-label">Links</span>
+            <div class="graph-option-row">
+              <span class="muted">Similar notes</span>
+              <button id="link-suggest-btn" class="ghost small" type="button"
+                title="Let the AI suggest links between notes that mean similar things"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Suggest links</button>
+            </div>
+          </div>
         </div>
         <!-- Trace: the one question a graph answers better than any list, 
              "how are these two related?" (§9). Its own strip rather than a

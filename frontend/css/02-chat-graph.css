@@ -4840,6 +4840,12 @@ button.ghost.danger:hover {
   top: var(--space-3);
   left: var(--space-3);
   right: var(--space-3);
+  /* Bounded at the bottom as well as the top, which it was not, so that a
+     panel in the column can cap itself against the card it floats over
+     (`.graph-overlay .graph-options` below) instead of against the viewport.
+     A percentage max-height needs a containing block with a definite height,
+     and `top` alone does not give one. */
+  bottom: var(--space-3);
   z-index: 6;
   display: flex;
   flex-direction: column;
@@ -4850,6 +4856,10 @@ button.ghost.danger:hover {
 
 .graph-overlay > * {
   pointer-events: auto;
+  /* A definite column height means flex may now shrink these to fit it, and
+     a squashed dock is not a thing anyone asked for: the panels cap
+     themselves, in their own rules, by their own reasons. */
+  flex: 0 0 auto;
 }
 
 /* One shell for every panel in the column, so the dock, the options, the trace
@@ -4901,10 +4911,24 @@ button.ghost.danger:hover {
    full screen ("the suggested-links list runs off the bottom without
    scrolling"), and floating panels make that the general case rather than one
    window's bug: the column has no height of its own to push against. */
-.graph-overlay .graph-options,
 .graph-overlay .graph-help-panel,
 .graph-overlay #link-suggestions {
   max-height: min(60vh, 26rem);
+  overflow-y: auto;
+}
+
+/* The options panel is capped against the card, not the viewport, and the
+   number it subtracts is the zoom strip's own room at the bottom right.
+   Measured at 1440x900 while fixing it: at a 40rem cap the panel ran to
+   y=771 and the zoom strip starts at y=688, so the panel took the top two
+   zoom buttons with it, a panel that covers a control has removed that
+   control. `--graph-chrome-top` is the dock's own room at the top (the same
+   token the minimap's top corners use), and 12rem is the four zoom buttons
+   plus their gutter and a gap. What does not fit scrolls inside the panel,
+   with the cut-off row visible, which is the affordance; running off the
+   card, or over the buttons, is not. */
+.graph-overlay .graph-options {
+  max-height: calc(100% - var(--graph-chrome-top) - 12rem);
   overflow-y: auto;
 }
 

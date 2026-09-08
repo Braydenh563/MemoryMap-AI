@@ -1434,37 +1434,15 @@ body.has-agent-monitor #tab-library .library-view-section {
 
 /* The graph's "slide back in time" control.
 
-   Reported as the "Time Filter" text wrapping onto two lines, squeezed
-   against the physics sliders and the toggle checkboxes sharing the same
-   row. `.graph-time-label` (the trailing date/"All time" readout) already
-   had `white-space: nowrap`; the leading `<label>` naming the control did
-   not, so it was the one flex item here allowed to shrink below its own
-   content width: exactly what a text label should never do in a control
-   strip (DESIGN.md's control-height rule is the same idea one axis over). */
-.graph-temporal {
-  display: flex;
-  /* Room for the widest read-out this shows ("Up to DD/MM/YYYY") plus the
-     label and slider, so nothing has to overflow the group to fit. */
-  min-width: 0;
-  /* `flex: 1` here is what made the divider look like it was touching the
-     "All time" read-out, reported twice. The group stretched to its full
-     18.75rem whether or not it needed to, the slider absorbed all the slack,
-     and the label was pushed hard against the group's right edge: so the
-     gap *before* the label was large and the gap *after* it was only the
-     divider's own margin, which reads as a clash however much margin the
-     divider has. Sizing to content instead puts the label next to the slider
-     it describes and leaves the row's own gap between it and the divider. */
-  flex: 0 1 auto;
-  align-items: center;
-  gap: var(--space-3);
-  max-width: 21.5rem;
-}
-
-.graph-temporal>label {
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
+   It was a group in a wrapping strip, and the rules that used to be here
+   arbitrated one long argument between a label, a slider and a read-out over
+   a single row: a width cap, flex sizing on three items, and a `nowrap` on
+   the leading label after "Time Filter" was reported wrapping onto two lines.
+   The control is a section of the options popover now (index.html), one row
+   for the slider and the read-out under it, so there is nothing left for
+   those rules to settle: the row recipe in 03-dashboard-widgets.css sizes the
+   slider and `.dock-menu-section` sizes the section. What stays is below,
+   because it is still true: the read-out changes width while you drag. */
 .graph-time-slider {
   flex: 1 1 auto;
   /* `min-width: 4rem` alone was not the whole story: a flex item's automatic

@@ -181,10 +181,18 @@ const check = (ok, what) => {
     // Where a pan may start: on the map, clear of every floating panel (the
     // dock, the legend, the zoom strip and the minimap all swallow a press
     // now), and with no node under it, or the press is a node drag instead.
-    const panels = [".graph-overlay", ".graph-legend-row", "#graph-zoom", "#graph-minimap"]
-      .map((sel) => document.querySelector(sel))
+    // The column itself spans the whole card and is `pointer-events: none`,
+    // so it is its *children* that swallow a press: taking the column's own
+    // rect here would leave the sweep with nowhere on the map to start a pan.
+    const panels = [
+      ...document.querySelectorAll(".graph-overlay > *"),
+      ...[".graph-legend-row", "#graph-zoom", "#graph-minimap"].map((sel) =>
+        document.querySelector(sel)
+      ),
+    ]
       .filter((el) => el && !el.classList.contains("hidden"))
-      .map((el) => el.getBoundingClientRect());
+      .map((el) => el.getBoundingClientRect())
+      .filter((r) => r.width > 0 && r.height > 0);
     const free = (x, y) =>
       !panels.some((r) => x >= r.x - 4 && x <= r.right + 4 && y >= r.y - 4 && y <= r.bottom + 4) &&
       !nodes.some((n) => {
@@ -354,6 +362,160 @@ const check = (ok, what) => {
   check(panel.y >= panel.dockBottom - 1, "the panel overlaps the dock it hangs from");
   check(panel.w <= 384, `the panel is ${round(panel.w)}px wide, wider than a menu`);
 
+  // The panel's own shape (INBOX 41). One row per setting, one control height
+  // down the panel, the words on the left and the control on the right, and
+  // named sections. Every line of this is a rect, not a look.
+  const rows = await page.evaluate(() => {
+    const panel = document.getElementById("graph-options");
+    const sections = Array.from(panel.querySelectorAll(".dock-menu-section")).map((el) => {
+      const label = el.querySelector(".dock-menu-label");
+      return { name: label ? label.textContent.trim() : "(unnamed)", rows: el.querySelectorAll(".graph-option-row").length };
+    });
+    const measured = Array.from(panel.querySelectorAll(".graph-option-row")).map((row) => {
+      const r = row.getBoundingClientRect();
+      const text = row.querySelector("label, span");
+      const control = row.querySelector("input, select, button");
+      const t = text ? text.getBoundingClientRect() : null;
+      const c = control ? control.getBoundingClientRect() : null;
+      return {
+        name: text ? text.textContent.trim() : "(none)",
+        h: Math.round(r.height * 10) / 10,
+        labelLeft: t && c ? t.left < c.left : null,
+        labelX: t ? Math.round(t.left) : null,
+        controlRight: c ? Math.round(c.right) : null,
+        panelRight: Math.round(panel.getBoundingClientRect().right),
+        fontSize: text ? getComputedStyle(text).fontSize : null,
+      };
+    });
+    return {
+      sections,
+      rows: measured,
+      scrolls: panel.scrollHeight > panel.clientHeight + 1,
+      scrollH: panel.scrollHeight,
+      clientH: panel.clientHeight,
+    };
+  });
+  const heights = [...new Set(rows.rows.map((r) => r.h))];
+  const fonts = [...new Set(rows.rows.map((r) => r.fontSize))];
+  console.log(
+    `sections: ${rows.sections.map((s) => `${s.name} (${s.rows})`).join(", ")}`
+  );
+  console.log(
+    `${rows.rows.length} rows, heights ${JSON.stringify(heights)}, label sizes ` +
+      `${JSON.stringify(fonts)}, panel scrolls: ${rows.scrolls} ` +
+      `(${rows.scrollH} vs ${rows.clientH})`
+  );
+  check(rows.sections.length >= 5, `only ${rows.sections.length} sections in the panel`);
+  check(
+    rows.sections.every((s) => s.name !== "(unnamed)"),
+    "a section in the display options has no heading"
+  );
+  check(heights.length === 1, `rows come at ${heights.length} heights: ${JSON.stringify(heights)}`);
+  check(fonts.length === 1, `row labels come at ${fonts.length} sizes: ${JSON.stringify(fonts)}`);
+  check(
+    rows.rows.every((r) => r.labelLeft === true),
+    "a row draws its control to the left of its label"
+  );
+  check(
+    rows.rows.every((r) => r.controlRight <= r.panelRight),
+    "a control runs past the panel's right edge"
+  );
+  // Scrolling inside is allowed and printed; running past the card, or over
+  // the zoom strip, is not. A settings list of five sections is taller than
+  // the room between the dock and the zoom buttons at this size, and the
+  // honest answer to that is a scroll with the cut-off row in sight.
+  const covered = await page.evaluate(() => {
+    const panel = document.getElementById("graph-options").getBoundingClientRect();
+    const hit = (sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      if (!r.width || !r.height) return null;
+      const overlapX = Math.min(panel.right, r.right) - Math.max(panel.left, r.left);
+      const overlapY = Math.min(panel.bottom, r.bottom) - Math.max(panel.top, r.top);
+      return { sel, overlap: Math.round(Math.max(0, overlapX) * Math.max(0, overlapY)), top: Math.round(r.top), bottom: Math.round(r.bottom) };
+    };
+    return {
+      panelBottom: Math.round(panel.bottom),
+      zoom: hit("#graph-zoom"),
+      minimap: hit("#graph-minimap"),
+      legend: hit(".graph-legend-row"),
+    };
+  });
+  console.log(
+    `panel bottom ${covered.panelBottom}; overlap with the zoom strip ` +
+      `${covered.zoom ? covered.zoom.overlap : "n/a"} px2 (strip at ` +
+      `${covered.zoom ? covered.zoom.top : "n/a"}), with the minimap ` +
+      `${covered.minimap ? covered.minimap.overlap : "n/a"} px2`
+  );
+  check(!covered.zoom || covered.zoom.overlap === 0, "the panel covers the zoom strip");
+  check(!covered.minimap || covered.minimap.overlap === 0, "the panel covers the minimap");
+  check(
+    covered.panelBottom <= Math.round(geometry.card.y + geometry.card.h),
+    "the panel runs past the bottom of the card"
+  );
+
+  // **Every control in the rebuilt panel still drives the map.** The markup
+  // was restructured (a strip of groups became sections of rows), and the one
+  // way a rebuild like that fails silently is a control that still looks
+  // right and no longer reaches its handler. Each of these asserts on what
+  // the map is drawing, not on the tickbox.
+  const drives = { };
+  await page.click("#graph-labels");
+  await page.waitForTimeout(400);
+  drives.labelsOff = await page.evaluate(() =>
+    document.getElementById("graph-box").classList.contains("graph-labels-hidden")
+  );
+  await page.click("#graph-labels");
+  await page.waitForTimeout(400);
+  drives.labelsBack = await page.evaluate(
+    () => !document.getElementById("graph-box").classList.contains("graph-labels-hidden")
+  );
+  const nodesBefore = await page.evaluate(() => window.__graphDebug.nodes);
+  await page.click("#graph-hide-orphans");
+  await page.waitForTimeout(2500);
+  const nodesAfter = await page.evaluate(() => window.__graphDebug.nodes);
+  drives.hideUnlinked = nodesAfter <= nodesBefore;
+  await page.click("#graph-hide-orphans");
+  await page.waitForTimeout(2500);
+  await page.selectOption("#graph-minimap-corner", "br");
+  await page.waitForTimeout(400);
+  drives.minimapCorner = await page.evaluate(() =>
+    document.getElementById("graph-minimap").classList.contains("graph-minimap-br")
+  );
+  await page.selectOption("#graph-minimap-corner", "tl");
+  await page.waitForTimeout(300);
+  // Gravity and Spread have nothing to act on under a tree layout, so the
+  // whole Physics section dims. `#graph-physics` moved from a span inside the
+  // strip to the section itself, and this is what says the id still lands on
+  // the thing setGraphPhysicsEnabled() means to dim.
+  await page.evaluate(() => {
+    const tree = document.querySelector('input[name="graph-layout"][value="tree"]');
+    tree.checked = true;
+    tree.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await page.waitForTimeout(2500);
+  drives.physicsDimmed = await page.evaluate(() => {
+    const el = document.getElementById("graph-physics");
+    return el.classList.contains("is-disabled") && Number(getComputedStyle(el).opacity) < 1;
+  });
+  await page.evaluate(() => {
+    const force = document.querySelector('input[name="graph-layout"][value="force"]');
+    force.checked = true;
+    force.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await page.waitForTimeout(3000);
+  console.log(
+    `controls still drive the map: labels off ${drives.labelsOff}, labels back ` +
+      `${drives.labelsBack}, hide unlinked ${nodesBefore} -> ${nodesAfter}, ` +
+      `minimap corner ${drives.minimapCorner}, physics dimmed under tree ` +
+      `${drives.physicsDimmed}`
+  );
+  check(drives.labelsOff && drives.labelsBack, "the Labels switch no longer reaches the map");
+  check(drives.hideUnlinked, "Hide unlinked did not change what is drawn");
+  check(drives.minimapCorner, "the minimap position select no longer moves the minimap");
+  check(drives.physicsDimmed, "the Physics section is not dimmed under a tree layout");
+
   // The three ways a popover closes. Escape must not also leave full screen:
   // one key press, one thing.
   await page.keyboard.press("Escape");
@@ -366,7 +528,7 @@ const check = (ok, what) => {
   check(!afterEscape.full, "Escape closed the panel and entered full screen with the same press");
   await page.click("#graph-options-toggle");
   await page.waitForTimeout(300);
-  await page.mouse.click(hoverProbe.boxX + hoverProbe.boxW - 40, hoverProbe.boxY + hoverProbe.boxH - 120);
+  await page.mouse.click(hoverProbe.boxX + 60, hoverProbe.boxY + hoverProbe.boxH / 2);
   await page.waitForTimeout(300);
   const afterOutside = await page.evaluate(
     () => !document.getElementById("graph-options").classList.contains("hidden")

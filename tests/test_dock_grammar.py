@@ -42,7 +42,14 @@ ZONES = ["dock-identity", "dock-find", "dock-arrange", "dock-actions"]
 #: Docks that have been brought onto the grammar. Add a name here when a
 #: surface lands; the test below fails if the markup and this list disagree,
 #: so the ratchet cannot silently loosen.
-ON_THE_GRAMMAR = {"graph", "library", "notes", "timeline", "reminders"}
+ON_THE_GRAMMAR = {
+    "graph",
+    "library",
+    "library-docs",
+    "notes",
+    "timeline",
+    "reminders",
+}
 
 
 class _Dock:

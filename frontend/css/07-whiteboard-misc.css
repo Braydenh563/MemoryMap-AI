@@ -7726,8 +7726,10 @@ input[type="file"] {
     white-space: nowrap;
   }
 
-  .library-head > .row,
-  #library-view-docs .row.space-between > .row {
+  /* The sub-tabs still on `.library-head`; the ones that have become docks
+     take `.dock`'s own ≤600 rules instead (search on its own row, actions
+     pushed right) and are dropped from these two selectors as they land. */
+  .library-head > .row {
     flex: 1 1 100%;
     min-width: 0;
     max-width: 100%;
@@ -7735,7 +7737,6 @@ input[type="file"] {
   }
 
   .library-head .library-search,
-  #library-view-docs .row.space-between > .row > .library-search,
   #library-view-documents .library-toolbar > .library-search {
     flex: 1 1 100%;
   }

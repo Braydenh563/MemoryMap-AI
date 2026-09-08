@@ -7371,12 +7371,8 @@ header#top-bar > #tab-bar {
   box-shadow: none;
 }
 
-.doc-statusbar .checkbox-label {
-  background: var(--chip-bg);
-  border-color: transparent;
-}
-
-.doc-statusbar .checkbox-label:has(input:checked) {
+.doc-dock-menu-check {
+  background: none;
   border-color: transparent;
 }
 

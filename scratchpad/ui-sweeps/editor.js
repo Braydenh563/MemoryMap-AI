@@ -776,6 +776,89 @@ function ok(name, condition, detail) {
   });
   await page.waitForTimeout(400);
 
+  // --- 3. the status bar count is a control --------------------------------
+  const chip = await page.evaluate(() => {
+    const el = document.getElementById("doc-prose");
+    const style = getComputedStyle(el);
+    return {
+      tag: el.tagName,
+      label: document.getElementById("doc-prose-count").textContent,
+      controls: el.getAttribute("aria-controls"),
+      expanded: el.getAttribute("aria-expanded"),
+      chip: el.classList.contains("has-findings"),
+      // A count with something behind it takes an edge and a wash; the empty
+      // state stays flat, so the chip reads as pressable only when it is.
+      border: style.borderColor,
+      background: style.backgroundColor,
+      // The switches are out of the bar and into the kebab, ids intact.
+      switchesInBar: document.querySelectorAll("#doc-statusbar input[type=checkbox]").length,
+      switchesInMenu: document.querySelectorAll("#doc-dock-menu input[type=checkbox]").length,
+      autocorrect: !!document.getElementById("doc-autocorrect"),
+      complete: !!document.getElementById("doc-complete"),
+    };
+  });
+  ok("P0 the findings count is a button with the panel as its target",
+    chip.tag === "BUTTON" && chip.controls === "doc-prose-panel", JSON.stringify(chip.controls));
+  ok("P0 a real count paints as a chip", chip.chip && chip.background !== "rgba(0, 0, 0, 0)",
+    `${chip.label}: border ${chip.border}, background ${chip.background}`);
+  ok("P0 the two switches left the status bar for the kebab, ids intact",
+    chip.switchesInBar === 0 && chip.switchesInMenu === 2 && chip.autocorrect && chip.complete,
+    `bar ${chip.switchesInBar}, menu ${chip.switchesInMenu}`);
+
+  // The switch still drives its preference, from its new home.
+  const switched = await page.evaluate(() => {
+    const box = document.getElementById("doc-autocorrect");
+    const before = docToolPref("autocorrect", false);
+    box.click();
+    const after = docToolPref("autocorrect", false);
+    box.click();
+    return { before, after, restored: docToolPref("autocorrect", false) };
+  });
+  ok("P0 a switch in the kebab still writes its preference",
+    switched.before !== switched.after && switched.restored === switched.before,
+    JSON.stringify(switched));
+
+  // ACCEPTANCE: the chip opens the panel, and the panel groups by kind.
+  await page.click("#doc-prose");
+  await page.waitForTimeout(300);
+  const panel = await page.evaluate(() => {
+    const el = document.getElementById("doc-prose-panel");
+    const groups = [...el.querySelectorAll(".doc-prose-group")].map((g) => ({
+      label: g.firstChild.textContent,
+      count: Number(g.querySelector(".doc-prose-group-count").textContent),
+      rows: g.nextElementSibling ? g.nextElementSibling.querySelectorAll(".doc-prose-row").length : 0,
+    }));
+    return {
+      open: !el.classList.contains("hidden"),
+      expanded: document.getElementById("doc-prose").getAttribute("aria-expanded"),
+      groups,
+      total: docProseFound.length,
+    };
+  });
+  ok("P0 ACCEPTANCE: the status chip opens the suggestions panel",
+    panel.open && panel.expanded === "true", JSON.stringify({ open: panel.open, expanded: panel.expanded }));
+  // The rows were centred: a `<button>` takes the app's global
+  // `justify-content: center`, and the `text-align: left` beside it has
+  // nothing to align on a flex container. Measured, a row starting at x=326
+  // whose first word began at x=751.7.
+  const rowAlign = await page.evaluate(() => {
+    const jump = document.querySelector(".doc-prose-jump");
+    return {
+      rowLeft: jump.getBoundingClientRect().left,
+      wordLeft: jump.querySelector(".doc-prose-what").getBoundingClientRect().left,
+    };
+  });
+  ok("P0 panel rows start at the left of the list, not the middle",
+    rowAlign.wordLeft - rowAlign.rowLeft < 16,
+    `row ${rowAlign.rowLeft.toFixed(0)}, first word ${rowAlign.wordLeft.toFixed(0)}`);
+  ok("P0 the panel groups findings by kind, with a count on each group",
+    panel.groups.length >= 2 &&
+      panel.groups.every((g) => g.count === g.rows && g.count > 0) &&
+      panel.groups.reduce((n, g) => n + g.count, 0) === panel.total,
+    panel.groups.map((g) => `${g.label} ${g.count}`).join(", "));
+  await page.click("#doc-prose");
+  await page.waitForTimeout(200);
+
   await page.waitForTimeout(400);
   ok("no console errors", consoleErrors.length === 0, JSON.stringify(consoleErrors.slice(0, 4)));
 

@@ -141,6 +141,10 @@ function syncDocFileType() {
 // away — `<details>` gives everything else (open on click and on Enter/Space,
 // close on Escape, the ARIA) and neither of those two.
 document.getElementById("doc-dock-menu")?.addEventListener("click", (event) => {
+  //: Except the switches. Every other row here does one thing and is finished,
+  //: so closing is right; a switch has a state, and a menu that shuts on the
+  //: click hides the only feedback the switch gives you.
+  if (event.target.closest(".doc-dock-menu-check")) return;
   if (event.target.closest(".doc-dock-menu-item")) {
     document.getElementById("doc-dock-menu").open = false;
   }
@@ -4449,9 +4453,48 @@ function renderDocProsePanel() {
   }
   panel.appendChild(docProseHeader());
 
+  //: **Grouped by kind, with a count on each group** (DOCUMENTS_PLAN Phase 0
+  //: item 3). A flat list of twenty rows is twenty separate decisions in
+  //: whatever order the document happens to put them; "Spelling 3 / Style 11 /
+  //: Repeated words 2" is one look that tells you what kind of pass this
+  //: document needs, and it lets you do all of one kind at a time, which is
+  //: how anyone actually edits. The order is fixed rather than by size, so the
+  //: strongest claim is always at the top and the panel does not reshuffle
+  //: itself between two openings.
+  for (const [kind, label] of DOC_FINDING_GROUPS) {
+    const group = docProseFound.filter((finding) => docFindingKind(finding) === kind);
+    if (!group.length) continue;
+    const heading = document.createElement("p");
+    heading.className = "doc-prose-group";
+    const name = document.createElement("span");
+    name.textContent = label;
+    const count = document.createElement("span");
+    count.className = "doc-prose-group-count";
+    count.textContent = String(group.length);
+    heading.append(name, count);
+    panel.appendChild(heading);
+    panel.appendChild(docProseGroupList(group));
+  }
+}
+
+//: The three kinds the underlines already draw, in the order of how strong a
+//: claim each one is. Named here rather than in the panel so the group title
+//: and the squiggle can never drift apart.
+const DOC_FINDING_GROUPS = [
+  ["spelling", "Spelling"],
+  ["repeat", "Repeated words"],
+  ["style", "Style and spacing"],
+];
+
+//: Sixty rows, over all the groups rather than per group: the cap is there so
+//: a pathological document cannot build ten thousand elements, and a cap that
+//: applied per group would let three kinds multiply it by three.
+const DOC_PROSE_ROWS = 60;
+
+function docProseGroupList(findings) {
   const list = document.createElement("ul");
   list.className = "doc-prose-list";
-  for (const finding of docProseFound.slice(0, 60)) {
+  for (const finding of findings.slice(0, DOC_PROSE_ROWS)) {
     const li = document.createElement("li");
     li.className = "doc-prose-row";
     const jump = document.createElement("button");
@@ -4492,7 +4535,7 @@ function renderDocProsePanel() {
     }
     list.appendChild(li);
   }
-  panel.appendChild(list);
+  return list;
 }
 
 //: **Show me where — and make it obvious for a moment.**

@@ -20,6 +20,12 @@
 //     global lexical environment and readable here without a debug hook.
 //  4. **Does a pan change what is hovered?** A drag across the map and a
 //     wheel zoom over a node, with `__graphDebug.hovered` sampled after each.
+//  5. **Are the display options one click, and are they a popover?** Where
+//     the gear sits in the dock, whether the panel it opens is anchored under
+//     it, whether every row is one control height with its label to the left,
+//     and the three ways it closes.
+//  6. **Is full screen full screen?** The card against the viewport, the
+//     radius it keeps, and whether the app chrome is still laid out behind it.
 //
 // Nothing here is a screenshot. Every line is a number off the live DOM.
 const { boot } = require("./lib.js");
@@ -283,6 +289,93 @@ const check = (ok, what) => {
     beforeWheel === afterWheel,
     `a wheel zoom changed the hover: ${beforeWheel} -> ${afterWheel}`
   );
+
+  // 5. The display options are one click from the dock, and they open as a
+  //    popover under their gear rather than as a strip across the column
+  //    (INBOX 21 and 41). Where the button sits is checked in the markup, not
+  //    by eye: in the actions zone, icon-only, and not in the View menu.
+  const gear = await page.evaluate(() => {
+    const button = document.getElementById("graph-options-toggle");
+    if (!button) return { missing: true };
+    const zone = button.closest(".dock-actions, .dock-arrange, .dock-find, .dock-identity");
+    return {
+      zone: zone ? zone.className : null,
+      inViewMenu: !!button.closest("#graph-view-menu"),
+      iconOnly: button.classList.contains("icon-only"),
+      icon: (button.querySelector("i") || {}).className || null,
+      label: button.getAttribute("aria-label"),
+      // The utilities run, in the order it is painted, so the kebab staying
+      // last is a measurement and not a claim about the markup.
+      actions: Array.from(document.querySelectorAll(".dock[data-dock-name='graph'] .dock-actions > *"))
+        .map((el) => el.id || el.className),
+    };
+  });
+  console.log("== display options ==");
+  console.log(
+    `gear in ${gear.zone}, icon ${gear.icon}, icon-only ${gear.iconOnly}, ` +
+      `in the View menu: ${gear.inViewMenu}; actions run: ${JSON.stringify(gear.actions)}`
+  );
+  check(!gear.missing, "the display options button is gone");
+  check(gear.zone === "dock-actions", `the gear is in ${gear.zone}, not the utilities zone`);
+  check(!gear.inViewMenu, "the gear is still inside the View menu");
+  check(gear.iconOnly, "the gear is not icon-only, so it counts against the dock's one primary");
+
+  await page.click("#graph-options-toggle");
+  await page.waitForTimeout(400);
+  const panel = await page.evaluate(() => {
+    const el = document.getElementById("graph-options");
+    const button = document.getElementById("graph-options-toggle");
+    const dock = document.querySelector(".dock[data-dock-name='graph']");
+    const r = el.getBoundingClientRect();
+    const d = dock.getBoundingClientRect();
+    const cs = getComputedStyle(el);
+    return {
+      open: !el.classList.contains("hidden"),
+      expanded: button.getAttribute("aria-expanded"),
+      w: r.width, h: r.height, x: r.x, y: r.y, right: r.right,
+      dockRight: d.right, dockBottom: d.bottom,
+      radius: cs.borderTopLeftRadius,
+      background: cs.backgroundColor,
+      overflowY: cs.overflowY,
+      sections: document.querySelectorAll("#graph-options .dock-menu-section").length,
+    };
+  });
+  console.log(
+    `panel ${round(panel.w)}x${round(panel.h)} at (${round(panel.x)}, ${round(panel.y)}), ` +
+      `right edge ${round(panel.right)} against the dock's ${round(panel.dockRight)}, ` +
+      `top ${round(panel.y)} under the dock's bottom ${round(panel.dockBottom)}, ` +
+      `radius ${panel.radius}, ground ${panel.background}, ${panel.sections} sections`
+  );
+  check(panel.open && panel.expanded === "true", "one click on the gear did not open the panel");
+  check(
+    Math.abs(panel.right - panel.dockRight) <= 2,
+    `the panel is not anchored under the gear: right edge ${round(panel.right)} vs the dock's ${round(panel.dockRight)}`
+  );
+  check(panel.y >= panel.dockBottom - 1, "the panel overlaps the dock it hangs from");
+  check(panel.w <= 384, `the panel is ${round(panel.w)}px wide, wider than a menu`);
+
+  // The three ways a popover closes. Escape must not also leave full screen:
+  // one key press, one thing.
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+  const afterEscape = await page.evaluate(() => ({
+    open: !document.getElementById("graph-options").classList.contains("hidden"),
+    full: document.getElementById("graph-card").classList.contains("graph-fullscreen"),
+  }));
+  check(!afterEscape.open, "Escape did not close the display options");
+  check(!afterEscape.full, "Escape closed the panel and entered full screen with the same press");
+  await page.click("#graph-options-toggle");
+  await page.waitForTimeout(300);
+  await page.mouse.click(hoverProbe.boxX + hoverProbe.boxW - 40, hoverProbe.boxY + hoverProbe.boxH - 120);
+  await page.waitForTimeout(300);
+  const afterOutside = await page.evaluate(
+    () => !document.getElementById("graph-options").classList.contains("hidden")
+  );
+  console.log(
+    `closes: Escape ${!afterEscape.open}, click outside ${!afterOutside} ` +
+      `(and Escape left full screen alone: ${!afterEscape.full})`
+  );
+  check(!afterOutside, "a click on the map did not close the display options");
 
   // 5. Fullscreen keeps the card's radius and hides the app chrome.
   await page.click("#graph-fullscreen");

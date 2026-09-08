@@ -1967,7 +1967,7 @@ Link to another note with [[its first few words]]."></textarea>
           </div>
           <div class="dock-group dock-arrange">
             <details class="doc-dock-menu dock-menu" id="graph-view-menu">
-              <summary class="ghost small doc-dock-menu-btn" title="Layout, colour, legend and display options"><i class="ph ph-eye ph-lead" aria-hidden="true"></i> View <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
+              <summary class="ghost small doc-dock-menu-btn" title="Layout, colour, legend and Trace"><i class="ph ph-eye ph-lead" aria-hidden="true"></i> View <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
               <div class="doc-dock-menu-list dock-menu-list">
                 <div class="dock-menu-section">
                   <span class="muted dock-menu-label" id="graph-layout-label">Layout</span>
@@ -1996,8 +1996,6 @@ Link to another note with [[its first few words]]."></textarea>
                 title="Find how two notes connect"><i class="ph ph-path ph-lead" aria-hidden="true"></i> Trace</button>
                 <button id="graph-legend-toggle" class="doc-dock-menu-item" type="button"
                   title="Hide the legend" aria-label="Hide the legend" aria-expanded="true"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i> Legend</button>
-                <button id="graph-options-toggle" class="doc-dock-menu-item" type="button" aria-expanded="false"
-                  title="Physics, labels, similarity lines, minimap and link suggestions"><i class="ph ph-gear ph-lead" aria-hidden="true"></i> Display options…</button>
               </div>
             </details>
             <select id="graph-view-picker" class="ghost small" aria-label="Saved views"></select>
@@ -2008,6 +2006,26 @@ Link to another note with [[its first few words]]."></textarea>
             <button type="button" id="graph-help-toggle" class="icon-only ghost small graph-help-toggle"
               aria-label="How to use this map">
               <i class="ph ph-question" aria-hidden="true"></i>
+            </button>
+            <!-- Display options, one click (INBOX item 21: "annoying to
+                 access, be thoughtful"). It was a row inside the View menu,
+                 which put physics, labels and the minimap two clicks and one
+                 reading deep behind a menu whose other rows are what the map
+                 *is*. The decision, already made and not remade here: View
+                 keeps layout, colour, legend and Trace; everything you tune
+                 once and leave moves behind this gear.
+
+                 It sits in the utilities run and `tests/test_dock_grammar.py`
+                 still passes: that lint recognises a utility by its id
+                 (`*-refresh`, `*-help-toggle`) or the `dock-more` class, so a
+                 gear is not part of the refresh -> help -> more order it
+                 enforces, and `icon-only` keeps it out of the one-filled-
+                 button count that `#graph-add-node` holds. The kebab stays
+                 last, which is the grammar's own rule about the overflow. -->
+            <button type="button" id="graph-options-toggle" class="icon-only ghost small"
+              title="Display options" aria-label="Display options"
+              aria-expanded="false" aria-controls="graph-options" aria-haspopup="dialog">
+              <i class="ph ph-gear" aria-hidden="true"></i>
             </button>
             <details class="doc-dock-menu dock-menu dock-more" id="graph-more-menu">
               <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>

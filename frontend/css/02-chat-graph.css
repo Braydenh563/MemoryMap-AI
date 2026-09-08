@@ -4885,6 +4885,18 @@ button.ghost.danger:hover {
   width: min(26rem, 100%);
 }
 
+/* The display options, on the same footing (INBOX 21 and 41). They opened as
+   a full-width strip under the dock, which is what a settings panel looks
+   like when it is part of the page and not what one looks like when it is a
+   popover the gear beside it opened. Right-aligned under that gear, at a
+   menu's width, it reads as the dock's own menu: the same ground, edge,
+   radius and shadow the `.dock-menu-list` recipe uses, which the shared rule
+   above already gives every panel in this column. */
+.graph-overlay .graph-options {
+  align-self: flex-end;
+  width: min(22rem, 100%);
+}
+
 /* A panel over the map is capped and scrolls inside itself. Reported once in
    full screen ("the suggested-links list runs off the bottom without
    scrolling"), and floating panels make that the general case rather than one

@@ -22139,10 +22139,7 @@ function switchTab(name) {
     // Match the saved layout on arrival, not only on change, otherwise a
     // notebook left on Tree comes back with two live-looking dead sliders.
     setGraphPhysicsEnabled(graphLayout());
-    const optionsOpen = localStorage.getItem("graph-options-open") === "1";
-    $("graph-options").classList.toggle("hidden", !optionsOpen);
-    $("graph-options-toggle").setAttribute("aria-expanded", String(optionsOpen));
-    $("graph-options-toggle").classList.toggle("is-on", optionsOpen);
+    setGraphOptionsOpen(localStorage.getItem("graph-options-open") === "1");
     setTracePanelOpen(localStorage.getItem("graph-trace-open") === "1");
     renderGraph();
   }
@@ -31869,12 +31866,44 @@ $("graph-maps")?.addEventListener("change", renderGraph);
 // physics sliders on screen is a property of how you use the map rather than
 // of one visit: and because a panel that reopens closed every time is one
 // people stop opening.
-$("graph-options-toggle").addEventListener("click", () => {
+function setGraphOptionsOpen(open) {
   const panel = $("graph-options");
-  const open = panel.classList.toggle("hidden") === false;
-  $("graph-options-toggle").setAttribute("aria-expanded", String(open));
-  $("graph-options-toggle").classList.toggle("is-on", open);
+  const toggle = $("graph-options-toggle");
+  if (!panel || !toggle) return;
+  panel.classList.toggle("hidden", !open);
+  toggle.setAttribute("aria-expanded", String(open));
+  toggle.classList.toggle("is-on", open);
   localStorage.setItem("graph-options-open", open ? "1" : "0");
+}
+$("graph-options-toggle").addEventListener("click", (event) => {
+  // The click must not reach the document listener below, which would read
+  // the panel it has just opened as a click outside it and close it again.
+  event.stopPropagation();
+  setGraphOptionsOpen($("graph-options").classList.contains("hidden"));
+});
+// A popover closes the three ways every popover in this app closes: its own
+// button, a click outside it, and Escape. It gained the last two when it
+// stopped being a strip in the column and became the gear's menu (INBOX 21):
+// a panel anchored to a button that only that button can dismiss is the one
+// shape a menu never has.
+document.addEventListener("click", (event) => {
+  const panel = $("graph-options");
+  if (!panel || panel.classList.contains("hidden")) return;
+  if (panel.contains(event.target) || $("graph-options-toggle").contains(event.target)) return;
+  setGraphOptionsOpen(false);
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  const panel = $("graph-options");
+  if (!panel || panel.classList.contains("hidden")) return;
+  // **The Escape is spent here.** The full-screen handler further down is on
+  // the same target for the same key, and listener order alone does not stop
+  // it: the comment there says a panel over the map "takes the first Escape",
+  // which was only ever true if something actually stopped the event. One key
+  // press that closes a panel and leaves full screen at the same time is the
+  // bug that sentence was written to prevent.
+  event.stopImmediatePropagation();
+  setGraphOptionsOpen(false);
 });
 // Trace (§9), folded away the same way Options is (§37F): it is a mode you
 // step into to ask one question, not a strip worth drawing on every visit.
@@ -31905,6 +31934,9 @@ document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
   const panel = $("graph-help-panel");
   if (!panel || panel.classList.contains("hidden")) return;
+  // Same as the options panel above: closing this is what this Escape did,
+  // so the full-screen handler does not get to act on the same press.
+  event.stopImmediatePropagation();
   panel.classList.add("hidden");
   $("graph-help-toggle").setAttribute("aria-expanded", "false");
 });

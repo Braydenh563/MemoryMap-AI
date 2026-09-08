@@ -604,6 +604,8 @@ DOM cost is bounded by `renderIncrementally`; the transfer and parse cost is not
 
 ### D5 · The OpenAPI schema is served to anyone who can reach the port — Medium
 
+> **Stale as of 2026-09-08:** `create_app` sets `docs_url`, `redoc_url` and `openapi_url` to `None` (`api/app.py` ~361), so nothing is served. Recorded in WORLD_CLASS_PLAN.md 12 S10. Kept here so the finding is not re-raised.
+
 **Evidence (measured, `curl`).** `GET /openapi.json` and `GET /docs` return
 **200 without unlocking**, listing **238 paths**. The unlock gate covers the
 data routers; the schema is not behind it.

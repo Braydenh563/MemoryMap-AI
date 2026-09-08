@@ -199,14 +199,48 @@
   color: var(--ink);
 }
 
-/* Selected: the accent fill, and only here. */
+/* Selected: the accent fill, and only here.
+
+   `.active` and `.is-on` are in this list because two controls that carry a
+   mode moved into an overflow menu for the seven-control ceiling: `#select-btn`
+   (`enterSelectMode` adds `.active`) and `#graph-trace-toggle` (`graph.js`
+   adds `.is-on`). Both set their state in JS by class, and the menu-row recipe
+   above sets `background: none` at 0,2,0, so without this a mode you had
+   turned on showed nothing at all once it lived in a menu. Drawn here rather
+   than by changing the two call sites to `aria-pressed`, because the class is
+   what the existing handlers write and a state that only renders is not worth
+   a behaviour change. */
 .select-menu .select-option.is-chosen,
 .doc-dock-menu-list .doc-dock-menu-item[aria-pressed="true"],
+.doc-dock-menu-list .doc-dock-menu-item.active,
+.doc-dock-menu-list .doc-dock-menu-item.is-on,
 .action-menu .menu-item[aria-pressed="true"],
 .nav-history-menu .nav-history-item.nav-history-current {
   background: var(--accent-soft);
   color: var(--accent);
   font-weight: 600;
+}
+
+/* **One id, restated, because an id beats two classes.**
+   `#select-btn.active` in 02-chat-graph.css is 1,1,0 and sets
+   `background: var(--accent-surface)`, the solid accent. It was written when
+   the button stood in the dock, where a filled active state is right. Now that
+   the button lives in the overflow menu it outranked the flat-menu recipe
+   (0,2,0) and the selected rule above (0,2,0) alike, and turning select mode
+   on painted a solid lavender block in a flat list: the exact defect item 1
+   existed to remove, reintroduced by moving a button.
+
+   Measured, not guessed: `scratchpad/ui-sweeps/whichrule.js` listed every rule
+   matching the element and declaring `background`, in cascade order, and
+   `#select-btn.active` was the winner. (It has to be asked for the `background`
+   shorthand: a `var()` inside a shorthand is stored as a pending substitution,
+   so asking for `background-color` returns nothing and the rule looks absent.)
+
+   Restated here at 1,2,0 rather than edited in 02, which is this file's whole
+   contract: the earlier files are not reopened. */
+.doc-dock-menu-list #select-btn.active {
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .nav-history-menu .nav-history-item.nav-history-current {

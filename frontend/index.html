@@ -1022,7 +1022,6 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
             </div>
             <div class="dock-actions">
-              <button id="select-btn" class="ghost small" title="Select several notes to move, tag, or delete together"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Select</button>
               <button id="notes-refresh" class="ghost small icon-only" type="button"
                 title="Reload notes" aria-label="Reload notes"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
               <button id="search-help" class="icon-only ghost small graph-help-toggle" type="button"
@@ -1048,6 +1047,25 @@ Link to another note with [[its first few words]]."></textarea>
                        used sometimes. `updateExpandAllButton` still hides it
                        outside rows view and still writes both its label and its
                        icon, so nothing about app.js changes. -->
+                  <!-- **Moved out of the actions zone, and this is the
+                       seven-control ceiling being kept rather than an
+                       aesthetic preference.** The Notes dock counted eight
+                       visible controls against rule 5's ceiling of seven
+                       (docs/roadmap/agent-remaining/docks.md section 2, which
+                       names this exact move). "Select" is a mode you enter
+                       occasionally, which is rule 5's own case for what belongs
+                       in the overflow, and it sits above "Expand all" because
+                       both are things you do to the list rather than ways of
+                       looking at it.
+
+                       Nothing about app.js changes: the listener is
+                       `$("select-btn")`, `enterSelectMode` still adds `.active`
+                       to it, and the delegated `.dock-menu` handler closes the
+                       menu on the click, which is right for entering a mode.
+                       The `.active` state is drawn by 08-consistency.css,
+                       because the menu-row recipe would otherwise flatten it. -->
+                  <button id="select-btn" class="doc-dock-menu-item" type="button"
+                    title="Select several notes to move, tag, or delete together"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Select</button>
                   <button type="button" id="notes-expand-all" class="doc-dock-menu-item hidden"
                     title="Open every note in this list" aria-label="Open every note in this list"></button>
                   <div class="dock-menu-section">
@@ -1928,8 +1946,6 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="dock-group dock-find">
           <input id="graph-search" type="search" placeholder="Highlight notes…"
             aria-label="Highlight matching notes in the graph">
-          <button id="graph-trace-toggle" class="ghost small" aria-expanded="false"
-            title="Find how two notes connect"><i class="ph ph-path ph-lead" aria-hidden="true"></i> Trace</button>
           <button id="graph-highlight-clear" class="ghost small hidden" title="Clear the similar-notes highlight"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear highlight</button>
           <button id="graph-focus-clear" class="ghost small hidden" title="Exit focus mode and return to the global map"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Exit focus</button>
         </div>
@@ -1953,6 +1969,19 @@ Link to another note with [[its first few words]]."></textarea>
                   <label><input type="radio" name="graph-colour" value="cluster"> Cluster</label>
                 </div>
               </div>
+              <!-- **Moved out of the find zone for the seven-control
+                   ceiling** (docks.md section 2, which names this move and the
+                   decision behind it). Trace is a mode, and this menu already
+                   holds the modes: layout, colour, legend, display options.
+                   `#graph-concept-maps` was settled as NOT a control on this
+                   bar: it is a `.dock-link` in the identity zone pointing at a
+                   sibling surface, the same kind of thing as the heading beside
+                   it, so the bar counts eight without it and seven with Trace
+                   moved. Nothing about the handlers changes: app.js and
+                   graph.js both reach it as `$("graph-trace-toggle")`, and the
+                   `.is-on` state it sets is drawn by 08-consistency.css. -->
+              <button id="graph-trace-toggle" class="doc-dock-menu-item" type="button" aria-expanded="false"
+                title="Find how two notes connect"><i class="ph ph-path ph-lead" aria-hidden="true"></i> Trace</button>
               <button id="graph-legend-toggle" class="doc-dock-menu-item" type="button"
                 title="Hide the legend" aria-label="Hide the legend" aria-expanded="true"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i> Legend</button>
               <button id="graph-options-toggle" class="doc-dock-menu-item" type="button" aria-expanded="false"

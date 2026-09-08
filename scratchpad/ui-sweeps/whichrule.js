@@ -11,6 +11,13 @@ const {boot}=require('./lib.js');
   const tab=process.env.TAB||'library';
   await page.click(`[data-tab="${tab}"]`).catch(()=>{}); await page.waitForTimeout(900);
   if(process.env.SUBTAB) { await page.click(process.env.SUBTAB,{timeout:4000}).catch(()=>{}); await page.waitForTimeout(1500); }
+  // OPEN=<details id> plus CLICK=<selector> so a rule that only applies to a
+  // control inside an open menu, in a state it has to be put into, can be
+  // asked about at all.
+  if(process.env.OPEN){ await page.evaluate((i)=>{const d=document.getElementById(i); if(d) d.open=true;}, process.env.OPEN); await page.waitForTimeout(300); }
+  if(process.env.CLICK){ await page.click(process.env.CLICK,{timeout:4000}).catch(()=>{}); await page.waitForTimeout(600);
+    if(process.env.OPEN) await page.evaluate((i)=>{const d=document.getElementById(i); if(d) d.open=true;}, process.env.OPEN);
+    await page.waitForTimeout(300); }
   const r=await page.evaluate(({sel,prop})=>{
     const el=document.querySelector(sel); if(!el) return {error:'no element for '+sel};
     const out=[];

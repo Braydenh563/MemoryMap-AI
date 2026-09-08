@@ -1190,6 +1190,97 @@ on the reference small model; the numbers reproduce within 2 points on a
 second run. **Size** M. **Model** Sonnet (the scoring exists; this is
 plumbing and a table).
 
+### I9 What the notebook learned: one place to see, edit, delete and switch it all off
+
+Added by direct instruction: "give the user the ability to see what the
+notebook has learned and to be able to edit, delete and manage it so in
+case the AI models get things wrong the user can fix it, also a way to
+toggle the features on and off." This is not a ninth feature beside the
+eight; it is the contract every one of them ships under. **No invention
+above is built until its rows appear here.**
+
+**What the person sees.** Settings > "What the notebook learned" (its
+own section, next to Background tasks). At the top, one switch per
+invention, each with a one-line description and a `?` popover: Night
+shift (I1), Margin reader (I2), Open questions (I3), Resurfacing (I4),
+Evidence checks (I6), Learning from corrections (I7), Model bench (I8).
+Time travel (I5) has no switch; it only reads revisions. Off means: the
+feature computes nothing, shows nothing, and its existing rows are kept
+but inert (a banner in the section says "paused, N items kept"). A master
+switch "Pause all learning" sets every one off in one click.
+
+Below the switches, one table with a kind filter and a search box, every
+row a fact the app derived rather than the person wrote: claims,
+questions, tensions, duplicates, entity merges, dates, learned boosts
+(I7), resurfacing decisions, filing corrections. Each row shows: the text,
+the note and sentence it came from (click to open, scrolled to the span),
+which model and when, the confidence, its status, and three actions:
+**Edit** (the text, the entity name, the category, the weight: an edited
+row is marked "edited by you" and is never overwritten by a later run),
+**Delete** (gone, and recorded as a correction so the same fact is not
+re-derived next run), **Reset to what the model said** (for an edited
+row). Bulk: select all in the filter, delete or accept. At the bottom:
+"Forget everything learned" (deletes every derived row and every boost,
+keeps notes and revisions untouched, asks once), and "Export what the
+notebook learned" (one JSON file, so the person can read it outside the
+app).
+
+Each invention's own surface (the morning card, a margin card, a question
+row, a resurfacing card) carries a small "Learned: manage" link to this
+section filtered to that kind, so a wrong fact can be fixed where it is
+met, not only in Settings.
+
+**Why it matters.** A model that is wrong quietly is worse than no model.
+Every derived thing in this app is inspectable, attributable and
+reversible, and the person can turn the model's judgement off entirely
+and keep the notebook. That is the promise that lets the eight inventions
+run unattended.
+
+**Builds on.** `derived_facts` and `night_runs` (I1), `corrections` and
+`learned_boosts` (I7), `note_scores` (I4), the preference store for the
+switches, the Settings section recipe (D13), the list and modal recipes.
+
+**Data.** `derived_facts` gains `edited_by_user: bool`, `original_text`,
+`original_payload` (for Reset). `corrections` gains kind
+`delete_fact`, `edit_fact`. Switches are preferences named
+`learn.<invention>.enabled` (default off for I1, I2, I7, I8; on for I3,
+I4, I6 once their upstream is on) plus `learn.paused` (master).
+
+**Endpoints.** `GET /learned?kind=&q=&status=&page=` (the table, paged),
+`PATCH /learned/{id}` (`{text | payload | status}`, sets `edited_by_user`),
+`DELETE /learned/{id}` (writes the correction), `POST /learned/{id}/reset`,
+`POST /learned/bulk` (`{ids, action}`), `DELETE /learned` (forget
+everything; requires `{confirm: true}`), `GET /learned/export` (JSON),
+`GET|PUT /learned/switches`.
+
+**Rules the runners obey** (each a test): a runner checks its switch
+before every pass and exits cleanly when off; a runner never overwrites a
+row with `edited_by_user`; a deleted fact's `(entry_id, kind, text
+hash)` is in `corrections` and the runner skips re-deriving it; `learn.
+paused` stops every runner within one poll interval; the table never
+shows a row from a note the person cannot open (private, binned).
+
+**Tests first** (`tests/test_learned_spec.py`, strict xfail until built):
+the section lists a fact from each kind with its source span; editing a
+claim marks it and survives a re-run of the night shift over the same
+note; deleting a fact writes a correction and the next run does not
+re-create it; Reset restores the model's text; "Forget everything" leaves
+`entries` and `entry_revisions` byte-identical and every derived table
+empty; each switch off yields zero new rows from its runner and a 204 with
+`{paused: true}` from its endpoints; the export round-trips (import is
+not offered; the file is for reading); the master switch flips all seven
+and the section shows "paused" on each.
+
+**Gate.** The table renders 2,000 rows paged under 100ms per page; every
+row's "open source" lands on the span (Playwright: the span's rect inside
+the viewport); the section passes `test_dock_grammar.py`,
+`test_style_scale.py` and the CSP lint. **Size** M. **Model** Opus for the
+runner contract and endpoints, Sonnet for the table on the list recipe.
+
+**Order.** I9's table and switches are built with I7 (the first invention
+in the order below), so from the first learned boost onward there is a
+place to see it; each later invention adds its kinds to the same table.
+
 ### Order and dependencies
 
 ```
@@ -1200,8 +1291,9 @@ I1 + §14.2      →  I2 margin reader
 nothing         →  I4 resurfacing, I7 (with its own corrections table)
 ```
 
-Start with I7 and I4 (no dependencies, both improve every existing
-feature), then §14.2 and I6, then I1, then I3, I2, I5, I8. Each is one
+Start with I9's switches and table together with I7, then I4 (no
+dependencies, both improve every existing feature), then §14.2 and I6,
+then I1, then I3, I2, I5, I8. Each adds its rows to I9 as it lands. Each is one
 brief row in SESSION_BRIEFS when its turn comes; none is built ad hoc.
 
 ### What was deliberately left out

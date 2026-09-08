@@ -109,6 +109,7 @@ def _to_out(
         source_title=getattr(entry, "source_title", None),
         source_path=getattr(entry, "source_path", "") or "",
         is_board=bool(getattr(entry, "is_board", False)),
+        workspace_id=getattr(entry, "workspace_id", "default") or "default",
         created_at=entry.created_at,
         deleted_at=entry.deleted_at if entry.is_deleted else None,
         archived_at=entry.archived_at,

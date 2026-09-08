@@ -2050,6 +2050,33 @@ function entryItem(entry, options = {}) {
     meta.appendChild(mark);
   }
 
+  //: **Which space this note is actually filed in (INBOX 1a/38).** "Notes
+  //: from a deleted space appear in All spaces" turned out to be
+  //: unanswerable without this: there was no way to tell a survivor's real
+  //: space apart from a note that always lived in Default Space, so a
+  //: report and a non-bug looked identical. Shown whenever the picker at
+  //: the top of the tab does not already say it: every card while "All
+  //: spaces" is selected, or a card whose own space differs from the one
+  //: picked. `spacesCache` is the same list the switcher menu reads, so a
+  //: name/icon here can never disagree with the one shown there.
+  if (entry.workspace_id) {
+    const active = activeSpaceId();
+    if (active === SPACE_ALL || entry.workspace_id !== active) {
+      const space = spacesCache.find((s) => s.id === entry.workspace_id);
+      // Stored as "ph-house" (a full class name, see the switcher's own
+      // `iconEl.className`), not the "ph:house" `setLabel` shorthand
+      // expects; stripping the prefix once here is cheaper than a second
+      // icon convention.
+      const iconName = (space?.icon || "ph-circles-four").replace(/^ph-/, "");
+      const spaceName = space ? space.name : "a space that no longer exists";
+      const spaceChip = chip(`ph:${iconName} ${spaceName}`, "tag", () =>
+        setActiveSpace(entry.workspace_id)
+      );
+      spaceChip.title = `Filed in ${spaceName}. Click to switch there.`;
+      meta.appendChild(spaceChip);
+    }
+  }
+
   // While the AI is re-evaluating this note, show a live spinner chip so
   // it's obvious something is running on this specific card.
   if (entry.id === busyEntryId) {
@@ -36538,6 +36565,28 @@ async function loadSpaces() {
     spacesCache = [];
   }
   renderSpaceMenu();
+  updateCaptureSpaceLabel();
+}
+
+//: INBOX 1a/38: says which space the capture form actually files into,
+//: because the answer is not always the one picked at the top. Selecting
+//: "All spaces" turns off the workspace filter for *reading*, but a new
+//: note still has to land somewhere concrete, and `database.py`'s own
+//: insert hook only stamps a workspace when one is actually selected: with
+//: "all" sent, a fresh row keeps its column default, "default" (Default
+//: Space). Read that off the same rule rather than re-deciding it here, so
+//: this label and the server's own behaviour cannot drift apart.
+function updateCaptureSpaceLabel() {
+  const label = $("capture-space-hint");
+  if (!label) return;
+  const active = activeSpaceId();
+  const filingId = active === SPACE_ALL ? "default" : active;
+  const space = spacesCache.find((s) => s.id === filingId);
+  const name = space ? space.name : "Default Space";
+  label.textContent =
+    active === SPACE_ALL
+      ? `Filing into ${name} (pick a space above to file there instead).`
+      : `Filing into ${name}.`;
 }
 
 function initSpaceSwitcher() {

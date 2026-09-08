@@ -74,7 +74,7 @@ takes them top-down inside each block.
    items. Owner: consistency.md.
 7. **"Still writing / Jump to latest" pill takes a row of the chat
    panel** rather than floating over it. Owner: CHAT_PLAN.md.
-8. **Viewed-note chips in skill steps: text centred and clipped.** Owner:
+8. **(fixed)** **Viewed-note chips in skill steps: text centred and clipped.** Owner:
    consistency.md (chip recipe: left aligned, ellipsis).
 9. **Streaming icon is a static three-dot triangle**; step "Working" rows
    render above the step content. Owner: AGENT_SKILLS_REFORM Phase D.
@@ -95,9 +95,9 @@ takes them top-down inside each block.
     item 4 (the alignment sweep must include these three).
 15. **Modal backdrop blur does not cover the full viewport height** (a
     strip at the top under the desktop title bar). Owner: consistency.md.
-16. **Chat header kebab has a filled ground while other kebabs do not.**
+16. **(fixed)** **Chat header kebab has a filled ground while other kebabs do not.**
     Decision: no fill; one icon recipe. Owner: consistency.md.
-17. **Chat dock has no bottom padding; the bottom bar's distance from the
+17. **(fixed)** **Chat dock has no bottom padding; the bottom bar's distance from the
     page differs from the top bar's.** Decision: yes, make them equal
     (`--page-gutter`). Owner: Phase 9 / consistency.md.
 18. **Formatting toolbar: pinned group square-cornered and only opaque on
@@ -105,7 +105,7 @@ takes them top-down inside each block.
     toolbar is squashed.** Owner: DOCUMENTS_PLAN Phase 1 (chrome).
 19. **Strikethrough shortcut missing** (Ctrl+Shift+S or Ctrl+Shift+X).
     Owner: DOCUMENTS_PLAN Phase 1; trivial, do with 18.
-20. **Boards & maps: still no gap between the All/Maps/Boards chips and
+20. **(fixed)** **Boards & maps: still no gap between the All/Maps/Boards chips and
     the cards.** Owner: docks.md.
 
 ### Design and feature requests (become brief rows)

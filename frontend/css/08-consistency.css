@@ -981,3 +981,12 @@ summary > .ph-lead,
   order: 3;
   flex: 0 0 auto;
 }
+
+/* The chat head's kebab drew the summary.icon-only fill while its two
+   siblings (fork, compress) are bare icon buttons (reported: "why is the
+   ellipse button in the chat header highlighted a different colour"). The
+   three are one cluster; the icon recipe is no fill at rest. */
+.chat-toolbar summary.icon-only,
+.chat-toolbar summary.icon-button {
+  background: transparent;
+}

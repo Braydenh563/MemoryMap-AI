@@ -4129,6 +4129,18 @@ mark.lightbox-hit {
   padding-left: var(--space-6);
 }
 
+/* A note chip reads from its left edge and ends in an ellipsis; the button
+   recipe centred it and let a long title spill (reported: "the viewed note
+   badges have their text centered and clipped"). */
+.tool-touched .chip {
+  justify-content: flex-start;
+  text-align: left;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* These open a note, so they are pressable and say so, unlike the read-only
    fact chips in the palette's metadata row, which deliberately do not. */
 .tool-touched-chip {

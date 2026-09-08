@@ -8370,7 +8370,11 @@ header#top-bar {
    selectors are inside `test_ui_signatures.py`'s row/toolbar family, whose
    distinct-`padding`-value ceiling is a ratchet this phase must not spend. */
 .chat-dock {
-  padding-bottom: calc(var(--keyboard-inset) + env(safe-area-inset-bottom, 0px));
+  /* Plus the dock's own bottom padding: this rule replaced the shorthand's
+     bottom value with the two insets alone, which are both 0 on a desktop,
+     so the composer sat flush on the card's edge (reported: "there's no
+     bottom padding in the chat dock"). */
+  padding-bottom: calc(var(--space-3) + var(--keyboard-inset) + env(safe-area-inset-bottom, 0px));
 }
 
 /* The formatting bar carries `padding: 0.4rem 0.4rem` of its own, so its

@@ -3788,3 +3788,10 @@ summary.small.icon-button {
 .layout > main {
   overflow-x: clip;
 }
+
+/* The kind chips above the boards grid sit on the card with nothing between
+   them and the first row of cards (reported twice). The Notes list's filter
+   row has this gap from its dock; the boards row is outside a dock. */
+#library-boards-filter {
+  margin-bottom: var(--space-4);
+}

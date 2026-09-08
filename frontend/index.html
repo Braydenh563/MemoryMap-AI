@@ -334,7 +334,7 @@
        accessible though" half of the same report. -->
   <aside id="agent-monitor" class="card glass agent-monitor hidden">
     <div class="row space-between monitor-header">
-      <h3 class="monitor-title"><i class="ph ph-robot ph-lead" aria-hidden="true"></i> Agent Activity</h3>
+      <h3 class="monitor-title"><i class="ph ph-robot ph-lead" aria-hidden="true"></i> Agent activity</h3>
       <div class="row monitor-header-actions">
         <button id="agent-monitor-log-toggle" class="ghost small" type="button"
           aria-controls="agent-monitor-logs" aria-expanded="false">Show log</button>
@@ -1831,7 +1831,7 @@ Link to another note with [[its first few words]]."></textarea>
         <div id="timeline-popup-media" class="graph-popup-media hidden"></div>
         <div id="timeline-popup-content" class="timeline-popup-content"></div>
         <div class="row">
-          <button id="timeline-popup-open" class="small">Open in Editor</button>
+          <button id="timeline-popup-open" class="small">Open in editor</button>
         </div>
       </div>
     </section>
@@ -1942,11 +1942,11 @@ Link to another note with [[its first few words]]."></textarea>
 
           <!-- Contextual: each appears only in the mode it exits, so they sit
                apart from the permanent controls rather than in a group. -->
-          <button id="graph-focus-clear" class="ghost small hidden" title="Exit Focus Mode and return to the global map"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Exit Focus</button>
+          <button id="graph-focus-clear" class="ghost small hidden" title="Exit focus mode and return to the global map"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Exit focus</button>
           <!-- The "≈ Similar" popup button (graph.js) sets graphHighlightIds
                with no clear affordance of its own - reported directly. Same
                shape as Exit Focus above: hidden until that state is active. -->
-          <button id="graph-highlight-clear" class="ghost small hidden" title="Clear the similar-notes highlight"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear Highlight</button>
+          <button id="graph-highlight-clear" class="ghost small hidden" title="Clear the similar-notes highlight"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear highlight</button>
           </div>
           <!-- No separate "Close Full Screen" button here any more — direct
                instruction: "move the close full screen button in the graph
@@ -2923,7 +2923,7 @@ Link to another note with [[its first few words]]."></textarea>
            identical whichever kind it is. -->
       <button role="tab" aria-selected="false" data-target="library-view-media" data-media-kind="images">Images</button>
       <button role="tab" aria-selected="false" data-target="library-view-media" data-media-kind="files">Files</button>
-      <button role="tab" aria-selected="false" data-target="library-view-skills">AI Skills</button>
+      <button role="tab" aria-selected="false" data-target="library-view-skills">AI skills</button>
       <button role="tab" aria-selected="false" data-target="library-view-links">Links</button>
       <button role="tab" aria-selected="false" data-target="library-view-contents">Contents</button>
     </div>
@@ -3132,9 +3132,9 @@ Link to another note with [[its first few words]]."></textarea>
                header, so Skills' buttons were sized by the generic rule and
                came out a different height from every other sub-tab's. -->
           <div class="row space-between library-head">
-            <h2>AI Skill Library</h2>
+            <h2>AI skill library</h2>
             <span class="row">
-              <button id="skills-add-new" class="small">+ New Skill</button>
+              <button id="skills-add-new" class="small">+ New skill</button>
               <button type="button" id="skills-help" class="icon-only ghost small graph-help-toggle"
                 aria-expanded="false" aria-controls="skills-intro"
                 title="Manage the capabilities of your AI agent. Enable, configure, and review execution logs."
@@ -3156,7 +3156,7 @@ Link to another note with [[its first few words]]."></textarea>
         </main>
         <aside class="card glass" id="skills-sidebar">
         <div class="row space-between library-head">
-          <h2>Skill Logs</h2>
+          <h2>Skill logs</h2>
           <button id="skills-logs-clear" class="ghost small" type="button" title="Clear this log">Clear</button>
         </div>
         <div id="skills-logs-list" class="entry-list"></div>
@@ -4454,7 +4454,7 @@ Link to another note with [[its first few words]]."></textarea>
        Tesseract's own blocks, and the only label beyond "text" is "heading",
        computed from box height. See core/ocr.py's `extract_regions`. -->
   <div id="ocr-workspace" class="modal-overlay ocr-workspace hidden" role="dialog"
-    aria-modal="true" aria-label="OCR Workspace — read text from images and documents">
+    aria-modal="true" aria-label="OCR workspace — read text from images and documents">
     <div class="card modal-card ocr-card">
       <!-- **Two rows, not one.** Reported: "fix the ui of the top bar". Nine
            controls sat in a single flex row, and measured, every one of the
@@ -4475,7 +4475,7 @@ Link to another note with [[its first few words]]."></textarea>
                  encompassing text and image ocr workspace, dont limit the
                  feature."* The old name described one of the things it does
                  and quietly set the ceiling for everything else in here. -->
-            <h2>OCR Workspace</h2>
+            <h2>OCR workspace</h2>
             <!-- Which file. The workspace can be reached from four places and
                  opened on a document you last touched an hour ago; a dialog
                  titled only "Text on the page" is a dialog you have to close
@@ -6187,7 +6187,7 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
 
             <div class="settings-group">
-              <h3>Autonomous Background AI</h3>
+              <h3>Autonomous background AI</h3>
               <p class="muted">
                 Have the agent automatically optimize your notes in the background — tagging untagged notes, finding duplicates, and linking related items.
               </p>
@@ -6274,7 +6274,7 @@ Link to another note with [[its first few words]]."></textarea>
                 
                 <label for="pref-autonomous-model" class="form-label">Model override</label>
                 <select id="pref-autonomous-model" class="wide">
-                  <option value="">Same as Utility model</option>
+                  <option value="">Same as utility model</option>
                 </select>
                 
                 <div class="row row-top-gap">
@@ -6297,13 +6297,13 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
 
             <div class="settings-group">
-              <h3>Battery Efficient Mode</h3>
+              <h3>Battery-efficient mode</h3>
               <p class="muted">
                 Pause background AI tasks and heavy graph calculations to save power. When enabled, autonomous background tasks will not run, and the graph may be slower to update connections.
               </p>
               <label class="check-row">
                 <input type="checkbox" id="pref-battery-mode">
-                <span>Enable Battery Efficient Mode</span>
+                <span>Enable battery-efficient mode</span>
               </label>
             </div>
 
@@ -6325,7 +6325,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="export-md" class="ghost small" title="A zip of .md files you can drop into Obsidian">Export Markdown</button>
               </div>
               <div class="row settings-row-spaced">
-                <button id="export-backup-zip" class="small" title="A portable zip of your database and media folder">Export Full Backup (.zip)</button>
+                <button id="export-backup-zip" class="small" title="A portable zip of your database and media folder">Export full backup (.zip)</button>
               </div>
               <p class="muted">
                 JSON/CSV/Markdown exports include everything, even binned notes.
@@ -6397,10 +6397,10 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
               <p id="import-md-status" class="status" role="status"></p>
               
-              <h3>Bulk Directory Import</h3>
+              <h3>Import from a folder path</h3>
               <div class="row settings-row-spaced">
                 <input id="import-dir-path" type="text" class="import-dir-path-input" placeholder="C:\path\to\Obsidian\vault">
-                <button id="import-dir" class="small">Import Folder</button>
+                <button id="import-dir" class="small">Import from path</button>
               </div>
               <p id="import-dir-status" class="status" role="status"></p>
               <p class="muted">
@@ -6889,7 +6889,7 @@ Link to another note with [[its first few words]]."></textarea>
                      this button already was — asked for directly, so the two
                      "how do I learn my way around" doors sit beside each
                      other instead of one being a whole nav click away. -->
-                <button type="button" class="ghost small" data-goto-section="help"><i class="ph ph-question ph-lead" aria-hidden="true"></i> Open Help &amp; guide</button>
+                <button type="button" class="ghost small" data-goto-section="help"><i class="ph ph-question ph-lead" aria-hidden="true"></i> Open help &amp; guide</button>
               </div>
             </div>
 

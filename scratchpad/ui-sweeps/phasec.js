@@ -1,7 +1,14 @@
 // Phase C's verification run: do tool calls actually render in the chat
-// transcript on all three paths (plain chat with tools, Request/agent mode,
-// a skill run); does the activity panel read as a run list; does a retrying
-// step say so; and does the small-model toggle round-trip?
+// transcript on all three paths (plain chat with tools, Agent mode, a skill
+// run); does the activity panel read as a run list; does a retrying step say
+// so; and does the small-model toggle round-trip?
+//
+// It also carries INBOX 40's measurement: an agent answer and a skill run
+// must end up with numbered citation markers *inside* the answer, not only a
+// chip row under it. That needs the model's prose to actually overlap a note,
+// which `seedGroundableNote` below arranges by writing the stand-in server's
+// one fixed sentence into a note before anything is asked. Without it the
+// grounding is correctly empty and the sweep would measure nothing.
 //
 // It drives the real app against `scratchpad/fake_openai_server.py` — a real
 // socket speaking the OpenAI `/v1` dialect, including streamed tool-call
@@ -15,6 +22,87 @@ const { boot } = require('./lib.js');
 const FAKE = process.env.FAKE || 'http://127.0.0.1:8799/v1';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// The sentence `scratchpad/fake_openai_server.py` answers with once it has a
+// tool result. A note containing it is a note every word of that sentence is
+// found in, which is what `ground_answer_sentences` scores on (shared
+// meaningful words, MIN_OVERLAP_RATIO 0.4), so the turn gets a real
+// `grounding` event rather than an empty one.
+const FAKE_SENTENCE =
+  'I checked your notebook with the tool above and there is nothing surprising in it.';
+
+// The note opens with a bold run on purpose: it is INBOX 40's other half.
+// A badge built from this note's first words has to show *Tool audit:* in
+// bold, never the four asterisks, which is the defect the owner screenshotted.
+const SEED_NOTE = `**Tool audit:** ${FAKE_SENTENCE} The tags looked tidy.`;
+
+async function seedGroundableNote(page) {
+  return page.evaluate(async (content) => {
+    // `/entries` answers with a bare list, but a failed call and a future
+    // envelope both answer with something that has no `.find`, and a
+    // TypeError here would take the whole sweep down before its first turn.
+    const existing = await apiJson('/entries?limit=200').catch(() => null);
+    const rows = Array.isArray(existing) ? existing : (existing && existing.entries) || [];
+    const already = rows.find((e) => (e.content || '').trim() === content);
+    if (already) return { id: already.id, created: false };
+    const made = await apiJson('/entries', {
+      method: 'POST',
+      body: JSON.stringify({ content, category: 'notes' }),
+    });
+    return { id: made.id, created: true };
+  }, SEED_NOTE);
+}
+
+// INBOX 40: the markers themselves, counted where they are supposed to be.
+// `.bubble-answer` is one node per prose step, so this also says *which* step
+// got them — the point of the fix is that they land on the final answer and
+// not on step one's narration.
+async function citationReport(page, label, sentence) {
+  const found = await page.evaluate((needle) => {
+    // Scoped to the last assistant bubble, not to the whole pane: `newChat()`
+    // does not always clear the transcript before the next run starts, and a
+    // count over every bubble reported the previous path's markers as this
+    // one's (measured: an eleven-block "skill run" that was really the agent
+    // turn's two blocks plus the run's nine).
+    const bubble = [...document.querySelectorAll('#chat-messages .msg.assistant')].at(-1);
+    const scope = bubble || document.getElementById('chat-messages') || document;
+    const blocks = [...scope.querySelectorAll('.bubble-answer')];
+    const markersPerBlock = blocks.map((b) => b.querySelectorAll('.answer-citation').length);
+    // Which blocks the grounded sentence is actually in, and which one the
+    // markers landed in. The bug was that those two were different: the
+    // walker was handed the *first* prose block and the sentence was in a
+    // later one, so nothing was marked at all.
+    const holds = blocks
+      .map((b, i) => (b.textContent.includes(needle) ? i : -1))
+      .filter((i) => i >= 0);
+    return {
+      proseBlocks: blocks.length,
+      blocksHoldingTheSentence: holds,
+      markedBlocks: markersPerBlock.map((n, i) => (n ? i : -1)).filter((i) => i >= 0),
+      lastBlockHoldingIt: holds.length ? holds[holds.length - 1] : null,
+      markersPerBlock,
+      markers: scope.querySelectorAll('.answer-citation').length,
+      markerText: [...scope.querySelectorAll('.answer-citation')].map((m) => m.textContent.trim()),
+      groundingChips: scope.querySelectorAll('.answer-grounding-chip').length,
+      // The badge halves of INBOX 40: a chip that still shows raw markers is
+      // the defect, so both the text and any rendered <strong> are reported.
+      badges: [...scope.querySelectorAll('.tool-touched-chip, .answer-grounding-chip')]
+        .slice(0, 6)
+        .map((c) => ({
+          text: c.textContent.replace(/\s+/g, ' ').trim().slice(0, 60),
+          rendered: c.querySelectorAll('strong, em, code, mark').length,
+        })),
+      rawMarkerBadges: [...scope.querySelectorAll('.tool-touched-chip, .answer-grounding-chip')]
+        .map((c) => c.textContent)
+        .filter((t) => /\*\*|^#{1,6}\s|~~|`/.test(t)).length,
+      renderedBadges: [...scope.querySelectorAll('.tool-touched-chip, .answer-grounding-chip')]
+        .filter((c) => c.querySelector('strong, em, code, mark')).length,
+    };
+  }, sentence);
+  console.log(`\n=== citations: ${label} ===`);
+  console.log(JSON.stringify(found, null, 1));
+  return found;
+}
 
 async function pointAtFake(page) {
   return page.evaluate(async (base) => {
@@ -128,6 +216,7 @@ async function panelReport(page, label) {
   await page.evaluate(async () => {
     await apiJson('/preferences', { method: 'PUT', body: JSON.stringify({ small_model_mode: 'off' }) });
   });
+  console.log('groundable note:', JSON.stringify(await seedGroundableNote(page)));
   await page.evaluate(() => switchTab('chat'));
   await page.waitForTimeout(800);
 
@@ -142,13 +231,17 @@ async function panelReport(page, label) {
   await toolReport(page, 'PATH 1 — plain chat (Ask) with tools');
   await page.screenshot({ path: `${OUT}/phasec-1-plain-chat.png` });
 
-  // --- path 2: Request (agent) mode ----------------------------------------
+  // --- path 2: Agent mode ---------------------------------------------------
   await page.evaluate(() => newChat && newChat());
   await page.waitForTimeout(600);
   await page.evaluate(() => document.querySelector('[data-chat-mode="agent"]')?.click());
   await page.waitForTimeout(400);
-  await send(page, 'Tidy up the tags on my notes, please.');
-  await toolReport(page, 'PATH 2 — Request (agent) mode');
+  // A question rather than an instruction: grounding is skipped for a turn
+  // whose intent needs no retrieval, so "tidy up my tags" would correctly
+  // produce no citations at all.
+  await send(page, 'What did I write in my tool audit note?');
+  await toolReport(page, 'PATH 2 — Agent mode');
+  const agentCites = await citationReport(page, 'PATH 2 — Agent mode', FAKE_SENTENCE);
   await page.screenshot({ path: `${OUT}/phasec-2-agent-mode.png` });
 
   // --- path 3: a built-in skill run ----------------------------------------
@@ -223,6 +316,7 @@ async function panelReport(page, label) {
     }
   });
   await toolReport(page, `PATH 3 — skill run (${skillName})`);
+  const skillCites = await citationReport(page, `PATH 3 — skill run (${skillName})`, FAKE_SENTENCE);
   console.log('\n=== retrying, caught mid-run ===');
   console.log(JSON.stringify({ polled: retrying, observed: await page.evaluate(() => window.__retrySeen) }, null, 1));
   console.log('\n=== toasts raised during the skill run ===');
@@ -318,6 +412,33 @@ async function panelReport(page, label) {
   console.log(JSON.stringify(offTab, null, 1));
   await page.screenshot({ path: `${OUT}/phasec-10-off-tab.png` });
 
+  // INBOX 40, as a pass/fail rather than as a screenshot to squint at.
+  // The marker has to be in the *last* prose block that holds the sentence:
+  // that is the answer the run ends with, and citing an intermediate step's
+  // repeat of it would put the number where nobody reads.
+  const onTheRightBlock = (r) =>
+    r.markedBlocks.length > 0 && r.markedBlocks.every((i) => i === r.lastBlockHoldingIt);
+  const cites = {
+    agentMarkers: agentCites.markers,
+    agentMarkedBlocks: agentCites.markedBlocks,
+    agentLastBlockHoldingIt: agentCites.lastBlockHoldingIt,
+    skillMarkers: skillCites.markers,
+    skillProseBlocks: skillCites.proseBlocks,
+    skillMarkedBlocks: skillCites.markedBlocks,
+    skillLastBlockHoldingIt: skillCites.lastBlockHoldingIt,
+    badgesShowingRawMarkers: agentCites.rawMarkerBadges + skillCites.rawMarkerBadges,
+    badgesRenderingMarkdown: agentCites.renderedBadges + skillCites.renderedBadges,
+  };
+  const ok =
+    cites.agentMarkers >= 1 &&
+    cites.skillMarkers >= 1 &&
+    onTheRightBlock(agentCites) &&
+    onTheRightBlock(skillCites) &&
+    cites.badgesShowingRawMarkers === 0 &&
+    cites.badgesRenderingMarkdown >= 1;
+  console.log('\n=== INBOX 40 ===');
+  console.log(JSON.stringify({ ...cites, pass: ok }, null, 1));
   console.log('\nshots in', OUT);
   await browser.close();
+  process.exitCode = ok ? 0 : 1;
 })();

@@ -149,6 +149,47 @@ def test_a_note_read_by_a_tool_grounds_the_streamed_answer(ai_client, fake_ollam
     assert other["id"] not in {row["note_id"] for row in rows}
 
 
+def test_prose_from_two_rounds_is_not_glued_into_one_sentence(ai_client, fake_ollama):
+    """INBOX 40, the half that made a skill run cite nothing at all.
+
+    A multi-round turn writes its prose in bursts with a tool call between
+    them, and the transcript draws each burst as its own paragraph. The route
+    used to concatenate the raw deltas, so the last sentence of one round and
+    the first of the next arrived as "…rye flour.The starter…": one string
+    with no whitespace after the full stop, which `split_sentences` cannot
+    split. The grounding row it produced named a "sentence" that appears in no
+    paragraph on screen, so the client's citation walker could never find it
+    and every marker in the turn was lost.
+    """
+    saved = ai_client.post(
+        "/entries",
+        json={"content": "The sourdough starter needs feeding daily in the morning with rye flour."},
+    ).json()
+    ai_client.post(
+        "/entries", json={"content": "Bought new hiking boots for the weekend trip up Snowdon."}
+    )
+    # Round one narrates *and* calls a tool, which is the only shape this fake
+    # has that puts prose before a tool event; round two answers.
+    fake_ollama.text_tool_reply = (
+        "Your sourdough starter needs feeding daily in the morning with rye flour."
+        '<tool_call>{"name": "get_note", "arguments": {"note_id": %d}}</tool_call>' % saved["id"]
+    )
+    fake_ollama.librarian_reply = (
+        "The starter is fed daily in the morning with rye flour, as your note says."
+    )
+    events = _stream_events(ai_client, "remind me what my kitchen routine was")
+    grounding = [e for e in events if e["type"] == "grounding"]
+    assert grounding, "the touched note never became a candidate"
+    rows = grounding[0]["sentences"]
+    # Each grounded sentence is one sentence: it ends with its full stop and
+    # carries no second one glued to it, which is what makes it findable in a
+    # single paragraph of the transcript.
+    for row in rows:
+        assert row["sentence"].endswith("."), row["sentence"]
+        assert row["sentence"].count(".") == 1, row["sentence"]
+    assert len(rows) >= 2, f"both rounds should ground, got {rows}"
+
+
 def test_a_private_note_read_by_a_tool_is_never_cited(ai_client, fake_ollama, session):
     """The guard kept where the shape is kept: whatever a tool result names,
     a private note does not become a citation."""

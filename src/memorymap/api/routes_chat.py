@@ -1595,21 +1595,49 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
         # not only the retrieval set. Reported: an agent answer that named
         # three notes cited one, and a skill run cited none. The retrieval
         # set is what the *search* found before the model started; in
-        # Request mode and in a skill run the model then reads notes of its
+        # Agent mode and in a skill run the model then reads notes of its
         # own choosing through `get_note`, `search_notes`, `related_notes`,
         # and those are exactly the notes its answer is about. `touched` on
         # each tool event already names them (it is what the transcript's
         # action line opens), so this collects ids and loads the text once,
         # after the answer is in.
         touched_note_ids: list[int] = []
+        # **A blank line wherever the transcript starts a new paragraph.**
+        #
+        # Measured while fixing INBOX 40. A multi-round turn (an agent answer,
+        # every skill run) emits its prose in bursts with a step or a tool
+        # call between them, and the client draws each burst as its own block
+        # (`agentTimeline.startAnswer`, and `timeline.text()` joins them with
+        # a blank line). Concatenating the raw deltas here instead glued the
+        # last sentence of one round to the first of the next: "…in it.I
+        # checked…". `split_sentences` splits on `.` followed by whitespace,
+        # so that pair is one unsplittable "sentence" that exists in no
+        # paragraph on screen: the grounding row it produces can never be
+        # found by the client's citation walker, and both real sentences lose
+        # their marker. On a nine-step run the whole answer collapsed into a
+        # single such sentence and the run cited nothing at all, which is
+        # exactly what was reported.
+        #
+        # The set below is the events that begin a new prose block in the
+        # transcript, so this string keeps the same shape as what the reader
+        # sees. Anything else (`meta`, `token`, `stats`) is bookkeeping and
+        # must not break a paragraph in half.
+        paragraph_breaks = {"thinking", "tool", "step", "plan", "result"}
+        in_prose = False
         try:
             for payload in events:
-                if payload.get("type") == "answer":
+                kind = payload.get("type")
+                if kind == "answer":
+                    if answer_text and not in_prose:
+                        answer_text += "\n\n"
                     answer_text += payload.get("delta") or ""
-                elif payload.get("type") == "tool":
-                    for item in payload.get("touched") or []:
-                        if item.get("kind") == "note" and isinstance(item.get("id"), int):
-                            touched_note_ids.append(item["id"])
+                    in_prose = True
+                elif kind in paragraph_breaks:
+                    in_prose = False
+                    if kind == "tool":
+                        for item in payload.get("touched") or []:
+                            if item.get("kind") == "note" and isinstance(item.get("id"), int):
+                                touched_note_ids.append(item["id"])
                 yield event(payload)
         except Exception as exc:  # noqa: BLE001  # same outer boundary as above,
             # for a failure that shows up partway through rather than before

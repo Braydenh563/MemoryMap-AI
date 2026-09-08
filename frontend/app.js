@@ -9512,8 +9512,26 @@ function clickableResult(entry) {
 // than reassembled: a citation attached to the wrong half of a sentence is
 // worse than no citation, and the chip row below still lists every source
 // either way, so nothing is lost by skipping.
+//: **`answerEl` is every prose block of the turn, latest first, not one
+//: element.** Reported: an agent answer and a skill run showed no markers at
+//: all, while a plain Ask answer showed them. The cause is one word:
+//: `querySelector`. A skill run's timeline writes each step's prose into its
+//: own `.bubble-answer` node (`startAnswer`, called again after every `step`
+//: event), so the *first* one is step 1's narration and the run's real answer
+//: is the last. The backend grounds the turn's whole prose as one string, so
+//: every sentence it returned came from the final answer, and every one of
+//: them was hunted for in the wrong paragraph.
+//:
+//: Latest first because a run repeats itself: a sentence the closing summary
+//: and an intermediate step both contain belongs on the summary, which is
+//: what a reader takes away. A step's own unique sentence still gets its
+//: marker where it is, which is what walking all of them buys over simply
+//: picking the last.
 function addInlineCitations(answerEl, sentences, rawResults) {
-  if (!answerEl || !sentences || !sentences.length) return;
+  const targets = [
+    ...(answerEl && !answerEl.nodeType ? [...answerEl] : answerEl ? [answerEl] : []),
+  ].reverse();
+  if (!targets.length || !sentences || !sentences.length) return;
   const byId = new Map((rawResults || []).map((entry) => [entry.id, entry]));
   // One number per note, in the order they are first cited, the numbering a
   // reader expects, rather than note ids, which mean nothing to anyone.
@@ -9527,9 +9545,13 @@ function addInlineCitations(answerEl, sentences, rawResults) {
     .filter((g) => (g.sentence || "").trim().length > 12)
     .sort((a, b) => (b.sentence || "").length - (a.sentence || "").length);
   const placed = new Set();
-  const walker = document.createTreeWalker(answerEl, NodeFilter.SHOW_TEXT);
+  //: One queue over all of them, and one `placed` set, so a sentence gets
+  //: exactly one marker across the whole turn rather than one per block.
   const queue = [];
-  while (walker.nextNode()) queue.push(walker.currentNode);
+  for (const target of targets) {
+    const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) queue.push(walker.currentNode);
+  }
 
   // A queue rather than a plain loop, because placing a marker *splits* the
   // text node it was found in. The remainder is a new node that the tree
@@ -9600,7 +9622,7 @@ function renderRelatedElsewhere(target, items) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "chip chip-interactive answer-related-chip";
-    setLabel(button, `${icons[item.kind] || "ph:link"} ${item.label || item.kind}`);
+    setNoteLabel(button, icons[item.kind] || "ph:link", item.label || item.kind, 120);
     button.title = `Open this ${item.kind}`;
     button.addEventListener("click", () => {
       if (item.kind === "document") {
@@ -9650,10 +9672,10 @@ function renderAnswerGrounding(target, sentences, rawResults, answerEl = null) {
     chip.className = "chip result-reason-chip result-reason-connected answer-grounding-chip";
     // Numbered to match the markers `addInlineCitations` puts in the answer, 
     // the row is the key to those, so the two have to count the same way.
-    setLabel(
-      chip,
-      `ph:file-text ${n}. ${noteLabel({ content: entry?.content || labelFor.get(noteId) || "" }, 30)}`
-    );
+    // `setNoteLabel`, not `setLabel`: the second half of this string is the
+    // note's own Markdown, and the number is app-written, so they cannot go
+    // through the renderer as one string (`1. ` is an ordered-list marker).
+    setNoteLabel(chip, `ph:file-text ${n}.`, entry?.content || labelFor.get(noteId) || "", 30);
     chip.title = forSentences.join(" ");
     chip.addEventListener("click", () => flashEntry(noteId));
     target.appendChild(chip);
@@ -10063,12 +10085,29 @@ function liveMarkdownRenderer(box) {
     renderMarkdown(box, latest);
   };
 
-  return (text) => {
+  const render = (text) => {
     latest = text;
     if (timer) return;
     const wait = Math.max(0, LIVE_RENDER_INTERVAL_MS - (performance.now() - lastRun));
     timer = setTimeout(flush, wait);
   };
+  //: **The last paint has to be cancellable, or it lands after the turn is
+  //: over.** Measured while fixing INBOX 40: a skill run's citation markers
+  //: were placed correctly and then vanished within a frame or two, and this
+  //: is what removed them. Every delta schedules a paint up to
+  //: `LIVE_RENDER_INTERVAL_MS` in the future; the stream then ends,
+  //: `finalise()` re-renders each step from its raw markdown and the caller
+  //: puts the markers in, and *then* the timer that was already armed fires
+  //: and repaints the box from `latest`, throwing them away again. Nothing
+  //: about it is visible: the prose is identical, only the markers are gone,
+  //: which is why it read as "citations do not work in a skill run" rather
+  //: than as a race.
+  render.stop = () => {
+    if (timer) clearTimeout(timer);
+    timer = null;
+    rendered = latest; // so a later call cannot decide it still owes a paint
+  };
+  return render;
 }
 
 // Ask ⇄ Stop while a stream is in flight.
@@ -13347,6 +13386,11 @@ function agentTimeline(holder) {
     },
     // Re-render each prose step properly once streaming has finished.
     finalise() {
+      //: The live renderer's armed paint is cancelled first: see its own
+      //: `stop`. Anything the caller adds to this prose afterwards (the
+      //: citation markers) would otherwise be wiped by a timer that was
+      //: scheduled before the turn ended.
+      for (const step of answerSteps) step.render?.stop?.();
       for (const step of answerSteps) renderMarkdown(step.body, step.raw);
       // The caret goes out with the stream that justified it. Called from
       // every exit path this timeline has, a finished turn, an error, and
@@ -13374,6 +13418,9 @@ function agentTimeline(holder) {
     // reasoning and tool steps around them are left alone, those record what
     // actually happened and aren't the user's to rewrite.
     replaceAnswer(markdown) {
+      // Same race as `finalise`: an armed paint would put the model's prose
+      // back over the text the user just typed.
+      for (const step of answerSteps) step.render?.stop?.();
       for (const step of answerSteps.slice(1)) step.el.remove();
       answerSteps.length = Math.min(answerSteps.length, 1);
       const step = answerSteps[0] || startAnswer();
@@ -13838,7 +13885,11 @@ function toolCardChips(items) {
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = "chip result-reason-chip result-reason-connected tool-touched-chip";
-    setLabel(chip, `${spec.icon} ${item.label || `#${item.id}`}`);
+    //: The label is the thing's own first words, straight off the tool event,
+    //: so it is Markdown and is rendered as such. 120 rather than a tight cut:
+    //: the strip already ellipsises in CSS, and cutting here would flatten
+    //: every label long enough to need it.
+    setNoteLabel(chip, spec.icon, item.label || `#${item.id}`, 120);
     //: A kind with `preview: false` opens rather than expands, because there
     //: is nothing sensible to inline. A map's content as an Entry is the
     //: single line `# My map`, so the in-place preview every other kind gets
@@ -15504,6 +15555,82 @@ function noteLabel(entry, length = 40) {
   return text.length > length ? `${text.slice(0, length - 1)}…` : text || "(empty note)";
 }
 
+//: **A note's own words are Markdown, and a badge is not a source view.**
+//:
+//: Reported (INBOX 35 and 40) with a screenshot of chat badges reading
+//: `**Ice Breakers:**` and `# CAB432`. The label a badge carries is the
+//: note's opening words as they are stored, markers and all: the backend
+//: sends it that way on a `grounding` row and on every `touched` item, and
+//: `setLabel` writes it with `textContent`, so the reader gets the syntax
+//: instead of what it means. The answer directly above renders the same
+//: markup properly, which is what makes it read as a bug rather than as a
+//: convention.
+//:
+//: One block-level pass first, for both helpers below. A label is one line,
+//: so a heading marker, a quote marker and a bullet have nothing to say in
+//: it, and links and images are flattened to their own text: these labels
+//: live inside `<button>` chips, where `renderInlineMarkdown`'s real `<a>`
+//: would be invalid markup and a click that navigates away from the chat.
+//: `safeHref` guards the anchors this app does want; a badge simply does not
+//: want one.
+function flattenNoteMarkdown(md) {
+  return String(md ?? "")
+    .replace(/^\s{0,3}(?:#{1,6}\s+|>\s?|[-*+]\s+|\d+[.)]\s+)/gm, "")
+    .replace(/!?\[([^\]]{0,300})\]\([^)]{0,500}\)?/g, "$1")
+    .replace(/\[\[([^[\]]{1,120})\]\]/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+//: Plain characters, for anywhere only characters land: a `title`, an
+//: `aria-label`, a string handed to the model. Built on `stripMarkdownPreview`
+//: because that one already handles the case a truncated label always hits, a
+//: slice landing inside `**bold te`, by deleting delimiters outright rather
+//: than matching pairs.
+function plainText(md) {
+  return stripMarkdownPreview(flattenNoteMarkdown(md)).replace(/\s+/g, " ").trim();
+}
+
+//: A badge whose text is a note's own words. `label` follows `setLabel`'s
+//: grammar (an optional leading `ph:` marker, then any app-written words such
+//: as a citation number); `md` is the note text, rendered rather than printed.
+//:
+//: The rendering is skipped when the text has to be cut: a cut can land inside
+//: `**bold**` and leave half a delimiter on screen, which is the exact defect
+//: this fixes. Measuring the length on the stripped text rather than the raw
+//: means a label is not cut short by markers nobody will see.
+function setNoteLabel(el, label, md, length = 40) {
+  const text = String(label ?? "");
+  const match = PH_LABEL.exec(text);
+  const prefix = (match ? text.slice(match[0].length) : text).trim();
+  const flat = flattenNoteMarkdown(md) || "(empty note)";
+  const plain = plainText(flat) || "(empty note)";
+  const holder = document.createElement("span");
+  if (plain.length > length) {
+    holder.textContent = `${plain.slice(0, length - 1)}…`;
+  } else {
+    // `compact`, so an image becomes its alt text rather than a thumbnail
+    // inside a chip; `dismissible: false` for the same reason, there is no
+    // room for a remove affordance on a badge.
+    renderInlineMarkdown(holder, flat, null, true, { dismissible: false });
+  }
+  // Prepended into the same span, not appended beside it: a separate node for
+  // "1." would need a gap, and a whitespace-only text node between two flex
+  // items is discarded (see setLabel's own note on exactly that).
+  if (prefix) holder.prepend(document.createTextNode(`${prefix} `));
+  el.replaceChildren();
+  if (match) {
+    const icon = document.createElement("i");
+    icon.className = `ph ph-${match[1]} ph-lead`;
+    icon.setAttribute("aria-hidden", "true");
+    holder.className = "ph-text";
+    el.append(icon, holder);
+  } else {
+    el.append(...holder.childNodes);
+  }
+  return el;
+}
+
 function renderAttachments() {
   const box = $("chat-attachments");
   box.replaceChildren();
@@ -16266,7 +16393,9 @@ async function sendChatMessage(preset, opts = {}) {
           groundingHolder,
           event.sentences,
           meta?.raw_results || [],
-          bubble.querySelector(".bubble-answer")
+          //: Every prose block of this turn, not the first: see
+          //: `addInlineCitations`. A skill run has one per step.
+          bubble.querySelectorAll(".bubble-answer")
         );
       },
       onPlan: (event) => {
@@ -16568,8 +16697,11 @@ async function sendChatMessage(preset, opts = {}) {
   //: away a few milliseconds later. The grounding event always arrives before
   //: `done`, so this was true of every answer that had any.
   if (groundingSentences?.length) {
-    const answerEl = bubble.querySelector(".bubble-answer");
-    if (answerEl) addInlineCitations(answerEl, groundingSentences, meta?.raw_results || []);
+    addInlineCitations(
+      bubble.querySelectorAll(".bubble-answer"),
+      groundingSentences,
+      meta?.raw_results || []
+    );
   }
   const answerRaw = timeline.text();
   const thinkingRaw = timeline.thinkingText();
@@ -18735,7 +18867,7 @@ async function openConversation(id) {
           handles.groundingHolder,
           message.sentence_grounding,
           message.raw_results || [],
-          handles.bubble?.querySelector(".bubble-answer") || null
+          handles.bubble?.querySelectorAll(".bubble-answer") || null
         );
       }
       // And the same shape again for the "what to ask next" chips, reported

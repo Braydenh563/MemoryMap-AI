@@ -131,18 +131,16 @@ are only just begun or half done." True; this table is the state.
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 
-**Now (2026-09-08 15:25 UTC):** Sonnet's INBOX run is merged (84f4eb2;
-items 2, 7, 11, 12 caps, 14, 18, 19 fixed, 9 checked; its note is
-`agent-remaining/inbox.md`). In flight: Opus on consistency.md and
-docks.md (worktree agent-ad2066c8316bb6891, 9 commits); Opus on GRAPH
-Phase 2 with INBOX 21 and the three graph reports (worktree
-agent-a63a58af8c6d8807a). Fable's own work this afternoon, all pushed:
-stemming in FTS5, grounding over touched notes and distinctive words, two
-thread-safety fixes (pdfium close inside the lock, embed cache lock),
-WORLD_CLASS sections 14 to 16 (algorithms read, nine inventions with I9
-the manage-what-was-learned contract, the backend read), specs
-`test_learned_spec.py` and `test_resurface_spec.py`, the
-`invalid-values.js` sweep (0 found). The owner's order for the rest of
+**Now (2026-09-08 16:05 UTC):** merged and pushed this afternoon: Sonnet's
+INBOX run (84f4eb2) and Opus's consistency and docks run (8075149; twelve
+commits, the two work lists rewritten to only what is left). In flight:
+Opus on GRAPH Phase 2 with INBOX 21 and the three graph reports (worktree
+agent-a63a58af8c6d8807a); Opus on Brief 17, the launchers, uninstallers
+and the splash (worktree agent-a3e9c02681f8ef629). Next free slot: Sonnet
+on Brief 16, the linked docs (INSTALL, ARCHITECTURE, MODELS, PRIVACY,
+TROUBLESHOOTING, CONTRIBUTING, SECURITY, docs/index.html) in the new
+README's voice (71aaa66 is the reference). Fable's own work today is in
+the commit log from 284e7e0 to 7bb5a8b. The owner's order for the rest of
 this session stands: **finish the phases of the plans already in
 progress; TIMELINE, WHITEBOARD, CHAT, WORLD_CLASS and the Briefs wait for
 the next session.** Queue, two agents at a time, each merged and gated

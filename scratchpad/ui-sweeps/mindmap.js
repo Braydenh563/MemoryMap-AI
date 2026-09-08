@@ -665,6 +665,91 @@ function check(label, ok, detail) {
   check("(E) and the row is gone from the board, not just from the screen",
     afterReload === 0, `${afterReload} sketch row(s)`);
 
+  // --- report F: a new map's root opens centred, not under the top bar -----
+  //
+  // Reported: "new mind map's first node under the top bar". The root used
+  // to be handed a fixed board coordinate on the theory that an unzoomed,
+  // unpanned view puts the canvas origin at the container's own top-left,
+  // which assumed a container size nobody had measured. `wbCenterOn` fixes
+  // this by reading the real, rendered `#whiteboard-container` rect.
+  await page.click("#wb-back-to-boards").catch(() => {});
+  await page.waitForTimeout(500);
+  await page.click("#wb-boards-new");
+  await page.waitForTimeout(700);
+  await page.fill(".confirm-overlay input[type=text]", "Centering check");
+  await page.click('.confirm-overlay .seg button[data-value="map"]');
+  await page.waitForTimeout(150);
+  await page.click(".confirm-overlay .confirm-actions button:last-child");
+  await page.waitForTimeout(2500);
+  const centering = await page.evaluate(() => {
+    const container = document.getElementById("whiteboard-container");
+    const containerRect = container.getBoundingClientRect();
+    const rootEl = document.querySelector(".wb-object.wb-selected");
+    if (!rootEl) return null;
+    const rootRect = rootEl.getBoundingClientRect();
+    return {
+      dx: (rootRect.left + rootRect.right) / 2 - (containerRect.left + containerRect.right) / 2,
+      dy: (rootRect.top + rootRect.bottom) / 2 - (containerRect.top + containerRect.bottom) / 2,
+    };
+  });
+  check(
+    "(F) the new map's root is centred in the visible canvas",
+    centering && Math.abs(centering.dx) < 4 && Math.abs(centering.dy) < 4,
+    JSON.stringify(centering)
+  );
+
+  // --- report G: an edge follows every node a bulk drag moves, not only ----
+  //     the one card the pointer is on --------------------------------------
+  //
+  // Reported: "the connections/edges get left behind when i move the
+  // notes/nodes around", specifically on a multi-select drag. A single
+  // card's own drag always kept its edges live (`dragging()` calls
+  // `wbUpdateLinkedSketches` for the card under the pointer); the bug was
+  // in `wbApplyBulkMove`, which moved every other selected card's position
+  // but never touched *their* edges. The edge under test deliberately does
+  // not touch the card the pointer drags, so a re-render triggered by that
+  // card's own drag cannot accidentally mask the bug.
+  const edgeFollow = await page.evaluate(async () => {
+    const board = await window.apiJson("/whiteboard/boards", { method: "POST", body: JSON.stringify({ name: "Edge follow check" }) });
+    const e1 = await window.apiJson("/entries", { method: "POST", body: JSON.stringify({ content: "Dragged", tags: [], defer_filing: true }) });
+    const e2 = await window.apiJson("/entries", { method: "POST", body: JSON.stringify({ content: "Bulk-moved", tags: [], defer_filing: true }) });
+    const e3 = await window.apiJson("/entries", { method: "POST", body: JSON.stringify({ content: "Bystander", tags: [], defer_filing: true }) });
+    const n1 = await window.apiJson("/whiteboard/nodes", { method: "POST", body: JSON.stringify({ entry_id: e1.id, board_id: board.id, x: 200, y: 200, z: 1 }) });
+    const n2 = await window.apiJson("/whiteboard/nodes", { method: "POST", body: JSON.stringify({ entry_id: e2.id, board_id: board.id, x: 500, y: 200, z: 1 }) });
+    const n3 = await window.apiJson("/whiteboard/nodes", { method: "POST", body: JSON.stringify({ entry_id: e3.id, board_id: board.id, x: 500, y: 500, z: 1 }) });
+    await window.apiJson("/whiteboard/sketches", {
+      method: "POST",
+      body: JSON.stringify({
+        board_id: board.id, x: 0, y: 0, z: 1,
+        data: JSON.stringify({ type: "link-straight", sourceId: n2.id, sourceKind: "node", targetId: n3.id, targetKind: "node" }),
+      }),
+    });
+    await window.loadEntries();
+    return { board: board.id, n1: n1.id, n2: n2.id };
+  });
+  await page.evaluate((id) => window.openWhiteboardBoard(id), edgeFollow.board);
+  await page.waitForTimeout(1200);
+  const card1 = await page.$(`.node-card[data-id="${edgeFollow.n1}"]`);
+  const card2 = await page.$(`.node-card[data-id="${edgeFollow.n2}"]`);
+  await card1.click();
+  await page.waitForTimeout(150);
+  await card2.click({ modifiers: ["Shift"] });
+  await page.waitForTimeout(150);
+  const pathBefore = await page.evaluate(() => document.querySelector(".sketch-group .sketch-path")?.getAttribute("d"));
+  const box1 = await card1.boundingBox();
+  await page.mouse.move(box1.x + box1.width / 2, box1.y + box1.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box1.x + box1.width / 2 + 150, box1.y + box1.height / 2 + 100, { steps: 10 });
+  await page.waitForTimeout(200);
+  const pathDuring = await page.evaluate(() => document.querySelector(".sketch-group .sketch-path")?.getAttribute("d"));
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  check(
+    "(G) a bulk-dragged card's own edge follows it mid-drag, not just the card the pointer is on",
+    Boolean(pathBefore) && pathBefore !== pathDuring,
+    `before=${pathBefore}  during=${pathDuring}`
+  );
+
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed.`);
   if (failed.length) console.log("FAILED: " + failed.map((f) => f.label).join(" ; "));

@@ -1341,30 +1341,48 @@ Link to another note with [[its first few words]]."></textarea>
               <button id="chat-compress-cancel" class="ghost small">Cancel</button>
             </div>
           </div>
-          <div id="chat-messages"></div>
-          <!-- **"Still writing" has to be sayable when the writing is
-               off-screen.** Reported: "I also scrolled up while still
-               streaming the response and the generating and animation
-               disappeared." Nothing had gone wrong, the indicator lives at
-               the end of the transcript, and reading back through a long
-               answer puts the end of the transcript below the fold. But an
-               app whose only "I am working" signal can be scrolled out of
-               view has no working signal at all for exactly the minute you
-               most want one.
+          <!-- **A wrapper so the pill can float without taking a row.**
+               Reported: "the still writing/jump to latest pill takes a row
+               of the chat panel rather than floating over it." `#chat-
+               messages` is the flex item that actually fills the transcript
+               column; `#chat-jump-latest` used to be its own sibling flex
+               item right after it, and even `position: sticky` still
+               reserves that item's own box in the flex column, so toggling
+               the pill from `hidden` pushed the suggestion chips and the
+               composer dock below it down the page, a real, measurable
+               layout shift on every stream. This wrapper is the positioning
+               root instead (`.chat-transcript` in 02-chat-graph.css): it is
+               the one flex item that fills the space `#chat-main` gives the
+               transcript, `#chat-messages` fills *it* the same way, and the
+               pill is `position: absolute` inside it, so it can only ever
+               overlap `#chat-messages`, never push on anything outside this
+               wrapper. -->
+          <div class="chat-transcript">
+            <div id="chat-messages"></div>
+            <!-- **"Still writing" has to be sayable when the writing is
+                 off-screen.** Reported: "I also scrolled up while still
+                 streaming the response and the generating and animation
+                 disappeared." Nothing had gone wrong, the indicator lives at
+                 the end of the transcript, and reading back through a long
+                 answer puts the end of the transcript below the fold. But an
+                 app whose only "I am working" signal can be scrolled out of
+                 view has no working signal at all for exactly the minute you
+                 most want one.
 
-               It appears only once the reader has actually scrolled away
-               (`#chat-messages`'s own `data-stuck="0"`, which the follow
-               logic already tracks), so it costs nothing in the normal case
-               where the pane is following the stream. It doubles as the
-               jump-to-latest control every long transcript wants and this
-               one did not have. -->
-          <button type="button" id="chat-jump-latest" class="chat-jump-latest hidden"
-            title="Back to the end of the conversation"
-            aria-label="Back to the end of the conversation">
-            <span id="chat-jump-latest-dots" class="chat-jump-latest-dots" aria-hidden="true"></span>
-            <span id="chat-jump-latest-label">Jump to latest</span>
-            <i class="ph ph-arrow-down ph-lead" aria-hidden="true"></i>
-          </button>
+                 It appears only once the reader has actually scrolled away
+                 (`#chat-messages`'s own `data-stuck="0"`, which the follow
+                 logic already tracks), so it costs nothing in the normal case
+                 where the pane is following the stream. It doubles as the
+                 jump-to-latest control every long transcript wants and this
+                 one did not have. -->
+            <button type="button" id="chat-jump-latest" class="chat-jump-latest hidden"
+              title="Back to the end of the conversation"
+              aria-label="Back to the end of the conversation">
+              <span id="chat-jump-latest-dots" class="chat-jump-latest-dots" aria-hidden="true"></span>
+              <span id="chat-jump-latest-label">Jump to latest</span>
+              <i class="ph ph-arrow-down ph-lead" aria-hidden="true"></i>
+            </button>
+          </div>
           <div id="chat-suggest" class="recent hidden"></div>
           <!-- The dock: everything about the message you are about to send,
                in one block fixed to the bottom of the chat.
@@ -2684,7 +2702,8 @@ Link to another note with [[its first few words]]."></textarea>
           aria-label="Suggestions for this word"></div>
         <p class="muted doc-hint">
           Saves automatically. <kbd>Ctrl</kbd>+<kbd>S</kbd> saves now,
-          <kbd>Ctrl</kbd>+<kbd>B</kbd>/<kbd>I</kbd> wrap the selection in bold or italics.
+          <kbd>Ctrl</kbd>+<kbd>B</kbd>/<kbd>I</kbd> wrap the selection in bold or italics,
+          <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> strikes it through.
         </p>
       </section>
     </div>

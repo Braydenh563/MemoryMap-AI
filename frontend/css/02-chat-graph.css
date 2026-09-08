@@ -4638,19 +4638,44 @@ mark.lightbox-hit {
   font-variant-numeric: tabular-nums;
 }
 
+/* **`.chat-transcript`: the positioning root for the jump-to-latest pill.**
+   See `.chat-jump-latest`'s own comment just below for the report and the
+   reasoning; this is the wrapper that comment refers to. `#chat-messages`
+   is the one flex child that actually fills it (same `flex: 1 1 auto` it
+   already had, unchanged), so the wrapper's own box size is #chat-messages'
+   size and nothing else, which is what lets the pill float without ever
+   affecting anything outside this wrapper. */
+.chat-transcript {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 /* **The "still writing" / jump-to-latest pill.** See `#chat-jump-latest` in
-   index.html for the report behind it. Anchored to the bottom of the
-   transcript column rather than to the pane it scrolls with, a control that
-   scrolls away with the content is the very problem it exists to solve. */
+   index.html for the report behind it.
+
+   **`position: absolute`, not `sticky`.** Reported: "the still writing/jump
+   to latest pill takes a row of the chat panel rather than floating over
+   it." Measured: `position: sticky` still reserves its own box in normal
+   flow, it only changes how that box behaves once scrolled, so this flex
+   item's own height came and went with `.hidden`, and toggling it shifted
+   the suggestion chips and the composer dock below it up and down the page
+   on every stream, a real layout shift, not a rendering quirk. Absolute
+   positioning, anchored to `.chat-transcript` above (which sizes itself
+   entirely from `#chat-messages`, its only flow child), can only ever
+   overlap the transcript: `.hidden` toggling this element now changes
+   nothing about `.chat-transcript`'s own box. */
 .chat-jump-latest {
-  position: sticky;
+  position: absolute;
+  left: 50%;
   bottom: var(--space-3);
+  transform: translateX(-50%);
   z-index: 4;
-  align-self: center;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  margin: 0 auto;
   padding: var(--space-2) var(--space-4);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-pill);

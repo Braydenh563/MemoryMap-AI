@@ -1436,8 +1436,18 @@ body.resizing-sidebar {
   /* Opaque under the buttons, not glass: a translucent card over the
      controls scrolling beneath it left the three pinned buttons hard to
      read (reported with a screenshot). The fade is only the first few
-     pixels; the rest is the solid modal ground the other popovers use. */
+     pixels; the rest is the solid modal ground the other popovers use.
+     Measured identical on both `#note-toolbar`'s clone and `#doc-toolbar`
+     itself: `mountDocToolbarControlsFor` builds this group the same way
+     for every `.doc-toolbar`, so nothing here is note-specific. */
   background: linear-gradient(to right, transparent, var(--modal-bg-opaque) var(--space-3));
+  /* Reported: "square-cornered", still true on both toolbars, this rule
+     never set one at all. `var(--radius)`, the strip's own outer corner
+     (right above), not a smaller control radius: this group sits flush
+     against the strip's right edge, the same edge the strip itself
+     rounds, so a sharp box there reads as a patch stuck onto a rounded
+     container rather than a shape cut from it. */
+  border-radius: var(--radius);
   z-index: 1;
 }
 

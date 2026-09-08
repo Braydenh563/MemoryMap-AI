@@ -3840,7 +3840,16 @@ function wbCaptureBulkMoveOrigin(excludeKey) {
       const parsed = wbSketchParsedData(item);
       if (parsed) origin.set(key, { kind, id, item, d: parsed.d });
     } else {
-      origin.set(key, { kind, id, item, x: item.x, y: item.y });
+      // **Precomputed here, for the same reason `dragStart` precomputes it
+      // for the one card you actually grabbed** (`wbLinkedSketchesFor`'s own
+      // comment): every other member of a marquee-selected group also moves
+      // this drag, and without its own linked-sketch list, nothing was ever
+      // going to update *its* edges frame by frame - only the primary
+      // dragged card's `d._linkedSketches` existed at all. Reported: "the
+      // connections/edges get left behind when i move the notes/nodes
+      // around", which is exactly the shape of a bug that only shows on a
+      // multi-card drag, a single card was always fine.
+      origin.set(key, { kind, id, item, x: item.x, y: item.y, linked: wbLinkedSketchesFor(id, kind) });
     }
   }
   return origin;
@@ -3859,6 +3868,10 @@ function wbApplyBulkMove(origin, dx, dy) {
       entry.item.y = entry.y + dy;
       const el = document.querySelector(WB_SELECTOR_BY_KIND[entry.kind](entry.id));
       if (el) el.style.transform = wbItemTransform(entry.item);
+      // See this entry's own comment in `wbCaptureBulkMoveOrigin`: without
+      // this, only the card the pointer is actually on kept its edges live
+      // during a multi-select drag.
+      wbUpdateLinkedSketches(entry.id, entry.linked);
     }
   }
 }
@@ -7338,6 +7351,15 @@ async function createNewBoard(preset = "board") {
       const root = (wbState.objects || []).find((o) => WB_MAP_KINDS.has(o.kind));
       if (root) selectWbItem("object", root.id);
       renderWhiteboardNow();
+      //: **Centred on the actual canvas, not wherever the server's own
+      //: `tree-right` placement happened to land it.** Reported: a new map's
+      //: first node opened under the top bar. The root is real DOM now
+      //: (`renderWhiteboardNow` just ran), so its true rendered box is
+      //: available for `wbCenterOn` (see `createConceptMap`'s matching fix
+      //: and its own comment for why a guessed coordinate cannot do this
+      //: instead: the visible canvas size is neither constant nor known
+      //: until it is actually measured).
+      if (root) wbCenterOn(wbItemBBox("object", root), { animate: false });
       toast(`Mind map "${board.title}" created: Tab adds a branch, Enter a sibling.`);
     } else {
       toast(`Board "${board.title}" created.`);
@@ -7632,7 +7654,7 @@ function wbRegenerateShapeCaps(d, startCap, endCap, headLen) {
   return out;
 }
 
-//: What style a drawn line/arrow's own path is *actually* carrying, 
+//: What style a drawn line/arrow's own path is *actually* carrying,
 //: needed because the properties panel used to just show whatever the
 //: active drawing tool's current default was (live-reported bug, same
 //: session as the Line-tool-always-drew-an-arrowhead one above), which
@@ -7646,7 +7668,18 @@ function wbDetectArrowStyle(d) {
   if (!m) return "none";
   const sx = parseFloat(m[1]), sy = parseFloat(m[2]), ex = parseFloat(m[3]), ey = parseFloat(m[4]);
   let hasEnd = false, hasStart = false;
-  for (const extra of d.matchAll(/M\s*(-?[\d.]+(?:e-?\d+)?)\s+(-?[\d.]+(?:e-?\d+)?)/g)) {
+  //: **Scanned from *after* the shaft's own `M`, not from the start of `d`.**
+  //: Reported: "arrow drawn shows both caps as Arrow in properties" -
+  //: reproduced live: an arrow with only an end head stored no `startCap`/
+  //: `endCap` fields at all (an older/legacy shape), so this ran, and `m[0]`
+  //: (the shaft's own leading `M sx sy L ex ey`, matched above) begins with
+  //: exactly the same `M sx sy` a *real* start-cap marker would - the loop
+  //: below used to scan the whole string including that leading `M`, so
+  //: every plain shaft with no start cap at all still measured a
+  //: zero-distance "hit" on its own start point and reported one anyway.
+  //: Slicing it off leaves only the head subpaths `wbArrowHeadPath` actually
+  //: appended, which is what this function is supposed to be reading.
+  for (const extra of d.slice(m[0].length).matchAll(/M\s*(-?[\d.]+(?:e-?\d+)?)\s+(-?[\d.]+(?:e-?\d+)?)/g)) {
     const x = parseFloat(extra[1]), y = parseFloat(extra[2]);
     if (Math.hypot(x - ex, y - ey) < 0.5) hasEnd = true;
     else if (Math.hypot(x - sx, y - sy) < 0.5) hasStart = true;
@@ -9834,10 +9867,11 @@ async function createConceptMap() {
     await apiJson("/whiteboard/nodes", {
       method: "POST",
       body: JSON.stringify({
+        // A board-space coordinate the root can call home; the view is
+        // centred on it below once the canvas has actually rendered, so
+        // this number is arbitrary rather than a claim about the viewport.
         entry_id: root.id,
         board_id: board.id,
-        // Centre of the default view. The board opens unzoomed and unpanned,
-        // so this is where the middle of the canvas is.
         x: 400,
         y: 260,
         z: 1,
@@ -9852,6 +9886,20 @@ async function createConceptMap() {
     // root leaves the map's whole point one undiscoverable click away.
     const placed = wbState.nodes.find((n) => n.entry_id === root.id);
     if (placed) selectWbItem("node", placed.id);
+    //: **Centred on the root, not on a guessed coordinate.** Reported: a new
+    //: map's first node opened under the top bar rather than in the middle
+    //: of the canvas. The node was placed at a fixed (400, 260) on the
+    //: (correct, sound) theory that an unzoomed, unpanned view puts the
+    //: canvas origin at the container's own top-left, so (400, 260) would
+    //: read as "the middle" - but that assumed a container size that was
+    //: never measured, and the actual visible canvas (the window, minus the
+    //: top bar, the sidebar and the tool rail) is neither the number this
+    //: guessed nor a constant: `wbCenterOn` already exists for exactly this
+    //: (the navigator's own "jump to a match" uses it), reading the
+    //: container's real `getBoundingClientRect()` the way the guess did not.
+    //: Not animated: there is nothing to animate *from*, the board has just
+    //: opened.
+    if (placed) wbCenterOn(wbItemBBox("node", placed), { animate: false });
     toast(`“${title}”: press Tab for a branch, Enter for a sibling.`);
   } catch (err) {
     toast(err.message || "Couldn't create that map.", true);

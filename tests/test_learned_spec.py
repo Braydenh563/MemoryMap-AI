@@ -146,7 +146,8 @@ def test_a_deleted_fact_is_not_rederived(ai_client, fake_ollama):
     ai_client.post("/entries", json={"content": "The batch size should stay at 32."})
     ai_client.post("/night/run", json={"budget": 1000})
     fact = ai_client.get("/learned?kind=claim").json()["items"][0]
-    assert ai_client.delete(f"/learned/{fact['id']}").status_code == 204
+    deleted = ai_client.delete(f"/learned/{fact['id']}")
+    assert deleted.status_code == 204
     ai_client.post("/night/run", json={"budget": 1000, "force": True})
     texts = [r["text"] for r in ai_client.get("/learned?kind=claim").json()["items"]]
     assert fact["text"] not in texts
@@ -188,7 +189,8 @@ def test_forget_everything_leaves_notes_and_revisions_byte_identical(ai_client, 
     ai_client.post("/night/run", json={"budget": 1000})
     before = (_table_hash(session, "entries"), _table_hash(session, "entry_revisions"))
     assert ai_client.get("/learned").json()["items"]
-    assert ai_client.delete("/learned", json={"confirm": True}).status_code == 204
+    forgotten = ai_client.delete("/learned", json={"confirm": True})
+    assert forgotten.status_code == 204
     assert ai_client.get("/learned").json()["items"] == []
     assert ai_client.get("/learned/corrections").json() == []
     session.expire_all()

@@ -363,14 +363,54 @@ named beside it in HANDOVER's completion table.
     spaces" case (files into Default Space, said explicitly). Verified
     live with a real created/deleted-space scenario; D2's bulk-move action
     still open.
-39. **Skills run in Ask mode should switch to the agent mode
+39. **(fixed)** **Skills run in Ask mode should switch to the agent mode
     automatically; rename "Request" to "Agent"** (owner's suggestion for
     learnability). Decision: yes to both. Owner: CHAT batch B (Opus).
-40. **Skill runs and agent answers show no inline numbered citations;
-    note badges in the chat do not render inline Markdown.** The backend
-    now grounds touched notes (284e7e0); the skill run's final answer
+    **Done:** the mode segment reads Ask / Agent (long halves "Ask the
+    Librarian" and "Agent mode": "Agent the Librarian" is not English), and
+    so do its tooltip and accessible name, the per-turn chip on a message's
+    meta line, the progress musing, the nudge's action button, the Plan-mode
+    toast and the plan docs that name the control. `tools_enabled` and
+    `use_tools` are untouched, so saved settings survive. `startSkill`
+    switches the mode to Agent before it sends, toasts "Switched to Agent for
+    this skill." and leaves it switched; the old rule (the backend turning
+    tools on for an action skill's own call and the segment still saying
+    "Ask") is recorded where it was. Measured in Chromium
+    (`scratchpad/ui-sweeps/chatmode.js`, new): the segment buttons are 65px
+    and 81px at 1440 and 158px and 126px at 1700 with no label overflow, and
+    launching a skill from Ask mode leaves the toggle checked, the agent
+    button active, `tools_enabled` true on the server and exactly one toast.
+40. **(fixed)** **Skill runs and agent answers show no inline numbered
+    citations; note badges in the chat do not render inline Markdown.** The
+    backend now grounds touched notes (284e7e0); the skill run's final answer
     element must get `addInlineCitations` too, and badges use the same
     inline renderer as the answer. Owner: CHAT batch B (Opus).
+    **Done:** three causes, each of which alone lost every marker in a run.
+    The first was one word. The timeline gives every prose step its
+    own `.bubble-answer` node, and all three grounding call sites passed
+    `querySelector`, so the citation walker was handed step one's narration
+    while every grounded sentence was in the final answer several nodes
+    below. `addInlineCitations` now takes the turn's whole prose, latest
+    block first (a sentence the closing summary repeats belongs on the
+    summary; a step's own sentence still gets its marker where it is), and
+    `test_inline_citations.py` fails on any call site that narrows back to
+    one node. The badges go through a new `setNoteLabel`, which renders a
+    note's Markdown the way the answer does, with `plainText` beside
+    `noteLabel` for the title and aria-label contexts; links and images are
+    flattened first, since these labels live inside `<button>` chips.
+    The other two were found by measuring rather than by reading. (i) The route
+    concatenated the answer deltas of every round with no separator, so the
+    last sentence of one round and the first of the next arrived glued
+    ("...in it.I checked..."); `split_sentences` cannot split that, and the
+    row it produced named text that appears in no paragraph on screen. It
+    inserts a blank line at the events that start a new prose block now, the
+    same shape the transcript has. (ii) `liveMarkdownRenderer` arms a paint up
+    to `LIVE_RENDER_INTERVAL_MS` ahead; on a fast run that timer fired *after*
+    `finalise()` and after the markers went in, repainting identical prose
+    without them. `finalise` cancels it first. Measured with `phasec.js`
+    against the stand-in model server: a nine-block skill run carries its
+    marker on block 8 (its final answer), the agent turn on its own last
+    block, nine badges render Markdown and none shows a raw marker.
 41. **(the panel: fixed, 5724587 and dbff8f0; the clean-up is Phase 4)**
     **Graph display options belong on the dock, and the options panel
     needs a redesign**; the graph needs a utility, UI and interaction

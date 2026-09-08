@@ -247,7 +247,7 @@ All three render tool calls in the chat transcript. Counted as
 | Path | Result |
 | --- | --- |
 | Plain chat (Ask) with tools enabled | 1 chip — `ph:list Listed your tags`, inside a "Finished 1 step" group |
-| Request (agent) mode | 2 chips, one per round |
+| Agent mode | 2 chips, one per round |
 | A built-in skill run (*Summarise my week*) | 5–8 chips, filed under the plan card's steps |
 
 **Nothing needed fixing on any of the three** — `toolChip()` was already

@@ -47,8 +47,44 @@ def test_every_grounding_call_site_passes_the_answer_element(app_js):
     calls = app_js.count("renderAnswerGrounding(")
     # One definition plus three call sites.
     assert calls == 4, f"expected 4 mentions, found {calls}"
-    for needle in ("answerBox\n", 'bubble.querySelector(".bubble-answer")', 'handles.bubble?.querySelector(".bubble-answer")'):
+    for needle in (
+        "answerBox\n",
+        'bubble.querySelectorAll(".bubble-answer")',
+        'handles.bubble?.querySelectorAll(".bubble-answer")',
+    ):
         assert needle in app_js
+
+
+def test_a_chat_turn_hands_over_all_of_its_prose_blocks(app_js):
+    """INBOX 40: a skill run and an agent turn showed no markers at all.
+
+    The timeline gives each step's prose its own `.bubble-answer` node, so
+    `querySelector` handed the citation walker step 1's narration while every
+    grounded sentence was in the final answer, several nodes further down.
+    `querySelectorAll` is the fix and the rule: a call site that narrows back
+    to one node silently loses the markers again on exactly the two surfaces
+    that need them most.
+    """
+    assert 'querySelector(".bubble-answer")' not in app_js
+    assert app_js.count('querySelectorAll(".bubble-answer")') == 3
+
+
+def test_the_live_renderer_is_stopped_before_the_markers_go_in(app_js):
+    """The second half of INBOX 40, and the one nothing on screen showed.
+
+    Every streamed delta arms a paint up to `LIVE_RENDER_INTERVAL_MS` ahead.
+    A turn that ends between the last delta and that timer had its markers
+    placed by the code after `finalise()` and then wiped by the timer, with
+    identical prose left behind, so it read as "citations do not work in a
+    skill run" rather than as a race. `finalise` cancels the armed paint
+    first; without the cancel the markers survive about a tenth of a second.
+    """
+    assert "render.stop = () => {" in app_js
+    body = app_js.split("    finalise() {")[1].split("\n    },")[0]
+    assert "step.render?.stop?.()" in body, "finalise must cancel the armed paint first"
+    assert body.index("stop?.()") < body.index("renderMarkdown"), (
+        "the cancel has to come before the re-render, not after it"
+    )
 
 
 def test_a_sentence_split_across_markup_is_skipped_not_reassembled(app_js):

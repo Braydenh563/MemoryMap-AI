@@ -29475,6 +29475,65 @@ function buildSettingsJumpList() {
 
 buildSettingsJumpList();
 
+// --- the floating primary action ----------------------------------------------
+// UI_MODERNISATION_PLAN.md Phase 9, band 4.
+//
+// Three docks have a single filled action and the phone band floats it
+// bottom-right, in the thumb's arc above the tab bar. The stylesheet does the
+// whole appearance; this exists for the same reason `dockTabBar` does, and it
+// was found the same way.
+//
+// **`position: fixed` does not reach the viewport from inside a card.** Every
+// `.card` in this app carries `backdrop-filter` (that is what makes it glass),
+// and a filtered element is the containing block for its fixed descendants. So
+// the button pinned itself to the bottom right of the *card* it lives in,
+// which on Library is the card holding the dock, at the top of the page.
+// `touch.js` caught it as two controls that cannot be tapped: `#library-refresh`
+// and the dock's overflow menu, both covered by "New document" sitting on top
+// of them at y=201.
+//
+// The button moves to its own `.tab-page`, which has no filter and is a direct
+// child of the body, so `fixed` means the window again. That element is also
+// the one that gets hidden when its tab is not showing, which is what keeps a
+// floating action from appearing over a tab it has nothing to do with; parking
+// it on the body would have needed a second mechanism to answer that.
+const PHONE_FAB = "(max-width: 599.98px)";
+const FAB_IDS = ["graph-add-node", "library-new-doc", "timeline-jump-today"];
+
+function floatPrimaryActions(floating) {
+  for (const id of FAB_IDS) {
+    const button = document.getElementById(id);
+    if (!button) continue;
+    const page = button.closest(".tab-page");
+    if (!page) continue;
+    if (floating) {
+      if (button.parentElement === page) continue;
+      // A marker in its place, so it goes back where it was rather than at
+      // the end of whatever zone it belonged to.
+      const slot = document.createElement("span");
+      slot.className = "dock-fab-slot";
+      slot.dataset.fabFor = id;
+      slot.hidden = true;
+      button.replaceWith(slot);
+      button.classList.add("dock-fab");
+      page.appendChild(button);
+    } else {
+      if (button.parentElement !== page) continue;
+      const slot = page.querySelector(`.dock-fab-slot[data-fab-for="${CSS.escape(id)}"]`);
+      button.classList.remove("dock-fab");
+      if (slot) slot.replaceWith(button);
+    }
+  }
+}
+
+function initPrimaryFab() {
+  const query = window.matchMedia(PHONE_FAB);
+  floatPrimaryActions(query.matches);
+  query.addEventListener("change", (event) => floatPrimaryActions(event.matches));
+}
+
+initPrimaryFab();
+
 // --- the dock's arrange zone folds into its own overflow menu ------------------
 // UI_MODERNISATION_PLAN.md Phase 9, bands 2 and 3.
 //

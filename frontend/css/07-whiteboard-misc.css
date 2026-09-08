@@ -8657,11 +8657,17 @@ header#top-bar {
    utilities.
 
    Floated bottom-right it is in the same thumb arc as the tab bar, above it,
-   clear of the status bar. No new markup and no new listener: the same button
-   in the same place in the DOM, painted somewhere else, so the dock grammar
-   lint still sees exactly one filled control in the dock and the tab that
-   owns it is the only tab that shows it (a `fixed` child of a `display: none`
-   ancestor renders nowhere).
+   clear of the status bar. The same button and the same listener throughout:
+   `floatPrimaryActions` (app.js) moves the node out to its own `.tab-page`
+   and marks it `.dock-fab`, and moves it back into its slot in the dock above
+   600. It has to move, and the reason is the trap the tab bar hit one band
+   earlier: every `.card` carries `backdrop-filter`, a filtered element is the
+   containing block for its fixed descendants, and the button pinned itself to
+   the bottom of the card holding the dock. `touch.js` caught it as
+   `#library-refresh` and the dock's overflow menu both being covered by "New
+   document" at y=201. `.tab-page` has no filter, is a direct child of the
+   body, and is the element that gets hidden with its tab, which is also what
+   keeps the action off tabs it has nothing to do with.
 
    Deliberately only these three. A floating button on a surface with no one
    obvious action is a guess about which action matters, and Notes, Chat and
@@ -8669,10 +8675,16 @@ header#top-bar {
    capture box, Chat in the composer, Reminders in the magic row. */
 @media (max-width: 599.98px) {
 
-  #graph-add-node,
-  #library-new-doc,
-  #timeline-jump-today {
+  .dock-fab {
     position: fixed;
+    /* Its new parent is `.tab-page`, whose own `> *` rule gives every child
+       `width: 100%` and centres it: written for the page's column of cards,
+       and applied to a fixed element it made the button the full width of the
+       window with its left edge at x=-13. Shrink-to-fit, which is what it had
+       inside the dock. */
+    width: auto;
+    max-width: none;
+    align-self: auto;
     right: var(--page-gutter);
     bottom: calc(var(--status-bar-h) + var(--bottom-tabs-h) + var(--space-5) + env(safe-area-inset-bottom, 0px));
     z-index: 44;
@@ -8836,5 +8848,38 @@ header#top-bar {
   .modal-nav {
     flex-wrap: wrap;
     overflow-x: visible;
+  }
+}
+
+/* --- every control in a dock takes the touch floor ------------------------
+   `--target-min` steps to 44px below 820 and most controls follow it, because
+   most controls in this app declare `min-height: var(--target-min)`. The
+   docks do not: a dock declares `height: var(--control-h)` on everything in
+   it, which is the rule that makes one row line up, and a declared height is
+   not raised by a token that nothing in that rule reads.
+
+   `touch.js` measured the result at 390: the Notes search field and the
+   Filter menu 36px tall, three chat composer buttons 30px tall, all inside a
+   layout that had already been told the pointer was a finger. A floor rather
+   than a height, so the dock's own alignment rule still decides the common
+   size and this only ever raises it. */
+@media (max-width: 819.98px) {
+
+  .dock button,
+  .dock select,
+  .dock summary,
+  .dock input:not([type="checkbox"]):not([type="radio"]):not(.visually-hidden),
+  .chat-dock button,
+  .chat-dock select,
+  .chat-dock summary,
+  .chat-dock input:not([type="checkbox"]):not([type="radio"]):not(.visually-hidden) {
+    min-height: var(--target-min);
+  }
+
+  /* The one control in a dock that declares both sides, so both have to move
+     or it stays a 32px square in a row of 44px ones. */
+  .dock .graph-help-toggle {
+    width: var(--target-min);
+    height: var(--target-min);
   }
 }

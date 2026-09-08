@@ -228,8 +228,9 @@ that need building rather than fixing.
 ### Built — items 1, 3, 4 and 5
 
 Four commits, one per item, each measured at 1440 in Chromium against a
-seeded 3-page PDF. **Item 2 (line numbers as a setting) is untouched and
-still open.**
+seeded 3-page PDF. **Item 2 (line numbers as a setting) landed separately**
+(`mountGutterFor` in documents.js, commit 68a81d1: one remembered choice in
+the capture box, the note edit form and the documents editor).
 
 **1 — the lightbox shows a document like a document.** The document path
 now goes through the *same* `.lightbox-info` panel and the same `renderInfo`
@@ -303,6 +304,159 @@ this sandbox, so **nothing here was ever run by a real reader.** Specifically:
   other seven palettes and `[data-glass="off"]` were **not** looked at; the
   new popover was added to the glass-off selector list by rule, not by
   observation.
+
+## Phase 8 — control docks: one grammar for every tab's head (2 sessions)
+
+**The instruction, verbatim** (after Phases 0–7 were built):
+
+> I would like you to go through the tabs and subtabs and features and
+> redesign the controls and elements often in the top docks or bottom docks
+> professionally. A lot of them just feel like buttons and elements chucked
+> at the top of the main panels. […] So many of the main control elements at
+> the top of each tab or subtab feel soo fake and rudimentary, not
+> professional, they aren't aligned, they just feel like features there and
+> note intentionally designed. Use all your ui and ux skills, features need
+> to be properly grouped, use drop downs if you see fit but don't over use
+> them, think spacing, alignment, hierarchy, learnability (A MUST! ALL
+> ELEMENTS AND CONTTOLS OF THE SAME TYPE AND FUNCTION NEED TO BE, ACT, AND
+> PLACED THE SAME APP-WIDE), accessibility.
+
+**Measured at 1440 before this phase** (`scratchpad/…/docks.js`, one row
+per dock: controls, distinct control heights, kinds):
+
+| Dock | Controls | Heights | What the eye reads |
+| --- | --- | --- | --- |
+| Graph toolbar | 28 | 1 / 24 / 25 / 32 | two segments, a select, five buttons, a filled "New note" *and* "Concept maps" in the head row, a count and a legend below — every feature the tab has, in a row |
+| Library head + toolbar | 2 + 16 | 18 / 30 / 36 | two switches, a segmented sort **and** a sort select saying the same thing, a view segment, a filter select, then eleven chips |
+| Notes toolbar | 14 | 32 / 36 | title, refresh, Select, view segment, search, Semantic, help, sort, page size |
+| Whiteboard top bar | 17 | 32 / 36 | back, board select, rename, add, layout select, then search, minimap, five menus, Library, fullscreen |
+| Documents header + strip | 9 + 26 | 28 / 32 / 36 | see DOCUMENTS_PLAN.md §3.2 |
+| Timeline toolbar | 9 | 24 / 32 | View, a select, Today, Options, Highlight, a filter, a count, help |
+| Reminders | 1 + 8 + 4 | 28 / 44 | a magic row, eight presets, four due buttons — three rows of ghost buttons |
+| Chat | 1 + 6 | 28 / 36 | a filled New, then a toolbar of six at a different height |
+
+Seven docks, seven layouts. Phases 1–5 fixed the *recipes* (heights,
+radii, gaps); what they did not fix is the **grammar** — what goes where,
+in what order, in what kind of control — and that is what "chucked at the
+top" means.
+
+### The dock grammar (the rule the whole phase enforces)
+
+One dock, three zones, read left to right, the same on every tab and every
+sub-tab:
+
+```
+[ Title · context ]  [ Search ]  [ Filter ▾ ] [ Sort ▾ ] [ View ⋮⋮ ]   ·   [ Primary ] [ ⋯ ]
+   identity            find        narrow       order      how          ·     act      more
+```
+
+1. **Identity first**: the title (or breadcrumb) and, when the surface has
+   one, its context chip (the board's name, the space, a count). Never a
+   control.
+2. **Find, narrow, order, view — in that order, always.** Search is the
+   first control after the title on every list surface. Filters are one
+   `Filter ▾` popover (the Notes sheet from Phase 5 is the model) or a chip
+   row *below* the dock, never both. Sort is one select, never a segment
+   and a select. View is one segmented control with icons (rows / cards /
+   grid), never text.
+3. **One primary action, at the right, filled.** `New note`, `New
+   document`, `New board`, `Send`. A second filled button in a dock is a
+   defect. Everything else is ghost or icon-only.
+4. **Utilities at the far right, in a fixed order**: refresh, help, ⋯.
+   Refresh is always the same icon in the same place; help is always last.
+5. **Seven visible controls per row, then overflow.** An eighth goes into
+   `⋯` or a named popover (`Options ▾`, `Insert ▾`). Menus are for verbs
+   that are used sometimes; a verb used every minute stays in the row.
+6. **One height, one baseline, two gaps.** `--control-h-lg` for every
+   control in a dock, `--space-3` inside a group, `--space-4` between
+   groups (Phase 2's numbers), the group boundary drawn by gap alone —
+   never by a rule or a border.
+7. **The same control does the same thing everywhere.** A segmented
+   control changes *view*; a select changes *sort or filter*; a switch is a
+   *setting* and lives in a popover or in Settings, not in a dock; a chip
+   is a *filter you can see*. A control that breaks this on one tab is
+   moved, not styled.
+8. **Accessible by construction**: every dock is `role="toolbar"` with
+   roving tabindex (arrow keys move between controls), every icon-only
+   control has `aria-label` and a tooltip, every popover is
+   `aria-expanded`/`aria-controls`, focus returns to the opener on close,
+   contrast ≥ 4.5:1 measured with `pngpixel.py`.
+
+### The work, surface by surface
+
+Each is one commit, before/after inventory in the message, driven in
+Chromium at 1440 / 1024 / 820 / 390.
+
+1. **The lint first.** `tests/test_dock_grammar.py`: statically, for every
+   element marked `data-dock`, at most one `.primary`/filled button, no
+   `input[type=checkbox]` outside a popover, no text-only segmented control,
+   and the utilities in order. `scratchpad/ui-sweeps/docks.js` becomes the
+   runtime sweep: controls per row, heights per row, zone order.
+2. **Graph** (worst first): title + count; search; `Layout ▾` and
+   `Colour ▾` as one `View ▾` popover holding both segments and the
+   options; saved views as one select with save/delete inside it; `Refresh`,
+   `Export` into `⋯`; one primary (`New note`); `Concept maps` becomes a
+   link in the identity zone. 28 → ≤ 9 visible.
+3. **Library** (All and every sub-tab, one recipe): title; search; `Filter
+   ▾` (semantic, include bin, kind); one sort select; one view segment;
+   `＋ Create`; refresh; help. The chip row stays *below* as the visible
+   filter. The duplicate segmented sort goes. Sub-tabs (Documents, Boards,
+   Images, Files, Links, Contents, Skills) take the identical zones with
+   their own words.
+4. **Notes**: the toolbar from Phase 5 already has search-first and a
+   filters sheet at ≤ 600; apply the sheet at every width as `Filter ▾`, one
+   sort select, the view segment, `Select` into `⋯`.
+5. **Whiteboard**: identity (back · board select · rename) left; search;
+   the five menus stay (they are verbs used sometimes) but at one height
+   and one gap; minimap, Library, fullscreen as utilities right; the map
+   controls (chip, layout, Tidy) as the context chip and a `Layout ▾`.
+6. **Documents**: DOCUMENTS_PLAN.md Phase 1 owns the editor's own chrome;
+   the *Documents list* dock follows item 3.
+7. **Timeline, Reminders, Chat, Dashboard**: Timeline onto the grammar
+   (View segment with icons, `Options ▾`, search, Today as the primary);
+   Reminders' three rows of ghost buttons become one row (the magic field)
+   plus one `Presets ▾` popover, with the due chips as the visible filter;
+   Chat's toolbar at the dock height with `New chat` as the one filled
+   control; the Dashboard hero's clock and greeting as identity, its two
+   quick actions as primary + ghost.
+8. **Settings sections** already have one form recipe (Phase 5.1); their
+   heads take the grammar's identity zone only.
+
+Acceptance: `docks.js` reports **one height per dock**, zone order correct
+on every tab and sub-tab, ≤ 7 visible controls per row, exactly one filled
+control per dock; `test_dock_grammar.py` green; `errors.js` 0 findings at
+all four widths; a keyboard-only pass (Tab into each dock, arrows across
+it, Enter opens a popover, Escape closes it and returns focus) scripted in
+`scratchpad/ui-sweeps/keys.js`.
+
+## Phase 9 — responsive by device, on purpose (1 session)
+
+**The instruction, verbatim:** "Also intentional and adjusted design that
+alters specifically for smaller resolutions like for iPad, tablet, iPhone
+etc."
+
+Phase 5's phone work was reactive — each 390px finding fixed where it was
+found. This phase makes the breakpoints a design, stated once:
+
+| Width | Device | What changes, app-wide |
+| --- | --- | --- |
+| ≥ 1100 | desktop, iPad landscape with a sidebar | the layout above; sidebars open |
+| 820–1100 | iPad landscape, small laptop | sidebars collapse to icons; docks keep seven controls; whiteboard properties panel becomes a sheet |
+| 600–820 | iPad portrait | one column; sidebars are sheets from the left; docks keep identity + search + `Filter ▾` + primary, the rest in `⋯`; two-up card grids |
+| < 600 | iPhone | the phone rules from Phase 5, applied to every tab: strips scroll, one control row, the primary action pinned bottom-right as a floating button, bottom docks (chat composer, the documents formatting bar) above the on-screen keyboard |
+
+Rules: touch targets 44 × 44 CSS px at < 820 (`--target-min` steps up in
+the 820 media block, not per component); `env(safe-area-inset-*)` on the
+top bar, the status bar and every bottom dock; `hover:` styles gated behind
+`@media (hover: hover)`; the tab bar becomes a bottom tab bar at < 600
+(thumb reach), with the top bar keeping identity and utilities only;
+`prefers-reduced-motion` honoured in the same block.
+
+Acceptance: `errors.js` at **390, 820, 1024 and 1440**, 0 findings on
+every tab and sub-tab; `all.sh` gains `WIDTH=820`; a `touch.js` sweep
+(Playwright `hasTouch`, `isMobile`) taps every dock control on Notes,
+Library and Chat at 390 and asserts each hit target ≥ 44px and that no tap
+lands on two controls; screenshots at all four widths in the shots set.
 
 ## Not in this plan
 

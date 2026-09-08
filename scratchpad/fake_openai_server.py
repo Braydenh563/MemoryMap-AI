@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -62,6 +63,20 @@ PREFERRED_TOOLS = ("list_tags", "search_notes")
 
 #: Arguments per tool, only for the ones that need any.
 ARGUMENTS = {"search_notes": {"query": "notes"}}
+
+#: **Overrides, for a sweep that needs a *particular* tool called.** Added for
+#: the typed-cards sweep (PLAN.md §4 A1), which has to see a file, a board and
+#: a reminder come back — none of which `list_tags` or `search_notes` can
+#: produce. Env rather than a flag so an existing sweep's command line is
+#: untouched, and both default to empty, which leaves every earlier run
+#: byte-identical.
+#:
+#:   FAKE_TOOLS=list_reminders FAKE_ARGS='{"list_reminders":{}}' python3 …
+_ENV_TOOLS = tuple(name.strip() for name in os.environ.get("FAKE_TOOLS", "").split(",") if name.strip())
+try:
+    _ENV_ARGUMENTS = json.loads(os.environ.get("FAKE_ARGS") or "{}")
+except ValueError:
+    _ENV_ARGUMENTS = {}
 
 ANSWER = (
     "I checked your notebook with the tool above and there is nothing "
@@ -79,10 +94,11 @@ def _pick_tool(tools: list[dict]) -> tuple[str, dict] | None:
             names.append(name)
     if not names:
         return None
-    for preferred in PREFERRED_TOOLS:
+    arguments = {**ARGUMENTS, **_ENV_ARGUMENTS}
+    for preferred in (*_ENV_TOOLS, *PREFERRED_TOOLS):
         if preferred in names:
-            return preferred, ARGUMENTS.get(preferred, {})
-    return names[0], ARGUMENTS.get(names[0], {})
+            return preferred, arguments.get(preferred, {})
+    return names[0], arguments.get(names[0], {})
 
 
 #: Milliseconds to hold a *nudged* round open (`--nudge-delay`). Phase A's

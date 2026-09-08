@@ -12167,11 +12167,29 @@ function agentTimeline(holder) {
     //: same "attempt 2 of 3" a live one did. They are only present on a
     //: `retrying` event, and an older saved run has neither — which
     //: `stepStateWords` renders as attempt 1 of 1 rather than as a crash.
-    entry.plan.states[index] = { state, reason, attempt: event.attempt, of: event.of };
+    entry.plan.states[index] = {
+      state,
+      reason,
+      attempt: event.attempt,
+      of: event.of,
+      //: The rewritten step travels with the state so a replayed run shows the
+      //: instruction that actually ran, not the one that failed.
+      text: state === "replanned" ? event.text : entry.plan.states[index]?.text,
+    };
     item.className = `plan-step plan-step-${state}`;
     item.dataset.state = state;
     const note = item.querySelector(".plan-step-reason");
     if (note) note.remove();
+    //: **A re-planned step is a different step, so the checklist says so.**
+    //: The runner rewrites a step it could not finish and runs it again at
+    //: the same index; leaving the old wording on screen would make the next
+    //: `running` look like a repeat of a step that had already failed, with
+    //: no sign that anything changed. `textContent`, never markup — this is
+    //: model-written text.
+    if (state === "replanned" && event.text) {
+      item.textContent = event.text;
+      entry.plan.steps = entry.plan.steps.map((old, i) => (i === index ? event.text : old));
+    }
     //: **`retrying` says why, in the same words the activity panel uses.**
     //: Phase A's runner re-prompts a step whose contract was not met and emits
     //: this state for each attempt; without the sentence, a step being
@@ -12180,11 +12198,16 @@ function agentTimeline(holder) {
     //: over again one layer up. `stalled` gets it for the same reason: it is
     //: the state that *ends* a run, and "why did this stall?" should not need
     //: a second click.
-    if ((state === "failed" || state === "stalled" || state === "retrying") && (reason || state === "retrying")) {
+    if (
+      (state === "failed" || state === "stalled" || state === "retrying" || state === "replanned") &&
+      (reason || state === "retrying" || state === "replanned")
+    ) {
       const why = document.createElement("span");
       why.className = "plan-step-reason";
       why.textContent =
-        state === "retrying" ? ` — ${stepStateWords(state, { ...event, reason })}` : ` — ${reason}`;
+        state === "retrying" || state === "replanned"
+          ? ` — ${stepStateWords(state, { ...event, reason })}`
+          : ` — ${reason}`;
       item.appendChild(why);
     }
   };
@@ -12558,6 +12581,137 @@ const TOUCHED_KINDS = {
   },
 };
 
+//: **A tool result as things with actions, one renderer per kind** (PLAN.md
+//: §4 A1). `TOUCHED_KINDS` above covers the two kinds the backend's `touched`
+//: list has ever carried; `cards.py` now sends five, because a file, a board
+//: and a reminder are equally openable and had no representation at all — a
+//: `search_files` result was a JSON blob behind a disclosure, and every
+//: reminder the agent set was a sentence.
+//:
+//: Deliberately the *same* chip-opens-a-card interaction the touched row
+//: already had, rather than a second strip beside it: the chip is the handle
+//: and the panel it opens is the card, with that kind's real actions under
+//: it. `toolTouchedRow` is now a thin adapter onto this, so an old saved
+//: transcript (which has only `touched`) renders through exactly one code
+//: path, not a fork that ages differently.
+//:
+//: Nothing here interpolates user text into markup — every label goes through
+//: `setLabel`/`textContent`, and the note and document bodies go through the
+//: app's own markdown renderer, the same as everywhere else.
+const CARD_KINDS = {
+  note: {
+    icon: "ph:note",
+    title: "Open this note",
+    open: (item) => flashEntry(item.id),
+    actions: (item) => [
+      smallButton("ph:pencil-simple Edit", "Open this note with the editor on", () => {
+        //: The same two steps the note list's own Edit does, in the order that
+        //: works from here: `flashEntry` switches tab and re-renders, and
+        //: `editingId` is what that render reads to open the editor. Set it
+        //: first and the jump would clear it.
+        flashEntry(item.id);
+        editingId = item.id;
+        renderEntries();
+      }),
+    ],
+  },
+  document: {
+    icon: "ph:file-text",
+    title: "Open this document",
+    open: (item) => openDocumentFromNote(item.id),
+  },
+  file: {
+    icon: "ph:paperclip",
+    title: "Find this file in the Library",
+    //: `focusLibraryFile` (library.js) picks Images or Files from the url and
+    //: searches for the name — the three steps this would otherwise be.
+    open: (item) => focusLibraryFile(item.label, item.url || item.label),
+    actions: (item) =>
+      isImageCardUrl(item.url)
+        ? [
+            smallButton("ph:image View", "Open the full-size image", () =>
+              openLightbox([{ filename: item.label, getUrl: () => mediaSrc(item.url) }], 0),
+            ),
+          ]
+        : [],
+    //: No fetch: a file's own reading is already on the card as `snippet`
+    //: (the OCR/caption line `search_files` returned), and re-reading a
+    //: scanned PDF to show one line of it would be the expensive way to say
+    //: the same thing. An image gets the lightbox instead, which is the real
+    //: full-size view rather than a thumbnail.
+    preview: (item, holder) => cardTextPreview(item, holder, "Nothing was read out of this file."),
+  },
+  board: {
+    icon: "ph:squares-four",
+    title: "Open this board",
+    //: `id` is genuinely nullable here and that is not sloppiness: `null` is
+    //: the default board, which is what every whiteboard tool means when it
+    //: is given no `board_id` (see `_whiteboard_board_filter` in
+    //: ai/tools/whiteboard.py). `?? null` keeps that meaning intact.
+    open: (item) => openWhiteboardBoard(item.id ?? null),
+    preview: (item, holder) => cardTextPreview(item, holder, "An empty board."),
+  },
+  reminder: {
+    icon: "ph:alarm",
+    title: "Go to Reminders",
+    open: () => switchTab("reminders"),
+    actions: (item) =>
+      item.done
+        ? []
+        : [
+            smallButton("ph:check-circle Mark done", "Complete this reminder", async () => {
+              try {
+                await apiJson(`/reminders/${item.id}`, {
+                  method: "PUT",
+                  body: JSON.stringify({ done: true }),
+                });
+                item.done = true;
+                toast("Reminder marked done.");
+                //: Only when the tab is actually showing them — `loadReminders`
+                //: re-renders a list that is not on screen otherwise, and the
+                //: dashboard's own poll will pick the change up regardless.
+                if (localStorage.getItem("activeTab") === "reminders") loadReminders();
+              } catch (error) {
+                toast(error?.message || "That reminder could not be updated.");
+              }
+            }),
+          ],
+    preview: (item, holder) => {
+      holder.replaceChildren();
+      const line = document.createElement("div");
+      line.className = "tool-preview-body";
+      const due = item.due_at ? new Date(item.due_at) : null;
+      line.textContent = due && !Number.isNaN(due.valueOf())
+        ? `${item.done ? "Done" : "Due"} ${due.toLocaleString()}`
+        : item.done
+          ? "Done"
+          : "No due date.";
+      holder.appendChild(line);
+    },
+  },
+};
+
+//: Which file urls have a full-size view worth offering. A local test rather
+//: than library.js's `isImageUrl`, which is not on `window` — duplicating one
+//: regex is cheaper than widening another file's surface, and this list only
+//: has to be right about what the lightbox can show.
+function isImageCardUrl(url) {
+  return /\.(png|jpe?g|jfif|gif|webp|bmp|svg|avif|heic|heif|tiff?)$/i.test(String(url || ""));
+}
+
+//: The preview for a kind whose text the card already carries. `empty` is
+//: said out loud rather than left blank: a panel that opens on nothing reads
+//: as a failure to load, which is a different fact from "this file had no
+//: text in it".
+function cardTextPreview(item, holder, empty) {
+  holder.replaceChildren();
+  const body = document.createElement("div");
+  body.className = "tool-preview-body";
+  body.textContent = item.snippet || empty;
+  if (!item.snippet) body.classList.add("muted");
+  holder.appendChild(body);
+}
+
 //: **What the tool touched, shown rather than named.** Asked for: "the chat
 //: and agent should be the ultimate notebook handler, drafting and previewing
 //: notes … showing rendered note previews then user can edit".
@@ -12603,6 +12757,10 @@ async function toolPreviewBody(item, holder) {
   }
 }
 
+//: One card. `spec` is the `CARD_KINDS` entry for its kind, so the actions
+//: under it are that kind's own — Open plus Edit for a note, Open plus View
+//: for an image, Open plus Mark done for a reminder. Open is the one every
+//: kind has, which is why it is built here rather than in each entry.
 function toolPreviewPanel(item, spec) {
   const panel = document.createElement("div");
   panel.className = "tool-preview";
@@ -12611,37 +12769,30 @@ function toolPreviewPanel(item, spec) {
   const actions = document.createElement("div");
   actions.className = "row tool-preview-actions";
   actions.appendChild(
-    smallButton("ph:arrow-square-out Open", spec.title, () => spec.open(item.id)),
+    smallButton("ph:arrow-square-out Open", spec.title, () => spec.open(item)),
   );
-  if (item.kind !== "document") {
-    actions.appendChild(
-      smallButton("ph:pencil-simple Edit", "Open this note with the editor on", () => {
-        //: The same two steps the note list's own Edit does, in the order that
-        //: works from here: `flashEntry` switches tab and re-renders, and
-        //: `editingId` is what that render reads to open the editor. Set it
-        //: first and the jump would clear it.
-        spec.open(item.id);
-        editingId = item.id;
-        renderEntries();
-      }),
-    );
-  }
+  for (const button of spec.actions?.(item) || []) actions.appendChild(button);
   panel.append(holder, actions);
-  toolPreviewBody(item, holder);
+  //: A kind with no `preview` of its own is one whose body has to be fetched
+  //: — notes and documents, which are read fresh so a conversation reopened
+  //: days later previews the note as it is *now*.
+  (spec.preview || toolPreviewBody)(item, holder);
   return panel;
 }
 
-function toolTouchedRow(touched) {
-  if (!Array.isArray(touched) || !touched.length) return null;
+//: The chip strip under a tool call. Takes card items that already carry
+//: their `kind`, so both callers — the typed `cards` envelopes and an old
+//: transcript's `touched` list — end up in the same renderer.
+function toolCardChips(items) {
   const row = document.createElement("div");
   row.className = "tool-touched-wrap";
   const chips = document.createElement("div");
   chips.className = "row tool-touched";
   const previews = document.createElement("div");
   previews.className = "tool-previews";
-  for (const item of touched) {
+  for (const item of items) {
     // Older transcripts (stored before `kind` existed) have notes only.
-    const spec = TOUCHED_KINDS[item.kind] || TOUCHED_KINDS.note;
+    const spec = CARD_KINDS[item.kind] || CARD_KINDS.note;
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = "chip result-reason-chip result-reason-connected tool-touched-chip";
@@ -12669,6 +12820,29 @@ function toolTouchedRow(touched) {
   return row;
 }
 
+//: The typed envelopes `ai/cards.py` sends: `[{kind, items:[…]}]`, already in
+//: kind order and already capped per kind. Flattened onto one strip on
+//: purpose — a tool call that touched a note, its board and a reminder is one
+//: action, and three headed sections would make it read as three.
+function toolCardsRow(cards) {
+  if (!Array.isArray(cards)) return null;
+  const items = [];
+  for (const group of cards) {
+    if (!group || !Array.isArray(group.items)) continue;
+    for (const item of group.items) {
+      if (item && (item.id !== undefined || group.kind === "board")) {
+        items.push({ ...item, kind: group.kind });
+      }
+    }
+  }
+  return items.length ? toolCardChips(items) : null;
+}
+
+function toolTouchedRow(touched) {
+  if (!Array.isArray(touched) || !touched.length) return null;
+  return toolCardChips(touched);
+}
+
 //: What `serialise` needs to write this row back out, parked on the node
 //: itself. The transcript is rebuilt by walking the DOM, and a chip's
 //: arguments, result summary and touched items have no representation there —
@@ -12689,7 +12863,17 @@ function toolChip(label, ok = true, event = null) {
     arguments: event?.arguments || null,
     result_summary: event?.result_summary || null,
     touched: event?.touched || null,
+    //: Saved with the turn, so a reopened conversation gets its cards back —
+    //: the same reason `touched` is here. Both are kept: a transcript written
+    //: before `cards` existed still has `touched`, and `cardsRow` below falls
+    //: back to it rather than showing a call that touched things as one that
+    //: touched nothing.
+    cards: event?.cards || null,
   };
+  //: **Cards first, `touched` as the fallback.** They describe the same call,
+  //: so drawing both would list every note twice; `cards` is the superset
+  //: (five kinds against two), and `touched` is what an old saved turn has.
+  const cardsRow = () => toolCardsRow(event?.cards) || toolTouchedRow(event?.touched);
   if (event && (event.arguments || event.result_summary)) {
     const details = document.createElement("details");
     details.className = `tool-chip ${ok ? "" : "tool-chip-error"}`.trim();
@@ -12715,7 +12899,7 @@ function toolChip(label, ok = true, event = null) {
     details.appendChild(body);
     //: Outside the disclosure on purpose: the whole point is that it is
     //: visible while the call is happening, without a click.
-    const touched = toolTouchedRow(event.touched);
+    const touched = cardsRow();
     if (touched) {
       const wrap = document.createElement("div");
       wrap.className = "tool-chip-wrap";
@@ -12728,7 +12912,7 @@ function toolChip(label, ok = true, event = null) {
   const item = document.createElement("div");
   item.className = `tool-chip ${ok ? "" : "tool-chip-error"}`.trim();
   setLabel(item, label);
-  const touched = toolTouchedRow(event?.touched);
+  const touched = cardsRow();
   if (touched) {
     const wrap = document.createElement("div");
     wrap.className = "tool-chip-wrap";
@@ -32890,6 +33074,15 @@ function stepStateWords(state, event = {}) {
     const of = event.of || attempt;
     return `retrying, attempt ${attempt} of ${of}${reason}`;
   }
+  //: A step the run *rewrote* after it failed (PLAN.md §4 A2 —
+  //: `skill_runner.MAX_REPLANS`). Worded as recovery rather than as an error,
+  //: because that is what it is: the step is about to be tried again with a
+  //: smaller instruction, and the line under it is the new one.
+  if (state === "replanned") {
+    const attempt = event.attempt || 1;
+    const of = event.of || attempt;
+    return `re-planned, attempt ${attempt} of ${of}${reason}`;
+  }
   if (state === "running") return "running";
   if (state === "done") return "done";
   if (state === "earlier") return "done in the run this resumed";
@@ -33070,7 +33263,12 @@ function agentRunStep(run, event) {
   step.state = event.state;
   agentRunPaintStep(run, step, event);
   run.currentIndex = event.index;
-  if (event.state === "running" || event.state === "retrying") run.currentStep = step;
+  //: `replanned` is included because the step is about to be run again at the
+  //: same index — the calls it makes next belong under it, not under whatever
+  //: step happened to be current before it.
+  if (event.state === "running" || event.state === "retrying" || event.state === "replanned") {
+    run.currentStep = step;
+  }
   //: A step that stopped the run opens itself. Everything else stays folded —
   //: which is the point of the panel — but a failure nobody can see without a
   //: click is a failure reported as silence.

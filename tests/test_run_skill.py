@@ -390,8 +390,19 @@ def test_a_step_that_expects_a_tool_call_is_re_prompted_not_skipped(
     events = _events(ai_client, "run", skill="Tag audit")
     steps = [e for e in events if e["type"] == "step" and e["index"] == 0]
 
-    assert [s["state"] for s in steps] == ["running", "retrying", "retrying", "stalled"]
-    assert [s["attempt"] for s in steps if s["state"] == "retrying"] == [2, 3]
+    #: The first cycle, exactly. A run now also *re-plans* a step it could not
+    #: finish (PLAN.md §4 A2, `skill_runner.MAX_REPLANS`), so the same four
+    #: states repeat with a rewritten step behind each `replanned` — the
+    #: property being pinned here is the shape of one attempt, and it is
+    #: unchanged. The two assertions after it hold over the whole run: it
+    #: still ends `stalled`, and it is still never ticked `done`.
+    assert [s["state"] for s in steps][:4] == ["running", "retrying", "retrying", "stalled"]
+    assert [s["attempt"] for s in steps if s["state"] == "retrying"][:2] == [2, 3]
+    assert steps[-1]["state"] == "stalled"
+    assert "done" not in [s["state"] for s in steps], (
+        "a step whose contract was never met must never be ticked off, "
+        "however many times the run re-planned it"
+    )
     # The nudge names the tool, because that is the thing a small model acts
     # on — not a restatement of the step it has already failed to follow.
     nudges = [text for text in _sent(fake_ollama) if "You did not call" in text]

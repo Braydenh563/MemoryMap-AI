@@ -29160,6 +29160,132 @@ scrollTopUpdate = initScrollTopButton();
 // dashboard's below. See revealTab("dashboard")'s comment for the full
 // picture; both were part of one bug.
 initResizableSidebars();
+
+// --- the dock's arrange zone folds into its own overflow menu ------------------
+// UI_MODERNISATION_PLAN.md Phase 9, bands 2 and 3.
+//
+// Measured with `scratchpad/ui-sweeps/` at four widths, before this existed:
+// the Notes and Graph docks are 36px at 1440 and **80px at 1024 and 820** and
+// 172px at 390. They wrap. That is the whole of the owner's complaint about
+// this app having no responsive design: nothing was designed for a tablet,
+// the row simply ran out of width and folded onto a second and a fourth line
+// until the chrome ate the page.
+//
+// The grammar Phase 8 settled already says what to drop first. Identity,
+// search and the one primary action are what a narrow surface must keep;
+// order and view are settings you change occasionally, and the dock already
+// owns a place for a control used occasionally, its `...` menu. So below
+// 1100 the `.dock-arrange` zone moves into that menu, and above 1100 it moves
+// back out.
+//
+// **Moved, not cloned, and never hidden.** Two rules this phase is explicitly
+// held to, and both have bitten this codebase before. Cloning a control
+// leaves two elements with the same id and one of them wired to nothing
+// (`initNotesFiltersSheet` carries the same note). And `display: none` on a
+// sort select is a control that no longer exists on a tablet, which is not a
+// responsive design, it is a smaller app. Moving the same nodes keeps every
+// listener, every id and every enhanced `<select>` shell intact, and the
+// controls stay one tap away behind a button that is always in the row.
+const DOCK_FOLD_BELOW = "(max-width: 1099.98px)";
+
+// Where the zone came back to. A comment node would be tidier, but a marker
+// element can be found again after any re-render of the dock around it.
+function dockArrangeSlot(dock) {
+  let slot = dock.querySelector(":scope > .dock-arrange-slot");
+  if (!slot) {
+    slot = document.createElement("span");
+    slot.className = "dock-arrange-slot";
+    slot.hidden = true;
+  }
+  return slot;
+}
+
+// The zone label, created once per menu and removed when the zone leaves.
+function dockArrangeLabel(menu) {
+  let label = menu.querySelector(":scope > .dock-arrange-label");
+  if (!label) {
+    label = document.createElement("span");
+    label.className = "muted dock-menu-label dock-arrange-label";
+    label.textContent = "Sort and view";
+    menu.prepend(label);
+  }
+  return label;
+}
+
+// The whole `.dock-arrange` element, in and out of a menu that sits outside it.
+function foldZoneIntoMenu(dock, menu, fold) {
+  const inRow = dock.querySelector(":scope > .dock-arrange");
+  const inMenu = menu.querySelector(":scope > .dock-arrange");
+  if (fold && inRow) {
+    inRow.replaceWith(dockArrangeSlot(dock));
+    inRow.classList.add("dock-arrange-folded");
+    dockArrangeLabel(menu).after(inRow);
+  } else if (!fold && inMenu) {
+    inMenu.classList.remove("dock-arrange-folded");
+    const slot = dock.querySelector(":scope > .dock-arrange-slot");
+    if (slot) slot.replaceWith(inMenu);
+    else dock.querySelector(":scope > .dock-find")?.after(inMenu);
+    menu.querySelector(":scope > .dock-arrange-label")?.remove();
+  }
+}
+
+// The arrange zone's other children, in and out of a menu that is one of them.
+// `data-folded-from` records where each came back to, because unlike the zone
+// above these are several elements and they must return in order.
+function foldSiblingsIntoMenu(dock, menu, fold) {
+  const zone = dock.querySelector(":scope > .dock-arrange");
+  if (!zone) return;
+  const holder = menu.closest(".dock-menu");
+  if (fold) {
+    const moving = [...zone.children].filter(
+      (child) => child !== holder && !child.classList.contains("dock-native-hidden")
+    );
+    if (!moving.length) return;
+    const label = dockArrangeLabel(menu);
+    let after = label;
+    for (const child of moving) {
+      child.dataset.foldedFrom = dock.dataset.dockName;
+      child.classList.add("dock-folded-control");
+      after.after(child);
+      after = child;
+    }
+  } else {
+    const returning = [...menu.querySelectorAll(":scope > [data-folded-from]")];
+    for (const child of returning) {
+      delete child.dataset.foldedFrom;
+      child.classList.remove("dock-folded-control");
+      zone.prepend(child);
+    }
+    if (returning.length) menu.querySelector(":scope > .dock-arrange-label")?.remove();
+  }
+}
+
+function foldDockArrange(fold) {
+  for (const dock of document.querySelectorAll(".dock[data-dock-name]")) {
+    const menu = dock.querySelector(":scope > .dock-actions > .dock-more > .dock-menu-list");
+    if (menu) {
+      foldZoneIntoMenu(dock, menu, fold);
+      continue;
+    }
+    // A dock whose only overflow menu lives *inside* the arrange zone cannot
+    // fold the zone into it, because the zone contains the destination. The
+    // Timeline is the one: Phase 8 gave it an `Options` menu in the arrange
+    // group and no `...` in the actions group. Folding its siblings into that
+    // menu is the same move by the same rule, and it leaves the row at
+    // identity + Options + Today + help.
+    const inner = dock.querySelector(":scope > .dock-arrange .dock-menu > .dock-menu-list");
+    if (inner) foldSiblingsIntoMenu(dock, inner, fold);
+  }
+}
+
+function initDockFolding() {
+  const query = window.matchMedia(DOCK_FOLD_BELOW);
+  foldDockArrange(query.matches);
+  // A window dragged across the boundary, or a tablet rotated, re-decides.
+  query.addEventListener("change", (event) => foldDockArrange(event.matches));
+}
+
+initDockFolding();
 watchOverlays(); // page behind a dialog must not scroll
 initAutoGrow(); // capture + magic-add boxes follow their content
 // Used to reopen on whichever tab was last active, with only the very

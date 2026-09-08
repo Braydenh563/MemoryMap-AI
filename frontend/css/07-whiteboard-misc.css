@@ -8232,3 +8232,83 @@ header#top-bar {
     overflow-y: auto;
   }
 }
+
+/* --- the arrange zone, once it is inside the overflow menu ----------------
+   `foldDockArrange` (app.js) moves the whole `.dock-arrange` element into the
+   dock's `...` menu below 1100 and moves it back above. The element arrives
+   still wearing `.dock-group`, which is a horizontal run of controls at the
+   dock's own height, and a menu is a stacked list of full-width rows. This is
+   the recipe for the same nodes in the other context.
+
+   It matches `.dock-menu-section` deliberately: the Notes menu already holds
+   a "Notes per page" section built that way, and the folded zone landing
+   directly above it has to read as another section of the same list rather
+   than as a control strip that fell into a popup. */
+.dock-menu-list > .dock-arrange-folded {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+}
+
+.dock-menu-list > .dock-arrange-folded + .dock-menu-section {
+  border-top: 1px solid var(--divider);
+}
+
+/* Full width, and free of the row's max-width cap: a select that stops at
+   14rem inside a 16rem menu leaves a ragged right edge next to the
+   full-width rows above and below it. */
+.dock-menu-list > .dock-arrange-folded > select,
+.dock-menu-list > .dock-arrange-folded > .select-shell,
+.dock-menu-list > .dock-arrange-folded > .seg {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+
+/* The view segment keeps its two icons but spreads them, because in a menu
+   there is width to spend and a 2rem icon button in a 16rem row reads as
+   something half-drawn. */
+.dock-menu-list > .dock-arrange-folded > .seg > button {
+  flex: 1 1 0;
+}
+
+.dock-arrange-label {
+  display: block;
+  padding: var(--space-3) var(--space-3) 0;
+  font-size: var(--text-sm);
+}
+
+/* A single control folded into a menu (the Timeline's view segment) takes the
+   same full-width row a folded zone's children take. */
+.dock-menu-list > .dock-folded-control {
+  width: auto;
+  max-width: none;
+  margin: 0 var(--space-3) var(--space-2);
+}
+
+.dock-menu-list > .seg.dock-folded-control > button {
+  flex: 1 1 0;
+}
+
+/* --- the dock row below 1100 ---------------------------------------------
+   Folding the arrange zone away buys most of the width back. What is left is
+   the identity and the search basis, both of which were sized for a 1440
+   window: measured at 820 with the fold in place, the Notes dock still took
+   two rows (80px) because a 14rem search basis plus a heading that refuses to
+   wrap or clip is wider than the content column a 192px sidebar leaves.
+
+   The heading clips rather than wraps. A dock's identity is one line by
+   definition (Phase 8), and a wrapped `<h2>` makes the whole row taller,
+   which is the failure this band exists to remove. */
+@media (max-width: 1099.98px) {
+  .dock-find {
+    flex-basis: 10rem;
+  }
+
+  .dock-identity h2 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

@@ -14,8 +14,6 @@
 	Ollama powers the chat answers and auto-filing. Install it from ollama.com, start it, and this screen will light up. Capturing notes and keyword search work fine without it.
 4889	<p class="muted" id="llm-provider-note"> (291)
 	The second option covers any server speaking the OpenAI API — LM Studio, llama.cpp's server, Jan and vLLM are all the same choice, differing only by address. Leave the address blank for the usual one (Ollama :11434, LM Studio :1234/v1); fill it in if you started the server on your own port.
-4901	<small class="muted" id=""> (238)
-	Recommended, and on by default. Refuses any model backend that isn't on this computer or your own network, so your notes can't be sent over the internet by a mistyped address. Turn it off only if you deliberately want to use a hosted API.
 4942	<p class="muted" id=""> (244)
 	Quick background jobs run on this model, so a big slow chat model isn't tied up categorising every note. Point it at a small fast model (e.g. llama3.2) and let a bigger one answer your questions. Leave as “Same as chat model” to keep it simple.
 4959	<p class="muted" id=""> (164)
@@ -72,8 +70,6 @@
 	Everything the app is doing in the background right now — re-indexing your notes, downloading a model, loading the embedding model, setting up SearXNG. Jobs that can be stopped safely have a Quit button; the rest are left to finish.
 6163	<p class="muted" id=""> (139)
 	Have the agent automatically optimize your notes in the background — tagging untagged notes, finding duplicates, and linking related items.
-6233	<small class="muted" id=""> (311)
-	After a chat, look back over what you said and save anything worth keeping. Everything it finds arrives as a draft tagged “auto-captured”, kept out of your notes list and off the graph until you look at it — so a bad guess is a suggestion to dismiss rather than a note you did not write. Find them un
 6273	<p class="muted" id=""> (176)
 	Pause background AI tasks and heavy graph calculations to save power. When enabled, autonomous background tasks will not run, and the graph may be slower to update connections.
 6283	<p class="muted" id=""> (123)
@@ -112,4 +108,4 @@
 	These follow the conventions every app shares, so they aren't rebindable — being unable to press Escape in the dialog you rebound it in is not a state worth allowing.
 7181	<p class="muted" id=""> (169)
 	Record a meeting, a lecture, or anything longer than a quick note — transcribed locally with Whisper, the same engine behind the mic button. Nothing leaves this machine.
-TOTAL 57
+TOTAL 55

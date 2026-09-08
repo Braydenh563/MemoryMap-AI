@@ -62,6 +62,12 @@ class P(HTMLParser):
                 anc[1].get("id", "")
             ):
                 in_popover = True
+            # `collapseLongSettingHints` (settings.js) already turns every
+            # `label small.muted` over 90 chars in the Settings modal into
+            # exactly this task's "?" popover, at runtime. A static scan
+            # cannot see that, so exempt the shape it matches on.
+            if anc[0] == "label" and tag == "small" and "muted" in cls:
+                in_popover = True
         hit = False
         if len(text) > 120 and descriptive and not had_hit and not in_popover:
             self.hits.append((line, tag, cls, idv, text))

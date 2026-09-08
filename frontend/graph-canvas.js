@@ -73,6 +73,14 @@ let gcTiming = { dataAt: 0, firstFrame: 0, lastFrame: 0, frames: 0 };
 //: are fine" look identical from outside the canvas.
 let gcLabelsWanted = 0;
 let gcLabelsDrawn = 0;
+//: How many of the labels the last frame drew were asked for by name (the
+//: hovered or keyboard-focused note, and the search hits): those are drawn
+//: whether or not they clash, so they are the number that says whether the
+//: collision pass is dropping something somebody went looking for.
+let gcLabelsPriority = 0;
+//: The boxes the last frame placed, in world coordinates, with the id and the
+//: priority rank of each. Read by `scratchpad/ui-sweeps/graph2.js`.
+let gcLabelBoxes = [];
 let gcAlpha = 0;
 let gcTicks = 0;
 let gcTickMs = 0;
@@ -100,6 +108,10 @@ function gcRadius(node, degree) {
 //: room for them. A hovered or spotlit node always shows its own.
 const GC_LABEL_ZOOM = 1.4;
 const GC_LABEL_ALL_MAX = 400;
+//: How many search hits are still few enough to be answers rather than a
+//: filter, and so are drawn even where they overlap something already there.
+//: See the label pass in `gcDraw` for what happens past it.
+const GC_LABEL_FORCE_MAX = 12;
 //: How far a non-neighbour dims while something is hovered (§5 Phase 1).
 const GC_DIM_ALPHA = 0.2;
 
@@ -465,6 +477,11 @@ function gcDraw() {
   // --- labels -------------------------------------------------------------
   gcLabelsWanted = 0;
   gcLabelsDrawn = 0;
+  gcLabelsPriority = 0;
+  // Cleared per frame, not only written per frame: a map whose labels have
+  // just been switched off would otherwise report the boxes of the last frame
+  // that had any.
+  gcLabelBoxes = [];
   if (labelled.length) {
     const size = 12 / k;
     // Divided by the zoom so a label is a constant size on screen: the whole
@@ -509,6 +526,19 @@ function gcDraw() {
         : hl.active && hl.searchOk(node)
           ? 1
           : 2;
+    // **A search that matches half the notebook is not a request for half the
+    // notebook's labels.** Found by the probe on the 300-note fixture:
+    // searching a word every note contains made all 264 hits rank 1, and rank
+    // 1 was drawn through any clash, so the pile the collision pass exists to
+    // prevent came straight back through the search box. A handful of hits is
+    // a question about those notes and each one keeps its label whatever it
+    // lands on; past that it is a filter, and a filter's job is done by the
+    // dimming, with the labels queued ahead of everything else and still
+    // subject to the same test as everything else. The hovered or
+    // keyboard-focused note is never in this trade: there is exactly one of
+    // it, and it was pointed at.
+    const hits = labelled.reduce((n, node) => n + (labelRank(node) === 1 ? 1 : 0), 0);
+    const forceHits = hits <= GC_LABEL_FORCE_MAX;
     labelled.sort((a, b) => {
       const rank = labelRank(a) - labelRank(b);
       if (rank) return rank;
@@ -518,6 +548,7 @@ function gcDraw() {
     });
     const placed = [];
     gcLabelsWanted = labelled.length;
+    gcLabelsPriority = 0;
     const padX = 4 / k;
     const padY = 2 / k;
     // `paint-order: stroke` on `.graph-label`, the halo goes down first so a
@@ -535,7 +566,15 @@ function gcDraw() {
       const x = beside ? node.x + node.r + 7 : node.x;
       const y = beside ? node.y : node.y + node.r + 13;
       const left = (beside ? x : x - width / 2) - padX;
+      const rank = labelRank(node);
+      if (rank < 2) gcLabelsPriority += 1;
+      // The id and the rank ride along with the geometry because the only
+      // way to ask "do the labels on screen overlap" from outside a canvas is
+      // to be handed the boxes: a screenshot of a pile of words and a
+      // screenshot of a clean map are the same bytes to a sweep.
       const box = {
+        id: node.id,
+        rank,
         left,
         right: left + width + padX * 2,
         top: y - size / 2 - padY,
@@ -553,11 +592,12 @@ function gcDraw() {
           break;
         }
       }
-      if (clashes && labelRank(node) === 2) continue;
+      if (clashes && !(rank === 0 || (rank === 1 && forceHits))) continue;
       placed.push(box);
       ctx.strokeText(text, x, y);
       ctx.fillText(text, x, y);
     }
+    gcLabelBoxes = placed;
     gcLabelsDrawn = placed.length;
   }
 
@@ -1426,6 +1466,10 @@ Object.defineProperty(window, "__graphDebug", {
       tickMs: gcTickMs,
       labelsWanted: gcLabelsWanted,
       labelsDrawn: gcLabelsDrawn,
+      labelsPriority: gcLabelsPriority,
+      // Capped: this is a debug read on every frame's worth of geometry, and
+      // a 2,000-label frame would put a megabyte through the getter.
+      labelBoxes: gcLabelBoxes.slice(0, 300).map((b) => Object.freeze({ ...b })),
       firstFrameMs: gcTiming.firstFrame,
       lastFrameMs: gcTiming.lastFrame,
       frames: gcTiming.frames,

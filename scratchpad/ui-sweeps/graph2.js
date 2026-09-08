@@ -313,6 +313,147 @@ const check = (ok, what) => {
     `a wheel zoom changed the hover: ${beforeWheel} -> ${afterWheel}`
   );
 
+  // The labels (INBOX 27, "labels pile up at fit zoom"). The collision pass
+  // landed in 1cd59c2 without its probe; this is the probe. A canvas cannot
+  // be asked what it looks like, so the draw hands out the boxes it placed
+  // (`__graphDebug.labelBoxes`, world coordinates, with a priority rank) and
+  // the overlap test happens here.
+  const overlaps = (boxes) => {
+    const hits = [];
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a = boxes[i];
+        const b = boxes[j];
+        if (a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top) {
+          hits.push([a.id, b.id, a.rank, b.rank]);
+        }
+      }
+    }
+    return hits;
+  };
+  const labels = await page.evaluate(() => {
+    const d = window.__graphDebug;
+    return {
+      wanted: d.labelsWanted,
+      drawn: d.labelsDrawn,
+      priority: d.labelsPriority,
+      boxes: d.labelBoxes,
+      labelsOn: document.getElementById("graph-labels").checked,
+      zoom: d.transform.k,
+    };
+  });
+  const ordinaryClashes = overlaps(labels.boxes.filter((b) => b.rank === 2));
+  console.log("== labels ==");
+  console.log(
+    `labels on ${labels.labelsOn} at zoom ${round(labels.zoom)}: ${labels.drawn} drawn of ` +
+      `${labels.wanted} wanted (${labels.priority} asked for by name); ` +
+      `${ordinaryClashes.length} overlapping pairs among the rest`
+  );
+  check(labels.boxes.length > 0, "no labels were drawn at all with the Labels switch on");
+  check(
+    ordinaryClashes.length === 0,
+    `labels stack: ${JSON.stringify(ordinaryClashes.slice(0, 4))}`
+  );
+  check(
+    labels.drawn <= labels.wanted,
+    `more labels drawn (${labels.drawn}) than the frame wanted (${labels.wanted})`
+  );
+
+  // A hovered note always shows its own label, clash or no clash: a label you
+  // asked for and cannot see is a bug, not tidiness.
+  const hoverTarget = await page.evaluate(() => {
+    const nodes = (typeof gcNodes !== "undefined" ? gcNodes : []).filter((n) => Number.isFinite(n.x));
+    const t = window.__graphDebug.transform;
+    const box = document.getElementById("graph-canvas").getBoundingClientRect();
+    // A node the pointer can actually reach: on the canvas, and clear of every
+    // floating panel, since those swallow the move before the map sees it.
+    // The map has been panned and zoomed by the probes above, so where a node
+    // is on screen is not where the payload put it.
+    const panels = [
+      ...document.querySelectorAll(".graph-overlay > *"),
+      ...[".graph-legend-row", "#graph-zoom", "#graph-minimap"].map((sel) =>
+        document.querySelector(sel)
+      ),
+    ]
+      .filter((el) => el && !el.classList.contains("hidden"))
+      .map((el) => el.getBoundingClientRect())
+      .filter((r) => r.width > 0 && r.height > 0);
+    const reachable = nodes
+      .map((n) => ({ n, x: box.x + n.x * t.k + t.x, y: box.y + n.y * t.k + t.y }))
+      .filter(
+        (p) =>
+          p.x > box.x + 30 &&
+          p.x < box.right - 30 &&
+          p.y > box.y + 30 &&
+          p.y < box.bottom - 30 &&
+          !panels.some((r) => p.x >= r.x - 6 && p.x <= r.right + 6 && p.y >= r.y - 6 && p.y <= r.bottom + 6)
+      )
+      // The best connected of them: the one the dense middle of a map is most
+      // likely to have covered.
+      .sort((a, b) => (b.n.r || 0) - (a.n.r || 0));
+    if (!reachable.length) return null;
+    const best = reachable[0];
+    return { id: best.n.id, x: best.x, y: best.y };
+  });
+  if (!hoverTarget) throw new Error("no node on the map the pointer can reach");
+  await page.mouse.move(hoverTarget.x - 40, hoverTarget.y - 40);
+  await page.waitForTimeout(150);
+  await page.mouse.move(hoverTarget.x, hoverTarget.y);
+  await page.waitForTimeout(700);
+  const hovered = await page.evaluate(() => {
+    const d = window.__graphDebug;
+    return { hovered: d.hovered, boxes: d.labelBoxes, priority: d.labelsPriority };
+  });
+  const hoveredDrawn = hovered.boxes.some((b) => b.id === hovered.hovered && b.rank === 0);
+  console.log(
+    `hovering note ${hovered.hovered}: its label is drawn ${hoveredDrawn}, ` +
+      `${hovered.priority} priority labels in the frame`
+  );
+  check(hovered.hovered != null, "the hover probe did not land on a node");
+  check(hoveredDrawn, "the hovered note's own label was dropped by the collision pass");
+
+  // A search hit is the second thing that is never dropped, and the trade
+  // that sits behind it: a handful of hits keep their labels through any
+  // clash, a search that matches most of the notebook is a filter and its
+  // labels go back through the same collision test as everything else.
+  const readLabels = async () =>
+    page.evaluate(() => {
+      const d = window.__graphDebug;
+      return { boxes: d.labelBoxes, priority: d.labelsPriority, drawn: d.labelsDrawn, wanted: d.labelsWanted };
+    });
+  await page.mouse.move(hoverProbe.boxX + 20, hoverProbe.boxY + 20);
+  await page.fill("#graph-search", "note");
+  await page.waitForTimeout(1400);
+  const broad = await readLabels();
+  const broadMatches = broad.boxes.filter((b) => b.rank === 1);
+  const broadClashes = overlaps(broad.boxes.filter((b) => b.rank >= 1));
+  console.log(
+    `searching "note" (matches most of the notebook): ${broadMatches.length} matched labels ` +
+      `drawn of ${broad.wanted} wanted, ${broadClashes.length} overlapping pairs`
+  );
+  check(broadMatches.length > 0, "a search highlighted notes and drew none of their labels");
+  check(
+    broadClashes.length === 0,
+    `a broad search piles the labels up again: ${JSON.stringify(broadClashes.slice(0, 4))}`
+  );
+
+  // The other half: one hit, drawn wherever it lands.
+  await page.fill("#graph-search", "note 12:");
+  await page.waitForTimeout(1400);
+  const narrow = await readLabels();
+  const narrowMatches = narrow.boxes.filter((b) => b.rank === 1);
+  console.log(
+    `searching "note 12:" (one note): ${narrowMatches.length} matched labels drawn, ` +
+      `${narrow.drawn} labels in the frame`
+  );
+  check(narrowMatches.length >= 1, "a search for one note drew no label for it");
+  check(
+    narrow.priority === narrowMatches.length + narrow.boxes.filter((b) => b.rank === 0).length,
+    "the priority count and the boxes disagree, so one of the two is stale"
+  );
+  await page.fill("#graph-search", "");
+  await page.waitForTimeout(900);
+
   // 5. The display options are one click from the dock, and they open as a
   //    popover under their gear rather than as a strip across the column
   //    (INBOX 21 and 41). Where the button sits is checked in the markup, not

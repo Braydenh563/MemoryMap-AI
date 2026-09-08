@@ -369,9 +369,14 @@
   color: var(--ink);
 }
 
+/* Centred in the collapsed rail. The rail is 48px (makeSidebarResizable
+   writes that column) and the button is --sidebar-toggle-size (36px); at
+   left: 10px its right edge sat 2px from the rail's edge and read as
+   clashing with it (reported directly). Centring leaves an equal 6px on
+   both sides, and follows the token if either size changes. */
 .sidebar-collapsed .sidebar-collapse-toggle {
   right: auto;
-  left: 10px;
+  left: calc((48px - var(--sidebar-toggle-size)) / 2);
 }
 
 .sidebar-collapse-toggle .icon-collapsed,
@@ -8073,4 +8078,33 @@ input[type="file"] {
 .card:has(details.dock-menu[open]) {
   position: relative;
   z-index: 30;
+}
+
+/* The Files row's reading, opened in place (see buildFileReadingSummary).
+   A pre so page breaks and tables survive, wrapped so a long line never
+   widens the card, capped so a 40-page scan is a scrolling box rather than
+   a column that pushes every other card off the page. */
+.library-file-reading-more {
+  cursor: pointer;
+  color: var(--accent);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  list-style: none;
+}
+
+.library-file-reading-more::-webkit-details-marker {
+  display: none;
+}
+
+.library-file-reading-text {
+  margin: var(--space-2) 0 0;
+  max-height: 18rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--ink);
+  user-select: text;
 }

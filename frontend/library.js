@@ -5014,7 +5014,28 @@ function buildFileReadingSummary(image, summary, images) {
     //: complaint this item is answering.
     openLightbox(libraryLightboxItems(images), images.indexOf(image), { focusReading: true });
   });
-  holder.append(line, meta, open);
+  //: The whole reading, in place. Reported directly: "the text extracted
+  //: from this file area and dropdown in the library files subtab is
+  //: broken, it only shows the first line on the first page extracted". It
+  //: was the Phase 7.5 one-line summary working as designed, and the design
+  //: was wrong: a person who opens a "Text extracted from this file" field
+  //: expects to read the text there, not to be sent to a dialog. The line
+  //: stays as the collapsed state; opening it shows every page's reading in
+  //: a scrolling box, and "Open reading" still opens the page-by-page view.
+  const full = document.createElement("details");
+  full.className = "library-file-reading-full";
+  const fullSummary = document.createElement("summary");
+  fullSummary.className = "library-file-reading-more";
+  setLabel(fullSummary, "ph:caret-down Show the whole reading");
+  const fullText = document.createElement("pre");
+  fullText.className = "library-file-reading-text";
+  fullText.textContent = mediaReading(image);
+  full.append(fullSummary, fullText);
+  full.addEventListener("toggle", () => {
+    setLabel(fullSummary, full.open ? "ph:caret-up Hide the reading" : "ph:caret-down Show the whole reading");
+  });
+  full.addEventListener("click", (event) => event.stopPropagation());
+  holder.append(line, meta, full, open);
   return holder;
 }
 

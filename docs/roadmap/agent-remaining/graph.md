@@ -42,20 +42,37 @@ from the cap: the candidates, in order, are the "Pinned notes" row's label
 button), and `.dock-menu-section`'s own padding, which is shared with every
 dock menu in the app and should be the last thing touched.
 
-## 3. Not verified anywhere in this phase
+## 3. The graph dock carries nine controls, and the target is seven
 
-- 1440x900 and Chromium only. `contrast.js` was run in both themes and
-  `errors.js` and `docks.js` after the changes; no other viewport width, no
-  phone, no second browser.
+`docks.js` after the change: `graph [{"sel":".dock","h":51,"controls":9,
+"heights":"36"}]`. One height, which is the rule that matters most, and nine
+visible controls against the seven the dock grammar aims at. Eight of them
+predate this session and the gear is the ninth; Notes is at ten and Library
+at nine, so the graph is not the outlier, and the ceiling is a target in
+UI_MODERNISATION_PLAN Phase 8 rather than a lint. Whoever takes the number
+down should take all three docks together: the candidates here are the
+"Concept maps" link (identity, and a whole word wide) and the saved-views
+select, which is a control most notebooks never use.
+
+## 4. Not verified anywhere in this phase
+
+- Chromium only, and no second browser.
+- 1440x900 for everything, plus 1024x640 and 390x844 for the options panel
+  alone (one row height at each, inside the card, scrolling). The map itself,
+  the dock and the legend were not measured at either.
+- `contrast.js` was run on every tab in both themes and separately on the
+  options panel with it open (21 text nodes, worst ratio 7.4 light and 7.86
+  dark); `errors.js` 0 errors and 0 layout findings at 1440 and 1024;
+  `docks.js` as above.
 - Nothing was looked at: every claim is a `getBoundingClientRect`, a
   `getComputedStyle` or a `__graphDebug` read.
 - The world constant in `gcWorldFor` (1.6 to 1.25) is not exercised at 35 or
   300 notes, where the viewport floor decides the world. Above about a
   thousand notes it is reasoned, not measured.
-- Touch and pinch on the map, and the options panel on a phone width, are
-  both untested.
+- Touch and pinch on the map are still untested, and so is the graph at a
+  phone width beyond the panel.
 
-## 4. The phases after this one
+## 5. The phases after this one
 
 `GRAPH_PLAN.md` Phase 3 (colour rules and groups), Phase 4 (lasso select,
 right-click menu, a local-graph pane, the time slider's Play, PNG export at

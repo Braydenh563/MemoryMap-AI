@@ -131,13 +131,28 @@ are only just begun or half done." True; this table is the state.
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 
-**Now:** all eight agents merged; Brief 1 done; the owner's 10:30 pile is
-placed in `INBOX.md` (open items 2, 5 to 20 remain; 1, 3, 4 and part of 2
-fixed); three Fable plans written (TIMELINE, WHITEBOARD, CHAT). Next, in
-order: INBOX open items top-down (6 skill picker height, 8 chip clipping,
-10 sketches in Files, 13 reminder inputs, 14 alignment, 15 backdrop, 16
-kebab fill, 17 chat dock padding, 20 chips gap, then 18 and 19 with
-DOCUMENTS Phase 1), then agent-remaining/*.md, then Briefs 2 to 15.
+**Now (2026-09-08 14:15 UTC):** two agents in flight (Sonnet on INBOX
+bugs 2, 7, 9, 11, 12, 14, 18, 19; Opus on consistency.md and docks.md).
+The owner's order for the rest of this session: **finish the phases of
+the plans already in progress, and leave the plans written this session
+(TIMELINE, WHITEBOARD, CHAT, WORLD_CLASS, the Briefs) for the next
+session.** So, two agents at a time, in this order, each merged and gated
+before the next starts:
+
+1. GRAPH_PLAN Phase 2 (Opus): visuals, gravity and separation, the stray
+   highlighted node, fullscreen corners, INBOX 21 (display options one
+   click). Then Phases 3 to 5.
+2. DOCUMENTS_PLAN Phase 1 (Opus): the chrome; carries INBOX 18 and 19.
+   Then Phase 2 (CodeMirror 6, CSP check first), then 3 to 7.
+3. UI_MODERNISATION Phase 9 remainder (`agent-remaining/responsive.md`,
+   Opus) and Phases 5 to 6 leftovers.
+4. AGENT_SKILLS_REFORM Phase D, recovery (Opus; the spec is in the plan).
+5. MINDMAP_PLAN Phases 4 to 5 and `agent-remaining/mindmap.md` (Opus).
+6. `agent-remaining/help-popovers.md` and `timeline.md` items that are
+   bugs, not the timeline redesign (Sonnet).
+
+INBOX open items ride with the phase that owns them (the owner column in
+INBOX.md). The full-transcript scan of 14:10 added INBOX 21 to 26.
 
 - CI, ruff and CodeQL green as of `315825a`; the merge commit `dca50c6`
   (six agents' work) is pushed and its checks are running.

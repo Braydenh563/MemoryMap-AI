@@ -144,6 +144,38 @@ takes them top-down inside each block.
   fullscreen layout. Owner: GRAPH_PLAN Phase 2.
 - Timeline plan: written by Fable (below), not Opus.
 
+### Found on the full-transcript scan (2026-09-08 14:10 UTC)
+
+Every owner message of the session was re-read against this file, HANDOVER's
+flagged list and `agent-remaining/*.md`. These five had no home; they have
+one now. Everything else the owner flagged is tracked above or in the plan
+named beside it in HANDOVER's completion table.
+
+21. **Graph "Display options" is a menu item inside View, one click too
+    deep** ("annoying to access, be thoughtful"). Decision: the View menu
+    keeps layout, colour and legend; physics, labels, similarity lines,
+    minimap and suggestions move to a gear utility button on the graph dock
+    (the dock grammar's utilities row: refresh, help, more), one click.
+    Owner: GRAPH_PLAN Phase 2 (chrome).
+22. **Settings > Packages rows misaligned** (icon, text and the install
+    button on different baselines). Owner: consistency.md item 4; the
+    alignment sweep must include Settings > Packages and Settings > Help.
+23. **Settings > Help gaps** (accordion rows touch, sections have no
+    rhythm). Owner: help-popovers.md, with item 22.
+24. **"New board" and "New mind map": same or different?** Decision: the
+    dock grammar allows one filled button per dock, so one filled "New"
+    button opens a two-row menu (Board, Mind map), each with its icon and a
+    one-line hint. Two side-by-side filled buttons is the wrong answer.
+    Owner: docks.md.
+25. **Whiteboard: the edge anchor outline on note objects differs from
+    every other object kind.** Decision: one anchor recipe for all kinds
+    (the shape one; the note one goes). Owner: WHITEBOARD_PLAN Phase 1.
+26. **"Things that feel off that I cannot place."** After the consistency
+    and docks lists close, one review pass per tab with the vendored
+    design skills (`.claude/skills/README.md`) against DESIGN.md, writing
+    findings as consistency.md rows, not fixing ad hoc. Owner:
+    consistency.md, last item.
+
 ## Placed (last 20, newest first)
 
 - 2026-09-08: dashboard hero preference, New note tile colours, sub-tab

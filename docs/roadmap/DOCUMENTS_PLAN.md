@@ -376,3 +376,164 @@ under `tests/test_documents_*.py`, `scratchpad/ui-sweeps/editor.js`.
   be live; Phase 2 retires D3's the day CM6 lands.
 - **Prompt budget.** Properties and comments reach the AI as context;
   `agent.PROSE_BUDGET_CHARS` is asserted and stays that way.
+
+---
+
+## Built — Phase 0
+
+Everything in §5 Phase 0 is built and measured in Chromium at 1440x900
+against a running app (`scratchpad/ui-sweeps/serve.sh 8800 /tmp/mm-docs0`).
+The editor sweep, `scratchpad/ui-sweeps/editor.js`, grew from 35 checks to
+87 and is green; the 35 D2/D3 checks it already had still pass unchanged.
+
+### 1. Backdrop underlines in Source view
+
+§4 A, as written. A `div.doc-backdrop` behind a transparent-ink
+`#doc-content` holds the same text in the same type and carries a
+`<mark class="doc-finding doc-finding-{kind}">` at each finding's range,
+built with `createTextNode`/`createElement`. The textarea keeps the caret,
+the selection, native undo, IME and the browser's own spellcheck; the
+backdrop is what you read.
+
+Metrics are copied through the CSSOM, the way `mountGutterFor` copies the
+gutter's, because the CSP refuses an inline `style=`. Measured:
+
+| | |
+| --- | --- |
+| mark box vs glyph box | dx 0.00px, dy 0.00px on all four findings |
+| the same, 60 lines down after a scroll | dx 0.00px, dy 0.00px |
+| placement | box left 512.40625px, backdrop left 512.40625px, widths both 691.1875px |
+| scrollHeight parity | 1126 vs 1126 |
+| selected text through the highlight | darkest glyph (41,54,104) on (198,206,249), about 7.3:1 |
+
+Three details that are not obvious and are worth keeping:
+
+- **Rects, not `offsetLeft`.** Those round to whole pixels and put the
+  backdrop 0.41px off the text it draws.
+- **A trailing `\n` on every paint.** CSS removes a segment break at the end
+  of a block, so a document ending in a blank line is one line shorter on the
+  backdrop, and from there the two scroll out of step.
+- **Only findings that still match the text are marked.** The prose pass is
+  debounced, so between a keystroke and the next pass every offset after the
+  caret is stale, and a stale offset draws a squiggle under the wrong word.
+
+`DOC_PROSE_DEBOUNCE_MS` is 150, down from 400. The acceptance ("an underline
+within 300 ms") is now the thing that constant decides: the sweep measures
+217ms from the last keystroke to the mark existing. The pass itself is cheap
+(0.82ms to find findings, 6.3ms for the whole of `renderDocProse`, 0.07ms to
+repaint the backdrop, on a 2,629-character document), so the constant is
+almost the whole latency.
+
+Live view's marks take the same kind classes, so one word is marked the same
+way in both views. Live still marks word-level rules only, because a spacing
+finding's span does not exist in rendered HTML.
+
+### 2. One click opens the suggestions
+
+A plain left click opens the finding's menu; the caret has not moved when the
+click is dispatched, so the offset is read on the next frame. It does not take
+the focus, because a plain click is usually someone putting the caret in a
+word to fix it by hand. Double-click and right-click are unchanged and do take
+it. `Alt+Enter` opens the menu for the finding under the caret; `F8` and
+`Shift+F8` walk the findings and open each one. All three are VS Code's
+bindings for these jobs.
+
+**A bug this found, which no amount of reading the source would have.**
+The point-to-finding lookup used `document.caretPositionFromPoint`, and inside
+a `<textarea>` Chromium returns the offset *within the visual line*, not
+within the value: measured, document offset 29 hit-tests as 6, 50 as 5, 60 as
+15. On every line but the first, right-clicking a flagged word looked up a
+finding hundreds of characters earlier and usually found nothing, which is why
+this feature has read as "sometimes it works". Both views now have a real
+element where the finding is, so the lookup is a rectangle test against boxes
+the browser laid out itself, and the sweep drives a right-click on a finding
+that is deliberately not on the first line.
+
+Suggestions are ranked by how much the app actually knows, strongest first:
+the rule's own answer, the other half of a UK/US pair, the nearest words in
+the dictionary plus the correction list, then the nearest words in your own
+writing (`docCompleteWords`). Distance is optimal string alignment
+(Damerau-Levenshtein restricted to adjacent transpositions), capped at 2 edits
+over at most 3,000 candidates, at most 5 rows. Measured: teh/the 1,
+recieve/receive 1, colour/color 1, alpha/omega 3 and so rejected; a word one
+edit from `environment` is offered where the menu previously had no answer at
+all.
+
+Every finding already carried its one-line *why* (`finding.message`, shown as
+`.doc-suggest-why`), which is exactly what §5 item 4 asked for; the sweep now
+asserts it is non-empty. "Ignore this for now" is "Ignore in this document"
+and the ignore key is scoped to the document id, so the label is true.
+
+### 3. The status bar count is a control
+
+The chip was already a `<button>` with `aria-controls`/`aria-expanded` that
+opened the panel; what it lacked was a look that said so, so a real count
+takes an edge and a wash while "No suggestions" stays flat.
+
+Autocorrect and Suggestions left `#doc-statusbar` for the document's kebab,
+beside the two settings already there. Ids and handlers are untouched; only
+the markup moved. The kebab stays open when a switch is pressed, because a
+switch has a state you have to see move.
+
+The panel groups by kind with a count on each group (Spelling 6, Repeated
+words 2, Style and spacing 2 on the probe document), in a fixed order so the
+strongest claim is at the top and the list does not reshuffle between two
+openings.
+
+### Bugs found by measuring, not by reading
+
+Each of these was invisible in the source and is now covered by the sweep.
+
+1. **The caret mirror had no border.** `.doc-caret-mirror` set no
+   `border-style`, and `border-width` does nothing without one, so the border
+   widths `DOC_MIRROR_PROPS` copies computed to 0. Every caret point, and so
+   every popup anchored to one, sat 1px left and 1px up; worse, with
+   `box-sizing: border-box` and the textarea's width copied, the mirror's
+   content box was 2px wider than the textarea's, so a line could wrap one
+   character later in the mirror than on screen. Found because the backdrop
+   lays the same text out independently and disagreed by exactly 1.00px.
+2. **The suggestions panel's rows were centred.** `.doc-prose-jump` is a
+   `<button>`, so it takes the app's global `justify-content: center`, and the
+   `text-align: left` beside it has nothing to align because the children are
+   flex items. Measured: a row starting at x=326 whose first word began at
+   x=751.7. Now 7px.
+3. **`docNearestWords` marked its own results as already seen**, so every
+   ranked candidate rejected itself and the list came back empty.
+4. **The line-number gutter**, reported separately with a screenshot (rows
+   1..18 below a textarea ending at 11) and fixed across all three editors
+   that carry one. Three causes: the column stretched to the flex row's height
+   rather than the textarea's (9.6px past the box untouched, 325.4px once the
+   resize handle was dragged up, and a clamped scroll that left the numbers
+   2.5 lines adrift); the stylesheet's static `padding-top: 0.5rem` against
+   the textarea's `--space-4` (1.59px per row, and density-dependent); and
+   `applyDocGutter` never applying `has-gutter` to `#doc-content`, so a
+   numbered markdown document soft-wrapped while its numbers did not. Row tops
+   now match line tops to 0.00px at rows 1, 5, 11, 20 and 30 in the documents
+   editor, the capture form and the note edit form, before and after
+   scrolling. The gutter also sat 178px away from the code it numbers, because
+   the reading measure centres the textarea while the gutter sits at the row's
+   left edge; the pair is centred as one thing now, gap 0.0px.
+
+### Not verified
+
+- **Native spellcheck alongside ours.** Headless Chromium ships no
+  dictionary, so whether the browser's own red squiggle doubles up with the
+  backdrop's under the same word could not be observed. `spellcheck="true"`
+  is deliberately left on: the browser's dictionary is far larger than this
+  app's 40-word list, and its context menu still opens over text with no
+  finding under it.
+- **IME.** Composition text is not in `value`, so the ink is restored for the
+  length of a composition (`compositionstart`/`compositionend`). Reasoned from
+  the spec and not driven with a real IME.
+- **A real touch device.** Every gesture here was driven with a mouse.
+- **Very large documents.** The largest measured is 2,629 characters plus a
+  61-line case; the paint is O(text) per keystroke and measured at 0.07ms
+  there, but nothing was driven at 5,000 lines.
+
+### What Phase 1 should know
+
+`docSurface()` in §4 B does not exist yet, and Phase 0 has added a second
+consumer of the textarea's exact geometry (the backdrop, beside the gutter and
+the caret mirror). All three copy metrics through the CSSOM from the same box,
+which is three copies of one idea: when CM6 lands, the backdrop and the mirror
+both retire into decorations and only the adapter remains.

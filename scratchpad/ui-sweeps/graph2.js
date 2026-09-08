@@ -211,6 +211,31 @@ const round = (n) => Math.round(n * 10) / 10;
       `(want 0); after mouseup hovered=${afterPan}`
   );
 
+  // The other half of the same bug, and the half that actually fired:
+  // `#graph-box` is `tabIndex = 0`, so a press on the map focuses it, and its
+  // focus listener used to hand the keyboard (and, through `focusGraphNode`,
+  // the hover) to `graphNodesRef[0]`: an arbitrary note, dimmed-except and
+  // labelled, that nobody pointed at. A press on a node is the gesture that
+  // reproduces it, because d3-zoom's own `preventDefault` on an accepted pan
+  // suppresses the focus and a press on a node is not an accepted pan.
+  await page.mouse.move(hoverProbe.x, hoverProbe.y);
+  await page.mouse.down();
+  await page.mouse.move(hoverProbe.x - 60, hoverProbe.y + 20);
+  await page.mouse.up();
+  await page.waitForTimeout(500);
+  const afterPress = await page.evaluate(() => ({
+    active: document.activeElement && document.activeElement.id,
+    hovered: window.__graphDebug.hovered,
+    keyboardId: typeof graphKeyboardId !== "undefined" ? graphKeyboardId : null,
+    first: (typeof gcNodes !== "undefined" && gcNodes[0] && gcNodes[0].id) || null,
+  }));
+  console.log(
+    `press and drag on a node: activeElement=${afterPress.active}, ` +
+      `hovered=${afterPress.hovered}, keyboard=${afterPress.keyboardId} ` +
+      `(want neither equal to the first node in the payload, ${afterPress.first}, ` +
+      `unless that is the node pressed: ${hoverProbe.id})`
+  );
+
   // A wheel zoom with the pointer parked over empty space: the map slides
   // under a stationary cursor, and Chromium replays a move at the same client
   // point. Nothing moved under the user's hand, so nothing should light up.

@@ -30262,6 +30262,12 @@ function buildSettingsJumpList() {
   select.id = "settings-jump";
   select.className = "settings-jump";
   select.setAttribute("aria-label", "Jump to a settings section");
+  // A native select, not the enhanced stand-in. The stand-in mirrors a
+  // select that CSS hides above 640px, so it drew a "Models" combobox on a
+  // desktop Settings page and, opened, covered the pane (reported with a
+  // screenshot: "the settings page went blank"). On a phone the native
+  // picker is the better control anyway. Same opt-out #timeline-view uses.
+  select.setAttribute("data-no-select-enhance", "");
 
   for (const group of nav.querySelectorAll(":scope > div[role='group']")) {
     const heading = document.getElementById(group.getAttribute("aria-labelledby"));

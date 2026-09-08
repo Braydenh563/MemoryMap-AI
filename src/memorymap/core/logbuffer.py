@@ -8,6 +8,7 @@ only: nothing is written to disk, in keeping with the privacy posture.
 from __future__ import annotations
 
 import logging
+import re
 import threading
 from collections import deque
 from datetime import datetime, timezone
@@ -148,6 +149,31 @@ class BufferHandler(logging.Handler):
             )
 
 
+_TOKEN_QUERY = re.compile(r"(?i)([?&]token=)[^&\s\"]+")
+
+
+class TokenScrubFilter(logging.Filter):
+    """Keep the session token out of the access log.
+
+    Media and file URLs carry the session token as `?token=` (see
+    `mediaSrc` in app.js), so every image the browser loads writes the
+    token into uvicorn's access line. The support bundle ships that log
+    and Settings shows it, so a token in it is a token in a screenshot.
+    Rewrites the value in the record's args (uvicorn formats the path from
+    args, not from msg) and in a pre-formatted msg, and never drops the
+    record. WORLD_CLASS_PLAN 12, S1."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple):
+            record.args = tuple(
+                _TOKEN_QUERY.sub(r"\1[redacted]", a) if isinstance(a, str) else a
+                for a in record.args
+            )
+        if isinstance(record.msg, str) and "token=" in record.msg.lower():
+            record.msg = _TOKEN_QUERY.sub(r"\1[redacted]", record.msg)
+        return True
+
+
 def install() -> None:
     """Attach the buffer to the root logger and uvicorn's loggers.
 
@@ -161,6 +187,10 @@ def install() -> None:
         logger = logging.getLogger(name)
         if not any(isinstance(h, BufferHandler) for h in logger.handlers):
             logger.addHandler(handler)
+    # On the logger, not the handler, so the terminal line is scrubbed too.
+    access = logging.getLogger("uvicorn.access")
+    if not any(isinstance(f, TokenScrubFilter) for f in access.filters):
+        access.addFilter(TokenScrubFilter())
     # asyncio logs the Proactor noise on its own logger; filter it at source so
     # it doesn't reach the terminal either.
     asyncio_logger = logging.getLogger("asyncio")

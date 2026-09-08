@@ -4948,7 +4948,12 @@ button.ghost.danger:hover {
    with the cut-off row visible, which is the affordance; running off the
    card, or over the buttons, is not. */
 .graph-overlay .graph-options {
-  max-height: calc(100% - var(--graph-chrome-top) - 12rem);
+  /* The `max()` is the floor, and it is not decoration: on a short window the
+     subtraction goes negative, and a negative `max-height` is not an error
+     that shows up anywhere near the rule that caused it, it is a panel that
+     opens with no height at all. 12rem is four rows and a heading, which is
+     enough to see that a list is there and scroll it. */
+  max-height: max(12rem, calc(100% - var(--graph-chrome-top) - 12rem));
   overflow-y: auto;
 }
 

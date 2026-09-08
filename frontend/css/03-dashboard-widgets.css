@@ -2681,7 +2681,14 @@ p.graph-help-panel {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  min-height: var(--control-h);
+  /* `max`, not `--control-h` alone: below 820 the pointer is a finger and
+     `--target-min` becomes 44px (07-whiteboard-misc.css, "touch targets, one
+     step, one block"), which the buttons in this panel already take. Measured
+     at 390x844 before this: the two button rows stood at 44 and the ten
+     others at 30, so the phone got a list at two heights, which is exactly
+     the defect the panel was rebuilt to fix, one width down. The whole row is
+     the hit area on a phone, which is what a person aims at anyway. */
+  min-height: max(var(--control-h), var(--target-min));
   margin: 0;
   font-size: var(--text-md);
   white-space: nowrap;

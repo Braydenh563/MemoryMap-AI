@@ -226,8 +226,8 @@ flagged list and `agent-remaining/*.md`. These five had no home; they have
 one now. Everything else the owner flagged is tracked above or in the plan
 named beside it in HANDOVER's completion table.
 
-21. **Graph "Display options" is a menu item inside View, one click too
-    deep** ("annoying to access, be thoughtful"). Decision: the View menu
+21. **(fixed, 5724587)** **Graph "Display options" is a menu item inside
+    View, one click too deep** ("annoying to access, be thoughtful"). Decision: the View menu
     keeps layout, colour and legend; physics, labels, similarity lines,
     minimap and suggestions move to a gear utility button on the graph dock
     (the dock grammar's utilities row: refresh, help, more), one click.
@@ -251,15 +251,17 @@ named beside it in HANDOVER's completion table.
     findings as consistency.md rows, not fixing ad hoc. Owner:
     consistency.md, last item.
 
-27. **Graph labels pile up at fit zoom** (screenshot, 15:40): with labels on
+27. **(fixed, 1cd59c2 and 7fcfcf6)** **Graph labels pile up at fit zoom**
+    (screenshot, 15:40): with labels on
     and under 400 nodes every label draws, and the dense cluster is
     unreadable. Decision: collision avoidance per frame, highest degree
     first; a label that would overlap one already drawn waits for hover or
     zoom. Owner: GRAPH Phase 2 (agent-remaining/graph.md).
-28. **Panning the graph highlights one unlinked node** and shows its label
+28. **(fixed, 0b26491, confirmed with an assertion in 5825b77)**
+    **Panning the graph highlights one unlinked node** and shows its label
     while the rest dims. A pan must never change hover or focus. Owner:
     GRAPH Phase 2.
-29. **Fullscreen is broken**: the card keeps its height, the top bar stays,
+29. **(fixed, 4c84351 and 6ee5a31)** **Fullscreen is broken**: the card keeps its height, the top bar stays,
     the canvas is not resized. Fullscreen hides the chrome, sizes the canvas
     to the viewport, keeps the radius, restores on Esc. Owner: GRAPH Phase 2.
 30. **(fixed, 4caed49)** The widgets dialog painted closed behind the
@@ -323,7 +325,8 @@ named beside it in HANDOVER's completion table.
     now grounds touched notes (284e7e0); the skill run's final answer
     element must get `addInlineCitations` too, and badges use the same
     inline renderer as the answer. Owner: CHAT batch B (Opus).
-41. **Graph display options belong on the dock, and the options panel
+41. **(the panel: fixed, 5724587 and dbff8f0; the clean-up is Phase 4)**
+    **Graph display options belong on the dock, and the options panel
     needs a redesign**; the graph needs a utility, UI and interaction
     clean-up. Owner: GRAPH Phase 2 remainder (gear button, INBOX 21) and
     Phase 4; the panel on the popover shell with the dock-menu sections.
@@ -339,6 +342,21 @@ named beside it in HANDOVER's completion table.
     redesign with an integrated advanced search and more utility. Owner:
     CHAT_PLAN Phase 1 (Ask) plus WORLD_CLASS 5.1 operators; the scroll
     part is 33.
+
+### Found by an agent while measuring something else (2026-09-08, graph)
+
+46. **Every off switch in the app has no track fill, app-wide.** The pill
+    toggle's rule (`06-timeline-dialogs.css`, the long comment beginning "An
+    off switch has to look like a switch") sets `background: color-mix(in
+    srgb, var(--ink) 12%, var(--page))`, and `--page` is a
+    `linear-gradient(...)`, not a colour, so the `color-mix` is invalid where
+    it is used and the declaration is dropped: measured on the Graph's
+    Similarity switch and the Chat dock's Tools switch, both
+    `rgba(0, 0, 0, 0)`. An off switch is still an outlined pill with a knob
+    (the `--muted` border survives), so this is the third round of a bug that
+    was reported twice, not a new blank gap. Fix: mix against a real colour
+    (`--card`, or a `--page-solid` token if one is wanted), then re-measure
+    both surfaces. Owner: consistency.md; one commit, one CSS rule.
 
 ## Placed (last 20, newest first)
 

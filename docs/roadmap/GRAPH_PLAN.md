@@ -325,9 +325,12 @@ becoming a chip in the dock, is the real content of Phase 2.
 
 ## Built, Phase 2 (the space)
 
-Half of the phase landed: the space itself. The gear button (INBOX item 21),
-the physics tuning and the hover-during-a-pan bug did not, and
-`docs/roadmap/agent-remaining/graph.md` says exactly where each one stands.
+The phase is complete. The space landed first (below); the gear button
+(INBOX 21), the options panel (INBOX 41), the spread, full screen (INBOX 29)
+and the label collision pass with its probe (INBOX 27) landed in the session
+after it, and the hover-during-a-pan bug (INBOX 28) was fixed on the branch
+and confirmed here rather than assumed. What is left of the graph is Phases 3
+to 5 and the list in `docs/roadmap/agent-remaining/graph.md`.
 
 ### What landed
 
@@ -397,3 +400,75 @@ still came out 371px tall at y=264, which is content height, centred.
   whether the legend fights the minimap at bottom left, and whether the dock
   covers nodes people want at the top of the map are all unseen.
 - `errors.js` and `docks.js` were not run after the change.
+
+### What landed after it, the rest of the phase
+
+- **The display options are one click from the dock** (INBOX 21). A gear in
+  the utilities run, after refresh and help and before the kebab, opening the
+  panel as a popover anchored under it on the dock-menu shell. The View menu
+  keeps layout, colour, legend and Trace, which was the decision already made.
+  `tests/test_dock_grammar.py` stays green by its own rules: a utility is
+  recognised by id (`*-refresh`, `*-help-toggle`) or the `dock-more` class, so
+  the gear is outside the order it enforces, and `icon-only` keeps it out of
+  the one-filled-button count. The panel closes the three ways every popover
+  in this app closes, and its Escape is spent on the panel rather than also
+  leaving full screen, which the full-screen handler's own comment had claimed
+  since it was written.
+- **The panel itself is a list, not a strip** (INBOX 41). Five named sections
+  on `.dock-menu-section` (Physics, Show, Time, Minimap, Links), one row per
+  setting, the words left and the control right, one control height and one
+  label size down the panel. Three strip-era rules went with the old shape
+  rather than being overridden (the physics group's inline row and its 0.8rem
+  labels, the time group's width cap and flex sizing). Every id is unchanged.
+- **The spread is scaled by the note count** (`densityScale` and
+  `centreScale` in `graph-worker.js`, and `gcWorldFor`'s room per note from
+  1.6 to 1.25). A fixed charge and link length gave a span that grew like
+  sqrt(count), so the fit zoom fell the same way and any notebook opened as a
+  field of dots.
+- **Full screen hides the app chrome** (INBOX 29). The top bar, the tab bar
+  and the status bar were still laid out behind a card that already covered
+  the screen, and showing through its inset. Leaving the tab now leaves full
+  screen too, so nobody lands on another tab with no tab bar.
+- **Labels do not stack, and the probe says so** (INBOX 27). The draw pass
+  landed a session earlier without its probe; the boxes it places are now on
+  `__graphDebug` and `graph2.js` does the overlap test. It found that a search
+  matching most of the notebook rebuilt the pile through the search box: past
+  twelve hits the labels are queued first and tested like everything else.
+
+### The numbers after it (1440x900, light, settled, default sliders)
+
+| | 35 notes before | 35 after | 300 before | 300 after |
+| --- | --- | --- | --- | --- |
+| World bounding box | 721 x 760 | **565 x 604** | 2162 x 1828 | **1269 x 1003** |
+| Fit zoom | 0.80 | **0.90** | 0.30 | **0.60** |
+| Notes inside the box at zoom 1 | 35/35 | 35/35 | 162/300 | **271/300** |
+| Median nearest-neighbour gap | 84 px | 64 px | 53 px | 30 px |
+| Gap over span (the "not one blob" guard) | 0.117 | 0.113 | 0.0245 | 0.0236 |
+| Labels drawn of labels wanted | n/a | 17 of 21 | n/a | **45 of 264** |
+| Overlapping label pairs | n/a | **0** | n/a | **0** |
+
+Full screen, measured: `#top-bar`, `#tab-bar` and `#status-bar` at 0px and
+not visible; the canvas 1422x882 against a viewport of 1440x900 less its 8px
+gutters; the card's corner 14px in both states; out by the button, by Escape
+and by leaving the tab all restore the card (1408x767), the canvas (1406x765)
+and the chrome.
+
+The options panel: 352x490 at (1063, 140), right edge on the dock's, five
+sections, twelve rows at one height (30px) and one label size, no control past
+its right edge, clear of the zoom strip and the minimap, 629px of list
+scrolling inside a 488px box with the cut row in sight.
+
+### What was not verified, after it
+
+- **Light theme, 1440x900, Chromium.** `contrast.js` was run on the new panel
+  in both themes and `errors.js` and `docks.js` after the change; no other
+  width and no other browser.
+- Nothing was looked at. Every number above is a rect, a computed style or a
+  `__graphDebug` read.
+- The 300-note fixture is the largest measured here. The world constant's
+  change bites above about a thousand notes, where it is reasoned only.
+- `#graph-physics` is read as a checkbox by the saved-views code
+  (`graph.js` `physics: ...?.checked ?? true`), which is a span and now a
+  section: saved views have always stored `physics: true` and restoring one
+  has always been a no-op. Found here, not fixed; it is in
+  `agent-remaining/graph.md`.

@@ -36,12 +36,18 @@ takes them top-down inside each block.
   square corners and the documents toolbar copy are below).
 
 ### Bugs, highest impact first (next session, before any brief)
-1. **Deleting a space leaves its notes in "All spaces".** Data integrity:
-   `routes_spaces.py` delete must soft-delete (or reassign, by explicit
-   choice in the dialog) every entry, document, board and reminder in the
-   space, in one transaction, with a test. Owner: Brief 7 territory but do
-   it now as its own fix.
-2. **Note card kebab: "nothing appears but a vertical scrollbar"** (and
+1. **Deleting a space leaves its notes in "All spaces".** Read and not
+   reproduced in code: `routes_spaces.delete_space` hard-deletes every
+   workspace-scoped row in one transaction and
+   `tests/test_space_delete_cascades.py` proves it. The likeliest cause is
+   notes captured while "All spaces" was selected: those carry the default
+   workspace, not the space, so deleting the space cannot touch them. Fix
+   the cause of the confusion, not the cascade: (a) show the space chip on
+   every note card and in the edit form; (b) the capture form files into
+   the *selected* space and says which; (c) a "Move to space" bulk action.
+   Owner: D2 and D5. If the owner can reproduce with a note that shows the
+   space chip, reopen as a backend bug.
+2. **(partly fixed: menus close on any outside scroll, 0be76eb+1)** **Note card kebab: "nothing appears but a vertical scrollbar"** (and
    when it does open, it scrolls inside a clipped box; submenus AI actions,
    Connect, Add never show; menus stay stuck on screen after scrolling the
    note away; hard to close by clicking off). `openActionMenu` /
@@ -52,11 +58,11 @@ takes them top-down inside each block.
    as sibling escaped menus. Sweep: open every kebab on Notes, Library,
    Documents head, Chat head; assert menu rect inside viewport, submenu
    opens, closes on scroll and outside click. Owner: consistency.md item 1b.
-3. **Chat composer cannot be resized by hand** (spasms) and has no max
+3. **(fixed)** **Chat composer cannot be resized by hand** (spasms) and has no max
    height. Likely two handlers fighting (auto-grow on input vs the CSS
    resize handle). Cap at 40vh, let manual resize win until cleared.
    Owner: D3 dossier, do as a bug now.
-4. **Back/forward in the bottom bar need two clicks.** The nav-history
+4. **(fixed)** **Back/forward in the bottom bar need two clicks.** The nav-history
    handler probably records the click's own navigation as a new entry.
    Owner: bug now.
 5. **Tooltips and popovers flicker at another position for a frame** before

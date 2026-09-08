@@ -141,7 +141,7 @@ files; `agent-remaining/batch-a.md` has one found-not-fixed). In flight:
 Opus on CHAT batch B (INBOX 39 and 40, worktree agent-aaf982b12113f9499,
 Request renamed to Agent already committed); Opus on the mind map (INBOX
 42, mindmap.md H, whiteboard menus at short heights, previews if time;
-worktree agent-<new>). Queue after them, two at a time: INBOX 46 (the
+worktree agent-ae895290c11fc4520). Queue after them, two at a time: INBOX 46 (the
 transparent switch track) and the three-dock control count from graph.md
 (Sonnet); Brief 17 remainder (Opus, launcher.md); Brief 16 docs in the
 README's voice (Sonnet); DOCUMENTS Phase 1 (carries 44); GRAPH 3 to 5;

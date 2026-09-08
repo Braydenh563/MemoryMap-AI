@@ -474,6 +474,105 @@ every tab and sub-tab; `all.sh` gains `WIDTH=820`; a `touch.js` sweep
 Library and Chat at 390 and asserts each hit target ≥ 44px and that no tap
 lands on two controls; screenshots at all four widths in the shots set.
 
+## Built — Phase 9
+
+Six commits, each measured in Chromium before and after. The breakpoints are
+a design now, stated once at the top of the responsive section in
+`frontend/css/07-whiteboard-misc.css`, in four half-open bands so a boundary
+width belongs to exactly one of them: `>= 1100` desktop, `820-1100` iPad
+landscape, `600-820` iPad portrait, `< 600` phone.
+
+**9.1 The bands, 44px targets, safe areas, hover gating.** `--target-min`
+steps 1.75rem to 2.75rem in one media block at `< 820`, at the root, not per
+component. `env(safe-area-inset-*)` on the top bar, the status bar and both
+bottom docks. `@media (hover: hover)` wrapped around 24 card/chip/row hover
+lift and tint rules, wrapped where they are declared rather than undone in one
+place; a button's own affordance and any rule shared with `:focus-visible` are
+deliberately left alone, the second because gating those would take the focus
+ring off an iPad with a keyboard.
+
+**9.2 iPad landscape.** Sidebars capped at 12rem by `SIDEBAR_TABLET_MAX` in
+app.js, not in CSS, because a resizable sidebar writes its width as an inline
+`grid-template-columns` and a `clamp()` in a media block would have looked
+right and done nothing. The whiteboard properties drawer becomes an
+edge-attached sheet. `tests/test_css_braces.py` added.
+
+**9.3 The docks stop wrapping.** `foldDockArrange` moves the `.dock-arrange`
+zone into the dock's own `...` menu below 1100 and back above it. Moved, never
+cloned, never hidden.
+
+**9.4 One column below 820, sidebars as sheets.** The stacking breakpoint
+moved from 720 to 820 in three places, and the third one had to be found by
+measuring: `@media (min-width: 721px)` in 01-forms-settings.css held
+`#tab-notes #sidebar { position: sticky }` at two ids, so Notes' sidebar
+stayed a sticky column on a tablet while the other two became sheets.
+`--header-h` is now written from a ResizeObserver, because it was a constant
+and the bar is not.
+
+**9.5 The phone.** The tab bar moves to the bottom, seven icon columns, no
+scroller. `--keyboard-inset` from `visualViewport`. The primary action floats
+on the three docks that have one. Cards become one full-width column and the
+whiteboard's tools become a full-width bottom strip.
+
+**9.6 A real jump list for Settings**, replacing a section strip that needed
+2337px of scroll inside 308px.
+
+### The numbers, 390x844
+
+Chrome vs content by MODERNISATION_AUDIT B1's own definition, the first
+content item's top as a share of the viewport (`scratchpad/ui-sweeps/chrome.js`):
+
+| surface | before | after | whole items above the fold |
+| --- | ---: | ---: | --- |
+| dashboard (first widget) | 110% | 95% | 0 of 24 → 0 of 24 |
+| dashboard (first action) | n/a | 29% | n/a → 8 of 8 |
+| notes | 51% | 29% | 2 of 8 → 3 of 8 |
+| chat | 34% | 23% | 2 of 2 → 2 of 2 |
+| library | 54% | 40% | 2 of 21 → 2 of 21 |
+| whiteboard (free canvas) | 44% | 46% | 471px → 452px |
+
+Shell furniture at 390: top bar 158px → 58px, tab bar 40px at the top → 58px
+at the bottom, tabs off screen 3 → 0. Dock heights, 1440 / 1024 / 820 / 390:
+Notes 36/80/80/172 → 36/36/36/96, Graph 36/80/80/180 → 36/36/36/96, Library
+36/36/36/172 → 36/36/36/96, Timeline 36/36/80/164 → 36/36/36/120.
+
+Two of those need saying rather than rounding off. The Dashboard's 95% is the
+strict reading and it is unfair to the page, which is why the fair one is
+printed beside it. And the whiteboard went backwards at 390 by this phase's
+own rule: the tool strip's buttons are 44px touch targets now instead of 36px.
+At 768, where the strip was wrapping to two rows, the same change moves free
+canvas from 457px to 503px.
+
+### Gates
+
+`errors.js` sweeps 390, 820, 1024 and 1440 and reports 0 errors and 0 layout
+findings at all four. `touch.js` is new: a `hasTouch`/`isMobile` context at
+390x844 that asks three questions of every dock control on Notes, Library and
+Chat plus the tab bar — is the hit target 44px on both sides, does a tap at
+its centre reach it, and does any tap land on two controls. It passes with 0
+findings, and it found four real faults getting there, including the floating
+action covering two dock controls. `all.sh` gains the four widths and both
+sweeps. Six lints green.
+
+### What is not done
+
+- **`#wb-topbar` is 104px at 390**, two rows, and is the largest remaining
+  piece of phone chrome. Out of scope by instruction and untouched.
+- **Short tab captions.** Below 480 the captions are hidden because
+  "Dashboard" needs 68px in a 56px column and an ellipsis beside five whole
+  words reads as broken. A short caption per tab would beat both, and
+  "Dashboard" to "Home" is a copy decision this phase did not take alone.
+- **The tab bar still scrolls between 600 and 819** (574px of room, 608px of
+  tabs). The bottom bar is a `< 600` rule by the plan's own table.
+- **A real iPad and a real on-screen keyboard could not be supplied.** Every
+  number here is Chromium with `hasTouch`/`isMobile` at an emulated viewport.
+  `--keyboard-inset` is verified to be written, to be 0px with no keyboard,
+  and to be read by both bottom docks; its behaviour with a keyboard up is
+  reasoned, not observed.
+
+The full remaining list, per surface and breakpoint with files, selectors and
+next steps, is in [`agent-remaining/responsive.md`](agent-remaining/responsive.md).
+
 ## Not in this plan
 
 New features. The plan is subtraction and alignment; the feature backlog

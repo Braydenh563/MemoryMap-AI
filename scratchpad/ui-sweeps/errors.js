@@ -16,8 +16,8 @@ const SECTIONS=['account','appearance','preferences','models','tools','skills','
 const SUBTABS={notes:['browse','capture','writing-room','ask'],library:['docs','boards','images','files','skills','links','contents']};
 (async()=>{
   const browser=await chromium.launch();
-  for(const width of [1440,1024,390]){
-    const ctx=await browser.newContext({viewport:{width,height:width<600?844:900},deviceScaleFactor:1,hasTouch:width<600,isMobile:width<600});
+  for(const width of (process.env.WIDTHS||'1440,1024,820,390').split(',').map(Number)){
+    const ctx=await browser.newContext({viewport:{width,height:width<600?844:900},deviceScaleFactor:1,hasTouch:width<820,isMobile:width<600});
     await ctx.addInitScript(()=>{try{localStorage.setItem('theme','light');}catch(e){}});
     const page=await ctx.newPage(); const errs=[]; let where='boot';
     page.on('pageerror',e=>errs.push(`[${where}] ${e.message}`));

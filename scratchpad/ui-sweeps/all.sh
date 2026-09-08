@@ -23,4 +23,28 @@ for sweep in space rows heads buttons borders caps segs; do
     echo "!! $sweep failed" >> "$OUT"
   fi
 done
+
+# The component sweeps above measure at their own default width. Phase 9 made
+# the widths themselves a design, so the run also records the shell at each
+# band boundary: 1440 desktop, 1024 and 820 the two tablet bands, 390 the
+# phone. **820 is the one that was missing**, and it was missing because
+# nothing was designed for it: it is the width where an iPad in landscape
+# meets a small laptop, and where the docks were found wrapping to two rows.
+for WIDTH in 1440 1024 820 390; do
+  echo "######## shell @ $WIDTH" >> "$OUT"
+  if ! WIDTHS="$WIDTH" node "$HERE/chrome.js" >> "$OUT" 2>&1; then
+    echo "!! chrome @ $WIDTH failed" >> "$OUT"
+  fi
+done
+
+echo "######## errors (1440/1024/820/390)" >> "$OUT"
+if ! node "$HERE/errors.js" >> "$OUT" 2>&1; then
+  echo "!! errors failed" >> "$OUT"
+fi
+
+echo "######## touch @ 390" >> "$OUT"
+if ! node "$HERE/touch.js" >> "$OUT" 2>&1; then
+  echo "!! touch failed" >> "$OUT"
+fi
+
 echo "$OUT"

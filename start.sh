@@ -121,7 +121,13 @@ while [ $# -gt 0 ]; do
     "") ;;
     *) MM_BAD_FLAG="$1" ;;
   esac
-  shift
+  # `shift || break`, not a bare `shift`: a flag that takes a value shifts
+  # once inside its own branch, so `--port` or `--export` typed as the last
+  # argument leaves nothing for this one to consume. Under `set -e` at the
+  # top of this script, that failing shift killed the launcher outright with
+  # exit 1 and no message, instead of reaching the validation below that
+  # prints the help and exits 2.
+  shift || break
 done
 
 # An unknown flag is a typo, and a typo that silently starts the app anyway
@@ -190,8 +196,26 @@ if [ -z "${MM_LOG_ACTIVE:-}" ]; then
   if mkdir -p "$MM_LOG_DIR" 2>/dev/null && [ -w "$MM_LOG_DIR" ]; then
     MM_LOG="$MM_LOG_DIR/launcher-$(date +%Y-%m-%d).log"
     export MM_LOG_ACTIVE="$MM_LOG"
+    # errexit off across the redirection, and only here. `>(tee ...)` forks
+    # a process, and a fork can fail for reasons that have nothing to do
+    # with this app: a machine out of memory, a hit process limit. Under
+    # `set -e` that turned "could not open my own log" into "the launcher
+    # exited non-zero with no message", which is the worst possible trade -
+    # the log exists to explain failures, and it was causing one. Seen
+    # twice here, both times while the machine was thrashing.
+    #
+    # MM_LOG is cleared if the redirection did not take, so nothing
+    # downstream tells the reader to go and look at a file that will not be
+    # written; the launch then carries on unlogged, which is what it did
+    # before this block existed at all.
+    set +e
     exec > >(tee -a "$MM_LOG") 2>&1
-    echo "--- $(date '+%Y-%m-%d %H:%M:%S') ./start.sh ${*:-} (pid $$) ---"
+    if [ $? -ne 0 ]; then
+      MM_LOG=""
+      unset MM_LOG_ACTIVE
+    fi
+    set -e
+    [ -n "$MM_LOG" ] && echo "--- $(date '+%Y-%m-%d %H:%M:%S') ./start.sh ${*:-} (pid $$) ---"
     # Ten days of launches is plenty to answer "what changed since it last
     # worked", and this folder is inside the user's notebook - it must never
     # be the thing that fills a disk.
@@ -338,6 +362,37 @@ mm_status() {
     printf '%s|%s|%s|%s|%s\n' "$step" "$MM_STEP_TOTAL" "$title" "$detail" "$state" \
       >> "$MM_SPLASH_FILE" 2>/dev/null || true
   fi
+  # The step list, in the terminal and in the log, one line per transition,
+  # with the same marks the Windows splash and the Python loading window
+  # draw. Asked for as part of one splash design on every surface: a
+  # terminal is a surface too, and before this it narrated four numbered
+  # phases that did not match the five-step list every other surface drew.
+  #
+  # Printed on every run, not only on a terminal. This is also the launcher
+  # log's narrative, and the log is the whole answer to "it did not start"
+  # for the runs that have no terminal at all - a .desktop entry, a Finder
+  # double-click. A first version of this was gated on MM_TTY, in the same
+  # commit that removed the [n/4] echoes it replaced, which left a
+  # redirected run's log with a header, a logo and pip's output and nothing
+  # saying which phase any of it belonged to.
+  #
+  # Ticks on a terminal, the doctor's ASCII pair everywhere else. A log file
+  # gets opened in whatever editor and code page someone has, and start.bat
+  # prints the same table through cmd's own 437; the terminal is the one
+  # place the nicer characters are certain to render.
+  local mark=" ${TEAL}*${RESET}"
+  case "$state" in
+    done) mark=" ${TEAL}\xe2\x9c\x93${RESET}" ;;
+    failed) mark=" ${RED}\xc3\x97${RESET}" ;;
+  esac
+  if [ "$MM_TTY" != "1" ]; then
+    mark=" [..]"
+    case "$state" in
+      done) mark=" [ok]" ;;
+      failed) mark=" [x] " ;;
+    esac
+  fi
+  printf '%b [%s/%s] %-15s %s\n' "$mark" "$step" "$MM_STEP_TOTAL" "$title" "$detail"
   # Only the active step is worth a banner or a label change; a "done" line
   # is immediately followed by the next step's "active" one.
   [ "$state" = "done" ] && return 0
@@ -456,10 +511,15 @@ mm_port_is_memorymap() {
   return 1
 }
 
+# $2 names what to open it with, for the machine that has neither `open` nor
+# `xdg-open` and gets told to do it by hand. It exists because this function
+# has two callers and they open different kinds of thing: telling someone to
+# open their launcher log folder "in your browser" is the sort of line that
+# makes a reader doubt the rest of the message.
 mm_open_url() {
   if command -v open >/dev/null 2>&1; then open "$1" >/dev/null 2>&1 || true
   elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$1" >/dev/null 2>&1 || true
-  else echo "        Open $1 in your browser."
+  else echo "        Open $1 in your ${2:-browser}."
   fi
 }
 
@@ -590,7 +650,7 @@ mm_doctor() {
     if [ -n "$tags" ]; then
       local count
       count="$(printf '%s' "$tags" | grep -o '"name"' | wc -l | tr -d ' ')"
-      mm_row ok "Ollama" "$ollama_url, $count model(s) installed"
+      mm_row ok "Ollama" "$ollama_url, models installed: $count"
     elif ! command -v curl >/dev/null 2>&1; then
       mm_row warn "Ollama" "cannot check $ollama_url without curl"
     else
@@ -642,7 +702,7 @@ fi
 if [ "$MM_ACTION" = "logs" ]; then
   mkdir -p "$MM_LOG_DIR" 2>/dev/null || true
   echo "Launcher logs: $(cd "$MM_LOG_DIR" 2>/dev/null && pwd || echo "$MM_LOG_DIR")"
-  mm_open_url "$MM_LOG_DIR"
+  mm_open_url "$MM_LOG_DIR" "file manager"
   exit 0
 fi
 
@@ -682,7 +742,12 @@ mm_shortcut() {
     echo "Comment=Your notebook, on your own machine"
     echo "Exec=$here/start.sh --desktop"
     echo "Path=$here"
-    echo "Icon=$here/frontend/icon.png"
+    # icon-512.png, not icon.png, which has never existed in this repo: the
+    # entry was written with a path to a missing file, so the menu item and
+    # the Desktop copy both fell back to a generic icon. This is the same
+    # file __main__.py hands GTK on Linux, and for the same reason - ICO
+    # decoding through GdkPixbuf was never confirmed there.
+    echo "Icon=$here/frontend/icon-512.png"
     echo "Terminal=false"
     echo "Categories=Office;Utility;"
   } > "$entry"
@@ -805,7 +870,6 @@ VENV_PY=".venv/bin/python"
 # Only the first run needs a system Python; later launches use .venv.
 if [ ! -x "$VENV_PY" ]; then
   mm_status "$MM_STEP_PYTHON" "Python" "Building the environment" "active"
-  echo " ${TEAL}[1/4]${RESET} First-time setup - looking for Python to build the environment..."
   PYTHON=""
   if command -v python3 >/dev/null 2>&1; then PYTHON=python3
   elif command -v python >/dev/null 2>&1; then PYTHON=python
@@ -833,7 +897,6 @@ if [ ! -x "$VENV_PY" ]; then
   fi
   mm_status "$MM_STEP_PYTHON" "Python" "Environment ready" "done"
 else
-  echo " ${TEAL}[1/4]${RESET} Using the app's virtual environment."
   mm_status "$MM_STEP_PYTHON" "Python" "Using the existing environment" "done"
 fi
 
@@ -851,13 +914,12 @@ if [ -f ".venv/.mm_installed" ]; then
 fi
 
 if [ "$NEED_INSTALL" = "0" ] && ! "$VENV_PY" -c "import memorymap" >/dev/null 2>&1; then
-  echo " ${TEAL}[2/4]${RESET} The app folder moved since it was installed - relinking it..."
+  echo "        The app folder moved since it was installed - relinking it..."
   NEED_INSTALL=1
 fi
 
 if [ "$NEED_INSTALL" = "1" ]; then
   mm_status "$MM_STEP_DEPS" "Dependencies" "Installing, this can take a few minutes" "active"
-  echo " ${TEAL}[2/4]${RESET} Installing dependencies - this can take a few minutes the first time."
   echo "        pip's own progress prints below as it happens:"
   # `--timeout 5 --retries 0` makes pip fail fast per-connection instead of
   # its default (a 15s socket timeout retried 5 times, which is several
@@ -922,7 +984,6 @@ if [ "$NEED_INSTALL" = "1" ]; then
   done
   rm -f "$PIP_LOG" 2>/dev/null || true
 else
-  echo " ${TEAL}[2/4]${RESET} Dependencies already up to date - skipping install."
   mm_status "$MM_STEP_DEPS" "Dependencies" "Already up to date" "done"
 fi
 mm_bail_if_cancelled
@@ -948,9 +1009,9 @@ fi
 # --- 3. First-run .env ----------------------------------------------
 if [ ! -f ".env" ] && [ -f ".env.example" ]; then
   cp ".env.example" ".env"
-  echo " ${TEAL}[3/4]${RESET} Created .env from .env.example."
+  echo "        Created .env from .env.example."
 else
-  echo " ${TEAL}[3/4]${RESET} Configuration found."
+  echo "        Configuration found."
 fi
 
 # --- 4. Launch -------------------------------------------------------
@@ -958,7 +1019,7 @@ mm_bail_if_cancelled
 mm_status "$MM_STEP_START" "Start" "Starting the app" "active"
 
 if [ -n "${MM_DESKTOP:-}" ]; then
-  echo " ${TEAL}[4/4]${RESET} Starting MemoryMap AI in its own window."
+  echo "        MemoryMap AI is opening in its own window."
   echo "        Close the window to stop it."
   echo
   echo " ${TEAL}Installed at:${RESET} $(pwd)"
@@ -969,7 +1030,7 @@ if [ -n "${MM_DESKTOP:-}" ]; then
   exec "$VENV_PY" -m memorymap --desktop
 fi
 
-echo " ${TEAL}[4/4]${RESET} Starting MemoryMap AI at $MM_URL"
+echo "        MemoryMap AI is at $MM_URL"
 if [ "$MM_NO_BROWSER" = "1" ]; then
   echo "        No browser will be opened (--no-browser). Press Ctrl+C to stop."
 else

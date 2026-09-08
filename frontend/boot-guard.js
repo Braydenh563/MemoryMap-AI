@@ -141,6 +141,21 @@
     splash.appendChild(button);
   }
 
+  // Eight seconds, then twelve. `initAuth()` bounds its own /auth/status
+  // probe at 8s, so a boot still on screen at that point has already used
+  // up the one wait the app plans for: the reader has been looking at a
+  // crawling bar with nothing to do about it. This says so and gives them
+  // the button, without yet claiming anything is broken, which at eight
+  // seconds it may not be. The 12-second notice below still follows and
+  // still names the remedy that works in every shell; the two are
+  // deliberately different sentences.
+  setTimeout(function () {
+    var splash = document.getElementById("boot-splash");
+    if (!splash || splash.classList.contains("hidden")) return;
+    say("Still loading. Give it a moment, or reload.");
+    offerReload(splash);
+  }, 8000);
+
   setTimeout(function () {
     say(
       "This is taking longer than it should. Try again, and if it still " +

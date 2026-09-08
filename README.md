@@ -101,9 +101,11 @@ unzip it and run `MemoryMap AI`. Needs GTK and WebKit (`python3-gi` and
 `gir1.2-webkit2-4.1`, or your distribution's equivalent).
 
 **macOS, or from source on any platform.** Clone the repository and run
-`./start.sh` (on Windows, double-click `start-desktop.bat`). The launcher
-builds a private Python environment, installs everything and opens the
-app. A step-by-step version for first-time terminal users is in
+`./start-desktop.sh` (on Windows, double-click `start-desktop.bat`), or
+`./start.sh` for a browser tab. The launcher builds a private Python
+environment, installs everything and opens the app. `--doctor` on either
+one checks the machine and prints a table with a fix per row. A
+step-by-step version for first-time terminal users is in
 [docs/INSTALL.md](docs/INSTALL.md).
 
 Add the AI afterwards: install [Ollama](https://ollama.com) and pull a

@@ -95,6 +95,16 @@
     <div class="boot-splash-progress" role="progressbar" aria-hidden="true">
       <div class="boot-splash-progress-fill" id="boot-splash-progress-fill"></div>
     </div>
+    <!-- One line, the same five tips the launcher's own splash and the
+         desktop loading window rotate through, so a first run reads as one
+         piece of software whichever of the three surfaces it is looking at.
+         This splash is on screen for seconds rather than minutes, so it
+         shows one tip and does not rotate: a line that changes under the
+         reader in a two-second window is worse than a line that does not.
+         Written into the markup rather than by boot-guard.js because it
+         must be there before first paint and must survive a script that
+         never runs, which is the case boot-guard.js itself exists for. -->
+    <p class="boot-splash-tip">Your notes never leave this machine.</p>
   </div>
 
   <!-- Keyboard users can jump straight past the chrome. -->

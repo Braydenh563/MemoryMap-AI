@@ -202,7 +202,14 @@ def test_desktop_launcher_still_starts_the_window(monkeypatch, tmp_path):
     # The window opens on the loading placeholder, not the real server URL, 
     # see the loading-window tests below for the handoff itself.
     assert calls["create_window"]["url"] is None
-    assert calls["create_window"]["html"] == launcher._LOADING_HTML
+    # `_loading_html()` rather than the bare constant since Brief 17: the
+    # page is seeded with the launcher's own step history, read out of
+    # MM_SPLASH_FILE before `_close_launch_splash` deletes it, so the step
+    # list carries on from the pre-Python splash instead of starting empty.
+    assert calls["create_window"]["html"] == launcher._loading_html()
+    assert launcher._LOADING_HTML in calls["create_window"]["html"] or (
+        "__mmSeed" in calls["create_window"]["html"]
+    )
 
 
 def test_loading_window_swaps_to_the_real_url_once_the_server_answers(monkeypatch, tmp_path):

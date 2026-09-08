@@ -3824,10 +3824,24 @@ function graphCaptureView() {
     layout: localStorage.getItem("graph-layout") || "force",
     colour: localStorage.getItem("graph-colour") || "",
     hiddenCategories: [...graphHiddenCategories],
-    physics: document.getElementById("graph-physics")?.checked ?? true,
+    // graph.md section 1: `#graph-physics` is the Physics *section*
+    // (`.dock-menu-section`, index.html), not a checkbox -- it was never
+    // anything a saved view could read `.checked` off, so every view stored
+    // `physics: true` no matter what the sliders said. "Physics", to a
+    // reader, means what Gravity and Spread are set to, so a view captures
+    // those two directly now, the same values `renderGraph()` itself reads
+    // out of localStorage (graph.js line ~1713).
+    gravity: document.getElementById("graph-gravity")?.value ?? "50",
+    spread: document.getElementById("graph-spread")?.value ?? "50",
     time: document.getElementById("graph-time-slider")?.value ?? null,
-    entities: document.getElementById("graph-show-entities")?.checked ?? false,
-    documents: document.getElementById("graph-show-documents")?.checked ?? false,
+    // Same bug, two more controls: the ids below were never on the page
+    // (the checkboxes are `#graph-entities`/`#graph-documents`; app.js binds
+    // their "change" listener to those two ids, not to the ones this
+    // function used to read), so a saved view's Entities/Documents state was
+    // always the `?? false`
+    // fallback, regardless of what was actually shown when it was saved.
+    entities: document.getElementById("graph-entities")?.checked ?? false,
+    documents: document.getElementById("graph-documents")?.checked ?? false,
     orphans: document.getElementById("graph-hide-orphans")?.checked ?? false,
     transform: transform ? { x: transform.x, y: transform.y, k: transform.k } : null,
   };
@@ -3855,9 +3869,15 @@ function graphApplyView(view) {
   if (view.colour) localStorage.setItem("graph-colour", view.colour);
   set("graph-layout", view.layout);
   set("graph-colour", view.colour);
-  set("graph-physics", view.physics);
-  set("graph-show-entities", view.entities);
-  set("graph-show-documents", view.documents);
+  // Real controls, not the section div: `set()` dispatches "change" on each,
+  // which is exactly what the gravity/spread listener (app.js, "Physics
+  // sliders: persist, then rebuild the simulation with the new forces")
+  // already listens for, so restoring a view re-persists and re-renders
+  // through the same path dragging the slider does.
+  set("graph-gravity", view.gravity);
+  set("graph-spread", view.spread);
+  set("graph-entities", view.entities);
+  set("graph-documents", view.documents);
   set("graph-hide-orphans", view.orphans);
   set("graph-time-slider", view.time);
   graphHiddenCategories = new Set(view.hiddenCategories || []);

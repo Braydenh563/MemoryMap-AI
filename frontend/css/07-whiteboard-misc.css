@@ -1056,12 +1056,44 @@ body.has-agent-monitor #tab-library .library-view-section {
   border-bottom: 1px solid var(--border-light);
 }
 
+/* **Centred by its own box, not by the glyph's inline baseline.** Reported:
+   the popup agent's icon and input row read as misaligned. Measured: the
+   icon's centre sat 4px below the textarea's, `.ph`'s global
+   `vertical-align: -0.12em` (07-whiteboard-misc.css, calibrated against an
+   icon sitting beside text at the *same* font-size, which is every other
+   labelled button and status item in the app, all measured within a
+   fraction of a pixel of centred) is a fraction of *this* icon's own
+   font-size, and this is the one place an icon is deliberately drawn far
+   larger than its neighbour (`--text-h3` beside the textarea's own
+   `--text-body`). At that size the offset stops being sub-pixel: inline
+   `vertical-align` also does nothing to correct it, because the icon's
+   line box (inherited `line-height`) is taller than the glyph itself, so a
+   downward nudge meant for the ordinary case pushes it further from centre
+   rather than onto it. `display: inline-flex` makes this span size itself
+   to its own icon and centre it as a flex item instead, sidestepping
+   `vertical-align` (which a flex item's cross-axis position ignores)
+   entirely, and letting `.command-palette-bar`'s own `align-items: center`
+   line the two boxes up correctly, the same as it already does for
+   everything else in the row. */
 .command-palette-icon {
+  display: inline-flex;
+  align-items: center;
   font-size: var(--text-h3);
 }
 
 .command-palette-input {
   flex: 1;
+  /* `margin-bottom: var(--space-4)` is 01-forms-settings.css's own base rule
+     for every text-like field (`textarea` among them), written for a field
+     stacked above the next one in a form, where a trailing margin is the
+     gap between them. This textarea is a flex item of `.command-palette-bar`
+     instead, its only sibling is the icon beside it, not a field below it,
+     and an asymmetric 9.6px-bottom/0px-top margin is exactly what
+     `align-items: center` centres, so the *margin box* landed in the
+     middle while the visible textarea inside it sat 5px above true centre.
+     Reported alongside the icon (see `.command-palette-icon`'s own
+     comment); measured together, fixed together. */
+  margin-bottom: 0;
   padding: var(--space-1);
   /* `0`, not `none`. `border: none` leaves the width at `medium` and lets the
      computed 0 hang off the style, so the Appearance rule in

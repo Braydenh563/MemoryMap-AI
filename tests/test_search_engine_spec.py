@@ -21,7 +21,7 @@ def five_thousand(session):
     from memorymap.entry import manager
 
     for i in range(5000):
-        manager.create_entry(session, content=f"note {i} about topic{i % 50} and thing{i % 7}", tags=[f"t{i % 9}"])
+        manager.create_entry(session, f"note {i} about topic{i % 50} and thing{i % 7}", tags=[f"t{i % 9}"])
     session.commit()
     return session
 
@@ -31,7 +31,7 @@ def test_every_hit_carries_three_scores(session):
     from memorymap.entry import manager
     from memorymap.search import engine
 
-    manager.create_entry(session, content="bubble tea is a drink", tags=[])
+    manager.create_entry(session, "bubble tea is a drink", tags=[])
     session.commit()
     hits = engine.search(session, "bubble tea", ctx=None)
     assert hits, "no hits for an exact phrase"

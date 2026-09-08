@@ -56,12 +56,12 @@ def test_a_moved_auto_filed_note_records_a_correction(session):
     from memorymap.entry import manager
     from memorymap.ai import librarian
 
-    cat_a = manager.get_or_create_category(session, "A")
+    entry = manager.create_entry(session, "x", category_name="A", tags=[])
+    entry.filing_state = "auto"
+    session.commit()
+    manager.update_entry(session, entry, category_name="B")
+    session.commit()
     cat_b = manager.get_or_create_category(session, "B")
-    entry = manager.create_entry(session, content="x", tags=[], category_id=cat_a.id, filing_state="auto")
-    session.commit()
-    manager.update_entry(session, entry, category_id=cat_b.id)
-    session.commit()
     last = session.query(AuditLog).order_by(AuditLog.id.desc()).first()
     assert last.action == "correction"
     prompt = librarian.filing_prompt_for_test(session, category=cat_b)

@@ -47,7 +47,7 @@ def test_every_manager_write_records_exactly_one_event(session):
     """Enumerates the public write functions so a new one cannot be missed."""
     from memorymap.core import events  # the helper module Brief 7 adds
 
-    entry = manager.create_entry(session, content="hello", tags=[])
+    entry = manager.create_entry(session, "hello", tags=[])
     session.commit()
     writes = _manager_writes()
     assert writes, "the enumeration found nothing; the prefixes are wrong"
@@ -66,7 +66,7 @@ def test_every_manager_write_records_exactly_one_event(session):
 def test_a_notes_events_replay_to_its_current_state(session):
     from memorymap.core import events
 
-    entry = manager.create_entry(session, content="first", tags=["a"])
+    entry = manager.create_entry(session, "first", tags=["a"])
     session.commit()
     manager.update_entry(session, entry, content="second", tags=["a", "b"])
     session.commit()
@@ -77,7 +77,7 @@ def test_a_notes_events_replay_to_its_current_state(session):
 
 @pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_history_lists_and_restore_records_its_own_event(client, session):
-    entry = manager.create_entry(session, content="v1", tags=[])
+    entry = manager.create_entry(session, "v1", tags=[])
     session.commit()
     manager.update_entry(session, entry, content="v2", tags=[])
     session.commit()
@@ -92,15 +92,16 @@ def test_history_lists_and_restore_records_its_own_event(client, session):
 
 @pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_a_purge_is_one_event_with_the_id_list(session):
-    ids = []
+    entries = []
     for i in range(3):
-        e = manager.create_entry(session, content=f"n{i}", tags=[])
+        e = manager.create_entry(session, f"n{i}", tags=[])
         session.commit()
         manager.soft_delete_entry(session, e)
-        ids.append(e.id)
+        entries.append(e)
+    ids = [e.id for e in entries]
     session.commit()
     before = session.query(AuditLog).count()
-    manager.purge_entries(session, ids)
+    manager.purge_entries(session, entries)
     session.commit()
     assert session.query(AuditLog).count() == before + 1
     last = session.query(AuditLog).order_by(AuditLog.id.desc()).first()

@@ -88,8 +88,9 @@ cd MemoryMap-AI
    terminals fill in the correct path for you — then press Enter.
 
 Either way, you should now be sitting *inside* the `MemoryMap-AI` folder.
-`ls` (macOS/Linux) or `dir` (Windows) should list `start.sh`, `start-desktop.bat`
-and this repo's `README.md` among the files.
+`ls` (macOS/Linux) or `dir` (Windows) should list `start.sh`,
+`start-desktop.sh`, `start.bat`, `start-desktop.bat` and this repo's
+`README.md` among the files.
 
 ### 3. Run the launcher
 
@@ -100,8 +101,8 @@ From inside that same folder:
   in. This opens the app in its own window rather than a browser tab —
   prefer it unless you specifically want a browser tab (`start.bat`, no
   arguments, does that instead).
-- **macOS / Linux** — run **`./start.sh`** for a browser tab, or
-  `./start.sh --desktop` for the app's own window.
+- **macOS / Linux** — run **`./start-desktop.sh`** for the app's own
+  window, or `./start.sh` for a browser tab.
 
 The launcher builds the virtual environment, installs everything, starts the
 app and opens <http://localhost:8000> (or <http://127.0.0.1:8000>). The
@@ -123,6 +124,39 @@ place you ran it the first time.
 
 Prefer a browser tab over the app's own window? `start.bat`/`./start.sh`
 with no arguments does that instead.
+
+### Launcher options
+
+Both launchers take the same flags, in the same order, so an instruction
+works whichever one you are on. `./start.sh --help` or `start.bat --help`
+prints this list, and the path to your notes with it.
+
+| Flag | What it does |
+| --- | --- |
+| `desktop` | Start in the app's own window instead of a browser tab |
+| `--port N` | Serve on port N instead of 8000 |
+| `--no-browser` | Start the server but do not open a browser |
+| `--no-update` | Skip the update check and run the code that is here now |
+| `--reinstall` | Rebuild the virtual environment from scratch, then start |
+| `--doctor` | Check this machine, print a table and exit |
+| `--logs` | Open the launcher log folder and exit |
+| `--shortcut` | Create a desktop shortcut for this launcher and exit |
+| `--version` | Print the version and exit |
+| `--help` | Show the list and exit |
+
+**If it does not start, run `--doctor` first.** It prints one row per thing
+that can stop a launch, with a tick or a cross and, for a cross, one line
+saying what to do: Python's version and path, whether the virtual
+environment can import what the server needs, free disk where your notes
+are, whether the port is free or already has MemoryMap on it, whether the
+update remote answers, your model provider, where your notes are and how
+big, and the last error from the previous run's log. It exits 0 when
+everything checks out and 1 when something needs fixing, and it works on a
+machine where the app itself will not start.
+
+Every run also writes `<your notes folder>/logs/launcher-<date>.log`, ten
+days of them, so "it did not start" can be answered by reading something.
+`--logs` opens that folder.
 
 ## Manual setup
 
@@ -189,9 +223,29 @@ in place, your notes are never touched. You do *not* need to delete
 ## Uninstalling
 
 Run `./uninstall.sh` (or `uninstall.bat`). It removes the virtual
-environment `start.sh` built and leaves your notes untouched unless you
-explicitly pass `--delete-data` — see the script's own `--help`-style
-comment header for the full options. Optional extras (dictation, the desktop
-window, search-by-meaning) can be installed, reinstalled or removed
-individually and without touching a terminal at all, from **Settings →
-Packages**.
+environment the launcher built, and the caches that came with it, and leaves
+your notes untouched unless you explicitly pass `--delete-data`. Start with
+`--dry-run`: it lists everything that would go, with a size against each,
+and changes nothing.
+
+| Flag | What it does |
+| --- | --- |
+| `--dry-run` | List what would be removed, with sizes, and change nothing |
+| `--export PATH` | Write your notes to PATH as a Markdown zip first |
+| `--delete-data` | Also delete your notes and `.env`, asked for separately |
+| `--shortcuts` | Also remove the desktop shortcut `--shortcut` created |
+| `--yes` | Skip the "remove the virtual environment?" prompts |
+| `--help` | Show the list and exit |
+
+Two things it will not do. It stops rather than deleting under a MemoryMap
+that is still running, so close the app first. And `--delete-data` asks you
+to type DELETE at its own prompt, which `--yes` does not skip.
+
+`--export` writes the same Markdown zip the Settings download does, one
+`.md` file per note with its metadata in the frontmatter, so you can take
+your notes with you before removing anything. The same export is available
+without the uninstaller: `python -m memorymap --export ~/my-notes.zip`.
+
+Optional extras (dictation, the desktop window, search-by-meaning) can be
+installed, reinstalled or removed individually and without touching a
+terminal at all, from **Settings → Packages**.

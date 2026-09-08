@@ -487,9 +487,11 @@
     border-color 0.2s ease;
 }
 
-.wb-card:hover,
-.library-chip:hover {
-  will-change: transform, box-shadow;
+@media (hover: hover) {
+  .wb-card:hover,
+  .library-chip:hover {
+    will-change: transform, box-shadow;
+  }
 }
 
 /* **A dragged card must track the cursor, not ease after it.** The transition
@@ -509,18 +511,22 @@
   will-change: transform;
 }
 
-.card.interactive:hover,
-.wb-card:hover:not(.dragging) {
-  /* Tone and edge, never a lift: a card that moves 4px on hover is the
-     "things that move when they should not" cause in UI_MODERNISATION_PLAN,
-     and on a board it shifts every link attached to it. */
-  box-shadow: var(--shadow-lg);
-  border-color: var(--accent);
+@media (hover: hover) {
+  .card.interactive:hover,
+  .wb-card:hover:not(.dragging) {
+    /* Tone and edge, never a lift: a card that moves 4px on hover is the
+       "things that move when they should not" cause in UI_MODERNISATION_PLAN,
+       and on a board it shifts every link attached to it. */
+    box-shadow: var(--shadow-lg);
+    border-color: var(--accent);
+  }
 }
 
-.library-chip:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+@media (hover: hover) {
+  .library-chip:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
 }
 
 /* ======================= SKILLS TAB ======================= */
@@ -550,8 +556,10 @@
   transition: transform var(--motion-slow) ease, border-color var(--motion-slow) ease;
 }
 
-.skill-card:hover {
-  border-color: var(--accent);
+@media (hover: hover) {
+  .skill-card:hover {
+    border-color: var(--accent);
+  }
 }
 
 .skill-card-header {
@@ -5135,9 +5143,11 @@ button.connection-row {
   white-space: nowrap;
 }
 
-.ocr-rail-item:hover {
-  border-color: var(--border);
-  color: var(--ink);
+@media (hover: hover) {
+  .ocr-rail-item:hover {
+    border-color: var(--border);
+    color: var(--ink);
+  }
 }
 
 .ocr-rail-item.is-active {
@@ -8011,4 +8021,173 @@ input[type="file"] {
 .card:has(details.dock-menu[open]) {
   position: relative;
   z-index: 30;
+}
+
+/* ==========================================================================
+   RESPONSIVE BY DEVICE (UI_MODERNISATION_PLAN.md — Phase 9)
+   ==========================================================================
+
+   **The instruction, verbatim:** "Also intentional and adjusted design that
+   alters specifically for smaller resolutions like for iPad, tablet, iPhone
+   etc."
+
+   Phase 5's phone work was reactive: each 390px finding was fixed where it
+   was found, in the file that happened to own the component. Twenty-five
+   separate `max-width: 720px` blocks, seven `600px` ones and four `640px`
+   ones is not a responsive design — it is twenty-six of them, and no one
+   reading any single block can say what the app is supposed to look like on
+   an iPad. This section is the design, stated once, in one place.
+
+   --- the four bands ------------------------------------------------------
+
+   Half-open, [lower, upper), so every width belongs to exactly one band and
+   a boundary width is never in two. 820 is therefore an iPad *landscape*
+   width, not a portrait one, and 600 is a small tablet rather than a phone.
+
+     >= 1100   desktop, iPad landscape with a sidebar open
+               The layout above, unchanged. Sidebars at their remembered
+               width, docks in one row, hover affordances live.
+
+     820-1100  iPad landscape, small laptop
+               Sidebars narrow to 12rem (`SIDEBAR_TABLET_MAX`, app.js — the
+               width is written as an inline grid-template-columns, so a
+               stylesheet clamp cannot reach it). Docks stay in one row and
+               keep their seven controls. The whiteboard properties drawer
+               becomes a full-height sheet on the right edge instead of a
+               floating column, because at this width the tool dock's wrapped
+               rows reach under it.
+
+     600-820   iPad portrait
+               One column: `.layout` stacks, and `STACKED_LAYOUT` in app.js
+               moves with it or the inline grid track beats the stylesheet
+               and 721-820 silently stays two-column. The three sidebars
+               become sheets that slide in from the left, opened by the
+               collapse toggle they already carry. A dock keeps identity +
+               search + primary; its `.dock-arrange` zone is *moved* into the
+               dock's own overflow menu (`foldDockArrange`, app.js) rather
+               than hidden — `display: none` on a sort select is a control
+               that no longer exists, which is the failure this phase is
+               explicitly not allowed to ship. Card grids go two-up.
+
+     < 600     iPhone
+               The tab bar leaves the header and pins to the bottom edge,
+               within thumb reach, with the safe-area inset under it; the top
+               bar keeps identity (logo, space switcher) and utilities only.
+               Where a dock has one primary action — Graph "New note",
+               Library "New document", Timeline "Today" — that button floats
+               bottom-right above the tab bar. Bottom docks sit above the
+               on-screen keyboard (`--keyboard-inset`, written from
+               `visualViewport` through the CSSOM in app.js).
+
+   --- the rules that apply across bands -----------------------------------
+
+   1. **44px touch targets below 820, in one media block.** `--target-min`
+      steps from 1.75rem to 2.75rem once, at the root. Not per component:
+      the reason this token exists is that a hit target is a property of the
+      *pointer*, not of the button, and forty components each deciding their
+      own touch size is how the app got seven control heights in the first
+      place. Everything that already reads the token — `button.small`, the
+      dock's controls, the selection ticks, the switch's `::before`
+      overhang — moves together and nothing new has to be taught the number.
+
+   2. **`env(safe-area-inset-*)` on every edge-hugging surface**: the top
+      bar, the status bar, and every bottom dock. Written with the `, 0px`
+      fallback so it is a no-op in a browser window and correct in a
+      standalone install on a notched phone.
+
+   3. **`@media (hover: hover)` gates the hover lift and tint** on cards,
+      chips and rows — 24 rules, wrapped where they are declared rather than
+      undone here, because undoing a tint requires knowing each family's
+      resting value and getting one wrong is invisible until someone looks.
+      Two deliberate exclusions. A **button's own affordance** stays: a
+      control that does not respond to the pointer reads as disabled, and a
+      button is not what sticks. And a rule whose treatment is **shared with
+      `:focus-visible`** stays: on touch a tapped row is usually a focused
+      row, so the tint is then telling the truth, and gating those behind
+      `hover: hover` would take the focus ring off an iPad with a keyboard —
+      a real accessibility regression traded for a cosmetic one.
+
+   4. **`prefers-reduced-motion` is honoured in the same block** as the
+      motion it introduces, not in a distant one. Everything this section
+      animates (the sidebar sheets, the floating action button) has its
+      transition removed below.
+
+   Nothing here is a component fix. A component fix belongs next to its
+   component; what belongs here is the part that is true of the whole app at
+   a width. */
+
+/* --- 1. touch targets, one step, one block -------------------------------
+   Below 820 the pointer is a finger. 2.75rem is 44px at the default root
+   size — the figure both Apple's and Google's guidance give, and the one
+   `touch.js` asserts against every dock control on Notes, Library and Chat. */
+@media (max-width: 819.98px) {
+  :root {
+    --target-min: 2.75rem;
+  }
+}
+
+/* --- 2. the safe area ----------------------------------------------------
+   Three surfaces touch the edge of the window: the top bar, the status bar
+   and (below 600) the tab bar. Each takes the inset on the edge it touches.
+
+   `env()` with an explicit `0px` fallback, and not only for old browsers:
+   inside a plain browser tab there is no inset at all, so every one of these
+   resolves to exactly the padding it had before. This costs nothing until
+   the app is installed to a home screen, which is the only place it matters
+   and the only place it cannot be tested here. */
+header#top-bar {
+  padding-top: calc(var(--header-pad-y) + env(safe-area-inset-top, 0px));
+  padding-left: calc(var(--header-pad-x) + env(safe-area-inset-left, 0px));
+  padding-right: calc(var(--header-pad-x) + env(safe-area-inset-right, 0px));
+}
+
+#status-bar {
+  padding-left: calc(var(--page-gutter) + env(safe-area-inset-left, 0px));
+  padding-right: calc(var(--page-gutter) + env(safe-area-inset-right, 0px));
+}
+
+/* The status bar is the bottom-most surface only while the tab bar is still
+   in the header — below 600 the tab bar is pinned under it and takes the
+   inset instead (see the phone band). Guarded rather than left to override
+   order, so the inset is never paid twice. */
+@media (min-width: 600px) {
+  #status-bar {
+    height: calc(var(--status-bar-h) + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* --- the bottom docks ----------------------------------------------------
+   The chat composer and the documents formatting bar are the two strips you
+   type at, and both sit at the bottom of their card. Two things can be under
+   them: the home indicator, and the on-screen keyboard. `--keyboard-inset`
+   is 0px at the root and is written by app.js from `visualViewport` while a
+   keyboard is open; adding the two means one declaration handles both, and
+   the arithmetic is right when neither is present because both are 0.
+
+   `padding-bottom`, deliberately, not the `padding` shorthand: these two
+   selectors are inside `test_ui_signatures.py`'s row/toolbar family, whose
+   distinct-`padding`-value ceiling is a ratchet this phase must not spend. */
+.chat-dock {
+  padding-bottom: calc(var(--keyboard-inset) + env(safe-area-inset-bottom, 0px));
+}
+
+/* The formatting bar carries `padding: 0.4rem 0.4rem` of its own, so its
+   base term is stated here rather than dropped — a longhand in a later file
+   replaces the shorthand's bottom side outright, and `calc(0px + 0px)` would
+   have quietly taken 6.4px off the strip at every width. */
+.doc-toolbar {
+  padding-bottom: calc(var(--space-2) + var(--keyboard-inset) + env(safe-area-inset-bottom, 0px));
+}
+
+/* --- 4. reduced motion ---------------------------------------------------
+   Declared here with the motion it belongs to. The sidebar sheet slides and
+   the floating action button fades in; with this preference set, both simply
+   are where they are going to be. */
+@media (prefers-reduced-motion: reduce) {
+
+  .layout > .sidebar-panel,
+  .dock-fab {
+    transition: none;
+  }
 }

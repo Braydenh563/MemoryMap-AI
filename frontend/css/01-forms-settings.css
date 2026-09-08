@@ -183,8 +183,10 @@
   white-space: nowrap;
 }
 
-#sidebar li:hover {
-  background: var(--accent-soft);
+@media (hover: hover) {
+  #sidebar li:hover {
+    background: var(--accent-soft);
+  }
 }
 
 #sidebar li.active {
@@ -1084,8 +1086,10 @@ progress {
 
 /* A row is a target you point at, so it has to say so. Cards get this from
    having visible edges; a row in a flat list does not. */
-.entry-list.is-rows li:hover {
-  background: var(--chip-bg);
+@media (hover: hover) {
+  .entry-list.is-rows li:hover {
+    background: var(--chip-bg);
+  }
 }
 
 /* Explicit placement, not source order. A note with no `# Heading` has no
@@ -2424,8 +2428,10 @@ li.link-source {
   gap: 0.4rem;
 }
 
-#most-used li:hover {
-  background: var(--accent-soft);
+@media (hover: hover) {
+  #most-used li:hover {
+    background: var(--accent-soft);
+  }
 }
 
 #most-used .count {
@@ -3225,8 +3231,10 @@ html.modal-open body {
   cursor: pointer;
 }
 
-.dash-list li:hover {
-  background: var(--accent-soft);
+@media (hover: hover) {
+  .dash-list li:hover {
+    background: var(--accent-soft);
+  }
 }
 
 .dash-list li.overdue {

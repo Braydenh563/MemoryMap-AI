@@ -372,8 +372,10 @@
   font-size: 0.92rem;
 }
 
-#conversation-list li:hover {
-  background: var(--accent-soft);
+@media (hover: hover) {
+  #conversation-list li:hover {
+    background: var(--accent-soft);
+  }
 }
 
 #conversation-list li.active-conv {
@@ -1311,9 +1313,11 @@ button.ghost.danger {
   cursor: pointer;
 }
 
-.graph-trace-route-chip:hover {
-  border-color: var(--accent);
-  color: var(--ink);
+@media (hover: hover) {
+  .graph-trace-route-chip:hover {
+    border-color: var(--accent);
+    color: var(--ink);
+  }
 }
 
 /* The selected route. A border and the full ink colour rather than a fill:
@@ -2763,8 +2767,15 @@ html {
     font-size: 16px;
   }
 
+  /* **The padding is gone from here, not moved.** This block and the one in
+     05-sidebars-themes.css are two copies of the same phone header rule, and
+     05 loads later, so its `padding: 0.4rem 0.8rem` shadowed this one on all
+     four sides — dead for as long as both have existed. It stopped being
+     dead the moment 05's copy became `--header-pad-y`/`--header-pad-x`
+     (Phase 9): the shorthand here then supplied `padding-bottom` alone and
+     the phone header rendered 6.4px above the logo and 8px below it.
+     Measured at 700px, which is the only place it showed. */
   header#top-bar {
-    padding: 0.5rem 0.8rem;
     gap: 0.6rem;
     flex-wrap: wrap;
   }

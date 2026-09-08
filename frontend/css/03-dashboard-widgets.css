@@ -1049,9 +1049,11 @@ header#top-bar select,
   font-weight: 500;
 }
 
-.stat-tile:hover {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+@media (hover: hover) {
+  .stat-tile:hover {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
 }
 
 .stat-icon {
@@ -1472,8 +1474,10 @@ header#top-bar select,
   cursor: pointer;
 }
 
-.cat-row:hover {
-  background: var(--accent-soft);
+@media (hover: hover) {
+  .cat-row:hover {
+    background: var(--accent-soft);
+  }
 }
 
 .cat-name {
@@ -1543,9 +1547,11 @@ header#top-bar select,
   transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
 }
 
-#entry-list li:hover {
-  border-color: var(--accent);
-  box-shadow: var(--shadow-sm);
+@media (hover: hover) {
+  #entry-list li:hover {
+    border-color: var(--accent);
+    box-shadow: var(--shadow-sm);
+  }
 }
 
 /* The note itself should read first; its metadata second. */
@@ -2160,8 +2166,10 @@ header#top-bar select,
   cursor: pointer;
 }
 
-#conversation-list li:hover {
-  background: color-mix(in srgb, var(--ink) 6%, transparent);
+@media (hover: hover) {
+  #conversation-list li:hover {
+    background: color-mix(in srgb, var(--ink) 6%, transparent);
+  }
 }
 
 #conversation-list li.active-conv:hover {
@@ -2244,8 +2252,10 @@ header#top-bar select,
   box-shadow: none;
 }
 
-.legend-item:hover {
-  border-color: var(--accent);
+@media (hover: hover) {
+  .legend-item:hover {
+    border-color: var(--accent);
+  }
 }
 
 .legend-item.legend-off {

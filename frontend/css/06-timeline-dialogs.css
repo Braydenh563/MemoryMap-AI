@@ -1107,8 +1107,10 @@
    is reserved for what it should always have meant on its own: this one is
    chosen. The accent edge makes that readable without relying on a 14% wash
    being noticed at all. */
-.check-row:hover {
-  background: var(--ghost-btn-bg-hover);
+@media (hover: hover) {
+  .check-row:hover {
+    background: var(--ghost-btn-bg-hover);
+  }
 }
 
 .check-row:has(input:checked) {
@@ -1117,8 +1119,10 @@
   background: var(--accent-soft);
 }
 
-.check-row:has(input:checked):hover {
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
+@media (hover: hover) {
+  .check-row:has(input:checked):hover {
+    background: color-mix(in srgb, var(--accent) 20%, transparent);
+  }
 }
 
 /* The whole option is clickable, so its text must not be selectable-dragged

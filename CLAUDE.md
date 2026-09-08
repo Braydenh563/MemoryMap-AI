@@ -61,6 +61,21 @@ full text, with the reasons, is the block at the top of
 5. **Quality does not drop with the model.** Tests first, measure before
    claiming, one commit per step, push per batch, five-line reports
    (status, commits, numbers, not verified, found-not-fixed).
+5a. **Speed without losing quality** (the owner's ask, 2026-09-08). Three
+   rules, none of which trims a measurement:
+   - An agent runs the targeted tests for the files it touched plus the
+     lint set after each step, and the full eight-minute suite once,
+     before its final report. The orchestrator runs the full suite once
+     per merge, not once per agent.
+   - A brief names the files, selectors and line areas, the plan's
+     measured numbers, and the sweep script to run, so the agent starts
+     at the change, not at orientation. Most agent tokens otherwise go to
+     re-reading the codebase.
+   - Two agents that land close together are merged and gated in one
+     pass (suite, sweeps, push once).
+   What does not speed things up: a third agent (the cap, and merges
+   start conflicting on the same CSS files) or skipping the sweeps (the
+   "fixed again" rounds came from exactly that).
 6. **Copy:** sentence case; no em-dashes anywhere (a lint fails the build);
    no "Oops", no exclamation marks; one line of description per section,
    longer help behind a `data-help-for` '?' popover.

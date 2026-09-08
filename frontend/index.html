@@ -4864,11 +4864,16 @@ Link to another note with [[its first few words]]."></textarea>
               </button>
               <span id="embedding-error-fix-status" class="muted"></span>
             </div>
+            <!-- One line, and the rest of what used to be here is in the
+                 Model backend "?" below. Asked for directly: "areas with
+                 excessive paragraph text… replace them with the circle
+                 tooltip '?' buttons so they dont take up unnecessary space".
+                 What stays is the one thing this paragraph exists to say when
+                 it is visible at all: the backend is not up, here is the fix. -->
             <p id="ollama-help" class="muted hidden">
-              Ollama powers the chat answers and auto-filing.
-              <a href="https://ollama.com" target="_blank" rel="noopener">Install it from ollama.com</a>,
-              start it, and this screen will light up. Capturing notes and keyword
-              search work fine without it.
+              Ollama isn't running.
+              <a href="https://ollama.com" target="_blank" rel="noopener">Get it from ollama.com</a>,
+              then start it.
             </p>
 
             <!-- Which backend serves the model. Deliberately OUTSIDE
@@ -4877,7 +4882,29 @@ Link to another note with [[its first few words]]."></textarea>
                  and hiding it whenever the backend is down would mean the one
                  control that could fix the problem is the one you can't get to. -->
             <div id="backend-config" class="settings-group">
-              <h3>Model backend</h3>
+              <div class="row help-head">
+                <h3>Model backend</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="backend-help" aria-controls="backend-help" aria-expanded="false"
+                  title="About model backends" aria-label="About model backends">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <div class="help-body hidden" id="backend-help" role="dialog" aria-label="About model backends">
+                <p>
+                  Ollama powers the chat answers and auto-filing. Install it from
+                  ollama.com, start it, and this screen lights up. Capturing notes
+                  and keyword search work fine without it.
+                </p>
+                <p>
+                  The second option covers any server speaking the OpenAI API:
+                  LM Studio, llama.cpp's server, Jan and vLLM are all the same
+                  choice, differing only by address. Leave the address blank for
+                  the usual one (Ollama <code>:11434</code>, LM&nbsp;Studio
+                  <code>:1234/v1</code>); fill it in if you started the server on
+                  your own port.
+                </p>
+              </div>
               <div class="row">
                 <select id="llm-provider-select" aria-label="Which AI backend to use" title="Which AI backend to use">
                   <option value="ollama">Ollama</option>
@@ -4886,13 +4913,10 @@ Link to another note with [[its first few words]]."></textarea>
                 <input id="llm-base-url" type="text" spellcheck="false" placeholder="Default address">
                 <button id="llm-provider-apply" class="small">Connect</button>
               </div>
+              <!-- The long version moved into #backend-help above; one short
+                   line is what the rule allows to stay in the form itself. -->
               <p class="muted" id="llm-provider-note">
-                The second option covers any server speaking the OpenAI API —
-                LM Studio, llama.cpp's server, Jan and vLLM are all the same
-                choice, differing only by address. Leave the address blank for
-                the usual one (Ollama <code>:11434</code>, LM&nbsp;Studio
-                <code>:1234/v1</code>); fill it in if you started the server on
-                your own port.
+                Leave the address blank for the server's usual port.
               </p>
               <label class="setting-check" id="local-only-wrap">
                 <input type="checkbox" id="local-only-ai" checked>

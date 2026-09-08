@@ -4599,3 +4599,95 @@ select {
   font-size: inherit;
   vertical-align: baseline;
 }
+
+/* ============ the "?" head row and its help body =========================
+   Asked for directly: *"there are also still areas with excessive paragraph
+   text and I want to replace them with the circle tooltip '?' buttons so they
+   dont take up unnecessary space"*, with the rule that every section, card
+   head and panel keeps at most one short line and everything longer moves
+   into a "?" popover beside the heading.
+
+   Two classes, and only two, so a new one is markup:
+
+     .help-head   a heading with its "?" sitting next to it
+     .help-body   the hidden element `wireHelpPopover` promotes to a popover
+
+   The popover *shell* is not declared here — it is the one shared
+   `.help-popover` rule (07-whiteboard-misc.css), which every floating surface
+   in this app joins rather than re-inventing (DESIGN.md, "One popover
+   shell"). This file only has to describe the two things that are new: how
+   the trigger sits beside its heading, and how the body's own paragraphs
+   space themselves once they are inside that shell. */
+
+/* `.graph-help-toggle` carries `margin-left: auto` of its own. That is right
+   in a toolbar, where the "?" belongs at the far end of a strip, and wrong
+   here: it threw the button to the opposite side of the card from the
+   heading it explains. `.contents-head-actions` had to cancel it for the same
+   reason and was reported with a screenshot before it did. */
+.help-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.help-head > .graph-help-toggle {
+  margin-left: 0;
+}
+
+/* The heading gives its own vertical margins up to the row, so the row is one
+   box in the flow and the flex centring has nothing asymmetric to centre
+   (DESIGN.md, "And zero the margins, not just the heights"). The Settings
+   rules that set those margins are `#settings-modal .settings-group h3`,
+   which is (1,1,1) — hence the id-scoped copy, not a bare `.help-head > h3`. */
+.help-head > h2,
+.help-head > h3,
+.help-head > h4,
+#settings-modal .settings-group .help-head > h3,
+#settings-modal .settings-group .help-head > h4 {
+  margin: 0;
+}
+
+#settings-modal .settings-group > .help-head {
+  margin: var(--space-6) 0 var(--space-3);
+}
+
+#settings-modal .settings-group > .help-head:first-child {
+  margin-top: 0;
+}
+
+/* Same proximity rule the bare-heading case already has: the one short line
+   left under a heading belongs to it, so it sits tight underneath and the
+   next control keeps its distance. */
+#settings-modal .settings-group .help-head + p.muted {
+  margin-top: calc(var(--space-2) * -1);
+  margin-bottom: var(--space-4);
+}
+
+/* Collapsed, it is `.hidden` and renders nothing; open, `wireHelpPopover`
+   moves it to <body> and adds `.help-popover`, which brings the padding,
+   width cap, scroll and caret. So all this needs is the rhythm between the
+   blocks inside it. */
+.help-body > p,
+.help-body > ul,
+.help-body > ol,
+.help-body > h4 {
+  margin: 0 0 var(--space-4);
+}
+
+.help-body > *:last-child {
+  margin-bottom: 0;
+}
+
+.help-body ul,
+.help-body ol {
+  padding-left: var(--space-6);
+}
+
+.help-body li + li {
+  margin-top: var(--space-2);
+}
+
+.help-body h4 {
+  font-size: var(--text-md);
+  font-weight: 600;
+}

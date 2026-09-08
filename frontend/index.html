@@ -6788,7 +6788,13 @@ Link to another note with [[its first few words]]."></textarea>
           <section class="settings-section hidden" id="settings-help">
             <div class="row space-between">
               <h3 class="flush">Help &amp; guide</h3>
-              <button id="show-guide-btn" class="small"><i class="ph ph-play ph-lead" aria-hidden="true"></i> Replay welcome tour</button>
+              <!-- Ghost, not filled. Measured across all seventeen Settings
+                   sections: this was the only filled button in a section head
+                   row, and the head row directly below it ("Ask the guide" /
+                   New chat) is ghost. Two heads in one section at two weights
+                   is the grammar's "one primary" read at settings scale, and
+                   replaying a tour is not the primary anything. -->
+              <button id="show-guide-btn" class="ghost small" type="button"><i class="ph ph-play ph-lead" aria-hidden="true"></i> Replay welcome tour</button>
             </div>
             <p class="muted">A quick reference to what each part of MemoryMap does. Click a topic to expand it.</p>
             <div class="help-accordion">
@@ -6871,7 +6877,16 @@ Link to another note with [[its first few words]]."></textarea>
                  -->
             <div class="settings-group help-chat-group">
               <div class="row space-between">
-                <h4 class="flush"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Ask the guide</h4>
+                <!-- `setting-subhead`, which is this app's recipe for a
+                     sub-heading inside a settings group, and it was missing.
+                     Measured in the running modal: this h4 rendered at
+                     16px/700, the browser's own default, while every h3 on
+                     the page around it is 12px/600 and the two About
+                     sub-headings that do carry the class are 13.6px/600. A
+                     sub-heading larger and heavier than the heading it sits
+                     under is hierarchy upside down, and nothing in the app
+                     had ever styled it. -->
+                <h4 class="flush setting-subhead"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Ask the guide</h4>
                 <button type="button" id="help-chat-clear" class="ghost small" title="Clear this chat and start over">
                   <i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> New chat
                 </button>

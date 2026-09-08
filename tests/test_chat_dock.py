@@ -62,8 +62,18 @@ def _block(markup: str, opening: str) -> str:
     A regex cannot match nested elements and an HTML parser is a dependency
     this suite does not have. Counting `<div` against `</div>` is enough here
     because both regions are div-nested throughout.
+
+    `opening` is a *pattern*, not a literal string, and that is deliberate.
+    It used to be `markup.index('<div class="chat-toolbar">')`, which meant
+    this test failed the moment the header took a second class
+    (UI_MODERNISATION_PLAN.md Phase 8 added `.dock` beside `.chat-toolbar`)
+    even though nothing it actually asserts had changed. A locator that
+    breaks on an unrelated edit reports a false failure, which is the one
+    thing a lint must not do.
     """
-    start = markup.index(opening)
+    found = re.search(opening, markup)
+    assert found, f"no element matching {opening!r}"
+    start = found.start()
     depth = 0
     for match in re.finditer(r"<div\b|</div>", markup[start:]):
         depth += 1 if match.group(0) == "<div" else -1
@@ -73,7 +83,7 @@ def _block(markup: str, opening: str) -> str:
 
 
 def test_every_per_message_control_is_in_the_dock():
-    dock = _block(_markup(), '<div class="chat-dock">')
+    dock = _block(_markup(), r'<div class="[^"]*\bchat-dock\b[^"]*"')
     missing = [name for name in PER_MESSAGE_IDS if f'id="{name}"' not in dock]
     assert not missing, (
         "these controls decide what happens to the next message and belong "
@@ -83,7 +93,7 @@ def test_every_per_message_control_is_in_the_dock():
 
 def test_the_header_keeps_only_the_conversation_level_controls():
     markup = _markup()
-    toolbar = _block(markup, '<div class="chat-toolbar">')
+    toolbar = _block(markup, r'<div class="[^"]*\bchat-toolbar\b[^"]*"')
     for name in CONVERSATION_IDS:
         assert f'id="{name}"' in toolbar, f"{name} is about the conversation"
     strays = [name for name in PER_MESSAGE_IDS if f'id="{name}"' in toolbar]

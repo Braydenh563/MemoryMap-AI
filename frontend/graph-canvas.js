@@ -67,6 +67,12 @@ let gcTiming = { dataAt: 0, firstFrame: 0, lastFrame: 0, frames: 0 };
 //: slow-looking map is now two separable questions, is the simulation
 //: crawling, or is the paint dropping frames, and guessing which cost a round
 //: of theorising before this was here.
+//: How many labels the last frame wanted and how many it could place
+//: without one landing on another (see the label pass in the draw). On
+//: the debug surface because "the labels are unreadable" and "the labels
+//: are fine" look identical from outside the canvas.
+let gcLabelsWanted = 0;
+let gcLabelsDrawn = 0;
 let gcAlpha = 0;
 let gcTicks = 0;
 let gcTickMs = 0;
@@ -457,6 +463,8 @@ function gcDraw() {
   ctx.globalAlpha = 1;
 
   // --- labels -------------------------------------------------------------
+  gcLabelsWanted = 0;
+  gcLabelsDrawn = 0;
   if (labelled.length) {
     const size = 12 / k;
     // Divided by the zoom so a label is a constant size on screen: the whole
@@ -476,15 +484,81 @@ function gcDraw() {
     ctx.lineWidth = 3 / k;
     ctx.strokeStyle = gcTokens.card;
     ctx.fillStyle = gcTokens.ink;
+    // **Labels do not stack.** Reported with a screenshot: with the Labels
+    // tickbox on, a fitted map drew all of them (every board under
+    // `GC_LABEL_ALL_MAX`), and in the dense middle of a force layout that is
+    // a pile of overlapping words that says less than no label at all.
+    //
+    // So a label is drawn only if its own text box is still free. The order
+    // decides which one wins the space, and it is not the order the nodes
+    // happen to be in: whatever the pointer or the keyboard is on first (it
+    // was asked for by name), then the search hits (the reason someone
+    // typed), then the best-connected notes, which are the ones a map is
+    // read by. Those two priority classes are drawn even when they clash,
+    // because a label you asked for and cannot see is a bug, not tidiness.
+    // The rest come back on hover or above `GC_LABEL_ZOOM`, which is the
+    // gesture the map already teaches.
+    //
+    // The overlap test is a linear scan of what has been placed: the placed
+    // set is bounded by the frame's area over a label's, a few dozen, so
+    // this is thousands of number comparisons and no allocation, not the
+    // quadtree it looks like it wants.
+    const labelRank = (node) =>
+      node.id === graphHoveredId || node.id === graphKeyboardId
+        ? 0
+        : hl.active && hl.searchOk(node)
+          ? 1
+          : 2;
+    labelled.sort((a, b) => {
+      const rank = labelRank(a) - labelRank(b);
+      if (rank) return rank;
+      const degreeA = (gcAdj.get(a.id) || { size: 0 }).size;
+      const degreeB = (gcAdj.get(b.id) || { size: 0 }).size;
+      return degreeB - degreeA;
+    });
+    const placed = [];
+    gcLabelsWanted = labelled.length;
+    const padX = 4 / k;
+    const padY = 2 / k;
     // `paint-order: stroke` on `.graph-label`, the halo goes down first so a
     // label stays legible over an edge or another node.
     for (const node of labelled) {
       const text = gcLabelText(node);
+      // `measureText` is cheap but not free at a few hundred labels a frame,
+      // and the answer only changes when the text or the zoom does.
+      if (node._labelText !== text || node._labelSize !== size) {
+        node._labelText = text;
+        node._labelSize = size;
+        node._labelWidth = ctx.measureText(text).width;
+      }
+      const width = node._labelWidth;
       const x = beside ? node.x + node.r + 7 : node.x;
       const y = beside ? node.y : node.y + node.r + 13;
+      const left = (beside ? x : x - width / 2) - padX;
+      const box = {
+        left,
+        right: left + width + padX * 2,
+        top: y - size / 2 - padY,
+        bottom: y + size / 2 + padY,
+      };
+      let clashes = false;
+      for (const other of placed) {
+        if (
+          box.left < other.right &&
+          box.right > other.left &&
+          box.top < other.bottom &&
+          box.bottom > other.top
+        ) {
+          clashes = true;
+          break;
+        }
+      }
+      if (clashes && labelRank(node) === 2) continue;
+      placed.push(box);
       ctx.strokeText(text, x, y);
       ctx.fillText(text, x, y);
     }
+    gcLabelsDrawn = placed.length;
   }
 
   ctx.restore();
@@ -1341,6 +1415,8 @@ Object.defineProperty(window, "__graphDebug", {
       alpha: gcAlpha,
       ticks: gcTicks,
       tickMs: gcTickMs,
+      labelsWanted: gcLabelsWanted,
+      labelsDrawn: gcLabelsDrawn,
       firstFrameMs: gcTiming.firstFrame,
       lastFrameMs: gcTiming.lastFrame,
       frames: gcTiming.frames,

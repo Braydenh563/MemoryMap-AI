@@ -4007,6 +4007,19 @@ summary:not(.icon-only):not(.icon-button) {
   background: var(--chip-bg);
 }
 
+/* The row-sized preview (`mapPreview(board, {size: "row"})`) — the dashboard's
+   boards widget. It is the *same* drawing as the card above, so it carries the
+   same `.board-minimap` class and inherits the fills, the edge and the sketch
+   stroke; what it must not inherit is the card's own box, because a
+   dashboard row's thumbnail is a fixed square in a flex row, not a full-width
+   block with a card's margins. `.dash-list-thumb` sets the size; this only
+   has to stop the card rule fighting it. */
+.board-minimap-row {
+  width: auto;
+  aspect-ratio: 1 / 1;
+  margin: 0;
+}
+
 /* Rows mode. The minimap is `width: 100%` of a card that is now the full
    width of the panel, and `aspect-ratio` turned that into a 448px-tall
    "row" (measured). A row's job is to fit forty boards on a screen, so the
@@ -7523,6 +7536,22 @@ input[type="file"] {
   /* The stated default when a node has no branch of its own: the root, and
      any node on a map whose palette has not been reached yet. */
   --wb-branch: var(--accent);
+  /* **The branch colour, made readable as a line.** `wbMapColors` assigns
+     `d3.schemeTableau10`, which is a palette designed for *fills* — an area
+     of colour large enough to identify. Drawn as a 4px spine on a near-white
+     board its lighter entries stop being a boundary: measured in light theme,
+     `#f28e2c` came out at 2.18:1 against the canvas, under the 3:1 WCAG 1.4.11
+     asks of a non-text UI boundary (`#4e79a7` managed 4.09:1, so it is the
+     palette's spread that is the problem, not the idea).
+
+     Mixed toward `--ink` rather than toward black or white, which is what
+     makes one declaration correct in both themes: `--ink` is the text colour,
+     so it contrasts with whatever the surface is *by definition* — dark in
+     light mode, near-white in dark mode. So this always moves the branch
+     colour away from its own background. 30% keeps every palette entry
+     plainly distinguishable from its neighbours, which is the whole job of a
+     branch colour; measured after, the same orange reads 3.6:1. */
+  --wb-branch-edge: color-mix(in srgb, var(--wb-branch) 70%, var(--ink));
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -7533,12 +7562,34 @@ input[type="file"] {
   min-height: 2.75rem;
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
-  background: var(--card);
-  border: 1.5px solid color-mix(in srgb, var(--wb-branch) 55%, transparent);
+  /* **A node keeps a surface even with glass turned off.**
+     `--card` is a `color-mix()` scaled by the user's glass-opacity setting, so
+     a plain `var(--card)` falls to *fully transparent* at the bottom of that
+     slider — measured, at GLASS=0: `background-color` computed to
+     `rgba(0, 0, 0, 0)` and a node's label sat straight on the canvas. The
+     board's own colour is picked freely (`#wb-bg-color-picker`), so nothing
+     here can assume it contrasts with the text the way an ordinary panel can.
+
+     Mixed toward `--modal-bg-opaque` — the app's own theme-aware *solid*
+     surface — rather than toward `transparent`, and that difference is the
+     whole fix. `.wb-object-text` a few hundred lines up uses
+     `max(var(--glass-opacity), 0.55)` against `transparent` and its comment
+     says that keeps it legible "even with glass opacity turned all the way
+     down"; it does not, and measuring is what showed it. `--card` is
+     *already* zero-alpha by then, and mixing more of nothing with transparent
+     is still nothing. Mixing with an opaque colour is what puts alpha back:
+     at full glass this is the same 0.55 pane it always was, and at zero it
+     becomes the solid surface instead of disappearing. */
+  background: color-mix(in srgb, var(--card) calc(var(--glass-opacity) * 100%), var(--modal-bg-opaque));
+  border: 1.5px solid color-mix(in srgb, var(--wb-branch-edge) 55%, transparent);
   /* The branch's colour as a spine down the leading edge. A whole node filled
      with the branch colour makes the text fight its own background at every
-     palette entry; a bar states the same grouping and leaves the label alone. */
-  border-left: 4px solid var(--wb-branch);
+     palette entry; a bar states the same grouping and leaves the label alone.
+     The spine is the node's real boundary against the canvas — the 1.5px
+     border above is a soft edge at 55% alpha and cannot carry that on its own
+     — so it takes the readable form of the branch colour (see
+     `--wb-branch-edge`) rather than the raw palette entry. */
+  border-left: 4px solid var(--wb-branch-edge);
   box-shadow: var(--glass-shadow);
   color: var(--text);
   font-size: var(--text-md);
@@ -7616,21 +7667,32 @@ input[type="file"] {
   transform: translateX(50%);
 }
 
-/* The `+` is an affordance, not furniture: it appears on the node you are
-   pointing at or have selected, which is the only time "add a child *here*"
-   means anything. Keyboard users have Tab and never need it to be visible. */
-.wb-map-add {
+/* The node's two "grow the map here" buttons — `+` (a topic) and the library
+   one (a node pointing at a real note/document/file/link). They are an
+   affordance, not furniture: they appear on the node you are pointing at or
+   have selected, which is the only time "add a child *here*" means anything.
+   Keyboard users have Tab and never need them visible.
+
+   A flex row placed once, rather than two buttons each hand-positioned off the
+   same corner: the second of those is how two controls come to overlap by a
+   few pixels that a screenshot does not show — twice already in this file, see
+   `.wb-map-count`. The row is anchored by its right edge so a third button
+   would grow leftwards into empty canvas rather than over the node. */
+.wb-map-actions {
   position: absolute;
   right: calc(var(--space-8) * -1);
   bottom: calc(var(--space-5) * -1);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   z-index: 4;
   opacity: 0;
   pointer-events: none;
 }
 
-.wb-map-node:hover .wb-map-add,
-.wb-map-node.wb-selected .wb-map-add,
-.wb-map-add:focus-visible {
+.wb-map-node:hover .wb-map-actions,
+.wb-map-node.wb-selected .wb-map-actions,
+.wb-map-actions:focus-within {
   opacity: 1;
   pointer-events: auto;
 }

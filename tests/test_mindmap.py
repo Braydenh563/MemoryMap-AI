@@ -565,3 +565,241 @@ def test_the_node_endpoint_stores_position_and_colour(client):
     assert [json.loads(json.dumps(o["data"]))["color"] for o in stored] == ["#ff0000"]
     tree = client.get(f"/whiteboard/boards/{board['id']}/tree").json()
     assert tree["roots"][0]["color"] == "#ff0000"
+
+
+# --- Phase 3: the map as a citizen of the app (MINDMAP_PLAN.md §5 items 12-13)
+
+
+def test_a_map_a_tool_touched_becomes_a_chip_in_the_transcript():
+    """MINDMAP_PLAN.md §5 item 12, the chat half.
+
+    `_touched_items` reads `id` off a result row, and every map tool names its
+    board with `board_id` instead — so before this the four map tools
+    contributed nothing at all to the transcript's touched line. A turn that
+    read a whole map showed a bare tool name and no way to open what it read,
+    which is the failure that line exists to prevent.
+    """
+    from memorymap.ai import agent
+
+    rows = agent._touched_items(
+        {"board_id": 7, "board_title": "Thesis map", "node_count": 12, "outline": "…"}
+    )
+    assert rows == [{"kind": "map", "id": 7, "label": "Thesis map"}]
+
+
+def test_a_created_map_is_named_from_title_when_there_is_no_board_title():
+    """`create_mindmap` returns `title`, `read_mindmap` returns `board_title`.
+    Both are the map's name, and a chip reading "map #12" for one of them
+    would be the same bug wearing a different key."""
+    from memorymap.ai import agent
+
+    rows = agent._touched_items({"board_id": 12, "title": "New map", "root_id": 3})
+    assert rows == [{"kind": "map", "id": 12, "label": "New map"}]
+
+
+def test_a_result_with_no_board_id_still_contributes_nothing():
+    from memorymap.ai import agent
+
+    assert agent._touched_items({"ok": True}) == []
+
+
+def test_a_map_and_its_notes_are_a_node_and_edges_in_the_graph(client):
+    """MINDMAP_PLAN.md §5 item 13, and the §3.3 rule it settles: a map's
+    *membership* is a link, a node's *position* is not."""
+    note = client.post("/entries", json={"content": "Gradient descent"}).json()
+    other = client.post("/entries", json={"content": "Backprop"}).json()
+    board = _map(client, name="ML map")
+    root = _node(client, board["id"], text="Root")
+    _node(client, board["id"], parent_id=root["id"], kind="note", ref_id=note["id"])
+    _node(client, board["id"], parent_id=root["id"], kind="note", ref_id=other["id"])
+    # A topic is not a note and must never become a graph edge.
+    _node(client, board["id"], parent_id=root["id"], text="Just a thought")
+
+    data = client.get("/graph?include_maps=true").json()
+    map_edges = [e for e in data["edges"] if e["kind"] == "map"]
+    assert sorted(e["target"] for e in map_edges) == sorted([note["id"], other["id"]])
+    assert {e["source"] for e in map_edges} == {board["id"]}
+
+    # The board is the node it already was — marked, not duplicated.
+    ids = [n["id"] for n in data["nodes"]]
+    assert ids.count(board["id"]) == 1
+    node = next(n for n in data["nodes"] if n["id"] == board["id"])
+    assert node["type"] == "map"
+
+
+def test_map_edges_are_opt_in(client):
+    """Same contract as `include_entities` and `include_documents`: an existing
+    caller that assumes every edge joins two notes it retrieved keeps working
+    unasked."""
+    note = client.post("/entries", json={"content": "Gradient descent"}).json()
+    board = _map(client, name="ML map")
+    _node(client, board["id"], kind="note", ref_id=note["id"])
+
+    data = client.get("/graph").json()
+    assert [e for e in data["edges"] if e["kind"] == "map"] == []
+    node = next(n for n in data["nodes"] if n["id"] == board["id"])
+    assert "type" not in node
+
+
+def test_an_ordinary_whiteboard_is_marked_as_a_board_not_a_map(client):
+    """A board of either kind is not a note the way every other graph node is,
+    and one drawn as a note with a `# heading` for a label says so to nobody."""
+    board = client.post("/whiteboard/boards", json={"name": "Sketches"}).json()
+    data = client.get("/graph?include_maps=true").json()
+    node = next(n for n in data["nodes"] if n["id"] == board["id"])
+    assert node["type"] == "board"
+
+
+def test_a_map_node_pointing_at_a_deleted_note_makes_no_dangling_edge(client, session):
+    """d3 silently drops an edge naming a node it never received, so a
+    dangling edge is an invisible failure rather than a visible one."""
+    note = client.post("/entries", json={"content": "Temporary"}).json()
+    board = _map(client, name="ML map")
+    _node(client, board["id"], kind="note", ref_id=note["id"])
+    client.delete(f"/entries/{note['id']}")
+    session.expire_all()
+
+    data = client.get("/graph?include_maps=true").json()
+    ids = {n["id"] for n in data["nodes"]}
+    for edge in data["edges"]:
+        assert edge["source"] in ids and edge["target"] in ids
+
+
+def test_a_document_node_on_a_map_is_not_a_graph_edge(client):
+    """Only a *note* reference is an edge here: a document node's id is a
+    Document id, and emitting it into a space of Entry ids would join the map
+    to whichever unrelated note happened to share the number."""
+    board = _map(client, name="Reading")
+    document = client.post("/documents", json={"title": "Paper", "content": "x"}).json()
+    _node(client, board["id"], kind="document", ref_id=document["id"])
+
+    data = client.get("/graph?include_maps=true").json()
+    assert [e for e in data["edges"] if e["kind"] == "map"] == []
+
+
+# --- Phase 3: attaching a map to a chat message (MINDMAP_PLAN.md §5 item 11)
+
+
+def _prepared(**body):
+    """What `_prepare` hands the model, for a question with attachments.
+
+    Called directly rather than through `POST /chat` because that endpoint
+    needs a running model to answer, and this is a test about what the model
+    is *given*, not about what it says back.
+    """
+    from memorymap.api import routes_chat
+    from memorymap.core import deps
+
+    session = deps.get_db().session()
+    try:
+        return routes_chat._prepare(
+            session, body.pop("question", "what is on it?"), **body
+        )
+    finally:
+        session.close()
+
+
+def test_an_attached_map_reaches_the_model_as_its_outline(client):
+    """The whole reason `board_ids` is its own field: a board IS an Entry, so
+    `note_ids` would have carried it — and a board's content is the single
+    line `# My map`, so attaching one as a note sends the model a heading and
+    calls it a map."""
+    board = _map(client, name="Thesis")
+    root = _node(client, board["id"], text="Argument")
+    _node(client, board["id"], parent_id=root["id"], text="Evidence")
+    _node(client, board["id"], parent_id=root["id"], text="Counterpoint")
+
+    prepared = _prepared(board_ids=[board["id"]])
+    rows = [n for n in prepared["notes"] if n.get("category") == "Mind map"]
+    assert len(rows) == 1
+    content = rows[0]["content"]
+    assert "Mind map: Thesis" in content
+    assert "3 nodes" in content
+    # Indented, one node per line — the shape the plan chose for a small model.
+    assert "- Argument" in content
+    assert "  - Evidence" in content
+    assert "  - Counterpoint" in content
+    assert rows[0]["attached"] is True
+
+
+def test_a_reference_node_says_what_kind_it_is_in_the_outline(client):
+    """"Which of these is a real note?" has to be answerable from the outline
+    without a second call — the same reason `read_mindmap` marks them."""
+    note = client.post("/entries", json={"content": "Gradient descent"}).json()
+    board = _map(client, name="ML")
+    root = _node(client, board["id"], text="Root")
+    _node(client, board["id"], parent_id=root["id"], kind="note", ref_id=note["id"])
+
+    content = [
+        n for n in _prepared(board_ids=[board["id"]])["notes"]
+        if n.get("category") == "Mind map"
+    ][0]["content"]
+    assert "Gradient descent [note]" in content
+
+
+def test_attaching_a_map_makes_the_turn_about_the_notebook(client):
+    """Same override the other three attachment kinds already apply: "what do
+    you think?" with a map clipped to it is a question about that map, however
+    smalltalk-shaped it reads."""
+    from memorymap.ai import intent
+
+    board = _map(client, name="Thesis")
+    _node(client, board["id"], text="Argument")
+    assert _prepared(question="hey", board_ids=[board["id"]])["intent"] == intent.NOTES
+
+
+def test_a_private_board_is_never_attached(client, session):
+    """Attaching is a deliberate act, so this is not the guard that matters —
+    but `read_mindmap` refuses a private board on the AI's behalf, and one
+    reaching the model through a different door would make that decorative."""
+    board = _map(client, name="Secret")
+    _node(client, board["id"], text="SECRET plan")
+    session.get(Entry, board["id"]).is_private = True
+    session.commit()
+
+    prepared = _prepared(board_ids=[board["id"]])
+    assert [n for n in prepared["notes"] if n.get("category") == "Mind map"] == []
+    assert "SECRET" not in json.dumps(prepared["notes"])
+
+
+def test_an_empty_map_says_it_is_empty_rather_than_nothing(client):
+    """A chip in the transcript corresponding to nothing at all is the failure
+    `document_ids` already shipped once (routes_chat.py says so by name)."""
+    board = _map(client, name="Blank")
+    content = [
+        n for n in _prepared(board_ids=[board["id"]])["notes"]
+        if n.get("category") == "Mind map"
+    ][0]["content"]
+    assert "(empty — no nodes yet)" in content
+
+
+def test_a_long_outline_is_truncated_to_the_budget(client):
+    """Every character here is resent on every round of the turn."""
+    from memorymap.api import routes_chat
+
+    board = _map(client, name="Huge")
+    root = _node(client, board["id"], text="Root")
+    for i in range(400):
+        _node(client, board["id"], parent_id=root["id"], text=f"Node number {i} with words")
+
+    content = [
+        n for n in _prepared(board_ids=[board["id"]])["notes"]
+        if n.get("category") == "Mind map"
+    ][0]["content"]
+    assert "[…truncated]" in content
+    assert len(content) < routes_chat.ATTACHED_MAP_CHARS + 400
+
+
+def test_the_chat_request_caps_attached_maps_at_four(client):
+    """Matching `document_ids` and `file_ids`, and the composer's own ceiling."""
+    refused = client.post(
+        "/chat", json={"question": "hi", "board_ids": [1, 2, 3, 4, 5]}
+    )
+    assert refused.status_code == 422
+
+
+def test_a_board_id_that_is_not_a_board_contributes_nothing(client):
+    """A deleted map, or an id typed by hand. Skipped in silence rather than
+    refused: the message is still worth answering."""
+    prepared = _prepared(board_ids=[99999])
+    assert [n for n in prepared["notes"] if n.get("category") == "Mind map"] == []

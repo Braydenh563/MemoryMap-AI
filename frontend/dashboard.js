@@ -2645,7 +2645,7 @@ wireBackdropClose($("features-overlay"), () => closeFeatures());
 // "no data".
 
 /** A row that opens something other than a note, styled like `.dash-list`. */
-function dashActionRow(ul, { title, meta, onOpen, hint, thumb }) {
+function dashActionRow(ul, { title, meta, onOpen, hint, thumb, chip = null }) {
   const li = document.createElement("li");
   if (thumb) {
     li.classList.add("dash-has-thumb");
@@ -2653,9 +2653,16 @@ function dashActionRow(ul, { title, meta, onOpen, hint, thumb }) {
   }
   const text = document.createElement("span");
   text.className = "dash-list-text";
-  const titleEl = document.createElement("span");
-  titleEl.className = "dash-list-title";
-  titleEl.textContent = title;
+  //: `chip` stands in for the plain title when the row is a thing the app has
+  //: a chip for — a mind map, so far. Not *beside* the title: the chip already
+  //: carries the title, and drawing both would say the same words twice on one
+  //: row. The chip passed here is the non-interactive form (`mapChip`'s own
+  //: comment says why), because this `<li>` is already `role="button"`.
+  const titleEl = chip || document.createElement("span");
+  if (!chip) {
+    titleEl.className = "dash-list-title";
+    titleEl.textContent = title;
+  }
   text.appendChild(titleEl);
   if (meta) {
     const metaEl = document.createElement("span");
@@ -2709,17 +2716,22 @@ async function renderBoardsWidget(body) {
   const ul = document.createElement("ul");
   ul.className = "dash-list";
   for (const board of ranked) {
-    const parts = [];
-    if (board.node_count) parts.push(`${board.node_count} card${board.node_count === 1 ? "" : "s"}`);
-    if (board.sketch_count) parts.push(`${board.sketch_count} sketch${board.sketch_count === 1 ? "" : "es"}`);
-    if (board.object_count) parts.push(`${board.object_count} image${board.object_count === 1 ? "" : "s"}`);
     dashActionRow(ul, {
       title: board.title,
-      meta: parts.join(" · "),
-      hint: "Open this board",
+      // `mapCountLabel` (app.js) rather than three lines here. The three lines
+      // it replaces called a map's objects "images", which is the wrong noun
+      // for the only thing on a map — the Library card had already been fixed
+      // and this copy had not, which is precisely what §5 item 12 is about.
+      meta: mapCountLabel(board),
+      hint: board.type === "map" ? "Open this map" : "Open this board",
       thumb: dashBoardThumb(board),
       // `openWhiteboardBoard` handles the tab and sub-tab switch itself.
       onOpen: () => openWhiteboardBoard(board.id),
+      // **A map says it is one, in the row.** The row's title is a bare
+      // string, so before this a map and a whiteboard were the same row with
+      // different words in it. `mapChip` is the app's one map chip, so this
+      // reads identically to a map in a note, on the timeline and in the chat.
+      chip: board.type === "map" ? mapChip(board, { count: false, interactive: false }) : null,
     });
   }
   body.appendChild(ul);
@@ -2728,29 +2740,20 @@ async function renderBoardsWidget(body) {
 /**
  * The same miniature the Library's board cards draw, at widget-row size.
  *
- * Reuses `preview_items` — positions already normalised into 0..1 against the
- * board's own bounds by the server — so this shows the real layout without
- * the dashboard ever loading a board.
+ * **One renderer, not two.** This used to be its own 20-line copy that drew
+ * `preview_items` and nothing else — no `preview_edges` — so a map in the
+ * dashboard previewed as a scatter of dots while the identical map in the
+ * Library previewed as a tree. Structure is the entire difference between a
+ * map and a board, so the one place it was missing was the one place it
+ * mattered. `mapPreview` (app.js) is now the only place this picture exists;
+ * MINDMAP_PLAN.md §5 item 12 asked for exactly that.
  */
 function dashBoardThumb(board) {
-  const items = Array.isArray(board.preview_items) ? board.preview_items : [];
-  if (!items.length) return null;
-  const NS = "http://www.w3.org/2000/svg";
-  const svg = document.createElementNS(NS, "svg");
-  svg.setAttribute("class", "dash-list-thumb dash-board-thumb");
-  svg.setAttribute("viewBox", "0 0 40 40");
-  svg.setAttribute("preserveAspectRatio", "none");
-  svg.setAttribute("aria-hidden", "true");
-  for (const item of items) {
-    const dot = document.createElementNS(NS, "rect");
-    // Attributes, never an inline `style` string — this app's CSP drops those.
-    dot.setAttribute("x", String(3 + (Number(item.x) || 0) * 34));
-    dot.setAttribute("y", String(3 + (Number(item.y) || 0) * 34));
-    dot.setAttribute("width", item.kind === "sketch" ? "2" : "4");
-    dot.setAttribute("height", item.kind === "sketch" ? "2" : "3");
-    dot.setAttribute("class", `dash-board-thumb-${item.kind === "sketch" ? "sketch" : "card"}`);
-    svg.append(dot);
-  }
+  const svg = mapPreview(board, { size: "row" });
+  if (!svg) return null;
+  // The row's own thumbnail classes, on top of the shared `.board-minimap`
+  // ones — sizing belongs to the row, the drawing belongs to the map.
+  svg.classList.add("dash-list-thumb", "dash-board-thumb");
   return svg;
 }
 

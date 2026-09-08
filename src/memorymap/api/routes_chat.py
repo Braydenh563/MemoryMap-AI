@@ -233,6 +233,17 @@ class ChatRequest(BaseModel):
     # is extracted at request time by the same `core.docview` the file viewer
     # uses, so what the model reads is what the Files tab shows.
     file_ids: list[int] = Field(default_factory=list, max_length=4)
+    # Mind maps attached by hand (MINDMAP_PLAN.md §5 item 11: "a map can be
+    # attached to a note, a document and a chat message, exactly as a file can
+    # today — routes_chat.py's `file_ids` is the pattern to copy"). A map is a
+    # board, which is an Entry, so this *could* have gone through `note_ids` —
+    # and that is exactly what must not happen: a board's `content` is the
+    # single line `# My map`, so attaching one that way sends the model a
+    # heading and calls it a map. What reaches the model instead is the
+    # outline `read_mindmap` builds, which is the form the plan chose for a
+    # small model to act on. Capped at 4, matching `document_ids`/`file_ids`
+    # and the composer's own ceiling.
+    board_ids: list[int] = Field(default_factory=list, max_length=4)
     # Vision-capable models (ROADMAP.md's largest open item): ids from the
     # existing `/media/upload` (the same endpoint the document/note editors
     # already use for drag-and-drop images), not a second upload path. Small
@@ -631,6 +642,82 @@ def _attached_files(session: Session, file_ids: list[int]) -> list[dict]:
     return found
 
 
+#: How much of one attached map's outline reaches the model.
+#:
+#: Smaller than `ATTACHED_FILE_CHARS` by an order of magnitude, on purpose: a
+#: file is prose the model reads once, while an outline is *structure*, and
+#: past a few hundred nodes the tree stops being context and becomes the whole
+#: window — `read_mindmap`'s own `MAX_OUTLINE_NODES` makes the same call for
+#: the same reason. Four maps at this cap is ~12k characters, the same ceiling
+#: one attached file already has, and every character is resent on every round
+#: of the turn.
+ATTACHED_MAP_CHARS = 3000
+
+
+def _attached_boards(session: Session, board_ids: list[int]) -> list[dict]:
+    """The mind maps the user attached, as note-shaped context rows holding
+    the same indented outline `read_mindmap` returns.
+
+    **One renderer, not two.** The outline is built by calling the map tool's
+    own helpers rather than by walking the tree again here: the agent, the
+    export and this must not disagree about what a map says, and a second walk
+    is how they come to (§9.1 lists three edge cases — a dangling parent, a
+    ring, board scoping — that a second copy gets subtly differently).
+
+    A private board is skipped in silence rather than refused. Attaching is a
+    deliberate act, so this is not the guard that matters — but `read_mindmap`
+    refuses a private board on the AI's behalf, and a hand-attached one
+    reaching the model by a different door would make that guard decorative.
+    """
+    from memorymap.api.routes_whiteboard import _board_settings, _build_tree, _map_objects
+    from memorymap.entry import manager as entry_manager
+
+    found: list[dict] = []
+    for board_id in dict.fromkeys(board_ids):
+        entry = session.get(Entry, board_id)
+        if entry is None or entry.is_deleted or entry.is_private:
+            continue
+        board_type, _layout = _board_settings(entry)
+        title = entry_manager.extract_title(entry.content) or f"Board {board_id}"
+        objects = _map_objects(session, board_id)
+        lines: list[str] = []
+        _outline_into(_build_tree(session, objects), 0, lines)
+        outline = "\n".join(lines) if lines else "(empty — no nodes yet)"
+        if len(outline) > ATTACHED_MAP_CHARS:
+            outline = outline[:ATTACHED_MAP_CHARS] + "\n[…truncated]"
+        found.append(
+            {
+                "id": board_id,
+                "content": (
+                    f"Mind map: {title}\n"
+                    f"({len(objects)} node{'' if len(objects) == 1 else 's'}, "
+                    f"laid out as a {board_type})\n\n{outline}"
+                ),
+                "category": "Mind map",
+                "attached": True,
+                "connected": False,
+                "match_info": None,
+            }
+        )
+    return found
+
+
+def _outline_into(nodes: list[dict], depth: int, out: list[str]) -> None:
+    """The tree as indented text — two spaces per level, one node per line.
+
+    The same shape `ai/tools/whiteboard.py::_outline_lines` produces, minus its
+    `[id N]` markers: those exist so the *model* can name a node in the next
+    tool call, and an attached map is context for a question, not a handle for
+    an edit. Keeping the ids would spend a third of the budget on numbers
+    nothing in this path can use.
+    """
+    for node in nodes:
+        text = node["text"] or "(untitled)"
+        mark = "" if node["kind"] == "topic" else f" [{node['kind']}]"
+        out.append(f"{'  ' * depth}- {text}{mark}")
+        _outline_into(node["children"], depth + 1, out)
+
+
 #: At most this many pictures from one note are described to the model, and at
 #: most this much of each reading. A note can hold a dozen scans; the readings
 #: are a *hint* about what is in the note, not a second copy of the notebook,
@@ -745,6 +832,7 @@ def _prepare(
     attached_notes_only: bool = False,
     document_ids: list[int] | None = None,
     file_ids: list[int] | None = None,
+    board_ids: list[int] | None = None,
     surface: str = ASK_SURFACE,
 ) -> dict:
     """The shared first half of both chat endpoints: retrieve entries,
@@ -770,7 +858,8 @@ def _prepare(
     attached = _attached_notes(session, note_ids or [])
     attached_docs = _attached_documents(session, document_ids or [])
     attached_files = _attached_files(session, file_ids or [])
-    if attached or attached_docs or attached_files:
+    attached_boards = _attached_boards(session, board_ids or [])
+    if attached or attached_docs or attached_files or attached_boards:
         detected = intent.NOTES
     #: **A question about the notebook's shape is answered by counting it.**
     #: Asked for directly: "enhance the semantic search so it can pick up stuff
@@ -877,6 +966,8 @@ def _prepare(
     )
     # Library files, already shaped as context rows by `_attached_files`.
     notes.extend(attached_files)
+    # Mind maps, likewise — `_attached_boards` builds the outline.
+    notes.extend(attached_boards)
     config = deps.get_config()
     profile = (
         config.get_preference("user_profile", "")
@@ -939,6 +1030,7 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         attached_notes_only=body.attached_notes_only,
         document_ids=body.document_ids,
         file_ids=body.file_ids,
+        board_ids=body.board_ids,
         # This endpoint has no tool loop — it retrieves and answers, nothing
         # else — so every turn through it is an ask by construction.
         surface=ASK_SURFACE,
@@ -1358,6 +1450,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
             attached_notes_only=body.attached_notes_only,
             document_ids=body.document_ids,
             file_ids=body.file_ids,
+            board_ids=body.board_ids,
             # Asking vs requesting, decided from what the caller can already
             # do rather than from a new flag: `notes_only` is the Notes tab's
             # Ask box, and tools-off is the Chat tab's Ask mode. Anything that

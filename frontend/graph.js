@@ -1373,9 +1373,13 @@ async function renderGraph() {
   // above: a document's edge is a link to a *note*, and /graph/local's own
   // depth-limited BFS has no equivalent concept yet.
   const wantDocuments = $("graph-documents")?.checked;
+  // MINDMAP_PLAN.md §5 item 13 — same "top-level graph only" scope as the two
+  // above, and for the same reason: a map's edge is membership of a *note*,
+  // and /graph/local's depth-limited BFS has no equivalent concept yet.
+  const wantMaps = $("graph-maps")?.checked;
   const endpoint = graphFocusModeId
     ? `/graph/local/${graphFocusModeId}?depth=2&similarity=${wantSimilarity}`
-    : `/graph?${wantSimilarity ? "similarity=true&" : ""}${wantEntities ? "include_entities=true&" : ""}${wantDocuments ? "include_documents=true" : ""}`;
+    : `/graph?${wantSimilarity ? "similarity=true&" : ""}${wantEntities ? "include_entities=true&" : ""}${wantDocuments ? "include_documents=true&" : ""}${wantMaps ? "include_maps=true" : ""}`;
     
   const data = await apiJson(endpoint).catch(() => null);
   if (!data) return;
@@ -2216,7 +2220,7 @@ async function renderGraph() {
 
   // A plain-language readout of what's on screen, so the map isn't a
   // mystery: how many notes and what kinds of connections link them.
-  const counts = { link: 0, thread: 0, similar: 0, filing: 0 };
+  const counts = { link: 0, thread: 0, similar: 0, filing: 0, map: 0 };
   for (const e of edges) counts[e.kind] = (counts[e.kind] || 0) + 1;
   const noteCount = nodes.filter((n) => !n.isGroup).length;
   const parts = [`${noteCount} note${noteCount === 1 ? "" : "s"}`];
@@ -2224,6 +2228,10 @@ async function renderGraph() {
   if (counts.thread) parts.push(`${counts.thread} thread${counts.thread === 1 ? "" : "s"}`);
   if (counts.similar) parts.push(`${counts.similar} similarity line${counts.similar === 1 ? "" : "s"}`);
   if (counts.filing) parts.push(`${counts.filing} filed under a category`);
+  // "on a mind map", not "map link": the edge means this note is a node on
+  // that map, and naming the relationship is the whole reason this line
+  // exists rather than a legend of colours.
+  if (counts.map) parts.push(`${counts.map} on a mind map`);
   // In cluster mode the structural facts replace the "bigger notes are the
   // ones you use most" hint, because they are what the colours are now saying.
   const shape =

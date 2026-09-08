@@ -575,6 +575,26 @@ def _touched_items(result: dict) -> list[dict]:
         if isinstance(value, list):
             for item in value:
                 _take(item)
+
+    #: **A mind map, which is named by `board_id` and not by `id`.**
+    #: MINDMAP_PLAN.md §5 item 12 asks for a map chip in the chat transcript,
+    #: and without this the four map tools contributed *nothing* to it:
+    #: `read_mindmap`, `create_mindmap`, `add_map_node` and `link_map_nodes`
+    #: all return `board_id` (plus `board_title` or `title`), so `_take`'s
+    #: `candidate.get("id")` found no id and the row was dropped — a turn that
+    #: read a whole map showed a bare tool name and no way to open it.
+    #:
+    #: Read here rather than by teaching `_take` about a second id field: `id`
+    #: means "a note or a document" everywhere else in this function, and a
+    #: board id in that space would be opened as a note by the front end,
+    #: which is the exact confusion `_touched_kind`'s own comment is about.
+    board_id = result.get("board_id")
+    if isinstance(board_id, int) and len(rows) < TOUCHED_LIMIT:
+        title = result.get("board_title") or result.get("title") or ""
+        label = " ".join(str(title).split())[:60] or f"map #{board_id}"
+        if ("map", board_id) not in seen:
+            seen.add(("map", board_id))
+            rows.append({"kind": "map", "id": board_id, "label": label})
     return rows
 
 

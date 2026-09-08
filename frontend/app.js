@@ -1442,6 +1442,234 @@ function smallButton(label, title, onClick, ghost = true) {
   return button;
 }
 
+// --- one map chip and one map preview, used everywhere ----------------------
+//
+//: MINDMAP_PLAN.md §5 item 12, and the sentence in it that is the whole
+//: reason this exists: *"One `mapChip()` and one `mapPreview()`, used by all
+//: of them — the app's recurring failure is the same object drawn five
+//: ways."*
+//:
+//: It had already happened twice before this was written. The Library's board
+//: card (`renderLibraryBoardsGallery`, whiteboard.js) drew the minimap with
+//: edges, labels, a sketch squiggle and an edge-aware label side; the
+//: dashboard's boards widget (`dashBoardThumb`, dashboard.js) drew the *same*
+//: `preview_items` at a different scale with **no edges at all**, so the one
+//: fact that distinguishes a map from a board was missing from one of the two
+//: places a map appears. Neither was wrong on its own; they were two opinions
+//: of one picture.
+//:
+//: Lives in app.js because five files draw these — whiteboard.js, dashboard.js,
+//: the timeline and the note renderer here, and the chat transcript — and
+//: app.js is the one loaded before all of them (see index.html's script
+//: order).
+
+//: The sizes a preview is ever drawn at. A named size rather than a pair of
+//: numbers per call site: "the Library card's minimap" and "the dashboard
+//: row's thumbnail" are the two real cases, and letting each caller pass its
+//: own geometry is how the two drifted apart in the first place.
+//:
+//: `labels` is off at row size deliberately. Sixteen characters beside a 9×6
+//: block is a legible texture in a 100×56 card; the same text in a 40×40
+//: thumbnail is a smear.
+const MAP_PREVIEW_SIZES = {
+  card: { w: 100, h: 56, pad: 3, blockW: 9, blockH: 6, labels: true },
+  row: { w: 40, h: 40, pad: 3, blockW: 4, blockH: 3, labels: false },
+};
+
+//: A miniature of what is actually on a board, from `preview_items` /
+//: `preview_edges` — positions already normalised into 0..1 against the
+//: board's own bounds by `routes_whiteboard._board_preview`, so this draws the
+//: real layout without the client ever loading the board.
+//:
+//: Returns null for a board with nothing on it. That is deliberate and is not
+//: the same as drawing an empty rectangle: the card's "Empty map" line says
+//: more than a blank box would, and the caller decides whether it wants a
+//: placeholder (the Library's rows mode does, so its rows all start at the
+//: same x).
+//:
+//: Built with SVG attributes and never an inline `style` string: this app's
+//: CSP drops those outright, and thirty-five of them once shipped as silently
+//: dead markup (CLAUDE.md, "a policy silently refusing the work").
+function mapPreview(board, { size = "card" } = {}) {
+  const geo = MAP_PREVIEW_SIZES[size] || MAP_PREVIEW_SIZES.card;
+  const items = Array.isArray(board?.preview_items) ? board.preview_items : [];
+  if (!items.length) return null;
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("class", `board-minimap board-minimap-${size}`);
+  svg.setAttribute("viewBox", `0 0 ${geo.w} ${geo.h}`);
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.setAttribute("aria-hidden", "true");
+  // The drawable box, inset by the padding on both sides so an item at the
+  // extreme edge of the board lands inside the thumbnail rather than half
+  // outside it.
+  const spanX = geo.w - geo.pad * 2 - geo.blockW;
+  const spanY = geo.h - geo.pad * 2 - geo.blockH;
+  const px = (x) => geo.pad + (Number(x) || 0) * spanX;
+  const py = (y) => geo.pad + (Number(y) || 0) * spanY;
+
+  //: **The tree, drawn first so the lines sit under the blocks** rather than
+  //: across their labels. `preview_edges` is the parent→child segments in the
+  //: same normalised space as the items (§9.1); an ordinary board ships an
+  //: empty list and this loop does nothing, which is exactly the difference
+  //: between the two kinds that a scatter of dots cannot show.
+  for (const edge of Array.isArray(board.preview_edges) ? board.preview_edges : []) {
+    const line = document.createElementNS(NS, "line");
+    line.setAttribute("class", "board-minimap-edge");
+    // +half a block: a line should meet the centre of what it joins, and a
+    // block is drawn from its top-left corner.
+    line.setAttribute("x1", String(px(edge.x1) + geo.blockW / 2));
+    line.setAttribute("y1", String(py(edge.y1) + geo.blockH / 2));
+    line.setAttribute("x2", String(px(edge.x2) + geo.blockW / 2));
+    line.setAttribute("y2", String(py(edge.y2) + geo.blockH / 2));
+    svg.appendChild(line);
+  }
+
+  for (const item of items) {
+    const nx = px(item.x);
+    const ny = py(item.y);
+    if (item.kind === "sketch") {
+      // A sketch is strokes, and the thumbnail does not have them — stroke
+      // data is the one thing `preview_items` deliberately does not ship. A
+      // squiggle says "something drawn here", which is the fact that was
+      // missing entirely: a sketch-only board previewed as an empty rectangle
+      // beside a line reading "2 sketches".
+      const mark = document.createElementNS(NS, "path");
+      mark.setAttribute("class", "board-minimap-sketch");
+      const unit = geo.blockW / 1.8;
+      mark.setAttribute("d", `M${nx} ${ny + geo.blockH * 0.8} q${unit / 2} ${-unit} ${unit} 0 t${unit} 0`);
+      svg.appendChild(mark);
+      continue;
+    }
+    const dot = document.createElementNS(NS, "rect");
+    dot.setAttribute("class", item.kind === "card" ? "board-minimap-card" : "board-minimap-object");
+    dot.setAttribute("x", String(nx));
+    dot.setAttribute("y", String(ny));
+    dot.setAttribute("width", String(geo.blockW));
+    dot.setAttribute("height", String(geo.blockH));
+    dot.setAttribute("rx", "1.5");
+    svg.appendChild(dot);
+    if (!geo.labels || !item.label) continue;
+    //: **What the item says**, which is why this stopped being a list of bare
+    //: points. Reported as "the whiteboard preview is poor", and the
+    //: screenshot was three boards named "Cloud computing" showing three
+    //: identical arrangements of blank grey rectangles — a picture that could
+    //: not tell them apart, which is what a preview is for.
+    const text = document.createElementNS(NS, "text");
+    text.setAttribute("class", "board-minimap-label");
+    //: **Which side of the block the label sits on.** Drawn always to the
+    //: right in the first version, and looking at the result showed the
+    //: problem immediately: an item at the far right of a board is at nx ≈ 91
+    //: in a 100-wide viewBox, so its label ran off the edge and came out
+    //: sliced mid-word ("Cloud computi"). Past halfway it hangs off the left
+    //: instead, which is the same amount of room from the other direction.
+    const rightHalf = nx > geo.w / 2;
+    text.setAttribute("x", String(rightHalf ? nx - 1.5 : nx + geo.blockW + 1.5));
+    text.setAttribute("y", String(ny + geo.blockH * 0.73));
+    if (rightHalf) text.setAttribute("text-anchor", "end");
+    // An ellipsis rather than a bare slice: "Connections prob" reads as
+    // broken, "Connections pro…" reads as shortened.
+    text.textContent =
+      item.label.length > 16 ? `${item.label.slice(0, 15).trimEnd()}…` : item.label;
+    svg.appendChild(text);
+  }
+  return svg;
+}
+
+//: How many things are on a board, as the sentence a person reads. On a map
+//: the objects *are* the nodes, so calling them "images" — which every surface
+//: did before maps existed — is simply the wrong noun for the only thing on
+//: the board.
+function mapCountLabel(board) {
+  const isMap = board?.type === "map";
+  const nodes = board?.node_count || 0;
+  const sketches = board?.sketch_count || 0;
+  const objects = board?.object_count || 0;
+  const parts = [];
+  if (nodes) parts.push(`${nodes} card${nodes === 1 ? "" : "s"}`);
+  if (sketches) parts.push(`${sketches} sketch${sketches === 1 ? "" : "es"}`);
+  if (objects) {
+    parts.push(isMap
+      ? `${objects} node${objects === 1 ? "" : "s"}`
+      : `${objects} image${objects === 1 ? "" : "s"}`);
+  }
+  return parts.length ? parts.join(" · ") : isMap ? "Empty map" : "Empty board";
+}
+
+//: **A map as a chip**: its icon, its title and how many nodes it holds, and
+//: pressing it opens the map. The one control every surface uses to refer to a
+//: map in passing — a note body, the timeline, a dashboard row, the chat
+//: transcript.
+//:
+//: A `<button>`, not a link: opening a map is a tab switch plus a board load
+//: (`openWhiteboardBoard` does both), not a navigation this app has a URL for.
+//: `.map-chip` sits on `.chip`, the app's own recipe, so it inherits the chip
+//: height, radius and hover state rather than inventing a fourth pill shape.
+//:
+//: `board` may be as little as `{id, title}` — the chat transcript has an id
+//: and a label and nothing else. The count line is simply omitted then, rather
+//: than the chip refusing to draw or claiming "0 nodes".
+//:
+//: **`interactive: false` draws the same chip as a `<span>` with no handler**,
+//: for the one context where the thing around it is already the control: the
+//: dashboard's board rows are `role="button"` list items, and a `<button>`
+//: inside one is a nested interactive control — two tab stops that do the same
+//: thing, which is worse for a keyboard user than no chip at all. The chip is
+//: identical to look at either way; only the element and the listener differ.
+function mapChip(board, { onOpen = null, count = true, interactive = true } = {}) {
+  const chip = document.createElement(interactive ? "button" : "span");
+  if (interactive) chip.type = "button";
+  chip.className = "chip map-chip";
+  const isMap = board?.type !== "board";
+  const title = board?.title || "Untitled map";
+  setLabel(chip, `${isMap ? "ph:tree-structure" : "ph:squares-four"} ${title}`);
+  const known = board && (board.object_count != null || board.node_count != null);
+  if (count && known) {
+    const meta = document.createElement("span");
+    meta.className = "map-chip-count";
+    meta.textContent = mapCountLabel(board);
+    chip.appendChild(meta);
+  }
+  chip.title = known
+    ? `${title} — ${mapCountLabel(board)}${interactive ? ". Press to open it." : ""}`
+    : interactive
+      ? `Open “${title}”`
+      : title;
+  if (interactive) {
+    chip.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (onOpen) onOpen(board);
+      else if (typeof openWhiteboardBoard === "function") openWhiteboardBoard(board?.id ?? null);
+    });
+  }
+  return chip;
+}
+
+//: Every board the notebook has, by id, for the surfaces that are handed an
+//: *entry* id and have to find out whether it is a board.
+//:
+//: One shared cache rather than a fetch per surface: the timeline paints a
+//: hundred dots and the note list paints a chip per wiki link, and neither can
+//: afford a request each. `apiJson`'s own `cacheMs` does the de-duplication —
+//: this only holds the id→row index built from it, which is the part that
+//: would otherwise be rebuilt per dot.
+let mapBoardIndexCache = null;
+
+async function loadMapBoardIndex() {
+  const rows = await apiJson("/whiteboard/boards", { cacheMs: 8000, silent: true }).catch(() => null);
+  if (!rows) return mapBoardIndexCache || new Map();
+  mapBoardIndexCache = new Map(rows.filter((b) => b.id != null).map((b) => [b.id, b]));
+  return mapBoardIndexCache;
+}
+
+//: The board behind an entry id, or null — synchronous, because the callers
+//: are inside a render loop. Returns null until `loadMapBoardIndex` has run
+//: once, which is a surface that has not asked for boards yet rather than an
+//: error: it degrades to the plain note rendering it had before.
+function mapBoardById(id) {
+  return mapBoardIndexCache?.get(id) || null;
+}
+
 //: **The star that says a note is a favourite, in both states.**
 //:
 //: Reported with a screenshot: the active one rendered as an **empty circle**
@@ -5548,6 +5776,185 @@ function pickEntryDialog(message) {
   });
 }
 
+//: **Choose any one thing the library holds** — a note, a document, a file or
+//: a saved link — as `{kind, id, label}`.
+//:
+//: A fourth chooser only because the three that exist answer different
+//: questions. `pickEntryDialog` above returns a *note* and nothing else;
+//: `pickMediaDialog` below returns an upload; the chat dock's
+//: `#note-picker-panel` is a multi-select bound to the composer's own
+//: attachment lists, so borrowing it would give it two owners (its own
+//: comment says as much). This one returns exactly one item and says which of
+//: the four tables it came from, which is what a map's reference node needs:
+//: `POST /whiteboard/boards/{id}/nodes` takes a `kind` and a `ref_id` and
+//: resolves the label itself (MINDMAP_PLAN.md §9.2 — a copied title goes
+//: stale the moment the thing behind it is renamed).
+//:
+//: `kind` is deliberately the *server's* vocabulary — note / document / file
+//: / link, `MAP_REFERENCE_KINDS` in routes_whiteboard.py — rather than a
+//: display word, so a caller never has to translate between what the picker
+//: says and what the endpoint accepts.
+const LIBRARY_PICK_SOURCES = [
+  { kind: "note", label: "Notes", icon: "ph:note", placeholder: "Search your notes…" },
+  { kind: "document", label: "Documents", icon: "ph:file-text", path: "/documents", placeholder: "Search your documents…" },
+  { kind: "file", label: "Files", icon: "ph:paperclip", path: "/files/gallery", placeholder: "Search your files…" },
+  { kind: "link", label: "Links", icon: "ph:link-simple", path: "/bookmarks", placeholder: "Search your links…" },
+];
+
+//: One row's label per source, in one table for the reason `notePickerShape`
+//: gives for its own: the renderer is the same list either way, and four
+//: copies of it is how the four drift apart.
+function libraryPickLabel(kind, row) {
+  if (kind === "note") return noteLabel(row, 70);
+  if (kind === "document") return row.title || "Untitled document";
+  if (kind === "file") return row.original_name || row.filename || "File";
+  return row.title || row.url || "Link";
+}
+
+//: Fetched once per dialog rather than per keystroke, and per source rather
+//: than all four up front — the same two rules `notePickerRows` follows, and
+//: for the same reason: three of these lists are never looked at by someone
+//: who came to point at a note.
+function pickLibraryItemDialog(message, { sources = null } = {}) {
+  const available = LIBRARY_PICK_SOURCES.filter(
+    (source) => !sources || sources.includes(source.kind)
+  );
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay confirm-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-label", message);
+
+    const card = document.createElement("div");
+    card.className = "card modal-card confirm-card entry-pick-card";
+    const text = document.createElement("p");
+    text.className = "confirm-text";
+    text.textContent = message;
+
+    let active = available[0];
+    const seg = document.createElement("div");
+    seg.className = "seg seg-compact";
+    seg.setAttribute("role", "tablist");
+    seg.setAttribute("aria-label", "What to point at");
+
+    const search = document.createElement("input");
+    search.type = "search";
+    search.placeholder = active.placeholder;
+    search.setAttribute("aria-label", message);
+    const list = document.createElement("div");
+    list.className = "entry-pick-list";
+
+    const returnFocus = document.activeElement;
+    let settled = false;
+    const close = (choice) => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener("keydown", onKey, true);
+      overlay.remove();
+      returnFocus?.focus?.();
+      resolve(choice);
+    };
+    const onKey = (event) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      close(null);
+    };
+
+    //: Per-source, so switching tabs and back does not re-fetch. Notes are
+    //: never in here: `allEntries` is already in memory and is kept current
+    //: by every save, so a second copy would be the stale one.
+    const cache = {};
+    let token = 0;
+
+    const rowsFor = async (kind) => {
+      if (kind === "note") {
+        //: Drafts, deleted notes, private notes and boards are all excluded.
+        //: Drafts for the reason `pickEntryDialog` gives — "an existing note"
+        //: does not mean a half-typed capture — and a board because it is
+        //: usually the very thing this picker was opened *from*.
+        return (typeof allEntries !== "undefined" ? allEntries : []).filter(
+          (entry) => !entry.is_draft && !entry.is_deleted && !entry.is_board && !entry.is_private
+        );
+      }
+      if (cache[kind]) return cache[kind];
+      const source = available.find((s) => s.kind === kind);
+      const rows = await apiJson(source.path, { silent: true }).catch(() => []);
+      cache[kind] = Array.isArray(rows) ? rows : rows.documents || [];
+      return cache[kind];
+    };
+
+    const paint = async () => {
+      const mine = (token += 1);
+      const kind = active.kind;
+      const term = search.value.trim().toLowerCase();
+      const rows = await rowsFor(kind);
+      // A slow fetch that finished after the user moved on must not paint
+      // over the tab they are actually looking at.
+      if (mine !== token || active.kind !== kind) return;
+      const matches = rows
+        .map((row) => ({ row, label: libraryPickLabel(kind, row) }))
+        .filter(({ label }) => !term || label.toLowerCase().includes(term))
+        .slice(0, 40);
+      list.replaceChildren();
+      if (!matches.length) {
+        const empty = document.createElement("p");
+        empty.className = "muted";
+        empty.textContent = term
+          ? `No ${active.label.toLowerCase()} match that.`
+          : `No ${active.label.toLowerCase()} yet.`;
+        list.appendChild(empty);
+        return;
+      }
+      for (const { row, label } of matches) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "entry-pick-row";
+        setLabel(button, `${active.icon} ${label}`);
+        button.title = label;
+        button.addEventListener("click", () => close({ kind, id: row.id, label }));
+        list.appendChild(button);
+      }
+    };
+
+    for (const source of available) {
+      const tab = document.createElement("button");
+      tab.type = "button";
+      tab.setAttribute("role", "tab");
+      tab.dataset.pickKind = source.kind;
+      tab.textContent = source.label;
+      const on = source.kind === active.kind;
+      tab.classList.toggle("active", on);
+      tab.setAttribute("aria-selected", on ? "true" : "false");
+      tab.addEventListener("click", () => {
+        active = source;
+        for (const sibling of seg.querySelectorAll("button")) {
+          const chosen = sibling.dataset.pickKind === source.kind;
+          sibling.classList.toggle("active", chosen);
+          sibling.setAttribute("aria-selected", chosen ? "true" : "false");
+        }
+        search.placeholder = source.placeholder;
+        paint();
+        search.focus();
+      });
+      seg.appendChild(tab);
+    }
+
+    search.addEventListener("input", paint);
+    paint();
+
+    const row = document.createElement("div");
+    row.className = "row confirm-actions";
+    row.append(smallButton("Cancel", "Cancel", () => close(null)));
+    card.append(text, seg, search, list, row);
+    overlay.appendChild(card);
+    wireBackdropClose(overlay, () => close(null));
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(overlay);
+    search.focus();
+  });
+}
+
 // Pick something already uploaded rather than uploading it again — asked for
 // directly: "I also want to be able to attach images that are already in the
 // image library... to new notes in the capture subtab." `/media` (the same
@@ -7305,8 +7712,27 @@ function resolveWikiTarget(name) {
     return stem.toLowerCase() === needle;
   });
   if (vaultNote) return { kind: "note", entry: vaultNote };
+  //: **A board is a link target, and it is not a note.** MINDMAP_PLAN.md §5
+  //: item 12 asks for a map chip in note bodies, and the `@`/`[[` picker in
+  //: editor.js has offered boards as targets since it was written — so the
+  //: link could already be *typed* and resolved to something. What it resolved
+  //: to was `{kind: "note"}`, and the click called `flashEntry`, which scrolls
+  //: the Notes tab to a row that is not there: a board is filtered out of
+  //: every note list in the app. So the link worked, looked like a note, and
+  //: went nowhere.
+  //:
+  //: Matched on the board's *title* with the `# ` stripped, and by prefix on
+  //: the raw content underneath, because both forms exist in real notes: the
+  //: picker used to insert the whole first line (`[[# My map]]`) and now
+  //: inserts the title (`[[My map]]`).
+  const board = entries.find((e) => {
+    if (!e.is_board || e.is_private) return false;
+    const first = (e.content || "").split("\n")[0].trim();
+    return first.replace(/^#+\s*/, "").toLowerCase() === needle || first.toLowerCase() === needle;
+  });
+  if (board) return { kind: "board", entry: board };
   const note = entries.find(
-    (e) => !e.is_private && (e.content || "").toLowerCase().startsWith(needle)
+    (e) => !e.is_private && !e.is_board && (e.content || "").toLowerCase().startsWith(needle)
   );
   if (note) return { kind: "note", entry: note };
   const documents = typeof editorDocumentCache !== "undefined" ? editorDocumentCache : null;
@@ -7385,6 +7811,24 @@ function renderNoteInline(element, text, terms) {
       element.appendChild(span);
     }
     const name = match[1].trim();
+    //: **A link that names a map draws as a map chip** (MINDMAP_PLAN.md §5
+    //: item 12: "note bodies"). Resolved here rather than on click, which is
+    //: what every other kind still does, because the *shape* of the control
+    //: depends on the answer: a chip carries the map's icon and node count,
+    //: and neither can be decided after the element is already on screen.
+    //: One `find` over `allEntries` per wiki link, on a list that is already
+    //: in memory — the same lookup the click handler was doing anyway.
+    const mapTarget = resolveWikiTarget(name);
+    if (mapTarget && mapTarget.kind === "board") {
+      const board = mapBoardById(mapTarget.entry.id) || {
+        id: mapTarget.entry.id,
+        title: name,
+        type: "map",
+      };
+      element.appendChild(mapChip(board));
+      cursor = pattern.lastIndex;
+      continue;
+    }
     const link = document.createElement("button");
     link.type = "button";
     link.className = "wiki-link";
@@ -7394,6 +7838,7 @@ function renderNoteInline(element, text, terms) {
       event.stopPropagation();
       const target = resolveWikiTarget(name);
       if (target && target.kind === "note") flashEntry(target.entry.id);
+      else if (target && target.kind === "board") openWhiteboardBoard(target.entry.id);
       else if (target && target.kind === "document") openDocument(target.doc.id);
       // Nothing by that name yet — offer to make it rather than dead-ending.
       // A link you typed on purpose is the clearest possible statement that
@@ -8158,6 +8603,13 @@ const ENTRIES_PAGE_SIZE = 1000;
 async function loadEntries() {
   const generation = ++_entriesLoadGeneration;
   showEntrySkeletons();
+  //: **What the note list needs to draw a `[[map]]` as a map chip**, filled
+  //: here rather than per note card: `renderNoteInline` is synchronous and
+  //: runs once per wiki link, so it cannot fetch. Deliberately not awaited —
+  //: the list paints now, and a chip drawn before this lands falls back to the
+  //: link's own text without its node count rather than to nothing at all.
+  //: `apiJson`'s `cacheMs` means a rapid sequence of loads costs one request.
+  loadMapBoardIndex();
 
   const isSemantic = $("semantic-search-toggle")?.checked;
   if (isSemantic && noteSearch) {
@@ -9218,6 +9670,7 @@ async function streamChat({
   imageMediaIds,
   documentIds,
   fileIds,
+  boardIds,
   skill,
   skillInputs,
   skillFromStep,
@@ -9278,6 +9731,12 @@ async function streamChat({
   //: failure `document_ids` shipped once before, one layer further out.
   if (documentIds && documentIds.length) body.document_ids = documentIds;
   if (fileIds && fileIds.length) body.file_ids = fileIds;
+  //: A mind map attached by hand (MINDMAP_PLAN.md §5 item 11). Its own
+  //: field, not folded into `note_ids`, because a board's `content` is the
+  //: single line `# My map` — sent as a note the model would get a heading
+  //: and be told it was a map. `_attached_boards` (routes_chat.py) turns the
+  //: id into the outline instead.
+  if (boardIds && boardIds.length) body.board_ids = boardIds;
   // Running a skill sends its name, not its prompt: the server owns what a
   // skill is — the steps, the values, the tools it may use — so the two
   // definitions can't drift apart.
@@ -12284,6 +12743,19 @@ function chatAttachmentStrip(attachments) {
       continue;
     }
 
+    if (item.kind === "map") {
+      // A mind map attached to the question (MINDMAP_PLAN.md §5 item 11).
+      // `mapChip` is the app's one map chip, so a map in a sent bubble reads
+      // exactly as it does in a note, on the timeline and in a dashboard row
+      // — the whole point of §5 item 12. `msg-attachment` on top of it so it
+      // sits in the strip like every other kind.
+      const board = mapBoardById(item.id) || { id: item.id, title: item.name, type: "map" };
+      const chipEl = mapChip(board);
+      chipEl.classList.add("msg-attachment");
+      strip.appendChild(chipEl);
+      continue;
+    }
+
     if (item.kind === "file") {
       // A Library file. Same shape as the document chip below, and the same
       // reason -- its text may be a hundred pages -- but it opens in the
@@ -12967,6 +13439,19 @@ const TOUCHED_KINDS = {
     title: "Open this document",
     open: (id) => openDocumentFromNote(id),
   },
+  //: A mind map the turn read or built (MINDMAP_PLAN.md §5 item 12: "the chat
+  //: transcript"). Deliberately a row in *this* table rather than a new panel:
+  //: the four map tools already report what they touched through the same
+  //: `touched` channel every other tool uses, so a map becomes a chip in the
+  //: line that already exists. `preview: false` because a map's preview is a
+  //: picture, not markdown — `toolPreviewBody` fetches `/entries/{id}` and
+  //: renders it, which for a board would render the string "# My map".
+  map: {
+    icon: "ph:tree-structure",
+    title: "Open this mind map",
+    open: (id) => openWhiteboardBoard(id),
+    preview: false,
+  },
 };
 
 //: **A tool result as things with actions, one renderer per kind** (PLAN.md
@@ -13038,6 +13523,17 @@ const CARD_KINDS = {
     //: ai/tools/whiteboard.py). `?? null` keeps that meaning intact.
     open: (item) => openWhiteboardBoard(item.id ?? null),
     preview: (item, holder) => cardTextPreview(item, holder, "An empty board."),
+  },
+  //: A mind map the turn read or built (MINDMAP_PLAN.md §5 item 12). Opens
+  //: the board; its "preview" is one line, because a board's Entry content is
+  //: the single line `# My map` and rendering that as the map would look like
+  //: an empty map. `cards.py` sends these as `board` — this entry covers the
+  //: `touched` fallback, which names the kind `map`.
+  map: {
+    icon: "ph:tree-structure",
+    title: "Open this mind map",
+    open: (item) => openWhiteboardBoard(item.id ?? null),
+    preview: (item, holder) => cardTextPreview(item, holder, "A mind map — open it to see the tree."),
   },
   reminder: {
     icon: "ph:alarm",
@@ -13184,8 +13680,22 @@ function toolCardChips(items) {
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = "chip result-reason-chip result-reason-connected tool-touched-chip";
-    chip.setAttribute("aria-expanded", "false");
     setLabel(chip, `${spec.icon} ${item.label || `#${item.id}`}`);
+    //: A kind with `preview: false` opens rather than expands, because there
+    //: is nothing sensible to inline. A map's content as an Entry is the
+    //: single line `# My map`, so the in-place preview every other kind gets
+    //: would show that string and call it the map — worse than no preview,
+    //: because it looks like the map is empty.
+    if (spec.preview === false) {
+      chip.title = spec.title;
+      chip.addEventListener("click", (clickEvent) => {
+        clickEvent.stopPropagation();
+        spec.open(item.id);
+      });
+      chips.appendChild(chip);
+      continue;
+    }
+    chip.setAttribute("aria-expanded", "false");
     chip.title = `${spec.title} — press to preview it here`;
     let panel = null;
     chip.addEventListener("click", (clickEvent) => {
@@ -13503,6 +14013,12 @@ const CHAT_SOURCE_GROUPS = [
   { key: "note", icon: "ph:note", one: "note", many: "notes" },
   { key: "document", icon: "ph:file-text", one: "document", many: "documents" },
   { key: "file", icon: "ph:paperclip", one: "file", many: "files" },
+  //: A map the turn read or wrote (MINDMAP_PLAN.md §5 item 12). Its icon has
+  //: to be listed here as well as in `TOUCHED_KINDS`, because the Sources
+  //: panel reads *this* table for the glyph and the count line — a kind
+  //: missing from it falls back to `ph:note`, which is how a new kind ends up
+  //: looking like it works while calling itself a note.
+  { key: "map", icon: "ph:tree-structure", one: "mind map", many: "mind maps" },
   { key: "web", icon: "ph:globe", one: "web page", many: "web pages" },
 ];
 
@@ -13581,14 +14097,21 @@ function chatSourcesFrom({ meta, toolEvents, touched }) {
     const opener = TOUCHED_KINDS[item.kind] || TOUCHED_KINDS.note;
     //: A touched row carries an id and a label and nothing else — but the note
     //: behind it is already loaded, so the card need not be the poorer for it.
+    //: A map is excluded from that lookup along with a document: its Entry
+    //: content is the single line `# My map`, so "one line of the thing
+    //: itself" would print the title a second time as its own preview.
     const known =
-      item.kind === "document"
+      item.kind === "document" || item.kind === "map"
         ? null
         : (typeof allEntries !== "undefined" ? allEntries : []).find(
             (row) => row.id === item.id
           ) || null;
     add({
-      kind: item.kind === "document" ? "document" : "note",
+      //: The kind is carried through rather than collapsed to note/document,
+      //: so a map's source card gets the map icon and opens the board. It used
+      //: to be a two-way ternary, which meant every kind added later silently
+      //: became a note — the shape that makes a new kind look like it works.
+      kind: item.kind === "document" || item.kind === "map" ? item.kind : "note",
       id: item.id,
       label: item.label,
       snippet: known ? preview(String(known.content || "").replace(/\s+/g, " ")) : "",
@@ -14583,6 +15106,62 @@ function renderFileAttachments() {
   }
 }
 
+//: **Mind maps staged on the message** (MINDMAP_PLAN.md §5 item 11: "a map
+//: can be attached to … a chat message, exactly as a file can today").
+//:
+//: A fourth list rather than folding maps into `attachedNotes`, even though a
+//: board *is* an Entry and `note_ids` would have carried it. That is precisely
+//: why it must not: a board's `content` is the single line `# My map`, so
+//: attaching one as a note sends the model a heading and calls it a map. The
+//: request carries `board_ids` separately (routes_chat.py) so the server can
+//: send the map's *outline* instead.
+let attachedBoards = [];
+let lastChatBoardAttachments = [];
+
+//: Four, matching `MAX_CHAT_DOCUMENTS`/`MAX_CHAT_FILES` and the server's own
+//: `max_length=4`. An outline is capped at 3,000 characters server-side, so
+//: four maps is ~12k — the same ceiling one attached file already has.
+const MAX_CHAT_BOARDS = 4;
+
+function attachBoardToChat(id, name) {
+  if (!id) return false;
+  if (attachedBoards.some((b) => b.id === id)) {
+    renderBoardAttachments();
+    return true;
+  }
+  if (attachedBoards.length >= MAX_CHAT_BOARDS) return false;
+  attachedBoards.push({ id, name: name || "Mind map" });
+  renderBoardAttachments();
+  announce(`Attached “${name || "mind map"}”. ${attachedBoards.length} map(s) attached.`);
+  return true;
+}
+
+function renderBoardAttachments() {
+  const box = $("chat-board-attachments");
+  if (!box) return;
+  box.replaceChildren();
+  box.classList.toggle("hidden", attachedBoards.length === 0);
+  for (const board of attachedBoards) {
+    const chipEl = document.createElement("span");
+    chipEl.className = "chip attachment-chip";
+    const label = document.createElement("span");
+    setLabel(label, `ph:tree-structure ${board.name}`);
+    const remove = document.createElement("button");
+    remove.className = "attachment-remove";
+    remove.type = "button";
+    remove.textContent = "✕";
+    remove.title = `Don't send “${board.name}” with this message`;
+    remove.setAttribute("aria-label", remove.title);
+    remove.addEventListener("click", () => {
+      attachedBoards = attachedBoards.filter((b) => b.id !== board.id);
+      renderBoardAttachments();
+      announce(`Removed attachment. ${attachedBoards.length} map(s) attached.`);
+    });
+    chipEl.append(label, remove);
+    box.appendChild(chipEl);
+  }
+}
+
 //: **Stage one document on the message being written.**
 //:
 //: The composer has staged documents as removable chips since files could be
@@ -14807,11 +15386,22 @@ let notePickerSource = "notes";
 //: Fetched once per opening rather than per keystroke, and per source rather
 //: than all four up front: a notebook can hold thousands of files, and three
 //: of these lists are never looked at in a session that only wanted a note.
-const notePickerCache = { documents: null, files: null, images: null };
+const notePickerCache = { documents: null, files: null, images: null, maps: null };
 
 async function notePickerRows(source) {
   if (source === "notes") return null; // notes come from allEntries, already in memory
   if (notePickerCache[source]) return notePickerCache[source];
+  //: **Maps come from `/whiteboard/boards?type=map`**, not from `allEntries`.
+  //: A map is a board, which is an Entry, so it *is* in `allEntries` — but
+  //: what a chip has to say about one is its node count, and that lives only
+  //: on `BoardOut`. `?type=map` also does the filtering server-side, which is
+  //: the one caller §9.3 says that parameter was for: this list wants maps and
+  //: no counts of the other kinds.
+  if (source === "maps") {
+    const boards = await apiJson("/whiteboard/boards?type=map", { silent: true }).catch(() => []);
+    notePickerCache.maps = (Array.isArray(boards) ? boards : []).filter((b) => b.id != null);
+    return notePickerCache.maps;
+  }
   const path = source === "documents" ? "/documents" : source === "files" ? "/files/gallery" : "/media";
   const rows = await apiJson(path).catch(() => []);
   let list = Array.isArray(rows) ? rows : rows.documents || [];
@@ -14857,6 +15447,23 @@ function notePickerShape(source) {
         renderDocumentAttachments();
       },
       empty: "No documents yet.",
+    };
+  }
+  if (source === "maps") {
+    return {
+      id: (row) => row.id,
+      label: (row) => row.title || "Untitled map",
+      //: The count is what the row adds over its title, and it is the reason
+      //: this list comes from `/whiteboard/boards` rather than `allEntries`.
+      note: (row) => mapCountLabel(row),
+      search: (row) => row.title || "",
+      isOn: (row) => attachedBoards.some((b) => b.id === row.id),
+      add: (row) => attachBoardToChat(row.id, row.title || "Mind map"),
+      remove: (row) => {
+        attachedBoards = attachedBoards.filter((b) => b.id !== row.id);
+        renderBoardAttachments();
+      },
+      empty: "No mind maps yet.",
     };
   }
   if (source === "files") {
@@ -15019,6 +15626,7 @@ function updateNotePickerCount() {
   if (attachedDocuments.length) parts.push(`${attachedDocuments.length} document${attachedDocuments.length === 1 ? "" : "s"}`);
   if (attachedFiles.length) parts.push(`${attachedFiles.length} file${attachedFiles.length === 1 ? "" : "s"}`);
   if (attachedImages.length) parts.push(`${attachedImages.length} image${attachedImages.length === 1 ? "" : "s"}`);
+  if (attachedBoards.length) parts.push(`${attachedBoards.length} mind map${attachedBoards.length === 1 ? "" : "s"}`);
   $("note-picker-count").textContent = parts.length ? `${parts.join(", ")} attached` : "Nothing attached yet";
 }
 
@@ -15117,6 +15725,7 @@ async function sendChatMessage(preset, opts = {}) {
   const sentImages = opts.imageMediaIds || attachedImages.map((img) => img.id);
   const sentDocuments = opts.documentIds || attachedDocuments.map((d) => d.id);
   const sentFiles = opts.fileIds || attachedFiles.map((f) => f.id);
+  const sentBoards = opts.boardIds || attachedBoards.map((b) => b.id);
   // What the bubble will draw. Built here, while the composer still knows the
   // names and urls — after the clear below there is nothing left to build it
   // from, and a round trip to re-fetch what we already had would show the
@@ -15137,6 +15746,10 @@ async function sendChatMessage(preset, opts = {}) {
     // Library files: the same card list as the other kinds, so the bubble
     // shows every reference the question was given rather than three of four.
     ...attachedFiles.map((f) => ({ kind: "file", id: f.id, name: f.name })),
+    // A mind map, same card list again — the bubble has to show every
+    // reference the question was given, and a map is the one whose absence
+    // would be least obvious (its outline is invisible in the transcript).
+    ...attachedBoards.map((b) => ({ kind: "map", id: b.id, name: b.name })),
     // The paperclip's own attachments. Same card list as the other two kinds
     // so the bubble shows every reference this question was given, not two of
     // the three.
@@ -15153,6 +15766,7 @@ async function sendChatMessage(preset, opts = {}) {
     lastChatImageAttachments = attachedImages.slice();
     lastChatDocumentAttachments = attachedDocuments.slice();
     lastChatFileAttachments = attachedFiles.slice();
+    lastChatBoardAttachments = attachedBoards.slice();
     // The staged bytes are on the server now, so the local Blob references
     // are dead weight — an object URL lives as long as the document unless it
     // is revoked, and a chat session sending several images would hold every
@@ -15166,6 +15780,7 @@ async function sendChatMessage(preset, opts = {}) {
     attachedImages = [];
     attachedDocuments = [];
     attachedFiles = [];
+    attachedBoards = [];
     //: Cleared with the rest, and for the same stated reason: a selection that
     //: rode along on every later question would be the app answering about a
     //: paragraph the user stopped talking about three messages ago.
@@ -15174,6 +15789,7 @@ async function sendChatMessage(preset, opts = {}) {
     renderImageAttachments();
     renderDocumentAttachments();
     renderFileAttachments();
+    renderBoardAttachments();
     renderSelectionAttachment();
     closeNotePicker();
   }
@@ -15464,6 +16080,7 @@ async function sendChatMessage(preset, opts = {}) {
       imageMediaIds: sentImages,
       documentIds: sentDocuments,
       fileIds: sentFiles,
+      boardIds: sentBoards,
       skill: opts.skill,
       skillInputs: opts.skillInputs,
       skillFromStep: opts.skillFromStep,
@@ -21250,7 +21867,18 @@ async function renderTimeline() {
   } else {
     url += `&days=${daysVal}`;
   }
-  const body = await apiJson(url).catch(() => null);
+  //: **Which of these notes are actually maps.** A board *is* an `Entry`
+  //: (MINDMAP_PLAN.md §2), and `/timeline` has always returned every
+  //: non-private entry — so a mind map has been appearing on the timeline
+  //: since maps existed, as a dot titled "# My map" with a calendar icon,
+  //: indistinguishable from a note and opening a note popup that shows its
+  //: raw heading. `/timeline`'s rows carry no `is_board`, so the boards list
+  //: is what tells them apart; awaited alongside the timeline itself rather
+  //: than before it, because neither needs the other's answer.
+  const [body] = await Promise.all([
+    apiJson(url).catch(() => null),
+    loadMapBoardIndex(),
+  ]);
   const line = timelineView() === "line";
   $("timeline-scroll").classList.toggle("hidden", line);
   $("timeline-branch-wrap").classList.toggle("hidden", !line);
@@ -21837,6 +22465,34 @@ function timelineDot(note) {
   const mentioned = note.placed_by === "mentioned";
   dot.className = `timeline-dot${mentioned ? " timeline-dot-mentioned" : ""}`;
   dot.type = "button";
+
+  //: **A map on the timeline reads as a map** (MINDMAP_PLAN.md §5 item 12:
+  //: "the timeline"). It is the same dot — same position, same date header,
+  //: same band — with the map's own chip in place of the title, and a click
+  //: that opens the map instead of a note popup showing its `# Heading`.
+  //:
+  //: The chip is non-interactive because this dot is already a `<button>`,
+  //: and a button inside a button is invalid HTML that browsers silently
+  //: reflow, not just an accessibility nicety.
+  const board = mapBoardById(note.id);
+  if (board) {
+    const header = document.createElement("span");
+    header.className = "timeline-dot-header";
+    const glyph = document.createElement("i");
+    glyph.className = "ph ph-tree-structure";
+    glyph.setAttribute("aria-hidden", "true");
+    const when = document.createElement("span");
+    when.className = "timeline-dot-when";
+    when.textContent = relativeTime(note.written_at) || shortDate(note.written_at);
+    header.append(glyph, when);
+    dot.append(header, mapChip(board, { interactive: false }));
+    dot.title = `${board.title} — ${mapCountLabel(board)}.\nWritten ${shortDate(note.written_at)}`;
+    dot.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openWhiteboardBoard(board.id);
+    });
+    return dot;
+  }
 
   const header = document.createElement("span");
   header.className = "timeline-dot-header";
@@ -29702,8 +30358,24 @@ $("note-picker-done").addEventListener("click", () => {
   $("chat-input").focus();
 });
 $("note-picker-clear").addEventListener("click", () => {
+  //: Clear means clear. This emptied `attachedNoteIds` only, so pressing it
+  //: with three files and a map ticked left every one of them staged while the
+  //: count line under the button re-read "Nothing attached yet" — the panel
+  //: contradicting itself in two places at once.
+  //:
+  //: Images are deliberately not in this list. A staged image may hold a live
+  //: object URL that has to be revoked when it is dropped (see the send path's
+  //: own `URL.revokeObjectURL` loop and why it exists), and dropping one here
+  //: without that would leak a Blob for the life of the tab. The four stores
+  //: below are all ids of things that were already in the library.
   attachedNoteIds = [];
+  attachedDocuments = [];
+  attachedFiles = [];
+  attachedBoards = [];
   renderAttachments();
+  renderDocumentAttachments();
+  renderFileAttachments();
+  renderBoardAttachments();
   renderNotePickerList();
 });
 // Click-away and Escape close it, like every other popover in the app.
@@ -30310,6 +30982,7 @@ $("graph-unpin-all")?.addEventListener("click", async () => {
 $("graph-similarity").addEventListener("change", renderGraph);
 $("graph-entities")?.addEventListener("change", renderGraph);
 $("graph-documents")?.addEventListener("change", renderGraph);
+$("graph-maps")?.addEventListener("change", renderGraph);
 // The tuned-once controls, folded away. Remembered, because whether you want
 // physics sliders on screen is a property of how you use the map rather than
 // of one visit — and because a panel that reopens closed every time is one

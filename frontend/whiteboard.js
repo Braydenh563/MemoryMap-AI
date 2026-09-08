@@ -2586,7 +2586,25 @@ function wbBuildMapNode(el, d) {
       wbMapToggleCollapse(d.id);
     })
     .append("i").attr("class", "ph ph-caret-down").attr("aria-hidden", "true");
-  el.append("button")
+  //: **Two ways to grow the map, in one row.** `+` makes a topic; the second
+  //: button makes a node that *points at* a real note, document, file or link
+  //: (§5 item 11 — the half §10.4 recorded as missing: "a reference node was
+  //: never placed by hand", so the kind rendered and was unreachable outside
+  //: the AI tools).
+  //:
+  //: A second button rather than a mode on `+`: the two are different acts,
+  //: not two settings of one, and a `+` that sometimes opens a dialog is the
+  //: "a second modal that only appears after you commit the first" shape
+  //: CLAUDE.md records costing five reports on bookmark URLs. Both are also
+  //: in the node's context menu, because a right-click is where people look
+  //: for "what can I do with this" and these only appear on hover.
+  //:
+  //: A flex row rather than two absolutely-positioned buttons: two of them
+  //: hand-placed off the same corner is how they come to overlap by a few
+  //: pixels that a screenshot does not show, which this file has already had
+  //: to fix twice for the count badge (see `.wb-map-count`'s own comment).
+  const actions = el.append("div").attr("class", "wb-map-actions");
+  actions.append("button")
     .attr("type", "button")
     .attr("class", "ghost small icon-only wb-map-add")
     .attr("title", "Add a child (Tab)")
@@ -2597,6 +2615,17 @@ function wbBuildMapNode(el, d) {
       wbMapAddChild(d.id);
     })
     .append("i").attr("class", "ph ph-plus").attr("aria-hidden", "true");
+  actions.append("button")
+    .attr("type", "button")
+    .attr("class", "ghost small icon-only wb-map-ref")
+    .attr("title", "Add a child from the library…")
+    .attr("aria-label", "Add a child that points at a note, document, file or link")
+    .on("pointerdown", stopDrag)
+    .on("click", (event) => {
+      event.stopPropagation();
+      wbMapAddReference(d.id);
+    })
+    .append("i").attr("class", "ph ph-bookmarks-simple").attr("aria-hidden", "true");
 }
 
 //: The half that changes: label, branch colour, chevron, badge. Runs for
@@ -2840,6 +2869,46 @@ async function wbMapAddChild(parentId) {
   await wbMapTidyBranch(parentId);
   renderWhiteboardNow();
   wbMapEditNode(created.id);
+  return created;
+}
+
+//: Add a child that **points at something the library already holds**
+//: (MINDMAP_PLAN.md §5 item 11).
+//:
+//: The label is *not* sent. `POST /boards/{id}/nodes` takes the kind and the
+//: id and resolves the title itself, and `GET /tree` re-resolves it on every
+//: load (§9.2) — so renaming the note renames the node, which is the whole
+//: reason a reference node is different from a topic with the same words in
+//: it. `text` is left empty deliberately: a copy of the title stored here
+//: would be the value that goes stale, and `wbMapLabel` prefers the resolved
+//: one anyway.
+//:
+//: `wbRefreshMapState` is re-run before the render because the resolved label
+//: lives in `wbMapState.labels`, which only that call fills — without it the
+//: new node draws with no text at all until the next board load, which is
+//: exactly the "renders as a blank box" failure §10.2 already fixed once for
+//: topics.
+async function wbMapAddReference(parentId) {
+  if (typeof pickLibraryItemDialog !== "function") return null;
+  const chosen = await pickLibraryItemDialog("Point a new node at…");
+  if (!chosen) return null;
+  const created = await wbMapCreateNode({
+    parentId,
+    kind: chosen.kind,
+    text: "",
+    refId: chosen.id,
+  });
+  if (!created) return null;
+  const parent = (wbState.objects || []).find((o) => o.id === parentId);
+  if (parent?.data?.collapsed) {
+    parent.data = { ...parent.data, collapsed: false };
+    await wbSaveObject(parent);
+  }
+  await wbRefreshMapState();
+  selectWbItem("object", created.id);
+  await wbMapTidyBranch(parentId);
+  renderWhiteboardNow();
+  toast(`Added “${chosen.label}” to the map.`);
   return created;
 }
 
@@ -3870,6 +3939,18 @@ function wbBuildContextMenu(kind) {
     item("Copy", "Ctrl/Cmd+C", () => wbCopySelection());
     item("Cut", "Ctrl/Cmd+X", () => wbCutSelection());
   }
+  //: The two ways to grow a map, on the node you just right-clicked
+  //: (MINDMAP_PLAN.md §5 item 11). The hover controls on the node itself are
+  //: the primary affordance; this is the discoverable one — a right-click is
+  //: where people look for "what can I do with this", and the `+`/library
+  //: buttons only appear once the pointer is already on the node.
+  const mapNode = wbSelectedMapNode();
+  if (mapNode && wbMultiSelection.size <= 1) {
+    item("Add a child topic", "Tab", () => wbMapAddChild(mapNode.id));
+    item("Add from the library…", "Point a new child at a note, document, file or link", () =>
+      wbMapAddReference(mapNode.id)
+    );
+  }
   // Asked for directly. Available for every kind — a sketch reorders
   // against other sketches, a card/object against both (wbZOrderPeers'
   // own comment has the full reasoning for that split).
@@ -4666,6 +4747,73 @@ async function wbExportMapText(format) {
   const safe = title.replace(/[^\w -]+/g, "").trim() || "mindmap";
   await saveFile(`${safe}.${format === "opml" ? "opml" : "md"}`, blob);
   toast(`Map exported as ${format === "opml" ? "OPML" : "a Markdown outline"}.`);
+}
+
+//: How much of a file this will send. Matches `MAX_IMPORT_CHARS` in
+//: routes_whiteboard.py exactly: the server refuses anything longer with a
+//: 422, and finding that out after uploading 4MB and waiting is a worse way to
+//: learn it than a sentence naming the number.
+const WB_MAX_IMPORT_CHARS = 400000;
+
+//: Import a mind map from an OPML or Markdown outline (§5 item 17).
+//:
+//: **The extension picks the format**, and nothing asks the user to confirm
+//: it. `POST /whiteboard/boards/import` takes `{format, content, name?}` and
+//: only knows the two, and a `.opml` file is not ambiguous — a second dialog
+//: to repeat what the filename already said is exactly the shape CLAUDE.md
+//: records as the real bug behind five bookmark-URL reports.
+//:
+//: `name` is deliberately not sent: the server takes the title out of the
+//: document itself (an OPML `<head><title>`, a Markdown `#` heading) and falls
+//: back to "Imported map". A filename is a worse name than the one the author
+//: wrote inside the file.
+async function wbImportOutlineFile(event) {
+  const input = event.target;
+  const file = input.files && input.files[0];
+  // Cleared immediately so importing the *same* file twice in a row still
+  // fires `change` the second time — the one thing this pattern gets wrong
+  // when it is written without it.
+  input.value = "";
+  if (!file) return;
+  const format = /\.(opml|xml)$/i.test(file.name) ? "opml" : "markdown";
+  let content = "";
+  try {
+    content = await file.text();
+  } catch {
+    toast("Couldn't read that file.", true);
+    return;
+  }
+  if (!content.trim()) {
+    toast("That file is empty.", true);
+    return;
+  }
+  if (content.length > WB_MAX_IMPORT_CHARS) {
+    toast(
+      `That outline is ${content.length.toLocaleString()} characters — the limit is ${WB_MAX_IMPORT_CHARS.toLocaleString()}.`,
+      true
+    );
+    return;
+  }
+  try {
+    const board = await apiJson("/whiteboard/boards/import", {
+      method: "POST",
+      body: JSON.stringify({ format, content }),
+    });
+    // The gallery is refreshed *and* the new map is opened, because an import
+    // is a thing you then want to look at — landing back on an unchanged-
+    // looking list is how an import that worked reads as one that did not.
+    window.wbLastCreatedBoard = board;
+    renderLibraryBoardsGallery();
+    toast(
+      `Imported “${board.title}” — ${board.object_count} node${board.object_count === 1 ? "" : "s"}.`
+    );
+    openWhiteboardBoard(board.id);
+  } catch (error) {
+    // The server's own message, not a generic one: it names the actual
+    // refusal ("Unknown import format", a DOCTYPE in the OPML, a parse
+    // failure), and those are the only things a person can act on.
+    toast(error.message || "Couldn't import that outline.", true);
+  }
 }
 
 async function wbExportSvg(scope) {
@@ -9076,6 +9224,16 @@ document.addEventListener("DOMContentLoaded", () => {
     wbShowCanvasView();
     await createNewBoard("map");
   });
+  //: Import (§5 item 17). The button opens the hidden input, the input does
+  //: the work — the app's own file-picking pattern (`pickJsonFile`,
+  //: `importMarkdown`), so a file arrives the same way here as everywhere
+  //: else. Wired on the input's `change` rather than assigned as `onchange`
+  //: inside the click handler, because a second click would then rebind it and
+  //: `tests/test_frontend_handlers.py` exists to catch exactly that shape.
+  $("wb-boards-import")?.addEventListener("click", () => {
+    $("wb-import-map-file")?.click();
+  });
+  $("wb-import-map-file")?.addEventListener("change", wbImportOutlineFile);
   $("wb-back-to-boards")?.addEventListener("click", wbShowBoardsLanding);
   $("library-boards-search")?.addEventListener("input", renderLibraryBoardsGallery);
   // The Reload button beside "+ New board". Its id says `library-media-refresh`
@@ -9298,123 +9456,29 @@ async function renderLibraryBoardsGallery() {
     title.className = "library-card-title";
     title.textContent = board.title;
 
-    const nodeCount = board.node_count || 0;
-    const sketchCount = board.sketch_count || 0;
-    const objectCount = board.object_count || 0;
-    const total = nodeCount + sketchCount + objectCount;
-    const parts = [];
-    if (nodeCount) parts.push(`${nodeCount} card${nodeCount === 1 ? "" : "s"}`);
-    if (sketchCount) parts.push(`${sketchCount} sketch${sketchCount === 1 ? "" : "es"}`);
-    // On a map the objects *are* the nodes, so calling them "images" — which
-    // is what this line said for every map — is simply the wrong noun for the
-    // only thing on the board.
-    if (objectCount) {
-      parts.push(isMapCard
-        ? `${objectCount} node${objectCount === 1 ? "" : "s"}`
-        : `${objectCount} image${objectCount === 1 ? "" : "s"}`);
-    }
     const meta = document.createElement("span");
     meta.className = "muted library-card-meta";
-    meta.textContent = parts.length ? parts.join(" · ") : isMapCard ? "Empty map" : "Empty board";
+    // One sentence about how much is on a board, shared with every other
+    // surface that says it — `mapCountLabel` in app.js. It used to be nine
+    // lines here and four in the dashboard's own widget, which is how the two
+    // came to disagree about what to call a map's objects.
+    meta.textContent = mapCountLabel(board);
 
     // **A thumbnail of the board itself**, rather than the same icon on every
     // card. Asked for directly: the Boards & maps sub-tab is "boring and
-    // should probably have previews". `preview_points` is up to 40 of the
-    // board's card positions, already normalised into 0..1 against the
-    // board's own bounds by `routes_whiteboard._preview_points` — so this
-    // draws the real layout without the client ever holding the board.
+    // should probably have previews".
     //
-    // Built as inline SVG with attributes rather than a `style` string: this
-    // app's CSP rejects inline styles outright, and thirty-five of them
-    // shipped once as silently-dead markup (CLAUDE.md, "a policy silently
-    // refusing the work"). An empty board draws nothing and keeps its
-    // "Empty board" line, which says more than a blank rectangle would.
-    const items = Array.isArray(board.preview_items) ? board.preview_items : [];
-    if (items.length) {
-      const NS = "http://www.w3.org/2000/svg";
-      const map = document.createElementNS(NS, "svg");
-      map.setAttribute("class", "board-minimap");
-      map.setAttribute("viewBox", "0 0 100 56");
-      map.setAttribute("preserveAspectRatio", "none");
-      map.setAttribute("aria-hidden", "true");
-      // **A map's thumbnail draws its tree.** `preview_edges` is the
-      // parent→child segments in the same normalised 0..1 space as the items
-      // (§9.1), and it exists because structure is the entire difference
-      // between a map and a board — so a map previewing as a scatter of dots
-      // is indistinguishable from the thing it is not. Drawn *first*, so the
-      // lines sit under the blocks rather than across their labels; an
-      // ordinary board ships an empty list here and this loop does nothing.
-      // The +4.5/+3 offsets put a line at the centre of the block it joins,
-      // since a block is drawn from its top-left corner at 9×6.
-      for (const edge of Array.isArray(board.preview_edges) ? board.preview_edges : []) {
-        const line = document.createElementNS(NS, "line");
-        line.setAttribute("class", "board-minimap-edge");
-        line.setAttribute("x1", String(3 + (Number(edge.x1) || 0) * 88 + 4.5));
-        line.setAttribute("y1", String(3 + (Number(edge.y1) || 0) * 44 + 3));
-        line.setAttribute("x2", String(3 + (Number(edge.x2) || 0) * 88 + 4.5));
-        line.setAttribute("y2", String(3 + (Number(edge.y2) || 0) * 44 + 3));
-        map.appendChild(line);
-      }
-      for (const item of items) {
-        const nx = 3 + (Number(item.x) || 0) * 88;
-        const ny = 3 + (Number(item.y) || 0) * 44;
-        if (item.kind === "sketch") {
-          // A sketch is strokes, and the thumbnail does not have them — the
-          // board's stroke data is the one thing `preview_items` deliberately
-          // does not ship. A squiggle says "something drawn here", which is
-          // the fact that was missing entirely: a sketch-only board used to
-          // preview as an empty rectangle beside a line reading "2 sketches".
-          const mark = document.createElementNS(NS, "path");
-          mark.setAttribute("class", "board-minimap-sketch");
-          mark.setAttribute(
-            "d",
-            `M${nx} ${ny + 5} q2.5 -5 5 0 t5 0`
-          );
-          map.appendChild(mark);
-          continue;
-        }
-        const dot = document.createElementNS(NS, "rect");
-        dot.setAttribute("class", item.kind === "card" ? "board-minimap-card" : "board-minimap-object");
-        // Inset by the dot's own size so a card at the extreme edge of the
-        // board is drawn inside the thumbnail rather than half outside it.
-        dot.setAttribute("x", String(nx));
-        dot.setAttribute("y", String(ny));
-        dot.setAttribute("width", "9");
-        dot.setAttribute("height", "6");
-        dot.setAttribute("rx", "1.5");
-        map.appendChild(dot);
-        // **What the card says**, which is the whole reason this stopped
-        // being a list of bare points. Reported as "the whiteboard preview is
-        // poor", and the screenshot was three boards named "Cloud computing"
-        // showing three identical arrangements of blank grey rectangles —
-        // a picture that could not tell them apart, which is what a preview
-        // is for. Two or three words at this scale is a texture rather than
-        // readable text, and that is enough: two boards with different notes
-        // on them stop looking the same.
-        if (item.label) {
-          const text = document.createElementNS(NS, "text");
-          text.setAttribute("class", "board-minimap-label");
-          // **Which side of the block the label sits on.** Drawn always to
-          // the right in the first version, and looking at the result showed
-          // the problem immediately: a card at the far right of a board is at
-          // nx ≈ 91 in a 100-wide viewBox, so its label ran straight off the
-          // edge and came out sliced mid-word ("Cloud computi"). Past the
-          // halfway mark it hangs off the left of the block instead, which is
-          // the same amount of room from the other direction.
-          const rightHalf = nx > 50;
-          text.setAttribute("x", String(rightHalf ? nx - 1.5 : nx + 10.5));
-          text.setAttribute("y", String(ny + 4.4));
-          if (rightHalf) text.setAttribute("text-anchor", "end");
-          // An ellipsis rather than a bare slice: "Connections prob" reads as
-          // broken, "Connections pro…" reads as shortened. Sixteen characters
-          // is what fits beside a block at this scale before it starts
-          // colliding with the next one.
-          text.textContent =
-            item.label.length > 16 ? `${item.label.slice(0, 15).trimEnd()}…` : item.label;
-          map.appendChild(text);
-        }
-      }
-      card.append(top, title, map, meta);
+    // `mapPreview` (app.js) is now the only place this picture is drawn.
+    // MINDMAP_PLAN.md §5 item 12 asked for exactly one preview renderer, and
+    // the reason was already visible here: this card drew the tree edges, the
+    // labels and the sketch squiggles, while the dashboard's boards widget
+    // drew the same `preview_items` with none of them — so the one fact that
+    // tells a map from a board was missing from one of the two places a map
+    // shows up. An empty board still draws nothing and keeps its "Empty
+    // board" line, which says more than a blank rectangle would.
+    const minimap = mapPreview(board, { size: "card" });
+    if (minimap) {
+      card.append(top, title, minimap, meta);
     } else if (rowsMode) {
       //: Rows only. An empty board draws nothing in card view *by design*
       //: (see the comment above — the "Empty board" line says more than a

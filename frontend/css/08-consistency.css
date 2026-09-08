@@ -94,8 +94,24 @@
   justify-content: flex-start;
   gap: var(--space-2);
   width: 100%;
+  /* `height: auto` so a row that wraps to two lines still grows; the floor is
+     the control height so that a row with a control in it and a row that is
+     only a label stand at one height. Measured before this: 34.53px for a
+     plain row against 36px for a row with a button in it, inside the same
+     popover (`scratchpad/ui-sweeps/wbmenus.js`). The floor is a floor, not a
+     cap, which is the direction that cannot reintroduce the nav-history clip
+     (CLAUDE.md: rows pinned to 32.36px while their content needed 35px).
+
+     **`--control-h-lg`, never `--control-h`, in a rule that can land
+     anywhere.** `--control-h` has no root value at all: it is declared
+     fourteen times in scoped blocks at 1.875rem, 2rem, 2.25rem and 2.5rem,
+     so a menu recipe reading it resolves to whichever surface the popover
+     happens to be inside. Writing `--control-h` here first was measured
+     doing exactly that: the View menu's rows came back 34px, 33px, 35.17px
+     and 22.39px in one popover. `--control-h-lg` is declared once, at the
+     root (00-tokens-shell.css:375). */
   height: auto;
-  min-height: 0;
+  min-height: var(--control-h-lg);
   margin: 0;
   padding: var(--space-2) var(--space-5);
   border: none;
@@ -121,7 +137,7 @@
   gap: var(--space-2);
   width: 100%;
   height: auto;
-  min-height: 0;
+  min-height: var(--control-h-lg);
   margin: 0;
   padding: var(--space-2) var(--space-5);
   border: none;
@@ -1011,4 +1027,89 @@ summary > .ph-lead,
 .action-menu.select-menu {
   max-height: min(18rem, 60vh);
   overflow-y: auto;
+}
+
+/* ---------------------------------------------------------------------------
+   The five whiteboard menus (Insert, Edit, Arrange, View, Board)
+
+   consistency.md item 1 left these five reasoned from the cascade and not
+   measured, because the driver could not open a board. It can: create one
+   through `POST /whiteboard/boards` and call the app's own
+   `openWhiteboardBoard(id)`. Driven that way (`scratchpad/ui-sweeps/wbmenus.js`)
+   the five shared one shell recipe, as reasoned, but their rows did not share
+   one height: 34.53px, 36px, 36.89px and 32px inside the same popover, with
+   two font sizes and four paddings.
+
+   The two causes, both measured rather than guessed:
+
+   1. A `<kbd>` shortcut hint is drawn by the global `kbd` rule
+      (01-forms-settings.css:695) as a chip with a background, a 1px border and
+      a 2px bottom border. Inside a menu row's grid that box is the tallest
+      track, so every row with a shortcut stood 2.36px taller than every row
+      without one. A shortcut hint is meta, not a control: the contract's meta
+      recipe is no border, no fill, muted. Removing the box removes the split.
+
+   2. `.wb-menu-row` puts a real control on the right of a label. Those
+      controls kept the app-wide ghost button's resting fill and their own
+      heights, so the View and Board menus read as the owner's complaint
+      verbatim: buttons chucked into a dropdown rather than part of it. Inside
+      a menu the ghost recipe applies: no fill at rest, the tint on hover.
+--------------------------------------------------------------------------- */
+
+/* 1. Shortcut hints are meta. */
+:is(
+  .action-menu,
+  .select-menu,
+  .doc-dock-menu-list,
+  .nav-history-menu,
+  .library-image-menu-list,
+  .wb-export-menu,
+  .wb-board-menu
+) kbd {
+  padding: 0;
+  border: none;
+  /* No `border-radius` reset: with no border and no fill the global kbd rule's
+     `--radius-md` corner paints nothing, and declaring `0` here would add a
+     fifth radius to the surface family `tests/test_ui_signatures.py` counts,
+     which is a real new recipe for no visible gain. */
+  background: none;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+}
+
+/* 2. A control in a menu row is a ghost control: one height, no rest fill.
+   `.wb-menu-controls > button` covers the two icon buttons beside the colour
+   picker; the bare `.wb-menu-row > button` covers Export, Clear, Help and the
+   toolbar-side toggle. */
+.wb-board-menu .wb-menu-row > button,
+.wb-board-menu .wb-menu-controls > button {
+  height: var(--control-h-lg);
+  min-height: var(--control-h-lg);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  background: none;
+  box-shadow: none;
+  font-size: var(--text-md);
+}
+
+.wb-board-menu .wb-menu-row > button:hover,
+.wb-board-menu .wb-menu-row > button:focus-visible,
+.wb-board-menu .wb-menu-controls > button:hover,
+.wb-board-menu .wb-menu-controls > button:focus-visible {
+  background: var(--ghost-btn-bg);
+}
+
+/* The rows themselves stand on the same height as a menu item, so a label
+   row and a shortcut row are one rhythm down the menu. */
+.wb-board-menu .wb-menu-row {
+  min-height: var(--control-h-lg);
+  font-size: var(--text-md);
+}
+
+/* An enhanced select inside a menu is a field, and a field's ink is the row's
+   ink: it was 12px against the rows' 13.6px. */
+.wb-board-menu .select-shell .select-opener {
+  height: var(--control-h-lg);
+  font-size: var(--text-md);
 }

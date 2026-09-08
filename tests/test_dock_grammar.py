@@ -18,7 +18,9 @@ and this lint holds the parts of it that can be read from the markup:
   `*-help-toggle`) or class (`dock-more`).
 - **No text-only segmented controls in a zone.** A `.seg`/`.segmented-control`
   in a dock zone must carry an icon per option or be inside a menu; the plan
-  keeps segments for *view* and gives them icons.
+  keeps segments for *view* and gives them icons. A segment's own cells are
+  not counted as primaries: the fill on a segment *is* its selected state,
+  not a call to action, so "one primary" is about the buttons beside it.
 
 Like the other frontend lints this cannot see the DOM; `scratchpad/ui-sweeps/
 docks.js` measures the same docks against a running app (one height per
@@ -46,6 +48,7 @@ ON_THE_GRAMMAR = {
     "graph",
     "library",
     "library-boards",
+    "library-contents",
     "library-docs",
     "library-links",
     "library-media",
@@ -55,6 +58,16 @@ ON_THE_GRAMMAR = {
 }
 
 
+class _Segment:
+    """One segmented control sitting directly in a dock zone."""
+
+    def __init__(self, name: str, ident: str):
+        self.dock = name
+        self.id = ident or "(no id)"
+        self.options = 0
+        self.with_icon = 0
+
+
 class _Dock:
     def __init__(self, name: str):
         self.name = name
@@ -62,7 +75,7 @@ class _Dock:
         self.filled: list[str] = []
         self.loose_switches: list[str] = []
         self.utilities: list[str] = []
-        self.text_segments: list[str] = []
+        self.segments: list[_Segment] = []
 
 
 class _Parser(HTMLParser):
@@ -101,13 +114,35 @@ class _Parser(HTMLParser):
         current_zone = next(
             (z for f in reversed(self.stack) for z in ZONES if z in f["classes"]), None
         )
+        # A cell of a segmented control is not a primary, and this had to be
+        # said explicitly: `.seg button` is transparent by design (the fill is
+        # the *selected* state), so a segment carries neither `ghost` nor, once
+        # its options have words beside their icons, `icon-only`. Counting its
+        # cells as filled buttons failed Contents for having four ways to group
+        # an index, which is not the "two answers to what this row is for"
+        # defect this test is here to catch. The docstring's own segment rule
+        # is now a test as well, one line below.
+        in_seg = any(
+            "seg" in f["classes"] or "segmented-control" in f["classes"]
+            for f in self.stack[:-1]
+        )
         if not in_menu and current_zone:
-            if tag == "button" and "ghost" not in classes and "icon-only" not in classes:
+            if (
+                tag == "button"
+                and not in_seg
+                and "ghost" not in classes
+                and "icon-only" not in classes
+            ):
                 dock.filled.append(a.get("id") or "(no id)")
             if tag == "input" and a.get("type") in ("checkbox", "radio"):
                 dock.loose_switches.append(a.get("id") or a.get("name") or "(no id)")
             if ("seg" in classes or "segmented-control" in classes) and tag != "summary":
-                dock.text_segments.append(a.get("id") or "(no id)")
+                dock.segments.append(_Segment(dock.name, a.get("id") or ""))
+            if tag == "button" and in_seg and dock.segments:
+                dock.segments[-1].options += 1
+            if tag == "i" and in_seg and dock.segments:
+                if any(c == "ph" or c.startswith("ph-") for c in classes):
+                    dock.segments[-1].with_icon += 1
         if current_zone == "dock-actions" and not in_menu:
             ident = a.get("id") or ""
             if ident.endswith("-refresh"):
@@ -157,6 +192,26 @@ def test_one_primary_action(dock):
 def test_switches_live_in_menus(dock):
     assert not dock.loose_switches, (
         f"{dock.name}: a checkbox/radio sits directly in a dock zone: {dock.loose_switches}"
+    )
+
+
+def _segments():
+    return [s for d in _docks() for s in d.segments]
+
+
+@pytest.mark.parametrize("seg", _segments(), ids=lambda s: f"{s.dock}:{s.id}")
+def test_segments_in_a_zone_carry_an_icon_per_option(seg):
+    """The docstring's segment rule, which was described and never asserted.
+
+    A segmented control in a dock means *view*, and the plan gives it icons so
+    that four ways of drawing one list read as one control rather than as four
+    words someone left in the row. Words may sit beside the icons; what is
+    refused is an option with no icon at all.
+    """
+    assert seg.options, f"{seg.dock}:{seg.id}: a segment with no options"
+    assert seg.with_icon >= seg.options, (
+        f"{seg.dock}:{seg.id}: {seg.options} options but only {seg.with_icon} "
+        "carry an icon; a segment in a dock zone gives every option one"
     )
 
 

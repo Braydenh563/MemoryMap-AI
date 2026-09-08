@@ -28,6 +28,7 @@ const SURFACES = [
   { tab: 'library', target: 'library-view-contents', dock: 'library-contents' },
   { tab: 'library', target: 'library-view-skills', dock: 'library-skills' },
   { tab: 'chat', dock: 'chat' },
+  { tab: 'notes', dock: 'notes' },
 ];
 
 const fails = [];
@@ -99,10 +100,13 @@ async function probe(page, s, width) {
     check(listBox.l >= -1 && listBox.r <= width + 1,
       `${m}@${width}: list runs off the viewport (${listBox.l}..${listBox.r} of ${width})`);
     // Pick something in it. A check stays open by design; a verb closes.
-    const kind = await page.$eval(m, (e) => (e.querySelector('.doc-dock-menu-item') ? 'item'
+    // `:not(.hidden)` is load-bearing: the Notes filter menu keeps a hidden
+    // "Save this filter" item that only appears once a filter is typed, and
+    // clicking a hidden button waits thirty seconds and then blames the click.
+    const kind = await page.$eval(m, (e) => (e.querySelector('.doc-dock-menu-item:not(.hidden)') ? 'item'
       : e.querySelector('.dock-menu-check') ? 'check' : 'section'));
     if (kind === 'item') {
-      await page.click(`${m} .doc-dock-menu-item`);
+      await page.click(`${m} .doc-dock-menu-item:not(.hidden)`);
       await page.waitForTimeout(300);
       check(!(await page.$eval(m, (e) => e.open)), `${m}@${width}: stayed open after picking an item`);
       await dismissModals(page);
@@ -147,7 +151,7 @@ async function probe(page, s, width) {
           const o = document.querySelector('.modal-overlay:not(.hidden)');
           return o ? o.className + ' :: ' + o.textContent.trim().slice(0, 120) : 'none';
         }).catch(() => 'unknown');
-        fails.push(`${s.dock}@${width}: ${String(e).slice(0, 90)} | modal: ${modal}`);
+        fails.push(`${s.dock}@${width}: ${String(e).slice(0, 140)} | modal: ${modal}`);
       }
     }
   }

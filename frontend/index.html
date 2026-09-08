@@ -1016,9 +1016,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <button type="button" id="notes-view-rows" class="active icon-only"
                   title="Compact rows — more notes on screen" aria-label="Show notes as compact rows"><i class="ph ph-list" aria-hidden="true"></i></button>
                 <button type="button" id="notes-view-cards"
-                  title="Cards — full preview of each note" aria-label="Show notes as cards" class="icon-only"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
-                <button type="button" id="notes-expand-all" class="ghost small hidden"
-                  title="Open every note in this list" aria-label="Open every note in this list"></button>
+                  title="Cards, a full preview of each note" aria-label="Show notes as cards" class="icon-only"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
               </div>
             </div>
             <div class="dock-actions">
@@ -1033,6 +1031,23 @@ Link to another note with [[its first few words]]."></textarea>
               <details class="doc-dock-menu dock-menu dock-more" id="notes-more-menu">
                 <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
                 <div class="doc-dock-menu-list dock-menu-list">
+                  <!-- **Moved out of the view segment, where it was a verb in a
+                       row of view options.** Found by the segment rule in
+                       tests/test_dock_grammar.py: the segment held three cells
+                       and only two of them were views, so the third had neither
+                       an icon in the markup (`updateExpandAllButton` fills its
+                       label at runtime) nor any business being there. A segment
+                       means "the same list drawn differently"; "Expand all" is
+                       something you do to the list.
+
+                       In the kebab rather than beside Select, because the row
+                       is already at eight visible controls against the plan's
+                       ceiling of seven, and this is rule 5's exact case: a verb
+                       used sometimes. `updateExpandAllButton` still hides it
+                       outside rows view and still writes both its label and its
+                       icon, so nothing about app.js changes. -->
+                  <button type="button" id="notes-expand-all" class="doc-dock-menu-item hidden"
+                    title="Open every note in this list" aria-label="Open every note in this list"></button>
                   <div class="dock-menu-section">
                     <label class="muted dock-menu-label" for="notes-page-size">Notes per page</label>
                     <select id="notes-page-size" aria-label="Notes per page" title="Notes per page">
@@ -4245,58 +4260,80 @@ Link to another note with [[its first few words]]."></textarea>
        and filters by category); this is the fast, scannable list half. -->
   <div id="library-view-contents" class="library-view-section hidden">
     <section class="card glass">
-      <div class="row space-between library-head">
-        <h2>Contents</h2>
-        <!-- Directly requested: "make the text at the top of the contents page
-             one of those tooltip '?' buttons". Four lines of prose that only
-             ever needs reading once was pushing the controls a third of the
-             way down the card on every visit; the same words now open on
-             demand from the same "?" every other page in the app uses. -->
-        <!-- The two buttons travel together at the card's right edge.
-             `.graph-help-toggle` carries `margin-left: auto` of its own, which
-             is right in a toolbar and wrong in a `.row.space-between` header:
-             it pushed the "?" to the middle of the row, half a card away from
-             the refresh button it belongs beside. Reported with a screenshot. -->
-        <div class="row contents-head-actions">
+      <!-- **The dock (UI_MODERNISATION_PLAN.md Phase 8).** Before: two rows.
+           A `.row.space-between` head holding the title and two icon buttons
+           in the wrong order (help, then refresh), and a `.contents-controls`
+           row below it holding the grouping segment, the filter box and
+           "Collapse all". Nothing about that said which row was for finding
+           and which was for acting; they were simply the order the features
+           arrived in.
+
+           One row, the four zones every Library head now uses:
+             identity: the title
+             find:     the filter box
+             arrange:  the grouping segment
+             actions:  Collapse all, then refresh, then help
+           Utilities are refresh then help now, which is the fixed order the
+           grammar states and the order every other dock already uses.
+
+           Ids, `data-mode` values, `role="tab"` and the `active` class are
+           all unchanged, so library.js keeps its listeners as they are.
+
+           The segment gained an icon per option. Rule 7 wants a segmented
+           control to mean *view* and to carry icons, and this one does mean
+           view: it is four ways of drawing the same index, not four filters.
+           The words stay beside the icons because "By month" and "By folder"
+           are not guessable from a picture, and the folder option keeps the
+           tooltip that answers the question it was reported with. -->
+      <div class="dock" data-dock-name="library-contents" role="toolbar"
+        aria-label="Contents controls">
+        <div class="dock-identity">
+          <h2>Contents</h2>
+        </div>
+        <div class="dock-group dock-find">
+          <input id="contents-filter" type="search" placeholder="Filter this index…"
+            aria-label="Filter the index by title">
+        </div>
+        <div class="dock-group dock-arrange">
+          <div class="seg" id="contents-mode" role="tablist" aria-label="How to group the index">
+            <button role="tab" aria-selected="true" data-mode="category" class="active" type="button"><i class="ph ph-folders ph-lead" aria-hidden="true"></i> By category</button>
+            <button role="tab" aria-selected="false" data-mode="tag" type="button"><i class="ph ph-tag ph-lead" aria-hidden="true"></i> By tag</button>
+            <button role="tab" aria-selected="false" data-mode="date" type="button"><i class="ph ph-calendar-blank ph-lead" aria-hidden="true"></i> By month</button>
+            <!-- The vault's own folders, for notes imported from one. See
+                 `Entry.source_path`: everything written in this app groups
+                 under "(written here)" rather than vanishing.
+
+                 **The tooltip is the whole feature for anyone who has not
+                 imported a vault.** Reported as a question: "what does it mean
+                 by 'sort by folder' in the contents page??", which is the
+                 right question, because on a notebook with nothing imported
+                 this tab groups everything under one heading and looks broken.
+                 A control has to say what it is for where it is offered; the
+                 comment above says it to the next developer and said nothing
+                 to the user. -->
+            <button role="tab" aria-selected="false" data-mode="folder" type="button"
+              title="Group by the folders of an imported Obsidian or markdown vault. Notes written in MemoryMap have no folder, so they group under “(written here)”."><i class="ph ph-folder-open ph-lead" aria-hidden="true"></i> By folder</button>
+          </div>
+        </div>
+        <div class="dock-actions">
+          <button id="contents-collapse" class="ghost small" type="button"
+            title="Collapse or expand every section">Collapse all</button>
+          <button id="contents-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+          <!-- Directly requested: "make the text at the top of the contents page
+               one of those tooltip '?' buttons". Four lines of prose that only
+               ever needs reading once was pushing the controls a third of the
+               way down the card on every visit; the same words now open on
+               demand from the same "?" every other page in the app uses. -->
           <button id="contents-help" class="ghost small icon-only graph-help-toggle" type="button"
             aria-expanded="false" aria-controls="contents-intro"
-            title="An index of your notebook — by category, by tag, by the month you wrote it, or by the folder it came from if you imported a vault. Filter it, fold a section away, or jump straight to one. For the visual map of how notes link to each other, see the Graph tab."
+            title="An index of your notebook: by category, by tag, by the month you wrote it, or by the folder it came from if you imported a vault. Filter it, fold a section away, or jump straight to one. For the visual map of how notes link to each other, see the Graph tab."
             aria-label="What is this page?"><i class="ph ph-question" aria-hidden="true"></i></button>
-          <button id="contents-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
         </div>
       </div>
-      <p class="muted graph-help-panel hidden" id="contents-intro" role="dialog" aria-label="What is this page?">An index of your notebook — by category, by tag, by the
+      <p class="muted graph-help-panel hidden" id="contents-intro" role="dialog" aria-label="What is this page?">An index of your notebook: by category, by tag, by the
         month you wrote it, or by the folder it came from if you imported a
         vault. Filter it, fold a section away, or jump straight to one. For the
         visual map of how notes link to each other, see the Graph tab.</p>
-      <!-- The controls an index needs and this one did not have: a way to
-           narrow it, a third grouping (a notebook is as often "when did I
-           write that" as "what did I file it under"), and a jump bar, because
-           the fix for a long index is not a scrollbar per section. -->
-      <div class="row contents-controls library-head">
-        <div class="seg" id="contents-mode" role="tablist">
-          <button role="tab" aria-selected="true" data-mode="category" class="active" type="button">By category</button>
-          <button role="tab" aria-selected="false" data-mode="tag" type="button">By tag</button>
-          <button role="tab" aria-selected="false" data-mode="date" type="button">By month</button>
-          <!-- The vault's own folders, for notes imported from one. See
-               `Entry.source_path`: everything written in this app groups
-               under "(written here)" rather than vanishing. -->
-          <!-- **The tooltip is the whole feature for anyone who has not
-               imported a vault.** Reported as a question: "what does it mean
-               by 'sort by folder' in the contents page??" — which is the
-               right question, because on a notebook with nothing imported
-               this tab groups everything under one heading and looks broken.
-               A control has to say what it is for where it is offered; the
-               comment above says it to the next developer and said nothing
-               to the user. -->
-          <button role="tab" aria-selected="false" data-mode="folder" type="button"
-            title="Group by the folders of an imported Obsidian or markdown vault. Notes written in MemoryMap have no folder, so they group under “(written here)”.">By folder</button>
-        </div>
-        <input id="contents-filter" type="search" placeholder="Filter this index…"
-          aria-label="Filter the index by title">
-        <button id="contents-collapse" class="ghost small" type="button"
-          title="Collapse or expand every section">Collapse all</button>
-      </div>
       <nav id="contents-jump" class="contents-jump" aria-label="Jump to a section"></nav>
       <div id="contents-outline" class="contents-outline"></div>
       <p id="contents-no-match" class="muted hidden"></p>

@@ -131,28 +131,22 @@ are only just begun or half done." True; this table is the state.
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 
-**Cutoff note (15:35 UTC, owner at 95% usage).** Both agents were told to
-commit what passes and write their remaining lists. If "continue" finds
-them cut off: the graph worktree (`agent-a63a58af8c6d8807a`) may hold
-uncommitted edits to graph.js, graph-canvas.js, graph-worker.js and
-02-chat-graph.css; run the lint set and `node --check` on them, commit as
-"GRAPH Phase 2, partial" if green, otherwise `git stash` them in the
-worktree and restart Phase 2 from the brief in this file's queue. The
-launcher worktree (`agent-a3e9c02681f8ef629`) had nothing committed yet;
-Brief 17 restarts from SESSION_BRIEFS.md. Merge order after that: graph,
-launcher, then Sonnet on Brief 16 (docs). Everything Fable did today is
-pushed; CI green through 179373b.
-
-**Now (2026-09-08 15:25 UTC):** merged and pushed this afternoon: Sonnet's
-INBOX run (84f4eb2) and Opus's consistency and docks run (8075149; twelve
-commits, the two work lists rewritten to only what is left). In flight:
-Opus on GRAPH Phase 2 with INBOX 21 and the three graph reports (worktree
-agent-a63a58af8c6d8807a); Opus on Brief 17, the launchers, uninstallers
-and the splash (worktree agent-a3e9c02681f8ef629). Next free slot: Sonnet
-on Brief 16, the linked docs (INSTALL, ARCHITECTURE, MODELS, PRIVACY,
-TROUBLESHOOTING, CONTRIBUTING, SECURITY, docs/index.html) in the new
-README's voice (71aaa66 is the reference). Fable's own work today is in
-the commit log from 284e7e0 to 7bb5a8b. The owner's order for the rest of
+**Now (2026-09-08 16:45 UTC, after the usage reset):** CI was red on
+db1f25d (a splash test pinned the old zenity gate); fixed in 7ee3d3b with
+the graph agent's partial Phase 2 merged (the map fills the card, the
+controls float, labels do not stack, a pan no longer focuses a node).
+The launcher agent's first step is merged (start.sh flags, doctor,
+preflight, logs; the rest in `agent-remaining/launcher.md`). The owner's
+16:00 pile is INBOX 31 to 45. In flight: Sonnet on INBOX batch A (31 to
+38, worktree agent-a057fd4e2452c6efc); Opus on GRAPH Phase 2 remainder
+(gear button, options panel redesign, spread, fullscreen, label probe;
+worktree agent-a85b14025e832b121). Queue after them, two at a time: CHAT
+batch B (Opus: INBOX 39 rename Request to Agent and auto-switch for
+skills, 40 inline citations in skill runs and Markdown in badges);
+`agent-remaining/mindmap.md` item H plus INBOX 42 (Opus); Brief 17
+remainder (Opus, launcher.md); Brief 16 docs in the README's voice
+(Sonnet); DOCUMENTS Phase 1 (carries 44); GRAPH 3 to 5; UI Phase 9
+remainder; SKILLS Phase D; MINDMAP 4 to 5. The owner's order for the rest of
 this session stands: **finish the phases of the plans already in
 progress; TIMELINE, WHITEBOARD, CHAT, WORLD_CLASS and the Briefs wait for
 the next session.** Queue, two agents at a time, each merged and gated

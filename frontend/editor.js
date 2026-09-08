@@ -739,7 +739,7 @@ function editorLinkMatches(needle) {
     }));
 
   //: **Boards.** A board *is* an Entry (`is_board`) and used to be found in
-  //: `allEntries` — but `GET /entries` is the notes list and no longer
+  //: `allEntries`, but `GET /entries` is the notes list and no longer
   //: returns boards at all (reported: a mind map called "test" appeared in
   //: the Notes list as a note), so the source is now `/whiteboard/boards`
   //: through the same index the map chips read. A notebook with boards still

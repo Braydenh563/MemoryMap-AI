@@ -654,7 +654,7 @@ def test_a_created_map_does_not_appear_in_the_notes_list(board_client, session):
     """Reported: "I made a mindmap naming it test and I think it came up as a
     new note??" It did.
 
-    A board — and a mind map, which is a board with `type: "map"` — is an
+    A board, and a mind map, which is a board with `type: "map"`, is an
     `Entry` (`Entry.is_board`), and `GET /entries` had no filter for that at
     all, so every board in the notebook was in the notes list, in its count,
     and in everything else built on that response. Measured in a real browser
@@ -706,7 +706,7 @@ def test_loading_a_board_drops_an_edge_whose_end_is_gone(board_client, session):
     path removes a row without going through a delete route at all: purging a
     note deletes its `WhiteboardNode` rows in bulk (`entry/manager.py`). The
     link that pointed at the card survived it, with an id resolving to
-    nothing — measured in the browser before this was written.
+    nothing, measured in the browser before this was written.
 
     The free-point link in here is the control, and it matters as much as the
     orphan: a link end with no item at all is a real feature ("even make it a

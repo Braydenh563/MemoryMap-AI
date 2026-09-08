@@ -1093,7 +1093,7 @@ def list_entries(
     # **This list is the notes list, so boards are not in it by default.**
     #
     # Reported: "I made a mindmap naming it test and I think it came up as a
-    # new note??" — it did, on every surface built on this response. A board
+    # new note??", it did, on every surface built on this response. A board
     # (and a mind map, which is a board with `type: "map"`) is an `Entry`, so
     # it came back here with everything else; measured on a notebook with
     # nine maps, ten of the Notes list's twelve rows were maps.

@@ -46,7 +46,7 @@ function check(label, ok, detail) {
   check("a board id is open after creating the map", Boolean(boardId), `board ${boardId}`);
 
   //: **A map is not a note.** Reported: "I made a mindmap naming it test and I
-  //: think it came up as a new note??" — it did, on every surface built on
+  //: think it came up as a new note??", it did, on every surface built on
   //: `GET /entries`, which had no board filter at all. Asserted at the
   //: endpoint *and* in the rendered list, because the two failed together and
   //: either one alone would let the other come back.
@@ -554,7 +554,7 @@ function check(label, ok, detail) {
   const afterClick = await strayCount();
   check("(A) a click on empty canvas clears a stray selection rectangle", afterClick === 0, `${afterClick} stray`);
 
-  // B: "I cant highlight text in mindmap text boxes". Reproduced first — the
+  // B: "I cant highlight text in mindmap text boxes". Reproduced first, the
   // drag selected the empty string and moved the node 165px, because
   // `objDrag`'s filter excluded `.wb-text-content` and a map node's editor
   // is `.wb-map-text`.

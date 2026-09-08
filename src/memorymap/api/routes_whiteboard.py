@@ -366,7 +366,7 @@ def _drop_orphan_links(db: Session, sketches, nodes, objects) -> set[int]:
     **An integrity pass, because the delete paths cannot be the only guard.**
     Reported with a screenshot: a node "had a dangling curved edge to nowhere
     (an edge whose other end is a deleted node or a point)". Every *delete*
-    route does call `_forget_links_to` — but a link's ends are ids inside a
+    route does call `_forget_links_to`, but a link's ends are ids inside a
     JSON blob, not foreign keys, so nothing at the database level enforces
     them, and any path that removes a row without going through those routes
     leaves the link behind. One such path is live and was measured: purging a

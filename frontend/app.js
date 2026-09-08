@@ -1689,7 +1689,7 @@ function mapBoardTitled(needle) {
 }
 
 //: Every board the notebook has, newest-looking order preserved from
-//: `/whiteboard/boards` — the editor's `@`/`[[` picker's own source. Empty
+//: `/whiteboard/boards`, the editor's `@`/`[[` picker's own source. Empty
 //: until `loadMapBoardIndex` has run once, which is the same "a surface that
 //: has not asked for boards yet" degradation `mapBoardById` documents.
 function mapBoardRows() {
@@ -7754,7 +7754,7 @@ function resolveWikiTarget(name) {
   //:
   //: **Read from the board index, not from `allEntries`.** `GET /entries` is
   //: the notes list and no longer carries boards at all (see its `boards`
-  //: parameter — a map called "test" was showing up as a note, reported), so
+  //: parameter, a map called "test" was showing up as a note, reported), so
   //: this used to resolve against a list that will not have the board in it.
   //: `mapBoardIndexCache` is `/whiteboard/boards`, which is the list of
   //: boards by definition, and it is already loaded for the map chips.

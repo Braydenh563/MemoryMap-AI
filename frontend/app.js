@@ -15630,39 +15630,63 @@ function plainText(md) {
 //: grammar (an optional leading `ph:` marker, then any app-written words such
 //: as a citation number); `md` is the note text, rendered rather than printed.
 //:
-//: The rendering is skipped when the text has to be cut: a cut can land inside
-//: `**bold**` and leave half a delimiter on screen, which is the exact defect
-//: this fixes. Measuring the length on the stripped text rather than the raw
-//: means a label is not cut short by markers nobody will see.
+//: **A chip's own `max-width` does most of the cutting now, not a character
+//: count** (chat-b.md items 2-3, INBOX 35/40). The old rule rendered only
+//: when the text fit inside `length` plain characters and fell back to
+//: flattened, unrendered text otherwise, because a naive character cut can
+//: land inside `**bold**` and leave a stray delimiter on screen -- which is
+//: exactly why a long note's opening words, the common case at a tight
+//: budget like the grounding chip's 30, showed as raw markup instead of what
+//: the answer directly above already renders. The render path is taken up to
+//: a much more generous margin (`length * 4`: a chip's *display* width, not
+//: its character count, is what a reader actually sees truncated, so CSS --
+//: `.ph-text`, styled per caller, `.result-reason-chip` in
+//: 03-dashboard-widgets.css measures its own -- does the truncating and can
+//: only ever cut between whole rendered characters, never inside a token).
+//: Only a genuinely pathological length (a multi-thousand-character note
+//: with no chip wide enough to need rendering that much of it) still falls
+//: back to `plainText`'s plain character cut: parsing that much Markdown
+//: into one badge's DOM buys nothing nobody scrolls to see.
 function setNoteLabel(el, label, md, length = 40) {
   const text = String(label ?? "");
   const match = PH_LABEL.exec(text);
   const prefix = (match ? text.slice(match[0].length) : text).trim();
   const flat = flattenNoteMarkdown(md) || "(empty note)";
+  const generousBudget = length * 4;
   const plain = plainText(flat) || "(empty note)";
   const holder = document.createElement("span");
-  if (plain.length > length) {
-    holder.textContent = `${plain.slice(0, length - 1)}…`;
+  if (plain.length > generousBudget) {
+    holder.textContent = `${plain.slice(0, generousBudget - 1)}…`;
   } else {
     // `compact`, so an image becomes its alt text rather than a thumbnail
     // inside a chip; `dismissible: false` for the same reason, there is no
     // room for a remove affordance on a badge.
     renderInlineMarkdown(holder, flat, null, true, { dismissible: false });
   }
-  // Prepended into the same span, not appended beside it: a separate node for
-  // "1." would need a gap, and a whitespace-only text node between two flex
-  // items is discarded (see setLabel's own note on exactly that).
-  if (prefix) holder.prepend(document.createTextNode(`${prefix} `));
   el.replaceChildren();
   if (match) {
     const icon = document.createElement("i");
     icon.className = `ph ph-${match[1]} ph-lead`;
     icon.setAttribute("aria-hidden", "true");
     holder.className = "ph-text";
-    el.append(icon, holder);
-  } else {
-    el.append(...holder.childNodes);
+    el.append(icon);
   }
+  // Its own element now, not text prepended into `holder` (chat-b.md item
+  // 2): the two need to survive a chip's ellipsis differently. The ordinal
+  // ("1.") has to stay fully visible always, or a truncated "5. Some not…"
+  // reads as "some note starting with 5", not "note five"; `flex-shrink: 0`
+  // on `.note-label-prefix` is what the CSS side of that is. `holder` keeps
+  // the `.ph-text` class and stays the ellipsis target every existing
+  // per-chip rule (`.answer-related-chip > .ph-text` and its siblings) is
+  // already keyed on, so the prefix element is additive, not a rename.
+  if (prefix) {
+    const prefixEl = document.createElement("span");
+    prefixEl.className = "note-label-prefix";
+    prefixEl.textContent = prefix;
+    el.append(prefixEl);
+  }
+  if (match) el.append(holder);
+  else el.append(...holder.childNodes);
   return el;
 }
 
@@ -36091,16 +36115,16 @@ function cmdPaletteTouchedRow(items) {
       const chip = document.createElement("button");
       chip.type = "button";
       chip.className = "cmd-source-row";
-      //: INBOX 35: `item.label` is a raw title/preview from the backend
-      //: (a document's own title, a note's opening words), unlike
-      //: `cmdPaletteResultRow` just above, which already runs every label
-      //: through `noteLabel`. Reported with a screenshot: a document
-      //: titled `# CAB432` and a note opening `**Ice Breakers:**` printed
-      //: their own markdown markers here. `noteLabel` already strips them
-      //: for exactly this reason, and its own 40-char elision replaces the
-      //: plain character slice this row used to do by hand.
-      const label = noteLabel({ content: item.label || `#${item.id}` }, 44);
-      setLabel(chip, `${spec.icon} ${label}`);
+      //: INBOX 35, batch B's own next step: `item.label` is a raw title/
+      //: preview from the backend (a document's own title, a note's opening
+      //: words). Reported with a screenshot: a document titled `# CAB432`
+      //: and a note opening `**Ice Breakers:**` printed their own markdown
+      //: markers here. `setNoteLabel` is the one place that both strips a
+      //: label short enough to cut safely and renders one long enough to
+      //: show in full, rather than a plain-text stripper that always
+      //: flattens -- the same badge recipe the grounding/touched chips
+      //: elsewhere in chat already use.
+      setNoteLabel(chip, spec.icon, item.label || `#${item.id}`, 44);
       chip.title = spec.title;
       chip.addEventListener("click", () =>
         item.kind === "document" ? cmdPaletteGoToDocument(item.id) : cmdPaletteGoToNote(item.id),
@@ -36164,8 +36188,11 @@ function cmdPaletteResultRow(results) {
       //: `ph:note`, not `ph:file-text`, that glyph means *document* in the
       //: touched row below, and the same picture standing for two different
       //: objects in one panel is exactly the inconsistency this app is being
-      //: pulled out of.
-      setLabel(chip, `ph:note ${noteLabel({ content: entry.content || "" }, 44)}`);
+      //: pulled out of. `setNoteLabel`, not `noteLabel` plus `setLabel`: the
+      //: latter pair always flattens (INBOX 35's original fix), the former
+      //: renders the note's own Markdown when the label is short enough to
+      //: show in full (chat-b.md's own next step).
+      setNoteLabel(chip, "ph:note", entry.content || "", 44);
       chip.title = `Open this note${entry.category ? ` (${entry.category})` : ""}`;
       chip.addEventListener("click", () => cmdPaletteGoToNote(entry.id));
       return chip;

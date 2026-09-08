@@ -1635,9 +1635,30 @@ header#top-bar select,
   border: none;
 }
 
+/* Same cap as `.tool-touched-chip` (02-chat-graph.css): a note-preview chip
+   that can carry an arbitrarily long opening is the same control wherever it
+   appears, so it gets the same width rather than a new number invented for
+   this one. Unlike that chip, this one can also carry an ordinal ("1.",
+   `setNoteLabel`'s prefix) ahead of the label, so the ellipsis has to sit on
+   the label's own `.ph-text` span, not on the chip as a whole -- clipping
+   the whole button would risk clipping the ordinal along with it, and
+   "5. Some not…" reads as note five, not note one. */
 .result-reason-chip {
   font-size: var(--text-xs);
   font-weight: 650;
+  max-width: 22rem;
+}
+
+.result-reason-chip .note-label-prefix {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.result-reason-chip .ph-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .result-reason-connected {

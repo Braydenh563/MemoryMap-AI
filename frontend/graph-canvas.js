@@ -1045,7 +1045,16 @@ function gcStartWorker(nodes, edges, world) {
 //: reported as "the graph nodes are like locked into a box".
 function gcWorldFor(count, width, height) {
   const perNode = 2 * (GC_MAX_RADIUS + 28);
-  const roomy = Math.sqrt(Math.max(count, 1)) * perNode * 1.6;
+  // 1.25, not 1.6. The world is the wall a reheated layout cannot push past,
+  // and it was sized for a simulation whose span grew like sqrt(count) with
+  // nothing holding it in; the worker now scales its repulsion and its centre
+  // force by the note count (`densityScale`/`centreScale` in graph-worker.js),
+  // so the natural spread is a good deal smaller than the room this used to
+  // reserve and the gap between the two was somewhere a node could wander to
+  // and be lost. Measured at 35 and 300 notes this changes nothing at all:
+  // both are under the viewport floor below. It bites above about a thousand
+  // notes, where it is reasoned rather than measured.
+  const roomy = Math.sqrt(Math.max(count, 1)) * perNode * 1.25;
   const side = Math.max(roomy, width * 1.8, height * 1.8);
   return {
     left: (width - side) / 2,

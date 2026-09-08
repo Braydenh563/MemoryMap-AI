@@ -169,6 +169,21 @@ const check = (ok, what) => {
       `(alpha ${round(spread.alpha)}, ${spread.ticks} ticks)`
   );
 
+  // The spread, stated as the three numbers the plan states it in: a map that
+  // is framed at a readable zoom, mostly on screen at 1:1, and still made of
+  // separable notes rather than one packed disc. The gap floor is the collide
+  // diameter (`COLLIDE_PAD` in graph-worker.js, twice a small node's radius
+  // plus six): below it the layout has stopped being a layout.
+  check(spread.k >= 0.5, `the map only frames at zoom ${round(spread.k)}`);
+  check(
+    spread.insideAt1 / Math.max(spread.count, 1) >= 0.85,
+    `${spread.count - spread.insideAt1} of ${spread.count} notes are off screen at zoom 1`
+  );
+  check(
+    spread.medianGap >= 24,
+    `median nearest-neighbour gap is ${Math.round(spread.medianGap)}px: the map fits because it is one blob`
+  );
+
   // 4. A pan must not change hover, and neither must a wheel zoom.
   const hoverProbe = await page.evaluate(() => {
     const nodes = (typeof gcNodes !== "undefined" ? gcNodes : []).filter((n) => Number.isFinite(n.x));

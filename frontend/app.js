@@ -9329,6 +9329,7 @@ async function streamChat({
   imageMediaIds,
   documentIds,
   fileIds,
+  boardIds,
   skill,
   skillInputs,
   skillFromStep,
@@ -9389,6 +9390,12 @@ async function streamChat({
   //: failure `document_ids` shipped once before, one layer further out.
   if (documentIds && documentIds.length) body.document_ids = documentIds;
   if (fileIds && fileIds.length) body.file_ids = fileIds;
+  //: A mind map attached by hand (MINDMAP_PLAN.md §5 item 11). Its own
+  //: field, not folded into `note_ids`, because a board's `content` is the
+  //: single line `# My map` — sent as a note the model would get a heading
+  //: and be told it was a map. `_attached_boards` (routes_chat.py) turns the
+  //: id into the outline instead.
+  if (boardIds && boardIds.length) body.board_ids = boardIds;
   // Running a skill sends its name, not its prompt: the server owns what a
   // skill is — the steps, the values, the tools it may use — so the two
   // definitions can't drift apart.
@@ -12395,6 +12402,19 @@ function chatAttachmentStrip(attachments) {
       continue;
     }
 
+    if (item.kind === "map") {
+      // A mind map attached to the question (MINDMAP_PLAN.md §5 item 11).
+      // `mapChip` is the app's one map chip, so a map in a sent bubble reads
+      // exactly as it does in a note, on the timeline and in a dashboard row
+      // — the whole point of §5 item 12. `msg-attachment` on top of it so it
+      // sits in the strip like every other kind.
+      const board = mapBoardById(item.id) || { id: item.id, title: item.name, type: "map" };
+      const chipEl = mapChip(board);
+      chipEl.classList.add("msg-attachment");
+      strip.appendChild(chipEl);
+      continue;
+    }
+
     if (item.kind === "file") {
       // A Library file. Same shape as the document chip below, and the same
       // reason -- its text may be a hundred pages -- but it opens in the
@@ -14550,6 +14570,62 @@ function renderFileAttachments() {
   }
 }
 
+//: **Mind maps staged on the message** (MINDMAP_PLAN.md §5 item 11: "a map
+//: can be attached to … a chat message, exactly as a file can today").
+//:
+//: A fourth list rather than folding maps into `attachedNotes`, even though a
+//: board *is* an Entry and `note_ids` would have carried it. That is precisely
+//: why it must not: a board's `content` is the single line `# My map`, so
+//: attaching one as a note sends the model a heading and calls it a map. The
+//: request carries `board_ids` separately (routes_chat.py) so the server can
+//: send the map's *outline* instead.
+let attachedBoards = [];
+let lastChatBoardAttachments = [];
+
+//: Four, matching `MAX_CHAT_DOCUMENTS`/`MAX_CHAT_FILES` and the server's own
+//: `max_length=4`. An outline is capped at 3,000 characters server-side, so
+//: four maps is ~12k — the same ceiling one attached file already has.
+const MAX_CHAT_BOARDS = 4;
+
+function attachBoardToChat(id, name) {
+  if (!id) return false;
+  if (attachedBoards.some((b) => b.id === id)) {
+    renderBoardAttachments();
+    return true;
+  }
+  if (attachedBoards.length >= MAX_CHAT_BOARDS) return false;
+  attachedBoards.push({ id, name: name || "Mind map" });
+  renderBoardAttachments();
+  announce(`Attached “${name || "mind map"}”. ${attachedBoards.length} map(s) attached.`);
+  return true;
+}
+
+function renderBoardAttachments() {
+  const box = $("chat-board-attachments");
+  if (!box) return;
+  box.replaceChildren();
+  box.classList.toggle("hidden", attachedBoards.length === 0);
+  for (const board of attachedBoards) {
+    const chipEl = document.createElement("span");
+    chipEl.className = "chip attachment-chip";
+    const label = document.createElement("span");
+    setLabel(label, `ph:tree-structure ${board.name}`);
+    const remove = document.createElement("button");
+    remove.className = "attachment-remove";
+    remove.type = "button";
+    remove.textContent = "✕";
+    remove.title = `Don't send “${board.name}” with this message`;
+    remove.setAttribute("aria-label", remove.title);
+    remove.addEventListener("click", () => {
+      attachedBoards = attachedBoards.filter((b) => b.id !== board.id);
+      renderBoardAttachments();
+      announce(`Removed attachment. ${attachedBoards.length} map(s) attached.`);
+    });
+    chipEl.append(label, remove);
+    box.appendChild(chipEl);
+  }
+}
+
 //: **Stage one document on the message being written.**
 //:
 //: The composer has staged documents as removable chips since files could be
@@ -14774,11 +14850,22 @@ let notePickerSource = "notes";
 //: Fetched once per opening rather than per keystroke, and per source rather
 //: than all four up front: a notebook can hold thousands of files, and three
 //: of these lists are never looked at in a session that only wanted a note.
-const notePickerCache = { documents: null, files: null, images: null };
+const notePickerCache = { documents: null, files: null, images: null, maps: null };
 
 async function notePickerRows(source) {
   if (source === "notes") return null; // notes come from allEntries, already in memory
   if (notePickerCache[source]) return notePickerCache[source];
+  //: **Maps come from `/whiteboard/boards?type=map`**, not from `allEntries`.
+  //: A map is a board, which is an Entry, so it *is* in `allEntries` — but
+  //: what a chip has to say about one is its node count, and that lives only
+  //: on `BoardOut`. `?type=map` also does the filtering server-side, which is
+  //: the one caller §9.3 says that parameter was for: this list wants maps and
+  //: no counts of the other kinds.
+  if (source === "maps") {
+    const boards = await apiJson("/whiteboard/boards?type=map", { silent: true }).catch(() => []);
+    notePickerCache.maps = (Array.isArray(boards) ? boards : []).filter((b) => b.id != null);
+    return notePickerCache.maps;
+  }
   const path = source === "documents" ? "/documents" : source === "files" ? "/files/gallery" : "/media";
   const rows = await apiJson(path).catch(() => []);
   let list = Array.isArray(rows) ? rows : rows.documents || [];
@@ -14824,6 +14911,23 @@ function notePickerShape(source) {
         renderDocumentAttachments();
       },
       empty: "No documents yet.",
+    };
+  }
+  if (source === "maps") {
+    return {
+      id: (row) => row.id,
+      label: (row) => row.title || "Untitled map",
+      //: The count is what the row adds over its title, and it is the reason
+      //: this list comes from `/whiteboard/boards` rather than `allEntries`.
+      note: (row) => mapCountLabel(row),
+      search: (row) => row.title || "",
+      isOn: (row) => attachedBoards.some((b) => b.id === row.id),
+      add: (row) => attachBoardToChat(row.id, row.title || "Mind map"),
+      remove: (row) => {
+        attachedBoards = attachedBoards.filter((b) => b.id !== row.id);
+        renderBoardAttachments();
+      },
+      empty: "No mind maps yet.",
     };
   }
   if (source === "files") {
@@ -14986,6 +15090,7 @@ function updateNotePickerCount() {
   if (attachedDocuments.length) parts.push(`${attachedDocuments.length} document${attachedDocuments.length === 1 ? "" : "s"}`);
   if (attachedFiles.length) parts.push(`${attachedFiles.length} file${attachedFiles.length === 1 ? "" : "s"}`);
   if (attachedImages.length) parts.push(`${attachedImages.length} image${attachedImages.length === 1 ? "" : "s"}`);
+  if (attachedBoards.length) parts.push(`${attachedBoards.length} mind map${attachedBoards.length === 1 ? "" : "s"}`);
   $("note-picker-count").textContent = parts.length ? `${parts.join(", ")} attached` : "Nothing attached yet";
 }
 
@@ -15084,6 +15189,7 @@ async function sendChatMessage(preset, opts = {}) {
   const sentImages = opts.imageMediaIds || attachedImages.map((img) => img.id);
   const sentDocuments = opts.documentIds || attachedDocuments.map((d) => d.id);
   const sentFiles = opts.fileIds || attachedFiles.map((f) => f.id);
+  const sentBoards = opts.boardIds || attachedBoards.map((b) => b.id);
   // What the bubble will draw. Built here, while the composer still knows the
   // names and urls — after the clear below there is nothing left to build it
   // from, and a round trip to re-fetch what we already had would show the
@@ -15104,6 +15210,10 @@ async function sendChatMessage(preset, opts = {}) {
     // Library files: the same card list as the other kinds, so the bubble
     // shows every reference the question was given rather than three of four.
     ...attachedFiles.map((f) => ({ kind: "file", id: f.id, name: f.name })),
+    // A mind map, same card list again — the bubble has to show every
+    // reference the question was given, and a map is the one whose absence
+    // would be least obvious (its outline is invisible in the transcript).
+    ...attachedBoards.map((b) => ({ kind: "map", id: b.id, name: b.name })),
     // The paperclip's own attachments. Same card list as the other two kinds
     // so the bubble shows every reference this question was given, not two of
     // the three.
@@ -15120,6 +15230,7 @@ async function sendChatMessage(preset, opts = {}) {
     lastChatImageAttachments = attachedImages.slice();
     lastChatDocumentAttachments = attachedDocuments.slice();
     lastChatFileAttachments = attachedFiles.slice();
+    lastChatBoardAttachments = attachedBoards.slice();
     // The staged bytes are on the server now, so the local Blob references
     // are dead weight — an object URL lives as long as the document unless it
     // is revoked, and a chat session sending several images would hold every
@@ -15133,6 +15244,7 @@ async function sendChatMessage(preset, opts = {}) {
     attachedImages = [];
     attachedDocuments = [];
     attachedFiles = [];
+    attachedBoards = [];
     //: Cleared with the rest, and for the same stated reason: a selection that
     //: rode along on every later question would be the app answering about a
     //: paragraph the user stopped talking about three messages ago.
@@ -15141,6 +15253,7 @@ async function sendChatMessage(preset, opts = {}) {
     renderImageAttachments();
     renderDocumentAttachments();
     renderFileAttachments();
+    renderBoardAttachments();
     renderSelectionAttachment();
     closeNotePicker();
   }
@@ -15431,6 +15544,7 @@ async function sendChatMessage(preset, opts = {}) {
       imageMediaIds: sentImages,
       documentIds: sentDocuments,
       fileIds: sentFiles,
+      boardIds: sentBoards,
       skill: opts.skill,
       skillInputs: opts.skillInputs,
       skillFromStep: opts.skillFromStep,
@@ -29640,8 +29754,24 @@ $("note-picker-done").addEventListener("click", () => {
   $("chat-input").focus();
 });
 $("note-picker-clear").addEventListener("click", () => {
+  //: Clear means clear. This emptied `attachedNoteIds` only, so pressing it
+  //: with three files and a map ticked left every one of them staged while the
+  //: count line under the button re-read "Nothing attached yet" — the panel
+  //: contradicting itself in two places at once.
+  //:
+  //: Images are deliberately not in this list. A staged image may hold a live
+  //: object URL that has to be revoked when it is dropped (see the send path's
+  //: own `URL.revokeObjectURL` loop and why it exists), and dropping one here
+  //: without that would leak a Blob for the life of the tab. The four stores
+  //: below are all ids of things that were already in the library.
   attachedNoteIds = [];
+  attachedDocuments = [];
+  attachedFiles = [];
+  attachedBoards = [];
   renderAttachments();
+  renderDocumentAttachments();
+  renderFileAttachments();
+  renderBoardAttachments();
   renderNotePickerList();
 });
 // Click-away and Escape close it, like every other popover in the app.

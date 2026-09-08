@@ -1370,6 +1370,14 @@ Link to another note with [[its first few words]]."></textarea>
                  `document_ids` as two fields (routes_chat.py). -->
             <div id="chat-file-attachments" class="chat-attachments hidden"
               role="group" aria-label="Files attached to your next message"></div>
+            <!-- Mind maps (MINDMAP_PLAN.md §5 item 11), and a fourth row for
+                 the same reason again: the chat request carries `board_ids` as
+                 its own field because what reaches the model is the map's
+                 *outline*, not a note's text. A map is a board, which is an
+                 Entry — attaching one as a note would send the model the
+                 single line `# My map` and call it a map. -->
+            <div id="chat-board-attachments" class="chat-attachments hidden"
+              role="group" aria-label="Mind maps attached to your next message"></div>
             <!-- The passage the user highlighted in a note or a document
                  (REDESIGN.md §R7.1 item 1). Its own line, and only ever one
                  chip on it: a selection is where you are, not a thing you
@@ -1417,6 +1425,12 @@ Link to another note with [[its first few words]]."></textarea>
                   <button type="button" role="tab" data-picker-source="documents" aria-selected="false">Documents</button>
                   <button type="button" role="tab" data-picker-source="files" aria-selected="false">Files</button>
                   <button type="button" role="tab" data-picker-source="images" aria-selected="false">Images</button>
+                  <!-- MINDMAP_PLAN.md §5 item 11. A fifth store, and the only
+                       one whose rows do not come from a table of their own:
+                       `/whiteboard/boards?type=map` is what carries a map's
+                       node count, which is the fact the row adds over its
+                       title. -->
+                  <button type="button" role="tab" data-picker-source="maps" aria-selected="false">Maps</button>
                 </div>
                 <input id="note-picker-search" type="search"
                   placeholder="Search your notes…" aria-label="Search what to attach">

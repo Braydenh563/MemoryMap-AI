@@ -2753,9 +2753,9 @@ p.graph-help-panel {
    `gap` stays — that is a real local choice, not a copy of a global one. */
 /* The Documents head is a `.dock` now (Phase 8): its gap, its one control
    height and its search width all come from the dock recipe, so the three
-   local rules that used to live here — a `--space-2` gap, a height for every
-   input/select/button, and a fixed 14rem on `#library-docs-search` — are
-   gone. The last of those had to go rather than stay harmless: `.dock-find
+   local rules that used to live here are gone: a `--space-2` gap, a height
+   for every input/select/button, and a fixed 14rem on
+   `#library-docs-search`. The last of those had to go rather than stay harmless: `.dock-find
    input[type="search"]` gives search `flex: 1 1 10rem` so it grows into the
    row, and a `width` beside a flex-basis is exactly the "two answers to one
    question" this phase is removing. */

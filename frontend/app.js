@@ -17004,7 +17004,7 @@ function enhanceSelect(select) {
 
   // **A `<select>` that has been hidden must take its stand-in with it.**
   // Measured, not reasoned: on Library → Images the native
-  // `#library-media-read` was 0x0 (`setLibraryMediaKind` adds `hidden` — a
+  // `#library-media-read` was 0x0 (`setLibraryMediaKind` adds `hidden`, since a
   // read filter is a Files idea) while the shell this function wraps it in
   // still rendered a 124x36 dropdown reading "Read or not", on a tab where
   // "read" means nothing. `#update-version-select` in Settings → About is

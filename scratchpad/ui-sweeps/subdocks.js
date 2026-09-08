@@ -1,4 +1,4 @@
-// Phase 8, second sitting: the surfaces the first one did not reach — every
+// Phase 8, second sitting: the surfaces the first one did not reach, namely every
 // Library sub-tab head, the Chat head + toolbar, the Dashboard hero, and the
 // Settings section heads. docks.js walks the *tab* panels and so never sees a
 // sub-tab that is `hidden` when its tab first paints; this one clicks each

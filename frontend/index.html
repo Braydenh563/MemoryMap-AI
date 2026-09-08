@@ -2991,16 +2991,16 @@ Link to another note with [[its first few words]]."></textarea>
     <div id="library-view-docs" class="library-view-section hidden">
       <section class="card glass">
         <!-- **The dock (UI_MODERNISATION_PLAN.md Phase 8), not a head row.**
-             Before: nine controls in a `.row.space-between` — search, a sort
+             Before: nine controls in a `.row.space-between`: search, a sort
              select and a page-size select side by side (two dropdowns for two
              unrelated questions, read as one pair), then a filled New document
              and a refresh. The same four zones the All sub-tab already uses,
              so a person who has learned one Library head has learned all of
              them:
-               identity — the title
-               find     — search
-               arrange  — one sort select
-               actions  — New document, refresh, more (documents per page)
+               identity: the title
+               find:     search
+               arrange:  one sort select
+               actions:  New document, refresh, more (documents per page)
              Every id is unchanged; the page-size select simply moves inside
              the ⋯ menu, exactly where the All dock keeps its own. -->
         <div class="dock" data-dock-name="library-docs" role="toolbar"
@@ -3035,7 +3035,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <div class="dock-menu-section">
                   <!-- BACKLOG §77's Notes pattern, extended (§89 item 1). Unlike
                        Reminders, a document list has no due/overdue framing to
-                       protect — plain newest-first, so a straight page-size
+                       protect, so plain newest-first and a straight page-size
                        selector is safe here without the "only paginate one
                        subgroup" carve-out Reminders needed. -->
                   <label class="muted dock-menu-label" for="library-docs-page-size">Documents per page</label>
@@ -3139,20 +3139,20 @@ Link to another note with [[its first few words]]."></textarea>
       <section class="card glass">
         <!-- **The dock (UI_MODERNISATION_PLAN.md Phase 8).** Before: eleven
              controls in a `.row.space-between` whose only structure was the
-             order they were written in — search, sort, the Cards/Rows switch,
+             order they were written in: search, sort, the Cards/Rows switch,
              two create buttons, refresh and "?" all as siblings of the title.
              The same four zones every Library head now uses:
-               identity — the title
-               find     — search (the Maps/Boards/All chips below stay: they
-                          are the visible filter, the Everything sub-tab's own
-                          recipe)
-               arrange  — one sort select, one view segment
-               actions  — New board, then New mind map, then refresh and help
+               identity: the title
+               find:     search (the Maps/Boards/All chips below stay: they
+                         are the visible filter, the Everything sub-tab's own
+                         recipe)
+               arrange:  one sort select, one view segment
+               actions:  New board, then New mind map, then refresh and help
              Ids are unchanged, so whiteboard.js needs no rewiring.
 
              "New mind map" stays a ghost button in the row rather than moving
-             into a ⋯. It is the second verb, not a second answer to the first
-             — and the comment it carries is the reason: a mind map reachable
+             into a ⋯. It is the second verb, not a second answer to the first,
+             and the comment it carries is the reason: a mind map reachable
              only by opening the board dialog and changing a control inside it
              is one nobody finds. One filled control, one quiet one beside it. -->
         <div class="dock" data-dock-name="library-boards" role="toolbar"
@@ -3161,7 +3161,7 @@ Link to another note with [[its first few words]]."></textarea>
             <!-- "Boards & maps", matching the sub-tab that opens it. It read
                  "Whiteboards" while the tab above it read "Boards & maps", which
                  was survivable when a map was only a board someone had drawn a
-                 tree on — and stops being so now that a map is a first-class
+                 tree on, and stops being so now that a map is a first-class
                  kind with its own filter chip two lines below this heading. -->
             <h2>Boards &amp; maps</h2>
           </div>
@@ -3203,7 +3203,7 @@ Link to another note with [[its first few words]]."></textarea>
               title="Start a new board"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New board</button>
             <!-- A map is a board with a `type` (MINDMAP_PLAN.md §4 option B),
                  so this is the same dialog with the Mind map segment already
-                 chosen — not a second creation path. -->
+                 chosen, not a second creation path. -->
             <button id="wb-boards-new-map" class="ghost small" type="button" title="Start a mind map"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> New mind map</button>
             <button id="library-media-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
             <button type="button" id="wb-boards-help" class="icon-only ghost small graph-help-toggle"
@@ -3214,7 +3214,7 @@ Link to another note with [[its first few words]]."></textarea>
             </button>
           </div>
         </div>
-        <p class="muted graph-help-panel hidden" id="wb-boards-intro" role="dialog" aria-label="What is this?">Every board and concept map you have made — they are the same kind of thing, so a map you build here can be drawn on, and a board can be branched with Tab. Pick one to open it, or start a map with <strong>New mind map</strong>, beside New board above.</p>
+        <p class="muted graph-help-panel hidden" id="wb-boards-intro" role="dialog" aria-label="What is this?">Every board and concept map you have made. They are the same kind of thing, so a map you build here can be drawn on, and a board can be branched with Tab. Pick one to open it, or start a map with <strong>New mind map</strong>, beside New board above.</p>
         <!-- Maps / Boards / All (MINDMAP_PLAN.md §5 item 10, the user's own
              stated preference: maps live in Boards & maps behind a filter
              chip, not in a sub-tab of their own). `.library-filters` and
@@ -4032,17 +4032,17 @@ Link to another note with [[its first few words]]."></textarea>
       <!-- **The dock (UI_MODERNISATION_PLAN.md Phase 8).** Before: two rows.
            A `.row.space-between` head carrying Upload, refresh and "?", and a
            `.library-toolbar` under it carrying search, the read filter, sort
-           and the preview/type switch — so the one thing that acts on the
+           and the preview/type switch, so the one thing that acts on the
            whole gallery (Upload) sat a row away from everything that chooses
            what the gallery shows, and the title had three buttons pinned
            beside it for no reason but that they arrived first.
 
            One row, the four zones every Library head now uses:
-             identity — the title, which `setLibraryMediaKind` swaps between
-                        "Images" and "Files"
-             find     — search, then the read filter (Files only)
-             arrange  — one sort select, one view segment (Files only)
-             actions  — Upload, refresh, help
+             identity: the title, which `setLibraryMediaKind` swaps between
+                       "Images" and "Files"
+             find:     search, then the read filter (Files only)
+             arrange:  one sort select, one view segment (Files only)
+             actions:  Upload, refresh, help
            Ids are unchanged, so library.js needs no rewiring. -->
       <div class="dock" data-dock-name="library-media" role="toolbar"
         aria-label="Gallery controls">
@@ -4051,7 +4051,7 @@ Link to another note with [[its first few words]]."></textarea>
         </div>
         <div class="dock-group dock-find">
           <!-- Filters client-side against each image's filename and its OCR
-               text (ROADMAP.md item 30d) — same pattern as the main Library
+               text (ROADMAP.md item 30d), the same pattern as the main Library
                search box above, not a server round-trip, since a gallery is
                small enough that a plain substring pass costs nothing. -->
           <input id="library-images-search" type="search" class="library-search"
@@ -4065,7 +4065,7 @@ Link to another note with [[its first few words]]."></textarea>
                every scan looked identical to every other and the way to find out
                was to open each one.
 
-               Files only — an image is not "unread" in any sense a person
+               Files only: an image is not "unread" in any sense a person
                means, so `setLibraryMediaKind` hides this on the Images tab
                rather than offering a filter that would divide pictures by
                whether OCR happened to have run on them. A filter narrows what
@@ -4082,7 +4082,7 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="dock-group dock-arrange">
           <!-- Reported: "the library subtabs are missing sorting and filtering
                options." Measured: none of the six sub-tabs had a sort control at
-               all — only the "All" view did. -->
+               all; only the "All" view did. -->
           <select id="library-media-sort" aria-label="Sort files" title="Sort files">
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>

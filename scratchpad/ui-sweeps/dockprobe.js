@@ -3,14 +3,14 @@
 // `subdocks.js` counts controls; this one *drives* them, because the two
 // failures a dock can have are invisible to a count: a menu that opens but
 // whose items do nothing, and a menu that opens and will not close. Both have
-// been shipped in this app before — the Reminders "Quick set" list opened
+// been shipped in this app before: the Reminders "Quick set" list opened
 // underneath the card after it, and nothing in it could be clicked.
 //
 // For each dock named below, at 1440 and at 390:
 //   * every `details.dock-menu` opens on click, and its list is on screen
 //     (inside the viewport, non-zero box) rather than clipped past an edge;
 //   * picking the first item in it leaves the menu closed (the delegated
-//     handler in app.js) — a `dock-menu-check` is ticked instead and the
+//     handler in app.js). A `dock-menu-check` is ticked instead and the
 //     menu is expected to *stay* open, which is the documented behaviour;
 //   * Escape closes it and focus returns to its own summary;
 //   * a click outside closes it.

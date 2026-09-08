@@ -7835,7 +7835,7 @@ input[type="file"] {
    Measured on Library → Files: the preview/type pair rendered 28px inside a
    36px group while search, both selects and Upload beside them were 36.
    The All and Boards segments did *not* have this, purely because they
-   happen to carry `.library-view`, whose own rule sets the height — one
+   happen to carry `.library-view`, whose own rule sets the height: one
    family, two outcomes, decided by a class that means something else.
    Direct children of a zone only: a segmented control inside a `.dock-menu`
    is a menu row and takes the menu's own sizing. */

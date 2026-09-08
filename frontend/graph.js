@@ -3601,8 +3601,20 @@ function graphMinimapPaint() {
   // so an SVG of plain dots is both cheaper and clearer than a scaled clone
   // of a canvas that is already too dense to read — which is the problem this
   // is here to solve, not to reproduce in miniature.
+  //: **One dot per note stops being one dot per note past a few hundred.**
+  //: The box is 168x112 with a 1.6px dot: about 700 dots is the point at which
+  //: another one lands on top of an existing one and adds nothing but a DOM
+  //: element. Measured on the 2,000-note fixture, rebuilding all 2,000
+  //: `<circle>`s while a drag was in flight was a real, repeated main-thread
+  //: cost for a picture that looked identical — so a big notebook is sampled
+  //: at an even stride instead. Evenly, not randomly or by prefix: a
+  //: contiguous slice would draw one corner of the map and leave the rest
+  //: blank, and a random sample would shimmer between repaints.
+  const MINIMAP_MAX_DOTS = 700;
+  const stride = Math.max(1, Math.ceil(nodes.length / MINIMAP_MAX_DOTS));
   const fragment = document.createDocumentFragment();
-  for (const node of nodes) {
+  for (let i = 0; i < nodes.length; i += stride) {
+    const node = nodes[i];
     const [mx, my] = toMini(node.x, node.y);
     const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
     dot.setAttribute("cx", mx.toFixed(1));

@@ -69,6 +69,7 @@ let gcTiming = { dataAt: 0, firstFrame: 0, lastFrame: 0, frames: 0 };
 //: of theorising before this was here.
 let gcAlpha = 0;
 let gcTicks = 0;
+let gcTickMs = 0;
 //: Whether this render has been framed once already, and whether the person
 //: has since taken the camera somewhere themselves. See the tick handler for
 //: why there are two fits and why the second one is conditional.
@@ -678,13 +679,27 @@ function gcWireInteraction() {
         node.fx = wx;
         node.fy = wy;
         gcPost({ type: "drag", phase: "start", id: node.id, x: wx, y: wy });
-        // Everything else holds still for the length of the drag. Reported
-        // against the SVG renderer, and the reason is unchanged: drag-to-link
-        // asks you to aim at a note, and aiming at a moving target is not a
-        // gesture.
+        // **Everything holds still except this note's own neighbours.**
+        //
+        // Two rules were in conflict here and both are real. The SVG renderer
+        // froze the entire map for the length of a drag, because drag-to-link
+        // asks you to aim at a note and aiming at a moving target is not a
+        // gesture — that was a direct report. But GRAPH_PLAN.md §3 asks for
+        // the opposite thing, and it is the whole point of this phase:
+        // "dragging feels physical (the neighbours follow and the rest
+        // settles)". Freezing everything makes a drag a pointer-follow with a
+        // simulation running behind it that cannot move anything.
+        //
+        // Freezing everything *except the direct neighbourhood* satisfies both:
+        // the notes attached to the one in your hand come along, which is the
+        // physicality, and every other note on the map holds the position you
+        // are aiming at, which is the gesture.
+        const following = gcAdj.get(node.id) || new Set();
         gcPost({
           type: "freeze",
-          ids: gcNodes.filter((n) => n !== node && n.fx == null).map((n) => n.id),
+          ids: gcNodes
+            .filter((n) => n !== node && n.fx == null && !following.has(n.id))
+            .map((n) => n.id),
         });
       })
       .on("drag", (event) => {
@@ -851,6 +866,7 @@ function gcStartWorker(nodes, edges, world) {
       if (message.type === "tick") {
         gcAlpha = message.alpha;
         gcTicks = message.ticks || 0;
+        gcTickMs = message.tickMs || 0;
         const positions = message.positions;
         const count = Math.min(gcNodes.length, positions.length / 2);
         for (let i = 0; i < count; i++) {
@@ -1316,6 +1332,7 @@ Object.defineProperty(window, "__graphDebug", {
       highlight: graphHighlightIds ? graphHighlightIds.size : 0,
       alpha: gcAlpha,
       ticks: gcTicks,
+      tickMs: gcTickMs,
       firstFrameMs: gcTiming.firstFrame,
       lastFrameMs: gcTiming.lastFrame,
       frames: gcTiming.frames,

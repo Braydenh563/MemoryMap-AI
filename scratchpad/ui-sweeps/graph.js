@@ -103,26 +103,36 @@ const ok = (pass) => (pass ? "PASS" : "FAIL");
   );
 
   // --- 2. fps during a two-second drag -----------------------------------
-  const dragOnce = async (seconds) => {
-    const point = await page.evaluate(() => {
+  //
+  //: **A node that is actually on screen.** The first draft grabbed
+  //: `positions[0]`, which on a fitted 2,000-note map is as likely to be
+  //: outside the card as inside it — the drag then started on empty canvas and
+  //: panned, and the hover test moved the pointer over nothing and reported a
+  //: renderer bug that did not exist. The screen rectangle is the test.
+  const onScreenNode = () =>
+    page.evaluate(() => {
       const box = document.getElementById("graph-box").getBoundingClientRect();
       const debug = window.__graphDebug;
       if (debug && debug.renderer === "canvas" && debug.positions.length) {
-        // The most-connected of the sampled nodes: dragging a hub is the
-        // worst case, because its neighbourhood is what has to follow.
-        let best = 0;
-        for (let i = 1; i < debug.positions.length; i++) {
-          if (debug.radii[i] > debug.radii[best]) best = i;
-        }
-        const [x, y] = debug.positions[best];
         const t = debug.transform;
-        return { x: box.left + t.x + x * t.k, y: box.top + t.y + y * t.k };
+        for (let i = 0; i < debug.positions.length; i++) {
+          const [x, y] = debug.positions[i];
+          const sx = box.left + t.x + x * t.k;
+          const sy = box.top + t.y + y * t.k;
+          if (sx > box.left + 70 && sx < box.right - 70 && sy > box.top + 70 && sy < box.bottom - 70) {
+            return { x: sx, y: sy };
+          }
+        }
+        return null;
       }
       const node = document.querySelector("#graph-svg .graph-node .graph-core");
       if (!node) return null;
       const rect = node.getBoundingClientRect();
       return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
     });
+
+  const dragOnce = async (seconds) => {
+    const point = await onScreenNode();
     if (!point) return null;
     await page.evaluate(() => {
       window.__gate.frames = [];
@@ -170,15 +180,71 @@ const ok = (pass) => (pass ? "PASS" : "FAIL");
     );
   }
 
+  // --- 2b. what the frame rate is actually limited by -----------------------
+  //
+  //: The drag number on a 2,000-note map is dominated by one thing, and
+  //: guessing which one wasted a round. This measures it instead: the page's
+  //: own frame rate with the simulation running, then with the worker stopped
+  //: and *nothing else changed*, then running again. A large gap says the
+  //: limit is the simulation's share of the CPU; no gap says it is the paint.
+  const rafFps = () =>
+    page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const f = [];
+          const done = () => {
+            const gaps = [];
+            for (let i = 1; i < f.length; i++) gaps.push(f[i] - f[i - 1]);
+            gaps.sort((a, b) => a - b);
+            const d = window.__graphDebug || {};
+            resolve({
+              fps: ((f.length - 1) * 1000) / (f[f.length - 1] - f[0]),
+              p50: gaps[Math.floor(gaps.length / 2)] || 0,
+              draw: d.lastFrameMs || 0,
+              tick: d.tickMs || 0,
+              alpha: d.alpha || 0,
+            });
+          };
+          const step = (now) => {
+            f.push(now);
+            if (f.length < 300 && now - f[0] < 2500) requestAnimationFrame(step);
+            else done();
+          };
+          requestAnimationFrame(step);
+        })
+    );
+  if (RENDERER === "canvas") {
+    await page.evaluate(() => gcPost({ type: "reheat", alpha: 0.5 }));
+    await page.waitForTimeout(700);
+    const hot = await rafFps();
+    await page.evaluate(() => gcPost({ type: "stop" }));
+    await page.waitForTimeout(700);
+    const cold = await rafFps();
+    console.log(
+      `2b. frame rate with the layout hot: ${hot.fps.toFixed(1)} fps ` +
+        `(p50 gap ${hot.p50.toFixed(0)} ms, draw ${hot.draw.toFixed(1)} ms, tick ${hot.tick.toFixed(0)} ms); ` +
+        `with the worker stopped and nothing else changed: ${cold.fps.toFixed(1)} fps ` +
+        `(p50 gap ${cold.p50.toFixed(0)} ms, draw ${cold.draw.toFixed(1)} ms)`
+    );
+    await page.evaluate(() => gcPost({ type: "reheat", alpha: 0.05 }));
+    await page.waitForTimeout(500);
+  }
+
   // --- 4. hover within one frame ------------------------------------------
   const hover = await page.evaluate(async () => {
     const box = document.getElementById("graph-box").getBoundingClientRect();
     const debug = window.__graphDebug;
     let target = null;
     if (debug && debug.renderer === "canvas" && debug.positions.length) {
-      const [x, y] = debug.positions[0];
       const t = debug.transform;
-      target = { x: box.left + t.x + x * t.k, y: box.top + t.y + y * t.k };
+      for (let i = 0; i < debug.positions.length && !target; i++) {
+        const [x, y] = debug.positions[i];
+        const sx = box.left + t.x + x * t.k;
+        const sy = box.top + t.y + y * t.k;
+        if (sx > box.left + 70 && sx < box.right - 70 && sy > box.top + 70 && sy < box.bottom - 70) {
+          target = { x: sx, y: sy };
+        }
+      }
     }
     if (!target) return null;
     const surface = document.getElementById("graph-canvas");
@@ -213,12 +279,25 @@ const ok = (pass) => (pass ? "PASS" : "FAIL");
   // The fixture files notes round-robin into ten categories, so switching nine
   // off in the legend leaves 200. Done through the legend buttons themselves,
   // not by poking state, so this also exercises the legend filter.
-  const smaller = await page.evaluate(async () => {
-    const items = [...document.querySelectorAll("#graph-legend .legend-toggle")];
-    const names = items.map((b) => b.textContent.trim());
-    for (let i = 1; i < items.length; i++) items[i].click();
-    return names.length;
-  });
+  //: **One click, then wait, then look again.** Every legend click calls
+  //: `renderGraph()`, which rebuilds the legend — so a loop over a list of
+  //: buttons captured once clicks nine detached elements and hides exactly one
+  //: category. That is what "200 notes (from 10 legend entries)" meant on the
+  //: first run: the board never got smaller and the frame budget was measured
+  //: against the full map.
+  const names = await page.evaluate(() =>
+    [...document.querySelectorAll("#graph-legend .legend-toggle")].map((b) => b.textContent.trim())
+  );
+  const smaller = names.length;
+  for (const name of names.slice(1)) {
+    await page.evaluate((wanted) => {
+      const item = [...document.querySelectorAll("#graph-legend .legend-toggle")].find(
+        (b) => b.textContent.trim() === wanted
+      );
+      if (item) item.click();
+    }, name);
+    await page.waitForTimeout(1800);
+  }
   await page.waitForTimeout(4000);
   const small = await page.evaluate(() => {
     const d = window.__graphDebug;
@@ -288,23 +367,35 @@ const ok = (pass) => (pass ? "PASS" : "FAIL");
     if (!changed) findings.push(`${label} did not change the drawing`);
   };
 
-  await control("layout tree", () =>
-    page.evaluate(() => {
-      localStorage.setItem("graph-layout", "tree");
-      document.querySelector('input[name="graph-layout"][value="tree"]').click();
-    })
+  //: 5 s, not the default 2.5. Laying out a 2,000-note hierarchy and painting
+  //: it is real work, and the first run read a change that had not finished as
+  //: "the control did nothing".
+  await control(
+    "layout tree",
+    () =>
+      page.evaluate(() => {
+        localStorage.setItem("graph-layout", "tree");
+        document.querySelector('input[name="graph-layout"][value="tree"]').click();
+      }),
+    5000
   );
-  await control("layout radial", () =>
-    page.evaluate(() => {
-      localStorage.setItem("graph-layout", "radial");
-      document.querySelector('input[name="graph-layout"][value="radial"]').click();
-    })
+  await control(
+    "layout radial",
+    () =>
+      page.evaluate(() => {
+        localStorage.setItem("graph-layout", "radial");
+        document.querySelector('input[name="graph-layout"][value="radial"]').click();
+      }),
+    5000
   );
-  await control("layout arc", () =>
-    page.evaluate(() => {
-      localStorage.setItem("graph-layout", "arc");
-      document.querySelector('input[name="graph-layout"][value="arc"]').click();
-    })
+  await control(
+    "layout arc",
+    () =>
+      page.evaluate(() => {
+        localStorage.setItem("graph-layout", "arc");
+        document.querySelector('input[name="graph-layout"][value="arc"]').click();
+      }),
+    5000
   );
   await control(
     "layout force",

@@ -52,6 +52,11 @@ let world = null;
 let timer = null;
 let dragging = false;
 let ticks = 0;
+//: A rolling mean of how long one `simulation.tick()` takes, in ms. Reported
+//: on every frame because it is the number that decides everything else: it
+//: says whether a slow-feeling map is the simulation, the paint, or the
+//: machine, and guessing between those three cost a round of theorising.
+let tickMs = 0;
 
 //: Buffers handed back by the main thread after it has painted them. A
 //: transfer neuters the sender's copy, so without this every frame allocates a
@@ -150,6 +155,7 @@ function post(final) {
       // "the simulation is crawling" or "the paint is dropping frames" with no
       // way to tell which from the outside. It is one integer per frame.
       ticks,
+      tickMs,
       running: !final,
     },
     [buffer.buffer]
@@ -173,6 +179,8 @@ function loop() {
   const started = Date.now();
   simulation.tick();
   ticks += 1;
+  const cost = Date.now() - started;
+  tickMs = ticks === 1 ? cost : tickMs * 0.9 + cost * 0.1;
   clampToWorld();
   const settled = !dragging && simulation.alpha() < simulation.alphaMin();
   if (settled) {
@@ -181,7 +189,39 @@ function loop() {
     return;
   }
   post(false);
-  timer = setTimeout(loop, Math.max(0, 16 - (Date.now() - started)));
+  // **The worker yields as much time as it took, and this is the measurement
+  // that made the whole feature work.**
+  //
+  // The obvious loop is "tick, then sleep whatever is left of the 16 ms
+  // frame". On a notebook where a tick costs less than a frame that is right.
+  // On the 2,000-note fixture a tick costs 74 ms, so there is never anything
+  // left, the loop re-enters immediately, and the worker holds its thread flat
+  // out for as long as the layout is hot. Measured in Chromium: an *idle*
+  // 2,000-note map (nothing being dragged, the simulation merely still
+  // cooling) ran the page at 2.5 fps with the main thread only 13% busy —
+  // the renderer simply could not get scheduled. The same map once the
+  // simulation stopped ran at 58.7 fps with 9 ms frames. So the simulation
+  // was not competing with the paint for the main thread any more; it was
+  // competing with it for the CPU, which moving it to a worker does nothing
+  // about on its own.
+  //
+  // A duty cycle fixes it: yield roughly as long as the tick took, so the
+  // simulation gets about half a core and the renderer gets the other half.
+  // On a machine where a tick is cheap this changes nothing (the `16 - cost`
+  // branch wins). On a big notebook it halves how fast the layout converges
+  // and hands back a map you can actually drag while it does — which is the
+  // right trade during a drag, because the thing being looked at is the
+  // pointer, not the convergence.
+  //
+  // The share is stricter while a drag is in flight. Then the frame the person
+  // is actually watching is the one following their pointer, and a
+  // neighbourhood that reorganises at 10 Hz under a pointer that tracks at
+  // 60 Hz looks right; the reverse does not.
+  const share = dragging ? 2 : 1;
+  timer = setTimeout(
+    loop,
+    cost >= 12 ? Math.min(120, cost * share) : Math.max(4, 16 - cost)
+  );
 }
 
 function run() {
@@ -224,7 +264,28 @@ self.onmessage = (event) => {
             .id((d) => d.id)
             .distance(tuned.linkDistance)
         )
-        .force("charge", d3.forceManyBody().strength(tuned.charge))
+        .force(
+          "charge",
+          d3
+            .forceManyBody()
+            .strength(tuned.charge)
+            // **`distanceMax` is the single biggest cost lever on a big
+            // notebook, and it is a modelling choice as well as a speed one.**
+            // Without it every note repels every other note however far apart
+            // they are, which is both the expensive half of the Barnes-Hut
+            // traversal and wrong: two notes a whole screen apart having a
+            // measurable opinion about each other is what collapses a graph
+            // into one round blob and hides its clusters (§2.2, "gravity that
+            // pulls everything into one clump" is the same defect from the
+            // other side). Beyond this radius the force is simply zero, so a
+            // cluster is shaped by its own members. 900 is roughly a screen at
+            // the fitted zoom and about ten times the link distance.
+            .distanceMax(900)
+            // d3's default is 0.9. A slightly coarser Barnes-Hut approximation
+            // costs accuracy nobody can see at this node size and buys a real
+            // fraction of the per-tick cost on thousands of nodes.
+            .theta(1.1)
+        )
         // **A weak centre, not a strong one.** §2's complaint is "gravity that
         // pulls everything into one clump": a strong centring force flattens
         // the structure the repulsion just produced. These two are strong

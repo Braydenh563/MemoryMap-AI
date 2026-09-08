@@ -266,6 +266,80 @@ named beside it in HANDOVER's completion table.
     Dashboard hero and on Graph; Done did nothing. A display rule on a
     <dialog> not scoped to [open]. Reload after pulling.
 
+### The 16:00 pile (owner out of usage, asleep), placed in one pass
+
+31. **Dropdown menus clip off the bottom of the panel and do not scroll,
+    app-wide** (whiteboard View menu screenshot; the `details.dock-menu`
+    family, not `.action-menu`). Fix: on toggle, measure the list's rect
+    and set `max-height: calc(100vh - top - gutter)` with `overflow-y:
+    auto`; escape an `overflow: hidden` ancestor the way
+    `escapeMenuIfClipped` does for `.action-menu`. One recipe for both
+    families. Owner: Sonnet batch A.
+32. **Dashboard "Widgets / Edit layout" bar**: an empty bar with two
+    buttons at the right, touching the stats above and the widgets below.
+    Fix: `margin-block: var(--space-5)`; a left-side label ("Your
+    dashboard", muted) so the bar has an identity zone like every other
+    bar; both buttons on the ghost recipe. Owner: Sonnet batch A.
+33. **Too much scroll room at the bottom of pages** (Notes > Ask, Notes,
+    Library). `--scroll-top-clearance` (about 100px) stacks with the
+    agent-monitor buffer and the page gutter. Fix: clearance = the button's
+    height plus one gap only, applied only while `.scroll-top` is visible
+    (a body class the button toggles); measure `scrollHeight - clientHeight`
+    on an empty Ask sub-tab and assert 0. Owner: Sonnet batch A.
+34. **Chat: "Jump to latest" pill and a square down-arrow button both show
+    on a new chat with nothing to scroll.** Decision: one control, the
+    pill; it shows only when the transcript is scrolled away from the end
+    and has overflow. The `.chat-transcript` wrapper changed the scroll
+    container; re-derive `data-stuck` from the element that scrolls.
+    Owner: Sonnet batch A.
+35. **Chips show raw Markdown** (`**Ice Breakers:**`, `# CAB432`) in the
+    popup agent's Found / Opened rows and the chat's note badges; the
+    palette's reference badges clip and centre their text. Fix: `noteLabel`
+    strips Markdown markers for chip text; the chip recipe (left aligned,
+    ellipsis) applied to `.command-palette` chips and answer badges. Owner:
+    Sonnet batch A.
+36. **The streaming indicator still does not animate** (owner, desktop
+    shell). Likely `prefers-reduced-motion` from the OS or the app's
+    `data-progress-motion` preference. Fix: check both in Chromium with
+    `getAnimations()`; under reduced motion show the word "Writing" with a
+    slow opacity pulse rather than three static dots. Owner: Sonnet batch A.
+37. **Reminders: the Magic add textarea is taller than the Add button** on
+    the owner's desktop (screenshot); measured 44/44 in headless light.
+    Check dark-theme and font-load timing for `.autogrow`; pin the empty
+    field to `--control-h-lg` until text wraps. Owner: Sonnet batch A.
+38. **Notes from a deleted space appear in All spaces** (the owner was in
+    the space). Reproduced the API: notes created with the space header
+    are deleted with the space. Not reproduced: the owner's path. Fix the
+    visibility first (INBOX 1a): every card shows its space chip when it
+    differs from the active space or the active space is All; the capture
+    form names the space it files into. Then the owner can tell which
+    workspace the survivors carry. Owner: Sonnet batch A (chip and label),
+    D2 for the bulk move.
+39. **Skills run in Ask mode should switch to the agent mode
+    automatically; rename "Request" to "Agent"** (owner's suggestion for
+    learnability). Decision: yes to both. Owner: CHAT batch B (Opus).
+40. **Skill runs and agent answers show no inline numbered citations;
+    note badges in the chat do not render inline Markdown.** The backend
+    now grounds touched notes (284e7e0); the skill run's final answer
+    element must get `addInlineCitations` too, and badges use the same
+    inline renderer as the answer. Owner: CHAT batch B (Opus).
+41. **Graph display options belong on the dock, and the options panel
+    needs a redesign**; the graph needs a utility, UI and interaction
+    clean-up. Owner: GRAPH Phase 2 remainder (gear button, INBOX 21) and
+    Phase 4; the panel on the popover shell with the dock-menu sections.
+42. **Mind map still broken** (screenshot: a dangling curve not attached
+    to either node after a drag; the root and "New topic" far apart).
+    Owner: `agent-remaining/mindmap.md` item H, edge-follow on single-node
+    drag; reproduce with mindmap.js first.
+43. **Whiteboard bottom tool rail and the properties panel** are not on
+    the refined recipes (the top bar is). Owner: WHITEBOARD_PLAN Phase 1.
+44. **Documents toolbar crushed, its kebab menu rows tinted and
+    misaligned**: deferred by the owner to DOCUMENTS Phase 1.
+45. **The Ask sub-tab**: extra scroll, overflow, and the owner wants a
+    redesign with an integrated advanced search and more utility. Owner:
+    CHAT_PLAN Phase 1 (Ask) plus WORLD_CLASS 5.1 operators; the scroll
+    part is 33.
+
 ## Placed (last 20, newest first)
 
 - 2026-09-08: dashboard hero preference, New note tile colours, sub-tab

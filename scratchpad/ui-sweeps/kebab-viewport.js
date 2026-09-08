@@ -242,6 +242,75 @@ async function runDockMenus(viewport) {
   return out;
 }
 
+
+// INBOX 43: the whiteboard's five top-bar menus are the third family on the
+// same recipe. They were already capped to the window, and that was not the
+// bug: measured at 1280x640 with a board open, View and Arrange ended at
+// y=628 inside a 640px window while their clipping ancestor
+// (`#library-view-whiteboard`, `overflow: hidden`) ended at y=579, so the
+// last 49px of each was cut off by the ancestor whatever the cap said. The
+// fix is `escapeMenuIfClipped` first, then the cap, exactly as the
+// `details.dock-menu` family got it in d8775e6.
+const WB_MENUS = ['wb-insert-menu', 'wb-edit-menu', 'wb-arrange-menu', 'wb-view-menu', 'wb-board-menu'];
+
+async function runWbMenus(viewport) {
+  const out = [];
+  const { browser, page } = await boot({ viewport });
+  const vw = viewport.width, vh = viewport.height;
+  const boardId = await page.evaluate(async () => {
+    const r = await api('/whiteboard/boards', { method: 'POST', body: JSON.stringify({ name: 'Menu viewport sweep' }) });
+    return (await r.json()).id;
+  });
+  await page.evaluate((id) => openWhiteboardBoard(id), boardId);
+  await page.waitForTimeout(1500);
+  for (const mid of WB_MENUS) {
+    const info = await page.evaluate((id) => {
+      const btn = document.querySelector(`[aria-controls="${id}"]`);
+      if (!btn) return null;
+      btn.click();
+      const el = document.getElementById(id);
+      if (!el || el.classList.contains('hidden')) return null;
+      const r = el.getBoundingClientRect();
+      // What the menu is actually inside once it is open: an escaped menu is
+      // a child of <body> and nothing clips it any more.
+      let clipBottom = null;
+      for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+        const s = getComputedStyle(p);
+        if (s.overflowX !== 'visible' || s.overflowY !== 'visible') { clipBottom = p.getBoundingClientRect().bottom; break; }
+      }
+      return {
+        rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height },
+        scrollHeight: el.scrollHeight,
+        clientHeight: el.clientHeight,
+        overflowY: getComputedStyle(el).overflowY,
+        clipBottom,
+        escaped: el.classList.contains('action-menu-escaped'),
+      };
+    }, mid);
+    if (!info) { out.push(`#${mid}: did not open`); continue; }
+    assertInside(`#${mid}`, info.rect, vw, vh, out);
+    // Every row has to be reachable: either nothing clips the menu, or the
+    // clipper's own bottom is past the menu's.
+    const unclipped = info.clipBottom === null || info.rect.bottom <= info.clipBottom + 1;
+    const capped = info.rect.height < info.scrollHeight - 1;
+    const scrolls = info.scrollHeight > info.clientHeight + 1;
+    out.push(`  ${unclipped ? 'OK' : 'FAIL'} no ancestor cuts it off (clipBottom=${info.clipBottom === null ? 'none' : Math.round(info.clipBottom)}, menu bottom=${Math.round(info.rect.bottom)}, escaped=${info.escaped})`);
+    out.push(`  ${!capped || scrolls ? 'OK' : 'FAIL'} scrollHeight=${info.scrollHeight} clientHeight=${info.clientHeight} overflowY=${info.overflowY} capped=${capped} scrolls=${capped ? scrolls : 'n/a (not capped)'}`);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(150);
+    // Closed: back home, and no leftover cap for the next open to inherit.
+    const restored = await page.evaluate((id) => {
+      const el = document.getElementById(id);
+      return { hidden: el.classList.contains('hidden'), escaped: el.classList.contains('action-menu-escaped'), inline: el.style.maxHeight };
+    }, mid);
+    out.push(`  ${restored.hidden && !restored.escaped && !restored.inline ? 'OK' : 'FAIL'} closed clean: ${JSON.stringify(restored)}`);
+  }
+  console.log(`\n=== whiteboard top-bar menus ${vw}x${vh} ===`);
+  console.log(out.join('\n'));
+  await browser.close();
+  return out;
+}
+
 (async () => {
   await run({ width: 1440, height: 900 });
   await run({ width: 1024, height: 768 });
@@ -249,4 +318,12 @@ async function runDockMenus(viewport) {
   // Short enough that every one of these lists opens with less room below
   // its button than its own content needs -- the shape actually reported.
   await runDockMenus({ width: 1440, height: 300 });
+  // 1280x640 is the shape the whiteboard menus were reported at; 1440x900
+  // is the control, where nothing should need to escape anything.
+  await runWbMenus({ width: 1440, height: 900 });
+  await runWbMenus({ width: 1280, height: 640 });
+  // Shorter than the tallest menu's own content, so escaping the clipper is
+  // not enough on its own and the cap plus `overflow-y: auto` has to carry
+  // the last rows: the "scrolls when taller" half of the report.
+  await runWbMenus({ width: 1280, height: 420 });
 })();

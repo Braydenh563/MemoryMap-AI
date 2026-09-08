@@ -782,6 +782,39 @@ function wbZoomToFit({ animate = true, padding = 64 } = {}) {
   (animate ? sel.transition().duration(350) : sel).call(wbZoom.transform, target);
 }
 
+//: A fit tighter than this is a map you cannot read: the nodes are there, the
+//: words in them are not. Below it, framing the root at 1:1 beats fitting the
+//: whole tree, which is what every map tool does on open.
+const WB_MAP_OPEN_MIN_SCALE = 0.45;
+
+//: **Frame a map when it opens**, rather than leaving the canvas wherever the
+//: last board left it.
+//:
+//: Reported (mindmap.md H item 2, measured while reproducing report B): a map
+//: whose root sits at the board origin opens with that root under
+//: `#wb-topbar`, and a double-click on its text hits the top bar instead of
+//: the node. Measured before this: the root's box was (16, 128)-(216, 172)
+//: against a top bar of (24, 136)-(1416, 182), and `elementFromPoint` at the
+//: root's own centre returned a top-bar button.
+//:
+//: Fit first, because a map is a tree and its shape is the point; but a fit
+//: that lands under `WB_MAP_OPEN_MIN_SCALE` is a picture of a map rather than
+//: a map, so a big one opens on its root at 1:1 instead. Only maps: an
+//: ordinary board is a place you arrange by hand, and re-framing one on every
+//: open would throw away the view its owner left it in.
+function wbFrameMapOnOpen() {
+  if (!wbIsMap()) return;
+  const container = document.getElementById("whiteboard-container");
+  if (!container) return;
+  wbZoomToFit({ animate: false });
+  if (d3.zoomTransform(container).k >= WB_MAP_OPEN_MIN_SCALE) return;
+  const root = wbMapIndex().roots[0];
+  //: `minScale: 1`, and `wbCenterOn` takes the larger of that and the current
+  //: zoom: the fit just above left the canvas at something illegible, so this
+  //: is the one call that has to be allowed to zoom back in.
+  if (root) wbCenterOn(wbItemBBox("object", root), { animate: false, minScale: 1 });
+}
+
 /** Centre the viewport on one board-space rectangle, keeping the current zoom. */
 function wbCenterOn(box, { animate = true, minScale = 0.55 } = {}) {
   const container = document.getElementById("whiteboard-container");
@@ -2805,6 +2838,68 @@ function wbMapEdgeAnchors(parent, child, layout) {
   };
 }
 
+//: One tree edge's `d`, from the two nodes' live `x`/`y` and their rendered
+//: sizes. Factored out of `wbRenderMapEdges` below so the per-frame drag
+//: follow (`wbUpdateMapEdges`) recomputes an edge with exactly the maths the
+//: render uses: two copies of a cubic drifted apart is precisely the bug
+//: `wbUpdateLinkedSketches` warns about for link sketches.
+function wbMapEdgePathD(parent, child, layout) {
+  const a = wbMapEdgeAnchors(parent, child, layout);
+  // Control points on the axis the edge leaves by, at half the span: the
+  // curve leaves the parent square to its own edge and arrives square to
+  // the child's, which is what makes a column of siblings read as one
+  // branch rather than a fan of straight lines crossing each other.
+  return a.horizontal
+    ? `M${a.x1} ${a.y1} C${(a.x1 + a.x2) / 2} ${a.y1} ${(a.x1 + a.x2) / 2} ${a.y2} ${a.x2} ${a.y2}`
+    : `M${a.x1} ${a.y1} C${a.x1} ${(a.y1 + a.y2) / 2} ${a.x2} ${(a.y1 + a.y2) / 2} ${a.x2} ${a.y2}`;
+}
+
+//: The tree edges touching `id` (its own edge up to its parent, and one per
+//: child), each with the `<path>` that drew it, collected once per drag.
+//:
+//: **This is the single-node half of the "connections get left behind when i
+//: move the notes/nodes around" report** (INBOX 42, with a screenshot of a
+//: curve attached to neither node). A tree edge is not a link sketch, so
+//: `wbUpdateLinkedSketches` never touched one, and nothing else ran between
+//: `dragStart` and the drop: measured before this fix, the edge sat 155.6px
+//: from the node it joins through a single-node drag, and stayed there after
+//: the drop for any node already pinned (`wbMapPinOnDrag` returns early once
+//: `data.pinned` is set, so its `wbScheduleRender` never fired a second
+//: time). Precomputed for the same reason `wbLinkedSketchesFor` is: a node
+//: gains or loses a parent between drags, never during one.
+function wbMapEdgesFor(id) {
+  if (!wbIsMap()) return [];
+  const index = wbMapIndex();
+  const self = index.byId.get(id);
+  if (!self) return [];
+  const layout = wbMapLayout();
+  const found = [];
+  const add = (parent, child) => {
+    const el = document.querySelector(
+      `.wb-map-edges .wb-map-edge[data-parent="${parent.id}"][data-child="${child.id}"]`
+    );
+    // No element means the edge is not drawn right now (a collapsed or
+    // filtered branch), which is not an error: there is simply nothing to
+    // follow the drag.
+    if (el) found.push({ parent, child, el, layout });
+  };
+  const parent = self.parent_id != null ? index.byId.get(self.parent_id) : null;
+  if (parent) add(parent, self);
+  for (const child of index.childrenOf.get(id) || []) add(self, child);
+  return found;
+}
+
+//: Redraws the edges `wbMapEdgesFor` collected, without a full render. Same
+//: bargain as `wbUpdateLinkedSketches`: a full `renderWhiteboardNow()` on
+//: every mousemove frame re-binds every card, sketch and object on the board
+//: for the sake of two curves, which is the "glitchy and slow to update"
+//: report this file already carries.
+function wbUpdateMapEdges(edges) {
+  for (const { parent, child, el, layout } of edges || []) {
+    el.setAttribute("d", wbMapEdgePathD(parent, child, layout));
+  }
+}
+
 //: The parent→child edges, drawn as cubic curves into their own group.
 //:
 //: A tree edge is deliberately **not** a link sketch. A sketch is a row in the
@@ -2840,17 +2935,15 @@ function wbRenderMapEdges() {
     if (hidden.has(parent.id) || parent.data?.collapsed) continue;
     for (const child of index.childrenOf.get(parent.id) || []) {
       if (hidden.has(child.id)) continue;
-      const a = wbMapEdgeAnchors(parent, child, layout);
-      // Control points on the axis the edge leaves by, at half the span: the
-      // curve leaves the parent square to its own edge and arrives square to
-      // the child's, which is what makes a column of siblings read as one
-      // branch rather than a fan of straight lines crossing each other.
-      const d = a.horizontal
-        ? `M${a.x1} ${a.y1} C${(a.x1 + a.x2) / 2} ${a.y1} ${(a.x1 + a.x2) / 2} ${a.y2} ${a.x2} ${a.y2}`
-        : `M${a.x1} ${a.y1} C${a.x1} ${(a.y1 + a.y2) / 2} ${a.x2} ${(a.y1 + a.y2) / 2} ${a.x2} ${a.y2}`;
       const path = document.createElementNS(NS, "path");
       path.setAttribute("class", "wb-map-edge");
-      path.setAttribute("d", d);
+      path.setAttribute("d", wbMapEdgePathD(parent, child, layout));
+      // The two ends' ids, so a drag can find *this* edge again and redraw it
+      // per frame (`wbMapEdgesFor`). The render itself still replaces the
+      // whole group wholesale, see the note below; these attributes are the
+      // identity a mid-drag update needs and nothing else reads.
+      path.setAttribute("data-parent", String(parent.id));
+      path.setAttribute("data-child", String(child.id));
       const colour = colors.get(child.id);
       if (colour) path.setAttribute("stroke", colour);
       next.push(path);
@@ -3849,7 +3942,14 @@ function wbCaptureBulkMoveOrigin(excludeKey) {
       // connections/edges get left behind when i move the notes/nodes
       // around", which is exactly the shape of a bug that only shows on a
       // multi-card drag, a single card was always fine.
-      origin.set(key, { kind, id, item, x: item.x, y: item.y, linked: wbLinkedSketchesFor(id, kind) });
+      // `mapEdges` only for an object: a map node *is* an object, and a card
+      // and an object can share an id, so asking for a card's tree edges
+      // would follow the wrong node's branch.
+      origin.set(key, {
+        kind, id, item, x: item.x, y: item.y,
+        linked: wbLinkedSketchesFor(id, kind),
+        mapEdges: kind === "object" ? wbMapEdgesFor(id) : [],
+      });
     }
   }
   return origin;
@@ -3872,6 +3972,9 @@ function wbApplyBulkMove(origin, dx, dy) {
       // this, only the card the pointer is actually on kept its edges live
       // during a multi-select drag.
       wbUpdateLinkedSketches(entry.id, entry.linked);
+      // Same for a map's tree edges, which are not sketches at all: a marquee
+      // drag of half a branch left every one of its curves behind.
+      if (entry.mapEdges?.length) wbUpdateMapEdges(entry.mapEdges);
     }
   }
 }
@@ -6076,17 +6179,46 @@ async function initWhiteboard() {
   // board's own keydown swallows Escape from a focused toolbar button)
   // closes all. The Insert menu reuses the dock's own tool buttons so the
   // two can never disagree about what a sticky or a text box is.
-  const menuWraps = [...document.querySelectorAll(".wb-board-menu-wrap")];
+  //: Each menu is held by reference rather than found again through its wrap:
+  //: once `escapeMenuIfClipped` has moved it to <body> it is no longer inside
+  //: the wrap at all, and a `wrap.querySelector` close would find nothing and
+  //: leave the menu open for good.
+  const boardMenus = [...document.querySelectorAll(".wb-board-menu-wrap")]
+    .map((wrap) => ({ toggle: wrap.querySelector("[data-wb-menu-toggle]"), menu: wrap.querySelector(".wb-board-menu") }))
+    .filter((pair) => pair.toggle && pair.menu);
   const closeAllWbMenus = () => {
-    for (const wrap of menuWraps) {
-      wrap.querySelector(".wb-board-menu")?.classList.add("hidden");
-      wrap.querySelector("[data-wb-menu-toggle]")?.setAttribute("aria-expanded", "false");
+    for (const { toggle, menu } of boardMenus) {
+      menu.classList.add("hidden");
+      toggle.setAttribute("aria-expanded", "false");
+      // Back where it lives, and the stylesheet's own cap back: the next open
+      // measures from scratch rather than from a stale number.
+      restoreEscapedMenu(menu);
+      menu.style.maxHeight = "";
     }
   };
-  for (const wrap of menuWraps) {
-    const toggle = wrap.querySelector("[data-wb-menu-toggle]");
-    const menu = wrap.querySelector(".wb-board-menu");
-    if (!toggle || !menu) continue;
+  //: **A top-bar menu stays inside the window and scrolls when it is taller.**
+  //:
+  //: Reported with a screenshot of the View menu (INBOX 43): the menus "clip
+  //: at the bottom of the panel and do not scroll". The cap below existed and
+  //: was not the whole story: measured at 1280x640 with a board open, View
+  //: and Arrange both ended at y=628 inside a 640px window, correctly capped,
+  //: while `#library-view-whiteboard` (`overflow: hidden`) ends at y=579, so
+  //: the last 49px of each menu were cut off by an ancestor and unreachable,
+  //: scrollbar or no scrollbar.
+  //:
+  //: This is `details.dock-menu`'s recipe (INBOX 31, d8775e6), in the same
+  //: order and with the same numbers, not a third scheme: escape the clipping
+  //: ancestor first (a no-op when nothing clips), then cap to what is really
+  //: left below the menu's own final top, and let `overflow-y: auto` (the
+  //: stylesheet already sets it) do the rest.
+  const wbCapBoardMenu = (menu, toggle) => {
+    menu.style.maxHeight = "";
+    escapeMenuIfClipped(menu, toggle);
+    const margin = 8;
+    const top = menu.getBoundingClientRect().top;
+    menu.style.maxHeight = `${Math.max(120, Math.round(window.innerHeight - top - margin))}px`;
+  };
+  for (const { toggle, menu } of boardMenus) {
     toggle.addEventListener("click", (e) => {
       e.stopPropagation();
       const wasHidden = menu.classList.contains("hidden");
@@ -6094,11 +6226,10 @@ async function initWhiteboard() {
       if (wasHidden) {
         menu.classList.remove("hidden");
         toggle.setAttribute("aria-expanded", "true");
+        // Before the measurement: a switch's own state can change how tall
+        // the list is.
         syncPanelSwitches();
-        // Never past the bottom of the window (reported with the View
-        // menu): cap to what is left below the menu's own top, and scroll.
-        const top = menu.getBoundingClientRect().top;
-        menu.style.maxHeight = `${Math.max(160, window.innerHeight - top - 12)}px`;
+        wbCapBoardMenu(menu, toggle);
       }
     });
   }
@@ -8733,6 +8864,10 @@ function renderWbObjects(canvas) {
     // three handlers the cards use, see `wbLinkItem`.
     if (window.currentTool?.startsWith("link-")) { d._linkKind = "object"; return dragStart.call(this, event, d); }
     d._linkedSketches = wbLinkedSketchesFor(d.id, "object");
+    // A map node's tree edges are not sketches (see `wbMapEdgesFor`), so the
+    // line above finds none of them: collected here for the same reason and
+    // at the same moment.
+    d._mapEdges = wbMapEdgesFor(d.id);
     // `.raise()` deliberately does NOT happen here, moved to objDragMove.
     // See the matching comment on the card drag's own `dragging` for the
     // real bug this caused (raising mid-`start` breaks the browser's click
@@ -8783,6 +8918,7 @@ function renderWbObjects(canvas) {
     }
     d3.select(this.closest(".wb-object")).style("transform", wbItemTransform(d));
     if (d._linkedSketches?.length) wbUpdateLinkedSketches(d.id, d._linkedSketches);
+    if (d._mapEdges?.length) wbUpdateMapEdges(d._mapEdges);
     wbUpdateSelectionBar();
     if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, d.x - d._dragOriginX, d.y - d._dragOriginY);
   }
@@ -8790,6 +8926,10 @@ function renderWbObjects(canvas) {
     if (window.currentTool === "eraser" || window.currentTool === "delete" || window.currentTool === "bucket") return;
     if (window.currentTool?.startsWith("link-")) { const r = dragEndNode.call(this, event, d); d._linkKind = null; return r; }
     d._linkedSketches = null;
+    // Dropped: the paths this drag held references to are about to be
+    // replaced by the next render, and a stale element would be updated in
+    // place forever (invisibly, since it is no longer in the document).
+    d._mapEdges = null;
     wbClearAlignmentGuides();
     const bulkOrigin = d._bulkOrigin;
     // Reset unconditionally: a solo drag sets this to `null` (see
@@ -9763,6 +9903,13 @@ async function openWhiteboardBoard(boardId) {
   wbScheduleRender();
   wbApplyBgImage();
   renderWbGestureHints();
+  //: Rendered now rather than on the next frame, because the framing below
+  //: measures the nodes it is about to fit (a map node is `height: auto`, so
+  //: its real size only exists once it is in the document).
+  if (wbIsMap()) {
+    renderWhiteboardNow();
+    wbFrameMapOnOpen();
+  }
   //: **A board is a place, so opening one is a navigation.** Asked as part of
   //: "is everythign wired to the nav history and universal undo/redo": it was
   //: not. `switchTab("library")` above records "library", and then opening

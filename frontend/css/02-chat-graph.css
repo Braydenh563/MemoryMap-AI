@@ -5036,3 +5036,19 @@ button.ghost.danger:hover {
   right: auto;
   z-index: 1020;
 }
+
+/* INBOX 43, the whiteboard's own top-bar menus (Insert, Edit, Arrange, View,
+   Board), which are the third family on the same recipe. They are
+   `position: absolute; right: 0` inside `.wb-board-menu-wrap`, and
+   `#library-view-whiteboard` is `overflow: hidden`: measured at 1280x640
+   with a board open, the View menu ended at y=628 inside the window and the
+   clipping ancestor ended at y=579, so its last 49px were cut off however
+   the menu's own height was capped. `right: auto` matters as much as
+   `position: fixed` here: `wb-board-menu`'s own `right: 0` would otherwise
+   pin the escaped menu to the window's right edge instead of the left the
+   placement code computes. */
+.wb-board-menu.action-menu-escaped {
+  position: fixed;
+  right: auto;
+  z-index: 1020;
+}

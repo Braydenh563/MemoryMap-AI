@@ -931,3 +931,53 @@ summary > .ph-lead,
   background: var(--ghost-btn-bg);
   color: var(--ink);
 }
+
+/* ---------------------------------------------------------------------------
+   5. The Write-with-AI footers are one row, primary on the right
+   ---------------------------------------------------------------------------
+
+   Reported: the Write-with-AI footer ("Save as note", a tags input, "Extract
+   notes", then "Discard" wrapped to a second line) and the "Draft it / Undo /
+   Optional: make it shorter" row above it.
+
+   Measured, both `.draft-controls` rows, children grouped by their y:
+
+                       1440              1024
+     Draft it row      h 40, 1 line      h 86, 2 lines
+     Save as note row  h 86, 2 lines     h 133, 3 lines
+
+   Three of those four are wrapped, and the reason is the same in each: the
+   free-text input declares no basis, so it holds its full intrinsic width and
+   pushes whatever follows it onto the next line instead of giving up space.
+   A control that can shrink is the one that should.
+
+   The order is the other half. Both rows lead with their primary - "Draft
+   it" and "Save as note" are the first children - so the eye finds the
+   irreversible action first and the row reads right-to-left. `order` puts
+   the quiet actions first, the input in the middle taking the slack, and the
+   one filled button at the far end, without moving a line of markup. */
+.draft-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.draft-controls > button.ghost {
+  order: 1;
+  flex: 0 0 auto;
+}
+
+/* The slack goes here. A 6rem basis with `min-width: 0` is what lets the row
+   compress instead of wrapping; the input is still the widest thing in it at
+   both widths measured. */
+.draft-controls > input[type="text"] {
+  order: 2;
+  flex: 1 1 6rem;
+  min-width: 0;
+}
+
+.draft-controls > button:not(.ghost) {
+  order: 3;
+  flex: 0 0 auto;
+}

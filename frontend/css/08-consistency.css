@@ -828,3 +828,106 @@ summary > .ph-lead,
   gap: var(--space-2);
 }
 
+/* ---------------------------------------------------------------------------
+   7. Meta looks like meta
+   ---------------------------------------------------------------------------
+
+   Reported: on the Skills cards "'2 steps' and '1 tool' render as buttons and
+   'Never run.' renders as a chip-button"; on the Library image cards the
+   model-name and "Read by ..." chips look like buttons too. The persona
+   list's "built-in" chip was named as the reference.
+
+   Measured, light theme. The reference first, so the target is a number and
+   not a feeling:
+
+     persona "built-in"   bg --chip-bg (31,36,48,0.07)   no border
+                          radius 15.4px (pill)  pad 1.6/9.6  12px/400
+                          colour --muted        height 24px
+
+   And the three that do not match it, on one card, side by side:
+
+     "Built-in"     bg --accent-soft   pill   12px/600   height 21.2px
+     "2 steps"      bg --ghost-btn-bg  border 1px --ghost-btn-border
+                    radius 8.4px  pad 6.4/8  11.2px/600  height 31.6px
+     "Never run."   bg --chip-bg  radius 4.2px  pad 4/8  11.2px  height 24.8px
+
+   Four heights, three radii and three fills for four pieces of the same kind
+   of information, stacked in one card.
+
+   "2 steps" and "1 tool" are the third site of the bug item 2 records:
+   they are `<summary class="chip skill-fact">` elements, and
+   `summary:not(.icon-only):not(.icon-button)` (07-whiteboard-misc.css:3640)
+   outranks `.chip` at 0,2,1 against 0,1,0, so the summary rule's tonal fill,
+   its edge and its button padding all landed on top of the chip recipe. The
+   markup asked for a chip and got a button, silently.
+
+   These two are genuinely clickable (they expand the step and tool lists in
+   place, which was itself asked for), so they keep `cursor: pointer` and a
+   hover. The hover deepens the chip tone rather than switching to the button
+   fill: a disclosure that is invisible until you find it is the problem that
+   round was solving, and taking the affordance away to make it quieter would
+   just trade one report for the other. */
+.skill-card-facts .chip.skill-fact,
+.skill-fact-expand > summary.skill-fact {
+  /* `.chip`'s own declared padding, restated rather than referenced: `.chip`
+     is 0,1,0 and loses to the summary rule at 0,2,1, so the value has to be
+     repeated at a weight that wins. It is the one literal in this file, and
+     it is a literal because it is a copy - inventing a token-shaped
+     near-equivalent here would move these chips off the persona reference
+     they are being matched to. */
+  padding: 0.1rem 0.6rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--chip-bg);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  height: auto;
+  min-height: 0;
+}
+
+.skill-fact-expand > summary.skill-fact:hover,
+.skill-fact-expand > summary.skill-fact:focus-visible,
+.skill-fact-expand[open] > summary.skill-fact {
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
+}
+
+/* "Never run." / "Last run ..." is a sentence about the card, not a control
+   on it. A fill and a radius made it the fourth box in a row of three. */
+.skill-card-when {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--muted);
+}
+
+/* The card's own "Built-in" marker is the same fact the persona list states,
+   so it says it the same way. `--accent-soft` is this app's *selected* tone
+   (DESIGN.md), and nothing about a built-in skill is selected. */
+.skill-card .chip.skill-builtin,
+.skill-card-header .chip:not(.skill-fact) {
+  background: var(--chip-bg);
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* Library image cards: the model name and the "Read by ..." row are facts
+   about the picture. Same recipe, same reason. The usage chip stays
+   `cursor: pointer` because it really does navigate to the note it names. */
+.library-image-usage-chip,
+.library-image-model-chip,
+.library-image-tile .chip:not(.chip.tag) {
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--chip-bg);
+  color: var(--muted);
+  font-weight: 500;
+  box-shadow: none;
+}
+
+.library-image-usage-chip:hover,
+.library-image-usage-chip:focus-visible {
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
+}

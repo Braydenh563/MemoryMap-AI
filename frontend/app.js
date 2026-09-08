@@ -2494,6 +2494,12 @@ function nearestScrollParent(el) {
 function placeHelpPopover(panel, trigger) {
   const margin = 8;
   const anchor = trigger.getBoundingClientRect();
+  // Measured while invisible: the panel is shown at 0,0 for the measure
+  // and only then moved, which painted one frame in the top-left corner
+  // (reported: "they flicker somewhere else on the screen for a split
+  // second"). visibility keeps layout and geometry, so the measure is the
+  // same, and nothing paints until the position is set.
+  panel.style.visibility = "hidden";
   panel.style.left = "0px";
   panel.style.top = "0px";
   const box = panel.getBoundingClientRect();
@@ -2526,6 +2532,7 @@ function placeHelpPopover(panel, trigger) {
   }
   panel.style.left = `${Math.round(left)}px`;
   panel.style.top = `${Math.round(top)}px`;
+  panel.style.visibility = "";
   panel.classList.toggle("help-popover-above", above);
   // The caret is positioned against the panel, but it has to point at the
   // trigger: which is only the panel's own centre when nothing clamped it.
@@ -2655,6 +2662,8 @@ function menuClippingAncestor(el) {
 function placeEscapedMenu(menu, opener) {
   const margin = 8;
   const anchor = opener.getBoundingClientRect();
+  // Same reason as placeHelpPopover: no frame at 0,0 before the move.
+  menu.style.visibility = "hidden";
   menu.style.left = "0px";
   menu.style.top = "0px";
   const box = menu.getBoundingClientRect();
@@ -2670,6 +2679,7 @@ function placeEscapedMenu(menu, opener) {
   }
   menu.style.left = `${Math.round(left)}px`;
   menu.style.top = `${Math.round(top)}px`;
+  menu.style.visibility = "";
 }
 
 function escapeMenuIfClipped(menu, opener) {

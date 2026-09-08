@@ -813,3 +813,465 @@ what would revolutionise the app decisively. Read, not assumed:
 
 What is not worth doing: replacing RRF, replacing bm25, or an approximate
 nearest-neighbour index below 50k notes. The measured costs are elsewhere.
+
+## 15. Inventions: eight things no notebook does, specified for Opus and Sonnet
+
+Written 2026-09-08 by direct instruction ("invent world class features
+... something the likes of which the world hasn't seen yet"). Each one is
+specified to the level a session can build from without a design pass:
+what the person sees, why it is new, what already exists to build on
+(checked in the code, file named), the data, the endpoints, the algorithm,
+the tests written first, the gate, the size and the model. Dependencies are
+explicit; the order at the end respects them.
+
+### The asymmetry these exploit
+
+Every cloud notebook rations model calls, because each call costs money.
+MemoryMap's model is local, idle 99% of the time, and free per token. That
+is the one thing a cloud product cannot copy: **the notebook can spend
+hours of model time on itself while nobody is watching**, and show its
+work in the morning. Inventions 1, 3, 5 and 8 are built on that. The
+second asymmetry is that the corpus is one person's own thinking, not the
+web: contradictions, repeated ideas, unanswered questions and forgotten
+notes are *signal* here, where in a search engine they are noise.
+Inventions 2, 4 and 6 are built on that. Invention 7 is the loop that makes
+the other seven get better with use.
+
+### I1 The night shift: the notebook that understands itself while you sleep
+
+**What the person sees.** A "While you were away" card on the Dashboard
+each morning: "Read 14 new notes. Found 3 claims that disagree with older
+ones, 2 questions you answered without noticing, 6 dates, 4 people. 2
+notes look like duplicates." Each line opens a review list where every
+item is accept / dismiss / open the note, and each item shows *which note
+and which sentence* it came from and *which model, when* decided it. Off
+by default, one switch in Settings > Background tasks, with a token budget
+per night and a battery guard.
+
+**Why it is new.** Notion AI, Mem and Reflect do a summary on demand.
+Nobody runs a standing, budgeted, auditable analysis of the whole
+notebook on the owner's own machine, with provenance on every derived
+fact, that the owner can reject line by line and that learns from the
+rejections (I7).
+
+**Builds on.** `ai/autonomous.py` (the scheduler: interval, battery guard,
+snooze, a barred-destructive-tools agent pass; start() wired in app
+lifespan), `ai/entities.py` (`extract_entities_pass`, `Entity`,
+`EntityMention`), the tensions pipeline in `api/routes_entries.py`
+(`TENSION_CANDIDATE_THRESHOLD`, `accept_tension`, dismissed set in a
+preference), `EntryDate` and `reminder_parser.py` (dates), the near
+duplicate check on save, `entry_revisions` (so "new since last run" is a
+revision cursor, not a timestamp guess).
+
+**Data.** One new table `derived_facts` (id, kind in {claim, question,
+duplicate, tension, entity, date}, entry_id, revision_id, span_start,
+span_end, text, payload JSON, confidence 0 to 1, model, computed_at,
+status in {new, accepted, dismissed}, run_id). One `night_runs` table
+(id, started_at, finished_at, cursor_revision_id, tokens_spent, budget,
+counts JSON, stopped_reason). Every existing derived thing (entity
+mention, tension) gets a `run_id` column so the morning card can group by
+run. Nothing is written to a note. Ever.
+
+**Endpoints.** `GET /night/latest` (the card), `GET /night/runs/{id}/facts?
+kind=&status=` (the review list, paged), `POST /night/facts/{id}` (status
+accept or dismiss; accept of a `tension` calls the existing accept path;
+accept of a `date` creates the reminder through the existing reminder
+route; accept of a `duplicate` opens the existing merge), `POST /night/run`
+(manual, for testing and for "run now").
+
+**Algorithm.** A run is a plan of passes with a shared budget: (1) cursor:
+revisions since the last run; (2) cheap passes first, no model: dates
+(`reminder_parser`), duplicates (embedding cosine over new notes against
+all, threshold from the save-time check), entities (regex plus the
+existing pass); (3) model passes, each note once, one prompt per note that
+returns a JSON list of claims and open questions (the schema is in the
+prompt, the parser rejects anything else); (4) tensions: for each new claim,
+top-k similar claims by cosine, then one model call per pair above the
+threshold asking "compatible / incompatible / unrelated" with a one-line
+reason; (5) answered questions: for each open question, top-k similar
+claims written *later*; one model call asks "does this answer it". Stop
+when the budget is spent; record where; resume from the cursor next night.
+Small-model mode: passes 3 to 5 use the small prompt variants
+(`AGENT_SKILLS_REFORM` Phase B), one item per call.
+
+**Tests first** (`tests/test_night_shift_spec.py`, strict xfail until each
+passes): a run over the fixture notebook with the fake model produces the
+expected counts per kind; every fact cites an entry, a revision and a
+span inside it; a second run with no new revisions produces zero facts
+and spends zero tokens; a budget of N stops the run with
+`stopped_reason=budget` and a cursor before the unprocessed notes;
+dismissing a fact hides it from `/night/latest` and writes a
+`corrections` event (I7); a run is skipped on battery; nothing in
+`entries` changes (row hash before and after).
+
+**Gate.** On the 2,000-note fixture, a full first run under the fake model
+finishes in under 5 minutes wall clock and the card renders under 100ms
+from `/night/latest`. **Size** L (two sessions). **Model** Opus for the
+runner and prompts, Sonnet for the review UI on the modal and list
+recipes.
+
+### I2 The margin reader: a second reader in the editor, from your own notes
+
+**What the person sees.** While writing a note or document, a quiet
+margin column (off by default per editor, one toggle in the toolbar's
+more menu) fills with at most three cards, each pinned to the paragraph
+it is about: "You wrote the opposite on 12 May: 'the batch size should
+stay at 32'" (open, or mark not a contradiction), "This repeats your
+note 'Why I left the project'" (open, link), "Answers your open question
+from March: 'is the API worth the cost?'" (link as answer), "A date:
+Thursday 3pm. Make a reminder?". Nothing is ever inserted into the text.
+Cards fade when the paragraph changes and re-run after a pause.
+
+**Why it is new.** Every editor's AI writes *for* you (autocomplete,
+rewrite). None reads *with* you against your own past thinking. Obsidian
+Copilot chats; Notion AI drafts; Mem surfaces similar notes as a list, not
+pinned to the sentence and not typed (contradiction, repeat, answer,
+commitment).
+
+**Builds on.** The Phase 0 backdrop and underline geometry in
+`documents.js` (a card is anchored the same way an underline is), the
+selection toolbar D2, the chunk vectors from §14 item 3, I1's
+`derived_facts` for claims and open questions, `EntryDate`.
+
+**Data.** None persisted except accepted links (typed `EntryLink`:
+contradicts, repeats, answers) and created reminders. Cards are computed.
+
+**Endpoints.** `POST /editor/read` with `{entry_id | document_id, paragraph:
+str, ordinal: int}` returns `[{kind, text, source_entry_id, source_span,
+reason, confidence}]`, at most three, in under 300ms without the model
+(similar chunk plus claim table lookups) and, when the model is up, a
+second event over SSE with the model-judged kinds. Debounced client-side at
+1.2s after typing stops in a paragraph; one in-flight request per editor;
+the reply is dropped if the paragraph text changed.
+
+**Algorithm.** Embed the paragraph (cached by text); top-5 chunks by
+cosine excluding the current note; for each, if I1 has a claim in that
+chunk, ask the model (small prompt) for the relation in {contradicts,
+repeats, answers, unrelated}; without a model, show "related" only. Dates
+through `reminder_parser` locally. Rank by confidence, cap three, never
+show the same source twice in one note session.
+
+**Tests first** (`tests/test_margin_reader_spec.py`): the endpoint
+returns at most three cards; a paragraph that repeats a fixture note
+verbatim yields `repeats` with that note; a paragraph that negates a
+fixture claim yields `contradicts` under the fake model; a date yields a
+`date` card with a parsed ISO timestamp; with the model down the endpoint
+still answers in under 300ms with `related` cards; `test_frontend_ids.py`
+and the CSP lint pass for the margin column.
+
+**Gate.** Measured in Chromium: typing latency in the editor unchanged
+(frame time p95 within 1ms of before, `scratchpad/ui-sweeps/editor.js`);
+a card appears within 2s of a pause. **Size** M. **Model** Opus (the
+frontend anchoring is design work).
+
+### I3 Open questions: the notebook keeps a list of what you have not answered
+
+**What the person sees.** A "Questions" view under Notes (a sub-tab):
+every question you have written to yourself, newest first, each with
+"asked 3 March in 'Pricing thoughts'" and one of three states: open,
+answered ("you answered this on 9 April in 'Call with Sam'", with the
+sentence), or dropped. The Dashboard shows the count and the oldest open
+one. Ask can be scoped to it: "what am I still undecided about?" answers
+from this list with citations.
+
+**Why it is new.** Task managers track tasks you *declared*. Nobody tracks
+the questions you *asked in passing* and tells you when a later note
+answered them. This is the feature that makes a notebook feel like it
+remembers on your behalf.
+
+**Builds on.** I1 (extraction and the "answers" pass), the grounding
+scorer for the answered-by sentence, the Notes sub-tab strip and the dock
+grammar (a `questions` dock on the grammar), `EntryLink` typed `answers`.
+
+**Data.** `derived_facts` of kind `question` with payload `{answered_by:
+fact_id | null, dropped: bool}`. No new table.
+
+**Endpoints.** `GET /questions?state=` (paged), `POST /questions/{id}`
+(`{state}`; marking answered by hand asks for the note and stores a typed
+link), the Ask box gets `scope: "questions"`.
+
+**Tests first** (`tests/test_questions_spec.py`): a fixture note with two
+questions yields two open facts with spans; a later note that the fake
+model judges as answering one flips its state and the link exists; Ask
+with the scope cites only question facts; dropping is reversible and
+recorded as a correction (I7).
+
+**Gate.** The view renders under 100ms for 500 questions; the dock passes
+`test_dock_grammar.py`. **Size** M. **Model** Sonnet for the view on the
+list recipe; Opus for the Ask scope.
+
+### I4 Resurfacing: the ideas you are about to forget, when they matter
+
+**What the person sees.** Three cards a day, on the Dashboard and as a
+row in the note editor's margin (I2) when relevant: "You have not opened
+'Interview prep notes' in 94 days. It is close to what you are writing
+now." Each card is open / keep surfacing / never again. A "Forgotten"
+sort in Notes lists the notebook by fading score.
+
+**Why it is new.** Readwise resurfaces highlights at random on a schedule.
+Nobody resurfaces *your own notes* by a fading score conditioned on what
+you are doing *now* (the open note, the active space, today's reminders),
+with the choice fed back into the score.
+
+**Builds on.** `Entry.access_count`, `updated_at`, `EntryLink` degree,
+the vectors, the active space, the Dashboard widget system, I7 for the
+feedback.
+
+**Algorithm.** `fading = age_days_since_last_open × (1 / (1 + degree)) ×
+(1 / (1 + opens))`, computed nightly for every note into a `note_scores`
+table (entry_id, fading, computed_at). At request time (`GET /resurface?
+context_entry_id=&space_id=`), take the top 200 by fading, score each by
+cosine to the context (the open note's vector, else the space centroid,
+else today's reminders' text), multiply, drop anything dismissed as
+"never again", return three. The daily set is fixed for the day (seeded
+by the date) so the card does not change on every reload.
+
+**Tests first** (`tests/test_resurface_spec.py`): a never-opened,
+unlinked, old note outranks a linked recent one; the context vector
+reorders the top three; "never again" is honoured across restarts; the
+three are stable within a day and change across days; a notebook under
+ten notes returns an empty list rather than the same three forever.
+
+**Gate.** `GET /resurface` under 50ms at 5k notes (scores precomputed).
+**Size** S. **Model** Sonnet.
+
+### I5 Time travel over meaning: what did I think about X in March?
+
+**What the person sees.** A date control on Ask ("as of…") and a
+"Then and now" panel on any note: the note as it was on that date, and a
+two-column diff of the *claims* (not the text) between then and now: "Then:
+the batch size should stay at 32. Now: 64 after the memory fix." Ask with
+a date answers from the notebook as it stood then, citing the revision.
+
+**Why it is new.** Version history exists everywhere. Answering a question
+*from the notebook as it was*, and diffing what you believed rather than
+what you typed, does not exist anywhere.
+
+**Builds on.** `entry_revisions` (already written before every change,
+quiet-period coalesced), I1's claims with `revision_id`, the Ask box, the
+grounding scorer (it grounds against revision text the same way).
+
+**Data.** No new table. Claims already carry `revision_id`; `GET
+/entries/{id}/claims?as_of=` resolves the revision at that date.
+
+**Endpoints.** `POST /chat/stream` gains `as_of: date | null`; retrieval
+runs over revision text at that date (FTS5 over a temporary table of
+as-of contents for the candidate set, vectors re-embedded on demand and
+cached by revision id); `GET /entries/{id}/then-and-now?as_of=` returns
+`{then: [claims], now: [claims], changed: [(then_id, now_id, kind)]}`
+where kind is `revised | dropped | new`, from claim cosine plus the fake
+or real model's judgement.
+
+**Tests first** (`tests/test_time_travel_spec.py`): a note edited on
+three dates answers a question differently as of each date, citing the
+right revision; the then-and-now diff on the fixture reports one revised,
+one dropped, one new; an `as_of` before the notebook existed returns an
+empty, honest answer rather than today's.
+
+**Gate.** As-of retrieval under 1s at 5k notes for a 200-candidate set.
+**Size** M. **Model** Opus.
+
+### I6 Evidence cards: answers you can audit sentence by sentence
+
+**What the person sees.** Every AI answer sentence carries a small marker;
+hovering shows the *paragraph* it came from, with the three reasons it was
+chosen (words matched, meaning score, graph distance) as three short bars,
+and the verifier's verdict: supported, partly, or unsupported. Unsupported
+sentences are rendered in a lighter tone with "no note says this". A
+"Show the evidence" toggle opens the answer and its sources side by side,
+each source scrolled to the paragraph. A one-line trust score under the
+answer: "9 of 11 sentences supported by your notes".
+
+**Why it is new.** Perplexity cites pages; it cannot say which sentence
+is unsupported, and its citations are page-level. Here the corpus is
+finite and local, so every sentence can be checked against every
+paragraph, and the verifier (B5) can say no.
+
+**Builds on.** This session's grounding change (touched notes, distinctive
+words, labels), `addInlineCitations` and `renderAnswerGrounding` in
+`app.js`, `match_info` (the three signals already exist per hit), the
+verifier spec `tests/test_harness_verifier_spec.py`, §14 item 3 for
+paragraph-level anchors.
+
+**Data.** None new. The grounding event grows per row: `chunk_ordinal`,
+`span`, `signals: {bm25, cosine, graph}`, `verdict`.
+
+**Tests first** (`tests/test_evidence_spec.py`): each grounded row carries
+a chunk ordinal and a span that exists in that note; an answer sentence
+with no candidate is marked `unsupported` and the trust line counts it;
+the side-by-side view scrolls the source to the span (Playwright: the
+span's rect is inside the viewport); the markers survive the final
+markdown re-render (the bug already fixed once in `askQuestion`).
+
+**Gate.** Trust score correct on the eval fixture's golden answers
+(`tests/eval/golden.py`), citation score in `tests/eval/scoring.py` up
+from its current baseline (record the number first). **Size** M. **Model**
+Opus.
+
+### I7 The corrections loop: every "no" makes the notebook better
+
+**What the person sees.** Nothing new to do. Re-file a note, dismiss a
+suggestion, mark a tension wrong, pick a different search result, say
+"never again" to a card: the app records it and changes its behaviour.
+Settings shows a small "Learned from you" panel: "37 corrections. Filing
+accuracy 71% to 89% over the last 200 notes. Reset."
+
+**Why it is new.** Offline apps do not learn; online apps learn on the
+server from everyone. A per-person model that lives in the SQLite file,
+is inspectable, resettable and explains itself is not something anyone
+ships.
+
+**Builds on.** `AuditLog` (re-file events already logged as
+"recategorised -> X"), the dismissed sets kept as preferences, `janitor.
+categorise` (the prompt), `search_manager._rank` (the fusion), the link
+suggestion route.
+
+**Data.** `corrections` (id, kind in {refile, dismiss_link, accept_link,
+dismiss_tension, dismiss_resurface, open_after_ask, dismiss_fact}, subject
+JSON, from_value, to_value, at). `learned_boosts` (kind, key, weight,
+updated_at), rebuilt from `corrections` on demand (derived, so Reset is a
+delete).
+
+**Algorithm.** Filing: the prompt gets the three nearest already-filed
+notes with their categories *and* the last three refile corrections whose
+from_value matches the model's likely answer ("you moved notes like this
+from Work to Projects twice"); the centroid fallback subtracts a category
+the owner has refiled away from twice. Search: `open_after_ask` adds a
+boost of 0.15 per open to that note for questions with cosine over 0.8 to
+the asked question, decaying by half every 30 days, applied inside the
+fusion as a fourth ranked list. Links and tensions: a dismissed pair
+never returns; an accepted pair raises the threshold weight of its
+two categories by a small constant. All weights bounded; all shown in the
+panel.
+
+**Tests first** (`tests/test_learning_spec.py`): a refile is recorded and
+appears in the next filing prompt for a similar note; after two refiles
+away from a category the centroid path no longer chooses it; an
+`open_after_ask` reorders the next similar question's results; a
+dismissed link pair is absent from `/entries/link-suggestions`; Reset
+empties `learned_boosts` and behaviour returns to baseline; the panel's
+accuracy number equals the fixture's computed value.
+
+**Gate.** Filing accuracy on the eval fixture with 20 synthetic
+corrections improves by at least 10 points; search p95 unchanged. **Size**
+M. **Model** Opus for the prompt and fusion changes, Sonnet for the panel.
+
+### I8 The model bench: which local model is best on *your* notebook
+
+**What the person sees.** Settings > Models > "Test my models": pick two
+or more installed models, press Run; twenty minutes later a table: filing
+accuracy, citation accuracy, tool-call success, answer latency, tokens per
+answer, each with a number and a one-line example of a failure. "Use this
+one" applies it. Runs on the night shift budget if left overnight.
+
+**Why it is new.** Every local-AI app tells you to "try a model". None
+measures one against your own notes, offline, and shows the failures.
+
+**Builds on.** `tests/eval/` (fixture, golden, scoring for tool choice and
+citation), `ai/model_manager.py`, `routes_models.py`, I1's scheduler.
+
+**Algorithm.** Build a held-out set from the owner's notebook: sample 40
+notes, generate one question per note whose answer is a sentence in it
+(no model needed: pick a claim from I1, or a sentence with two
+distinctive terms), plus the note's own category. For each model: file the
+40 notes cold, answer the 40 questions, run five scripted tool tasks;
+score with `tests/eval/scoring.py`'s functions moved into `ai/bench.py`
+(the tests then import from there, so the harness and the feature cannot
+drift). Report per model.
+
+**Tests first** (`tests/test_bench_spec.py`): a bench over the fixture
+with two fake models that differ in one scripted answer ranks them in the
+right order; the report names the failing question; a bench respects the
+budget and can be stopped; "Use this one" switches the chat model
+preference.
+
+**Gate.** The bench over two models on 40 notes completes under 30 minutes
+on the reference small model; the numbers reproduce within 2 points on a
+second run. **Size** M. **Model** Sonnet (the scoring exists; this is
+plumbing and a table).
+
+### Order and dependencies
+
+```
+§14.2 chunk vectors  →  I6 evidence cards
+B1 event log (or the corrections table alone)  →  I7 corrections loop
+I1 night shift  →  I3 questions, I5 time travel (claims), I8 bench (budget)
+I1 + §14.2      →  I2 margin reader
+nothing         →  I4 resurfacing, I7 (with its own corrections table)
+```
+
+Start with I7 and I4 (no dependencies, both improve every existing
+feature), then §14.2 and I6, then I1, then I3, I2, I5, I8. Each is one
+brief row in SESSION_BRIEFS when its turn comes; none is built ad hoc.
+
+### What was deliberately left out
+
+Autocomplete and "write it for me": every competitor has it and it makes
+the notebook sound like the model. Cloud sync of the derived tables: the
+inventions work because the data never leaves. A plugin marketplace before
+B8: an extension surface without the event log is a support burden with
+no lever behind it.
+
+## 16. The backend, read for structure, silent failure and lag (2026-09-08)
+
+Static probes over `src/memorymap` (`scratchpad/probe_backend.py`), each
+number reproducible. Security is in §12 and was not repeated; nothing new
+was found there beyond what §12 lists.
+
+**Complexity is concentrated, which is good news.** Four functions carry
+most of it and are the only ones worth restructuring:
+
+| Function | Lines | Branches |
+| --- | --- | --- |
+| `ai/agent.py run_agent` | 788 | 71 |
+| `ai/skill_runner.py run_skill` | 493 | 48 |
+| `api/routes_chat.py chat_stream` | 384 | 46 |
+| `api/routes_graph.py graph` | 298 | 37 |
+
+Move: `run_agent` into a `Turn` object with one method per round phase
+(prompt, call, dispatch, feed back, finish), which is also what B5's
+verifier needs to sit between "call" and "feed back"; `chat_stream` into
+prepare, route, stream, ground, with `lines()` a generator over a small
+state object. No behaviour change; the existing tests are the gate
+(`test_agent_*`, `test_chat_*`, `test_agent_plan.py`). Size M, Opus,
+after B5's spec tests exist so the split serves them.
+
+**Silent failure.** 129 `except Exception` handlers, 18 of them `pass`
+(`embeddings.py` 234, 254, 261, 444; `entities.py` 141;
+`reminder_parser.py` 205; `tools/_common.py` 337; `vision_ocr.py` 320;
+`routes_settings.py` 1515; `routes_spaces.py` 219; `atomic_io.py` 41;
+`pdfpages.py` 186, 240; `security.py` 407; `taskhistory.py` 90;
+`manager.py` 811; `searxng_install.py` 499, 560). Rule for the pass:
+each becomes `logger.debug` with the exception, or a comment naming the
+failure it swallows and why that is right. Sonnet, one session, one
+commit per file, no behaviour change.
+
+**A thread-safety bug, fixed this session.** `EmbeddingService._embed_cache`
+was read and evicted from request threads and the re-index thread with no
+lock; the eviction iterates the dict, which raises under a concurrent
+insert. Now one lock around the cache, never around the embedding call.
+
+**Lag, measured by reading, to be measured by running.**
+
+- `semantic_search` loads every vector blob from SQLite and decodes it on
+  every query (`select(EmbeddingRecord.entry_id, EmbeddingRecord.embedding)`).
+  At 10k notes of 384 floats that is 15 MB decoded per Ask. Move: a
+  process-level matrix cache keyed by `(backend_id, max(EmbeddingRecord.
+  updated_at), count)`, invalidated by the same fingerprint trick
+  `routes_graph._cached` already uses. Gate: Ask retrieval under 30ms at
+  10k notes. Size S, Sonnet.
+- `similar_pairs` is O(n²) and is called from three routes (link
+  suggestions, tensions, graph edges) on each request; the graph route
+  caches it, the other two do not. Move: one cached pair table computed by
+  the night shift (I1) or on the graph fingerprint. Size S, Sonnet.
+- The frontend runs nine `setInterval` polls; MODERNISATION_AUDIT measured
+  14 idle requests a minute. Move: one `/events` SSE stream (B1's log is
+  the natural source) and the polls become subscriptions. Size M, Opus.
+- Five route files exceed 1,750 lines (`routes_files.py` at 2,998). Not a
+  bug; a session cost. Split by resource when each is next touched, never
+  as its own task.
+
+**Consistency findings.** Route handlers are wired by decorator, so a
+"defined once, never referenced" probe is noise for them; excluding
+decorated functions leaves under ten candidates, all private helpers
+behind a feature flag. Not worth a session.

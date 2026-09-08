@@ -164,27 +164,28 @@ def render_pages(path: Path, limit: int = MAX_PAGES) -> list[bytes]:
         return []
 
     pages: list[bytes] = []
-    document = None
+    # Closed inside the lock, for the reason `render_page` gives below: a
+    # close outside it races another thread's open in pdfium's global state.
     try:
         with _pdfium_lock:
             document = pdfium.PdfDocument(str(path))
-            for index in range(min(len(document), max(0, limit))):
-                page = document[index]
+            try:
+                for index in range(min(len(document), max(0, limit))):
+                    page = document[index]
+                    try:
+                        png = _render_one(page, path, index, greyscale=True)
+                        if png is not None:
+                            pages.append(png)
+                    finally:
+                        page.close()
+            finally:
                 try:
-                    png = _render_one(page, path, index, greyscale=True)
-                    if png is not None:
-                        pages.append(png)
-                finally:
-                    page.close()
+                    document.close()
+                except Exception:  # noqa: BLE001  # nothing left to release
+                    pass
     except Exception as exc:  # noqa: BLE001  # see the docstring
         logger.info("couldn't rasterise %r: %s", path, exc)
         return pages
-    finally:
-        if document is not None:
-            try:
-                document.close()
-            except Exception:  # noqa: BLE001
-                pass
     return pages
 
 
@@ -219,23 +220,31 @@ def render_page(path: Path, index: int) -> bytes | None:
     except ImportError:
         return None
 
-    document = None
+    # The document is closed INSIDE the lock. It used to be closed in an
+    # outer `finally`, after the `with` had released the lock, so one thread
+    # could be tearing a document down in pdfium while another was opening
+    # or rendering under the lock. pdfium keeps global state, and that is a
+    # segmentation fault, not an exception: the full suite died at 64% in
+    # `test_concurrent_page_renders_do_not_corrupt_or_crash`, the test
+    # written for exactly this shape, on a run where `-x` could not catch
+    # it. Everything pdfium touches, open to close, now happens under the
+    # one lock; the PNG bytes are the only thing that leaves it.
     try:
         with _pdfium_lock:
             document = pdfium.PdfDocument(str(path))
-            if safe_index >= len(document):
-                return None
-            page = document[safe_index]
             try:
-                return _render_one(page, path, safe_index, greyscale=False)
+                if safe_index >= len(document):
+                    return None
+                page = document[safe_index]
+                try:
+                    return _render_one(page, path, safe_index, greyscale=False)
+                finally:
+                    page.close()
             finally:
-                page.close()
+                try:
+                    document.close()
+                except Exception:  # noqa: BLE001  # already rendered or already failed
+                    pass
     except Exception as exc:  # noqa: BLE001  # a viewer must not 500 on a bad file
         logger.info("couldn't rasterise page %d of %r: %s", safe_index, path, exc)
         return None
-    finally:
-        if document is not None:
-            try:
-                document.close()
-            except Exception:  # noqa: BLE001
-                pass

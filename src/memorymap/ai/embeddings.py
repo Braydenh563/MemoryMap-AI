@@ -351,11 +351,19 @@ class EmbeddingService:
         self._auto_install_attempted = False
         # text -> vector, bounded and FIFO. See embed_text for why.
         self._embed_cache: dict[str, np.ndarray] = {}
+        # Written from request threads and the re-index thread at once. A
+        # dict survives concurrent get/set, but the eviction iterates it
+        # (`next(iter(...))`) while another thread may insert, which raises
+        # "dictionary changed size during iteration" inside a save, at
+        # random, under load. One lock, held for microseconds; the embedding
+        # call itself runs outside it.
+        self._cache_lock = threading.Lock()
 
     def clear_embed_cache(self) -> None:
         """Drop cached vectors: used when the embedding backend changes,
         since the same text then maps to a different vector."""
-        self._embed_cache.clear()
+        with self._cache_lock:
+            self._embed_cache.clear()
 
     def reset_failure_state(self) -> None:
         """Forget a cached load/embed failure so the very next attempt
@@ -397,16 +405,18 @@ class EmbeddingService:
         the slowest part of a save. Keying on the exact string means a cached
         vector can never be stale: different text is simply a different key.
         """
-        cached = self._embed_cache.get(text)
+        with self._cache_lock:
+            cached = self._embed_cache.get(text)
         if cached is not None:
             return cached
         vector = self._embed_uncached(text)
         if vector is not None:
             # Small and FIFO: this exists to collapse duplicate work inside one
             # request, not to be a general-purpose store.
-            if len(self._embed_cache) >= _EMBED_CACHE_MAX:
-                self._embed_cache.pop(next(iter(self._embed_cache)))
-            self._embed_cache[text] = vector
+            with self._cache_lock:
+                if len(self._embed_cache) >= _EMBED_CACHE_MAX:
+                    self._embed_cache.pop(next(iter(self._embed_cache)))
+                self._embed_cache[text] = vector
         return vector
 
     def _embed_uncached(self, text: str) -> np.ndarray | None:

@@ -7716,7 +7716,14 @@ input[type="file"] {
    sideways (the sub-tabs, the chips — `.notes-subtabs` and the category
    strip already do this), the search on its own row, and one control per
    choice (the sort select stays, the segmented sort that repeats it goes). */
-@media (max-width: 600px) {
+/* **600 became 820** (UI_MODERNISATION_PLAN.md Phase 9, band 3). Measured at
+   768 with the rest of band 3 in place: the Library sub-tabs took 84px and
+   the filter chips 121px, two and three wrapped rows, 205px of chrome above
+   a grid on a tablet in portrait. The recipe below is exactly what that
+   width needs and it was scoped to phones only. `#library-sort-seg` stays
+   behind 600 in a block of its own: hiding a control is a phone decision,
+   not a tablet one, and this block is now about strips that scroll. */
+@media (max-width: 819.98px) {
   .library-subtabs,
   .library-filters {
     flex-wrap: nowrap;
@@ -7750,6 +7757,9 @@ input[type="file"] {
     flex: 1 1 100%;
   }
 
+}
+
+@media (max-width: 600px) {
   #library-sort-seg {
     display: none;
   }
@@ -8310,5 +8320,172 @@ header#top-bar {
   .dock-identity h2 {
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+}
+
+/* --- band 3: 600-820, iPad portrait, and the sheet that band 4 inherits ---
+   One column, and the sidebar stops being a row of the page.
+
+   **The sidebars become sheets.** Stacked, a sidebar sat above the content
+   and charged it the height: measured at 390, the Notes categories card was
+   48px before the first note and the chat list 99px before the first message,
+   and in tablet portrait it is worse because there is more of it. A panel you
+   are not using should cost the panel you are using nothing.
+
+   So below 820 the three sidebars leave the flow and slide in from the left,
+   over the content, with a rail left showing that carries the collapse toggle
+   they already own. No new control and no new gesture: the button that opens
+   and closes a sidebar on a desktop opens and closes the sheet here.
+   `applySidebarSheetMode` (app.js) takes the desktop `.sidebar-collapsed`
+   classes off on the way in and puts them back on the way out, so none of
+   that rule's `!important` widths and none of its hover-peek apply in this
+   band, and there is nothing here fighting them.
+
+   The rail is the toggle plus its inset on both sides, so a closed sheet
+   shows exactly the button and nothing else. Escape closes it, and so does a
+   tap on the content behind it (app.js): a sheet you can only close with the
+   control it is covering is a trap.
+
+   `.doc-layout` gets the same treatment and needs one extra line. It is a
+   two-track grid that never stacked at any width, so on a phone the editor
+   had 390 minus a 14rem minimum sidebar minus the gap, about 150px of column
+   to render a document in. Its non-sidebar children are pinned to
+   `grid-column: 2` by a rule written to survive the sidebar being hidden;
+   with the sidebar out of flow there is no track two, so they move to one. */
+@media (max-width: 819.98px) {
+
+  .doc-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .doc-layout > :not(.sidebar-panel) {
+    grid-column: 1;
+  }
+
+  /* **By id, and that is not decoration.** `#chat-sidebar` and `#doc-sidebar`
+     already carry `position: relative` from the phone block in
+     05-sidebars-themes.css and `position: sticky` from their own id rules, and
+     an id beats any class selector however late it is declared. Written as
+     classes first, this block applied its `transform` and its width and left
+     `position` alone, so the sheets rendered as ordinary in-flow cards shoved
+     268px off the left edge of the page. Measured: `position: relative`,
+     x=-255, and a sidebar still costing the content its height. */
+  #sidebar,
+  #chat-sidebar,
+  #doc-sidebar {
+    --sheet-rail: calc(var(--sidebar-toggle-size) + 2 * var(--sidebar-toggle-inset));
+    position: fixed;
+    top: var(--header-h);
+    bottom: var(--status-bar-h);
+    left: 0;
+    /* Wide enough for a conversation title, never more than most of a phone:
+       a sheet that covers the whole window is a page, and a page needs a way
+       back that a sheet does not. */
+    width: min(20rem, 84vw);
+    max-height: none;
+    height: auto;
+    margin: 0;
+    z-index: 35;
+    overflow-y: auto;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    transform: translateX(calc(var(--sheet-rail) - 100%));
+    transition: transform var(--motion-slow) ease, box-shadow var(--motion-slow) ease;
+    box-shadow: none;
+  }
+
+  #sidebar.sidebar-sheet-open,
+  #chat-sidebar.sidebar-sheet-open,
+  #doc-sidebar.sidebar-sheet-open {
+    transform: translateX(0);
+    box-shadow: var(--glass-shadow);
+  }
+
+  /* Closed, only the rail is on screen, so nothing inside the sheet may be
+     reached by a stray tap or by Tab. `visibility`, not `display`: a
+     `display: none` subtree cannot be animated back in, and the sheet
+     slides. */
+  #sidebar > *,
+  #chat-sidebar > *,
+  #doc-sidebar > * {
+    visibility: hidden;
+  }
+
+  #sidebar.sidebar-sheet-open > *,
+  #chat-sidebar.sidebar-sheet-open > *,
+  #doc-sidebar.sidebar-sheet-open > * {
+    visibility: visible;
+  }
+
+  /* The toggle rides on the rail: pinned to the sheet's right edge at the
+     inset the rail was measured from, so it lands centred on the strip that
+     stays visible. */
+  #sidebar > .sidebar-collapse-toggle,
+  #chat-sidebar > .sidebar-collapse-toggle,
+  #doc-sidebar > .sidebar-collapse-toggle {
+    right: var(--sidebar-toggle-inset);
+    visibility: visible;
+  }
+
+  /* A drag handle is a pointer affordance for a column that no longer exists:
+     the sheet has one width. */
+  #sidebar > .sidebar-resize,
+  #chat-sidebar > .sidebar-resize,
+  #doc-sidebar > .sidebar-resize {
+    display: none;
+  }
+
+  /* The content keeps the rail clear, so the opener never lands on a card's
+     own edge. Written from the sidebar rather than from the layout, because
+     `test_style_scale.py` reads any rule whose selector starts with `.layout`
+     or `.doc-layout` as the page container setting its own outer gutter. */
+  .sidebar-panel ~ * {
+    padding-left: calc(var(--sidebar-toggle-size) + 2 * var(--sidebar-toggle-inset));
+  }
+}
+
+/* --- two-up cards in tablet portrait --------------------------------------
+   The card grids are `column-width` masonry, which fills a 768px column with
+   three or four narrow cards and reads as a desktop grid that has been
+   squeezed rather than as a layout for this width. Two is the count that
+   keeps a card wide enough to still be a card. */
+@media (min-width: 600px) and (max-width: 819.98px) {
+
+  .library-grid:not(.library-list) {
+    columns: 2;
+  }
+
+  #dash-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* --- what the phone block assumed, and the sheet undoes --------------------
+   02-chat-graph.css hides the Notes sidebar's head row and its collapse
+   toggle below 600, with the reason written down: "a collapse toggle means
+   nothing when the sidebar is stacked". That was true. It is not true any
+   more: below 820 the sidebar is a sheet and that toggle is the only way to
+   open it, so the phone was left with a 52px rail carrying an invisible
+   button. Measured before this: the toggle's box was 0 by 0 at 390 and the
+   sheet could not be opened at all, while the identical interaction worked at
+   768. A rule that encodes an assumption has to be revisited when the
+   assumption changes, and the way to catch that is to drive the thing.
+
+   The head comes back with it, because a sheet with no title is a panel that
+   slid in from nowhere, and the category list stops being a sideways
+   scroller: a 320px sheet has room to wrap, and a wrapped chip cloud shows
+   every category at once where a horizontal scroller shows four. */
+@media (max-width: 819.98px) {
+
+  #sidebar > .sidebar-head {
+    display: flex;
+  }
+
+  #sidebar > .sidebar-collapse-toggle {
+    display: flex;
+  }
+
+  #sidebar ul#category-list {
+    flex-wrap: wrap;
+    overflow-x: visible;
   }
 }

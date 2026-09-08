@@ -103,8 +103,18 @@
 /* Keep the Notes category sidebar pinned to the left while the notes
    scroll (user request). It sits just below the sticky top bar; a long
    category list scrolls within the pinned column instead of running off
-   the screen. Only on wide layouts — on mobile the sidebar stacks on top. */
-@media (min-width: 721px) {
+   the screen. Only on wide layouts — on mobile the sidebar stacks on top.
+
+   **721 became 820** (UI_MODERNISATION_PLAN.md Phase 9). This rule is the
+   only `min-width: 721px` in the app, and it was the exact width the phone
+   breakpoint used to end at. When the stacking breakpoint moved to 820, this
+   rule kept claiming 721-819 for the desktop layout: `#tab-notes #sidebar` is
+   two ids, so its `position: sticky` beat the sheet block by specificity from
+   a file six earlier in the cascade, and the Notes sidebar alone stayed a
+   sticky column on a tablet in portrait while the other two became sheets.
+   Measured at 768: `position: sticky` here, `fixed` on Chat's, side by side.
+   A breakpoint that moves has to move everywhere it is written down. */
+@media (min-width: 820px) {
   #tab-notes #sidebar {
     position: sticky;
     /* Was 4.25rem, clearing the floating header. The page is the scroll

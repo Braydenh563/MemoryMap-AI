@@ -16494,7 +16494,16 @@ function sidebarWidth(id, fallback = 260) {
 }
 
 // Below this the layout stacks into one column and there is no column to size.
-const STACKED_LAYOUT = "(max-width: 720px)";
+//
+// **Moved from 720 to 820** (UI_MODERNISATION_PLAN.md Phase 9, band 3: an
+// iPad in portrait is 768 or 810 CSS px). The number has to move here and in
+// the stylesheet together, and this is the half that is easy to forget:
+// `applySidebarWidth` writes an inline `grid-template-columns` when the
+// layout is *not* stacked, and an inline style beats a media query, so a CSS
+// breakpoint at 820 with this constant left at 720 would have left every
+// width from 721 to 819 silently two-column with a stylesheet that said
+// otherwise. Verified at 721, 780 and 819 after the move.
+const STACKED_LAYOUT = "(max-width: 819.98px)";
 
 function layoutIsStacked() {
   return window.matchMedia(STACKED_LAYOUT).matches;
@@ -16597,13 +16606,87 @@ window.addEventListener("resize", () => {
 // portrait to landscape would come back with the portrait sheet's width.
 for (const query of [STACKED_LAYOUT, SIDEBAR_TABLET_BAND]) {
   window.matchMedia(query).addEventListener("change", () => {
-    for (const id of ["sidebar", "chat-sidebar", "doc-sidebar"]) {
+    applySidebarSheetMode(layoutIsStacked());
+    for (const id of SIDEBAR_IDS) {
       const aside = document.getElementById(id);
       if (aside?.dataset.resizable) {
         applySidebarWidth(aside, sidebarWidth(id, sidebarDefault(id)), { remember: false });
       }
     }
   });
+}
+
+// --- the sidebars, as sheets (Phase 9, bands 3 and 4) -------------------------
+// Stacked, a sidebar used to sit *above* the content: at 390 the Notes
+// categories card was 48px of chrome before the first note and the chat list
+// was 99px before the first message, and on a tablet in portrait it is worse
+// because there is more of it. A panel you are not using should not cost the
+// panel you are using any height at all.
+//
+// So below 820 the three sidebars leave the flow and become sheets that slide
+// in from the left, over the content, with a rail left showing that carries
+// the collapse toggle they already have. No new control, no new gesture: the
+// button that opens and closes a sidebar on a desktop opens and closes the
+// sheet on a tablet.
+//
+// The state is a class of its own rather than a reuse of `.sidebar-collapsed`,
+// and the reason is worth writing down. `.sidebar-collapsed` means something
+// specific on a desktop, a 48px rail with a hover-peek, and it carries
+// `width: 48px !important` plus a `:hover` rule at higher specificity that
+// re-expands it. Reusing it here would mean fighting two `!important`
+// declarations from a later block, and a touch-hold would have triggered the
+// hover-peek. Instead the desktop classes are taken off while stacked and put
+// back on the way out, so none of those rules apply and there is nothing to
+// fight.
+const SIDEBAR_IDS = ["sidebar", "chat-sidebar", "doc-sidebar"];
+
+function eachSidebar(fn) {
+  for (const id of SIDEBAR_IDS) {
+    const aside = document.getElementById(id);
+    if (aside) fn(aside, id);
+  }
+}
+
+function applySidebarSheetMode(stacked) {
+  eachSidebar((aside) => {
+    if (stacked) {
+      // Remember the desktop state exactly once, so a second call inside the
+      // band cannot record "not collapsed" over the user's real preference.
+      if (aside.dataset.deskCollapsed === undefined) {
+        aside.dataset.deskCollapsed = aside.classList.contains("sidebar-collapsed") ? "1" : "";
+      }
+      aside.classList.remove("sidebar-collapsed");
+      aside.parentElement?.classList.remove("layout-sidebar-collapsed");
+      // A sheet opens closed. Arriving with the content already covered is
+      // the failure a sheet exists to avoid.
+      aside.classList.remove("sidebar-sheet-open");
+    } else {
+      aside.classList.remove("sidebar-sheet-open");
+      if (aside.dataset.deskCollapsed) {
+        aside.classList.add("sidebar-collapsed");
+        aside.parentElement?.classList.add("layout-sidebar-collapsed");
+      }
+      delete aside.dataset.deskCollapsed;
+    }
+  });
+}
+
+// Escape closes an open sheet, and a tap on the content behind it does too.
+// Both are what a sheet means; without them the only way back is the rail,
+// which is the half of the panel the sheet is covering.
+function initSidebarSheetDismissal() {
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    const open = document.querySelector(".sidebar-sheet-open");
+    if (!open) return;
+    open.classList.remove("sidebar-sheet-open");
+    open.querySelector(".sidebar-collapse-toggle")?.focus();
+  });
+  document.addEventListener("pointerdown", (event) => {
+    const open = document.querySelector(".sidebar-sheet-open");
+    if (!open || open.contains(event.target)) return;
+    open.classList.remove("sidebar-sheet-open");
+  }, true);
 }
 
 function makeSidebarResizable(aside) {
@@ -16638,6 +16721,15 @@ function makeSidebarResizable(aside) {
     </svg>
   `;
   collapseBtn.addEventListener("click", () => {
+    // Stacked, this same button is the sheet's opener. The desktop classes
+    // are not applied in that band (applySidebarSheetMode takes them off), so
+    // toggling them here would put back exactly the rules the sheet was built
+    // to avoid fighting.
+    if (layoutIsStacked()) {
+      const open = aside.classList.toggle("sidebar-sheet-open");
+      collapseBtn.setAttribute("aria-expanded", String(open));
+      return;
+    }
     aside.classList.toggle("sidebar-collapsed");
     aside.parentElement.classList.toggle("layout-sidebar-collapsed");
     
@@ -16694,6 +16786,8 @@ function initResizableSidebars() {
     if (aside) makeSidebarResizable(aside);
   }
   makeWebPanelResizable(document.getElementById("web-panel"));
+  applySidebarSheetMode(layoutIsStacked());
+  initSidebarSheetDismissal();
 }
 
 // The Notes sidebar used to mirror `main`'s height into its own `min-height`
@@ -29160,6 +29254,45 @@ scrollTopUpdate = initScrollTopButton();
 // dashboard's below. See revealTab("dashboard")'s comment for the full
 // picture; both were part of one bug.
 initResizableSidebars();
+
+// --- the top bar's real height, as a token ------------------------------------
+// UI_MODERNISATION_PLAN.md Phase 9.
+//
+// `--header-h` is a constant in the stylesheet: `calc(3.7rem + 1px)`, with a
+// second value of 7.5rem below the phone breakpoint. Two things read it, and
+// both were wrong at ordinary widths. `--page-viewport` is how tall a sticky
+// sidebar may be, and the sheet added in band 3 is positioned from the top of
+// the header downward.
+//
+// The bar's height is not a constant. `syncTabOverflowFade` gives the tab
+// strip a row of its own (`.tabs-wrapped`) whenever the seven tabs cannot fit
+// beside the wordmark and the buttons, which depends on the space switcher's
+// current text as much as on the window. Measured at 768: the token said
+// 60.2px and the bar was 120px, so the sidebar sheet started 60px too high
+// and ran under the header, and every sticky sidebar in the app was told it
+// had 60px more room than it has.
+//
+// A ResizeObserver writes the measured height back into the same token, so
+// everything that already reads it gets the truth with no new property to
+// learn. Through the CSSOM rather than a style attribute, which this app's
+// own CSP refuses. No feedback loop: the bar's height comes from its content,
+// and nothing in it is sized from this token.
+function initHeaderHeightToken() {
+  const bar = document.getElementById("top-bar");
+  if (!bar || typeof ResizeObserver === "undefined") return;
+  const write = () => {
+    const h = Math.round(bar.getBoundingClientRect().height);
+    // Zero while the bar is display:none (the lock screen) would collapse
+    // every sticky sidebar to the full window height and hand the sheet a
+    // top of 0. Leave the stylesheet's value standing until there is a real
+    // one to replace it with.
+    if (h > 0) document.documentElement.style.setProperty("--header-h", `${h}px`);
+  };
+  new ResizeObserver(write).observe(bar);
+  write();
+}
+
+initHeaderHeightToken();
 
 // --- the dock's arrange zone folds into its own overflow menu ------------------
 // UI_MODERNISATION_PLAN.md Phase 9, bands 2 and 3.

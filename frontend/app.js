@@ -13429,7 +13429,7 @@ function changeRow(change, options = {}) {
         });
         if (result && result.error) throw new Error(result.error);
         row.classList.add("skill-change-undone");
-        setLabel(label, `${change.label || change.tool}: undone`);
+        setLabel(label, `${change.label || change.tool}, undone`);
         undo.remove();
         loadEntries();
       } catch (error) {

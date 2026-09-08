@@ -384,7 +384,7 @@ under `tests/test_documents_*.py`, `scratchpad/ui-sweeps/editor.js`.
 Everything in §5 Phase 0 is built and measured in Chromium at 1440x900
 against a running app (`scratchpad/ui-sweeps/serve.sh 8800 /tmp/mm-docs0`).
 The editor sweep, `scratchpad/ui-sweeps/editor.js`, grew from 35 checks to
-87 and is green; the 35 D2/D3 checks it already had still pass unchanged.
+89 and is green; the 35 D2/D3 checks it already had still pass unchanged.
 
 ### 1. Backdrop underlines in Source view
 
@@ -513,6 +513,22 @@ Each of these was invisible in the source and is now covered by the sweep.
    scrolling. The gutter also sat 178px away from the code it numbers, because
    the reading measure centres the textarea while the gutter sits at the row's
    left edge; the pair is centred as one thing now, gap 0.0px.
+
+5. **A file-type change never re-ran the prose pass.** `syncDocFileType`
+   toggles the code class, the toolbar and the gutter, but `renderDocProse`
+   only reached it through `openDocument`. Before Phase 0 that was invisible
+   (stale findings sat in a panel nobody had open); with the findings drawn on
+   the document, switching an open markdown file to `.py` left squiggles under
+   words in code, over a transparent-ink textarea, with the backdrop laying
+   text out `pre-wrap` against a `white-space: pre` box.
+
+### Also checked
+
+- **Split** keeps the backdrop exactly on the textarea (dx, dy, dw, dh all
+  0.00px); **Rendered** takes it away.
+- **Dark theme.** The backdrop paints the dark field colour with
+  rgb(231, 233, 238) ink and a matching caret, and the three underline colours
+  follow their dark tokens.
 
 ### Not verified
 

@@ -41,36 +41,44 @@ server on :8871 with data in `/tmp/mm-chat-b`, stand-in model server on
   a three-second trace of whether the markers survive), `fake.sh` (starts the
   stand-in model server the way `serve.sh` starts the app).
 
+## Done (INBOX batch C, 2026-09-08)
+
+Items 1-3 below, from this file's own "Left" list, are done:
+
+1. **One Markdown stripper, confirmed rather than assumed.** `plainText` had
+   exactly one caller (`setNoteLabel`) and `stripMarkdownPreview` had no
+   duplicate from batch A's merge -- grepped, not guessed. The popup agent's
+   `cmdPaletteResultRow`/`cmdPaletteTouchedRow` chips now route through
+   `setNoteLabel` instead of `noteLabel` + `setLabel`, which only ever
+   flattened.
+2. **A truncated badge renders Markdown up to a generous margin now, and
+   ellipses in CSS past it.** `setNoteLabel` used to fall back to flattened
+   text whenever the label passed `length` plain characters (30 for the
+   grounding chip, so any note opening over 30 characters showed its own
+   `**asterisks**`); it renders up to `length * 4` now and only the
+   genuinely pathological case still falls back to a plain character cut.
+   `.result-reason-chip` carries a measured `max-width: 22rem` (the same cap
+   `.tool-touched-chip` already used), with the ellipsis on the label's own
+   `.ph-text` span.
+3. **The grounding chip's ordinal is its own element**
+   (`.note-label-prefix`, `flex-shrink: 0`), not text prepended into the
+   rendered span, so a chip's ellipsis can never clip the number along with
+   the label.
+
+`groundingchip.js`, `cmdpalettechips.js` and `notelabelregress.js` cover the
+three changes and the other `setNoteLabel` callers that were not touched
+(the "elsewhere" and touched-item chips, which have no ordinal and were
+confirmed to still get their existing per-chip ellipsis rules).
+
 ## Left, with the next step
 
-1. **`plainText` has one caller.** It was added next to `noteLabel` as the
-   brief asked (batch A was doing the popup agent's chips at the same time
-   and may have added a helper of its own). If batch A's merge brings a
-   second stripper, keep one of them: `plainText` is the thin wrapper over
-   `stripMarkdownPreview`, and the popup agent's `cmdPaletteResultRow` /
-   `cmdPaletteTouchedRow` chips (app.js, near `CMD_SOURCE_PREVIEW`) are the
-   obvious next callers of `setNoteLabel`. Not touched here on purpose, to
-   keep the two batches off the same lines.
-2. **A truncated badge is still flattened, not rendered.** `setNoteLabel`
-   falls back to plain text whenever the label is longer than its budget,
-   because a cut can land inside `**bold**`. The grounding chips (budget 30)
-   therefore render Markdown only for short note openings. The better fix is
-   to cut on the rendered DOM and let the chip's CSS ellipsis do the rest,
-   which needs a measured max-width on `.result-reason-chip` first (INBOX 35
-   asks for the same chip recipe, so do them together).
-3. **The `1.` prefix on a grounding chip is app text prepended into the
-   rendered span.** It reads correctly, but the chip's number and its label
-   are now one text flow; if the chip recipe from INBOX 35 gives the number
-   its own element, move it out of `setNoteLabel`'s prefix argument.
-4. **Not verified: a real model.** Everything measured here ran against
-   `scratchpad/fake_openai_server.py` (CLAUDE.md section 4). The grounding
-   event was made possible by seeding a note that contains the stand-in's one
-   fixed sentence (`seedGroundableNote` in phasec.js); a real model
-   paraphrases, and the distinctive-terms half of `ground_answer_sentences`
-   is what would carry it. Untested.
-5. **Not verified: dark theme and narrow widths for the badges.** In light at
-   1440 a chip with a rendered `**bold**` run is the same height as the plain
-   one (20px and 20px, `citeunit.js`), `# CAB432` loses its hash, a link
-   flattens to its text and no `<a>` is built inside a `<button>`; dark passes
-   the same checks. A 1024 pass, where these chips wrap, is not measured, and
-   nor is the truncated case at a real note length on a narrow dock.
+1. **Not verified: a real model.** Everything measured here (this batch
+   included) ran against `scratchpad/fake_openai_server.py` (CLAUDE.md
+   section 4). The grounding event was made possible by seeding a note that
+   contains the stand-in's one fixed sentence (`seedGroundableNote` in
+   phasec.js); a real model paraphrases, and the distinctive-terms half of
+   `ground_answer_sentences` is what would carry it. Untested.
+2. **Not verified: narrow widths for the badges.** Light and dark both pass
+   `groundingchip.js`'s checks at 1440 (this batch); a 1024 pass, where
+   these chips wrap, is still not measured, and nor is the truncated case at
+   a real note length on a narrow dock.

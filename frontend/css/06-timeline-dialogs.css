@@ -1915,10 +1915,20 @@
      pill these toggles sit in it is indistinguishable from the pill, so an
      *off* switch read as blank space with a dot in it, reported twice as "the
      button is missing its toggle switcher" with a screenshot showing exactly
-     that gap. `color-mix` against the page gives a real, theme-aware fill
+     that gap. `color-mix` against a real colour gives a theme-aware fill
      instead of a wash: 12% of the ink colour is visible on both themes without
-     becoming a second accent. */
-  background: color-mix(in srgb, var(--ink) 12%, var(--page));
+     becoming a second accent.
+     Third round of the same bug (INBOX 46): this used to mix against
+     `--page`, and `--page` is `linear-gradient(...)`, not a `<color>` -- a
+     `color-mix()` whose second argument isn't a colour is invalid at parse
+     time, so the whole `background` declaration was dropped and every off
+     switch app-wide rendered `rgba(0, 0, 0, 0)`, leaving only the `--muted`
+     border and knob (which is why it read as "the switch is just outlined",
+     not "the CSS didn't load"). `--card` is the token DESIGN.md gives for the
+     pane these controls actually sit in (Settings groups, the graph options
+     panel, the chat dock), so it mixes to a colour there instead of a
+     gradient. */
+  background: color-mix(in srgb, var(--ink) 12%, var(--card));
   box-shadow: none;
   cursor: pointer;
   /* **Undo the screen-reader-only clip, or none of the above paints.**

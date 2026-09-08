@@ -3104,23 +3104,44 @@ Link to another note with [[its first few words]]."></textarea>
       <div class="skills-split">
         <main>
           <section id="library-skills-section" class="card glass">
-          <!-- `library-head` was missing here and nowhere else, which is the
-               measurable half of "the button elements in the top row of each
-               library subtab are all different sizes and proportions between
-               tabs": that class is what pins `--control-h` for a sub-tab
-               header, so Skills' buttons were sized by the generic rule and
-               came out a different height from every other sub-tab's. -->
-          <div class="row space-between library-head">
-            <h2>AI skill library</h2>
-            <span class="row">
-              <button id="skills-add-new" class="small">+ New skill</button>
+          <!-- **The dock (UI_MODERNISATION_PLAN.md Phase 8).** Before: a head
+               row with the title and two buttons, and the skills search box
+               built by `renderSkillsDashboard` and appended a card and a
+               half further down the page, which made Skills the one Library
+               sub-tab whose search was not in its head row.
+
+               The zones every Library head now uses:
+                 identity: the title
+                 find:     search
+                 actions:  New skill, then help
+               There is no arrange zone: a skill library has no sort control
+               and inventing one to fill a slot is the opposite of this
+               phase. The zones a surface has appear in order; the ones it
+               does not have simply are not there.
+
+               `#skills-search` is now in the markup and library.js finds it
+               rather than creating it. It keeps its id and its class, so the
+               `.skills-search` rule and `renderSkillCards(search.value)`
+               still mean what they meant. -->
+          <div class="dock" data-dock-name="library-skills" role="toolbar"
+            aria-label="Skill library controls">
+            <div class="dock-identity">
+              <h2>AI skill library</h2>
+            </div>
+            <div class="dock-group dock-find">
+              <input id="skills-search" class="skills-search" type="search"
+                placeholder="Search skills…" aria-label="Search your skills">
+            </div>
+            <div class="dock-actions">
+              <button id="skills-add-new" class="small" type="button"
+                title="Write a new skill"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New skill</button>
               <button type="button" id="skills-help" class="icon-only ghost small graph-help-toggle"
                 aria-expanded="false" aria-controls="skills-intro"
                 title="Manage the capabilities of your AI agent. Enable, configure, and review execution logs."
                 aria-label="What is this?">
                 <i class="ph ph-question" aria-hidden="true"></i>
               </button>
-            </span>
+            </div>
           </div>
           <p class="muted graph-help-panel hidden" id="skills-intro" role="dialog" aria-label="What is this?">Manage the capabilities of your AI agent. Enable, configure, and review execution logs.</p>
           <!-- Not `skills-grid`: this holds the background-workers card, the

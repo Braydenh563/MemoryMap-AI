@@ -743,9 +743,12 @@
   padding-left: var(--space-4);
 }
 
+/* Both margins were for a search box that sat on its own between two cards.
+   It is in the Skills dock now, where `.dock`'s own gaps place it and
+   `.dock input` zeroes the margin, so only the width behaviour is left to
+   say: search takes the leftover width, the same as every other dock's. */
 .skills-search {
-  margin-top: var(--space-6);
-  margin-bottom: 0;
+  margin: 0;
 }
 
 .skill-card-desc {

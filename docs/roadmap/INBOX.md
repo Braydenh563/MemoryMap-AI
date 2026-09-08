@@ -47,7 +47,7 @@ takes them top-down inside each block.
    the *selected* space and says which; (c) a "Move to space" bulk action.
    Owner: D2 and D5. If the owner can reproduce with a note that shows the
    space chip, reopen as a backend bug.
-2. **(partly fixed: menus close on any outside scroll, 0be76eb+1)** **Note card kebab: "nothing appears but a vertical scrollbar"** (and
+2. **(fixed)** **Note card kebab: "nothing appears but a vertical scrollbar"** (and
    when it does open, it scrolls inside a clipped box; submenus AI actions,
    Connect, Add never show; menus stay stuck on screen after scrolling the
    note away; hard to close by clicking off). `openActionMenu` /
@@ -58,6 +58,18 @@ takes them top-down inside each block.
    as sibling escaped menus. Sweep: open every kebab on Notes, Library,
    Documents head, Chat head; assert menu rect inside viewport, submenu
    opens, closes on scroll and outside click. Owner: consistency.md item 1b.
+   **Done:** `buildMenuGroupButton`'s three flyouts (AI actions/Connect/Add)
+   now escape to `<body>` (like the top-level kebab already did) and clamp
+   on both axes, `openGroupSubmenu` tracks the single one that may be open
+   so opening a sibling closes it. The outside-close listener moved from a
+   bubble-phase `click` to a capture-phase `pointerdown`. A real, separate
+   bug found while writing the sweep: scrolled to the bottom of a long
+   Notes or Library list, the last card's own kebab sat directly under the
+   fixed `.scroll-top` button (measured with `elementFromPoint`, no
+   clearance at all), so a real click there landed on the button instead;
+   `--scroll-top-clearance` (00-tokens-shell.css) reserves the room now on
+   both lists. `scratchpad/ui-sweeps/kebab-viewport.js` (new) covers all
+   four surfaces at 1440 and 1024, plus the submenu and the outside-close.
 3. **(fixed)** **Chat composer cannot be resized by hand** (spasms) and has no max
    height. Likely two handlers fighting (auto-grow on input vs the CSS
    resize handle). Cap at 40vh, let manual resize win until cleared.
@@ -72,38 +84,101 @@ takes them top-down inside each block.
 6. **(fixed)** **Skill picker and other long comboboxes fill the screen**: enhanced
    select lists need `max-height` with scroll and a search field over ~12
    items. Owner: consistency.md.
-7. **"Still writing / Jump to latest" pill takes a row of the chat
-   panel** rather than floating over it. Owner: CHAT_PLAN.md.
+7. **(fixed)** **"Still writing / Jump to latest" pill takes a row of the chat
+   panel** rather than floating over it. Owner: CHAT_PLAN.md. **Done:**
+   `.chat-transcript` (new wrapper around `#chat-messages`) is the
+   positioning root; the pill is `position: absolute` inside it instead of
+   `position: sticky` as a plain flex sibling (sticky still reserved its
+   own row in the flex column, that was the "takes a row"). Measured live:
+   forcing the pill visible now moves the composer 0px.
 8. **(fixed)** **Viewed-note chips in skill steps: text centred and clipped.** Owner:
    consistency.md (chip recipe: left aligned, ellipsis).
-9. **Streaming icon is a static three-dot triangle**; step "Working" rows
+9. **(checked, already correct)** **Streaming icon is a static three-dot triangle**; step "Working" rows
    render above the step content. Owner: AGENT_SKILLS_REFORM Phase D.
+   Measured live: `typingDots()`'s three dots render in a tidy row (no
+   triangle offset beyond ~1px of animation jitter), reduced-motion honours
+   the app's own `data-progress-motion` setting exactly as designed, and a
+   simulated `thinking → tool → tool → answer` timeline confirmed the tool
+   rows render *inside* `agent-step-group`'s own body, in order
+   (`toolRowsInGroup: 2`). Could not reproduce either half live; left as is
+   rather than changing working code on a hunch.
 10. **(fixed)** **Sketches appear in Library All > Files.** Filter by kind. Owner:
     docks.md / Library dossier.
-11. **New mind map's first node under the top bar; dragged map nodes leave
+11. **(fixed)** **New mind map's first node under the top bar; dragged map nodes leave
     their edges behind.** Owner: mindmap.md item H (already listed) plus
     the edge-follow regression from the marquee fix; add a sweep check.
+    **Done:** both root-placement paths (`createNewBoard`'s Mind map
+    segment and `createConceptMap`) now call `wbCenterOn` against the
+    root's real rendered box instead of a guessed board coordinate;
+    measured `{dx:0, dy:0}` from the canvas centre. The edge-follow bug was
+    in `wbApplyBulkMove`: it moved every selected card's position but only
+    the one card the pointer was on had its own linked sketches updated
+    each frame. `wbCaptureBulkMoveOrigin` now precomputes each moved
+    item's own links, `wbApplyBulkMove` updates them too. Reproduced
+    before the fix (an edge between two *other* cards in the drag froze
+    solid through the whole gesture) and confirmed after. Checks (F)/(G)
+    added to `scratchpad/ui-sweeps/mindmap.js` (51/51 passing).
 12. **Whiteboard: export-selection popover opens a full-height list in the
     wrong place; arrow drawn shows both caps as Arrow in properties;
     missing align-centre and distribute-gaps; the arrange panel's buttons
     are unreadable (icons overlapping text).** Owner: WHITEBOARD_PLAN.md.
+    **The caps part only is fixed** (my scope was "12 only the caps part"):
+    `wbDetectArrowStyle`'s own regex scan included the shaft's leading `M`
+    (matched separately, one line above, specifically to exclude it) in
+    its search for head markers, so a shaft with zero start caps still
+    measured a false zero-distance hit on its own start point and reported
+    "both". Slicing the shaft's own match off the string before scanning
+    fixed it; verified live (`startcap: "none"`, was `"arrow"`). The
+    export-popover placement, align-centre/distribute-gaps and the arrange
+    panel's icon/text overlap are **still open**, not touched this session.
 13. **(fixed)** **Reminders date/time inputs: different height and alignment** from
     the other controls. Owner: D8, do as a quick fix (control recipe on
     `input[type=date|time]`).
-14. **Bottom bar icons and text misaligned; spaces combobox icon and text
+14. **(fixed, two of three already correct)** **Bottom bar icons and text misaligned; spaces combobox icon and text
     misaligned; popup-agent input icon misaligned.** Owner: consistency.md
-    item 4 (the alignment sweep must include these three).
+    item 4 (the alignment sweep must include these three). **Measured all
+    three before touching anything:** the bottom bar (status-notes/
+    status-reminders/status-agent) and the spaces switcher were already
+    within 0.36px and 0.00px, no change needed. Only the popup agent's row
+    was actually off (4px), two stacked causes: `.command-palette-icon`'s
+    glyph is drawn far larger than its neighbour, where `.ph`'s global
+    `vertical-align: -0.12em` (tuned for same-size icon+text, correct
+    everywhere else) pushes it off instead of onto centre, fixed with
+    `display: inline-flex` on the icon's own span; and the textarea was
+    inheriting a stacked-form-field `margin-bottom` that `align-items:
+    center` was centring the *margin box* of, not the visible field.
+    Verified live: both now read 167.59, a 0.00px diff.
 15. **Modal backdrop blur does not cover the full viewport height.** Read: `.modal-overlay` is `position: fixed; inset: 0`, so the unblurred strip is the desktop shell's native title bar, outside the page. Not a CSS bug; if it matters, the shell (pywebview/Electron) must draw a frameless window with the app's own title bar. Owner: packaging.
 16. **(fixed)** **Chat header kebab has a filled ground while other kebabs do not.**
     Decision: no fill; one icon recipe. Owner: consistency.md.
 17. **(fixed)** **Chat dock has no bottom padding; the bottom bar's distance from the
     page differs from the top bar's.** Decision: yes, make them equal
     (`--page-gutter`). Owner: Phase 9 / consistency.md.
-18. **Formatting toolbar: pinned group square-cornered and only opaque on
+18. **(fixed)** **Formatting toolbar: pinned group square-cornered and only opaque on
     the note edit form, not on the documents toolbar; the documents
     toolbar is squashed.** Owner: DOCUMENTS_PLAN Phase 1 (chrome).
-19. **Strikethrough shortcut missing** (Ctrl+Shift+S or Ctrl+Shift+X).
-    Owner: DOCUMENTS_PLAN Phase 1; trivial, do with 18.
+    **Done:** `.doc-toolbar-tools` gets `border-radius: var(--radius)`, the
+    strip's own outer corner (it never set one at all). Measured the
+    opacity claim before touching it: the gradient background is
+    byte-for-byte identical on both `#note-toolbar`'s clone and
+    `#doc-toolbar` (`mountDocToolbarControlsFor` builds the group the same
+    way for every `.doc-toolbar`), so that half was already fixed by an
+    earlier commit. **"Squashed at 1440" not reproduced**: measured gap,
+    row-gap and the space around every `.doc-toolbar-sep` on both toolbars
+    at 1440, byte-identical; a screenshot of an open document at 1440
+    shows one comfortable row with clear group gaps, no wrapping. Left
+    alone rather than guessing a fix for something not actually broken.
+19. **(fixed)** **Strikethrough shortcut missing** (Ctrl+Shift+S or Ctrl+Shift+X).
+    Owner: DOCUMENTS_PLAN Phase 1; trivial, do with 18. **Done**, and wider
+    than the literal ask: only `#doc-content` had *any* keyboard shortcuts
+    at all (Ctrl+B/I never worked from the keyboard in the note capture
+    box or the note edit form, despite their own toolbar tooltips claiming
+    otherwise). `wireMdFormatShortcuts` (documents.js) gives Ctrl+B,
+    Ctrl+I and Ctrl+Shift+S to all three editors; `#doc-content`'s own
+    handler gained the Shift+S branch (checked before plain Ctrl+S, since
+    both fold to the same key after `.toLowerCase()`). The documents
+    editor's help hint now names all three. Verified live in all three
+    boxes; a plain Ctrl+S still saves.
 20. **(fixed)** **Boards & maps: still no gap between the All/Maps/Boards chips and
     the cards.** Owner: docks.md.
 

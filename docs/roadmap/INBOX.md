@@ -73,7 +73,7 @@ takes them top-down inside each block.
    select lists need `max-height` with scroll and a search field over ~12
    items. Owner: consistency.md.
 7. **"Still writing / Jump to latest" pill takes a row of the chat
-   panel** rather than floating over it. Owner: D3.
+   panel** rather than floating over it. Owner: CHAT_PLAN.md.
 8. **Viewed-note chips in skill steps: text centred and clipped.** Owner:
    consistency.md (chip recipe: left aligned, ellipsis).
 9. **Streaming icon is a static three-dot triangle**; step "Working" rows
@@ -86,8 +86,7 @@ takes them top-down inside each block.
 12. **Whiteboard: export-selection popover opens a full-height list in the
     wrong place; arrow drawn shows both caps as Arrow in properties;
     missing align-centre and distribute-gaps; the arrange panel's buttons
-    are unreadable (icons overlapping text).** Owner: whiteboard brief
-    (new, below).
+    are unreadable (icons overlapping text).** Owner: WHITEBOARD_PLAN.md.
 13. **Reminders date/time inputs: different height and alignment** from
     the other controls. Owner: D8, do as a quick fix (control recipe on
     `input[type=date|time]`).
@@ -121,18 +120,18 @@ takes them top-down inside each block.
   "Find loose ends" run showed list_notes pagination hiding ids. Owner:
   Brief 13 (verifier; a step may loop a tool until its contract is met).
 - Popup agent: more quick prompts and utilities, opened-items chips
-  restyled, the whole panel on the consistency recipes. Owner: D3 add-on.
+  restyled, the whole panel on the consistency recipes. Owner: CHAT_PLAN.md Phase 3.
 - Write with AI tab: behind in function and UI. Owner: new dossier D16
   (below).
 - Capture tab: modernisation. Owner: D2.
-- History button and panel in Ask: modernise. Owner: D3.
+- History button and panel in Ask: modernise. Owner: CHAT_PLAN.md.
 - Library Images cards: redesign; Files rows: a generated synopsis instead
   of a caption; image captions shown another way; lightbox gets
   "Describe with AI" / "Redescribe" for images and sketches. Owner: D4
   plus F10.
 - Link popups and file/image chips everywhere (notes, dashboard, library,
   timeline, graph popups, chat): one chip recipe. Owner: consistency.md.
-- Quick sketch highlighter rework. Owner: whiteboard brief.
+- Quick sketch highlighter rework. Owner: WHITEBOARD_PLAN.md.
 - Widget editor, template picker, AI assistant dialog, Tools & features
   dialog, new-board dialog: onto the modal recipe. Owner: D1, D10, D14.
 - Light mode "too light": add a per-mode brightness (surface contrast)

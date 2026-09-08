@@ -1,0 +1,164 @@
+# Ask and Chat: checkable answers, one composer, an agent you reach for
+
+**Status: written by Fable by direct instruction ("the ask subtab and chat
+tab need to be like perplexity but better"; "the grounding of notes in ai
+responses needs a lot of fixing"; "the popup agent feature could do with
+more quick prompt options"), from the owner's screenshots and the code.
+Executed with WORLD_CLASS_PLAN Briefs 11, 12 and 13, which it specifies.**
+
+Back to [../ROADMAP.md](../ROADMAP.md).
+
+## 1. What exists (checked in the code)
+
+`/chat/stream` (`routes_chat.py`) streams `status`, `meta`, `thinking`,
+`grounding`, `related`, `semantic`, `hint`, `answer`, `stats`, `done`.
+`ai/grounding.py` splits the answer into sentences and word-matches each
+against the retrieved notes (`ground_answer_sentences`). The Chat tab has
+a conversation sidebar, a head (title, model, context %, tokens, fork,
+compress, kebab), the transcript (user bubbles right, assistant cards
+left with a persona label, sources card grid, "Grounded in" chips, stats
+line, "Next" chips, a per-answer action strip), a composer (note and
+attachment buttons, textarea, mic, Send; a second row of Skills, Web,
+Plan, Ask/Request segment, settings). The Ask sub-tab on Notes has a
+single question field, a mode select, tune, Try-asking and Ask-again
+chips, and a History panel. The popup agent (`#agent-monitor` and the
+Ask-the-agent panel) has four starter chips. Skills run as a collapsible
+plan with steps, tool cards and chips of the notes each step read.
+
+## 2. Why it disappoints (measured against the screenshots)
+
+1. **Grounding is thin and wrong-shaped.** An answer that named several
+   notes carried one "Grounded in" chip and one superscript; a skill run
+   that read ten notes carried none. Cause, in the code: grounding runs
+   only over the retrieval set of the final turn and only on the final
+   answer text; notes read by tools during the turn are not candidates,
+   and the per-sentence match is a bag-of-words overlap that needs a
+   sentence to share several rare words with one note.
+2. **Sources are a gallery, citations are an afterthought.** A 17-card
+   grid of sources under the answer is a second page to read; the marks
+   in the text are what Perplexity gets right and the grid is what it
+   does not show by default.
+3. **The composer is two rows of chips** around one field, and its second
+   row (Skills, Web, Plan, Ask/Request, settings) is a bar of unrelated
+   controls; the skills picker is a full-height list.
+4. **User bubbles** are a solid accent block with a "YOU" label and an
+   avatar; the assistant card is a quiet card. The two do not belong to
+   one conversation.
+5. **Streaming state** is a static three-dot glyph; "Working" rows render
+   above the step they belong to; the "Still writing / Jump to latest"
+   pill takes a row of the panel instead of floating.
+6. **Ask is a second chat with fewer features** (no citations, no
+   follow-ups that carry context, a History panel on an older recipe).
+7. **The popup agent** has four starters; the owner "just defaults to one
+   of the sentence starters" because the useful things (make a note of
+   this, remind me, find, summarise the open note, what changed today)
+   are not there, and the panel is on the old recipes.
+8. **Skills**: a step is one tool call; `list_notes` paged and the model
+   did not page again, so it concluded notes were missing. The owner's
+   question: can one-tool-per-step do the job.
+
+## 3. The target, in one paragraph
+
+An answer you can check sentence by sentence: every sentence carries a
+mark, the mark names the note, hover highlights the passage, and "I don't
+know" is a designed state when fewer than half the sentences are
+supported. One composer everywhere (Chat, Ask, the popup agent): one
+field, a "+" menu for attachments, scope, persona and skill, a mode
+segment (Ask, Request), Send; nothing else on the bar. Ask is Chat in
+single-turn mode with the same answer object. The popup agent is the
+same composer with twelve starters grouped by verb (capture, find,
+summarise, remind, do), and a "with the open note" toggle. Skills run
+until each step's contract is met, paging and retrying inside the step,
+and every run ends with a verification line and an Undo.
+
+## 4. Decisions made (do not re-decide)
+
+1. **Citation source set = retrieval set ∪ every note a tool read or
+   listed in the turn.** `run_agent` collects `_touched_items` per tool
+   result already (`agent.py` ~547); those ids join the grounding
+   candidates. Skills therefore cite what they read.
+2. **Grounding by passage, not by bag of words.** For each sentence,
+   score each candidate note by the best-matching *passage* (a sliding
+   window of 40 words) using BM25 over the window plus, when embeddings
+   exist, cosine over the window; a sentence is supported when its best
+   score clears a threshold calibrated on the eval fixtures (Brief 12);
+   the mark stores `{note_id, passage_start, passage_end}` so hover can
+   highlight the passage. Sentences with numbers or names get a second
+   check that the number or name appears in the passage.
+3. **The answer object** is one shape for Chat, Ask and the agent:
+   `{sentences: [{text, marks: [{note_id, start, end, score}]}], sources,
+   related, next, stats, verification}`; the renderer is one function.
+4. **Marks in the text, sources on demand.** Superscript marks with the
+   note's short title on hover; the source grid becomes a "Sources (9)"
+   disclosure that opens a compact list (title, passage, open), not cards.
+5. **The composer recipe** (`.composer`): one field; left: "+" menu
+   (attach file, attach note, scope chips, persona, skill); right: mic,
+   mode segment, Send (primary). The second row goes. The skills list is
+   a searchable menu capped at 40vh.
+6. **Bubbles.** User turns are a quiet tinted card (accent-soft, no
+   avatar, no label, right-aligned, max 70% width); assistant turns are
+   the card they are; the persona label stays.
+7. **Streaming.** One animated three-dot indicator (CSS keyframes, honours
+   reduced motion) inside the assistant card; step rows render in order
+   (Working row inside its step, not above it); "Jump to latest" floats
+   over the transcript with no layout row.
+8. **Ask = Chat in single-turn mode.** The Ask sub-tab keeps its place
+   and its History, both on the app's recipes, but renders the same
+   answer object and uses the same composer; "Ask again" chips become
+   follow-ups that carry the previous answer as context.
+9. **Popup agent starters** (twelve, grouped): Capture: make a note of
+   this, add to today's note; Find: notes about..., what did I write this
+   week, open the note about...; Summarise: the open note, my week, this
+   conversation; Remind: remind me to..., what is due; Do: tag my untagged
+   notes, link related notes. Plus a "Use the open note" toggle that
+   scopes the run to the entry on screen.
+10. **Skills: a step loops until its contract is met**, up to N tool
+    calls (default 6) with paging handled inside the step (`list_notes`
+    with a cursor is called until the contract's count is reached or the
+    cursor ends); the verifier (Brief 13) checks the postcondition. The
+    owner's question is answered in the negative: one tool call per step
+    is not enough; one *contract* per step is.
+11. **When no model is connected**, every AI control is visible, disabled,
+    with a tooltip "Connect a model in Settings" and a one-click link;
+    Ask falls back to search results with passages; nothing is hidden.
+
+## 5. Phases
+
+### Phase 1: grounding and marks (one session; Brief 12)
+Decisions 1 to 4. **Gate:** on the ten fixture questions, ≥ 95% of
+supported sentences carry a mark to the right note (fixtures name the
+note); a skill run cites the notes it read; hover highlights the passage;
+"I don't know" appears on the two unanswerable fixtures.
+
+### Phase 2: one composer, bubbles, streaming (one session)
+Decisions 5 to 7. **Gate:** composer ≤ 2 rows at rest at 1024 and one
+row at 1440; skills menu inside the viewport; user bubble contrast both
+themes; the indicator animates (frame hash differs) and is static under
+reduced motion; no layout shift when "Jump to latest" appears (CLS
+measured 0).
+
+### Phase 3: Ask unified, popup agent (half a session)
+Decisions 8, 9, 11. **Gate:** Ask renders the answer object; follow-ups
+carry context (the second answer references the first, asserted on the
+fake transport); twelve starters present; offline state renders disabled
+controls with tooltips.
+
+### Phase 4: skills that finish (one session; Brief 13)
+Decision 10. **Gate:** `pytest -m evals`: the loose-ends fixture with 70
+notes finds all eight planted loose ends; zero invalid tool calls; every
+run shows verification and Undo.
+
+## 6. Consistency rules
+
+The answer renderer, the composer and the bubbles are one component each
+used in three places; chips are `.library-chip`; menus the one recipe;
+keys: Enter sends, Shift+Enter newline, Ctrl+K palette, Escape stops
+streaming. No em-dashes in any generated copy either: the prompt asks the
+model for plain punctuation.
+
+## 7. Not verified until built
+
+Threshold values for "supported" need the fixtures; passage highlighting
+on notes with images; behaviour with a 1B model (it may not follow the
+citation format at all, in which case marks come only from grounding,
+which is the design anyway).

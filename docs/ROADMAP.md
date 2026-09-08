@@ -29,6 +29,8 @@ now says so in its first line.
 | [roadmap/GRAPH_PLAN.md](roadmap/GRAPH_PLAN.md) | The canvas graph, Phases 2 to 5. |
 | [roadmap/MINDMAP_PLAN.md](roadmap/MINDMAP_PLAN.md) | Phases 4 to 5. |
 | [roadmap/TIMELINE_PLAN.md](roadmap/TIMELINE_PLAN.md) | The line and table views rebuilt on one row model, Phases 1 to 4. |
+| [roadmap/WHITEBOARD_PLAN.md](roadmap/WHITEBOARD_PLAN.md) | The tool rail, the context bar, export dialog, handles, keys; Phases 1 to 4. |
+| [roadmap/CHAT_PLAN.md](roadmap/CHAT_PLAN.md) | Checkable answers, one composer, Ask unified, the popup agent, skills that finish; Phases 1 to 4. |
 | [roadmap/AGENT_SKILLS_REFORM.md](roadmap/AGENT_SKILLS_REFORM.md) | Phase D (recovery) and the verifier in WORLD_CLASS_PLAN §4 B5. |
 
 | Reference (look things up, do not start from) | |

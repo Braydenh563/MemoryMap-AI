@@ -3220,6 +3220,19 @@ Link to another note with [[its first few words]]."></textarea>
                  mind map that could only be reached by opening a board dialog
                  and changing a control is one nobody finds. -->
             <button id="wb-boards-new-map" class="ghost small" type="button" title="Start a mind map"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> New mind map</button>
+            <!-- MINDMAP_PLAN.md §5 item 17. `POST /whiteboard/boards/import`
+                 has existed since Phase 1 and §10.4 recorded it as having no
+                 UI at all, so a map written anywhere else could not come in.
+                 Beside the two "start a map" actions because importing one IS
+                 the third way to start a map, not a settings-screen chore.
+                 The format is read from the file's extension rather than asked
+                 for in a second dialog — the extension already says which of
+                 the two it is, and a picker that made you repeat it is the
+                 friction this app's own bookmark-URL lesson is about. -->
+            <button id="wb-boards-import" class="ghost small" type="button" title="Import a mind map from an OPML or Markdown outline"><i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Import outline…</button>
+            <input id="wb-import-map-file" type="file" accept=".opml,.xml,.md,.markdown,.txt" class="hidden"
+              aria-label="Choose an OPML or Markdown outline to import as a mind map"
+              title="Choose an OPML or Markdown outline to import as a mind map">
             <button id="library-media-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
             <button type="button" id="wb-boards-help" class="icon-only ghost small graph-help-toggle"
               aria-expanded="false" aria-controls="wb-boards-intro"

@@ -4749,6 +4749,73 @@ async function wbExportMapText(format) {
   toast(`Map exported as ${format === "opml" ? "OPML" : "a Markdown outline"}.`);
 }
 
+//: How much of a file this will send. Matches `MAX_IMPORT_CHARS` in
+//: routes_whiteboard.py exactly: the server refuses anything longer with a
+//: 422, and finding that out after uploading 4MB and waiting is a worse way to
+//: learn it than a sentence naming the number.
+const WB_MAX_IMPORT_CHARS = 400000;
+
+//: Import a mind map from an OPML or Markdown outline (§5 item 17).
+//:
+//: **The extension picks the format**, and nothing asks the user to confirm
+//: it. `POST /whiteboard/boards/import` takes `{format, content, name?}` and
+//: only knows the two, and a `.opml` file is not ambiguous — a second dialog
+//: to repeat what the filename already said is exactly the shape CLAUDE.md
+//: records as the real bug behind five bookmark-URL reports.
+//:
+//: `name` is deliberately not sent: the server takes the title out of the
+//: document itself (an OPML `<head><title>`, a Markdown `#` heading) and falls
+//: back to "Imported map". A filename is a worse name than the one the author
+//: wrote inside the file.
+async function wbImportOutlineFile(event) {
+  const input = event.target;
+  const file = input.files && input.files[0];
+  // Cleared immediately so importing the *same* file twice in a row still
+  // fires `change` the second time — the one thing this pattern gets wrong
+  // when it is written without it.
+  input.value = "";
+  if (!file) return;
+  const format = /\.(opml|xml)$/i.test(file.name) ? "opml" : "markdown";
+  let content = "";
+  try {
+    content = await file.text();
+  } catch {
+    toast("Couldn't read that file.", true);
+    return;
+  }
+  if (!content.trim()) {
+    toast("That file is empty.", true);
+    return;
+  }
+  if (content.length > WB_MAX_IMPORT_CHARS) {
+    toast(
+      `That outline is ${content.length.toLocaleString()} characters — the limit is ${WB_MAX_IMPORT_CHARS.toLocaleString()}.`,
+      true
+    );
+    return;
+  }
+  try {
+    const board = await apiJson("/whiteboard/boards/import", {
+      method: "POST",
+      body: JSON.stringify({ format, content }),
+    });
+    // The gallery is refreshed *and* the new map is opened, because an import
+    // is a thing you then want to look at — landing back on an unchanged-
+    // looking list is how an import that worked reads as one that did not.
+    window.wbLastCreatedBoard = board;
+    renderLibraryBoardsGallery();
+    toast(
+      `Imported “${board.title}” — ${board.object_count} node${board.object_count === 1 ? "" : "s"}.`
+    );
+    openWhiteboardBoard(board.id);
+  } catch (error) {
+    // The server's own message, not a generic one: it names the actual
+    // refusal ("Unknown import format", a DOCTYPE in the OPML, a parse
+    // failure), and those are the only things a person can act on.
+    toast(error.message || "Couldn't import that outline.", true);
+  }
+}
+
 async function wbExportSvg(scope) {
   const { svg } = wbBuildExportSvg(scope);
   await saveFile(`whiteboard-${scope}.svg`, new Blob([svg], { type: "image/svg+xml" }));
@@ -9157,6 +9224,16 @@ document.addEventListener("DOMContentLoaded", () => {
     wbShowCanvasView();
     await createNewBoard("map");
   });
+  //: Import (§5 item 17). The button opens the hidden input, the input does
+  //: the work — the app's own file-picking pattern (`pickJsonFile`,
+  //: `importMarkdown`), so a file arrives the same way here as everywhere
+  //: else. Wired on the input's `change` rather than assigned as `onchange`
+  //: inside the click handler, because a second click would then rebind it and
+  //: `tests/test_frontend_handlers.py` exists to catch exactly that shape.
+  $("wb-boards-import")?.addEventListener("click", () => {
+    $("wb-import-map-file")?.click();
+  });
+  $("wb-import-map-file")?.addEventListener("change", wbImportOutlineFile);
   $("wb-back-to-boards")?.addEventListener("click", wbShowBoardsLanding);
   $("library-boards-search")?.addEventListener("input", renderLibraryBoardsGallery);
   // The Reload button beside "+ New board". Its id says `library-media-refresh`

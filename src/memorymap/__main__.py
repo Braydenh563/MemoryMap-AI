@@ -22,7 +22,42 @@ from memorymap.core import startup_status
 
 logger = logging.getLogger("memorymap.launcher")
 
-HOST, PORT = "127.0.0.1", 8000  # local only: this is a private app
+HOST = "127.0.0.1"  # local only: this is a private app
+
+
+def _port_from_env(raw: str | None = None) -> int:
+    """The port the server binds, from MEMORYMAP_PORT, default 8000.
+
+    `./start.sh --port N` and `start.bat --port N` export MEMORYMAP_PORT
+    rather than passing an argument, because the value has to survive the
+    launcher's own self-update re-exec and still reach this process. Before
+    this function existed the flag was a half-kept promise: the launcher
+    checked that port, opened a browser at that port, and then started a
+    server that was still hardcoded to 8000.
+
+    A junk or out-of-range value falls back to 8000 instead of raising. The
+    launcher already rejects those with `--help` and exit 2, so anything
+    that gets here came from the environment directly, and refusing to start
+    the app over a stray variable is worse than ignoring it: the person who
+    set it is not necessarily the person now trying to open their notes.
+    """
+    if raw is None:
+        raw = os.environ.get("MEMORYMAP_PORT", "")
+    try:
+        port = int(str(raw).strip())
+    except (TypeError, ValueError):
+        return 8000
+    if not 1 <= port <= 65535:
+        return 8000
+    return port
+
+
+# Read once, at import, so every reader in this module sees one value even
+# if the environment changes underneath a running process. Kept as a
+# module-level name (rather than a call at each use) because that is what
+# tests/test_desktop_launcher.py monkeypatches to point the desktop paths at
+# a scratch port.
+PORT = _port_from_env()
 
 # Shown in the desktop window the instant it opens, before the server is
 # reachable: replaces what used to be a black/blank window for however long

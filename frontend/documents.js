@@ -3000,7 +3000,7 @@ $("doc-content").addEventListener("input", () => {
   docPaintBackdrop();
 });
 // The gutter is a separate element beside the textarea, so it has to be told
-// to follow it — a textarea's own scroll does not move its siblings. The
+// to follow it, because a textarea's own scroll does not move its siblings. The
 // backdrop is the same problem one layer down: it is a scrolling box of its
 // own, and text that does not follow the textarea's scroll is an underline
 // under the wrong line the moment the document is taller than the pane.
@@ -3016,7 +3016,7 @@ $("doc-content").addEventListener("scroll", () => {
 //: **Composition text is not in `value` yet, and transparent ink would hide
 //: it.** Typing Japanese or Chinese puts a preview string in the textarea that
 //: no `input` event has reported, so the backdrop has nothing to paint for it
-//: — and with the textarea's own ink transparent the writer would be typing
+//: and with the textarea's own ink transparent the writer would be typing
 //: into what looks like an empty box. The ink comes back for the length of the
 //: composition, which costs one frame of double-drawn text at the end of it
 //: and is the only honest trade available here.
@@ -4144,7 +4144,7 @@ function renderDocProse() {
 }
 
 // =============================================================================
-// The backdrop — underlines in Source view (DOCUMENTS_PLAN.md §4 A, Phase 0)
+// The backdrop: underlines in Source view (DOCUMENTS_PLAN.md §4 A, Phase 0)
 // =============================================================================
 //
 // **What this replaces, and why it is not a hack.** Until now the comment
@@ -4169,7 +4169,7 @@ function renderDocProse() {
 
 //: Everything that decides where a glyph lands. Missing one is not a small
 //: error: the drift accumulates down the document, so the underline is right
-//: at the top of the file and a word out by the bottom — which is exactly how
+//: at the top of the file and a word out by the bottom, which is exactly how
 //: a backdrop stops being better than no backdrop at all. `borderRadius` and
 //: the border widths are here because the backdrop paints the field's
 //: background under a transparent-backgrounded textarea, so it has to be the
@@ -4201,7 +4201,7 @@ function docFindingKind(finding) {
 
 //: Source view only, and only where there is prose to check. A code file has
 //: no findings at all (`renderDocProse` empties them), so a backdrop over one
-//: would be a second copy of the text buying nothing — and it would have to
+//: would be a second copy of the text buying nothing, and it would have to
 //: fight `.doc-content-code`'s `white-space: pre` and its horizontal scroll to
 //: do it.
 function docBackdropWanted() {
@@ -4209,7 +4209,7 @@ function docBackdropWanted() {
   return docFileType().previewable;
 }
 
-//: Found by class rather than by id, and cached — the same shape `docMirror`
+//: Found by class rather than by id, and cached: the same shape `docMirror`
 //: uses a few storeys up, for the same reason: an element this file creates
 //: has nothing to declare in index.html, and `tests/test_frontend_ids.py`
 //: rightly fails a `$("…")` lookup that the markup cannot answer.
@@ -4224,7 +4224,7 @@ function docBackdrop() {
   docBackdropEl = document.createElement("div");
   docBackdropEl.className = "doc-backdrop hidden";
   //: It is a duplicate of text the textarea already exposes to the
-  //: accessibility tree — announcing it twice would make the document read
+  //: accessibility tree, and announcing it twice would make the document read
   //: itself out twice to a screen reader.
   docBackdropEl.setAttribute("aria-hidden", "true");
   box.parentElement.insertBefore(docBackdropEl, box);
@@ -4243,14 +4243,14 @@ function docSyncBackdropMetrics() {
   const metrics = getComputedStyle(box);
   for (const prop of DOC_BACKDROP_PROPS) back.style[prop] = metrics[prop];
   //: Placed against `.doc-source-wrap`, which the CSS makes the positioning
-  //: context — measured rather than assumed, because the textarea is centred
+  //: context. Measured rather than assumed, because the textarea is centred
   //: by `margin-inline: auto` inside a 78ch measure and may sit beside a
   //: gutter, and neither of those is something a fixed rule here could know.
   //:
   //: Rects, not `offsetLeft`/`offsetWidth`: those round to whole pixels, and
   //: the textarea's real box here is 691.1875 wide at x=512.40625. Rounding it
   //: put the backdrop 0.41px to the left of the text it is drawing, which is
-  //: under the 1px the sweep asserts but is drift bought for nothing —
+  //: under the 1px the sweep asserts but is drift bought for nothing.
   //: `getBoundingClientRect` carries the fraction.
   const boxRect = box.getBoundingClientRect();
   const anchor = back.offsetParent || box.parentElement;
@@ -4269,7 +4269,7 @@ function docSyncBackdropMetrics() {
 
 //: Only the findings that still describe the text as it is *now*. The prose
 //: pass is debounced, so between a keystroke and the next pass every offset
-//: after the caret is stale — and painting a stale offset draws a squiggle
+//: after the caret is stale, and painting a stale offset draws a squiggle
 //: under the wrong word, which is the one thing a checker must never do. The
 //: check is a string compare per finding over a list that is rarely past a
 //: few dozen, so it costs nothing and it means an underline elsewhere in the
@@ -4303,7 +4303,7 @@ function docPaintBackdrop() {
   }
   //: The trailing newline, and it is not cosmetic. CSS removes a segment break
   //: at the end of a block, so a document ending in a blank line is one line
-  //: shorter on the backdrop than in the textarea — and from that point the
+  //: shorter on the backdrop than in the textarea, and from that point the
   //: two scroll out of step, which puts every underline on the wrong line at
   //: the bottom of a long file. One extra break restores the parity; where the
   //: text does not end in a break, this one is the one that gets removed and
@@ -4314,15 +4314,15 @@ function docPaintBackdrop() {
 
 //: Everything at once: mount it if it is wanted, take it out of the way if it
 //: is not. Called whenever the findings change, the view changes or the box
-//: resizes — the three things that can put the two layers out of step.
+//: resizes: the three things that can put the two layers out of step.
 function docSyncBackdrop() {
   //: **`var`, and it has to be.** `setDocView` runs at module load, hundreds of
-  //: lines above this section, and it calls this — but `const`/`let` at module
+  //: lines above this section, and it calls this. But `const`/`let` at module
   //: scope are hoisted into a temporal dead zone, so reading `docProseFound` or
   //: `DOC_BACKDROP_PROPS` from up there throws `Cannot access … before
   //: initialization` (measured, in the browser: the same trap `renderDocTools`
   //: records a few storeys down, and the reason `typeof` cannot be used as the
-  //: guard either — it throws for a binding in the dead zone too). A `var` is
+  //: guard either: it throws for a binding in the dead zone too). A `var` is
   //: hoisted as `undefined`, so this is the one flag that can be *read* before
   //: it is set. Nothing is lost by the early return: the last line of this file
   //: paints the editor once everything is initialised.
@@ -4334,7 +4334,7 @@ function docSyncBackdrop() {
   if (!back) return;
   back.classList.toggle("hidden", !wanted);
   //: The class is what makes the textarea's own ink transparent, so it comes
-  //: off the moment the backdrop is not painting — a code file with an
+  //: off the moment the backdrop is not painting: a code file with an
   //: invisible-ink textarea and no backdrop behind it is a blank editor.
   box.classList.toggle("has-backdrop", wanted);
   if (!wanted) return;
@@ -4345,7 +4345,7 @@ function docSyncBackdrop() {
 
 //: **The box changes size for four reasons and only one of them is a window
 //: resize.** Dragging the textarea's own `resize: vertical` handle, opening
-//: the chat dock, switching to Split, toggling `.doc-wide` or the gutter — a
+//: the chat dock, switching to Split, toggling `.doc-wide` or the gutter. A
 //: `window.resize` listener sees none of those. One observer on the element
 //: itself sees all five.
 let docBackdropObserver = null;
@@ -4814,7 +4814,7 @@ function docSaveToolPref(name, on) {
   }
 }
 
-const DOC_PROSE_DEBOUNCE_MS = 200;
+const DOC_PROSE_DEBOUNCE_MS = 150;
 
 let docProseTimer = null;
 let docVocabTimer = null;
@@ -4826,14 +4826,21 @@ function docToolsOnInput(box) {
   //: vocabulary re-splits it, and neither is worth doing between two
   //: keystrokes.
   //:
-  //: **200ms, down from 400.** The pause is no longer only about when the
-  //: *panel* is current — since Phase 0 it is also when the squiggle appears
+  //: **150ms, down from 400.** The pause is no longer only about when the
+  //: *panel* is current. Since Phase 0 it is also when the squiggle appears
   //: under the word you just misspelt, and DOCUMENTS_PLAN's acceptance for
   //: that is 300ms from the keystroke. At 400 the underline could not make it
-  //: even with a free pass; at 200 the whole path — findings, chip, backdrop
-  //: repaint — was measured at 210ms end to end on the sweep's document.
-  //: Still well under the pause at the end of a word, so it does not run
-  //: between two keystrokes of ordinary typing.
+  //: even with a free pass.
+  //:
+  //: The work itself is cheap, measured on a 2,629-character document in the
+  //: sandbox Chromium: 0.82ms to find the findings, 6.3ms for the whole
+  //: `renderDocProse` (which repaints the chip and, in Live view, the blocks),
+  //: 0.07ms to repaint the backdrop. So the number here is almost the whole
+  //: latency, and it is set for headroom rather than for the average: at 200
+  //: the sweep measured 284ms end to end against a 300ms bound, which is a
+  //: check that would fail on a slower machine while nothing was wrong.
+  //: Still well over the gap between two keystrokes of ordinary typing, so
+  //: this does not run mid-word.
   clearTimeout(docProseTimer);
   docProseTimer = setTimeout(renderDocProse, DOC_PROSE_DEBOUNCE_MS);
   clearTimeout(docVocabTimer);
@@ -5632,7 +5639,7 @@ function docMarkLiveFindings() {
         const mark = document.createElement("mark");
         //: `doc-flag` says "this is a flag you can press"; the kind class is
         //: shared with Source view's backdrop so the same word is marked the
-        //: same way whichever view you are in — two colours for one finding
+        //: same way whichever view you are in. Two colours for one finding
         //: would read as two different checkers.
         mark.className = `doc-flag doc-finding-${docFindingKind(finding)}`;
         mark.textContent = finding.text;

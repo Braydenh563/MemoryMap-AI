@@ -3260,7 +3260,7 @@ span > .chip {
   flex: 1 1 auto;
   /* The positioning context the backdrop is placed against (see .doc-backdrop
      below). Without it the backdrop's offsetParent is whatever ancestor
-     happens to be positioned — measured, that was an element 219px to the
+     happens to be positioned. Measured, that was an element 219px to the
      left and 72px up, so every underline landed a paragraph away from its
      word. */
   position: relative;
@@ -3333,7 +3333,7 @@ span > .chip {
 
 /* --- The backdrop: a squiggle under a textarea's own text --------------------
    DOCUMENTS_PLAN.md §4 A, Phase 0 item 1. A `<textarea>`'s value is a string,
-   not a DOM, so nothing inside it can carry a mark — which is why Source view
+   not a DOM, so nothing inside it can carry a mark, which is why Source view
    had no underlines at all and the answer to "click the underlined word" was
    "double-click and we look up the caret offset".
 
@@ -3349,7 +3349,7 @@ span > .chip {
    and the box through the CSSOM (an inline `style=` would be refused by the
    CSP, same as the gutter's), and the sweep asserts that a mark's box and the
    glyph it is under agree within 1px. A backdrop that drifts is worse than
-   none — the underline points at the wrong word, and every click on it is
+   none: the underline points at the wrong word, and every click on it is
    then wrong too. Everything that decides where a glyph sits therefore lives
    in the JS copy list, not here: this rule only says *what kind of box it
    is*. */
@@ -3358,14 +3358,14 @@ span > .chip {
   z-index: 0;
   overflow: hidden;
   margin: 0;
-  /* The width is copied, so the border has to exist and take its 1px — but
+  /* The width is copied, so the border has to exist and take its 1px, but
      the textarea in front draws the visible edge. */
   border-style: solid;
   border-color: transparent;
   background: var(--input-bg);
   color: var(--ink);
-  /* The textarea is the thing you click. Every gesture — caret, selection,
-     drag, right-click — has to reach it, so the layer under it takes none. */
+  /* The textarea is the thing you click. Every gesture (caret, selection,
+     drag, right-click) has to reach it, so the layer under it takes none. */
   pointer-events: none;
 }
 
@@ -3374,7 +3374,7 @@ span > .chip {
 }
 
 /* The ink moves to the backdrop. `caret-color` is what keeps the caret
-   visible once the text it sits in is transparent — without it the caret goes
+   visible once the text it sits in is transparent. Without it the caret goes
    transparent too and the editor looks like it has stopped accepting input. */
 #doc-content.has-backdrop {
   position: relative;

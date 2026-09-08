@@ -3186,6 +3186,18 @@ textarea.autogrow {
   overflow: hidden;
   white-space: pre-wrap;
   overflow-wrap: break-word;
+  /* `border-width` does nothing without a `border-style`, so the
+     `borderLeftWidth` documents.js copies into this mirror (DOC_MIRROR_PROPS)
+     computed to 0 and the mirror had no border at all. Two consequences, both
+     measured against the Phase 0 backdrop, which lays the same text out
+     independently: every caret point came back 1.00px to the left of the
+     glyph it was for, and, because the copied `box-sizing` is border-box and
+     the copied `width` is the textarea's, the mirror's content box was 2px
+     wider than the textarea's, so a line could wrap one character later here
+     than on screen and put the popup a whole line out. Transparent, because
+     the box is only ever measured. */
+  border-style: solid;
+  border-color: transparent;
 }
 
 /* --- the suggestion menu, the dictionary, and the goal ------------------------
@@ -3344,7 +3356,7 @@ textarea.autogrow {
    behind the textarea (`docPaintBackdrop`, DOCUMENTS_PLAN Phase 0). Two views
    that flag the same word in two different colours would read as two
    different checkers, so `.doc-flag` (Live, clickable) says only *that this
-   is a flag*, and `.doc-finding-*` (both views) says *what kind* — which is
+   is a flag*, and `.doc-finding-*` (both views) says *what kind*, which is
    the half a reader is actually decoding.
 
    A wavy underline rather than a highlight: the word still has to read as the
@@ -3366,7 +3378,7 @@ textarea.autogrow {
 /* Three kinds, three marks, and the difference is the strength of the claim.
    A spelling is "this is wrong" and takes the colour this app uses for that;
    a style note is "look here" and takes the accent; a word typed twice is
-   neither — it is a thing your eye skipped, so it is dotted rather than wavy,
+   neither: it is a thing your eye skipped, so it is dotted rather than wavy,
    which reads as a note rather than an error. */
 .doc-finding-spelling {
   text-decoration-color: color-mix(in srgb, var(--error) 80%, transparent);

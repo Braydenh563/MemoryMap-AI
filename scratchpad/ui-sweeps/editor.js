@@ -402,11 +402,11 @@ function ok(name, condition, detail) {
     `top ${scrolled.before.toFixed(0)} -> ${scrolled.after.toFixed(0)} for a 200px scroll`);
 
   // =========================================================================
-  // DOCUMENTS_PLAN.md Phase 0 — click an underline, see suggestions
+  // DOCUMENTS_PLAN.md Phase 0: click an underline, see suggestions
   // =========================================================================
   //
   // Its own document, because the D2/D3 run above ends with 120 lines of
-  // `Line N …` written straight into `.value` — no findings in it, and none
+  // `Line N ...` written straight into `.value`, with no findings in it and none
   // of the offsets the checks below need.
   const P0 = [
     "Alpha teh beta gamma.",
@@ -448,7 +448,7 @@ function ok(name, condition, detail) {
       ink: boxStyle.color,
       caret: boxStyle.caretColor,
       inked: box.classList.contains("has-backdrop"),
-      // Built from text nodes, never innerHTML — a document containing
+      // Built from text nodes, never innerHTML: a document containing
       // `<img onerror=…>` is an ordinary markdown document.
       elements: [...el.querySelectorAll("*")].every((n) => n.tagName === "MARK"),
       // Same scroll height, or the two layers drift apart down a long file.
@@ -468,8 +468,15 @@ function ok(name, condition, detail) {
     Math.abs(back.boxRect - back.backRect) < 0.01,
     `${back.boxRect} vs ${back.backRect}`);
   const kinds = Object.fromEntries(back.marks.map((m) => [m.text, m]));
+  // Chromium reports this as `color(srgb 0.72549 0.109804 0.109804 / 0.8)`,
+  // which is --error at 80%. Red is asserted as "much more red than green or
+  // blue" rather than as a string, so a theme change cannot make this a lie.
+  const redness = (c) => {
+    const [r, g, b] = (c.match(/[\d.]+/g) || []).map(Number);
+    return r > 0.5 && r > g * 2 && r > b * 2;
+  };
   ok("P0 a misspelling is a red wavy underline",
-    kinds.teh && kinds.teh.style === "wavy" && /0.7\d+, 0.1\d+/.test(kinds.teh.colour),
+    kinds.teh && kinds.teh.style === "wavy" && redness(kinds.teh.colour),
     kinds.teh && `${kinds.teh.style} ${kinds.teh.colour}`);
   ok("P0 a repeated word is dotted",
     kinds["the the"] && kinds["the the"].style === "dotted",
@@ -481,7 +488,7 @@ function ok(name, condition, detail) {
   // **The measurement that makes the backdrop worth having.** A mark that
   // does not sit exactly over the glyph it is about points at the wrong word,
   // and every click on it is then wrong too. `docCaretPoint` is the app's own
-  // mirror-div measurement of where a character sits inside the textarea — an
+  // mirror-div measurement of where a character sits inside the textarea, an
   // independent oracle, since the backdrop does not use it.
   const align = await page.evaluate(() => {
     const box = document.getElementById("doc-content");
@@ -498,7 +505,7 @@ function ok(name, condition, detail) {
     return out;
   });
   ok("P0 every mark's box coincides with its glyph's box within 1px",
-    align.length === 3 && align.every((a) => Math.abs(a.dx) <= 1 && Math.abs(a.dy) <= 1),
+    align.length === 4 && align.every((a) => Math.abs(a.dx) <= 1 && Math.abs(a.dy) <= 1),
     align.map((a) => `${a.text}: dx ${a.dx.toFixed(2)} dy ${a.dy.toFixed(2)}`).join(", "));
 
   // Scrolled, because a backdrop that is right at the top of the file and a
@@ -534,28 +541,33 @@ function ok(name, condition, detail) {
 
   // ACCEPTANCE: type a misspelt word in Source, an underline appears within
   // 300ms. Measured from the keystroke to the frame the mark exists in, by
-  // polling — not by waiting a fixed time and then looking.
+  // polling, not by waiting a fixed time and then looking.
   await page.evaluate(async (content) => {
     document.getElementById("doc-content").value = content;
     document.getElementById("doc-content").dispatchEvent(new Event("input", { bubbles: true }));
     await new Promise((r) => setTimeout(r, 400));
   }, "The quick brown fox. ");
+  // The clock starts at the *last* keystroke of the word, stamped by a
+  // listener inside the page. Starting it before `keyboard.type` would be
+  // measuring Playwright's key dispatch as well as the app, and the claim
+  // being made is about the pause after you finish a word.
   await page.evaluate(() => {
     const box = document.getElementById("doc-content");
     box.focus();
     box.setSelectionRange(box.value.length, box.value.length);
+    window.__lastKey = null;
+    box.addEventListener("input", () => { window.__lastKey = performance.now(); });
   });
-  const typedAt = await page.evaluate(() => performance.now());
   await page.keyboard.type("recieve");
-  const underlineMs = await page.evaluate(async (t0) => {
+  const underlineMs = await page.evaluate(async () => {
     const el = document.querySelector(".doc-backdrop");
     for (let i = 0; i < 120; i += 1) {
       const hit = [...el.querySelectorAll("mark")].some((m) => m.textContent === "recieve");
-      if (hit) return performance.now() - t0;
+      if (hit) return performance.now() - window.__lastKey;
       await new Promise((r) => requestAnimationFrame(r));
     }
     return null;
-  }, typedAt);
+  });
   ok("P0 ACCEPTANCE: a misspelt word is underlined within 300ms of typing it",
     underlineMs !== null && underlineMs < 300,
     underlineMs === null ? "never underlined" : `${underlineMs.toFixed(0)}ms`);

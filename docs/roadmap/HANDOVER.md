@@ -15,12 +15,26 @@ it.
 The owner will say "continue", or paste a batch of issues, possibly
 after a usage reset. Either way, without asking anything:
 
-1. **"Continue"** means: read this block, merge any agent worktree that
-   has commits not on the branch (table below, recipe below), then take
-   the next unfinished item in this order: the `agent-remaining/*.md`
-   lists (they are the owner's own reports, deferred not dropped), then
-   `SESSION_BRIEFS.md` Briefs 1 to 14 in order, then WORLD_CLASS_PLAN §11's
-   quarter. Commit per step, push per batch, five-line reports.
+1. **"Continue"** means, now and after every brief is done: read
+   `CLAUDE.md`, this block, `ROADMAP.md`'s opening table and `DESIGN.md`
+   (token-efficiently: first screens, then only what the next item
+   needs); merge any agent worktree that has commits not on the branch
+   (table below, recipe below); then take the next unfinished item in
+   this order: the owner's flagged items (this block and
+   `agent-remaining/*.md`, deferred not dropped), `SESSION_BRIEFS.md`
+   Briefs 1 to 15 in order, WORLD_CLASS_PLAN §11's quarter, then
+   `ROADMAP.md`'s live list and `BACKLOG.md` top-down by impact and
+   quality. Scan for bugs, flaws and stale docs on the way and fix or
+   record them. Keep `HANDOVER.md`, `ROADMAP.md` and `BACKLOG.md` true as
+   you go. Commit per step, push per batch, five-line reports. Never
+   wait for a prompt; never ask permission for work inside the plans.
+1b. **Things the owner drops in mid-work** (a screenshot, a complaint, a
+   feature, "X% usage") are not a change of task: finish the step in
+   hand, add the new item to the task list with the owner's words, place
+   it by impact (a bug in something just built goes next; a new feature
+   goes into the relevant plan or BACKLOG with a brief row), and say in
+   one line where it landed. A usage figure means: commit and push now,
+   then continue more tersely.
 2. **A batch of issues** means: for each one, reproduce it in the running
    app first (Chromium, `scratchpad/ui-sweeps/lib.js`), fix it to the
    standard (measured, a sweep check added where one exists), commit it

@@ -930,14 +930,42 @@ summary > .ph-lead,
 
 /* Library image cards: the model name and the "Read by ..." row are facts
    about the picture. Same recipe, same reason. The usage chip stays
-   `cursor: pointer` because it really does navigate to the note it names. */
+   `cursor: pointer` because it really does navigate to the note it names.
+
+   **`.library-image-model-chip` was a selector that matched nothing.** It was
+   written here from the shape of the feature rather than from the markup, and
+   `document.querySelectorAll('.library-image-model-chip').length` is 0 on a
+   Library with images in it (`scratchpad/ui-sweeps/imagebadges.js`), so the
+   half of item 7 this rule was meant to settle never ran once. The model name
+   is drawn by `library.js` as `.library-image-caption-badge` and
+   `.library-image-vision-ocr-badge`; `.library-image-ocr-badge` is styled
+   beside them in 00-tokens-shell.css and has no call site either, and is kept
+   here so that if it ever gains one it lands on the recipe rather than on the
+   bordered pill.
+
+   Measured on one card, with the badges given text and unhidden, before this:
+
+     usage chip           h=24    no border   1.6/9.6  12px    weight 500
+     caption badge        h=28    1px border  4/8      12px    weight 400
+     vision OCR badge     h=26.8  1px border  4/8      11.2px  weight 400
+
+   Three heights, two borders, two paddings, two sizes and two weights for
+   three pieces of the same kind of information in the same card. The meta
+   recipe is no border, no hover, muted, and the usage chip is already on it,
+   so the badges come to it. The `--text-sm` is deliberate over the
+   `text-xs` class one of the two call sites carries: one object, one size,
+   and this file is last so the class does not have to be edited in JS. */
 .library-image-usage-chip,
-.library-image-model-chip,
+.library-image-caption-badge,
+.library-image-vision-ocr-badge,
+.library-image-ocr-badge,
 .library-image-tile .chip:not(.chip.tag) {
   border: none;
   border-radius: var(--radius-pill);
+  padding: var(--space-1) var(--space-4);
   background: var(--chip-bg);
   color: var(--muted);
+  font-size: var(--text-sm);
   font-weight: 500;
   box-shadow: none;
 }

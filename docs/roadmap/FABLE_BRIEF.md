@@ -1,5 +1,7 @@
 # The brief for the next session (Fable)
 
+> **Executed.** This was the prompt for the session that produced the current plans; what it asked for is recorded in [HANDOVER.md](HANDOVER.md). The next brief is [WORLD_CLASS_PLAN.md](WORLD_CLASS_PLAN.md) §11. Do not start work from this file.
+
 The user pastes §2 of this file as the session prompt. §1 exists so the file
 explains itself if it is found later without that context.
 

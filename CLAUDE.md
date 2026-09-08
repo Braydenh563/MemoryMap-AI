@@ -30,9 +30,9 @@ say whether it meets what was asked, not just whether the code path exists.
 
 | File | What it answers |
 | --- | --- |
-| [`docs/roadmap/HANDOVER.md`](docs/roadmap/HANDOVER.md) | **Read this first.** The last session's handover: what changed, what could not be verified and why, where to start, and the traps that cost an hour each. |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | **Read this first: its opening table says which of the fifteen roadmap files are plans, which are reference, and which are superseded.** |
+| [`docs/roadmap/HANDOVER.md`](docs/roadmap/HANDOVER.md) | **Then this.** The last session's handover: what changed, what could not be verified and why, where to start, and the traps that cost an hour each. |
 | [`docs/roadmap/MINDMAP_PLAN.md`](docs/roadmap/MINDMAP_PLAN.md) | The mindmap feature built on the whiteboard — research, the finding that a board is already an `Entry`, a scope call to make first, and five phases. A first pass, meant to be extended. |
-| [`docs/roadmap/FABLE_BRIEF.md`](docs/roadmap/FABLE_BRIEF.md) | The prompt handed to the next session, and the reading order it enforces. |
 | [`docs/roadmap/AGENT_SKILLS_REFORM.md`](docs/roadmap/AGENT_SKILLS_REFORM.md) | **Top priority, the other half**: why a skill run on a small model skips steps and calls no tools, and the four-phase reform for it — step contracts, small-model mode, the run as a collapsible object, recovery. |
 | [`docs/roadmap/UI_MODERNISATION_PLAN.md`](docs/roadmap/UI_MODERNISATION_PLAN.md) | **The top priority by direct instruction**: the phased plan to modernise and professionalise the whole UI — causes, per-family targets, acceptance counts, order. Sweep scripts in `scratchpad/ui-sweeps/`. |
 | [`docs/roadmap/DOCUMENTS_PLAN.md`](docs/roadmap/DOCUMENTS_PLAN.md) | **The documents editor reimagined** — by direct instruction, worked after the plans above. What exists (§2), why a `<textarea>` is the ceiling (§3), the surface decision to make first (§4: CodeMirror 6, vendored), seven phases with gates, and the competitor matrix. Phase 0 is "click an underline, see suggestions". |

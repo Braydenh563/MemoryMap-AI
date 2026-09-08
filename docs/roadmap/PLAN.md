@@ -1,5 +1,7 @@
 # The professional-grade plan — whiteboard, documents, backend, agent harness
 
+> **Mostly built; the rest is folded in.** Rows marked Built are done; the open rows are now [BACKLOG.md §116](BACKLOG.md) and [WORLD_CLASS_PLAN.md](WORLD_CLASS_PLAN.md) §8 and §11, which is the order to work them in. Do not start work from this file.
+
 **Read after [`../ROADMAP.md`](../ROADMAP.md) and [`HANDOVER.md`](HANDOVER.md). The findings behind this plan — bugs, schema, per-surface gaps — are in [`AUDIT.md`](AUDIT.md).**
 Asked for directly: *"make the documents text editor be the best one existing,
 and same for the whiteboard. refine the backends, functionality and ui ux for

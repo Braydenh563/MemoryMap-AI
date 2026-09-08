@@ -14,6 +14,27 @@ inference) — see CLAUDE.md's standing caveat for what that covered. UI claims
 are checkable (Chromium is in the sandbox); model *behaviour* claims mostly
 are not — reproduce or say plainly you couldn't.
 
+## The plan documents, in one list (read this before opening any of them)
+
+Fifteen files grew under `docs/roadmap/` across six sessions. Only six are
+plans to work from; the rest are reference or superseded, and each of those
+now says so in its first line.
+
+| Work from these (in this order) | What it covers |
+| --- | --- |
+| [roadmap/WORLD_CLASS_PLAN.md](roadmap/WORLD_CLASS_PLAN.md) | The week and the quarter, the consistency contract, the flaw classes. **Start here.** |
+| [roadmap/UI_MODERNISATION_PLAN.md](roadmap/UI_MODERNISATION_PLAN.md) | Phases 8 and 9 still open (docks as one bar; responsive by device). |
+| [roadmap/DOCUMENTS_PLAN.md](roadmap/DOCUMENTS_PLAN.md) | The editor, Phases 1 to 7. |
+| [roadmap/GRAPH_PLAN.md](roadmap/GRAPH_PLAN.md) | The canvas graph, Phases 2 to 5. |
+| [roadmap/MINDMAP_PLAN.md](roadmap/MINDMAP_PLAN.md) | Phases 4 to 5. |
+| [roadmap/AGENT_SKILLS_REFORM.md](roadmap/AGENT_SKILLS_REFORM.md) | Phase D (recovery) and the verifier in WORLD_CLASS_PLAN §4 B5. |
+
+| Reference (look things up, do not start from) | |
+| --- | --- |
+| [roadmap/HANDOVER.md](roadmap/HANDOVER.md) | The last session's state. **Overgrown (12k lines); the first Sonnet session condenses it to under 300 with the rest appended to HISTORY.md.** |
+| [roadmap/HISTORY.md](roadmap/HISTORY.md), [roadmap/BACKLOG.md](roadmap/BACKLOG.md), [roadmap/ANALYSIS.md](roadmap/ANALYSIS.md), [roadmap/MODERNISATION_AUDIT.md](roadmap/MODERNISATION_AUDIT.md) | What is built, the standing backlog, the judgements and competitor reads, the measured audit. |
+| [roadmap/PLAN.md](roadmap/PLAN.md), [roadmap/AUDIT.md](roadmap/AUDIT.md), [roadmap/REDESIGN.md](roadmap/REDESIGN.md), [roadmap/FABLE_BRIEF.md](roadmap/FABLE_BRIEF.md) | Superseded; kept only because code comments cite their sections. |
+
 ## ► NEXT SESSION (Fable): read this block, then the five plans, in this order
 
 The user's own framing: *"I want it to proceed with the laid out plans in

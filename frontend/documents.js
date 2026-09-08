@@ -2548,7 +2548,7 @@ function syncDocAiPanel() {
   const wordCount = selection ? selection.split(/\s+/).length : 0;
 
   const runLabel = { edit: "Suggest an edit", write: "Write it", remove: "Remove it" }[verb];
-  $("doc-ai-run").innerHTML = `<i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> ${runLabel}`;
+  setLabel($("doc-ai-run"), `ph:magic-wand ${runLabel}`);
 
   $("doc-ai-instruction").placeholder =
     verb === "write"

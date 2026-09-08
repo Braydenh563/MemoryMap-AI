@@ -10242,7 +10242,7 @@ function askHistoryRow(turn) {
   pinBtn.className = "icon-btn ask-history-pin" + (turn.pinned ? " active" : "");
   pinBtn.title = turn.pinned ? "Unpin" : "Pin so this survives Clear";
   pinBtn.setAttribute("aria-label", turn.pinned ? "Unpin question" : "Pin question");
-  pinBtn.innerHTML = `<i class="ph ${turn.pinned ? "ph-push-pin-slash" : "ph-push-pin"}" aria-hidden="true"></i>`;
+  setLabel(pinBtn, turn.pinned ? "ph:push-pin-slash" : "ph:push-pin");
   pinBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     toggleAskHistoryPin(turn.id, !turn.pinned);

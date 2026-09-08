@@ -58,8 +58,13 @@ file rather than a directory, so Updates reports "not a git checkout".
 - `python -m memorymap --export PATH` writes the zip.
 - `_loading_html()` was rendered in Chromium and measured: five rows, four
   ticked, the bar 240px of 300 at 80%, a phase push moving it to 95% and
-  rewriting the active row, the error state flipping both, no console
+  rewriting the status line, the error state flipping both, no console
   errors, no horizontal overflow.
+- The browser boot splash, in the running app on 8841 with `/auth/status`
+  stalled so it stays up: the tip renders at 12px muted below the bar, bar
+  bottom 419 against tip bottom 460, and at eight seconds "Still loading.
+  Give it a moment, or reload." and the Try again button both appear. No
+  page errors.
 
 ## Found by running it, and fixed
 

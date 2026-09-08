@@ -682,3 +682,45 @@ that follows the order, keeps to the scope, and reports the numbers will
 produce work indistinguishable from a larger model's. A session that
 reads the goal, guesses the shape, and writes the code in one go will
 produce the four failure shapes, every time, whatever the model.
+
+## Brief 16 (any day, Sonnet): the documentation, refined
+
+**Goal.** Every reader-facing document reads as one professional product's
+documentation: accurate to the code, one voice, no em-dashes, no stale
+claims, no duplicated material.
+
+**Scope.** `README.md`, `docs/INSTALL.md`, `docs/TROUBLESHOOTING.md`,
+`docs/SECURITY.md`, `docs/PRIVACY.md`, `docs/MODELS.md`, `docs/RELEASING.md`,
+`docs/CONTRIBUTING.md`, `docs/CHANGELOG.md`, `docs/ARCHITECTURE.md`,
+`docs/DESIGN.md`, `docs/index.html` (the docs landing page), and the two
+expansion files in `docs/` (`memorymap-ai-expansion-gemini.docx`,
+`memorymap-ai-expansion-perplexity.md`: read, fold anything still true
+into ANALYSIS.md 114 with a one-line pointer, then delete them from the
+tree; a binary in a docs folder is not documentation).
+
+**Done when.** Every feature claim in README and INSTALL is checked against
+the running app (start it, drive the feature once, screenshot it for
+`docs/screenshots/` where a screenshot exists today); every command in
+INSTALL and TROUBLESHOOTING runs; `docs/` has 0 em-dashes (extend
+`tests/test_no_em_dashes.py` to `docs/` and `README.md`, excluding
+`docs/roadmap/HISTORY.md` and `ANALYSIS.md`, which are archives);
+ARCHITECTURE.md describes the stack as it is after this week (eight CSS
+files plus `08-consistency.css`, the canvas graph with the worker, the
+dock grammar, the help popovers, the event log spec), with a one-paragraph
+map per module; DESIGN.md carries the consistency contract from
+WORLD_CLASS_PLAN 1 as its first section and drops any rule the code no
+longer follows; CHANGELOG has an entry for this branch written from
+`git log` in user-facing language; CONTRIBUTING points at CLAUDE.md's
+operating rules and the lints; SECURITY names the LAN-mode caveats from
+WORLD_CLASS_PLAN 12 plainly.
+
+**Decisions made.** Sentence case everywhere. The README's structure:
+what it is (three sentences), a screenshot, install (two paths), what it
+does (a table of surfaces with one line each), privacy (three sentences),
+docs links, licence. No feature list longer than the table. No marketing
+adjectives; the numbers from the audits may be cited where they are true.
+
+**Traps.** Screenshots must be taken in the light theme at 1440 on the
+seeded notebook (`scratchpad/ui-sweeps/seed.js`) so they match each other;
+do not commit PNGs over 400 KB (optimise or crop). `test_docs_layout.py`
+pins cross-links between the roadmap files; keep them.

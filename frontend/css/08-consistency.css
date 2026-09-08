@@ -1307,6 +1307,22 @@ summary > .ph-lead,
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--card);
+  /* INBOX 32: the bar surface above gave it an edge and a radius but no
+     room, so it touched the stats strip above and the widget grid below,
+     the one un-spaced pair of neighbours on the page. Measured before this
+     rule: 0px both sides. `--space-5`, not the smaller tokens the bar's own
+     padding uses, because this is the gap *between* two other bars, not
+     padding inside one. */
+  margin-block: var(--space-5);
+}
+
+/* The left-side label INBOX 32 asked for: "Your dashboard", quiet, giving
+   the bar an identity zone the way every other dock has one, without
+   opting it into the dock grammar itself (it has no find or arrange zone
+   to declare, see the comment on `.dash-toolbar` above). */
+.dash-toolbar-label {
+  white-space: nowrap;
+  font-weight: 600;
 }
 
 .dash-toolbar button {

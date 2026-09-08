@@ -1090,6 +1090,21 @@ def list_entries(
     q: str = "",
     limit: int = Query(default=ENTRIES_PAGE_SIZE, ge=1, le=ENTRIES_PAGE_SIZE_MAX),
     offset: int = Query(default=0, ge=0),
+    # **This list is the notes list, so boards are not in it by default.**
+    #
+    # Reported: "I made a mindmap naming it test and I think it came up as a
+    # new note??" — it did, on every surface built on this response. A board
+    # (and a mind map, which is a board with `type: "map"`) is an `Entry`, so
+    # it came back here with everything else; measured on a notebook with
+    # nine maps, ten of the Notes list's twelve rows were maps.
+    #
+    # The default is the fix, rather than a filter in each of the four
+    # surfaces that draw notes, because "the same object drawn five ways" is
+    # this app's recurring failure and four client-side filters is that shape
+    # exactly. `boards=only` is how the two callers that genuinely want boards
+    # (the `[[wiki]]` resolver and the editor's `@` picker) ask for them, and
+    # `boards=include` restores the old response for anything wanting both.
+    boards: str = Query(default=manager.BOARDS_EXCLUDE),
     session: Session = Depends(get_session),
 ) -> list[EntryOut]:
     """Normal list, the recycle bin when ?deleted=true, the archive when
@@ -1108,6 +1123,11 @@ def list_entries(
     matter the notebook's size — which is real risk for a "just works" local
     app that's supposed to degrade gracefully rather than time out or OOM.
     """
+    if boards not in manager.BOARD_MODES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"boards must be one of {', '.join(manager.BOARD_MODES)}",
+        )
     if semantic and q:
         from memorymap.core import deps
 
@@ -1118,7 +1138,9 @@ def list_entries(
         # only, no row bodies — cheap even at real notebook scale, and the
         # thing the original unbounded-response risk was actually about was
         # sending full rows over HTTP, not counting ids in-process.
-        scope_ids = manager.entry_id_scope(session, deleted=deleted, archived=archived)
+        scope_ids = manager.entry_id_scope(
+            session, deleted=deleted, archived=archived, boards=boards
+        )
 
         # Ranked, and returned ranked. The first version rebuilt the result as
         # `[e for e in entries if e.id in found_ids]`, which is the *notebook's*
@@ -1148,8 +1170,8 @@ def list_entries(
         entries = manager.list_archived_entries(session, limit=limit, offset=offset)
         total = manager.count_archived_entries(session)
     else:
-        entries = manager.list_entries(session, limit=limit, offset=offset)
-        total = manager.count_entries(session)
+        entries = manager.list_entries(session, limit=limit, offset=offset, boards=boards)
+        total = manager.count_entries(session, boards=boards)
     response.headers["X-Total-Count"] = str(total)
     return _to_out_bulk(session, entries)
 

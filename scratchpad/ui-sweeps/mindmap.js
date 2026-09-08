@@ -45,6 +45,25 @@ function check(label, ok, detail) {
   const boardId = await page.evaluate(() => window.currentBoardId);
   check("a board id is open after creating the map", Boolean(boardId), `board ${boardId}`);
 
+  //: **A map is not a note.** Reported: "I made a mindmap naming it test and I
+  //: think it came up as a new note??" — it did, on every surface built on
+  //: `GET /entries`, which had no board filter at all. Asserted at the
+  //: endpoint *and* in the rendered list, because the two failed together and
+  //: either one alone would let the other come back.
+  const notNote = await page.evaluate(async (id) => {
+    const rows = await window.apiJson("/entries?limit=500");
+    const boards = await window.apiJson("/entries?boards=only&limit=500");
+    return {
+      inNotes: rows.some((e) => e.id === id),
+      anyBoardInNotes: rows.some((e) => e.is_board),
+      inBoardsOnly: boards.some((e) => e.id === id),
+    };
+  }, boardId);
+  check("(C) the new map is not in the notes list, and neither is any board",
+    !notNote.inNotes && !notNote.anyBoardInNotes, JSON.stringify(notNote));
+  check("(C) ?boards=only still hands the map back, for the pickers that need it",
+    notNote.inBoardsOnly, JSON.stringify(notNote));
+
   const chipVisible = await page.evaluate(() => {
     const c = document.getElementById("wb-map-chip");
     return Boolean(c && !c.hidden && c.getBoundingClientRect().width > 0);

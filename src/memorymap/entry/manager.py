@@ -94,14 +94,42 @@ def create_entry(
     return entry
 
 
-def _list_entries_filter(query, include_deleted: bool, include_archived: bool):
+#: What a listing does about boards. A board (and therefore a mind map) *is*
+#: an `Entry` — see `Entry.is_board` — so every query over entries has to say
+#: which of the three it means rather than inherit whichever the last person
+#: assumed.
+#:
+#: Reported: "I made a mindmap naming it test and I think it came up as a new
+#: note??" It did. `GET /entries` had no board filter at all, so the notes
+#: list, its count, and everything else built on that response listed every
+#: board and map in the notebook as a note. Measured on a notebook with nine
+#: maps: twelve rows in the Notes list, ten of them maps.
+BOARDS_EXCLUDE = "exclude"
+BOARDS_INCLUDE = "include"
+BOARDS_ONLY = "only"
+BOARD_MODES = (BOARDS_EXCLUDE, BOARDS_INCLUDE, BOARDS_ONLY)
+
+
+def _list_entries_filter(
+    query, include_deleted: bool, include_archived: bool, boards: str = BOARDS_INCLUDE
+):
     """The where-clause `list_entries` and `count_entries` both need — kept
     in one place so a filter added to one can't quietly drift from the
-    other and make the count lie about what the list actually shows."""
+    other and make the count lie about what the list actually shows.
+
+    `boards` defaults to `include`, which is what every in-process caller
+    (background jobs, the librarian, the AI tools) has always got; the HTTP
+    route is the one that asks for `exclude`, because "the notes list" is
+    exactly the thing that must not have boards in it.
+    """
     if not include_deleted:
         query = query.where(Entry.is_deleted == False)  # noqa: E712
     if not include_archived:
         query = query.where(Entry.archived_at.is_(None))
+    if boards == BOARDS_EXCLUDE:
+        query = query.where(Entry.is_board == False)  # noqa: E712
+    elif boards == BOARDS_ONLY:
+        query = query.where(Entry.is_board == True)  # noqa: E712
     return query
 
 
@@ -111,6 +139,7 @@ def list_entries(
     include_archived: bool = False,
     limit: int | None = None,
     offset: int = 0,
+    boards: str = BOARDS_INCLUDE,
 ) -> list[Entry]:
     """Pinned first, then newest first. Deleted and archived entries stay
     hidden until the recycle bin / archive UI asks for them explicitly —
@@ -127,7 +156,7 @@ def list_entries(
     query = select(Entry).order_by(
         Entry.pinned.desc(), Entry.created_at.desc(), Entry.id.desc()
     )
-    query = _list_entries_filter(query, include_deleted, include_archived)
+    query = _list_entries_filter(query, include_deleted, include_archived, boards)
     if offset:
         query = query.offset(offset)
     if limit is not None:
@@ -136,16 +165,28 @@ def list_entries(
 
 
 def count_entries(
-    session: Session, include_deleted: bool = False, include_archived: bool = False
+    session: Session,
+    include_deleted: bool = False,
+    include_archived: bool = False,
+    boards: str = BOARDS_INCLUDE,
 ) -> int:
     """How many `list_entries` would return with no `limit` — the total a
-    paginated caller needs to know when it has seen everything."""
-    query = _list_entries_filter(select(func.count()).select_from(Entry), include_deleted, include_archived)
+    paginated caller needs to know when it has seen everything. Takes the
+    same `boards` mode for the reason `_list_entries_filter` exists at all:
+    a count that includes boards over a list that does not is a header that
+    lies about the list under it."""
+    query = _list_entries_filter(
+        select(func.count()).select_from(Entry), include_deleted, include_archived, boards
+    )
     return session.scalar(query) or 0
 
 
 def entry_id_scope(
-    session: Session, *, deleted: bool = False, archived: bool = False
+    session: Session,
+    *,
+    deleted: bool = False,
+    archived: bool = False,
+    boards: str = BOARDS_INCLUDE,
 ) -> set[int]:
     """Every entry id in one of the three views — live, bin, or archive.
 
@@ -172,7 +213,7 @@ def entry_id_scope(
             Entry.archived_at.is_not(None), Entry.is_deleted == False  # noqa: E712
         )
     else:
-        query = _list_entries_filter(query, False, False)
+        query = _list_entries_filter(query, False, False, boards)
     return set(session.scalars(query))
 
 

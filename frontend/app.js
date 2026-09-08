@@ -17379,6 +17379,17 @@ function newChatConversation() {
   // A pending question belongs to the conversation that asked it, starting
   // a new one must not silently answering_agent-tag whatever gets typed first.
   chatAwaitingAgentAnswer = false;
+  // batch-a.md's "left open" item, its actual cause: `#chat-suggest` is on
+  // loan to `.chat-empty` (see `openConversation`'s own long comment below)
+  // whenever the pane it is leaving was itself empty with suggestions
+  // already shown. A bare `replaceChildren()` throws the loaned element away
+  // with the rest of `.chat-empty` rather than sending it home the way
+  // `clearChatEmptyState` already knows how to; a `loadChatSuggestions()`
+  // call still in flight for the *old* pane then resolves onto an id that no
+  // longer exists anywhere in the document. `clearChatEmptyState` is a no-op
+  // when there is no `.chat-empty` to begin with, so this costs nothing on
+  // the common path (a chat that already had messages).
+  clearChatEmptyState();
   $("chat-messages").replaceChildren();
   $("chat-title").textContent = "New chat";
   renderChatUsage(0);
@@ -19003,7 +19014,17 @@ async function loadChatSuggestions() {
   // Re-check after the await in case a message was sent while we waited
   if ($("chat-messages").querySelector(".msg")) return;
 
+  // batch-a.md's "left open" item: `#chat-suggest` is on loan to `.chat-empty`
+  // (see the long comment on `openConversation` below) and `newChatConversation`
+  // used to wipe `#chat-messages` with a bare `replaceChildren()` without
+  // sending it home first, so a "+ New" click while this call was still
+  // awaiting the network took the element it was about to write to with it.
+  // `newChatConversation` returns it home first now (below), so this should
+  // not fire in practice any more; kept as the same defensive `?.`
+  // `openConversation` already uses at its own call site, since a null box
+  // here would otherwise throw past the point where anything could tell.
   const box = $("chat-suggest");
+  if (!box) return;
   box.replaceChildren();
   box.classList.toggle("hidden", picks.length === 0);
   if (!picks.length) return;

@@ -131,22 +131,19 @@ are only just begun or half done." True; this table is the state.
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 
-**Now (2026-09-08 21:00 UTC, after a container restart):** the restart
-killed both agents mid-report; their worktrees survived with clean trees
-and were merged (41f8c15): CHAT batch B (the mode is called Agent and a
-skill switches to it; citations land on the answer a run ends with, three
-causes fixed, `chat-b.md` lists three small leftovers) and the mind map
-(edges follow a single-node drag, a map frames itself on open, Tidy
-measured at 200 nodes, the whiteboard top-bar menus escape the panel;
-`mindmap.md` down to F previews and G Phases 4 to 5). In flight: Opus on
-Brief 17 remainder (worktree agent-ac1cca0f51eca7323: port to server,
-start.bat, start-desktop.sh, uninstallers, the three splashes, the script
-tests, INSTALL.md); Sonnet on batch C (worktree agent-a90aae94dad6b8fb2:
-INBOX 46 switch tracks, graph.md 1 to 3, chat-b.md 1 to 3, batch-a.md's
-null-deref). Queue after them, two at a time: Brief 16 docs in the
-README's voice (Sonnet); mindmap.md F previews then MINDMAP Phases 4 to 5
-(Opus); DOCUMENTS Phase 1 (carries 44); GRAPH 3 to 5; UI Phase 9
-remainder; SKILLS Phase D. The full suite on 41f8c15 is running here. The owner's order for the rest of
+**Now (2026-09-08 22:45 UTC):** batch C merged (ea8a6ce: off switches
+mix against `--card` so every track fills, the graph dock down to six
+controls with saved views in More, the options panel fits at 1440x900,
+saved views store gravity and spread, one Markdown stripper with the
+grounding ordinal its own element and chips that ellipsis, the
+chat-suggest null-deref). Full suite green on 41f8c15 here; CI green
+through fbb94a6. In flight: Opus on Brief 17 remainder (worktree
+agent-ac1cca0f51eca7323, nineteen commits, on the splash); Sonnet on Brief
+16 docs in the README's voice (worktree agent-<docs>). Queue after them,
+two at a time: mindmap.md F previews then MINDMAP Phases 4 to 5 (Opus);
+DOCUMENTS Phase 1 (carries INBOX 44); GRAPH 3 to 5; UI Phase 9 remainder;
+SKILLS Phase D; WHITEBOARD Phase 1 (INBOX 43 bottom rail and properties
+panel). The owner's order for the rest of
 this session stands: **finish the phases of the plans already in
 progress; TIMELINE, WHITEBOARD, CHAT, WORLD_CLASS and the Briefs wait for
 the next session.** Queue, two agents at a time, each merged and gated

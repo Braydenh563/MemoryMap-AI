@@ -131,19 +131,16 @@ are only just begun or half done." True; this table is the state.
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 
-**Now (2026-09-08 16:45 UTC, after the usage reset):** CI was red on
-db1f25d (a splash test pinned the old zenity gate); fixed in 7ee3d3b with
-the graph agent's partial Phase 2 merged (the map fills the card, the
-controls float, labels do not stack, a pan no longer focuses a node).
-The launcher agent's first step is merged (start.sh flags, doctor,
-preflight, logs; the rest in `agent-remaining/launcher.md`). The owner's
-16:00 pile is INBOX 31 to 45. In flight: Sonnet on INBOX batch A (31 to
-38, worktree agent-a057fd4e2452c6efc); Opus on GRAPH Phase 2 remainder
-(gear button, options panel redesign, spread, fullscreen, label probe;
-worktree agent-a85b14025e832b121). Queue after them, two at a time: CHAT
-batch B (Opus: INBOX 39 rename Request to Agent and auto-switch for
-skills, 40 inline citations in skill runs and Markdown in badges);
-`agent-remaining/mindmap.md` item H plus INBOX 42 (Opus); Brief 17
+**Now (2026-09-08 19:40 UTC):** GRAPH_PLAN Phase 2 is complete and merged
+(5e87d86: gear button, options panel redesigned as five sections, spread
+scaled by note count, fullscreen hides the chrome, label probe; numbers
+in GRAPH_PLAN "Built, Phase 2"; graph.md holds the two leftovers, saved
+views never storing physics and INBOX 46 the transparent switch track).
+In flight: Sonnet on INBOX batch A (31 to 38, worktree
+agent-a057fd4e2452c6efc, seven commits so far); Opus on CHAT batch B
+(INBOX 39 and 40, worktree agent-aaf982b12113f9499). Queue after them,
+two at a time: `agent-remaining/mindmap.md` item H plus INBOX 42 (Opus);
+INBOX 46 and the three-dock control count from graph.md (Sonnet); Brief 17
 remainder (Opus, launcher.md); Brief 16 docs in the README's voice
 (Sonnet); DOCUMENTS Phase 1 (carries 44); GRAPH 3 to 5; UI Phase 9
 remainder; SKILLS Phase D; MINDMAP 4 to 5. The owner's order for the rest of

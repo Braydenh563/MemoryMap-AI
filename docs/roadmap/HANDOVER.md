@@ -131,21 +131,22 @@ are only just begun or half done." True; this table is the state.
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 
-**Now (2026-09-08 20:10 UTC):** merged today, in order: GRAPH Phase 2
-complete (5e87d86) and INBOX batch A (3f8e07e: dock menus stay in the
-viewport and scroll, the dashboard toolbar has room and a name, scroll
-clearance only with the button, one jump-to-latest control, chips strip
-Markdown, reduced-motion progress is a pulsing word, autogrow fields pin
-to the control height, notes carry a space chip and capture says where it
-files; `agent-remaining/batch-a.md` has one found-not-fixed). In flight:
-Opus on CHAT batch B (INBOX 39 and 40, worktree agent-aaf982b12113f9499,
-Request renamed to Agent already committed); Opus on the mind map (INBOX
-42, mindmap.md H, whiteboard menus at short heights, previews if time;
-worktree agent-ae895290c11fc4520). Queue after them, two at a time: INBOX 46 (the
-transparent switch track) and the three-dock control count from graph.md
-(Sonnet); Brief 17 remainder (Opus, launcher.md); Brief 16 docs in the
-README's voice (Sonnet); DOCUMENTS Phase 1 (carries 44); GRAPH 3 to 5;
-UI Phase 9 remainder; SKILLS Phase D; MINDMAP 4 to 5. The owner's order for the rest of
+**Now (2026-09-08 21:00 UTC, after a container restart):** the restart
+killed both agents mid-report; their worktrees survived with clean trees
+and were merged (41f8c15): CHAT batch B (the mode is called Agent and a
+skill switches to it; citations land on the answer a run ends with, three
+causes fixed, `chat-b.md` lists three small leftovers) and the mind map
+(edges follow a single-node drag, a map frames itself on open, Tidy
+measured at 200 nodes, the whiteboard top-bar menus escape the panel;
+`mindmap.md` down to F previews and G Phases 4 to 5). In flight: Opus on
+Brief 17 remainder (worktree agent-ac1cca0f51eca7323: port to server,
+start.bat, start-desktop.sh, uninstallers, the three splashes, the script
+tests, INSTALL.md); Sonnet on batch C (worktree agent-a90aae94dad6b8fb2:
+INBOX 46 switch tracks, graph.md 1 to 3, chat-b.md 1 to 3, batch-a.md's
+null-deref). Queue after them, two at a time: Brief 16 docs in the
+README's voice (Sonnet); mindmap.md F previews then MINDMAP Phases 4 to 5
+(Opus); DOCUMENTS Phase 1 (carries 44); GRAPH 3 to 5; UI Phase 9
+remainder; SKILLS Phase D. The full suite on 41f8c15 is running here. The owner's order for the rest of
 this session stands: **finish the phases of the plans already in
 progress; TIMELINE, WHITEBOARD, CHAT, WORLD_CLASS and the Briefs wait for
 the next session.** Queue, two agents at a time, each merged and gated

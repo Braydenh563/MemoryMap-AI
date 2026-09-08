@@ -1592,6 +1592,11 @@ body.has-agent-monitor #tab-library .library-view-section {
 .library-view-section {
   flex: 1;
   overflow-y: auto;
+  /* See `--scroll-top-clearance`'s own comment (00-tokens-shell.css): the
+     same shape as `#tab-notes .layout > main` below (04-chat-dock-
+     appearance.css), a card's own kebab scrolled flush to the bottom edge
+     sits directly under the fixed back-to-top button here too. */
+  padding-bottom: var(--scroll-top-clearance);
 }
 
 /* The whiteboard is the one sub-view that must NOT scroll: it pans instead,

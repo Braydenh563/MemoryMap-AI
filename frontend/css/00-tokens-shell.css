@@ -429,6 +429,22 @@ select optgroup {
      and --control-h play for the header and the chat dock. */
   --status-bar-h: 2.3rem;
 
+  /* How much room a scrolling list has to leave at its own bottom so its
+     last row's own controls are not silently unclickable under
+     `.scroll-top` (the fixed back-to-top button, bottom-right on every
+     scrolling tab). Reproduced live, not reasoned: scrolled to the very
+     end of a long Notes list, a real click on the last note's own ⋯ never
+     opened it, `document.elementFromPoint` at that exact spot returned
+     `#scroll-top`, not the kebab underneath it. `.entry-list`/
+     `.library-view-section` had no bottom padding at all, so the list's
+     own `scrollHeight` let a row scroll to flush against the container's
+     edge, directly under the button sitting on top of it, geometry a
+     screenshot does not show because the button is *supposed* to float
+     there. Matches `.scroll-top`'s own three terms (04-chat-dock-
+     appearance.css): its `bottom` offset, its own height, plus one gap step
+     so the last row clears the button rather than merely touching it. */
+  --scroll-top-clearance: calc(var(--status-bar-h) + var(--space-4) + 2.75rem + var(--space-4));
+
   /* How much of the window the on-screen keyboard is currently covering
      (UI_MODERNISATION_PLAN.md Phase 9). Zero here and written by app.js from
      `visualViewport` while a keyboard is open, the two bottom docks you

@@ -300,6 +300,11 @@
      sub-tab bar above never shifts. `stable` keeps the gutter on one side. */
   scrollbar-gutter: stable;
   padding-right: var(--space-2);
+  /* See `--scroll-top-clearance`'s own comment (00-tokens-shell.css): the
+     last note's row of controls, including its ⋯ kebab, sat directly under
+     `.scroll-top` once the list was scrolled all the way down, and a real
+     click there landed on the button, not the row. */
+  padding-bottom: var(--scroll-top-clearance);
   border-radius: var(--radius-lg);
 }
 

@@ -3146,6 +3146,15 @@ function buildMenuItemButton(item) {
   return button;
 }
 
+// At most one grouped flyout (AI actions / Connect / Add) is ever open at
+// once, on any note card: `openActionMenu` already guarantees at most one
+// top-level kebab is open on the page, and only one of its own groups can
+// be expanded at a time. A single reference here is enough to close a
+// sibling group's flyout when another opens, without a DOM search that
+// escaping the flyout to `<body>` below has already made impossible (see
+// `buildMenuGroupButton`'s own note).
+let openGroupSubmenu = null;
+
 // A grouped trigger ("AI AI actions ›") that opens a side flyout of its own
 // items: asked for directly, to cut a 15-item flat list down to something
 // scannable. Hover opens it on a device that has hover; click/tap opens it
@@ -3179,29 +3188,75 @@ function buildMenuGroupButton(label, subItems) {
   submenu.setAttribute("role", "menu");
   for (const item of subItems) submenu.appendChild(buildMenuItemButton(item));
 
-  const openSubmenu = () => {
-    // Only one flyout open at a time, at this level or any sibling group.
-    for (const other of groupWrap.parentElement?.querySelectorAll(".submenu:not(.hidden)") || []) {
-      if (other !== submenu) {
-        other.classList.add("hidden");
-        other.previousElementSibling?.setAttribute("aria-expanded", "false");
-      }
+  // **Reparented to `<body>` while open, like `escapeMenuIfClipped` does for
+  // the top-level kebab.** Reported: a submenu opened from a kebab near the
+  // bottom or right of the viewport (a note card low in the list, or the
+  // last card in a row) drew past the window edge with nothing but a
+  // scrollbar to show for it. `.action-menu.submenu` was `position:
+  // absolute` against its own `.menu-group`, which only ever checked the
+  // *horizontal* edge (`submenu-left`, below); there was no vertical check
+  // at all, and once the parent kebab is itself escaped (also `position:
+  // fixed`, also reparented to `<body>`) the submenu's containing block
+  // moves with it, so a flyout that fit its note card could still miss the
+  // actual browser window. Reusing `.action-menu-escaped` (`position:
+  // fixed`, the same z-index tier) plus this menu's own placement, computed
+  // from the trigger's rect and clamped on both axes, fixes both at once:
+  // this is why `openSubmenu`/`closeSubmenuState` below write the same
+  // `_escapedHome`/`_escapedOpener` fields `restoreEscapedMenu` already
+  // knows how to put back, rather than inventing a second bookkeeping
+  // scheme `closeActionMenus`' own document-wide sweep would not see.
+  const placeSubmenu = () => {
+    const margin = 8;
+    const anchor = trigger.getBoundingClientRect();
+    submenu.style.marginLeft = "0";
+    submenu.style.left = "0px";
+    submenu.style.top = "0px";
+    const box = submenu.getBoundingClientRect();
+    let left = anchor.right + 8;
+    let onLeft = false;
+    if (left + box.width > window.innerWidth - margin) {
+      left = anchor.left - 8 - box.width;
+      onLeft = true;
     }
+    left = Math.max(margin, left);
+    let top = anchor.top;
+    if (top + box.height > window.innerHeight - margin) {
+      top = Math.max(margin, window.innerHeight - margin - box.height);
+    }
+    submenu.style.left = `${Math.round(left)}px`;
+    submenu.style.top = `${Math.round(top)}px`;
+    submenu.classList.toggle("submenu-left", onLeft);
+  };
+
+  const openSubmenu = () => {
+    // Only one flyout open at a time, at this level or any sibling group;
+    // a DOM search under `groupWrap.parentElement` cannot find a sibling's
+    // flyout once it may live at `<body>`, so this is tracked directly.
+    if (openGroupSubmenu && openGroupSubmenu !== submenu) closeSubmenuState(openGroupSubmenu);
     submenu.classList.remove("hidden");
     trigger.setAttribute("aria-expanded", "true");
-    // Side popup by default; flip to the left if the right edge would run
-    // off the viewport, and drop the flyout positioning below phone-width
-    // (handled in CSS: this only measures when it's actually a flyout).
     submenu.classList.remove("submenu-left");
+    // Below phone-width the flyout positioning is dropped for an in-place
+    // accordion (CSS media query); escaping it there would strand it at a
+    // fixed viewport position while its own trigger scrolls underneath.
     if (window.innerWidth > 720) {
-      const rect = submenu.getBoundingClientRect();
-      if (rect.right > window.innerWidth) submenu.classList.add("submenu-left");
+      submenu._escapedHome = { parent: submenu.parentElement, next: submenu.nextSibling };
+      submenu._escapedOpener = trigger;
+      document.body.appendChild(submenu);
+      submenu.classList.add("action-menu-escaped");
+      placeSubmenu();
     }
+    openGroupSubmenu = submenu;
   };
-  const closeSubmenu = () => {
-    submenu.classList.add("hidden");
-    trigger.setAttribute("aria-expanded", "false");
-  };
+  function closeSubmenuState(target) {
+    target.classList.add("hidden");
+    target._escapedOpener?.setAttribute("aria-expanded", "false");
+    restoreEscapedMenu(target);
+    target.style.marginLeft = "";
+    target.classList.remove("submenu-left");
+    if (openGroupSubmenu === target) openGroupSubmenu = null;
+  }
+  const closeSubmenu = () => closeSubmenuState(submenu);
 
   let hoverTimer = null;
   groupWrap.addEventListener("mouseenter", () => {
@@ -3211,6 +3266,16 @@ function buildMenuGroupButton(label, subItems) {
   groupWrap.addEventListener("mouseleave", () => {
     clearTimeout(hoverTimer);
     hoverTimer = setTimeout(closeSubmenu, 200); // outlives the diagonal move from the trigger into the flyout
+  });
+  // Once escaped, the submenu is a sibling of `groupWrap` at `<body>`, not
+  // its descendant, so `groupWrap`'s own `mouseleave` above fires the
+  // instant the pointer crosses onto the (still open) flyout: measured
+  // live, the submenu closed under the cursor before a hovering mouse user
+  // could ever reach a second-level item. These two mirror the pair above
+  // so hovering the flyout itself also keeps it open.
+  submenu.addEventListener("mouseenter", () => clearTimeout(hoverTimer));
+  submenu.addEventListener("mouseleave", () => {
+    hoverTimer = setTimeout(closeSubmenu, 200);
   });
   trigger.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -33139,9 +33204,20 @@ document.addEventListener("keydown", (e) => {
 // open) dropdown would otherwise fail `closest(".menu-wrap")` and be read
 // as an outside click. Only ever *widens* what counts as inside; no
 // existing kebab gains this class, so nothing about them changes.
-document.addEventListener("click", (e) => {
+//
+// **`pointerdown`, capture phase, not `click`.** Reported: an escaped menu
+// (reparented to `<body>`, `position: fixed`, so it paints over whatever is
+// underneath) sometimes stayed open, or a click meant for the row behind it
+// landed on that row instead. `click` fires after `pointerup`, by which
+// point a note card's own `pointerdown`/`mousedown` handlers (drag,
+// selection) have already run against the *old* DOM, and on some rows that
+// consumed or moved the event before it ever reached this listener in the
+// bubble phase. `pointerdown` in the capture phase runs first, ahead of
+// every other handler on the page, so the menu is gone before anything
+// underneath it can react to the same gesture.
+document.addEventListener("pointerdown", (e) => {
   if (!e.target.closest(".menu-wrap, .action-menu-escaped")) closeActionMenus();
-});
+}, true);
 
 // Focus trapping (Wave L): while a dialog is open, Tab cycles inside it
 // instead of wandering into the page behind, a WCAG dialog basic.

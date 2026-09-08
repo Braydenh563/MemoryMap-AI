@@ -370,6 +370,12 @@ for path in $CACHE_PATHS; do
   AFTER_KB=$((AFTER_KB + $(mm_size_kb "$path")))
 done
 FREED_KB=$((BEFORE_KB - AFTER_KB))
+# The notes count towards the figure only if they actually went: with
+# --delete-data and a typed DELETE this is most of what was freed, and
+# reporting "0 KB" after removing a notebook reads as "nothing happened".
+if [ "$DELETE_DATA" = "1" ] && [ ! -d "$DATA_DIR" ]; then
+  FREED_KB=$((FREED_KB + DATA_KB))
+fi
 [ "$FREED_KB" -lt 0 ] && FREED_KB=0
 
 echo

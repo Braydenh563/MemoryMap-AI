@@ -131,25 +131,32 @@ are only just begun or half done." True; this table is the state.
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 
-**Now (2026-09-08 14:15 UTC):** two agents in flight (Sonnet on INBOX
-bugs 2, 7, 9, 11, 12, 14, 18, 19; Opus on consistency.md and docks.md).
-The owner's order for the rest of this session: **finish the phases of
-the plans already in progress, and leave the plans written this session
-(TIMELINE, WHITEBOARD, CHAT, WORLD_CLASS, the Briefs) for the next
-session.** So, two agents at a time, in this order, each merged and gated
+**Now (2026-09-08 15:25 UTC):** Sonnet's INBOX run is merged (84f4eb2;
+items 2, 7, 11, 12 caps, 14, 18, 19 fixed, 9 checked; its note is
+`agent-remaining/inbox.md`). In flight: Opus on consistency.md and
+docks.md (worktree agent-ad2066c8316bb6891, 9 commits); Opus on GRAPH
+Phase 2 with INBOX 21 and the three graph reports (worktree
+agent-a63a58af8c6d8807a). Fable's own work this afternoon, all pushed:
+stemming in FTS5, grounding over touched notes and distinctive words, two
+thread-safety fixes (pdfium close inside the lock, embed cache lock),
+WORLD_CLASS sections 14 to 16 (algorithms read, nine inventions with I9
+the manage-what-was-learned contract, the backend read), specs
+`test_learned_spec.py` and `test_resurface_spec.py`, the
+`invalid-values.js` sweep (0 found). The owner's order for the rest of
+this session stands: **finish the phases of the plans already in
+progress; TIMELINE, WHITEBOARD, CHAT, WORLD_CLASS and the Briefs wait for
+the next session.** Queue, two agents at a time, each merged and gated
 before the next starts:
 
-1. GRAPH_PLAN Phase 2 (Opus): visuals, gravity and separation, the stray
-   highlighted node, fullscreen corners, INBOX 21 (display options one
-   click). Then Phases 3 to 5.
-2. DOCUMENTS_PLAN Phase 1 (Opus): the chrome; carries INBOX 18 and 19.
-   Then Phase 2 (CodeMirror 6, CSP check first), then 3 to 7.
-3. UI_MODERNISATION Phase 9 remainder (`agent-remaining/responsive.md`,
-   Opus) and Phases 5 to 6 leftovers.
-4. AGENT_SKILLS_REFORM Phase D, recovery (Opus; the spec is in the plan).
-5. MINDMAP_PLAN Phases 4 to 5 and `agent-remaining/mindmap.md` (Opus).
-6. `agent-remaining/help-popovers.md` and `timeline.md` items that are
-   bugs, not the timeline redesign (Sonnet).
+1. GRAPH_PLAN Phase 2 (running), then Phases 3 to 5.
+2. DOCUMENTS_PLAN Phase 1 (Opus, next free slot): the chrome; INBOX 18's
+   "squashed" report did not reproduce at 1440 (see inbox.md), retest
+   with the Outline panel open and a long title.
+3. UI_MODERNISATION Phase 9 remainder (`agent-remaining/responsive.md`).
+4. AGENT_SKILLS_REFORM Phase D, recovery.
+5. MINDMAP_PLAN Phases 4 to 5 and `agent-remaining/mindmap.md`.
+6. `agent-remaining/help-popovers.md` and `timeline.md` bug items (Sonnet),
+   then WORLD_CLASS 12 S7 (LIKE escaping, one helper, 18 sites, Sonnet).
 
 INBOX open items ride with the phase that owns them (the owner column in
 INBOX.md). The full-transcript scan of 14:10 added INBOX 21 to 26.

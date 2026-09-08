@@ -724,3 +724,114 @@ adjectives; the numbers from the audits may be cited where they are true.
 seeded notebook (`scratchpad/ui-sweeps/seed.js`) so they match each other;
 do not commit PNGs over 400 KB (optimise or crop). `test_docs_layout.py`
 pins cross-links between the roadmap files; keep them.
+
+## Brief 17 (any day, Opus): the launchers, the uninstallers and the splash, made impressive
+
+By direct instruction (2026-09-08): "upgrade the start.bat/sh, uninstall,
+and start-desktop files ... majorly improve the function and learnability
+of the splash ... make them impressive and with lots of utility." Read
+before touching anything: the four scripts, `scripts/splash.ps1`, the
+`_LOADING_HTML` window and `_close_launch_splash` in
+`src/memorymap/__main__.py`, `#boot-splash` in `frontend/index.html` with
+its rules in `00-tokens-shell.css` and `hideBootSplash` in `app.js`,
+`tests/test_desktop_launcher.py`. What exists is good and careful; this
+brief extends it, it does not rewrite it. Every comment in those files
+records a failure that was real; keep them.
+
+**Goal.** One launcher contract on both platforms, a doctor mode that
+turns "it did not start" into a table with a fix per row, an uninstaller
+that shows what it will remove and can export the notes first, and one
+splash design on all three surfaces (the pre-Python window, the Python
+loading window, the browser boot splash) that shows the steps, the time,
+what to do if it is slow, and a way out.
+
+**Done when.**
+
+1. `start.sh` and `start.bat` accept the same flags, and `--help` on each
+   lists the same set in the same order: `desktop`, `--port N`,
+   `--no-browser`, `--no-update`, `--reinstall` (rebuild `.venv`),
+   `--doctor` (checks only, exit 0 or 1), `--logs` (open the log folder),
+   `--shortcut` (create a desktop shortcut: a `.lnk` via PowerShell on
+   Windows, a `.desktop` entry on Linux, an alias on macOS), `--version`,
+   `--help`. Unknown flags print help and exit 2. `MEMORYMAP_DATA_DIR` is
+   respected and printed.
+2. `--doctor` prints a table, one row each with a tick or a cross and,
+   for a cross, one line saying what to do: Python (version and path,
+   3.11 to 3.13), `.venv` health (imports fastapi and sqlalchemy), free
+   disk on the data drive, port free (or "already running, open it"),
+   git remote reachable (5s cap, the same low-speed flags the pull uses),
+   Ollama at its configured URL with the model count, the model provider
+   if not Ollama, data folder path and size, the last launcher log's last
+   error line. A fast subset (port, disk, venv) runs before every start
+   as a preflight and turns the three commonest failures into a sentence
+   instead of a traceback; "port in use by MemoryMap" opens the running
+   app instead of failing.
+3. Every run is logged to `<data>/logs/launcher-<date>.log` (tee, both
+   platforms); on any failure the last lines and the path are printed with
+   "what to try" (from the doctor row that failed).
+4. `start-desktop.sh` exists (it does not today) and `start-desktop.bat`
+   passes its arguments through (`%*`).
+5. Uninstallers: `--dry-run` lists what would be removed with sizes;
+   `--export PATH` writes the notes as the app's own Markdown export
+   before `--delete-data` (add a `python -m memorymap --export PATH` entry
+   that calls the same function `routes_settings.export_markdown` uses; the
+   route stays); `--shortcuts` removes what `--shortcut` created; caches
+   (`__pycache__`, `.pytest_cache`, the install marker) go with `.venv`;
+   a running instance is detected on the port and the script says so
+   and stops rather than deleting under it; sizes before and after are
+   printed; `.env` is kept unless `--delete-data`.
+6. **The splash, one design, three surfaces.** The status file protocol
+   becomes structured: each line is `step|total|title|detail|state` with
+   state in `active|done|failed` (the last line is current; earlier lines
+   are history, so a window can render every step). `scripts/splash.ps1`
+   renders: the mark and name (as now), a step list (Update, Python,
+   Dependencies, Desktop window when in desktop mode, Start) with done
+   ticks, the active step's elapsed seconds, and pending steps muted; the
+   detail line; a real progress bar at steps done over total (the
+   marquee only inside the active step); a rotating tip every 6s from a
+   fixed list of five (the notes never leave this machine; Ctrl+K opens
+   the command palette; the Capture box files a thought for you; first
+   run installs about 300 MB once and later starts take seconds; the data
+   folder path); a footer with three buttons: **Details** (toggles the
+   last eight log lines inline), **Copy diagnostics** (the doctor table to
+   the clipboard), **Cancel** (writes `__cancel__` to a control file the
+   launcher polls between phases and honours). A step that exceeds its
+   usual time (Dependencies 5 minutes, Update 30 seconds) shows a hint
+   line under it. On `failed`, the window becomes an error card: the
+   message, the log path, **Open log** and **Try again** (re-runs the
+   launcher). The Python loading window (`_LOADING_HTML`) renders the same
+   step list, seeded from the file's history so the handoff shows Update,
+   Python and Dependencies already ticked, then its own phases from
+   `_STARTUP_PHASE_PERCENT`; same palette, same mark, same tips. The
+   browser boot splash stays short (it is seconds) but gains the tip line
+   and, after 8 seconds, "Still loading: reload" (boot-guard.js already
+   has the reload path). Linux: zenity's progress dialog gets the same
+   step text and percentage; macOS: one notification per step, and the
+   terminal narrates the step list with ticks. Reduced motion respected on
+   every surface.
+7. Tests: `tests/test_launcher_scripts.py` (static, runs on Linux CI):
+   both scripts' help lists the same flags in the same order; every phase
+   in both scripts writes a protocol line; `bash -n start.sh
+   uninstall.sh start-desktop.sh`; a Python parser
+   `memorymap/core/launch_status.py` (used by `__main__.py` to seed the
+   loading window) parses and rejects malformed lines; `--doctor` on the
+   sandbox exits 0 or 1 with the table (run it). `test_desktop_launcher.py`
+   stays green. PowerShell and cmd cannot run in the sandbox: say so in
+   the report, and keep every cmd rule the file header states (no
+   parentheses inside an ECHO within an IF block).
+
+**Decisions made.** Files, not pipes, remain the splash protocol (cmd can
+write a file and nothing else). The doctor is the launcher's, not the
+app's: it must work with no Python at all on Windows (cmd checks first,
+then asks Python for the rest once it exists). No new dependency. No
+telemetry. Copy in sentence case, no exclamation marks, no em-dashes.
+
+**Traps.** A `.bat` is read by byte offset while running: the self-update
+relaunch guard (`MM_CHILD`) must survive every new flag. `set -o pipefail`
+is why `tee` reports pip's failure. The splash's `MaxMinutes` backstop
+stays. `zenity` may be absent; `notify` and terminal are the fallbacks.
+The frontend boot splash must never wait on anything that the CSP or an
+offline machine can block.
+
+**Size** L, one session, Opus. **Commits** per step with the trailers.
+**Report** five lines plus `agent-remaining/launcher.md`.

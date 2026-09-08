@@ -554,6 +554,33 @@ class ChatResponse(BaseModel):
     sentence_grounding: list[dict] = []
 
 
+def _grounding_candidates(
+    session: Session, notes: list[dict], touched_note_ids: list[int]
+) -> list[dict]:
+    """The retrieval set plus every note a tool read this turn, as
+    `{id, content}` rows for `ground_answer_sentences`.
+
+    Same refusals as `_attached_notes`: a binned or private note never
+    becomes a citation, whatever a tool result said. A tool reads a note
+    through `_require_note`, which already refuses both, so this is the
+    guard kept where the shape is kept (CLAUDE.md section 6, shape 3) rather
+    than a second opinion. Documents are left out on purpose: a document id
+    and a note id share a number space in the citation UI, which opens the
+    *note* with that id.
+    """
+    rows = [note for note in notes if note.get("id") is not None]
+    seen = {note["id"] for note in rows}
+    for note_id in dict.fromkeys(touched_note_ids):
+        if note_id in seen:
+            continue
+        entry = session.get(Entry, note_id)
+        if entry is None or entry.is_deleted or entry.is_private:
+            continue
+        seen.add(note_id)
+        rows.append({"id": entry.id, "content": entry.content})
+    return rows
+
+
 def _attached_notes(session: Session, note_ids: list[int]) -> list[dict]:
     """The notes the user picked, in the order they picked them.
 
@@ -1561,10 +1588,25 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
         # deltas' worth of string concatenation, not a hot loop) and sent as
         # its own event once the answer is fully in, direct-Q&A only.
         answer_text = ""
+        # Every note a tool read during the turn is a grounding candidate,
+        # not only the retrieval set. Reported: an agent answer that named
+        # three notes cited one, and a skill run cited none. The retrieval
+        # set is what the *search* found before the model started; in
+        # Request mode and in a skill run the model then reads notes of its
+        # own choosing through `get_note`, `search_notes`, `related_notes`,
+        # and those are exactly the notes its answer is about. `touched` on
+        # each tool event already names them (it is what the transcript's
+        # action line opens), so this collects ids and loads the text once,
+        # after the answer is in.
+        touched_note_ids: list[int] = []
         try:
             for payload in events:
                 if payload.get("type") == "answer":
                     answer_text += payload.get("delta") or ""
+                elif payload.get("type") == "tool":
+                    for item in payload.get("touched") or []:
+                        if item.get("kind") == "note" and isinstance(item.get("id"), int):
+                            touched_note_ids.append(item["id"])
                 yield event(payload)
         except Exception as exc:  # noqa: BLE001  # same outer boundary as above,
             # for a failure that shows up partway through rather than before
@@ -1581,9 +1623,18 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
             # already trusts for this exact shape.
             yield event({"type": "answer", "delta": f"\n\nSomething went wrong: {safe_value(exc)}"})
         conversational = not intent.needs_retrieval(prepared["intent"])
-        if not conversational and prepared["notes"] and answer_text:
-            grounding = ground_answer_sentences(answer_text, prepared["notes"])
+        candidates = _grounding_candidates(session, prepared["notes"], touched_note_ids)
+        if not conversational and candidates and answer_text:
+            grounding = ground_answer_sentences(answer_text, candidates)
             if grounding:
+                # A touched note is not in `raw_results`, so the client has
+                # no text to name it by; the label rides on each entry.
+                labels = {
+                    note["id"]: " ".join(str(note.get("content") or "").split())[:60]
+                    for note in candidates
+                }
+                for row in grounding:
+                    row["label"] = labels.get(row["note_id"], "")
                 yield event({"type": "grounding", "sentences": grounding})
         if body.notes_only and answer_text:
             _save_ask_turn(session, question, answer_text, prepared)

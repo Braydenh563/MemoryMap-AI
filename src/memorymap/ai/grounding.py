@@ -21,6 +21,7 @@ is real enough to trust, and says nothing rather than guessing at the rest.
 from __future__ import annotations
 
 import re
+from collections import Counter
 
 from memorymap.search.search_manager import _meaningful_terms
 
@@ -33,6 +34,19 @@ MIN_OVERLAP_RATIO = 0.4
 # worth grounding, and the odds of it "matching" every note by chance are
 # too high to be useful.
 MIN_SENTENCE_WORDS = 4
+
+# The second signal, added after the owner reported an answer that named
+# three notes and cited one. A model paraphrases: "you planned to carry the
+# new boots up Snowdon" shares three words with a twelve-word sentence, well
+# under MIN_OVERLAP_RATIO, and yet nobody reading it doubts which note it
+# came from, because "boots" and "Snowdon" occur in exactly one candidate.
+# So a sentence carrying at least DISTINCTIVE_MIN_TERMS words that only one
+# candidate note contains is grounded to that note from DISTINCTIVE_MIN_RATIO
+# up. Distinctiveness is measured against the other candidates, so with a
+# single candidate every word is "distinctive" and the signal says nothing;
+# the rule therefore needs two or more notes to apply at all.
+DISTINCTIVE_MIN_RATIO = 0.2
+DISTINCTIVE_MIN_TERMS = 2
 
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z\d])")
 
@@ -56,11 +70,17 @@ def _word_set(text: str) -> set[str]:
 
 
 def ground_answer_sentences(answer: str, notes: list[dict]) -> list[dict]:
-    """One entry per sentence that has a real supporting note: `{"sentence":
-    str, "note_id": int}`. Sentences with no note clearing
-    `MIN_OVERLAP_RATIO`, or too short to score meaningfully, are omitted, 
-    the caller (and the frontend badge) treats "not in this list" as "not
-    grounded", never as "grounded to nothing", so omission is always safe.
+    """One entry per (sentence, supporting note): `{"sentence": str,
+    "note_id": int}`. Sentences with no note clearing either threshold, or
+    too short to score meaningfully, are omitted: the caller (and the
+    frontend badge) treats "not in this list" as "not grounded", never as
+    "grounded to nothing", so omission is always safe.
+
+    A sentence usually gets one note, the best overlap. It gets a second
+    only when that note is named by its own distinctive words too ("feed the
+    starter before you take the boots up Snowdon" is about both notes), never
+    by vocabulary the two notes share, which is the case the single-best rule
+    exists to keep honest.
     """
     if not answer or not notes:
         return []
@@ -68,17 +88,31 @@ def ground_answer_sentences(answer: str, notes: list[dict]) -> list[dict]:
     note_words = [(nid, words) for nid, words in note_words if nid is not None and words]
     if not note_words:
         return []
+    counts = Counter(word for _, words in note_words for word in words)
+    distinctive = (
+        [{w for w in words if counts[w] == 1} for _, words in note_words]
+        if len(note_words) >= 2
+        else [set() for _ in note_words]
+    )
 
     grounded: list[dict] = []
     for sentence in split_sentences(answer):
         sentence_words = _word_set(sentence)
         if len(sentence_words) < MIN_SENTENCE_WORDS:
             continue
-        best_id, best_ratio = None, 0.0
-        for note_id, words in note_words:
-            overlap = len(sentence_words & words) / len(sentence_words)
-            if overlap > best_ratio:
-                best_id, best_ratio = note_id, overlap
-        if best_id is not None and best_ratio >= MIN_OVERLAP_RATIO:
-            grounded.append({"sentence": sentence, "note_id": best_id})
+        scored: list[tuple[float, int, int]] = []
+        for (note_id, words), unique in zip(note_words, distinctive):
+            ratio = len(sentence_words & words) / len(sentence_words)
+            hits = len(sentence_words & unique)
+            if ratio >= MIN_OVERLAP_RATIO or (
+                ratio >= DISTINCTIVE_MIN_RATIO and hits >= DISTINCTIVE_MIN_TERMS
+            ):
+                scored.append((ratio, hits, note_id))
+        if not scored:
+            continue
+        scored.sort(reverse=True)
+        grounded.append({"sentence": sentence, "note_id": scored[0][2]})
+        for _ratio, hits, note_id in scored[1:]:
+            if hits >= DISTINCTIVE_MIN_TERMS:
+                grounded.append({"sentence": sentence, "note_id": note_id})
     return grounded

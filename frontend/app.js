@@ -9478,7 +9478,9 @@ function addInlineCitations(answerEl, sentences, rawResults) {
       link.type = "button";
       link.className = "answer-citation-link";
       const entry = byId.get(g.note_id);
-      const name = noteLabel({ content: entry?.content || "" }, 40);
+      // A note a tool read mid-turn is not in `rawResults`; the backend
+      // sends its opening words on the entry itself for exactly this case.
+      const name = noteLabel({ content: entry?.content || g.label || "" }, 40);
       link.textContent = String(numberFor.get(g.note_id));
       link.title = `Open the note this came from: ${name}`;
       link.setAttribute("aria-label", `Source ${numberFor.get(g.note_id)}: ${name}`);
@@ -9545,9 +9547,11 @@ function renderAnswerGrounding(target, sentences, rawResults, answerEl = null) {
   }
   const byId = new Map((rawResults || []).map((entry) => [entry.id, entry]));
   const byNote = new Map(); // note_id -> sentences[]
+  const labelFor = new Map(); // note_id -> backend label, for touched notes
   for (const g of sentences) {
     if (!byNote.has(g.note_id)) byNote.set(g.note_id, []);
     byNote.get(g.note_id).push(g.sentence);
+    if (g.label && !labelFor.has(g.note_id)) labelFor.set(g.note_id, g.label);
   }
   const label = document.createElement("span");
   label.className = "muted answer-grounding-label";
@@ -9562,7 +9566,10 @@ function renderAnswerGrounding(target, sentences, rawResults, answerEl = null) {
     chip.className = "chip result-reason-chip result-reason-connected answer-grounding-chip";
     // Numbered to match the markers `addInlineCitations` puts in the answer, 
     // the row is the key to those, so the two have to count the same way.
-    setLabel(chip, `ph:file-text ${n}. ${noteLabel({ content: entry?.content || "" }, 30)}`);
+    setLabel(
+      chip,
+      `ph:file-text ${n}. ${noteLabel({ content: entry?.content || labelFor.get(noteId) || "" }, 30)}`
+    );
     chip.title = forSentences.join(" ");
     chip.addEventListener("click", () => flashEntry(noteId));
     target.appendChild(chip);

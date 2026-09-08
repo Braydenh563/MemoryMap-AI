@@ -2411,6 +2411,29 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="doc-toolbar-mode" class="menu-item doc-dock-menu-item" type="button"
                   aria-pressed="false"
                   title="Switch between a wrapping toolbar and a single scrolling row"><i class="ph ph-rows ph-lead" aria-hidden="true"></i> <span id="doc-toolbar-mode-label">Use one scrolling row</span></button>
+                <!-- The two writing switches, moved out of the status bar
+                     (DOCUMENTS_PLAN Phase 0 item 3). They belong beside the
+                     other two things you set once per document rather than in
+                     the line that reports where the caret is. Both off by
+                     default and both remembered: software that changes what
+                     you typed without being asked is the thing everyone turns
+                     off first, so this asks.
+
+                     `.doc-dock-menu-check` keeps the menu open when one is
+                     pressed. Every other row here does something and is
+                     finished; a switch has a state you have to be able to see
+                     move, and a menu that shuts on the click hides the only
+                     feedback it gives. -->
+                <label class="menu-item doc-dock-menu-item doc-dock-menu-check checkbox-label"
+                  title="Fix a small list of unambiguous typos as you finish each word (teh, adn, recieve). Never in a code file.">
+                  <i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> <span>Autocorrect as I type</span>
+                  <input type="checkbox" id="doc-autocorrect">
+                </label>
+                <label class="menu-item doc-dock-menu-item doc-dock-menu-check checkbox-label"
+                  title="Suggest the rest of a word from this document and your notebook. Tab accepts one.">
+                  <i class="ph ph-text-aa ph-lead" aria-hidden="true"></i> <span>Suggest words as I type</span>
+                  <input type="checkbox" id="doc-complete" checked>
+                </label>
                 <button id="doc-delete" class="menu-item menu-danger doc-dock-menu-item" type="button"
                   title="Delete this document"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete document</button>
               </div>
@@ -2577,17 +2600,15 @@ Link to another note with [[its first few words]]."></textarea>
             aria-expanded="false" aria-controls="doc-prose-panel"
             title="Writing suggestions found in this document"><i class="ph ph-eyeglasses ph-lead" aria-hidden="true"></i> <span id="doc-prose-count">No suggestions</span></button>
           <span class="doc-statusbar-spacer"></span>
-          <!-- Both off by default, and both remembered. Software that changes
-               what you typed without being asked is the thing everyone turns
-               off first; this asks. -->
-          <label class="checkbox-label doc-statusbar-item"
-            title="Fix a small list of unambiguous typos as you finish each word (teh, adn, recieve…). Never in a code file.">
-            <input type="checkbox" id="doc-autocorrect"> Autocorrect
-          </label>
-          <label class="checkbox-label doc-statusbar-item"
-            title="Suggest the rest of a word from this document and your notebook — Tab to accept">
-            <input type="checkbox" id="doc-complete" checked> Suggestions
-          </label>
+          <!-- The Autocorrect and Suggestions switches used to sit here, and
+               they have moved into the document's own ⋯ menu (DOCUMENTS_PLAN
+               Phase 0 item 3). A status bar states; it does not configure.
+               Mixing two settings into the line that reports Ln/Col, the
+               counts and the findings meant the one line you glance at was
+               also a line you could change something in by accident, and it
+               put two 32px switches in a strip whose other items are text.
+               The ids and their handlers are unchanged, so nothing that
+               reads them had to learn a new place to look. -->
         </div>
         <!-- Reported: "the suggestion texbox is waaayy too small and there's
              no close x button." Both true: it was a 16rem box with no way out

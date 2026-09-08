@@ -135,12 +135,28 @@ function syncDocFileType() {
   // markup puts in front of the words.
   setLabel($("doc-export-md"), `ph:download-simple Download as .${type.ext}`);
   $("doc-export-md").title = `Download as a .${type.ext} file`;
+
+  //: **The prose check depends on the type, so a type change has to re-run
+  //: it.** `openDocument` gets this through `renderDocTools`; changing the
+  //: type of a document already open never did, and before Phase 0 that was
+  //: invisible: the findings simply stayed in a panel nobody had open. Now the
+  //: findings are drawn *on the document*, so switching a markdown file to
+  //: `.py` left squiggles under words in code, over a textarea whose own ink
+  //: is transparent, with the backdrop still laying the text out as `pre-wrap`
+  //: against a `white-space: pre` box. `renderDocProse` empties the findings
+  //: for a code file and `docSyncBackdrop` then takes the backdrop away and
+  //: gives the textarea its ink back.
+  renderDocProse();
 }
 
 // The dock's kebab closes when you pick something from it, and when you click
 // away — `<details>` gives everything else (open on click and on Enter/Space,
 // close on Escape, the ARIA) and neither of those two.
 document.getElementById("doc-dock-menu")?.addEventListener("click", (event) => {
+  //: Except the switches. Every other row here does one thing and is finished,
+  //: so closing is right; a switch has a state, and a menu that shuts on the
+  //: click hides the only feedback the switch gives you.
+  if (event.target.closest(".doc-dock-menu-check")) return;
   if (event.target.closest(".doc-dock-menu-item")) {
     document.getElementById("doc-dock-menu").open = false;
   }
@@ -225,6 +241,12 @@ function setDocView(mode) {
     }
   }
   if (docView === "live") renderDocLive();
+  //: After the panes have been shown and hidden, never before: the backdrop's
+  //: geometry is copied from a textarea that reports zeros while its wrapper
+  //: is `display: none`. The gutter's height has the same problem and the same
+  //: answer.
+  docSyncBackdrop();
+  syncDocGutterMetrics();
 }
 
 async function loadDocuments(selectId = null) {
@@ -1110,6 +1132,64 @@ function docGutters() {
     .filter((pair) => pair.box);
 }
 
+//: Everything that decides where a *row* sits. The stylesheet carries a static
+//: copy of these so the column is not unstyled before this runs, but the
+//: static copy is what went wrong: it said `padding-top: 0.5rem` while the
+//: textarea's own padding is `--space-4`, which is `calc(0.6rem *
+//: var(--density))`. Measured, at density 1, every number sat 1.59px above its
+//: line, and the density setting could widen that at will. A number beside the
+//: wrong line is not a small cosmetic error: it is the one thing a gutter is
+//: for.
+const DOC_GUTTER_PROPS = [
+  "fontFamily", "fontSize", "fontWeight", "fontStyle", "letterSpacing",
+  "lineHeight", "paddingTop", "paddingBottom",
+];
+
+//: **The gutter is clipped to the textarea, not to the row it sits in.**
+//: Reported with a screenshot: numbers 1 to 18 continuing below a textarea
+//: that ended at 11. Both wrappers (`.doc-source-wrap` and `.gutter-wrap`) are
+//: `align-items: stretch` flex rows, so the gutter took the row's height while
+//: the textarea took its own; dragging `#doc-content`'s native resize handle
+//: shorter left the column running on down the card. Measured before this: a
+//: 260px textarea beside a 585px gutter, 325.4px of numbers past the end of
+//: the box they number, and even untouched the gutter was 9.6px too tall.
+//:
+//: The height is also what makes the scroll lock-step possible at all. A
+//: gutter that is taller than its textarea has a *shorter* scrollable range,
+//: so `gutter.scrollTop = box.scrollTop` silently clamps: measured, the box at
+//: 200 and the gutter stuck at 139, which is two and a half lines of drift
+//: that grows the further down you scroll. Same height, same content height,
+//: same range, and the assignment is then exact.
+function syncDocGutterMetrics(only = null) {
+  for (const { gutter, box } of docGutters()) {
+    if (only && box !== only) continue;
+    if (gutter.classList.contains("hidden")) continue;
+    const metrics = getComputedStyle(box);
+    for (const prop of DOC_GUTTER_PROPS) gutter.style[prop] = metrics[prop];
+    gutter.style.height = `${box.offsetHeight}px`;
+  }
+}
+
+//: **The box changes height for reasons no event reports.** Dragging
+//: `#doc-content`'s own `resize: vertical` handle, opening or closing the chat
+//: dock, switching to Split, a note's textarea growing as it is typed into: a
+//: `window.resize` listener sees none of them, and the height is exactly what
+//: was wrong. One observer, every numbered box.
+let docGutterObserver = null;
+
+function watchDocGutter(box) {
+  if (!box || typeof ResizeObserver !== "function") return;
+  if (!docGutterObserver) {
+    docGutterObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) syncDocGutterMetrics(entry.target);
+    });
+  }
+  //: Observing the same element twice replaces the registration rather than
+  //: adding a second one, so this is safe to call on every mount and every
+  //: toggle.
+  docGutterObserver.observe(box);
+}
+
 function renderDocGutter(only = null) {
   for (const { gutter, box } of docGutters()) {
     if (only && box !== only) continue;
@@ -1119,6 +1199,10 @@ function renderDocGutter(only = null) {
     // is 5,000 elements to build and lay out on every keystroke otherwise,
     // and the gutter is doing nothing that needs per-line nodes.
     gutter.textContent = Array.from({ length: lines }, (_, i) => i + 1).join("\n");
+    //: Height on every paint, not only on mount: the textarea grows and
+    //: shrinks with the pane, with the chat dock, and with its own resize
+    //: handle, and none of those tells this code anything.
+    gutter.style.height = `${box.offsetHeight}px`;
     gutter.scrollTop = box.scrollTop;
   }
 }
@@ -1150,13 +1234,13 @@ function mountGutterFor(textarea) {
   const on = docGutterPref() === "1";
   gutter.classList.toggle("hidden", !on);
   textarea.classList.toggle("has-gutter", on);
+  //: One copy routine for every gutter in the app, so the documents editor's
+  //: static `#doc-gutter` and the two note boxes' mounted ones cannot disagree
+  //: about which properties matter. It grew `height` and the font weight and
+  //: style when the column was measured against the text it numbers.
   const copyMetrics = () => {
-    const metrics = getComputedStyle(textarea);
-    gutter.style.fontFamily = metrics.fontFamily;
-    gutter.style.fontSize = metrics.fontSize;
-    gutter.style.lineHeight = metrics.lineHeight;
-    gutter.style.paddingTop = metrics.paddingTop;
-    gutter.style.paddingBottom = metrics.paddingBottom;
+    syncDocGutterMetrics(textarea);
+    watchDocGutter(textarea);
     renderDocGutter(textarea);
   };
   if (textarea.isConnected) copyMetrics();
@@ -2988,12 +3072,39 @@ $("doc-content").addEventListener("input", () => {
   markDocDirty();
   scheduleDocPreview();
   renderDocGutter();
+  //: Repainted on *every* keystroke, not on the debounced prose pass: the
+  //: backdrop is the visible text now, so a repaint that waits is a character
+  //: you typed and cannot see yet. The marks it draws are only the ones that
+  //: still match the text (`docBackdropFindings`), so this is safe to run
+  //: between passes.
+  docPaintBackdrop();
 });
 // The gutter is a separate element beside the textarea, so it has to be told
-// to follow it — a textarea's own scroll does not move its siblings.
+// to follow it, because a textarea's own scroll does not move its siblings. The
+// backdrop is the same problem one layer down: it is a scrolling box of its
+// own, and text that does not follow the textarea's scroll is an underline
+// under the wrong line the moment the document is taller than the pane.
 $("doc-content").addEventListener("scroll", () => {
   const gutter = $("doc-gutter");
   if (gutter && !gutter.classList.contains("hidden")) gutter.scrollTop = $("doc-content").scrollTop;
+  const back = docBackdropEl;
+  if (back && !back.classList.contains("hidden")) {
+    back.scrollTop = $("doc-content").scrollTop;
+    back.scrollLeft = $("doc-content").scrollLeft;
+  }
+});
+//: **Composition text is not in `value` yet, and transparent ink would hide
+//: it.** Typing Japanese or Chinese puts a preview string in the textarea that
+//: no `input` event has reported, so the backdrop has nothing to paint for it
+//: and with the textarea's own ink transparent the writer would be typing
+//: into what looks like an empty box. The ink comes back for the length of the
+//: composition, which costs one frame of double-drawn text at the end of it
+//: and is the only honest trade available here.
+$("doc-content").addEventListener("compositionstart", () => {
+  $("doc-content").classList.remove("has-backdrop");
+});
+$("doc-content").addEventListener("compositionend", () => {
+  docSyncBackdrop();
 });
 // The document-textarea resize gap (Priority 0 #1): dragging #doc-content's
 // native `resize: vertical` handle shorter pins the textarea's own height,
@@ -3586,11 +3697,23 @@ function applyDocGutter() {
       ? docGutterWanted(box.classList.contains("doc-content-code"))
       : docGutterPref() === "1";
     gutter.classList.toggle("hidden", !on);
-    // Numbers only line up against hard lines, so a numbered box stops
-    // soft-wrapping — the same rule `.doc-content-code` already applies.
-    if (!isDoc) box.classList.toggle("has-gutter", on);
+    //: Numbers only line up against hard lines, so a numbered box stops
+    //: soft-wrapping, which is the same rule `.doc-content-code` already
+    //: applies.
+    //:
+    //: **The documents editor used to be excluded from this**, on the
+    //: assumption that a numbered document is always a code file and so
+    //: already has `.doc-content-code`. It is not: `docGutterWanted` honours a
+    //: remembered "1", so anyone who turned line numbers on sees them on a
+    //: markdown document too, where the textarea soft-wraps and the column
+    //: does not. That is one number lost per wrapped line, accumulating down
+    //: the file, which is exactly the "line numbers drift out of sync with the
+    //: text" that was reported.
+    box.classList.toggle("has-gutter", on);
     anyOn = anyOn || on;
   }
+  syncDocGutterMetrics();
+  watchDocGutter($("doc-content"));
   for (const button of document.querySelectorAll(".doc-toolbar-gutter")) {
     const bar = button.closest(".doc-toolbar");
     const own = bar?.id === "doc-toolbar"
@@ -4106,7 +4229,235 @@ function renderDocProse() {
   //: than patched: the live view owns its own DOM and the cheapest correct
   //: answer is to let it repaint.
   if (docView === "live") renderDocLive(true);
+  //: Source view's marks live on the backdrop, and this is the one place that
+  //: knows the findings just changed.
+  docSyncBackdrop();
   if (!panel.classList.contains("hidden")) renderDocProsePanel();
+}
+
+// =============================================================================
+// The backdrop: underlines in Source view (DOCUMENTS_PLAN.md §4 A, Phase 0)
+// =============================================================================
+//
+// **What this replaces, and why it is not a hack.** Until now the comment
+// further down this file (at `docFindingAtOffset`) said the honest thing: a
+// `<textarea>`'s value is a string, so nothing in Source view can be
+// underlined, and the substitute was "double-click the word and we look up
+// the caret offset". Nothing on screen said so, which made the app's most
+// asked-for writing feature invisible in the view most people write in.
+//
+// The technique is the one every textarea-based editor uses: a div behind the
+// textarea holding the same text in the same type at the same size, and a
+// textarea whose own ink is transparent. The div carries the `<mark>`s; the
+// textarea keeps the caret, the selection, native undo, IME, the browser's own
+// spellcheck and every keyboard behaviour a real editing surface has. The
+// reader looks at the div and types into the textarea, and the two are one
+// thing only for as long as their geometry agrees exactly.
+//
+// **Built with `createTextNode`, never `innerHTML`.** The backdrop holds the
+// document's own text; a document containing `<script>` or `<img onerror=…>`
+// is an ordinary markdown document, and building this with a template string
+// would turn every such document into an injection into the app's own page.
+
+//: Everything that decides where a glyph lands. Missing one is not a small
+//: error: the drift accumulates down the document, so the underline is right
+//: at the top of the file and a word out by the bottom, which is exactly how
+//: a backdrop stops being better than no backdrop at all. `borderRadius` and
+//: the border widths are here because the backdrop paints the field's
+//: background under a transparent-backgrounded textarea, so it has to be the
+//: same shape, and because a border's width moves the content box.
+const DOC_BACKDROP_PROPS = [
+  "boxSizing", "fontFamily", "fontSize", "fontWeight", "fontStyle",
+  "fontVariant", "letterSpacing", "lineHeight", "textAlign", "textIndent",
+  "textTransform", "whiteSpace", "overflowWrap", "wordSpacing", "wordBreak",
+  "tabSize", "direction", "paddingTop", "paddingRight", "paddingBottom",
+  "paddingLeft", "borderTopWidth", "borderRightWidth", "borderBottomWidth",
+  "borderLeftWidth", "borderRadius",
+];
+
+//: A long sentence is the one finding that must not be underlined: the span is
+//: a whole paragraph, and a wavy line under all of it says "everything here is
+//: wrong", which is the opposite of what that finding means. The same
+//: restraint `docMarkLiveFindings` already shows, for the same reason.
+const DOC_BACKDROP_SKIP = new Set(["long-sentence"]);
+
+//: Three kinds, because three is what a reader can decode at a glance from the
+//: shape of a line. The rules are more numerous than that (there are eight),
+//: but "a spacing slip" and "a UK/US spelling" are the same *kind* of note as
+//: far as the eye is concerned, and both are answered the same way.
+function docFindingKind(finding) {
+  if (finding.rule === "spelling") return "spelling";
+  if (finding.rule === "repeat") return "repeat";
+  return "style";
+}
+
+//: Source view only, and only where there is prose to check. A code file has
+//: no findings at all (`renderDocProse` empties them), so a backdrop over one
+//: would be a second copy of the text buying nothing, and it would have to
+//: fight `.doc-content-code`'s `white-space: pre` and its horizontal scroll to
+//: do it.
+function docBackdropWanted() {
+  if (docView !== "source" && docView !== "split") return false;
+  return docFileType().previewable;
+}
+
+//: Found by class rather than by id, and cached: the same shape `docMirror`
+//: uses a few storeys up, for the same reason: an element this file creates
+//: has nothing to declare in index.html, and `tests/test_frontend_ids.py`
+//: rightly fails a `$("…")` lookup that the markup cannot answer.
+let docBackdropEl = null;
+
+function docBackdrop() {
+  if (docBackdropEl && docBackdropEl.isConnected) return docBackdropEl;
+  const box = $("doc-content");
+  if (!box || !box.parentElement) return null;
+  docBackdropEl = box.parentElement.querySelector(".doc-backdrop");
+  if (docBackdropEl) return docBackdropEl;
+  docBackdropEl = document.createElement("div");
+  docBackdropEl.className = "doc-backdrop hidden";
+  //: It is a duplicate of text the textarea already exposes to the
+  //: accessibility tree, and announcing it twice would make the document read
+  //: itself out twice to a screen reader.
+  docBackdropEl.setAttribute("aria-hidden", "true");
+  box.parentElement.insertBefore(docBackdropEl, box);
+  return docBackdropEl;
+}
+
+//: The CSSOM copy. An inline `style=` attribute in the markup would be refused
+//: by this app's CSP (the note at `mountGutterFor` records the same
+//: constraint); `element.style.x = …` is the allowed way to write a computed
+//: geometry, and it is the only way to write one that is *measured* rather
+//: than guessed.
+function docSyncBackdropMetrics() {
+  const box = $("doc-content");
+  const back = docBackdrop();
+  if (!box || !back) return;
+  const metrics = getComputedStyle(box);
+  for (const prop of DOC_BACKDROP_PROPS) back.style[prop] = metrics[prop];
+  //: Placed against `.doc-source-wrap`, which the CSS makes the positioning
+  //: context. Measured rather than assumed, because the textarea is centred
+  //: by `margin-inline: auto` inside a 78ch measure and may sit beside a
+  //: gutter, and neither of those is something a fixed rule here could know.
+  //:
+  //: Rects, not `offsetLeft`/`offsetWidth`: those round to whole pixels, and
+  //: the textarea's real box here is 691.1875 wide at x=512.40625. Rounding it
+  //: put the backdrop 0.41px to the left of the text it is drawing, which is
+  //: under the 1px the sweep asserts but is drift bought for nothing.
+  //: `getBoundingClientRect` carries the fraction.
+  const boxRect = box.getBoundingClientRect();
+  const anchor = back.offsetParent || box.parentElement;
+  const anchorRect = anchor.getBoundingClientRect();
+  const anchorStyle = getComputedStyle(anchor);
+  //: `offsetLeft` is measured from the offsetParent's *padding* edge, so the
+  //: border has to come out of a rect-to-rect difference to mean the same
+  //: thing.
+  back.style.left = `${boxRect.left - anchorRect.left - Number.parseFloat(anchorStyle.borderLeftWidth || 0)}px`;
+  back.style.top = `${boxRect.top - anchorRect.top - Number.parseFloat(anchorStyle.borderTopWidth || 0)}px`;
+  back.style.width = `${boxRect.width}px`;
+  back.style.height = `${boxRect.height}px`;
+  back.scrollTop = box.scrollTop;
+  back.scrollLeft = box.scrollLeft;
+}
+
+//: Only the findings that still describe the text as it is *now*. The prose
+//: pass is debounced, so between a keystroke and the next pass every offset
+//: after the caret is stale, and painting a stale offset draws a squiggle
+//: under the wrong word, which is the one thing a checker must never do. The
+//: check is a string compare per finding over a list that is rarely past a
+//: few dozen, so it costs nothing and it means an underline elsewhere in the
+//: document stays put while you type rather than flickering off and back.
+function docBackdropFindings(text) {
+  return docProseFound.filter(
+    (finding) =>
+      !DOC_BACKDROP_SKIP.has(finding.rule) &&
+      text.slice(finding.start, finding.end) === finding.text
+  );
+}
+
+function docPaintBackdrop() {
+  const box = $("doc-content");
+  const back = docBackdrop();
+  if (!box || !back || back.classList.contains("hidden")) return;
+  const text = box.value;
+  const frag = document.createDocumentFragment();
+  let at = 0;
+  for (const finding of docBackdropFindings(text)) {
+    //: Findings are sorted by start but two rules can overlap (a double space
+    //: inside a repeated word). The first one wins rather than nesting: a mark
+    //: inside a mark would draw two underlines on one word.
+    if (finding.start < at) continue;
+    if (finding.start > at) frag.appendChild(document.createTextNode(text.slice(at, finding.start)));
+    const mark = document.createElement("mark");
+    mark.className = `doc-finding doc-finding-${docFindingKind(finding)}`;
+    //: Hung on the element so a point can be turned back into a finding
+    //: without arithmetic (`docFindingAtPoint`), the same way the Live view's
+    //: marks carry theirs. Re-deriving it from the text would pick the wrong
+    //: one wherever a word is flagged twice.
+    mark._docFinding = finding;
+    mark.appendChild(document.createTextNode(text.slice(finding.start, finding.end)));
+    frag.appendChild(mark);
+    at = finding.end;
+  }
+  //: The trailing newline, and it is not cosmetic. CSS removes a segment break
+  //: at the end of a block, so a document ending in a blank line is one line
+  //: shorter on the backdrop than in the textarea, and from that point the
+  //: two scroll out of step, which puts every underline on the wrong line at
+  //: the bottom of a long file. One extra break restores the parity; where the
+  //: text does not end in a break, this one is the one that gets removed and
+  //: nothing changes.
+  frag.appendChild(document.createTextNode(`${text.slice(at)}\n`));
+  back.replaceChildren(frag);
+}
+
+//: Everything at once: mount it if it is wanted, take it out of the way if it
+//: is not. Called whenever the findings change, the view changes or the box
+//: resizes: the three things that can put the two layers out of step.
+function docSyncBackdrop() {
+  //: **`var`, and it has to be.** `setDocView` runs at module load, hundreds of
+  //: lines above this section, and it calls this. But `const`/`let` at module
+  //: scope are hoisted into a temporal dead zone, so reading `docProseFound` or
+  //: `DOC_BACKDROP_PROPS` from up there throws `Cannot access … before
+  //: initialization` (measured, in the browser: the same trap `renderDocTools`
+  //: records a few storeys down, and the reason `typeof` cannot be used as the
+  //: guard either: it throws for a binding in the dead zone too). A `var` is
+  //: hoisted as `undefined`, so this is the one flag that can be *read* before
+  //: it is set. Nothing is lost by the early return: the last line of this file
+  //: paints the editor once everything is initialised.
+  if (!docBackdropArmed) return;
+  const box = $("doc-content");
+  if (!box) return;
+  const wanted = docBackdropWanted();
+  const back = wanted ? docBackdrop() : docBackdropEl;
+  if (!back) return;
+  back.classList.toggle("hidden", !wanted);
+  //: The class is what makes the textarea's own ink transparent, so it comes
+  //: off the moment the backdrop is not painting: a code file with an
+  //: invisible-ink textarea and no backdrop behind it is a blank editor.
+  box.classList.toggle("has-backdrop", wanted);
+  if (!wanted) return;
+  docSyncBackdropMetrics();
+  docPaintBackdrop();
+  docWatchBackdropSize(box);
+}
+
+//: **The box changes size for four reasons and only one of them is a window
+//: resize.** Dragging the textarea's own `resize: vertical` handle, opening
+//: the chat dock, switching to Split, toggling `.doc-wide` or the gutter. A
+//: `window.resize` listener sees none of those. One observer on the element
+//: itself sees all five.
+let docBackdropObserver = null;
+
+//: Read the comment at the top of `docSyncBackdrop` before changing this to a
+//: `let`: it is a `var` on purpose, and the reason is a real crash.
+var docBackdropArmed = true;
+
+function docWatchBackdropSize(box) {
+  if (docBackdropObserver || typeof ResizeObserver !== "function") return;
+  docBackdropObserver = new ResizeObserver(() => {
+    if (!docBackdropEl || docBackdropEl.classList.contains("hidden")) return;
+    docSyncBackdropMetrics();
+  });
+  docBackdropObserver.observe(box);
 }
 
 //: One header for both states of the panel: what it is, what can be done to
@@ -4190,9 +4541,48 @@ function renderDocProsePanel() {
   }
   panel.appendChild(docProseHeader());
 
+  //: **Grouped by kind, with a count on each group** (DOCUMENTS_PLAN Phase 0
+  //: item 3). A flat list of twenty rows is twenty separate decisions in
+  //: whatever order the document happens to put them; "Spelling 3 / Style 11 /
+  //: Repeated words 2" is one look that tells you what kind of pass this
+  //: document needs, and it lets you do all of one kind at a time, which is
+  //: how anyone actually edits. The order is fixed rather than by size, so the
+  //: strongest claim is always at the top and the panel does not reshuffle
+  //: itself between two openings.
+  for (const [kind, label] of DOC_FINDING_GROUPS) {
+    const group = docProseFound.filter((finding) => docFindingKind(finding) === kind);
+    if (!group.length) continue;
+    const heading = document.createElement("p");
+    heading.className = "doc-prose-group";
+    const name = document.createElement("span");
+    name.textContent = label;
+    const count = document.createElement("span");
+    count.className = "doc-prose-group-count";
+    count.textContent = String(group.length);
+    heading.append(name, count);
+    panel.appendChild(heading);
+    panel.appendChild(docProseGroupList(group));
+  }
+}
+
+//: The three kinds the underlines already draw, in the order of how strong a
+//: claim each one is. Named here rather than in the panel so the group title
+//: and the squiggle can never drift apart.
+const DOC_FINDING_GROUPS = [
+  ["spelling", "Spelling"],
+  ["repeat", "Repeated words"],
+  ["style", "Style and spacing"],
+];
+
+//: Sixty rows, over all the groups rather than per group: the cap is there so
+//: a pathological document cannot build ten thousand elements, and a cap that
+//: applied per group would let three kinds multiply it by three.
+const DOC_PROSE_ROWS = 60;
+
+function docProseGroupList(findings) {
   const list = document.createElement("ul");
   list.className = "doc-prose-list";
-  for (const finding of docProseFound.slice(0, 60)) {
+  for (const finding of findings.slice(0, DOC_PROSE_ROWS)) {
     const li = document.createElement("li");
     li.className = "doc-prose-row";
     const jump = document.createElement("button");
@@ -4205,8 +4595,12 @@ function renderDocProsePanel() {
     where.className = "doc-prose-where muted";
     //: The words themselves, trimmed — a row reading only "a very long
     //: sentence" makes you go and find it, which is the work the row was
-    //: supposed to save.
-    where.textContent = finding.text.replace(/\s+/g, " ").slice(0, 80);
+    //: supposed to save. `docFindingLabel` for the same reason the menu's
+    //: heading uses it: a spacing finding's own text is whitespace, and a row
+    //: with a blank second half reads as a row that failed to load.
+    where.textContent = finding.text.trim()
+      ? finding.text.replace(/\s+/g, " ").slice(0, 80)
+      : docFindingLabel(finding);
     jump.append(what, where);
     jump.title = "Show me this in the document, and what can be done about it";
     jump.addEventListener("click", (event) => {
@@ -4229,7 +4623,7 @@ function renderDocProsePanel() {
     }
     list.appendChild(li);
   }
-  panel.appendChild(list);
+  return list;
 }
 
 //: **Show me where — and make it obvious for a moment.**
@@ -4560,6 +4954,8 @@ function docSaveToolPref(name, on) {
   }
 }
 
+const DOC_PROSE_DEBOUNCE_MS = 150;
+
 let docProseTimer = null;
 let docVocabTimer = null;
 
@@ -4568,10 +4964,25 @@ function docToolsOnInput(box) {
   renderDocComplete(box);
   //: Debounced, both of them: the prose pass walks the whole document and the
   //: vocabulary re-splits it, and neither is worth doing between two
-  //: keystrokes. 400ms is under the pause at the end of a sentence, so in
-  //: practice the panel is current whenever anyone looks at it.
+  //: keystrokes.
+  //:
+  //: **150ms, down from 400.** The pause is no longer only about when the
+  //: *panel* is current. Since Phase 0 it is also when the squiggle appears
+  //: under the word you just misspelt, and DOCUMENTS_PLAN's acceptance for
+  //: that is 300ms from the keystroke. At 400 the underline could not make it
+  //: even with a free pass.
+  //:
+  //: The work itself is cheap, measured on a 2,629-character document in the
+  //: sandbox Chromium: 0.82ms to find the findings, 6.3ms for the whole
+  //: `renderDocProse` (which repaints the chip and, in Live view, the blocks),
+  //: 0.07ms to repaint the backdrop. So the number here is almost the whole
+  //: latency, and it is set for headroom rather than for the average: at 200
+  //: the sweep measured 284ms end to end against a 300ms bound, which is a
+  //: check that would fail on a slower machine while nothing was wrong.
+  //: Still well over the gap between two keystrokes of ordinary typing, so
+  //: this does not run mid-word.
   clearTimeout(docProseTimer);
-  docProseTimer = setTimeout(renderDocProse, 400);
+  docProseTimer = setTimeout(renderDocProse, DOC_PROSE_DEBOUNCE_MS);
   clearTimeout(docVocabTimer);
   docVocabTimer = setTimeout(() => {
     docCompleteWords = null;
@@ -4729,51 +5140,116 @@ function docOffsetOf(box) {
   return base === null ? null : base + box.selectionStart;
 }
 
-//: **The character under the pointer, not the character the caret happens to
-//: be at.** Right-clicking a word is how everyone expects to be offered a
-//: correction for *that* word — but a right-click does not reliably move the
+//: **The word under the pointer, found by asking the marks rather than the
+//: textarea.** Right-clicking a word is how everyone expects to be offered a
+//: correction for *that* word, and a right-click does not reliably move the
 //: caret first, so reading `selectionStart` answered a question about wherever
-//: the caret was last left, which is usually somewhere else entirely. That is
-//: half of "i still cant select on an underlined incorrectly spelled word and
-//: have a popup with suggestions".
+//: the caret was last left. That is half of "i still cant select on an
+//: underlined incorrectly spelled word and have a popup with suggestions".
 //:
-//: `caretPositionFromPoint` (and WebKit's older `caretRangeFromPoint`) gives
-//: the index inside a `<textarea>` directly. Falls back to the caret when
-//: neither exists or the point is outside the box, which is the old behaviour
-//: rather than a failure.
-function docOffsetAtPoint(box, x, y) {
-  if (typeof x !== "number" || typeof y !== "number") return docOffsetOf(box);
-  let offset = null;
-  if (document.caretPositionFromPoint) {
-    const position = document.caretPositionFromPoint(x, y);
-    if (position && position.offsetNode === box) offset = position.offset;
-  } else if (document.caretRangeFromPoint) {
-    const range = document.caretRangeFromPoint(x, y);
-    if (range && range.startContainer === box) offset = range.startOffset;
+//: This used to call `document.caretPositionFromPoint`, and **that was wrong
+//: in a way nothing here could see.** Measured in Chromium against a running
+//: app: inside a `<textarea>` it returns the offset *within the visual line*,
+//: not within the value. A caret at document offset 29 hit-tests as 6, at 50
+//: as 5, at 60 as 15. So on every line but the first it looked up a finding at
+//: an offset tens or hundreds of characters earlier, which either opened the
+//: wrong word's menu or, far more often, silently found nothing and let the
+//: browser's own menu through. The feature read as "sometimes it works".
+//:
+//: Since Phase 0 there is a better answer than an offset: both views now have
+//: a real element at the exact place the finding is (Live has its
+//: `.doc-flag`, Source has the backdrop's `.doc-finding`), so the question
+//: "which finding is under this point" is a rectangle test against boxes the
+//: browser itself laid out. No arithmetic, nothing to get wrong about
+//: wrapping, and it is the same element the menu is then anchored to.
+function docFindingMarks() {
+  const marks = [];
+  if (docBackdropEl && !docBackdropEl.classList.contains("hidden")) {
+    marks.push(...docBackdropEl.querySelectorAll(".doc-finding"));
   }
-  if (offset === null) return docOffsetOf(box);
-  if (box.id === "doc-content") return offset;
-  const base = docLiveBlockOffset(box);
-  return base === null ? null : base + offset;
+  const live = $("doc-live");
+  if (live && docView === "live") marks.push(...live.querySelectorAll(".doc-flag"));
+  return marks;
 }
 
-function docOpenSuggestAtCaret(box, point = null) {
-  const offset = point ? docOffsetAtPoint(box, point.x, point.y) : docOffsetOf(box);
-  if (offset === null) return false;
-  const finding = docFindingAtOffset(offset);
-  if (!finding) return false;
+function docFindingAtPoint(x, y) {
+  if (typeof x !== "number" || typeof y !== "number") return null;
+  for (const mark of docFindingMarks()) {
+    if (!mark._docFinding) continue;
+    const rect = mark.getBoundingClientRect();
+    if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+      return mark._docFinding;
+    }
+  }
+  return null;
+}
+
+//: Anchored to the word, not to the caret, wherever the word is a real
+//: element. A menu that opens at the caret when the pointer is on the word is
+//: a menu you have to look away to find.
+function docOpenSuggestFor(finding, focus = true) {
+  const mark = docFindingMarks().find((el) => el._docFinding === finding);
+  if (mark) {
+    openDocSuggest(finding, mark.getBoundingClientRect(), focus);
+    return true;
+  }
+  const box = docActiveBox() || $("doc-content");
+  if (!box) return false;
   const at = docCaretPoint(box);
-  openDocSuggest(finding, {
-    left: at.x,
-    top: at.y,
-    bottom: at.y + at.lineHeight,
-  });
+  openDocSuggest(finding, { left: at.x, top: at.y, bottom: at.y + at.lineHeight }, focus);
   return true;
+}
+
+function docOpenSuggestAtCaret(box, point = null, focus = true) {
+  let finding = point ? docFindingAtPoint(point.x, point.y) : null;
+  if (!finding) {
+    //: The fallback, and it is the right one for a double-click: that gesture
+    //: selects the word first, so the caret really is inside it.
+    const offset = docOffsetOf(box);
+    if (offset === null) return false;
+    finding = docFindingAtOffset(offset);
+  }
+  if (!finding) return false;
+  return docOpenSuggestFor(finding, focus);
 }
 
 document.addEventListener("dblclick", (event) => {
   const box = docToolsBoxFor(event.target);
   if (box) docOpenSuggestAtCaret(box, { x: event.clientX, y: event.clientY });
+});
+
+//: **One click on an underlined word, which is what an underline means
+//: everywhere else.** DOCUMENTS_PLAN Phase 0 item 2, and the instruction it
+//: comes from: "if something gets underlined, I want to be able to click on
+//: that and see suggestions". Double-click and right-click both still work,
+//: unchanged; this is the gesture nobody had to be told about.
+//:
+//: Two details decide whether this is helpful or infuriating:
+//:
+//:   * **The caret has not moved yet.** The click that opens this menu is the
+//:     same click that places the caret, and `selectionStart` still holds the
+//:     old position while the event is being dispatched. Read on the next
+//:     frame, so the offset is the one the person just clicked.
+//:   * **It does not take the focus.** A double-click or a right-click is a
+//:     request for the menu, so those move focus into it; a plain click is
+//:     usually someone putting the caret in a word to fix it by hand, and
+//:     stealing focus would send their next keystrokes to a button. The menu
+//:     opens beside the word and the caret stays where they put it, so typing
+//:     just carries on and the menu closes on the next edit.
+document.addEventListener("click", (event) => {
+  if (event.detail > 1 || event.altKey || event.ctrlKey || event.metaKey) return;
+  const box = docToolsBoxFor(event.target);
+  if (!box) return;
+  const point = { x: event.clientX, y: event.clientY };
+  requestAnimationFrame(() => {
+    //: A drag that selected something is not a click on a word.
+    if (box.selectionStart !== box.selectionEnd) return;
+    const finding = docFindingAtPoint(point.x, point.y) || docFindingAtOffset(docOffsetOf(box) ?? -1);
+    if (!finding) return;
+    //: Already open on this one (a double-click's first click got here first).
+    if (docSuggestOpenFor === finding) return;
+    docOpenSuggestFor(finding, false);
+  });
 });
 
 document.addEventListener("contextmenu", (event) => {
@@ -4809,6 +5285,82 @@ document.addEventListener("mousedown", (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
+  if (!$("doc-suggest-menu")?.classList.contains("hidden")) closeDocSuggest();
+});
+
+//: **The keyboard half of "click the underline", and both gestures are
+//: borrowed rather than invented.** `Alt+Enter` on a flagged word opens its
+//: menu and `F8`/`Shift+F8` walk the findings, which is what VS Code has
+//: bound to exactly these two jobs; anyone who writes code already knows
+//: them, and anyone who does not loses nothing. Word's own F7 is taken by
+//: this app's shortcuts, and stepping through problems is the half people
+//: actually use.
+//:
+//: They work from the menu as well as from the text: after F8 the focus is on
+//: the first suggestion, and pressing F8 again there has to mean "the next
+//: one" rather than nothing at all.
+function docFindingKeyBox(target) {
+  const box = docToolsBoxFor(target);
+  if (box) return box;
+  const menu = $("doc-suggest-menu");
+  if (menu && !menu.classList.contains("hidden") && menu.contains(target)) {
+    return docActiveBox() || $("doc-content");
+  }
+  return null;
+}
+
+//: The next finding after the caret, wrapping at the end. Wrapping rather than
+//: stopping, because a stepper that goes quiet at the last item reads as
+//: broken; the flash `docProseJump` draws is what says "back to the top".
+function docFindingStep(box, backwards) {
+  if (!docProseFound.length) return null;
+  const here = docSuggestOpenFor && docProseFound.includes(docSuggestOpenFor)
+    ? docSuggestOpenFor
+    : null;
+  //: Measured from the open menu's finding when there is one, so a run of F8s
+  //: advances instead of returning to the same word: opening a menu leaves
+  //: the caret inside the finding, and "the next one after the caret" would
+  //: then be this one again.
+  const from = here ? (backwards ? here.start : here.end) : docOffsetOf(box) ?? 0;
+  if (backwards) {
+    const before = docProseFound.filter((finding) => finding.end < from);
+    return before.length ? before[before.length - 1] : docProseFound[docProseFound.length - 1];
+  }
+  return docProseFound.find((finding) => finding.start > from) || docProseFound[0];
+}
+
+function docGoToFinding(finding) {
+  if (!finding) return false;
+  docProseJump(finding);
+  //: One frame, because `docProseJump` may have switched the view, scrolled a
+  //: textarea or re-rendered the Live blocks, and the menu is anchored to a
+  //: rectangle that none of those had settled yet.
+  requestAnimationFrame(() => docOpenSuggestFor(finding, true));
+  return true;
+}
+
+document.addEventListener("keydown", (event) => {
+  const box = docFindingKeyBox(event.target);
+  if (!box) return;
+  if (event.key === "Enter" && event.altKey) {
+    const offset = docOffsetOf(box);
+    const finding = offset === null ? null : docFindingAtOffset(offset);
+    if (!finding) return;
+    event.preventDefault();
+    docOpenSuggestFor(finding, true);
+    return;
+  }
+  if (event.key !== "F8") return;
+  if (!docProseFound.length) return;
+  event.preventDefault();
+  docGoToFinding(docFindingStep(box, event.shiftKey));
+});
+
+//: An edit moves every offset after it, so the menu that is open is about a
+//: span that may no longer be there. Closed rather than refreshed: the person
+//: has started typing, which is an answer to the suggestion.
+document.addEventListener("input", (event) => {
+  if (!docToolsBoxFor(event.target)) return;
   if (!$("doc-suggest-menu")?.classList.contains("hidden")) closeDocSuggest();
 });
 
@@ -4969,6 +5521,9 @@ function docDictionary() {
 
 async function docDictionaryWrite(words) {
   docDictionarySet = new Set(words.map((word) => word.toLowerCase()));
+  //: The ranked suggestions are drawn from this list, so a word added here has
+  //: to be offerable on the very next menu rather than after a reload.
+  docKnownWordsCache = null;
   prefsCache = await apiJson("/preferences", {
     method: "PUT",
     body: JSON.stringify({ writing_dictionary: [...docDictionarySet].sort() }),
@@ -4989,7 +5544,11 @@ async function docDictionaryAdd(word) {
 const docProseIgnored = new Set();
 
 function docProseKey(finding) {
-  return `${finding.rule}:${finding.text.toLowerCase()}`;
+  //: Scoped to the document, because the row says "in this document" and a
+  //: dismissal that silently applied to the next document you opened would be
+  //: the checker turning itself off with no way to see that it had.
+  const scope = currentDoc && currentDoc.id ? currentDoc.id : "unsaved";
+  return `${scope}:${finding.rule}:${finding.text.toLowerCase()}`;
 }
 
 //: **The popup, and the four answers a person actually has.** Fix it, this is
@@ -5003,28 +5562,192 @@ function closeDocSuggest() {
   docSuggestOpenFor = null;
 }
 
+// --- ranking the suggestions (DOCUMENTS_PLAN Phase 0 item 2) ------------------
+//
+// **Where a suggestion can honestly come from in an app with no dictionary
+// file.** This checker knows a fixed list of unambiguous typos and a UK/US
+// pair table, and that is the whole of its certainty. For a word it simply
+// does not recognise it had nothing to offer at all, and a menu whose only
+// row is "ignore this" is a menu that teaches you to stop opening it.
+//
+// So the order is by how much the app actually knows, strongest first:
+//
+//   1. the rule's own answer, where a rule was sure enough to have one;
+//   2. the other spelling of a UK/US pair, so a document set to UK still sees
+//      the US form offered rather than pretended out of existence;
+//   3. the nearest words by edit distance in the words this app can claim to
+//      know: your own dictionary, plus both halves of the pair table and the
+//      corrections in the typo list;
+//   4. the nearest words in your own writing, which is the only place your
+//      project names, your people and your jargon exist.
+//
+// Nothing here is a guess dressed as an answer: every row is a real word from
+// a list you could go and look at, and 3 and 4 are ordered by a distance the
+// reader can feel (one letter out sorts above two).
+
+const DOC_SUGGEST_MAX = 5;
+
+//: Two edits. Three matches almost anything at these word lengths, and the
+//: third suggestion for a five-letter word is noise a reader has to read
+//: before dismissing.
+const DOC_SUGGEST_DISTANCE = 2;
+
+//: The vocabulary of a big notebook is tens of thousands of words and this
+//: runs while a menu is opening, so the scan is bounded. `docCompleteWords`
+//: is sorted by how often you use a word, so the cap keeps the words most
+//: likely to be the one you meant.
+const DOC_SUGGEST_CANDIDATES = 3000;
+
+//: **Optimal string alignment**, which is Damerau-Levenshtein restricted to
+//: adjacent transpositions. The restriction is the right one here: the typos
+//: this is for are a swapped pair (`teh`), a doubled or dropped letter, or a
+//: neighbouring key, and full Damerau's extra bookkeeping buys nothing for
+//: those while costing more per candidate on a list scanned thousands of
+//: times.
+//:
+//: `cap` is not an optimisation detail, it is what keeps the answer sensible:
+//: a row whose minimum is already past the cap cannot produce a distance
+//: under it, so the rest of the matrix is not computed, and any word more
+//: than `cap` edits away is not a suggestion at all.
+function docEditDistance(a, b, cap) {
+  if (Math.abs(a.length - b.length) > cap) return cap + 1;
+  if (a === b) return 0;
+  let previous = Array.from({ length: b.length + 1 }, (_, i) => i);
+  let beforePrevious = null;
+  for (let i = 1; i <= a.length; i += 1) {
+    const row = new Array(b.length + 1);
+    row[0] = i;
+    let best = row[0];
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      let value = Math.min(row[j - 1] + 1, previous[j] + 1, previous[j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        value = Math.min(value, beforePrevious[j - 2] + 1);
+      }
+      row[j] = value;
+      if (value < best) best = value;
+    }
+    if (best > cap) return cap + 1;
+    beforePrevious = previous;
+    previous = row;
+  }
+  return previous[b.length];
+}
+
+//: The words this app can say it knows, as opposed to the words it has seen.
+//: Rebuilt when the dictionary changes, which is the only thing that can add
+//: to it.
+let docKnownWordsCache = null;
+
+function docKnownWords() {
+  if (docKnownWordsCache) return docKnownWordsCache;
+  const pool = new Set(docDictionary());
+  for (const correction of Object.values(DOC_AUTOCORRECT)) pool.add(correction.toLowerCase());
+  for (const [uk, us] of DOC_SPELLING_PAIRS) {
+    pool.add(uk);
+    pool.add(us);
+  }
+  docKnownWordsCache = [...pool];
+  return docKnownWordsCache;
+}
+
+//: A typo at the start of a sentence must not be corrected into a lowercase
+//: word, and a suggestion for `Recieve` that comes back as `receive` reads as
+//: a second mistake. The same rule the built-in fixes already follow, pulled
+//: out so every source of a suggestion follows it too.
+function docMatchCase(sample, word) {
+  if (!sample || !word) return word;
+  if (sample[0] !== sample[0].toUpperCase()) return word;
+  return word[0].toUpperCase() + word.slice(1);
+}
+
+//: `skip` is read, never written. It held the words already offered, and an
+//: earlier draft also *added* each result to it as a way of not repeating
+//: itself between the two candidate lists. That silently returned nothing at
+//: all: the caller's own de-duplicating `push` reads the same set, so every
+//: word this function found had already been marked as seen by the time it
+//: was offered. Measured, not reasoned: the ranked list came back empty for a
+//: word one edit from `environment` while `docNearestWords` on its own
+//: returned it.
+function docNearestWords(word, candidates, limit, skip) {
+  const lower = word.toLowerCase();
+  const scored = [];
+  let scanned = 0;
+  for (const candidate of candidates) {
+    if (scanned >= DOC_SUGGEST_CANDIDATES) break;
+    scanned += 1;
+    const clean = String(candidate).toLowerCase();
+    if (clean === lower || skip.has(clean)) continue;
+    if (Math.abs(clean.length - lower.length) > DOC_SUGGEST_DISTANCE) continue;
+    const distance = docEditDistance(lower, clean, DOC_SUGGEST_DISTANCE);
+    if (distance <= DOC_SUGGEST_DISTANCE) scored.push([clean, distance]);
+  }
+  //: Distance first, then alphabetically, so the same word always sorts to
+  //: the same place. A menu whose rows move between two openings of the same
+  //: word is one nobody learns the shape of.
+  scored.sort((a, b) => a[1] - b[1] || (a[0] < b[0] ? -1 : 1));
+  return scored.slice(0, limit).map(([candidate]) => candidate);
+}
+
+//: Word-level rules only. "The nearest word to `,,` by edit distance" is not
+//: a question with an answer, and the punctuation rules already carry the one
+//: correct fix in `replacement`.
+const DOC_WORD_RULES = new Set(["spelling", "variant"]);
+
+//: What the menu calls the thing it is about. Visible text wherever there is
+//: any, and a description of the whitespace wherever there is not.
+function docFindingLabel(finding) {
+  const text = finding.text || "";
+  if (text.trim()) return text.replace(/\s+/g, " ").slice(0, 48);
+  if (/^\n+$/.test(text)) return `${text.length} blank line${text.length === 1 ? "" : "s"}`;
+  return `${text.length} space${text.length === 1 ? "" : "s"}`;
+}
+
 function docSuggestAlternatives(finding) {
   //: More than one plausible answer, where there is one. A single suggestion
   //: presented as *the* answer is how a checker quietly rewrites someone's
   //: voice; two or three make it a choice.
   const out = [];
+  const seen = new Set();
+  const push = (word) => {
+    const clean = String(word);
+    const key = clean.toLowerCase();
+    if (!clean || seen.has(key) || key === finding.text.toLowerCase()) return;
+    seen.add(key);
+    out.push(clean);
+  };
   if (finding.replacement !== null && finding.replacement !== undefined) {
-    out.push(finding.replacement);
+    push(finding.replacement);
   }
-  if (finding.rule === "spelling" || finding.rule === "variant") {
+  if (DOC_WORD_RULES.has(finding.rule)) {
     const lower = finding.text.toLowerCase();
     //: The other direction of the variant table, so a document set to UK still
     //: offers the US spelling as the second option rather than pretending it
     //: does not exist.
     for (const [uk, us] of DOC_SPELLING_PAIRS) {
-      if (uk === lower && !out.includes(us)) out.push(us);
-      if (us === lower && !out.includes(uk)) out.push(uk);
+      if (uk === lower) push(docMatchCase(finding.text, us));
+      if (us === lower) push(docMatchCase(finding.text, uk));
+    }
+    if (out.length < DOC_SUGGEST_MAX) {
+      for (const word of docNearestWords(finding.text, docKnownWords(), DOC_SUGGEST_MAX - out.length, seen)) {
+        push(docMatchCase(finding.text, word));
+      }
+    }
+    if (out.length < DOC_SUGGEST_MAX) {
+      //: Built on demand rather than kept warm: this is the only caller that
+      //: needs it before the first completion popup, and building it walks the
+      //: document and four hundred notes.
+      if (!docCompleteWords) docBuildVocabulary();
+      const vocabulary = (docCompleteWords || []).map(([word]) => word);
+      for (const word of docNearestWords(finding.text, vocabulary, DOC_SUGGEST_MAX - out.length, seen)) {
+        push(docMatchCase(finding.text, word));
+      }
     }
   }
-  return out.slice(0, 4);
+  return out.slice(0, DOC_SUGGEST_MAX);
 }
 
-function openDocSuggest(finding, anchorRect) {
+function openDocSuggest(finding, anchorRect, focus = true) {
   const menu = $("doc-suggest-menu");
   if (!menu) return;
   docSuggestOpenFor = finding;
@@ -5033,7 +5756,11 @@ function openDocSuggest(finding, anchorRect) {
   const head = document.createElement("div");
   head.className = "doc-suggest-head";
   const word = document.createElement("strong");
-  word.textContent = finding.text.replace(/\s+/g, " ").slice(0, 48);
+  //: A spacing finding's text *is* whitespace, so the heading rendered as an
+  //: empty bold nothing above a sentence about it. Said in words instead:
+  //: "three spaces" is a thing you can look for in the line, an empty heading
+  //: is not.
+  word.textContent = docFindingLabel(finding);
   const why = document.createElement("span");
   why.className = "muted doc-suggest-why";
   why.textContent = finding.message;
@@ -5135,8 +5862,8 @@ function openDocSuggest(finding, anchorRect) {
   const ignore = document.createElement("button");
   ignore.type = "button";
   ignore.className = "doc-suggest-item";
-  setLabel(ignore, "ph:eye-slash Ignore this for now");
-  ignore.title = "Stop flagging this wording until MemoryMap is restarted";
+  setLabel(ignore, "ph:eye-slash Ignore in this document");
+  ignore.title = "Stop flagging this wording in this document until MemoryMap is restarted";
   ignore.addEventListener("click", () => {
     docProseIgnored.add(docProseKey(finding));
     closeDocSuggest();
@@ -5165,7 +5892,10 @@ function openDocSuggest(finding, anchorRect) {
   menu.classList.remove("hidden");
   docSuggestAnchor = anchorRect;
   placeDocSuggest();
-  menu.querySelector("button")?.focus();
+  //: Only when the gesture asked for the menu. A plain click on a word is
+  //: someone putting the caret in it, and taking the focus then sends their
+  //: next keystroke to a button (see the `click` listener below).
+  if (focus) menu.querySelector("button")?.focus();
 }
 
 //: Kept so the menu can be re-placed after it changes size — the AI wordings
@@ -5366,7 +6096,11 @@ function docMarkLiveFindings() {
         const tail = node.splitText(at);
         tail.splitText(finding.text.length);
         const mark = document.createElement("mark");
-        mark.className = `doc-flag doc-flag-${finding.rule}`;
+        //: `doc-flag` says "this is a flag you can press"; the kind class is
+        //: shared with Source view's backdrop so the same word is marked the
+        //: same way whichever view you are in. Two colours for one finding
+        //: would read as two different checkers.
+        mark.className = `doc-flag doc-finding-${docFindingKind(finding)}`;
         mark.textContent = finding.text;
         mark.title = `${finding.message} — click or right-click for suggestions`;
         //: Hung on the element so the delegated `contextmenu` listener above

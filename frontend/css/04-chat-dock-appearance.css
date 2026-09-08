@@ -3258,6 +3258,12 @@ span > .chip {
 .doc-source-wrap {
   display: flex;
   flex: 1 1 auto;
+  /* The positioning context the backdrop is placed against (see .doc-backdrop
+     below). Without it the backdrop's offsetParent is whatever ancestor
+     happens to be positioned. Measured, that was an element 219px to the
+     left and 72px up, so every underline landed a paragraph away from its
+     word. */
+  position: relative;
   min-height: 0;
   min-width: 0;
   gap: 0;
@@ -3269,18 +3275,27 @@ span > .chip {
 
 /* A textarea cannot render per-line content, so the numbers are a sibling
    painted from the same text and scroll-locked to it (documents.js,
-   `renderDocGutter`). Everything that affects where a line sits vertically —
-   font, size, line-height, vertical padding — MUST match #doc-content
+   `renderDocGutter`). Everything that affects where a line sits vertically
+   (font, size, line-height, vertical padding) MUST match #doc-content
    exactly, or the numbers drift out of step with the code by one row per
-   screenful and the whole thing reads as broken. That is why they are
-   declared together here rather than each near its own rule. */
+   screenful and the whole thing reads as broken.
+
+   **This copy is a fallback, and it was wrong.** It said `padding-top: 0.5rem`
+   while the textarea takes the base input rule's `--space-4`, which is
+   `calc(0.6rem * var(--density))`: measured at density 1, every number sat
+   1.59px above the line it belonged to, and turning the density down would
+   have widened that with nothing in the stylesheet to say so. Two static
+   copies of one value cannot be kept in step by care, so the real copy is
+   made through the CSSOM now, from the textarea itself, by
+   `syncDocGutterMetrics`. What is left here is what the column should look
+   like in the frame before that runs. */
 .doc-gutter,
 #doc-content.doc-content-code {
   font-family: var(--mono, ui-monospace, monospace);
   font-size: 0.92rem;
   line-height: 1.6;
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
 }
 
 /* **The code pane must not soft-wrap, or the numbers cannot be right.**
@@ -3301,6 +3316,14 @@ span > .chip {
 
 .doc-gutter {
   flex: 0 0 auto;
+  /* **Not stretched to the row.** Both wrappers are `align-items: stretch`
+     flex rows, so the column took the row's height while the textarea took
+     its own, and dragging #doc-content's resize handle shorter left the
+     numbers running on down the card: measured, a 260px textarea beside a
+     585px gutter, 325.4px of numbers past the end of the box they number.
+     `flex-start` lets the explicit height JS gives it (the textarea's own)
+     be the height it has. */
+  align-self: flex-start;
   overflow: hidden;
   padding-right: 0.5rem;
   padding-left: 0.5rem;
@@ -3323,6 +3346,66 @@ span > .chip {
    two boxes that happen to touch. */
 #doc-content.doc-content-code {
   border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+/* --- The backdrop: a squiggle under a textarea's own text --------------------
+   DOCUMENTS_PLAN.md §4 A, Phase 0 item 1. A `<textarea>`'s value is a string,
+   not a DOM, so nothing inside it can carry a mark, which is why Source view
+   had no underlines at all and the answer to "click the underlined word" was
+   "double-click and we look up the caret offset".
+
+   The way every editor built on a textarea solves this: a div holding the
+   same text, in the same type, at the same size, behind a textarea whose own
+   ink is transparent. The div can carry `<mark>`s; the textarea keeps the
+   caret, the selection, the native undo, IME, spellcheck and every keyboard
+   behaviour a real editing surface has. What the reader sees as text is the
+   div; what they type into is the textarea.
+
+   The contract is *exact* geometry, and it is enforced by measurement rather
+   than by hope: documents.js `docSyncBackdropMetrics` copies the type metrics
+   and the box through the CSSOM (an inline `style=` would be refused by the
+   CSP, same as the gutter's), and the sweep asserts that a mark's box and the
+   glyph it is under agree within 1px. A backdrop that drifts is worse than
+   none: the underline points at the wrong word, and every click on it is
+   then wrong too. Everything that decides where a glyph sits therefore lives
+   in the JS copy list, not here: this rule only says *what kind of box it
+   is*. */
+.doc-backdrop {
+  position: absolute;
+  z-index: 0;
+  overflow: hidden;
+  margin: 0;
+  /* The width is copied, so the border has to exist and take its 1px, but
+     the textarea in front draws the visible edge. */
+  border-style: solid;
+  border-color: transparent;
+  background: var(--input-bg);
+  color: var(--ink);
+  /* The textarea is the thing you click. Every gesture (caret, selection,
+     drag, right-click) has to reach it, so the layer under it takes none. */
+  pointer-events: none;
+}
+
+.doc-backdrop.hidden {
+  display: none;
+}
+
+/* The ink moves to the backdrop. `caret-color` is what keeps the caret
+   visible once the text it sits in is transparent. Without it the caret goes
+   transparent too and the editor looks like it has stopped accepting input. */
+#doc-content.has-backdrop {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--ink);
+}
+
+/* Selection is painted by the textarea, which is *in front* of the ink now, so
+   an opaque highlight would black out the words it selects. Translucent, so
+   the glyphs underneath read through it. */
+#doc-content.has-backdrop::selection {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .doc-file-type {

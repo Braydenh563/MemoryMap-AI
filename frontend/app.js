@@ -5207,6 +5207,185 @@ function pickEntryDialog(message) {
   });
 }
 
+//: **Choose any one thing the library holds** — a note, a document, a file or
+//: a saved link — as `{kind, id, label}`.
+//:
+//: A fourth chooser only because the three that exist answer different
+//: questions. `pickEntryDialog` above returns a *note* and nothing else;
+//: `pickMediaDialog` below returns an upload; the chat dock's
+//: `#note-picker-panel` is a multi-select bound to the composer's own
+//: attachment lists, so borrowing it would give it two owners (its own
+//: comment says as much). This one returns exactly one item and says which of
+//: the four tables it came from, which is what a map's reference node needs:
+//: `POST /whiteboard/boards/{id}/nodes` takes a `kind` and a `ref_id` and
+//: resolves the label itself (MINDMAP_PLAN.md §9.2 — a copied title goes
+//: stale the moment the thing behind it is renamed).
+//:
+//: `kind` is deliberately the *server's* vocabulary — note / document / file
+//: / link, `MAP_REFERENCE_KINDS` in routes_whiteboard.py — rather than a
+//: display word, so a caller never has to translate between what the picker
+//: says and what the endpoint accepts.
+const LIBRARY_PICK_SOURCES = [
+  { kind: "note", label: "Notes", icon: "ph:note", placeholder: "Search your notes…" },
+  { kind: "document", label: "Documents", icon: "ph:file-text", path: "/documents", placeholder: "Search your documents…" },
+  { kind: "file", label: "Files", icon: "ph:paperclip", path: "/files/gallery", placeholder: "Search your files…" },
+  { kind: "link", label: "Links", icon: "ph:link-simple", path: "/bookmarks", placeholder: "Search your links…" },
+];
+
+//: One row's label per source, in one table for the reason `notePickerShape`
+//: gives for its own: the renderer is the same list either way, and four
+//: copies of it is how the four drift apart.
+function libraryPickLabel(kind, row) {
+  if (kind === "note") return noteLabel(row, 70);
+  if (kind === "document") return row.title || "Untitled document";
+  if (kind === "file") return row.original_name || row.filename || "File";
+  return row.title || row.url || "Link";
+}
+
+//: Fetched once per dialog rather than per keystroke, and per source rather
+//: than all four up front — the same two rules `notePickerRows` follows, and
+//: for the same reason: three of these lists are never looked at by someone
+//: who came to point at a note.
+function pickLibraryItemDialog(message, { sources = null } = {}) {
+  const available = LIBRARY_PICK_SOURCES.filter(
+    (source) => !sources || sources.includes(source.kind)
+  );
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay confirm-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-label", message);
+
+    const card = document.createElement("div");
+    card.className = "card modal-card confirm-card entry-pick-card";
+    const text = document.createElement("p");
+    text.className = "confirm-text";
+    text.textContent = message;
+
+    let active = available[0];
+    const seg = document.createElement("div");
+    seg.className = "seg seg-compact";
+    seg.setAttribute("role", "tablist");
+    seg.setAttribute("aria-label", "What to point at");
+
+    const search = document.createElement("input");
+    search.type = "search";
+    search.placeholder = active.placeholder;
+    search.setAttribute("aria-label", message);
+    const list = document.createElement("div");
+    list.className = "entry-pick-list";
+
+    const returnFocus = document.activeElement;
+    let settled = false;
+    const close = (choice) => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener("keydown", onKey, true);
+      overlay.remove();
+      returnFocus?.focus?.();
+      resolve(choice);
+    };
+    const onKey = (event) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      close(null);
+    };
+
+    //: Per-source, so switching tabs and back does not re-fetch. Notes are
+    //: never in here: `allEntries` is already in memory and is kept current
+    //: by every save, so a second copy would be the stale one.
+    const cache = {};
+    let token = 0;
+
+    const rowsFor = async (kind) => {
+      if (kind === "note") {
+        //: Drafts, deleted notes, private notes and boards are all excluded.
+        //: Drafts for the reason `pickEntryDialog` gives — "an existing note"
+        //: does not mean a half-typed capture — and a board because it is
+        //: usually the very thing this picker was opened *from*.
+        return (typeof allEntries !== "undefined" ? allEntries : []).filter(
+          (entry) => !entry.is_draft && !entry.is_deleted && !entry.is_board && !entry.is_private
+        );
+      }
+      if (cache[kind]) return cache[kind];
+      const source = available.find((s) => s.kind === kind);
+      const rows = await apiJson(source.path, { silent: true }).catch(() => []);
+      cache[kind] = Array.isArray(rows) ? rows : rows.documents || [];
+      return cache[kind];
+    };
+
+    const paint = async () => {
+      const mine = (token += 1);
+      const kind = active.kind;
+      const term = search.value.trim().toLowerCase();
+      const rows = await rowsFor(kind);
+      // A slow fetch that finished after the user moved on must not paint
+      // over the tab they are actually looking at.
+      if (mine !== token || active.kind !== kind) return;
+      const matches = rows
+        .map((row) => ({ row, label: libraryPickLabel(kind, row) }))
+        .filter(({ label }) => !term || label.toLowerCase().includes(term))
+        .slice(0, 40);
+      list.replaceChildren();
+      if (!matches.length) {
+        const empty = document.createElement("p");
+        empty.className = "muted";
+        empty.textContent = term
+          ? `No ${active.label.toLowerCase()} match that.`
+          : `No ${active.label.toLowerCase()} yet.`;
+        list.appendChild(empty);
+        return;
+      }
+      for (const { row, label } of matches) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "entry-pick-row";
+        setLabel(button, `${active.icon} ${label}`);
+        button.title = label;
+        button.addEventListener("click", () => close({ kind, id: row.id, label }));
+        list.appendChild(button);
+      }
+    };
+
+    for (const source of available) {
+      const tab = document.createElement("button");
+      tab.type = "button";
+      tab.setAttribute("role", "tab");
+      tab.dataset.pickKind = source.kind;
+      tab.textContent = source.label;
+      const on = source.kind === active.kind;
+      tab.classList.toggle("active", on);
+      tab.setAttribute("aria-selected", on ? "true" : "false");
+      tab.addEventListener("click", () => {
+        active = source;
+        for (const sibling of seg.querySelectorAll("button")) {
+          const chosen = sibling.dataset.pickKind === source.kind;
+          sibling.classList.toggle("active", chosen);
+          sibling.setAttribute("aria-selected", chosen ? "true" : "false");
+        }
+        search.placeholder = source.placeholder;
+        paint();
+        search.focus();
+      });
+      seg.appendChild(tab);
+    }
+
+    search.addEventListener("input", paint);
+    paint();
+
+    const row = document.createElement("div");
+    row.className = "row confirm-actions";
+    row.append(smallButton("Cancel", "Cancel", () => close(null)));
+    card.append(text, seg, search, list, row);
+    overlay.appendChild(card);
+    wireBackdropClose(overlay, () => close(null));
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(overlay);
+    search.focus();
+  });
+}
+
 // Pick something already uploaded rather than uploading it again — asked for
 // directly: "I also want to be able to attach images that are already in the
 // image library... to new notes in the capture subtab." `/media` (the same

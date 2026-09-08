@@ -7473,21 +7473,32 @@ input[type="file"] {
   transform: translateX(50%);
 }
 
-/* The `+` is an affordance, not furniture: it appears on the node you are
-   pointing at or have selected, which is the only time "add a child *here*"
-   means anything. Keyboard users have Tab and never need it to be visible. */
-.wb-map-add {
+/* The node's two "grow the map here" buttons — `+` (a topic) and the library
+   one (a node pointing at a real note/document/file/link). They are an
+   affordance, not furniture: they appear on the node you are pointing at or
+   have selected, which is the only time "add a child *here*" means anything.
+   Keyboard users have Tab and never need them visible.
+
+   A flex row placed once, rather than two buttons each hand-positioned off the
+   same corner: the second of those is how two controls come to overlap by a
+   few pixels that a screenshot does not show — twice already in this file, see
+   `.wb-map-count`. The row is anchored by its right edge so a third button
+   would grow leftwards into empty canvas rather than over the node. */
+.wb-map-actions {
   position: absolute;
   right: calc(var(--space-8) * -1);
   bottom: calc(var(--space-5) * -1);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   z-index: 4;
   opacity: 0;
   pointer-events: none;
 }
 
-.wb-map-node:hover .wb-map-add,
-.wb-map-node.wb-selected .wb-map-add,
-.wb-map-add:focus-visible {
+.wb-map-node:hover .wb-map-actions,
+.wb-map-node.wb-selected .wb-map-actions,
+.wb-map-actions:focus-within {
   opacity: 1;
   pointer-events: auto;
 }

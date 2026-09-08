@@ -2586,7 +2586,25 @@ function wbBuildMapNode(el, d) {
       wbMapToggleCollapse(d.id);
     })
     .append("i").attr("class", "ph ph-caret-down").attr("aria-hidden", "true");
-  el.append("button")
+  //: **Two ways to grow the map, in one row.** `+` makes a topic; the second
+  //: button makes a node that *points at* a real note, document, file or link
+  //: (§5 item 11 — the half §10.4 recorded as missing: "a reference node was
+  //: never placed by hand", so the kind rendered and was unreachable outside
+  //: the AI tools).
+  //:
+  //: A second button rather than a mode on `+`: the two are different acts,
+  //: not two settings of one, and a `+` that sometimes opens a dialog is the
+  //: "a second modal that only appears after you commit the first" shape
+  //: CLAUDE.md records costing five reports on bookmark URLs. Both are also
+  //: in the node's context menu, because a right-click is where people look
+  //: for "what can I do with this" and these only appear on hover.
+  //:
+  //: A flex row rather than two absolutely-positioned buttons: two of them
+  //: hand-placed off the same corner is how they come to overlap by a few
+  //: pixels that a screenshot does not show, which this file has already had
+  //: to fix twice for the count badge (see `.wb-map-count`'s own comment).
+  const actions = el.append("div").attr("class", "wb-map-actions");
+  actions.append("button")
     .attr("type", "button")
     .attr("class", "ghost small icon-only wb-map-add")
     .attr("title", "Add a child (Tab)")
@@ -2597,6 +2615,17 @@ function wbBuildMapNode(el, d) {
       wbMapAddChild(d.id);
     })
     .append("i").attr("class", "ph ph-plus").attr("aria-hidden", "true");
+  actions.append("button")
+    .attr("type", "button")
+    .attr("class", "ghost small icon-only wb-map-ref")
+    .attr("title", "Add a child from the library…")
+    .attr("aria-label", "Add a child that points at a note, document, file or link")
+    .on("pointerdown", stopDrag)
+    .on("click", (event) => {
+      event.stopPropagation();
+      wbMapAddReference(d.id);
+    })
+    .append("i").attr("class", "ph ph-bookmarks-simple").attr("aria-hidden", "true");
 }
 
 //: The half that changes: label, branch colour, chevron, badge. Runs for
@@ -2840,6 +2869,46 @@ async function wbMapAddChild(parentId) {
   await wbMapTidyBranch(parentId);
   renderWhiteboardNow();
   wbMapEditNode(created.id);
+  return created;
+}
+
+//: Add a child that **points at something the library already holds**
+//: (MINDMAP_PLAN.md §5 item 11).
+//:
+//: The label is *not* sent. `POST /boards/{id}/nodes` takes the kind and the
+//: id and resolves the title itself, and `GET /tree` re-resolves it on every
+//: load (§9.2) — so renaming the note renames the node, which is the whole
+//: reason a reference node is different from a topic with the same words in
+//: it. `text` is left empty deliberately: a copy of the title stored here
+//: would be the value that goes stale, and `wbMapLabel` prefers the resolved
+//: one anyway.
+//:
+//: `wbRefreshMapState` is re-run before the render because the resolved label
+//: lives in `wbMapState.labels`, which only that call fills — without it the
+//: new node draws with no text at all until the next board load, which is
+//: exactly the "renders as a blank box" failure §10.2 already fixed once for
+//: topics.
+async function wbMapAddReference(parentId) {
+  if (typeof pickLibraryItemDialog !== "function") return null;
+  const chosen = await pickLibraryItemDialog("Point a new node at…");
+  if (!chosen) return null;
+  const created = await wbMapCreateNode({
+    parentId,
+    kind: chosen.kind,
+    text: "",
+    refId: chosen.id,
+  });
+  if (!created) return null;
+  const parent = (wbState.objects || []).find((o) => o.id === parentId);
+  if (parent?.data?.collapsed) {
+    parent.data = { ...parent.data, collapsed: false };
+    await wbSaveObject(parent);
+  }
+  await wbRefreshMapState();
+  selectWbItem("object", created.id);
+  await wbMapTidyBranch(parentId);
+  renderWhiteboardNow();
+  toast(`Added “${chosen.label}” to the map.`);
   return created;
 }
 
@@ -3869,6 +3938,18 @@ function wbBuildContextMenu(kind) {
   if (kind !== "node") {
     item("Copy", "Ctrl/Cmd+C", () => wbCopySelection());
     item("Cut", "Ctrl/Cmd+X", () => wbCutSelection());
+  }
+  //: The two ways to grow a map, on the node you just right-clicked
+  //: (MINDMAP_PLAN.md §5 item 11). The hover controls on the node itself are
+  //: the primary affordance; this is the discoverable one — a right-click is
+  //: where people look for "what can I do with this", and the `+`/library
+  //: buttons only appear once the pointer is already on the node.
+  const mapNode = wbSelectedMapNode();
+  if (mapNode && wbMultiSelection.size <= 1) {
+    item("Add a child topic", "Tab", () => wbMapAddChild(mapNode.id));
+    item("Add from the library…", "Point a new child at a note, document, file or link", () =>
+      wbMapAddReference(mapNode.id)
+    );
   }
   // Asked for directly. Available for every kind — a sketch reorders
   // against other sketches, a card/object against both (wbZOrderPeers'

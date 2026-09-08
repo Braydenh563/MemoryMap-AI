@@ -21072,6 +21072,24 @@ document.addEventListener("click", (event) => {
     if (!menu.contains(event.target)) menu.open = false;
   }
 });
+//: A dock menu opens under its own button, which is right for a button on
+//: the left of the row and wrong for one near the right edge: measured, the
+//: Timeline's Options list ran 41px past the viewport. On open, the list is
+//: measured once and flipped to right-align when it would overflow — a class,
+//: not a computed left, so the stylesheet still owns the geometry.
+document.addEventListener(
+  "toggle",
+  (event) => {
+    const menu = event.target;
+    if (!(menu instanceof HTMLElement) || !menu.matches("details.dock-menu") || !menu.open) return;
+    const list = menu.querySelector(".dock-menu-list");
+    if (!list) return;
+    menu.classList.remove("dock-menu-flip");
+    const rect = list.getBoundingClientRect();
+    if (rect.right > window.innerWidth - 8) menu.classList.add("dock-menu-flip");
+  },
+  true
+);
 //: Escape closes an open dock menu and puts focus back on its button —
 //: `<details>` does not do this on its own, whatever a comment elsewhere in
 //: this codebase once claimed; measured with a keyboard-only probe. Capture
@@ -21183,10 +21201,7 @@ function switchTab(name) {
     setTimelineScaleEnabled(timelineView());
     // Match the saved open/closed state on arrival, same as Graph's Options
     // panel — otherwise a notebook left open comes back collapsed.
-    const optionsOpen = localStorage.getItem("timeline-options-open") === "1";
-    $("timeline-options").classList.toggle("hidden", !optionsOpen);
-    $("timeline-options-toggle").setAttribute("aria-expanded", String(optionsOpen));
-    $("timeline-options-toggle").classList.toggle("is-on", optionsOpen);
+    syncTimelineViewSeg();
     renderTimeline();
   }
   if (name === "documents") {
@@ -22005,16 +22020,29 @@ function setTimelineScaleEnabled(view) {
 $("timeline-view").addEventListener("change", (event) => {
   localStorage.setItem("timeline-view", event.target.value);
   setTimelineScaleEnabled(event.target.value);
+  syncTimelineViewSeg();
   renderTimeline();
 });
-// Folded away the same way Graph's Options panel is: bucket/bands/range are
-// set once for a session and left, not touched while reading the timeline.
-$("timeline-options-toggle").addEventListener("click", () => {
-  const panel = $("timeline-options");
-  const open = panel.classList.toggle("hidden") === false;
-  $("timeline-options-toggle").setAttribute("aria-expanded", String(open));
-  $("timeline-options-toggle").classList.toggle("is-on", open);
-  localStorage.setItem("timeline-options-open", open ? "1" : "0");
+//: The view segment drives the native `#timeline-view` select every handler
+//: already reads (Phase 8: a view is a segmented control with icons, on
+//: every tab). The select is kept, hidden from the pointer and the tab order,
+//: because `timelineView()` and `applyTimelineSettings` read its value and a
+//: second source of truth is how two controls come to disagree.
+function syncTimelineViewSeg() {
+  const value = $("timeline-view")?.value || "grid";
+  for (const button of document.querySelectorAll("#timeline-view-seg button")) {
+    const on = button.dataset.timelineView === value;
+    button.classList.toggle("active", on);
+    button.setAttribute("aria-pressed", String(on));
+  }
+}
+$("timeline-view-seg")?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-timeline-view]");
+  if (!button) return;
+  const select = $("timeline-view");
+  if (!select || select.value === button.dataset.timelineView) return;
+  select.value = button.dataset.timelineView;
+  select.dispatchEvent(new Event("change", { bubbles: true }));
 });
 
 $("timeline-popup-close").addEventListener("click", () => {
@@ -31082,49 +31110,6 @@ $("shortcuts-reset-settings").addEventListener("click", resetShortcuts);
 initHelpToggle("search-help", "search-help-hint");
 initHelpToggle("capture-help", "capture-help-hint");
 
-//: Below 600px the Notes toolbar's secondary controls fold into a sheet
-//: (`#notes-filters-pop`, MODERNISATION_AUDIT Brief 2). The controls are
-//: *moved* between the row and the sheet, never cloned: `#note-sort`,
-//: `#select-btn` and the rest each have listeners and ids that the rest of
-//: the file looks up, and a second copy would be a second, dead control.
-//: Restored in reverse with each control's original next sibling, so the
-//: row comes back in exactly its markup order when the window grows.
-function initNotesFiltersSheet() {
-  const bar = document.querySelector(".notes-toolbar");
-  const toggle = $("notes-filters-toggle");
-  const pop = $("notes-filters-pop");
-  if (!bar || !toggle || !pop) return;
-  const controls = ["#select-btn", ".notes-view-toggle", ".semantic-toggle", "#search-help", "#note-sort", "#notes-page-size"];
-  const moved = [];
-  // A <select> may be wrapped by `enhanceSelect` before or after the move;
-  // the shell is the thing to move whenever it exists.
-  const shellOf = (el) => el?.closest(".select-shell") || el;
-  const setOpen = (open) => {
-    pop.classList.toggle("hidden", !open);
-    toggle.setAttribute("aria-expanded", String(open));
-  };
-  const fold = (on) => {
-    if (on && !moved.length) {
-      for (const sel of controls) {
-        const el = shellOf(bar.querySelector(sel));
-        if (!el) continue;
-        moved.push({ el, next: el.nextSibling });
-        pop.append(el);
-      }
-    } else if (!on && moved.length) {
-      for (const { el, next } of moved.reverse()) {
-        bar.insertBefore(shellOf(el), next && next.parentNode === bar ? next : null);
-      }
-      moved.length = 0;
-      setOpen(false);
-    }
-  };
-  const mq = window.matchMedia("(max-width: 600px)");
-  mq.addEventListener("change", (e) => fold(e.matches));
-  fold(mq.matches);
-  toggle.addEventListener("click", () => setOpen(pop.classList.contains("hidden")));
-}
-initNotesFiltersSheet();
 
 $("prefs-save").addEventListener("click", savePrefs);
 $("pref-search-reset").addEventListener("click", () => {

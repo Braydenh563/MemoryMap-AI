@@ -973,94 +973,79 @@ Link to another note with [[its first few words]]."></textarea>
                36px of head row plus 13px of gap between the sub-tab strip
                and the toolbar (MODERNISATION_AUDIT.md Brief 2). One row is
                what Notion, Linear and Things do above a list. -->
-          <div class="library-toolbar notes-toolbar">
-            <!-- The label lives in its own span: the heading also carries the
-                 collapse chevron, and writing textContent on the h2 would
-                 delete it on every re-render. -->
-            <h2 id="entries-heading" class="entries-heading"><span id="entries-heading-label">All notes</span></h2>
-            <!-- **Every other list in the Library got a refresh button — this
-                 one, the notebook's actual front page, did not.** Reported
-                 directly: "there's also no refresh button on the your notes
-                 subtab." Notes autosave and the list re-renders on every
-                 local change, so this exists for the case those don't cover:
-                 something changed the notebook elsewhere — another device
-                 syncing to the same data dir, a restore, an import — and the
-                 list on screen is stale until the next full reload. Same icon,
-                 same class, same place in the row as `#library-refresh`
-                 and its four siblings, not a fifth way of drawing "reload". -->
-            <button id="notes-refresh" class="ghost small icon-only" type="button"
-              title="Reload notes" aria-label="Reload notes"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
-            <button id="select-btn" class="ghost small" title="Select several notes to move, tag, or delete together"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Select</button>
-            <!-- Reported directly: "half the screen is taken up by poor ui
-                 choices or structuring." Measured: a two-line note occupied
-                 121px including its gap, so a 900px window showed **five
-                 notes**. Rows show the same five in 320px. Cards are still
-                 here and still the right answer when a note has an image or
-                 a file in it — this is a view switch, not a replacement,
-                 and it defaults to rows because a list of notes is a list. -->
-            <div class="seg notes-view-toggle" role="group" aria-label="How to show notes">
-              <button type="button" id="notes-view-rows" class="active icon-only"
-                title="Compact rows — more notes on screen" aria-label="Show notes as compact rows"><i class="ph ph-list" aria-hidden="true"></i></button>
-              <button type="button" id="notes-view-cards"
-                title="Cards — full preview of each note" aria-label="Show notes as cards" class="icon-only"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
-              <!-- Rows only, and it says which way it will go. A row is a
-                   summary that clips its note to one line, so "open them all
-                   to skim" and "tidy them all away again" are the two things
-                   a reader wants after opening two or three by hand — and
-                   there was no way to do either short of clicking every row
-                   back. Hidden in cards view, where every note is already
-                   open and the button would mean nothing. -->
-              <button type="button" id="notes-expand-all" class="ghost small hidden"
-                title="Open every note in this list" aria-label="Open every note in this list"></button>
+          <!-- The Notes dock (UI_MODERNISATION_PLAN.md Phase 8, surface 3).
+               Before: one `.library-toolbar` of fourteen controls (title,
+               refresh, Select, view segment, search, Semantic, Save filter,
+               help, sort, page size) plus a phone-only sheet that *moved* six
+               of them below 600px. Now the four zones every dock shares —
+               identity (the heading, which also carries the collapse chevron
+               the list renderer writes into it), find (search, one Filter
+               menu with Semantic and Save filter), arrange (one sort select,
+               the icon view segment), actions (Select, refresh, the search
+               help, more — notes per page). The sheet is gone: the menus are
+               the overflow at every width, and the dock wraps the search onto
+               its own row on a phone by itself. Every id is unchanged. -->
+          <div class="dock" data-dock-name="notes" role="toolbar" aria-label="Notes controls">
+            <div class="dock-identity">
+              <h2 id="entries-heading" class="entries-heading"><span id="entries-heading-label">All notes</span></h2>
             </div>
-            <input id="note-search" class="library-search" type="search"
-              placeholder="Filter — try tag:work or &quot;exact phrase&quot;"
-              aria-label="Filter notes. Supports tag:, cat:, is:favourite, -exclude and quoted phrases"
-              aria-describedby="search-help-hint">
-            <label class="row align-center checkbox-label semantic-toggle" title="Search by concept instead of exact keywords">
-              <input type="checkbox" id="semantic-search-toggle"> <i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Semantic
-            </label>
-            <button id="save-search" class="ghost small hidden" type="button"
-              title="Save this filter so you can come back to it"><i class="ph ph-star ph-lead" aria-hidden="true"></i> Save filter</button>
-            <!-- Reported directly: this didn't match #capture-help/
-                 #draft-help's own circular icon-button styling despite the
-                 comment above #capture-help already claiming "same
-                 disclosure pattern as #search-help below" — the shape was
-                 shared, the class and markup weren't. -->
-            <button id="search-help" class="icon-only ghost small graph-help-toggle" type="button"
-              aria-expanded="false" aria-controls="search-help-hint"
-              title="What can I type here?" aria-label="What can I type here?">
-              <i class="ph ph-question" aria-hidden="true"></i>
-            </button>
-            <select id="note-sort" aria-label="Sort notes" title="Sort notes">
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-              <option value="az">A → Z</option>
-              <option value="most-used">Most used</option>
-            </select>
-            <!-- BACKLOG §77 item 1: a page-size preference and a page
-                 selector, distinct from §86's scroll-chunking (that stays
-                 one continuous scroll and is unaffected by this). "All"
-                 keeps today's behaviour and is the default. -->
-            <select id="notes-page-size" aria-label="Notes per page" title="Notes per page">
-              <option value="all">All notes</option>
-              <option value="25">25 per page</option>
-              <option value="50">50 per page</option>
-              <option value="100">100 per page</option>
-            </select>
-            <!-- Phone only (<=600px, MODERNISATION_AUDIT Brief 2): the row
-                 above was four rows and 172px tall at 390px, with the first
-                 note starting below the fold. `initNotesFiltersSheet` (app.js)
-                 moves the secondary controls — select, view, semantic, help,
-                 sort, page size — into the sheet below and back again when
-                 the window grows; the search field and refresh stay. -->
-            <button id="notes-filters-toggle" class="ghost small icon-only notes-filters-toggle" type="button"
-              aria-expanded="false" aria-controls="notes-filters-pop"
-              title="Sort, view and filter options" aria-label="Sort, view and filter options">
-              <i class="ph ph-funnel-simple" aria-hidden="true"></i>
-            </button>
+            <div class="dock-group dock-find">
+              <input id="note-search" class="library-search" type="search"
+                placeholder="Filter — try tag:work or &quot;exact phrase&quot;"
+                aria-label="Filter notes. Supports tag:, cat:, is:favourite, -exclude and quoted phrases"
+                aria-describedby="search-help-hint">
+              <details class="doc-dock-menu dock-menu" id="notes-filter-menu">
+                <summary class="ghost small doc-dock-menu-btn" title="Match by meaning, save this filter"><i class="ph ph-funnel-simple ph-lead" aria-hidden="true"></i> Filter <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
+                <div class="doc-dock-menu-list dock-menu-list">
+                  <label class="dock-menu-check semantic-toggle" title="Search by concept instead of exact keywords">
+                    <input type="checkbox" id="semantic-search-toggle"> <i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Semantic — match by meaning
+                  </label>
+                  <button id="save-search" class="doc-dock-menu-item hidden" type="button"
+                    title="Save this filter so you can come back to it"><i class="ph ph-star ph-lead" aria-hidden="true"></i> Save this filter</button>
+                </div>
+              </details>
+            </div>
+            <div class="dock-group dock-arrange">
+              <select id="note-sort" aria-label="Sort notes" title="Sort notes">
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="az">A → Z</option>
+                <option value="most-used">Most used</option>
+              </select>
+              <div class="seg notes-view-toggle" role="group" aria-label="How to show notes">
+                <button type="button" id="notes-view-rows" class="active icon-only"
+                  title="Compact rows — more notes on screen" aria-label="Show notes as compact rows"><i class="ph ph-list" aria-hidden="true"></i></button>
+                <button type="button" id="notes-view-cards"
+                  title="Cards — full preview of each note" aria-label="Show notes as cards" class="icon-only"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
+                <button type="button" id="notes-expand-all" class="ghost small hidden"
+                  title="Open every note in this list" aria-label="Open every note in this list"></button>
+              </div>
+            </div>
+            <div class="dock-actions">
+              <button id="select-btn" class="ghost small" title="Select several notes to move, tag, or delete together"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Select</button>
+              <button id="notes-refresh" class="ghost small icon-only" type="button"
+                title="Reload notes" aria-label="Reload notes"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+              <button id="search-help" class="icon-only ghost small graph-help-toggle" type="button"
+                aria-expanded="false" aria-controls="search-help-hint"
+                title="What can I type here?" aria-label="What can I type here?">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
+              <details class="doc-dock-menu dock-menu dock-more" id="notes-more-menu">
+                <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
+                <div class="doc-dock-menu-list dock-menu-list">
+                  <div class="dock-menu-section">
+                    <label class="muted dock-menu-label" for="notes-page-size">Notes per page</label>
+                    <select id="notes-page-size" aria-label="Notes per page" title="Notes per page">
+                      <option value="all">All notes</option>
+                      <option value="25">25 per page</option>
+                      <option value="50">50 per page</option>
+                      <option value="100">100 per page</option>
+                    </select>
+                  </div>
+                </div>
+              </details>
+            </div>
           </div>
-          <div id="notes-filters-pop" class="notes-filters-pop hidden" role="group" aria-label="Sort, view and filter options"></div>
           <!-- Batch actions bar: appears in select mode -->
           <div id="batch-bar" class="row hidden">
             <span id="batch-count" class="muted" role="status">0 selected</span>
@@ -1730,74 +1715,80 @@ Link to another note with [[its first few words]]."></textarea>
            all five sat in one row with visible labels ("Bucket by [Day▾]
            Bands [Category▾] Show [Last year▾] View [Grid▾]"), which read as
            noise before you'd touched any of it. -->
-      <div class="graph-toolbar">
-        <h2>Timeline</h2>
-        <!-- §10C: a grid answers "what happened around this date, across
-             every band at once"; a line answers "what was the shape of this
-             one thread over time" — both real questions, so both stay, picked
-             here rather than one replacing the other. -->
-        <label class="muted" for="timeline-view">View</label>
-        <select id="timeline-view" aria-label="Grid or line view">
-          <option value="grid" selected>Grid</option>
-          <option value="line">Line</option>
-        </select>
-        <button id="timeline-jump-today" class="ghost small" type="button" title="Jump to today">
-          <i class="ph ph-calendar-blank ph-lead" aria-hidden="true"></i> Today
-        </button>
-        <button id="timeline-options-toggle" class="ghost small" type="button" aria-expanded="false"
-          aria-controls="timeline-options"
-          title="Bucket size, bands and how far back to show"><i class="ph ph-gear ph-lead" aria-hidden="true"></i> Options</button>
-        <div class="spacer-flex"></div>
-        <label class="muted" for="timeline-search">Highlight</label>
-        <input type="text" id="timeline-search" class="timeline-search" placeholder="Type to filter…">
-        <span id="timeline-count" class="muted"></span>
-        <!-- Same pattern as the graph's own #graph-help-toggle: a hover
-             tooltip via `title`, plus a click-to-open panel for the same
-             text end to end. Replaces a paragraph that used to sit under
-             the toolbar permanently, on every visit. -->
-        <button type="button" id="timeline-help" class="icon-only ghost small graph-help-toggle"
-          aria-expanded="false" aria-controls="timeline-intro"
-          title="A note sits where it is about when it says so — &quot;the deadline is next Friday&quot; plots on that Friday, marked with a clock — and at when it was written otherwise. Click any note to open it."
-          aria-label="How to read this">
-          <i class="ph ph-question" aria-hidden="true"></i>
-        </button>
-      </div>
-      <div class="graph-options hidden" id="timeline-options" role="group"
-        aria-label="Timeline display options">
-        <!-- Only Grid has bucket columns to size — the line view positions
-             notes by their real timestamp on a continuous scale and never
-             reads this. Dimmed rather than removed when Line is picked,
-             same as Graph's Gravity/Spread under a tree layout: reported as
-             "doesn't change the timeline" because it silently did nothing
-             instead of saying so. -->
-        <span class="timeline-scale-group" id="timeline-scale-group">
-          <label class="muted" for="timeline-scale">Bucket by</label>
-          <select id="timeline-scale" aria-label="Time bucket">
-            <option value="day" selected>Day</option>
-            <option value="week">Week</option>
-            <option value="month">Month</option>
-            <option value="year">Year</option>
+      <!-- The Timeline dock (Phase 8, surface 4). Before: a `.graph-toolbar`
+           of nine controls at two heights — a labelled View select, Today,
+           Options (a panel of three more selects under the strip), a labelled
+           Highlight field, a count and help. Now the four zones: identity
+           (Timeline, the count as its context), find (the highlight field),
+           arrange (the view as an icon segment — the app's one control for
+           "how am I looking at this" — and one Options menu holding bucket,
+           bands and range), actions (Today as the one filled control, help).
+           `#timeline-view` stays as the hidden native select every handler
+           reads, driven by the segment. -->
+      <div class="dock" data-dock-name="timeline" role="toolbar" aria-label="Timeline controls">
+        <div class="dock-identity">
+          <h2>Timeline</h2>
+          <span id="timeline-count" class="muted dock-context"></span>
+        </div>
+        <div class="dock-group dock-find">
+          <input type="search" id="timeline-search" class="timeline-search" placeholder="Highlight notes…" aria-label="Highlight matching notes">
+        </div>
+        <div class="dock-group dock-arrange">
+          <div class="seg seg-compact timeline-view-seg" id="timeline-view-seg" role="group" aria-label="Grid or line view">
+            <button type="button" class="icon-only active" data-timeline-view="grid" title="Grid — one column per day" aria-label="Grid view"><i class="ph ph-columns" aria-hidden="true"></i></button>
+            <button type="button" class="icon-only" data-timeline-view="line" title="Line — one thread through time" aria-label="Line view"><i class="ph ph-git-commit" aria-hidden="true"></i></button>
+          </div>
+          <select id="timeline-view" aria-label="Grid or line view" class="dock-native-hidden" tabindex="-1" aria-hidden="true" data-no-select-enhance>
+            <option value="grid" selected>Grid</option>
+            <option value="line">Line</option>
           </select>
-        </span>
-        <label class="muted" for="timeline-group">Bands</label>
-        <select id="timeline-group" aria-label="Group notes into bands">
-          <option value="category" selected>Category</option>
-          <option value="tag">Tag</option>
-          <option value="thread">Thread</option>
-          <option value="none">None</option>
-        </select>
-        <label class="muted" for="timeline-days">Show</label>
-        <select id="timeline-days" aria-label="How far back to show">
-          <option value="90">Last 3 months</option>
-          <option value="365" selected>Last year</option>
-          <option value="0">Everything</option>
-          <option value="custom">Custom range</option>
-        </select>
-        <span id="timeline-custom-range" class="hidden row align-center timeline-custom-range">
-          <input type="date" id="timeline-start-date" aria-label="Start date">
-          <span class="muted timeline-custom-range-sep">to</span>
-          <input type="date" id="timeline-end-date" aria-label="End date">
-        </span>
+          <details class="doc-dock-menu dock-menu" id="timeline-options-menu">
+            <summary class="ghost small doc-dock-menu-btn" title="Bucket size, bands and how far back to show"><i class="ph ph-sliders-horizontal ph-lead" aria-hidden="true"></i> Options <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
+            <div class="doc-dock-menu-list dock-menu-list" id="timeline-options" role="group" aria-label="Timeline display options">
+              <div class="dock-menu-section timeline-scale-group" id="timeline-scale-group">
+                <label class="muted dock-menu-label" for="timeline-scale">Bucket by</label>
+                <select id="timeline-scale" aria-label="Time bucket">
+                  <option value="day" selected>Day</option>
+                  <option value="week">Week</option>
+                  <option value="month">Month</option>
+                  <option value="year">Year</option>
+                </select>
+              </div>
+              <div class="dock-menu-section">
+                <label class="muted dock-menu-label" for="timeline-group">Bands</label>
+                <select id="timeline-group" aria-label="Group notes into bands">
+                  <option value="category" selected>Category</option>
+                  <option value="tag">Tag</option>
+                  <option value="thread">Thread</option>
+                  <option value="none">None</option>
+                </select>
+              </div>
+              <div class="dock-menu-section">
+                <label class="muted dock-menu-label" for="timeline-days">Show</label>
+                <select id="timeline-days" aria-label="How far back to show">
+                  <option value="90">Last 3 months</option>
+                  <option value="365" selected>Last year</option>
+                  <option value="0">Everything</option>
+                  <option value="custom">Custom range</option>
+                </select>
+                <span id="timeline-custom-range" class="hidden row align-center timeline-custom-range">
+                  <input type="date" id="timeline-start-date" aria-label="Start date">
+                  <span class="muted timeline-custom-range-sep">to</span>
+                  <input type="date" id="timeline-end-date" aria-label="End date">
+                </span>
+              </div>
+            </div>
+          </details>
+        </div>
+        <div class="dock-actions">
+          <button id="timeline-jump-today" class="small" type="button" title="Jump to today">
+            <i class="ph ph-calendar-blank ph-lead" aria-hidden="true"></i> Today
+          </button>
+          <button type="button" id="timeline-help" class="icon-only ghost small graph-help-toggle"
+            aria-label="How to read this">
+            <i class="ph ph-question" aria-hidden="true"></i>
+          </button>
+        </div>
       </div>
       <p class="muted graph-help-panel hidden" id="timeline-intro" role="dialog" aria-label="How to read this">
         A note sits where it is <em>about</em> when it says so — "the deadline

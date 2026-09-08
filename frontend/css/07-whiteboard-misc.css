@@ -7291,7 +7291,6 @@ header#top-bar > #tab-bar {
 .graph-help-panel,
 .graph-help-panel.search-help,
 .notif-panel,
-.notes-filters-pop,
 .ai-status-popup {
   background: var(--modal-bg-opaque);
   border: 1px solid var(--border);
@@ -7385,21 +7384,6 @@ header#top-bar > #tab-bar {
    rest of the block, with the block's own rhythm above it. */
 .empty-state > button {
   margin-top: var(--space-4);
-}
-
-/* --- the Notes list's one control row --------------------------------------
-   The title opens the row and the refresh closes it (the corner the user
-   asked for); everything else sits between. `order` puts the refresh last
-   without moving it in the DOM, so the tab order stays title → refresh →
-   controls as it was when they shared a head row. */
-.notes-toolbar > .entries-heading {
-  margin: 0 var(--space-2) 0 0;
-  flex: 0 0 auto;
-}
-
-.notes-toolbar > #notes-refresh {
-  order: 100;
-  margin-left: auto;
 }
 
 /* --- the switch's hit target (MODERNISATION_AUDIT.md Brief 8) --------------
@@ -7515,68 +7499,6 @@ input[type="file"] {
    column at 390px. */
 #settings-modal .settings-section .settings-fold summary {
   white-space: normal;
-}
-
-/* --- the Notes toolbar on a phone (MODERNISATION_AUDIT Brief 2) ------------
-   Measured at 390px: the one control row wrapped to four rows, 172px tall,
-   and the first note began at y=445. Below 600px the row keeps the title,
-   the search field and the refresh, and a funnel button opens a sheet that
-   `initNotesFiltersSheet` (app.js) has moved the other six controls into —
-   moved, not duplicated, so every id and listener is the one the desktop
-   row uses. The sheet is a sixth floating surface and takes the shared
-   shell above rather than drawing its own; `--control-h` is repeated here
-   because the controls left `.library-toolbar`, which is where they got it. */
-.notes-filters-toggle {
-  display: none;
-}
-
-.notes-filters-pop {
-  --control-h: var(--control-h-lg);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  margin-bottom: var(--space-4);
-}
-
-.notes-filters-pop select,
-.notes-filters-pop .seg,
-.notes-filters-pop button {
-  height: var(--control-h);
-  padding-block: 0;
-  margin: 0;
-  font-size: var(--text-md);
-}
-
-.notes-filters-pop .graph-help-toggle {
-  width: 2rem;
-  height: 2rem;
-}
-
-.notes-filters-pop select {
-  width: auto;
-  max-width: 100%;
-}
-
-@media (max-width: 600px) {
-  .notes-toolbar > .notes-filters-toggle {
-    display: inline-flex;
-    order: 99;
-    margin-left: auto;
-  }
-
-  .notes-toolbar > #notes-refresh {
-    margin-left: 0;
-  }
-
-  /* The search takes its own full row under the title, so it is never a
-     sliver between two buttons. */
-  .notes-toolbar > #note-search,
-  .notes-toolbar > #save-search {
-    order: 101;
-    flex: 1 1 100%;
-  }
 }
 
 /* --- map nodes and their edges (MINDMAP_PLAN.md §5, Phase 2) ---------------
@@ -7934,9 +7856,18 @@ input[type="file"] {
   gap: var(--space-1);
 }
 
-.dock-more > .dock-menu-list {
+.dock-more > .dock-menu-list,
+.dock-menu-flip > .dock-menu-list {
   left: auto;
   right: 0;
+}
+
+/* The Timeline's bucket group carries an inline-flex rule from its life in
+   the options strip; inside a menu it is a stacked section like the others. */
+.dock-menu-section.timeline-scale-group {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 
 .dock-menu-section {
@@ -8032,4 +7963,36 @@ input[type="file"] {
 .dock-menu > summary.is-on {
   color: var(--accent-surface);
   background: var(--accent-soft);
+}
+
+/* A native control a dock keeps only as the value its handlers read (the
+   Timeline's view select, driven by the icon segment beside it). Out of
+   flow, out of the tab order, out of the pointer's reach — and `!important`
+   for the same reason `.select-native-hidden` needs it: an id rule for the
+   control's old visible shape outranks a class. */
+.dock-native-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip-path: inset(50%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dock-context {
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.dock-menu-section .timeline-custom-range {
+  margin: var(--space-2) 0 0;
+}
+
+.dock-menu-section .timeline-custom-range input {
+  flex: 1 1 0;
+  min-width: 0;
 }

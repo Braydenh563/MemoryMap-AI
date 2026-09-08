@@ -429,6 +429,78 @@ all four widths; a keyboard-only pass (Tab into each dock, arrows across
 it, Enter opens a popover, Escape closes it and returns focus) scripted in
 `scratchpad/ui-sweeps/keys.js`.
 
+### Built, second sitting
+
+Twelve docks now carry `data-dock-name` and are in
+`test_dock_grammar.py`'s `ON_THE_GRAMMAR`: the five from the first sitting
+(graph, library, notes, timeline, reminders) plus **library-docs,
+library-boards, library-media, library-links, library-contents,
+library-skills and chat**. Every Library sub-tab is on the grammar; so is
+the Chat conversation header; the Settings section heads took the identity
+zone the plan asks of them.
+
+Measured per surface at 1440 and 390 with two new scripts, both in
+`scratchpad/ui-sweeps/`: **`subdocks.js`** (inventory: controls, heights,
+zones, filled buttons per head row, including sub-tabs `docks.js` never
+reaches because they are `hidden` when their tab first paints) and
+**`dockprobe.js`** (behaviour: every dock menu opens, its list stays inside
+the viewport, picking an item closes it, Escape closes it and returns
+focus, an outside click closes it, and the dock never scrolls sideways).
+**`setheads.js`** does the same for the seventeen Settings sections.
+
+| Dock | Before (1440) | After (1440) |
+| --- | --- | --- |
+| library-docs | 9 controls, no zones | 6, four zones, 1 filled, 36px |
+| library-boards | 11 controls, 32/36 | 7 grammar controls, four zones, 1 filled |
+| library-media | 2 rows, 3 + 6/10 controls | 1 row, four zones, 1 filled |
+| library-links | 3 bands, 2 + 4 controls | 5 controls, four zones, 1 filled |
+| library-contents | 2 rows, 2 + 7 controls | 9 controls, four zones, 0 filled |
+| library-skills | 2 controls, search elsewhere | 3 controls, three zones, 1 filled |
+| chat | 3 controls at 28px | 3 at 36px, matching the head beside it |
+
+**Six bugs the measuring found, none of which reading the source would
+have:**
+
+1. On Library then Images the native `#library-media-read` is `hidden`,
+   and `enhanceSelect`'s stand-in still drew a 124x36 "Read or not"
+   dropdown on a tab where "read" means nothing. `#update-version-select`
+   had the same hole. Fixed once inside `enhanceSelect`, which now mirrors
+   the select's `hidden` state onto its shell.
+2. The Files view segment's cells rendered 28px inside a 36px group while
+   everything beside them was 36. The All and Boards segments escaped it
+   only by carrying `.library-view`, whose own rule sets a height. A
+   `.dock > * > .seg > button` rule fixes it for every dock.
+3. `#notes-expand-all`, a labelled verb, was living inside the Notes *view*
+   segment. It is a `doc-dock-menu-item` in the Notes kebab now.
+4. A kebab built by `kebabMenu` sits inside its own `.menu-wrap`, one level
+   deeper than the dock's deliberately shallow height rule reaches, so the
+   Chat kebab stayed 28px while Fork and Compress came up to 36.
+5. Settings then Help's "Ask the guide" `<h4>` was styled by nothing at all
+   and rendered at the browser default 16px/700, larger and heavier than
+   every h3 around it.
+6. `.row h3.flush` meant `flush` silently did nothing on an h2 or h4, and
+   the id-scoped `#settings-modal .settings-group h4` margin outranked it
+   anyway: measured 4px off the centre line of the button beside it.
+
+`test_dock_grammar.py` gained two things while this landed. Its "one
+filled button" detector now means what the stylesheet means by "in the
+dock" (a direct child of a zone, the run `.dock > * > button` sizes), so a
+segment cell and a chip nested in the Chat headline are not counted as
+primaries; and the segment rule its docstring had always claimed is a real
+test now, which is what found bug 3.
+
+**Not done, and why.** The Dashboard hero is descoped: the owner prefers
+the banner-style hero and it is being restored on another branch.
+`#wb-topbar` and `whiteboard.js` belong to another branch. `.sidebar-head`
+was deliberately not converted: it is shared by three sidebars and carries
+the collapse-toggle lane reserve and the negative top margin that aligns
+the row with that toggle, both of which exist because those three headings
+and the New-chat/collapse clash were reported; converting one of the three
+would reintroduce both. It already measures 36px, which is what "one
+height" was asking for. The keyboard-only `keys.js` pass in the acceptance
+above is still not written; `dockprobe.js` covers Escape-closes-and-returns-
+focus but not Tab-in and arrow-across.
+
 ## Phase 9 — responsive by device, on purpose (1 session)
 
 **The instruction, verbatim:** "Also intentional and adjusted design that

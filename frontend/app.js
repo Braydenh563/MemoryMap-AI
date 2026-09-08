@@ -30329,6 +30329,40 @@ initHelpToggle("wb-boards-help", "wb-boards-intro");
 initHelpToggle("library-images-help", "library-images-intro");
 initHelpToggle("contents-help", "contents-intro");
 
+// --- one wiring for every "?" added from here on --------------------------
+// Asked for directly: *"there are also still areas with excessive paragraph
+// text and I want to replace them with the circle tooltip '?' buttons so they
+// dont take up unnecessary space"*, with the rule that they all share the same
+// markup and behaviour, and that a new one needs no JS.
+//
+// So the seven `initHelpToggle` lines above are the last hand-wired pair. A
+// new help button is markup only:
+//
+//   <button type="button" class="icon-only ghost small graph-help-toggle"
+//           data-help-for="thing-help" aria-controls="thing-help"
+//           aria-expanded="false" title="…" aria-label="…">
+//     <i class="ph ph-question" aria-hidden="true"></i>
+//   </button>
+//   <div class="help-body hidden" id="thing-help" role="dialog" aria-label="…">…</div>
+//
+// Keyboard support is the reason this is a `<button>` and not a span with a
+// click handler: focus + Enter (and Space) already dispatch `click`, so the
+// "opens on focus+Enter" requirement is the platform's, not ours to
+// reimplement. Escape, outside click and a second click all close, because
+// `wireHelpPopover` is the single implementation of all three.
+//
+// Re-runnable, and `wireHelpPopover`'s own `panel.dataset.helpPopover` guard
+// means a second pass over an already-wired pair does nothing — which matters
+// because Settings renders some of its sections lazily.
+function initHelpToggles(root = document) {
+  for (const trigger of root.querySelectorAll("[data-help-for]")) {
+    const panel = document.getElementById(trigger.dataset.helpFor);
+    if (panel) wireHelpPopover(trigger, panel);
+  }
+}
+window.initHelpToggles = initHelpToggles;
+initHelpToggles();
+
 //: **The concept-map door, in the tab people look for it in.** Reported: "the
 //: concept map feature is there in the graph but I have no clue how to use it,
 //: it isnt a labeled feature and is it even there actually??" It was real and

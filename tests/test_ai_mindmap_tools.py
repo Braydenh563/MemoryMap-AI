@@ -4,7 +4,7 @@ link_map_nodes (MINDMAP_PLAN.md §5 item 14).
 Two things are being asserted here beyond "the handler runs".
 
 **The outline shape.** `read_mindmap` exists because `read_whiteboard`'s
-three flat lists are the wrong answer for a map — the structure *is* the
+three flat lists are the wrong answer for a map, the structure *is* the
 content, and a small model handed a list of nodes plus a list of parent ids
 rebuilds the tree wrongly or not at all. So the tests assert indentation and
 per-line ids, not just that every node is mentioned somewhere.
@@ -42,7 +42,7 @@ def _map(session, title="Thesis"):
 
 def test_create_mindmap_makes_a_board_that_is_a_map_with_a_root(session):
     """A map with no root has nothing to hang the next node off, and a small
-    model handed one stalls there — which is why the root is part of this
+    model handed one stalls there, which is why the root is part of this
     call rather than a second one."""
     result = tools.TOOLS["create_mindmap"].handler(
         session, {"title": "Thesis", "root_text": "Argument"}
@@ -86,7 +86,7 @@ def test_read_mindmap_returns_an_indented_outline_with_ids(session):
 
 
 def test_read_mindmap_names_the_note_behind_a_reference_node(session):
-    """"each node's kind and any note id" — the plan's words. Without the id
+    """"each node's kind and any note id", the plan's words. Without the id
     the model can read the map and still not be able to open anything in it."""
     note = _note(session, "# Kolmogorov complexity\n\nnotes")
     board_id, root_id = _map(session)
@@ -102,7 +102,7 @@ def test_read_mindmap_names_the_note_behind_a_reference_node(session):
 
 def test_read_mindmap_refuses_to_read_a_private_boards_contents(session):
     """A board is an Entry and can be marked private after being used as one
-    — the same rule `_read_whiteboard` follows for a board title, applied to
+    - the same rule `_read_whiteboard` follows for a board title, applied to
     a whole outline, which is far more text."""
     board_id, _ = _map(session)
     board = session.get(Entry, board_id)
@@ -115,7 +115,7 @@ def test_read_mindmap_refuses_to_read_a_private_boards_contents(session):
 
 def test_a_private_notes_text_never_reaches_the_outline(session):
     """The reference node is created directly, bypassing `add_map_node`'s own
-    refusal — because the note can be marked private *after* it was put on
+    refusal: because the note can be marked private *after* it was put on
     the map, and the read path has to refuse it on its own."""
     note = _note(session, "SECRET research", private=True)
     board_id, root_id = _map(session)
@@ -137,7 +137,7 @@ def test_a_private_notes_text_never_reaches_the_outline(session):
 
 
 def test_add_map_node_refuses_a_private_note(session):
-    """`_require_note`, not a bare `session.get` — the guard `add_whiteboard_card`
+    """`_require_note`, not a bare `session.get`, the guard `add_whiteboard_card`
     already uses, and the one CLAUDE.md records two tools quietly losing."""
     note = _note(session, "SECRET", private=True)
     board_id, root_id = _map(session)
@@ -192,7 +192,7 @@ def test_add_map_node_needs_text_for_a_topic(session):
 
 
 def test_link_map_nodes_writes_a_link_sketch_between_two_objects(session):
-    """A cross-link is the same row a link between two cards already is —
+    """A cross-link is the same row a link between two cards already is, 
     `sourceKind`/`targetKind` of "object" is what tells the canvas and
     `_forget_links_to` which table to look in."""
     board_id, root_id = _map(session)
@@ -239,7 +239,7 @@ def test_link_map_nodes_refuses_a_node_linked_to_itself(session):
 
 def test_the_map_tools_are_registered_and_gated_like_the_board_tools(session):
     """Registered in `TOOLS` (which is what puts them in Settings → Tools and
-    in `/chat/tools`), and in the whiteboard cue group — a question about a
+    in `/chat/tools`), and in the whiteboard cue group, a question about a
     map that was offered the board tools and not these answers by placing
     cards on a canvas."""
     from memorymap.ai import toolwords

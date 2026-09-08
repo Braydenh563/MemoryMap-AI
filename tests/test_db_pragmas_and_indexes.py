@@ -1,16 +1,16 @@
-"""PLAN.md §0 P5 — the per-connection pragmas and the four remaining indexes
+"""PLAN.md §0 P5: the per-connection pragmas and the four remaining indexes
 AUDIT.md B10 named as unverified: `Entry.category_id`, `Attachment.entry_id`,
 and the `workspace_id`/order-by composite `/media` and `/documents` need.
 
 `Entry.is_deleted` and `PageRead(kind, source_id)`, the other two names in
-that item, are already covered — the first by `test_entry_indexes.py`'s four
+that item, are already covered, the first by `test_entry_indexes.py`'s four
 composite indexes (every one of them leads with `is_deleted`), the second by
 its own unique constraint, which is itself a `(kind, source_id, page)` index
-(checked directly with EXPLAIN QUERY PLAN while writing this — no SCAN, no
+(checked directly with EXPLAIN QUERY PLAN while writing this, no SCAN, no
 new index needed, so neither is re-tested here).
 
 **Why a file-backed database, not the usual in-memory one.** WAL is a file
-journal mode — SQLite silently falls back to the in-memory `memory` journal
+journal mode: SQLite silently falls back to the in-memory `memory` journal
 for an `:memory:` database regardless of what `PRAGMA journal_mode` is told,
 so asserting `journal_mode == 'wal'` against an in-memory db would pass for
 the wrong reason (or not exercise the pragma at all). `tmp_path` gives a real
@@ -67,7 +67,7 @@ def test_the_new_indexes_exist_in_sqlite_master(db):
 
 def test_new_indexes_are_created_on_a_database_that_already_exists(tmp_path):
     """Same trap `test_entry_indexes.py` guards against for the older four:
-    `create_all()` only builds indexes declared on a table it is creating —
+    `create_all()` only builds indexes declared on a table it is creating, 
     an index added to `_INDEXES` after a user's database already has the
     `entries`/`attachments`/`media_uploads`/`documents` tables would silently
     never appear on their real notebook without `_ensure_indexes` re-running
@@ -99,7 +99,7 @@ def _plan(db: DatabaseManager, sql: str) -> list[str]:
 
 def test_entries_by_category_is_served_by_its_index(db):
     """`entry/manager.py`'s `category_entry_ids`/`move_category_entries` filter
-    entries by `category_id` alone — a plain ForeignKey column that SQLAlchemy
+    entries by `category_id` alone: a plain ForeignKey column that SQLAlchemy
     does not index on its own."""
     with db.session() as session:
         session.info["workspace_id"] = "default"
@@ -164,7 +164,7 @@ def _seed_media_and_documents(db: DatabaseManager) -> None:
 
 
 def test_media_list_query_does_not_sort_the_whole_table(db):
-    """`GET /media` (`routes_files.list_media`) — workspace-scoped, ordered by
+    """`GET /media` (`routes_files.list_media`), workspace-scoped, ordered by
     `created_at DESC`. Measured "USE TEMP B-TREE FOR ORDER BY" before the
     composite index existed."""
     _seed_media_and_documents(db)
@@ -176,7 +176,7 @@ def test_media_list_query_does_not_sort_the_whole_table(db):
 
 
 def test_documents_list_query_does_not_sort_the_whole_table(db):
-    """`GET /documents` (`routes_documents.list_documents`) — workspace-scoped,
+    """`GET /documents` (`routes_documents.list_documents`), workspace-scoped,
     `archived_at IS NULL`, ordered by `updated_at DESC`. Same measured
     TEMP B-TREE before this index existed."""
     _seed_media_and_documents(db)

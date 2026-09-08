@@ -1,4 +1,4 @@
-// MemoryMap AI — the graph, drawn to a Canvas 2D surface.
+// MemoryMap AI: the graph, drawn to a Canvas 2D surface.
 //
 // GRAPH_PLAN.md §4 ("Renderer: Canvas 2D first") and §5 Phase 1. This is the
 // other half of `graph-worker.js`: the worker decides where the notes are,
@@ -20,7 +20,7 @@
 // What is deliberately shared with graph.js rather than re-implemented: the
 // note popup, the new-note form, the link panel, trace, the minimap, saved
 // views, keyboard driving, `fitGraphToView` and the tree/radial/arc layout
-// maths. Those are all renderer-agnostic — they work on `graphNodesRef` and on
+// maths. Those are all renderer-agnostic, they work on `graphNodesRef` and on
 // `graphSvg`/`graphZoom`, and this file points those at the canvas.
 
 // --- the drawing surface ------------------------------------------------------
@@ -64,8 +64,8 @@ let gcRenderSeq = 0;
 let gcTiming = { dataAt: 0, firstFrame: 0, lastFrame: 0, frames: 0 };
 //: The last thing the worker said about itself: how hot the layout still is,
 //: and how many steps it has taken. Reported on the debug surface because a
-//: slow-looking map is now two separable questions — is the simulation
-//: crawling, or is the paint dropping frames — and guessing which cost a round
+//: slow-looking map is now two separable questions, is the simulation
+//: crawling, or is the paint dropping frames, and guessing which cost a round
 //: of theorising before this was here.
 let gcAlpha = 0;
 let gcTicks = 0;
@@ -79,7 +79,7 @@ let gcUserZoomed = false;
 //: Node radius, GRAPH_PLAN.md §5 Phase 1: `4 + 2*sqrt(degree)`, clamped to
 //: [4, 18]. Degree is counted client-side from the edges until Phase 5 sends
 //: it on the payload. The SVG renderer sized by PageRank centrality instead,
-//: which is a number the reader cannot verify by looking — degree is "how many
+//: which is a number the reader cannot verify by looking, degree is "how many
 //: lines come out of this dot", which is the one thing a graph makes visible.
 const GC_MIN_RADIUS = 4;
 const GC_MAX_RADIUS = 18;
@@ -97,8 +97,8 @@ const GC_LABEL_ZOOM = 1.4;
 const GC_DIM_ALPHA = 0.2;
 
 //: Every colour comes from the app's tokens (§6). Read off the canvas element
-//: rather than `:root` so whatever cascade actually applies — theme, a user
-//: theme, the dark-mode block — is the one that answers.
+//: rather than `:root` so whatever cascade actually applies, theme, a user
+//: theme, the dark-mode block, is the one that answers.
 function gcReadTokens() {
   const style = getComputedStyle(gcCanvas || document.documentElement);
   const get = (name, fallback) => (style.getPropertyValue(name) || "").trim() || fallback;
@@ -140,8 +140,8 @@ function gcEdgeStyle(edge) {
 
 // --- the surface, sized for the device ----------------------------------------
 
-//: DPR-aware sizing. A canvas has two sizes — the CSS box and the pixel
-//: buffer — and getting that wrong is the single most common way a canvas
+//: DPR-aware sizing. A canvas has two sizes, the CSS box and the pixel
+//: buffer: and getting that wrong is the single most common way a canvas
 //: renderer ships blurry. The buffer is the box times the device pixel ratio,
 //: and every draw starts by scaling the context by the same number so the
 //: drawing code can go on thinking in CSS pixels.
@@ -266,7 +266,7 @@ function gcDraw() {
     if (!a || !b || !Number.isFinite(a.x) || !Number.isFinite(b.x)) continue;
     if (!gcVisibleAtTime(a) || !gcVisibleAtTime(b)) continue;
     // Both ends off-screen on the same side: nothing of the line can be in
-    // frame. A cheap, conservative test — an edge crossing the viewport with
+    // frame. A cheap, conservative test, an edge crossing the viewport with
     // both ends outside still gets drawn.
     if (
       (a.x < view.left && b.x < view.left) ||
@@ -289,7 +289,7 @@ function gcDraw() {
     }
     if (gcTree) {
       // A tree's edges are curves between fixed points. `hierarchyPath` and
-      // `arcPath` already return SVG path data, and Path2D speaks it — so the
+      // `arcPath` already return SVG path data, and Path2D speaks it, so the
       // curve maths is shared with the SVG renderer rather than rewritten.
       if (!edge._path2d) {
         edge._path2d = new Path2D(gcTree.arc ? arcPath(edge) : hierarchyPath(edge, gcTree.radial));
@@ -371,7 +371,7 @@ function gcDraw() {
       hubs.any = true;
     }
     // Labels come on by zoom, and a hovered or spotlit note always shows its
-    // own — including with the Labels tickbox off, which is what
+    // own: including with the Labels tickbox off, which is what
     // `.graph-labels-hidden g.graph-focus .graph-label { opacity: 1 }` does on
     // the SVG renderer. "Labels off" means "not all of them", not "never".
     if (!dim && ((labelsOn && (k > GC_LABEL_ZOOM || matched)) || focused)) {
@@ -460,7 +460,7 @@ function gcDraw() {
     // dimensions and reads better with the label under the dot. (Radial and
     // arc labels are centred under the node here rather than rotated onto the
     // spoke, which is the one place this renderer is visibly plainer than the
-    // SVG one — recorded in GRAPH_PLAN.md's "Built" section.)
+    // SVG one: recorded in GRAPH_PLAN.md's "Built" section.)
     const beside = Boolean(gcTree) && !gcTree.radial && !gcTree.arc;
     ctx.textAlign = beside ? "left" : "center";
     ctx.textBaseline = "middle";
@@ -468,7 +468,7 @@ function gcDraw() {
     ctx.lineWidth = 3 / k;
     ctx.strokeStyle = gcTokens.card;
     ctx.fillStyle = gcTokens.ink;
-    // `paint-order: stroke` on `.graph-label` — the halo goes down first so a
+    // `paint-order: stroke` on `.graph-label`, the halo goes down first so a
     // label stays legible over an edge or another node.
     for (const node of labelled) {
       const text = gcLabelText(node);
@@ -485,7 +485,7 @@ function gcDraw() {
   // **Only a frame with something in it stops the clock.** A frame drawn
   // before the first positions exist is a blank canvas, and calling that "the
   // first frame" would be measuring nothing and reporting a good number for
-  // it — the exact shape of self-deception the gate exists to prevent.
+  // it: the exact shape of self-deception the gate exists to prevent.
   if (!gcTiming.firstFrame && gcTiming.dataAt && drawn.length) {
     gcTiming.firstFrame = performance.now() - gcTiming.dataAt;
   }
@@ -541,7 +541,7 @@ function gcDrawTrace(ctx, k) {
 // --- hit-testing ----------------------------------------------------------------
 
 //: A `d3.quadtree` over the node positions (§4: "Hit-testing via a quadtree,
-//: not per-node DOM events"). Rebuilt lazily — marked dirty by every draw, and
+//: not per-node DOM events"). Rebuilt lazily: marked dirty by every draw, and
 //: actually rebuilt only when something asks what is under the pointer, which
 //: is at most once a frame and only while the pointer is over the map.
 function gcTreeIndex() {
@@ -644,7 +644,7 @@ function gcWireInteraction() {
     });
   selection.call(zoom).on("dblclick.zoom", null);
 
-  // The rest of the app drives zoom through `graphSvg`/`graphZoom` — the
+  // The rest of the app drives zoom through `graphSvg`/`graphZoom`, the
   // +/-/fit buttons, the keyboard, the minimap, saved views, `fitGraphToView`.
   // Pointing those two at the canvas is what makes every one of them keep
   // working without a line of change: `d3.zoom` does not care what element it
@@ -659,7 +659,7 @@ function gcWireInteraction() {
       // **The canvas, not its parent.** d3-drag's default container is
       // `this.parentNode`, so without this the pointer would be measured
       // against `#graph-box` while the subject's coordinates are measured
-      // against the canvas — an offset that is zero today and stops being zero
+      // against the canvas: an offset that is zero today and stops being zero
       // the moment anything is laid out above the canvas inside the box.
       .container(() => gcCanvas)
       .subject((event) => {
@@ -684,7 +684,7 @@ function gcWireInteraction() {
         // Two rules were in conflict here and both are real. The SVG renderer
         // froze the entire map for the length of a drag, because drag-to-link
         // asks you to aim at a note and aiming at a moving target is not a
-        // gesture — that was a direct report. But GRAPH_PLAN.md §3 asks for
+        // gesture: that was a direct report. But GRAPH_PLAN.md §3 asks for
         // the opposite thing, and it is the whole point of this phase:
         // "dragging feels physical (the neighbours follow and the rest
         // settles)". Freezing everything makes a drag a pointer-follow with a
@@ -855,7 +855,7 @@ function gcStartWorker(nodes, edges, world) {
     // Version-stamped for the same reason index.html's script tags are
     // (tests/test_asset_cache_busting.py): a desktop wrapper with its own
     // cache can otherwise go on running yesterday's worker forever, and a
-    // stale worker is invisible — nothing logs, the map just behaves like the
+    // stale worker is invisible, nothing logs, the map just behaves like the
     // build before last. The stamp is lifted off this file's own <script>
     // tag rather than kept in a second place that can drift from it.
     const own = document.querySelector('script[src*="graph-canvas.js"]');
@@ -887,7 +887,7 @@ function gcStartWorker(nodes, edges, world) {
         // **Framed twice: once straight away, once when it settles.**
         //
         // The SVG renderer framed the map exactly once, when the simulation
-        // cooled below alpha 0.08 — about 110 ticks. Measured on the 2,000-note
+        // cooled below alpha 0.08, about 110 ticks. Measured on the 2,000-note
         // fixture in this sandbox, a tick costs ~80 ms, so that is nine seconds
         // of watching a graph whose notes are mostly outside the frame at
         // zoom 1, with no way to know that is what you are looking at. The
@@ -896,7 +896,7 @@ function gcStartWorker(nodes, edges, world) {
         // has actually decided its shape.
         //
         // The second fit is skipped if the user has zoomed or panned in the
-        // meantime — recentring the camera out from under someone who has
+        // meantime: recentring the camera out from under someone who has
         // deliberately gone to look at something is the reported bug
         // `graphAutoFitDone` exists for, and an early fit must not reintroduce
         // it by making the late fit unconditional.
@@ -955,7 +955,7 @@ function gcStartWorker(nodes, edges, world) {
   });
 }
 
-//: The world the simulation solves in — a square whose side grows with
+//: The world the simulation solves in, a square whose side grows with
 //: sqrt(count). Carried over from the SVG renderer along with the reason it is
 //: square and count-based rather than a multiple of the frame: a graph box is
 //: wide and short, so multiplying the frame gave a few hundred pixels of
@@ -977,7 +977,7 @@ function gcWorldFor(count, width, height) {
 
 //: The Canvas 2D renderer, behind the same `renderGraph()` entry, on the same
 //: data, with the same ids and the same dock controls. Everything from the
-//: fetch down to the stats line is the SVG renderer's own sequence — what
+//: fetch down to the stats line is the SVG renderer's own sequence: what
 //: changes is that the drawing is a canvas and the simulation is a worker.
 async function renderGraphCanvas() {
   if (!gcEnsureCanvas()) return;
@@ -1097,7 +1097,7 @@ async function renderGraphCanvas() {
   //: **A note with no position yet is placed here, not in the worker.**
   //: d3-force assigns its phyllotaxis spiral inside `forceSimulation`, which
   //: means the main thread has no positions at all until the first tick comes
-  //: back — so the frame drawn the instant the payload arrives would be an
+  //: back: so the frame drawn the instant the payload arrives would be an
   //: empty canvas, and the gate's "first frame after data" would be timing a
   //: blank. The same spiral is laid down here (identical constants, so the
   //: worker keeps these rather than re-placing anything) and the first frame
@@ -1148,7 +1148,7 @@ async function renderGraphCanvas() {
 // --- the chrome around the drawing ------------------------------------------------
 //
 // The legend, the stats line and the time slider are the same controls on
-// either renderer — they describe the data, not the drawing. They live here
+// either renderer: they describe the data, not the drawing. They live here
 // rather than in graph.js because this is the file that survives Phase 1: the
 // SVG renderer keeps its own inline copies until it is deleted, and then there
 // is one of each.
@@ -1207,7 +1207,7 @@ function graphRenderLegend(data, colourMode, colour, clusterColour) {
       note.className = "legend-item";
       note.textContent = `${graphHiddenCategories.size} category filter${
         graphHiddenCategories.size === 1 ? "" : "s"
-      } still on — switch to “By category” to change them`;
+      } still on: switch to “By category” to change them`;
       legend.appendChild(note);
     }
     return;

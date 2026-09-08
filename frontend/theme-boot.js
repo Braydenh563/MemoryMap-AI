@@ -27,7 +27,7 @@
 
   const theme = pref("theme", "system");
   if (theme && theme !== "system") _r.dataset.theme = theme;
-  // data-mode is the RESOLVED light/dark, which the palettes match on —
+  // data-mode is the RESOLVED light/dark, which the palettes match on, 
   // under "System" there is no data-theme for CSS to hang off, so without
   // this every palette would paint its light set on a dark desktop until
   // app.js caught up.

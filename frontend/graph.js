@@ -1,32 +1,32 @@
-// MemoryMap AI — Graph view subsystem (extracted from app.js).
+// MemoryMap AI: Graph view subsystem (extracted from app.js).
 //
 // This is the "Graph" tab: the Obsidian-style force-directed map, its
 // alternate layouts (tree/radial/arc), path tracing between two notes,
 // drag-to-link, cluster colouring, keyboard driving, the node-edit popup,
-// and "grow the map" (§9, §41). D3 is vendored locally (frontend/vendor) —
+// and "grow the map" (§9, §41). D3 is vendored locally (frontend/vendor): 
 // the offline rule allows no CDN.
 //
-// Loaded as a THIRD classic (non-module) <script> tag, BEFORE app.js — see
+// Loaded as a THIRD classic (non-module) <script> tag, BEFORE app.js: see
 // index.html. That order is not arbitrary and not interchangeable with the
 // whiteboard.js split that preceded this one: app.js's own top-level wiring
 // (the "$(\"graph-similarity\").addEventListener(\"change\", renderGraph)"
-// cluster, and half a dozen like it — popup close/save, new-note save, the
+// cluster, and half a dozen like it, popup close/save, new-note save, the
 // resize handler) passes functions and reads `let`s defined below *as bare
-// identifiers, evaluated the moment that line of app.js runs* — not inside a
+// identifiers, evaluated the moment that line of app.js runs*, not inside a
 // closure, not deferred to a later event. In the original single file this
 // worked regardless of position because function declarations hoist across
 // the whole script; split into two <script> tags, each tag is its own
 // hoisting scope, so if app.js ran first those lines would throw
-// `ReferenceError: renderGraph is not defined` and — because that is
-// synchronous top-level script code — abort the rest of app.js's own wiring
+// `ReferenceError: renderGraph is not defined` and: because that is
+// synchronous top-level script code, abort the rest of app.js's own wiring
 // partway through, not just the graph feature. So this file has to have
 // already run before app.js reaches that code, meaning this script tag comes
 // first. (whiteboard.js has no such bare top-level references into this
-// file or into app.js — everything it calls across files happens inside a
-// function body — which is why it could stay ordered after app.js.)
+// file or into app.js, everything it calls across files happens inside a
+// function body: which is why it could stay ordered after app.js.)
 //
 // This file's own top-level code needs only `document` (for the Escape-key
-// handler that closes an open trace) and literal constants — nothing here
+// handler that closes an open trace) and literal constants, nothing here
 // needs app.js or whiteboard.js to have run first. It does need `d3` from
 // /vendor/d3.v7.min.js, which the existing script order already guarantees.
 //
@@ -37,7 +37,7 @@
 
 // --- graph view (Wave E) ----------------------------------------------------------
 // An Obsidian-style force-directed map. D3 is vendored locally
-// (frontend/vendor) — the offline rule allows no CDN.
+// (frontend/vendor): the offline rule allows no CDN.
 
 let graphSimulation = null; // stopped before every rebuild
 let graphHiddenCategories = new Set(); // legend toggles (Wave M)
@@ -52,17 +52,17 @@ let graphCanvas = null;
 let graphNodesRef = null;
 let graphMinimapTick = 0; // throttles minimap repaints during a cooling layout
 //: Set by the renderer each time the map is built. Repositions the label
-//: layer after it has been skipped while invisible — see the tick handler.
+//: layer after it has been skipped while invisible, see the tick handler.
 //: A no-op before the first render, so every caller can call it blind.
 let graphCatchUpLabels = () => {};
 let graphDims = { w: 0, h: 0 };
 // Set once the camera has auto-framed the map for the tab's current visit,
-// and cleared again by switchTab() on the next fresh entry — see the two
+// and cleared again by switchTab() on the next fresh entry, see the two
 // uses below for why. `renderGraph()` alone can't tell "just opened the
 // tab" from "a filter checkbox changed" apart; the caller has to say which.
 let graphAutoFitDone = false;
 let graphHoveredId = null; // node the pointer is over (spotlight its links)
-let graphIsPanning = false; // an active pan/zoom drag — see zoomBehavior below
+let graphIsPanning = false; // an active pan/zoom drag, see zoomBehavior below
 let graphAdjacency = null; // Map<id, Set<neighbourId>>
 // The traced path is drawn in its own layer, above the edges and the nodes: a
 // step can be a shared tag, which the map draws no edge for, so highlighting
@@ -71,12 +71,12 @@ let graphTraceLayer = null;
 
 // How much of a linked note's text a link chip shows. Long enough to know
 // which note it is, short enough that four of them are a row rather than a
-// paragraph — a chip is a signpost, and a signpost with a sentence on it is
+// paragraph: a chip is a signpost, and a signpost with a sentence on it is
 // not a signpost. The full text is the chip's tooltip.
 const LINK_CHIP_CHARS = 28;
 
 // How much of a note the list shows before clamping it. Roughly ten lines at
-// a comfortable reading width — long enough that a normal note is never
+// a comfortable reading width, long enough that a normal note is never
 // clipped, short enough that one essay can't take the whole screen.
 const LONG_NOTE_CHARS = 500;
 const LONG_NOTE_LINES = 10;
@@ -87,7 +87,7 @@ const expandedNotes = new Set();
 // The character count decides which notes *might* be too tall; only a
 // measurement can say whether one actually is, because that depends on the
 // width it is rendered at. So the clamp goes on optimistically and this takes
-// it back off wherever the note fits after all — a "Show more" on a note that
+// it back off wherever the note fits after all, a "Show more" on a note that
 // is fully visible is worse than no clamping at all.
 //
 // It bails when the list is off screen: this renders inside a `display: none`
@@ -117,11 +117,11 @@ function graphNodeRadius(node) {
   //: The canvas renderer sizes a node by its *degree* (GRAPH_PLAN.md §5 Phase
   //: 1: `4 + 2·√degree`, clamped) and stores the answer on the node, because
   //: degree is the one thing about a graph a reader can check by looking. Every
-  //: caller that only needs "how big is this dot" — `fitGraphToView`,
-  //: `graphNodeUnder`, the minimap — then gets the right number on either
+  //: caller that only needs "how big is this dot", `fitGraphToView`,
+  //: `graphNodeUnder`, the minimap: then gets the right number on either
   //: renderer without knowing which one drew it.
   if (node.r != null) return node.r;
-  // A category heading in a tree layout is a fixed size — it has no access
+  // A category heading in a tree layout is a fixed size, it has no access
   // count of its own, and sizing it by one would be inventing a number.
   if (node.isGroup) return node.id === "root" ? 14 : 11;
   
@@ -151,7 +151,7 @@ function graphLayout() {
 }
 
 // Gravity and Spread scale the force simulation, and the tree layouts do not
-// run one — their positions come from the hierarchy. Left enabled they are two
+// run one: their positions come from the hierarchy. Left enabled they are two
 // controls that move, save, and change nothing, which reads as a broken app
 // rather than an inapplicable setting. Disabled, with the reason on hover.
 function setGraphPhysicsEnabled(layoutKind) {
@@ -160,7 +160,7 @@ function setGraphPhysicsEnabled(layoutKind) {
   if (!box) return;
   const why = applies
     ? ""
-    : "Only applies to the Force (web) layout — the other layouts' positions come from the filing hierarchy, not physics.";
+    : "Only applies to the Force (web) layout: the other layouts' positions come from the filing hierarchy, not physics.";
   box.classList.toggle("is-disabled", !applies);
   for (const id of ["graph-gravity", "graph-spread"]) {
     const slider = $(id);
@@ -185,7 +185,7 @@ function setGraphPhysicsEnabled(layoutKind) {
 }
 
 // A category level in a tree layout. It is a real node in the drawing so the
-// join, the colours and the labels all work unchanged — but it is not a note,
+// join, the colours and the labels all work unchanged, but it is not a note,
 // so anything that would open or edit one has to check.
 function graphGroupNode(category) {
   return {
@@ -202,14 +202,14 @@ function graphGroupNode(category) {
 // `d3.tree().size([...])` squeezes every leaf into the panel's height, so a
 // notebook with 29 notes got 18 pixels a row and the labels printed on top of
 // each other (reported with a photo). `nodeSize` gives each note the room a
-// label needs and lets the tree be as tall as it is — the panel pans and
+// label needs and lets the tree be as tall as it is, the panel pans and
 // zooms, which is what those controls are for.
 const TREE_ROW = 34;
 const TREE_COL = 235;
 
 // The radial is the opposite problem: it is a shape you read whole, so it has
 // to fit the panel, and a fixed radius meant a 29-note notebook was drawn at
-// 0.55× — every label technically present and none of them readable. Size the
+// 0.55×: every label technically present and none of them readable. Size the
 // rings from the panel instead, and only grow past it when the notes need the
 // circumference (below ~RADIAL_ARC pixels of arc each, labels collide).
 const RADIAL_ARC = 22; // arc length a note needs on its ring
@@ -217,7 +217,7 @@ const RADIAL_LABEL = 118; // room the labels take outside the outermost ring
 // A category name is written along its spoke, pointing out, so its ring has
 // to clear the notes' ring by more than that name is long.
 const RADIAL_GAP = 82;
-// A reply hangs one shorter step outside the note it answers — and since a
+// A reply hangs one shorter step outside the note it answers, and since a
 // lone reply inherits its parent's angle exactly, the parent's label is
 // written straight down the same spoke. That is why an intermediate note is
 // labelled shorter than a leaf (RADIAL_STEM below): the step has to clear it.
@@ -225,7 +225,7 @@ const REPLY_RING = 78;
 const RADIAL_STEM = 10; // characters, for a label written down a shared spoke
 
 // The arc layout (§9's third hierarchy view, beside tree and radial): every
-// node — category, note and reply alike — sits on one baseline, in the same
+// node, category, note and reply alike, sits on one baseline, in the same
 // left-to-right order a depth-first walk of the filing hierarchy would print
 // them in (so a category's notes stay contiguous), and a parent-child edge is
 // a shallow arc under the line instead of a tree's elbow or a radial's ring.
@@ -234,15 +234,15 @@ const RADIAL_STEM = 10; // characters, for a label written down a shared spoke
 // single row rather than the height of a tree or the footprint of a circle.
 const ARC_STEP = 58; // horizontal spacing per node
 // Reported directly, with a screenshot: a label's text was long enough, at a
-// 46px step and a 40° tilt, to run its own end into the *next* node's slot —
+// 46px step and a 40° tilt, to run its own end into the *next* node's slot: 
 // read as "the label is attached to the wrong node". At ARC_STEP's old value,
-// 20 chars * ~6.5px/char * cos(40°) was ~100px of horizontal travel — more
+// 20 chars * ~6.5px/char * cos(40°) was ~100px of horizontal travel, more
 // than two node-steps. Shortened here, and the step above widened and the
 // tilt below steepened, so a label's horizontal reach stays under one step.
-const ARC_LABEL_LIMIT = 12; // characters — diagonal labels have less room before they cross the next node's arc
+const ARC_LABEL_LIMIT = 12; // characters: diagonal labels have less room before they cross the next node's arc
 
 // Labels on the left half of the circle would read upside down, so they are
-// turned around — which swaps which way "outward" is for everything after.
+// turned around: which swaps which way "outward" is for everything after.
 function radialFlip(node) {
   const degrees = ((node.angle || 0) * 180) / Math.PI - 90;
   return degrees > 90 || degrees < -90;
@@ -250,7 +250,7 @@ function radialFlip(node) {
 
 // Where each ring goes. Every constraint here is a thing that was measured
 // going wrong: categories too tight to name, notes too tight to label, the
-// whole circle too big for the panel — or, just as bad, needlessly small in
+// whole circle too big for the panel, or, just as bad, needlessly small in
 // a panel with room to spare.
 function radialRings(leafCount, groupCount, rings, width, height) {
   // The floor matters as much as the arc: a dozen categories all radiating
@@ -263,7 +263,7 @@ function radialRings(leafCount, groupCount, rings, width, height) {
   const notes = Math.max(
     (leafCount * RADIAL_ARC) / (2 * Math.PI),
     inner + RADIAL_GAP,
-    // Fill the panel when it is bigger than the minimum — a readable circle
+    // Fill the panel when it is bigger than the minimum, a readable circle
     // is a big one. `frameTree` zooms out when the minimum wins instead.
     Math.min(room - extra, 320)
   );
@@ -281,7 +281,7 @@ function layoutHierarchy(nodes, kind, width, height) {
   const children = new Map([[root.id, [...groups.values()]]]);
   for (const group of groups.values()) children.set(group.id, []);
   for (const node of nodes) {
-    // A reply hangs off the note it answers, wherever that note is filed —
+    // A reply hangs off the note it answers, wherever that note is filed, 
     // splitting a thread across categories would lose the thing it is.
     const parent =
       node.parent_id != null && byId.has(node.parent_id)
@@ -296,7 +296,7 @@ function layoutHierarchy(nodes, kind, width, height) {
   const arc = kind === "arc";
   if (arc) {
     // Pre-order: a category is visited before any of its notes, and each
-    // note before its own replies — so walking the hierarchy in this order
+    // note before its own replies, so walking the hierarchy in this order
     // and handing out one baseline slot per stop keeps every branch
     // contiguous, the same property `separation` gives the tree and radial
     // layouts a different way.
@@ -310,13 +310,13 @@ function layoutHierarchy(nodes, kind, width, height) {
     // `d3.tree`, not `d3.cluster`: cluster rings a node by its *height*, so a
     // category that happened to contain a thread was drawn one ring closer in
     // than its siblings and the circle came out ragged. Here a ring means a
-    // depth — notebook, category, note, reply — which is what the view says
+    // depth, notebook, category, note, reply, which is what the view says
     // it means.
     d3
       .tree()
       .size([2 * Math.PI, 1])
       // Notes under different categories need more air than siblings, and the
-      // gap has to shrink as the circle grows — the standard radial rule.
+      // gap has to shrink as the circle grows, the standard radial rule.
       // Categories get a wedge of their own on top of that, or the ones with
       // a single note in them end up sharing a slot with their neighbour.
       .separation((a, b) =>
@@ -354,7 +354,7 @@ function layoutHierarchy(nodes, kind, width, height) {
       node.x = point.y * Math.cos(point.x - Math.PI / 2);
       node.y = point.y * Math.sin(point.x - Math.PI / 2);
     } else if (arc) {
-      // Already the real coordinates — assigned above, once, in traversal
+      // Already the real coordinates, assigned above, once, in traversal
       // order, and never touched again.
       node.x = point.x;
       node.y = point.y;
@@ -384,7 +384,7 @@ function layoutHierarchy(nodes, kind, width, height) {
 
 // A tree drawn with straight diagonals reads as a fan of loose string. Elbows
 // (horizontal out, vertical across, horizontal in) are what makes it look
-// like a tree diagram — and on the radial one, arcs that follow the rings.
+// like a tree diagram, and on the radial one, arcs that follow the rings.
 function hierarchyPath(link, radial) {
   const { source: a, target: b } = link;
   if (radial) {
@@ -401,26 +401,26 @@ function hierarchyPath(link, radial) {
 // `layoutHierarchy`'s `arc` branch), so a parent-child edge is a flattened
 // half-ellipse dipping below the line rather than a tree's elbow or a
 // radial's ring-following curve. A pre-order walk always visits a parent
-// before its children, so `a.x < b.x` here always — the arc only ever needs
+// before its children, so `a.x < b.x` here always: the arc only ever needs
 // to sweep one way.
 function arcPath(link) {
   const { source: a, target: b } = link;
   const rx = Math.max((b.x - a.x) / 2, 1);
-  const ry = rx * 0.6; // flatter than a true semicircle — a full one over a
+  const ry = rx * 0.6; // flatter than a true semicircle, a full one over a
   // long span dominates the map more than the connection it is drawing.
   return `M${a.x},${a.y}A${rx},${ry} 0 0,1 ${b.x},${b.y}`;
 }
 
 // A tall tree does not want to be squeezed into the panel: zoomed to fit, 29
 // rows of text become illegible. Fit the *width*, never magnify past 1:1, and
-// start at the top — the panel pans, and a readable tree you scroll beats a
+// start at the top, the panel pans, and a readable tree you scroll beats a
 // complete one you can't read.
 function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial) {
   // Labels stick out past the node they belong to: to the right in a tree, in
   // every direction on a radial, and by however much the longest one happens
   // to be. Guessing that with a padding constant left label tips off the edge
   // of the panel; the drawing is already in the DOM, so ask it. `getBBox` is
-  // in the canvas's own coordinates — the zoom transform is not applied yet —
+  // in the canvas's own coordinates, the zoom transform is not applied yet , 
   // and covers the rotated labels' real corners.
   // `getBBox` is an SVG method: on the canvas renderer there is no element to
   // ask, and `canvas` arrives null. The zero-width fallback below is the same
@@ -447,7 +447,7 @@ function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial) {
   const spanY = Math.max(maxY - minY, 1);
   // A radial is a shape you read whole, so both dimensions have to fit. A
   // tree grows downwards without limit, so squeezing it into the panel is
-  // exactly what made 29 rows unreadable — but a notebook that *nearly* fits
+  // exactly what made 29 rows unreadable, but a notebook that *nearly* fits
   // is worth a small zoom-out to see whole, and only falls back to panning
   // when the price of fitting would be text you can't read.
   const both = Math.min((width - 20) / spanX, (height - 20) / spanY);
@@ -473,8 +473,8 @@ function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial) {
 
 // --- tracing a path between two notes (§9) -----------------------------------
 //
-// The question a graph answers better than any list — *how are these two
-// related?* — and the one this view could not answer at all. Everything above
+// The question a graph answers better than any list, *how are these two
+// related?*: and the one this view could not answer at all. Everything above
 // shows you **that** notes connect; this shows you the route, and names each
 // step: a link somebody made, a reply, or a tag the two share.
 //
@@ -482,7 +482,7 @@ function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial) {
 // is shared with the AI's `path_between` tool, deliberately: a picture and an
 // answer that disagree about what is connected is worse than either alone.
 
-//: The traced path, or null. `{ ids: [...], steps: [...] }` — ids in order, so
+//: The traced path, or null. `{ ids: [...], steps: [...] }`, ids in order, so
 //: the drawing can look up consecutive pairs without re-deriving them.
 let graphTrace = null;
 //: The overlay lines, kept so the force simulation's tick can move them with
@@ -496,14 +496,14 @@ let graphTraceLines = null;
 //: being read" and nothing that already depended on it had to change.
 //:
 //: The map draws *all* of them at once, each in its own colour, with the
-//: selected one solid and the rest ghosted — because the answer to "is that the
+//: selected one solid and the rest ghosted, because the answer to "is that the
 //: only way these connect?" is a picture, and switching between routes one at a
 //: time never shows you that there are three.
 let graphTraceRoutes = [];
 let graphTraceIndex = 0;
 
 // The two pickers, filled from whatever the map is currently showing. Rebuilt
-// on every render because the map's contents change — and the selection is
+// on every render because the map's contents change: and the selection is
 // carried across, since a rebuild that silently forgets which notes you were
 // asking about is a control that undoes your work.
 let traceModeActive = false;
@@ -511,7 +511,7 @@ let traceFromNode = null;
 let traceToNode = null;
 
 // The graph was redrawn, so the two picked nodes are stale objects from the
-// previous layout. Re-point them at the new ones by id — dropping them instead
+// previous layout. Re-point them at the new ones by id, dropping them instead
 // would mean a filter change silently threw away the trace you were reading.
 function fillTracePickers(nodes) {
   const byId = new Map(nodes.map((n) => [String(n.id), n]));
@@ -534,9 +534,9 @@ function setTracePanelOpen(open) {
   localStorage.setItem("graph-trace-open", open ? "1" : "0");
   if (open) {
     renderTraceState();
-    // Re-opening the panel — most commonly by coming back to the Graph tab
+    // Re-opening the panel: most commonly by coming back to the Graph tab
     // after clicking a note in the trace path's own readout, which jumps to
-    // the Notes tab (flashEntry) and left the panel "open" in localStorage —
+    // the Notes tab (flashEntry) and left the panel "open" in localStorage: 
     // used to unconditionally overwrite #graph-trace-result with the opening
     // prompt, discarding a trace someone had already run (reported: "trace
     // resets when a note hyperlink in the trace path is clicked on"). Show
@@ -548,7 +548,7 @@ function setTracePanelOpen(open) {
     } else if (graphTrace) {
       renderTraceReadout({ ...graphTrace, hops: graphTrace.steps.length });
     }
-    // else: both ends picked but no result yet — a trace is mid-flight,
+    // else: both ends picked but no result yet, a trace is mid-flight,
     // leave whatever runTrace() last wrote (e.g. "Tracing…") alone.
   }
 }
@@ -557,7 +557,7 @@ function setTracePanelOpen(open) {
 // that started it is a trap, and this one changes what clicking does.
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape" || !traceModeActive) return;
-  // Any *visible* overlay, not merely a present one — and `querySelectorAll`,
+  // Any *visible* overlay, not merely a present one, and `querySelectorAll`,
   // not `querySelector`. Nine `.modal-overlay` elements sit in the markup
   // permanently with `.hidden` on them, so asking for the first one matched a
   // hidden element every time and Escape appeared to do nothing; asking
@@ -578,12 +578,12 @@ document.addEventListener("keydown", (event) => {
 // of near-identical lines, to choose two notes that are visible on screen.
 //
 // It is a two-click mode now: turn Trace on, click a note, click another. The
-// panel stops being a form and becomes a readout of where you are — which end
+// panel stops being a form and becomes a readout of where you are, which end
 // you are choosing, what is chosen, and a way to swap or undo it. Escape
 // leaves. The rules that make a mode bearable rather than a trap:
 //
 // - it always says what the next click will do (`renderTraceState`);
-// - one click back — Undo removes the last end rather than resetting both;
+// - one click back: Undo removes the last end rather than resetting both;
 // - Swap, because "actually, the other direction" is the commonest correction
 //   and re-picking both to get it is the thing that made this infuriating;
 // - clicking the same note twice is a no-op with a reason, not a silent
@@ -592,7 +592,7 @@ document.addEventListener("keydown", (event) => {
 function pickTraceEnd(node) {
   if (!node) return;
   if (traceFromNode && String(traceFromNode.id) === String(node.id)) {
-    showTraceMessage("That's already the start — pick a different note to end at.");
+    showTraceMessage("That's already the start, pick a different note to end at.");
     return;
   }
   if (!traceFromNode || traceToNode) {
@@ -676,7 +676,7 @@ function setTraceEnd(which, noteId) {
   setTracePanelOpen(true);
   const node = graphNodeSelection?.data().find(n => String(n.id) === String(noteId));
   if (!node) {
-    showTraceMessage("That note isn't on the map right now — clear filters and try again.");
+    showTraceMessage("That note isn't on the map right now, clear filters and try again.");
     return;
   }
   if (which === "from") traceFromNode = node;
@@ -700,7 +700,7 @@ function clearTrace({ quiet = false } = {}) {
   traceFromNode = null;
   traceToNode = null;
   if (traceModeActive && !quiet) {
-    // This looked up a "graph-trace-status" element, which does not exist —
+    // This looked up a "graph-trace-status" element, which does not exist, 
     // the readout is #graph-trace-result, and showTraceMessage is how you
     // write to it. The lookup was guarded by `if (status)`, so the prompt
     // simply never appeared and trace mode began with no instructions.
@@ -726,13 +726,13 @@ async function runTrace() {
   }
   // Trace used to read two <select> values into local `from`/`to`. It became
   // click-two-notes-on-the-map, the selects went away, and these three
-  // references to `from`/`to` were left behind pointing at nothing — so the
+  // references to `from`/`to` were left behind pointing at nothing, so the
   // moment you picked a second note, Trace threw a ReferenceError and did
   // nothing at all, with the failure visible only in the console.
   const from = traceFromNode.id;
   const to = traceToNode.id;
   if (from === to) {
-    showTraceMessage("Those are the same note — pick two different ones.");
+    showTraceMessage("Those are the same note, pick two different ones.");
     return;
   }
   showTraceMessage("Tracing…");
@@ -740,7 +740,7 @@ async function runTrace() {
     `/graph/path?source=${encodeURIComponent(from)}&target=${encodeURIComponent(to)}`
   ).catch(() => null);
   if (!result) {
-    showTraceMessage("Couldn't trace that — the server didn't answer.");
+    showTraceMessage("Couldn't trace that: the server didn't answer.");
     return;
   }
   if (!result.found) {
@@ -754,7 +754,7 @@ async function runTrace() {
     return;
   }
   //: `routes` is always present and always has the best route first when the
-  //: server says `found` — but an older server (or a cached response from one)
+  //: server says `found`, but an older server (or a cached response from one)
   //: would not send it, and a readout that renders nothing is worse than one
   //: with a single route in it. Fall back to the top-level shape, which every
   //: version has sent.
@@ -768,25 +768,25 @@ async function runTrace() {
 }
 
 // The chain in words, under the strip. The map shows the shape; this says what
-// each step *is*, which the map cannot — a line between two notes looks the
+// each step *is*, which the map cannot, a line between two notes looks the
 // same whether you drew it or they merely share a tag.
 // Redesigned twice (ROADMAP.md item 5). The first redesign this session
-// put one row per note plus one row per connector, stacked vertically —
+// put one row per note plus one row per connector, stacked vertically, 
 // reported back immediately as "crushes the graph, takes up most of the
 // page", because it was never actually looked at running: a path of even
 // four or five hops is eight-plus rows tall in a box that sits in normal
 // document flow directly above the canvas, so it pushed the whole map
 // down out of view. This version goes back to a single horizontal,
-// wrapping strip — the note chips and the arrow-plus-reason connectors
+// wrapping strip: the note chips and the arrow-plus-reason connectors
 // between them all flow and wrap together like a sentence, the same
-// footprint the *original* pre-redesign version had — but with the notes
+// footprint the *original* pre-redesign version had, but with the notes
 // as visually distinct chips and a real arrow glyph instead of an em-dash,
 // and `.graph-trace-path`'s own `max-height` + scroll (below, in the CSS)
 // as a hard floor under how tall this can ever get, so no path length can
 // repeat this mistake even if the wrapping math is ever wrong again.
-//: Switch which of the routes is being read. Everything downstream —
+//: Switch which of the routes is being read. Everything downstream: 
 //: `graphTrace`, the readout, the highlighted nodes, which overlay line is
-//: solid — hangs off `graphTraceIndex`, so this is the one place that changes
+//: solid: hangs off `graphTraceIndex`, so this is the one place that changes
 //: and the four surfaces cannot disagree about which route is selected.
 function selectTraceRoute(index, { redraw = true } = {}) {
   if (!graphTraceRoutes.length) return;
@@ -806,7 +806,7 @@ function selectTraceRoute(index, { redraw = true } = {}) {
 
 //: The shapes "Generate story from path" can make.
 //:
-//: It was one hard-coded prompt — "write a cohesive, publishable narrative" —
+//: It was one hard-coded prompt, "write a cohesive, publishable narrative" , 
 //: which is one good answer to a question with several. Asked to "improve and
 //: extend the generate story from path feature": the path is a chain of
 //: *reasons*, and what you want built out of it depends entirely on why you
@@ -874,7 +874,7 @@ const TRACE_STORY_SHAPES = [
 ];
 
 //: The preamble every shape shares. The connection reasons are the whole point
-//: — a story built from the notes alone is a story about five unrelated things,
+//:, a story built from the notes alone is a story about five unrelated things,
 //: and the *reasons* are what the traced path actually discovered.
 function storyPrompt(shape, route) {
   const reasons = route.steps.map((step) => step.how).join("; ");
@@ -932,7 +932,7 @@ function renderTraceReadout(result) {
   const pieces = [header, path];
 
   //: **The route switcher.** Only drawn when there is more than one route, so
-  //: the common case — the two notes connect one way — is exactly the row it
+  //: the common case, the two notes connect one way, is exactly the row it
   //: has always been rather than a row with a lonely "1 of 1" on it.
   //:
   //: Each chip carries the same `data-route` index the overlay lines do, which
@@ -962,7 +962,7 @@ function renderTraceReadout(result) {
       chip.append(swatch, label);
       chip.title =
         index === 0
-          ? "The shortest route — the one the map draws solid by default"
+          ? "The shortest route: the one the map draws solid by default"
           : "Another way these two notes connect";
       chip.addEventListener("click", () => selectTraceRoute(index));
       switcher.appendChild(chip);
@@ -973,8 +973,8 @@ function renderTraceReadout(result) {
   // Story Mode: Synthesize the path into a narrative.
   //
   // Was three inline `.style.x =` assignments against `var(--primary)` /
-  // `var(--primary-fg)` — tokens that don't exist in this design system (it's
-  // `--accent`/`--on-accent`) — and the CSP's `style-src: 'self'` (no
+  // `var(--primary-fg)`, tokens that don't exist in this design system (it's
+  // `--accent`/`--on-accent`), and the CSP's `style-src: 'self'` (no
   // `unsafe-inline`) refuses an inline style attribute outright regardless,
   // which is what `.style.x =` sets under the hood. Both silently no-op, so
   // the button rendered as a bare `.graph-trace-note` with none of its
@@ -1027,17 +1027,17 @@ function renderTraceReadout(result) {
 }
 
 // Arc layout puts every node on one shared baseline (`layoutHierarchy`'s
-// `arc` branch — see `arcPath`), which is why *its* edges are curves in the
+// `arc` branch: see `arcPath`), which is why *its* edges are curves in the
 // first place: a straight line between two nodes on that baseline is just
 // the baseline itself. The trace overlay drew a straight chord regardless of
 // layout, so in Arc specifically the "highlighted path" sat exactly where
-// the row of ordinary nodes already was — reported as connections being
+// the row of ordinary nodes already was, reported as connections being
 // hard to see on non-tree layouts, and this is the layout where the overlay
 // was not just hard to see but nearly the same line as no overlay at all.
 //
 // Taller than `arcPath`'s own curve (0.9 vs 0.6) so the highlighted route
 // arches visibly clear of the row instead of tracking the same shape as the
-// muted, thin edges underneath it — and unlike `arcPath`, which can assume
+// muted, thin edges underneath it, and unlike `arcPath`, which can assume
 // `a.x < b.x` because a pre-order walk always visits a parent before its
 // children, a traced path can run either direction through the hierarchy.
 function tracePath(a, b) {
@@ -1064,13 +1064,13 @@ function positionTraceLines() {
 }
 
 // (Re)draw the overlay for the current trace. Segments whose notes are not on
-// the map are dropped rather than drawn to nowhere — the readout above still
+// the map are dropped rather than drawn to nowhere, the readout above still
 // names them.
 function drawTrace() {
   // On the canvas renderer the overlay is painted from `graphTrace` /
   // `graphTraceRoutes` inside the frame (see `gcDrawTrace`), so redrawing it is
-  // a redraw request. Everything above this line — running the search, filling
-  // the readout, the route chips — is renderer-agnostic and unchanged.
+  // a redraw request. Everything above this line, running the search, filling
+  // the readout, the route chips, is renderer-agnostic and unchanged.
   if (graphRenderer() === "canvas" && typeof gcRequestDraw === "function") {
     gcRequestDraw();
     return;
@@ -1111,7 +1111,7 @@ function drawTrace() {
   }
   // Arc draws the overlay as a <path> (see `tracePath`); every other layout
   // draws it as a <line>. Switching layout while a trace is active must not
-  // leave the previous shape's elements behind — `.selectAll(tag)` only ever
+  // leave the previous shape's elements behind: `.selectAll(tag)` only ever
   // sees its own tag, so the other one is removed by hand first.
   const isArc = graphLayout() === "arc";
   graphTraceLayer.selectAll(isArc ? "line" : "path").remove();
@@ -1119,7 +1119,7 @@ function drawTrace() {
     .selectAll(isArc ? "path" : "line")
     .data(segments)
     .join(isArc ? "path" : "line")
-    // `.graph-path-line` already sets `fill: none` — needed for the <path>
+    // `.graph-path-line` already sets `fill: none`, needed for the <path>
     // case, harmless on a <line>.
     .attr(
       "class",
@@ -1145,8 +1145,8 @@ function drawTrace() {
 
 // --- drag one note onto another to link them (§9) ----------------------------
 //
-// The map already had a link gesture — Link in the popup, then click the other
-// note — which works and is two dialogs deep. Dropping one note on another is
+// The map already had a link gesture, Link in the popup, then click the other
+// note: which works and is two dialogs deep. Dropping one note on another is
 // the gesture people try first, and it costs nothing to support: the drag
 // behaviour is already there to move nodes about.
 //
@@ -1162,7 +1162,7 @@ function drawTrace() {
 //:
 //: Raised from 6 after driving the gesture in a browser. A note is a 9px
 //: circle, so six pixels of slop meant hitting a 15px target that is *drifting*
-//: — dragging reheats the simulation, so everything else keeps moving while
+//:, dragging reheats the simulation, so everything else keeps moving while
 //: you aim. Fourteen makes it a comfortable 23px and is still far short of the
 //: nearest neighbour, so a drop in open space still links nothing.
 const DROP_SLOP = 14;
@@ -1210,7 +1210,7 @@ const GRAPH_LINK_TYPES = [
 // Asked for directly: dropping one note on another used to make a flat,
 // unexplained link with no way back except an Undo toast you had to catch in
 // time. Now the drop opens this, nothing is written until "Create link", and
-// Cancel leaves the notebook untouched — which is the "ability to cancel the
+// Cancel leaves the notebook untouched, which is the "ability to cancel the
 // linkage" half of the request, and the reason this is a dialog rather than a
 // toast offering to edit afterwards.
 function askLinkDetails(from, to) {
@@ -1232,8 +1232,8 @@ function askLinkDetails(from, to) {
     pair.textContent = `“${from.preview}” → “${to.preview}”`;
     card.appendChild(pair);
 
-    // Direction matters for half the vocabulary — "continues" and "example of"
-    // read backwards if the arrow is the other way round — so it is stated
+    // Direction matters for half the vocabulary, "continues" and "example of"
+    // read backwards if the arrow is the other way round, so it is stated
     // above rather than left to be inferred from which node was dragged.
     const list = document.createElement("div");
     list.className = "link-kind-list";
@@ -1332,7 +1332,7 @@ async function linkByDrop(from, to) {
     return;
   }
   const details = await askLinkDetails(from, to);
-  if (!details) return; // cancelled — nothing is written
+  if (!details) return; // cancelled: nothing is written
 
   const updated = await apiJson(`/entries/${from.id}/links`, {
     method: "POST",
@@ -1349,7 +1349,7 @@ async function linkByDrop(from, to) {
   await loadEntries().catch(() => {});
   renderGraph();
   // The new link's own id, so Undo removes *this* link rather than whatever
-  // link happens to join them — they may have been linked twice by different
+  // link happens to join them, they may have been linked twice by different
   // routes, and guessing is how an undo deletes the wrong thing.
   const made = (updated.links || []).find((link) => link.entry_id === to.id);
   toastAction(
@@ -1368,7 +1368,7 @@ async function linkByDrop(from, to) {
 // --- colouring by cluster (§9) -----------------------------------------------
 //
 // A layout says where a note goes; this says what its colour *means*. By
-// category is the filing — which is what somebody decided to call it. By
+// category is the filing, which is what somebody decided to call it. By
 // cluster is the structure: which notes can actually reach each other through
 // links, replies and shared tags. The two are often nothing like each other,
 // and that difference is the most useful thing the map can show.
@@ -1387,7 +1387,7 @@ let graphFocusModeId = null;
 //:
 //: The canvas renderer (graph-canvas.js) replaces the SVG one below; while
 //: both exist, `localStorage["graph-renderer"] = "svg"` puts the old one back.
-//: That switch is not a preference and has no control in the UI — it exists so
+//: That switch is not a preference and has no control in the UI, it exists so
 //: the gate's before/after frame numbers could be measured on one build,
 //: against one fixture, rather than compared across two checkouts. The SVG
 //: path is deleted in one commit once the canvas one passes the gate, and this
@@ -1412,15 +1412,15 @@ async function renderGraph() {
 
 async function renderGraphSvg() {
   const wantSimilarity = $("graph-similarity").checked;
-  // ROADMAP.md item 34 — off by default and only on the top-level graph, not
+  // ROADMAP.md item 34: off by default and only on the top-level graph, not
   // the local/focus view: entities are membership edges to *notes*, and
   // /graph/local's own depth-limited walk has no equivalent concept yet.
   const wantEntities = $("graph-entities")?.checked;
-  // Tier 2 item 16 — same "top-level graph only" scope as entities just
+  // Tier 2 item 16, same "top-level graph only" scope as entities just
   // above: a document's edge is a link to a *note*, and /graph/local's own
   // depth-limited BFS has no equivalent concept yet.
   const wantDocuments = $("graph-documents")?.checked;
-  // MINDMAP_PLAN.md §5 item 13 — same "top-level graph only" scope as the two
+  // MINDMAP_PLAN.md §5 item 13, same "top-level graph only" scope as the two
   // above, and for the same reason: a map's edge is membership of a *note*,
   // and /graph/local's depth-limited BFS has no equivalent concept yet.
   const wantMaps = $("graph-maps")?.checked;
@@ -1446,7 +1446,7 @@ async function renderGraphSvg() {
   orbGrad.append("stop").attr("offset", "0%").attr("stop-color", "white").attr("stop-opacity", "0.65");
   orbGrad.append("stop").attr("offset", "100%").attr("stop-color", "white").attr("stop-opacity", "0");
 
-  // Inline display beats every stylesheet rule — the overlay can never
+  // Inline display beats every stylesheet rule, the overlay can never
   // float over a populated graph again (user-reported, Wave O).
   const empty = $("graph-empty");
   empty.style.display = data.nodes.length > 0 ? "none" : "grid";
@@ -1487,7 +1487,7 @@ async function renderGraphSvg() {
   if (colourMode === "cluster" && graphStructure) {
     // In cluster mode the legend describes clusters, because a legend whose
     // dots do not match the colours on screen is worse than no legend. Its
-    // entries highlight rather than filter — a cluster is something you want
+    // entries highlight rather than filter, a cluster is something you want
     // to *find*, where a category is something you want to get out of the way.
     graphStructure.clusters.forEach((cluster, position) => {
       const item = document.createElement("button");
@@ -1526,13 +1526,13 @@ async function renderGraphSvg() {
       legend.appendChild(item);
     }
     if (graphHiddenCategories.size) {
-      // The category filters still apply — they just have no controls in this
+      // The category filters still apply, they just have no controls in this
       // mode. Saying so beats a map quietly missing notes.
       const note = document.createElement("span");
       note.className = "legend-item";
       note.textContent = `${graphHiddenCategories.size} category filter${
         graphHiddenCategories.size === 1 ? "" : "s"
-      } still on — switch to “By category” to change them`;
+      } still on: switch to “By category” to change them`;
       legend.appendChild(note);
     }
   } else {
@@ -1594,12 +1594,12 @@ async function renderGraphSvg() {
     // Reported: dragging on empty canvas "sometimes highlights an unrelated
     // note". A pan drag translates the whole canvas under a stationary
     // cursor, so whatever node happens to slide past it fires a real
-    // `mouseenter` — and clearing hover only at the start/end of the
+    // `mouseenter`, and clearing hover only at the start/end of the
     // gesture left a race: a `mouseenter` mid-pan (the node passing under
     // the cursor) could re-set it *after* "start" cleared it, and nothing
     // cleared it again until the next real hover. `graphIsPanning` mutes
     // hover updates for the gesture's whole duration instead, so a node
-    // sliding past during a pan never lights up at all — only a real,
+    // sliding past during a pan never lights up at all, only a real,
     // stationary hover once the drag is over does.
     .on("start", () => {
       graphIsPanning = true;
@@ -1608,7 +1608,7 @@ async function renderGraphSvg() {
       // Profiled directly (120 notes, Chromium CDP metrics): a pan drag cost
       // noticeably more main-thread recalc-style time than an idle baseline,
       // even though `graphIsPanning` above already mutes the *application's*
-      // hover logic. The gap is the browser's own `:hover` pseudo-class —
+      // hover logic. The gap is the browser's own `:hover` pseudo-class: 
       // every node the cursor physically sweeps under during the drag still
       // matches `.graph-node:hover`, which re-triggers CSS transitions
       // (`.graph-core`'s `stroke`/`stroke-width`, `.graph-halo`'s `opacity`)
@@ -1670,13 +1670,13 @@ async function renderGraphSvg() {
   // web it exists to be an alternative to.
   //
   // A force-layout note that was already on screen keeps the spot it had
-  // settled into — read from `graphNodesRef` before it's overwritten below
-  // — instead of every render restarting the whole map's "explode outward
+  // settled into: read from `graphNodesRef` before it's overwritten below
+  //, instead of every render restarting the whole map's "explode outward
   // from the centre" animation from scratch. Before this, toggling a single
   // legend filter or dragging a physics slider replayed that same
   // full-notebook animation, which read as the map never actually being at
   // rest. A genuinely new node (nothing to inherit) still gets D3's normal
-  // spiral placement — only existing notes are pinned in place at start.
+  // spiral placement: only existing notes are pinned in place at start.
   const priorPositions = new Map(
     (graphNodesRef || []).map((n) => [n.id, { x: n.x, y: n.y, vx: n.vx, vy: n.vy }])
   );
@@ -1689,7 +1689,7 @@ async function renderGraphSvg() {
         // every render, not just a fresh load: `prior` above only carries
         // x/y/vx/vy, never fx/fy, so without this a pin held this same
         // session was silently dropped by the next legend-filter toggle or
-        // physics-slider change — the reload case ROADMAP §87.1 named was
+        // physics-slider change: the reload case ROADMAP §87.1 named was
         // one symptom of the same "fx/fy never survives a rebuild" gap.
         if (built.graph_pin_x != null && built.graph_pin_y != null) {
           built.fx = built.graph_pin_x;
@@ -1720,15 +1720,15 @@ async function renderGraphSvg() {
     : d3
     .forceSimulation(nodes)
     // Profiled directly (120 notes, Chromium CDP metrics under 6x CPU
-    // throttling — the standard proxy for lower-end hardware): a pan/drag
+    // throttling: the standard proxy for lower-end hardware): a pan/drag
     // *while the simulation is still cooling* cost 80% main-thread busy
     // time; the same gesture after it had settled cost 57%. The tick
     // handler updates every node/edge/label position on every tick, so it
-    // directly competes with whatever the user is doing — and the default
+    // directly competes with whatever the user is doing, and the default
     // decay (0.0228) takes ~300 ticks, which under real throttling is many
     // seconds, squarely covering "pan right after the graph opens", the
     // single most likely first action. A faster decay does not change
-    // where the layout settles (the forces above decide that) — only how
+    // where the layout settles (the forces above decide that), only how
     // many ticks it takes to get there, which is the actual jank window.
     .alphaDecay(0.05)
     .force(
@@ -1747,8 +1747,8 @@ async function renderGraphSvg() {
     .force("collide", d3.forceCollide().radius((d) => graphNodeRadius(d) + 24));
   // How much larger than the visible frame the simulation may spread. 1.8 is
   // not arbitrary: the clamp below has to be loose enough that the repulsion
-  // and collide forces, not the walls, decide where a node ends up — at 1.0
-  // (the frame itself) they packed into a lattice — and tight enough that the
+  // and collide forces, not the walls, decide where a node ends up, at 1.0
+  // (the frame itself) they packed into a lattice, and tight enough that the
   // drift the clamp exists to stop is still bounded. Zoom-to-fit means a
   // larger world is only ever a smaller starting zoom, never lost notes.
   const GRAPH_WORLD_SCALE = 1.8;
@@ -1759,15 +1759,15 @@ async function renderGraphSvg() {
   //
   // Multiplying the frame was the right idea and the wrong axis. A graph box
   // is wide and short, so `height * 1.8` on a full-screen map is a few
-  // hundred pixels of vertical room — and every node claims a collide radius
+  // hundred pixels of vertical room, and every node claims a collide radius
   // of roughly 50px plus 24 of padding. Past about twenty notes the walls,
   // not the forces, are what the layout settles against, and what settles
   // between outward repulsion and a wall is a rectangle. The frame's aspect
   // ratio has nothing to do with how much room a given number of notes
   // needs, which is why tying the two kept reproducing this.
   //
-  // So: a **square** world whose side grows with sqrt(count) — area scales
-  // linearly with the number of notes, which is the honest relationship —
+  // So: a **square** world whose side grows with sqrt(count): area scales
+  // linearly with the number of notes, which is the honest relationship, 
   // floored at the old frame-derived size so a small notebook is unchanged.
   // Square, because a circular blob is what these forces actually produce
   // and a square is the smallest box that never squashes one.
@@ -1806,7 +1806,7 @@ async function renderGraphSvg() {
   // Reported directly: the actual visible line (1.6px, thinner once dimmed)
   // is a hard target to click precisely. A second, invisible, much wider
   // stroke on the same path/line is the standard SVG way to grow a click
-  // target without also growing what's drawn — the same shape as the
+  // target without also growing what's drawn: the same shape as the
   // whiteboard's own `.sketch-hitbox` this session already added for the
   // identical reason. Drawn *under* the visible line's join below so the
   // tooltip/click listener attach to this wider element, not the thin one.
@@ -1824,7 +1824,7 @@ async function renderGraphSvg() {
         .join("line")
         .attr("class", (d) => `graph-edge-hit graph-edge-${d.kind}`);
 
-  // A link's own reason ("why are these connected?" — asked for directly),
+  // A link's own reason ("why are these connected?", asked for directly),
   // as a native SVG tooltip. `<title>` is the SVG way to get a hover
   // tooltip on a shape; there's no HTML `title` attribute equivalent for
   // `<line>`/`<path>`. Re-added after every join rather than left stale, so
@@ -1842,20 +1842,20 @@ async function renderGraphSvg() {
       el.append("title").text(text);
     }
   });
-  // A reason was hover-only before this — discoverable only by finding the
+  // A reason was hover-only before this, discoverable only by finding the
   // one edge you already suspected and holding still over it. Asked for
   // directly: "a visual way to see the reasons... and a way to manage/add/
   // remove/edit them." A distinct edge style makes "this connection has a
   // documented reason" visible at a glance, not just on hover; a click
   // opens the real management panel below. The class also drives
-  // `.graph-edge-reasoned`'s stronger colour on the *visible* thin line —
+  // `.graph-edge-reasoned`'s stronger colour on the *visible* thin line, 
   // toggled on both selections so hover/reason styling and the click
   // target agree on which edges are which.
   edgeLines.classed("graph-edge-reasoned", (d) => d.kind === "link" && !!d.reason);
   // **A disagreement should not look like every other line on the map.**
   // `contradicts` is the one link type that says the two notes are at odds
   // rather than together (see `core/database.py`'s LINK_TYPES), and the
-  // Tensions review now produces them — but the graph drew them exactly like
+  // Tensions review now produces them, but the graph drew them exactly like
   // a "related" edge, so the payoff of finding one was invisible here.
   edgeLines.classed("graph-edge-contradicts", (d) => d.link_type === "contradicts");
   edgeHitLines
@@ -1908,7 +1908,7 @@ async function renderGraphSvg() {
     .join("g")
     .attr("class", "graph-node")
     // A pin restored above (fx/fy set from graph_pin_x/graph_pin_y) needs
-    // the same held-look the dblclick handler gives a pin made live —
+    // the same held-look the dblclick handler gives a pin made live, 
     // otherwise a reload shows the node correctly *held in place* with no
     // visual sign it's pinned at all.
     .classed("graph-held", (d) => d.fx != null)
@@ -1918,20 +1918,20 @@ async function renderGraphSvg() {
         .on("start", (event, d) => {
           if (!event.active) graphSimulation?.alphaTarget(0.3).restart();
           // Real bug, found live while testing the pin-persistence feature
-          // below: **an ordinary click is a zero-distance drag** — d3-drag
-          // fires start/end on any mousedown+mouseup, moved or not — and
+          // below: **an ordinary click is a zero-distance drag**, d3-drag
+          // fires start/end on any mousedown+mouseup, moved or not, and
           // this handler used to set/clear `d.fx` on *every* click
           // unconditionally, node-being-dragged included. A double-click's
           // own two constituent clicks each ran a full drag start/end
           // cycle *before* the dblclick handler ever saw `d.fx`, which
-          // cleared a pre-existing pin both times — so the dblclick
+          // cleared a pre-existing pin both times, so the dblclick
           // handler always found `d.fx === null` and could only ever pin,
           // never unpin, no matter what the node's real state was.
           // Remembered here and restored at "end" below, the same care
           // `graphDragPinned` already gives every *other* node.
           d.wasPinnedBeforeThisDrag = d.fx != null;
           // Where this gesture began, so "end" can tell a placement from a
-          // bare click — see its own comment.
+          // bare click: see its own comment.
           d.dragStartX = d.x;
           d.dragStartY = d.y;
           d.fx = d.x;
@@ -1939,7 +1939,7 @@ async function renderGraphSvg() {
           // **Everything else stands still for the length of the drag.**
           // Reported: "how does the drag to connect work if the nodes are
           // constantly pushed away from each other?" It didn't, and that is
-          // the honest answer — reheating the simulation set every *other*
+          // the honest answer: reheating the simulation set every *other*
           // note moving at exactly the moment you were trying to aim at one.
           // The code below already carried a workaround for the symptom
           // (remembering the lit target rather than hit-testing at release,
@@ -1949,7 +1949,7 @@ async function renderGraphSvg() {
           //
           // Pinned by hand here rather than by stopping the simulation,
           // because the ticks are what keep the edges attached to the node
-          // you *are* dragging. And only the nodes this pins are released —
+          // you *are* dragging. And only the nodes this pins are released, 
           // a note double-clicked to hold its place stays held, which is the
           // whole point of that gesture.
           graphDragPinned = [];
@@ -1977,7 +1977,7 @@ async function renderGraphSvg() {
           if (!event.active) graphSimulation?.alphaTarget(0);
           // **The note that was lit, not the one under the cursor now.**
           // Dragging reheats the simulation, so every other node is still
-          // drifting — between the last mousemove and the mouse-up the target
+          // drifting: between the last mousemove and the mouse-up the target
           // moves out from under the pointer, and a fresh hit test at release
           // finds nothing. Driven in a browser: the highlight appeared and the
           // link was never made, every time.
@@ -1989,7 +1989,7 @@ async function renderGraphSvg() {
           graphDropTarget = null;
           nodeGroups.classed("graph-drop-target", false);
           if (over) linkByDrop(d, over);
-          // Let the layout breathe again — but only the nodes this drag
+          // Let the layout breathe again, but only the nodes this drag
           // pinned. A node the user held with a double-click keeps its place.
           for (const other of graphDragPinned) {
             other.fx = null;
@@ -2004,7 +2004,7 @@ async function renderGraphSvg() {
           // annoying to use", "the gravity and separation in the main graph
           // view are annoying".
           //
-          // This line used to be `d.fx = null; d.fy = null` — the node you
+          // This line used to be `d.fx = null; d.fy = null`, the node you
           // had just dragged somewhere was handed straight back to the
           // simulation, which pulled it off to wherever the forces wanted it.
           // Holding a note where you put it required a *double-click*, a
@@ -2012,8 +2012,8 @@ async function renderGraphSvg() {
           // the old behaviour is: the one obvious way to arrange the map did
           // not arrange it, and the way that did was invisible.
           //
-          // A drag is an intentional placement — the most deliberate gesture
-          // in the whole view — so it is treated as one. Double-click keeps
+          // A drag is an intentional placement, the most deliberate gesture
+          // in the whole view, so it is treated as one. Double-click keeps
           // its meaning and becomes the *inverse*: hand this note back to
           // the layout. That is a better pairing than the old one anyway,
           // because "let go of this" is the rarer action and the one worth
@@ -2030,7 +2030,7 @@ async function renderGraphSvg() {
             d.fy = null;
           } else if (movedFar && !d.isGroup) {
             // Same persistence the double-click pin has always used, so a
-            // map you arranged is still arranged after a reload — which is
+            // map you arranged is still arranged after a reload, which is
             // most of what "make my own thought process map" means.
             d3.select(this).classed("graph-held", true);
             d.graph_pin_x = d.fx;
@@ -2048,7 +2048,7 @@ async function renderGraphSvg() {
         })
     )
     .on("click", (event, d) => {
-      // Same treatment as an entity node: view-only for this first pass —
+      // Same treatment as an entity node: view-only for this first pass, 
       // opening a document from here would need the Library's own
       // document-editor navigation, not a note's, and that's a separate
       // change from making the node visible and connected in the first
@@ -2056,7 +2056,7 @@ async function renderGraphSvg() {
       if (d.isGroup || d.type === "entity" || d.type === "document") return;
       // Trace is a *mode*: while it is on, clicking the map picks the two ends
       // rather than opening notes. This branch is the whole reason Trace was
-      // unusable — `traceModeActive` was set and then consulted nowhere, so
+      // unusable: `traceModeActive` was set and then consulted nowhere, so
       // the map stayed inert and the only way to choose a note was two
       // select boxes listing every note in the notebook by its first words.
       if (traceModeActive) {
@@ -2079,7 +2079,7 @@ async function renderGraphSvg() {
     })
     // Double-click pins a node where it is; again releases it (Wave M).
     // Persisted server-side (PUT /graph/pin/{id}) so the pin survives a
-    // reload, not just this session — ROADMAP §87.1's own audit named the
+    // reload, not just this session, ROADMAP §87.1's own audit named the
     // in-memory-only version as the gap. Group nodes (tree/radial layout's
     // synthetic category rows) have no backing note to persist against, so
     // they keep the old in-memory-only behaviour.
@@ -2109,7 +2109,7 @@ async function renderGraphSvg() {
       });
     });
 
-  // A soft outer halo behind each node — gives the map more depth and makes
+  // A soft outer halo behind each node, gives the map more depth and makes
   // busy hub notes read as brighter (visual polish, user request).
   nodeGroups
     .append("circle")
@@ -2177,8 +2177,8 @@ async function renderGraphSvg() {
       // decides how far the view has to zoom out; a tree's only extend
       // right, into space the columns already reserve.
       // Radial labels are what decide how far the view has to zoom out, and
-      // the two written down a *shared* spoke — a category's, and a note that
-      // has a reply hanging off it — are the ones that have to stay short.
+      // the two written down a *shared* spoke, a category's, and a note that
+      // has a reply hanging off it, are the ones that have to stay short.
       const limit = !tree
         ? 22
         : tree.arc
@@ -2200,20 +2200,20 @@ async function renderGraphSvg() {
     //
     // Reported directly, with a screenshot: tilted *upward* (the original
     // `rotate(-40, ...)`), every label sat in exactly the space `arcPath`'s
-    // connection lines curve through above the baseline — the labels and
+    // connection lines curve through above the baseline, the labels and
     // the arcs they were meant to sit beside were fighting for the same
     // strip of the map. Measured before touching anything: 60 of 61 labels
     // had a bounding box overlapping a `.graph-edge`. Flipping the tilt to
-    // point *down* moves every label into the empty half of the row — the
-    // arcs never dip below the baseline — while keeping the same
+    // point *down* moves every label into the empty half of the row, the
+    // arcs never dip below the baseline, while keeping the same
     // anti-collision shape (still angled and reading outward, not stacked
     // straight down onto the next node).
     labels
       .attr("x", (d) => graphNodeRadius(d) + 6)
       .attr("y", 0)
       .attr("dy", "0.31em")
-      // Steeper than the original 40° — more vertical, less horizontal reach
-      // per character — so a label's own end lands closer to underneath its
+      // Steeper than the original 40°, more vertical, less horizontal reach
+      // per character: so a label's own end lands closer to underneath its
       // node instead of drifting into the next node's slot (see ARC_STEP above).
       .attr("transform", (d) => `rotate(58, ${graphNodeRadius(d) + 6}, 0)`)
       .style("text-anchor", "start");
@@ -2240,13 +2240,13 @@ async function renderGraphSvg() {
       })
       // A style, not an attribute: `.graph-node text` sets `text-anchor:
       // middle` in the stylesheet, and a rule always beats a presentation
-      // attribute — set as an attr, every one of these silently stayed
+      // attribute: set as an attr, every one of these silently stayed
       // centred and the labels overlapped the ring.
       .style("text-anchor", (d) => (!d.depth ? "middle" : radialFlip(d) ? "end" : "start"));
   } else {
     labels
       // A node with children has edges leaving it rightwards, along the line
-      // its own label would sit on — and where the child is a lone reply that
+      // its own label would sit on, and where the child is a lone reply that
       // edge runs the label's whole length. A halo hides a thin line between
       // glyphs but not between words, so it read as struck through. Every
       // branch point is labelled above its row instead; leaves, which nothing
@@ -2283,7 +2283,7 @@ async function renderGraphSvg() {
   // ones you use most" hint, because they are what the colours are now saying.
   const shape =
     colourMode === "cluster" && graphStructure
-      ? ` — ${graphStructure.clusters.length} cluster` +
+      ? `, ${graphStructure.clusters.length} cluster` +
         `${graphStructure.clusters.length === 1 ? "" : "s"}` +
         (graphStructure.small_clusters
           ? ` + ${graphStructure.small_clusters} pair${
@@ -2292,21 +2292,21 @@ async function renderGraphSvg() {
           : "") +
         `, ${graphStructure.orphan_count} connected to nothing.`
       : layoutKind === "tree"
-        ? " — filed left to right; replies branch off the note they answer."
+        ? ", filed left to right; replies branch off the note they answer."
         : layoutKind === "radial"
-          ? " — categories around the centre; replies branch off the note they answer."
+          ? ", categories around the centre; replies branch off the note they answer."
           : layoutKind === "arc"
-            ? " — one line, filed left to right; arcs below show what answers what."
+            ? ", one line, filed left to right; arcs below show what answers what."
             : "";
   // The shape sentence is an *explanation*, and it was costing a full row
-  // above the canvas on every layout — reported as the graph "feeling
+  // above the canvas on every layout, reported as the graph "feeling
   // squashed on my screen due to the top dock". Counts stay on the line
   // because they are facts about this notebook that change; the sentence
   // that describes how a layout works is the same every time you read it,
   // so it moves to the line's own tooltip, next to the "?" that already
   // exists for exactly this kind of thing.
   $("graph-stats").textContent = parts.join(" · ");
-  $("graph-stats").title = shape ? shape.replace(/^\s*—\s*/, "") : "";
+  $("graph-stats").title = shape ? shape.replace(/^\s*: \s*/, "") : "";
 
   // Hover-highlight (spotlight a note's connections). Uses the same dimming
   // pipeline as search so the two never fight each other.
@@ -2325,7 +2325,7 @@ async function renderGraphSvg() {
   if (tree) {
     // Laid out, not simulated: the paths are already drawn, so this only has
     // to place the nodes and frame the result. Same guard as the force
-    // layout's own fit-on-settle below — a fresh tab visit frames the tree,
+    // layout's own fit-on-settle below, a fresh tab visit frames the tree,
     // a legend-filter or physics-slider re-render doesn't recentre a camera
     // the user may have already zoomed in with on purpose.
     nodeGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
@@ -2343,7 +2343,7 @@ async function renderGraphSvg() {
   const graphBox = $("graph-box");
 
   // Labels are the expensive half of the per-tick DOM work and are often not
-  // visible — the layer fades to opacity 0 when zoomed out and the Labels
+  // visible: the layer fades to opacity 0 when zoomed out and the Labels
   // tickbox hides it outright. `catchUpLabels` is the other half of skipping
   // them: whatever makes them visible again calls it, so they are never left
   // stale on a settled simulation that has no further ticks to come.
@@ -2360,7 +2360,7 @@ async function renderGraphSvg() {
   graphSimulation?.on("tick", () => {
     // Keep the layout inside its own frame. Reported as "the graph ui is out
     // of bounds", and the mechanism is that the view is framed exactly *once*
-    // — the first time the simulation settles — while the simulation itself
+    //, the first time the simulation settles, while the simulation itself
     // never stops for good: every drag reheats it (`alphaTarget(0.3)`), and a
     // reheated repulsion force pushes the outermost notes a little further out
     // each time. Nothing ever pulls them back, and after a few drags the notes
@@ -2371,13 +2371,13 @@ async function renderGraphSvg() {
     // map out from under someone who had just zoomed in on purpose. This bounds
     // the world instead, so the one framing stays correct for as long as the
     // map is open. The padding is the node radius plus room for its label,
-    // which is drawn below the circle — a node clamped exactly to the edge
+    // which is drawn below the circle, a node clamped exactly to the edge
     // would have its own name outside the frame.
     //
     // **The box is the world, not the viewport**, and that distinction was
     // the second bug. Clamping to `width`/`height` meant the simulation was
     // solving inside the visible rectangle, and a graph box is wide and short
-    // — so a notebook of seventeen notes, each with a collide radius of about
+    //, so a notebook of seventeen notes, each with a collide radius of about
     // 50px, had nowhere to go but a lattice. Reported exactly as it looked:
     // *"the graph nodes are like locked into a box"*. They were: repulsion
     // pushed everything outwards, the walls pushed back, and what settles
@@ -2406,8 +2406,8 @@ async function renderGraphSvg() {
     // is a handful of lines beside every edge in the notebook.
     positionTraceLines();
     nodeGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
-    // Labels are the other half of the per-tick DOM cost — one <g> per note,
-    // same as the nodes — and they are frequently not on screen: the layer
+    // Labels are the other half of the per-tick DOM cost, one <g> per note,
+    // same as the nodes, and they are frequently not on screen: the layer
     // fades to opacity 0 when zoomed out (see the zoom handler) and the
     // Labels tickbox hides it outright. Moving something invisible is work
     // nobody can see, ~300 times per settle, on every note in the notebook.
@@ -2442,9 +2442,9 @@ async function renderGraphSvg() {
       return `translate(${sx / count},${sy / count})`;
     });
     // Once the layout settles, frame all the notes so nothing sits off
-    // the edge (Wave N — the old view often had nodes half-cropped). Only
+    // the edge (Wave N: the old view often had nodes half-cropped). Only
     // for a fresh visit to the tab, though (graphAutoFitDone, set by
-    // switchTab() below) — every render used to re-fit unconditionally, so
+    // switchTab() below): every render used to re-fit unconditionally, so
     // toggling a legend filter or dragging a physics slider while looking
     // at a note you'd zoomed in on would silently recentre and rescale the
     // camera out from under you. Panning and zooming after that point is
@@ -2456,7 +2456,7 @@ async function renderGraphSvg() {
       fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height);
     }
     // Repaint the minimap as the layout settles, but not on every one of the
-    // ~300 ticks a cooling simulation fires — the dots barely move between
+    // ~300 ticks a cooling simulation fires, the dots barely move between
     // frames and a full rebuild each time would cost more than the map it is
     // summarising.
     if (graphMinimapTick++ % 8 === 0) graphMinimapPaint();
@@ -2467,7 +2467,7 @@ async function renderGraphSvg() {
   graphNodeSelection = nodeGroups;
   graphEdgeSelection = edgeLines;
   graphLabelSelection = labelGroups;
-  // The pickers describe the map, so they are refilled with it — and the trace
+  // The pickers describe the map, so they are refilled with it, and the trace
   // is redrawn, because a refresh (a new note, a new link, a layout change)
   // must not silently drop the answer on screen.
   fillTracePickers(nodes);
@@ -2478,7 +2478,7 @@ async function renderGraphSvg() {
   //
   // Bounds used to be computed once, on the first render that had any notes,
   // behind a `window.graphSliderInitialized` flag that never reset. Every
-  // later render — a new note, a refresh, a re-filed entry — kept the first
+  // later render, a new note, a refresh, a re-filed entry, kept the first
   // render's `max` forever, so any note created after that point sat beyond
   // the slider's own "all time" end and stayed permanently hidden the moment
   // the filter had ever run once. Recomputed every render now; the guard
@@ -2494,8 +2494,8 @@ async function renderGraphSvg() {
     const minTime = timestamps.length ? Math.min(...timestamps) : Date.now();
     const maxTime = timestamps.length ? Math.max(...timestamps) : Date.now();
     const previousMax = Number(slider.max);
-    // "At the end" before this render's bounds change — i.e. no filter was
-    // actually applied — is the case to keep snapped to the new end rather
+    // "At the end" before this render's bounds change: i.e. no filter was
+    // actually applied: is the case to keep snapped to the new end rather
     // than freeze at whatever timestamp used to be the newest note.
     const wasAtEnd = !slider.dataset.graphInit || Number(slider.value) >= previousMax;
     slider.min = minTime;
@@ -2510,10 +2510,10 @@ async function renderGraphSvg() {
     };
 
     // Tree/Radial/Arc draw category-heading and root nodes alongside real
-    // notes (Force never does — it only ever has real notes/links). Those
+    // notes (Force never does: it only ever has real notes/links). Those
     // headings have no `created_at` at all, so `d.created_at || Date.now()`
-    // read them as "created this instant" — always later than any cutoff
-    // short of "All time" — which hid the heading *and* every edge touching
+    // read them as "created this instant", always later than any cutoff
+    // short of "All time", which hid the heading *and* every edge touching
     // it the moment the slider moved at all. A heading is organising
     // furniture, not a dated note; it and its edges should never be subject
     // to the time filter.
@@ -2541,8 +2541,8 @@ async function renderGraphSvg() {
 
 // --- driving the graph from the keyboard ------------------------------------------
 // The graph was the one tab that failed a keyboard-first test outright: every
-// way of reaching a note was a mouse gesture, so the whole map — and the notes
-// only reachable through it — was unusable without a pointer.
+// way of reaching a note was a mouse gesture, so the whole map, and the notes
+// only reachable through it, was unusable without a pointer.
 //
 // A tab stop per node is not the answer; a big map would be hundreds of stops
 // to get past. The map takes one stop, and inside it the arrow keys move to
@@ -2556,7 +2556,7 @@ function graphNodeById(id) {
 }
 
 // The nearest node roughly in `direction` from the current one. Scored by
-// distance, penalised by how far off the axis it sits — so "right" prefers a
+// distance, penalised by how far off the axis it sits, so "right" prefers a
 // node to the right over a nearer one that happens to be below.
 function graphNeighbourInDirection(from, direction) {
   const vectors = { right: [1, 0], left: [-1, 0], up: [0, -1], down: [0, 1] };
@@ -2648,11 +2648,11 @@ function initGraphKeyboard() {
   box.addEventListener("keydown", (event) => {
     // The map's own shortcuts (arrows to move between notes, Enter/Space to
     // open one, N to step through links, +/-/0 to zoom) live on this box
-    // because it's the thing with `role="application"` — but the note popup
+    // because it's the thing with `role="application"`, but the note popup
     // and the "Grow the map" form are both DOM descendants of it too, so
     // every keystroke typed into their textareas/inputs bubbles up here as
     // well. Reported: typing in a just-grown note wouldn't take input and
-    // kept reopening the note it was grown from — that was Space/Enter, on
+    // kept reopening the note it was grown from, that was Space/Enter, on
     // every keystroke, being read as "open the currently keyboard-selected
     // node" instead of being typed. Any real text field wins outright.
     const typingTarget =
@@ -2664,7 +2664,7 @@ function initGraphKeyboard() {
 
     // Zoom and pan from the keyboard. Deliberately checked *before* the arrow
     // keys below, because Shift+arrow pans the view while a bare arrow moves
-    // between notes — two different jobs on the same keys, which is the only
+    // between notes: two different jobs on the same keys, which is the only
     // arrangement that leaves the plain arrows doing the thing this map is
     // mostly for. The characters are the ones every map on the web uses:
     // +/- to zoom, 0 to fit. `=` is listed with `+` because on a US layout
@@ -2701,7 +2701,7 @@ function initGraphKeyboard() {
       ArrowDown: "down",
     };
     // Alt+arrow is the app-wide Back/Forward shortcut (app.js's own
-    // DEFAULT_SHORTCUTS) — without this check, this box's own bare-arrow
+    // DEFAULT_SHORTCUTS): without this check, this box's own bare-arrow
     // "move to the neighbour note" handler ran first (it's the keydown
     // target while the map has focus) and consumed the keystroke with its
     // own preventDefault() before the global handler had anything clean
@@ -2710,7 +2710,7 @@ function initGraphKeyboard() {
     if (directions[event.key] && !event.altKey) {
       event.preventDefault();
       const next = graphNeighbourInDirection(current, directions[event.key]);
-      // No node that way is not an error — say so rather than silently
+      // No node that way is not an error, say so rather than silently
       // doing nothing, which reads as the keys not working.
       if (next) focusGraphNode(next);
       else announce("No note in that direction.");
@@ -2724,7 +2724,7 @@ function initGraphKeyboard() {
       );
       return;
     }
-    // Step through this note's own connections — the relationship the map is
+    // Step through this note's own connections: the relationship the map is
     // actually for, which "nearest in a direction" doesn't follow.
     if (event.key === "n" || event.key === "N") {
       event.preventDefault();
@@ -2753,7 +2753,7 @@ function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height) {
   // it bounded only the node *centres* (a node's halo, ring and the label
   // drawn below it all extend past that point, so a real graph always
   // rendered a bit outside the box this used to fit), and its scale had no
-  // floor — `Math.min(3, ...)` clamps how far it can zoom IN but not how far
+  // floor: `Math.min(3, ...)` clamps how far it can zoom IN but not how far
   // it can zoom OUT, so one node that drifted far from the rest (the collide
   // simulation allows this) could shrink everything else to specks trying to
   // fit it in frame too.
@@ -2810,7 +2810,7 @@ function applyGraphHighlight() {
   $("graph-highlight-clear")?.classList.toggle("hidden", !graphHighlightIds);
   // The canvas renderer computes the same four-way spotlight (search, the
   // "similar notes" set, a traced path, the hover neighbourhood) inside its own
-  // draw, from this same state — see `gcHighlight`. There are no selections to
+  // draw, from this same state, see `gcHighlight`. There are no selections to
   // classed() there, so all this has to do is ask for a frame.
   if (graphRenderer() === "canvas" && typeof gcRequestDraw === "function") {
     gcRequestDraw();
@@ -2850,7 +2850,7 @@ function applyGraphHighlight() {
   graphNodeSelection.classed("graph-focus", (d) => d.id === graphHoveredId);
   // Labels live in their own layer, a sibling of the node circles rather
   // than nested inside them (graphNodeSelection above), so a hovered node
-  // can't reveal its label through a CSS descendant selector — it has to
+  // can't reveal its label through a CSS descendant selector, it has to
   // be told directly which label is its own.
   graphLabelSelection.classed("graph-focus", (d) => d.id === graphHoveredId);
   graphEdgeSelection.classed("graph-dim", (d) => {
@@ -2907,12 +2907,12 @@ async function openGraphPopup(event, node) {
   $("graph-popup-content").focus();
 }
 
-// A link edge's own management panel — asked for directly: "a visual way
+// A link edge's own management panel, asked for directly: "a visual way
 // to see the reasons for each connection and a way to manage/add/remove/
 // edit them." Clicking a `kind: "link"` edge (see `renderGraph`'s own
 // click handler) opens this rather than only ever showing the reason on
 // hover. A dynamic overlay, the same `promptDialog`/`confirmDialog`
-// pattern, rather than fixed markup — this is the one place in the app
+// pattern, rather than fixed markup, this is the one place in the app
 // that edits a *connection* rather than a note or a whiteboard item, so it
 // doesn't share a container with either.
 function openGraphLinkPanel(edge, nodes) {
@@ -2921,7 +2921,7 @@ function openGraphLinkPanel(edge, nodes) {
   const sourceNode = nodes.find((n) => n.id === sourceId);
   const targetNode = nodes.find((n) => n.id === targetId);
   // A raw slice cut mid-word with nothing to say so ("This g" from "This
-  // guide") reads as broken text, not a shortened title — trim to the last
+  // guide") reads as broken text, not a shortened title, trim to the last
   // whole word instead, and only add the ellipsis when something was
   // actually cut.
   const label = (n, id) => {
@@ -2941,7 +2941,7 @@ function openGraphLinkPanel(edge, nodes) {
   card.className = "card modal-card confirm-card graph-link-panel";
 
   // Two notes on their own lines, not one run-on sentence joined by an
-  // arrow — reported as unreadable once both previews ran long enough to
+  // arrow: reported as unreadable once both previews ran long enough to
   // wrap, since nothing showed which half belonged to which note.
   const title = document.createElement("div");
   title.className = "confirm-text graph-link-panel-title";
@@ -2958,7 +2958,7 @@ function openGraphLinkPanel(edge, nodes) {
   if (edge.reason_confidence != null) {
     const note = document.createElement("p");
     note.className = "muted";
-    note.textContent = `Deduced (${Math.round(edge.reason_confidence * 100)}% confidence) — editing replaces it with your own words.`;
+    note.textContent = `Deduced (${Math.round(edge.reason_confidence * 100)}% confidence): editing replaces it with your own words.`;
     card.appendChild(note);
   }
 
@@ -3015,7 +3015,7 @@ function openGraphLinkPanel(edge, nodes) {
   removeBtn.className = "ghost danger";
   setLabel(removeBtn, "ph:trash Remove link");
   removeBtn.addEventListener("click", async () => {
-    if (!(await confirmDialog("Remove this connection entirely?\n\nThe two notes are untouched — only the link between them goes."))) return;
+    if (!(await confirmDialog("Remove this connection entirely?\n\nThe two notes are untouched, only the link between them goes."))) return;
     //: Captured before the delete, because after it there is nothing left to
     //: read the other end and the reason off.
     const targetId = edge.target?.id ?? edge.target;
@@ -3023,7 +3023,7 @@ function openGraphLinkPanel(edge, nodes) {
     const reason = edge.reason || null;
     await apiJson(`/entries/${sourceId}/links/${edge.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
     //: **A link is the one thing in this notebook you cannot rebuild from
-    //: memory.** Which two notes, in which direction, with what reason — a
+    //: memory.** Which two notes, in which direction, with what reason, a
     //: confirm dialog is not an undo, and this had only the dialog. The
     //: recreated link gets a new id, so the redo closure re-reads it rather
     //: than assuming the old one comes back.
@@ -3067,7 +3067,7 @@ function openGraphLinkPanel(edge, nodes) {
 //
 // A sketch is stored as a note carrying the caption plus a PNG attachment, so
 // on the map it is an ordinary node and the popup showed its caption and
-// nothing else. There was no way to see the drawing from the graph at all —
+// nothing else. There was no way to see the drawing from the graph at all, 
 // "Open" only took you to the Notes tab, where you still had to find the card
 // and click its thumbnail. Reported as "sketches don't open from the graph",
 // and that is exactly right: the one thing the note is *about* was missing.
@@ -3075,7 +3075,7 @@ function openGraphLinkPanel(edge, nodes) {
 //: attachments dont render in the timeline and popups." This popup and the
 //: timeline's both filtered to `is_image` and dropped the rest, so a note
 //: whose whole point is the PDF attached to it opened a popup with nothing in
-//: it — no hint that anything was attached, which reads as the note having
+//: it: no hint that anything was attached, which reads as the note having
 //: lost the file. `fileCard` is the app's own control for an attached file
 //: (the note cards, the chat transcript and the widgets all use it); this
 //: surface was the one place a file did not appear at all.
@@ -3096,7 +3096,7 @@ function renderGraphPopupMedia(entry) {
     const img = document.createElement("img");
     img.className = "graph-popup-thumb";
     img.alt = attachment.filename;
-    img.title = `${attachment.filename} — click to view full size`;
+    img.title = `${attachment.filename}: click to view full size`;
     // The bytes need the auth header, so they arrive as an object URL rather
     // than a plain src. Cached per attachment by attachmentObjectUrl.
     attachmentObjectUrl(attachment)
@@ -3114,7 +3114,7 @@ function renderGraphPopupMedia(entry) {
     box.appendChild(img);
   }
   //: A file card is a block with height, and this popup is placed against its
-  //: own — the image path already re-places once the bytes land, and the cards
+  //: own: the image path already re-places once the bytes land, and the cards
   //: need the same or the popup hangs off the edge of the map.
   placeGraphPopup();
 }
@@ -3125,7 +3125,7 @@ function placeGraphPopup() {
   const popup = $("graph-popup");
   if (!graphPopupAnchor || popup.classList.contains("hidden")) return;
   const box = $("graph-box").getBoundingClientRect();
-  // Never taller than the map it sits in — beyond that the popup scrolls
+  // Never taller than the map it sits in, beyond that the popup scrolls
   // itself rather than growing off the edge.
   popup.style.maxHeight = `${Math.max(120, box.height - 16)}px`;
   const size = popup.getBoundingClientRect();
@@ -3152,8 +3152,8 @@ function renderGraphPopupInfo(entry, node) {
     ["ph:eye", `${entry.access_count || 0} view${entry.access_count === 1 ? "" : "s"}`],
   ];
   //: **Star and "Favourite", not pin and "Pinned".** `entry.pinned` is one
-  //: flag with one meaning — it floats a note to the top *and* collects it
-  //: into the sidebar's Favourites row — and app.js's own note cards were
+  //: flag with one meaning, it floats a note to the top *and* collects it
+  //: into the sidebar's Favourites row: and app.js's own note cards were
   //: renamed to say so. The graph and the dashboard were not, so the same
   //: flag had two names and two icons depending on which screen you were
   //: looking at. Found while fixing the star button's missing glyph.
@@ -3174,7 +3174,7 @@ function renderGraphPopupActions(entry) {
   const box = $("graph-popup-actions");
   box.replaceChildren();
 
-  //: One glyph in both states, coloured when it is on — the note cards'
+  //: One glyph in both states, coloured when it is on, the note cards'
   //: own rule, and for the reason `favouriteButton` (app.js) records: the
   //: "off" version used a *different icon*, and one of those was missing
   //: from the font and drew nothing at all.
@@ -3183,7 +3183,7 @@ function renderGraphPopupActions(entry) {
   //: this grid: eight cells read "Grow", "Focus", "Similar", "Link",
   //: "Trace", "Remind", "Open", "Bin", and the ninth was a bare star. In a
   //: labelled grid an unlabelled cell does not read as "the icon says it
-  //: all", it reads as *text that failed to render* — the whole row of
+  //: all", it reads as *text that failed to render*, the whole row of
   //: siblings is the context that makes it look broken. So it is worded
   //: like the rest, and the wording carries the state the colour carries.
   const favourite = smallButton(
@@ -3260,7 +3260,7 @@ function renderGraphPopupActions(entry) {
       () => {
         closeGraphPopup();
         setTraceEnd(tracingFrom ? "to" : "from", entry.id);
-        if (!tracingFrom) toast("Now pick the other note — use Trace to here.");
+        if (!tracingFrom) toast("Now pick the other note, use Trace to here.");
       }
     )
   );
@@ -3329,7 +3329,7 @@ async function saveGraphPopup() {
 }
 
 // --- grow the map: add a note as a new node ----------------------------------
-// The graph stops being read-only here — you can extend your notebook from the
+// The graph stops being read-only here, you can extend your notebook from the
 // map itself, and a note grown from an existing one is linked to it, so the
 // new node appears already connected.
 
@@ -3351,7 +3351,7 @@ function openGraphNewNote(event, linkFrom = null) {
   popup.classList.remove("hidden");
 
   const box = $("graph-box").getBoundingClientRect();
-  // Never taller than the map it sits in — beyond that the popup scrolls
+  // Never taller than the map it sits in, beyond that the popup scrolls
   // itself rather than growing off the edge (same fix placeGraphPopup()
   // already has; this popup was missing it, so on a short viewport its
   // Save/Close/Tags controls rendered below the fold with nothing to
@@ -3415,13 +3415,13 @@ async function saveGraphNewNote() {
 
 // --- export as PNG (ROADMAP.md gap 3) --------------------------------------
 //
-// Captures exactly what's on screen right now — the live SVG's own viewBox
-// plus whatever pan/zoom transform the canvas <g> currently carries — rather
+// Captures exactly what's on screen right now, the live SVG's own viewBox
+// plus whatever pan/zoom transform the canvas <g> currently carries: rather
 // than trying to fit the whole graph into frame, matching the whiteboard's
 // own "what's on screen now" export option (whiteboard.js's wbExportPng).
 //
 // The exported SVG is rasterized via a detached <img>, completely outside
-// the page's own stylesheets and :root custom properties — so anything
+// the page's own stylesheets and :root custom properties, so anything
 // this app relies on a CSS class or a var(--token) for (node fill, edge
 // stroke, label font) would silently vanish. Inlining the resolved
 // (already var()-substituted) computed style onto every cloned element is
@@ -3456,7 +3456,7 @@ function graphRasterizeSvg(svgString, width, height) {
       canvas.height = Math.max(1, Math.round(height));
       const ctx = canvas.getContext("2d");
       // A transparent PNG over a dark page reads as "half my graph is
-      // missing" the moment it's opened anywhere else — paint a background
+      // missing" the moment it's opened anywhere else, paint a background
       // first, same reasoning as the whiteboard's own PNG export.
       //
       // Neither `body` nor `.card` has a plain colour to read here: `body`
@@ -3464,12 +3464,12 @@ function graphRasterizeSvg(svgString, width, height) {
       // `<html>`, `00-tokens-shell.css`), and `.card`/`--card` is
       // deliberately translucent (the app's glass look, `color-mix(...,
       // transparent)`), so both resolve to something that isn't a flat fill
-      // — found by actually checking, not assumed: the first draft read
+      //, found by actually checking, not assumed: the first draft read
       // `body`'s background and got the same `rgba(0,0,0,0)` in both themes,
       // silently painting nothing (a transparent PNG that a viewer renders
       // as white, which happened to look right only in light mode by
       // coincidence). A flat approximation tied to the resolved theme is a
-      // deliberately simpler choice than reproducing the gradient exactly —
+      // deliberately simpler choice than reproducing the gradient exactly, 
       // the export just needs to not look broken, not to be a pixel match.
       ctx.fillStyle = resolvedTheme() === "dark" ? "#12141c" : "#eef1f5";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -3492,7 +3492,7 @@ async function exportGraphPng() {
   // **The canvas renderer exports the canvas**, which is what §4 meant by
   // "keeps the export path (`canvas.toBlob`) trivial": no clone, no inlining
   // of every computed style, no SVG-to-image round trip. The one thing it
-  // still has to do by hand is the background — a transparent PNG over a dark
+  // still has to do by hand is the background, a transparent PNG over a dark
   // page reads as "half my graph is missing" the moment it is opened
   // anywhere else, so the frame is repainted onto an opaque copy.
   const liveCanvas = document.getElementById("graph-canvas");
@@ -3546,7 +3546,7 @@ async function exportGraphPng() {
 // --- minimap + saved views (ROADMAP §85.4 items 7) ---------------------------
 
 //: The four corners the minimap can be pinned to, and where that choice lives.
-//: Top-left is the default because it is the one corner nothing else claims —
+//: Top-left is the default because it is the one corner nothing else claims, 
 //: the toolbar owns the top strip, the agent monitor bottom-left, and the zoom
 //: buttons bottom-right (which is what the old hard-coded position collided
 //: with).
@@ -3555,7 +3555,7 @@ const GRAPH_MINIMAP_CORNER_KEY = "graph-minimap-corner";
 //
 // Both exist for the same reason, named in the roadmap's own words: once a
 // notebook is dense enough that the force layout stops being readable, there
-// is "nothing to re-find a specific arrangement" — no overview of where you
+// is "nothing to re-find a specific arrangement", no overview of where you
 // are in the map, and no way to come back to a combination of filters that
 // worked.
 
@@ -3564,7 +3564,7 @@ const GRAPH_MINIMAP_H = 112;
 
 // Where the nodes are, scaled into the minimap box. Recomputed on every paint
 // rather than cached: the force layout keeps moving until it cools, so a
-// cached extent would be wrong for the first few seconds — which is exactly
+// cached extent would be wrong for the first few seconds, which is exactly
 // when someone is watching it settle.
 function graphMinimapPaint() {
   const svg = document.getElementById("graph-minimap-svg");
@@ -3599,14 +3599,14 @@ function graphMinimapPaint() {
   // One <circle> per node is the whole minimap. Deliberately not reusing the
   // main render path: the minimap has no labels, no edges and no hit-testing,
   // so an SVG of plain dots is both cheaper and clearer than a scaled clone
-  // of a canvas that is already too dense to read — which is the problem this
+  // of a canvas that is already too dense to read, which is the problem this
   // is here to solve, not to reproduce in miniature.
   //: **One dot per note stops being one dot per note past a few hundred.**
   //: The box is 168x112 with a 1.6px dot: about 700 dots is the point at which
   //: another one lands on top of an existing one and adds nothing but a DOM
   //: element. Measured on the 2,000-note fixture, rebuilding all 2,000
   //: `<circle>`s while a drag was in flight was a real, repeated main-thread
-  //: cost for a picture that looked identical — so a big notebook is sampled
+  //: cost for a picture that looked identical, so a big notebook is sampled
   //: at an even stride instead. Evenly, not randomly or by prefix: a
   //: contiguous slice would draw one corner of the map and leave the rest
   //: blank, and a random sample would shimmer between repaints.
@@ -3636,7 +3636,7 @@ function graphMinimapPaint() {
   const [fx1, fy1] = toMini(x1, y1);
   // Clamped to the minimap's own box. Zoomed far enough out, the viewport is
   // wider than every node in the map, so the raw rectangle runs past the edge
-  // — measured at 201x39 inside a 168x112 box. The SVG would clip it anyway,
+  //, measured at 201x39 inside a 168x112 box. The SVG would clip it anyway,
   // but a rectangle with two edges off-screen reads as "the frame is broken"
   // rather than "you are looking at all of it"; clamped, it sits flush with
   // the border and says the second thing.
@@ -3692,7 +3692,7 @@ function initGraphMinimap() {
   const jump = (event, animate = true) => {
     const point = canvasPointFor(event);
     if (!point) return;
-    // Keep the zoom level, change only where it is centred — a click on the
+    // Keep the zoom level, change only where it is centred, a click on the
     // minimap is for navigating. Zooming from here is the wheel, below.
     centreOn(point[0], point[1], d3.zoomTransform(graphSvg.node()).k, animate);
   };
@@ -3708,7 +3708,7 @@ function initGraphMinimap() {
     dragging = true;
     svg.setPointerCapture?.(event.pointerId);
     svg.classList.add("graph-minimap-dragging");
-    // The press itself centres, so a plain click still works — there is no
+    // The press itself centres, so a plain click still works, there is no
     // separate click listener any more, which is what stopped a click from
     // firing this and then a second, animated jump on mouseup.
     jump(event, true);
@@ -3747,7 +3747,7 @@ function initGraphMinimap() {
     },
     { passive: false }
   );
-  // One control for both "is it showing" and "where" — see index.html on why
+  // One control for both "is it showing" and "where", see index.html on why
   // these were merged rather than sitting beside each other.
   //
   // Per-device workspace state, so localStorage beside `graph-layout` and the
@@ -3795,7 +3795,7 @@ function graphSavedViews() {
     const parsed = JSON.parse(localStorage.getItem(GRAPH_VIEWS_KEY) || "[]");
     return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return []; // corrupt or hand-edited — an empty list beats a broken tab
+    return []; // corrupt or hand-edited: an empty list beats a broken tab
   }
 }
 
@@ -3843,7 +3843,7 @@ function graphApplyView(view) {
   set("graph-time-slider", view.time);
   graphHiddenCategories = new Set(view.hiddenCategories || []);
 
-  // The transform lands *after* the rebuild those change events kick off —
+  // The transform lands *after* the rebuild those change events kick off, 
   // restoring the pan/zoom first would only have it overwritten by the
   // auto-fit that runs when a fresh layout settles.
   setTimeout(() => {

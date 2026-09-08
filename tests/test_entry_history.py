@@ -1,4 +1,4 @@
-"""Note edit history — the undo that the recycle bin never covered.
+"""Note edit history: the undo that the recycle bin never covered.
 
 The bin catches deletion. Rewriting a note destroyed what it used to say with
 no way back, and the AI can rewrite notes too, which makes this more than a

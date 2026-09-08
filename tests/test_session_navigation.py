@@ -13,7 +13,7 @@ standing. Reopening on the last *tab* is useful. Reopening three levels in, on
 a sub-tab you visited once a week ago, reads as the app being in a state you
 did not put it in.
 
-These are lints — there is no DOM here. The behaviour itself was checked in a
+These are lints: there is no DOM here. The behaviour itself was checked in a
 browser: deep in Write with AI + Image Gallery → a reload keeps the place, a
 lock/unlock and a fresh session both come back on Your Notes and All.
 """
@@ -36,7 +36,7 @@ def test_a_reload_keeps_your_place_and_a_new_session_does_not():
 
 def test_storage_that_throws_leaves_the_old_behaviour():
     """A private window or a shell with site data blocked throws on access.
-    Not resetting is the safe answer — the alternative is resetting on every
+    Not resetting is the safe answer, the alternative is resetting on every
     single navigation."""
     block = JS.split("function resetNavigationForNewSession()")[1].split("\n}")[0]
     assert "catch" in block
@@ -45,7 +45,7 @@ def test_storage_that_throws_leaves_the_old_behaviour():
 def test_unlocking_also_resets():
     """The lock screen is an overlay, not a page: unlocking after an idle lock
     never reloads anything, so a load-time reset alone would leave every
-    sub-tab where it was hours ago — which is the reported case."""
+    sub-tab where it was hours ago, which is the reported case."""
     block = JS.split("async function submitLockForm()")[1].split("\n}")[0]
     assert "resetNavigationToDefaults();" in block
     assert block.index("resetNavigationToDefaults();") < block.index("startApp();"), (
@@ -55,7 +55,7 @@ def test_unlocking_also_resets():
 
 def test_the_library_is_reset_through_its_own_click_handler():
     """Its switcher keeps state in the DOM (which button has `.active`), not
-    in storage, so clearing a key cannot reach it — and re-implementing the
+    in storage, so clearing a key cannot reach it, and re-implementing the
     handler's section-show, gallery-poll and whiteboard-landing logic here is
     exactly the shape this codebase keeps getting bitten by."""
     block = JS.split("function resetNavigationToDefaults()")[1].split("\n}\n")[0]

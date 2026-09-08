@@ -6,14 +6,14 @@ That is tidy and it is wrong in one specific way, which is the way that
 matters: **a job that fails disappears at the moment it becomes interesting.**
 
 A re-index that dies halfway, a model download that 404s, a SearXNG install
-that gives up — each vanished from the screen the instant it stopped, leaving
+that gives up: each vanished from the screen the instant it stopped, leaving
 the same empty list as a job that finished perfectly. The only difference the
 user could see was that the thing they were waiting for never arrived, and the
 only place the reason existed was the log console, which is a different screen
 and assumes you know to look.
 
 So: a short, bounded history of what *stopped*, with the outcome and the
-reason. Deliberately small in scope —
+reason. Deliberately small in scope, 
 
 - **In memory, not the database.** This is "what happened while the app has
   been open", which is the question people actually ask, and it costs no
@@ -60,7 +60,7 @@ def record(
     """Note that a background job ended. Never raises.
 
     Called from worker threads at the moment a job stops, so it must not be
-    able to turn a finished job into a crashed one — a history entry is the
+    able to turn a finished job into a crashed one, a history entry is the
     least important thing happening at that point.
 
     `duration_ms` is optional and best-effort: most call sites already hold a
@@ -87,7 +87,7 @@ def record(
                     ),
                 }
             )
-    except Exception:  # noqa: BLE001 — bookkeeping must never break the job
+    except Exception:  # noqa: BLE001  # bookkeeping must never break the job
         pass
 
 
@@ -98,7 +98,7 @@ def recent(limit: int = MAX_ENTRIES) -> list[dict]:
 
 
 def clear() -> None:
-    """Forget the history — used by the UI's clear button, and between tests."""
+    """Forget the history: used by the UI's clear button, and between tests."""
     with _lock:
         _finished.clear()
 

@@ -1,7 +1,7 @@
 """Tool results as typed cards (PLAN.md §4, item A1).
 
 The acceptance PLAN.md writes down is *"grep finds no tool returning a bare
-string"*, and that was already true when this was built — every one of the
+string"*, and that was already true when this was built, every one of the
 registry's executors returns a dict. What was not true is the sentence after
 it: *"the chat renders a card per kind (note, document, file, board,
 reminder)"*. Two of those five had cards (`agent._touched_items`); the other
@@ -15,7 +15,7 @@ that make it trustworthy rather than decorative:
 - **Coverage is enforced, not hoped for.** Every registered tool has an entry,
   empty included, so a tool added later cannot silently render as a blob.
 - **A card names the thing the tool actually touched**, read from the result
-  and never from the arguments — the same rule `_touched_items` follows.
+  and never from the arguments, the same rule `_touched_items` follows.
 - **Ids are not interchangeable.** A document is not a note, and an upload is
   not an attachment: id 1 is a different object in each, and a card that lost
   the distinction would open the wrong one.
@@ -40,7 +40,7 @@ def test_every_registered_tool_has_a_decision():
     """
     missing = sorted(set(tools.TOOLS) - set(cards.PROJECTIONS))
     assert not missing, (
-        f"{missing} have no entry in cards.PROJECTIONS — add one, or map them "
+        f"{missing} have no entry in cards.PROJECTIONS, add one, or map them "
         "to () with a comment saying what they return instead."
     )
 
@@ -80,7 +80,7 @@ def test_a_search_result_becomes_one_note_card_per_hit():
 
 
 def test_one_note_read_in_full_is_still_a_card():
-    """`get_note` returns the note itself rather than a list of them — the
+    """`get_note` returns the note itself rather than a list of them, the
     shape `_touched_items` calls the single-item case."""
     out = cards.result_cards("get_note", {"id": 4, "content": "The whole note"})
     assert out == [{"kind": "note", "items": [{"id": 4, "label": "The whole note", "snippet": "The whole note"}]}]
@@ -89,7 +89,7 @@ def test_one_note_read_in_full_is_still_a_card():
 def test_a_document_is_never_filed_as_a_note():
     """The trap `agent._touched_kind`'s own docstring records: a document
     result carries `id`, `title` *and* `content`, so anything reading
-    `content` first would open the *note* with that id — a different object
+    `content` first would open the *note* with that id, a different object
     entirely. Here the tool name settles it before any field is read."""
     out = cards.result_cards(
         "get_document", {"id": 12, "title": "Thesis outline", "content": "Chapter one…"}
@@ -117,7 +117,7 @@ def test_a_file_card_keeps_which_table_it_came_from():
                 {"kind": "upload", "id": 1, "name": "board.png", "url": "/media/board.png",
                  "caption": "A photo of a whiteboard"},
                 {"kind": "attachment", "id": 1, "name": "lecture.pdf", "url": "/files/1",
-                 "text": "Week 3 — gradients", "attached_to_note": 5},
+                 "text": "Week 3: gradients", "attached_to_note": 5},
             ]
         },
     )
@@ -139,7 +139,7 @@ def test_a_file_row_without_a_usable_kind_is_dropped():
 
 
 def test_the_default_board_is_a_card_even_though_its_id_is_none():
-    """`None` is a real board id in this app — it is the default board, which
+    """`None` is a real board id in this app, it is the default board, which
     is why `_whiteboard_board_filter` exists. A "no id means no card" rule
     would have made the most-used board the one you cannot open."""
     out = cards.result_cards(
@@ -240,8 +240,8 @@ def _events(client, question, **body):
 
 
 def test_the_tool_event_carries_its_cards(ai_client, fake_ollama, app_state):
-    """The whole point, measured where it matters: the chat's tool event — the
-    thing `toolChip` renders — now has typed cards on it."""
+    """The whole point, measured where it matters: the chat's tool event: the
+    thing `toolChip` renders: now has typed cards on it."""
     ai_client.post("/entries", json={"content": "Bought milk and eggs"})
     fake_ollama.tool_script = [
         [{"name": "search_notes", "arguments": {"query": "milk"}}],

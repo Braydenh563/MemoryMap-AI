@@ -1,10 +1,10 @@
-// documents.js — the document editor (split out of app.js).
+// documents.js: the document editor (split out of app.js).
 //
 // Loaded after app.js (see index.html's <script> ordering comment): every
 // reference here into app.js globals (docs helpers aside, things like
 // switchTab, apiJson, toast, $, promptDialog, setPreference) is a runtime
 // call inside a function body, never a parse-time reference, so load order
-// only matters for the reverse direction — anything in app.js that calls
+// only matters for the reverse direction, anything in app.js that calls
 // into documents.js (loadDocuments, renderDocStorage, createDocument) does
 // so from inside its own functions too, which by the time they run have
 // always already had this script loaded (same DOMContentLoaded pass, no
@@ -12,7 +12,7 @@
 //
 // initDocSidebarTabs() used to be called from app.js's own top-level wiring
 // (right after initNotesSubtabs()). That call site is gone from app.js now
-// that the function moved here — this file calls it itself instead, at the
+// that the function moved here, this file calls it itself instead, at the
 // end, so it still runs exactly once per load and in the same relative
 // order (after app.js's synchronous top-level code, before any user input
 // is possible).
@@ -30,21 +30,21 @@ let docSaveTimer = null;
 // --- what kind of file this document is ----------------------------------------
 //
 // A document used to be markdown and only markdown. Asked for directly: the
-// editor should handle code too — line numbers, language detection, Ctrl+/
-// commenting, indent and dedent — the type should be changeable, and a new
+// editor should handle code too, line numbers, language detection, Ctrl+/
+// commenting, indent and dedent, the type should be changeable, and a new
 // document should be creatable "of any filetype though it should default to
 // md".
 //
 // The table comes from `GET /documents/file-types` rather than being written
 // out here, and that is not tidiness. Indenting and comment-toggling happen
 // inside a keydown handler and cannot wait for a round trip, so the frontend
-// genuinely needs the whole table — which means either fetching it or keeping
+// genuinely needs the whole table, which means either fetching it or keeping
 // a second copy. A second copy is a second thing to update, and the failure
 // mode of the two disagreeing is Ctrl+/ inserting the wrong comment marker
 // into someone's file. So: fetched once, cached here.
 
 //: [{ext, label, line_comment, block_comment, indent, previewable}], server
-//: order preserved — the picker's order is a decision (see filetypes.py) and
+//: order preserved: the picker's order is a decision (see filetypes.py) and
 //: sorting it here would quietly undo it.
 let docFileTypes = [];
 
@@ -66,7 +66,7 @@ const DEFAULT_FILE_TYPE = {
 // It *was* called once at the bottom of this file, and a browser found what
 // reading it could not: at that point the app has not been unlocked, so the
 // fetch 401s, `docFileTypes` is set to [], and nothing ever asks again. The
-// picker stayed an empty <select> for the whole session — every option gone,
+// picker stayed an empty <select> for the whole session, every option gone,
 // no error anywhere, and the code reads as correct at every line. Same shape as
 // the app.js comment about a stale token firing "a dozen requests before the
 // user has unlocked anything"; this was the same mistake in a new file.
@@ -108,7 +108,7 @@ function syncDocFileType() {
   if (picker) picker.value = type.ext;
 
   // A code file has no rendered form. Offering Live and Split for one is
-  // offering to show a wall of escaped source — so those two options are
+  // offering to show a wall of escaped source, so those two options are
   // disabled rather than hidden (hidden controls that come and go make a
   // toolbar feel unstable), and a document already in one of them is moved
   // back to Source rather than left looking at nothing.
@@ -116,7 +116,7 @@ function syncDocFileType() {
     const rendered = button.dataset.docView !== "source";
     button.disabled = rendered && !type.previewable;
     button.title = button.disabled
-      ? `A .${type.ext} file has no rendered form — this is for markdown.`
+      ? `A .${type.ext} file has no rendered form, this is for markdown.`
       : button.dataset.docTitle || button.title;
   }
   if (!type.previewable && docView !== "source") setDocView("source");
@@ -150,7 +150,7 @@ function syncDocFileType() {
 }
 
 // The dock's kebab closes when you pick something from it, and when you click
-// away — `<details>` gives everything else (open on click and on Enter/Space,
+// away: `<details>` gives everything else (open on click and on Enter/Space,
 // close on Escape, the ARIA) and neither of those two.
 document.getElementById("doc-dock-menu")?.addEventListener("click", (event) => {
   //: Except the switches. Every other row here does one thing and is finished,
@@ -176,7 +176,7 @@ document.addEventListener("click", (event) => {
 //
 // "rendered" is deliberately a peer of "split" rather than a sub-state of it.
 // Asked for as a "full toggle switch between editor mode and rendered mode *or*
-// the split view" — i.e. reading the finished page at full width is its own
+// the split view", i.e. reading the finished page at full width is its own
 // thing, not split-with-one-pane-collapsed.
 const DOC_VIEW_KEY = "doc-view-mode";
 const DOC_VIEWS = ["source", "live", "split", "rendered"];
@@ -184,7 +184,7 @@ let docView = "source";
 
 // The two modes that put #doc-preview on screen. Kept as one predicate because
 // every "is the rendered pane showing?" decision below has to agree with every
-// other one — the split/rendered pair is exactly the shape that goes wrong when
+// other one: the split/rendered pair is exactly the shape that goes wrong when
 // each site spells the check out for itself.
 function docPreviewShowing(mode = docView) {
   return mode === "split" || mode === "rendered";
@@ -200,7 +200,7 @@ function setDocView(mode) {
     localStorage.setItem(DOC_VIEW_KEY, docView);
   } catch {
     // A private window with storage blocked is not a reason to refuse to
-    // change view — the choice just does not survive the reload.
+    // change view: the choice just does not survive the reload.
   }
 
   // Where the editor was scrolled to, as a fraction, taken *before* anything is
@@ -214,7 +214,7 @@ function setDocView(mode) {
 
   // Source is hidden in the two modes that replace it outright; the preview is
   // shown in the two that include it. Only "split" gets the side-by-side class
-  // — in "rendered" the preview is the sole child of a column flexbox and
+  //, in "rendered" the preview is the sole child of a column flexbox and
   // fills it without any help.
   $("doc-source-wrap").classList.toggle("hidden", docView === "live" || docView === "rendered");
   $("doc-live").classList.toggle("hidden", docView !== "live");
@@ -283,7 +283,7 @@ function renderDocList() {
     li.className = "doc-item";
     if (currentDoc && doc.id === currentDoc.id) li.classList.add("active");
     // A `<button>` the way this row used to be a `<button>` cannot also host
-    // the kebab below — a button can't contain another button. Same
+    // the kebab below: a button can't contain another button. Same
     // article-not-button shape renderLibraryDocuments() already uses for
     // exactly this reason, so the two Rename/Delete surfaces (this sidebar
     // and the Library's Documents sub-tab) look and behave the same way.
@@ -317,11 +317,11 @@ function renderDocList() {
           }).catch((e) => toast(e.message, true));
           loadDocuments(currentDoc?.id);
         }),
-        // Not destructive, so not grouped with Delete below — same
+        // Not destructive, so not grouped with Delete below, same
         // "keep it, but out of the way" action the Notes tab already has
         // for entries (BACKLOG §30b's named remaining scope: chats and
         // documents). Reachable again from the Library's Shelved filter.
-        makeMenuItem("ph:archive Archive", "Keep it, but out of the way — not deleted", async () => {
+        makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not deleted", async () => {
           await apiJson(`/documents/${doc.id}/archive`, { method: "PUT" }).catch((e) =>
             toast(e.message, true)
           );
@@ -349,7 +349,7 @@ function renderDocList() {
     );
     menu.classList.add("doc-item-menu");
     menu.addEventListener("click", (event) => event.stopPropagation());
-    // Same clipping shape as the Library's own Documents-subtab kebab — a
+    // Same clipping shape as the Library's own Documents-subtab kebab, a
     // scrolling list of rows with a `position: absolute` popup on the last
     // few. `kebabMenu()` now escapes every menu it builds, so this list gets
     // the fix without its own call.
@@ -364,13 +364,13 @@ function showNoDocument() {
   $("doc-title").value = "";
   $("doc-content").value = "";
   // Deliberately NOT disabled. Disabling them meant that on a notebook with no
-  // documents yet, clicking the editor did nothing and typing did nothing —
+  // documents yet, clicking the editor did nothing and typing did nothing, 
   // a dead end whose only way out was noticing a small "+ New" button. Typing
   // now creates the document, which is what every editor does.
   $("doc-title").disabled = false;
   $("doc-content").disabled = false;
   $("doc-content").placeholder =
-    "Start typing and a new document is created for you.\n\nMarkdown works here — headings, **bold**, lists, tables, links.";
+    "Start typing and a new document is created for you.\n\nMarkdown works here, headings, **bold**, lists, tables, links.";
   $("doc-saved").textContent = "";
   renderDocPreview();
   renderDocStats();
@@ -381,13 +381,13 @@ async function openDocument(id) {
   // Never lose unsaved work by switching away from it.
   if (docDirty) await saveDocument({ silent: true });
   $("doc-content").placeholder =
-    "# Start writing\n\nMarkdown works here — headings, **bold**, lists, tables, links.";
+    "# Start writing\n\nMarkdown works here, headings, **bold**, lists, tables, links.";
   const doc = await apiJson(`/documents/${id}`).catch(() => null);
   if (!doc) return;
   // ROADMAP.md item 13: "opening/closing a document" was the one remaining
   // gap in back/forward nav after chat's own conv:<id> fix. Same shape,
   // recorded here (not at each of openDocument's several call sites) so
-  // none of them has to remember to — same reasoning openConversation's own
+  // none of them has to remember to, same reasoning openConversation's own
   // comment gives for doing it there instead of at ITS call sites.
   recordTabVisit("documents", `doc:${doc.id}`);
   currentDoc = doc;
@@ -397,7 +397,7 @@ async function openDocument(id) {
   $("doc-content").value = doc.content;
   docDirty = false;
   //: A new document is a new history. Carrying the previous one over would let
-  //: Ctrl+Z paste the *last* document's text into this one — the worst kind of
+  //: Ctrl+Z paste the *last* document's text into this one, the worst kind of
   //: undo bug, because it looks like the app corrupted your file.
   docUndoReset(doc.content);
   $("doc-saved").textContent = "Saved";
@@ -419,7 +419,7 @@ async function openDocument(id) {
 }
 
 // The notes this document draws on. Shown beside the outline because both
-// answer the same question — what is this document made of.
+// answer the same question, what is this document made of.
 // Which notes point at the open document with a [[wiki link]].
 //
 // The reverse direction of resolveWikiTarget, and deliberately computed from
@@ -442,7 +442,7 @@ function renderDocBacklinks() {
     ? []
     : (typeof allEntries !== "undefined" ? allEntries : []).filter((entry) => {
         if (entry.is_private) return false;
-        // Already shown under "Notes it draws on" — listing it twice says
+        // Already shown under "Notes it draws on", listing it twice says
         // there are two connections when there is one.
         if (attached.has(entry.id)) return false;
         const pattern = /\[\[([^[\]]{1,120})\]\]/g;
@@ -504,7 +504,7 @@ function renderDocNotes() {
       // mention this document by [[title]], and that connection only becomes
       // visible once it is no longer filed under it.
       renderDocBacklinks();
-      // The note keeps existing — only the connection went.
+      // The note keeps existing, only the connection went.
       loadEntries();
     });
     item.append(open, remove);
@@ -552,7 +552,7 @@ async function attachBookmarkToDocument() {
     return;
   }
   if (!all.length) {
-    toast("No saved links yet — add one in Library → Links first.");
+    toast("No saved links yet, add one in Library → Links first.");
     return;
   }
   const wrap = $("doc-bookmarks-wrap");
@@ -592,7 +592,7 @@ const DOC_TEMPLATES = [
   },
   {
     id: "assignment", title: "Assignment plan", hint: "Brief, criteria, sections, sources, timeline.",
-    content: "# {{title}}\n\n**Due:** \n**Unit:** \n**Weight:** \n\n## The brief, in my own words\n\n\n## Marking criteria\n\n- [ ] \n- [ ] \n\n## Outline\n\n1. Introduction — \n2. \n3. \n4. Conclusion — \n\n## Sources\n\n- \n\n## Timeline\n\n| When | What |\n| --- | --- |\n| {{date}} | Plan written |\n|  | Draft |\n|  | Edit and submit |\n",
+    content: "# {{title}}\n\n**Due:** \n**Unit:** \n**Weight:** \n\n## The brief, in my own words\n\n\n## Marking criteria\n\n- [ ] \n- [ ] \n\n## Outline\n\n1. Introduction, \n2. \n3. \n4. Conclusion, \n\n## Sources\n\n- \n\n## Timeline\n\n| When | What |\n| --- | --- |\n| {{date}} | Plan written |\n|  | Draft |\n|  | Edit and submit |\n",
   },
   {
     id: "lecture", title: "Lecture notes", hint: "Cornell-style: cues, notes, summary.",
@@ -600,7 +600,7 @@ const DOC_TEMPLATES = [
   },
   {
     id: "meeting", title: "Meeting notes", hint: "Attendees, agenda, decisions, actions.",
-    content: "# {{title}}\n\n**Date:** {{date}}\n**Attendees:** \n\n## Agenda\n\n1. \n\n## Notes\n\n\n## Decisions\n\n- \n\n## Actions\n\n- [ ] Who — what — by when\n",
+    content: "# {{title}}\n\n**Date:** {{date}}\n**Attendees:** \n\n## Agenda\n\n1. \n\n## Notes\n\n\n## Decisions\n\n- \n\n## Actions\n\n- [ ] Who, what, by when\n",
   },
   {
     id: "decision", title: "Decision record", hint: "Context, options, decision, consequences.",
@@ -675,7 +675,7 @@ async function ensureDocumentExists() {
     currentDoc = doc;
     docs.unshift({ ...doc });
     // The list gains an "Untitled" row the moment this returns, so show the
-    // same name in the title box — otherwise the document you're typing into
+    // same name in the title box, otherwise the document you're typing into
     // appears to have no name while the sidebar says it has one.
     if (!$("doc-title").value.trim()) $("doc-title").value = doc.title;
     renderDocList();
@@ -691,7 +691,7 @@ async function ensureDocumentExists() {
 
 function markDocDirty() {
   // These are read off the textarea, so they're right even before the save
-  // lands — the point of them is live feedback while writing.
+  // lands: the point of them is live feedback while writing.
   renderDocStats();
   renderDocOutline();
   // No document yet? Typing makes one, then this save proceeds normally.
@@ -702,12 +702,12 @@ function markDocDirty() {
   docDirty = true;
   //: **The one place the document's undo stack is fed.** Every edit in either
   //: mode already funnels through here (see `docUndoRecord`'s comment for the
-  //: list), so recording here cannot miss one — and a future edit path gets an
+  //: list), so recording here cannot miss one, and a future edit path gets an
   //: undo entry without anyone remembering to add it.
   docUndoRecord();
   $("doc-saved").textContent = "Unsaved…";
   clearTimeout(docSaveTimer);
-  // Autosave, but not on every keystroke — a pause is the natural moment.
+  // Autosave, but not on every keystroke, a pause is the natural moment.
   docSaveTimer = setTimeout(() => saveDocument({ silent: true }), 1200);
 }
 
@@ -740,7 +740,7 @@ async function saveDocument({ silent = false } = {}) {
 
 // A note that outgrew itself becomes a document. Notes and documents were
 // two islands: the only way across was copy and paste, which loses the link
-// between them. The note is deliberately left alone — this is a promotion,
+// between them. The note is deliberately left alone, this is a promotion,
 // not a move, and quietly deleting someone's note to "convert" it is the
 // kind of helpfulness nobody asks for twice.
 async function expandNoteIntoDocument(entry) {
@@ -760,7 +760,7 @@ async function expandNoteIntoDocument(entry) {
     });
     switchTab("documents");
     await loadDocuments(doc.id);
-    toast(`Started a document from this note — the note itself is untouched.`);
+    toast(`Started a document from this note, the note itself is untouched.`);
   } catch (error) {
     toast(error.message, true);
   }
@@ -770,7 +770,7 @@ async function expandNoteIntoDocument(entry) {
 // anyone writing long-form actually wants on screen.
 const READING_WORDS_PER_MINUTE = 220;
 
-// A target word count, set per document and kept client-side — it's a
+// A target word count, set per document and kept client-side, it's a
 // writing aid, not notebook data, so it doesn't need a column or to survive
 // a restore onto another machine the way the document's own content does.
 function docWordGoalKey(id) {
@@ -793,14 +793,14 @@ function setDocWordGoal(id, goal) {
 
 //: **The goal, and only the goal.** The word count, the reading time and the
 //: character count moved to the editor's own status bar (`renderDocStatusBar`)
-//: when the top dock was rebuilt — reported as "redesign, rearrange, fix, and
+//: when the top dock was rebuilt, reported as "redesign, rearrange, fix, and
 //: update the section with the word count, word goal etc elements". Facts
 //: about the text belong beside the text; what is left here is the *target*,
 //: which is a thing you set rather than a thing you read, and it is drawn as
 //: its own control on the same bar.
 //:
 //: Kept as a separate function from the status bar's because it is called from
-//: four places that mean "the document changed" — and because a goal is
+//: four places that mean "the document changed", and because a goal is
 //: per-document state while the counts are pure arithmetic over the box.
 function renderDocStats() {
   const words = (($("doc-content")?.value || "").match(/\S+/g) || []).length;
@@ -814,7 +814,7 @@ function renderDocStats() {
     label.textContent = "Set a goal";
     button.title = "Set a word-count goal for this document";
     //: The progress ring is meaningless without a target, so it is not drawn
-    //: rather than drawn empty — an empty meter reads as "you have written
+    //: rather than drawn empty, an empty meter reads as "you have written
     //: nothing", which is a different and usually false claim.
     button.style.removeProperty("--doc-goal-pct");
     button.classList.remove("has-goal");
@@ -822,7 +822,7 @@ function renderDocStats() {
   }
   const pct = Math.min(100, Math.round((words / goal) * 100));
   label.textContent = `${words.toLocaleString()} / ${goal.toLocaleString()} · ${pct}%`;
-  button.title = `Goal: ${goal.toLocaleString()} words — click to change it`;
+  button.title = `Goal: ${goal.toLocaleString()} words: click to change it`;
   //: A custom property rather than an inline `style` attribute, which this
   //: app's CSP refuses. Same rule the Loose ends meter follows.
   button.style.setProperty("--doc-goal-pct", `${pct}%`);
@@ -837,7 +837,7 @@ function promptDocWordGoal() {
   $("doc-word-goal-input").focus();
 }
 
-// --- find and replace (16b: "a bunch of missing features" — this is the
+// --- find and replace (16b: "a bunch of missing features", this is the
 // concrete first one; browser Ctrl+F never worked here because a
 // textarea's own text isn't part of the searchable page DOM at all, only
 // its *value* is) ---------------------------------------------------------
@@ -890,7 +890,7 @@ function docReplaceOne() {
   const term = $("doc-find-input").value;
   if (!term) return;
   const selected = box.value.slice(box.selectionStart, box.selectionEnd);
-  // Only replace what's actually selected and actually a match — Replace
+  // Only replace what's actually selected and actually a match, Replace
   // clicked with nothing found selected first should find, not guess.
   if (selected.toLowerCase() !== term.toLowerCase()) {
     docFindStep(1);
@@ -998,11 +998,11 @@ async function renderDocStorage() {
 // PLAN.md P4. With the preview open (Split/Rendered) every keystroke used to
 // re-parse and re-render the whole document: measured on a 20k-word document
 // with scratchpad/ui-sweeps/doctype.js, 44 keystrokes → 44 full renders,
-// keydown p50 176ms / p95 272ms — the caret visibly lagged the typing. The
+// keydown p50 176ms / p95 272ms, the caret visibly lagged the typing. The
 // preview is display, not state, so it can wait for the typing to pause:
 // a 120ms trailing debounce, then an idle callback (with a ceiling, so a
 // busy tab still repaints within a third of a second). Anything that needs
-// the preview *now* — a view switch, a load — still calls renderDocPreview
+// the preview *now*, a view switch, a load, still calls renderDocPreview
 // directly.
 let docPreviewTimer = null;
 function scheduleDocPreview() {
@@ -1030,7 +1030,7 @@ function renderDocPreview() {
 
 // [[Document title]] as clickable links in the preview, the same idea as a
 // note's [[wiki link]] (renderNoteText) but resolving against `docs` by
-// title instead of by content prefix — documents have real titles. A
+// title instead of by content prefix, documents have real titles. A
 // post-process over renderMarkdown's already-built DOM rather than a change
 // to the parser itself: renderMarkdown is a hand-rolled block parser shared
 // with notes/chat/dashboard, and layering a second concern into its inline
@@ -1086,13 +1086,13 @@ function layerDocWikiLinks(container) {
 
 // The PDF export needs the rendered pane on screen for the duration of the
 // print, whatever view the user was in, and puts them back afterwards. It is
-// the only remaining caller of anything toggle-shaped — the Preview tickbox
+// the only remaining caller of anything toggle-shaped, the Preview tickbox
 // itself became the four-way #doc-view-seg (see setDocView), because with four
 // modes a tickbox could not say which one you were in.
 //
 // It borrows "rendered" rather than "split": what gets printed is the preview
 // pane, and at full width it lays out the way the PDF will. If the user is
-// already in a mode showing the preview, leave them there — reflowing a pane
+// already in a mode showing the preview, leave them there, reflowing a pane
 // mid-print is how a page break lands in the wrong place.
 function withDocPreviewShown(fn) {
   const previous = docView;
@@ -1109,7 +1109,7 @@ function withDocPreviewShown(fn) {
 // Asked for directly: a code file should have "code lines as well as language
 // detection and ctrl + / commenting or equivalent as well as indenting and
 // dedenting". All three are keystroke-level, which is why the file-type table
-// is fetched and cached rather than queried — see `loadDocFileTypes`.
+// is fetched and cached rather than queried, see `loadDocFileTypes`.
 //
 // Built on the existing textarea rather than on a third-party code editor.
 // This app has no build step (`frontend/app.js` is served as-is), so a real
@@ -1210,7 +1210,7 @@ function renderDocGutter(only = null) {
 //: Give a plain textarea a line-number gutter: wrap it, put the gutter
 //: before it, and keep the two in step on input and scroll. The gutter copies
 //: the textarea's own type metrics and top padding through the CSSOM (an
-//: inline `style=` would be refused by the CSP) — that, not a shared class,
+//: inline `style=` would be refused by the CSP), that, not a shared class,
 //: is what makes "1" sit exactly beside the first line whatever font the box
 //: uses. Idempotent, so the note edit form can call it on every open.
 function mountGutterFor(textarea) {
@@ -1229,7 +1229,7 @@ function mountGutterFor(textarea) {
   // so at this point `applyDocGutter` (which walks the *document*) cannot
   // see this gutter and `getComputedStyle` returns empty strings. Decide the
   // initial state from the remembered choice right here, and copy the type
-  // metrics on the first frame the box is in the document — measured, the
+  // metrics on the first frame the box is in the document, measured, the
   // form's gutter stayed hidden on every open without both.
   const on = docGutterPref() === "1";
   gutter.classList.toggle("hidden", !on);
@@ -1260,7 +1260,7 @@ function docSelectedLines(box) {
   const start = value.lastIndexOf("\n", box.selectionStart - 1) + 1;
   let end = value.indexOf("\n", box.selectionEnd);
   if (end === -1) end = value.length;
-  // A selection ending exactly at a line start has not touched that line —
+  // A selection ending exactly at a line start has not touched that line, 
   // without this, selecting one whole line by dragging comments out two.
   if (box.selectionEnd > box.selectionStart && box.selectionEnd === start) {
     end = box.selectionEnd;
@@ -1271,21 +1271,21 @@ function docSelectedLines(box) {
 //: Replace a run of the textarea through the browser's own edit pipeline, so
 //: the native undo stack keeps working. Assigning `.value` wipes it, which
 //: would make Ctrl+Z stop working in exactly the editor where people press it
-//: most — the single most important detail in this whole section.
+//: most: the single most important detail in this whole section.
 function docReplaceRange(box, start, end, text) {
   box.focus();
   box.setSelectionRange(start, end);
   if (!document.execCommand || !document.execCommand("insertText", false, text)) {
     // execCommand is deprecated and may be gone. Falling back to a direct
     // write loses native undo for that one edit, which beats the edit not
-    // happening — and `markDocDirty` still runs, so nothing is lost.
+    // happening: and `markDocDirty` still runs, so nothing is lost.
     const value = box.value;
     box.value = value.slice(0, start) + text + value.slice(end);
   }
 }
 
 function indentDocSelection(box, outdent) {
-  //: One undo step per Tab, not one per burst — see `docUndoBreak`.
+  //: One undo step per Tab, not one per burst, see `docUndoBreak`.
   docUndoBreak();
   const type = docFileType();
   const unit = type.indent || "  ";
@@ -1306,8 +1306,8 @@ function indentDocSelection(box, outdent) {
   const lines = text.split("\n");
   const changed = lines.map((line) => {
     if (!outdent) return line ? unit + line : line;
-    // Dedent removes one indent unit, or — for a line indented with the
-    // wrong-width whitespace, which happens constantly in a pasted file —
+    // Dedent removes one indent unit, or, for a line indented with the
+    // wrong-width whitespace, which happens constantly in a pasted file, 
     // up to that many leading spaces. Removing nothing when the line is
     // flush left is correct, not a failure.
     if (line.startsWith(unit)) return line.slice(unit.length);
@@ -1339,7 +1339,7 @@ function toggleDocComment(box) {
       if (!line.trim()) return line;
       if (allCommented) {
         const at = line.indexOf(marker);
-        // Drop one following space if this put one there — so a round trip
+        // Drop one following space if this put one there, so a round trip
         // of comment-then-uncomment gives back exactly the original line.
         const after = line.slice(at + marker.length);
         return line.slice(0, at) + (after.startsWith(" ") ? after.slice(1) : after);
@@ -1354,7 +1354,7 @@ function toggleDocComment(box) {
     box.setSelectionRange(start, start + changed.join("\n").length);
   } else if (type.block_comment) {
     // No line-comment form at all (HTML, XML, CSS). Toggling a line means
-    // wrapping it — a prefix would produce a file that no longer parses.
+    // wrapping it: a prefix would produce a file that no longer parses.
     const [open, close] = type.block_comment;
     const trimmed = text.trim();
     const wrapped = trimmed.startsWith(open.trim()) && trimmed.endsWith(close.trim());
@@ -1365,7 +1365,7 @@ function toggleDocComment(box) {
     box.setSelectionRange(start, start + changed.length);
   } else {
     // Plain text genuinely has no comment syntax. Doing nothing quietly is
-    // right — there is no sensible thing to insert.
+    // right: there is no sensible thing to insert.
     return;
   }
   markDocDirty();
@@ -1388,14 +1388,14 @@ function toggleDocComment(box) {
 // find-and-replace, Extract notes and the whole AI panel therefore keep
 // working against one value, unchanged, and none of them had to learn that a
 // second editor exists. The roadmap's own scoping note recommends a per-block
-// editor over a whole-document `contenteditable` for exactly this reason —
+// editor over a whole-document `contenteditable` for exactly this reason, 
 // a contenteditable holding the entire document makes the DOM the truth, and
 // then every one of those features has to be rewritten to read from it.
 //
 // One block is one paragraph: markdown's own unit, separated by a blank line.
 // Blocks are re-derived from the text on every structural change rather than
 // maintained incrementally, because an incremental block list is a second
-// model of the document that can drift out of step with the textarea — and
+// model of the document that can drift out of step with the textarea, and
 // the whole point of the arrangement above is that there is only one.
 
 //: Which block is being edited, by index, or -1 when none is. Only ever one:
@@ -1403,7 +1403,7 @@ function toggleDocComment(box) {
 //: written in.
 let docLiveActive = -1;
 
-//: A fence opener/closer. Split has to skip over these — a blank line inside
+//: A fence opener/closer. Split has to skip over these, a blank line inside
 //: a ```code block``` is part of the code, not a paragraph break, and
 //: splitting there turns one code block into two broken ones.
 const DOC_FENCE = /^\s*(?:```|~~~)/;
@@ -1414,7 +1414,7 @@ function docLiveBlocks(text) {
   let current = [];
   let inFence = false;
   const flush = () => {
-    // Trailing blank lines belong to the separator, not to the block — they
+    // Trailing blank lines belong to the separator, not to the block, they
     // are re-added by `docLiveText` below, so a round trip is lossless.
     while (current.length && !current[current.length - 1].trim()) current.pop();
     if (current.length) blocks.push(current.join("\n"));
@@ -1440,7 +1440,7 @@ function docLiveBlocks(text) {
 }
 
 //: Blocks back into one document. Two newlines between them, which is what
-//: split consumed — so text -> blocks -> text is the identity for anything
+//: split consumed: so text -> blocks -> text is the identity for anything
 //: that was already normalised, and normalises anything that was not.
 function docLiveText(blocks) {
   return blocks.filter((b) => b.trim() !== "" || blocks.length === 1).join("\n\n");
@@ -1449,7 +1449,7 @@ function docLiveText(blocks) {
 //: **A live-view block's offsets, in the document's own coordinates.**
 //:
 //: The live view is the default document view, and each of its paragraphs is
-//: its own `.lp-src` textarea — so a selection made there has offsets inside
+//: its own `.lp-src` textarea: so a selection made there has offsets inside
 //: *that block*, which are meaningless to anything holding the document. The
 //: chat's selection context (REDESIGN.md §R7.1 item 1) needs the document's,
 //: or it reports "line 2" for a paragraph two thirds of the way down.
@@ -1475,13 +1475,13 @@ function docLiveBlockOffset(box) {
 //: **True while `renderDocLive` is replacing the pane's children.**
 //:
 //: Tearing out the block the caret is in fires that textarea's own `blur`, and
-//: the blur handler's job is to re-render the view — so it re-entered
+//: the blur handler's job is to re-render the view, so it re-entered
 //: `renderDocLive` *from inside* `host.replaceChildren()` and the browser threw
 //: `NotFoundError: The node to be removed is no longer a child of this node.
 //: Perhaps it was moved in a 'blur' event handler?`.
 //:
 //: Measured, not reasoned: type one character in Live view and wait out the
-//: 400ms prose debounce — `renderDocProse` calls `renderDocLive(true)`, the
+//: 400ms prose debounce: `renderDocProse` calls `renderDocLive(true)`, the
 //: exception escapes, and `document.activeElement` is `<body>`. Your caret was
 //: dropped mid-sentence, and nothing in the UI said so. It only shows up on
 //: the *pause* after a keystroke, which is why it reads as the editor randomly
@@ -1495,7 +1495,7 @@ function renderDocLive(keepActive = false) {
   const host = $("doc-live");
   if (!host || docView !== "live") return;
   //: Re-entered from a blur this very render caused. Returning is correct
-  //: rather than merely safe — the outer call is still mid-flight and is
+  //: rather than merely safe, the outer call is still mid-flight and is
   //: about to draw the state this one would have drawn.
   if (docLiveRendering) return;
   const blocks = docLiveBlocks($("doc-content").value);
@@ -1514,7 +1514,7 @@ function renderDocLiveBlocks(host, blocks) {
   host.replaceChildren();
 
   // An empty document still needs somewhere to click. Without this the pane
-  // is a blank div with no blocks, and there is nothing to put a caret in —
+  // is a blank div with no blocks, and there is nothing to put a caret in, 
   // which reads as the mode being broken rather than the document being new.
   if (!blocks.length) blocks.push("");
 
@@ -1538,7 +1538,7 @@ function renderDocLiveBlocks(host, blocks) {
     host.appendChild(docLiveRow(block, index, blocks.length));
   });
 
-  //: The caret one past the end — see `docLiveFocusEnd`. Nothing is written to
+  //: The caret one past the end, see `docLiveFocusEnd`. Nothing is written to
   //: the document until something is typed here, and leaving it re-renders the
   //: view without it.
   if (docLiveActive === blocks.length) {
@@ -1548,7 +1548,7 @@ function renderDocLiveBlocks(host, blocks) {
   docMarkLiveFindings();
 }
 
-//: **The block handle — Notion's, in this app's own furniture.**
+//: **The block handle: Notion's, in this app's own furniture.**
 //:
 //: Asked for with the editor remake: *"do the documents remake for obsidian,
 //: notion, kortex etc."* The live view already had the Obsidian half (edit the
@@ -1559,7 +1559,7 @@ function renderDocLiveBlocks(host, blocks) {
 //:
 //: The gutter is only visible on hover or focus, because a handle beside every
 //: paragraph all the time turns a page of prose into a form. Keyboard users
-//: get it through the ⋯ menu, which is a real button in the tab order — a
+//: get it through the ⋯ menu, which is a real button in the tab order, a
 //: drag-only affordance would put block reordering out of reach entirely.
 function docLiveRow(block, index, total) {
   const row = document.createElement("div");
@@ -1616,7 +1616,7 @@ function docLiveRow(block, index, total) {
 
   //: The drop target is the whole row, so a block can be dropped anywhere
   //: along its height rather than only on its own handle. Above or below is
-  //: decided by which half of the row the pointer is in — the same rule every
+  //: decided by which half of the row the pointer is in, the same rule every
   //: list-reordering UI uses, and the reason the marker has two classes.
   row.addEventListener("dragover", (event) => {
     if (docLiveDragFrom === null || docLiveDragFrom === index) return;
@@ -1646,13 +1646,13 @@ function docLiveRow(block, index, total) {
 //: on one row's handle and ends on another row entirely.
 let docLiveDragFrom = null;
 
-//: Every block edit is the same three steps — read the blocks, change the
-//: list, write the document back — so they share one helper. Writing
+//: Every block edit is the same three steps, read the blocks, change the
+//: list, write the document back, so they share one helper. Writing
 //: `doc-content` is what makes autosave, the outline, the word count and the
 //: source view all agree: it is the single source of truth this editor was
 //: built around (see `renderDocLive`).
 function docEditLiveBlocks(change) {
-  //: Moving, duplicating or deleting a paragraph is one undo step of its own —
+  //: Moving, duplicating or deleting a paragraph is one undo step of its own, 
   //: it is a structural edit, and coalescing it into the typing that preceded
   //: it would make one Ctrl+Z both un-move the block and un-type a sentence.
   docUndoBreak();
@@ -1715,7 +1715,7 @@ function docDeleteLiveBlock(index) {
     return list.length ? list : [""];
   });
   //: Undoable, through the app's own stack rather than a toast that times
-  //: out — deleting the wrong paragraph of a long document is exactly the
+  //: out: deleting the wrong paragraph of a long document is exactly the
   //: mistake that needs to still be reversible a minute later.
   if (typeof pushUndo === "function") {
     pushUndo(
@@ -1741,7 +1741,7 @@ function docLiveEditor(source, index) {
   box.dataset.index = String(index);
   //: **An id, because the formatting actions address a box by id.**
   //: `applyMarkdown(kind, boxId)` and everything under it does `$(boxId)`, so
-  //: a textarea without one is a silent no-op — the selection bar would draw
+  //: a textarea without one is a silent no-op, the selection bar would draw
   //: its eight buttons over a live-view paragraph and none of them would do
   //: anything. That is this repo's "a policy silently refusing the work"
   //: shape, and it costs nothing to avoid: one live view exists at a time and
@@ -1770,7 +1770,7 @@ function docLiveEditor(source, index) {
     markDocDirty();
     // Deliberately NOT re-rendering here. Re-rendering on every keystroke
     // would replace the textarea the caret is in, and the caret would go
-    // with it — the block re-renders when you leave it, which is what makes
+    // with it: the block re-renders when you leave it, which is what makes
     // this feel like an editor rather than a form that fights you.
     if (replacement.length > 1) {
       // Except when the block genuinely became several: the extra paragraphs
@@ -1788,7 +1788,7 @@ function docLiveEditor(source, index) {
   box.addEventListener("blur", () => {
     //: **A blur this box did not cause is not a blur.** `renderDocLive`
     //: replaces the whole pane, which detaches this textarea and fires `blur`
-    //: on the way out — and this handler then set `docLiveActive = -1` *in the
+    //: on the way out, and this handler then set `docLiveActive = -1` *in the
     //: middle of the render that was about to re-create this very block*. The
     //: loop reading `docLiveActive` a few lines later therefore matched
     //: nothing, no editor was drawn, and the caret ended up on `<body>`.
@@ -1809,7 +1809,7 @@ function docLiveEditor(source, index) {
   });
 
   box.addEventListener("keydown", (event) => {
-    // Escape leaves the block without moving the caret anywhere surprising —
+    // Escape leaves the block without moving the caret anywhere surprising, 
     // the same "a mode you can only leave by finding the button is a trap"
     // rule the graph's trace mode follows.
     if (event.key === "Escape") {
@@ -1845,8 +1845,8 @@ function docLiveEditor(source, index) {
 
 //: **Where the caret lands when you click a rendered block.**
 //:
-//: The rendered text and the markdown behind it are different strings — the
-//: syntax has been consumed by the renderer — so "the 12th character you can
+//: The rendered text and the markdown behind it are different strings, the
+//: syntax has been consumed by the renderer, so "the 12th character you can
 //: see" is not "the 12th character of the source". This walks the source and
 //: counts only the characters that survive rendering, skipping the markers
 //: that do not, and returns the source offset for a given *visible* offset.
@@ -1854,7 +1854,7 @@ function docLiveEditor(source, index) {
 //: Deliberately approximate. It is exact for prose and for the marks people
 //: actually click into mid-sentence (emphasis, code, highlight, a heading's
 //: `#`), and it degrades to "somewhere close, in the right paragraph" for the
-//: rest — which is the whole gain over the previous behaviour, where every
+//: rest: which is the whole gain over the previous behaviour, where every
 //: click landed at the end of the block regardless of where you aimed.
 function docLiveSourceOffset(source, visibleTarget) {
   if (visibleTarget <= 0) return 0;
@@ -1894,7 +1894,7 @@ function docLiveSourceOffset(source, visibleTarget) {
   return i;
 }
 
-//: How many rendered characters sit before the caret inside this block —
+//: How many rendered characters sit before the caret inside this block, 
 //: `caretRangeFromPoint` gives the node and offset under the pointer, and
 //: everything before it in the block is what the reader has already passed.
 function docLiveVisibleOffset(block, x, y) {
@@ -1921,7 +1921,7 @@ function focusDocLiveBlock(index, caret = "end") {
   box.setSelectionRange(position, position);
 }
 
-//: The end of the document, ready to type into — adding an empty block first
+//: The end of the document, ready to type into, adding an empty block first
 //: when the last one has words in it, because "below it" means a new line and
 //: not the end of the previous paragraph.
 function docLiveFocusEnd() {
@@ -1934,13 +1934,13 @@ function docLiveFocusEnd() {
   //: document. Appending `"\n\n"` to the text does not work and is worth
   //: recording: `docLiveBlocks` pops trailing blank lines (they belong to the
   //: separator) and `docLiveText` drops empty blocks, so a trailing empty
-  //: paragraph is not representable in this document model at all — the block
+  //: paragraph is not representable in this document model at all, the block
   //: list would come back the same length and the editor would render nowhere.
   //:
   //: An index one past the last block is, and it costs nothing: `renderDocLive`
   //: draws an empty editor there, the input handler's `splice(index, 1, …)`
   //: appends when `index === blocks.length`, and the blur handler renders the
-  //: view again — so clicking below the document and then clicking away leaves
+  //: view again: so clicking below the document and then clicking away leaves
   //: the document exactly as it was, with no stray blank line to clean up.
   focusDocLiveBlock(blocks.length, "end");
 }
@@ -1953,14 +1953,14 @@ function wireDocLive() {
   //: just vertically or horizontally."
   //:
   //: Each `.lp-row` already handles its own dragover, and the row spans the
-  //: full width — but a row is only as tall as its paragraph, and everything
+  //: full width: but a row is only as tall as its paragraph, and everything
   //: between two rows (the pane's own row gap, its padding, the empty space
   //: below the last block) belongs to `#doc-live`, which had no handler. Drag
   //: through any of it and the drop marker vanished, which reads exactly as
   //: "it only works over the text".
   //:
-  //: Nearest row by vertical distance, so a pointer anywhere in the pane —
-  //: including far off to the side or below the document — always names a
+  //: Nearest row by vertical distance, so a pointer anywhere in the pane, 
+  //: including far off to the side or below the document, always names a
   //: real place to drop.
   const rowNearest = (clientY) => {
     let best = null;
@@ -2003,11 +2003,11 @@ function wireDocLive() {
     }
   });
   // Delegated, because the blocks are replaced on every render and per-block
-  // listeners would have to be re-bound each time — which is the shape that
+  // listeners would have to be re-bound each time, which is the shape that
   // silently accumulates duplicates (see tests/test_frontend_handlers.py).
   host.addEventListener("mousedown", (event) => {
     // A link in a rendered block is a link. Clicking `[[Another doc]]` should
-    // open it, not put a caret next to it — that is the whole reason to
+    // open it, not put a caret next to it, that is the whole reason to
     // render at all.
     if (event.target.closest("a, button, input, textarea")) return;
     const block = event.target.closest(".lp-block");
@@ -2016,7 +2016,7 @@ function wireDocLive() {
     //: Reported: *"on the live view of the documents editor, it makes me start
     //: on the line of the doc title, not below it."* Measured: a click in the
     //: empty area below the last paragraph hit no `.lp-block`, so this handler
-    //: returned and nothing took focus at all — `document.activeElement` stayed
+    //: returned and nothing took focus at all, `document.activeElement` stayed
     //: on the tab button. With nowhere else for the caret to be, the next
     //: keystroke or the next click landed on the first block, which for a
     //: document that opens with `# My report` is its title.
@@ -2053,7 +2053,7 @@ function wireDocLive() {
 //
 // Side by side is only half of a split view. Without this, scrolling the
 // editor leaves the preview showing paragraph one, so the rendered half is
-// useful for the first screen of a document and decorative after that — which
+// useful for the first screen of a document and decorative after that, which
 // is most of what "the panes get squished together and it feels annoying to
 // use" is about once they are actually side by side.
 //
@@ -2061,8 +2061,8 @@ function wireDocLive() {
 // rendered blocks needs the markdown renderer to emit source positions, which
 // this one does not, and the approximations that get used instead (count the
 // headings, guess) drift worse the longer the document. Scroll fraction is
-// exact at both ends, close everywhere in between for prose, and — the part
-// that matters — never wrong in a way that looks like a bug.
+// exact at both ends, close everywhere in between for prose, and, the part
+// that matters: never wrong in a way that looks like a bug.
 
 //: Which pane the user is actually scrolling. Without this the two feed each
 //: other: A scrolls B, B's scroll event scrolls A, and the pair juddate to a
@@ -2099,7 +2099,7 @@ function wireDocScrollSync() {
 }
 
 // Markdown formatting from a toolbar, so you don't have to remember the
-// syntax. Everything it inserts is plain markdown — the file stays portable
+// syntax. Everything it inserts is plain markdown, the file stays portable
 // and the source stays readable, which is the point of using markdown at all.
 const MD_ACTIONS = {
   h1: { line: "# " },
@@ -2125,7 +2125,7 @@ const MD_ACTIONS = {
   //: **The rest of the Obsidian editing-toolbar's command set**, asked for by
   //: name: *"I want you to make the toolbar in the notes and documents
   //: exactly like this but also with the application specific functions, both
-  //: in what tools are there, and how they function"* — PKM-er's
+  //: in what tools are there, and how they function"*, PKM-er's
   //: obsidian-editing-toolbar.
   //:
   //: Added to this table rather than to a second one, because this table is
@@ -2149,7 +2149,7 @@ const MD_ACTIONS = {
   comment: { pre: "%%", post: "%%", placeholder: "note to self" },
   image: { custom: "image" },
   //: This app's own link syntax, which is the "application specific
-  //: functions" half of the request — a toolbar for *this* notebook has to
+  //: functions" half of the request, a toolbar for *this* notebook has to
   //: offer the link that resolves inside it, not only the markdown one.
   wikilink: { pre: "[[", post: "]]", placeholder: "note name" },
   footnote: { custom: "footnote" },
@@ -2162,7 +2162,7 @@ const MD_ACTIONS = {
 // `boxId` is what lets the Notes composer reuse this whole table. It used to
 // be hardcoded to the document editor, and duplicating the logic for notes
 // would have been the third place in this app to independently decide what
-// `**` means — see MD_ACTIONS' own comment and editor.js's "/" menu, which
+// `**` means: see MD_ACTIONS' own comment and editor.js's "/" menu, which
 // are already deliberately kept to one dialect.
 function applyMarkdown(kind, boxId = "doc-content") {
   const action = MD_ACTIONS[kind];
@@ -2187,12 +2187,12 @@ function applyMarkdown(kind, boxId = "doc-content") {
   //: **Undo and redo go through the browser's own history, deliberately.**
   //: A textarea already has one, built from the user's typing *and* from
   //: `execCommand("insertText")`, and reimplementing it here would give the
-  //: editor a second history that disagrees with Ctrl+Z — the one thing a
+  //: editor a second history that disagrees with Ctrl+Z, the one thing a
   //: user is certain about in any text box.
   if (action.custom === "undo" || action.custom === "redo") {
     box.focus();
     //: **The document editor has its own history now, and these buttons use
-    //: it.** The paragraph above is still true everywhere else — the notes
+    //: it.** The paragraph above is still true everywhere else, the notes
     //: composer and the note edit form are one textarea each, so the browser's
     //: own stack is the right one and a second would only disagree with
     //: Ctrl+Z. The document editor is the case that broke the assumption: its
@@ -2216,7 +2216,7 @@ function applyMarkdown(kind, boxId = "doc-content") {
   }
   if (action.custom === "image") {
     //: The selection becomes the *alt text* and the caret lands on the URL,
-    //: which is the part still to be typed — the same split `link` above
+    //: which is the part still to be typed, the same split `link` above
     //: makes. The first version passed the alt text as the body between the
     //: two markers and produced `![cat](cat)`: a picture whose address was
     //: its own caption. Caught by running it rather than by reading it.
@@ -2289,7 +2289,7 @@ function insertAround(box, start, end, pre, post, body, caretOffset) {
 
 //: Two spaces per level, matching what this app's own markdown renderer and
 //: every list in it already use. Whole lines, so a selection spanning three
-//: bullets indents all three — the behaviour Tab has in Obsidian's editor.
+//: bullets indents all three, the behaviour Tab has in Obsidian's editor.
 function shiftDocIndent(box, direction) {
   const { selectionStart: start, selectionEnd: end, value } = box;
   const lineStart = value.lastIndexOf("\n", start - 1) + 1;
@@ -2358,7 +2358,7 @@ function wrapDocSelection(marker, placeholder = "", boxId = "doc-content") {
   // Toggle off, case 1: the selection sits *inside* an existing pair of
   // markers ("**|bold text|**", caret positions marked). Reported directly:
   // applying Bold to an already-bold selection didn't remove it the way
-  // every other rich-text editor's toggle does — this was a one-way
+  // every other rich-text editor's toggle does: this was a one-way
   // "apply", never a toggle.
   const before = value.slice(Math.max(0, start - marker.length), start);
   const after = value.slice(end, end + marker.length);
@@ -2372,7 +2372,7 @@ function wrapDocSelection(marker, placeholder = "", boxId = "doc-content") {
     return;
   }
   // Toggle off, case 2: the markers themselves are part of the selection
-  // ("|**bold text**|") — selecting the whole formatted span, not just its
+  // ("|**bold text**|"), selecting the whole formatted span, not just its
   // inner text, is just as natural a way to select it for un-formatting.
   if (
     marker &&
@@ -2390,7 +2390,7 @@ function wrapDocSelection(marker, placeholder = "", boxId = "doc-content") {
   }
 
   // With nothing selected, insert the placeholder and select it, so the next
-  // keystroke replaces it — pressing Bold on an empty line should give you
+  // keystroke replaces it: pressing Bold on an empty line should give you
   // somewhere to type, not two markers and a caret between them.
   const selected = value.slice(start, end) || placeholder;
   box.value = value.slice(0, start) + marker + selected + marker + value.slice(end);
@@ -2399,15 +2399,15 @@ function wrapDocSelection(marker, placeholder = "", boxId = "doc-content") {
   box.selectionEnd = start + marker.length + selected.length;
   box.focus();
   //: **`finishMarkdownEdit`, not `markDocDirty()` + `renderDocPreview()`.**
-  //: Both toggle-off branches above already end this way; this branch — the
+  //: Both toggle-off branches above already end this way; this branch: the
   //: one that actually *applies* formatting, and so the one that runs almost
-  //: every time — did the doc-content half inline instead, which quietly did
+  //: every time: did the doc-content half inline instead, which quietly did
   //: the wrong thing for every other box: it marked the *document* dirty and
   //: never told the box's own listeners anything had changed.
   //:
   //: Found when the selection bar started appearing over live-view
   //: paragraphs. Bold visibly wrapped the words in the block and the document
-  //: underneath never received them — measured, `input` fired 0 times, and
+  //: underneath never received them, measured, `input` fired 0 times, and
   //: dispatching one by hand synced it immediately. The same call was wrong
   //: for the note edit box for exactly as long, where it marked a document
   //: dirty that the user was not editing.
@@ -2418,7 +2418,7 @@ async function exportDocumentMarkdown() {
   if (!currentDoc) return;
   // Fetched rather than navigated to. A plain link carries no X-Auth-Token, so
   // the server answers 401 and the browser renders that error *in place of the
-  // app* — it navigates away instead of downloading.
+  // app*: it navigates away instead of downloading.
   try {
     const response = await fetch(`/documents/${currentDoc.id}/export.md`, {
       headers: { "X-Auth-Token": authToken() },
@@ -2458,21 +2458,21 @@ function exportDocumentPdf() {
 //: delete prompts had to say "This cannot be undone" out loud.
 //:
 //: Asked as part of "is everythign wired to the nav history and universal
-//: undo/redo" — and it was not. This wires it, from the client side, by
+//: undo/redo", and it was not. This wires it, from the client side, by
 //: keeping the document's own text and re-creating it: `pushUndo` puts it on
 //: the app-wide stack (Ctrl+Z, the status bar's Undo, and its right-click
 //: list of the last fifty), and `toastAction` offers it immediately, which is
 //: when people actually notice.
 //:
 //: **What does not come back, stated plainly:** the id changes, so anything
-//: that pointed at the old one by id — a bookmark, a chat attachment — points
+//: that pointed at the old one by id, a bookmark, a chat attachment, points
 //: at nothing; and the revision history is genuinely gone, because
 //: `delete_document` removes it deliberately (see its comment: keeping the
 //: text of something the user asked to destroy would be worse). The words come
 //: back. That is the difference between a mistake and a loss.
 async function deleteDocumentWithUndo(doc) {
   //: Fetched, not taken from the list row: the list carries a summary, and
-  //: restoring from it would bring back a document with its body missing —
+  //: restoring from it would bring back a document with its body missing, 
   //: an undo that silently loses the content is worse than no undo at all.
   const full = await apiJson(`/documents/${doc.id}`).catch(() => null);
   await apiJson(`/documents/${doc.id}`, { method: "DELETE" });
@@ -2510,7 +2510,7 @@ async function deleteDocumentWithUndo(doc) {
     await action.undo();
     //: `settleUndoFromToast`, not a bare stack pop: the toast's Undo and the
     //: status bar's Undo are the same action, and without this a later Ctrl+Z
-    //: would run the same restore a second time — the closure works fine
+    //: would run the same restore a second time, the closure works fine
     //: twice and nothing else stops it.
     settleUndoFromToast(action);
     toast("Document restored.");
@@ -2540,7 +2540,7 @@ function docAiVerb() {
 }
 
 // The run button, the instruction placeholder, and the scope hint all read
-// differently per verb — kept in one place so switching verbs updates all
+// differently per verb: kept in one place so switching verbs updates all
 // three together rather than three separate change listeners drifting.
 function syncDocAiPanel() {
   const verb = docAiVerb();
@@ -2555,7 +2555,7 @@ function syncDocAiPanel() {
       ? "e.g. “add a conclusion”, “write an intro paragraph”"
       : verb === "remove"
         ? selection
-          ? "Optional — leave blank to remove the selection as-is"
+          ? "Optional: leave blank to remove the selection as-is"
           : "e.g. “remove the paragraph about pricing”"
         : "e.g. “tighten this”, “make it more formal”, “add a conclusion”";
 
@@ -2565,7 +2565,7 @@ function syncDocAiPanel() {
       : "Inserting new text at the end of the document.";
   } else if (verb === "remove") {
     $("doc-ai-scope").textContent = selection
-      ? `Removing the ${wordCount} selected word(s) — or say what to remove from within them.`
+      ? `Removing the ${wordCount} selected word(s): or say what to remove from within them.`
       : "Say what to remove from the whole document.";
   } else {
     $("doc-ai-scope").textContent = selection
@@ -2582,8 +2582,8 @@ function openDocAiPanel() {
   const box = $("doc-content");
   const selection = box.value.slice(box.selectionStart, box.selectionEnd);
   $("doc-ai-panel").dataset.selection = selection;
-  // Always opens back on "Edit" — the panel's original, still-default
-  // behaviour — rather than remembering whatever verb was last used, so a
+  // Always opens back on "Edit", the panel's original, still-default
+  // behaviour: rather than remembering whatever verb was last used, so a
   // stray "Remove it" click a moment after opening isn't primed by the
   // previous document's choice.
   const editRadio = $("doc-ai-panel").querySelector('input[name="doc-ai-verb"][value="edit"]');
@@ -2600,7 +2600,7 @@ function closeDocAiPanel() {
 }
 
 // Extract notes (BACKLOG.md §62): the same selection-or-whole-document scope
-// AI edit above already uses — select a passage first to extract from just
+// AI edit above already uses, select a passage first to extract from just
 // that, or leave nothing selected to extract from the whole document.
 function openDocExtractPreview() {
   if (!currentDoc) return;
@@ -2662,13 +2662,13 @@ async function runDocAiEdit() {
 }
 
 // The undo/redo half of "allow edits made by the AI to be undone or
-// altered before and after they are set" (asked for directly) — before
+// altered before and after they are set" (asked for directly): before
 // acceptance, the result textarea above already covers "altered" (edit
 // the AI's suggestion, then accept whatever's left). This is "undone...
 // after": pushed onto the app's existing global undo stack (an immediate
 // Ctrl+Z / status-bar Undo, session-only) alongside a durable per-document
 // changelog entry (ai-edit-log, survives reload, lists every edit with its
-// own Revert) — see the dialog's own comment in index.html for why both.
+// own Revert): see the dialog's own comment in index.html for why both.
 function pushDocAiUndo(docId, label, beforeContent, afterContent) {
   const applyContent = async (content) => {
     const title = currentDoc && currentDoc.id === docId ? currentDoc.title : undefined;
@@ -2708,7 +2708,7 @@ async function recordDocAiEditLog(docId, verb, instruction, selection, beforeCon
     });
   } catch {
     // Best-effort: the changelog is a record of an edit that has already
-    // happened (and is already undoable via the global stack above) — a
+    // happened (and is already undoable via the global stack above), a
     // network hiccup writing the log entry must not read as the edit
     // itself having failed.
   }
@@ -2725,7 +2725,7 @@ function acceptDocAiEdit() {
   const docId = currentDoc.id;
 
   if (verb === "write") {
-    // Inserts rather than replaces — the selection (if any) is only the
+    // Inserts rather than replaces, the selection (if any) is only the
     // anchor point, and stays exactly as it was.
     if (selection) {
       const at = box.value.indexOf(selection);
@@ -2740,7 +2740,7 @@ function acceptDocAiEdit() {
     }
   } else if (selection) {
     // "edit" and "remove" both replace the target with what the model
-    // returned — for "remove" that's the same text with the requested
+    // returned: for "remove" that's the same text with the requested
     // part gone, so no separate apply logic is needed.
     const at = box.value.indexOf(selection);
     box.value =
@@ -2867,7 +2867,7 @@ async function openDocAiHistory() {
 //: second list rather than a rewrite of that one.
 //:
 //: What makes it read like a log rather than a pile of timestamps is the
-//: signed word delta on each row — a history where every line looks the same
+//: signed word delta on each row, a history where every line looks the same
 //: has to be read from the top, which is the work a history exists to save.
 const DOC_HISTORY_SOURCES = {
   edit: { icon: "ph:pencil-simple", label: "You" },
@@ -2944,12 +2944,12 @@ async function openDocHistory() {
       if (!full) return toast("Couldn't open that version.", true);
       dialog.close();
       //: Through the lightbox, which is already the app's read-only viewer for
-      //: a document's text — including its find bar, which is how anyone
+      //: a document's text: including its find bar, which is how anyone
       //: actually locates what changed in a long version.
       openLightbox(
         [
           {
-            filename: `${full.title || "Untitled"} — ${new Date(full.created_at).toLocaleString()}`,
+            filename: `${full.title || "Untitled"}, ${new Date(full.created_at).toLocaleString()}`,
             kind: currentDoc.file_type === "md" ? "markdown" : "code",
             text: full.content || "",
             addedAt: full.created_at || "",
@@ -3054,7 +3054,7 @@ $("doc-new").addEventListener("click", () => createDocument());
 $("doc-new-template")?.addEventListener("click", openDocTemplateDialog);
 // Searching and sorting every document lives in the Library now (§36G), with
 // the notes, chats and files beside them. This is the way there, said out loud
-// — a list that silently stops at eight is a list that has lost your writing.
+//, a list that silently stops at eight is a list that has lost your writing.
 $("doc-browse-all").addEventListener("click", () => {
   switchTab("library");
   libraryKind = "document";
@@ -3064,7 +3064,7 @@ $("doc-browse-all").addEventListener("click", () => {
 });
 // Used to be an open-by-default <details> in the sidebar; its body was tall
 // enough to push the document list down, so it is a dialog now. The Close
-// button and Escape both close it — Close via the generic [data-close-dialog]
+// button and Escape both close it, Close via the generic [data-close-dialog]
 // delegation set up below, Escape for free from <dialog>.showModal().
 $("doc-storage-toggle").addEventListener("click", () => $("doc-storage-dialog").showModal());
 $("doc-title").addEventListener("input", () => { markDocDirty(); scheduleDocPreview(); });
@@ -3108,17 +3108,17 @@ $("doc-content").addEventListener("compositionend", () => {
 });
 // The document-textarea resize gap (Priority 0 #1): dragging #doc-content's
 // native `resize: vertical` handle shorter pins the textarea's own height,
-// but #doc-panes — a flex item of .doc-main with `flex: 1 1 auto` — keeps
+// but #doc-panes, a flex item of .doc-main with `flex: 1 1 auto`, keeps
 // growing to fill the card exactly as before, because nothing about a CSS
 // resize tells a flex *parent* to stop growing to fit it. The freed space
 // used to be trapped inside #doc-panes, below the now-shorter textarea and
-// above .doc-hint — dead space in the middle of the card instead of at its
+// above .doc-hint: dead space in the middle of the card instead of at its
 // bottom, where a person would expect it. There's no CSS-only fix: nothing
 // short of a user dragging the handle can tell us the textarea's size is no
 // longer meant to track the flex layout, so this is the one place app.js
 // answers "did a person just resize this" with a real yes/no rather than a
 // CSS rule guessing at it. A mousedown that ends with a different height is
-// as close as the DOM gets to "yes" — ordinary typing or a value swap on
+// as close as the DOM gets to "yes", ordinary typing or a value swap on
 // loading a different document never changes offsetHeight.
 {
   const box = $("doc-content");
@@ -3150,7 +3150,7 @@ const MD_COLOURS = ["yellow", "green", "blue", "pink", "purple", "orange", "red"
 //: happened to agree, and the note one was the shorter of the two by
 //: accident of when it was added. One table means a command added here
 //: appears in both, at the same size, in the same group, with the same
-//: tooltip — which is the thing that actually stops them drifting.
+//: tooltip: which is the thing that actually stops them drifting.
 //:
 //: Folded into `<details>` menus, matching the two the document toolbar
 //: already has: twenty-five controls do not fit on one row, and that measured
@@ -3249,8 +3249,8 @@ function mountEditorToolbarExtras(bar) {
     details.className = "doc-dock-menu doc-toolbar-menu";
     details.dataset.mdExtra = "1";
     //: **Drawn exactly like the two menus written in the markup.** These were
-    //: built with different classes and an icon *plus a word* — "Heading",
-    //: "Block", "More", "Insert" — sitting in a row where every other control
+    //: built with different classes and an icon *plus a word*, "Heading",
+    //: "Block", "More", "Insert", sitting in a row where every other control
     //: is a glyph. Four labelled chips among twenty icons is what makes a
     //: toolbar read as assembled rather than designed, and it is the same
     //: "two implementations of one control" shape this project keeps paying
@@ -3259,7 +3259,7 @@ function mountEditorToolbarExtras(bar) {
     const summary = document.createElement("summary");
     summary.className = "doc-dock-menu-btn doc-toolbar-menu-btn";
     summary.title = menu.title;
-    summary.setAttribute("aria-label", `${menu.label} — ${menu.title}`);
+    summary.setAttribute("aria-label", `${menu.label}: ${menu.title}`);
     setLabel(summary, menu.icon);
     const caret = document.createElement("i");
     caret.className = "ph ph-caret-down doc-toolbar-menu-caret";
@@ -3293,7 +3293,7 @@ function wireMarkdownToolbar(bar) {
   mountEditorToolbarExtras(bar);
   //: **Delegated, not one listener per button.** The dropdown menus are
   //: built by the mount above and, in the note edit form, the whole strip
-  //: is a *clone* — so per-button listeners covered whatever existed at
+  //: is a *clone*: so per-button listeners covered whatever existed at
   //: wiring time and silently missed anything a menu created later
   //: (reported: "none of the toolbar dropdowns work" in the edit form; a
   //: browser check confirmed a Block-menu item changed nothing). One
@@ -3374,7 +3374,7 @@ wireDocLive();
 try {
   //: **Live is the default now.** Asked for: "I want the text editor to be
   //: EXACTLY LIKE OBSIDIAN. the user would bold a wor, click off it, and the
-  //: word shows as bolded" — which is what this mode does, and has done for a
+  //: word shows as bolded", which is what this mode does, and has done for a
   //: while; it was simply not the view anybody landed in, so the editor read
   //: as a plain markdown box with a preview button. Obsidian's own default is
   //: Live Preview for the same reason. A stored choice still wins, so nobody
@@ -3385,7 +3385,7 @@ try {
 }
 
 //: **The reading measure, opted out of.** Reported: "idk why the document
-//: rendered views are so thin??" — measured at 736px inside a 1132px pane,
+//: rendered views are so thin??", measured at 736px inside a 1132px pane,
 //: which is the 72ch cap in the CSS doing exactly what it was written to do.
 //: A measure is right for reading a finished page and wrong for a wide table,
 //: a code-heavy file, or simply wanting the window you have. The cap stays the
@@ -3403,7 +3403,7 @@ function applyDocWidth(wide) {
   //: **Both views of one setting, painted together.** The toolbar's icon and
   //: the ⋯ menu's worded row are the same control, and the app's own rule (see
   //: `applyDocToolbarMode`) is that painting one without the other is how they
-  //: drift. The menu row exists because the icon alone was not findable —
+  //: drift. The menu row exists because the icon alone was not findable, 
   //: reported as "is there a way to make it wider if the user chooses??" about
   //: a control that was already there.
   for (const button of [$("doc-width-toggle"), $("doc-width-menu")]) {
@@ -3412,7 +3412,7 @@ function applyDocWidth(wide) {
     button.title = title;
     button.setAttribute("aria-label", title);
   }
-  //: The label names what pressing it *does*, not the state it is in — the
+  //: The label names what pressing it *does*, not the state it is in, the
   //: state is `aria-pressed` for a screen reader and the pane's own width for
   //: everyone else. Same rule the toolbar-mode row follows.
   const label = $("doc-width-menu-label");
@@ -3438,7 +3438,7 @@ try {
   applyDocWidth(false);
 }
 
-//: **Focus mode.** Asked for as part of "the ultimate editor" — every editor
+//: **Focus mode.** Asked for as part of "the ultimate editor", every editor
 //: this app is compared to (Obsidian, Notion, Kortex) has a way to make the
 //: tab bar, the sidebar and the document list disappear, and this one never
 //: did. Not remembered across sessions on purpose: full width is a standing
@@ -3455,7 +3455,7 @@ function toggleDocFocus(force) {
     button.setAttribute("aria-pressed", String(on));
     button.title = on
       ? "Leave focus mode (Esc)"
-      : "Focus mode — hide everything but the page (Esc to leave)";
+      : "Focus mode: hide everything but the page (Esc to leave)";
     button.setAttribute("aria-label", button.title);
     const icon = button.querySelector("i");
     if (icon) icon.className = on ? "ph ph-arrows-in" : "ph ph-frame-corners";
@@ -3465,10 +3465,10 @@ function toggleDocFocus(force) {
 
 $("doc-focus-toggle")?.addEventListener("click", () => toggleDocFocus());
 
-//: Escape leaves it — the same convention the whiteboard's and graph's own
+//: Escape leaves it: the same convention the whiteboard's and graph's own
 //: full-screen toggles use. Capture phase, and checked against the class
 //: first, so this never swallows an Escape meant for something opened over
-//: the page (the AI panel, a confirm dialog, the find bar) — closing focus
+//: the page (the AI panel, a confirm dialog, the find bar), closing focus
 //: mode underneath one of those instead of the dialog itself would be
 //: surprising.
 document.addEventListener(
@@ -3524,7 +3524,7 @@ $("doc-content").addEventListener("keydown", (event) => {
   if (event.key === "Tab" && event.shiftKey && !docFileType().previewable) {
     const box = $("doc-content");
     // Shift+Tab dedents when there is something to dedent, and otherwise
-    // falls through to the browser's own focus-backwards — so a flush-left
+    // falls through to the browser's own focus-backwards: so a flush-left
     // caret is not a keyboard trap.
     const { text } = docSelectedLines(box);
     if (/^[ \t]/.test(text) || box.selectionEnd > box.selectionStart) {
@@ -3544,13 +3544,13 @@ $("doc-content").addEventListener("keydown", (event) => {
   if (key === "s") { event.preventDefault(); saveDocument(); }
   else if (key === "b") { event.preventDefault(); wrapDocSelection("**"); }
   else if (key === "i") { event.preventDefault(); wrapDocSelection("*"); }
-  // Ctrl+1/2/3 headings and Ctrl+E inline code — the Notion / Typora /
+  // Ctrl+1/2/3 headings and Ctrl+E inline code, the Notion / Typora /
   // Word set, so the hand does not leave the keyboard for the strip.
   else if (key === "1" || key === "2" || key === "3") { event.preventDefault(); applyMarkdown(`h${key}`); }
   else if (key === "e") { event.preventDefault(); wrapDocSelection("`"); }
-  // The browser's own Ctrl+F can't search a textarea's content at all — it
+  // The browser's own Ctrl+F can't search a textarea's content at all, it
   // only sees page DOM text, and a textarea's text is its *value*, not DOM
-  // text — so this isn't overriding useful native behaviour here.
+  // text: so this isn't overriding useful native behaviour here.
   else if (key === "f") { event.preventDefault(); toggleDocFindBar(true); }
 });
 $("doc-find-toggle").addEventListener("click", () => toggleDocFindBar());
@@ -3587,7 +3587,7 @@ initDocSidebarTabs();
 // Asked for directly: *"there should be the option to have the tool bar as a
 // horizontal scroll or expanded."* Expanded (wrapping) is the default, and not
 // only as a preference: a wrapping toolbar is not a scroll container, so it
-// cannot clip the `<details>` menus inside it — which was the other half of
+// cannot clip the `<details>` menus inside it: which was the other half of
 // the same report. See `.doc-toolbar`'s own comment for the `overflow-y:
 // visible` trap that caused both.
 
@@ -3597,7 +3597,7 @@ function docToolbarMode() {
   try {
     return localStorage.getItem(DOC_TOOLBAR_MODE_KEY) === "row" ? "row" : "wrap";
   } catch {
-    return "wrap"; // private mode — the safe shape, since it never clips
+    return "wrap"; // private mode: the safe shape, since it never clips
   }
 }
 
@@ -3613,7 +3613,7 @@ function applyDocToolbarMode(mode) {
   const button = document.getElementById("doc-toolbar-mode");
   const label = document.getElementById("doc-toolbar-mode-label");
   if (button) button.setAttribute("aria-pressed", row ? "true" : "false");
-  //: The label names what pressing it *does*, not the state it is in — the
+  //: The label names what pressing it *does*, not the state it is in, the
   //: state is carried by `aria-pressed` for a screen reader and by the
   //: toolbar's own shape for everyone else.
   if (label) label.textContent = row ? "Expand the toolbar" : "Use one scrolling row";
@@ -3626,7 +3626,7 @@ function setDocToolbarMode(mode) {
   try {
     localStorage.setItem(DOC_TOOLBAR_MODE_KEY, mode);
   } catch {
-    /* private mode — it just won't be remembered */
+    /* private mode: it just won't be remembered */
   }
   applyDocToolbarMode(mode);
 }
@@ -3639,7 +3639,7 @@ document.getElementById("doc-toolbar-mode")?.addEventListener("click", () => {
 //:
 //: Reported: *"cant collapse and make horizontally scrollable the tools bar in
 //: the notes capture subtab and documents editor."* Half of that was already
-//: built and unfindable — the wrap/scroll switch existed, buried in the
+//: built and unfindable: the wrap/scroll switch existed, buried in the
 //: document dock's ⋯ menu, four clicks from the strip it changes, and the note
 //: composer's toolbar had no way to reach it at all. The other half, collapse,
 //: did not exist: on a laptop the expanded strip is two rows of chrome above a
@@ -3731,13 +3731,13 @@ const DOC_TOOLBAR_COLLAPSED_KEY = "doc-toolbar-collapsed";
 function docToolbarCollapsed() {
   try {
     // Collapsed until you ask for it (PLAN.md D1): Typora, iA Writer and
-    // Notion all start with no formatting strip on screen — the strip is a
+    // Notion all start with no formatting strip on screen, the strip is a
     // 30-control, three-row block that pushed the first line of text to
     // y=284 at 1440px. The collapsed strip keeps its own name and the
     // chevron that brings it back, and a choice either way is remembered.
     return (localStorage.getItem(DOC_TOOLBAR_COLLAPSED_KEY) ?? "1") === "1";
   } catch {
-    return false; // private mode — the expanded shape is the safe default
+    return false; // private mode: the expanded shape is the safe default
   }
 }
 
@@ -3773,7 +3773,7 @@ function setDocToolbarCollapsed(collapsed) {
   try {
     localStorage.setItem(DOC_TOOLBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
   } catch {
-    /* private mode — it just won't be remembered */
+    /* private mode: it just won't be remembered */
   }
   applyDocToolbarCollapsed(collapsed);
 }
@@ -3882,7 +3882,7 @@ mountDocToolbarControls();
 // etc."*
 //
 // **Everything below is local arithmetic over the text in the box.** No model,
-// no network, no service — which is not a limitation here, it is the
+// no network, no service, which is not a limitation here, it is the
 // requirement: this app's whole claim is that it works with the plug pulled,
 // and a grammar checker that phones a server would be the first thing in it
 // that does not. It also means every one of these is instant, which is what
@@ -3891,7 +3891,7 @@ mountDocToolbarControls();
 // What that rules out is honest to state: this cannot judge *meaning*. It will
 // not know that a sentence is wrong, only that it repeats a word, runs long,
 // or contains a spelling this list is sure about. Rules that would need
-// judgement (its/it's, their/there in context) are deliberately absent —
+// judgement (its/it's, their/there in context) are deliberately absent, 
 // a checker that is wrong a third of the time teaches people to ignore it,
 // and then the two thirds it is right about go unread too.
 
@@ -3909,7 +3909,7 @@ function docActiveBox() {
 //: **Where the caret is, in pixels.** The standard mirror technique: a hidden
 //: div that copies every property that affects text layout, holds the text up
 //: to the caret, and reports where a marker span lands. There is no API for
-//: this — `selectionStart` is an index, and a popup has to go somewhere on
+//: this: `selectionStart` is an index, and a popup has to go somewhere on
 //: screen.
 //:
 //: The property list is the part that has to be right: miss `font-family` or
@@ -3976,7 +3976,7 @@ function renderDocStatusBar() {
   if (!box || !caret || !counts) return;
   //: In Live view the caret is inside one paragraph, so a line number
   //: counted within that box would be a lie about the document. The block's
-  //: own offset makes it the document's line — `docLiveBlockOffset` exists for
+  //: own offset makes it the document's line: `docLiveBlockOffset` exists for
   //: exactly this class of question and returns null when it cannot be sure,
   //: which is when the bar says so rather than guessing.
   let stats = docCaretStats(box);
@@ -4020,7 +4020,7 @@ function renderDocStatusBar() {
 //
 // **Rules, not judgement.** Each one has to be something a regular expression
 // can be *sure* about, because a checker that is wrong a third of the time
-// teaches people to ignore it — and then the two thirds it is right about go
+// teaches people to ignore it, and then the two thirds it is right about go
 // unread too. That is why there is no its/it's rule here: telling those apart
 // needs the sentence's meaning, and this has none.
 //
@@ -4032,7 +4032,7 @@ const DOC_PROSE_RULES = [
     id: "repeat",
     //: The classic, and the one nobody catches by re-reading: the eye supplies
     //: the missing word. Case-insensitive, and only for words worth repeating
-    //: by accident — `\b(\w+)\s+\1\b` alone flags "had had" and "that that",
+    //: by accident: `\b(\w+)\s+\1\b` alone flags "had had" and "that that",
     //: which are both real English.
     test: /\b(the|a|an|and|to|of|in|is|it|that|for|on|with|as|at|be)\s+\1\b/gi,
     message: "The same word twice in a row",
@@ -4052,7 +4052,7 @@ const DOC_PROSE_RULES = [
   },
   {
     id: "missing-space",
-    //: After a full stop and before a capital — not after every full stop,
+    //: After a full stop and before a capital, not after every full stop,
     //: because `3.5`, `file.md` and `e.g.` are all correct and common.
     test: /[a-z]{2}[.!?](?=[A-Z])/g,
     message: "No space after the full stop",
@@ -4082,16 +4082,16 @@ const DOC_PROSE_RULES = [
   },
   {
     id: "long-sentence",
-    //: 45 words is not wrong, and this does not say it is — it says look here.
+    //: 45 words is not wrong, and this does not say it is, it says look here.
     //: No `fix`, because splitting a sentence is a decision about meaning and
     //: this knows none.
     test: null,
-    message: "A very long sentence — worth a full stop somewhere",
+    message: "A very long sentence, worth a full stop somewhere",
   },
 ];
 
 //: **Unambiguous typos only.** Every entry here is a string that is not a word
-//: in any English text — which is the bar an automatic replacement has to
+//: in any English text, which is the bar an automatic replacement has to
 //: clear, because the cost of being wrong is that the app silently changed
 //: something the writer meant. `alot` is in; `dont` is not (an apostrophe is a
 //: style choice, and in a code block it is a quote).
@@ -4121,7 +4121,7 @@ function docProseFindings(text) {
   for (const rule of DOC_PROSE_RULES) {
     if (!rule.test) continue;
     //: A fresh regex per pass: these carry `g`, and `lastIndex` survives
-    //: between calls on a shared object — which silently skips half the
+    //: between calls on a shared object, which silently skips half the
     //: document on every second run.
     const pattern = new RegExp(rule.test.source, rule.test.flags);
     let match;
@@ -4138,7 +4138,7 @@ function docProseFindings(text) {
     }
   }
   //: Spelling, word by word, so the span is the word and not a substring of a
-  //: longer one — a regex over the whole list would flag "ot" inside "not".
+  //: longer one: a regex over the whole list would flag "ot" inside "not".
   const word = /[A-Za-z']+/g;
   const dictionary = docDictionary();
   const variants = docVariantLookup();
@@ -4146,7 +4146,7 @@ function docProseFindings(text) {
   while ((hit = word.exec(text)) !== null) {
     const lower = hit[0].toLowerCase();
     //: A word in the dictionary is a word. This is the whole point of having
-    //: one — the third time a checker flags your project's name, a checker you
+    //: one: the third time a checker flags your project's name, a checker you
     //: cannot answer is a checker you turn off.
     if (dictionary.has(lower)) continue;
     const variant = variants.get(lower);
@@ -4484,7 +4484,7 @@ function docProseHeader() {
     all.addEventListener("click", () => docProseFixAll());
     tools.appendChild(all);
   }
-  //: **The rules stop at the sentence's own shape — meaning needs a model.**
+  //: **The rules stop at the sentence's own shape: meaning needs a model.**
   //: ROADMAP.md names the gap directly: no its/it's, no subject-verb
   //: agreement, no tense consistency, because every one of those needs to
   //: understand what the sentence is *saying*, not just how it is spelled or
@@ -4496,7 +4496,7 @@ function docProseHeader() {
   //: every single character.
   const aiReview = smallButton(
     "ph:sparkle Check with AI",
-    "Ask the local model to read for things spelling and grammar rules can't catch — its/it's, agreement, tense, tone, clarity",
+    "Ask the local model to read for things spelling and grammar rules can't catch: its/it's, agreement, tense, tone, clarity",
     () => docAiReview()
   );
   tools.appendChild(aiReview);
@@ -4526,7 +4526,7 @@ function renderDocProsePanel() {
   const panel = $("doc-prose-panel");
   if (!panel) return;
   panel.replaceChildren();
-  //: The header first, always — including on the empty state. Reported:
+  //: The header first, always, including on the empty state. Reported:
   //: "there's no close x button." A panel whose only exit is the control that
   //: opened it is a panel you have to remember how to leave, and the empty
   //: state was the one view where that was most likely.
@@ -4535,7 +4535,7 @@ function renderDocProsePanel() {
     const empty = document.createElement("p");
     empty.className = "muted doc-prose-empty";
     empty.textContent =
-      "Nothing to flag. These checks are spelling, spacing and sentence length — they read the text, not its meaning.";
+      "Nothing to flag. These checks are spelling, spacing and sentence length, they read the text, not its meaning.";
     panel.appendChild(empty);
     return;
   }
@@ -4593,7 +4593,7 @@ function docProseGroupList(findings) {
     what.textContent = finding.message;
     const where = document.createElement("span");
     where.className = "doc-prose-where muted";
-    //: The words themselves, trimmed — a row reading only "a very long
+    //: The words themselves, trimmed, a row reading only "a very long
     //: sentence" makes you go and find it, which is the work the row was
     //: supposed to save. `docFindingLabel` for the same reason the menu's
     //: heading uses it: a spacing finding's own text is whitespace, and a row
@@ -4606,7 +4606,7 @@ function docProseGroupList(findings) {
     jump.addEventListener("click", (event) => {
       docProseJump(finding);
       //: The row *is* the flagged word as far as this panel is concerned, so
-      //: pressing it opens the same menu the word itself does — anchored to
+      //: pressing it opens the same menu the word itself does, anchored to
       //: the row, which is the thing the pointer is on.
       openDocSuggest(finding, event.currentTarget.getBoundingClientRect());
     });
@@ -4626,19 +4626,19 @@ function docProseGroupList(findings) {
   return list;
 }
 
-//: **Show me where — and make it obvious for a moment.**
+//: **Show me where: and make it obvious for a moment.**
 //:
 //: Asked for directly: "if I click on an issue flagged in the document
 //: suggestions, it should auto scroll to the issue and temporarily highlight
 //: the offending area." The scrolling half was here already; the highlight was
-//: a text selection, which is the quietest mark a screen has — the same grey
+//: a text selection, which is the quietest mark a screen has, the same grey
 //: as any other selection, in a box the pointer has just left, several
 //: paragraphs from where the eye was. Landing in roughly the right place with
 //: nothing saying "here" is what makes a jump feel like it did not happen.
 //:
 //: Two ways to say it, because the two views can say different things. Live
 //: view has a real element for the flagged word (`docMarkLiveFindings`), so
-//: it is scrolled into view and pulsed where it sits — which is what anyone
+//: it is scrolled into view and pulsed where it sits, which is what anyone
 //: coming from Word expects, and it does not throw away the view they were
 //: reading in. Source view has only a string, so the selection stays but the
 //: textarea gets an accent `::selection` for the length of the flash, which
@@ -4691,11 +4691,11 @@ function docProseFix(finding) {
   if (!box || finding.replacement === null) return;
   //: Checked against the document as it is *now*, not as it was when the panel
   //: was drawn. Editing while the panel is open moves every span after the
-  //: edit, and applying a stale offset would corrupt the document silently —
+  //: edit, and applying a stale offset would corrupt the document silently, 
   //: which is the one failure a writing aid must never have.
   if (box.value.slice(finding.start, finding.end) !== finding.text) {
     renderDocProse();
-    return toast("That text has changed — the list is refreshed.", true);
+    return toast("That text has changed, the list is refreshed.", true);
   }
   box.value = docProseApply(box.value, finding);
   markDocDirty();
@@ -4736,7 +4736,7 @@ function docProseFixAll() {
 // The useful vocabulary of a document is the document, plus the notebook it
 // sits in: your project names, your people, your jargon, spelled the way you
 // spell them. So the index is built from this document's own words and the
-// notebook's note titles and tags — which also means it needs no download, no
+// notebook's note titles and tags, which also means it needs no download, no
 // model, and no network, and it is *right* on the first character rather than
 // after a paragraph of context.
 
@@ -4788,7 +4788,7 @@ function docWordFragment(box) {
   if (after && /[A-Za-z]/.test(after)) return null;
   const match = /[A-Za-z][A-Za-z'-]*$/.exec(upto);
   if (!match || match[0].length < DOC_COMPLETE_MIN) return null;
-  //: Never inside a wiki link — that autocomplete owns those keystrokes, and
+  //: Never inside a wiki link, that autocomplete owns those keystrokes, and
   //: two popups over one caret is worse than either alone.
   if (/\[\[[^\]]*$/.test(upto)) return null;
   return { start: match.index, fragment: match[0] };
@@ -4862,7 +4862,7 @@ function applyDocComplete(box, word) {
 }
 
 //: Returns true when it handled the key, so the caller knows not to let the
-//: editor's own bindings see it — the same contract `wikiSuggestKeydown` uses.
+//: editor's own bindings see it, the same contract `wikiSuggestKeydown` uses.
 function docCompleteKeydown(event, box) {
   const list = $("doc-complete-list");
   if (!list || list.classList.contains("hidden")) return false;
@@ -4897,8 +4897,8 @@ function docAutocorrectEnabled() {
   return $("doc-autocorrect")?.checked === true && docFileType().previewable;
 }
 
-//: Fires on the keystroke that *finishes* a word — a space, a newline or
-//: punctuation — which is the only moment a correction is unambiguous. Mid-word
+//: Fires on the keystroke that *finishes* a word, a space, a newline or
+//: punctuation: which is the only moment a correction is unambiguous. Mid-word
 //: it would rewrite "teh" while you were on your way to typing "tehran".
 function docAutocorrectAt(box) {
   if (!docAutocorrectEnabled()) return false;
@@ -4921,7 +4921,7 @@ function docAutocorrectAt(box) {
   const next = start + replacement.length + match[2].length;
   box.setSelectionRange(next, next);
   //: Announced, quietly and once. Software that changes what you typed and
-  //: says nothing is the reason people turn autocorrect off — and this one
+  //: says nothing is the reason people turn autocorrect off, and this one
   //: names both words so a wrong correction is visible rather than found
   //: later.
   toast(`“${match[1]}” → “${replacement}”. Ctrl+Z undoes it.`);
@@ -4942,7 +4942,7 @@ function docToolPref(name, fallback) {
     const stored = localStorage.getItem(DOC_TOOL_KEYS[name]);
     return stored === null ? fallback : stored === "1";
   } catch {
-    return fallback; // private mode — the default shape
+    return fallback; // private mode: the default shape
   }
 }
 
@@ -4950,7 +4950,7 @@ function docSaveToolPref(name, on) {
   try {
     localStorage.setItem(DOC_TOOL_KEYS[name], on ? "1" : "0");
   } catch {
-    /* private mode — it just won't be remembered */
+    /* private mode: it just won't be remembered */
   }
 }
 
@@ -4999,7 +4999,7 @@ document.addEventListener("input", (event) => {
   const box = docToolsBoxFor(event.target);
   if (!box) return;
   //: Autocorrect first, because it edits the value the rest of this then
-  //: measures — running the counts before it would show the pre-correction
+  //: measures: running the counts before it would show the pre-correction
   //: text for one frame.
   if (event.inputType === "insertText" || event.inputType === "insertLineBreak") {
     docAutocorrectAt(box);
@@ -5008,7 +5008,7 @@ document.addEventListener("input", (event) => {
 });
 
 //: **Tab moves between table cells.** `/table` inserts a markdown table, but
-//: editing one meant arrowing past every `|` by hand — the one thing every
+//: editing one meant arrowing past every `|` by hand: the one thing every
 //: editor with tables (Notion, Obsidian, Typora, Word) does for you. On a
 //: line that starts with `|`, Tab selects the next cell's contents and
 //: Shift+Tab the previous cell's; Tab in the last cell of the last row adds
@@ -5100,7 +5100,7 @@ document.addEventListener("keydown", (event) => {
 }, true);
 
 //: `selectionchange` is the only event that fires for a caret moved by the
-//: keyboard, the mouse *and* by script — a `keyup`/`click` pair misses the
+//: keyboard, the mouse *and* by script, a `keyup`/`click` pair misses the
 //: third, which is how a status bar drifts out of step with the caret it is
 //: describing.
 document.addEventListener("selectionchange", () => {
@@ -5120,8 +5120,8 @@ document.addEventListener("focusout", (event) => {
 //: **Clicking the flagged word itself.** Reported: "I cant click on the
 //: flagged word or phrase and see a popup for suggested fixes."
 //:
-//: A `<textarea>` cannot carry marks inside its text — its value is a string,
-//: not a DOM — so there is nothing there to underline and nothing to click.
+//: A `<textarea>` cannot carry marks inside its text, its value is a string,
+//: not a DOM: so there is nothing there to underline and nothing to click.
 //: What there *is* is a caret with an offset, which is exactly what a finding
 //: is expressed in. So: double-click (or right-click) a word, and if a finding
 //: covers that offset its menu opens at the caret. Stated plainly because the
@@ -5129,7 +5129,7 @@ document.addEventListener("focusout", (event) => {
 //: is structural rather than an omission.
 //:
 //: In Live view the rendered blocks *are* DOM, and `docMarkLiveFindings` below
-//: underlines them properly — so the squiggle exists exactly where it can.
+//: underlines them properly: so the squiggle exists exactly where it can.
 function docFindingAtOffset(offset) {
   return docProseFound.find((finding) => offset >= finding.start && offset <= finding.end) || null;
 }
@@ -5255,8 +5255,8 @@ document.addEventListener("click", (event) => {
 document.addEventListener("contextmenu", (event) => {
   //: **The underlined word is a real element, so right-clicking it must work.**
   //: The other half of the same report. `docToolsBoxFor` only ever matched a
-  //: `<textarea>`, so in Live view — the one view that *can* draw a squiggle,
-  //: and therefore the view where anyone would try this — right-clicking the
+  //: `<textarea>`, so in Live view, the one view that *can* draw a squiggle,
+  //: and therefore the view where anyone would try this, right-clicking the
   //: mark fell straight through to the browser's own menu. The app's menu was
   //: reachable only by left-clicking, which is not what an underline means
   //: anywhere else.
@@ -5276,7 +5276,7 @@ document.addEventListener("contextmenu", (event) => {
   }
 });
 
-//: Anywhere else closes it — the rule every menu in this app follows.
+//: Anywhere else closes it, the rule every menu in this app follows.
 document.addEventListener("mousedown", (event) => {
   const menu = $("doc-suggest-menu");
   if (!menu || menu.classList.contains("hidden")) return;
@@ -5405,13 +5405,13 @@ for (const [name, id] of Object.entries(DOC_TOOL_KEYS)) {
 }
 
 //: Painted once on load so the bar is not blank before the first keystroke,
-//: and again whenever a document is opened — `openDocument` calls this.
+//: and again whenever a document is opened, `openDocument` calls this.
 //:
 //: **The call that runs it at load time is the last line of this file**, not
 //: this one. `const`/`let` at module scope are hoisted into a temporal dead
 //: zone, so calling this here threw `Cannot access 'docDictionarySet' before
 //: initialization` the moment the dictionary and the spelling tables were
-//: added below — a real crash, caught in the browser, that no amount of
+//: added below: a real crash, caught in the browser, that no amount of
 //: reading the function would have shown.
 function renderDocTools() {
   docCompleteWords = null;
@@ -5434,7 +5434,7 @@ function renderDocTools() {
 // with it*. A checker you cannot argue with is one you turn off, because the
 // third time it flags your project's name you have no way to say "this is a
 // word". So: every finding is a control, and the control's menu carries the
-// four answers a person actually has — fix it, this is a word, not this time,
+// four answers a person actually has, fix it, this is a word, not this time,
 // and (for a spelling) always correct it for me.
 //
 // **The dictionary lives on the server** (`writing_dictionary`, routes_settings)
@@ -5450,7 +5450,7 @@ function renderDocTools() {
 //: case where suggesting the other one is safe.
 //:
 //: UK on the left, US on the right, and the direction is chosen by the setting
-//: — the checker never has an opinion about which is correct, only about which
+//:, the checker never has an opinion about which is correct, only about which
 //: one this notebook was told to use.
 const DOC_SPELLING_PAIRS = [
   ["colour", "color"], ["colours", "colors"], ["coloured", "colored"],
@@ -5552,7 +5552,7 @@ function docProseKey(finding) {
 }
 
 //: **The popup, and the four answers a person actually has.** Fix it, this is
-//: a word, not this time, and — for a spelling — always correct it. Anchored
+//: a word, not this time, and, for a spelling, always correct it. Anchored
 //: at the thing it is about, because a menu that opens somewhere else makes
 //: you re-find the word you were looking at.
 let docSuggestOpenFor = null;
@@ -5786,9 +5786,9 @@ function openDocSuggest(finding, anchorRect, focus = true) {
     const none = document.createElement("p");
     none.className = "muted doc-suggest-none";
     //: A rule with no fix still opens this menu, because "ignore it" and "this
-    //: is fine" are answers too — and because a row you cannot press at all
+    //: is fine" are answers too: and because a row you cannot press at all
     //: reads as a broken row.
-    none.textContent = "No single answer for this one — it is a place to look, not a correction.";
+    none.textContent = "No single answer for this one, it is a place to look, not a correction.";
     list.appendChild(none);
   }
   menu.appendChild(list);
@@ -5801,7 +5801,7 @@ function openDocSuggest(finding, anchorRect, focus = true) {
   //: several seconds, and firing one every time a menu opens would make the
   //: menu feel broken on a small local model. It replaces itself with the
   //: options when they arrive, so the menu that asked is the menu that
-  //: answers — pressing an option applies it exactly as a built-in fix does,
+  //: answers: pressing an option applies it exactly as a built-in fix does,
   //: through `docProseFix`, which re-checks the document before writing.
   const askAi = document.createElement("button");
   askAi.type = "button";
@@ -5876,7 +5876,7 @@ function openDocSuggest(finding, anchorRect, focus = true) {
   //: offline translator in this app and inventing one would be a lie; what
   //: there *is* is a local model that can translate, and the honest way to
   //: offer that is to hand the passage to it with the question already
-  //: written, where the answer is visible and correctable — not to silently
+  //: written, where the answer is visible and correctable, not to silently
   //: rewrite the document with something nobody checked.
   const translate = document.createElement("button");
   translate.type = "button";
@@ -5898,7 +5898,7 @@ function openDocSuggest(finding, anchorRect, focus = true) {
   if (focus) menu.querySelector("button")?.focus();
 }
 
-//: Kept so the menu can be re-placed after it changes size — the AI wordings
+//: Kept so the menu can be re-placed after it changes size, the AI wordings
 //: arrive seconds after it opens and make it taller, and a menu that grew
 //: downwards off the bottom of the window is a menu whose best suggestion is
 //: unreachable.
@@ -5919,7 +5919,7 @@ function placeDocSuggest() {
   menu.style.top = `${Math.max(8, top)}px`;
 }
 
-//: A passage, a language, and the local model — asked in the chat so the
+//: A passage, a language, and the local model, asked in the chat so the
 //: answer is somewhere you can read, keep or ignore.
 async function docTranslatePassage(text) {
   const language = await promptDialog(
@@ -5945,13 +5945,13 @@ let docLastTranslateLanguage = "";
 //: background pass that occasionally froze the UI for a few seconds mid-word
 //: would be a worse editor than one with no AI review at all.
 //:
-//: Asks for a list rather than a rewrite — the same reason `docProseFix`
+//: Asks for a list rather than a rewrite, the same reason `docProseFix`
 //: never silently replaces text without the exact span matching first: an
 //: editor that hands your document to a model and gets a different document
 //: back, with no way to see what changed or why, is not reviewing your
 //: writing, it is overwriting it. A list of numbered issues, each with what
 //: is wrong and one suggested fix, is a thing you can read, agree or
-//: disagree with, and apply by hand — same shape as everything else this
+//: disagree with, and apply by hand, same shape as everything else this
 //: checker offers.
 //: **A badge, not a wall of text.** Asked for directly: "the 'check with ai'
 //: button in the documents should attach a link to the document or an excerpt
@@ -5962,13 +5962,13 @@ let docLastTranslateLanguage = "";
 //: wrong with that and the report names the first: the question you are about
 //: to ask is buried under six thousand characters you did not type, so the
 //: composer stops being somewhere you can write. The second is that there was
-//: no way to change your mind — the text was *in* the box, so unattaching it
+//: no way to change your mind, the text was *in* the box, so unattaching it
 //: meant finding where the prompt ended and the document began. The third is
 //: that it sends a snapshot: the model reads whatever the document said at the
 //: moment the button was pressed, not what it says when the question is
 //: actually asked.
 //:
-//: `attachedDocuments` fixes all three and it already existed — the composer
+//: `attachedDocuments` fixes all three and it already existed, the composer
 //: has staged documents as removable chips since files could be dropped into
 //: chat, and `sendChat` already passes their ids to the backend, which reads
 //: them itself. So this attaches rather than pastes, and the composer is left
@@ -5993,7 +5993,7 @@ async function docAiReview() {
     "Read this for the things a spellchecker can't catch: its/it's and other " +
     "agreement mistakes, tense that shifts partway through, unclear or awkward " +
     "sentences, and tone. List each one as a numbered point naming the exact " +
-    "wording and a one-line fix — don't rewrite it.";
+    "wording and a one-line fix, don't rewrite it.";
 
   switchTab("chat");
   if (selection) {
@@ -6004,7 +6004,7 @@ async function docAiReview() {
     input.value = `${ask}\n\n${quoted}`;
   } else {
     input.value = ask;
-    //: The badge, via the composer's own staging list — the same chip an
+    //: The badge, via the composer's own staging list, the same chip an
     //: imported file gets, removable by the same ✕, and read by the backend
     //: from the document itself rather than from a snapshot pasted here.
     const attached = attachDocumentToChat(currentDoc && currentDoc.id, (currentDoc && currentDoc.title) || $("doc-title")?.value || "This document");
@@ -6020,7 +6020,7 @@ async function docAiReview() {
 }
 
 //: **Managing the dictionary.** Asked for by name. A list you can add to and
-//: never see again is a list nobody trusts — and a wrongly added word would
+//: never see again is a list nobody trusts, and a wrongly added word would
 //: otherwise silence a real typo forever with no way to find out why.
 async function openDocDictionary() {
   const words = [...docDictionary()].sort();
@@ -6059,15 +6059,15 @@ renderDocTools();
 
 //: **The squiggle, where a squiggle is possible.**
 //:
-//: A `<textarea>` cannot carry marks inside its text — its value is a string,
-//: not a DOM — so Source view genuinely cannot underline a word, and the
+//: A `<textarea>` cannot carry marks inside its text, its value is a string,
+//: not a DOM: so Source view genuinely cannot underline a word, and the
 //: double-click/right-click path above is the honest substitute. Live view is
 //: different: its blocks are rendered HTML, so the flagged words can be marked
 //: exactly where they are and clicked exactly where they are marked, which is
 //: what anyone coming from Word expects.
 //:
 //: Word-level rules only. Underlining a 47-word sentence would put a wavy line
-//: under a whole paragraph, which says "all of this is wrong" — the opposite
+//: under a whole paragraph, which says "all of this is wrong", the opposite
 //: of what that finding means.
 const DOC_MARKABLE_RULES = new Set(["spelling", "variant", "repeat"]);
 
@@ -6084,7 +6084,7 @@ function docMarkLiveFindings() {
     for (const finding of byText) {
       //: A queue rather than a plain walk, because wrapping a match *splits*
       //: the text node it was found in and the remainder is a node the walker
-      //: never saw — the same hazard, and the same fix, as the citation
+      //: never saw: the same hazard, and the same fix, as the citation
       //: markers.
       const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
       const nodes = [];
@@ -6102,7 +6102,7 @@ function docMarkLiveFindings() {
         //: would read as two different checkers.
         mark.className = `doc-flag doc-finding-${docFindingKind(finding)}`;
         mark.textContent = finding.text;
-        mark.title = `${finding.message} — click or right-click for suggestions`;
+        mark.title = `${finding.message}: click or right-click for suggestions`;
         //: Hung on the element so the delegated `contextmenu` listener above
         //: can find it: a right-click has no way back to the closure that
         //: built this mark, and re-deriving the finding from the text would
@@ -6111,12 +6111,12 @@ function docMarkLiveFindings() {
         mark.addEventListener("mousedown", (event) => {
           //: Primary button only. `mousedown` fires for the right button too,
           //: so without this a right-click opened the menu here *and* then let
-          //: `contextmenu` open it again — two placements of the same menu in
+          //: `contextmenu` open it again: two placements of the same menu in
           //: one gesture, the second one usually in the wrong place.
           if (event.button !== 0) return;
           //: mousedown and `stopPropagation`, because the live view's own
           //: handler turns a click in a block into a caret in that block's
-          //: textarea — which would replace this element before the menu
+          //: textarea: which would replace this element before the menu
           //: could be anchored to it.
           event.preventDefault();
           event.stopPropagation();
@@ -6130,7 +6130,7 @@ function docMarkLiveFindings() {
 }
 
 // =============================================================================
-// The document's own undo stack — PLAN.md §2 D3
+// The document's own undo stack, PLAN.md §2 D3
 // =============================================================================
 //
 //: **Why the browser's own undo is not enough here, stated plainly.** A
@@ -6141,10 +6141,10 @@ function docMarkLiveFindings() {
 //: `.lp-src` textarea that is created when you click into it and destroyed
 //: when you leave. So:
 //:
-//:   - Type in Live, switch to Source, press Ctrl+Z — the textarea you are now
+//:   - Type in Live, switch to Source, press Ctrl+Z, the textarea you are now
 //:     in never saw that edit, so its history has nothing to give back. That
 //:     is the exact acceptance line in PLAN.md D3, and it was broken.
-//:   - Type in one Live paragraph, click into another, come back — the first
+//:   - Type in one Live paragraph, click into another, come back, the first
 //:     block's textarea was replaced by a re-render, and its history went with
 //:     it.
 //:
@@ -6160,7 +6160,7 @@ function docMarkLiveFindings() {
 //: what reaches the DOM is the small change, not a whole-document rewrite.
 const DOC_UNDO_LIMIT = 200;
 //: Long enough that a burst of typing is one undo, short enough that pausing
-//: to think starts a new one — the window every editor uses for this.
+//: to think starts a new one, the window every editor uses for this.
 const DOC_UNDO_COALESCE_MS = 500;
 
 const docUndoStack = [];
@@ -6174,7 +6174,7 @@ let docUndoLastPushAt = 0;
 //: happened to precede it by less than half a second.
 let docUndoBoundary = false;
 //: True while an undo/redo is being applied. Everything downstream of an edit
-//: ends at `markDocDirty`, which records — so without this an undo would push
+//: ends at `markDocDirty`, which records: so without this an undo would push
 //: itself onto the stack it just walked back.
 let docUndoApplying = false;
 //: The selection as it was *before* the edit now being recorded.
@@ -6185,7 +6185,7 @@ let docUndoApplying = false;
 let docUndoPreSelection = null;
 
 //: The selection in **document** coordinates, whichever box holds it. A Live
-//: block's own offsets start at zero for every paragraph —
+//: block's own offsets start at zero for every paragraph, 
 //: `docLiveBlockOffset` is the existing translation, and it returns null when
 //: it cannot be sure, which is when this does too rather than claiming a
 //: position it guessed.
@@ -6208,7 +6208,7 @@ function docUndoReset(content) {
 }
 
 //: Force the next record to start a new entry. Called at the top of every
-//: scripted edit, *before* it runs — after would be too late, because the
+//: scripted edit, *before* it runs, after would be too late, because the
 //: record happens inside the edit.
 function docUndoBreak() {
   docUndoBoundary = true;
@@ -6219,7 +6219,7 @@ function docUndoBreak() {
 //: block (its `input` handler syncs `#doc-content` first), the toolbar via
 //: `finishMarkdownEdit`, indent, comment-toggle, block move/duplicate/delete,
 //: find-and-replace, the AI edit. Hooking the one funnel rather than eight
-//: call sites is what stops a ninth from being added without an undo entry —
+//: call sites is what stops a ninth from being added without an undo entry, 
 //: this repo's "features that never ran once" shape, in reverse.
 function docUndoRecord() {
   if (docUndoApplying) return;
@@ -6252,7 +6252,7 @@ function docUndoRecord() {
     return;
   }
   //: The entry being left behind is what undo will restore, so it takes the
-  //: selection the user had when they started this edit — not the caret the
+  //: selection the user had when they started this edit, not the caret the
   //: previous burst finished at. Without this, undoing a Bold gives the text
   //: back with the caret somewhere else, and the word you were working on is
   //: no longer selected to try again.
@@ -6267,7 +6267,7 @@ function docUndoRecord() {
 }
 
 //: The smallest range that differs, as `[from, to, text]` against `before`.
-//: Common prefix and common suffix — enough to turn "the document is now this
+//: Common prefix and common suffix, enough to turn "the document is now this
 //: string" into the one insertion or deletion a person actually made, which is
 //: what keeps `docReplaceRange` (and with it the native history) from seeing
 //: every undo as a full rewrite.
@@ -6305,7 +6305,7 @@ function docUndoRestoreSelection(entry) {
         }
         return;
       }
-      //: Two newlines between blocks — what `docLiveText` joins with, and so
+      //: Two newlines between blocks, what `docLiveText` joins with, and so
       //: what the document's own offsets contain.
       base = end + 2;
     }
@@ -6327,7 +6327,7 @@ function docUndoApply(entry) {
       const [from, to, text] = docUndoDiffRange(source.value, entry.content);
       if (docView === "live" || docView === "rendered") {
         //: `#doc-content` is hidden in these modes, and `execCommand` needs a
-        //: focusable, visible target — it silently returns false on a hidden
+        //: focusable, visible target: it silently returns false on a hidden
         //: textarea, which is this repo's "a policy silently refusing the
         //: work" shape. A direct write is correct here: the Live boxes are
         //: about to be rebuilt anyway, so there is no native history to keep.
@@ -6335,7 +6335,7 @@ function docUndoApply(entry) {
       } else {
         //: Through the browser's own edit pipeline, so the native history
         //: stays coherent with ours instead of being wiped by a `.value`
-        //: assignment — the reason `docReplaceRange` exists.
+        //: assignment: the reason `docReplaceRange` exists.
         docReplaceRange(source, from, to, text);
       }
     }
@@ -6344,7 +6344,7 @@ function docUndoApply(entry) {
     renderDocGutter();
     //: **Before the caret is placed, not after.** `renderDocTools` runs the
     //: prose pass, and that re-renders the Live view (`renderDocProse`'s last
-    //: lines) — so doing it afterwards would tear out the very block this is
+    //: lines): so doing it afterwards would tear out the very block this is
     //: about to put the caret in and leave the selection on a detached node.
     renderDocTools();
     if (docView === "live") {
@@ -6375,7 +6375,7 @@ function docRedo() {
 //: otherwise see Ctrl+Z: the browser's native undo for whichever textarea has
 //: focus (the history this replaces, and the one that is *wrong* the moment a
 //: mode switch or a Live re-render has happened), and app.js's global shortcut
-//: table — that one already declines inside a text field, deliberately (see
+//: table: that one already declines inside a text field, deliberately (see
 //: its comment), so this is the handler that fills the hole it leaves.
 document.addEventListener(
   "keydown",

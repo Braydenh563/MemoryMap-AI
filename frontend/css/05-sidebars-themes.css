@@ -3,12 +3,12 @@
    same row: a heading on the left, at most one action on the right, and a
    reserved lane past it for the collapse toggle.
 
-   That reserve was `padding-right: 48px` — a number picked to clear the
+   That reserve was `padding-right: 48px`, a number picked to clear the
    toggle, and wrong, because the toggle is 28px wide sitting 1rem from the
    right edge, i.e. it needs 28px + 1rem + a gap. Being wrong by a few pixels
    in one direction let the toggle sit on top of the "＋ New" button in the
    Documents sidebar, and being wrong in the other left the Chats heading
-   floating oddly short of the edge — which is the reported misalignment
+   floating oddly short of the edge, which is the reported misalignment
    between these three headers. The geometry is a token now, declared once
    beside the toggle's own size, so the reserve cannot drift from the thing it
    is reserving for.
@@ -19,7 +19,7 @@
   gap: var(--space-3);
   align-items: center;
   /* Both the heading and its one action are the toggle's height, so the row
-     is too — that is what puts all three on one centre line instead of the
+     is too: that is what puts all three on one centre line instead of the
      heading floating a few pixels high next to a taller button. */
   min-height: var(--sidebar-toggle-size);
   /* And the row starts where the toggle starts. The toggle is positioned
@@ -27,7 +27,7 @@
      the row starts at the card's CONTENT box, which is --space-6 lower. The
      difference is the gap that made "Chats", "Categories" and "Recent" all
      sit below the collapse button rather than level with it. The toggle is
-     not moved — it was in the right place; the row comes up to meet it. */
+     not moved: it was in the right place; the row comes up to meet it. */
   margin-top: calc(var(--sidebar-toggle-inset) - var(--card-pad-y));
   margin-bottom: var(--space-5);
   padding-right: var(--sidebar-toggle-lane);
@@ -36,12 +36,12 @@
 /* One weight, one size, one shape for all three. The Chats header shipped its
    action as a filled accent pill while Documents' was a plain small button, so
    two sidebars that do the same thing looked like different features.
-   `font-size` used to be set here too, at `--text-h3` — but `.card h2`
+   `font-size` used to be set here too, at `--text-h3`, but `.card h2`
    (01-forms-settings.css, §35L) already sets every card-level h2 to one size
    app-wide, and this rule has equal specificity and loads later, so it was
    silently winning that tie just for these three sidebars. That is the
    inconsistency reported directly ("keep the titles of each feature section
-   consistent") — Categories/Chats/Documents rendered a size larger than
+   consistent"), Categories/Chats/Documents rendered a size larger than
    Graph/Library/Timeline/Reminders, the opposite of what §35L's comment says
    it was trying to guarantee. Leaving it to `.card h2` here. */
 .sidebar-head h2 {
@@ -75,7 +75,7 @@
 
 /* The toggle is positioned against these, so they have to be the containing
    block. This was an inline `style="position: relative"` on #chat-sidebar,
-   which the CSP drops — so the toggle escaped to the nearest positioned
+   which the CSP drops, so the toggle escaped to the nearest positioned
    ancestor and landed in the wrong place on that one sidebar only. */
 .sidebar-panel {
   position: relative;
@@ -89,7 +89,7 @@
   /* The heading row does not wrap. In a 260px column "Recent documents" broke
    over two lines and took "＋ New" with it, so the sidebar opened with a
    three-line header above a three-item list. The heading is the part that
-   gives way — the button is a fixed hit target. */
+   gives way: the button is a fixed hit target. */
   .doc-sidebar .row.space-between,
   #chat-sidebar .row.space-between {
     flex-wrap: nowrap;
@@ -109,11 +109,11 @@
     flex: 0 0 auto;
   }
 
-  /* Not position: static — the collapse toggle inside is position: absolute,
+  /* Not position: static: the collapse toggle inside is position: absolute,
      and static doesn't establish a positioning context for it. With no
      positioned ancestor left, the toggle fell through to the page's own
      initial containing block and rendered pinned near the viewport's top
-     edge instead of this card's corner — on top of the app header on a
+     edge instead of this card's corner: on top of the app header on a
      phone (reported live, with a screenshot). relative keeps the sidebar's
      own static-like flow (no offset is set) while still containing the
      toggle. */
@@ -131,7 +131,7 @@
      collapsed .skills-split (07-whiteboard-misc.css), a sidebar still
      `position: sticky` with `max-height: var(--page-sticky-h)` pins itself
      to viewport height in the middle of the page instead of just being the
-     next block — undo both, the same shape #doc-sidebar's own reset used. */
+     next block: undo both, the same shape #doc-sidebar's own reset used. */
   #skills-sidebar {
     position: relative;
     height: auto;
@@ -140,7 +140,7 @@
 
   /* The side-by-side preview collapses back to a stack on a narrow screen.
      This used to say `grid-template-columns: 1fr` on `.doc-panes.split`,
-     which was dead twice over — #doc-panes is a flex column, not a grid, and
+     which was dead twice over, #doc-panes is a flex column, not a grid, and
      an id selector beats this class either way. The live rule is
      `#doc-panes.split` in 04-chat-dock-appearance.css, whose own max-width
      query does this collapse; the id here is only so it can win the same
@@ -150,7 +150,7 @@
   }
 }
 
-/* PDF export prints the rendered preview and nothing else — the browser's own
+/* PDF export prints the rendered preview and nothing else, the browser's own
    "Save as PDF" then produces the file, which beats bundling a PDF engine. */
 @media print {
 
@@ -220,7 +220,7 @@
 }
 
 /* A control that needs the AI, while the AI isn't running. Reads as
-   unavailable rather than broken — the cursor and tooltip explain why. */
+   unavailable rather than broken, the cursor and tooltip explain why. */
 button.ai-unavailable {
   opacity: 0.5;
   cursor: not-allowed;
@@ -238,7 +238,7 @@ button.ai-unavailable {
   padding: 0.05em 0.32em;
   font-size: 0.92em;
   /* Without this, one long backticked path widens the note, the list and the
-     page — the same automatic-minimum-sizing trap as everywhere else. */
+     page: the same automatic-minimum-sizing trap as everywhere else. */
   overflow-wrap: anywhere;
 }
 
@@ -282,7 +282,7 @@ button.ai-unavailable {
   opacity: 0.65;
 }
 
-/* A pasted/dropped/attached image, inline in the note card list — this used
+/* A pasted/dropped/attached image, inline in the note card list, this used
    to render as the literal `![name](/media/…)` markdown source, because
    nothing in the list's own (deliberately restrained, see the comment above)
    renderer recognised image syntax at all. Capped and clamped so a full-size
@@ -304,7 +304,7 @@ button.ai-unavailable {
 
 /* A file attached to a note. Replaces the bare `<a href="/media/…">` that
    used to render here, which navigated the whole app away to a 401 page
-   with no way back — see `fileCard` in app.js for the full account.
+   with no way back, see `fileCard` in app.js for the full account.
 
    `inline-flex`, not `block`: this is produced by the inline-markdown
    renderer and can legitimately sit mid-sentence. Stacked one per line is
@@ -406,7 +406,7 @@ button.ai-unavailable {
   margin: 0;
 }
 
-/* Swapped in for a note's own inline image once its file is gone —
+/* Swapped in for a note's own inline image once its file is gone, 
    a closable box instead of a broken-image glyph, asked for directly. */
 .entry-inline-image-deleted {
   display: inline-flex;
@@ -429,7 +429,7 @@ button.ai-unavailable {
   font-weight: 600;
 }
 
-/* `==highlight==` in note/document text — a warm highlighter tone, distinct
+/* `==highlight==` in note/document text: a warm highlighter tone, distinct
    from the blue search-match <mark> above, and not scoped to .entry-content
    since renderInlineMarkdown draws it into notes, documents, chat and the
    digest alike. */
@@ -444,7 +444,7 @@ mark.text-highlight {
 /* `==green|text==` and friends. Written as low-alpha colours rather than
    solid ones so a highlight sits *behind* `--ink` at whatever the theme's
    text colour is, instead of forcing a light-on-dark inversion that would
-   need its own foreground colour per theme — the same reason `--warn-soft`
+   need its own foreground colour per theme, the same reason `--warn-soft`
    above works unchanged in both. The set is closed and matches the
    allowlist inside INLINE_MD (app.js) exactly: a colour with no rule here
    cannot be typed. */
@@ -457,11 +457,11 @@ mark.text-highlight-orange { background: rgba(249, 115, 22, 0.22); }
 mark.text-highlight-red { background: rgba(239, 68, 68, 0.22); }
 mark.text-highlight-grey { background: rgba(148, 163, 184, 0.25); }
 
-/* `++red|text++` — a foreground colour. Set at full strength rather than the
+/* `++red|text++`, a foreground colour. Set at full strength rather than the
    highlights' low alpha, because this IS the text: a washed-out foreground
    is just unreadable text. Each is picked to clear the body background in
    both themes, which is why they are their own values and not the `--ok`/
-   `--warn`/`--error` status tokens — those are tuned for chips and badges,
+   `--warn`/`--error` status tokens: those are tuned for chips and badges,
    where they sit on their own soft background rather than on the page. */
 .text-ink-yellow { color: #b45309; }
 .text-ink-green { color: #15803d; }
@@ -472,7 +472,7 @@ mark.text-highlight-grey { background: rgba(148, 163, 184, 0.25); }
 .text-ink-red { color: #b91c1c; }
 .text-ink-grey { color: var(--muted); }
 
-/* Dark themes need the lighter end of each ramp — the light-mode values above
+/* Dark themes need the lighter end of each ramp, the light-mode values above
    are chosen for contrast against white and go muddy on a dark page. Both
    selectors, so an explicit choice and the system default are covered, the
    same shape the tokens at the top of 00-tokens-shell.css use. */
@@ -507,7 +507,7 @@ mark.text-highlight-grey { background: rgba(148, 163, 184, 0.25); }
 /* Two classes, and that is the point: `#search-help-hint` carries both
    `.graph-help-panel` (the floating help popover every other tab uses) and
    `.search-help`, both single-class selectors, so load order alone decided
-   which background won — and this file loads after 03-dashboard-widgets.css,
+   which background won: and this file loads after 03-dashboard-widgets.css,
    so `.search-help`'s near-transparent `--chip-bg` beat the popover's opaque
    `--modal-bg`. Reported directly: "the tooltip in the your notes tab is a
    different colour to the other tabs. the ui needs to stay consistent." The
@@ -651,7 +651,7 @@ mark.text-highlight-grey { background: rgba(148, 163, 184, 0.25); }
    names one, on a timeline dot, in a dashboard row and in the chat's touched
    line. Deliberately built on `.chip`, the app's own recipe, so it inherits
    the chip height, radius, and type scale rather than becoming a fourth pill
-   shape — the only things decided here are that it is pressable (when it is)
+   shape: the only things decided here are that it is pressable (when it is)
    and that its node count is quieter than its name. */
 .map-chip {
   border: 1px solid var(--border);
@@ -739,7 +739,7 @@ button.map-chip:focus-visible {
 /* --- the "/" menu and block frames -------------------------------------------
    Sibling of the [[ autocomplete above, and deliberately styled to match it:
    they are the same gesture (type a token, pick from a list) and a user who
-   learns one should recognise the other. The difference is placement — this
+   learns one should recognise the other. The difference is placement, this
    one is positioned at the caret from script, so it is `fixed` and starts
    off-screen rather than sitting in the flow under its textarea. */
 .editor-menu {
@@ -754,7 +754,7 @@ button.map-chip:focus-visible {
   max-width: calc(100vw - var(--space-9));
   max-height: 17rem;
   overflow-y: auto;
-  /* Scrolling the menu must not chain to the page behind it — a wheel event
+  /* Scrolling the menu must not chain to the page behind it, a wheel event
      that reaches the page moves the caret this menu is anchored to. */
   overscroll-behavior: contain;
   border: 1px solid var(--glass-border);
@@ -795,7 +795,7 @@ button.map-chip:focus-visible {
 }
 
 /* The hint is the syntax the command inserts. It is the part that teaches the
-   markdown behind the menu, so it stays legible rather than decorative — but
+   markdown behind the menu, so it stays legible rather than decorative, but
    it must never win space from the label it annotates. */
 .editor-menu-hint {
   flex: 0 0 auto;
@@ -811,7 +811,7 @@ button.map-chip:focus-visible {
 
 /* --- callouts ("specialised boxes and frames") -------------------------------
    Written as `> [!kind] Title`, which is an ordinary blockquote to any other
-   markdown reader — that portability is the reason for this syntax over a
+   markdown reader: that portability is the reason for this syntax over a
    custom fence, and it is why the base rule below is a blockquote that has
    been given a left edge and a tint rather than a new kind of element.
 
@@ -820,7 +820,7 @@ button.map-chip:focus-visible {
    theme change moves callouts with everything else instead of stranding them
    at a hard-coded hue. */
 .callout {
-  /* The defaults live here rather than as fallbacks inside each var() —
+  /* The defaults live here rather than as fallbacks inside each var(), 
      a declared token read with a fallback makes the fallback dead code, which
      test_style_scale.py fails the build over, and rightly: two places stating
      the same default is how they drift apart. The .callout-{kind} rules below
@@ -896,7 +896,7 @@ button.map-chip:focus-visible {
   margin-bottom: 0;
 }
 
-/* A callout with no body is a title in a box — legible, not broken. */
+/* A callout with no body is a title in a box, legible, not broken. */
 .callout-body:empty {
   display: none;
 }
@@ -931,7 +931,7 @@ button.map-chip:focus-visible {
 
 /* --- transcluded notes (![[note]]) -------------------------------------------
    An embedded note is somebody else's text living inside this one, and the
-   single most important thing the styling has to do is say so — otherwise a
+   single most important thing the styling has to do is say so, otherwise a
    later reader edits the host document expecting the words to be there. */
 .note-embed {
   margin: var(--space-4) 0;
@@ -1051,7 +1051,7 @@ button.map-chip:focus-visible {
 /* --- resizable sidebars ------------------------------------------------------- */
 /* The resize handle is absolutely positioned, so its sidebar has to be a
    containing block. `sticky` is one too, which is why the chat and document
-   sidebars can be both — this rule used to set `relative` on all three and,
+   sidebars can be both, this rule used to set `relative` on all three and,
    coming later with equal ID specificity, silently un-stuck the two that
    asked to stick. Their top/height live with the layout rules above. */
 #sidebar {
@@ -1059,11 +1059,11 @@ button.map-chip:focus-visible {
 }
 
 #chat-sidebar,
-/* Was a duplicate of .doc-sidebar above that re-set `align-self: start` — and
+/* Was a duplicate of .doc-sidebar above that re-set `align-self: start`, and
    being later in the file, it won, which is why fixing the rule above alone
    changed nothing. The one rule is .doc-sidebar. */
 #doc-sidebar,
-/* The Skill Logs sidebar had **no rules at all** — it carried `card glass`
+/* The Skill Logs sidebar had **no rules at all**, it carried `card glass`
    but not `sidebar-panel`, so it scrolled away with the page while every
    other sidebar stayed put. Reported directly: "I want the skill logs right
    sidebar to be sticky to the side and only the height of the screen,
@@ -1076,17 +1076,17 @@ button.map-chip:focus-visible {
 /* This is the exact bug `.doc-sidebar` already hit and fixed in full
    (04-chat-dock-appearance.css): `align-self: start` opts a sidebar out of
    its grid's `align-items: stretch`, and `max-height` alone only ever CAPS
-   a box, never gives it a floor — so a short log list produced a
+   a box, never gives it a floor, so a short log list produced a
    short card floating beside a tall `main`, not the "full height of the
    screen" that was reported (twice now: first for the sidebar not
    sticking at all, now for its height).
 
    `height: 100%` first tried here matched `main`'s own content height
-   instead of the viewport — 1207px against a 900px screen, overflowing the
+   instead of the viewport, 1207px against a 900px screen, overflowing the
    fold, which is a different wrong answer to the same question. What
    actually reads as "the height of the screen" is `.doc-sidebar`'s
-   `max-height: var(--page-sticky-h)` — the real viewport-minus-chrome
-   figure (00-tokens-shell.css), not a guess and not `main`'s height —
+   `max-height: var(--page-sticky-h)`, the real viewport-minus-chrome
+   figure (00-tokens-shell.css), not a guess and not `main`'s height: 
    paired with `align-self: stretch` (not `start`) so the sticky box is
    exactly its row's height, and `overflow: hidden` with the log LIST
    scrolling inside it rather than the card itself. Applying the same
@@ -1103,11 +1103,11 @@ button.map-chip:focus-visible {
 
 /* Third report of the same thing ("still doesn't float and stay 100% the
    height of the screen"), and the sticking was never the part that was
-   broken — measured, not guessed: with the log list open, scrolling the
+   broken: measured, not guessed: with the log list open, scrolling the
    container left the sidebar pinned at y=197 exactly, so `position: sticky`
    was doing its job. The height was wrong. `--page-sticky-h` is
    viewport-minus-app-chrome (655px here), which is the right figure only for
-   a sidebar whose scrolling ancestor IS the page — `.doc-sidebar`'s case,
+   a sidebar whose scrolling ancestor IS the page, `.doc-sidebar`'s case,
    which is where that pattern was copied from. This sidebar's scrolling
    ancestor is `#library-view-skills`, a *nested* scroller only 534px tall,
    so the cap overshot by 121px and the card ran 52px past the bottom of an
@@ -1115,7 +1115,7 @@ button.map-chip:focus-visible {
    the screen" was describing. `cqh` resolves against that real scroller
    instead of the page. `container-type: size` is safe on it specifically
    because its height is already externally determined (a flex child with a
-   definite height), so declaring it changes no layout — it only makes the
+   definite height), so declaring it changes no layout, it only makes the
    height nameable. The `--page-sticky-h` line above stays as the fallback
    for anything without container-query support. */
 #library-view-skills {
@@ -1133,7 +1133,7 @@ button.map-chip:focus-visible {
 
 /* The collapse toggle is absolutely positioned at the sidebar's top-right
    (see .sidebar-collapse-toggle in 07-whiteboard-misc.css), and the heading
-   row's own trailing button sits in exactly the same place — reported as the
+   row's own trailing button sits in exactly the same place, reported as the
    New-chat button clashing with the collapse button while the sidebar is
    hover-expanded. Reserving the toggle's width in the row keeps both
    reachable instead of stacked. */
@@ -1148,7 +1148,7 @@ button.map-chip:focus-visible {
   top: 0;
   /* Inside the box, not hanging off it. The Notes sidebar is a scroll
      container (`overflow-y: auto`, so a long category list scrolls in place),
-     and overflow clips pointer events as well as paint — a handle at
+     and overflow clips pointer events as well as paint, a handle at
      `right: -0.55rem` was both invisible and unhittable there, which is why
      that one sidebar couldn't be resized while the others could. */
   right: 0;
@@ -1201,7 +1201,7 @@ body.resizing-sidebar {
   gap: 0.4rem;
 }
 
-/* No dragging on a stacked single-column layout — there's no column to size. */
+/* No dragging on a stacked single-column layout, there's no column to size. */
 @media (max-width: 720px) {
   .sidebar-resize {
     display: none;
@@ -1209,7 +1209,7 @@ body.resizing-sidebar {
 }
 
 /* The web panel (§37D.1) sits to the right of the conversation, not the
-   left, so its handle is on the *leading* edge — the mirror of the three
+   left, so its handle is on the *leading* edge, the mirror of the three
    sidebars above, which all grow away from the content beside them. */
 .web-panel-resize {
   left: 0;
@@ -1218,7 +1218,7 @@ body.resizing-sidebar {
 
 @media (max-width: 1100px) {
 
-  /* Below this #web-panel takes the whole of <main> (see the layout rule) —
+  /* Below this #web-panel takes the whole of <main> (see the layout rule), 
      there is no room beside it to resize into. */
   .web-panel-resize {
     display: none;
@@ -1242,8 +1242,8 @@ body.resizing-sidebar {
 
 /* --- document formatting toolbar ---------------------------------------------- */
 /* **Only the formatting bar, and that split is the fix.** The dock above the
-   editor used to carry `.doc-toolbar` too, so `.doc-toolbar button` below —
-   written for a row of 2rem glyph buttons (H1, B, I, link) — restyled every
+   editor used to carry `.doc-toolbar` too, so `.doc-toolbar button` below: 
+   written for a row of 2rem glyph buttons (H1, B, I, link), restyled every
    `.ghost.small` in the dock as well: `min-width: 2rem`, 0.8rem type,
    transparent border, no background. Next to a full-height `<select>` and a
    segmented control, which that rule does not touch, the result was the four
@@ -1252,7 +1252,7 @@ body.resizing-sidebar {
    only the separator. */
 /* **One row that scrolls, pinned to the top of the editor.**
 
-   Two changes, both about the same thing — a toolbar is furniture, and
+   Two changes, both about the same thing, a toolbar is furniture, and
    furniture that moves or grows is furniture you have to look at:
 
    - `flex-wrap: wrap` let the row become two (and, before the colour selects
@@ -1267,8 +1267,8 @@ body.resizing-sidebar {
 .doc-toolbar {
   /* **One height for the strip and everything in it.** Reported as "fix the
      toolbar", and measured before touching it: the controls in this bar
-     rendered at *five* different heights — 29.2px, 28px, 24.7px, 10px and one
-     at 0 — because nothing here declared a height and each control's size fell
+     rendered at *five* different heights, 29.2px, 28px, 24.7px, 10px and one
+     at 0: because nothing here declared a height and each control's size fell
      out of whichever class it happened to carry. It is the same fault, with
      the same fix and the same token, as `.library-head` and the OCR
      workspace's header; DESIGN.md's control-height rule is about exactly this.
@@ -1292,7 +1292,7 @@ body.resizing-sidebar {
      popups appear in the toolbar container, not outside."* Both symptoms come
      from this one declaration.
 
-     CSS does not allow one axis to be `visible` while the other is not — the
+     CSS does not allow one axis to be `visible` while the other is not, the
      `visible` axis computes to `auto` instead. Measured on the live toolbar:
      `overflow-y` computed `auto`, exactly as the spec says, which is the
      vertical scrollbar. And any `overflow: auto` box is a clipping context, so
@@ -1321,7 +1321,7 @@ body.resizing-sidebar {
 
 /* **Un-clipping the strip to free a menu freed the whole toolbar too.**
    This used to be `.doc-toolbar[data-toolbar-mode="row"]:has(details[open])
-   { overflow: visible }` — the popup escaped, and so did the ~59 controls
+   { overflow: visible }`, the popup escaped, and so did the ~59 controls
    the scroller exists to contain. Reported with a screenshot: *"I used a
    dropdown in the toolbar in the capture tab and it went off the panel and
    to the end"*. The strip stopped clipping the instant a menu opened, so
@@ -1332,7 +1332,7 @@ body.resizing-sidebar {
    `overflow: visible` was always the wrong lever: it is the *popup* that
    needs to leave the scroller, not the strip that needs to stop being one.
    So the popup goes `position: fixed` while it is open and is placed against
-   the viewport by `clampToolbarMenu` (app.js) — a fixed box is clipped only
+   the viewport by `clampToolbarMenu` (app.js): a fixed box is clipped only
    by an ancestor that establishes a containing block (a transform, filter or
    backdrop-filter), and nothing between here and <body> does. The strip
    keeps clipping and keeps its scroll position throughout.
@@ -1343,12 +1343,12 @@ body.resizing-sidebar {
    would still render but stop doing anything when clicked. */
 .doc-toolbar .doc-toolbar-menu[open] > .doc-dock-menu-list {
   position: fixed;
-  /* **`auto`, not `0` — a fixed box at 0,0 lands in the corner of its
+  /* **`auto`, not `0`, a fixed box at 0,0 lands in the corner of its
      containing block**, and every one of these menus lives inside a `.card`
      that becomes one whenever Appearance → Glass is on (`backdrop-filter`
      creates a containing block for fixed descendants). `clampToolbarMenu`
      writes real coordinates on open, so these values are only ever seen when
-     it could not measure — and reported, when they were zeros: "the toolbar
+     it could not measure, and reported, when they were zeros: "the toolbar
      dropdowns are now appearing in the top left corner of the panel".
 
      `auto` resolves to the *static* position: where the panel would have sat
@@ -1362,14 +1362,14 @@ body.resizing-sidebar {
   z-index: 60;
 }
 
-/* Nothing in the strip may shrink — a squeezed button is a button whose glyph
+/* Nothing in the strip may shrink, a squeezed button is a button whose glyph
    no longer centres, and the row scrolls precisely so it does not have to. */
 .doc-toolbar > * {
   flex: none;
 }
 
 /* The sizing itself. `align-items: center` above only centres boxes of
-   differing heights against each other — it cannot make them the same height,
+   differing heights against each other, it cannot make them the same height,
    which is what was actually reported. */
 .doc-toolbar button,
 .doc-toolbar select,
@@ -1378,7 +1378,7 @@ body.resizing-sidebar {
 /* `summary` was the one control shape this list missed. A `<details>` opener
    is not a `<button>`, so the four menu openers in this strip sized
    themselves off their own padding and measured 24.7px against everything
-   else's 32 — the same "five different heights" fault this rule was written
+   else's 32: the same "five different heights" fault this rule was written
    to end, surviving in the one element type it did not name. */
 .doc-toolbar summary {
   height: var(--control-h);
@@ -1421,7 +1421,7 @@ body.resizing-sidebar {
 
 /* **The strip's own two controls, pinned to its right edge.** Asked for:
    "cant collapse and make horizontally scrollable the tools bar in the notes
-   capture subtab and documents editor." `position: sticky` is the point — in
+   capture subtab and documents editor." `position: sticky` is the point: in
    row mode the toolbar is a scroller, and a control that scrolls away with the
    buttons it controls is a control you have to go looking for. Its own ground
    so the buttons underneath do not show through as they pass. */
@@ -1438,7 +1438,7 @@ body.resizing-sidebar {
 
 /* Collapsed: the strip keeps its own two controls and its name, and gives the
    rest of its height back to the thing you are writing. Not `display: none` on
-   the toolbar itself — a control that hides the control that brings it back is
+   the toolbar itself: a control that hides the control that brings it back is
    a trap. */
 .doc-toolbar.is-collapsed > *:not(.doc-toolbar-tools) {
   display: none;
@@ -1476,7 +1476,7 @@ body.resizing-sidebar {
    here would put it straight back into the scroller it needs to escape.) */
 
 /* The colour pickers are <select>s, and this app styles form controls as
-   full-width block inputs by default — so each one claimed its own line and
+   full-width block inputs by default, so each one claimed its own line and
    turned a one-row toolbar into four, taking more vertical space than the
    note box underneath it (reported with a screenshot). Sized to their own
    content and matched to the buttons beside them, they sit inline like every
@@ -1487,7 +1487,7 @@ body.resizing-sidebar {
   /* Wide enough for "Text colour…" at this font size without ellipsis: at
      9rem the label was being truncated *into* the chevron, so the two ran
      together (reported with a screenshot). `--space-9` of right padding is
-     the gutter the arrow sits in — the browser draws it inside the padding
+     the gutter the arrow sits in, the browser draws it inside the padding
      box, so anything less puts glyphs underneath it. */
   max-width: 12rem;
   margin: 0;
@@ -1509,18 +1509,18 @@ body.resizing-sidebar {
 
 /* **One chrome for the whole strip, whatever element a control happens to be.**
    Reported: "the expand toolbar and hide formatting tools dont have curved
-   corners like they look like when hovered over" — a complaint about two
+   corners like they look like when hovered over", a complaint about two
    buttons that is really about the controls beside them. Measured across the
    note toolbar: every `<button>` rests transparent (border
    `rgba(0,0,0,0)`, background `rgba(0,0,0,0)`) and fills on hover, while the
-   four `<details>` menu openers rest *already filled* — border
+   four `<details>` menu openers rest *already filled*, border
    `rgba(255,255,255,0.22)` over background `rgba(255,255,255,0.14)`. They are
    `<summary>` elements, so this rule never matched them and they kept the
    app's default button chrome instead.
 
    The visible consequence is the one reported: in a strip where four controls
    wear a filled, rounded box at rest and the rest wear nothing, the two bare
-   ones at the right end read as the odd ones out — and since their own box
+   ones at the right end read as the odd ones out, and since their own box
    only appears on hover, they read as "square until you hover". Nothing was
    wrong with their radius (measured identical to every other control in the
    strip: `var(--radius-md)`, whatever the appearance setting has scaled it
@@ -1528,7 +1528,7 @@ body.resizing-sidebar {
    twenty-five reach only on hover.
 
    `button.icon-only` is named explicitly for the same reason in reverse: it
-   is a `<button>`, so it did match — but a later sheet's `.icon-only` chrome
+   is a `<button>`, so it did match, but a later sheet's `.icon-only` chrome
    beat this rule on file order, and the three icon-only controls in this
    strip picked up the same resting fill the summaries had. */
 .doc-toolbar button,
@@ -1575,7 +1575,7 @@ body.resizing-sidebar {
   background: var(--border);
 }
 
-/* Find and replace (16b) — same materials as .doc-toolbar right above it,
+/* Find and replace (16b): same materials as .doc-toolbar right above it,
    its own row rather than folded into the formatting toolbar because it
    carries two text inputs, not just icon buttons. */
 .doc-find-bar {
@@ -1603,7 +1603,7 @@ body.resizing-sidebar {
 }
 
 /* An inline explanation under a setting, shown only when that setting is
-   being overridden by something else — so a control that looks like it did
+   being overridden by something else, so a control that looks like it did
    nothing can say why. */
 .hint-inline {
   display: block;
@@ -1618,7 +1618,7 @@ body.resizing-sidebar {
    and an answer once written could never be fixed. */
 
 /* The way to the Library, at the foot of the switcher. A list that silently
-   stops at eight is a list that has lost your chats — this is what makes the
+   stops at eight is a list that has lost your chats, this is what makes the
    cap a boundary you can see rather than one you discover. */
 .conv-browse-all {
   width: 100%;
@@ -1627,14 +1627,14 @@ body.resizing-sidebar {
 }
 
 /* Same button in the Documents sidebar, reported separately: centred there
-   rather than left — the chat sidebar's list items it echoes are left-aligned
+   rather than left: the chat sidebar's list items it echoes are left-aligned
    rows of text, but the Documents sidebar has no such column for it to line
    up with, so a left-aligned button just read as pushed to one side under a
    list that isn't.
 
    Asked for again, directly, the other way round: centre the chat sidebar's
    own copy to match. `#conv-browse-all` now gets the identical rule rather
-   than deleting `.conv-browse-all`'s left-align above — that base rule has
+   than deleting `.conv-browse-all`'s left-align above: that base rule has
    no other reader left, but rewriting it to `center` and dropping these two
    IDs would read as though centring were still Documents' own special case
    instead of what both buttons do now. */
@@ -1670,7 +1670,7 @@ body.resizing-sidebar {
 }
 
 /* Date · turns · tokens, small enough to scan past and there when wanted.
-   One line, ellipsised — it's context, never worth stealing a second row. */
+   One line, ellipsised: it's context, never worth stealing a second row. */
 .conv-meta {
   font-size: 0.75rem;
   line-height: 1.2;
@@ -1706,7 +1706,7 @@ body.resizing-sidebar {
   background: var(--border);
 }
 
-/* The conversation's running total. **Metadata, not a control** — it moved
+/* The conversation's running total. **Metadata, not a control**, it moved
    under the title with the rest of the subline, because as a filled chip
    between the heading and the buttons it read as a third button, and it
    shifted the actions sideways every time the number gained a digit. */
@@ -1842,7 +1842,7 @@ body.resizing-sidebar {
   color: var(--ink);
 }
 
-/* Indentation is the whole point of an outline — it shows the shape. */
+/* Indentation is the whole point of an outline, it shows the shape. */
 .outline-h2 .outline-link {
   padding-left: 1rem;
 }
@@ -1863,7 +1863,7 @@ body.resizing-sidebar {
 }
 
 /* Replaces what used to be an open-by-default <details> disclosure in the
-   sidebar — its body was tall enough to push the document list down. Same
+   sidebar: its body was tall enough to push the document list down. Same
    content, now behind #doc-storage-dialog; this is just the door to it. */
 .doc-storage-toggle {
   display: block;
@@ -1886,7 +1886,7 @@ body.resizing-sidebar {
    Each palette is a point of view, not a hue rotation: a paper-and-ink one for
    writing, a cool clinical one, a warm one for evenings. Every palette ships
    BOTH a light and a dark set, so choosing one is orthogonal to the light/dark
-   toggle — picking "Parchment" shouldn't silently decide whether it's night.
+   toggle: picking "Parchment" shouldn't silently decide whether it's night.
 
    Only the palette variables are redefined here; every component keeps reading
    the same names, which is what stops a new theme from needing new rules.
@@ -2014,7 +2014,7 @@ body.resizing-sidebar {
    is 5.1:1 and #5fd8d0 on #10142a is 9.4:1, both clear of WCAG AA for body
    text (4.5:1). */
 /* Shallows (the light half). It was asked for as "a teal light one" and was
-   drawn mostly indigo, so the page and the accent pulled in two directions —
+   drawn mostly indigo, so the page and the accent pulled in two directions, 
    a blue-grey ground with a teal accent sitting on it rather than in it. The
    ground is aqua now and the indigo survives only as the cooler blob, which
    is what makes it read as water over sand rather than as a grey page. */
@@ -2281,7 +2281,7 @@ button.is-on {
   padding: 2rem 1.5rem;
 }
 
-/* A panel-level heading, deliberately one step up from a card's h2 — it
+/* A panel-level heading, deliberately one step up from a card's h2: it
    titles the whole first-run panel rather than a card within it. */
 .dash-getting-started h2 {
   margin: var(--space-4) 0 var(--space-2);
@@ -2312,12 +2312,12 @@ button.is-on {
   gap: 0.6rem;
   padding: 0.8rem 0.8rem;
   /* A grid item's automatic minimum is its content, so a long step label
-     widened its track past the 1fr it was given — the same cause as the
+     widened its track past the 1fr it was given, the same cause as the
      chat-bubble overflow, in a different grid. */
   min-width: 0;
   /* Inside the empty-state card, so a tone, not a second bordered pane
      (the border budget). Same radius as every other tile. Hover changes
-     tone, never position — a row that moves on hover is Phase 4's rule. */
+     tone, never position: a row that moves on hover is Phase 4's rule. */
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: var(--surface-2);
@@ -2364,7 +2364,7 @@ button.is-on {
 
 /* --- the web reader: an article, not a ribbon of text ------------------------- */
 /* A comfortable measure. Full-width lines are the single biggest thing that
-   makes stripped text unpleasant to read — the eye loses the line return. */
+   makes stripped text unpleasant to read, the eye loses the line return. */
 .web-reader-text {
   max-width: 68ch;
   line-height: 1.65;
@@ -2442,14 +2442,14 @@ button.is-on {
 }
 
 /* ================================================================================
-   Phones (roadmap §8 — the layout had breakpoints but had never been driven at
+   Phones (roadmap §8: the layout had breakpoints but had never been driven at
    phone width, and at a true 390px viewport every single tab overflowed
    sideways. On a real phone Chrome hides that by shrinking the whole app to
    fit, so it doesn't look broken, it just renders unusably small.)
 
    The main offender was the top bar: six tab buttons on a row that neither
    wrapped nor scrolled, so the header alone demanded ~640px before any
-   content. A tab strip you can swipe is the right answer — wrapping it costs
+   content. A tab strip you can swipe is the right answer, wrapping it costs
    two rows of height on the smallest screens, where height is the scarce one.
    ============================================================================= */
 @media (max-width: 720px) {
@@ -2481,7 +2481,7 @@ button.is-on {
   }
 
   /* Horizontal only. The height stays `--header-control-h` so a phone's tabs
-     line up with its buttons exactly as a desktop's do — re-stating a vertical
+     line up with its buttons exactly as a desktop's do: re-stating a vertical
      padding here is how one breakpoint quietly grows its own control size. */
   #tab-bar button {
     flex: 0 0 auto;
@@ -2494,7 +2494,7 @@ button.is-on {
   }
 
   /* Give content the screen back: 2rem of side padding is a tenth of a phone.
-     One declaration, on the shell — this used to be four rules naming four
+     One declaration, on the shell, this used to be four rules naming four
      containers (.layout, .doc-layout, #dash-grid, .dash-hero) at 0.8rem, in a
      block that sits *after* the 720px `:root` tightening to 1rem. Same
      breakpoint, later source, so those four got 0.8rem and every other tab got
@@ -2573,12 +2573,12 @@ button.is-on {
 }
 
 /* ================================================================================
-   Text on accent-coloured surfaces (roadmap §7 — colour contrast was listed as
+   Text on accent-coloured surfaces (roadmap §7: colour contrast was listed as
    unverified; measured, and this was the one real failure).
 
    Every solid button, the active tab and the skip link paint white on
    var(--accent). In light mode that measured 4.34:1 against the default
-   indigo — just under the 4.5 AA needs. In dark mode the accent is a *light*
+   indigo: just under the 4.5 AA needs. In dark mode the accent is a *light*
    colour by design, so white-on-accent came out at 2.54:1, which is a genuine
    readability problem rather than a near miss.
 
@@ -2586,7 +2586,7 @@ button.is-on {
    the accent is darkened slightly for surfaces that carry text; in dark mode
    the accent stays and the text on it goes dark, which is the normal way to
    put text on a light block. Both are expressed against var(--accent), so all
-   thirteen accent presets and any custom colour are covered — a paired
+   thirteen accent presets and any custom colour are covered, a paired
    "strong" shade per accent would be thirteen chances to get one wrong.
    ============================================================================= */
 :root {
@@ -2694,7 +2694,7 @@ textarea.autogrow {
   margin-bottom: 0;
 }
 
-/* Matches `textarea.autogrow`'s own 2.75rem min-height exactly — measured
+/* Matches `textarea.autogrow`'s own 2.75rem min-height exactly, measured
    2px short otherwise (a `.ghost` button's border, under
    `box-sizing: border-box`), the same control-height shape documented in
    DESIGN.md, just smaller. */
@@ -2732,7 +2732,7 @@ textarea.autogrow {
      relative, not static: the collapse toggle inside each sidebar is
      position: absolute, and static gives it no positioning context to size
      against, so it fell through to the page's initial containing block and
-     rendered pinned to the viewport's top-left — over the app header
+     rendered pinned to the viewport's top-left: over the app header
      (reported live, screenshotted). relative keeps this rule's own static-
      like flow (no offset set here) while still containing the toggle. */
   #chat-sidebar,
@@ -2755,7 +2755,7 @@ textarea.autogrow {
    The controls are a row of small buttons of slightly different content
    widths; without a shared height they sit at visibly different sizes next to
    the tab pill. */
-/* `:not(.ai-status)` — the status dot is a button in this group but it is a
+/* `:not(.ai-status)`, the status dot is a button in this group but it is a
    circle, not a pill, and this rule was quietly making it neither: `height:
    2rem` against its own 1.6rem width made it an oval, and `padding-inline:
    0.7rem` against a 25.6px box left the glyph 4.9px right of centre. It sits
@@ -2763,7 +2763,7 @@ textarea.autogrow {
    the exception belongs here where the conflict is, not there where it
    wouldn't be seen. */
 .header-controls button:not(.ai-status) {
-  /* The token, not a repeat of its value — raising --header-control-h has
+  /* The token, not a repeat of its value, raising --header-control-h has
      to move these with the tabs, or the bar goes ragged the moment it
      changes ("the buttons and spaces elements in the top bar are too
      small"). */
@@ -2918,20 +2918,20 @@ textarea.autogrow {
 }
 
 /* A non-image upload's tile in the Library gallery. Same footprint as an
-   image tile so the grid stays a grid — a PDF among photos must not make
+   image tile so the grid stays a grid, a PDF among photos must not make
    the row it is in a different height. See library.js's own comment for why
    these tiles used to delete themselves instead of rendering. */
 /* **The PDF's first page covers the tile; it does not sit on top of it.**
    Reported with a screenshot: "in the files tab, the file type logo gets cut
    off and squashed below the preview image". It did. `.library-file-page` had
    no rule of its own at all, so the rendered page was a plain `<img>` flowing
-   as the first child of a 9rem `overflow: hidden` flex column — pushing the
+   as the first child of a 9rem `overflow: hidden` flex column: pushing the
    glyph and the "PDF" caption down and off the bottom edge.
 
    `library.js`'s own comment says what was meant: "The glyph stays underneath
    as the fallback for everything without pages, and for a PDF whose render
    fails." Underneath, not above. Taking the page out of flow and letting it
-   fill the tile makes that true — the glyph is still there, still centred,
+   fill the tile makes that true, the glyph is still there, still centred,
    simply covered while there is a page to show, and revealed the moment the
    render 404s, because the error handler removes the page and nothing else
    has to change.
@@ -2978,7 +2978,7 @@ textarea.autogrow {
 }
 
 /* A file staged in the composer: chosen, not yet uploaded, because the note
-   it belongs to has no id until Save. Dimmed rather than hidden — it is a
+   it belongs to has no id until Save. Dimmed rather than hidden, it is a
    real commitment the user has made and should be able to see and undo. */
 .file-card-staged {
   border-style: dashed;
@@ -2993,7 +2993,7 @@ textarea.autogrow {
   color: var(--accent);
 }
 
-/* Direction on a link chip. Colour is deliberately *not* the only signal —
+/* Direction on a link chip. Colour is deliberately *not* the only signal, 
    the arrow glyph carries it, and DESIGN.md's contrast rule (and WCAG's
    "don't convey information by colour alone") both say so. The tint is a
    second, faster read for someone scanning a well-linked note. */
@@ -3002,7 +3002,7 @@ textarea.autogrow {
 }
 
 /* The × that detaches a link, and the pencil that edits its reason. Measured
-   at 10x18 — under half of WCAG 2.2 AA's 24px floor, and the fiddliest
+   at 10x18: under half of WCAG 2.2 AA's 24px floor, and the fiddliest
    target left in the notes list. The glyph stays its size; the box around it
    grows to something a trackpad can actually land on. */
 .unlink {
@@ -3014,14 +3014,14 @@ textarea.autogrow {
   /* **Zero the inherited line box.** Reported with a screenshot right after
      the target floor landed: "the linked notes buttons arent aligned". The
      chip is an `inline-flex` row with `align-items: center`, which centres
-     its children's *boxes* — but each of these had inherited the chip's own
+     its children's *boxes*: but each of these had inherited the chip's own
      0.75rem line-height on top of a 28px box, so the glyph sat low inside a
      box that was itself correctly centred. Two different vertical
      alignments, one visible offset.
 
      `line-height: 1` makes the glyph fill its own box, and the flex
      centring above then puts it where it belongs. The 28px target is
-     untouched — the box stays the size a finger needs, the ink just sits in
+     untouched: the box stays the size a finger needs, the ink just sits in
      the middle of it. */
   line-height: 1;
   /* The floor grows the row it sits in unless the chip is told it may stay
@@ -3038,7 +3038,7 @@ textarea.autogrow {
   padding-block: 0;
 }
 
-/* Files shown by type rather than by preview — `setLibraryMediaView`
+/* Files shown by type rather than by preview, `setLibraryMediaView`
    (library.js), asked for as "make it togglable to change between filetype
    and previews".
 
@@ -3054,7 +3054,7 @@ textarea.autogrow {
 /* --- the document editor's instruments ---------------------------------------
    Asked for: "take inspo from vs code and word with options to view more info
    like character count, inline auto fill suggestions, grammar checker + auto
-   correct etc." Everything here is computed locally from the text in the box —
+   correct etc." Everything here is computed locally from the text in the box, 
    see documents.js for why that is the requirement and not a limitation. */
 
 /* The status strip. Quiet by design: it is the line you glance at, never the
@@ -3149,7 +3149,7 @@ textarea.autogrow {
   /* Reported: "waaayy too small". 16rem showed four rows of a list that
      routinely has twenty, so the panel was a scroller from the moment it
      opened. `min` against the viewport keeps it from swallowing a short
-     window — it is a panel under the document, not a second page. */
+     window: it is a panel under the document, not a second page. */
   max-height: min(60vh, 32rem);
   min-height: 8rem;
   overflow-y: auto;
@@ -3252,7 +3252,7 @@ textarea.autogrow {
 }
 
 /* The completion popup. `position: fixed` because it is placed in viewport
-   coordinates against the caret — an absolutely-positioned list would be
+   coordinates against the caret, an absolutely-positioned list would be
    offset by every scrolling ancestor between it and the textarea, which in
    this editor is three of them. */
 .doc-complete-list {
@@ -3298,7 +3298,7 @@ textarea.autogrow {
   color: inherit;
 }
 
-/* The caret mirror (documents.js). Off-screen rather than `display: none` — a
+/* The caret mirror (documents.js). Off-screen rather than `display: none`, a
    box with no layout reports no position, which is the whole reason it exists.
    Every property that affects text layout is copied onto it in script; these
    are only the ones that must never be. */
@@ -3369,7 +3369,7 @@ textarea.autogrow {
 }
 
 /* The replacements read as the primary answer and the rest as what else you
-   can do, so they are separated by a rule rather than by weight — the actions
+   can do, so they are separated by a rule rather than by weight, the actions
    are still real controls. */
 .doc-suggest-actions {
   margin-top: var(--space-1);
@@ -3463,7 +3463,7 @@ textarea.autogrow {
 
 /* The word goal, where the count it is a goal for now lives. The bar is drawn
    *inside* the button as a background layer rather than as a child element, so
-   the control stays one box with one hit area — a meter beside a button is two
+   the control stays one box with one hit area, a meter beside a button is two
    things to aim at for one idea. */
 .doc-word-goal-progress,
 #doc-word-goal.has-goal {
@@ -3559,7 +3559,7 @@ textarea.autogrow {
   margin-left: auto;
 }
 
-/* One height for everything on the meta row — reported: "the ui elements
+/* One height for everything on the meta row, reported: "the ui elements
    aren't the same height and are out of alignment". */
 .note-edit-meta > input,
 .note-edit-meta select,
@@ -3578,10 +3578,10 @@ textarea.autogrow {
   margin: 0;
 }
 
-/* Measured: the tags input sat 5px above its neighbours — same 36px
+/* Measured: the tags input sat 5px above its neighbours, same 36px
    height, different top, because a stretched flex item ignores the row's
    `align-items: center`. Centred explicitly, margins zeroed. */
-/* Measured: the tags input sat 5px above its neighbours — same 36px
+/* Measured: the tags input sat 5px above its neighbours, same 36px
    height, different top, because the app's form rule gives an `input` a
    9.6px bottom margin and a centred flex item then splits the difference.
    The element selectors are needed to beat that rule's own specificity. */

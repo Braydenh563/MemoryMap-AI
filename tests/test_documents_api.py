@@ -39,7 +39,7 @@ def test_documents_are_listed_most_recently_edited_first(client):
 
 
 def test_documents_past_the_old_200_cap_are_still_reachable(client):
-    """`list_documents` used to `.limit(200)` with no offset — a notebook
+    """`list_documents` used to `.limit(200)` with no offset: a notebook
     with more than 200 documents had no way, UI or API, to see the rest."""
     for i in range(205):
         client.post("/documents", json={"title": f"Doc {i}"})
@@ -56,7 +56,7 @@ def test_documents_search_matches_the_title(client):
 def test_documents_search_matches_content_not_only_title(client):
     """The gap `GET /documents?q=` exists to close: `_summary()` never sends
     a document's body to the browser, so client-side filtering alone could
-    only ever match a title — the AI's own `_list_documents` tool already
+    only ever match a title, the AI's own `_list_documents` tool already
     searched title *and* content; this mirrors it rather than a title-only
     filter reachable from the API."""
     client.post("/documents", json={"title": "Untitled", "content": "carbonara guanciale"})
@@ -101,7 +101,7 @@ def test_markdown_export_includes_the_title_and_a_filename(client):
 
 
 def test_export_filename_cannot_be_steered_by_the_title(client):
-    """The title is user text — it must not decide where the file lands."""
+    """The title is user text, it must not decide where the file lands."""
     created = client.post(
         "/documents", json={"title": "../../etc/passwd", "content": "x"}
     ).json()
@@ -174,7 +174,7 @@ def test_ai_edit_of_an_empty_document_is_a_clean_400(ai_client):
 
 
 def test_ai_write_inserts_new_content_without_needing_existing_text(ai_client, fake_ollama):
-    """The one verb an empty document must NOT 400 on — there is nothing to
+    """The one verb an empty document must NOT 400 on, there is nothing to
     edit yet, but there is plenty to write."""
     created = ai_client.post("/documents", json={"title": "Empty"}).json()
     fake_ollama.librarian_reply = "A brand new opening paragraph."
@@ -350,7 +350,7 @@ def test_revert_ai_edit_restores_the_documents_content(client):
 
 def test_revert_ai_edit_records_its_own_changelog_entry(client):
     """The changelog stays a truthful record of everything that happened,
-    including the revert itself — never a silent rewind."""
+    including the revert itself, never a silent rewind."""
     created = client.post(
         "/documents", json={"title": "Essay", "content": "After."}
     ).json()
@@ -377,7 +377,7 @@ def test_revert_ai_edit_can_itself_be_reverted(client):
     stored_after_revert = client.get(f"/documents/{created['id']}").json()
     assert stored_after_revert["content"] == "v1"
 
-    # Revert the revert (the newest changelog entry) — should bring v2 back.
+    # Revert the revert (the newest changelog entry), should bring v2 back.
     listed = client.get(f"/documents/{created['id']}/ai-edit-log").json()
     revert_entry_id = listed[0]["id"]
     client.post(f"/documents/{created['id']}/ai-edit-log/{revert_entry_id}/revert")
@@ -407,7 +407,7 @@ def test_ai_write_without_the_model_returns_nothing_to_insert(ai_client, fake_ol
         json={"instruction": "add a sentence", "verb": "write"},
     ).json()
     # Falling back to the existing content (compose()'s own contract) would
-    # insert the whole document into itself — "write" must fall back to ""
+    # insert the whole document into itself, "write" must fall back to ""
     # instead, since there is nothing sensible to insert.
     assert body["revised"] == ""
     assert body["ollama_running"] is False
@@ -529,6 +529,6 @@ def test_the_file_type_table_is_served_for_the_editor(client):
 
 def test_the_file_types_route_is_not_swallowed_by_the_id_route(client):
     """FastAPI matches in definition order and "file-types" is a fine string
-    for a path parameter typed int — registered the other way round this
+    for a path parameter typed int, registered the other way round this
     would 422 on every call."""
     assert client.get("/documents/file-types").status_code == 200

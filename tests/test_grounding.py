@@ -1,4 +1,4 @@
-"""ROADMAP.md item 36 — per-sentence grounding for a direct Q&A answer."""
+"""ROADMAP.md item 36: per-sentence grounding for a direct Q&A answer."""
 
 from __future__ import annotations
 

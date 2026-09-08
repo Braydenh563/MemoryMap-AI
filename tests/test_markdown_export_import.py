@@ -1,7 +1,7 @@
 """The whole-notebook markdown export (a zip of files) and its import.
 
 (Unrelated to test_document_import.py, which is markitdown converting an
-uploaded PDF/DOCX/etc. into notes — this is the notebook's own round-trip
+uploaded PDF/DOCX/etc. into notes: this is the notebook's own round-trip
 format: one `.md` file per note, with frontmatter for category/tags.)
 """
 

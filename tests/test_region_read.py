@@ -14,7 +14,7 @@ over it and stores nothing. What is checked here is the contract around that:
 the two modes, the guards on the upload, that the file id is a real
 authorisation check, and that nothing lands in `PageRead`.
 
-**Every model call goes through the fake transport** — there is no vision model
+**Every model call goes through the fake transport**, there is no vision model
 and no Tesseract binary in this sandbox, so what a real reader *answers* about
 a crop is not covered by anything here.
 """
@@ -27,7 +27,7 @@ from memorymap.ai import captioning, vision_ocr
 from memorymap.core import deps
 from memorymap.core.database import PageRead
 
-#: The smallest real PNG — a 1x1 greyscale pixel. Enough to satisfy the magic
+#: The smallest real PNG, a 1x1 greyscale pixel. Enough to satisfy the magic
 #: number check, which is the only thing this endpoint looks at before handing
 #: the bytes to a reader.
 PNG = (
@@ -70,7 +70,7 @@ def test_reading_a_region_transcribes_the_crop(client, fake_ollama, monkeypatch)
     assert body["mode"] == "read"
     assert body["model"] == "stub-reader"
     #: The page comes back so the answer can be labelled with where it came
-    #: from — an answer that does not say which page is the thing the region
+    #: from: an answer that does not say which page is the thing the region
     #: overlay exists to avoid.
     assert body["page"] == 2
 
@@ -104,7 +104,7 @@ def test_describing_a_region_uses_the_figure_prompt(client, fake_ollama, monkeyp
 
 
 def test_a_region_is_never_stored(client, fake_ollama, monkeypatch):
-    """`PageRead` is keyed by page and a region is a part of one — usually
+    """`PageRead` is keyed by page and a region is a part of one, usually
     several, each answering a different question. Filing one over the page's
     reading would destroy a transcription to save a note about one chart."""
     upload_id = _upload_pdf(client)
@@ -128,7 +128,7 @@ def test_an_unknown_mode_is_refused_rather_than_guessed(client, fake_ollama):
 
 def test_something_that_is_not_a_png_is_refused(client, fake_ollama):
     """The workspace sends `canvas.toBlob(..., "image/png")`. Anything else is
-    a caller doing something other than what this route is for — and this is
+    a caller doing something other than what this route is for, and this is
     the one endpoint in the app that runs a model over an image nobody
     uploaded."""
     upload_id = _upload_pdf(client)
@@ -164,7 +164,7 @@ def test_nothing_found_is_an_answer_not_an_error(client, fake_ollama, monkeypatc
     assert answer.status_code == 200
     assert answer.json()["text"] == ""
     assert "No text was found" in answer.json()["message"]
-    #: No model named, because nothing was produced — "read by X" over an empty
+    #: No model named, because nothing was produced, "read by X" over an empty
     #: answer is a claim about text that does not exist.
     assert answer.json()["model"] == ""
 
@@ -225,14 +225,14 @@ def test_the_boxes_layer_lets_the_drag_through_and_the_boxes_do_not():
 
 
 def test_the_offer_uses_the_apps_floating_panel_shell():
-    """DESIGN.md's popover shell — the rule at the end of this stylesheet — not
+    """DESIGN.md's popover shell, the rule at the end of this stylesheet, not
     a fifth recipe for "a small box that floats"."""
     shell = CSS.split(".wb-export-menu,")[-1].split("{")[0]
     assert ".ocr-region-popover" in shell
     glass_off = Path("frontend/css/03-dashboard-widgets.css").read_text(encoding="utf-8")
     assert ':root[data-glass="off"] .ocr-region-popover' in glass_off, (
         "a glass surface missing from the glass-off list stays glassy with the "
-        "setting switched off — DESIGN.md says to add it"
+        "setting switched off: DESIGN.md says to add it"
     )
 
 
@@ -247,7 +247,7 @@ def test_the_rectangle_is_cleared_once_the_request_is_away():
     run = LIBRARY.split("async function ocrRunRegion(mode)")[1].split("\n//:")[0]
     assert "ocrClearRegionSelection();" in run
     #: A FormData body with `api()`'s default JSON content type has no
-    #: multipart boundary — measured against the running app as a 405 before
+    #: multipart boundary: measured against the running app as a 405 before
     #: any of the request's fields were looked at.
     assert 'headers: { "X-Auth-Token": authToken()' in run
 

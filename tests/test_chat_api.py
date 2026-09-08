@@ -1,5 +1,5 @@
 """The /chat endpoint end-to-end over HTTP (with the AI faked so it runs
-offline — the real-model run happens manually with Ollama installed): the
+offline: the real-model run happens manually with Ollama installed): the
 dad-joke "done when" test, suggestions, and follow-up conversation memory."""
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ def test_dad_joke_loop(ai_client):
 
 def test_semantic_match_carries_its_score(ai_client):
     """A semantic hit's `match_info` should name a real similarity score, not
-    just "semantic" with nothing behind it — the whole point of the badge is
+    just "semantic" with nothing behind it, the whole point of the badge is
     to say *how* confident the match was."""
     joke = _save(ai_client, "Why did the scarecrow win an award? Outstanding in his field!")
     _save(ai_client, "buy milk, eggs and bread")
@@ -152,7 +152,7 @@ def test_build_messages_clips_history_length():
     history = [{"question": f"q{i}", "answer": long_answer} for i in range(10)]
     messages = librarian.build_messages("now", [{"content": "n", "category": "c"}], history=history)
 
-    # At most MAX_HISTORY_TURNS pairs survive, and each answer is clipped —
+    # At most MAX_HISTORY_TURNS pairs survive, and each answer is clipped, 
     # old ones hard, the most recent one generously, because "save that as a
     # note" refers to it and a stump of it is what used to get saved.
     assistant_msgs = [m for m in messages if m["role"] == "assistant"]
@@ -165,7 +165,7 @@ def test_build_messages_clips_history_length():
 
 
 def test_an_attached_documents_content_actually_reaches_the_model(ai_client, fake_ollama):
-    """The composer has sent `document_ids` since the staging UI shipped —
+    """The composer has sent `document_ids` since the staging UI shipped, 
     the field didn't exist on ChatRequest and routes_chat.py never read it,
     so an attached document showed as a chip on the message and the model
     never saw a word of it. Worse than not offering the feature: it looked

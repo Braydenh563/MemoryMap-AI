@@ -1,6 +1,6 @@
 """The librarian: answers a question using retrieved notes (LLM prompt #2).
 
-Strictly read-only — it never writes to the database.
+Strictly read-only: it never writes to the database.
 When the chat model is unavailable the caller still gets a friendly
 sentence, never an exception, because the raw results are shown anyway.
 """
@@ -20,14 +20,14 @@ NO_RESULTS_MESSAGE = "I couldn't find any saved notes matching that question."
 
 
 def model_error_message(model: str, error: Exception) -> str:
-    """What to show when the model call itself failed mid-turn — distinct
+    """What to show when the model call itself failed mid-turn, distinct
     from OFFLINE_MESSAGE, and never a substitute for it.
 
     Reported directly, and confirmed by tracing the exact code path: a turn
     that failed *after* the liveness check already passed (`ollama.is_running()`
     succeeded, so the model name and a real elapsed time show in the message
-    metadata line) was still shown OFFLINE_MESSAGE — "Ollama doesn't seem to
-    be running" — which is simply false in that case and reads as an
+    metadata line) was still shown OFFLINE_MESSAGE, "Ollama doesn't seem to
+    be running", which is simply false in that case and reads as an
     accusation against the model or Ollama itself when the real cause could
     be anything a live backend can reject a request for (the model tag isn't
     actually pulled, a template/architecture the backend can't run, a
@@ -40,7 +40,7 @@ def model_error_message(model: str, error: Exception) -> str:
     exposure through an exception") rather than straight into the string.
     `OllamaError`'s own message is already a controlled f-string, not a raw
     traceback, but the object reaching this function is typed as the base
-    `Exception` — some standard-library exceptions embed things in their own
+    `Exception`, some standard-library exceptions embed things in their own
     `str()` that don't belong in a message shown back to whoever is running
     this session (a file path, a connection detail), and there is nothing
     here that verifies which subclass actually arrived. Same sanitiser the
@@ -48,12 +48,12 @@ def model_error_message(model: str, error: Exception) -> str:
     characters that could forge a rendered line, cap the length so one huge
     message can't dominate the reply."""
     return (
-        f"The model ({model}) couldn't answer this — "
+        f"The model ({model}) couldn't answer this: "
         f"{safe_value(error)}"
     )
 
 # The persona is WHO the assistant is; the grounding is non-negotiable
-# and survives any persona swap — answers always come from the notes.
+# and survives any persona swap, answers always come from the notes.
 DEFAULT_PERSONA = "You are the librarian of the user's personal notebook."
 GROUNDING = (
     "Answer the user's question in plain English using ONLY the notes "
@@ -70,8 +70,8 @@ SYSTEM_PROMPT = f"{DEFAULT_PERSONA} {GROUNDING}"
 # `GROUNDING` alone produces a perfectly grounded answer in the wrong *shape*:
 # it ends "Would you like me to…", because that is what a chat assistant does
 # and nothing had told this surface it isn't one. The results panel beside the
-# answer already offers every follow-up the user could want — opening a note,
-# a similar note, the note's own links — so an offer to do more here is a
+# answer already offers every follow-up the user could want, opening a note,
+# a similar note, the note's own links: so an offer to do more here is a
 # question the UI has already answered, taking up the space the overview
 # should be using.
 ASK_OVERVIEW = (
@@ -80,13 +80,13 @@ ASK_OVERVIEW = (
     "say about the question: lead with the answer, group related points, and "
     "name what the notes cover and what they leave out. Use ONLY these notes. "
     "Do NOT end by offering to do anything else, do NOT ask what they would "
-    "like next, and do NOT suggest chatting further — the results beside your "
+    "like next, and do NOT suggest chatting further, the results beside your "
     "answer already link every note you drew on. If the notes do not answer "
     "the question, say exactly that and say what they do cover instead."
 )
 
 # GROUNDING is right for a question about the notebook and wrong for anything
-# else — it's what turned "hey" into a summary of your notes. Conversational
+# else: it's what turned "hey" into a summary of your notes. Conversational
 # messages get their own brief instead, and never see retrieved notes.
 CONVERSATIONAL = (
     "This message is small talk, not a question about the notebook. Reply the "
@@ -137,7 +137,7 @@ def resolve_persona_prompt(name: str | None, config) -> str | None:
     """Persona name → its system prompt.
 
     The user's saved list wins over the built-ins (that's how editing a
-    built-in works — the edit is stored as an override; deleting the override
+    built-in works: the edit is stored as an override; deleting the override
     resets it). Unknown names fall back to the default persona. Shared by the
     chat routes, the dashboard greeting, and chat auto-naming, so the voice the
     user picked is used consistently everywhere.
@@ -153,7 +153,7 @@ def resolve_persona_prompt(name: str | None, config) -> str | None:
 # The user's communication-style preference tweaks the tone.
 STYLE_HINTS = {
     "friendly": "Be warm and conversational. Keep it brief.",
-    "concise": "Be as brief as possible — bullet points are fine.",
+    "concise": "Be as brief as possible, bullet points are fine.",
     "detailed": "Be thorough: mention every relevant note and add context.",
 }
 
@@ -182,7 +182,7 @@ MAX_HISTORY_TURNS = 4
 MAX_HISTORY_ANSWER_CHARS = 600
 # Except the answer being followed up on. "Now save that as a note" refers
 # to the answer just given, and a 600-character stump of it was what got
-# saved — the *most recent* answer keeps enough of itself that "that" means
+# saved: the *most recent* answer keeps enough of itself that "that" means
 # what the user watched being written. Reported as "difficult to get the
 # agent to explain something, and then make it as a note".
 LAST_ANSWER_CHARS = 4_000
@@ -191,8 +191,8 @@ LAST_ANSWER_CHARS = 4_000
 def history_messages(history: list[dict] | None) -> list[dict]:
     """The recent turns as chat messages, oldest first.
 
-    One clipping rule for every chat path — conversational, grounded and
-    agent — so a follow-up behaves the same wherever it lands: old answers
+    One clipping rule for every chat path, conversational, grounded and
+    agent: so a follow-up behaves the same wherever it lands: old answers
     are clipped hard, the latest one travels nearly whole (see
     LAST_ANSWER_CHARS).
     """
@@ -215,17 +215,17 @@ def history_messages(history: list[dict] | None) -> list[dict]:
 
 # How much of a note goes into the prompt before it is cut short. Most notes
 # are a line or two and are never touched by this; a few are pages, and those
-# few would otherwise crowd out the rest of the notebook — the whole point of
+# few would otherwise crowd out the rest of the notebook, the whole point of
 # retrieving ten notes is that the model sees ten of them.
 #
 # Cutting is only safe because the model can undo it: `get_note` reads one in
 # full, and the tools guide already tells it to before quoting. That is the
-# trade — send a short form, let it ask for the original — and it is the one
+# trade, send a short form, let it ask for the original, and it is the one
 # idea worth taking from the compression tooling that keeps being suggested
 # (see ROADMAP §11).
 MAX_NOTE_CHARS = 900
 
-# The same cut, for a turn with no tools on the wire — the Notes tab's Ask box.
+# The same cut, for a turn with no tools on the wire, the Notes tab's Ask box.
 #
 # Reported (§35A): "the notes that come up in the semantic search that are
 # given to the ai when asked smth in the ask section are cut off or truncated."
@@ -236,7 +236,7 @@ MAX_NOTE_CHARS = 900
 #
 # Two things follow. The marker has to stop naming a tool that isn't there,
 # and the allowance can be much larger, because this turn is not paying for
-# any tool schemas — the ~1,400-2,500 tokens the agent spends on those is
+# any tool schemas: the ~1,400-2,500 tokens the agent spends on those is
 # budget the Ask box has and was not using. Five notes at this size is still
 # far inside the window `ai/context.py` rations for them.
 UNTOOLED_NOTE_CHARS = 2_400
@@ -256,11 +256,11 @@ def note_for_prompt(note: dict, limit: int = MAX_NOTE_CHARS, can_fetch: bool = T
     if can_fetch and note_id:
         # Naming the tool and the id: a truncation the model cannot act on is
         # just a missing piece of the note.
-        where = f" — call get_note({note_id}) to read it in full"
+        where = f", call get_note({note_id}) to read it in full"
     else:
         # No tools this turn. Say it is cut and say nothing about fixing it,
         # so the model reports the gap instead of promising to look.
-        where = " — the rest is in the note itself"
+        where = ", the rest is in the note itself"
     return f"{content[:limit].rstrip()}… [cut{where}]"
 
 
@@ -277,7 +277,7 @@ def build_conversational_messages(
     """Prompt for a message that isn't about the notebook.
 
     Same persona and history as a normal answer, so it still sounds like the
-    assistant the user chose — but no notes, and no instruction to ground the
+    assistant the user chose, but no notes, and no instruction to ground the
     reply in them.
     """
     persona = (persona_prompt or DEFAULT_PERSONA).strip()
@@ -302,7 +302,7 @@ def build_conversational_messages(
 
 
 def _match_info_hint(match_info: dict | None) -> str:
-    """" (similarity: 0.81)" or " (matched: gym, membership)" — a short,
+    """" (similarity: 0.81)" or " (matched: gym, membership)", a short,
     honest note on *why* this result showed up, the same reasoning the
     "(attached by me)"/"(not a match)" flags beside it already use: told
     nothing, the model has no way to weigh a strong semantic match against
@@ -316,7 +316,7 @@ def _match_info_hint(match_info: dict | None) -> str:
         return f" (matched: {', '.join(match_info['terms'][:5])})"
     if match_info.get("type") in ("connected", "connected_2hop") and match_info.get("reason"):
         # search_manager._retrieve already traces a connected note back to
-        # the specific EntryLink row and its `reason` text — it just never
+        # the specific EntryLink row and its `reason` text: it just never
         # reached this render function. Asked for directly ("can the ai see
         # the link reasons... in the searches?"); the similarity-score half
         # of that question was answered already (the branches above), this
@@ -336,7 +336,7 @@ def system_content(
 
     Pulled out of `build_messages` so `plan_budget` below can *measure* it
     rather than estimate it. `context.plan` takes `system_chars` precisely
-    because the persona is user-editable — a long custom persona genuinely
+    because the persona is user-editable, a long custom persona genuinely
     does leave less room for notes and history, and a budget built against an
     assumed persona length is a budget that drifts over on exactly the
     notebooks that have one.
@@ -363,8 +363,8 @@ def plan_budget(
     """This turn's share-out of `model`'s window, for the untooled path.
 
     A mirror of the block at the top of `agent.answer_with_tools`, kept as a
-    function here because two callers need it — `answer` below and
-    routes_chat's streaming path — and the version that was inlined in the
+    function here because two callers need it, `answer` below and
+    routes_chat's streaming path: and the version that was inlined in the
     agent is precisely the one that never made it to this side.
 
     `usable_context` is asked for defensively: it is part of the provider
@@ -391,7 +391,7 @@ def build_messages(
     budget: "context.ContextBudget | None" = None,
     ask_overview: bool = False,
 ) -> list[dict]:
-    """The librarian's prompt — shared by the blocking and streaming
+    """The librarian's prompt: shared by the blocking and streaming
     chat endpoints so they can never drift apart.
 
     `history` is prior [{"question", "answer"}] turns, replayed as
@@ -401,12 +401,12 @@ def build_messages(
 
     `budget` is what stops this prompt overrunning the model's window.
     ``ai/context.py`` was written for exactly this and then only ever wired
-    into ``agent.build_agent_messages`` — this path, which is what "Ask the
+    into ``agent.build_agent_messages``, this path, which is what "Ask the
     Librarian" and the Notes Ask box use, had *no total cap of any kind*. The
     per-part clips below are all local: ``UNTOOLED_NOTE_CHARS`` caps one note
     at 2,400 characters and ``history_messages`` caps one past answer, but
     nothing capped their sum. Ten retrieved notes at that allowance is 24,000
-    characters of notes alone — around 6,000 tokens, comfortably past a
+    characters of notes alone, around 6,000 tokens, comfortably past a
     4,096-token model's entire window before the persona, the history or the
     question are counted, and what a model does when its window overruns is
     silently drop from the front, which is the system prompt. That is
@@ -429,7 +429,7 @@ def build_messages(
     dropped_notes = 0
     if budget is not None:
         # Same render function the loop below uses, so what `fit_notes`
-        # measures is what actually goes on the wire — measuring one shape and
+        # measures is what actually goes on the wire, measuring one shape and
         # sending another is how a budget passes its own check and overruns
         # anyway.
         notes, dropped_notes = context.fit_notes(
@@ -440,23 +440,23 @@ def build_messages(
 
     numbered = "\n".join(
         # A note the user attached by hand is flagged, so the model treats it
-        # as the subject rather than as one more search hit — and a note that
+        # as the subject rather than as one more search hit, and a note that
         # arrived because it is *linked* to a hit is flagged too, for the
         # opposite reason: it did not match, and an answer that presents it as
         # though it did is telling the user their search found something it
         # did not.
         f"{i}. [{note['category']}]"
         f"{' (attached by me)' if note.get('attached') else ''}"
-        f"{' (not a match — linked to one of the above)' if note.get('connected') else ''}"
+        f"{' (not a match: linked to one of the above)' if note.get('connected') else ''}"
         f"{_match_info_hint(note.get('match_info'))} "
-        # No tools on this path by definition — it is the plain librarian
-        # prompt — so notes get the larger allowance and an honest marker.
+        # No tools on this path by definition, it is the plain librarian
+        # prompt: so notes get the larger allowance and an honest marker.
         f"{note_for_prompt(note, UNTOOLED_NOTE_CHARS, can_fetch=False)}"
         for i, note in enumerate(notes, start=1)
     )
     attached_hint = (
         " The notes marked \"attached by me\" are the ones I specifically chose "
-        "for this question — focus on those."
+        "for this question: focus on those."
         if any(note.get("attached") for note in notes)
         else ""
     )
@@ -464,11 +464,11 @@ def build_messages(
     # it: a model that knows its notes were cut will hedge, where one that does
     # not will answer as though it saw the whole notebook. It has no tools on
     # this path, so unlike the agent's version this cannot point at a way to
-    # get the rest — it says what happened and stops there.
+    # get the rest: it says what happened and stops there.
     dropped_hint = (
         f"\n({dropped_notes} more matching note"
         f"{'' if dropped_notes == 1 else 's'} did not fit in this answer's "
-        "context — say so if it matters.)"
+        "context: say so if it matters.)"
         if dropped_notes
         else ""
     )
@@ -511,7 +511,7 @@ def answer(
     URIs and `model_override` is usually unset (the chat model handles it
     itself); when it can't, `image_context` carries a vision model's own
     caption of the image instead, folded into the question text, and
-    `images` stays empty — asked for directly, so a chat model with no
+    `images` stays empty: asked for directly, so a chat model with no
     vision of its own still "sees" what was attached without silently
     swapping the whole turn to a different model the user did not choose."""
     # An attached image (raw, or captioned into image_context) and "no
@@ -550,14 +550,14 @@ def answer(
 
 
 # Said without the model, when Ollama isn't up. A greeting shouldn't produce an
-# error message — the assistant can still say hello.
+# error message: the assistant can still say hello.
 OFFLINE_SMALLTALK = "Hello. The AI model isn't running, but your notes are all still here."
 
 #: What the Notes tab's Ask box says instead of chatting back (§35A).
 #:
 #: Reported: saying "hey" there got a chatbot answer. That box is for
 #: interrogating the notebook, and a greeting is the one input it has nothing
-#: to do with — so it says what it is for and gets out of the way, which costs
+#: to do with: so it says what it is for and gets out of the way, which costs
 #: no model round and cannot misfire the way a classifier can.
 #:
 #: Written as a prompt rather than a scolding: the useful thing here is an
@@ -568,7 +568,7 @@ ASK_IS_FOR_NOTES = (
 )
 
 #: Offered as buttons, not prose. The first version of this said the same
-#: thing in a paragraph and read as a dead end beside an empty results panel —
+#: thing in a paragraph and read as a dead end beside an empty results panel, 
 #: a wall of text telling someone what they did wrong. A question they can
 #: click is a way forward from the same place, and it teaches the shape of a
 #: question that works better than a description of one does.
@@ -578,7 +578,7 @@ ASK_EXAMPLES = [
     "What are my most common tags?",
 ]
 OFFLINE_ABOUT_APP = (
-    "I help you work with your notebook — finding, writing, tagging and "
+    "I help you work with your notebook, finding, writing, tagging and "
     "summarising notes, and setting reminders. The AI model isn't running "
     "right now, so start it to ask me anything."
 )
@@ -604,7 +604,7 @@ def converse(
     "hey" being answered with a summary of the user's notebook.
 
     `images`/`model_override`/`image_context` mirror `answer()`'s own
-    (routes_chat.py resolves them the same way for both — a casual "what's
+    (routes_chat.py resolves them the same way for both, a casual "what's
     this?" with a photo attached used to drop the photo entirely here, since
     this path never accepted images at all before now)."""
     if not ollama.is_running():
@@ -636,7 +636,7 @@ def converse(
 IMPROVE_MODES = {
     "proofread": (
         "Fix spelling, grammar, and punctuation in the user's note. Keep "
-        "their wording and meaning as close to the original as possible — "
+        "their wording and meaning as close to the original as possible, "
         "correct mistakes, don't rewrite."
     ),
     "rewrite": (
@@ -658,17 +658,17 @@ def improve_writing(
     custom_instruction: str = "",
 ) -> str:
     """Return an improved version of `text` (proofread / rewrite / concise /
-    custom). Raises OllamaError if the model is unavailable — the caller
+    custom). Raises OllamaError if the model is unavailable, the caller
     decides what to tell the user. Uses the utility model: this is a quick
     fix, not a conversation.
 
-    `custom_instruction` is read only when `mode == "custom"` — asked for
+    `custom_instruction` is read only when `mode == "custom"`, asked for
     directly, so a person isn't limited to the three fixed presets ("make it
     sound more professional", "translate to French", …). It's the same
     person's own note either way, not a second, untrusted party, but it's
     still placed as the instruction's *content* rather than spliced into the
     surrounding sentence, and the "reply with ONLY the edited text" rule is
-    restated after it — last word wins for a model reading top to bottom, so
+    restated after it: last word wins for a model reading top to bottom, so
     a custom instruction that tried to talk the model into adding commentary
     still loses to the app's own constraint on the reply shape.
     """
@@ -678,7 +678,7 @@ def improve_writing(
         instruction = IMPROVE_MODES.get(mode, IMPROVE_MODES["proofread"])
     system = (
         f"You are a careful copy-editor. {instruction} Reply with ONLY the "
-        "edited note text — no preamble, no quotes, no explanation."
+        "edited note text: no preamble, no quotes, no explanation."
     )
     reply = ollama.chat(
         model_manager.utility_model(),
@@ -692,24 +692,24 @@ def improve_writing(
 
 
 #: A generated title this long or longer reads as a summary sentence, not a
-#: title — the model is asked to keep it shorter than this, and this is the
+#: title: the model is asked to keep it shorter than this, and this is the
 #: hard backstop if it doesn't.
 GENERATED_TITLE_MAX_CHARS = 80
 
 
 def generate_title(text: str, model_manager: ModelManager, ollama: OllamaClient) -> str:
-    """A short title for a note that doesn't have one, on request — asked
+    """A short title for a note that doesn't have one, on request, asked
     for directly as the AI half of "a note's own `# Heading` becomes its
     title": recognising one the user wrote is free (`manager.extract_title`,
     no model call), but *writing* one costs a real request, so this is
     opt-in per note rather than automatic on every save.
 
-    Raises OllamaError if the model is unavailable — the caller decides what
+    Raises OllamaError if the model is unavailable, the caller decides what
     to tell the user, same as `improve_writing`.
     """
     system = (
         "You write short titles for personal notes. Reply with ONLY the "
-        "title — 3 to 8 words, no quotes, no trailing punctuation, no "
+        "title: 3 to 8 words, no quotes, no trailing punctuation, no "
         "leading '#'. It must actually describe what this specific note "
         "says, not a generic label like 'Quick note'."
     )
@@ -731,18 +731,18 @@ def generate_link_reason(source_text: str, target_text: str, model_manager: Mode
 
     This exists to fix a reported complaint: the reason shown for almost
     every link was the literal string "similar in meaning"
-    (`entry.manager.AUTO_REASON_TEXT`) — true of any two notes an embedding
+    (`entry.manager.AUTO_REASON_TEXT`), true of any two notes an embedding
     thought were close, and useless for telling *which* two. The system
     prompt below asks for the concrete thing the two notes share, not a
     restatement that they're related; the caller (`ai.links.audit_vague_links`)
-    is the other half — it rejects a reply that comes back vague anyway
+    is the other half, it rejects a reply that comes back vague anyway
     rather than trust the instruction alone.
     """
     system = (
         "You write short, SPECIFIC reasons explaining why two notes are "
         "connected. Name the concrete thing they share: a project, person, "
         "place, tool, decision, or date that appears in both notes. Do NOT "
-        "just assert that they are similar or related — that is exactly the "
+        "just assert that they are similar or related, that is exactly the "
         "kind of vague answer to avoid.\n\n"
         "Bad (too vague, never write these): 'similar in meaning', 'both "
         "notes discuss this', 'related programming concepts', 'both mention "
@@ -751,9 +751,9 @@ def generate_link_reason(source_text: str, target_text: str, model_manager: Mode
         "'shared deadline: 12 May', 'both mention Sarah', 'same client: "
         "Riverside project'.\n\n"
         "If you can't find anything specific two notes share, still name "
-        "the closest concrete overlap you can see — never fall back to a "
+        "the closest concrete overlap you can see, never fall back to a "
         "generic 'they are related' sentence.\n\n"
-        "Reply with ONLY the reason — 3 to 8 words, no quotes, no leading "
+        "Reply with ONLY the reason, 3 to 8 words, no quotes, no leading "
         "'because', no trailing punctuation."
     )
     prompt = (
@@ -781,7 +781,7 @@ def suggest_tags(
     limit: int = 5,
 ) -> list[str]:
     """Suggest a few short topic tags for a note (Wave: re-evaluate). Uses
-    the utility model. Raises OllamaError if the model is unavailable —
+    the utility model. Raises OllamaError if the model is unavailable, 
     the caller decides what to do. Returns lowercased, de-duplicated tags,
     excluding any already on the note."""
     have = ", ".join(existing) if existing else "none"
@@ -813,7 +813,7 @@ def summarize_meeting(
     ollama: OllamaClient,
 ) -> str:
     """Pull a decisions/action-items block out of a raw meeting transcript
-    (§25 — Whisper's `/voice/transcribe-meeting` returns only the transcript
+    (§25: Whisper's `/voice/transcribe-meeting` returns only the transcript
     itself, nothing structured). Same shape as `suggest_tags`: one
     utility-model completion, raises `OllamaError` if the model is
     unavailable and leaves it to the caller, never blocks a save on its own.

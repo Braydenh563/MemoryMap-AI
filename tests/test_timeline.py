@@ -88,7 +88,7 @@ def test_bands_can_be_tags_instead(client):
 
 
 def test_bands_can_be_threads_a_root_and_its_continuations(client):
-    """§87.6 — "a note with children sprouts a branch," using the thread
+    """§87.6: "a note with children sprouts a branch," using the thread
     structure `Entry.parent_id` already stores rather than category or tag."""
     root = _save(client, "trip planning")
     _save(client, "booked flights", parent_id=root["id"])
@@ -97,7 +97,7 @@ def test_bands_can_be_threads_a_root_and_its_continuations(client):
 
     bands = {b["name"]: b["count"] for b in client.get("/timeline?group=thread").json()["bands"]}
     assert bands["trip planning"] == 3
-    # The lone note isn't a thread, so it doesn't get its own lane — it
+    # The lone note isn't a thread, so it doesn't get its own lane, it
     # folds into the shared band the same way a long tail of small
     # category/tag bands already does.
     from memorymap.api.routes_timeline import THREAD_BAND
@@ -106,7 +106,7 @@ def test_bands_can_be_threads_a_root_and_its_continuations(client):
 
 
 def test_a_thread_whose_root_is_outside_the_window_still_bands(client, session):
-    """A parent older than the visible range isn't fetched a second time —
+    """A parent older than the visible range isn't fetched a second time, 
     the child just becomes a root of its own, the same honest
     simplification the `days` filter already asks the rest of the view to
     accept, rather than a crash or a silently dropped note."""
@@ -179,7 +179,7 @@ def test_a_scale_or_grouping_it_does_not_know_is_refused(client):
 
 def test_a_truncated_preview_says_so(client):
     """A bare `[:120]` slice cuts a long note off mid-word with nothing on
-    screen to say there's more — reported as the grid view's cards missing
+    screen to say there's more: reported as the grid view's cards missing
     an ellipsis. A short note is untouched; a long one ends in one."""
     from memorymap.api.routes_timeline import PREVIEW_CHARS
 

@@ -4,7 +4,7 @@ Two halves, weighted equally, because they fail independently and a single
 number that hid either would be useless for finding a regression:
 
 **Tool choice.** Was the tool that answers this ask actually offered for it?
-`tools.focus_for` is the app's own answer to that question — a deterministic
+`tools.focus_for` is the app's own answer to that question, a deterministic
 keyword router that narrows the schemas a turn puts on the wire (and, in
 small-model mode, is most of what decides what a 4B model can do at all). It
 returns `None` when it declines to narrow, which means the whole registry is
@@ -14,7 +14,7 @@ have stopped working. The `forbid` list is the other direction: a read must
 not put `delete_note` on the wire.
 
 **Citation correctness.** Run the tool with the golden arguments against the
-fixture notebook and ask whether the answer names the right things — read off
+fixture notebook and ask whether the answer names the right things, read off
 `ai/cards.py`, so this scores exactly what the chat would put in front of the
 reader as openable cards, not some private view of the result. A case whose
 tool has no cards (a count, a tag list) carries a `check` predicate instead.
@@ -45,7 +45,7 @@ class Score:
     id: str
     tool_choice: float
     citation: float
-    #: Whether the router narrowed at all for this ask — reported, never
+    #: Whether the router narrowed at all for this ask, reported, never
     #: scored. See the module docstring.
     narrowed: bool
     note: str = ""
@@ -68,7 +68,7 @@ def score_tool_choice(case: Ask) -> tuple[float, bool, str]:
             problems.append(f"{banned} was offered for a read")
         elif offered is None and banned in tools.CORE_TOOLS:
             # Nothing was narrowed, so everything in the core set is on the
-            # wire — including this one. Worth saying, not worth failing on:
+            # wire: including this one. Worth saying, not worth failing on:
             # the destructive tools are gated again at execution.
             problems.append(f"nothing was narrowed, so {banned} is on the wire")
     return (0.0 if problems else 1.0), narrowed, "; ".join(problems)
@@ -95,7 +95,7 @@ def score_citation(session: Session, case: Ask, book: Notebook) -> tuple[float, 
     if case.check is not None:
         try:
             return (1.0 if case.check(result, book) else 0.0), ("" if case.check(result, book) else "the answer was wrong")
-        except Exception as exc:  # noqa: BLE001 — a broken check is a failed case, not a crashed run
+        except Exception as exc:  # noqa: BLE001  # a broken check is a failed case, not a crashed run
             return 0.0, f"the check raised {exc!r}"
     return 0.0, "the case declared neither citations nor a check"
 
@@ -113,7 +113,7 @@ def score_case(session: Session, case: Ask, book: Notebook) -> Score:
 
 
 def report(scores: list[Score]) -> str:
-    """The table the CI run prints. Failures first — a passing row says
+    """The table the CI run prints. Failures first: a passing row says
     nothing anybody needs to read, and burying four bad rows in thirty good
     ones is how a score becomes decoration."""
     lines = ["", f"eval: {len(scores)} golden asks over the fixture notebook", ""]

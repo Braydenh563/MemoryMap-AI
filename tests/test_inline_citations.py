@@ -3,8 +3,8 @@
 Asked for directly: *"inline referencing with hyperlinks in ai chat messages
 would be amazing."*
 
-The data always existed — `ground_answer_sentences` returns {sentence,
-note_id} pairs — and only ever reached a chip row under the answer, which is
+The data always existed, `ground_answer_sentences` returns {sentence,
+note_id} pairs: and only ever reached a chip row under the answer, which is
 the one place a claim and its source are *not* read together.
 
 Asserted against the source because this app has no DOM in its Python suite
@@ -40,7 +40,7 @@ def test_it_is_actually_called(app_js):
 
 
 def test_every_grounding_call_site_passes_the_answer_element(app_js):
-    """Three surfaces render grounding — the Ask box, a live chat turn, and a
+    """Three surfaces render grounding, the Ask box, a live chat turn, and a
     reopened conversation. A call site that forgets the fourth argument gets
     the chips and silently no markers, which is exactly the half-wired state
     this file exists to prevent."""

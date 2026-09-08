@@ -2,7 +2,7 @@
 
 **This exists because of a crash that reached the user.** The staging list
 for files attached to an unsaved note (`captureStagedFiles`) was declared with
-`let` near the end of `app.js`, beside the function that fills it — while
+`let` near the end of `app.js`, beside the function that fills it, while
 `renderCaptureFiles`, which reads it, is called at module load time by the
 draft-restore block much earlier in the file. `let` is hoisted into the
 temporal dead zone rather than initialised, so that read threw:
@@ -19,7 +19,7 @@ each is the reason this file is a lint rather than a note in a handover:
 
 1. `node --check` passes. It is valid syntax and a runtime ordering fault.
 2. Every cold-boot check in the browser passed, because the draft-restore
-   block returns early when there is no saved draft — so on a fresh profile
+   block returns early when there is no saved draft, so on a fresh profile
    the crashing line never ran. The bug needed exactly one condition: an
    unsaved note left in the capture box.
 3. The declaration and the read are 19,000 lines apart, so neither diff nor
@@ -27,7 +27,7 @@ each is the reason this file is a lint rather than a note in a handover:
 
 **What this file checks, and what it does not.** It pins the one
 declaration by name. A general "nothing read at load is declared below it"
-lint was written first and removed — see the comment below for why it could
+lint was written first and removed, see the comment below for why it could
 not be made sound with a regex, and what guards the general case instead.
 """
 
@@ -51,11 +51,11 @@ APP_JS = FRONTEND / "app.js"
 # registrations whose *callbacks* read `shortcuts` and `TAB_JUMP_KEYS` at
 # event time, long after the file finished evaluating. The TDZ only bites a
 # read that happens during evaluation, and telling those apart needs to know
-# which text is inside a nested function body — that is a parser, not a
+# which text is inside a nested function body, that is a parser, not a
 # regex.
 #
 # A lint that reports nine false alarms is a lint someone silences, and the
-# usual way to silence one is to widen its rule until it catches nothing —
+# usual way to silence one is to widen its rule until it catches nothing, 
 # which is worse than not having it, because the file still claims to be
 # protecting something. So this keeps only the check that is *exact*, and
 # says plainly what actually guards the general case: the browser. The
@@ -76,9 +76,9 @@ def test_the_capture_staging_list_is_declared_early():
     body = APP_JS.read_text(encoding="utf-8")
     decl = body.find("let captureStagedFiles")
     first_read = body.find("captureStagedFiles.length")
-    assert decl != -1, "`captureStagedFiles` is gone — update or delete this test"
+    assert decl != -1, "`captureStagedFiles` is gone: update or delete this test"
     assert first_read == -1 or decl < first_read, (
         "`captureStagedFiles` is declared after something reads it again. It "
         "belongs beside the other capture state, ~19,000 lines before its "
-        "first use — see this module's docstring for what happens otherwise."
+        "first use: see this module's docstring for what happens otherwise."
     )

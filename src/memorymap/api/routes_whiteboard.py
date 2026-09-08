@@ -1,7 +1,7 @@
 """Whiteboard: note cards and freehand sketches placed on a canvas.
 
 A "board" is itself a note (`board_id` points at an entry), so a board is
-something you can search, tag and file like anything else in the notebook —
+something you can search, tag and file like anything else in the notebook, 
 and `board_id = NULL` is the one unnamed scratch board every notebook starts
 with.
 
@@ -13,7 +13,7 @@ version:
   render for good, with no way to remove the card from the UI.
 - **A write has to be scoped to the board it claims.** `PUT`/`DELETE` took an
   id and nothing else, so any node on any board could be moved or deleted by
-  guessing a number — and `PUT` silently ignored `board_id`, so "move this
+  guessing a number: and `PUT` silently ignored `board_id`, so "move this
   card to that board" quietly did nothing at all.
 """
 
@@ -40,7 +40,7 @@ router = APIRouter(prefix="/whiteboard", tags=["whiteboard"])
 #: **A `startswith("/media/")` test is not enough, and the difference is a
 #: file-deletion vulnerability.** `delete_object` removes the backing file
 #: when an image object goes, and `/media/../../../etc/passwd` passes a
-#: prefix check while resolving well outside the media folder — so the
+#: prefix check while resolving well outside the media folder, so the
 #: delete would unlink an arbitrary path. Matching the exact shape
 #: `upload_media` actually produces (a uuid4 hex plus a short suffix) closes
 #: it at the door, and `_media_path` below refuses to resolve outside the
@@ -52,12 +52,12 @@ MEDIA_URL_RE = re.compile(r"^/media/[A-Za-z0-9][A-Za-z0-9._-]{0,119}$")
 #: small enough that a runaway client can't fill the disk one PUT at a time.
 MAX_SKETCH_CHARS = 400_000
 
-#: A text box's own content. Generous — this is a whiteboard note, not a tweet
-#: — but still bounded for the same reason every other free-text field here is.
+#: A text box's own content. Generous: this is a whiteboard note, not a tweet
+#:, but still bounded for the same reason every other free-text field here is.
 MAX_OBJECT_TEXT_CHARS = 20_000
 
 #: What a board *is*. A map is a board with tree semantics turned on
-#: (MINDMAP_PLAN.md §4, option B) — the same rows, the same endpoints, one
+#: (MINDMAP_PLAN.md §4, option B), the same rows, the same endpoints, one
 #: extra edge per node. "board" is the default, and is what NULL settings
 #: mean, so every board that existed before maps did stays exactly what it
 #: was.
@@ -68,14 +68,14 @@ DEFAULT_BOARD_TYPE = "board"
 #: is the only thing an ordinary whiteboard has ever done; the other three
 #: are the standard mindmap arrangements (MINDMAP_PLAN.md §3.1). Stored
 #: rather than computed because it is a property of the map, not of the
-#: session looking at it — the layout you chose has to be there tomorrow.
+#: session looking at it, the layout you chose has to be there tomorrow.
 BOARD_LAYOUTS = {"free", "tree-right", "tree-down", "radial"}
 DEFAULT_BOARD_LAYOUT = "free"
 
 #: A map node that stands for something that lives in the library. The node
 #: is a *pointer*: deleting it removes the pointer and never the thing, which
 #: is the half of containment that must not be got wrong (MINDMAP_PLAN.md
-#: §5.4). `image` is deliberately not in here — an image object owns its file
+#: §5.4). `image` is deliberately not in here, an image object owns its file
 #: and `delete_object` unlinks it, which is the opposite rule.
 MAP_REFERENCE_KINDS = {"note", "document", "file", "link"}
 
@@ -86,7 +86,7 @@ MAP_TOPIC_KIND = "topic"
 VALID_OBJECT_KINDS = {"image", "text", MAP_TOPIC_KIND} | MAP_REFERENCE_KINDS
 
 
-#: A card/sketch/object's own persisted group — asked for directly (Ctrl+G).
+#: A card/sketch/object's own persisted group, asked for directly (Ctrl+G).
 #: Opaque and client-generated (a `crypto.randomUUID()`), not a foreign key:
 #: one group spans three different tables, so there's no single row for it
 #: to reference. 40 chars is a UUID with room to spare.
@@ -99,7 +99,7 @@ class WhiteboardNodeBase(BaseModel):
     x: float = 0.0
     y: float = 0.0
     z: int = 0
-    #: Asked for directly ("resizing... cards"). `None` means auto-sized —
+    #: Asked for directly ("resizing... cards"). `None` means auto-sized: 
     #: the same ~250×150 CSS default every card used before this existed.
     width: float | None = Field(default=None, ge=20, le=4000)
     height: float | None = Field(default=None, ge=20, le=4000)
@@ -132,7 +132,7 @@ class WhiteboardSketchOut(WhiteboardSketchBase):
 
 class WhiteboardObjectData(BaseModel):
     """What `data` actually holds, validated by `kind` rather than left as an
-    opaque string the way a sketch's own path data is — an image needs a real
+    opaque string the way a sketch's own path data is, an image needs a real
     same-origin URL (never an arbitrary one a client could point anywhere),
     and a text box's content has its own length bound."""
 
@@ -140,12 +140,12 @@ class WhiteboardObjectData(BaseModel):
     content: str | None = Field(default=None, max_length=MAX_OBJECT_TEXT_CHARS)
     color: str | None = Field(default=None, max_length=20)
     font_size: int | None = Field(default=None, ge=8, le=200)
-    #: A text box's own fill/border — asked for directly (the properties
+    #: A text box's own fill/border: asked for directly (the properties
     #: panel). Images have no use for either; left `None` there.
     bg: str | None = Field(default=None, max_length=20)
     border_color: str | None = Field(default=None, max_length=20)
     #: How the text sits in its box, and whether it is shown as rendered
-    #: markdown — asked for directly ("text alignment, font size etc", "rendered
+    #: markdown: asked for directly ("text alignment, font size etc", "rendered
     #: md which is togglable in text boxes and sticky notes"). A field the
     #: schema does not name is dropped silently by Pydantic, which is exactly
     #: how the first attempt at this looked like a frontend bug: the toggle
@@ -181,7 +181,7 @@ class WhiteboardObjectBase(BaseModel):
     def _known_kind(cls, value: str) -> str:
         if value not in VALID_OBJECT_KINDS:
             raise ValueError(
-                f"Unknown object kind {value!r} — expected one of "
+                f"Unknown object kind {value!r}: expected one of "
                 + ", ".join(sorted(VALID_OBJECT_KINDS))
             )
         return value
@@ -237,7 +237,7 @@ def _require_object_data(body: WhiteboardObjectBase) -> None:
         # the UI what it was ever meant to be.
         raise HTTPException(
             status_code=422,
-            detail=f"A {body.kind} node needs a ref_id — the id of the {body.kind} it stands for",
+            detail=f"A {body.kind} node needs a ref_id, the id of the {body.kind} it stands for",
         )
 
 
@@ -267,7 +267,7 @@ class WhiteboardStateOut(BaseModel):
 def _board_filter(model, board_id: int | None):
     """`board_id = N`, or `IS NULL` for the unnamed scratch board.
 
-    `== None` renders as `= NULL` in SQL, which is never true for any row — so
+    `== None` renders as `= NULL` in SQL, which is never true for any row, so
     the default board came back empty however much was on it. SQLAlchemy's
     `is_()` is the difference between a working board and a blank one.
     """
@@ -280,7 +280,7 @@ def _forget_links_to(db: Session, board_id: int | None, kind: str, item_id: int)
     (`sourceId`/`targetId` plus a `sourceKind`/`targetKind` of "node",
     "object" or "sketch", "node" when absent); the frontend already skips a
     link whose end is gone, so without this a deleted card left an invisible
-    orphan row behind forever. One linear pass over the board's sketches —
+    orphan row behind forever. One linear pass over the board's sketches: 
     boards are hundreds of rows, not millions. Returns how many went."""
     rows = db.scalars(select(WhiteboardSketch).where(_board_filter(WhiteboardSketch, board_id))).all()
     gone = 0
@@ -310,16 +310,16 @@ def _require_entry(session: Session, entry_id: int) -> Entry:
 
 def _require_board(session: Session, board_id: int | None) -> None:
     """A board is a note too, and `board_id` is a real foreign key
-    (`PRAGMA foreign_keys=ON`) — writing one that doesn't exist doesn't fail
+    (`PRAGMA foreign_keys=ON`), writing one that doesn't exist doesn't fail
     quietly, it throws `IntegrityError` out of `db.commit()` as a raw 500. A
     board note purged (or hard-deleted) out from under a stale client-side
     `currentBoardId` is exactly how that happens: nothing here re-validates
     the id on write the way `_require_entry` already does for `entry_id`.
-    Checked the same permissive way `_board_filter` reads it — `None` always
+    Checked the same permissive way `_board_filter` reads it: `None` always
     means the default scratch board, never "board 0".
 
     Also where an ordinary note gets permanently remembered as a board the
-    first time anything is drawn on it — every node/sketch/object write with
+    first time anything is drawn on it, every node/sketch/object write with
     a real `board_id` already funnels through here, so this is the one
     place that sees "this note just became a board" regardless of which of
     the three it was. See `Entry.is_board`'s own comment for why that has to
@@ -415,7 +415,7 @@ def _board_settings(entry: Entry | None) -> tuple[str, str]:
     Everything here is defensive on purpose, because the column is JSON in a
     text field and this is the only place that reads it: NULL (every board
     that predates maps), a blob that isn't JSON, a blob that is JSON but not
-    an object, and a value outside the known set all mean the same thing —
+    an object, and a value outside the known set all mean the same thing, 
     an ordinary free-layout whiteboard. A board is a note someone can still
     edit by other means; a bad value here must degrade to the default, never
     to a 500 on the Library's own board list.
@@ -473,7 +473,7 @@ class BoardOut(BaseModel):
     type: str = DEFAULT_BOARD_TYPE
     layout: str = DEFAULT_BOARD_LAYOUT
     #: A miniature of where things actually sit on this board: up to
-    #: Up to `PREVIEW_POINTS` items — `{x, y, kind, label}` — each position
+    #: Up to `PREVIEW_POINTS` items, `{x, y, kind, label}`, each position
     #: normalised into 0..1 against the board's own bounding box. The
     #: Library's board cards showed an icon, a title and a count, which is
     #: the same three facts for every board anyone has ever drawn (reported
@@ -483,7 +483,7 @@ class BoardOut(BaseModel):
     #: and both came out of looking at the result: reported again as "the
     #: whiteboard preview is poor", and the screenshot showed why. Every card
     #: drew as an identical blank grey rectangle, so three different boards
-    #: called "Cloud computing" were indistinguishable — a preview whose only
+    #: called "Cloud computing" were indistinguishable: a preview whose only
     #: information is *how many* things there are and roughly where. And a
     #: board holding only sketches previewed as nothing at all, because
     #: sketches were not in the sample; "Default board · 2 sketches" showed
@@ -491,7 +491,7 @@ class BoardOut(BaseModel):
     #:
     #: Normalised here rather than client-side because the client would then
     #: need every item's absolute coordinates to compute the bounds, which is
-    #: the whole board — and a list of twenty boards would ship twenty whole
+    #: the whole board: and a list of twenty boards would ship twenty whole
     #: boards to draw twenty thumbnails.
     preview_items: list[dict] = []
     #: A map's parent→child edges as line segments, `{x1, y1, x2, y2}`, in the
@@ -499,7 +499,7 @@ class BoardOut(BaseModel):
     #:
     #: Empty for an ordinary board, which has no tree to draw. It exists
     #: because a map whose thumbnail is a scatter of dots is indistinguishable
-    #: from a board — and structure is the entire difference between the two,
+    #: from a board: and structure is the entire difference between the two,
     #: so the one thing the picture has to show is the one thing points alone
     #: cannot.
     preview_edges: list[dict] = []
@@ -517,7 +517,7 @@ class BoardTypeMixin(BaseModel):
     def _known_type(cls, value: str | None) -> str | None:
         if value is not None and value not in BOARD_TYPES:
             raise ValueError(
-                f"Unknown board type {value!r} — expected " + " or ".join(sorted(BOARD_TYPES))
+                f"Unknown board type {value!r}: expected " + " or ".join(sorted(BOARD_TYPES))
             )
         return value
 
@@ -526,7 +526,7 @@ class BoardTypeMixin(BaseModel):
     def _known_layout(cls, value: str | None) -> str | None:
         if value is not None and value not in BOARD_LAYOUTS:
             raise ValueError(
-                f"Unknown layout {value!r} — expected one of " + ", ".join(sorted(BOARD_LAYOUTS))
+                f"Unknown layout {value!r}: expected one of " + ", ".join(sorted(BOARD_LAYOUTS))
             )
         return value
 
@@ -549,7 +549,7 @@ def _preview_points(rows: list[tuple[float, float]]) -> list[list[float]]:
     A stride keeps the sample spread across the whole board.
 
     A board whose content is a single point, or a perfectly straight row of
-    cards, has zero extent on at least one axis — hence the guard, which
+    cards, has zero extent on at least one axis, hence the guard, which
     centres that axis instead of dividing by zero.
     """
     if not rows:
@@ -572,7 +572,7 @@ def _preview_points(rows: list[tuple[float, float]]) -> list[list[float]]:
 
 
 #: How much of a card's own text the thumbnail carries. Enough to tell two
-#: boards apart at a glance and no more — the label is drawn at a few pixels
+#: boards apart at a glance and no more, the label is drawn at a few pixels
 #: high, so a longer string is only bytes.
 PREVIEW_LABEL_CHARS = 28
 
@@ -582,7 +582,7 @@ def _preview_items(rows: list[tuple[float, float, str, str]]) -> list[dict]:
     *is* and what it says.
 
     Sampling happens before normalising and both use one stride, so the
-    labels can never end up attached to the wrong positions — which is the
+    labels can never end up attached to the wrong positions, which is the
     obvious way to break this while every number still looks plausible.
     """
     if not rows:
@@ -605,7 +605,7 @@ def _board_preview(db: Session, board_id: int | None) -> tuple[list[dict], list[
 
     **Edges are computed from the sampled items, not from the board.** The
     sampler drops items on a large board (`PREVIEW_POINTS`), and an edge
-    whose other end was dropped would be a line to nowhere — so an edge is
+    whose other end was dropped would be a line to nowhere, so an edge is
     emitted only when both of its ends survived sampling, and it reuses the
     normalised coordinates the items already got rather than normalising a
     second time against different bounds.
@@ -618,7 +618,7 @@ def _board_preview(db: Session, board_id: int | None) -> tuple[list[dict], list[
         )
 
     rows: list[tuple[float, float, str, str]] = []
-    #: Which object each row came from, positionally — `None` for a card or a
+    #: Which object each row came from, positionally, `None` for a card or a
     #: sketch, which have no tree. Only map nodes ever claim a parent, so an
     #: ordinary board leaves `parent_of` empty and pays for nothing.
     owners: list[int | None] = []
@@ -630,7 +630,7 @@ def _board_preview(db: Session, board_id: int | None) -> tuple[list[dict], list[
         if entry is not None and not entry.is_private:
             # A card *is* a note, so its own title (or first words) is what
             # is written on it. A private note contributes its position and
-            # nothing else — the same rule the Connections block and the
+            # nothing else: the same rule the Connections block and the
             # Library's file-usage chips follow.
             text = manager.readable_content(entry)
             label = (manager.extract_title(text) or text.strip().split("\n")[0])[
@@ -646,7 +646,7 @@ def _board_preview(db: Session, board_id: int | None) -> tuple[list[dict], list[
     for obj in db.scalars(select(WhiteboardObject).where(on(WhiteboardObject))):
         label = ""
         if obj.kind == MAP_TOPIC_KIND:
-            # A map's thumbnail is mostly topics, and a topic *is* its text —
+            # A map's thumbnail is mostly topics, and a topic *is* its text, 
             # a tree of unlabelled boxes tells two maps apart no better than
             # a scatter of dots did.
             try:
@@ -682,11 +682,11 @@ def _board_preview(db: Session, board_id: int | None) -> tuple[list[dict], list[
 def list_boards(
     type: str | None = None, db: Session = Depends(get_session)
 ) -> list[BoardOut]:
-    """Boards actually in use — not, as the client used to build this list
+    """Boards actually in use, not, as the client used to build this list
     itself, every note in the notebook.
 
     Reported directly: "the different board options confuse me." The cause
-    wasn't a bug so much as a design choice nobody had reckoned with yet — a
+    wasn't a bug so much as a design choice nobody had reckoned with yet, a
     board being *just a note* (this file's own opening comment) is right for
     the data model, but the picker took that literally and listed every
     single note as a "board", the vast majority of which had never been used
@@ -695,18 +695,18 @@ def list_boards(
     drawn on. This lists only notes with at least one card or sketch on them,
     plus the always-present default board.
 
-    `?type=map` (or `board`) narrows it to one kind — the Library's Maps
+    `?type=map` (or `board`) narrows it to one kind, the Library's Maps
     chip. Filtered in Python rather than in SQL because a board's type lives
     inside a JSON settings blob (`Entry.board_settings`), and because this
     function already materialises every board to build its preview: the list
     is tens of rows long, not thousands. An unknown value returns nothing
-    rather than everything — a filter that silently ignores itself reads as
+    rather than everything: a filter that silently ignores itself reads as
     "you have no maps" only after the user has read every row.
     """
     if type is not None and type not in BOARD_TYPES:
         raise HTTPException(
             status_code=422,
-            detail=f"Unknown board type {type!r} — expected " + " or ".join(sorted(BOARD_TYPES)),
+            detail=f"Unknown board type {type!r}: expected " + " or ".join(sorted(BOARD_TYPES)),
         )
     node_counts = dict(
         db.execute(
@@ -739,7 +739,7 @@ def list_boards(
         select(func.count()).select_from(WhiteboardObject).where(WhiteboardObject.board_id.is_(None))
     )
     # The default scratch board has no note behind it, so it has nowhere to
-    # store settings and is always an ordinary board — which is why it is
+    # store settings and is always an ordinary board, which is why it is
     # excluded by `?type=map` rather than being special-cased into it.
     default_items, default_edges = _board_preview(db, None)
     boards = [
@@ -753,7 +753,7 @@ def list_boards(
             preview_edges=default_edges,
         )
     ] if type in (None, DEFAULT_BOARD_TYPE) else []
-    # `is_board` entries are included even at zero counts — see its own
+    # `is_board` entries are included even at zero counts, see its own
     # comment on the model and on `_require_board` above: a board that is
     # currently empty (just created, or cleared back to empty) is still a
     # board, and used to vanish from this list the moment its count hit
@@ -799,10 +799,10 @@ class BoardImageOut(BaseModel):
 
 @router.get("/images", response_model=list[BoardImageOut])
 def list_images(db: Session = Depends(get_session)) -> list[BoardImageOut]:
-    """Every image object across every board — asked for directly ("what
+    """Every image object across every board, asked for directly ("what
     about uploaded images" in the Library). Whiteboard images already have
     a real row (`WhiteboardObject`, unlike an image pasted into a note's own
-    markdown, which has none — see ROADMAP item 20a for that still-open
+    markdown, which has none, see ROADMAP item 20a for that still-open
     gap), so this is a flat query, not new plumbing.
     """
     objects = db.scalars(select(WhiteboardObject).where(WhiteboardObject.kind == "image")).all()
@@ -834,7 +834,7 @@ def list_images(db: Session = Depends(get_session)) -> list[BoardImageOut]:
 
 @router.post("/boards", response_model=BoardOut, status_code=201)
 def create_board(body: BoardCreate, db: Session = Depends(get_session)) -> BoardOut:
-    """A fresh, empty board — a plain note whose whole job is to be one.
+    """A fresh, empty board, a plain note whose whole job is to be one.
 
     Named directly (`# {name}` as its first line, the same heading convention
     every note's own title already reads), rather than the previous only way
@@ -863,26 +863,26 @@ def create_board(body: BoardCreate, db: Session = Depends(get_session)) -> Board
 
 @router.post("/boards/{board_id}/duplicate", response_model=BoardOut, status_code=201)
 def duplicate_board(board_id: int, db: Session = Depends(get_session)) -> BoardOut:
-    """Copy a board — every card, sketch and object, at the same positions.
+    """Copy a board: every card, sketch and object, at the same positions.
 
     ROADMAP.md item 8 ("managing concept maps"): creating a map works and so
     do listing and renaming, but duplicating did not exist on either side.
-    It is the one that makes a map reusable — a map you have laid out is a
+    It is the one that makes a map reusable, a map you have laid out is a
     template for the next one, and without this the only way to reuse a shape
     is to rebuild it card by card.
 
     **A card is a real note**, which is the app's own premise (see
     `createConceptMap`) and the reason this is not a shallow row copy: the
     duplicate gets *new* notes with the same text, so editing a card on the
-    copy cannot rewrite the original's. The alternative — pointing both boards
-    at one set of notes — looks identical the moment it is made and diverges
+    copy cannot rewrite the original's. The alternative: pointing both boards
+    at one set of notes, looks identical the moment it is made and diverges
     into data loss the first time someone edits the copy.
 
     Sketches and objects carry no separate identity, so those rows are copied
     as they are.
     """
     # `_require_board` validates and returns nothing, so the Entry is fetched
-    # separately — the title has to come from the board note's own heading,
+    # separately: the title has to come from the board note's own heading,
     # which is where a board's title lives (see `rename_board`).
     _require_board(db, board_id)
     source = deps.get_or_404(db, Entry, board_id, "Board not found")
@@ -924,7 +924,7 @@ def duplicate_board(board_id: int, db: Session = Depends(get_session)) -> BoardO
 
     # **The copy's tree has to point at the copy.** A row-by-row copy carries
     # `parent_id` verbatim, which would leave every node in the duplicate
-    # parented to the *original's* rows — a map that looks right in the object
+    # parented to the *original's* rows: a map that looks right in the object
     # list and renders as a flat pile of roots, because the tree walk on this
     # board finds no parent of its own on it. So: copy first, then re-wire by
     # the old id → new id map, which needs the new ids and therefore a flush.
@@ -970,7 +970,7 @@ def duplicate_board(board_id: int, db: Session = Depends(get_session)) -> BoardO
 class BoardRename(BoardTypeMixin):
     #: Optional since maps: `PUT` used to be rename-only and required a
     #: title, so a client changing the *layout* had to resend the name it was
-    #: not touching — which is how a rename made in another tab gets silently
+    #: not touching: which is how a rename made in another tab gets silently
     #: overwritten by a stale one. `None` means "leave the title alone".
     title: str | None = Field(default=None, min_length=1, max_length=100)
 
@@ -978,7 +978,7 @@ class BoardRename(BoardTypeMixin):
 @router.put("/boards/{board_id}", response_model=BoardOut)
 def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_session)) -> BoardOut:
     """A board's title is its underlying note's own first `#` heading line
-    (`list_boards`'s own `extract_title` read, above) — so renaming a board
+    (`list_boards`'s own `extract_title` read, above): so renaming a board
     is the same `apply_title` edit any other note's title goes through, not
     a second stored field. The default scratch board (`board_id=None`) has
     no underlying note to rename; `board_id=0` and negative ids can't
@@ -987,7 +987,7 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
 
     Also where a board becomes a map and back (`type`), and where a map's
     `layout` is chosen. Every field is optional and only what was sent is
-    applied — the same shape `PATCH` would have, kept as `PUT` because the
+    applied: the same shape `PATCH` would have, kept as `PUT` because the
     route, the client call and this function's name already existed.
     """
     entry = db.get(Entry, board_id) if board_id > 0 else None
@@ -1035,7 +1035,7 @@ def create_node(
     _require_entry(db, node_in.entry_id)
     _require_board(db, node_in.board_id)
     # One card per note per board. Dropping the same note on a board twice is
-    # a move, not a duplicate — the alternative is two cards stacked exactly
+    # a move, not a duplicate, the alternative is two cards stacked exactly
     # on top of each other, which reads as one card that won't drag properly.
     existing = db.scalar(
         select(WhiteboardNode).where(
@@ -1127,7 +1127,7 @@ def delete_sketch(sketch_id: int, db: Session = Depends(get_session)) -> dict:
 #
 # Asked for directly: "images can also be attached by copy and pasting into
 # the whiteboard as well though they wouldn't be shown in a note and would
-# only be accessible from the library and the whiteboard" — and separately,
+# only be accessible from the library and the whiteboard", and separately,
 # "I want the whiteboard to basically be like OneNote and Microsoft
 # Whiteboard", which needs a real text box. A card always wraps an existing
 # note; a sketch is a path, not a placeable rectangle. Neither fits an image
@@ -1156,7 +1156,7 @@ def create_object(
     db.commit()
     db.refresh(obj)
     if obj.kind == "image":
-        # Placing an image object on the board is itself the commit — a
+        # Placing an image object on the board is itself the commit, a
         # whiteboard has no separate staging/save step the way a note or
         # chat draft does, so this fires immediately (core/media_process.py's
         # own docstring covers the other three commit points).
@@ -1175,7 +1175,7 @@ def update_object(
     obj = deps.get_or_404(db, WhiteboardObject, object_id, "Object not found")
     _require_board(db, body.board_id)
     _require_object_data(body)
-    # The kind an object was created as doesn't change — an image resized or
+    # The kind an object was created as doesn't change: an image resized or
     # moved is still an image; nothing in the UI offers "turn this into a
     # text box", so treating a mismatched kind here as a client bug rather
     # than silently reinterpreting the row is the safer failure.
@@ -1194,14 +1194,14 @@ def update_object(
 
 @router.delete("/objects/{object_id}")
 def delete_object(object_id: int, db: Session = Depends(get_session)) -> dict:
-    """Delete an object — and, on a map, everything hanging off it.
+    """Delete an object: and, on a map, everything hanging off it.
 
     **Coggle's rule, chosen deliberately over re-parenting** (MINDMAP_PLAN.md
     §5.4). The alternative, promoting a deleted node's children to its
     parent, reads as the gentler option and is worse: a branch you meant to
     remove reappears as loose children under a node that never had them, and
     there is no single action that puts it back. Deleting the subtree is one
-    action, so it can be undone as one — which is why the whole subtree comes
+    action, so it can be undone as one, which is why the whole subtree comes
     back in the response, rows and positions included, rather than a count.
 
     An ordinary object has no children, so this is exactly what it always
@@ -1224,7 +1224,7 @@ def _subtree(db: Session, root: WhiteboardObject) -> list[WhiteboardObject]:
     column's own comment): a cycle written by a bad client, or by a bug in
     something that has not been written yet, must end this walk rather than
     the process. Scoped to `root`'s own board for the same reason every other
-    write here is — a child claiming a parent on another board is not part of
+    write here is: a child claiming a parent on another board is not part of
     this tree.
     """
     found = [root]
@@ -1249,11 +1249,11 @@ def _subtree(db: Session, root: WhiteboardObject) -> list[WhiteboardObject]:
 
 def _delete_one_object(db: Session, obj: WhiteboardObject) -> None:
     """The per-row half of `delete_object`: forget its links, unlink its file
-    if it owned one, remove the row. Does not commit — a subtree is one
+    if it owned one, remove the row. Does not commit: a subtree is one
     delete, so it is one transaction."""
     _forget_links_to(db, obj.board_id, "object", obj.id)
     if obj.kind == "image":
-        # The only thing that ever pointed at this file — best-effort, the
+        # The only thing that ever pointed at this file, best-effort, the
         # same rule `_hard_delete` already follows for an attachment's own
         # file: the row goes either way, a stubborn file must not block it.
         # `_media_path` returns None for anything that isn't provably inside
@@ -1267,7 +1267,7 @@ def _delete_one_object(db: Session, obj: WhiteboardObject) -> None:
             # `int(obj.id)` rather than anything that came off the request.
             # FastAPI already rejects a non-integer path parameter with a 422
             # before any of this runs, so it cannot carry the newline a forged
-            # log line would need — but a path parameter reaching a log record
+            # log line would need, but a path parameter reaching a log record
             # is a flow CodeQL flags on principle (py/log-injection), and the
             # explicit conversion keeps that guarantee true even if the
             # signature is ever loosened to a str.
@@ -1282,7 +1282,7 @@ def _delete_one_object(db: Session, obj: WhiteboardObject) -> None:
 
 # --- maps: the same board, with a tree on it --------------------------------
 #
-# MINDMAP_PLAN.md §4 chose option B — a mindmap is a board with `type: "map"`,
+# MINDMAP_PLAN.md §4 chose option B, a mindmap is a board with `type: "map"`,
 # not a second entity with its own tables. Everything below therefore reads
 # and writes the rows that already exist (`WhiteboardObject`, and link
 # sketches for cross-branch connections); the only genuinely new endpoints are
@@ -1293,7 +1293,7 @@ def _delete_one_object(db: Session, obj: WhiteboardObject) -> None:
 #: How far a map's own tree walks will go before deciding the tree is not
 #: one. `parent_id` has no database constraint behind it (see the column's
 #: comment), so a cycle is possible in principle; every walk here is
-#: iterative and seen-set guarded, and this is the second belt — a map 200
+#: iterative and seen-set guarded, and this is the second belt, a map 200
 #: levels deep is a bug, not a map.
 MAX_MAP_DEPTH = 200
 
@@ -1321,7 +1321,7 @@ def _map_kind_ok(kind: str) -> None:
         raise HTTPException(
             status_code=422,
             detail=(
-                f"Unknown map node kind {kind!r} — expected "
+                f"Unknown map node kind {kind!r}: expected "
                 + ", ".join(sorted({MAP_TOPIC_KIND} | MAP_REFERENCE_KINDS))
             ),
         )
@@ -1337,7 +1337,7 @@ def _require_reference(db: Session, kind: str, ref_id: int | None) -> None:
 
     Privacy is deliberately *not* checked here, and that is not an oversight.
     Putting your own private note on your own map is the same act as dropping
-    it on a board (`create_node` does not refuse it either) — the app is
+    it on a board (`create_node` does not refuse it either), the app is
     behind the lock either way. The refusal that matters is the AI's, and it
     lives where the AI is: `_require_note` in `ai/tools/_common.py`, which
     every map tool in `ai/tools/whiteboard.py` calls before it writes, and
@@ -1366,7 +1366,7 @@ def _reference_label(db: Session, kind: str, ref_id: int | None, fallback: str) 
     Copied text goes stale the moment the note is renamed, and a map full of
     names that no longer match the notes is worse than one with no names at
     all. A private note contributes the fact of the reference and nothing
-    else — the same rule the board preview and the Connections block follow.
+    else: the same rule the board preview and the Connections block follow.
     """
     from memorymap.core.database import Attachment, Bookmark, Document
     from memorymap.entry import manager
@@ -1406,7 +1406,7 @@ def _object_data(obj: WhiteboardObject) -> dict:
 
 
 def _map_node_dict(db: Session, obj: WhiteboardObject) -> dict:
-    """One node, flat — `_build_tree` fills in `children`."""
+    """One node, flat: `_build_tree` fills in `children`."""
     data = _object_data(obj)
     content = str(data.get("content") or "")
     raw_ref = data.get("ref_id")
@@ -1436,7 +1436,7 @@ def _build_tree(db: Session, objects: list[WhiteboardObject]) -> list[dict]:
     **A node whose parent is not on this board is a root**, and that is the
     reason this is not a two-line recursion down from `parent_id IS NULL`.
     `parent_id` is a plain integer (see the column's comment), so a pointer
-    can go stale — and a walk that starts only from NULL silently drops every
+    can go stale: and a walk that starts only from NULL silently drops every
     node under a broken pointer. The board still holds them; the map just
     stops showing them, which is the worst way to lose something.
     """
@@ -1475,7 +1475,7 @@ def _build_tree(db: Session, objects: list[WhiteboardObject]) -> list[dict]:
 
 
 def _map_objects(db: Session, board_id: int | None) -> list[WhiteboardObject]:
-    """Every object on a board, oldest first — creation order, which is the
+    """Every object on a board, oldest first, creation order, which is the
     order a person built the map in and the only one an outline can be read
     in without surprises. Position decides where a node is *drawn*; it does
     not decide what the map says."""
@@ -1492,7 +1492,7 @@ def _cross_links(db: Session, board_id: int | None, node_ids: set[int]) -> list[
     """The non-tree edges: link sketches whose two ends are both map nodes.
 
     Kept as link sketches rather than given a table of their own, because
-    that is what a link between two things on a board already is — the
+    that is what a link between two things on a board already is, the
     frontend draws them and `_forget_links_to` cleans them up, and a second
     representation would need both written again.
     """
@@ -1534,7 +1534,7 @@ class MapTreeOut(BaseModel):
 
 
 def _board_entry(db: Session, board_id: int) -> Entry:
-    """The note behind a board, or the 404 `rename_board` already gives —
+    """The note behind a board, or the 404 `rename_board` already gives: 
     `board_id=0` and negative ids can't resolve to a real note either."""
     entry = db.get(Entry, board_id) if board_id > 0 else None
     if entry is None or entry.is_deleted:
@@ -1549,7 +1549,7 @@ def board_tree(board_id: int, db: Session = Depends(get_session)) -> MapTreeOut:
     The one endpoint a map client cannot do without: `GET /whiteboard/` hands
     back a flat list of objects, and rebuilding the tree from it client-side
     means every reader (the canvas, the Library thumbnail, an export, the
-    agent) writes the same walk again — including the dangling-parent and
+    agent) writes the same walk again, including the dangling-parent and
     ring cases, which is exactly the sort of thing four copies get subtly
     differently.
     """
@@ -1573,7 +1573,7 @@ class MapNodeCreate(BaseModel):
     text: str = Field(default="", max_length=MAX_OBJECT_TEXT_CHARS)
     #: For a `note`/`document`/`file`/`link` node: what it stands for.
     ref_id: int | None = Field(default=None, ge=1)
-    #: Omitted means "put it somewhere sensible" — see `_next_position`. A
+    #: Omitted means "put it somewhere sensible", see `_next_position`. A
     #: caller that has to invent coordinates gets them wrong, which is the
     #: whole reason `generate_diagram` computes them server-side too.
     x: float | None = None
@@ -1586,7 +1586,7 @@ def _next_position(
 ) -> tuple[float, float]:
     """Where a new node goes when the caller did not say.
 
-    One column right of its parent, one row below the last sibling — the same
+    One column right of its parent, one row below the last sibling, the same
     row/column convention `wbArrangeMindMap` and `generate_diagram` already
     use, so a map built by hand, by import and by the agent does not read as
     three different tools' opinions. Roots stack down the left edge.
@@ -1614,7 +1614,7 @@ def create_map_node(
 ) -> WhiteboardObjectOut:
     """Add a node under a parent, or as a new root.
 
-    Not a second CRUD for `whiteboard_objects` — `PUT`/`DELETE /objects/{id}`
+    Not a second CRUD for `whiteboard_objects`, `PUT`/`DELETE /objects/{id}`
     still own the rest of a node's life. This exists for the two things the
     generic create cannot do without a client that already knows the whole
     tree: attach the node to a parent (with the board scoping that implies)
@@ -1628,7 +1628,7 @@ def create_map_node(
     parent = None
     if body.parent_id is not None:
         parent = db.get(WhiteboardObject, body.parent_id)
-        # Scoped to the board it claims — the rule this module opens with. A
+        # Scoped to the board it claims, the rule this module opens with. A
         # parent on another board would build a tree spanning two boards,
         # which renders on neither.
         if parent is None or parent.board_id != board_id:
@@ -1663,7 +1663,7 @@ def create_map_node(
 
 class MapNodeMove(BaseModel):
     #: The new parent, or None to promote the node to a root. The node keeps
-    #: its own children either way — moving a node moves its branch.
+    #: its own children either way, moving a node moves its branch.
     parent_id: int | None = None
 
 
@@ -1707,7 +1707,7 @@ def move_map_node(
     **The cycle check is why this endpoint exists at all**, and why `PUT
     /objects/{id}` deliberately does not touch `parent_id`: a node made its
     own descendant produces a ring no tree walk can leave, so the map becomes
-    unreadable — and the only UI that could undo it is the one that has just
+    unreadable: and the only UI that could undo it is the one that has just
     stopped rendering.
     """
     _require_board(db, board_id)
@@ -1723,7 +1723,7 @@ def move_map_node(
         if body.parent_id == node.id:
             raise HTTPException(
                 status_code=422,
-                detail="A node can't be its own parent — that makes it a descendant of itself.",
+                detail="A node can't be its own parent, that makes it a descendant of itself.",
             )
         parent = db.get(WhiteboardObject, body.parent_id)
         if parent is None or parent.board_id != board_id:
@@ -1734,7 +1734,7 @@ def move_map_node(
         if _is_descendant(db, node.id, parent.id, board_id):
             raise HTTPException(
                 status_code=422,
-                detail="That would make the node a descendant of itself — move the branch out first.",
+                detail="That would make the node a descendant of itself, move the branch out first.",
             )
         node.parent_id = parent.id
     db.commit()
@@ -1746,7 +1746,7 @@ def move_map_node(
 #
 # MINDMAP_PLAN.md §5 items 16-17. PNG/SVG/PDF come from the canvas and are the
 # frontend's; Markdown and OPML are text, cost nothing, and are what every
-# other mindmapper reads — which is the difference between a map you can take
+# other mindmapper reads: which is the difference between a map you can take
 # with you and a map you can only look at here.
 
 
@@ -1766,8 +1766,8 @@ def _outline_rows(roots: list[dict]) -> list[tuple[int, dict]]:
 def _export_markdown(title: str, roots: list[dict]) -> str:
     """`# Title`, then a two-space-per-level bullet outline.
 
-    A reference node carries what it points at on the same line — `- Sources
-    (note 12)` — because an outline of bare titles is a picture of the map
+    A reference node carries what it points at on the same line, `- Sources
+    (note 12)`, because an outline of bare titles is a picture of the map
     rather than a working document: the ids are what let it be read back, or
     followed by hand.
     """
@@ -1785,11 +1785,11 @@ def _export_markdown(title: str, roots: list[dict]) -> str:
 
 
 def _export_opml(title: str, roots: list[dict]) -> str:
-    """OPML 2.0 — the interchange format every mindmapper reads.
+    """OPML 2.0: the interchange format every mindmapper reads.
 
     Built with ElementTree rather than by formatting strings, so that a topic
     containing `&`, `<` or a quote is escaped by something that knows the
-    rules — which hand-written XML reliably gets wrong on the first
+    rules: which hand-written XML reliably gets wrong on the first
     apostrophe.
     """
     import xml.etree.ElementTree as ET
@@ -1837,7 +1837,7 @@ def export_board(board_id: int, format: str = "markdown", db: Session = Depends(
     if format not in ("markdown", "opml"):
         raise HTTPException(
             status_code=422,
-            detail=f"Unknown export format {format!r} — expected markdown or opml",
+            detail=f"Unknown export format {format!r}: expected markdown or opml",
         )
     entry = _board_entry(db, board_id)
     title = extract_title(entry.content) or entry.content.strip()[:40] or f"Note {board_id}"
@@ -1863,7 +1863,7 @@ class MapImport(BaseModel):
     format: str
     content: str = Field(max_length=MAX_IMPORT_CHARS)
     #: What to call the new map. Omitted means "whatever the document calls
-    #: itself" — an OPML `<head><title>`, or a Markdown `#` heading.
+    #: itself", an OPML `<head><title>`, or a Markdown `#` heading.
     name: str | None = Field(default=None, min_length=1, max_length=100)
 
     @field_validator("format")
@@ -1871,7 +1871,7 @@ class MapImport(BaseModel):
     def _known_format(cls, value: str) -> str:
         if value not in ("markdown", "opml"):
             raise ValueError(
-                f"Unknown import format {value!r} — expected markdown or opml"
+                f"Unknown import format {value!r}: expected markdown or opml"
             )
         return value
 
@@ -1885,13 +1885,13 @@ def _parse_opml(content: str) -> tuple[str, list[dict]]:
     dozen nested entity definitions turn a 1KB file into gigabytes of memory
     inside the parse call, where no size cap on the way in can see it coming.
     Nothing else in this app parses XML from anywhere, and no real OPML file
-    needs a DTD — so the door refuses one, which is a check that stays
+    needs a DTD: so the door refuses one, which is a check that stays
     correct even if the parser behind it is swapped later.
 
     The parser behind it is `defusedxml`, not the stdlib: the string check
     above is belt, this is braces. defusedxml refuses entity declarations at
     the parser level, and it is also the only shape CodeQL's
-    `py/xml-bomb` query accepts as safe — the stdlib call was flagged as a
+    `py/xml-bomb` query accepts as safe, the stdlib call was flagged as a
     high-severity alert on this PR even with the guard in front of it.
     """
     try:
@@ -1935,7 +1935,7 @@ def _parse_opml(content: str) -> tuple[str, list[dict]]:
             if counted[0] > MAX_IMPORT_NODES:
                 raise HTTPException(
                     status_code=422,
-                    detail=f"That outline has more than {MAX_IMPORT_NODES} nodes — split it up first.",
+                    detail=f"That outline has more than {MAX_IMPORT_NODES} nodes: split it up first.",
                 )
             text = (child.get("text") or child.get("title") or "").strip()
             out.append(
@@ -1957,7 +1957,7 @@ def _parse_markdown_outline(content: str) -> tuple[str, list[dict]]:
     title = ""
     roots: list[dict] = []
     #: (indent, node) down the path from the current root to the last node
-    #: seen — the standard outline-parsing stack.
+    #: seen: the standard outline-parsing stack.
     stack: list[tuple[int, dict]] = []
     counted = 0
     for raw in content.splitlines():
@@ -1978,7 +1978,7 @@ def _parse_markdown_outline(content: str) -> tuple[str, list[dict]]:
         if counted > MAX_IMPORT_NODES:
             raise HTTPException(
                 status_code=422,
-                detail=f"That outline has more than {MAX_IMPORT_NODES} nodes — split it up first.",
+                detail=f"That outline has more than {MAX_IMPORT_NODES} nodes: split it up first.",
             )
         # A tab counts as one level however wide it is drawn, so a file
         # indented with tabs nests the same way one indented with spaces does.

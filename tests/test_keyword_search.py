@@ -1,4 +1,4 @@
-"""Keyword search — the whole of search when no AI is running.
+"""Keyword search: the whole of search when no AI is running.
 
 It used to be a single `LIKE %query%`, so the words had to appear as a
 contiguous substring in exactly the order typed. Word order is not something
@@ -97,8 +97,8 @@ def test_the_limit_is_respected(notes):
 def test_a_question_made_of_common_words_is_not_a_keyword_search(notes):
     """"what have I saved so far?" has no keywords in it.
 
-    Matching on its words would return the whole notebook — "%a%" appears in
-    nearly every note — so it must come back empty and let the caller fall
+    Matching on its words would return the whole notebook, "%a%" appears in
+    nearly every note: so it must come back empty and let the caller fall
     through to showing recent notes instead.
     """
     assert search_manager.keyword_search(notes, "what have I saved so far?") == []

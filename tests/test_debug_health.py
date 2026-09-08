@@ -1,4 +1,4 @@
-"""`GET /debug/health` — PLAN.md B9: observability that costs nothing.
+"""`GET /debug/health`, PLAN.md B9: observability that costs nothing.
 
 Behind the same `locked` dependency as every data route (checked here by
 being reachable through the ordinary `client` fixture, the same way
@@ -23,8 +23,8 @@ def test_shape_on_an_empty_notebook(client):
     # The log buffer is process-global and outlives every fixture, so a
     # warning some earlier test provoked (CI: "couldn't read preferences.json"
     # from a test that writes a broken one on purpose) is still in it here.
-    # Emptied first, so this asserts what the endpoint *does* — filters the
-    # buffer to warnings and errors — rather than what the rest of the suite
+    # Emptied first, so this asserts what the endpoint *does*, filters the
+    # buffer to warnings and errors, rather than what the rest of the suite
     # happened to log before it. Passed alone, failed in the full run, on all
     # three Python versions; that shape is always an order dependency.
     logbuffer.clear()
@@ -46,7 +46,7 @@ def test_shape_on_an_empty_notebook(client):
 
 
 def test_counts_reflect_real_rows(client, session):
-    """Each of the five counts moves independently — a test pinned to only
+    """Each of the five counts moves independently, a test pinned to only
     one of them would miss four kinds of the same mistake (a copy-pasted
     `func.count` left pointed at the wrong table)."""
     entry = manager.create_entry(session, "counted note")
@@ -72,7 +72,7 @@ def test_counts_reflect_real_rows(client, session):
 
 def test_deleted_entries_are_not_counted(client, session):
     """The number a health page should show is "how many notes exist",
-    not "how many rows the recycle bin still carries" — `entries` matches
+    not "how many rows the recycle bin still carries", `entries` matches
     every other listing's default, which excludes `is_deleted`."""
     entry = manager.create_entry(session, "will be binned")
     session.commit()
@@ -82,13 +82,13 @@ def test_deleted_entries_are_not_counted(client, session):
 
 
 def test_a_running_job_shows_up_in_the_queue(client, session):
-    """Same list `/tasks` already renders — proven by asking the running
+    """Same list `/tasks` already renders: proven by asking the running
     reindex job to report itself through both endpoints and getting the
     same shape back."""
     from memorymap.ai import model_manager
 
     # An empty notebook re-indexes nothing and the job finishes before this
-    # test can ever observe it "running" — one entry gives the stub embedder
+    # test can ever observe it "running", one entry gives the stub embedder
     # something to sit on.
     manager.create_entry(session, "something to re-embed slowly")
     session.commit()
@@ -113,7 +113,7 @@ def test_a_running_job_shows_up_in_the_queue(client, session):
 
 def test_a_finished_job_with_a_duration_shows_up_in_latency(client):
     """`taskhistory.record`'s new `duration_ms` is what this percentile
-    table is computed from — recorded here directly rather than running a
+    table is computed from, recorded here directly rather than running a
     real model round trip, the same "record the ending, not the model"
     split `core/taskhistory.py` itself keeps."""
     taskhistory.record("caption", "Captioning x.png", "completed", name="test-model", duration_ms=120.0)

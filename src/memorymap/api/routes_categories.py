@@ -1,7 +1,7 @@
 """Category management: list, rename (merging on collision), and delete.
 
 Categories are created implicitly by the AI as it files notes, so over time
-they drift — near-duplicates, typos, ones that stopped being useful. These
+they drift: near-duplicates, typos, ones that stopped being useful. These
 endpoints are how the user tidies that up.
 
 Neither operation ever loses a note: renaming onto an existing category merges

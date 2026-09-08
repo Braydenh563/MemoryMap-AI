@@ -5,7 +5,7 @@ Nodes are non-deleted entries; edges come from three places:
 - manual links (the link button / link_notes tool),
 - train-of-thought threads (parent_id),
 - optionally, semantic similarity between stored vectors (?similarity=true)
-  — computed on demand from the embeddings we already have, never stored.
+  - computed on demand from the embeddings we already have, never stored.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ router = APIRouter(tags=["graph"])
 # enough to draw a line between them.
 SIMILARITY_EDGE_THRESHOLD = 0.55
 # A hard cap keeps a dense notebook from becoming a hairball (and the
-# O(n²) comparison from mattering — it's personal-notebook scale).
+# O(n²) comparison from mattering, it's personal-notebook scale).
 MAX_SIMILARITY_EDGES = 200
 
 
@@ -40,7 +40,7 @@ MAX_SIMILARITY_EDGES = 200
 # Similarity edges are an all-pairs vector comparison and PageRank is fifteen
 # passes over every node and edge. Both were recomputed from scratch on every
 # request, which made `/graph` the most expensive endpoint in the app and made
-# `/graph/local` — "focus mode", which is supposed to be the *cheap* one — pay
+# `/graph/local`, "focus mode", which is supposed to be the *cheap* one, pay
 # the full notebook cost to draw a neighbourhood.
 #
 # Neither can be made local. Centrality is a global property by definition, and
@@ -49,7 +49,7 @@ MAX_SIMILARITY_EDGES = 200
 # What they can be is computed once per version of the notebook.
 #
 # The version is a fingerprint of cheap aggregates rather than a counter
-# someone has to remember to bump — a counter is a thing to forget, and a
+# someone has to remember to bump, a counter is a thing to forget, and a
 # forgotten one serves a stale graph indefinitely. `updated_at` moves on any
 # note edit, and the two counts move on anything created or destroyed.
 #
@@ -66,7 +66,7 @@ def _graph_fingerprint(session: Session) -> tuple:
     live = Entry.is_deleted == False  # noqa: E712
     return (
         # Which notebook. The cache is process-global while the counts below
-        # are emphatically not unique — two notebooks holding three notes each
+        # are emphatically not unique, two notebooks holding three notes each
         # collide trivially, and so do two tests. Without this, restoring a
         # backup or pointing MEMORYMAP_DATA_DIR somewhere else could be served
         # the previous notebook's centrality.
@@ -102,27 +102,27 @@ def reset_graph_cache() -> None:
 
 # Registered rather than imported by the container. `deps.reset_app_state`
 # used to reach up into this module to call the line above, which is the wrong
-# direction — `core/` is the bottom layer. This says "empty me when the
+# direction: `core/` is the bottom layer. This says "empty me when the
 # singletons go" without `core` needing to know this file exists.
 deps.register_cache_reset(reset_graph_cache)
 
 
 _HEADING_MD = re.compile(r"^\s{0,3}#{1,6}\s+", re.M)
-# A callout's own opening line — `> [!tip] Remember` — is a blockquote marker
+# A callout's own opening line, `> [!tip] Remember`, is a blockquote marker
 # plus the `[!kind]` tag (editor.js's mdCalloutElement parses the same shape).
 # Left unstripped, a note that opens with a callout showed as a graph node
-# label reading literally "Review > [!tip] Remem…" — reported directly, and
+# label reading literally "Review > [!tip] Remem…", reported directly, and
 # the fix is the callout equivalent of what _HEADING_MD already does for `#`.
 _CALLOUT_MD = re.compile(r"^\s{0,3}>\s*\[!\w+\]\s*", re.M)
 
 
 def _preview(text: str, length: int = 40) -> str:
-    """One line of a note as plain words — markers stripped, not rendered.
+    """One line of a note as plain words, markers stripped, not rendered.
 
     Mirrors the frontend's notePreviewText: these labels are clipped to ~40
     characters, and a clip that lands mid-`**` shows scaffolding
     ("**Seraphine…") instead of the note. Inline marker stripping is
-    `manager.strip_inline_markdown` — heading/wiki-link handling stays here
+    `manager.strip_inline_markdown`, heading/wiki-link handling stays here
     since those are specific to what a graph label is for.
     """
     text = _HEADING_MD.sub("", text)
@@ -138,7 +138,7 @@ def _similarity_edges(
 ) -> list[dict]:
     """Pairwise cosine over stored vectors of the current backend.
 
-    Pairs already joined by a real link/thread edge are skipped — the stronger
+    Pairs already joined by a real link/thread edge are skipped, the stronger
     relationship wins.
 
     The comparison itself is cached per version of the notebook; only the
@@ -175,7 +175,7 @@ def _centrality(session: Session, index: paths.Connections, similarity: bool) ->
     """PageRank over the whole graph, once per version of the notebook.
 
     `similarity` is in the key because similarity edges change the graph, so
-    they change every node's rank — the same notebook scores differently with
+    they change every node's rank: the same notebook scores differently with
     the edges on and off, and both answers are correct for their own picture.
     """
     fingerprint = (*_graph_fingerprint(session), similarity)
@@ -192,7 +192,7 @@ def graph(
     session: Session = Depends(get_session),
 ) -> dict:
     # A draft is unfinished by definition, and the Notes tab already keeps
-    # every draft out of the notebook it draws from — the graph is a map of
+    # every draft out of the notebook it draws from, the graph is a map of
     # your notes and their connections, not a staging area, and a half-typed
     # draft has nothing worth connecting yet. Reported directly alongside the
     # same gap in Library (routes_library.py's `_notes()`).
@@ -213,14 +213,14 @@ def graph(
             # `content` is ciphertext at rest, so `_preview(e.content)` labelled
             # it with a base64 blob. `readable_content` names the graph in its
             # own docstring as one of the places that must not break on a
-            # private note — it decrypts while the vault is open and hands back
-            # "Private note — unlock to read it." while it is locked.
+            # private note: it decrypts while the vault is open and hands back
+            # "Private note: unlock to read it." while it is locked.
             "preview": _preview(manager.readable_content(e)),
             "category": category_names.get(e.category_id, manager.UNCATEGORISED),
             "access_count": e.access_count,
             "pinned": e.pinned,
             # Where a double-click hold (graph.js) left this node, if it was
-            # ever pinned in place — both null or both set, never one alone.
+            # ever pinned in place, both null or both set, never one alone.
             # Distinct from `pinned` just above: that means "float to the
             # top of lists", this means "hold still at this point on the
             # map". Read on load so a pin survives a page reload, which is
@@ -232,18 +232,18 @@ def graph(
             # note out as a sibling (§9).
             "parent_id": e.parent_id if e.parent_id in node_ids else None,
             # `+ "Z"` predates `core/database.DateTime`, which now always
-            # hands back a timezone-AWARE (UTC) datetime — so `.isoformat()`
+            # hands back a timezone-AWARE (UTC) datetime: so `.isoformat()`
             # alone already ends in `+00:00`, and appending "Z" on top
             # produced `...+00:00Z`: two timezone markers in one string,
             # which `new Date(...)` in JavaScript cannot parse at all
             # (silently `Invalid Date`, not an error). Every node's
             # `created_at` on the graph was affected, which is why the time
-            # filter slider could never move — the frontend's own bounds
+            # filter slider could never move, the frontend's own bounds
             # calculation filters out unparseable dates, so `min` and `max`
             # always collapsed to `Date.now()` regardless of any note's
             # actual date, on every single note in the notebook, not a rare
             # case. `/entries`, `/timeline` and everywhere else serialise
-            # through Pydantic directly and were never affected — this was
+            # through Pydantic directly and were never affected, this was
             # the graph's own two hand-built dicts.
             "created_at": e.created_at.isoformat(),
         }
@@ -263,14 +263,14 @@ def graph(
                         "source": link.source_entry_id,
                         "target": link.target_entry_id,
                         "kind": "link",
-                        # The link row's own id — asked for directly (a way
+                        # The link row's own id: asked for directly (a way
                         # to manage a reason from the graph itself, not only
                         # a note card's link chip). Without it, editing or
                         # removing a link from here had no id to act on.
                         "id": link.id,
                         "reason": link.reason,
                         # Set only when `reason` was deduced from embedding
-                        # similarity rather than said in words — see
+                        # similarity rather than said in words, see
                         # EntryLink.reason_confidence.
                         "reason_confidence": link.reason_confidence,
                         # What kind of connection, when one was chosen. Fed
@@ -307,7 +307,7 @@ def graph(
     for n in nodes:
         n["centrality"] = centrality_scores.get(n["id"], 0)
 
-    # ROADMAP.md item 34 — off by default (the frontend has to ask for it),
+    # ROADMAP.md item 34: off by default (the frontend has to ask for it),
     # since every existing consumer of this endpoint assumes every node id
     # is an Entry id. An entity node's id is prefixed ("entity:5") so it can
     # never collide with one; the frontend's own node-shape code is what
@@ -347,17 +347,17 @@ def graph(
                         }
                     )
 
-    # Tier 2 item 16: "documents in the graph" — off by default, same reason
+    # Tier 2 item 16: "documents in the graph", off by default, same reason
     # and same shape as include_entities just above (a document id is
     # prefixed so it can never collide with an Entry id, and every existing
     # consumer of this endpoint that assumes every node id is an Entry id
     # keeps working unasked). Edges come from DocumentLink, the many-to-many
-    # note-document attachment table (§43/routes_documents.py) — a document
+    # note-document attachment table (§43/routes_documents.py): a document
     # already has a real connection to the notes it draws on; this is that
     # relationship rendered, not a new one invented for the graph.
     #
     # Deliberately not wired into centrality, similarity, or the trace-path
-    # BFS (paths.build/_centrality) this pass — both are built entirely
+    # BFS (paths.build/_centrality) this pass: both are built entirely
     # around Entry, and extending either to a second node type is a
     # materially bigger, separate change from making a document visible and
     # connected in the first place.
@@ -402,13 +402,13 @@ def graph(
     #: **A mind map, and the notes it is made of** (MINDMAP_PLAN.md §5 item
     #: 13). This is the "decide once" call §3.3 makes and §5 item 13 restates:
     #: *a map's membership is a link; a node's position is not.* So the only
-    #: thing added here is one edge per `note`-kind object on a map — never an
+    #: thing added here is one edge per `note`-kind object on a map, never an
     #: x, never a y, never a parent-child edge between two topics (a topic is
     #: not a note and has no place in a graph of notes).
     #:
     #: **No new node is created**, and that is the difference between this and
     #: `include_entities` / `include_documents` just above. A board *is* an
-    #: `Entry` (§2), so it is already in `nodes` — it has been on the graph
+    #: `Entry` (§2), so it is already in `nodes`, it has been on the graph
     #: since maps existed, drawn as an ordinary note whose text is `# My map`
     #: and connected to nothing. Adding a second `map:<id>` node would put the
     #: same object on the map twice. What was missing was that the node never
@@ -436,7 +436,7 @@ def graph(
                     continue
                 # `board` and `map` both, because the graph's own reason for
                 # marking these is that a board of any kind is not a note the
-                # way every other node here is — and a whiteboard that says so
+                # way every other node here is, and a whiteboard that says so
                 # is more honest than one drawn as a note with a heading.
                 node["type"] = board_type
                 if board_type == "map":
@@ -450,8 +450,8 @@ def graph(
                 #: are four independent autoincrement sequences, so document 1
                 #: and note 1 both exist in any notebook with one of each.
                 #: `tests/test_mindmap.py` caught it emitting `{source: 1,
-                #: target: 1}` — a map joined to *itself* through a document
-                #: node — on the second row it was ever given. An id is only
+                #: target: 1}`, a map joined to *itself* through a document
+                #: node: on the second row it was ever given. An id is only
                 #: meaningful with its table, and the kind is the table.
                 rows = session.execute(
                     select(WhiteboardObject.board_id, WhiteboardObject.data).where(
@@ -488,7 +488,7 @@ def graph(
 def graph_local(
     entry_id: int,
     # Unbounded before this: `?depth=999999999` ran the BFS loop below that
-    # many times on a bare Python range() — no per-note work once the
+    # many times on a bare Python range(), no per-note work once the
     # frontier empties, but the loop itself still costs real wall-clock time
     # per iteration, and this server is single-worker (deps.py), so it stalls
     # every other request for however long that takes. 6 hops covers any
@@ -538,7 +538,7 @@ def graph_local(
                     next_queue.append(neighbor)
         queue = next_queue
         if not queue:
-            break  # nothing left to expand — further iterations would be no-ops
+            break  # nothing left to expand, further iterations would be no-ops
 
     category_names = manager.bulk_category_names(session, [index.entries[n] for n in visited])
     nodes = [
@@ -548,7 +548,7 @@ def graph_local(
             "category": category_names.get(index.entries[e_id].category_id, manager.UNCATEGORISED),
             "access_count": index.entries[e_id].access_count,
             "pinned": index.entries[e_id].pinned,
-            # Same pin-restore field as the top-level /graph — see that
+            # Same pin-restore field as the top-level /graph, see that
             # endpoint's own comment. Focus Mode is the other real place a
             # double-click pin can be made or seen, so it needs the same
             # persistence, not just the top-level map.
@@ -588,7 +588,7 @@ def graph_structure(session: Session = Depends(get_session)) -> dict:
     """The shape of the notebook: clusters, hubs and orphans (§9).
 
     One call, because all three come off the same index and the view wants them
-    together — colouring by cluster and listing the orphans are the same
+    together: colouring by cluster and listing the orphans are the same
     question asked twice. `cluster_of` is what makes the colouring a lookup
     rather than a second traversal in JavaScript.
     """
@@ -651,8 +651,8 @@ def graph_path(
 
     The one question a graph answers better than a list, and the one the view
     could not answer: *how are these two related?* Returns the notes in order
-    with the reason for each step, or `found: false` and — this is the part
-    that makes it usable — **why** there is no path, since "no" is only a
+    with the reason for each step, or `found: false` and: this is the part
+    that makes it usable, **why** there is no path, since "no" is only a
     useful answer when it says what to do about it.
 
     Deliberately a GET with two ids: it reads nothing but the notebook's own
@@ -663,7 +663,7 @@ def graph_path(
     opt-in and off by default for two reasons: it costs a full vector sweep of
     the notebook, which is not what "cacheable and safe to re-issue" above
     describes; and a path made of similarity edges answers a weaker question
-    than the one asked — `SIMILAR_WEIGHT` makes them the last resort within a
+    than the one asked, `SIMILAR_WEIGHT` makes them the last resort within a
     route, but a route made only of them is "these are both about cooking"
     dressed up as a connection the user made.
     """
@@ -686,7 +686,7 @@ def graph_path(
             "source": source,
             "target": target,
             "reason": (
-                "That note isn't in the map — it may have been deleted."
+                "That note isn't in the map, it may have been deleted."
                 if len(missing) == 1
                 else "Neither note is in the map."
             ),
@@ -700,8 +700,8 @@ def graph_path(
         }
 
     #: Asked for directly: "allow for multiple paths to be displayed if they
-    #: exist." `find_many`'s first entry *is* `find`'s answer — they share one
-    #: Dijkstra — so the single-path shape below is unchanged and the extras
+    #: exist." `find_many`'s first entry *is* `find`'s answer: they share one
+    #: Dijkstra: so the single-path shape below is unchanged and the extras
     #: ride alongside it. `routes=1` gets the old behaviour exactly, for a
     #: caller that does not want to pay for the alternatives.
     wanted = max(1, min(int(routes or 1), paths.MAX_ALTERNATE_PATHS))
@@ -774,7 +774,7 @@ def graph_path(
         "found": True,
         "source": source,
         "target": target,
-        #: The best route, spelled at the top level exactly as it always was —
+        #: The best route, spelled at the top level exactly as it always was, 
         #: every existing caller and test reads `nodes`/`steps`/`hops` from
         #: here, and moving them into `routes[0]` would be a breaking change
         #: for no gain.
@@ -788,7 +788,7 @@ def graph_path(
 
 
 class PinBody(BaseModel):
-    # Both set or both null — never one alone. `x`/`y` rather than reusing
+    # Both set or both null, never one alone. `x`/`y` rather than reusing
     # `graph_pin_x`/`graph_pin_y` verbatim: the column names carry "graph_"
     # because they live on the shared `Entry` table, but this endpoint is
     # already scoped to the graph by its own path.
@@ -800,13 +800,13 @@ class PinBody(BaseModel):
 def pin_node(
     entry_id: int, body: PinBody, session: Session = Depends(get_session)
 ) -> dict:
-    """Hold a node in place, or release it — the persistence half of the
+    """Hold a node in place, or release it, the persistence half of the
     Graph tab's double-click pin (graph.js), which used to live only on the
     in-memory D3 node object and vanish the moment `/graph` was refetched
     (ROADMAP §87.1's own audit named this gap directly).
 
     `x`/`y` both null clears the pin; both set pins it there. One set and
-    one null is refused rather than silently coerced — a lone coordinate is
+    one null is refused rather than silently coerced, a lone coordinate is
     not a position, and guessing which axis was meant would be worse than
     asking again.
     """
@@ -825,7 +825,7 @@ def pin_node(
 
 @router.post("/graph/unpin-all")
 def unpin_all_nodes(session: Session = Depends(get_session)) -> dict:
-    """Release every pinned node at once — direct instruction: "I want to be
+    """Release every pinned node at once, direct instruction: "I want to be
     able to unroot and reset the graph to free float if I want with a
     button." `pin_node` above only ever clears one note at a time, which is
     fine for the drag-to-place gesture it serves but not for "start over,"
@@ -834,7 +834,7 @@ def unpin_all_nodes(session: Session = Depends(get_session)) -> dict:
 
     Scoped by the ordinary session (the same `WorkspaceMixin` scoping every
     other query in this app already gets) rather than an explicit
-    workspace filter here — this route has no more reason to reach across
+    workspace filter here: this route has no more reason to reach across
     spaces than `pin_node` above does.
     """
     pinned = (

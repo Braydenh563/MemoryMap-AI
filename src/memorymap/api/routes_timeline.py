@@ -8,14 +8,14 @@ are what makes it a map of what happened rather than a sorted list.
 Two decisions worth knowing:
 
 **A note can appear at a date it was not written on.** §10A resolved the
-relative time in note text — "the deadline is next Friday" knows which Friday
-— so a note plots at what it is *about* when it says something, and at when it
+relative time in note text, "the deadline is next Friday" knows which Friday
+- so a note plots at what it is *about* when it says something, and at when it
 was written otherwise. That is the whole reason the timeline is more than
 `ORDER BY created_at`, and every placed note says which of the two it used so
 the view can be honest about it.
 
-**Bands come from what is already stored** — category, tag, or a note thread
-(`Entry.parent_id`, §87.6) — rather than from an `events` table that does not
+**Bands come from what is already stored**, category, tag, or a note thread
+(`Entry.parent_id`, §87.6): rather than from an `events` table that does not
 exist yet. Grouping by event is still the goal (§10), and this is the shape
 it will slot into: one more `group` value.
 """
@@ -40,7 +40,7 @@ router = APIRouter(prefix="/timeline", tags=["timeline"])
 # notebook has enough of.
 SCALES = {"day": 1, "week": 7, "month": 30, "year": 365}
 
-# One band per category or tag, plus "everything else" — a chart with forty
+# One band per category or tag, plus "everything else", a chart with forty
 # lanes is not a chart. The cut-off is by note count, so the bands are the
 # ones the user actually writes in.
 MAX_BANDS = 8
@@ -51,8 +51,8 @@ MAX_NOTES = 1500  # a hard ceiling: this is drawn, not paged
 
 
 def _clip(text: str, limit: int = PREVIEW_CHARS) -> str:
-    """A preview that says it's a preview. A bare `text[:limit]` slice —
-    what this used to be — cuts a note off mid-word with nothing to say so,
+    """A preview that says it's a preview. A bare `text[:limit]` slice: 
+    what this used to be, cuts a note off mid-word with nothing to say so,
     which is the "no ellipsis" the grid view was reported for: the card
     genuinely had less text than the note, and nothing on screen said that.
     """
@@ -76,7 +76,7 @@ def timeline(
     # column, which is the shape the Timeline exists to break up.
     scale: str = "day",
     group: str = "category",
-    # 0 means "everything" (see below) and is a real, used value — the lower
+    # 0 means "everything" (see below) and is a real, used value, the lower
     # bound has to allow it. The upper bound exists because `timedelta(days=…)`
     # raises OverflowError past ~999999999 days, which an unvalidated `days`
     # let straight through as an unhandled 500 instead of a clean 422; ~110
@@ -89,7 +89,7 @@ def timeline(
     """Notes on a time axis, in bands.
 
     `scale` buckets the axis (day/week/month/year), `group` chooses the bands
-    (category/tag/thread/none), `days` is how far back to look — 0 for everything.
+    (category/tag/thread/none), `days` is how far back to look, 0 for everything.
     """
     if scale not in SCALES:
         raise HTTPException(
@@ -102,7 +102,7 @@ def timeline(
 
     query = select(Entry).where(
         Entry.is_deleted == False,  # noqa: E712
-        Entry.is_private == False,  # noqa: E712 — private text stays out of a view
+        Entry.is_private == False,  # noqa: E712  # private text stays out of a view
     )
     if start and end:
         try:
@@ -145,7 +145,7 @@ def timeline(
                 "written_at": entry.created_at.isoformat(),
                 "category": categories.get(entry.category_id, manager.UNCATEGORISED),
                 "tags": manager.entry_tags(entry),
-                # Only read by `_thread_bands` (group=thread) — carried for
+                # Only read by `_thread_bands` (group=thread): carried for
                 # every note regardless of the chosen group so switching to
                 # "Thread" never needs a second fetch.
                 "parent_id": entry.parent_id,
@@ -193,18 +193,18 @@ THREAD_BAND = "Single notes & smaller threads"
 
 
 def _thread_bands(notes: list[dict]) -> list[dict]:
-    """One lane per thread — a root note and everything that continues it
+    """One lane per thread, a root note and everything that continues it
     (`Entry.parent_id`), the one grouping a grid genuinely cannot show at
-    all: a conversation with itself, spread across days or months (§87.6 —
+    all: a conversation with itself, spread across days or months (§87.6: 
     IDEAS.md's "branching line with offshoots", joined with the thread
     structure `parent_id` already stores). A parent outside the currently
     loaded window (out of the date range, private, or deleted) makes its
     child a root of its own rather than a second query reaching further
-    back — the same honest simplification the `days` filter already asks
+    back: the same honest simplification the `days` filter already asks
     the rest of this view to accept.
 
     A note with no children is not a thread, so it does not get its own
-    lane — every such note, plus any real thread beyond the lane cap,
+    lane: every such note, plus any real thread beyond the lane cap,
     folds into one shared band, the same shape category/tag grouping
     already uses for its own long tail.
     """

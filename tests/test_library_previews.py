@@ -1,8 +1,8 @@
 """The Library's document and board cards carry a preview of the real thing.
 
 Both sub-tabs were reported as "boring and should probably have previews".
-Each showed the same three facts for every row — an icon, a name, and a count
-or a date — none of which tells four similarly-named drafts apart, or two
+Each showed the same three facts for every row, an icon, a name, and a count
+or a date: none of which tells four similarly-named drafts apart, or two
 boards you drew last week, which is the job a list of them has.
 """
 
@@ -83,7 +83,7 @@ def test_empty_board_has_no_points():
 # --- what the thumbnail actually says --------------------------------------
 #
 # Reported a second time, after the first version shipped: "the whiteboard
-# preview is poor". Looking at it explained why in one glance — every card
+# preview is poor". Looking at it explained why in one glance, every card
 # drew as an identical blank rectangle, so three boards all named "Cloud
 # computing" showed three indistinguishable arrangements of grey blobs, and a
 # board holding only sketches previewed as an *empty box* beside a line

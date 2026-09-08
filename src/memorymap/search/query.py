@@ -1,15 +1,15 @@
 """Reading the question before searching for it.
 
 A question is not a query. *"What have I written in the last week about the
-allotment?"* is three separate instructions — a time range, a subject, and a
-verb that means nothing at all — and until now every word of it went straight
+allotment?"* is three separate instructions, a time range, a subject, and a
+verb that means nothing at all, and until now every word of it went straight
 into an embedding and a `LIKE`. Two things went wrong with that, and both are
 things a person notices immediately:
 
 - **"in the last week" matched nothing and filtered nothing.** It is not a
   subject, so it dilutes the embedding; it is not a keyword anyone wrote in a
   note, so it drags the keyword search off course. Meanwhile the thing it
-  actually meant — only show me notes from the last seven days — was never
+  actually meant, only show me notes from the last seven days, was never
   applied, so the answer came back full of notes from March.
 - **The question words dominate a short query.** An embedding of "what did I
   write about beans" is meaningfully different from an embedding of "beans",
@@ -17,7 +17,7 @@ things a person notices immediately:
   model is matching your phrasing rather than your subject.
 
 So: lift the time range out and apply it as a filter, strip the scaffolding
-before embedding, and leave everything else alone. Deliberately no model call —
+before embedding, and leave everything else alone. Deliberately no model call, 
 this runs on every question, and a round trip to *decide how to search* would
 cost more than the search.
 
@@ -40,7 +40,7 @@ from memorymap.entry import timewords
 class Understood:
     """What a question turned out to be asking for."""
 
-    #: The question with the time phrase and the scaffolding removed — what to
+    #: The question with the time phrase and the scaffolding removed, what to
     #: embed and what to match words against.
     subject: str
     #: Inclusive date bounds, or None for "whenever".
@@ -52,14 +52,14 @@ class Understood:
     #: last week?"). There is no subject to search for, so the honest answer is
     #: every note in the range rather than a similarity ranking of noise.
     time_only: bool = False
-    #: True when the time word was **vague** rather than stated — "recently",
+    #: True when the time word was **vague** rather than stated, "recently",
     #: "recent". Reported, and it is a real distinction rather than a nicety:
     #:
     #:   *"I have a note with a joke in it … when I go into the ask section and
     #:   say 'jokes I have saved recently', it doesn't show. Granted I did make
     #:   it 2 weeks ago but that is still kinda recent."*
     #:
-    #: "Last Tuesday" is a **constraint** — the person knows when, and a note
+    #: "Last Tuesday" is a **constraint**: the person knows when, and a note
     #: from Wednesday is not what they asked for. "Recently" is a **lean**:
     #: nobody saying it has a boundary in mind, and whatever number this file
     #: picks for it will be wrong for somebody by a day. Turning a lean into a
@@ -74,7 +74,7 @@ class Understood:
 
 
 # Phrases that mean "a stretch ending now" rather than a single day. `timewords`
-# resolves "last week" to one date — the Monday of the previous week — which is
+# resolves "last week" to one date, the Monday of the previous week, which is
 # right for a note that says "I'll do it last week" and wrong for a question,
 # where the person means the whole stretch. So ranges are recognised here, and
 # anything not in this list falls through to `timewords` and becomes a single
@@ -147,7 +147,7 @@ def _range_for(kind: str, match: re.Match, today: date) -> tuple[date, date]:
 # vector ends up describing the phrasing.
 #
 # Only ever removed from the ends of the query, never the middle: "notes on how
-# to prove bread" must keep its "how" — that one is the subject. A leading
+# to prove bread" must keep its "how", that one is the subject. A leading
 # "what did I write about" is scaffolding; the same words inside a sentence may
 # not be.
 _SCAFFOLD = re.compile(
@@ -180,7 +180,7 @@ def _tidy(text: str) -> str:
     This was `re.sub(r"[\\s,.?!]+$", "", re.sub(r"\\s{2,}", " ", text).strip())`
     and CodeQL was right to flag it (`py/polynomial-redos`, high): an anchored
     `[…]+$` makes the engine retry the quantifier from every position, so a
-    query of many tabs costs O(n²) — and this runs on text that arrives
+    query of many tabs costs O(n²): and this runs on text that arrives
     straight from a search box, which is as uncontrolled as input gets in this
     app.
 
@@ -203,7 +203,7 @@ def _tidy(text: str) -> str:
 #: Only filler is taken, and only from the very end, so a real subject can
 #: never be eaten: "notes about my day" keeps "day" because "day" is not in the
 #: list, while "jokes I have saved" loses three words that are.
-#: A set and a `split()`, not a pattern — and for the same reason `_tidy`
+#: A set and a `split()`, not a pattern: and for the same reason `_tidy`
 #: above is not one. The regex this replaces was
 #: `[\s,]*\b(?:i|me|my|…)\s*$`, and CodeQL flagged it as a second
 #: `py/polynomial-redos` (high, alert #112) within a session of the first: an
@@ -228,7 +228,7 @@ _TRAILING_SCAFFOLD_WORDS = frozenset(
 def _strip_trailing_scaffold(text: str) -> str:
     """Drop one filler word from the end, or return the text unchanged.
 
-    One word per call, because the caller loops — the same contract the
+    One word per call, because the caller loops, the same contract the
     `count=1` on the old pattern had.
     """
     words = text.split()
@@ -244,7 +244,7 @@ def _strip_scaffolding(text: str) -> str:
 
     Repeatedly, because they stack: "what did I write about…" is three of these
     in a row. It stops as soon as nothing matches, and it never empties the
-    string — a query that is *entirely* scaffolding ("what did I write?") keeps
+    string: a query that is *entirely* scaffolding ("what did I write?") keeps
     its last form, since searching for "" would match everything.
 
     Whitespace is collapsed first: lifting a time phrase out of the middle
@@ -282,14 +282,14 @@ def understand(question: str, now: datetime | date | None = None) -> Understood:
         if not match:
             continue
         since, until = _range_for(kind, match, today)
-        soft = kind == "recent"  # a lean, not a boundary — see `Understood.soft`
+        soft = kind == "recent"  # a lean, not a boundary, see `Understood.soft`
         phrase = match.group(0).strip()
         remainder = (remainder[: match.start()] + " " + remainder[match.end():]).strip()
         break
 
     if since is None:
         # No range phrase. A single date might still be in there ("what did I
-        # note on tuesday"), and `timewords` already knows how to read one —
+        # note on tuesday"), and `timewords` already knows how to read one, 
         # widened to its own precision, so "last month" is the month rather
         # than the 1st of it.
         mentions = timewords.find(remainder, today)
@@ -302,7 +302,7 @@ def understand(question: str, now: datetime | date | None = None) -> Understood:
     subject = _strip_scaffolding(remainder)
     # Nothing left but filler once the date came out: the question was *only*
     # about time. Say so, so the caller lists the range instead of ranking
-    # noise — "what did I save last week" has no subject to be similar to.
+    # noise: "what did I save last week" has no subject to be similar to.
     time_only = since is not None and not _has_content(subject)
     return Understood(
         subject=subject if _has_content(subject) else "",
@@ -318,7 +318,7 @@ def _widen(mention: timewords.Mention) -> tuple[date, date]:
     """One resolved date, as the stretch its phrasing actually meant.
 
     A note that says "two weeks ago" is pinned to a day, and that is right for
-    a note — it is describing one moment. A *question* saying the same words
+    a note: it is describing one moment. A *question* saying the same words
     means "around then", and nobody remembers which day they wrote something
     two weeks ago. So a phrase measured in weeks or months gets a window around
     its date rather than the date itself, or the filter answers "nothing" to a

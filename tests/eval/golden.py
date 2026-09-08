@@ -2,7 +2,7 @@
 
 Each row is one thing a person would type, the tool that answers it, the
 arguments that tool should be called with, and **what the answer has to cite**
-— the notes, documents, files, boards and reminders the chat would show as
+- the notes, documents, files, boards and reminders the chat would show as
 cards for that call (`ai/cards.py`).
 
 Two rules kept this honest while it was written:
@@ -17,7 +17,7 @@ Two rules kept this honest while it was written:
 
 Read-only throughout. A golden set that writes would need a fresh notebook per
 case, which is the difference between a one-second CI run and a minute of
-them — and the two properties being scored, tool choice and citation, are both
+them: and the two properties being scored, tool choice and citation, are both
 observable without changing anything.
 """
 
@@ -41,12 +41,12 @@ class Ask:
     #: The arguments it should be called with, as a function of the notebook.
     arguments: Callable[[Notebook], dict] = lambda book: {}
     #: `(kind, id)` pairs the tool's cards must name. Empty when the answer is
-    #: a number or a list of names rather than things — those use `check`.
+    #: a number or a list of names rather than things, those use `check`.
     cites: Callable[[Notebook], list[tuple[str, object]]] = lambda book: []
     #: For a tool whose result names nothing openable: is the answer right?
     check: Callable[[dict, Notebook], bool] | None = None
     #: Tools that must **not** be offered for this ask. A read must never put
-    #: a delete on the wire — that is the failure mode a keyword router has.
+    #: a delete on the wire, that is the failure mode a keyword router has.
     forbid: tuple[str, ...] = field(default=())
 
 
@@ -240,7 +240,7 @@ GOLDEN: list[Ask] = [
         "what does the attention document say about long documents?",
         "get_document",
         lambda book: {"document_id": book.documents["essay"], "query": "long documents"},
-        #: The passage, not the head of the document — the keyword-context path
+        #: The passage, not the head of the document, the keyword-context path
         #: `get_document` falls back to when there is no embedding backend,
         #: which is every install that followed CLAUDE.md.
         check=lambda result, book: "long document" in (result.get("content") or "").lower(),
@@ -259,7 +259,7 @@ GOLDEN: list[Ask] = [
         "search_files",
         lambda book: {"query": "retention"},
         #: Nothing but the OCR text contains this word, so a hit can only have
-        #: come from the reading — which is the whole point of the tool.
+        #: come from the reading, which is the whole point of the tool.
         lambda book: [("file", book.files["whiteboard-photo"][1])],
     ),
     Ask(

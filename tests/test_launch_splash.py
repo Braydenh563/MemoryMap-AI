@@ -1,7 +1,7 @@
 """The launcher's pre-Python splash, and its handoff to the app window.
 
-Reported directly: the work start.bat does before Python exists — the git
-pull, building .venv, a pip install that can run to minutes — leaves nothing
+Reported directly: the work start.bat does before Python exists, the git
+pull, building .venv, a pip install that can run to minutes, leaves nothing
 on screen, so *"the user doesn't think the application didn't start properly
 because they didn't have access to the terminal logs"*.
 
@@ -9,7 +9,7 @@ The splash itself is a PowerShell/WinForms window and cannot be exercised
 here. What is testable, and what actually breaks, is the contract between the
 three pieces: the launcher creates a status file, the splash watches it, and
 this process deletes it at exactly the right moment. A splash that is never
-closed is worse than no splash — it is a borderless always-on-top window with
+closed is worse than no splash, it is a borderless always-on-top window with
 no owner, sitting over the app.
 """
 
@@ -65,7 +65,7 @@ def _start_bat() -> str:
 
 
 def test_the_launcher_opens_the_splash_before_any_slow_work():
-    """It has to go up before the git pull, not after — the whole point is the
+    """It has to go up before the git pull, not after, the whole point is the
     seconds-to-minutes before anything else appears."""
     text = _start_bat()
     # The invocation, not the comment above it that also names the file.
@@ -120,7 +120,7 @@ def _start_sh() -> str:
 
 
 def test_the_unix_splash_only_appears_when_there_is_no_terminal():
-    """Run from a terminal, start.sh already narrates every phase — a dialog
+    """Run from a terminal, start.sh already narrates every phase, a dialog
     over the top would be noise. The report is about launching from a file
     manager, where there is no console at all."""
     text = _start_sh()
@@ -129,7 +129,7 @@ def test_the_unix_splash_only_appears_when_there_is_no_terminal():
 
 def test_both_exec_paths_take_the_unix_splash_down_by_hand():
     """`exec` replaces the shell without firing the EXIT trap, and fd 9 is
-    inherited by the new process — which would hold the fifo open and leave
+    inherited by the new process, which would hold the fifo open and leave
     zenity on screen for the whole life of the app."""
     text = _start_sh()
     for exec_line in ('exec "$VENV_PY" -m memorymap --desktop',
@@ -147,7 +147,7 @@ def test_a_machine_without_zenity_or_osascript_just_gets_no_splash():
     """Every call must be a no-op when neither dialog mechanism started, or a
     missing zenity/osascript would take the launch down with it. `mm_splash`
     branches on $MM_SPLASH_MODE with a `case`; leaving it unset (neither
-    branch matched at setup) means every call falls through with no match —
+    branch matched at setup) means every call falls through with no match, 
     the shell equivalent of the early-return guard this replaced."""
     text = _start_sh()
     body = text[text.index("mm_splash() {") : text.index("mm_splash_done() {")]
@@ -158,7 +158,7 @@ def test_a_machine_without_zenity_or_osascript_just_gets_no_splash():
 def test_macos_gets_a_non_modal_notification_not_a_dialog():
     """Asked for directly: an equivalent splash for Linux (already had one,
     zenity) and macOS. `display dialog` steals focus and needs a click to
-    dismiss — not worth it for a cosmetic splash, which is why this was
+    dismiss: not worth it for a cosmetic splash, which is why this was
     skipped before. `display notification` is the native banner that does
     neither, so it's the one worth adding."""
     text = _start_sh()
@@ -180,7 +180,7 @@ def test_the_notification_text_is_applescript_escaped_not_shell_escaped():
 
 
 def test_notify_mode_needs_no_cleanup():
-    """Each notification fires and clears on its own — nothing is left
+    """Each notification fires and clears on its own, nothing is left
     running for mm_splash_done to own or kill, unlike zenity's live dialog
     process."""
     text = _start_sh()
@@ -192,7 +192,7 @@ def test_the_progress_bar_is_not_colour_overridden():
     """Reported: the bar "just stays empty".
 
     Setting ForeColor or BackColor on a WinForms ProgressBar switches it off
-    the themed renderer and onto the plain one — and the plain renderer does
+    the themed renderer and onto the plain one, and the plain renderer does
     not draw a Marquee at all. The control is still there and still animating
     in principle; nothing paints. So the colours have to stay off it, and the
     animation speed has to be non-zero, which is the other way to get an empty

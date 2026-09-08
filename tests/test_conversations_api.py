@@ -1,7 +1,7 @@
 """Conversations: lifecycle, turns, retitling, personas.
 
 (The embedding status-pill tests that used to live here moved to
-test_models_api.py — same domain as the rest of /models/status's
+test_models_api.py: same domain as the rest of /models/status's
 coverage.)"""
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ def test_conversation_lifecycle(client):
 
 def test_browsing_conversations_sees_as_many_as_searching_does(client):
     """The no-search-term branch capped at 50 while the with-term branch
-    capped at 200 — browsing without typing a search saw fewer chats than
+    capped at 200: browsing without typing a search saw fewer chats than
     searching for one did, with no way to reach the rest either way."""
     for i in range(60):
         client.post("/conversations", json={"question": f"q{i}", "answer": "a"})
@@ -195,7 +195,7 @@ def test_replace_last_turn_swaps_answer_in_place(client):
     )
     assert resp.status_code == 200
     full = client.get(f"/conversations/{cid}").json()
-    assert full["turns"] == 2  # not 3 — the last pair was replaced, not added
+    assert full["turns"] == 2  # not 3: the last pair was replaced, not added
     assert full["messages"][-1]["content"] == "v2 (better)"
 
 
@@ -207,7 +207,7 @@ def test_delete_turn_removes_one_exchange(client):
     cid = created["id"]
     client.post(f"/conversations/{cid}/turns", json={"question": "q2", "answer": "a2"})
 
-    # Delete the first exchange (index 0) — the second should remain and shift up.
+    # Delete the first exchange (index 0): the second should remain and shift up.
     resp = client.delete(f"/conversations/{cid}/turns/0")
     assert resp.status_code == 200
     full = client.get(f"/conversations/{cid}").json()

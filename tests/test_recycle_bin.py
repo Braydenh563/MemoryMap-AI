@@ -1,14 +1,14 @@
 """The recycle bin: emptying it, and getting rid of one note for good.
 
 **"Empty now" has been reported broken three times** and driven end to end in a
-real browser twice — dialog, POST, empty bin, toast, server reporting zero
+real browser twice: dialog, POST, empty bin, toast, server reporting zero
 binned notes. So these tests pin the server half, and the frontend's half of
 the fix is that a failure is now *visible*: every path through that handler
 used to swallow its error, which is indistinguishable from a button that does
 nothing.
 
 The per-note purge is new, and it is the one route in the app that destroys
-something with no undo — hence the rule it enforces: a note has to be in the
+something with no undo, hence the rule it enforces: a note has to be in the
 bin already, so permanent loss is always the second deliberate step.
 """
 
@@ -83,7 +83,7 @@ def test_one_note_can_be_deleted_for_good(client, session):
 
 def test_a_note_still_in_the_notebook_cannot_be_purged(client, session):
     """The soft-delete step is not optional. Without this, one mis-routed
-    request destroys a note that was never binned — and there is no undo to
+    request destroys a note that was never binned, and there is no undo to
     reach for, which is exactly why the rule lives on the server."""
     live = _note(session, "a note I am still using")
 
@@ -129,7 +129,7 @@ def test_purging_one_note_takes_its_vectors_links_and_files_with_it(client, sess
     assert session.query(EmbeddingRecord).filter_by(entry_id=goner.id).count() == 0
     assert session.query(EntryLink).count() == 0
     assert not (uploads / "purge-me.png").exists()
-    # The note at the other end is untouched — a link is a connection, not a
+    # The note at the other end is untouched, a link is a connection, not a
     # dependency.
     assert session.get(Entry, other.id) is not None
 
@@ -152,7 +152,7 @@ def test_a_note_with_every_kind_of_attached_row_can_still_be_destroyed(client, s
     empty the bin", and two particular notes that would not delete at all.
 
     One cause. `PRAGMA foreign_keys=ON` is set, and `_hard_delete` cleaned
-    three of the seven tables that point at an entry — so a row left in any of
+    three of the seven tables that point at an entry, so a row left in any of
     the other four made `DELETE FROM entries` raise IntegrityError, which the
     API returned as a 500 and the bin was left exactly as it had been. The two
     notes in the report both carried a resolved time phrase (the `ph:clock this week
@@ -184,15 +184,15 @@ def test_a_note_with_every_kind_of_attached_row_can_still_be_destroyed(client, s
                 size=1,
             ),
             # Whiteboard: two different relationships to the same entry.
-            # `entry_id` is the card's own note — added to the schema after
+            # `entry_id` is the card's own note: added to the schema after
             # this test was first written, and not handled until it was.
             WhiteboardNode(entry_id=goner.id),
-            # `board_id` names which board a card/sketch lives *on* — a
+            # `board_id` names which board a card/sketch lives *on*, a
             # different note, so it belongs on `other`, not `goner`.
             WhiteboardNode(entry_id=other.id, board_id=goner.id),
             WhiteboardSketch(data="M0 0 L1 1", board_id=goner.id),
             # Images and text boxes: no entry_id relationship at all (neither
-            # wraps a note), only board_id — same detach-not-delete rule.
+            # wraps a note), only board_id, same detach-not-delete rule.
             WhiteboardObject(kind="text", data='{"content": "hi"}', board_id=goner.id),
         ]
     )
@@ -221,7 +221,7 @@ def test_a_note_with_every_kind_of_attached_row_can_still_be_destroyed(client, s
 def test_a_reminder_outlives_the_note_it_came_from(client, session):
     """Detached, not deleted. "Water the tomatoes" is still something the user
     asked to be reminded of after the note that prompted it has gone, and
-    deleting it would throw away something they set by hand — which is a
+    deleting it would throw away something they set by hand, which is a
     different act from emptying a bin, and not one they asked for."""
     goner = _note(session, "the note that prompted a reminder")
     session.add(Reminder(entry_id=goner.id, text="water the tomatoes", due_at=utcnow()))
@@ -269,7 +269,7 @@ def test_a_binned_note_can_be_read_when_the_caller_asks_for_it(client, session):
 
 def test_a_binned_note_is_still_absent_from_an_ordinary_read(client, session):
     """The default has to stay a 404. A stale link to a note somebody deleted
-    should not quietly resurrect it — reaching into the bin is something the
+    should not quietly resurrect it, reaching into the bin is something the
     caller says it means to do."""
     entry = _note(session, "Deleted, and staying deleted.")
     client.delete(f"/entries/{entry.id}")
@@ -289,7 +289,7 @@ def test_reading_a_binned_note_does_not_count_as_using_it(client, session):
 
 
 def test_reading_a_live_note_still_counts_as_using_it(client, session):
-    """The other half of the rule above — the counter must keep working for
+    """The other half of the rule above, the counter must keep working for
     every note that is not in the bin."""
     entry = _note(session, "Very much in use.")
     before = session.get(Entry, entry.id).access_count

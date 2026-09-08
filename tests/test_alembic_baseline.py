@@ -3,7 +3,7 @@ schema already matches (create_all() built it). See `_ensure_alembic_baseline`
 in `core/database.py` for the full reasoning.
 
 Calls `_ensure_alembic_baseline` directly rather than relying on
-`DatabaseManager.__init__` to trigger it — that call is skipped under
+`DatabaseManager.__init__` to trigger it: that call is skipped under
 pytest (`PYTEST_CURRENT_TEST`) for suite speed, so exercising it here is the
 only coverage this mechanism gets.
 """
@@ -32,7 +32,7 @@ def test_fresh_database_gets_stamped(tmp_path):
     assert len(versions) == 1
     assert versions[0]  # a real revision id, not empty
 
-    # Stamping must never touch application data or tables — only add its
+    # Stamping must never touch application data or tables, only add its
     # own bookkeeping table.
     with db.engine.connect() as connection:
         table_names = {
@@ -52,7 +52,7 @@ def test_stamped_database_is_idempotent(tmp_path):
     first = _alembic_version(db_path)
 
     # A second call on an already-stamped database takes the "upgrade" path
-    # (see the function's own docstring) — must be a no-op, not a re-stamp
+    # (see the function's own docstring): must be a no-op, not a re-stamp
     # or an error, since nothing newer than the baseline exists yet.
     _ensure_alembic_baseline(db_path)
     second = _alembic_version(db_path)
@@ -61,7 +61,7 @@ def test_stamped_database_is_idempotent(tmp_path):
 
 def test_preexisting_database_without_alembic_version_gets_stamped(tmp_path):
     """The exact adoption scenario this exists for: a database created by a
-    version of the app from before Alembic existed at all — schema already
+    version of the app from before Alembic existed at all, schema already
     correct via create_all()/the additive auto-migrator, no alembic_version
     table. Must stamp cleanly, not attempt to run the baseline migration's
     CREATE TABLE statements against tables that already exist."""
@@ -84,7 +84,7 @@ def test_preexisting_database_without_alembic_version_gets_stamped(tmp_path):
 
 
 def test_ensure_alembic_baseline_never_raises_on_bad_path(tmp_path):
-    """Never allowed to stop the app from starting — the function's own
+    """Never allowed to stop the app from starting, the function's own
     contract. A path whose parent doesn't exist is about as broken an input
     as this could plausibly see; it must swallow the failure, not raise."""
     bad_path = tmp_path / "does" / "not" / "exist" / "db.sqlite"
@@ -98,12 +98,12 @@ def test_ensure_alembic_baseline_does_not_evict_the_app_s_own_log_handler(tmp_pa
     migrations/env.py calls logging.config.fileConfig() every time this
     runs command.stamp/upgrade, and that unconditionally replaces the
     handler list of every logger alembic.ini explicitly configures (root
-    among them) with exactly what the ini says — alembic.ini's own
+    among them) with exactly what the ini says, alembic.ini's own
     [logger_root] sets handlers = console, which silently tore
     logbuffer.install()'s handler off the root logger and left Alembic's
     plain console handler as the only one there for the rest of the
     process's life. `disable_existing_loggers=False` (already set in
-    env.py) does not protect against this — it only stops loggers *not*
+    env.py) does not protect against this, it only stops loggers *not*
     listed in alembic.ini from being disabled, not the handlers of ones
     that are. Simulates logbuffer.install() with a marker handler on root,
     the same shape a real BufferHandler is attached in, and confirms it

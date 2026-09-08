@@ -1,7 +1,7 @@
 """Reminders: CRUD, priority/recurring, and Magic Add's parsing.
 
 (The clock/timezone bug behind Magic Add's rule engine has its own focused
-file, test_reminder_times.py — kept separate rather than merged in here so
+file, test_reminder_times.py: kept separate rather than merged in here so
 that narrative stays readable on its own.)
 """
 
@@ -42,12 +42,12 @@ def test_reminder_lifecycle(client):
 
 def test_reminder_preview_does_not_leak_private_note_ciphertext(client):
     """`entry_preview` used to read the raw `content` column, which is
-    ciphertext at rest for a private note — showing a garbled blob instead of
+    ciphertext at rest for a private note, showing a garbled blob instead of
     the locked-vault placeholder every other preview surface uses (graph,
     library...). `readable_content` decides by the `crypto.PREFIX` marker on
     the stored text, not the `is_private` flag, so a fake-but-marked
     ciphertext string is enough to prove the preview goes through it rather
-    than the raw column — a real encrypt/decrypt round-trip is covered
+    than the raw column, a real encrypt/decrypt round-trip is covered
     elsewhere (crypto/vault tests)."""
     from memorymap.core import crypto, deps
     from memorymap.core.database import Entry
@@ -64,12 +64,12 @@ def test_reminder_preview_does_not_leak_private_note_ciphertext(client):
         "/reminders", json={"text": "check this", "due_at": due, "entry_id": entry_id}
     ).json()
     # No vault open in this test, so `readable_content` gives the standard
-    # locked placeholder — never the raw ciphertext-shaped column value.
-    assert created["entry_preview"] == "Private note — unlock to read it."
+    # locked placeholder: never the raw ciphertext-shaped column value.
+    assert created["entry_preview"] == "Private note: unlock to read it."
 
 
 def test_a_reminder_cannot_be_set_in_the_past(client):
-    """A reminder due before now will never usefully fire — asked for
+    """A reminder due before now will never usefully fire, asked for
     directly. Covers both create and edit, since a due date can slip into
     the past through either."""
     past = (utcnow() - timedelta(hours=1)).isoformat()
@@ -125,7 +125,7 @@ def test_reminder_times_come_back_marked_as_utc(client):
 
     SQLite has no timezone type, so a plain DateTime column handed back a NAIVE
     datetime. FastAPI serialised it with no offset, and JavaScript parses a
-    timezone-less date-time string as LOCAL — so a user in UTC+10 saw every
+    timezone-less date-time string as LOCAL, so a user in UTC+10 saw every
     stored UTC time ten hours in the past.
 
     The trap was that it looked fine at first: the POST response carried the
@@ -146,7 +146,7 @@ def test_reminder_times_come_back_marked_as_utc(client):
     assert abs((parsed - datetime.now(timezone.utc)).total_seconds() - 300) < 30
 
 
-# --- Magic Add's JSON parsing (success/fallback) — the clock rules that back
+# --- Magic Add's JSON parsing (success/fallback): the clock rules that back
 # it live in test_reminder_times.py ---------------------------------------
 
 

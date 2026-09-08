@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 class SpaceCreate(BaseModel):
     # `id` is accepted for backward compatibility with older frontend
-    # payloads but is always ignored — the server slugifies `name` instead
+    # payloads but is always ignored, the server slugifies `name` instead
     # (routes_spaces.create_space). A client-chosen id was how "all" and
     # "default" could be created and break the reserved sentinels, so the
     # server no longer trusts it at all rather than merely validating it.
@@ -47,13 +47,13 @@ class EntryCreate(BaseModel):
     parent_id: int | None = None
     # Documents this note belongs with, attached as it is saved. Asked for
     # directly: "a way to link documents to new notes I create in the capture
-    # tab". Doing it on create rather than afterwards is the point — the
+    # tab". Doing it on create rather than afterwards is the point, the
     # connection is obvious while you are writing and forgotten by the time
     # the note is in a list.
     document_ids: list[int] = Field(default_factory=list, max_length=10)
     # A note captured from the text-selection popup, not yet reviewed.
     is_draft: bool = False
-    # Where a web-reader clipping came from (BACKLOG §65) — real metadata,
+    # Where a web-reader clipping came from (BACKLOG §65): real metadata,
     # not parsed back out of the markdown blockquote `saveSelectionAsNote`
     # (app.js) still writes into `content` for portability. Both optional
     # and independent: a source without a title still renders (falls back
@@ -64,19 +64,19 @@ class EntryCreate(BaseModel):
     #: Save now, decide the category later on a background thread.
     #:
     #: Filing asks a local model, which on a small machine is seconds, and
-    #: it used to happen *inside* this request — so the composer stayed
+    #: it used to happen *inside* this request, so the composer stayed
     #: disabled behind "Filing…" for the whole of it. With this set the
     #: response comes back as soon as the note is on disk, carrying
     #: `filing_state: "pending"`; the caller polls `GET /entries/{id}/filing`
     #: (or just reloads the list) to find out where it landed.
     #:
-    #: Ignored when `category` or `parent_id` decides the category anyway —
+    #: Ignored when `category` or `parent_id` decides the category anyway, 
     #: there is nothing to defer in either case.
     defer_filing: bool = False
 
 
 class EntryUpdate(BaseModel):
-    """Manual override — only provided fields change."""
+    """Manual override: only provided fields change."""
 
     content: str | None = Field(default=None, min_length=1)
     category: str | None = None
@@ -97,13 +97,13 @@ class LinkOut(BaseModel):
     preview: str  # first few words of that entry
     reason: str | None = None  # why these are connected, if anyone said or it was deduced
     # 0..1, set only when `reason` above came from embedding similarity
-    # rather than from a person or the AI saying it — see EntryLink.reason_confidence.
+    # rather than from a person or the AI saying it, see EntryLink.reason_confidence.
     reason_confidence: float | None = None
     #: "out" when this note is the link's source, "in" when it is the target.
     #:
     #: `links_for_entry` has always returned both directions merged into one
     #: list, so a note could show what it was connected to but never which
-    #: way round — and "this note points at that one" and "that one points at
+    #: way round: and "this note points at that one" and "that one points at
     #: this" are different facts. Asked for by way of Kortex's own
     #: Connections block, which shows every link with an in/out arrow.
     #: Defaults to "out" so an older client (or a caller that doesn't care)
@@ -149,7 +149,7 @@ class EntryDateOut(BaseModel):
 class EntryOut(BaseModel):
     id: int
     content: str
-    # A note's own leading `# Heading`, if it wrote one — not a stored,
+    # A note's own leading `# Heading`, if it wrote one, not a stored,
     # separately-edited field. Editing the title is editing that line, the
     # same as editing any other line of the note; there's no second field to
     # go out of sync with the content it's supposedly titling.
@@ -168,7 +168,7 @@ class EntryOut(BaseModel):
     #: A whiteboard/concept map, which is an Entry like any other (see
     #: `Entry.is_board`). The frontend had no way to tell one from a note at
     #: all, so a board could not be offered as a link target, filtered out of
-    #: a note list, or labelled as what it is — every surface either treated
+    #: a note list, or labelled as what it is, every surface either treated
     #: it as a note or hard-coded a second fetch of `/whiteboard/boards`.
     is_board: bool = False
     # Where a web-reader clipping came from, when it was one (BACKLOG §65).
@@ -176,7 +176,7 @@ class EntryOut(BaseModel):
     source_title: str | None = None
     #: Where this note sat in an imported vault (`Projects/Roadmap.md`), or
     #: "" for one written here. The Contents index groups on it, and the
-    #: wiki-link resolver matches its filename — see `Entry.source_path`.
+    #: wiki-link resolver matches its filename, see `Entry.source_path`.
     source_path: str = ""
     created_at: datetime
     deleted_at: datetime | None = None  # set only in the recycle-bin view
@@ -188,11 +188,11 @@ class EntryOut(BaseModel):
     # What the note's relative time phrases meant when it was written (§10A):
     # [{"phrase": "next friday", "at": "2026-08-07", "precision": "day"}].
     dates: list["EntryDateOut"] = Field(default_factory=list)
-    # How this entry was filed — only present on the create response:
+    # How this entry was filed, only present on the create response:
     # 'semantic-match' | 'llm' | 'user' | 'thread' | 'none'
     filed_by: str | None = None
-    # 'done' | 'pending' | 'failed' — see Entry.filing_state. A note saved
+    # 'done' | 'pending' | 'failed', see Entry.filing_state. A note saved
     # with `defer_filing` comes back 'pending' and settles later.
     filing_state: str = "done"
-    # Near-duplicate warning — only present on the create response.
+    # Near-duplicate warning: only present on the create response.
     similar: SimilarOut | None = None

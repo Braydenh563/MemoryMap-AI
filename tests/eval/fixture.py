@@ -4,7 +4,7 @@
 files a note, records its dates and writes an audit row, and a fixture that
 skipped all three would be scoring the agent against a notebook this app could
 never have produced. The two exceptions are a media upload and a whiteboard
-card, which have no manager — those are the ORM objects the routes themselves
+card, which have no manager, those are the ORM objects the routes themselves
 create, with the same fields filled in.
 
 Small on purpose. Thirty asks over fifteen notes runs in under a second and
@@ -43,19 +43,19 @@ class Notebook:
 NOTES: list[tuple[str, str, str, list[str]]] = [
     # key, category, content, tags
     ("gym", "Health", "Went to the gym before work and did squats and deadlifts.", ["gym", "routine"]),
-    ("sleep", "Health", "Sleeping badly again — no screens after ten seems to help.", ["routine"]),
+    ("sleep", "Health", "Sleeping badly again: no screens after ten seems to help.", ["routine"]),
     ("thesis", "Uni", "Thesis chapter two is about attention and why it beats recurrence.", ["thesis", "work"]),
     ("supervisor", "Uni", "Supervisor meeting: bring the chapter two draft and the results table.", ["thesis"]),
     ("homework", "Uni", "Homework for the stats unit is due on the fourteenth.", ["homework"]),
     ("groceries", "Life", "Buy milk, eggs and coffee on the way home.", ["shopping"]),
-    ("rent", "Life", "Rent goes up in March — check the lease before signing anything.", ["money"]),
+    ("rent", "Life", "Rent goes up in March, check the lease before signing anything.", ["money"]),
     ("budget", "Life", "Monthly budget: rent, food, transport, and put the rest into savings.", ["money"]),
-    ("race", "Health", "Race day is the fourteenth — carnival starts at eight in the morning.", ["running"]),
+    ("race", "Health", "Race day is the fourteenth, carnival starts at eight in the morning.", ["running"]),
     ("shoes", "Health", "New running shoes are worn out already; the last pair lasted longer.", ["running"]),
     ("standup", "Work", "Standup notes: the migration is blocked on the schema change.", ["work"]),
     ("schema", "Work", "The schema change needs a backfill before the migration can run.", ["work"]),
     ("idea", "Work", "Idea: a local-first notebook that files itself and answers questions.", ["work", "idea"]),
-    # No tags at all — `list_notes(untagged=True)` has to find exactly this one.
+    # No tags at all, `list_notes(untagged=True)` has to find exactly this one.
     ("loose", "Life", "A stray thought about nothing in particular that never got filed.", []),
     # No links, no shared tag with anything: the orphan `notebook_structure`
     # has to report.
@@ -110,14 +110,14 @@ def build(session: Session) -> Notebook:
         session.flush()
         book.documents[key] = document.id
 
-    #: A photograph whose *only* searchable text came out of OCR — the case
+    #: A photograph whose *only* searchable text came out of OCR, the case
     #: `search_files` exists for, and one no note in this notebook mentions,
     #: so a hit on it cannot come from anywhere else.
     upload = MediaUpload(
         filename="scan-01.png",
         original_name="whiteboard-march.png",
         caption="A photo of a whiteboard covered in boxes and arrows",
-        ocr_text="RETENTION PLAN — cohort by week — churn spikes at week six",
+        ocr_text="RETENTION PLAN, cohort by week, churn spikes at week six",
     )
     session.add(upload)
     session.flush()

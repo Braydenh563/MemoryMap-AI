@@ -1,7 +1,7 @@
 """`GET /files/gallery` reads `Attachment.size`, not the filesystem.
 
 `_attachment_size()` used to `stat()` the upload folder for every row on
-every open — the same mistake `list_media` still has open under PLAN.md P6,
+every open: the same mistake `list_media` still has open under PLAN.md P6,
 just on the attachment gallery instead. `Attachment.size` is written at
 upload time and kept current from there, so a `stat()` at read time was
 pure waste on every row that already had it. This asserts the fix by
@@ -9,7 +9,7 @@ counting real syscalls against the uploads folder, not by reasoning about
 the code: a second gallery call must not touch an attachment's file at all,
 and a row whose `size` was never backfilled (simulated by zeroing the
 column directly, the state a pre-fix database is genuinely in) gets exactly
-one `stat()` — the one-time backfill — and none after that.
+one `stat()`, the one-time backfill, and none after that.
 
 Counting is scoped to paths inside the uploads directory rather than every
 `Path.stat` call process-wide: patching the builtin globally also catches
@@ -57,7 +57,7 @@ def _uploads_stat_counter():
 
 
 def test_attachment_size_is_stored_at_upload(ai_client, session):
-    """The column the fix reads is actually populated on upload — otherwise
+    """The column the fix reads is actually populated on upload, otherwise
     every gallery load would hit the one-time backfill path forever."""
     entry = _note_with_file(ai_client, session)
     gallery = ai_client.get("/files/gallery").json()
@@ -81,7 +81,7 @@ def test_a_second_gallery_call_makes_zero_uploads_stat_calls(ai_client, session)
 
 
 def test_a_row_with_no_stored_size_is_backfilled_exactly_once(ai_client, session):
-    """A pre-existing attachment from before `size` was maintained — NULL/0
+    """A pre-existing attachment from before `size` was maintained: NULL/0
     in the column, a real file on disk. The first read has to stat it (there
     is nowhere else to get the number); every read after must not."""
     from memorymap.core.database import Attachment
@@ -107,4 +107,4 @@ def test_a_row_with_no_stored_size_is_backfilled_exactly_once(ai_client, session
     with patcher:
         second = ai_client.get("/files/gallery")
     assert second.status_code == 200
-    assert counter["n"] == 0  # backfilled — the column answers now
+    assert counter["n"] == 0  # backfilled: the column answers now

@@ -1,10 +1,10 @@
-"""Applying an update automatically — POST /update/apply.
+"""Applying an update automatically, POST /update/apply.
 
 Never touches a real GitHub release or spawns a real installer: every test
 mocks `requests.get` and `subprocess.Popen`, and asserts on what the code
 *tried* to do rather than any real network or process effect. The Win32
 mechanics of a real install replacing a real running app are the one part
-this suite cannot exercise — see routes_update.py's own module docstring.
+this suite cannot exercise, see routes_update.py's own module docstring.
 """
 
 from __future__ import annotations
@@ -64,13 +64,13 @@ def _wait_until_idle(timeout=5.0):
 def _wait_until_exit_called(exit_calls, timeout=3.0):
     """For a test on the "launched" path: `_exit_once_launched` runs on its
     own background thread and only calls `os._exit` *after* this test's own
-    `_wait_until_idle` above already sees `_state.running` go False — so
+    `_wait_until_idle` above already sees `_state.running` go False: so
     without this, the test can return (and `monkeypatch` revert its mock of
     `os._exit`) before that background thread ever gets there. The real
     `os._exit(0)` then fires a couple hundred ms later against no mock at
     all, silently killing the whole pytest process mid-suite. Found by
     running `pytest tests/test_update.py` alone: a truncated run, no
-    failure reported, no traceback — exactly what an unmocked `os._exit(0)`
+    failure reported, no traceback, exactly what an unmocked `os._exit(0)`
     looks like from the outside."""
     deadline = time.time() + timeout
     while not exit_calls and time.time() < deadline:
@@ -87,7 +87,7 @@ def test_apply_refuses_when_update_check_is_disabled(client):
 
 
 def test_apply_refuses_when_auto_update_is_off(client, app_state, monkeypatch):
-    """update_check_enabled alone is not enough — asked for directly, a
+    """update_check_enabled alone is not enough, asked for directly, a
     separate switch for "turn auto update off entirely" that this endpoint
     has to respect even when checking is on and the build could otherwise
     apply one."""
@@ -153,7 +153,7 @@ def test_apply_fails_cleanly_when_offline_fetching_the_release(client, app_state
 
 
 def test_apply_fails_cleanly_when_the_download_drops_mid_stream(client, app_state, monkeypatch):
-    """The release check succeeds, but the download itself fails partway —
+    """The release check succeeds, but the download itself fails partway, 
     a truncated installer must never be handed to subprocess.Popen."""
     app_state.set_preference("update_check_enabled", True)
     app_state.set_preference("auto_update_enabled", True)
@@ -182,7 +182,7 @@ def test_apply_fails_cleanly_when_the_download_drops_mid_stream(client, app_stat
 def test_a_truncated_download_is_caught_even_without_a_network_exception(
     client, app_state, monkeypatch, tmp_path
 ):
-    """The connection can drop without raising — iter_content just yields
+    """The connection can drop without raising, iter_content just yields
     less than Content-Length promised. That has to be caught too, not only
     an outright exception."""
     app_state.set_preference("update_check_enabled", True)
@@ -229,9 +229,9 @@ def test_a_successful_apply_downloads_then_launches_the_official_installer_only(
     monkeypatch.setattr(routes_update.subprocess, "Popen", lambda *a, **k: popen_calls.append(a))
     monkeypatch.setattr(routes_update.tempfile, "mkdtemp", lambda prefix="": str(tmp_path))
     # The exit-once-launched watcher calling the real os._exit(0) would
-    # kill the test process — mocked, and EXIT_DELAY_SECONDS shrunk so the
+    # kill the test process, mocked, and EXIT_DELAY_SECONDS shrunk so the
     # watcher thread doesn't sit in its own 2s sleep long after this test
-    # has already returned — see _wait_until_exit_called's own comment for
+    # has already returned: see _wait_until_exit_called's own comment for
     # why both matter together, not just the mock alone.
     monkeypatch.setattr(routes_update, "EXIT_DELAY_SECONDS", 0)
     exit_calls = []
@@ -246,7 +246,7 @@ def test_a_successful_apply_downloads_then_launches_the_official_installer_only(
     assert state["outcome"] == "launched"
     assert len(popen_calls) == 1
     command = popen_calls[0][0]
-    # Never anything but the asset this release actually named — no path or
+    # Never anything but the asset this release actually named, no path or
     # URL a request body could have influenced reaches subprocess.Popen.
     assert command[0].endswith("MemoryMap-AI-Setup-9.9.9.exe")
     assert "/VERYSILENT" in command
@@ -284,14 +284,14 @@ def test_apply_status_reports_idle_before_anything_runs(client):
     }
 
 
-# --- POST /update/apply?tag=... — picking a specific release ---------------
+# --- POST /update/apply?tag=...: picking a specific release ---------------
 
 
 def test_apply_with_a_specific_tag_hits_the_tagged_release_not_latest(
     client, app_state, monkeypatch, tmp_path
 ):
     """`tag` is never interpolated into a request URL at all (CodeQL
-    py/partial-ssrf) — a specific tag is found by matching `tag_name` in
+    py/partial-ssrf): a specific tag is found by matching `tag_name` in
     the plain, fixed `/releases` listing instead of `/releases/tags/{tag}`,
     so the request this test observes is always the same fixed URL
     regardless of which tag was asked for."""
@@ -301,7 +301,7 @@ def test_apply_with_a_specific_tag_hits_the_tagged_release_not_latest(
     monkeypatch.setattr(routes_update.sys, "frozen", True, raising=False)
 
     requested_urls = []
-    other_release = dict(RELEASE_WITH_ASSET)  # v9.9.9 — must NOT be the one picked
+    other_release = dict(RELEASE_WITH_ASSET)  # v9.9.9: must NOT be the one picked
     tagged_release = {
         "tag_name": "v8.8.8",
         "assets": [
@@ -334,7 +334,7 @@ def test_apply_with_a_specific_tag_hits_the_tagged_release_not_latest(
     _wait_until_idle()
     _wait_until_exit_called(exit_calls)
 
-    # First call is the release lookup — always this one fixed URL,
+    # First call is the release lookup, always this one fixed URL,
     # regardless of which tag was asked for; the second is the download
     # itself, hitting the asset URL that lookup resolved to.
     assert requested_urls[0] == f"{routes_update.GITHUB_REPO_API}/releases"
@@ -361,7 +361,7 @@ def test_apply_with_a_tag_that_has_no_matching_release_is_a_clean_404(
 def test_apply_refuses_a_tag_that_isnt_a_real_release_tag_shape(
     client, app_state, monkeypatch
 ):
-    """`tag` used to go straight into a GitHub API URL — flagged by CodeQL
+    """`tag` used to go straight into a GitHub API URL, flagged by CodeQL
     as a partial SSRF (py/partial-ssrf): the host is fixed, but the path
     wasn't, so a crafted value could still steer the request somewhere this
     endpoint never meant to fetch. Every real tag this repo's release
@@ -384,7 +384,7 @@ def test_apply_refuses_a_tag_that_isnt_a_real_release_tag_shape(
     assert calls == [], "a rejected tag must never reach a network call"
 
 
-# --- GET /update/check — moved from app.py, now channel-aware --------------
+# --- GET /update/check: moved from app.py, now channel-aware --------------
 
 
 def test_check_reports_disabled_when_the_preference_is_off(client):
@@ -433,7 +433,7 @@ def test_check_finds_an_update_and_reports_the_windows_asset(client, app_state, 
 
 
 def test_check_never_offers_auto_apply_off_a_source_build(client, app_state, monkeypatch):
-    """Same release data, but not a frozen Windows build — can_auto_apply
+    """Same release data, but not a frozen Windows build, can_auto_apply
     must be False and asset must be None, never a half-offer."""
     app_state.set_preference("update_check_enabled", True)
     app_state.set_preference("update_channel", "stable")
@@ -446,7 +446,7 @@ def test_check_never_offers_auto_apply_off_a_source_build(client, app_state, mon
     assert body["asset"] is None
 
 
-# --- GET /update/releases — the version picker ------------------------------
+# --- GET /update/releases: the version picker ------------------------------
 
 
 def test_releases_unavailable_when_check_is_disabled(client):
@@ -467,7 +467,7 @@ def test_releases_unavailable_on_the_main_channel(client, app_state):
 def test_releases_unavailable_off_a_source_build_on_the_stable_channel(client, app_state):
     """A source checkout defaults to the main channel (see
     ConfigManager._load_preferences), so this simulates someone who
-    switched it back to stable by hand while still on a source build —
+    switched it back to stable by hand while still on a source build, 
     the frozen-Windows check has to be the one that refuses it then."""
     app_state.set_preference("update_check_enabled", True)
     app_state.set_preference("update_channel", "stable")
@@ -481,7 +481,7 @@ def test_releases_unavailable_off_a_source_build_by_default(client, app_state):
     """A source checkout with no explicit channel choice defaults to
     "main" (it already auto-updates for real via start.sh/start.bat's own
     `git pull`), so /update/releases reports channel_unavailable, not
-    not_supported — the honest reason, not a coincidentally-similar one."""
+    not_supported: the honest reason, not a coincidentally-similar one."""
     app_state.set_preference("update_check_enabled", True)
     response = client.get("/update/releases")
     body = response.json()
@@ -509,7 +509,7 @@ def test_releases_lists_installable_versions_and_skips_source_only_tags(
     assert body["releases"][0]["tag"] == "v9.9.9"
 
 
-# --- GET /update/source-status — start.sh/start.bat's own git-pull update --
+# --- GET /update/source-status: start.sh/start.bat's own git-pull update --
 
 
 def test_source_status_reports_nothing_when_no_update_happened(client):
@@ -531,7 +531,7 @@ def test_source_status_reports_a_real_version_change_once_then_goes_quiet(client
 
 def test_source_status_strips_quotes_left_by_start_bats_own_parsing(client, monkeypatch):
     """start.bat's :read_version leaves the surrounding quotes on rather
-    than fight cmd.exe's quoting rules — see start.bat and this module's
+    than fight cmd.exe's quoting rules: see start.bat and this module's
     own comment. The Python side has to strip them."""
     monkeypatch.setenv("MM_UPDATED_FROM", '"0.1.2"')
     monkeypatch.setenv("MM_UPDATED_TO", '"0.1.3"')
@@ -541,7 +541,7 @@ def test_source_status_strips_quotes_left_by_start_bats_own_parsing(client, monk
 
 
 def test_source_status_ignores_an_unchanged_version(client, monkeypatch):
-    """`git pull` ran (env vars are set) but landed on the same version —
+    """`git pull` ran (env vars are set) but landed on the same version, 
     not a real update, must not pop the dialog."""
     monkeypatch.setenv("MM_UPDATED_FROM", "0.1.3")
     monkeypatch.setenv("MM_UPDATED_TO", "0.1.3")
@@ -612,7 +612,7 @@ def test_error_field_never_carries_a_raw_local_path_from_an_os_error(
 ):
     """Flagged by CodeQL (py/stack-trace-exposure): `_state.error` reaches
     the browser over GET /apply/status, and a real `PermissionError`'s own
-    `str()` on Windows includes the full path it couldn't open — the exact
+    `str()` on Windows includes the full path it couldn't open: the exact
     shape `core/extras.py`'s own module docstring already documents fixing
     once for this app's other installer. The full detail still reaches the
     log (`logger.exception`); only the HTTP-facing field is sanitised."""

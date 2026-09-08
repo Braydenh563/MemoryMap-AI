@@ -9,24 +9,24 @@ A skill used to be `{name, prompt}`, and clicking one dropped its prompt into
 the chat box. There was no notion of what a skill *does*: no declared inputs,
 no tools it may use, no steps, nothing to show progress against. `save_skill`
 took a name and a string, so "make me a skill that files my inbox notes" could
-only ever produce another sentence — the storage had nowhere to put the steps.
+only ever produce another sentence, the storage had nowhere to put the steps.
 That is why fixing the prompt alone would not have helped.
 
 A skill is now four things, all optional except the first two:
 
-- **prompt** — what it should do, in the user's words. A skill with only this
+- **prompt**: what it should do, in the user's words. A skill with only this
   behaves exactly as it did before, which is why nothing is lost.
-- **steps** — ordered instructions. This is what makes a skill replayable and
+- **steps**: ordered instructions. This is what makes a skill replayable and
   what the UI shows progress against (roadmap §18's missing plan). A step is
-  either a plain string or a dict declaring its *contract* — what must be true
+  either a plain string or a dict declaring its *contract*, what must be true
   before the run may move on. See `STEP_EXPECTS`; the canonical form comes back
   as `step_specs`, beside a `steps` list that stays strings because the
   frontend renders it directly.
-- **tools** — an explicit allowlist. Both a safety property *and* a prompt:
+- **tools**: an explicit allowlist. Both a safety property *and* a prompt:
   naming the three tools a skill needs is what makes a small model reach for
-  them, which is the reported failure. It is also roadmap §11a's win — only
+  them, which is the reported failure. It is also roadmap §11a's win: only
   those schemas go on the wire for the run, instead of all 28.
-- **inputs** — declared placeholders, so a skill can be "file everything
+- **inputs**: declared placeholders, so a skill can be "file everything
   tagged `{{tag}}`" rather than a sentence hoping the model guesses the tag.
 
 This module is deliberately free of app imports: it validates against a set of
@@ -43,7 +43,7 @@ MAX_NAME = 40
 MAX_PROMPT = 2000
 MAX_DESCRIPTION = 200
 # When this skill applies, in the user's own words. Separate from the
-# description, which says what the skill *is* — this says when to reach for it,
+# description, which says what the skill *is*, this says when to reach for it,
 # and it is the field that makes a skill findable by the model rather than only
 # by the person who remembered writing it (§33). Short on purpose: it is
 # carried in `list_skills` output, which a turn may read before doing anything.
@@ -51,20 +51,20 @@ MAX_WHEN = 160
 MAX_STEPS = 10
 MAX_STEP = 300
 
-#: What has to be true before a step counts as finished — a step's *contract*.
+#: What has to be true before a step counts as finished, a step's *contract*.
 #:
 #: Reported: *"I ran a skill and it ran no tools... the models often dont even
 #: properly complete a step before they are prompted for the next step."* The
 #: cause is structural rather than a bad prompt: a step used to be over when
 #: the model stopped emitting, so a 4B model that narrates ("Here is the result
 #: of step 2…") without calling anything was indistinguishable, to the runner,
-#: from one that did the work. A contract is the missing half — the machine
+#: from one that did the work. A contract is the missing half, the machine
 #: -checkable thing that must have happened, so "step 2 is done" is something
 #: the app knows rather than hopes.
 #:
-#: - `tool_called`   — at least one tool ran (any of `tools`, if named).
-#: - `notes_changed` — the step actually changed something in the notebook.
-#: - `answer_only`   — words are the deliverable; a judgement or a report.
+#: - `tool_called`, at least one tool ran (any of `tools`, if named).
+#: - `notes_changed`, the step actually changed something in the notebook.
+#: - `answer_only`, words are the deliverable; a judgement or a report.
 #:
 #: A **plain string step has no contract at all**, and that is deliberate:
 #: every skill saved before this existed is a list of strings, as is every
@@ -82,7 +82,7 @@ DEFAULT_STEP_RETRIES = 2
 MAX_STEP_RETRIES = 5
 
 #: How many tools one step may name as satisfying its contract. A step naming
-#: four is not declaring a contract, it is restating the skill's allowlist —
+#: four is not declaring a contract, it is restating the skill's allowlist: 
 #: and the whole point of Phase B is that a small model is offered *one*.
 MAX_STEP_TOOLS = 4
 MAX_TOOLS = 12
@@ -90,7 +90,7 @@ MAX_INPUTS = 5
 MAX_INPUT_VALUE = 200
 # Manual (step-through) mode: what the user types in at a pause between
 # steps, to add what the agent missed or answer a question it raised. Short
-# on purpose — it is folded straight into the next step's own instruction,
+# on purpose: it is folded straight into the next step's own instruction,
 # not stored anywhere.
 MAX_MANUAL_NOTE = 500
 
@@ -101,11 +101,11 @@ MAX_MANUAL_NOTE = 500
 NEVER_IN_A_SKILL = frozenset({"run_skill", "make_plan"})
 
 #: An ad-hoc plan's title, shown on the plan card. Longer than MAX_NAME because
-#: it is the job in the user's own words — "tidy up my categories and retag
-#: anything that got missed" — rather than a name somebody chose for a skill.
+#: it is the job in the user's own words: "tidy up my categories and retag
+#: anything that got missed", rather than a name somebody chose for a skill.
 MAX_GOAL = 120
 
-# {{tag}} — doubled braces so a skill can still talk about {json} literally.
+# {{tag}}: doubled braces so a skill can still talk about {json} literally.
 PLACEHOLDER = re.compile(r"\{\{\s*([a-zA-Z][a-zA-Z0-9_]{0,23})\s*\}\}")
 INPUT_NAME = re.compile(r"^[a-zA-Z][a-zA-Z0-9_]{0,23}$")
 
@@ -136,7 +136,7 @@ def _step_specs(
     `step_specs` on the input is read too, so normalising an already-normalised
     skill is idempotent. Without it a skill would lose its contracts simply by
     being round-tripped through `catalog()`, which re-normalises everything the
-    user has stored — the sort of silent loss that only shows up as "the
+    user has stored: the sort of silent loss that only shows up as "the
     built-in works and my copy of it doesn't".
     """
     raw_steps = raw.get("steps") or []
@@ -165,7 +165,7 @@ def _one_step_spec(
     expects = str(step.get("expects") or "").strip() or None
     if expects is not None and expects not in STEP_EXPECTS:
         raise SkillError(
-            f"“{expects}” is not something a step can expect — use one of "
+            f"“{expects}” is not something a step can expect, use one of "
             + ", ".join(STEP_EXPECTS)
             + "."
         )
@@ -182,7 +182,7 @@ def _one_step_spec(
             # A step may only be satisfied by a tool the run will actually be
             # offered. Caught here rather than at run time because the run
             # would otherwise re-prompt for a tool the allowlist refuses, twice,
-            # and then stall — a contract nothing could ever meet.
+            # and then stall: a contract nothing could ever meet.
             raise SkillError(
                 f"Step “{text[:40]}” expects “{tool}”, which this skill does "
                 "not declare in its tools."
@@ -237,7 +237,7 @@ def contract_nudge(spec: dict, attempt: int, of: int) -> str:
     `find_contradictions`. Call it now." outperforms any amount of restated
     context, and every word here is spent on that rather than on politeness.
 
-    It says which attempt this is on purpose — a model that has already been
+    It says which attempt this is on purpose, a model that has already been
     nudged once and produced more prose is being told the loop is finite,
     which is the honest thing to tell it and cheap to say.
     """
@@ -249,13 +249,13 @@ def contract_nudge(spec: dict, attempt: int, of: int) -> str:
         # words in it. Telling it "you did not call a tool" there would be
         # both false and the opposite of what it needs to hear.
         opening = (
-            "You did not answer. This step is asking you for words — say what "
+            "You did not answer. This step is asking you for words, say what "
             "you found, in a sentence or two."
         )
     elif spec.get("expects") == "notes_changed":
         opening = (
             f"Nothing in my notebook changed. You have to actually call {tool} "
-            "for this step — describing the change does not make it."
+            "for this step: describing the change does not make it."
             if named
             else "Nothing in my notebook changed, and this step is supposed to "
             "change something. Make the change with a tool."
@@ -263,12 +263,12 @@ def contract_nudge(spec: dict, attempt: int, of: int) -> str:
     elif named:
         opening = (
             f"You did not call {tool}. Call it now, with the arguments this "
-            "step needs — do not describe what you would do, do it."
+            "step needs: do not describe what you would do, do it."
         )
     else:
         opening = (
             "You did not call any tool. This step cannot be done by writing "
-            "about it — make the call."
+            "about it: make the call."
         )
     return (
         f"{opening} This is attempt {attempt} of {of}; if the step genuinely "
@@ -283,7 +283,7 @@ MAX_STATE_IDS = 12
 
 
 def state_line(state: dict | None) -> str:
-    """"State so far: notes #3, #9; tags: admin, tax" — or "" if nothing is known.
+    """"State so far: notes #3, #9; tags: admin, tax", or "" if nothing is known.
 
     Structured state, rather than the prose a step wrote about itself, is the
     third of the three structural problems behind the reported failure: a step
@@ -308,7 +308,7 @@ def state_line(state: dict | None) -> str:
         parts.append(f"last tool run: {last}")
     if not parts:
         return ""
-    return "State so far — " + "; ".join(parts) + "."
+    return "State so far: " + "; ".join(parts) + "."
 
 
 def normalise(raw: dict, known_tools: set[str] | None = None) -> dict:
@@ -337,7 +337,7 @@ def normalise(raw: dict, known_tools: set[str] | None = None) -> dict:
             # binds. Refused at save rather than at execution, because the
             # allowlist would only refuse it once the run was already going.
             raise SkillError(
-                f"A skill can't use “{tool}” — a skill that starts another "
+                f"A skill can't use “{tool}”: a skill that starts another "
                 "skill would never have to stop. Put the steps in this one."
             )
         if known_tools is not None and tool not in known_tools:
@@ -359,7 +359,7 @@ def normalise(raw: dict, known_tools: set[str] | None = None) -> dict:
         input_name = str((item or {}).get("name") or "").strip()
         if not INPUT_NAME.match(input_name):
             raise SkillError(
-                f"“{input_name or item}” is not a usable input name — use "
+                f"“{input_name or item}” is not a usable input name, use "
                 "letters, digits and underscores, starting with a letter."
             )
         inputs.append(
@@ -380,7 +380,7 @@ def normalise(raw: dict, known_tools: set[str] | None = None) -> dict:
         "description": _text(raw.get("description"), MAX_DESCRIPTION, "A description"),
         "when_to_use": _text(raw.get("when_to_use"), MAX_WHEN, "A when-to-use note"),
         # Two views of the same list, and both are load-bearing. `steps` is
-        # the list of strings the frontend has always read — `plan.steps` is
+        # the list of strings the frontend has always read, `plan.steps` is
         # rendered straight into `<li>.textContent` and the skill editor joins
         # it with newlines into a textarea, so anything but strings there is a
         # broken settings screen and a plan card full of "[object Object]".
@@ -425,14 +425,14 @@ def ad_hoc_plan(goal: str, steps: list[str]) -> dict:
 
     **Why this exists** (§35K, and §33's `update_plan`): *"I will say fix my
     categories and it will only merge two categories and leave it at that,
-    ignoring the rest."* That is the same failure §21 found for skills — a
-    model given one broad instruction does the first part and reports success —
+    ignoring the rest."* That is the same failure §21 found for skills, a
+    model given one broad instruction does the first part and reports success, 
     and the skill runner already solves it, by giving each step its own turn.
 
     What was missing is that the fix only applied to jobs somebody had saved as
     a skill. An open-ended request needs the identical treatment, so this is
     the identical structure with nothing saved: a name, a job, ordered steps.
-    The runner cannot tell the difference, which is the point — a plan gets the
+    The runner cannot tell the difference, which is the point, a plan gets the
     ticked steps, the change list and the Undo on each that a skill run gets.
 
     No tool allowlist, deliberately. A skill declares its tools because its
@@ -458,7 +458,7 @@ def ad_hoc_plan(goal: str, steps: list[str]) -> dict:
 def fill(text: str, values: dict) -> str:
     """Substitute {{input}} placeholders.
 
-    A *declared* input substitutes even when it is empty — an optional input
+    A *declared* input substitutes even when it is empty, an optional input
     left blank should disappear, not print `{{to}}` at the model. An
     undeclared name is left alone so the mistake is visible, though
     `normalise` refuses to store one in the first place.
@@ -525,7 +525,7 @@ def run_instruction(skill: dict, values: dict | None = None) -> str:
         parts.append(
             "For this run you have only these tools: "
             + ", ".join(skill["tools"])
-            + ". They are the tools this skill needs — use them rather than "
+            + ". They are the tools this skill needs, use them rather than "
             "answering from memory."
         )
     if is_action(skill):
@@ -547,7 +547,7 @@ def step_instruction(
     """What the model is asked for **one** step of a skill.
 
     A skill's steps used to be handed over as one numbered list inside one
-    request, which is a plan the model is free to ignore — and a 3B model
+    request, which is a plan the model is free to ignore, and a 3B model
     given four instructions at once reliably does the first and narrates the
     rest. Each step is its own turn now, so "the model did step 2" is
     something the app knows rather than something it hopes for.
@@ -573,7 +573,7 @@ def step_instruction(
     ]
     if index:
         parts.append(
-            "Earlier steps are in the conversation above — build on what they "
+            "Earlier steps are in the conversation above, build on what they "
             "found rather than starting again."
         )
     parts.append(f"Step {index + 1}, and only this step: {fill(steps[index], values)}")
@@ -593,7 +593,7 @@ def step_instruction(
         parts.append(carried)
     # In small-model mode the step is offered exactly the tools its contract
     # names, so naming the skill's whole allowlist here would describe a
-    # toolbox this turn does not have — and a model told about a tool it was
+    # toolbox this turn does not have, and a model told about a tool it was
     # not sent will call it and get refused, burning the round.
     named = list(only_tools) if only_tools is not None else list(skill.get("tools") or [])
     if named:
@@ -604,12 +604,12 @@ def step_instruction(
         )
     if example:
         # Small models copy structure far more reliably than they follow a
-        # description of it, so one worked call — built from the tool's own
-        # schema, never hand-written per tool — is worth more than another
+        # description of it, so one worked call, built from the tool's own
+        # schema, never hand-written per tool, is worth more than another
         # sentence of instruction. See `tools.call_example`.
         parts.append(example)
     parts.append(
-        "Do this step and then stop — not the later ones. Say what you did in "
+        "Do this step and then stop, not the later ones. Say what you did in "
         "a sentence or two. If it cannot be done, say so plainly instead of "
         "pretending it worked."
     )
@@ -636,7 +636,7 @@ _READING_TOOLS = ["search_notes", "list_notes", "get_note", "count_notes"]
 #: **How the three are chosen, since this is a judgement and not a rule the
 #: code can enforce:**
 #:
-#: - `tool_called` for a step that *looks* — a read, a search, an overview,
+#: - `tool_called` for a step that *looks*, a read, a search, an overview,
 #:   an audit tool. There is always something to read, so a model that
 #:   narrates instead of calling has certainly not done the step. This is the
 #:   reported failure ("I ran a skill and it ran no tools") and most of the
@@ -646,7 +646,7 @@ _READING_TOOLS = ["search_notes", "list_notes", "get_note", "count_notes"]
 #:   over a notebook with nothing to do would stall, which is honest but is
 #:   not what somebody wants to read.
 #: - `answer_only` for judgements, reports, and actions that may legitimately
-#:   be a no-op ("merge the duplicate tags — if there are none, say so").
+#:   be a no-op ("merge the duplicate tags, if there are none, say so").
 #:   Forcing a tool call there would stall a run for doing the right thing.
 def _step(text: str, expects: str, *tools: str) -> dict:
     return {"text": text, "expects": expects, "tools": list(tools)}
@@ -655,7 +655,7 @@ def _step(text: str, expects: str, *tools: str) -> dict:
 # --- the notebook audit set ---------------------------------------------------
 #
 # Asked for directly: *"a skill that can do a full audit and clean up of my
-# notebook — linking notes, removing inaccurate links, analysing categories and
+# notebook: linking notes, removing inaccurate links, analysing categories and
 # tags, retagging notes, adding and removing tags, changing categories, moving
 # notes around, combining notes to declutter."*
 #
@@ -679,21 +679,21 @@ def _step(text: str, expects: str, *tools: str) -> dict:
 # reform rather than a style preference: in small-model mode a step is offered
 # only the tools its contract names, and a step naming three is three schemas
 # on the wire and three ways for a 4B model to pick the wrong one. Steps that
-# used to say "read the notes **and** judge them" are two steps now — the "and"
+# used to say "read the notes **and** judge them" are two steps now, the "and"
 # was the model's licence to do the first half and narrate the second.
 _AUDIT_SKILLS: list[dict] = [
     {
         "name": "Notebook health check",
-        "description": "A full audit — reports what needs fixing, changes nothing.",
+        "description": "A full audit: reports what needs fixing, changes nothing.",
         "when_to_use": "before a clean-up, or when the notebook feels disorganised",
         "prompt": (
             "Audit my whole notebook and report what needs attention. Do NOT "
-            "change anything — this is a report, not a clean-up."
+            "change anything: this is a report, not a clean-up."
         ),
         "steps": [
             _step(
-                "Get the notebook's overview — categories, tags and the total "
-                "note count — in one notebook_overview call.",
+                "Get the notebook's overview: categories, tags and the total "
+                "note count: in one notebook_overview call.",
                 "tool_called",
                 "notebook_overview",
             ),
@@ -732,13 +732,13 @@ _AUDIT_SKILLS: list[dict] = [
     {
         "name": "Clean up my tags",
         "description": "Merges duplicate tags and removes ones that don't fit.",
-        "when_to_use": "when tags have drifted — plurals, synonyms, one-offs",
+        "when_to_use": "when tags have drifted, plurals, synonyms, one-offs",
         "prompt": "Go through my tags, merge the duplicates, and remove the ones that don't fit.",
         "steps": [
             _step("List every tag I use, with its count.", "tool_called", "list_tags"),
             _step(
-                "Group the tags that mean the same thing — singular and "
-                "plural, different spellings, near-synonyms — and pick the "
+                "Group the tags that mean the same thing, singular and "
+                "plural, different spellings, near-synonyms, and pick the "
                 "best name for each group.",
                 "answer_only",
             ),
@@ -790,8 +790,8 @@ _AUDIT_SKILLS: list[dict] = [
                 "list_notes",
             ),
             _step(
-                "Tell me the structure you propose — which categories to add, "
-                "which to rename, which to merge — and why, before changing "
+                "Tell me the structure you propose, which categories to add, "
+                "which to rename, which to merge, and why, before changing "
                 "anything.",
                 "answer_only",
             ),
@@ -811,7 +811,7 @@ _AUDIT_SKILLS: list[dict] = [
                 "answer_only",
             ),
             _step(
-                "Read a note with get_note before deciding where it belongs — "
+                "Read a note with get_note before deciding where it belongs, "
                 "the choice has to be based on what it says.",
                 "tool_called",
                 "get_note",
@@ -821,7 +821,7 @@ _AUDIT_SKILLS: list[dict] = [
         ],
         # `delete_category` is deliberately absent. It is destructive, so it
         # would stop the run for a confirm card on a step that is meant to be
-        # bulk work — and merging is the operation that was actually wanted
+        # bulk work: and merging is the operation that was actually wanted
         # anyway, since it keeps the notes together rather than scattering them
         # back into Uncategorised.
         "tools": [
@@ -868,7 +868,7 @@ _AUDIT_SKILLS: list[dict] = [
                 "related_notes",
             ),
             _step(
-                "Read those pairs with get_note — a similar score is a hint, "
+                "Read those pairs with get_note, a similar score is a hint, "
                 "not a reason.",
                 "tool_called",
                 "get_note",
@@ -907,7 +907,7 @@ _AUDIT_SKILLS: list[dict] = [
                 "related_notes",
             ),
             _step(
-                "Read each candidate pair or group in full with get_note — a "
+                "Read each candidate pair or group in full with get_note, a "
                 "similar score is a hint and is often wrong.",
                 "tool_called",
                 "get_note",
@@ -958,8 +958,8 @@ BUILTIN_SKILLS: list[dict] = [
     {
         "name": "Find where I disagreed with myself",
         "prompt": (
-            "Look for places where my own notes contradict each other — a decision I "
-            "reversed, a date that moved, a view I changed — and tell me what you found."
+            "Look for places where my own notes contradict each other, a decision I "
+            "reversed, a date that moved, a view I changed, and tell me what you found."
         ),
         "description": "Reads related notes and reports the ones that can't both be right.",
         "when_to_use": (
@@ -971,7 +971,7 @@ BUILTIN_SKILLS: list[dict] = [
             _step("Run the find_contradictions tool.", "tool_called", "find_contradictions"),
             _step(
                 "For each one, say what the two notes claim and how far apart "
-                "they were written — the gap is the point, since the "
+                "they were written: the gap is the point, since the "
                 "interesting case is a change of mind rather than a slip.",
                 "answer_only",
             ),
@@ -983,7 +983,7 @@ BUILTIN_SKILLS: list[dict] = [
             ),
             _step(
                 "If nothing was found, say so plainly rather than reaching for "
-                "a weak example — a wrong accusation is worse here than no "
+                "a weak example: a wrong accusation is worse here than no "
                 "answer.",
                 "answer_only",
             ),
@@ -1017,7 +1017,7 @@ BUILTIN_SKILLS: list[dict] = [
         "prompt": "Find the loose ends in my notes and list them.",
         "steps": [
             _step(
-                "Search my notes for unfinished work — todo, need to, should, "
+                "Search my notes for unfinished work, todo, need to, should, "
                 "waiting on, must, chase up, follow up.",
                 "tool_called",
                 "search_notes",
@@ -1053,7 +1053,7 @@ BUILTIN_SKILLS: list[dict] = [
             # The one `notes_changed` contract in the shipped set. This skill
             # exists to tag notes and the step before it has just listed the
             # untagged ones, so a step that ends with nothing tagged did not
-            # happen — whatever the model wrote about it.
+            # happen: whatever the model wrote about it.
             _step(
                 "Call tag_note on each of those notes with 2–3 short, reusable "
                 "tags.",
@@ -1076,7 +1076,7 @@ BUILTIN_SKILLS: list[dict] = [
                 "list_notes",
             ),
             _step(
-                "Read both notes of a pair with get_note before deciding — a "
+                "Read both notes of a pair with get_note before deciding, a "
                 "shared word is not a shared subject.",
                 "tool_called",
                 "get_note",
@@ -1098,7 +1098,7 @@ BUILTIN_SKILLS: list[dict] = [
         "prompt": "Suggest how I could tidy my notebook, without changing it.",
         "steps": [
             _step(
-                "Get the notebook's overview — categories, tags and totals — "
+                "Get the notebook's overview, categories, tags and totals, "
                 "in one notebook_overview call.",
                 "tool_called",
                 "notebook_overview",
@@ -1197,7 +1197,7 @@ BUILTIN_SKILLS: list[dict] = [
                 "search_notes",
             ),
             _step(
-                "Give me a varied list of ideas — some obvious, some not — and "
+                "Give me a varied list of ideas, some obvious, some not, and "
                 "say which one you would start with.",
                 "answer_only",
             ),
@@ -1259,7 +1259,7 @@ BUILTIN_SKILLS: list[dict] = [
         "tools": ["search_notes", "get_note", "get_current_time", "set_reminder"],
     },
     # ROADMAP §88.2's Kortex/Eden read named this the cheapest of everything
-    # worth taking from there — "it is a skill, not a feature". The point,
+    # worth taking from there, "it is a skill, not a feature". The point,
     # from that read: a generic "write about {{topic}}" prompt hands back
     # the model's own generic take; asking the *person* questions about
     # their own half-formed idea and writing up their answers is a genuinely
@@ -1272,9 +1272,9 @@ BUILTIN_SKILLS: list[dict] = [
     # event at all. A contract naming it could not be met by anything.
     {
         "name": "Interview me about an idea",
-        "description": "Asks you questions to draw out your own thinking, then saves it as a note — not the AI's take on the topic, yours.",
+        "description": "Asks you questions to draw out your own thinking, then saves it as a note, not the AI's take on the topic, yours.",
         "when_to_use": "when an idea is still half-formed and you want to think it through out loud, not be handed a generic explanation",
-        "prompt": "Interview me about {{topic}} — ask me questions rather than explaining it back to me.",
+        "prompt": "Interview me about {{topic}}: ask me questions rather than explaining it back to me.",
         "steps": [
             _step(
                 "Check whether I already have notes on {{topic}}, so you don't "
@@ -1283,14 +1283,14 @@ BUILTIN_SKILLS: list[dict] = [
                 "search_notes",
             ),
             _step(
-                "Ask me one open question about {{topic}} — what's prompting "
-                "it, or what I already think — and wait for my answer before "
+                "Ask me one open question about {{topic}}: what's prompting "
+                "it, or what I already think, and wait for my answer before "
                 "asking anything else.",
                 "answer_only",
             ),
             _step(
                 "Ask 2-3 more questions, one at a time, each building on what "
-                "I just said rather than a fixed list — the kind a good "
+                "I just said rather than a fixed list, the kind a good "
                 "interviewer asks to get specifics instead of generalities.",
                 "answer_only",
             ),
@@ -1312,19 +1312,19 @@ BUILTIN_SKILLS: list[dict] = [
     },
     # BACKLOG §22: "the way skills are used... it doesn't recognise that it
     # needs to use tools" was fixed at the mechanism level (this module's own
-    # header), but a user still has to know that shape exists to use it —
+    # header), but a user still has to know that shape exists to use it, 
     # `save_skill` already takes steps and a tool allowlist, so the missing
     # piece was never capability, only that nobody had wired an interview
     # around it. Reuses the same ask_user back-and-forth as the skill above,
     # aimed at *building* a skill instead of *thinking through* an idea.
     {
         "name": "Build a skill",
-        "description": "Interviews you about a job you do often, then saves it as a real skill — with steps and an actual tool allowlist, not just a saved sentence.",
+        "description": "Interviews you about a job you do often, then saves it as a real skill, with steps and an actual tool allowlist, not just a saved sentence.",
         "when_to_use": "when something you keep asking the AI to do by hand should become a one-click skill instead",
         "prompt": "Help me turn {{task}} into a saved skill.",
         "steps": [
             _step(
-                "Call list_skills first — {{task}} may already be close to one "
+                "Call list_skills first: {{task}} may already be close to one "
                 "that exists, and a near-duplicate is worse than refining the "
                 "one that's there.",
                 "tool_called",
@@ -1332,19 +1332,19 @@ BUILTIN_SKILLS: list[dict] = [
             ),
             _step(
                 "Ask what {{task}} should actually do, step by step, in the "
-                "order they'd do it themselves — one question, wait for the "
+                "order they'd do it themselves, one question, wait for the "
                 "answer, rather than a checklist dumped at once.",
                 "answer_only",
             ),
             _step(
                 "Ask whether it should ever change their notes (create, edit, "
-                "tag, delete, set reminders) or only read and answer — this "
+                "tag, delete, set reminders) or only read and answer, this "
                 "decides the tool allowlist.",
                 "answer_only",
             ),
             _step(
                 "Ask if any part of it should be a fill-in-the-blank each time "
-                "it runs (a topic, a deadline, a tag) rather than fixed — that "
+                "it runs (a topic, a deadline, a tag) rather than fixed, that "
                 "becomes the skill's inputs.",
                 "answer_only",
             ),
@@ -1356,7 +1356,7 @@ BUILTIN_SKILLS: list[dict] = [
             ),
             _step(
                 "Save it with save_skill once they confirm, using exactly the "
-                "steps and tools agreed — not a paraphrase.",
+                "steps and tools agreed, not a paraphrase.",
                 "answer_only",
             ),
         ],
@@ -1383,7 +1383,7 @@ def catalog(config, known_tools: set[str] | None = None) -> list[dict]:
 
     A stored skill that no longer validates (a tool it named has since been
     renamed, say) is carried through as a prompt-only skill rather than
-    dropped — losing someone's skill because a field went stale is worse than
+    dropped: losing someone's skill because a field went stale is worse than
     running it with fewer powers than it asked for.
     """
     out = builtins(known_tools)
@@ -1400,7 +1400,7 @@ def catalog(config, known_tools: set[str] | None = None) -> list[dict]:
 
 
 def find(config, name: str, known_tools: set[str] | None = None) -> dict | None:
-    """One runnable skill by name — built-in or the user's own."""
+    """One runnable skill by name, built-in or the user's own."""
     wanted = str(name or "").strip()
     for skill in catalog(config, known_tools):
         if skill["name"] == wanted:

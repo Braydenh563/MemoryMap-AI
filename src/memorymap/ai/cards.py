@@ -5,9 +5,9 @@
 A tool result reaches the chat three ways today, and only one of them is a
 thing the reader can act on:
 
-1. `label` — one sentence of prose ("Searched files for “budget”").
-2. `result_summary` — the raw JSON, in a disclosure that has to be opened.
-3. `touched` (`agent._touched_items`) — **notes and documents only**, as chips
+1. `label`, one sentence of prose ("Searched files for “budget”").
+2. `result_summary`, the raw JSON, in a disclosure that has to be opened.
+3. `touched` (`agent._touched_items`), **notes and documents only**, as chips
    that open the thing.
 
 So a `search_files` result rendered as a JSON blob with nothing to click, a
@@ -40,13 +40,13 @@ measurable:
   Rewriting the results would rewrite the prose the transcript shows and the
   assertions that pin it, for no gain to either.
 - **A card is a *view*, and views belong on the boundary.** This module runs
-  once per tool call, at the point where the event is built — the same place
+  once per tool call, at the point where the event is built, the same place
   `_tool_sources` and `_touched_items` already run.
 
 What "every tool" does buy is coverage, and that is enforced rather than
 hoped for: `PROJECTIONS` has an entry for every registered tool name, empty
 tuple included, and `tests/test_tool_cards.py` fails when a new tool is added
-without a decision being made about it. An empty tuple is a decision — a
+without a decision being made about it. An empty tuple is a decision, a
 count, a rename or a tag list names nothing you can open.
 """
 
@@ -62,7 +62,7 @@ KINDS = ("note", "document", "file", "board", "reminder")
 #: reasoning as `agent.TOUCHED_LIMIT`, which this sits beside: a `list_notes`
 #: over a big notebook would otherwise put fifty cards under one row and bury
 #: the answer beneath its own evidence. The tool's own result still says how
-#: many there really were — the card strip is a way in, not an inventory.
+#: many there really were, the card strip is a way in, not an inventory.
 CARD_ITEM_LIMIT = 6
 
 #: How much of a thing's own text rides along as its one-line preview. Long
@@ -95,7 +95,7 @@ def _first_text(row: dict, *keys: str) -> str:
 def _note_item(row: dict) -> dict | None:
     """A note card.
 
-    A note has no title, so its opening words are its name — the same thing
+    A note has no title, so its opening words are its name, the same thing
     `noteLabel` shows in every list in the app. `preview` and `text` are the
     names the graph tools and the whiteboard tools give the same field.
     """
@@ -112,7 +112,7 @@ def _note_item(row: dict) -> dict | None:
 
 def _document_item(row: dict) -> dict | None:
     """A document card. Its title is its name, which is what makes it a
-    document rather than a note — see `agent._touched_kind` for why the two
+    document rather than a note, see `agent._touched_kind` for why the two
     must never be confused: id 12 is a different object in each table."""
     doc_id = row.get("id")
     if not isinstance(doc_id, int):
@@ -154,7 +154,7 @@ def _file_item(row: dict) -> dict | None:
 def _board_item(row: dict) -> dict | None:
     """A whiteboard or mindmap board.
 
-    **`None` is a real board id** — the default board, which is what every
+    **`None` is a real board id**, the default board, which is what every
     whiteboard tool means when `board_id` is absent (`_whiteboard_board_filter`
     exists because `== None` renders as SQL `= NULL` and matches nothing). So
     this cannot use "no id" as its rejection test the way the others do; it
@@ -252,13 +252,13 @@ PROJECTIONS: dict[str, tuple[_Where, ...]] = {
     "find_similar_notes": (_N("similar"),),
     "path_between": (_N("path"),),
     # A structure report names its hubs, its orphans and each cluster's
-    # centre. The clusters themselves are counts, not things — their `centre`
+    # centre. The clusters themselves are counts, not things, their `centre`
     # is nested one level deeper than this table walks, and hubs/orphans
     # already give the reader a way in.
     #
     # **Orphans first, and the order is load-bearing** because the per-kind
     # cap is six: a well-connected notebook has more hubs than that, so with
-    # hubs first the orphans were squeezed out entirely — measured by the eval
+    # hubs first the orphans were squeezed out entirely, measured by the eval
     # harness, whose "which notes aren't connected to anything?" case cited
     # six hubs and not the orphan it asked for. Orphans are also the
     # actionable half: a hub is a note you already know about, and an orphan
@@ -289,7 +289,7 @@ PROJECTIONS: dict[str, tuple[_Where, ...]] = {
     "read_file": (_F(),),
     # --- boards -----------------------------------------------------------
     # A whiteboard card is a *note* placed on a board, and its row names the
-    # note under `note_id` — `id` there would be the card's own row id, which
+    # note under `note_id`, `id` there would be the card's own row id, which
     # opens nothing. Hence `id_field` on every note projection here.
     "read_whiteboard": (_B(), _N("cards", "note_id")),
     "search_whiteboard": (_B("matches"), _N("matches", "note_id")),
@@ -325,7 +325,7 @@ PROJECTIONS: dict[str, tuple[_Where, ...]] = {
     "delete_skill": (),
     "get_current_time": (),
     "save_user_preference": (),  # carries its own accept/decline card
-    "web_search": (),  # the Sources panel draws these — see `_tool_sources`
+    "web_search": (),  # the Sources panel draws these, see `_tool_sources`
     "read_url": (),  # ditto
     "ask_user": (),  # ends the turn with a question card
     "run_skill": (),  # ends the turn and hands over to the runner
@@ -346,7 +346,7 @@ def result_cards(name: str, result: object) -> list[dict]:
 
     Never raises and never guesses: a result that does not match the shape
     this tool is declared to have contributes nothing, which renders as the
-    strip simply not appearing. A failed call contributes nothing either — an
+    strip simply not appearing. A failed call contributes nothing either, an
     error result has no things in it, and a card promising one would be the
     transcript inventing a note.
     """
@@ -368,7 +368,7 @@ def result_cards(name: str, result: object) -> list[dict]:
             if item is None:
                 continue
             # A file's id is only unique within its own table, so the key has
-            # to carry `file_kind` too — the same trap `_file_item` guards.
+            # to carry `file_kind` too: the same trap `_file_item` guards.
             key = (where.kind, item.get("file_kind", ""), item["id"])
             if key in seen:
                 continue

@@ -10,12 +10,12 @@ shipped:
 
 All three were the same cause. `.lightbox` was a fixed, non-scrolling box with
 `place-content: center`, which centres a column and then clips whatever does
-not fit — at both ends. Adding a caption panel made the column taller than the
+not fit: at both ends. Adding a caption panel made the column taller than the
 viewport, so the panel was cut off with no way to scroll to it, and the arrows
 (`position: fixed; top: 50%`) were centred on the viewport rather than on an
 image that was no longer in the middle of it.
 
-These are lints — nothing here renders a page. They pin the structure that
+These are lints: nothing here renders a page. They pin the structure that
 makes the geometry correct without measuring, so it cannot silently regress
 the way the JS-measured version did.
 """
@@ -31,8 +31,8 @@ LIGHTBOX = JS.split("function openLightbox(")[1].split("\n// ")[0]
 
 def test_the_arrows_share_a_positioned_box_with_the_image():
     """This is what makes "centred on the image" true by construction. Two
-    earlier versions computed it — `top: 50%` of the viewport, then a measured
-    `getBoundingClientRect` written back on every `show()` — and both were
+    earlier versions computed it, `top: 50%` of the viewport, then a measured
+    `getBoundingClientRect` written back on every `show()`, and both were
     wrong the moment anything else in the dialog had height."""
     assert "lightbox-stage" in LIGHTBOX
     assert "stage.append(img, broken);" in LIGHTBOX
@@ -55,7 +55,7 @@ def test_nothing_measures_the_image_to_place_the_arrows():
 
 
 def test_the_overlay_scrolls():
-    """"is the lightbox scrollable??" — it was not, and a column taller than
+    """"is the lightbox scrollable??", it was not, and a column taller than
     the viewport simply lost its ends."""
     block = CSS.split(".lightbox {")[1].split("}")[0]
     assert "overflow-y: auto" in block
@@ -79,7 +79,7 @@ def test_the_image_leaves_room_for_what_is_under_it():
 
 def test_the_panel_says_which_picture_this_is():
     """"maybe it can have the image information and other info about it below
-    the image with the caption and ocr text??" — size, when it arrived, what
+    the image with the caption and ocr text??", size, when it arrived, what
     it is called."""
     assert "lightbox-facts" in LIGHTBOX
     assert "naturalWidth" in LIGHTBOX, "dimensions come from the decoded image"
@@ -129,7 +129,7 @@ def test_every_other_caller_still_passes_only_what_it_always_did():
 def test_the_document_block_reuses_the_image_panel():
     """"Reuse the image block's DOM builders; do not write a second block."
 
-    The page chips and the facts line live in `.lightbox-info` — the same
+    The page chips and the facts line live in `.lightbox-info`, the same
     panel, the same `renderInfo`. A second panel for documents would be two
     places to keep in step, which is the shape this plan is subtracting."""
     assert "lightbox-pages" in LIGHTBOX
@@ -147,7 +147,7 @@ def test_a_document_says_how_many_pages_and_how_many_are_read():
 
 
 def test_the_stepper_and_the_chips_are_cleared_between_files():
-    """A photograph must not inherit the previous file's page count — the
+    """A photograph must not inherit the previous file's page count: the
     "page 4 of 9" on an image bug this reset exists to prevent."""
     assert "resetDocPages()" in LIGHTBOX
     assert LIGHTBOX.count("resetDocPages()") >= 2, (

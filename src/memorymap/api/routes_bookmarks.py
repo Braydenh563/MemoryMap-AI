@@ -1,4 +1,4 @@
-"""Bookmarks: saved links to somewhere outside the notebook — create, list,
+"""Bookmarks: saved links to somewhere outside the notebook, create, list,
 update, delete. Same shape as reminders.py; nothing here needs the AI.
 """
 
@@ -35,7 +35,7 @@ class BookmarkUpdate(BaseModel):
 
 
 def _normalise_url(raw: str) -> str:
-    """"google.com" is what most people actually type into a bookmark box —
+    """"google.com" is what most people actually type into a bookmark box, 
     requiring a scheme up front would reject the common case for no benefit,
     since a bare host is unambiguous: it's never meant as a relative path."""
     url = raw.strip()
@@ -59,7 +59,7 @@ def _to_out(bookmark: Bookmark, duplicate_of: int | None = None) -> dict:
     if duplicate_of is not None:
         # Warn, don't block (asked for directly): re-saving a link you
         # already have is a normal thing to do by accident, not a mistake
-        # worth refusing outright — so this still creates the row and just
+        # worth refusing outright: so this still creates the row and just
         # tells the frontend which earlier bookmark shares its URL, for a
         # toast rather than a hard stop.
         out["duplicate_of"] = duplicate_of

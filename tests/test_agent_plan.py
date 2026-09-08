@@ -2,7 +2,7 @@
 
 PLAN.md's acceptance for A2 is one line: *"tests/test_agent_plan.py with the
 fake transport: a 3-step ask produces 3 ticks."* This is that file, and it
-covers the whole clause the line is the acceptance for — *"the agent posts a
+covers the whole clause the line is the acceptance for, *"the agent posts a
 checklist, ticks steps as tools return, and re-plans on a failed step (max
 2)"*:
 
@@ -11,7 +11,7 @@ checklist, ticks steps as tools return, and re-plans on a failed step (max
 - a step ticks only after its own turn is over, and a turn that called a tool
   is ticked after that tool's event, not before it;
 - a step that **failed** is rewritten and run again rather than ending the
-  run, at most twice — `skill_runner.MAX_REPLANS`.
+  run, at most twice, `skill_runner.MAX_REPLANS`.
 
 Everything here runs against the fake transport, which is the standing caveat
 in CLAUDE.md: it proves the machinery is wired and says nothing about whether
@@ -41,7 +41,7 @@ def _save(skill: dict) -> None:
 def _one_call_then_prose(fake, tool="list_tags"):
     """Make every step take exactly two rounds: a tool call, then an answer.
 
-    The `tool_script` queue cannot express this on its own — it is drained
+    The `tool_script` queue cannot express this on its own, it is drained
     across the whole run, so three scripted calls all land inside step one.
     Wrapping `chat_tools` is how the existing contract tests steer a run
     per-round, and this is the same lever.
@@ -118,7 +118,7 @@ def test_a_step_is_ticked_after_its_tool_returns_not_before(ai_client, fake_olla
 #: A model that answers with nothing at all and calls nothing. That is the
 #: single most common way a small model ends a step (see `skill_runner`'s own
 #: "the model didn't respond" branch), so it is what these drive the failure
-#: with — and it makes the re-plan deterministic, because the same empty reply
+#: with: and it makes the re-plan deterministic, because the same empty reply
 #: comes back from the rewrite call and the fallback rewrite is used.
 def _says_nothing(fake) -> None:
     fake.librarian_reply = ""
@@ -156,7 +156,7 @@ def test_the_rewritten_step_is_a_smaller_instruction_not_the_same_words(
     assert replanned
     assert replanned[0]["text"] != "List my tags"
     #: The fallback rewrite, which is what a model that cannot supply one
-    #: gets. It is still a rewrite — it names what to do — rather than the
+    #: gets. It is still a rewrite, it names what to do, rather than the
     #: same sentence sent twice.
     assert "Do one thing only." in replanned[0]["text"]
     assert replanned[0]["reason"], "a re-plan says what it is recovering from"
@@ -202,8 +202,8 @@ def test_a_step_cut_off_mid_job_is_not_replanned(ai_client, fake_ollama, app_sta
 
     A step that ran out of rounds is unlike every other ending here: it was
     *doing the job* and got cut off, so work has happened and more is left.
-    Rewrite it and run it again and the model — with none of the rounds'
-    context about what it already tagged — answers in prose, and the step goes
+    Rewrite it and run it again and the model, with none of the rounds'
+    context about what it already tagged, answers in prose, and the step goes
     green over a job that is still half finished. That is the exact bug the
     runner exists to prevent, arriving through its own recovery. A cut-off
     step keeps the honest ending it already had: stop, and let Resume carry on
@@ -241,7 +241,7 @@ def test_the_model_supplies_the_rewrite_when_it_can(ai_client, fake_ollama, app_
             "tools": ["list_tags"],
         }
     )
-    #: Prose and nothing else — enough to satisfy "the model said something",
+    #: Prose and nothing else, enough to satisfy "the model said something",
     #: so the step ends `stalled` on its unmet contract rather than on an
     #: empty turn, and the same reply comes back as the rewrite.
     fake_ollama.librarian_reply = "Call list_tags exactly once and stop."
@@ -276,7 +276,7 @@ SPEC = {"expects": "tool_called", "tools": ["list_tags"], "retries": 2}
 
 def test_an_unreachable_model_still_yields_a_rewrite():
     """A run whose recovery cannot reach the model must not stop *because* of
-    that — the mechanical rewrite is still an improvement on the same words."""
+    that: the mechanical rewrite is still an improvement on the same words."""
     text = skill_runner._replan_step(
         _Models(), _Reply("", running=False), {"prompt": "job"}, {}, "Do the thing", SPEC, "why"
     )
@@ -285,7 +285,7 @@ def test_an_unreachable_model_still_yields_a_rewrite():
 
 @pytest.mark.parametrize("reply", ["", "   ", "x" * (skills.MAX_STEP + 1)])
 def test_an_unusable_reply_falls_back(reply):
-    """Empty, whitespace, or a wall of prose — none of them is a step, and a
+    """Empty, whitespace, or a wall of prose, none of them is a step, and a
     "rewrite" that is a paragraph is the failure this file exists to stop."""
     text = skill_runner._replan_step(
         _Models(), _Reply(reply), {"prompt": "job"}, {}, "Do the thing", SPEC, "why"

@@ -3,7 +3,7 @@
 #improve-overlay {
   position: fixed;
   inset: 0;
-  /* See #sketch-overlay's comment — same tier, same reason. Both moved to
+  /* See #sketch-overlay's comment: same tier, same reason. Both moved to
      1010 alongside `.modal-overlay` (01-forms-settings.css) when that tier
      itself moved off 55 to clear #agent-monitor's z-index: 1000. */
   z-index: 1010;
@@ -93,7 +93,7 @@
 }
 
 /* The reason box. Sized so it is obviously a field you may type in rather
-   than a label — the whole complaint was that every suggestion said "similar
+   than a label: the whole complaint was that every suggestion said "similar
    in meaning" and there was no way to say anything else without linking
    first, hunting the link down and editing it. */
 .link-suggestion-reason {
@@ -104,7 +104,7 @@
 }
 
 /* A heading and its actions are two groups, not three peers sharing a
-   space-between — which is what put the backfill button in the middle of the
+   space-between: which is what put the backfill button in the middle of the
    row and read as broken spacing. */
 .link-suggest-head {
   gap: var(--space-3);
@@ -128,7 +128,7 @@
 
 /* Unbounded before: a notebook with enough related-but-unlinked notes grew
    this list past the bottom of its container with nothing to scroll it, so
-   everything past the fold was simply unreachable. Only the rows scroll —
+   everything past the fold was simply unreachable. Only the rows scroll, 
    the heading (with the two buttons in it) stays put above them. */
 .link-suggest-rows {
   max-height: 55vh;
@@ -145,7 +145,7 @@
 
 /* The generated emblem at header size. It sat inside two sidebar headings
    first, wedged between a title and a button, where it was both too big for
-   the row and different on every tab — and six more tabs would have meant six
+   the row and different on every tab, and six more tabs would have meant six
    more of those decisions. One place, on screen everywhere, beside the AI
    status it is about. Sized in CSS as well as in the p5 call because a canvas
    with no box collapses the row. */
@@ -203,7 +203,7 @@
   border-radius: var(--radius-md);
 }
 
-/* Hovering an unselected segment did nothing at all — measured: transparent
+/* Hovering an unselected segment did nothing at all, measured: transparent
    background, no border, no shadow, muted text, and no `:hover` rule
    anywhere. Next to the accent-filled selected segment, "Tree / Radial /
    Arc" read as three plain words rather than three things you can press,
@@ -231,7 +231,7 @@
 
 /* Text size scales the root font (rem-based layout follows). Composed with
    --zoom multiplicatively (§37E) rather than as a second, competing driver of
-   font-size — "Large text" at 80% zoom and "Normal text" at 100% zoom are
+   font-size: "Large text" at 80% zoom and "Normal text" at 100% zoom are
    both legible requests, not a fight over the same property. The attribute
    selectors' higher specificity beats the bare :root rule below regardless of
    sheet order, so zoom applies whichever text size is active. */
@@ -252,7 +252,7 @@
 /* Glass off → flat solid surfaces (cheaper to render).
 
    `--card`, not `--bg-glass`. `--bg-glass` was never declared in any theme, so
-   this line resolved to nothing and computed as transparent — and because it
+   this line resolved to nothing and computed as transparent, and because it
    sits after `.card` at equal specificity, it *won*, wiping the background off
    every `class="card glass"` element in the app. The command palette was the
    visible casualty: its input and hint floated over the notes list with no
@@ -409,7 +409,7 @@ header#top-bar select,
 :root[data-glass="off"] .library-image-tile .library-image-edit,
 :root[data-glass="off"] .library-image-tile .library-image-delete,
 /* The region offer (Phase 7.4) is glass like every other floating panel, so it
-   has to be on this list too — DESIGN.md says so in as many words: "Adding a
+   has to be on this list too, DESIGN.md says so in as many words: "Adding a
    new glass surface means adding it to that list too", and a panel missing
    from it stays glassy with the setting switched off, which is how three
    earlier violations were found. */
@@ -451,7 +451,7 @@ header#top-bar select,
 }
 
 /* **Zero horizontal padding**, reported directly with a screenshot: "the
-   text in the cards goes right against the right [edge]" — measured at
+   text in the cards goes right against the right [edge]", measured at
    `padding: 8px 0px`, so a row's own description ran flush to both the
    card's left rule and its right edge with nothing to separate it from
    either. Given the same inline padding every settings card uses, so a tool
@@ -463,7 +463,7 @@ header#top-bar select,
    meeting:
 
    - the `li` carried a tinted ground and a radius, which turns a row into a
-     card — fine for six settings, absurd for fifty-three consecutive ones;
+     card: fine for six settings, absurd for fifty-three consecutive ones;
    - and `.setting-check`, which every row also wears, adds `border-top` as
      its own separator. Inside a bubble that already has a bottom rule, that
      is a line across the top of every card with nothing above it to separate.
@@ -473,7 +473,7 @@ header#top-bar select,
 /* **No chrome on the `li` at all: the row inside it is the control.**
    `.setting-check` is an integrated, padded, rounded, fills-when-on row now
    (04-chat-dock-appearance.css records why), so a divider under each one
-   draws a line between two things that already read as separate objects —
+   draws a line between two things that already read as separate objects, 
    and a divider plus a filled pill is the "list of cards" shape the whole
    change was moving away from. The `li` is a list item and nothing else. */
 #tool-list li {
@@ -489,18 +489,18 @@ header#top-bar select,
 
    The *shape* they share has been reported twice, in opposite directions, so
    the history matters. First: "the toggles in the tools it can use settings
-   page are visually different from the rest" — at that point `.setting-check`
+   page are visually different from the rest", at that point `.setting-check`
    was a divider-separated list with the switch hard right, and the fix was to
    move these rows to match it. Then, with a screenshot of `.check-row` as the
    target: "I prefer the integrated whole button with the toggle like the rest
    of the application, there are a couple other outliers as well". So
    `.setting-check` itself became that integrated row, and every screen wearing
-   it — this one included — moved together. **The lesson is the one that
+   it, this one included, moved together. **The lesson is the one that
    survives both reports: there is one on/off row in this app, and the answer
    to "these look different" is always to change the shared rule, never to
    special-case one page.**
 
-   Nothing here re-declares the grid — the row simply joins that rule's
+   Nothing here re-declares the grid, the row simply joins that rule's
    selector list by wearing its class. All that is left is the weight of the
    tool's name, which `.setting-check` has no opinion about. */
 .tool-row>span>strong {
@@ -509,21 +509,21 @@ header#top-bar select,
 
 /* Sizing for this checkbox now comes from the shared toggle-switch recipe
    (06-timeline-dialogs.css, `.tool-row input[type="checkbox"]` was added to
-   its selector list) — reported directly, with a screenshot, as "visually
+   its selector list): reported directly, with a screenshot, as "visually
    broken": this was a bare native checkbox (a tick in a small square) next
    to every other on/off setting in the app rendering as a pill switch, the
    one place in Settings that hadn't been converted. Nothing left to say
    here beyond the gap the switch sits in; `appearance: none` in that shared
    rule makes `accent-color` inert, so it is gone rather than dead weight. */
 
-/* The switch is 2rem wide now (was 1.15rem) — reported once already, for
+/* The switch is 2rem wide now (was 1.15rem): reported once already, for
    the identical reason, when the whiteboard's snap-to-grid switch grew and
    its own label's indent didn't: a description that used to line up under
    the tool's name now sits half under the switch instead. 2rem + the row's
    own 0.5rem gap keeps the description flush with the name above it. */
 /* The description now lives inside the label's text column rather than beside
    the label in the `<li>`, so it no longer needs an indent to clear a switch
-   that is no longer to its left — it starts where the tool's name starts,
+   that is no longer to its left, it starts where the tool's name starts,
    which is what put it out of line with every other setting's hint before. */
 .tool-desc {
   display: block;
@@ -567,7 +567,7 @@ header#top-bar select,
   margin: 0.5rem 0;
 }
 
-/* A labelled box in a dialog — used by the "what does this skill need?" form. */
+/* A labelled box in a dialog, used by the "what does this skill need?" form. */
 .field {
   display: block;
   margin: 0.5rem 0;
@@ -585,8 +585,8 @@ header#top-bar select,
 }
 
 /* Per-message metadata (§35K).
-   Was one run of dot-separated facts that had grown a field at a time — model,
-   elapsed, tokens, rounds, context percent, whether the count was estimated —
+   Was one run of dot-separated facts that had grown a field at a time, model,
+   elapsed, tokens, rounds, context percent, whether the count was estimated, 
    which on a narrow window wrapped to three lines of digits under every
    answer. It is a row of ranked items now: the cost of the turn reads first,
    what answered sits quieter beside it, and the numbers only a debugging
@@ -614,7 +614,7 @@ header#top-bar select,
 }
 
 /* The model is the same on every turn of a conversation, so it is context
-   rather than news — present, and never the thing your eye lands on. */
+   rather than news: present, and never the thing your eye lands on. */
 .msg-meta-model {
   opacity: 0.7;
 }
@@ -624,11 +624,11 @@ header#top-bar select,
 }
 
 /* How full the window got, as a meter. A percentage in prose is a number you
-   have to convert; a bar is one you glance at — and this is the field that
+   have to convert; a bar is one you glance at, and this is the field that
    answers the only question anyone asks of this line, which is whether the
    next turn is the one that starts forgetting. */
 .msg-meta-bar {
-  /* Flex, because the bar is now several segments rather than one fill — see
+  /* Flex, because the bar is now several segments rather than one fill, see
      `messageMetaLine`. Wider than it was: four bands in 2.5rem are four bands
      nobody can aim at, and the whole point of drawing the distribution is that
      you can hover a part of it and be told what it is. */
@@ -646,7 +646,7 @@ header#top-bar select,
   height: 100%;
   background: var(--accent);
   /* No per-segment rounding: rounded ends inside a row of segments read as
-     gaps, and a gap here would mean "unused" — which is what the *end* of the
+     gaps, and a gap here would mean "unused", which is what the *end* of the
      bar already means. */
   flex: none;
 }
@@ -655,7 +655,7 @@ header#top-bar select,
    draw the distribution rather than list it is that the same band sits in the
    same colour on every turn, so a conversation whose history is quietly
    swallowing the window shows it as a growing stripe. Steps of the accent
-   rather than four unrelated hues — these are four parts of one quantity, and
+   rather than four unrelated hues, these are four parts of one quantity, and
    a rainbow would read as four separate things. */
 .msg-meta-bar-system {
   background: color-mix(in srgb, var(--accent) 45%, transparent);
@@ -679,7 +679,7 @@ header#top-bar select,
 
 /* The window is nearly full: the NEXT turn of this conversation is the one
    that starts dropping the top of the prompt. Warn before it happens, not
-   after the model has already lost the plot. Colour is not the only signal —
+   after the model has already lost the plot. Colour is not the only signal, 
    the line still says the percentage in words. */
 .msg-meta-tight {
   color: var(--warn);
@@ -693,7 +693,7 @@ header#top-bar select,
    twice and the patches were the clue. First it grew without limit and pushed
    the composer off the bottom of the window (measured: composer at 878–931 in
    a 900px window). That was answered with `max-height: min(38vh, 20rem)`,
-   which kept the composer on screen and made the panel itself unusable — a
+   which kept the composer on screen and made the panel itself unusable, a
    search box, a list of results and the full text of a web page inside 20rem,
    with the header scrolling away. Reported next as *"squashed ugly … what it
    is right now isn't working"*, which is the same bug wearing its other face.
@@ -701,7 +701,7 @@ header#top-bar select,
    Neither number was wrong. The **place** was: a reading surface cannot live
    inside a control strip, because the strip's whole job is to stay short. As a
    column it takes the height of the page, needs no cap at all, and sits beside
-   the composer instead of on top of it — which is what you want when the thing
+   the composer instead of on top of it, which is what you want when the thing
    you are reading is what you are typing about.
 
    No `max-height` here on purpose. The height comes from the flex row it is
@@ -734,7 +734,7 @@ header#top-bar select,
 
 /* The box and its button are one control, so they are the same height and
    they sit on the same baseline. Measured before: the input 40.4px tall at
-   y=180.8 and the Search button 28px at y=186.9 — a shorter button floating
+   y=180.8 and the Search button 28px at y=186.9, a shorter button floating
    six pixels down inside a taller field, which is the "slapped on" texture
    this app keeps being reported for. `align-items: stretch` makes the button
    take the field's height rather than its own. */
@@ -750,7 +750,7 @@ header#top-bar select,
   align-self: stretch;
 }
 
-/* Recent-search chips (renderWebSearchHistory, app.js) — wraps rather than
+/* Recent-search chips (renderWebSearchHistory, app.js): wraps rather than
    the row's own default single line, since a narrow panel would otherwise
    clip chips past `.web-panel`'s `overflow-x: hidden` with no scrollbar to
    say so. */
@@ -764,7 +764,7 @@ header#top-bar select,
 }
 
 /* "Show N more" sits as one more row in the results list, not a button
-   bolted below it — same border-top rhythm every .web-result already has,
+   bolted below it: same border-top rhythm every .web-result already has,
    so it reads as part of the list rather than chrome after it. */
 .web-show-more {
   width: 100%;
@@ -809,13 +809,13 @@ header#top-bar select,
 
 /* A result is a title, where it came from, and two lines of what it says.
    It was all of that *plus a row of three labelled buttons*, which measured
-   127px per result — barely two and a half of them fitted in the panel, and
+   127px per result: barely two and a half of them fitted in the panel, and
    the buttons were most of the height. The actions moved to the corner and
    appear on hover (the note-card pattern, which this app already uses and
    which the same reasoning produced), and "📖 Read here" went altogether: the
    title one line above does exactly that. */
 .web-result {
-  /* Source line, then title, then snippet — with a single kebab spanning all
+  /* Source line, then title, then snippet, with a single kebab spanning all
      three rows. The old shape reserved a whole stacked column of icon buttons
      at `opacity: 0`, so every title in a 318px panel wrapped around a column
      that was showing nothing: 115px per result, five to a full-height panel.
@@ -894,7 +894,7 @@ header#top-bar select,
 }
 
 /* Two lines, then an ellipsis. A snippet is there to help you choose a result,
-   and a five-line one pushes the next result off the panel — which is the
+   and a five-line one pushes the next result off the panel, which is the
    opposite of helping you choose. */
 .web-result-snippet {
   font-size: var(--text-md);
@@ -916,7 +916,7 @@ header#top-bar select,
 /* The reader takes over the column when a page is open: it is a *different
    screen*, not a section under the results, and the ← Results button is what
    goes back. Sharing the column with a results list was half of what made the
-   old panel feel cramped — two scrolling regions inside 20rem. */
+   old panel feel cramped, two scrolling regions inside 20rem. */
 .web-reader {
   display: flex;
   flex-direction: column;
@@ -951,7 +951,7 @@ header#top-bar select,
 /* Reader view: article typography, constrained so it never widens the page. */
 .web-reader-text {
   /* No max-height: it fills what the reader gives it, which is the rest of a
-     full-height column. The old 26rem was a cap inside a 20rem panel — a
+     full-height column. The old 26rem was a cap inside a 20rem panel, a
      number that could never apply. */
   flex: 1 1 auto;
   overflow-y: auto;
@@ -1025,8 +1025,8 @@ header#top-bar select,
   flex-wrap: wrap;
   gap: var(--space-4);
   /* Vertical rhythm only. The 2rem side margin this used to carry sat on top
-     of .tab-page's own --page-gutter, so the strip — and the quick links, the
-     toolbar and the widget grid, all of which did the same — began 64px in
+     of .tab-page's own --page-gutter, so the strip, and the quick links, the
+     toolbar and the widget grid, all of which did the same, began 64px in
      while the hero banner directly above them began at 32px. Measured, not
      guessed: hero x=32, everything below it x=64, on one page. That is the
      "spacing and alignment change per tab" complaint happening *within* a
@@ -1039,7 +1039,7 @@ header#top-bar select,
   align-items: baseline;
   gap: 0.4rem;
   padding: 0.6rem 1rem;
-  /* The tile recipe — see `.quick-link`. */
+  /* The tile recipe: see `.quick-link`. */
   background: var(--card);
   color: var(--ink);
   border: 1px solid var(--glass-border);
@@ -1099,7 +1099,7 @@ header#top-bar select,
  *
  * As a flex row these were nine chips of nine different widths that wrapped
  * wherever they ran out of room, which at 1440px left the accent-filled
- * "Tools & features" alone on a second line — the loudest thing on the first
+ * "Tools & features" alone on a second line, the loudest thing on the first
  * screen, orphaned, reading as a rendering fault rather than as a row that
  * happens to be long. Reported as exactly that.
  *
@@ -1107,14 +1107,14 @@ header#top-bar select,
  * column one, directly under the chip above it, so a second line reads as the
  * next line of a grid instead of as a stray. It also means the row cannot
  * re-flow into a different shape when a skill with a long name is promoted
- * into it — the columns are set by the window, not by the labels.
+ * into it: the columns are set by the window, not by the labels.
  *
  * auto-fit rather than auto-fill: with fewer chips than columns the empty
  * tracks collapse and the row stays snug against the left edge instead of
  * stretching six chips across the whole window. */
 /* The launcher: three labelled groups, not one grid of equals.
 
-   The old strip was `repeat(auto-fit, minmax(12.5rem, 1fr))` — equal columns,
+   The old strip was `repeat(auto-fit, minmax(12.5rem, 1fr))`, equal columns,
    which is the right answer for a row of like things and the wrong one here.
    It forced "Graph" (five letters, a tab switch) to be exactly as wide and as
    loud as "Tools & features", gave a skill run the same weight as a link, and
@@ -1128,7 +1128,7 @@ header#top-bar select,
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
-  /* Rhythm only — the gutter belongs to .tab-page. See .dash-stats above. */
+  /* Rhythm only: the gutter belongs to .tab-page. See .dash-stats above. */
   margin: var(--space-6) 0 var(--space-6);
 }
 
@@ -1165,7 +1165,7 @@ header#top-bar select,
   padding: 0.8rem 1rem;
   align-items: center;
   gap: var(--space-3);
-  /* **The tile recipe** — shared with `.stat-tile` and `.start-step`: a card
+  /* **The tile recipe**: shared with `.stat-tile` and `.start-step`: a card
      fill, the glass edge, the button radius, no shadow, accent-soft on
      hover. The three used to differ in edge colour (glass-border vs
      border), radius (md / 0.8 / 0.8) and fill (card / inner). */
@@ -1256,7 +1256,7 @@ header#top-bar select,
 }
 
 /* A destination: one line, one height, no explanation. Height declared and
-   padding horizontal only — the control-strip rule. With vertical padding the
+   padding horizontal only: the control-strip rule. With vertical padding the
    pills' heights would be decided by whether a label wrapped, and one two-line
    pill would set the height of its whole row.
    Not a spacing token: a hit target is a control's own size and must not move
@@ -1269,7 +1269,7 @@ header#top-bar select,
   border-radius: var(--radius-pill);
 }
 
-/* A pill is one line by definition — a declared height and a second line of
+/* A pill is one line by definition, a declared height and a second line of
    text cannot both be honoured, and the browser resolves that by drawing the
    text outside the pill. The hint is still the tooltip, which is where a pill's
    explanation belongs. */
@@ -1278,7 +1278,7 @@ header#top-bar select,
 }
 
 /* A skill costs a model round-trip, so it is marked rather than merely listed
-   — the dotted edge is the same "this runs something" cue the chat's ⚡ group
+   - the dotted edge is the same "this runs something" cue the chat's ⚡ group
    uses. */
 .quick-link-skill {
   border-style: dashed;
@@ -1371,19 +1371,19 @@ header#top-bar select,
 
 /* --- activity heatmap + tag cloud widgets ---------------------------------- */
 /* **The flickering bar, found by measuring rather than by looking.**
-   Reported twice — "that weird flickering bar/line is there again" — and the
+   Reported twice, "that weird flickering bar/line is there again", and the
    `overflow-x: clip` fix below it covered a different container. Measured on
    the live dashboard: this grid wanted **699px in a 307px column** (53 weeks
    at 10px plus gaps), and with `overflow-x: auto` that is a horizontal
    scrollbar across the bottom of a widget only 92px tall. The dashboard
-   repaints on its own timers, so the bar appears, disappears and reappears —
+   repaints on its own timers, so the bar appears, disappears and reappears, 
    which is exactly "a weird flickering bar or set of horizontal lines at the
    bottom of some elements".
 
    A scrollbar was never the right answer for this control anyway: a year of
    activity is a shape you take in at a glance, and a shape you have to scroll
-   is not one. The cells size themselves to the column instead — `1fr` columns
-   with square cells — so the whole year always fits, at whatever width the
+   is not one. The cells size themselves to the column instead, `1fr` columns
+   with square cells: so the whole year always fits, at whatever width the
    widget happens to be. `max-width` keeps them from becoming lozenges in a
    wide layout; `overflow: hidden` means there is no axis left to grow a
    scrollbar on. */
@@ -1573,12 +1573,12 @@ header#top-bar select,
   font-size: 0.75rem;
 }
 
-/* A quieter "check this" flag — informative, not alarming. */
+/* A quieter "check this" flag: informative, not alarming. */
 .chip.review {
   font-weight: 500;
 }
 
-/* A result that did not match — it is here because it is linked to one that
+/* A result that did not match, it is here because it is linked to one that
    did. Quieter than a match, and labelled: showing a note about something else
    with no explanation reads as the search having misfired, when in fact it is
    the graph doing the one thing this app is for. */
@@ -1593,10 +1593,10 @@ header#top-bar select,
 }
 
 /* Why a result showed up. Was a chip on the connected case alone
-   (`.result-connected-chip`) and nothing at all on an ordinary match — the
+   (`.result-connected-chip`) and nothing at all on an ordinary match, the
    minority of rows had an explanation and the majority, the actual hits,
    didn't. One badge system now, coloured by reason: `--ok` for a real
-   match (semantic/keyword/hybrid — something matched), `--accent` for
+   match (semantic/keyword/hybrid: something matched), `--accent` for
    connected (a note that didn't match but is linked to one that did, the
    one case this app should visually say "different kind of result"). Bold
    and its own colour rather than the base `.chip`'s quiet grey, because the
@@ -1614,7 +1614,7 @@ header#top-bar select,
 }
 
 /* "Next:" plus two or three question chips, under a finished answer (app.js,
-   `offerFollowups`). Same shape as the grounding strip directly above — they
+   `offerFollowups`). Same shape as the grounding strip directly above, they
    are both a labelled row of chips appended to the same bubble, and giving
    them two different looks would make one turn's footer read as two unrelated
    widgets. */
@@ -1658,13 +1658,13 @@ header#top-bar select,
   color: var(--ok);
 }
 
-/* Was `align-self: flex-start;` — predates, and silently overrode, the
+/* Was `align-self: flex-start;`, predates, and silently overrode, the
    `.layout`/`#tab-notes #sidebar` "stretch, not start" fix those two rules'
    own comments describe: `align-self` on the item always wins over the
    grid's `align-items`, so this alone was why the sidebar never stretched
    to match a taller `main`, no matter what either of those two rules said.
    Reported again as "a gap below the sidebar" after the `height`→
-   `min-height` fix on `#tab-notes #sidebar` still didn't close it — this is
+   `min-height` fix on `#tab-notes #sidebar` still didn't close it: this is
    why: that fix set a correct floor, but this rule was still refusing to
    let the box grow past it. */
 /* This used to set font-size to var(--text-lg) (0.92rem) and a hardcoded
@@ -1674,7 +1674,7 @@ header#top-bar select,
    toggle lane via padding-right on the row, not the heading. Being an ID
    selector, this rule's old font-size silently outranked both and left
    Categories the only sidebar heading smaller than its siblings (Chats,
-   Documents) — reported directly as "the Categories title is smaller and
+   Documents): reported directly as "the Categories title is smaller and
    different than the rest of the sidebar titles". Removed rather than
    corrected: there was never a reason for Categories to differ. */
 
@@ -1714,7 +1714,7 @@ header#top-bar select,
 }
 
 /* The row mixes a text input, two date/time inputs, two selects and a button,
-   and each arrived with its own height (44 / 42 / 41 / 40px) — so they sat at
+   and each arrived with its own height (44 / 42 / 41 / 40px), so they sat at
    four different tops (user-reported). Stretching didn't fix it either,
    because the text input carries its own sizing from the global input rule.
    One explicit height on all six, with border-box so padding can't add to it,
@@ -1801,7 +1801,7 @@ header#top-bar select,
 
 /* **A stray bottom margin reads as a misalignment, and this one was
    reported.** `.seg` carries `margin-bottom: 0.5rem` for the case it was
-   written for — a segmented control standing on its own above the content
+   written for: a segmented control standing on its own above the content
    it filters. As a flex item in an aligned toolbar that margin is part of
    the item's *margin box*, and `align-items: center` centres the margin box,
    so every `.seg` in a row sits four pixels above everything beside it.
@@ -1914,7 +1914,7 @@ header#top-bar select,
 }
 
 /* When the generative background is on, let a little more of it read through
-   the cards — otherwise the art only shows in the page margins. Glass-off and
+   the cards: otherwise the art only shows in the page margins. Glass-off and
    high-contrast keep their solid panels: legibility wins over decoration. */
 :root[data-bg-art="on"]:not([data-glass="off"]):not([data-contrast="on"]) {
   --card: color-mix(in srgb, rgba(255, 255, 255, 0.42) calc(var(--glass-opacity) * 100%), transparent);
@@ -1964,7 +1964,7 @@ header#top-bar select,
   vertical-align: middle;
 }
 
-/* Both roles line up the same way now that the user has an avatar too — one
+/* Both roles line up the same way now that the user has an avatar too, one
    rule rather than an assistant-only one, so the two columns cannot drift. */
 .msg-role,
 .msg-role-assistant {
@@ -1975,7 +1975,7 @@ header#top-bar select,
 
 /* **The user's own row reads right-to-left, and this is the rule that makes
    it.** Reported from a screenshot: "the 'you' for the user needs to be on
-   the right, not left" — the bubble was already right-aligned and the label
+   the right, not left", the bubble was already right-aligned and the label
    inside it was not. `.msg.user .msg-role` had `text-align: right`, which
    does nothing at all here: the rule above makes this a flex container, and
    a flex container packs its items to the start no matter what
@@ -1991,15 +1991,15 @@ header#top-bar select,
 }
 
 /* The user's own mark. The app's accent in the app's own pill shape, sized
-   to the emblem opposite it — a glyph, not a photo: this app has no accounts
+   to the emblem opposite it, a glyph, not a photo: this app has no accounts
    and never asks who you are. */
-/* **The user's own mark — and it has to be visible on an accent bubble.**
+/* **The user's own mark: and it has to be visible on an accent bubble.**
    Reported: *"I cant see the user profile icon."* It was `--accent-soft` on
    `--accent`: a tint of the accent drawn on the accent itself, which is a
    ~1.1:1 contrast ratio and reads as a slightly different patch of purple.
    The bubble is a coloured surface, so the mark is drawn the way everything
-   else on a coloured surface in this app is — white, on a white veil, with a
-   white hairline — rather than in the accent it is sitting on. */
+   else on a coloured surface in this app is, white, on a white veil, with a
+   white hairline: rather than in the accent it is sitting on. */
 .msg-avatar-user {
   width: 1.5rem;
   height: 1.5rem;
@@ -2120,7 +2120,7 @@ header#top-bar select,
   border-radius: calc(var(--radius) * 0.8);
   /* `.row input, .row select { flex: 1 }` does not match a textarea, and the
      box collapsed to its intrinsic width the moment it stopped being an
-     <input>. min-width: 0 for the usual reason — a flex item refuses to
+     <input>. min-width: 0 for the usual reason, a flex item refuses to
      shrink below its content without it (invariant 2). */
   flex: 1 1 auto;
   min-width: 0;
@@ -2144,7 +2144,7 @@ header#top-bar select,
 
 /* **The open chat has to be findable at a glance, not inferred.** Reported:
    "the conversations didnt visibly select in the sidebar." The row *was*
-   marked — measured after a click, `active-conv` was on the right `<li>` — but
+   marked, measured after a click, `active-conv` was on the right `<li>`, but
    what it bought was a 3px bar at the extreme left of a 268px row and a fill
    at `--accent-soft`, which is 13% alpha: on a sidebar that already has its
    own ground, a 13% tint is close to nothing. Half the report was a dead click
@@ -2214,7 +2214,7 @@ header#top-bar select,
   gap: 0;
   overflow: hidden;
   /* The floating-control recipe (see `.scroll-top`): card fill, glass edge,
-     glass shadow, the button radius. The buttons inside are plain — the
+     glass shadow, the button radius. The buttons inside are plain, the
      strip is the control, not each segment of it. */
   border-radius: var(--radius-md);
   border: 1px solid var(--glass-border);
@@ -2303,7 +2303,7 @@ header#top-bar select,
   font-weight: 500;
   color: var(--muted);
   border-radius: calc(var(--radius-md) - 0.15rem);
-  /* Explicit properties, not `all` — `color`/`background` change on
+  /* Explicit properties, not `all`, `color`/`background` change on
      `:hover` below, plus `box-shadow` on the `:checked` state further down. */
   transition: color var(--motion-slow) ease, background var(--motion-slow) ease,
     box-shadow var(--motion-slow) ease;
@@ -2354,7 +2354,7 @@ header#top-bar select,
   position: relative;
   /* Same rule DESIGN.md states for the chat dock: one height for every
      select/input/button/segmented-control in the strip. Measured, not
-     assumed — the search box and the segmented Layout/Colour groups were
+     assumed: the search box and the segmented Layout/Colour groups were
      45px tall against 28-30px buttons beside them, the exact "stood four
      pixels taller" failure DESIGN.md names, just wider here because a full
      text input's padding is a bigger jump than a segmented control's. */
@@ -2367,11 +2367,11 @@ header#top-bar select,
 }
 
 /* Was `width: 100%`, which forced this row to claim the whole line every
-   time — the highlight/trace group now lives beside "Graph" directly in
+   time: the highlight/trace group now lives beside "Graph" directly in
    index.html instead (see its own comment there) precisely because a flex
    item inside the `display: contents` `#graph-toolbar-secondary` wrapper
    would not size to content no matter what was tried here (explicit widths,
-   flex-basis, even `!important` — measured with a live page, not assumed).
+   flex-basis, even `!important`, measured with a live page, not assumed).
    This still merges what used to be two hard-split rows into one, which
    remains a real win: Options now wraps up onto whichever line has room
    instead of being pinned to a permanent second row. */
@@ -2390,7 +2390,7 @@ header#top-bar select,
   min-width: 8.5rem;
 }
 
-/* Wide enough for "No saved views" plus the arrow — at 10rem it still
+/* Wide enough for "No saved views" plus the arrow: at 10rem it still
    truncated to "No saved vi…", which was the reported symptom. */
 .graph-toolbar #graph-view-picker {
   min-width: 12.5rem;
@@ -2398,7 +2398,7 @@ header#top-bar select,
 
 /* Related controls read as one thing, with a hairline between groups.
    The strip was a flat run of a dozen equally-weighted controls that wrapped
-   into a mostly-empty second row — reported directly, with a screenshot. The
+   into a mostly-empty second row, reported directly, with a screenshot. The
    separator is a border rather than a spacer element so it disappears cleanly
    when a group wraps to the start of a new line. */
 .graph-toolbar-group {
@@ -2410,7 +2410,7 @@ header#top-bar select,
 }
 
 /* The first group needs no separator, and neither does one that has wrapped
-   to the start of a row — a leading hairline on a new line reads as a stray
+   to the start of a row, a leading hairline on a new line reads as a stray
    mark rather than a divider. */
 .graph-toolbar-group:first-of-type {
   padding-left: 0;
@@ -2465,20 +2465,20 @@ header#top-bar select,
    regardless of how many controls sit before it at a given width. */
 .graph-help-toggle {
   margin-left: auto;
-  /* A literal, not var(--control-h) — that token is only declared inside a
+  /* A literal, not var(--control-h): that token is only declared inside a
      handful of scopes (.graph-toolbar among them), so on the Skills/
      Whiteboards/Image Gallery copies of this button, which sit in a plain
      card header with no such scope, var(--control-h) resolved to nothing
      and the property fell back to its initial value: `auto` for both width
      and height, sized off `button.small`'s asymmetric padding instead
-     (0.25rem block / 0.8rem inline) — an oval, reported live and
+     (0.25rem block / 0.8rem inline), an oval, reported live and
      photographed. This wasn't `padding: 0` failing to override that
      asymmetry (it can't: button.small is a tag+class selector, higher
      specificity than this single class); it was width/height never
      actually being fixed at all outside .graph-toolbar. A var() fallback
      would dodge that, but the token IS declared elsewhere in the sheet, so
      the project's own lint (test_style_scale.py) correctly refuses it as
-     dead code hiding a scope bug — this button wants one fixed size
+     dead code hiding a scope bug, this button wants one fixed size
      everywhere it appears, not the locally-scoped control height, so a
      literal is the honest fix, not a workaround. */
   width: 2rem;
@@ -2493,13 +2493,13 @@ header#top-bar select,
 /* **Every "?" in the app is this button.** Direct instruction: "make sure
    all the tooltip question mark buttons across the application are
    consistent." They were not, and it was measurable rather than a matter of
-   taste — of the twelve in the DOM, nine carried `.graph-help-toggle` and
+   taste: of the twelve in the DOM, nine carried `.graph-help-toggle` and
    rendered as 32px circles, while the Settings hint toggle rendered 43x28
    with a 9.8px radius (a wide rounded rect, photographed in the report) and
    the whiteboard's help button was a third shape again. The size/shape half
    of the recipe is shared here; `margin-left: auto` deliberately stays
    above, on `.graph-help-toggle` alone, because pushing the button to the
-   end of the row is a *toolbar* behaviour — doing it to the Settings one
+   end of the row is a *toolbar* behaviour, doing it to the Settings one
    would fling it to the far edge of the row, away from the label it
    explains. */
 .setting-hint-toggle,
@@ -2535,7 +2535,7 @@ header#top-bar select,
 
 /* Reported live, with a screenshot: cut off at the bottom. This panel
    (six bullets across two lists) is meaningfully longer than every other
-   .graph-help-panel use (a single paragraph — #draft-intro, #timeline-
+   .graph-help-panel use (a single paragraph: #draft-intro, #timeline-
    intro, #graph-help-panel itself), none of which has hit this, so the
    cap is scoped here rather than added to the shared rule for a problem
    only this instance has.
@@ -2543,33 +2543,33 @@ header#top-bar select,
    assumed fixed: a flat `73vh` correctly stopped the panel growing but
    still left its own bottom edge below the window on a short viewport
    (827px box on 800px, measured), because the panel's `top: 3.5rem` is an
-   offset from `#capture`'s own top, not the viewport's — CSS has no way
+   offset from `#capture`'s own top, not the viewport's: CSS has no way
    to know how far down the page `#capture` itself sits, so vh alone can't
    account for it. A `calc(100vh - offset)` guess at that distance was
    worse: it *overestimated* the room available, so the box grew tall
    enough to fit all the content without ever triggering its own
    scrollbar (701px of content inside a 728px cap) while still extending
-   to y=944 on an 800px screen — no internal scroll to reach the part that
+   to y=944 on an 800px screen, no internal scroll to reach the part that
    was cut off, which is a regression on the reported bug, not a fix. A
    small flat cap, small enough that internal scrolling reliably kicks in
    regardless of where `#capture` sits on the page, is the one property
-   that has to hold for this to actually work — verified at 800px tall:
+   that has to hold for this to actually work, verified at 800px tall:
    the panel's own scrollHeight (701px) now exceeds this cap, so it
    scrolls internally and the last bullet is reachable within its own box. */
 .capture-help-hint {
   max-height: 24rem;
   overflow-y: auto;
   /* **The scroll itself worked; nothing showed it did.** Reported after
-     the cap above landed: "still no visible scrollbar??" — correct, and
+     the cap above landed: "still no visible scrollbar??", correct, and
      not this rule's fault so much as `overflow-y: auto`'s own default:
      most current browsers (macOS Chromium/Safari, several Windows
      themes) render an *overlay* scrollbar that stays fully invisible
      until the pointer is over the scrolling element, so a panel that
      scrolls correctly can still look exactly like one that doesn't. No
      surface in this app has ever needed a permanently visible scrollbar
-     before — every other `overflow` here either has an edge-fade
+     before: every other `overflow` here either has an edge-fade
      affordance instead (`.edge-fade`) or hides its scrollbar on purpose
-     (`.notes-subtabs`) — so there is no existing pattern to reuse; this
+     (`.notes-subtabs`), so there is no existing pattern to reuse; this
      is the first one. Forcing a classic, always-reserved-space scrollbar
      (rather than styling an overlay one, which cannot be made to *always*
      show by CSS alone) is the only property that actually answers the
@@ -2594,14 +2594,14 @@ header#top-bar select,
 
 /* A .graph-help-panel used as a standalone element (Timeline, the Skills/
    Whiteboard/Image-Gallery Library sub-tabs) rather than nested one level
-   down like the graph's own <div><p>…</p></div> shape — this file's own
+   down like the graph's own <div><p>…</p></div> shape: this file's own
    `.graph-help-panel p { margin: 0 }` rule above doesn't reach a panel that
    *is* the <p>, so it needs the same reset directly. */
 p.graph-help-panel {
   margin: 0;
 }
 
-/* The positioning root each of these panels anchors to — an absolutely
+/* The positioning root each of these panels anchors to, an absolutely
    positioned popup anchors to the nearest positioned ancestor, and without
    this it would fall back to the page (same reasoning as #graph-card's own
    comment, and #writing-room's in 04-chat-dock-appearance.css). */
@@ -2631,7 +2631,7 @@ p.graph-help-panel {
 /* The two action buttons used to group on the right (`margin-left: auto`), and
    that is the orphan-row pattern §36B names: the moment the row fills, the
    auto-margined item wraps and lands alone on the next line, hard right, with
-   nothing beside it. Measured in a browser after the Colour picker was added —
+   nothing beside it. Measured in a browser after the Colour picker was added, 
    at 1700px the second row was `↻ Refresh` by itself, and at 1500–1440 it was
    an orphaned "Labels" checkbox plus the two buttons.
 
@@ -2655,7 +2655,7 @@ p.graph-help-panel {
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
-  /* Same tier/blur fix as .graph-trace directly above it in the cascade —
+  /* Same tier/blur fix as .graph-trace directly above it in the cascade, 
      see that rule's comment. */
   background: var(--modal-bg);
   box-shadow: var(--glass-shadow);
@@ -2671,7 +2671,7 @@ p.graph-help-panel {
   -webkit-backdrop-filter: none;
 }
 
-/* Reported: the minimap combobox stood taller than every button beside it —
+/* Reported: the minimap combobox stood taller than every button beside it, 
    the same DESIGN.md control-strip failure this file already names for the
    graph search box. `.graph-options button` got --control-h; a <select> in
    the same panel never did, so it kept the browser's own default height. */
@@ -2686,7 +2686,7 @@ p.graph-help-panel {
   margin: 0;
 }
 
-/* An id rule outranks the generic .hidden helper — restate it, the same trap
+/* An id rule outranks the generic .hidden helper, restate it, the same trap
    `#graph-empty.hidden` had to be dug out of. */
 #graph-options.hidden {
   display: none;
@@ -2726,12 +2726,12 @@ p.graph-help-panel {
    pair where they belong regardless of how many rows the controls beneath
    take, and removes both from the wrap calculation entirely.
 
-   These two used to bookend the strip separately — "+ New note" beside the
-   "Graph" title on the left, "?" alone on the right — which read as two
+   These two used to bookend the strip separately, "+ New note" beside the
+   "Graph" title on the left, "?" alone on the right, which read as two
    unrelated leftover controls rather than a group. Reported directly; now
    one pinned pair. `#graph-help-toggle` cancels its own general
    `.graph-help-toggle` rule (margin-left: auto, position: static) because
-   the wrapper positions both buttons now — that general rule is still what
+   the wrapper positions both buttons now, that general rule is still what
    the Skills/Whiteboards/Image Gallery copies of this button use, unscoped
    by id, so they keep their own single-row behaviour untouched. */
 .graph-toolbar-end {
@@ -2749,21 +2749,21 @@ p.graph-help-panel {
 }
 
 /* --- Library → Documents ------------------------------------------------------
-   The search box stood taller than the buttons beside it — reported directly,
+   The search box stood taller than the buttons beside it, reported directly,
    and the same failure DESIGN.md names for the graph strip: an <input>'s own
    padding makes it a few pixels taller than a button unless a height is set
    for the whole row. One height for every control in the head, exactly as
    .graph-toolbar does it. */
 /* **`--control-h` was declared here and is not any more.** This rule and the
-   Boards one below each solved the same problem locally — "one height for
-   every control in this header row" — before any rule solved it for all of
+   Boards one below each solved the same problem locally, "one height for
+   every control in this header row", before any rule solved it for all of
    them, and each picked 2rem independently. `.library-head` now sets 2.3rem
    for every Library header, matching the toolbar beneath it in the same card;
    these two id-scoped rules are (1,1,0) and beat it, so the only thing they
    still did was make the Documents and Boards headers the two that disagreed.
    Reported exactly that way: "the button elements in the top row of each
    library subtab are all different sizes and proportions between tabs". The
-   `gap` stays — that is a real local choice, not a copy of a global one. */
+   `gap` stays: that is a real local choice, not a copy of a global one. */
 /* The Documents head is a `.dock` now (Phase 8): its gap, its one control
    height and its search width all come from the dock recipe, so the three
    local rules that used to live here are gone: a `--space-2` gap, a height
@@ -2787,7 +2787,7 @@ p.graph-help-panel {
 /* ---------------------------------------------------------------------------
    Placed at the end of this file on purpose. A panel keeps its original class
    (`.graph-help-panel`, `.setting-hint`) when `wireHelpPopover` promotes it,
-   and those rules carry the same single-class specificity as these — so
+   and those rules carry the same single-class specificity as these, so
    whichever is written later wins. Written first, this block lost, and the
    popover silently rendered with the old `position: absolute; z-index: 30`:
    measured at (8, 10) and painted underneath the settings modal it was
@@ -2795,7 +2795,7 @@ p.graph-help-panel {
    ------------------------------------------------------------------------ */
 /* --- the app's one help popover ------------------------------------------
    Every "?" in this app now opens this, wherever it lives: the Graph and
-   Timeline panels, the Library sub-tabs, and Settings' own hints — which
+   Timeline panels, the Library sub-tabs, and Settings' own hints: which
    until now were three different presentations of the same idea (a floating
    glass card, a static bordered paragraph that pushed the form down, and
    plain inline text with no surface at all). Reported as exactly that: "the
@@ -2803,7 +2803,7 @@ p.graph-help-panel {
    tooltips like it".
 
    `position: fixed` and lifted to <body> by `wireHelpPopover` (app.js), so a
-   card's `overflow` or `backdrop-filter` cannot clip it — the same escape
+   card's `overflow` or `backdrop-filter` cannot clip it: the same escape
    the action menus make. The caret is what stops it reading as "just text in
    a box": it ties the panel to the control that opened it, which is the
    affordance an unanchored rectangle is missing. */
@@ -2830,7 +2830,7 @@ p.graph-help-panel {
   --help-caret-x: 50%;
 }
 
-/* The caret. Two squares rotated 45° — the back one carries the border, the
+/* The caret. Two squares rotated 45°, the back one carries the border, the
    front one covers the join so the panel's own edge reads as continuous. */
 .help-popover::before,
 .help-popover::after {
@@ -2865,7 +2865,7 @@ p.graph-help-panel {
 
 /* --- a turn that is still working says so, for as long as it is ----------
    Reported: "none of the generating animations work". The dots were real and
-   did animate — they were just evicted by the first stream event of any kind
+   did animate: they were just evicted by the first stream event of any kind
    (`meta` arrives almost immediately), so they flashed and the bubble then
    sat still for however long the model actually took.
 
@@ -2876,7 +2876,7 @@ p.graph-help-panel {
    that come and go inside the bubble. */
 /* **In the transcript, the rail is the whole signal.** The generating ring
    (`.is-generating`, 01-forms-settings.css) is the app-wide "this is working"
-   mark and it stays that everywhere else — the palette's single bubble, a
+   mark and it stays that everywhere else, the palette's single bubble, a
    widget, a card. Here it is one signal too many: a thread is a column of
    messages, and a ring breathing around the one at the bottom while a rail
    travels down its edge and a caret blinks in its text is three things saying
@@ -2897,7 +2897,7 @@ p.graph-help-panel {
   position: absolute;
   /* **Inset by the bubble's own corner radius, on both ends.**
      Reported: "fix the line on the left side ignoring the chat bubble curved
-     corners." It was `top: 0; bottom: 0; left: 0` — a straight bar down a
+     corners." It was `top: 0; bottom: 0; left: 0`, a straight bar down a
      rounded box, so its ends stuck out past the curve at the top-left and
      bottom-left and the bubble looked like it had a stray line drawn over it.
 
@@ -2943,7 +2943,7 @@ p.graph-help-panel {
    Reported: "there's a weird flickering bar or set of horizontal lines that
    pops up at the bottom of some elements in the application like buttons in
    the timer on the dashboard." It is a horizontal scrollbar appearing and
-   disappearing, not a rendering fault — the focus timer's digits change width
+   disappearing, not a rendering fault, the focus timer's digits change width
    every second, so its row's content crosses the container's width once a
    second and the browser adds, then removes, a scrollbar. A 15px bar blinking
    at 1Hz is exactly what was described.
@@ -2951,7 +2951,7 @@ p.graph-help-panel {
    `clip` rather than `hidden`: it suppresses the scrollbar without making the
    element a scroll container, so nothing inside it can be scrolled out of
    reach and a focused control still scrolls into view through its real
-   ancestor. Widget bodies are a fixed-width column by design — anything that
+   ancestor. Widget bodies are a fixed-width column by design, anything that
    genuinely needs more room (a table, a code block) already scrolls inside
    itself. */
 .dash-body,
@@ -2972,7 +2972,7 @@ p.graph-help-panel {
    of the drawing they belonged to. The widget's thumbnail is now produced by
    `mapPreview` (app.js) exactly like the Library card's, so it carries
    `.board-minimap-card` / `-object` / `-sketch` / `-edge` and is styled by
-   those rules in 07-whiteboard-misc.css — which is the point of §5 item 12:
+   those rules in 07-whiteboard-misc.css, which is the point of §5 item 12:
    one drawing, one set of rules, so the dashboard cannot end up showing a map
    without its edges again. */
 
@@ -2991,7 +2991,7 @@ p.graph-help-panel {
 }
 
 /* The Loose ends widget's reading: a sentence, a meter, a caption, then a
-   short sample. The number is the finding — see the widget's own comment for
+   short sample. The number is the finding, see the widget's own comment for
    why this is not the list of notes it began as. */
 .dash-loose-summary {
   margin: 0 0 var(--space-2);
@@ -3012,7 +3012,7 @@ p.graph-help-panel {
 }
 
 .dash-loose-fill {
-  /* Set through the CSSOM by the widget — an inline `style` attribute would
+  /* Set through the CSSOM by the widget, an inline `style` attribute would
      be dropped by this app's CSP. */
   width: var(--dash-loose-pct);
   height: 100%;
@@ -3057,10 +3057,10 @@ p.graph-help-panel {
 }
 
 .dash-pace-bar {
-  /* Set through the CSSOM by the widget — an inline `style` attribute would be
+  /* Set through the CSSOM by the widget, an inline `style` attribute would be
      dropped by this app's CSP, the same rule the Loose ends meter follows.
      Declared here so a zero-word day is a real 0% bar rather than an unstyled
-     one (and so the token is not a value with no home — see
+     one (and so the token is not a value with no home, see
      `test_no_token_is_used_with_a_dead_fallback`). */
   --dash-pace-height: 0%;
   flex: 1 1 0;

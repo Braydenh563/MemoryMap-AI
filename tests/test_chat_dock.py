@@ -6,16 +6,16 @@ input."*
 
 The split the dock encodes is between two questions a control can answer:
 
-- **what happens to the next message** — Chat/Agent, Web, answer length,
+- **what happens to the next message**, Chat/Agent, Web, answer length,
   persona, the skill picker, the notes clipped to it. These belong beside the
   box you type in, because that is when you decide them.
-- **what this conversation is** — its name, what it has cost, exporting it.
+- **what this conversation is**, its name, what it has cost, exporting it.
   Those stay in the header, which is now only about the thread as a whole.
 
 This is a lint, not a behaviour test, and it exists for the same reason
 `test_frontend_ids.py` does: the Python suite cannot see the DOM and the
 sandbox has no browser, so nothing else would notice a control drifting back
-up into the header — which is exactly how the header collected eight
+up into the header, which is exactly how the header collected eight
 unrelated buttons the first time (§36B).
 
 It deliberately checks *containment*, not order or styling. Rearranging the
@@ -52,7 +52,7 @@ CONVERSATION_IDS = ("chat-title", "chat-export", "chat-usage")
 
 
 def _markup() -> str:
-    """index.html with comments stripped — they quote tags and ids."""
+    """index.html with comments stripped, they quote tags and ids."""
     return re.sub(r"<!--.*?-->", "", INDEX.read_text(encoding="utf-8"), flags=re.S)
 
 
@@ -114,7 +114,7 @@ def test_the_dock_neutralises_the_margins_its_controls_arrive_with():
     Some are higher or lower than each other and different heights."* All true,
     and none of it visible in the markup: `.seg` carries `margin-bottom: 0.5rem`
     from the stacked forms it was built for, and `align-items: center` centres a
-    flex item's **margin box** — so 8px underneath sits the control 4px above
+    flex item's **margin box**: so 8px underneath sits the control 4px above
     its neighbours *and* makes its group 8px taller, which pushes the next group
     4px down in turn. Two visible offsets from one invisible declaration.
 
@@ -123,14 +123,14 @@ def test_the_dock_neutralises_the_margins_its_controls_arrive_with():
     one height for each row now.
 
     So the strip states it once for everything inside it, and this is the check
-    that it still does — a control added later inherits the neutralised margin
+    that it still does, a control added later inherits the neutralised margin
     instead of re-introducing the bug.
     """
     css = _styles()
     strip = re.search(r"\.chat-dock-controls select,.*?\n\}", css, re.S)
     assert strip, "the dock's control-sizing rule is gone"
     assert "margin: 0" in strip.group(0), (
-        "the strip must zero the margins its controls bring with them — a "
+        "the strip must zero the margins its controls bring with them, a "
         "margin on a flex item is centred with the item, so it becomes a "
         "vertical offset rather than a gap"
     )
@@ -168,12 +168,12 @@ def test_a_panel_opens_beside_the_button_that_opens_it():
 def test_the_web_panel_is_a_column_not_a_drawer_in_the_dock():
     """It used to be in the dock, and this test used to require that.
 
-    The rule above is about *disclosures*, and the web panel is not one — it is
+    The rule above is about *disclosures*, and the web panel is not one, it is
     a search box, a list of results and the full text of a web page. Inside the
     dock it had to be capped, because the dock's job is to stay short, and the
     cap made it unusable: reported as "squashed ugly … what it is right now
-    isn't working". The two symptoms it produced — pushing the composer off the
-    bottom, then being too small to read — were the same mistake from either
+    isn't working". The two symptoms it produced, pushing the composer off the
+    bottom, then being too small to read, were the same mistake from either
     side.
 
     So it is a sibling of #chat-main inside the chat page's <main>: a column,
@@ -182,7 +182,7 @@ def test_the_web_panel_is_a_column_not_a_drawer_in_the_dock():
     markup = _markup()
     dock = _block(markup, '<div class="chat-dock">')
     assert 'id="web-panel"' not in dock, "the web panel is a column, not a dock drawer"
-    # Still on the chat page, and still a sibling of the conversation card —
+    # Still on the chat page, and still a sibling of the conversation card, 
     # the point of the move is *where* it went, not merely that it left.
     chat_page = _block(markup, '<div class="tab-page hidden" id="tab-chat"')
     assert 'id="web-panel"' in chat_page

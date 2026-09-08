@@ -66,11 +66,11 @@ def test_a_deleted_note_cannot_be_exported(client):
 def test_a_clippings_source_is_stored_as_real_metadata(client):
     """BACKLOG §65 ("source as metadata, not just folded into body text").
     The frontend's own `clippingMarkdown` still puts the same link in the
-    body for portability — this is the queryable half that adds."""
+    body for portability: this is the queryable half that adds."""
     created = client.post(
         "/entries",
         json={
-            "content": "> a clipped passage\n\n— [Example](https://example.com/page)",
+            "content": "> a clipped passage\n\n: [Example](https://example.com/page)",
             "source_url": "https://example.com/page",
             "source_title": "Example",
         },
@@ -92,7 +92,7 @@ def test_a_source_title_is_optional(client):
 
 
 def test_an_ordinary_note_has_no_source(client):
-    """The overwhelming majority of notes are never a clipping — this
+    """The overwhelming majority of notes are never a clipping, this
     proves the new columns are a no-op for them, not just "doesn't crash"."""
     created = client.post("/entries", json={"content": "an ordinary thought"}).json()
     assert created["source_url"] is None
@@ -133,7 +133,7 @@ def test_entries_page_and_report_the_real_total(client):
 
 def test_entries_default_page_size_is_bounded_but_generous(client):
     """No params at all still has to work exactly as before for any
-    notebook under the default page size — the common case — and still
+    notebook under the default page size, the common case, and still
     report the true total either way."""
     for i in range(3):
         client.post("/entries", json={"content": f"note {i}"})
@@ -147,7 +147,7 @@ def test_entries_limit_is_validated(client):
     assert client.get("/entries", params={"limit": 0}).status_code == 422
     assert client.get("/entries", params={"limit": -1}).status_code == 422
     assert client.get("/entries", params={"offset": -1}).status_code == 422
-    # Past the hard ceiling — a client can't force one giant page either.
+    # Past the hard ceiling, a client can't force one giant page either.
     assert client.get("/entries", params={"limit": 999999}).status_code == 422
 
 
@@ -160,11 +160,11 @@ def test_frontend_served_at_root(client):
     # Priority 0 item 2), loaded by a second <script> tag in index.html.
     assert client.get("/whiteboard.js").status_code == 200
     # Graph view split out of app.js into its own file (frontend refactor
-    # path, the step after whiteboard), loaded by a third <script> tag —
+    # path, the step after whiteboard), loaded by a third <script> tag: 
     # before app.js, not after, see index.html/graph.js for why.
     assert client.get("/graph.js").status_code == 200
     # style.css split into multiple linked files (ROADMAP.md Priority 0 item
-    # 2) — every one of them has to actually be reachable at the path
+    # 2): every one of them has to actually be reachable at the path
     # index.html's <link> tags use, not just the directory that holds them.
     for name in CSS_FILES:
         assert client.get(f"/css/{name.name}").status_code == 200

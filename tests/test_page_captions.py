@@ -8,7 +8,7 @@ Reported directly:
 
 `ai/captioning.py`'s one prompt asks "what does this image show", which is the
 right question for a photograph and produces the same useless sentence for
-every page of a slide deck — *"a white page with black text and a bar chart"*.
+every page of a slide deck, *"a white page with black text and a bar chart"*.
 And there was one caption *per file*, so a twenty-page deck had one line about
 "the document" and nothing about any of its figures.
 
@@ -17,7 +17,7 @@ prompt actually asks for, and that a description is stored per page beside that
 page's reading rather than over the file's own caption.
 
 **Every model call in this file goes through the fake transport** (`fake_ollama`
-— see tests/fakes.py). There is no vision model in this sandbox, so what a real
+- see tests/fakes.py). There is no vision model in this sandbox, so what a real
 one would *answer* to this prompt is not covered by anything here; what is
 covered is that the right prompt reaches it, carrying the right page number,
 and that the answer lands in the right column.
@@ -35,7 +35,7 @@ from memorymap.api import routes_files
 from memorymap.core import deps, pdfpages
 from memorymap.core.database import PageRead
 
-#: The same hand-written one-page PDF `test_ocr_page_reads_persist.py` uses —
+#: The same hand-written one-page PDF `test_ocr_page_reads_persist.py` uses: 
 #: pdfium repairs the missing xref table, so this is a real, openable document
 #: without a binary fixture in the tree.
 ONE_PAGE_PDF = (
@@ -147,8 +147,8 @@ def test_a_page_description_is_stored_on_that_page(client, monkeypatch):
 
 
 def test_a_description_does_not_overwrite_that_page_s_reading(client, monkeypatch):
-    """The two are different claims about the same page — what it *says* and
-    what its figures *show* — and neither may clear the other."""
+    """The two are different claims about the same page, what it *says* and
+    what its figures *show*, and neither may clear the other."""
     attachment_id = _attach(client, "deck.pdf", ONE_PAGE_PDF)
     if not pdfpages.available():
         pytest.skip("the PDF rasteriser extra is not installed here")
@@ -189,7 +189,7 @@ def test_a_page_that_is_only_described_is_not_reported_as_read(client, monkeypat
 
 
 def test_the_upload_side_has_the_same_route(client, monkeypatch):
-    """Two id spaces, two routes, one implementation — the same shape every
+    """Two id spaces, two routes, one implementation, the same shape every
     other page endpoint in routes_files.py keeps."""
     upload = client.post(
         "/media/upload",
@@ -209,7 +209,7 @@ def test_the_upload_side_has_the_same_route(client, monkeypatch):
 
 def test_only_a_pdf_can_be_described_by_page(client):
     """A photograph has one page and `POST /media/{id}/caption` already
-    describes it — a page-caption route that answered for it would be a second
+    describes it: a page-caption route that answered for it would be a second
     way to write the same field."""
     attachment_id = _attach(client, "photo.png", b"\x89PNG\r\n\x1a\n")
     refused = client.post(f"/files/{attachment_id}/page-caption?page=0")

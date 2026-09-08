@@ -1,4 +1,4 @@
-// MemoryMap AI — the graph's force simulation, off the main thread.
+// MemoryMap AI: the graph's force simulation, off the main thread.
 //
 // GRAPH_PLAN.md §4 ("Simulation off the main thread") and §5 Phase 1. The SVG
 // renderer this replaces ran `d3.forceSimulation` on the main thread and wrote
@@ -7,10 +7,10 @@
 // worker, and the main thread only ever paints what this posts.
 //
 // **d3 is vendored, and `importScripts` is what a classic worker has.** The
-// app ships `/vendor/d3.v7.min.js` (no CDN — the offline rule), it is a UMD
+// app ships `/vendor/d3.v7.min.js` (no CDN: the offline rule), it is a UMD
 // bundle, so `importScripts` puts `d3` on this worker's own global. The CSP
 // already allows it: `worker-src 'self'` is set in
-// `src/memorymap/core/security.py` (checked before writing this, not assumed —
+// `src/memorymap/core/security.py` (checked before writing this, not assumed, 
 // a directive missing there fails silently, which is the "policy silently
 // refusing the work" shape CLAUDE.md names).
 //
@@ -28,7 +28,7 @@
 //       start -> alphaTarget(0.3) and pin; move -> move the pin; end ->
 //       alphaTarget(0) and, unless `keep`, release the pin.
 //   {type:"freeze", ids:[...]} / {type:"thaw"}
-//       Hold everything else still for the length of a drag — the same
+//       Hold everything else still for the length of a drag, the same
 //       "aiming at a moving target is not a gesture" fix the SVG renderer
 //       carried, kept because drag-to-link still depends on it.
 //   {type:"pin", id, x, y} / {type:"unpin", id}   double-click hold / release
@@ -60,7 +60,7 @@ let tickMs = 0;
 
 //: Buffers handed back by the main thread after it has painted them. A
 //: transfer neuters the sender's copy, so without this every frame allocates a
-//: fresh Float32Array — 2,000 nodes is 16 KB a frame, 60 times a second, which
+//: fresh Float32Array: 2,000 nodes is 16 KB a frame, 60 times a second, which
 //: is a megabyte of garbage a second for nothing. The main thread returns each
 //: buffer in a `recycle` message; if the pool is empty (it has fallen behind)
 //: we allocate rather than block.
@@ -68,7 +68,7 @@ const pool = [];
 
 //: How many posted frames the main thread has not yet recycled. Ticking is
 //: cheap and posting is not, so when it is behind we keep simulating and skip
-//: the paint — the next frame it does receive is the current truth anyway.
+//: the paint: the next frame it does receive is the current truth anyway.
 let inFlight = 0;
 const MAX_IN_FLIGHT = 2;
 
@@ -79,7 +79,7 @@ const MAX_IN_FLIGHT = 2;
 //: over, which is exactly the "the physics is tuned for a demo" complaint in
 //: §2. 0.4 lets a neighbourhood follow a drag and still settle.
 //:
-//: `alphaDecay 0.0228` is d3's own default, restored deliberately — the SVG
+//: `alphaDecay 0.0228` is d3's own default, restored deliberately, the SVG
 //: renderer used 0.05 (settle in ~90 ticks) *because* every tick cost it
 //: thousands of DOM writes on the main thread. Off the main thread that
 //: trade is gone, and a slower decay is what makes the layout look alive.
@@ -121,7 +121,7 @@ function applyForces(params) {
 //: Keep the layout inside its own world. Carried over from the SVG tick
 //: handler, and it exists for a reported bug: every drag reheats the
 //: simulation, a reheated repulsion pushes the outermost notes further out,
-//: and nothing ever pulls them back — after a few drags the edge of the map
+//: and nothing ever pulls them back, after a few drags the edge of the map
 //: was off the edge of the box with no way to know it was there. The world is
 //: a square sized by the note count (see the main thread's `gcWorldFor`), not
 //: the viewport, so the forces and not the walls decide the arrangement.
@@ -198,7 +198,7 @@ function loop() {
   // left, the loop re-enters immediately, and the worker holds its thread flat
   // out for as long as the layout is hot. Measured in Chromium: an *idle*
   // 2,000-note map (nothing being dragged, the simulation merely still
-  // cooling) ran the page at 2.5 fps with the main thread only 13% busy —
+  // cooling) ran the page at 2.5 fps with the main thread only 13% busy, 
   // the renderer simply could not get scheduled. The same map once the
   // simulation stopped ran at 58.7 fps with 9 ms frames. So the simulation
   // was not competing with the paint for the main thread any more; it was
@@ -209,7 +209,7 @@ function loop() {
   // simulation gets about half a core and the renderer gets the other half.
   // On a machine where a tick is cheap this changes nothing (the `16 - cost`
   // branch wins). On a big notebook it halves how fast the layout converges
-  // and hands back a map you can actually drag while it does — which is the
+  // and hands back a map you can actually drag while it does, which is the
   // right trade during a drag, because the thing being looked at is the
   // pointer, not the convergence.
   //

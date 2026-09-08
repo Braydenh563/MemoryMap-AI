@@ -2,7 +2,7 @@
 
 Written during the §40 audit, because the whiteboard shipped with no tests at
 all and four of the five things asserted here were broken. Each test names the
-failure it caught rather than the method it calls — a test called
+failure it caught rather than the method it calls, a test called
 `test_create_node` tells the next session nothing about why it exists.
 """
 
@@ -38,7 +38,7 @@ def test_the_default_board_hands_back_what_was_put_on_it(board_client, session):
     """`board_id IS NULL` is a board, not an absence.
 
     The query filtered with `board_id == None`, which SQL renders as
-    `= NULL` — never true for any row. So the unnamed scratch board, which is
+    `= NULL`, never true for any row. So the unnamed scratch board, which is
     the one every notebook starts on, always came back empty however many
     cards you had dropped onto it, and they reappeared only if you happened to
     create a named board.
@@ -58,7 +58,7 @@ def test_a_card_cannot_point_at_a_note_that_does_not_exist(board_client):
     """An unvalidated `entry_id` is a board that can never render again.
 
     Nothing checked the id, so a card for note 9999 was accepted, stored, and
-    then failed to draw — with no way to select or delete it from the UI,
+    then failed to draw, with no way to select or delete it from the UI,
     because the thing you would click is the card that isn't there.
     """
     refused = board_client.post("/whiteboard/nodes", json={"entry_id": 9999})
@@ -86,7 +86,7 @@ def test_the_same_note_can_be_referenced_from_two_boards_at_once(board_client, s
     """§88.2 item 1 ("boards hold references, never copies") checked
     directly rather than assumed missing: `WhiteboardNode.entry_id` is
     already a pure foreign key, and `create_node`'s own dedup is scoped to
-    `(entry_id, board_id)` — not `entry_id` alone — so the same note on two
+    `(entry_id, board_id)`, not `entry_id` alone, so the same note on two
     different boards is two independent rows, not a duplicate-detection
     false positive. Distinct from `test_a_card_can_be_moved_to_another_board`
     above: that one *moves* a card between boards (one reference at a time);
@@ -170,9 +170,9 @@ def test_an_enormous_sketch_is_refused_rather_than_stored(board_client):
 
 def test_a_stale_board_id_is_refused_not_a_crash(board_client, session):
     """`board_id` is a real `ForeignKey("entries.id")`
-    (`PRAGMA foreign_keys=ON`) — writing one that doesn't exist wasn't
+    (`PRAGMA foreign_keys=ON`), writing one that doesn't exist wasn't
     validated the way `entry_id` already was, so it reached `db.commit()`
-    and came back as a raw, unhandled `IntegrityError` — a 500, not a 404,
+    and came back as a raw, unhandled `IntegrityError`, a 500, not a 404,
     and the frontend's own "the board is stale, reload" recovery only
     catches 4xx/error responses gracefully either way, but a 500 is a bug in
     its own right, not just a stale read.
@@ -201,7 +201,7 @@ def test_purging_a_note_removes_its_own_whiteboard_card(board_client, session):
     """`_hard_delete` deletes rows in half a dozen tables that carry a real
     `ForeignKey("entries.id")` before it deletes the entry itself, because
     `PRAGMA foreign_keys=ON` fails the whole `DELETE FROM entries` the
-    instant one is left behind — reproduced live: emptying the recycle bin
+    instant one is left behind, reproduced live: emptying the recycle bin
     for a note that had a whiteboard card on it 500'd, and the note (and
     everything else in the same purge batch) stayed stuck in the bin.
     `WhiteboardNode`/`WhiteboardSketch` were added to the schema after
@@ -223,7 +223,7 @@ def test_purging_a_note_removes_its_own_whiteboard_card(board_client, session):
 
 def test_the_board_list_only_shows_boards_actually_in_use(board_client, session):
     """Reported directly: "the different board options confuse me." The
-    picker used to be built client-side from *every note in the notebook* —
+    picker used to be built client-side from *every note in the notebook*, 
     this is the fix, and the test pins the shape it has to have: the default
     board always present, and a note only listed once something is actually
     on it.
@@ -236,7 +236,7 @@ def test_the_board_list_only_shows_boards_actually_in_use(board_client, session)
     ids = [b["id"] for b in boards]
     assert None in ids  # the default board is always offered
     assert board_note.id in ids
-    assert plain_note.id not in ids  # never used as a board — not listed
+    assert plain_note.id not in ids  # never used as a board, not listed
 
     entry = next(b for b in boards if b["id"] == board_note.id)
     assert entry["node_count"] == 1
@@ -254,10 +254,10 @@ def test_creating_a_board_makes_a_named_note_and_lists_it(board_client):
     assert body["node_count"] == 0
 
     # Reported live: a board made this way vanished from the list the moment
-    # it was created (empty) or later cleared back to empty — indistinguishable
+    # it was created (empty) or later cleared back to empty, indistinguishable
     # from the board having deleted itself, since the underlying note was
     # never actually touched. Explicitly creating a board is enough to keep
-    # it listed even with nothing on it yet — unlike a *plain* note, which
+    # it listed even with nothing on it yet, unlike a *plain* note, which
     # still only becomes a board once something is drawn on it (the other
     # half of this file's own test above).
     boards = board_client.get("/whiteboard/boards").json()
@@ -273,7 +273,7 @@ def test_creating_a_board_makes_a_named_note_and_lists_it(board_client):
 def test_a_board_survives_being_emptied_back_out(board_client, session):
     """The other half of the live report: not just a fresh board, but one
     that *had* content and was cleared back to zero (every card/sketch/object
-    on it removed) used to drop out of the list exactly the same way — the
+    on it removed) used to drop out of the list exactly the same way, the
     note itself was never deleted, but the only UI that could find it again
     had lost track of it. A board an ordinary note "graduates" into by
     having something drawn on it (never created via `+ New board`) has to
@@ -298,8 +298,8 @@ def test_a_board_survives_being_emptied_back_out(board_client, session):
 
 
 def test_renaming_a_board_rewrites_its_notes_heading_line(board_client, session):
-    """A board's title is its underlying note's own first `#` heading —
-    `list_boards` reads it via `extract_title` — so renaming a board has to
+    """A board's title is its underlying note's own first `#` heading: 
+    `list_boards` reads it via `extract_title`, so renaming a board has to
     rewrite that line, not add a second stored field."""
     created = board_client.post("/whiteboard/boards", json={"name": "Old Name"}).json()
     board_client.post("/whiteboard/sketches", json={"data": "M0 0 L1 1", "board_id": created["id"]})
@@ -320,7 +320,7 @@ def test_renaming_a_board_rewrites_its_notes_heading_line(board_client, session)
 
 
 def test_renaming_the_default_board_is_refused_not_a_crash(board_client):
-    """`board_id=None` is the always-present scratch board — there is no
+    """`board_id=None` is the always-present scratch board, there is no
     underlying note to rewrite a heading line into."""
     resp = board_client.put("/whiteboard/boards/0", json={"title": "Nope"})
     assert resp.status_code == 404
@@ -332,7 +332,7 @@ def test_renaming_a_stale_board_id_404s(board_client):
 
 
 def test_an_image_object_needs_a_real_media_url(board_client):
-    """A card wraps a note, a sketch is a path — neither is a placeable
+    """A card wraps a note, a sketch is a path, neither is a placeable
     image. `data.url` has to be a same-origin `/media/...` path, the shape
     `POST /media/upload` always returns, not an arbitrary string a client
     could otherwise stash here."""
@@ -373,7 +373,7 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         "align": None,
         "md": None,
         # Added with mindmaps (MINDMAP_PLAN.md Phase 1). A text box is not a
-        # map node, so all three stay None — asserted rather than omitted
+        # map node, so all three stay None, asserted rather than omitted
         # because this test's whole job is to catch a field that silently
         # stops round-tripping, and it can only do that by naming every one.
         "ref_id": None,
@@ -385,14 +385,14 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         f"/whiteboard/objects/{obj_id}",
         json={
             "kind": "text",
-            "data": {"content": "Meeting notes — updated"},
+            "data": {"content": "Meeting notes: updated"},
             "x": 50, "y": 60, "width": 300, "height": 90,
         },
     )
     assert moved.status_code == 200, moved.text
     assert moved.json()["x"] == 50
     assert moved.json()["width"] == 300
-    assert moved.json()["data"]["content"] == "Meeting notes — updated"
+    assert moved.json()["data"]["content"] == "Meeting notes: updated"
 
 
 def test_an_objects_kind_cannot_be_changed_on_update(board_client):
@@ -453,7 +453,7 @@ def test_a_legacy_traversing_url_still_cannot_delete_an_outside_file(board_clien
 
 
 def test_deleting_an_image_object_removes_its_file_from_disk(board_client):
-    """The only row that ever pointed at this file — unlike a note's inline
+    """The only row that ever pointed at this file, unlike a note's inline
     `![]()` image, which nothing in the app tracks or cleans up yet."""
     media_dir = deps.get_config().data_dir / "media"
     media_dir.mkdir(parents=True, exist_ok=True)
@@ -486,7 +486,7 @@ def test_purging_a_board_note_detaches_its_cards_instead_of_deleting_them(
 ):
     """The board itself is just a note (`board_id` points at one), and
     purging *that* note must not take every card on the board down with
-    it — the same 'orphan becomes a root' choice already made for
+    it: the same 'orphan becomes a root' choice already made for
     `Entry.parent_id`, not a cascade delete.
     """
     entry, board = _note(session), _note(session, "a board")
@@ -494,7 +494,7 @@ def test_purging_a_board_note_detaches_its_cards_instead_of_deleting_them(
         "/whiteboard/nodes", json={"entry_id": entry.id, "board_id": board.id}
     ).json()
 
-    # Out of the assert for the same reason as above — under `python -O` the
+    # Out of the assert for the same reason as above, under `python -O` the
     # board would never reach the bin and the purge would be a no-op.
     binned = board_client.delete(f"/entries/{board.id}")
     assert binned.status_code == 200
@@ -509,7 +509,7 @@ def test_purging_a_board_note_detaches_its_cards_instead_of_deleting_them(
 
 def test_moving_a_card_keeps_it_on_its_board(ai_client, session):
     """`PUT /whiteboard/nodes/{id}` takes the whole node, and the browser was
-    not sending `board_id` — so dragging a card on a named board read as "move
+    not sending `board_id`, so dragging a card on a named board read as "move
     this to the global board" and it vanished from the board you were looking
     at."""
     entry = _note(session, "a note")
@@ -533,7 +533,7 @@ def test_the_frontend_sends_the_board_when_it_moves_a_card():
     from memorymap.api.app import FRONTEND_DIR
 
     # The whiteboard subsystem moved out of app.js into its own file, loaded
-    # by a second <script> tag — see index.html — so this comment now lives
+    # by a second <script> tag, see index.html, so this comment now lives
     # in whiteboard.js, not app.js.
     whiteboard_js = (FRONTEND_DIR / "whiteboard.js").read_text(encoding="utf-8")
     save = whiteboard_js[whiteboard_js.index("// Sync back to API.") :][:900]
@@ -542,7 +542,7 @@ def test_the_frontend_sends_the_board_when_it_moves_a_card():
 
 def test_deleting_an_item_takes_its_links_with_it(board_client, session):
     """A link is a sketch row that names its two ends. The frontend hides a
-    link whose end is gone, but the row stayed — an orphan on every board a
+    link whose end is gone, but the row stayed, an orphan on every board a
     card was ever deleted from. Deleting a card, a text box or a shape now
     removes the links that touched it, and nothing else."""
     entry = _note(session)
@@ -610,7 +610,7 @@ def test_a_text_box_keeps_its_alignment_and_markdown_flag(board_client):
 def test_purging_a_map_unlinks_the_files_behind_its_image_nodes(board_client, session):
     """A map's objects are deleted with the map (an ordinary board's are
     detached and keep theirs), so the files behind a map's image objects
-    would otherwise sit in `<data>/media` with no row pointing at them —
+    would otherwise sit in `<data>/media` with no row pointing at them, 
     BACKLOG §116.1 item 1. The allowlist is the same as the delete route's:
     a url that does not resolve inside the media folder is left alone."""
     media_dir = deps.get_config().data_dir / "media"

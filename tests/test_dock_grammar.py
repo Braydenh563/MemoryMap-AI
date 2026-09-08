@@ -1,7 +1,7 @@
 """Every control dock follows the dock grammar (UI_MODERNISATION_PLAN.md, Phase 8).
 
 A dock is the control row at the top of a tab or sub-tab. The plan states one
-grammar for all of them — identity, then find, then arrange, then actions —
+grammar for all of them, identity, then find, then arrange, then actions , 
 and this lint holds the parts of it that can be read from the markup:
 
 - **Zone order.** Whatever zones a dock has appear in the order identity →
@@ -15,11 +15,11 @@ and this lint holds the parts of it that can be read from the markup:
   headline, as metadata you can press) is not in that run and is not a
   primary; keeping the lint and the stylesheet on one definition is what
   stops the two drifting.
-- **Settings live in menus.** No checkbox or radio directly in a dock zone —
+- **Settings live in menus.** No checkbox or radio directly in a dock zone, 
   a switch is a setting, and belongs in a popover or in Settings. Inside a
   `.dock-menu` they are fine (that is what the View menu is for).
 - **Utilities in a fixed order, last.** Within `.dock-actions`, after the
-  primary: refresh, help, more — never help before refresh, never the kebab
+  primary: refresh, help, more: never help before refresh, never the kebab
   before either. A utility is recognised by its id (`*-refresh`,
   `*-help-toggle`) or class (`dock-more`).
 - **No text-only segmented controls in a zone.** A `.seg`/`.segmented-control`
@@ -32,7 +32,7 @@ Like the other frontend lints this cannot see the DOM; `scratchpad/ui-sweeps/
 docks.js` measures the same docks against a running app (one height per
 dock, ≤ 7 visible controls per row). Docks join the lint by carrying
 `data-dock-name="<name>"`, so a surface that has not been brought onto the grammar
-yet is not failed for it — the ratchet is the count of docks that carry it.
+yet is not failed for it, the ratchet is the count of docks that carry it.
 """
 
 from __future__ import annotations
@@ -185,7 +185,7 @@ def test_every_dock_on_the_grammar_is_marked_and_vice_versa():
     names = {d.name for d in _docks()}
     assert names == ON_THE_GRAMMAR, (
         f"docks in the markup: {sorted(names)}; docks this lint expects: "
-        f"{sorted(ON_THE_GRAMMAR)} — update ON_THE_GRAMMAR when a surface lands"
+        f"{sorted(ON_THE_GRAMMAR)}: update ON_THE_GRAMMAR when a surface lands"
     )
 
 

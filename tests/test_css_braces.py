@@ -4,9 +4,9 @@
 nothing anywhere reported it.**
 
 A phone-width commit added `@media (max-width: 600px) {` to
-`07-whiteboard-misc.css` and did not close it. Everything after it — the two
+`07-whiteboard-misc.css` and did not close it. Everything after it: the two
 hundred lines of mindmap node, edge, chevron and badge styling that Phase 2
-had written and measured — was swallowed into that media query. A mind map
+had written and measured, was swallowed into that media query. A mind map
 therefore rendered with its real styling *only* on a viewport under 600px
 wide, and with none of it at any other width: no fill, no border, no branch
 spine, no rounded corners, and its hover controls laid out as a full-width
@@ -24,7 +24,7 @@ Every existing guard was blind to it, and that is the point of this file:
   check DOM structure, API state and geometry that JavaScript computes and
   writes inline. None of that changes when a stylesheet goes inert.
 
-So a whole phase could — and did — pass its own tests with its stylesheet
+So a whole phase could, and did, pass its own tests with its stylesheet
 switched off. The only thing that found it was measuring what a node actually
 painted (`getComputedStyle(node).backgroundColor` read `rgba(0, 0, 0, 0)`),
 which is CLAUDE.md's standing rule and the reason it is a standing rule.
@@ -44,14 +44,14 @@ from tests._css_paths import FRONTEND_DIR
 
 def _sheets() -> list:
     files = sorted((FRONTEND_DIR / "css").glob("*.css"))
-    assert files, "no stylesheets found — has the css directory moved?"
+    assert files, "no stylesheets found: has the css directory moved?"
     return files
 
 
 def _depth_trace(text: str) -> tuple[int, int]:
     """Final nesting depth, and the line it first went negative on (0 if not).
 
-    Braces inside `/* … */` comments and inside quoted strings do not count —
+    Braces inside `/* … */` comments and inside quoted strings do not count, 
     a `content: "}"` is real CSS and a comment full of examples is common in
     this codebase, which comments at length by house style.
     """
@@ -104,13 +104,13 @@ def _depth_trace(text: str) -> tuple[int, int]:
 def test_a_stylesheet_closes_every_block_it_opens(sheet) -> None:
     depth, first_negative = _depth_trace(sheet.read_text(encoding="utf-8"))
     assert first_negative == 0, (
-        f"{sheet.name} has a stray `}}` at line {first_negative} — it closes a "
+        f"{sheet.name} has a stray `}}` at line {first_negative}: it closes a "
         "block that was never opened, so every rule after it lands at the top "
         "level whether or not that is what was meant."
     )
     assert depth == 0, (
         f"{sheet.name} ends {depth} block(s) deep: a `{{` somewhere in it is "
         "never closed, so every rule after that point has been swallowed into "
-        "it. Nothing else in this suite can see that — read this file's "
+        "it. Nothing else in this suite can see that, read this file's "
         "docstring for what it cost the last time."
     )

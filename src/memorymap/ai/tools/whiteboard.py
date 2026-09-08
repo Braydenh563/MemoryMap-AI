@@ -2,7 +2,7 @@
 the server-side `generate_diagram` layout engine.
 
 Split out of `ai/tools.py`'s "documents, past chats, and skills" section
-(ROADMAP.md §0/§4) — the whiteboard quarter of it, self-contained apart
+(ROADMAP.md §0/§4): the whiteboard quarter of it, self-contained apart
 from the shared helpers in `_common.py`.
 """
 
@@ -20,7 +20,7 @@ from memorymap.entry import manager
 from ._common import DEFAULT_LIST_LIMIT, PREVIEW_CHARS, ToolError, _clip, _limit_arg, _require_note
 
 def _whiteboard_board_filter(model, board_id: int | None):
-    """Same rule `routes_whiteboard.py`'s own `_board_filter` uses — `== None`
+    """Same rule `routes_whiteboard.py`'s own `_board_filter` uses: `== None`
     renders as SQL `= NULL`, never true for any row, so the default board
     would read as empty however much was actually on it."""
     return model.board_id.is_(None) if board_id is None else model.board_id == board_id
@@ -30,7 +30,7 @@ def _read_whiteboard(session: Session, args: dict) -> dict:
     """The read half of ROADMAP item 11's AI+whiteboard integration: lets the
     agent answer "what's on my project-planning board?" without a human
     describing it first. Nothing under `ai/` mentioned the whiteboard at all
-    before this — `autonomous.py`'s orphaned-card cleanup is a background
+    before this: `autonomous.py`'s orphaned-card cleanup is a background
     job, not agent context.
     """
     from memorymap.core.database import WhiteboardNode, WhiteboardObject, WhiteboardSketch
@@ -56,13 +56,13 @@ def _read_whiteboard(session: Session, args: dict) -> dict:
         if entry is None:
             return "(note missing)"
         # A card's note can be marked private *after* it was placed on the
-        # board — `_add_whiteboard_card` refuses a private note going in via
+        # board: `_add_whiteboard_card` refuses a private note going in via
         # `_require_note`, but that only guards the write. `entry.content` is
         # ciphertext at rest for a private note, and this tool result becomes
         # part of the agent's own context, so it needs the same refusal
         # `_require_note` gives every other read.
         if entry.is_private:
-            return "(private note — not available to the AI)"
+            return "(private note: not available to the AI)"
         return _clip(entry.content, PREVIEW_CHARS)
 
     cards = [
@@ -115,7 +115,7 @@ def _search_whiteboard(session: Session, args: dict) -> dict:
     "whiteboard content becomes searchable the same way notes are." A real
     embedding index over sketch/text-box content is a bigger lift (a new
     table, a backfill, a place in the embedding-refresh cycle) than this
-    session's remaining scope — a keyword scan across every board's card
+    session's remaining scope: a keyword scan across every board's card
     previews and text boxes still answers "which board did I put that on?",
     which is the actual question this was asked for.
     """
@@ -132,7 +132,7 @@ def _search_whiteboard(session: Session, args: dict) -> dict:
     entries = {e.id: e for e in session.scalars(select(Entry).where(Entry.id.in_(entry_ids)))} if entry_ids else {}
     for node in node_rows:
         entry = entries.get(node.entry_id)
-        # Skip a card whose note is private — its `content` is ciphertext at
+        # Skip a card whose note is private, its `content` is ciphertext at
         # rest, so `term in entry.content.lower()` would only ever match by
         # accident, and a match on the raw column is not one this tool may
         # report back to the model regardless. Same guard as `_read_whiteboard`'s
@@ -167,7 +167,7 @@ def _search_whiteboard(session: Session, args: dict) -> dict:
 
 def _add_whiteboard_card(session: Session, args: dict) -> dict:
     """The write half's simplest step: place an existing note as a card on a
-    board — what "AI-guided diagram generation" reduces to for one note at a
+    board: what "AI-guided diagram generation" reduces to for one note at a
     time. Reuses `_require_note` (not a bare `session.get`) so a private note
     gets the same refusal every other tool already gives it.
     """
@@ -209,7 +209,7 @@ def _add_whiteboard_card(session: Session, args: dict) -> dict:
 
 def _add_whiteboard_link(session: Session, args: dict) -> dict:
     """The other write step: connect two cards already on a board. No anchor
-    picking here (that's a live-drag interaction, ROADMAP item 11) — a
+    picking here (that's a live-drag interaction, ROADMAP item 11), a
     generated link is a floating one, which still terminates correctly on
     each card's own border via `wbLinkEndpoints` on the client side.
     """
@@ -247,7 +247,7 @@ def _add_whiteboard_link(session: Session, args: dict) -> dict:
 
 #: A runaway model asking for a diagram of hundreds of notes is a real
 #: failure mode a bulk tool has to bound, the same reason every list tool
-#: here clamps its own `limit` — one call shouldn't be able to flood a
+#: here clamps its own `limit`, one call shouldn't be able to flood a
 #: board.
 MAX_DIAGRAM_NODES = 60
 
@@ -266,7 +266,7 @@ def _diagram_tree_positions(root_ref: str, children_of: dict[str, list[str]], la
     ring, siblings spread around it).
 
     Not a port of d3.tree()'s own tidy-tree (Reingold-Tilford/Buchheim)
-    algorithm — that optimises for the *tightest* non-overlapping packing,
+    algorithm: that optimises for the *tightest* non-overlapping packing,
     which this doesn't need to match exactly, only to produce. A leaf gets
     the next free row slot in visitation order; an internal node's slot is
     the mean of its children's, which is the simplest arrangement that is
@@ -281,8 +281,8 @@ def _diagram_tree_positions(root_ref: str, children_of: dict[str, list[str]], la
         current = queue.pop(0)
         for child in children_of.get(current, []):
             if child in depth:
-                # Reached via two different paths — not a simple tree.
-                raise ToolError(f"'{child}' has more than one path back to the root — check parent_ref for a cycle or a duplicate.")
+                # Reached via two different paths, not a simple tree.
+                raise ToolError(f"'{child}' has more than one path back to the root, check parent_ref for a cycle or a duplicate.")
             depth[child] = depth[current] + 1
             queue.append(child)
 
@@ -315,7 +315,7 @@ def _diagram_tree_positions(root_ref: str, children_of: dict[str, list[str]], la
 
 
 def _generate_diagram(session: Session, args: dict) -> dict:
-    """Place a whole tree of notes on a whiteboard in one call — the gap
+    """Place a whole tree of notes on a whiteboard in one call, the gap
     named directly (BACKLOG.md §29d, HANDOVER.md): `add_whiteboard_card`/
     `add_whiteboard_link` already exist, but x/y are free-form numbers the
     model has to invent itself across many chained calls, exactly the
@@ -323,7 +323,7 @@ def _generate_diagram(session: Session, args: dict) -> dict:
     model only ever declares *structure* (a title or an existing note, and
     which other node is its parent); this function creates whatever notes
     need creating, computes every position server-side, and wires the
-    links — the same job `wbArrangeMindMap` already does client-side for a
+    links: the same job `wbArrangeMindMap` already does client-side for a
     board someone arranges by hand, now reachable in one round trip.
     """
     from memorymap.core.database import WhiteboardNode, WhiteboardSketch
@@ -332,7 +332,7 @@ def _generate_diagram(session: Session, args: dict) -> dict:
     if not isinstance(raw_nodes, list) or not raw_nodes:
         raise ToolError("'nodes' must be a non-empty list.")
     if len(raw_nodes) > MAX_DIAGRAM_NODES:
-        raise ToolError(f"That's {len(raw_nodes)} nodes — {MAX_DIAGRAM_NODES} is the most this can place in one call.")
+        raise ToolError(f"That's {len(raw_nodes)} nodes: {MAX_DIAGRAM_NODES} is the most this can place in one call.")
 
     raw_board_id = args.get("board_id")
     board_id = int(raw_board_id) if raw_board_id not in (None, "") else None
@@ -342,9 +342,9 @@ def _generate_diagram(session: Session, args: dict) -> dict:
     for i, raw in enumerate(raw_nodes):
         ref = str(raw.get("ref") or "").strip()
         if not ref:
-            raise ToolError(f"nodes[{i}] has no 'ref' — every node needs a short local id to reference as a parent.")
+            raise ToolError(f"nodes[{i}] has no 'ref', every node needs a short local id to reference as a parent.")
         if ref in by_ref:
-            raise ToolError(f"'{ref}' is used as 'ref' on more than one node — refs must be unique.")
+            raise ToolError(f"'{ref}' is used as 'ref' on more than one node, refs must be unique.")
         title = str(raw.get("title") or "").strip()
         note_id = raw.get("note_id")
         if bool(title) == bool(note_id):
@@ -354,7 +354,7 @@ def _generate_diagram(session: Session, args: dict) -> dict:
     roots = [ref for ref, node in by_ref.items() if not node["parent_ref"]]
     if len(roots) != 1:
         raise ToolError(
-            "Exactly one node must have no 'parent_ref' (the diagram's root) — "
+            "Exactly one node must have no 'parent_ref' (the diagram's root): "
             f"found {len(roots)}."
         )
     root_ref = roots[0]
@@ -370,7 +370,7 @@ def _generate_diagram(session: Session, args: dict) -> dict:
 
     positions = _diagram_tree_positions(root_ref, children_of, layout)
 
-    # Resolve every ref to a real Entry — creating one for a bare title,
+    # Resolve every ref to a real Entry, creating one for a bare title,
     # reusing (and permission-checking, same as any other tool) one already
     # given as note_id. Two passes on purpose: entries have to exist before
     # any card/link touches them, and failing on node 40 of 60 after
@@ -449,7 +449,7 @@ def _generate_diagram(session: Session, args: dict) -> dict:
 # than walked again here. Imported inside the functions, not at module scope:
 # the API layer sits on top of this one, and the walk has three edge cases
 # (a dangling parent, a ring, board scoping) that must have exactly one
-# implementation — a second copy is how two readers of the same map come to
+# implementation: a second copy is how two readers of the same map come to
 # disagree about what is on it.
 
 #: The most nodes one `read_mindmap` will spell out. A map is meant to fit in
@@ -460,7 +460,7 @@ MAX_OUTLINE_NODES = 200
 
 
 def _outline_lines(nodes: list[dict], depth: int, out: list[str], budget: list[int]) -> None:
-    """The tree as indented text — the form the plan asks for by name, and
+    """The tree as indented text, the form the plan asks for by name, and
     the one a small model handles best: an id per line, so the next call can
     name a node instead of describing it."""
     for node in nodes:
@@ -484,7 +484,7 @@ def _read_mindmap(session: Session, args: dict) -> dict:
     """A whole map as an indented outline (MINDMAP_PLAN.md §5 item 14).
 
     Deliberately *not* `read_whiteboard` with a flag. That tool answers
-    "what is on this board" as three flat lists — cards, text boxes, links —
+    "what is on this board" as three flat lists, cards, text boxes, links , 
     which is the right answer for a canvas and the wrong one for a map, where
     the structure is the content. A model handed a flat list of twenty topics
     and a separate list of parent ids will reconstruct the tree wrongly, or
@@ -495,13 +495,13 @@ def _read_mindmap(session: Session, args: dict) -> dict:
     raw_board_id = args.get("board_id")
     if raw_board_id in (None, ""):
         raise ToolError(
-            "board_id is required — call search_whiteboard or read_whiteboard first to find the map's id."
+            "board_id is required: call search_whiteboard or read_whiteboard first to find the map's id."
         )
     board_id = int(raw_board_id)
     board = session.get(Entry, board_id)
     if board is None or board.is_deleted:
         raise ToolError(f"No board with id {board_id}")
-    # A board is an Entry and can be marked private after being used as one —
+    # A board is an Entry and can be marked private after being used as one, 
     # same rule, and the same reason, as `_read_whiteboard`'s own board title
     # check: this result becomes part of the agent's context.
     if board.is_private:
@@ -514,7 +514,7 @@ def _read_mindmap(session: Session, args: dict) -> dict:
     lines: list[str] = []
     _outline_lines(roots, 0, lines, budget)
     title = manager.extract_title(board.content) or _clip(board.content, 40)
-    outline = "\n".join([title, *lines]) if lines else f"{title}\n(empty — no nodes yet)"
+    outline = "\n".join([title, *lines]) if lines else f"{title}\n(empty: no nodes yet)"
 
     result = {
         "board_id": board_id,
@@ -536,7 +536,7 @@ def _create_mindmap(session: Session, args: dict) -> dict:
     """A new, empty map with one root topic on it.
 
     A map *is* a board, which is itself a note (`routes_whiteboard.py`'s own
-    opening line), so this creates one note and one object — not a new kind
+    opening line), so this creates one note and one object, not a new kind
     of thing. The root is created here rather than left to a second
     `add_map_node` call because a map with no root has nothing to hang the
     next node off, and a small model handed an empty map reliably stalls
@@ -550,7 +550,7 @@ def _create_mindmap(session: Session, args: dict) -> dict:
 
     title = str(args.get("title") or "").strip()
     if not title:
-        raise ToolError("title is required — what is this map about?")
+        raise ToolError("title is required: what is this map about?")
     root_text = str(args.get("root_text") or "").strip() or title
 
     entry = Entry(content=f"# {title}", is_board=True)
@@ -589,7 +589,7 @@ def _add_map_node(session: Session, args: dict) -> dict:
     "here is my whole tree" call already exists as `generate_diagram`, and
     it exists precisely because the *card* version of this needed the model
     to invent x/y across many chained calls. Here the model never sees a
-    coordinate at all — the server places the node beside its parent — so
+    coordinate at all, the server places the node beside its parent, so
     the only thing it has to get right is which node is the parent.
     """
     from memorymap.api.routes_whiteboard import (
@@ -601,7 +601,7 @@ def _add_map_node(session: Session, args: dict) -> dict:
 
     raw_board_id = args.get("board_id")
     if raw_board_id in (None, ""):
-        raise ToolError("board_id is required — call create_mindmap or read_mindmap first.")
+        raise ToolError("board_id is required: call create_mindmap or read_mindmap first.")
     board_id = int(raw_board_id)
     board = session.get(Entry, board_id)
     if board is None or board.is_deleted:
@@ -610,7 +610,7 @@ def _add_map_node(session: Session, args: dict) -> dict:
     kind = str(args.get("kind") or MAP_TOPIC_KIND).strip() or MAP_TOPIC_KIND
     if kind != MAP_TOPIC_KIND and kind not in MAP_REFERENCE_KINDS:
         raise ToolError(
-            f"Unknown node kind '{kind}' — use 'topic' for text, or 'note' to put an existing note on the map."
+            f"Unknown node kind '{kind}', use 'topic' for text, or 'note' to put an existing note on the map."
         )
 
     text = str(args.get("text") or "").strip()
@@ -627,7 +627,7 @@ def _add_map_node(session: Session, args: dict) -> dict:
     elif kind in MAP_REFERENCE_KINDS:
         raw_ref = args.get("ref_id")
         if raw_ref in (None, ""):
-            raise ToolError(f"A '{kind}' node needs ref_id — the id of the {kind} it stands for.")
+            raise ToolError(f"A '{kind}' node needs ref_id: the id of the {kind} it stands for.")
         ref_id = int(raw_ref)
     elif not text:
         raise ToolError("text is required for a topic node.")
@@ -638,7 +638,7 @@ def _add_map_node(session: Session, args: dict) -> dict:
         parent = session.get(WhiteboardObject, int(raw_parent))
         if parent is None or parent.board_id != board_id:
             raise ToolError(
-                f"No node with id {raw_parent} on board {board_id} — call read_mindmap for the ids."
+                f"No node with id {raw_parent} on board {board_id}: call read_mindmap for the ids."
             )
 
     x, y = _next_position(session, board_id, parent)
@@ -674,7 +674,7 @@ def _link_map_nodes(session: Session, args: dict) -> dict:
 
     Every serious mindmapper has this and calls it a relationship or a
     cross-link, and it is the one edge a tree cannot express. Stored as a
-    link sketch — the same row a link between two cards already is — so the
+    link sketch, the same row a link between two cards already is, so the
     canvas draws it, `_forget_links_to` cleans it up when either end goes,
     and there is no second kind of edge to maintain.
     """

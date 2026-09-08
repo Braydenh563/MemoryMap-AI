@@ -21,7 +21,7 @@ def app_state(tmp_path, monkeypatch):
     deps.reset_app_state()
     model_manager.reset_jobs()
     # Process-global like the log buffer, so it leaks between tests exactly the
-    # way the job registry does — and a test asserting "no jobs have finished"
+    # way the job registry does, and a test asserting "no jobs have finished"
     # would otherwise pass or fail on what ran before it.
     taskhistory.clear()
     deps.init_app_state(data_dir=tmp_path / "data")
@@ -40,7 +40,7 @@ def session(app_state):
 
 @pytest.fixture()
 def client(app_state):
-    """TestClient with ALL AI unavailable — proves capture and keyword
+    """TestClient with ALL AI unavailable, proves capture and keyword
     search work with zero AI, and keeps results identical whether or not
     the developer happens to have Ollama running."""
     from memorymap.api.app import create_app
@@ -73,7 +73,7 @@ def fake_embeddings(app_state):
 
 @pytest.fixture()
 def ai_client(app_state, fake_ollama, fake_embeddings):
-    """TestClient with working (fake) AI — full Phase 2 behaviour."""
+    """TestClient with working (fake) AI: full Phase 2 behaviour."""
     from memorymap.api.app import create_app
 
     return TestClient(create_app())
@@ -83,7 +83,7 @@ def ai_client(app_state, fake_ollama, fake_embeddings):
 #
 # The fixtures live here so pytest finds them by name; `FakeResponse` and `sse`
 # are ordinary helpers and live in `fakes_http.py`, because importing a *test*
-# module to get them re-binds everything else that import carries — which is
+# module to get them re-binds everything else that import carries, which is
 # how `client` from `test_providers` came to shadow the `client` fixture above
 # and silently decide which HTTP client three files' tests were handed.
 

@@ -1,7 +1,7 @@
 """The API schema is behind the unlock, and the CDN doc pages are gone.
 
-MODERNISATION_AUDIT.md D5: `/openapi.json` — every route, parameter and model
-name — was served to anyone who could reach the port, before the unlock; the
+MODERNISATION_AUDIT.md D5: `/openapi.json`, every route, parameter and model
+name: was served to anyone who could reach the port, before the unlock; the
 one security finding in that audit not already handled. `/docs` and `/redoc`
 load their scripts from a CDN this offline app's CSP refuses, so they never
 rendered and are not mounted at all now.

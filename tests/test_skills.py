@@ -33,7 +33,7 @@ def _stream_events(client, question, **body):
 #: A five-step skill whose steps are **plain strings**, for the tests that are
 #: about the runner rather than about a particular built-in.
 #:
-#: A string step is unchecked — it has no contract (see `skills.STEP_EXPECTS`)
+#: A string step is unchecked, it has no contract (see `skills.STEP_EXPECTS`)
 #: and advances on whatever the model says, which is what every skill written
 #: by hand in the settings box does. That is exactly the right scaffolding for
 #: "does a step get its own turn", "does the manual pause land in the right
@@ -43,7 +43,7 @@ def _stream_events(client, question, **body):
 #:
 #: These tests used to borrow the "Auto-tag my notes" built-in for this, and
 #: every one of them broke when that built-in started declaring a contract per
-#: step — a coupling worth removing rather than working around, since the fake
+#: step: a coupling worth removing rather than working around, since the fake
 #: model narrates and never calls a tool, so a `tool_called` contract can only
 #: ever end those runs in `stalled`.
 BENCH_SKILL = {
@@ -157,7 +157,7 @@ def test_every_built_in_is_a_job_rather_than_a_sentence():
 
 def test_every_built_in_step_declares_what_it_expects():
     """Phase A of the skills reform, as a lint. A shipped step with no contract
-    is a step that can be ticked green having done nothing — which is the
+    is a step that can be ticked green having done nothing, which is the
     reported failure, and it is not something a behaviour test can catch,
     because the fake model happily narrates any step you give it."""
     for skill in skills.builtins(_known()):
@@ -170,7 +170,7 @@ def test_every_built_in_step_declares_what_it_expects():
 def test_no_built_in_step_names_more_than_one_tool():
     """Phase B's measured target: *"no built-in step names more than one tool"*.
 
-    It is the acceptance test for the atomic rewrite — a step that needs two
+    It is the acceptance test for the atomic rewrite, a step that needs two
     tools is two steps, and the "and" in the middle of it was the model's
     licence to do the first half and narrate the second. It is also what makes
     small-model mode meaningful: that mode offers a step only the tools its
@@ -326,7 +326,7 @@ def test_a_disabled_tool_stays_disabled_inside_a_skill(app_state):
 def test_the_agent_refuses_a_tool_the_skill_did_not_declare(
     ai_client, session, fake_ollama, app_state
 ):
-    """The allowlist is a safety property, not only a prompt — a model that
+    """The allowlist is a safety property, not only a prompt, a model that
     calls something it was never offered doesn't get to run it."""
     from memorymap.core import deps
 
@@ -361,8 +361,8 @@ def test_running_a_skill_sends_its_instruction_not_its_name(ai_client, fake_olla
 
 
 def test_a_skill_with_no_steps_is_still_one_instruction(ai_client, fake_ollama):
-    """Nothing was taken away: a skill saved before the rebuild — a name and a
-    prompt — still runs, as a single turn."""
+    """Nothing was taken away: a skill saved before the rebuild, a name and a
+    prompt: still runs, as a single turn."""
     ai_client.put(
         "/preferences",
         json={"skills": [{"name": "Old style", "prompt": "Summarise my week."}]},
@@ -427,7 +427,7 @@ def test_a_network_failure_mid_step_stops_the_run_instead_of_repeating(
 ):
     """Tier 1 §3: Ollama going offline mid-round used to look, to
     skill_runner, exactly like the model answering with a sentence of prose
-    (agent.run_agent's own OllamaError handling is a real "answer" event) —
+    (agent.run_agent's own OllamaError handling is a real "answer" event): 
     so the step was ticked done and the run moved on to repeat the identical
     failure on every later step. It must stop and name the real reason
     instead, the same way running out of rounds already does."""
@@ -471,12 +471,12 @@ def test_each_step_is_its_own_turn_and_is_ticked_off(ai_client, fake_ollama):
 
 def test_a_step_that_produces_nothing_is_not_ticked_done(ai_client, fake_ollama):
     """Reported as "the AI fails to respond while still saying it is writing
-    — and the skill step counted as done": a turn that ends with no answer
+    - and the skill step counted as done": a turn that ends with no answer
     text and no tool call (an empty reply, no `tool_script` queued) used to
     fall through to the generic "done" branch, so the run's own progress
     list claimed success for a step that never actually did anything. It
-    must stop and report the step as failed instead, so Resume — not the
-    next step — picks it back up."""
+    must stop and report the step as failed instead, so Resume, not the
+    next step: picks it back up."""
     fake_ollama.librarian_reply = ""  # the model says and does nothing
     events = _stream_events(ai_client, "run", skill="Auto-tag my notes")
     steps = [e for e in events if e["type"] == "step"]
@@ -503,7 +503,7 @@ def test_a_later_step_sees_which_notes_an_earlier_step_actually_touched(
     through: a step's own narration ("tagged the relevant notes") is a
     summary the model wrote about itself, not a record of what happened, and
     it used to be *all* the next step saw. A later step that needed "those
-    notes" had only that sentence to work from — too vague to act on. The
+    notes" had only that sentence to work from, too vague to act on. The
     actual note id (from the same `change` event that already backs the
     chat UI's View/Undo buttons) now travels with it."""
     name = _bench(ai_client)
@@ -540,7 +540,7 @@ def test_step_answer_ignores_changes_with_no_id_of_either_kind():
 
 def test_step_answer_names_documents_too():
     """The same "loses the plot" fix as notes, for a step that wrote a
-    document — a later step told to "attach that document" needs its id,
+    document: a later step told to "attach that document" needs its id,
     not a re-told sentence about writing it."""
     changes = [{"document_id": 41}]
     result = skill_runner._step_answer("Wrote it up.", changes)
@@ -580,7 +580,7 @@ def test_step_answer_truncates_prose_before_dropping_ids():
 def test_what_changed_comes_back_as_a_list_with_a_way_to_undo_it(
     ai_client, session, fake_ollama
 ):
-    """§21: "a result — what changed, as a list the user can undo, rather than
+    """§21: "a result: what changed, as a list the user can undo, rather than
     prose claiming something happened"."""
     note = _saved(ai_client, "a note that wants tagging")
     fake_ollama.tool_script = [
@@ -603,7 +603,7 @@ def test_what_changed_comes_back_as_a_list_with_a_way_to_undo_it(
 
 # --- manual (step-through) mode ----------------------------------------------
 #
-# "a manual mode" — asked for directly, and named in ROADMAP.md as "the
+# "a manual mode", asked for directly, and named in ROADMAP.md as "the
 # single most-requested unbuilt thing on the list": a pause after every
 # completed step with a Continue button, so a person can add what the agent
 # missed or answer a question it raised before the next step starts, rather
@@ -657,7 +657,7 @@ def test_manual_note_is_folded_into_the_next_steps_own_instruction(
     ai_client, fake_ollama
 ):
     """What the user typed at the pause is read as part of what the next
-    step is being asked to do — not buried in history the model may or may
+    step is being asked to do, not buried in history the model may or may
     not weigh against everything else in the window."""
     _stream_events(
         ai_client,
@@ -672,7 +672,7 @@ def test_manual_note_is_folded_into_the_next_steps_own_instruction(
 
 
 def test_manual_note_only_reaches_the_step_it_was_added_before(ai_client, fake_ollama):
-    """Not repeated into every later step's instruction — it was about *this*
+    """Not repeated into every later step's instruction: it was about *this*
     step, and a note that keeps reappearing three steps later would read as
     a standing instruction nobody actually gave."""
     name = _bench(ai_client)
@@ -823,7 +823,7 @@ def test_a_read_only_skill_says_it_changes_nothing(app_state, session):
 
 def test_the_model_is_told_how_to_start_a_skill(app_state, session):
     """This used to assert the note said the model *cannot* start a skill,
-    which was true and worth saying then — a model that believes it can run
+    which was true and worth saying then, a model that believes it can run
     one will narrate having done so. §33's plan is built now, so the note has
     to say the opposite: leaving the old sentence in beside a working
     `run_skill` would be worse than either state on its own."""
@@ -851,7 +851,7 @@ def test_the_agent_can_save_a_when_to_use(app_state, session):
 
 # --- the notebook audit set --------------------------------------------------
 #
-# Asked for directly: a skill that audits and cleans up the whole notebook —
+# Asked for directly: a skill that audits and cleans up the whole notebook, 
 # links, tags, categories, moving notes, combining duplicates. Built as five
 # skills rather than one, and these tests are mostly about *why*.
 
@@ -881,7 +881,7 @@ def test_each_audit_skill_is_valid_and_says_when_to_use_it(name):
 @pytest.mark.parametrize("name", AUDIT_SKILLS)
 def test_every_tool_an_audit_skill_names_actually_exists(name):
     """A skill naming a tool that isn't in the registry loses it silently at
-    run time — the run then fails on the step that needed it."""
+    run time: the run then fails on the step that needed it."""
     from memorymap.ai import tools
 
     assert set(_builtin(name)["tools"]) <= set(tools.TOOLS)
@@ -931,7 +931,7 @@ def test_combining_notes_proposes_rather_than_merges():
 
 def test_reorganising_categories_merges_rather_than_deletes():
     """`delete_category` is destructive, so it would stop a bulk run for a
-    confirm card — and merging is what was wanted anyway, since it keeps the
+    confirm card: and merging is what was wanted anyway, since it keeps the
     notes together instead of scattering them into Uncategorised."""
     skill = _builtin("Reorganise my categories")
     assert "merge_categories" in skill["tools"]
@@ -955,7 +955,7 @@ def test_the_audit_skills_are_offered_alongside_the_others(app_state, session):
 
 def test_a_skill_description_is_not_clipped_to_one_line():
     """Reported twice. The row reused `.persona-preview`, which is nowrap with
-    an ellipsis — so the only field saying what a skill *does* got whatever
+    an ellipsis: so the only field saying what a skill *does* got whatever
     width was left after five chips."""
     from memorymap.api.app import FRONTEND_DIR
 

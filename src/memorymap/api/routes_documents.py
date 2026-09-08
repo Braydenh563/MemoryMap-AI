@@ -1,7 +1,7 @@
 """Long-form documents (the editor tab): CRUD, export, and AI editing.
 
-Documents are markdown, stored whole. They're deliberately not Entries — see
-the model docstring — so they never appear in note search, the graph, or the
+Documents are markdown, stored whole. They're deliberately not Entries, see
+the model docstring: so they never appear in note search, the graph, or the
 AI's retrieved context unless the user asks for them by name.
 """
 
@@ -47,12 +47,12 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 MAX_CONTENT = 500_000
 
 #: The AI-edit changelog (DocumentAiEdit) is a per-document log, not a
-#: process-lifetime ring buffer like taskhistory.py's — it has to survive a
-#: restart — but it still needs a ceiling, or a document rewritten by the AI
+#: process-lifetime ring buffer like taskhistory.py's: it has to survive a
+#: restart: but it still needs a ceiling, or a document rewritten by the AI
 #: hundreds of times over its life would keep every full before/after
 #: snapshot forever. Oldest entries are pruned past this on each new write.
 MAX_AI_EDIT_LOG_PER_DOCUMENT = 20
-#: How much of the targeted passage a changelog entry shows — enough to say
+#: How much of the targeted passage a changelog entry shows, enough to say
 #: what it touched, not the whole thing (that's what reverting is for).
 SELECTION_EXCERPT_CHARS = 160
 
@@ -61,7 +61,7 @@ class DocumentBody(BaseModel):
     title: str = Field(default="Untitled", min_length=1, max_length=200)
     content: str = Field(default="", max_length=MAX_CONTENT)
     #: A bare extension ("md", "py"). Not validated as an enum here on
-    #: purpose — `filetypes.normalise` accepts a filename, a dotted
+    #: purpose: `filetypes.normalise` accepts a filename, a dotted
     #: extension or a bare one and falls back to markdown for anything it
     #: does not know, which is the right answer for a field that only
     #: describes how to *display* the content. A 422 over it would refuse
@@ -72,19 +72,19 @@ class DocumentBody(BaseModel):
 class DocumentPatch(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=200)
     content: str | None = Field(default=None, max_length=MAX_CONTENT)
-    #: None means "leave it alone" — the same convention as the two fields
+    #: None means "leave it alone", the same convention as the two fields
     #: above, so an autosave sending only `content` cannot reset a
     #: document's type back to markdown.
     file_type: str | None = Field(default=None, max_length=40)
     #: Who is making this change, for the history: "edit" (a person typing),
     #: "ai" (an accepted suggestion), "restore" (rolling back). The frontend
-    #: says so because only it knows — by the time a PATCH arrives the text
+    #: says so because only it knows, by the time a PATCH arrives the text
     #: looks the same whoever wrote it.
     revision_source: Literal["edit", "ai", "restore"] = "edit"
 
 
 class AiEditBody(BaseModel):
-    """Ask the AI to rewrite, write, or remove — the document editor's AI
+    """Ask the AI to rewrite, write, or remove, the document editor's AI
     panel reskinned from a single rewrite action into a small general
     assistant, asked for directly. `verb` picks which of the three the
     instruction is asking for; `instruction` is validated against it below
@@ -98,7 +98,7 @@ class AiEditBody(BaseModel):
     # document" for edit/remove, or "at the end" for write.
     selection: str = Field(default="", max_length=MAX_CONTENT)
     #: "edit" (default, unchanged): rewrite the target to the instruction.
-    #: "write": generate a new passage and insert it — the target is
+    #: "write": generate a new passage and insert it, the target is
     #: context, not something to overwrite. "remove": delete what the
     #: instruction (or the selection alone) describes, leaving everything
     #: else exactly as written.
@@ -107,7 +107,7 @@ class AiEditBody(BaseModel):
 
 #: How much of a document's opening the list view gets. Long enough for three
 #: lines at the card's width, short enough that listing 200 documents does not
-#: ship 200 whole documents to draw a list — which is the reason `_summary`
+#: ship 200 whole documents to draw a list, which is the reason `_summary`
 #: withholds `content` in the first place.
 PREVIEW_CHARS = 240
 
@@ -123,7 +123,7 @@ def _preview(content: str) -> str:
     Markdown structure is stripped rather than rendered: a preview that begins
     with `# ` or `- ` spends its first characters on syntax, and a heading is
     usually a restatement of the title that is already on the card. Blank
-    lines collapse for the same reason — three lines of preview should be
+    lines collapse for the same reason, three lines of preview should be
     three lines of the document's words.
     """
     lines = []
@@ -131,7 +131,7 @@ def _preview(content: str) -> str:
         line = raw.strip()
         if not line:
             continue
-        # Leading markdown syntax only — a `#` inside a sentence stays.
+        # Leading markdown syntax only, a `#` inside a sentence stays.
         line = line.lstrip("#>-*+ \t")
         if line:
             lines.append(line)
@@ -178,7 +178,7 @@ def _linked_notes(session: Session, document_id: int) -> list[dict]:
     """The notes attached to this document, as previews.
 
     A note and a document are different things on purpose, but they are
-    usually about the same thing — asked for directly: "the documents and
+    usually about the same thing, asked for directly: "the documents and
     notes sections and features need to be more integrated together".
     """
     from memorymap.entry.manager import readable_content
@@ -203,7 +203,7 @@ class AttachBookmarkBody(BaseModel):
 
 @router.get("/{document_id}/bookmarks")
 def document_bookmarks(document_id: int, session: Session = Depends(get_session)) -> list[dict]:
-    """Bookmarks attached to this document — same References concept as a
+    """Bookmarks attached to this document, same References concept as a
     note's own `/entries/{id}/bookmarks` (asked about directly: "should
     bookmarks show in documents... as well?")."""
     _existing(session, document_id)
@@ -251,7 +251,7 @@ def detach_bookmark(
 
 def _process_committed_media(session: Session, content: str) -> None:
     """Trigger OCR/captioning/vision-OCR for every `/media/…` upload this
-    document's content references — see core/media_process.py's own
+    document's content references: see core/media_process.py's own
     docstring for why this fires on save rather than on upload."""
     from memorymap.core import media_process
 
@@ -266,7 +266,7 @@ def list_file_types() -> dict:
     like one.
 
     Served rather than duplicated into `app.js` because indenting and
-    comment-toggling happen on keystrokes and cannot wait for a round trip —
+    comment-toggling happen on keystrokes and cannot wait for a round trip, 
     so the frontend needs the table itself, not a lookup endpoint. One copy,
     fetched once; two copies would be two things to update, and the failure
     mode of them disagreeing is Ctrl+/ writing the wrong comment marker into
@@ -274,7 +274,7 @@ def list_file_types() -> dict:
 
     Declared **above** `/{document_id}` deliberately: FastAPI matches routes in
     definition order, and "file-types" is a perfectly good string for a path
-    parameter typed `int` — registered the other way round this would 422 on
+    parameter typed `int`, registered the other way round this would 422 on
     every call instead of answering.
     """
     return {"default": filetypes.DEFAULT_FILE_TYPE, "types": filetypes.as_dicts()}
@@ -289,7 +289,7 @@ def list_documents(
 
     No limit even with `q` empty: the Documents tab loads the full list once
     and filters *titles* client-side (`#library-docs-search`), the same
-    pattern `GET /entries` already uses for notes — a silent cap with no
+    pattern `GET /entries` already uses for notes, a silent cap with no
     offset made everything past it permanently unreachable. At this app's
     realistic scale (a single user's own notebook) an unbounded read is the
     same cost `GET /entries` already pays on every load.
@@ -297,14 +297,14 @@ def list_documents(
     `q`, when given, is the gap that client-side filtering can't close on
     its own: `_summary()` never sends document *content* to the browser (a
     document can run to thousands of words, unlike a note), so there was no
-    way to search what a document actually says, only its title — despite
+    way to search what a document actually says, only its title, despite
     the AI already being able to (`ai/tools/documents.py`'s `_list_documents`
     has searched title *and* content this way since it was written; this
     mirrors that filter rather than inventing a second one). Plain
-    case-insensitive substring matching, not semantic search — whether
+    case-insensitive substring matching, not semantic search, whether
     documents get embeddings at all is a separate, larger decision.
     """
-    # Archived documents are kept, but out of the way — reachable via the
+    # Archived documents are kept, but out of the way, reachable via the
     # Library's Shelved filter (routes_library._shelved), not this list.
     query = select(Document).where(Document.archived_at.is_(None)).order_by(
         Document.updated_at.desc()
@@ -336,8 +336,8 @@ def create_document(
 
 #: Same ceiling as every other upload in the app (routes_files.MAX_FILE_BYTES).
 #: Kept as its own name rather than imported, because these two limits answer
-#: different questions — how big a picture may be, and how big a document may
-#: be — and a future change to one should not silently move the other.
+#: different questions: how big a picture may be, and how big a document may
+#: be: and a future change to one should not silently move the other.
 MAX_IMPORT_BYTES = 50 * 1024 * 1024
 
 
@@ -349,7 +349,7 @@ def import_document(
 
     Asked for directly: the chat's attach button should take *any* file, with
     "images … in the image gallery (any image format), and the others should
-    probably go in the documents subtab". This is the second half — images
+    probably go in the documents subtab". This is the second half, images
     already had a home (`POST /media/upload`), and everything else had none.
 
     What arrives is a .docx, .pdf, .csv, .md, a source file; what is stored is
@@ -360,7 +360,7 @@ def import_document(
     have to learn to handle.
 
     Declared above `/{document_id}` because FastAPI matches in declaration
-    order and "import" is not an int — the same trap `/file-types` sits above.
+    order and "import" is not an int, the same trap `/file-types` sits above.
     """
     name = (file.filename or "file").strip() or "file"
     suffix = Path(name).suffix[:12].lower()
@@ -368,7 +368,7 @@ def import_document(
         raise HTTPException(
             status_code=415,
             detail=(
-                f"Can't read a {suffix or 'file'} — this takes documents, "
+                f"Can't read a {suffix or 'file'}, this takes documents, "
                 "spreadsheets, PDFs, and text or code files."
             ),
         )
@@ -389,15 +389,15 @@ def import_document(
                 out.write(chunk)
         # The scanned-PDF fallback, same as the file viewer's. Importing a
         # scan and importing a text PDF must not need different actions from
-        # the user — this is the "hands off" half, and the models and the
+        # the user: this is the "hands off" half, and the models and the
         # rasteriser it needs are the "optionally customisable" half. Costs
         # nothing for every other file type: `docview` only consults a reader
         # once a PDF has turned out to have no text layer.
         viewed = docview.extract(staged, vision_reader=vision_ocr.pdf_reader_or_none())
 
     if not viewed.text.strip():
-        # The extractor's own message says *why* — a scan with no text layer
-        # reads differently from a converter that is not installed — and it is
+        # The extractor's own message says *why*, a scan with no text layer
+        # reads differently from a converter that is not installed, and it is
         # a better error than anything this route could invent.
         raise HTTPException(
             status_code=422,
@@ -433,7 +433,7 @@ def update_document(
         document.title = body.title.strip() or document.title
     content_changed = body.content is not None and body.content != document.content
     #: Before the change lands, so the newest revision is always the version
-    #: being replaced — the same rule `record_revision` follows for notes.
+    #: being replaced: the same rule `record_revision` follows for notes.
     #: Only on a real content change: a title-only edit or an autosave that
     #: sends the identical text must not add an entry saying nothing happened.
     if content_changed:
@@ -446,7 +446,7 @@ def update_document(
     session.commit()
     if content_changed:
         # A save (autosave included) is one of the three "committed"
-        # moments core/media_process.py waits for — asked for directly,
+        # moments core/media_process.py waits for, asked for directly,
         # OCR/captioning/vision-OCR must not run on a staged upload that
         # was only ever dropped into a document draft, not saved.
         _process_committed_media(session, document.content)
@@ -455,7 +455,7 @@ def update_document(
 
 #: How long a burst of editing counts as one revision. Autosave fires while you
 #: type, so without coalescing a ten-minute sitting would leave a hundred
-#: entries seconds apart — a log nobody can read rather than a history. Five
+#: entries seconds apart: a log nobody can read rather than a history. Five
 #: minutes is long enough that one sitting is one entry and short enough that
 #: coming back after lunch is a new one.
 REVISION_QUIET_SECONDS = 300
@@ -471,7 +471,7 @@ def _record_document_revision(session: Session, document: Document, source: str 
     Coalesced: an edit soon after the last snapshot replaces it, so the history
     reads as sittings rather than keystrokes. See `DocumentRevision`.
 
-    Never raises — a history that fails to record must not fail the save it was
+    Never raises: a history that fails to record must not fail the save it was
     recording. Losing one entry is a much smaller harm than refusing to let
     someone save their work.
     """
@@ -526,7 +526,7 @@ def delete_document(document_id: int, session: Session = Depends(get_session)) -
     log_action(session, "deleted", "document", document.id, document.title[:80])
     #: **The history goes with the document.** `DocumentRevision` and
     #: `DocumentAiEdit` both hold a real foreign key to `documents.id`, and
-    #: there is no ORM cascade on either — deleting a document that had been
+    #: there is no ORM cascade on either, deleting a document that had been
     #: edited raised `FOREIGN KEY constraint failed` and the delete failed
     #: outright. Caught by `test_documents_api.py::test_create_read_update_delete`
     #: the moment revisions started being written, which is the argument for
@@ -549,7 +549,7 @@ def delete_document(document_id: int, session: Session = Depends(get_session)) -
 
 @router.put("/{document_id}/archive")
 def archive_document(document_id: int, session: Session = Depends(get_session)) -> dict:
-    """Kept, but out of the way (BACKLOG §30b's named remaining scope) —
+    """Kept, but out of the way (BACKLOG §30b's named remaining scope), 
     same shape as `routes_entries.archive_entry`: never deleted, never
     auto-cleared, drops out of the Documents list, still reachable from
     the Library's Shelved filter."""
@@ -599,7 +599,7 @@ def attach_note(
 def detach_note(
     document_id: int, entry_id: int, session: Session = Depends(get_session)
 ) -> dict:
-    """Detach a note. The note itself is untouched — this is a connection,
+    """Detach a note. The note itself is untouched, this is a connection,
     not ownership."""
     document = _existing(session, document_id)
     unlink_document(session, document.id, entry_id)
@@ -612,7 +612,7 @@ def document_connections(document_id: int, session: Session = Depends(get_sessio
 
     A document's joins were split across three places before this: attached
     notes came back inside `GET /documents/{id}`, bookmarks had their own
-    endpoint, and the images a document embeds were listed nowhere — you
+    endpoint, and the images a document embeds were listed nowhere, you
     could only find them by reading the markdown. One shape, one request.
     """
     from memorymap.api.routes_entries import _connected_files
@@ -643,7 +643,7 @@ def export_markdown(
 ) -> Response:
     """The document's own text, as a download.
 
-    Still routed at `export.md` — the path is what the frontend and any saved
+    Still routed at `export.md`, the path is what the frontend and any saved
     bookmark already point at, and renaming it would break both to describe
     something the URL never guaranteed. What *does* follow the document's type
     is the file the browser saves: a Python document downloads as `.py`, not
@@ -680,11 +680,11 @@ def export_markdown(
 def ai_edit(
     document_id: int, body: AiEditBody, session: Session = Depends(get_session)
 ) -> dict:
-    """Rewrite, write, or remove — three verbs on the same document-editor
+    """Rewrite, write, or remove, three verbs on the same document-editor
     AI panel (asked for directly, reskinning it from a single rewrite
     action into a small general assistant).
 
-    Nothing is saved here — the result comes back for the user to accept or
+    Nothing is saved here, the result comes back for the user to accept or
     reject, for all three verbs alike. An AI action that silently wrote
     into the file would be the single most destructive thing in the app.
     """
@@ -717,7 +717,7 @@ def ai_edit(
         raise HTTPException(status_code=400, detail="There's nothing to edit yet")
 
     if body.verb == "remove":
-        # A selection alone already says what to remove — asked for
+        # A selection alone already says what to remove, asked for
         # directly, no need to also type "remove this" by hand.
         if not instruction and not body.selection.strip():
             raise HTTPException(
@@ -783,7 +783,7 @@ def rephrase_passage(
     offer a fix for the first two; for "this sentence is hard to follow" there
     is no mechanical answer and the panel could only say so.
 
-    Nothing is saved. The alternatives come back for the writer to pick from —
+    Nothing is saved. The alternatives come back for the writer to pick from, 
     the same rule `ai_edit` follows and for the same reason: a writing aid that
     edits the document by itself is the most destructive thing in the app.
     `options` is empty rather than an error when the model is offline or its
@@ -828,7 +828,7 @@ def document_revisions(
     """This document's history, newest first.
 
     Asked for by name: *"can the document have edit history like git logs??"*
-    Notes have had revisions for a long time and documents had none — a rewrite
+    Notes have had revisions for a long time and documents had none, a rewrite
     destroyed what the document used to say, with nothing but the session's own
     undo stack, which forgets on reload.
 
@@ -845,7 +845,7 @@ def document_revisions(
     )
     out: list[DocumentRevisionOut] = []
     #: Newest first, and each row is compared with the version that *came
-    #: after* it — for the newest revision that is the document as it stands
+    #: after* it: for the newest revision that is the document as it stands
     #: now, which is why this walks with `newer` seeded from the document.
     newer_words = len((document.content or "").split())
     for row in rows:
@@ -889,7 +889,7 @@ def restore_document_revision(
 ) -> dict:
     """Put the document back to how it was, keeping the version being replaced.
 
-    A restore is itself an edit, so the current text is snapshotted first —
+    A restore is itself an edit, so the current text is snapshotted first, 
     restoring the wrong entry must be as undoable as the edit that made you
     want to restore. Marked `source="restore"` so the history says what
     happened rather than looking like an ordinary rewrite.
@@ -900,7 +900,7 @@ def restore_document_revision(
         raise HTTPException(status_code=404, detail="No revision with that id")
     #: **Read before writing, and this is not a style preference.** The
     #: snapshot below coalesces into the most recent revision when one is
-    #: recent enough — and on the common path ("I rewrote this, undo that")
+    #: recent enough: and on the common path ("I rewrote this, undo that")
     #: the most recent revision *is* the one being restored. Recording first
     #: and reading `row.content` afterwards therefore restored the document to
     #: the text it had just overwritten that row with: the restore silently
@@ -920,7 +920,7 @@ def restore_document_revision(
 
 
 class DocumentAiEditLogBody(BaseModel):
-    """Recorded by the frontend right after it accepts an AI suggestion —
+    """Recorded by the frontend right after it accepts an AI suggestion, 
     the write to `document.content` and the write to this changelog are two
     separate requests (accept can't itself know before_content once the
     document's already been saved), so the frontend sends both snapshots
@@ -957,7 +957,7 @@ def _ai_edit_out(row: DocumentAiEdit) -> DocumentAiEditOut:
 def record_ai_edit(
     document_id: int, body: DocumentAiEditLogBody, session: Session = Depends(get_session)
 ) -> DocumentAiEditOut:
-    """Log one accepted AI edit — the changelog asked for directly. Prunes
+    """Log one accepted AI edit, the changelog asked for directly. Prunes
     the oldest entries past `MAX_AI_EDIT_LOG_PER_DOCUMENT` so a heavily
     AI-edited document doesn't keep an unbounded pile of full-text
     snapshots forever."""
@@ -997,7 +997,7 @@ def record_ai_edit(
 def list_ai_edits(
     document_id: int, session: Session = Depends(get_session)
 ) -> list[DocumentAiEditOut]:
-    """The changelog itself, newest first — asked for directly."""
+    """The changelog itself, newest first, asked for directly."""
     _existing(session, document_id)
     rows = session.scalars(
         select(DocumentAiEdit)
@@ -1010,7 +1010,7 @@ def list_ai_edits(
 @router.post("/{document_id}/ai-edit-log/{entry_id}/revert")
 def revert_ai_edit(document_id: int, entry_id: int, session: Session = Depends(get_session)) -> dict:
     """Restore the document to exactly how it read before this one AI edit
-    — the "undone... after they are set" half of the changelog. Records a
+    - the "undone... after they are set" half of the changelog. Records a
     fresh "revert" entry of its own (before_content = the document's
     current, about-to-be-replaced text; after_content = what this entry is
     restoring) rather than deleting anything, so the changelog stays a

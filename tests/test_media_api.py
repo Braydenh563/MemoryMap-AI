@@ -1,5 +1,5 @@
 """`/media`: uploads are tracked, not just written to disk, and the folder is
-not a script host — asked for and found directly (§40 open item 6).
+not a script host, asked for and found directly (§40 open item 6).
 
 Split out of test_antigravity_regressions.py.
 """
@@ -16,7 +16,7 @@ def test_media_upload_does_not_process_a_staged_upload_by_default(ai_client, mon
     """Asked for directly, correcting this session's own earlier choice:
     "the OCR shouldn't happen to staged files, only when they are actually
     saved as a note, actually sent in a chat message, or uploaded directly
-    to the library." A plain upload (no `direct`) is the staged case —
+    to the library." A plain upload (no `direct`) is the staged case, 
     OCR/captioning/vision-OCR must not run until something actually
     commits it (see test_media_process.py for those trigger points)."""
     calls = []
@@ -34,7 +34,7 @@ def test_media_upload_does_not_process_a_staged_upload_by_default(ai_client, mon
 
 def test_media_upload_with_direct_processes_immediately(ai_client, monkeypatch):
     """The Library's own "Upload images" button has no separate staging
-    step — the upload itself is the commit, so `direct=true` (the form
+    step: the upload itself is the commit, so `direct=true` (the form
     field it sends) processes right away, same as every upload used to."""
     calls = []
     monkeypatch.setattr(
@@ -53,7 +53,7 @@ def test_media_upload_with_direct_processes_immediately(ai_client, monkeypatch):
 
 def test_media_upload_never_processes_a_pdf_even_with_direct(ai_client, monkeypatch):
     """process_committed_upload itself guards by suffix (OCR_SUFFIXES etc.)
-    — a PDF upload reaching it is a no-op, not an error; covered directly
+    - a PDF upload reaching it is a no-op, not an error; covered directly
     in test_media_process.py. This just confirms `direct=true` doesn't
     bypass the 415 that already refuses non-image/PDF types elsewhere."""
     response = ai_client.post(
@@ -81,7 +81,7 @@ def test_media_list_and_upload_include_ocr_text(ai_client):
 def test_ocr_media_retries_extraction(ai_client, monkeypatch):
     """Asked for directly: "allow for manual OCR extraction or retries."
     ocr.extract_and_store has no write-once guard, so a plain POST always
-    re-reads the image — this only checks the retry actually ran and its
+    re-reads the image: this only checks the retry actually ran and its
     result made it back onto the row (see test_ocr.py for extract_text
     itself)."""
     import memorymap.core.ocr as ocr_module
@@ -97,7 +97,7 @@ def test_ocr_media_retries_extraction(ai_client, monkeypatch):
 
 
 def test_ocr_media_can_be_edited_by_hand(ai_client):
-    """"allow the user to access, view, and edit OCR extracted text" — same
+    """"allow the user to access, view, and edit OCR extracted text", same
     manual-text-override shape as CaptionBody.text."""
     upload_id = ai_client.post(
         "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
@@ -155,7 +155,7 @@ def test_media_upload_still_takes_a_png(ai_client):
 
 
 def test_an_upload_is_tracked_listed_and_deletable(ai_client):
-    """An image pasted into a note's own markdown had no DB row at all — it
+    """An image pasted into a note's own markdown had no DB row at all, it
     could not be listed in a gallery, could not be deleted, and there was
     no way to tell "still referenced" apart from "already gone off disk"
     (ROADMAP.md item 20a). `MediaUpload` closes that gap for every upload,
@@ -178,7 +178,7 @@ def test_an_upload_is_tracked_listed_and_deletable(ai_client):
 
 def test_deleting_an_unknown_upload_404s(ai_client):
     # CodeQL py/side-effect-in-assert: the DELETE call is a side effect, and
-    # an assert's own expression is skipped entirely under `python -O` —
+    # an assert's own expression is skipped entirely under `python -O`, 
     # split so the request always fires regardless of optimization flags.
     response = ai_client.delete("/media/999999")
     assert response.status_code == 404
@@ -194,8 +194,8 @@ def test_media_is_served_with_a_disposition_header(ai_client):
 
 
 def test_a_dangerous_file_already_on_disk_is_still_not_served(ai_client, app_state):
-    """Upload is not the only way into this folder — a restored backup or a
-    synced data directory is another — so the suffix is checked on the way out
+    """Upload is not the only way into this folder, a restored backup or a
+    synced data directory is another, so the suffix is checked on the way out
     as well as on the way in."""
     media = app_state.data_dir / "media"
     media.mkdir(parents=True, exist_ok=True)
@@ -207,7 +207,7 @@ def test_a_dangerous_file_already_on_disk_is_still_not_served(ai_client, app_sta
 
 
 def test_media_upload_still_accepts_a_pdf_without_direct(ai_client):
-    """A staged PDF upload — nothing here processes it either way (PDFs
+    """A staged PDF upload, nothing here processes it either way (PDFs
     aren't in any of the three SUFFIXES sets yet), but the 415 gate for
     "is this an accepted type at all" must still pass it regardless of
     `direct`."""
@@ -357,7 +357,7 @@ def test_vision_ocr_media_404s_for_an_unknown_id(ai_client, fake_ollama):
 
 
 def test_a_caption_can_be_typed_by_hand(ai_client, fake_ollama):
-    """`text` sets the caption directly and needs no model at all — a
+    """`text` sets the caption directly and needs no model at all, a
     person editing a caption is not asking for a second opinion."""
     fake_ollama.capabilities_declared = []  # no vision model available
     upload_id = ai_client.post(
@@ -371,7 +371,7 @@ def test_a_caption_can_be_typed_by_hand(ai_client, fake_ollama):
 
 
 def test_a_hand_typed_caption_overwrites_an_existing_one_without_force(ai_client, fake_ollama):
-    """Manual edit bypasses the write-once guard entirely — that guard
+    """Manual edit bypasses the write-once guard entirely, that guard
     exists to protect against silent *automatic* rewrites, not a person
     who deliberately opened the field and typed something."""
     fake_ollama.capabilities_declared = ["vision"]
@@ -382,7 +382,7 @@ def test_a_hand_typed_caption_overwrites_an_existing_one_without_force(ai_client
     response = ai_client.post(f"/media/{upload_id}/caption", json={"text": "corrected by hand"})
     assert response.json()["caption"] == "corrected by hand"
     assert response.json()["caption_edited"] is True
-    # Which model wrote the pre-edit caption is kept, not cleared — the
+    # Which model wrote the pre-edit caption is kept, not cleared, the
     # badge can still credit it alongside "edited" (see
     # MediaUpload.caption_edited's docstring for why).
     assert response.json()["caption_model"]
@@ -402,7 +402,7 @@ def test_an_empty_typed_caption_clears_it(ai_client, fake_ollama):
 
 
 def test_a_hand_typed_caption_works_on_a_pdf_upload_target_refused(ai_client, fake_ollama):
-    """Manual text still goes through the same suffix guard as generation —
+    """Manual text still goes through the same suffix guard as generation, 
     typing a caption for a PDF is refused the same way, for the same
     reason (this endpoint is images only)."""
     upload_id = ai_client.post(
@@ -419,7 +419,7 @@ def test_media_meta_returns_what_the_app_knows_about_one_upload(ai_client):
     Reported directly: a caption and OCR text showed under the picture in
     the Image Gallery and nowhere else in the app. The cause was that
     `openLightbox` took them as arguments and only the gallery had a media
-    row to pass — so this endpoint exists to let the lightbox ask instead.
+    row to pass: so this endpoint exists to let the lightbox ask instead.
     """
     uploaded = ai_client.post(
         "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
@@ -438,8 +438,8 @@ def test_media_meta_returns_what_the_app_knows_about_one_upload(ai_client):
 def test_media_meta_404s_rather_than_shadowing_the_upload_id_route(ai_client):
     """Two things at once, both real.
 
-    A url can outlive its row — deleting an upload deliberately leaves any
-    note still pointing at it alone — so a miss is an ordinary state the
+    A url can outlive its row, deleting an upload deliberately leaves any
+    note still pointing at it alone, so a miss is an ordinary state the
     lightbox renders as "no panel", not a fault.
 
     And a 404 (rather than a 422) is what proves the route is not being
@@ -459,7 +459,7 @@ def test_media_text_reads_an_uploaded_pdf_for_the_lightbox(ai_client):
     reach it. Note the split this test has to respect: `MEDIA_SUFFIXES` is
     images + PDF only, and deliberately narrow (that folder is served, and
     the AI can write into it), so a PDF is the one *document* that reaches
-    the viewer through `/media`. Everything wider — .docx, .csv, .py — is an
+    the viewer through `/media`. Everything wider, .docx, .csv, .py, is an
     attachment, and reaches the same extractor by the other route.
     """
     pdf = b"%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n"
@@ -477,7 +477,7 @@ def test_media_text_reads_an_uploaded_pdf_for_the_lightbox(ai_client):
     # `kind` is what tells the frontend how to render, and is why the
     # lightbox does not have to sniff the extension a second time. A PDF
     # with no real text layer still answers the shape honestly rather than
-    # erroring — `source`/`message` carry that.
+    # erroring: `source`/`message` carry that.
     assert payload["kind"] in {"markdown", "code", "plain"}
     assert "source" in payload and "message" in payload
 
@@ -491,12 +491,12 @@ def test_media_text_404s_for_an_unknown_upload(ai_client):
 # Direct instruction, after the AI-extraction lightbox left a user stuck on
 # "Reading…" for a scanned PDF: "pdfs and documents should be viewable,
 # accessible and manageable without the ai, even if the ai cant read them."
-# These two routes are the answer — pdfpages rasterises pages to PNG, the
+# These two routes are the answer, pdfpages rasterises pages to PNG, the
 # same optional, no-torch, ~20ms/page library the vision-OCR fallback
 # already used, but reached without markitdown or a model anywhere in the
 # path.
 
-# A real, tiny, one-page PDF pypdfium2 can actually open — the bare
+# A real, tiny, one-page PDF pypdfium2 can actually open, the bare
 # structural stub used elsewhere in this file has no page tree, so pdfium
 # (correctly) can't render anything from it.
 _ONE_PAGE_PDF = (
@@ -587,7 +587,7 @@ def test_a_page_by_page_reading_reaches_the_gallery_row(ai_client):
 
     A whole-file reading lands on the row (`vision_ocr_text`); a PDF read one
     page at a time in the OCR workspace lands in `page_reads` instead, and the
-    two were never joined — so a document with every page read still said "No
+    two were never joined, so a document with every page read still said "No
     text yet" in the library. The list endpoint now falls back to the joined
     page text, in page order."""
     from memorymap.core import deps

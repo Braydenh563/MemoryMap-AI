@@ -2,7 +2,7 @@
 own contents (MINDMAP_PLAN.md Phase 1).
 
 The containment tests come first in this file because they were written
-first, before any of the code they cover — the plan says so by name ("Write
+first, before any of the code they cover, the plan says so by name ("Write
 the test first; this is the rule most likely to be got wrong"), and the rule
 itself is the one place where getting it wrong destroys somebody's notes
 rather than drawing a wrong picture:
@@ -42,7 +42,7 @@ def _node(client, board_id, *, parent_id=None, text="", kind="topic", ref_id=Non
 
 
 def _purge(client, entry_id):
-    """The bin, then the bin emptied — the only path to a permanent delete,
+    """The bin, then the bin emptied, the only path to a permanent delete,
     and the one the Library's own Delete action starts down."""
     binned = client.delete(f"/entries/{entry_id}")
     assert binned.status_code == 200, binned.text
@@ -61,7 +61,7 @@ def test_deleting_a_map_takes_its_topics_and_leaves_the_notes_it_referenced(
     Without this the default behaviour is actively wrong in two different
     directions at once: purging a board detaches everything on it to the
     default scratch board (`manager._hard_delete`), so a deleted map's topics
-    would reappear as loose text on the one board nobody deletes — and any
+    would reappear as loose text on the one board nobody deletes, and any
     attempt to fix that by simply deleting everything on the board would take
     the referenced *notes* with it, which is data loss.
     """
@@ -90,7 +90,7 @@ def test_deleting_an_ordinary_board_still_detaches_its_objects(client, session):
 
     A plain whiteboard's text boxes and images are *not* bundled: purging the
     board note detaches them to the default board rather than destroying
-    them, deliberately (see `_hard_delete`'s own comment — "delete this one
+    them, deliberately (see `_hard_delete`'s own comment: "delete this one
     note" must not silently wipe a whiteboard). Containment is a rule about
     maps, and this asserts it stayed one.
     """
@@ -113,7 +113,7 @@ def test_deleting_a_topic_deletes_its_subtree_and_hands_it_back(client):
 
     Re-parenting reads as tidier and is worse: a branch you meant to remove
     reappears as loose children under a node that never had them, and there
-    is no single action that undoes it. Deleting the subtree is one action —
+    is no single action that undoes it. Deleting the subtree is one action, 
     so the response carries the whole subtree back, which is what lets the
     frontend offer a real undo instead of a warning dialog.
     """
@@ -137,7 +137,7 @@ def test_deleting_a_topic_deletes_its_subtree_and_hands_it_back(client):
 
 
 def test_deleting_a_reference_node_leaves_the_note_alone(client, session):
-    """The single-node case of the same rule — a map node is a pointer, and
+    """The single-node case of the same rule, a map node is a pointer, and
     removing a pointer is not removing the thing."""
     note = client.post("/entries", json={"content": "Keep me"}).json()
     board = _map(client)
@@ -177,7 +177,7 @@ def test_type_and_layout_survive_a_round_trip_through_the_list(client):
 def test_the_layout_can_be_changed_without_renaming_the_board(client):
     """`PUT /whiteboard/boards/{id}` was rename-only, and a title was
     required. Switching a map's layout must not force the caller to resend
-    the title it isn't changing — that is how a rename race loses an edit."""
+    the title it isn't changing: that is how a rename race loses an edit."""
     board = _map(client, name="Keep this name")
     updated = client.put(
         f"/whiteboard/boards/{board['id']}", json={"layout": "tree-down"}
@@ -202,7 +202,7 @@ def test_an_unknown_type_or_layout_is_refused_rather_than_stored(client):
 
 def test_the_maps_filter_returns_maps_and_nothing_else(client):
     """The Library's Maps chip. A filter that silently returns everything is
-    worse than no filter — it reads as "you have no boards" only once the
+    worse than no filter, it reads as "you have no boards" only once the
     user has looked at every row."""
     plain = client.post("/whiteboard/boards", json={"name": "Whiteboard"}).json()
     mapped = _map(client, name="Mindmap")
@@ -214,7 +214,7 @@ def test_the_maps_filter_returns_maps_and_nothing_else(client):
     ids = [b["id"] for b in boards]
     assert plain["id"] in ids and mapped["id"] not in ids
     # The default scratch board is a board, so it belongs in one list and not
-    # the other — it dropped out of both in the first draft of this filter.
+    # the other: it dropped out of both in the first draft of this filter.
     assert None in ids
 
 
@@ -228,7 +228,7 @@ def test_the_tree_nests_children_under_their_parents_with_cross_links(client):
     right = _node(client, board["id"], parent_id=root["id"], text="Right")
 
     # A cross-link is a link sketch, exactly as it already is between two
-    # cards — there is no second kind of edge and no second endpoint for one.
+    # cards: there is no second kind of edge and no second endpoint for one.
     linked = client.post(
         "/whiteboard/sketches",
         json={
@@ -264,7 +264,7 @@ def test_a_node_whose_parent_is_gone_reads_as_a_root(client, session):
     `parent_id` is a plain integer, not a foreign key (see the column's own
     comment), so nothing at the database level stops one going stale. A tree
     builder that only walks down from `parent_id IS NULL` silently loses
-    every node under a broken pointer — the board still holds them, the map
+    every node under a broken pointer, the board still holds them, the map
     just stops showing them, which is the worst way to lose something.
     """
     board = _map(client)
@@ -407,7 +407,7 @@ def test_an_ordinary_board_has_no_edges_to_draw(client):
 
 def test_duplicating_a_map_keeps_its_shape(client):
     """`duplicate_board` copied objects row by row, which for a map would
-    copy every node's `parent_id` verbatim — pointing the copy's whole tree
+    copy every node's `parent_id` verbatim: pointing the copy's whole tree
     back at the original's rows. The copy has to be re-wired to itself."""
     board = _map(client)
     root = _node(client, board["id"], text="Root")
@@ -510,7 +510,7 @@ def test_a_reference_node_exports_as_the_note_it_points_at(client):
 
 def test_an_import_with_a_doctype_is_refused(client):
     """The billion-laughs shape. Nothing in this app parses XML from anywhere
-    else, and an import box is the one door that takes it — so the door
+    else, and an import box is the one door that takes it, so the door
     refuses a document type declaration outright rather than trusting the
     parser's own defaults not to expand entities."""
     bomb = (
@@ -574,7 +574,7 @@ def test_a_map_a_tool_touched_becomes_a_chip_in_the_transcript():
     """MINDMAP_PLAN.md §5 item 12, the chat half.
 
     `_touched_items` reads `id` off a result row, and every map tool names its
-    board with `board_id` instead — so before this the four map tools
+    board with `board_id` instead: so before this the four map tools
     contributed nothing at all to the transcript's touched line. A turn that
     read a whole map showed a bare tool name and no way to open what it read,
     which is the failure that line exists to prevent.
@@ -620,7 +620,7 @@ def test_a_map_and_its_notes_are_a_node_and_edges_in_the_graph(client):
     assert sorted(e["target"] for e in map_edges) == sorted([note["id"], other["id"]])
     assert {e["source"] for e in map_edges} == {board["id"]}
 
-    # The board is the node it already was — marked, not duplicated.
+    # The board is the node it already was, marked, not duplicated.
     ids = [n["id"] for n in data["nodes"]]
     assert ids.count(board["id"]) == 1
     node = next(n for n in data["nodes"] if n["id"] == board["id"])
@@ -701,7 +701,7 @@ def _prepared(**body):
 
 def test_an_attached_map_reaches_the_model_as_its_outline(client):
     """The whole reason `board_ids` is its own field: a board IS an Entry, so
-    `note_ids` would have carried it — and a board's content is the single
+    `note_ids` would have carried it, and a board's content is the single
     line `# My map`, so attaching one as a note sends the model a heading and
     calls it a map."""
     board = _map(client, name="Thesis")
@@ -715,7 +715,7 @@ def test_an_attached_map_reaches_the_model_as_its_outline(client):
     content = rows[0]["content"]
     assert "Mind map: Thesis" in content
     assert "3 nodes" in content
-    # Indented, one node per line — the shape the plan chose for a small model.
+    # Indented, one node per line, the shape the plan chose for a small model.
     assert "- Argument" in content
     assert "  - Evidence" in content
     assert "  - Counterpoint" in content
@@ -724,7 +724,7 @@ def test_an_attached_map_reaches_the_model_as_its_outline(client):
 
 def test_a_reference_node_says_what_kind_it_is_in_the_outline(client):
     """"Which of these is a real note?" has to be answerable from the outline
-    without a second call — the same reason `read_mindmap` marks them."""
+    without a second call, the same reason `read_mindmap` marks them."""
     note = client.post("/entries", json={"content": "Gradient descent"}).json()
     board = _map(client, name="ML")
     root = _node(client, board["id"], text="Root")
@@ -749,7 +749,7 @@ def test_attaching_a_map_makes_the_turn_about_the_notebook(client):
 
 
 def test_a_private_board_is_never_attached(client, session):
-    """Attaching is a deliberate act, so this is not the guard that matters —
+    """Attaching is a deliberate act, so this is not the guard that matters, 
     but `read_mindmap` refuses a private board on the AI's behalf, and one
     reaching the model through a different door would make that decorative."""
     board = _map(client, name="Secret")
@@ -770,7 +770,7 @@ def test_an_empty_map_says_it_is_empty_rather_than_nothing(client):
         n for n in _prepared(board_ids=[board["id"]])["notes"]
         if n.get("category") == "Mind map"
     ][0]["content"]
-    assert "(empty — no nodes yet)" in content
+    assert "(empty: no nodes yet)" in content
 
 
 def test_a_long_outline_is_truncated_to_the_budget(client):

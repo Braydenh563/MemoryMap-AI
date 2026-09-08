@@ -2,7 +2,7 @@
 
 Runs the thirty golden asks against the fixture notebook, prints a score, and
 fails below a threshold. Read `scoring.py` for what the two halves of the
-score mean and why neither of them is "did the model pick the right tool" —
+score mean and why neither of them is "did the model pick the right tool", 
 that is `scripts/eval.py`, which needs a real model.
 
 **Run it locally, with the table:**
@@ -28,7 +28,7 @@ from tests.eval import fixture, golden, scoring
 
 #: What the suite must not drop below. **Measured, not chosen**: the set
 #: scores 1.000 today (33 cases, tool choice 1.000, citation 1.000), so the
-#: floor sits one clear regression under it — two cases failing outright
+#: floor sits one clear regression under it, two cases failing outright
 #: takes the score to 0.939 and reds the build, while a single case losing
 #: half its citations does not. A floor set *at* the current score reds the
 #: build on every unrelated router tweak; one far below it stops being a
@@ -90,7 +90,7 @@ def test_the_score_is_printed_and_above_the_threshold(scores, capsys):
         print(scoring.report(scores))
     total = sum(s.total for s in scores) / len(scores)
     assert total >= THRESHOLD, (
-        f"eval score {total:.3f} is below the {THRESHOLD} floor — see the table above "
+        f"eval score {total:.3f} is below the {THRESHOLD} floor: see the table above "
         "for which asks regressed"
     )
 

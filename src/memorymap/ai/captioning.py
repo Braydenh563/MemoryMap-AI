@@ -2,11 +2,11 @@
 
 Companion to `core/ocr.py`, same shape and same contract: read one image,
 best-effort, never raise, store the result on `MediaUpload` and move on.
-OCR reads text that is *in* the image; this describes what the image *is* —
+OCR reads text that is *in* the image; this describes what the image *is*, 
 useful for a photo with no text at all, and for handing an AI (this one or
 another) something to search and reason over besides a filename.
 
-Runs on a background thread after `POST /media/upload`, exactly like OCR —
+Runs on a background thread after `POST /media/upload`, exactly like OCR: 
 but only when a vision model is actually resolvable (`ModelManager.
 resolve_vision_model`), checked fresh each time rather than cached, since
 whether one is installed can change between two uploads in the same
@@ -30,12 +30,12 @@ logger = logging.getLogger("memorymap.captioning")
 
 #: Captions in flight right now, keyed by upload id → the file's own name.
 #: ROADMAP §89.6: a real model round-trip is seconds, not instant, and until
-#: now nothing showed it happening anywhere in the UI — `caption_and_store`
+#: now nothing showed it happening anywhere in the UI, `caption_and_store`
 #: already recorded the *finished* job in `taskhistory`, but the Tasks panel
 #: (routes_tasks.collect, the same list a re-index or a model pull shows up
 #: in) had no way to know one was running. A plain dict rather than a class:
 #: there is no progress fraction to report, only "is this upload's caption
-#: being written right now" — the same shape `embeddings.warmup_running()`
+#: being written right now", the same shape `embeddings.warmup_running()`
 #: already uses for the one other job with nothing to measure.
 _running_lock = threading.Lock()
 _running: dict[int, str] = {}
@@ -47,18 +47,18 @@ def running_captions() -> list[dict]:
         return [{"upload_id": uid, "name": name} for uid, name in _running.items()]
 
 
-#: Short, factual, no preamble — this is metadata a search box and another
+#: Short, factual, no preamble, this is metadata a search box and another
 #: AI will read, not a sentence a person is meant to enjoy. Kept as a plain
 #: instruction rather than a persona-flavoured prompt on purpose: a caption
 #: written in the librarian's voice would be a strange thing to find surfaced
 #: back in a *different* persona's answer later.
 CAPTION_PROMPT = (
-    "Describe this image in one or two short, factual sentences — what it "
+    "Describe this image in one or two short, factual sentences, what it "
     "shows, and any visible text worth naming. No preamble, no opinions, "
     "just the description."
 )
 
-#: Same raster-only restriction OCR uses (`ocr.OCR_SUFFIXES`) — a vision
+#: Same raster-only restriction OCR uses (`ocr.OCR_SUFFIXES`), a vision
 #: model is handed the same file either would open, and a PDF needs the
 #: same page-rasterisation step neither of them has.
 CAPTION_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"})
@@ -69,8 +69,8 @@ CAPTION_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"})
 #: graphs, images and diagrams in them."*
 #:
 #: `CAPTION_PROMPT` asks "what does this image show", and a vision model handed
-#: a rendered slide answers exactly that question — *"a white page with black
-#: text and a bar chart"* — which is true, useless, and very nearly the same
+#: a rendered slide answers exactly that question, *"a white page with black
+#: text and a bar chart"*, which is true, useless, and very nearly the same
 #: sentence for every page in the deck. What a reader actually wants from page
 #: 7 is what is *in* the figures on page 7.
 #:
@@ -79,7 +79,7 @@ CAPTION_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"})
 #: 1. **It says where it is.** "Page 4 of 18" is context the model cannot see
 #:    (a rendered page carries no reliable page number of its own) and it is
 #:    what stops the answer describing the document instead of the page.
-#: 2. **It names the subjects.** Figures, charts, diagrams and tables — the
+#: 2. **It names the subjects.** Figures, charts, diagrams and tables, the
 #:    things a document has and a photograph does not.
 #: 3. **It rules out the photographic reading explicitly.** Without the last
 #:    clause the most common failure is a description of the *page* as an
@@ -90,8 +90,8 @@ CAPTION_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"})
 #: to do both gets a worse version of each.
 PAGE_CAPTION_PROMPT = (
     "This is page {page} of {count} of a document, not a photograph. Describe "
-    "what the figures, charts, diagrams and tables on this page show — what is "
-    "being compared, the trend or the structure — in two or three short, "
+    "what the figures, charts, diagrams and tables on this page show, what is "
+    "being compared, the trend or the structure, in two or three short, "
     "factual sentences. Do not transcribe the body text and do not describe "
     "the page as an object (its layout, margins or paper). If the page has no "
     "figures, say what the page is about in one sentence."
@@ -102,7 +102,7 @@ def page_caption_prompt(index: int, count: int) -> str:
     """`PAGE_CAPTION_PROMPT` with this page's position filled in.
 
     One-based on the way out, because that is what the page rail shows and
-    what a person means by "page 1" — the same convention `_parse_page_spec`
+    what a person means by "page 1", the same convention `_parse_page_spec`
     in routes_files.py already keeps for the other direction.
     """
     return PAGE_CAPTION_PROMPT.format(page=max(1, index + 1), count=max(1, count))
@@ -116,7 +116,7 @@ def page_caption_text(image_path: Path, index: int, count: int, model: str, olla
     model, ollama, page=None)` that silently changes what it asks for based on
     an optional argument is exactly the call shape this project has been caught
     by before ("a guard removed while the shape around it was kept"). The
-    failure contract is identical — a missing file, an unreachable backend or a
+    failure contract is identical, a missing file, an unreachable backend or a
     model that ignores the image all mean "no description was produced".
     """
     try:
@@ -146,7 +146,7 @@ def page_caption_text(image_path: Path, index: int, count: int, model: str, olla
 
 
 def caption_text(image_path: Path, model: str, ollama) -> str:
-    """Best-effort caption for one image file. Never raises — a missing
+    """Best-effort caption for one image file. Never raises: a missing
     file, an unreachable backend, or a model that ignores the image all
     just mean no caption was produced, exactly as `ocr.extract_text` treats
     every failure as "found nothing", not an error."""
@@ -174,7 +174,7 @@ def caption_and_store(upload_id: int, image_path: Path, force: bool = False) -> 
     """Runs synchronously and writes the result onto the `MediaUpload` row.
 
     Returns the new caption, the existing one (when `force` is False and a
-    caption is already there — the "don't rewrite unless asked" rule), or
+    caption is already there, the "don't rewrite unless asked" rule), or
     None if nothing could be produced (no vision model, upload gone, empty
     result). Split out from `caption_in_background` below so a manual
     regenerate request and the tests that cover it can call this directly
@@ -193,7 +193,7 @@ def caption_and_store(upload_id: int, image_path: Path, force: bool = False) -> 
             return upload.caption
         model = deps.get_model_manager().resolve_vision_model(deps.get_ollama())
         if not model:
-            # Not a failure worth a history entry — every upload on a
+            # Not a failure worth a history entry, every upload on a
             # notebook with no vision model installed would otherwise fill
             # the ring with the same expected, non-actionable line.
             return None
@@ -208,7 +208,7 @@ def caption_and_store(upload_id: int, image_path: Path, force: bool = False) -> 
         elapsed_ms = (time.monotonic() - started) * 1000
         if not text:
             # A real attempt was made (a model was resolved) and produced
-            # nothing — the actual failure the report was about: a caption
+            # nothing: the actual failure the report was about: a caption
             # call failing outright with no visible record of it anywhere
             # but the log console, and Settings → Background tasks showing
             # captioning as if it had never run at all.
@@ -240,7 +240,7 @@ def caption_and_store(upload_id: int, image_path: Path, force: bool = False) -> 
 def caption_in_background(upload_id: int, image_path: Path) -> None:
     """Fire-and-forget: never blocks the `POST /media/upload` response. A
     real model round-trip is far slower than Tesseract's, so this matters
-    even more here than for `ocr.extract_in_background` — the upload is
+    even more here than for `ocr.extract_in_background`, the upload is
     already done by the time this runs, and there is nothing about it that
     should make the person who just attached a photo wait."""
     threading.Thread(

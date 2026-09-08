@@ -1,9 +1,9 @@
 """Ask a question, get back BOTH a conversational answer and the raw
-matching entries — the two-result design from the original idea doc.
+matching entries: the two-result design from the original idea doc.
 
 Two flavours:
-- POST /chat        — one blocking JSON response (simple, used by tests/API)
-- POST /chat/stream — NDJSON: metadata + raw results first, then the
+- POST /chat: one blocking JSON response (simple, used by tests/API)
+- POST /chat/stream: NDJSON: metadata + raw results first, then the
   model's thinking and answer as live token deltas (what the UI uses)
 
 Plain `def` so the blocking LLM call runs in FastAPI's threadpool.
@@ -62,7 +62,7 @@ from memorymap.entry.manager import UNCATEGORISED
 from memorymap.search import search_manager
 from sqlalchemy import func
 
-#: `/media/<filename>` as it appears inside note and document content —
+#: `/media/<filename>` as it appears inside note and document content, 
 #: the only record a note keeps of a picture it holds.
 _MEDIA_REF = re.compile(r"/media/([A-Za-z0-9._-]{1,200})")
 
@@ -75,7 +75,7 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 #: ask if searching in my notebook."
 #:
 #: Every turn through this module used to write one `queried`/`chat` audit row,
-#: so "Ask again" — which reads that log — offered back "tag everything about
+#: so "Ask again", which reads that log, offered back "tag everything about
 #: the trip" and "delete the draft" as though they were questions about the
 #: notebook. They are instructions, they have already been carried out, and
 #: running one a second time from a chip is at best pointless and at worst a
@@ -84,8 +84,8 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 #: The rule the user gave, in their words: "if I was in the chat and using the
 #: 'ask' mode, then those queries should count, but only those, and my previous
 #: requests in the 'ask' subtab in notes should be registered." So the two
-#: reading surfaces — the Notes tab's Ask box (`notes_only`) and the Chat tab
-#: in Ask mode (tools off) — write `chat`; Request mode and the Ctrl+Shift+A
+#: reading surfaces: the Notes tab's Ask box (`notes_only`) and the Chat tab
+#: in Ask mode (tools off): write `chat`; Request mode and the Ctrl+Shift+A
 #: palette, both of which act, write `agent`. Both stay in the audit log, which
 #: is a record of what happened and should not lose the requests; only the
 #: chip row narrows.
@@ -96,7 +96,7 @@ AGENT_SURFACE = "agent"
 @router.get("/recent", response_model=list[str])
 def recent_questions(session: Session = Depends(get_session)) -> list[str]:
     """The last 5 distinct questions, newest first (quick access).
-    Read straight from the audit log — no extra bookkeeping.
+    Read straight from the audit log, no extra bookkeeping.
 
     Scoped to `ASK_SURFACE`, so an instruction given to the agent is never
     offered back as something to ask again."""
@@ -168,7 +168,7 @@ def chat_followups(body: FollowupBody) -> list[str]:
 
     Its own request rather than part of the turn on purpose: this is a second
     model call, and the answer must not wait on it. The UI fires this after the
-    turn is on screen and simply renders nothing if it comes back empty — which
+    turn is on screen and simply renders nothing if it comes back empty, which
     it does on every failure path, including the AI not running at all.
     """
     return followups.suggest_followups(
@@ -213,13 +213,13 @@ class ChatRequest(BaseModel):
     # to be kept consistent by hand.
     mode: str | None = None
     # Notes the user attached by hand. These are always given to the model,
-    # ahead of anything retrieval finds — "this note, specifically" is a
+    # ahead of anything retrieval finds, "this note, specifically" is a
     # stronger signal than any similarity score.
     note_ids: list[int] = Field(default_factory=list, max_length=20)
-    # Documents attached by hand (§89.2) — same idea as note_ids, a separate
+    # Documents attached by hand (§89.2): same idea as note_ids, a separate
     # field because Document is a separate table from Entry (see its own
     # docstring in core/database.py for why). The frontend has sent this
-    # since the composer's staging UI shipped; nothing here ever read it —
+    # since the composer's staging UI shipped; nothing here ever read it, 
     # an attached document showed as a chip on the message and the model
     # never saw its content, which is worse than not offering the feature at
     # all, since it looks like it worked. Capped at 4, matching the
@@ -235,8 +235,8 @@ class ChatRequest(BaseModel):
     file_ids: list[int] = Field(default_factory=list, max_length=4)
     # Mind maps attached by hand (MINDMAP_PLAN.md §5 item 11: "a map can be
     # attached to a note, a document and a chat message, exactly as a file can
-    # today — routes_chat.py's `file_ids` is the pattern to copy"). A map is a
-    # board, which is an Entry, so this *could* have gone through `note_ids` —
+    # today: routes_chat.py's `file_ids` is the pattern to copy"). A map is a
+    # board, which is an Entry, so this *could* have gone through `note_ids`, 
     # and that is exactly what must not happen: a board's `content` is the
     # single line `# My map`, so attaching one that way sends the model a
     # heading and calls it a map. What reaches the model instead is the
@@ -247,30 +247,30 @@ class ChatRequest(BaseModel):
     # Vision-capable models (ROADMAP.md's largest open item): ids from the
     # existing `/media/upload` (the same endpoint the document/note editors
     # already use for drag-and-drop images), not a second upload path. Small
-    # cap — a local model paying attention to four images at once is already
+    # cap: a local model paying attention to four images at once is already
     # optimistic, and each one inflates the request by ~33% once base64'd.
     image_media_ids: list[int] = Field(default_factory=list, max_length=4)
-    # Running a saved skill (§21). The name of one — built-in or the user's
-    # own — plus values for whatever inputs it declares. The server builds the
+    # Running a saved skill (§21). The name of one, built-in or the user's
+    # own: plus values for whatever inputs it declares. The server builds the
     # instruction, so what a skill *is* lives in one place rather than being
     # assembled in `app.js` and hoped for here.
     skill: str | None = Field(default=None, max_length=skills.MAX_NAME)
     skill_inputs: dict[str, str] | None = None
     # Resuming a run that stopped part-way (reported: *"it cuts out half way
     # through and has to restart"*). Steps before this index are marked as done
-    # in an earlier run and are not repeated — which matters because most of
+    # in an earlier run and are not repeated, which matters because most of
     # them write to the notebook, so "restart" meant tagging and linking the
     # same notes a second time.
     skill_from_step: int = Field(default=0, ge=0, le=skills.MAX_STEPS)
     # Manual (step-through) mode, asked for directly: a pause after every
     # completed step with a Continue button and a text box, rather than a
     # skill running straight through unattended. `skill_manual_note` is what
-    # was typed in at that pause — folded into the very next step's own
+    # was typed in at that pause, folded into the very next step's own
     # instruction, not stored anywhere.
     skill_manual: bool = False
     skill_manual_note: str | None = Field(default=None, max_length=skills.MAX_MANUAL_NOTE)
     # A plan the model drew for this request and handed back to be worked
-    # through (§35K). Same shape as a skill run and the same runner — the
+    # through (§35K). Same shape as a skill run and the same runner, the
     # difference is only that nobody saved it. Sent by the client rather than
     # parked on the server, exactly as `ask_user` and `run_skill` are: nothing
     # to expire, nothing lost on a reload, and the plan is visible in the saved
@@ -291,8 +291,8 @@ class ChatRequest(BaseModel):
     # no model round, and leaves the Chat tab exactly as it was.
     notes_only: bool = False
     # The reverse problem (Tier 1 §4): the agent's own `ask_user` question
-    # gets a one-word reply — "yes", "ok", "sure", all real answers a person
-    # gives — and `intent.classify` correctly calls a bare "yes" small talk.
+    # gets a one-word reply, "yes", "ok", "sure", all real answers a person
+    # gives: and `intent.classify` correctly calls a bare "yes" small talk.
     # Routed as small talk it lands in the conversational path, which has no
     # tools at all, so the answer to the agent's own question could not be
     # acted on even if the model understood it perfectly. `TOOLS_GUIDE` tells
@@ -301,15 +301,15 @@ class ChatRequest(BaseModel):
     # client sets when it already knows the context, not a smarter
     # classifier trying to guess it from three letters.
     answering_agent: bool = False
-    # A deliberately closed set of notes — e.g. Trace's "Generate story from
-    # path" — where retrieval finding *more* is pollution, not help. Without
+    # A deliberately closed set of notes, e.g. Trace's "Generate story from
+    # path", where retrieval finding *more* is pollution, not help. Without
     # this, attaching notes still ran the normal retrieval search on the
     # turn's own text alongside them (`_attached_notes` only ever added to
     # what search found, never replaced it), so a generic instruction like
-    # "weave these into a narrative" — no real subject to search for — still
+    # "weave these into a narrative", no real subject to search for, still
     # keyword/semantic-matched against the whole notebook and appended
     # whatever it found after the notes the user actually chose. Reported as
-    # the feature "needing to mainly use the notes within the trace" — it
+    # the feature "needing to mainly use the notes within the trace", it
     # was already doing that, plus however many unrelated notes the
     # instruction text itself happened to match.
     attached_notes_only: bool = False
@@ -320,7 +320,7 @@ def _resolve_mode(requested: str | None) -> str:
 
     A request may name one; otherwise the saved preference decides, and an
     unrecognised name in either place falls through to `normal` rather than
-    raising — `presets.resolve` does that last part, so a hand-edited
+    raising: `presets.resolve` does that last part, so a hand-edited
     preferences file costs the setting and not the chat.
     """
     if requested:
@@ -334,7 +334,7 @@ def _resolve_mode(requested: str | None) -> str:
 def _resolve_persona(name: str | None, session: Session | None = None) -> str | None:
     """Persona name → its system prompt (shared with greetings and titles).
 
-    With a session, the user's standing preferences ride along — see
+    With a session, the user's standing preferences ride along, see
     `ai/memory.py`. **They used to reach only the agent path**, so a rule
     typed into Settings → "What it remembers" was obeyed in Request mode and
     silently ignored in Ask, which is where most questions are asked. Passed
@@ -358,7 +358,7 @@ def _resolve_chat_images(session: Session, media_ids: list[int]) -> list[tuple[M
     """Attached-by-id media uploads → (upload row, data URI) pairs.
 
     `media_ids` come from the same `/media/upload` the note/document editors
-    already use for drag-and-drop images — this reuses that upload, rather
+    already use for drag-and-drop images, this reuses that upload, rather
     than adding a second upload path for the composer alone. A data URI
     (not bare base64) is the app's neutral shape: `ollama_client` strips the
     prefix for Ollama's wire format, `openai_client` hands the URI straight
@@ -368,7 +368,7 @@ def _resolve_chat_images(session: Session, media_ids: list[int]) -> list[tuple[M
 
     An id that doesn't resolve, isn't readable, is too large, or isn't
     actually an image (the same upload endpoint also accepts PDFs) is
-    silently dropped rather than 500ing the whole turn — the UI already
+    silently dropped rather than 500ing the whole turn, the UI already
     confirmed each upload succeeded before sending its id here, so a miss
     means the file moved or was deleted after that, not a bad request.
     """
@@ -396,7 +396,7 @@ def _resolve_chat_images(session: Session, media_ids: list[int]) -> list[tuple[M
 
 def _chat_model_sees_images(model_manager, ollama) -> bool:
     """Whether the model this turn would otherwise use can take an image
-    directly. Only a definite "yes" counts — an unknown answer (`None`, the
+    directly. Only a definite "yes" counts: an unknown answer (`None`, the
     same three-way `supports()` itself returns for anything it cannot
     report on) falls back to the caption path in `_image_caption_context`
     rather than gambling a real photo on a model that might silently
@@ -417,7 +417,7 @@ def _image_caption_context(
 
     Asked for directly: "if I am using a chat model with no vision
     capabilities, it will use the vision model to caption the image, then
-    the chat model will take that caption and use it for its response" —
+    the chat model will take that caption and use it for its response", 
     replacing the earlier behaviour of silently swapping the whole turn to
     a different model the user did not choose as their chat model.
 
@@ -452,7 +452,7 @@ def _small_model_mode() -> bool | None:
     a worked example of the call.
 
     Three states, and the third is the useful one. "auto" returns **None**,
-    which is the runner's own "decide from the model" — deliberately not
+    which is the runner's own "decide from the model", deliberately not
     resolved here, because the run is the thing that knows which model it is
     about to use. `on`/`off` are the override for the two cases a name-based
     guess cannot get right: a 30B that still can't hold five schemas, and a 4B
@@ -528,29 +528,29 @@ class ChatResponse(BaseModel):
     # A thinking model's reasoning, when it produced any.
     ai_thinking: str | None = None
     raw_results: list[EntryOut]
-    # 'hybrid', 'semantic', 'keyword', 'dated' or 'recent' — how they were found.
+    # 'hybrid', 'semantic', 'keyword', 'dated' or 'recent', how they were found.
     search_mode: str
     # Which of raw_results are here by connection rather than by matching.
     connected_ids: list[int] = []
-    # Why each result showed up, keyed by str(entry id) — {"type": "semantic",
+    # Why each result showed up, keyed by str(entry id): {"type": "semantic",
     # "score": 0.81} etc. (JSON object keys are always strings; the client
     # converts back). Not every id in raw_results has an entry here: dated/
     # recent/attached results are already explained by search_mode itself.
     match_info: dict[str, dict] = {}
     # Which chat model wrote the answer, or None when it didn't answer.
     answered_by: str | None = None
-    # Whether Ollama is reachable — lets the UI distinguish "offline"
+    # Whether Ollama is reachable, lets the UI distinguish "offline"
     # from "nothing to answer" honestly.
     ollama_running: bool = False
     # The time phrase the search narrowed on ("last week", "recently"), or "".
     # An empty dated result has two facts to report and only saying the first
-    # — "no matching records" — is what makes a working narrow search look
+    #, "no matching records", is what makes a working narrow search look
     # like a broken one. The client needs the phrase to say the second.
     when_phrase: str = ""
-    # ROADMAP.md item 36 — which retrieved note backs which sentence of the
+    # ROADMAP.md item 36: which retrieved note backs which sentence of the
     # answer, direct-Q&A path only (this endpoint, not /chat/stream's
     # conversational/agentic modes). Omitted, not wrong, for a sentence with
-    # no note clearing the overlap threshold — see ai/grounding.py.
+    # no note clearing the overlap threshold, see ai/grounding.py.
     sentence_grounding: list[dict] = []
 
 
@@ -558,13 +558,13 @@ def _attached_notes(session: Session, note_ids: list[int]) -> list[dict]:
     """The notes the user picked, in the order they picked them.
 
     Binned notes are skipped: attaching one would quietly resurrect content the
-    user has already thrown away. Private notes are skipped too — a client-
+    user has already thrown away. Private notes are skipped too, a client-
     supplied id list is the one path into this prompt that never went through
     `tools._require_note`, which is the only thing that otherwise refuses a
     private note (CLAUDE.md's own reminder of exactly this shape of bug). A
     forged/stale `note_ids` entry for a private note would otherwise put its
     id and category straight into what the model sees, private-notebook rule
-    or not — no plaintext leaks (the content column is ciphertext either way,
+    or not: no plaintext leaks (the content column is ciphertext either way,
     unreadable without `manager.readable_content`), but its existence should
     not be either.
     """
@@ -580,7 +580,7 @@ def _attached_notes(session: Session, note_ids: list[int]) -> list[dict]:
 def _attached_documents(session: Session, document_ids: list[int]) -> list[Document]:
     """The documents the user attached by hand, in the order picked.
 
-    No privacy/soft-delete filter here — unlike Entry, Document has neither
+    No privacy/soft-delete filter here, unlike Entry, Document has neither
     field (core/database.py's own Document docstring: it's the long-form
     editor, not the notebook), so there's nothing to check beyond existing.
     """
@@ -647,7 +647,7 @@ def _attached_files(session: Session, file_ids: list[int]) -> list[dict]:
 #: Smaller than `ATTACHED_FILE_CHARS` by an order of magnitude, on purpose: a
 #: file is prose the model reads once, while an outline is *structure*, and
 #: past a few hundred nodes the tree stops being context and becomes the whole
-#: window — `read_mindmap`'s own `MAX_OUTLINE_NODES` makes the same call for
+#: window: `read_mindmap`'s own `MAX_OUTLINE_NODES` makes the same call for
 #: the same reason. Four maps at this cap is ~12k characters, the same ceiling
 #: one attached file already has, and every character is resent on every round
 #: of the turn.
@@ -661,11 +661,11 @@ def _attached_boards(session: Session, board_ids: list[int]) -> list[dict]:
     **One renderer, not two.** The outline is built by calling the map tool's
     own helpers rather than by walking the tree again here: the agent, the
     export and this must not disagree about what a map says, and a second walk
-    is how they come to (§9.1 lists three edge cases — a dangling parent, a
-    ring, board scoping — that a second copy gets subtly differently).
+    is how they come to (§9.1 lists three edge cases, a dangling parent, a
+    ring, board scoping: that a second copy gets subtly differently).
 
     A private board is skipped in silence rather than refused. Attaching is a
-    deliberate act, so this is not the guard that matters — but `read_mindmap`
+    deliberate act, so this is not the guard that matters, but `read_mindmap`
     refuses a private board on the AI's behalf, and a hand-attached one
     reaching the model by a different door would make that guard decorative.
     """
@@ -682,7 +682,7 @@ def _attached_boards(session: Session, board_ids: list[int]) -> list[dict]:
         objects = _map_objects(session, board_id)
         lines: list[str] = []
         _outline_into(_build_tree(session, objects), 0, lines)
-        outline = "\n".join(lines) if lines else "(empty — no nodes yet)"
+        outline = "\n".join(lines) if lines else "(empty: no nodes yet)"
         if len(outline) > ATTACHED_MAP_CHARS:
             outline = outline[:ATTACHED_MAP_CHARS] + "\n[…truncated]"
         found.append(
@@ -703,7 +703,7 @@ def _attached_boards(session: Session, board_ids: list[int]) -> list[dict]:
 
 
 def _outline_into(nodes: list[dict], depth: int, out: list[str]) -> None:
-    """The tree as indented text — two spaces per level, one node per line.
+    """The tree as indented text, two spaces per level, one node per line.
 
     The same shape `ai/tools/whiteboard.py::_outline_lines` produces, minus its
     `[id N]` markers: those exist so the *model* can name a node in the next
@@ -732,7 +732,7 @@ def _media_readings(session: Session, content: str) -> str:
     Asked directly: *"if there is an image/sketch/file in that note, can the ai
     read the captions or ocr in those attachments if they already exist??"* It
     could not. A note's content carries `/media/<filename>` references and
-    nothing else — so a note whose entire point was a photographed whiteboard
+    nothing else: so a note whose entire point was a photographed whiteboard
     reached the model as a sentence and a link, and the caption and OCR text
     the app had already generated for that exact image sat unread in the
     database two tables away.
@@ -741,13 +741,13 @@ def _media_readings(session: Session, content: str) -> str:
     lookup and not a pipeline: nothing here generates a caption or runs vision
     OCR. Captioning is a background job that may not have run yet, may be off,
     or may have no model to run against, and a chat turn is the worst possible
-    place to start one — it would block the answer on a second model load. A
+    place to start one, it would block the answer on a second model load. A
     picture with no reading yet simply contributes nothing.
     """
     filenames = _MEDIA_REF.findall(content or "")
     if not filenames:
         return ""
-    # De-duplicated, in the order they appear in the note — the same order the
+    # De-duplicated, in the order they appear in the note, the same order the
     # reader sees them in, so "the second diagram" means the same thing to both.
     ordered = list(dict.fromkeys(filenames))[:MEDIA_READINGS_PER_NOTE]
     rows = {
@@ -782,7 +782,7 @@ def _media_readings(session: Session, content: str) -> str:
 
 def _attachment_readings(session: Session, entry_id: int) -> str:
     """What's inside the *files* attached to a note (PDFs, Office documents,
-    code, plain text) — `_media_readings` above's own sibling, and the gap it
+    code, plain text): `_media_readings` above's own sibling, and the gap it
     left. Asked about directly in the same spirit as that function's own
     report: a note whose entire point was an attached spreadsheet or PDF
     reached the model as a filename and nothing else, even when the note
@@ -791,9 +791,9 @@ def _attachment_readings(session: Session, entry_id: int) -> str:
     Same "attached notes get more, retrieved ones don't" budget
     `_media_readings` already uses, and read live rather than cached: unlike
     a caption or an OCR pass (a background job that may not have run yet),
-    extraction here is `docview.extract` (core/docview.py) — exactly what
+    extraction here is `docview.extract` (core/docview.py): exactly what
     `/documents/import` and `/files/{id}/text` already pay synchronously per
-    request — bounded to a handful of files on a note the user explicitly
+    request: bounded to a handful of files on a note the user explicitly
     picked, not a background sweep over the whole notebook.
     """
     attachments = (
@@ -813,7 +813,7 @@ def _attachment_readings(session: Session, entry_id: int) -> str:
             continue
         try:
             viewed = docview.extract(path)
-        except Exception:  # noqa: BLE001 — a bad file must not cost the answer
+        except Exception:  # noqa: BLE001  # a bad file must not cost the answer
             continue
         text = viewed.text.strip()
         if not text:
@@ -838,7 +838,7 @@ def _prepare(
     """The shared first half of both chat endpoints: retrieve entries,
     bump their usage counters, log the question, gather AI settings.
 
-    A message that isn't about the notebook skips retrieval entirely — there's
+    A message that isn't about the notebook skips retrieval entirely, there's
     nothing to search for, and searching anyway is what made "hey" come back
     with a list of notes.
     """
@@ -853,7 +853,7 @@ def _prepare(
     if force_notes_intent:
         detected = intent.NOTES
     # Attaching a note (or a document) is itself a statement that this is
-    # about the notebook, so it overrides the classifier — "what do you
+    # about the notebook, so it overrides the classifier, "what do you
     # think?" with three notes clipped to it is a question about those notes.
     attached = _attached_notes(session, note_ids or [])
     attached_docs = _attached_documents(session, document_ids or [])
@@ -869,20 +869,20 @@ def _prepare(
     #: Retrieval cannot answer those, and no amount of tuning would: semantic
     #: search finds the notes most *like* a question, and "what are my most
     #: common tags" is not like any note. It used to retrieve five arbitrary
-    #: notes and tell the model to answer from those alone — so the model
+    #: notes and tell the model to answer from those alone, so the model
     #: either declined or invented a ranking from a five-note sample.
     #:
     #: The facts are computed here, exactly, from rows. The model still writes
     #: the sentence when it is running (the answer is handed to it as ground
     #: truth below), which means the phrasing is natural and the numbers cannot
-    #: be invented — and with the model stopped the computed sentence is
+    #: be invented: and with the model stopped the computed sentence is
     #: already a complete answer on its own.
     stats = notebook_stats.answer(question, session) if detected == intent.NOTES else None
     connected_ids: set[int] = set()
     match_info: dict = {}
     when_phrase = ""
     # `attached_notes_only`: the caller has already chosen the exact, closed
-    # set of notes this turn should see — running retrieval on top would only
+    # set of notes this turn should see, running retrieval on top would only
     # add notes nobody asked for, matched against whatever the turn's own
     # instruction text happens to contain rather than anything the user
     # picked. Only takes effect when there is something attached to fall
@@ -900,7 +900,7 @@ def _prepare(
         # Which of these are here because they are *connected* to a match
         # rather than because they matched. The user asked about one thing and
         # is being shown notes about another; without saying why, the panel
-        # looks like the search misfired — and the model, told nothing, would
+        # looks like the search misfired, and the model, told nothing, would
         # report them as results.
         connected_ids = found.connected_ids
         match_info = found.match_info
@@ -920,7 +920,7 @@ def _prepare(
         if entry.id in attached_ids:
             # Only for notes the user picked by hand. A retrieved note is a
             # candidate; an attached one is the subject of the question, and
-            # that is worth the extra characters — doing this for all ten
+            # that is worth the extra characters, doing this for all ten
             # search hits would spend the notes budget on pictures nobody
             # asked about.
             content = f"{content}{_media_readings(session, content)}{_attachment_readings(session, entry.id)}"
@@ -937,7 +937,7 @@ def _prepare(
             # this to the note about X" instead of implying it was a hit.
             "connected": entry.id in connected_ids,
             # Already computed (match_info feeds the frontend's own similarity/
-            # hops badges) and already shown to the user — just never reached
+            # hops badges) and already shown to the user, just never reached
             # the model itself before. Asked for directly: "can the ai see the
             # link reasons and similarity scores in the searches?" It's the
             # score half of that; a linked note's own reason text would need
@@ -947,7 +947,7 @@ def _prepare(
         }
 
     notes = [as_note(entry) for entry in entries]
-    # Same shape `as_note` builds, by hand rather than through it — a
+    # Same shape `as_note` builds, by hand rather than through it, a
     # Document has no category/tags and its id lives in a different table
     # than Entry's, so folding it through the Entry-shaped helper above
     # would be the wrong abstraction, not a shortcut. `connected`/
@@ -966,7 +966,7 @@ def _prepare(
     )
     # Library files, already shaped as context rows by `_attached_files`.
     notes.extend(attached_files)
-    # Mind maps, likewise — `_attached_boards` builds the outline.
+    # Mind maps, likewise: `_attached_boards` builds the outline.
     notes.extend(attached_boards)
     config = deps.get_config()
     profile = (
@@ -985,7 +985,7 @@ def _prepare(
         len(entries),
         mode,
         # The question is the user's own text, and it reaches the terminal as
-        # well as the in-app viewer — a bare %r of it can forge a log line.
+        # well as the in-app viewer, a bare %r of it can forge a log line.
         safe_value(question, 80),
     )
 
@@ -994,7 +994,7 @@ def _prepare(
         "intent": detected,
         #: The computed answer, when this was a question about the notebook's
         #: shape rather than its contents. `text` is already a complete answer
-        #: — which is what makes these work with the model stopped — and the
+        #:, which is what makes these work with the model stopped, and the
         #: prompt below hands it to the model as ground truth rather than
         #: asking it to work the numbers out.
         "stats": (
@@ -1031,8 +1031,8 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         document_ids=body.document_ids,
         file_ids=body.file_ids,
         board_ids=body.board_ids,
-        # This endpoint has no tool loop — it retrieves and answers, nothing
-        # else — so every turn through it is an ask by construction.
+        # This endpoint has no tool loop, it retrieves and answers, nothing
+        # else: so every turn through it is an ask by construction.
         surface=ASK_SURFACE,
     )
     model_manager = deps.get_model_manager()
@@ -1047,7 +1047,7 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         "" if chat_sees_images else _image_caption_context(images_raw, model_manager, ollama)
     )
     #: A counted answer *is* an answer, and it does not need a model running to
-    #: be one — which is the whole point of computing it. Without this the
+    #: be one: which is the whole point of computing it. Without this the
     #: response would carry a correct sentence and simultaneously report that
     #: nothing had been answered.
     answered = prepared["stats"] is not None or (
@@ -1064,7 +1064,7 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         #: tags" is a fact about rows, and `notebook_stats` has already written
         #: it as a sentence. Handing it to the model to rephrase would put a
         #: generator between the user and a number that is already exact, for
-        #: nothing but style — and would make the one feature here that works
+        #: nothing but style: and would make the one feature here that works
         #: with the model stopped depend on the model. So it is returned as it
         #: stands, instantly, whether or not anything is running.
         ai_response, ai_thinking = prepared["stats"]["text"], None
@@ -1093,11 +1093,11 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
             images=images,
             image_context=image_context,
             # The Ask box (`notes_only`) gets the overview brief instead of
-            # the chat one — see `librarian.ASK_OVERVIEW`.
+            # the chat one: see `librarian.ASK_OVERVIEW`.
             ask_overview=body.notes_only,
             **shared,
         )
-    # Direct Q&A only — conversational replies aren't grounded in retrieved
+    # Direct Q&A only: conversational replies aren't grounded in retrieved
     # notes at all (there may be none), and grounding one would attach a
     # note to a sentence that has nothing to do with it.
     sentence_grounding = (
@@ -1116,7 +1116,7 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         #: **A counted answer was not answered by a model, and must not say it
         #: was.** `answered` is true for one (see its own note above) but
         #: `answered_by` names *who* wrote the sentence, and for these the
-        #: honest answer is nobody — the numbers came from rows. Naming the
+        #: honest answer is nobody, the numbers came from rows. Naming the
         #: chat model here would put its name under a sentence it never saw,
         #: which is exactly the kind of small false claim this app cannot
         #: afford to make about its own AI.
@@ -1133,7 +1133,7 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
 def _save_ask_turn(session: Session, question: str, answer: str, prepared: dict) -> None:
     """Durable record of one Ask-box turn, for routes_ask_history.py's browse
     panel. Only ever called for `notes_only` requests (the Ask box's own
-    flag, §35A) with a real answer — a small-talk turn on that box always
+    flag, §35A) with a real answer, a small-talk turn on that box always
     exits through the "hint" branch below instead, never reaching this call,
     so nothing here needs to re-check for that case.
     """
@@ -1159,7 +1159,7 @@ def _save_ask_turn(session: Session, question: str, answer: str, prepared: dict)
 #
 # Retrieval only ever searched notes, so a question whose answer sits in a
 # document, a saved chat or a reminder came back as a flat "I couldn't find
-# any saved notes matching that question" — true, useless, and on a notebook
+# any saved notes matching that question", true, useless, and on a notebook
 # that has grown documents and chats, misleading about how much the app holds.
 #
 # Keyword matching on purpose rather than embeddings: this runs *only* on the
@@ -1238,8 +1238,8 @@ def _related_elsewhere(session: Session, question: str) -> list[dict]:
 def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     """NDJSON stream. Line types, in order:
     {"type":"status", "stage": "searching"}   (sent immediately, so the
-        browser gets a first byte at once instead of waiting on the — often
-        cold-start — semantic search; this is what keeps the UI's typing
+        browser gets a first byte at once instead of waiting on the, often
+        cold-start: semantic search; this is what keeps the UI's typing
         indicator alive instead of appearing frozen)
     {"type":"meta", raw_results, search_mode, answered_by}
     {"type":"thinking", "delta": "..."}   (zero or more)
@@ -1262,12 +1262,12 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
         if body.use_tools is not None
         else bool(deps.get_config().get_preference("tools_enabled", True))
     )
-    # A skill run replaces the question with the skill's own instruction —
-    # steps, values and declared tools included — and narrows the toolbox to
+    # A skill run replaces the question with the skill's own instruction: 
+    # steps, values and declared tools included, and narrows the toolbox to
     # what it declared. Retrieval runs on that instruction too, so a skill
     # gets the notes its own words find rather than the ones the chip's label
     # happens to match.
-    # A plan run goes down exactly the same path as a skill run — the runner
+    # A plan run goes down exactly the same path as a skill run, the runner
     # cannot tell them apart, which is what gives a plan the ticked steps, the
     # change list and the Undo on each without a second implementation.
     skill = _resolve_skill(body) or _resolve_plan(body)
@@ -1299,8 +1299,8 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
             # version shipped: a paragraph of instructions sitting where the
             # answer goes, beside a results panel reading "No matching
             # records", reads as the app having failed. As a hint the client
-            # can render it as what it is — a prompt with questions you can
-            # click — and can leave the empty results panel out, since nothing
+            # can render it as what it is, a prompt with questions you can
+            # click: and can leave the empty results panel out, since nothing
             # was searched for.
             yield {
                 "type": "hint",
@@ -1330,7 +1330,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 images=images,
             )
         elif not prepared["notes"] and not images_raw:
-            # An attached image and "no matching notes" are unrelated —
+            # An attached image and "no matching notes" are unrelated: 
             # retrieval never sees the image, so an empty search result
             # must not stand in for "there's nothing to look at" (same fix
             # as `librarian.answer`'s own guard).
@@ -1370,7 +1370,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 images=images,
                 # The streaming path is the one people actually use, and it was
                 # the one with no cap on how much of the notebook it sent. Same
-                # budget the blocking `librarian.answer` now builds — measured
+                # budget the blocking `librarian.answer` now builds: measured
                 # against the model this turn will really stream from, which is
                 # the same `chat_model()` passed to `chat_stream` below.
                 budget=librarian.plan_budget(
@@ -1381,14 +1381,14 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                     persona_prompt,
                     mode,
                 ),
-                # The Ask box's own brief on the streaming path too — this is
+                # The Ask box's own brief on the streaming path too, this is
                 # the one people actually use, so a fix only on the blocking
                 # route above would be a fix nobody sees.
                 ask_overview=body.notes_only,
             )
         # §88.4 item 4: the same per-stage token estimate agent.py's tool
         # path now attaches to its own stats event (chars/4, no tool
-        # schemas on this path by definition — see build_messages' own
+        # schemas on this path by definition, see build_messages' own
         # docstring above). Computed once, not per streamed chunk.
         composition_tokens = {
             "system": len(messages[0]["content"]) // context.CHARS_PER_TOKEN,
@@ -1408,13 +1408,13 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                     streamed_any = True
                     yield {"type": "answer", "delta": piece["content_delta"]}
         except OllamaError as exc:
-            # The model died mid-answer — tell the user, keep the results.
+            # The model died mid-answer, tell the user, keep the results.
             # By construction this is reached only after the `elif not
             # ollama_running` branch above already passed, so this is never
             # "Ollama isn't running" (see librarian.model_error_message's
             # own docstring for why that distinction matters).
             #
-            # Logged, not just shown in the answer: reported directly — this
+            # Logged, not just shown in the answer: reported directly: this
             # failure reached the chat bubble but never the Settings → Logs
             # viewer, since nothing here ever routed it through `logging` at
             # all. The exception is already fully described in the message
@@ -1440,7 +1440,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
         # while the whole request blocks (user-reported lag).
         yield event({"type": "status", "stage": "searching"})
 
-        # Retrieval happens INSIDE the stream now, not before it — that's the
+        # Retrieval happens INSIDE the stream now, not before it, that's the
         # whole latency win. Nothing before this line touches the model.
         prepared = _prepare(
             session,
@@ -1454,14 +1454,14 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
             # Asking vs requesting, decided from what the caller can already
             # do rather than from a new flag: `notes_only` is the Notes tab's
             # Ask box, and tools-off is the Chat tab's Ask mode. Anything that
-            # can reach for a tool — Request mode, the palette, a skill or plan
-            # run — is a request. `use_tools` is resolved above, so the saved
+            # can reach for a tool, Request mode, the palette, a skill or plan
+            # run: is a request. `use_tools` is resolved above, so the saved
             # preference is accounted for and an unset flag cannot land a
             # Request turn in the chip row.
             surface=ASK_SURFACE if (body.notes_only or not use_tools) else AGENT_SURFACE,
         )
         ollama_running = ollama.is_running()
-        # In agent mode the model can act even when nothing matched — "save a
+        # In agent mode the model can act even when nothing matched, "save a
         # note about X" must work on an empty notebook.
         will_answer = ollama_running and (
             bool(prepared["notes"])
@@ -1494,7 +1494,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 "persona_prompt": persona_prompt,
             }
             if skill:
-                # A skill runs step by step — the runner emits the plan, ticks
+                # A skill runs step by step, the runner emits the plan, ticks
                 # each step, and ends with what changed. Its first event has
                 # the same meaning as the agent's, so the fallback below is
                 # unchanged.
@@ -1526,19 +1526,19 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 )
             # Everything `agent.run_agent`/`skill_runner.run_skill` themselves
             # expect to go wrong (OllamaError, ToolsUnsupportedError) is
-            # already caught inside them and turned into a real event — this
+            # already caught inside them and turned into a real event, this
             # is the outer boundary, for whatever isn't. Reported directly: a
             # skill run that "failed before even completing the first step
-            # ... no answer and no tool call" — an exception here had nothing
+            # ... no answer and no tool call", an exception here had nothing
             # catching it, so it killed the generator and the stream just
             # ended with nothing rendered, no error, the plan card (if any)
             # never even reaching the page. Silence was the bug, not the
             # underlying failure, which is why this doesn't try to guess
-            # which failure it was — it says what actually happened and stays
+            # which failure it was, it says what actually happened and stays
             # on stage instead of vanishing.
             try:
                 first = next(agent_events, None)
-            except Exception as exc:  # noqa: BLE001 — the outer boundary
+            except Exception as exc:  # noqa: BLE001  # the outer boundary
                 logging.getLogger("memorymap.chat").exception(
                     "%s: unhandled error before the first event: %s",
                     "skill run" if skill else "agent turn",
@@ -1549,14 +1549,14 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                     "delta": f"Something went wrong before it could start: {exc}",
                 }
             if first is None or first.get("type") == "unsupported":
-                # The active model can't do tool calls — plain Q&A, never
+                # The active model can't do tool calls, plain Q&A, never
                 # a hard dependency.
                 pass
             else:
                 events = chain([first], agent_events)
         # ROADMAP.md item 36's frontend half: the non-streaming /chat already
         # grounds its answer, but the live Ask box only ever calls this
-        # streaming route. Accumulated here (not computed per-delta — the
+        # streaming route. Accumulated here (not computed per-delta: the
         # sentence splitter needs the whole answer, and this is a handful of
         # deltas' worth of string concatenation, not a hot loop) and sent as
         # its own event once the answer is fully in, direct-Q&A only.
@@ -1566,7 +1566,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 if payload.get("type") == "answer":
                     answer_text += payload.get("delta") or ""
                 yield event(payload)
-        except Exception as exc:  # noqa: BLE001 — same outer boundary as above,
+        except Exception as exc:  # noqa: BLE001  # same outer boundary as above,
             # for a failure that shows up partway through rather than before
             # the first event (a later skill step, say). Same fix: say what
             # happened instead of the stream just stopping.
@@ -1575,7 +1575,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 "skill run" if skill else "agent turn",
                 exc,
             )
-            # CodeQL: "information exposure through an exception" (#296) —
+            # CodeQL: "information exposure through an exception" (#296): 
             # `exc`'s own str() is untrusted and can embed a file path or
             # connection detail; same sanitiser librarian.model_error_message
             # already trusts for this exact shape.
@@ -1603,7 +1603,7 @@ def list_modes() -> dict:
     """The response presets, and which one is currently the default (§11).
 
     Served rather than hard-coded in `app.js` so the picker cannot drift from
-    what the server actually does — adding a fourth preset is then a change to
+    what the server actually does, adding a fourth preset is then a change to
     `ai/presets.py` alone.
     """
     return {
@@ -1632,19 +1632,19 @@ def list_tools() -> list[dict]:
 # better continue."*
 #
 # What happens today without it is worth stating plainly, because it is not
-# "the request gets big" — the client sends at most the last four turns and
+# "the request gets big", the client sends at most the last four turns and
 # `context.fit_history` drops whole pairs from the *oldest* end until the rest
 # fits. So a long conversation does not overflow; it silently forgets its own
 # beginning, and the model starts re-asking things it was told an hour ago.
 #
 # A summary is strictly better than a drop: the same few hundred characters
 # carry the gist of ten turns instead of the whole of one. And it is the
-# **manual** half that shipped first, exactly as §35I argued — a button the
+# **manual** half that shipped first, exactly as §35I argued, a button the
 # user presses, whose output they can read before it is used, cannot misfire.
 #
 # §37I: the tool that lets the agent do it unprompted (`compress_chat` in
 # ai/tools.py) shares this endpoint's summarising logic via
-# `tools.summarise_turns`, and keeps the same human-review step — the model's
+# `tools.summarise_turns`, and keeps the same human-review step, the model's
 # turn ends and `showCompressReview` renders exactly the panel this endpoint
 # already feeds, so a summary the agent asked for is never applied unread any
 # more than one this button produced would be.
@@ -1666,7 +1666,7 @@ class CompressBody(BaseModel):
 def compress_history(body: CompressBody) -> dict:
     """A summary of these turns, for sending in place of them.
 
-    Returns the text and nothing else — the client decides whether to use it,
+    Returns the text and nothing else, the client decides whether to use it,
     and keeps the original turns either way. Nothing is stored here, and the
     conversation on screen is not touched: this is a *lossless* operation as
     far as the transcript is concerned, and only the model's view narrows.
@@ -1674,7 +1674,7 @@ def compress_history(body: CompressBody) -> dict:
     try:
         return tools.summarise_turns([(t.question, t.answer) for t in body.history])
     except OllamaError as exc:
-        # Offline, or the call itself failed — either way there is no summary
+        # Offline, or the call itself failed, either way there is no summary
         # to show, distinct from the model answering with nothing (below).
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except tools.ToolError as exc:
@@ -1694,7 +1694,7 @@ class ToolExecuteBody(BaseModel):
 def execute_confirmed_tool(
     body: ToolExecuteBody, session: Session = Depends(get_session)
 ) -> dict:
-    """Run one registry tool — how the UI executes a destructive call
+    """Run one registry tool, how the UI executes a destructive call
     after the user clicks Confirm. Only registry tools can run, and the
     result carries the same human label shown in chat."""
     if body.name not in tools.TOOLS:

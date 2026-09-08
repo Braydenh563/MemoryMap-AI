@@ -9,7 +9,7 @@ model's best available move was to describe the skill and hope.
 were already there rather than inventing a third:
 
 - **`ends_turn`**, built for `ask_user`. The agent's turn stops and the skill
-  runner takes over — which is honest, because a run is not a tool result the
+  runner takes over: which is honest, because a run is not a tool result the
   model should carry on reasoning about. It is the rest of the work.
 - **the allowlist**, built for the chip UI. A run started by the model offers
   exactly the tools the skill declared, enforced at execution, the same as one
@@ -17,7 +17,7 @@ were already there rather than inventing a third:
 
 The property most of these tests are really about: **starting a skill this way
 is indistinguishable from the user starting it.** Same resolution, same plan,
-same ticked steps, same Undo on every change — because it is the same code
+same ticked steps, same Undo on every change, because it is the same code
 path, reached by the client sending the skill's name back down `/chat/stream`.
 That is why there is no server-side parked state here, exactly as there is
 none for `ask_user`.
@@ -57,7 +57,7 @@ def test_a_built_in_skill_resolves_by_name(app_state):
 
 def test_decoration_in_a_skill_name_may_be_dropped(app_state):
     """A model asked to pass a skill's name back drops the punctuation in it,
-    changes the case, or both — the single most likely mistake, and free to
+    changes the case, or both, the single most likely mistake, and free to
     recover from.
 
     This used to reach into the catalogue for a built-in whose name began with
@@ -65,7 +65,7 @@ def test_decoration_in_a_skill_name_may_be_dropped(app_state):
     emoji are gone app-wide (a skill name lands in an `<option>`, which cannot
     hold an icon element), so there is no such built-in left and the lookup
     raised StopIteration. The behaviour under test never depended on emoji
-    specifically — it is about forgiving decoration of any kind — so the test
+    specifically, it is about forgiving decoration of any kind, so the test
     now makes its own decorated skill instead of borrowing one.
     """
     _save({"name": "★ Weekly tidy-up!", "prompt": "Tidy the notebook."})
@@ -132,7 +132,7 @@ def test_a_supplied_input_is_carried_through(app_state):
 
 
 def test_an_input_the_skill_never_declared_is_dropped(app_state):
-    """An invented key is noise, not a mistake worth spending a round on —
+    """An invented key is noise, not a mistake worth spending a round on, 
     and `fill` leaves undeclared placeholders alone anyway."""
     _save({"name": "Tidy up", "prompt": "Tidy the notebook."})
     event = tools.validate_run_skill({"name": "Tidy up", "inputs": {"nonsense": "x"}})
@@ -221,7 +221,7 @@ def test_the_confirm_endpoint_will_not_run_it(ai_client):
 def test_a_skill_cannot_declare_run_skill(app_state):
     """A skill holding `run_skill` could start itself: each run brings its own
     fresh rounds, so the per-turn budget that bounds an ordinary loop would
-    never bind. Refused at save, not at execution — the allowlist would only
+    never bind. Refused at save, not at execution, the allowlist would only
     catch it once the run was already going."""
     with pytest.raises(skills.SkillError, match="never have to stop"):
         skills.normalise(
@@ -255,7 +255,7 @@ def test_the_agent_ends_its_turn_with_a_run_skill_event(ai_client, fake_ollama, 
 
 def test_nothing_after_the_handover_is_run(ai_client, fake_ollama, app_state):
     """`ends_turn` means the run replaces the rest of the turn. A second call
-    in the same round must not also fire — the skill is about to do the work,
+    in the same round must not also fire, the skill is about to do the work,
     and a stray write beside it would be outside the plan the user sees."""
     _save({"name": "Tidy up", "prompt": "Tidy the notebook.", "tools": ["search_notes"]})
     fake_ollama.tool_script = [
@@ -271,9 +271,9 @@ def test_nothing_after_the_handover_is_run(ai_client, fake_ollama, app_state):
 
 def test_a_bad_skill_name_is_recoverable_rather_than_fatal(ai_client, fake_ollama, app_state):
     """A named skill that doesn't exist is a mistake the model can fix inside
-    the same turn — so the loop hands back the reason and carries on, rather
+    the same turn: so the loop hands back the reason and carries on, rather
     than ending on a tool that was supposed to end it."""
-    # One scripted round, then the fake runs dry and gives its text answer —
+    # One scripted round, then the fake runs dry and gives its text answer, 
     # which is the point: the turn carries on rather than ending on a tool
     # that was supposed to end it.
     fake_ollama.tool_script = [[{"name": "run_skill", "arguments": {"name": "No such skill"}}]]
@@ -289,12 +289,12 @@ def test_an_unhandled_error_before_the_first_event_still_answers(
     ai_client, fake_ollama, app_state, monkeypatch
 ):
     """Reported directly: a skill run that "failed before even completing the
-    first step ... no answer and no tool call" — the stream just ended with
+    first step ... no answer and no tool call", the stream just ended with
     nothing rendered. The route's own outer `next(agent_events, None)` had
     nothing catching an exception raised before the runner's first yield, so
     it killed the generator and FastAPI just closed the connection. This is
     not about what raised (skill_runner.run_skill itself is a thin wrapper;
-    almost anything under it could) — it's that whatever does must still
+    almost anything under it could), it's that whatever does must still
     reach the user as a real event, not silence."""
     from memorymap.ai import skill_runner
 
@@ -302,7 +302,7 @@ def test_an_unhandled_error_before_the_first_event_still_answers(
 
     def _boom(*args, **kwargs):
         raise RuntimeError("simulated failure before the first event")
-        yield  # pragma: no cover — makes this a generator function
+        yield  # pragma: no cover: makes this a generator function
 
     monkeypatch.setattr(skill_runner, "run_skill", _boom)
     events = _events(ai_client, "ph:lightning Tidy up", skill="Tidy up", use_tools=True)
@@ -350,12 +350,12 @@ def test_list_skills_no_longer_tells_the_model_it_cannot_start_one(session, app_
 #
 # What the fake model does here is exactly that failure: it narrates. Every
 # test below is about what the runner does when a step's declared condition is
-# not met — and the answer must never be "tick it green and move on".
+# not met: and the answer must never be "tick it green and move on".
 #
 # **What these cannot prove**, and the standing caveat in CLAUDE.md is the
 # reason: whether a real 4B model, handed the nudge, then calls the tool. The
 # fake calls what the script tells it to. What is provable here is the
-# mechanism — that the nudge is sent, that it names the right tool, that a
+# mechanism: that the nudge is sent, that it names the right tool, that a
 # call on the second attempt is accepted, and that running out of attempts
 # stalls rather than passes.
 
@@ -385,14 +385,14 @@ def test_a_step_that_expects_a_tool_call_is_re_prompted_not_skipped(
     ai_client, fake_ollama, app_state
 ):
     """The heart of the reform. The model answers in prose and calls nothing;
-    the step is not done, so it is asked again — literally, by name."""
+    the step is not done, so it is asked again, literally, by name."""
     _save(CONTRACT_SKILL)
     events = _events(ai_client, "run", skill="Tag audit")
     steps = [e for e in events if e["type"] == "step" and e["index"] == 0]
 
     #: The first cycle, exactly. A run now also *re-plans* a step it could not
     #: finish (PLAN.md §4 A2, `skill_runner.MAX_REPLANS`), so the same four
-    #: states repeat with a rewritten step behind each `replanned` — the
+    #: states repeat with a rewritten step behind each `replanned`, the
     #: property being pinned here is the shape of one attempt, and it is
     #: unchanged. The two assertions after it hold over the whole run: it
     #: still ends `stalled`, and it is still never ticked `done`.
@@ -404,7 +404,7 @@ def test_a_step_that_expects_a_tool_call_is_re_prompted_not_skipped(
         "however many times the run re-planned it"
     )
     # The nudge names the tool, because that is the thing a small model acts
-    # on — not a restatement of the step it has already failed to follow.
+    # on: not a restatement of the step it has already failed to follow.
     nudges = [text for text in _sent(fake_ollama) if "You did not call" in text]
     assert nudges, "the step was never re-prompted"
     assert "`list_tags`" in nudges[0]
@@ -441,7 +441,7 @@ def test_a_step_that_calls_the_tool_on_the_second_attempt_is_done(
 
     def complies_after_the_nudge(model, messages, tools, mode=None):
         # Stands in for the behaviour the nudge exists to produce. Whether a
-        # real 4B model does this cannot be established from here — see the
+        # real 4B model does this cannot be established from here, see the
         # note at the top of this section.
         last = str(messages[-1].get("content", ""))
         if "You did not call" in last and not fake_ollama.tool_script:
@@ -497,7 +497,7 @@ def test_a_step_is_never_marked_done_without_its_contract(ai_client, fake_ollama
 def test_a_skill_whose_steps_are_plain_strings_still_runs(ai_client, fake_ollama, app_state):
     """Backwards compatibility, and not a small point: every skill anyone has
     ever saved is a list of strings, as is every ad-hoc plan. A string step has
-    no contract, so it advances on what the model said — exactly as before."""
+    no contract, so it advances on what the model said, exactly as before."""
     _save(
         {
             "name": "Old style steps",
@@ -525,7 +525,7 @@ def test_a_string_step_normalises_to_an_unchecked_contract(app_state):
 def test_a_declared_contract_survives_being_normalised_again(app_state):
     """`catalog()` re-normalises everything stored, so a skill that lost its
     contracts on a round trip would work the first time it ran and not the
-    second — the worst shape of bug to be handed."""
+    second: the worst shape of bug to be handed."""
     once = skills.normalise(CONTRACT_SKILL, set(tools.TOOLS))
     twice = skills.normalise(once, set(tools.TOOLS))
     assert twice["step_specs"] == once["step_specs"]
@@ -592,7 +592,7 @@ def test_the_ids_a_step_touched_reach_the_next_steps_instruction(
 def test_the_state_line_is_empty_until_something_is_known():
     assert skills.state_line({}) == ""
     assert skills.state_line(None) == ""
-    assert skills.state_line({"note_ids": [3, 9]}) == "State so far — notes #3, #9."
+    assert skills.state_line({"note_ids": [3, 9]}) == "State so far: notes #3, #9."
 
 
 # --- small-model mode (skills reform, Phase B) -------------------------------
@@ -603,7 +603,7 @@ def test_small_model_mode_offers_only_the_tool_the_step_names(
 ):
     """A 4B model handed five schemas for a step that needs one picks the wrong
     one. In small-model mode the step is offered exactly what its contract
-    names — the skill's allowlist, one level down."""
+    names: the skill's allowlist, one level down."""
     app_state.set_preference("small_model_mode", "on")
     _save(CONTRACT_SKILL)
     offered: list[set[str]] = []
@@ -654,7 +654,7 @@ def test_a_step_with_no_named_tool_still_gets_the_skills_tools(app_state):
 
 
 def test_auto_small_model_mode_reads_the_size_off_the_models_name(app_state):
-    """Free, offline, and works for every backend — `/api/show` is Ollama's
+    """Free, offline, and works for every backend, `/api/show` is Ollama's
     alone. An unrecognised name means "no idea", and no idea means off."""
     from memorymap.ai.model_manager import ModelManager, parameter_count
 
@@ -681,7 +681,7 @@ def test_a_worked_example_is_built_from_the_tools_own_schema(app_state):
     """Never hand-written per tool: a table of examples goes stale silently
     the first time an argument is renamed."""
     assert tools.call_example("get_note") == (
-        "A call to get_note looks like this — same shape, your own values: "
+        "A call to get_note looks like this, same shape, your own values: "
         'get_note({"note_id": 12})'
     )
     # Singular and plural forms of the same argument are alternatives, so an

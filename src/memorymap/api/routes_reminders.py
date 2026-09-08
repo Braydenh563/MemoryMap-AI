@@ -1,6 +1,6 @@
 """Reminders: create, list, tick off, delete.
 
-Local-only — the browser fires the notification while the app is open;
+Local-only: the browser fires the notification while the app is open;
 nothing runs in the cloud.
 """
 
@@ -36,7 +36,7 @@ class ReminderCreate(BaseModel):
 class MagicAddBody(BaseModel):
     text: str = Field(min_length=1, max_length=300)
     # Minutes east of UTC, as the browser reports it. "Tomorrow evening" has to
-    # be resolved against the user's clock, not the server's — without this the
+    # be resolved against the user's clock, not the server's: without this the
     # model was told the time in UTC and every relative time landed hours out.
     tz_offset_minutes: int | None = Field(default=None, ge=-840, le=840)
 
@@ -50,7 +50,7 @@ class ReminderUpdate(BaseModel):
 
 
 def _reject_if_in_the_past(due_at: datetime) -> None:
-    """A reminder due before now will never usefully fire — it's either an
+    """A reminder due before now will never usefully fire, it's either an
     accidental past date (a slipped year, an AM/PM mix-up in the picker) or
     a "reminder" that isn't reminding of anything upcoming. A minute of
     slack covers submit latency and clock skew, not a real mistake.
@@ -60,7 +60,7 @@ def _reject_if_in_the_past(due_at: datetime) -> None:
     if compare_at < now - timedelta(minutes=1):
         raise HTTPException(
             status_code=422,
-            detail="That reminder's due time is in the past — pick a time that hasn't happened yet.",
+            detail="That reminder's due time is in the past, pick a time that hasn't happened yet.",
         )
 
 
@@ -72,7 +72,7 @@ def _to_out(session: Session, reminder: Reminder) -> dict:
             # `readable_content`, not the raw column: a private note's
             # `content` is ciphertext at rest, and this preview showed that
             # ciphertext blob (or, once unlocked, otherwise skipped the
-            # locked-vault placeholder every other preview surface uses) —
+            # locked-vault placeholder every other preview surface uses), 
             # the same class of bug as the digest's, just local to this UI
             # rather than sent to a model.
             content = readable_content(entry)
@@ -133,11 +133,11 @@ def magic_add_reminder(body: MagicAddBody, session: Session = Depends(get_sessio
     #
     # This line is the bug behind "play league of legends in half an hour" being
     # scheduled for 10am the next day. It used to be `utcnow() + offset`, which
-    # produces an aware datetime TAGGED UTC that really holds local wall-clock —
+    # produces an aware datetime TAGGED UTC that really holds local wall-clock, 
     # so the model was told "now is 2026-08-01T23:30:00+00:00" when the +00:00
     # was a fiction. A model that then answered with an offset of its own (the
     # natural thing to do, having been given one) landed in the `else` branch
-    # below, was trusted, and skipped the correction — putting the reminder out
+    # below, was trusted, and skipped the correction, putting the reminder out
     # by exactly the user's UTC offset. For the reporter, ten hours: half an
     # hour away became 10am tomorrow.
     #
@@ -147,7 +147,7 @@ def magic_add_reminder(body: MagicAddBody, session: Session = Depends(get_sessio
     local_now = utcnow().astimezone(user_zone)
 
     ollama = deps.get_ollama()
-    # A phrase the rules can read needs no model at all — and refusing to add
+    # A phrase the rules can read needs no model at all, and refusing to add
     # "remind me in 20 minutes" because Ollama is off would break design
     # principle 2 for a request that needs nothing but arithmetic.
     parsed = reminder_parser.parse_relative(body.text, local_now)

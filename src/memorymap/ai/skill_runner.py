@@ -2,7 +2,7 @@
 
 The difference between this and handing the model a numbered list is the
 difference between a plan and a job. A list inside one request is a plan the
-model is free to ignore — and a 3B model given four instructions at once
+model is free to ignore, and a 3B model given four instructions at once
 reliably does the first, narrates the rest, and reports success. Here each
 step is its own bounded agent turn, so:
 
@@ -14,24 +14,24 @@ step is its own bounded agent turn, so:
   models it is aimed at (§11a);
 - what changed is collected as it happens, with the call that would undo it.
 
-A skill with no steps is one turn — exactly what it was before the rebuild.
+A skill with no steps is one turn, exactly what it was before the rebuild.
 
 **A step is a goal, not a turn** (AGENT_SKILLS_REFORM.md, Phase A). One turn per
 step fixed "the model did all four instructions at once"; it did not fix the
-report that followed it — *"I ran a skill and it ran no tools… the models often
+report that followed it, *"I ran a skill and it ran no tools… the models often
 dont even properly complete a step before they are prompted for the next
 step."* The cause was that this file decided a step was over when the model
 stopped emitting, so a small model narrating "Here is the result of step 2…"
 was indistinguishable from one that had done it. A step now carries a contract
 (`skills.STEP_EXPECTS`), and a step that has not met it is re-prompted with a
-nudge naming the tool rather than ticked off. A step declaring no contract — a
-plain string, which is every skill anyone has saved by hand — behaves exactly
+nudge naming the tool rather than ticked off. A step declaring no contract, a
+plain string, which is every skill anyone has saved by hand, behaves exactly
 as it did before.
 
 **Everything here has to stay lazy.** The events are consumed by a streaming
 NDJSON response, so anything that materialises the iterator holds the whole
 step back and releases it in one block. That was a real bug (§35H): putting
-the first event back with `[first, *events]` looks harmless and is not — the
+the first event back with `[first, *events]` looks harmless and is not, the
 `*` runs the generator to exhaustion before the list even exists, so a step's
 prose, tool chips and all arrived together once the step had finished. Reported
 as "the steps don't stream visually as they are written and are instead dumped
@@ -64,7 +64,7 @@ STEP_ROUNDS = 4
 # This is the reported failure seen from inside a run: *"the agent struggles
 # with long tasks like skills, then cuts out half way through."* A step such as
 # "tag every untagged note" is one instruction and a dozen tool calls, and four
-# flat rounds cut it off in the middle every time — with the step ticked off as
+# flat rounds cut it off in the middle every time, with the step ticked off as
 # done, because the runner could only see that the turn had produced text.
 # Both halves of that are fixed: a step that keeps doing new things keeps
 # going, and a step that runs out is marked stalled rather than done.
@@ -75,7 +75,7 @@ STEP_EARNED_ROUNDS = 6
 STEP_ANSWER_CHARS = 600
 
 # How many touched-note ids one step's summary names before it just says
-# "and N more" — a step that tags a hundred notes must not spend the whole
+# "and N more", a step that tags a hundred notes must not spend the whole
 # STEP_ANSWER_CHARS budget on ids and leave no room for the model's own words.
 MAX_TOUCHED_IDS_NAMED = 15
 
@@ -101,17 +101,17 @@ def _step_answer(answer: str, step_changes: list[dict]) -> str:
 
     **Reported, in the shape of "the agent loses the plot half way through a
     job":** a step's own narration ("tagged the relevant notes") is a prose
-    summary the model wrote about itself, not a record of what happened —
+    summary the model wrote about itself, not a record of what happened, 
     and it is *all* the next step saw. A later step that needed "those notes"
     had nothing but that sentence to work from: too vague to act on, so it
     either re-searched (and could easily find a different set) or guessed.
     The ids in `step_changes` (`agent.py`'s own `change` events, the same
     ones that already back the chat UI's View/Undo buttons) are the ground
-    truth of what this step did — appending them is handing the next step
+    truth of what this step did, appending them is handing the next step
     the same fact a human reading the transcript would have.
 
     Ids are the right thing to carry between steps even though the system
-    prompt tells the model never to show one to the *user* — that rule is
+    prompt tells the model never to show one to the *user*, that rule is
     about what appears in an answer, not about how steps refer to things
     internally, which is exactly how every id-targeting tool (`edit_note`,
     `tag_note`, `link_notes`...) already works.
@@ -121,7 +121,7 @@ def _step_answer(answer: str, step_changes: list[dict]) -> str:
     )
     if not summary:
         return (answer[:STEP_ANSWER_CHARS] if answer else "") or "(nothing said)"
-    # Truncate the model's own words first, not the ids — a next step that
+    # Truncate the model's own words first, not the ids, a next step that
     # cannot see what happened is guessing; the prose is what it can afford
     # to lose.
     base = answer[: max(0, STEP_ANSWER_CHARS - len(summary))] if answer else ""
@@ -140,7 +140,7 @@ def _record_run(
 
     **Nothing in this app ever wrote one, and the Library's AI Skills tab has
     a log panel that reads them.** Reported as "I dont think the skill logs
-    work in the ai skills section in the library??" — correct, and not because
+    work in the ai skills section in the library??", correct, and not because
     the panel was broken: `renderSkillLogs` filters `/audit` for
     `entity_type === "skill"`, and a grep for a `log_action` call with that
     entity type returns nothing at all. The panel could only ever say "No
@@ -165,9 +165,9 @@ def _record_run(
     if steps:
         detail = f"{outcome} · {steps} step(s) · {len(changes)} change(s)"
     try:
-        log_action(session, "ran", "skill", None, f"{skill.get('name') or 'skill'} — {detail}")
+        log_action(session, "ran", "skill", None, f"{skill.get('name') or 'skill'}, {detail}")
         session.commit()
-    except Exception:  # noqa: BLE001 — bookkeeping must not fail a finished run
+    except Exception:  # noqa: BLE001  # bookkeeping must not fail a finished run
         logger.warning("couldn't record the skill run", exc_info=True)
         session.rollback()
 
@@ -228,7 +228,7 @@ _TAG_ARGUMENT_KEYS = ("tags", "tag", "add")
 def _tag_arguments(event: dict) -> tuple[str, ...]:
     """Which of a tool call's arguments name tags, for this particular call."""
     if "tag" in str(event.get("tool") or ""):
-        # `rename_tag`, `delete_tag`, `tag_note` — the tag tools, where `new`
+        # `rename_tag`, `delete_tag`, `tag_note`, the tag tools, where `new`
         # is a tag by definition.
         return (*_TAG_ARGUMENT_KEYS, "new")
     return _TAG_ARGUMENT_KEYS
@@ -250,7 +250,7 @@ def _absorb(state: dict, event: dict) -> None:
     **The third structural cause of the reported failure** (see this module's
     header and AGENT_SKILLS_REFORM.md): only prose used to cross a step
     boundary, so a step told to act on "those notes" got a sentence about them
-    rather than their ids, and either re-searched — finding a different set —
+    rather than their ids, and either re-searched, finding a different set , 
     or guessed. What a tool actually touched is already on the event, because
     the chat transcript needs it for the same reason; this keeps it.
     """
@@ -294,7 +294,7 @@ def _contract_met(spec: dict, called: set[str], changed: list[dict], answer: str
 
     The one judgement worth writing down here: a **failed** call still counts
     for `tool_called`. The contract is "you reached for the tool", and a model
-    that called it and got an error is not the failure this exists to catch —
+    that called it and got an error is not the failure this exists to catch, 
     that model is already handled, by the recovery hints the agent loop feeds
     back and by the run's own "no answer and a failure" branch. Re-prompting
     it would spend two more rounds re-running the same broken call. What this
@@ -314,7 +314,7 @@ def _contract_met(spec: dict, called: set[str], changed: list[dict], answer: str
 #: **How many times one run may re-plan a step that failed** (PLAN.md §4, A2:
 #: "re-plans on a failed step (max 2)").
 #:
-#: The contract retries above (Phase A) re-send the *same* step with a nudge —
+#: The contract retries above (Phase A) re-send the *same* step with a nudge, 
 #: they are for a model that narrated instead of calling. This is the level
 #: above: a step that has genuinely failed or stalled is *rewritten* and tried
 #: again, so a run bends rather than ending at the first bad step.
@@ -322,7 +322,7 @@ def _contract_met(spec: dict, called: set[str], changed: list[dict], answer: str
 #: **The step is rewritten in place, and the rest of the plan is not touched.**
 #: That is a deliberate scope call, not a shortcut. `stopped_at` is an index
 #: into the step list, and the client turns it into "Resume from step N" by
-#: sending the *saved skill's* name back down `/chat/stream` — so a re-plan
+#: sending the *saved skill's* name back down `/chat/stream`, so a re-plan
 #: that inserted, removed or reordered steps would leave `stopped_at` pointing
 #: into a list nothing else has, and Resume would silently re-run the wrong
 #: step, every one of which writes to the notebook. Rewriting one step keeps
@@ -335,7 +335,7 @@ REPLAN_PROMPT = (
     "You rewrite ONE step of a plan that has just failed, so it can be tried "
     "again. Reply with the rewritten step and nothing else: one short "
     "instruction, no numbering, no quotes, no explanation. Make it smaller "
-    "and more literal than the one that failed — name the single thing to do."
+    "and more literal than the one that failed, name the single thing to do."
 )
 
 
@@ -364,8 +364,8 @@ def _replan_step(
 ) -> str:
     """A rewritten version of one failed step. Never raises, never empty.
 
-    Falls back to `_fallback_replan` on every failure path — offline, a
-    transport error, an empty reply, a reply that came back as a paragraph —
+    Falls back to `_fallback_replan` on every failure path, offline, a
+    transport error, an empty reply, a reply that came back as a paragraph, 
     for the same reason `followups.suggest_followups` returns `[]` on all of
     its: a run that stops because its own recovery could not reach the model
     is a worse outcome than one that retries with a mechanically improved
@@ -393,13 +393,13 @@ def _replan_step(
                 },
             ],
         )
-    except Exception:  # noqa: BLE001 — recovery must not itself end the run
+    except Exception:  # noqa: BLE001  # recovery must not itself end the run
         logger.warning("couldn't re-plan a failed step", exc_info=True)
         return fallback
     text = " ".join(str(reply.get("content") or "").split())
     # A model that answered with a paragraph, a refusal or an empty string has
     # not given a step. One line, and shorter than the cap a step is allowed
-    # to be — otherwise the "rewrite" is a fresh wall of prose, which is the
+    # to be: otherwise the "rewrite" is a fresh wall of prose, which is the
     # failure this whole file exists to stop.
     if not text or len(text) > skills.MAX_STEP:
         return fallback
@@ -410,7 +410,7 @@ def _step_tools(spec: dict, allowed: list[str] | None, small_model: bool) -> lis
     """Which tools this one step is offered.
 
     Ordinarily the skill's whole allowlist, which is already narrow. In
-    small-model mode it is **only what the step's contract names** — Phase B:
+    small-model mode it is **only what the step's contract names**: Phase B:
     a 4B model handed five schemas for a step that needs one picks the wrong
     one often enough to be the reported failure, and every schema not sent is
     room the notes and the question get back. Falls back to the skill's list
@@ -442,49 +442,49 @@ def run_skill(
     """Yields the agent's own event types, plus three of its own:
 
     {"type": "plan", "skill", "steps", "step_specs", "tools", "small_model"}
-                                                    — before anything runs
-    {"type": "step", "index", "state", "text"}      — running | retrying | done
+                                                    - before anything runs
+    {"type": "step", "index", "state", "text"}, running | retrying | done
                                                       | failed | stalled
                                                       | earlier
     {"type": "result", "changes": [...], "stopped_at": int|None, "paused": bool,
-     "state": {...}}                                — what actually changed,
+     "state": {...}}, what actually changed,
                                                       where it stopped, and the
                                                       ids the run gathered
 
     The first event is either "unsupported" (the model can't call tools, so
-    the caller should fall back to plain Q&A) or "plan" — the same contract
+    the caller should fall back to plain Q&A) or "plan", the same contract
     `run_agent` has, so the route's fallback works unchanged.
 
     `start_at` resumes: steps before it are marked `earlier` and not re-run.
-    That is the answer to "it cuts out half way through and has to restart" —
+    That is the answer to "it cuts out half way through and has to restart", 
     restarting a six-step run to reach step four means doing steps one to three
     again, and every one of them writes to the notebook.
 
     `manual` is the other half of that same request, asked for directly and
     explicitly, and never built until now: **"skills producing network
-    errors, or models that cannot run them" and "a manual mode"** — a pause
+    errors, or models that cannot run them" and "a manual mode"**, a pause
     after every completed step with a Continue button, so a person can add
     what the agent missed or answer a question it raised before the next
     step starts, rather than the run barrelling on regardless. Reuses the
     exact same stop-and-resume machinery `start_at` already has for a
-    failure — a pause is not a new code path, it's the same one with
+    failure: a pause is not a new code path, it's the same one with
     `result.paused = True` so the caller can tell "stopped because it's
     waiting for you" from "stopped because something went wrong" and render
     each one differently. `manual_note` is what the user typed at that
     pause; folded into the very next step's own instruction (not into
-    history, which the model may or may not weigh — this is read as part of
+    history, which the model may or may not weigh, this is read as part of
     what it's being asked to do right now).
 
     `small_model` is Phase B of the skills reform: one tool per step and a
     worked example of the call. None means "decide from the model", which is
-    read off the chat model's own name — see `model_manager.parameter_count`,
+    read off the chat model's own name: see `model_manager.parameter_count`,
     and note that an unrecognised name means *off*.
 
     **The step contract is Phase A**, and it is the difference between this
     and what was here before: a step is over when its declared condition is
     met, not when the model stops emitting. A step that has not met it is
     re-prompted with a nudge naming the tool, up to its own `retries`, and
-    only then marked `stalled`. It is never silently `done` — that was the
+    only then marked `stalled`. It is never silently `done`, that was the
     reported bug, and the reason a run "ran no tools" and still ticked green.
     """
     steps = skill.get("steps") or []
@@ -493,7 +493,7 @@ def run_skill(
     if small_model is None:
         # "Auto": the model's own name is the only size hint available before a
         # request is made, and it is free. `chat_model_is_small` answers None
-        # when the name says nothing, and None means off — narrowing a capable
+        # when the name says nothing, and None means off, narrowing a capable
         # model's toolbox on a guess is the worse mistake of the two.
         small_model = bool(model_manager.chat_model_is_small())
     plan = {
@@ -512,7 +512,7 @@ def run_skill(
         "start_at": max(0, start_at),
     }
     changes: list[dict] = []
-    # What the run knows so far, as ids rather than as prose — carried into
+    # What the run knows so far, as ids rather than as prose, carried into
     # every later step's instruction and returned with the result.
     state: dict = {}
 
@@ -535,8 +535,8 @@ def run_skill(
             allowed_tools=offered,
             # A run may not start another run. A skill that *declares* its
             # tools is already safe (`skills.NEVER_IN_A_SKILL` refuses these at
-            # save time), but a skill with no allowlist — and every ad-hoc plan
-            # — is offered the whole registry, `make_plan` included. A plan
+            # save time), but a skill with no allowlist, and every ad-hoc plan
+            #, is offered the whole registry, `make_plan` included. A plan
             # step that plans again would nest runs with fresh rounds each.
             blocked_tools=tools.RUN_STARTERS,
             max_rounds=STEP_ROUNDS if steps else agent.MAX_ROUNDS,
@@ -578,7 +578,7 @@ def run_skill(
     paused = False
     resume_from = min(max(0, start_at), len(steps))
     #: **A copy**, because re-planning rewrites a step in place and
-    #: `skill["steps"]` belongs to the caller — a built-in skill's list *is*
+    #: `skill["steps"]` belongs to the caller, a built-in skill's list *is*
     #: the module-level catalogue's own list, so mutating it here would
     #: quietly rewrite that skill for every later run in the process. The
     #: `plan` event above still carries the original list, which is what the
@@ -601,7 +601,7 @@ def run_skill(
     while index < len(steps):
         step = steps[index]
         # Whether the way this step ended is worth re-planning at all, and the
-        # one sentence saying what went wrong — the material `_replan_step`
+        # one sentence saying what went wrong, the material `_replan_step`
         # gives the model, and the reason the `replanned` event carries.
         replannable = True
         fail_reason = ""
@@ -637,7 +637,7 @@ def run_skill(
             events = turn(
                 instruction,
                 step_history,
-                f"I couldn't finish step {index + 1} — I used every round it had "
+                f"I couldn't finish step {index + 1}: I used every round it had "
                 "without reaching an answer.",
                 offered,
             )
@@ -675,7 +675,7 @@ def run_skill(
             handed_over = False
             went_offline = False
             # Where this step's own changes start in the run's running list, so
-            # they can be told apart from every earlier step's — see
+            # they can be told apart from every earlier step's: see
             # _step_answer, and the `notes_changed` contract.
             changes_before = len(changes)
             for event in _collect(chain([first], events) if first else events, changes, state):
@@ -708,7 +708,7 @@ def run_skill(
             if went_offline:
                 # **Tier 1 §3.** Ollama died mid-round, and `agent.run_agent`'s
                 # own answer for that is a real sentence of prose ("Ollama
-                # doesn't seem to be running…") — which used to satisfy the
+                # doesn't seem to be running…"), which used to satisfy the
                 # "did this step say something" check below and get ticked
                 # done. The run then quietly repeated the identical failure on
                 # every later step, since the notebook did not get any less
@@ -720,7 +720,7 @@ def run_skill(
                     "index": index,
                     "state": "failed",
                     "text": step,
-                    "reason": "Ollama isn't reachable — check Settings → Models and try again.",
+                    "reason": "Ollama isn't reachable: check Settings → Models and try again.",
                 }
                 stopped_at = index
                 # Not re-plannable, and the re-plan call itself would need the
@@ -732,7 +732,7 @@ def run_skill(
                 # **Stalled, not done.** This is the half of the reported
                 # failure that made the other half invisible: the runner could
                 # only see that the turn produced text, and the "I ran out of
-                # rounds" notice is text — so a step that was cut off mid-job
+                # rounds" notice is text: so a step that was cut off mid-job
                 # was ticked green and the next step ran on top of half-finished
                 # work. It stops here instead, and `stopped_at` is what Resume
                 # picks up from.
@@ -742,7 +742,7 @@ def run_skill(
                     "state": "stalled",
                     "text": step,
                     "reason": (
-                        "ran out of rounds before finishing — Resume continues "
+                        "ran out of rounds before finishing, Resume continues "
                         "from here, or split this step into two smaller ones"
                     ),
                 }
@@ -750,11 +750,11 @@ def run_skill(
                 fail_reason = "it used every round it had without finishing"
                 #: **Not re-plannable, and this is the sharpest line in the
                 #: whole mechanism.** A step that ran out of rounds was
-                #: *doing the job* and got cut off half way — unlike every
+                #: *doing the job* and got cut off half way, unlike every
                 #: other ending here, work was done and more is left. Rewrite
                 #: it and run it again and the model, having no rounds' worth
                 #: of context about what it already tagged, answers in prose
-                #: — and the step goes green over a job that is still half
+                #:, and the step goes green over a job that is still half
                 #: finished. That is precisely the bug this file exists to
                 #: prevent (`tests/test_long_runs.py` catches it), and the
                 #: honest ending for a cut-off step is the one it already
@@ -764,7 +764,7 @@ def run_skill(
                 outcome = "stalled"
                 break
             # A step that ran no tools and said nothing did not happen. Anything
-            # else is reported as done — the model's own words are the record,
+            # else is reported as done, the model's own words are the record,
             # and calling a step failed because a tool errored mid-way would be
             # wrong when it recovered on the next call.
             if not answer and failures:
@@ -780,7 +780,7 @@ def run_skill(
                 outcome = "failed"
                 break
             # **The other half of the reported bug.** A turn can end with no
-            # answer, no tool call and no failure at all — a model that replies
+            # answer, no tool call and no failure at all, a model that replies
             # with empty content and no tool calls produces exactly this, and it
             # used to fall straight through to "done" below because nothing here
             # checked for *nothing happening*. That is what made the skill's own
@@ -805,12 +805,12 @@ def run_skill(
                     #: Reported: *"skills are too hard for small ais and things go
                     #: wrong often."* A small model producing one empty turn is the
                     #: single most common way a run stops, and it usually passes on
-                    #: the next attempt — which the Resume button already does,
+                    #: the next attempt: which the Resume button already does,
                     #: from this step, without re-running the ones before it. A
                     #: reason that does not say that leaves the reader with a dead
                     #: run and no move.
                     "reason": (
-                        "the model didn't respond — no answer and no tool call. "
+                        "the model didn't respond: no answer and no tool call. "
                         "Resume picks up from this step; a smaller model often "
                         "gets it on the second attempt, and Manual mode lets you "
                         "steer each step."
@@ -844,7 +844,7 @@ def run_skill(
                     "reason": _unmet_reason(spec),
                 }
                 continue
-            # Out of attempts. Stalled — never `done`, which is the whole point.
+            # Out of attempts. Stalled: never `done`, which is the whole point.
             yield {
                 "type": "step",
                 "index": index,
@@ -852,7 +852,7 @@ def run_skill(
                 "text": step,
                 "reason": (
                     f"{_unmet_reason(spec)} after {attempts} attempt(s). Resume "
-                    "continues from here — or, if there was genuinely nothing "
+                    "continues from here: or, if there was genuinely nothing "
                     "to do in this step, skip past it by resuming from the next."
                 ),
             }
@@ -881,7 +881,7 @@ def run_skill(
                     "of": MAX_REPLANS,
                     "reason": fail_reason,
                 }
-                # It is no longer where the run stopped — it is about to be
+                # It is no longer where the run stopped, it is about to be
                 # tried again, and a `stopped_at` left behind here would offer
                 # a Resume for a step that is still running.
                 stopped_at = None
@@ -889,7 +889,7 @@ def run_skill(
             break
         # Manual mode: the same stop-and-resume machinery `stopped_at` already
         # gives a failed/stalled step, used deliberately here instead of a
-        # second mechanism — the difference is only `paused` below, so the
+        # second mechanism: the difference is only `paused` below, so the
         # client can render "waiting for you" rather than "something broke".
         # Nothing to pause for after the last step; that's just the run ending.
         if manual and index + 1 < len(steps):
@@ -901,19 +901,19 @@ def run_skill(
     if not started:  # every step failed before producing anything
         yield plan
     _record_run(session, skill, changes, stopped_at, len(steps), paused)
-    # `stopped_at` is the index the run did not get past — None when it
+    # `stopped_at` is the index the run did not get past, None when it
     # finished. The client turns it into "Resume from step N", which is the
     # difference between carrying on and doing the first half again. `paused`
     # tells it which reason: waiting for the user (manual mode) rather than a
-    # failure — Resume becomes Continue, and it's not reported as an error.
+    # failure: Resume becomes Continue, and it's not reported as an error.
     yield {
         "type": "result",
         "changes": changes,
         "stopped_at": stopped_at,
         "steps": len(steps),
         "paused": paused,
-        # The ids the run gathered, so whatever picks it up next — a Resume, a
-        # follow-up question, Phase C's run view — can talk about "those notes"
+        # The ids the run gathered, so whatever picks it up next, a Resume, a
+        # follow-up question, Phase C's run view: can talk about "those notes"
         # with the same precision the steps did.
         "state": state,
     }

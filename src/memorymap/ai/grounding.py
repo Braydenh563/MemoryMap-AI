@@ -4,7 +4,7 @@
 whole; `unsupported_claims` already checks the agent's own narrated actions
 in full agentic chat; link `reason`/`reason_confidence` already grounds a
 connection between two notes. None of the three says which *sentence* in a
-direct Q&A answer came from which note — this is that gap, and only that
+direct Q&A answer came from which note, this is that gap, and only that
 gap: scoped to the direct Q&A path (`POST /chat`, non-conversational), not
 the agentic one, where `unsupported_claims` already does the related job.
 
@@ -26,7 +26,7 @@ from memorymap.search.search_manager import _meaningful_terms
 
 # Below this fraction of a sentence's own meaningful words being found in a
 # note, the "match" is coincidence (shared stopword-adjacent filler) rather
-# than the note actually backing that sentence — better to say nothing.
+# than the note actually backing that sentence, better to say nothing.
 MIN_OVERLAP_RATIO = 0.4
 
 # A sentence this short (a "Sure." or a lone connective) is not a claim
@@ -40,12 +40,12 @@ _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z\d])")
 def split_sentences(text: str) -> list[str]:
     """Plain sentences, code fences and bullet markers stripped least-
     invasively: split on `.!?` followed by whitespace and a capital/digit,
-    which misses some abbreviations but never merges two real sentences —
+    which misses some abbreviations but never merges two real sentences, 
     the safer direction for a feature that would rather ground too little
     than mis-ground something."""
     if not text:
         return []
-    # Skip fenced code blocks entirely — grounding a line of code against
+    # Skip fenced code blocks entirely, grounding a line of code against
     # note *prose* is a category error, not a claim.
     cleaned = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
     return [s.strip() for s in _SENTENCE_SPLIT.split(cleaned) if s.strip()]
@@ -58,7 +58,7 @@ def _word_set(text: str) -> set[str]:
 def ground_answer_sentences(answer: str, notes: list[dict]) -> list[dict]:
     """One entry per sentence that has a real supporting note: `{"sentence":
     str, "note_id": int}`. Sentences with no note clearing
-    `MIN_OVERLAP_RATIO`, or too short to score meaningfully, are omitted —
+    `MIN_OVERLAP_RATIO`, or too short to score meaningfully, are omitted, 
     the caller (and the frontend badge) treats "not in this list" as "not
     grounded", never as "grounded to nothing", so omission is always safe.
     """

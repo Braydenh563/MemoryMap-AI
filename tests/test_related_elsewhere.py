@@ -6,7 +6,7 @@ related to the notes if no notes are found?? like similar items??"*
 
 Retrieval only ever searched notes, so a question whose answer sits in a
 document, a saved chat or a reminder came back as a flat "I couldn't find any
-saved notes matching that question" — true, useless, and misleading about how
+saved notes matching that question", true, useless, and misleading about how
 much the app actually holds.
 """
 

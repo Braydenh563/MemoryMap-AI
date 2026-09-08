@@ -4976,6 +4976,9 @@ function libraryLightboxItems(images) {
 
 //: The Files row's reading block: one line of it, and the way to the rest.
 //: See `mediaReadingSummary` for why a clamped paragraph was the wrong answer.
+//: Rows whose whole reading is open; survives the gallery poll re-render.
+const openReadings = new Set();
+
 function buildFileReadingSummary(image, summary, images) {
   const holder = document.createElement("div");
   holder.className = "library-file-reading";
@@ -5027,6 +5030,12 @@ function buildFileReadingSummary(image, summary, images) {
   //: a scrolling box, and "Open reading" still opens the page-by-page view.
   const full = document.createElement("details");
   full.className = "library-file-reading-full";
+  // The gallery re-renders on a poll (libraryImagesPollTimer), which rebuilt
+  // this element closed while a person was reading it (reported: "it keeps
+  // on randomly collapsing, maybe when I scroll to the bottom"). The open
+  // state lives outside the element, keyed by the row, so a re-render puts
+  // it back exactly as it was.
+  full.open = openReadings.has(mediaRowKey(image));
   const fullSummary = document.createElement("summary");
   fullSummary.className = "library-file-reading-more";
   setLabel(fullSummary, "ph:caret-down Show the whole reading");
@@ -5034,8 +5043,13 @@ function buildFileReadingSummary(image, summary, images) {
   fullText.className = "library-file-reading-text";
   fullText.textContent = mediaReading(image);
   full.append(fullSummary, fullText);
-  full.addEventListener("toggle", () => {
+  const syncReadingLabel = () =>
     setLabel(fullSummary, full.open ? "ph:caret-up Hide the reading" : "ph:caret-down Show the whole reading");
+  syncReadingLabel();
+  full.addEventListener("toggle", () => {
+    if (full.open) openReadings.add(mediaRowKey(image));
+    else openReadings.delete(mediaRowKey(image));
+    syncReadingLabel();
   });
   full.addEventListener("click", (event) => event.stopPropagation());
   holder.append(line, meta, full, open);

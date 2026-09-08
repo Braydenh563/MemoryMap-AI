@@ -93,6 +93,7 @@ function gcRadius(node, degree) {
 //: is unreadable anyway and 2,000 of them are a grey wash; above it there is
 //: room for them. A hovered or spotlit node always shows its own.
 const GC_LABEL_ZOOM = 1.4;
+const GC_LABEL_ALL_MAX = 400;
 //: How far a non-neighbour dims while something is hovered (§5 Phase 1).
 const GC_DIM_ALPHA = 0.2;
 
@@ -374,7 +375,14 @@ function gcDraw() {
     // own: including with the Labels tickbox off, which is what
     // `.graph-labels-hidden g.graph-focus .graph-label { opacity: 1 }` does on
     // the SVG renderer. "Labels off" means "not all of them", not "never".
-    if (!dim && ((labelsOn && (k > GC_LABEL_ZOOM || matched)) || focused)) {
+    // "Labels on" means on. Reported with a screenshot: the tickbox was on
+    // and one hovered label showed, because every other label waited for a
+    // zoom past GC_LABEL_ZOOM that a fitted 35-note map never reaches. Below
+    // GC_LABEL_ALL_MAX nodes the tickbox shows them all at any zoom; above
+    // it the zoom gate stays, since 2,000 labels at the fitted zoom are
+    // paint the eye cannot read and the frame budget cannot afford.
+    const labelsForAll = labelsOn && gcNodes.length <= GC_LABEL_ALL_MAX;
+    if (!dim && ((labelsOn && (labelsForAll || k > GC_LABEL_ZOOM || matched)) || focused)) {
       labelled.push(node);
     }
   }

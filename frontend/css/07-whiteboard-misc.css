@@ -6390,9 +6390,20 @@ button.connection-row {
 .library-file-reading {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  /* stretch, not flex-start: the opened reading must span the row
+     (reported: "doesnt go the whole width of the files row"); the summary
+     line and the button size themselves anyway. */
+  align-items: stretch;
   gap: var(--space-1);
   min-width: 0;
+}
+
+.library-file-reading > .library-file-open-reading {
+  align-self: flex-start;
+}
+
+.library-file-reading-full {
+  width: 100%;
 }
 
 .library-file-summary {

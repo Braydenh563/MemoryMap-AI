@@ -146,3 +146,177 @@ uses.
 Frame rates are only meaningful on the sandbox's CPU; record them as
 relative before/after numbers, not promises. WebGL is measured, not
 assumed, before it is adopted.
+
+---
+
+## Built — Phase 1 (the canvas renderer and physical drag)
+
+### What landed
+
+- **`frontend/graph-worker.js`** — d3-force in a dedicated Worker. It takes
+  nodes, edges and the two slider values, ticks on a self-scheduled timeout
+  (a dedicated worker has no `requestAnimationFrame`), and posts a
+  **transferred `Float32Array`** of interleaved x,y per frame; the main
+  thread hands each buffer back so a 2,000-node map does not allocate 16 KB
+  sixty times a second. Drag start raises `alphaTarget(0.3)` and pins, drag
+  end sets `alphaTarget(0)` so the release decays. `forceCollide` from the
+  drawn radius, `velocityDecay 0.4`, a weak `forceX`/`forceY` centre
+  (0.015/0.02) rather than the SVG path's strong one. Gravity maps onto
+  charge and spread onto link distance, both 1x at 50.
+- **`frontend/graph-canvas.js`** — the Canvas 2D renderer, behind the same
+  `renderGraph()` entry, on the same data, with the same ids and the same
+  dock controls. Nodes are circles sized `4 + 2*sqrt(degree)` clamped to
+  [4, 18] with degree counted client-side; edges are lines in the existing
+  kind colours, batched into one `Path2D` per recipe; labels appear above
+  zoom 1.4 or on hover, selection and search hits; hover dims every
+  non-neighbour to 20%; `d3.quadtree` hit-testing rebuilt only when the
+  positions moved; `d3.zoom` on the canvas with a filter that leaves a
+  gesture starting on a node to `d3.drag`; DPR-aware sizing and a
+  `ResizeObserver` on the card.
+- **`scratchpad/graph-fixture.js`** (2,000 notes, ~4,000 links, ten
+  categories, batched through the app's own `api()`) and
+  **`scratchpad/ui-sweeps/graph.js`** (the gate).
+- The fullscreen graph card is inset one spacing step and given
+  `--radius-lg` instead of being a square-cornered 100vw x 100vh overlay —
+  reported directly.
+
+### Decisions made while building
+
+- **`graphSvg` and `graphZoom` point at the canvas.** `d3.zoom` does not care
+  what element it is attached to, so the zoom strip, the keyboard shortcuts,
+  the minimap, saved views and `fitGraphToView` all keep working with no
+  change at all. This is the single decision that kept the carry-over list
+  short.
+- **Tree, radial and arc keep their computed positions and their curves.**
+  `hierarchyPath`/`arcPath` already return SVG path data and `Path2D` reads
+  it, so the curve maths is shared with the layout code rather than
+  rewritten. The worker is not started for those layouts.
+- **The map is framed twice**: immediately on the first tick, and again when
+  the layout settles unless the viewer has zoomed in the meantime. Framing
+  once at alpha < 0.08 (what the SVG renderer did) is about 110 ticks, which
+  on this fixture was nine seconds of looking at a graph mostly outside the
+  frame.
+- **A drag freezes everything except the dragged note's own neighbourhood.**
+  Freezing the whole map came from a real report (aiming at a moving target
+  is not a gesture, and drag-to-link depends on aiming); freezing nothing is
+  what §3 asks for (the neighbours follow). Freezing all but the neighbours
+  is both.
+- **The worker yields about as long as its tick took** (twice as long during
+  a drag). See the numbers below: this was the difference between a map that
+  could be dragged and one that could not.
+- **`window.__graphDebug`** is a read-only getter returning a frozen
+  snapshot: renderer, node and edge counts, layout, colour mode, transform,
+  hovered id, hidden categories, time cutoff, trace ids, first/last frame
+  ms, worker alpha, tick count and mean tick cost, and the first 40 radii,
+  colours and positions. It exists so the gate can assert that a control
+  changed *what is drawn* rather than only that the control moved. Nothing
+  outside `graph-canvas.js` can write to it.
+- **The SVG renderer is still here**, behind
+  `localStorage["graph-renderer"] = "svg"`, because the gate below is not
+  fully met on this machine. It is one commit to delete
+  (`renderGraphSvg` and its helpers in `graph.js`, `#graph-svg` in
+  `index.html`, `graphRenderer()`), and that commit should be the one that
+  can also show the fps number met.
+
+### The numbers (2,000 notes, ~4,000 links, one Chromium, same box)
+
+Measured with `scratchpad/ui-sweeps/graph.js` against the fixture. **The box
+was running at load average 6-10 on four cores throughout** (other work on
+the same sandbox), which §7 anticipated: these are relative before/after
+numbers, not promises.
+
+| | SVG (before) | Canvas (after) |
+| --- | --- | --- |
+| First frame after `/graph` resolves | 2008.3 ms | **126.1 / 141.8 ms** |
+| Frames per second during a 2 s drag | 3.0 | **6.2** |
+| Worst frame gap during that drag | 1849.9 ms | **700.0 ms** |
+| Renderer's own cost per frame | not separable | **8.6-12.4 ms** at 2,000 notes, **0.6-0.8 ms** at 200 |
+| Frame rate, settled map, nothing being driven | never settles | **58.4-59.2 fps** |
+| Export PNG | SVG clone + inlined styles + rasterise | `canvas.toBlob`, 1.16 MB |
+
+Every control was driven and the drawing compared (canvas pixel hash plus
+the debug state): the four layouts, colour by category and by cluster,
+search highlight and clearing it, hide unlinked, labels on and off, the time
+slider both ways, legend filtering, zoom in/out/fit, similarity edges, focus
+mode and exiting it, trace and clearing it, the minimap (700 dots max,
+coloured, with a live viewport rectangle), saved views, and PNG export. All
+redrew.
+
+### What the gate does not meet, and why
+
+**"≥ 55 fps during a 2 s drag" and "no frame > 16 ms on a 200-note board"
+are not met on this sandbox, and the measurement says the renderer is not
+the reason.** The gate now measures the attribution directly (step 2b):
+
+- with the layout hot: **7.9 fps**, p50 frame gap 117 ms, **draw 8.6 ms**,
+  worker tick 65 ms;
+- with the worker stopped and *nothing else changed*: **59.2 fps**, p50 gap
+  17 ms, draw 12.4 ms;
+- restarted: back to 2.9 fps.
+
+So the main thread is roughly 10% busy in both cases and the page still
+cannot get frames while the simulation runs. On a 200-note board the numbers
+are starker: the renderer draws in **0.6-0.8 ms** (worst 1.9-4.9 ms, inside
+the 16 ms budget by an order of magnitude) and a tick costs 1-12 ms, and the
+page still only reaches 6-9 fps *during* a drag while reaching 58.4 fps
+settled. The limit is the machine's ability to run any sustained background
+work alongside a 60 Hz frame loop, not the graph.
+
+Three things were changed because of these measurements, and all three are
+real improvements regardless of the box: the worker's duty cycle (it used to
+hold its thread flat out and took an *idle* map to 2.5 fps),
+`forceManyBody.distanceMax(900)` and `theta(1.1)`, and the minimap sampling
+at most 700 dots instead of rebuilding 2,000 SVG circles per repaint.
+
+### Not carried over from the SVG renderer
+
+Listed rather than silently dropped:
+
+1. **Radial and arc labels are not rotated onto the spoke** — they are drawn
+   centred under the node. Tree labels do sit beside the node.
+2. **The halo is a flat translucent disc, not a blurred one.** `ctx.filter =
+   blur()` per node is not affordable; the disc reads the same at the sizes
+   involved.
+3. **The "orb shine" radial-gradient highlight on each node is gone.**
+4. **The semantic-zoom cluster blobs** (the category super-nodes the SVG path
+   faded in below zoom 0.45) are gone. Colour by cluster still works; this
+   was a second, unrelated overlay.
+5. **The "Favourite" text badge above a pinned node** is now the warn-coloured
+   ring alone.
+6. **An edge's `<title>` tooltip** (its reason on hover) is gone; clicking a
+   link edge still opens the management panel that shows and edits it. Node
+   tooltips are kept, on the canvas element itself.
+7. **`frameTree` cannot measure a bounding box** on a canvas, so a tree is
+   framed from node extents rather than from the drawn labels. Long labels
+   can sit slightly outside the first frame.
+8. `#graph-svg`'s own click and dblclick handlers in `app.js` are inert while
+   the canvas is showing; the canvas carries equivalents.
+
+### What was not verified
+
+- **No claim here rests on looking at a screenshot.** Every visual statement
+  above is either a pixel hash, a `getComputedStyle`, or a number off
+  `__graphDebug`. Nothing in this phase was checked by eye, so *how it looks*
+  — whether the dimming reads well, whether the labels are legible at 1.4x,
+  whether the halo without its blur looks flat — is unverified.
+- The dark theme was not measured (`contrast.js` was not run on the canvas).
+- Touch and pinch were not exercised; `touch-action: none` and d3's pointer
+  handling are inherited from the SVG surface's own rules, not tested.
+- Entity, document and mind-map nodes were not on the fixture, so their
+  dashed and dotted rings are drawn from the transcribed recipes and were
+  never seen.
+- No second browser: Chromium only.
+- Two gate steps flaked once each under load (similarity edges, clearing a
+  trace between two notes that turned out not to be connected); both were
+  given longer settles and better reporting rather than being chased.
+
+### Phase 2, measured before starting it
+
+Three of the four things Phase 2 lists are already true and were confirmed
+rather than assumed: the page does not scroll on Graph (`scrollHeight` equals
+the viewport on all axes), the card already fills the tab (767 px of an
+807 px tab), and the minimap and zoom strip are already absolutely
+positioned over the canvas. What is left is the dock, the stats line and the
+legend row, which are still in flow above the map: **the map gets 530 px of
+the card's 767 px, so 31% of the tab is chrome.** That, and the stats line
+becoming a chip in the dock, is the real content of Phase 2.

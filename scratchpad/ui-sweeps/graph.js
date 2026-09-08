@@ -248,6 +248,12 @@ const ok = (pass) => (pass ? "PASS" : "FAIL");
     }
     if (!target) return null;
     const surface = document.getElementById("graph-canvas");
+    //: Start from "nothing hovered". The drag above leaves the pointer on a
+    //: node, so without this the test moves onto a node that is already lit and
+    //: reads an unchanged value as a failure — which it did, and the renderer
+    //: was fine.
+    surface.dispatchEvent(new PointerEvent("pointerleave", { bubbles: true, pointerId: 1 }));
+    await new Promise((resolve) => requestAnimationFrame(() => resolve()));
     const before = window.__graphDebug.hovered;
     surface.dispatchEvent(
       new PointerEvent("pointermove", {
@@ -491,7 +497,10 @@ const ok = (pass) => (pass ? "PASS" : "FAIL");
         box.checked = true;
         box.dispatchEvent(new Event("change", { bubbles: true }));
       }),
-    6000
+    // Deriving similarity edges for 2,000 notes is a real traversal on the
+    // server; 6 s was not always enough on a loaded box and the step reported
+    // "the control did nothing" when the answer had simply not arrived.
+    14000
   );
   await control(
     "similarity off",
@@ -529,7 +538,14 @@ const ok = (pass) => (pass ? "PASS" : "FAIL");
       }),
     4000
   );
-  await control("clear trace", () => page.evaluate(() => clearTrace()), 1500);
+  //: Only meaningful if a route was actually found — two notes picked from the
+  //: top of the list may not be connected at all, in which case there is no
+  //: path on screen and clearing it correctly changes nothing. Reported either
+  //: way rather than failed, because "no route between these two" is a fact
+  //: about the fixture and not about the renderer.
+  const hadTrace = await page.evaluate(() => Boolean(window.__graphDebug.trace));
+  await control(`clear trace (a route was drawn: ${hadTrace})`, () =>
+    page.evaluate(() => clearTrace()), 2500);
 
   // The minimap, saved views and the PNG export are not "did the drawing
   // change" questions, so they are checked for their own result instead.

@@ -131,6 +131,18 @@ are only just begun or half done." True; this table is the state.
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 
+**Cutoff note (15:35 UTC, owner at 95% usage).** Both agents were told to
+commit what passes and write their remaining lists. If "continue" finds
+them cut off: the graph worktree (`agent-a63a58af8c6d8807a`) may hold
+uncommitted edits to graph.js, graph-canvas.js, graph-worker.js and
+02-chat-graph.css; run the lint set and `node --check` on them, commit as
+"GRAPH Phase 2, partial" if green, otherwise `git stash` them in the
+worktree and restart Phase 2 from the brief in this file's queue. The
+launcher worktree (`agent-a3e9c02681f8ef629`) had nothing committed yet;
+Brief 17 restarts from SESSION_BRIEFS.md. Merge order after that: graph,
+launcher, then Sonnet on Brief 16 (docs). Everything Fable did today is
+pushed; CI green through 179373b.
+
 **Now (2026-09-08 15:25 UTC):** merged and pushed this afternoon: Sonnet's
 INBOX run (84f4eb2) and Opus's consistency and docks run (8075149; twelve
 commits, the two work lists rewritten to only what is left). In flight:

@@ -84,12 +84,28 @@ class P(HTMLParser):
 
 def main(path):
     src = open(path, encoding="utf-8").read()
-    def blank(m):
-        return "\n" * m.group(0).count("\n")
+    # Blank comments, scripts and styles with a linear scan rather than a
+    # lazy `.*?` regex: on a file with an unterminated opener the regex
+    # rescans to the end from every candidate (CodeQL flags it as polynomial).
+    def blank_between(text, opener, closer):
+        out, pos = [], 0
+        while True:
+            start = text.find(opener, pos)
+            if start < 0:
+                out.append(text[pos:])
+                return "".join(out)
+            end = text.find(closer, start + len(opener))
+            if end < 0:
+                out.append(text[pos:])
+                return "".join(out)
+            end += len(closer)
+            out.append(text[pos:start])
+            out.append("\n" * text.count("\n", start, end))
+            pos = end
 
-    src = re.sub(r"<!--.*?-->", blank, src, flags=re.S)
-    src = re.sub(r"<script\b.*?</script>", blank, src, flags=re.S)
-    src = re.sub(r"<style\b.*?</style>", blank, src, flags=re.S)
+    src = blank_between(src, "<!--", "-->")
+    src = blank_between(src, "<script", "</script>")
+    src = blank_between(src, "<style", "</style>")
     p = P()
     p.feed(src)
     for node in reversed(p.stack):

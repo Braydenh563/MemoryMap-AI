@@ -15,9 +15,6 @@ import sys
 from pathlib import Path
 
 EXTS = {".js", ".html", ".css", ".py", ".md", ".txt", ".json"}
-SENTENCE_END = re.compile(r"[.!?:;]\s+|[\"'`]\s*$")
-
-
 def fix_line(line: str) -> str:
     if "—" not in line:
         return line

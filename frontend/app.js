@@ -9600,7 +9600,16 @@ function renderRelatedElsewhere(target, items) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "chip chip-interactive answer-related-chip";
-    setLabel(button, `${icons[item.kind] || "ph:link"} ${item.label || item.kind}`);
+    //: INBOX 35: `item.label` is a raw document title or note preview from
+    //: the backend, unlike every other chip label in this file, which
+    //: goes through `noteLabel` first. Reported with a screenshot: a
+    //: document titled `# CAB432` and a note opening `**Ice Breakers:**`
+    //: printed their own markdown markers as chip text. `noteLabel` already
+    //: strips them (INLINE_MD, headings) for exactly this reason; routing
+    //: through it here too, `{content: item.label}` because that is the
+    //: shape it expects.
+    const label = noteLabel({ content: item.label || item.kind }, 40);
+    setLabel(button, `${icons[item.kind] || "ph:link"} ${label}`);
     button.title = `Open this ${item.kind}`;
     button.addEventListener("click", () => {
       if (item.kind === "document") {
@@ -35847,8 +35856,16 @@ function cmdPaletteTouchedRow(items) {
       const chip = document.createElement("button");
       chip.type = "button";
       chip.className = "cmd-source-row";
-      const label = String(item.label || `#${item.id}`);
-      setLabel(chip, `${spec.icon} ${label.length > 44 ? `${label.slice(0, 44)}…` : label}`);
+      //: INBOX 35: `item.label` is a raw title/preview from the backend
+      //: (a document's own title, a note's opening words), unlike
+      //: `cmdPaletteResultRow` just above, which already runs every label
+      //: through `noteLabel`. Reported with a screenshot: a document
+      //: titled `# CAB432` and a note opening `**Ice Breakers:**` printed
+      //: their own markdown markers here. `noteLabel` already strips them
+      //: for exactly this reason, and its own 40-char elision replaces the
+      //: plain character slice this row used to do by hand.
+      const label = noteLabel({ content: item.label || `#${item.id}` }, 44);
+      setLabel(chip, `${spec.icon} ${label}`);
       chip.title = spec.title;
       chip.addEventListener("click", () =>
         item.kind === "document" ? cmdPaletteGoToDocument(item.id) : cmdPaletteGoToNote(item.id),

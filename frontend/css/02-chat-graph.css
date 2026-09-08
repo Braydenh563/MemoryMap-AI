@@ -4085,11 +4085,20 @@ mark.lightbox-hit {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  /* INBOX 35: this is a `<button>`, and neither this rule nor the one
+     below ever set `text-align`, so the browser's own default for a
+     button (`center`) won this. Measured: a long, truncated title read
+     centred with its ellipsis in the middle of the visible run rather than
+     at its end, the "clip and centre" report. The chip recipe used
+     everywhere else in this app (`.cmd-source-row` above) is left-aligned;
+     matched here too. */
+  text-align: left;
 }
 
 .answer-related-chip {
   max-width: min(18rem, 100%);
   overflow: hidden;
+  text-align: left;
 }
 
 

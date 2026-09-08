@@ -492,9 +492,11 @@
     border-color 0.2s ease;
 }
 
-.wb-card:hover,
-.library-chip:hover {
-  will-change: transform, box-shadow;
+@media (hover: hover) {
+  .wb-card:hover,
+  .library-chip:hover {
+    will-change: transform, box-shadow;
+  }
 }
 
 /* **A dragged card must track the cursor, not ease after it.** The transition
@@ -514,18 +516,22 @@
   will-change: transform;
 }
 
-.card.interactive:hover,
-.wb-card:hover:not(.dragging) {
-  /* Tone and edge, never a lift: a card that moves 4px on hover is the
-     "things that move when they should not" cause in UI_MODERNISATION_PLAN,
-     and on a board it shifts every link attached to it. */
-  box-shadow: var(--shadow-lg);
-  border-color: var(--accent);
+@media (hover: hover) {
+  .card.interactive:hover,
+  .wb-card:hover:not(.dragging) {
+    /* Tone and edge, never a lift: a card that moves 4px on hover is the
+       "things that move when they should not" cause in UI_MODERNISATION_PLAN,
+       and on a board it shifts every link attached to it. */
+    box-shadow: var(--shadow-lg);
+    border-color: var(--accent);
+  }
 }
 
-.library-chip:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+@media (hover: hover) {
+  .library-chip:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
 }
 
 /* ======================= SKILLS TAB ======================= */
@@ -555,8 +561,10 @@
   transition: transform var(--motion-slow) ease, border-color var(--motion-slow) ease;
 }
 
-.skill-card:hover {
-  border-color: var(--accent);
+@media (hover: hover) {
+  .skill-card:hover {
+    border-color: var(--accent);
+  }
 }
 
 .skill-card-header {
@@ -5180,9 +5188,11 @@ button.connection-row {
   white-space: nowrap;
 }
 
-.ocr-rail-item:hover {
-  border-color: var(--border);
-  color: var(--ink);
+@media (hover: hover) {
+  .ocr-rail-item:hover {
+    border-color: var(--border);
+    color: var(--ink);
+  }
 }
 
 .ocr-rail-item.is-active {
@@ -7788,7 +7798,14 @@ input[type="file"] {
    sideways (the sub-tabs, the chips — `.notes-subtabs` and the category
    strip already do this), the search on its own row, and one control per
    choice (the sort select stays, the segmented sort that repeats it goes). */
-@media (max-width: 600px) {
+/* **600 became 820** (UI_MODERNISATION_PLAN.md Phase 9, band 3). Measured at
+   768 with the rest of band 3 in place: the Library sub-tabs took 84px and
+   the filter chips 121px, two and three wrapped rows, 205px of chrome above
+   a grid on a tablet in portrait. The recipe below is exactly what that
+   width needs and it was scoped to phones only. `#library-sort-seg` stays
+   behind 600 in a block of its own: hiding a control is a phone decision,
+   not a tablet one, and this block is now about strips that scroll. */
+@media (max-width: 819.98px) {
   .library-subtabs,
   .library-filters {
     flex-wrap: nowrap;
@@ -7823,6 +7840,9 @@ input[type="file"] {
     flex: 1 1 100%;
   }
 
+}
+
+@media (max-width: 600px) {
   #library-sort-seg {
     display: none;
   }
@@ -8176,4 +8196,761 @@ input[type="file"] {
   line-height: 1.5;
   color: var(--ink);
   user-select: text;
+/* ==========================================================================
+   RESPONSIVE BY DEVICE (UI_MODERNISATION_PLAN.md — Phase 9)
+   ==========================================================================
+
+   **The instruction, verbatim:** "Also intentional and adjusted design that
+   alters specifically for smaller resolutions like for iPad, tablet, iPhone
+   etc."
+
+   Phase 5's phone work was reactive: each 390px finding was fixed where it
+   was found, in the file that happened to own the component. Twenty-five
+   separate `max-width: 720px` blocks, seven `600px` ones and four `640px`
+   ones is not a responsive design — it is twenty-six of them, and no one
+   reading any single block can say what the app is supposed to look like on
+   an iPad. This section is the design, stated once, in one place.
+
+   --- the four bands ------------------------------------------------------
+
+   Half-open, [lower, upper), so every width belongs to exactly one band and
+   a boundary width is never in two. 820 is therefore an iPad *landscape*
+   width, not a portrait one, and 600 is a small tablet rather than a phone.
+
+     >= 1100   desktop, iPad landscape with a sidebar open
+               The layout above, unchanged. Sidebars at their remembered
+               width, docks in one row, hover affordances live.
+
+     820-1100  iPad landscape, small laptop
+               Sidebars narrow to 12rem (`SIDEBAR_TABLET_MAX`, app.js — the
+               width is written as an inline grid-template-columns, so a
+               stylesheet clamp cannot reach it). Docks stay in one row and
+               keep their seven controls. The whiteboard properties drawer
+               becomes a full-height sheet on the right edge instead of a
+               floating column, because at this width the tool dock's wrapped
+               rows reach under it.
+
+     600-820   iPad portrait
+               One column: `.layout` stacks, and `STACKED_LAYOUT` in app.js
+               moves with it or the inline grid track beats the stylesheet
+               and 721-820 silently stays two-column. The three sidebars
+               become sheets that slide in from the left, opened by the
+               collapse toggle they already carry. A dock keeps identity +
+               search + primary; its `.dock-arrange` zone is *moved* into the
+               dock's own overflow menu (`foldDockArrange`, app.js) rather
+               than hidden — `display: none` on a sort select is a control
+               that no longer exists, which is the failure this phase is
+               explicitly not allowed to ship. Card grids go two-up.
+
+     < 600     iPhone
+               The tab bar leaves the header and pins to the bottom edge,
+               within thumb reach, with the safe-area inset under it; the top
+               bar keeps identity (logo, space switcher) and utilities only.
+               Where a dock has one primary action — Graph "New note",
+               Library "New document", Timeline "Today" — that button floats
+               bottom-right above the tab bar. Bottom docks sit above the
+               on-screen keyboard (`--keyboard-inset`, written from
+               `visualViewport` through the CSSOM in app.js).
+
+   --- the rules that apply across bands -----------------------------------
+
+   1. **44px touch targets below 820, in one media block.** `--target-min`
+      steps from 1.75rem to 2.75rem once, at the root. Not per component:
+      the reason this token exists is that a hit target is a property of the
+      *pointer*, not of the button, and forty components each deciding their
+      own touch size is how the app got seven control heights in the first
+      place. Everything that already reads the token — `button.small`, the
+      dock's controls, the selection ticks, the switch's `::before`
+      overhang — moves together and nothing new has to be taught the number.
+
+   2. **`env(safe-area-inset-*)` on every edge-hugging surface**: the top
+      bar, the status bar, and every bottom dock. Written with the `, 0px`
+      fallback so it is a no-op in a browser window and correct in a
+      standalone install on a notched phone.
+
+   3. **`@media (hover: hover)` gates the hover lift and tint** on cards,
+      chips and rows — 24 rules, wrapped where they are declared rather than
+      undone here, because undoing a tint requires knowing each family's
+      resting value and getting one wrong is invisible until someone looks.
+      Two deliberate exclusions. A **button's own affordance** stays: a
+      control that does not respond to the pointer reads as disabled, and a
+      button is not what sticks. And a rule whose treatment is **shared with
+      `:focus-visible`** stays: on touch a tapped row is usually a focused
+      row, so the tint is then telling the truth, and gating those behind
+      `hover: hover` would take the focus ring off an iPad with a keyboard —
+      a real accessibility regression traded for a cosmetic one.
+
+   4. **`prefers-reduced-motion` is honoured in the same block** as the
+      motion it introduces, not in a distant one. Everything this section
+      animates (the sidebar sheets, the floating action button) has its
+      transition removed below.
+
+   Nothing here is a component fix. A component fix belongs next to its
+   component; what belongs here is the part that is true of the whole app at
+   a width. */
+
+/* --- 1. touch targets, one step, one block -------------------------------
+   Below 820 the pointer is a finger. 2.75rem is 44px at the default root
+   size — the figure both Apple's and Google's guidance give, and the one
+   `touch.js` asserts against every dock control on Notes, Library and Chat. */
+@media (max-width: 819.98px) {
+  :root {
+    --target-min: 2.75rem;
+  }
+}
+
+/* --- 2. the safe area ----------------------------------------------------
+   Three surfaces touch the edge of the window: the top bar, the status bar
+   and (below 600) the tab bar. Each takes the inset on the edge it touches.
+
+   `env()` with an explicit `0px` fallback, and not only for old browsers:
+   inside a plain browser tab there is no inset at all, so every one of these
+   resolves to exactly the padding it had before. This costs nothing until
+   the app is installed to a home screen, which is the only place it matters
+   and the only place it cannot be tested here. */
+header#top-bar {
+  padding-top: calc(var(--header-pad-y) + env(safe-area-inset-top, 0px));
+  padding-left: calc(var(--header-pad-x) + env(safe-area-inset-left, 0px));
+  padding-right: calc(var(--header-pad-x) + env(safe-area-inset-right, 0px));
+}
+
+#status-bar {
+  padding-left: calc(var(--page-gutter) + env(safe-area-inset-left, 0px));
+  padding-right: calc(var(--page-gutter) + env(safe-area-inset-right, 0px));
+}
+
+/* The status bar is the bottom-most surface only while the tab bar is still
+   in the header — below 600 the tab bar is pinned under it and takes the
+   inset instead (see the phone band). Guarded rather than left to override
+   order, so the inset is never paid twice. */
+@media (min-width: 600px) {
+  #status-bar {
+    height: calc(var(--status-bar-h) + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* --- the bottom docks ----------------------------------------------------
+   The chat composer and the documents formatting bar are the two strips you
+   type at, and both sit at the bottom of their card. Two things can be under
+   them: the home indicator, and the on-screen keyboard. `--keyboard-inset`
+   is 0px at the root and is written by app.js from `visualViewport` while a
+   keyboard is open; adding the two means one declaration handles both, and
+   the arithmetic is right when neither is present because both are 0.
+
+   `padding-bottom`, deliberately, not the `padding` shorthand: these two
+   selectors are inside `test_ui_signatures.py`'s row/toolbar family, whose
+   distinct-`padding`-value ceiling is a ratchet this phase must not spend. */
+.chat-dock {
+  padding-bottom: calc(var(--keyboard-inset) + env(safe-area-inset-bottom, 0px));
+}
+
+/* The formatting bar carries `padding: 0.4rem 0.4rem` of its own, so its
+   base term is stated here rather than dropped — a longhand in a later file
+   replaces the shorthand's bottom side outright, and `calc(0px + 0px)` would
+   have quietly taken 6.4px off the strip at every width. */
+.doc-toolbar {
+  padding-bottom: calc(var(--space-2) + var(--keyboard-inset) + env(safe-area-inset-bottom, 0px));
+}
+
+/* --- 4. reduced motion ---------------------------------------------------
+   Declared here with the motion it belongs to. The sidebar sheet slides and
+   the floating action button fades in; with this preference set, both simply
+   are where they are going to be. */
+@media (prefers-reduced-motion: reduce) {
+
+  #sidebar,
+  #chat-sidebar,
+  #doc-sidebar {
+    transition: none;
+  }
+}
+
+/* --- band 2: 820-1100, iPad landscape and small laptops -------------------
+   The layout above, with two things given room they do not have at this
+   width.
+
+   **The sidebars.** Their width is capped at 12rem by `SIDEBAR_TABLET_MAX`
+   in app.js, not here, and the reason is worth stating where a reader will
+   look for the rule: a resizable sidebar writes its width as an inline
+   `grid-template-columns` on `.layout`, and an inline style beats every rule
+   in every file whatever the media query says. A `clamp()` in this block
+   would have looked right and done nothing. What the stylesheet still owns
+   is the frame before that code runs, and `.layout`'s own starting track
+   (`clamp(11rem, 17vw, 16rem)`) already resolves to 174px at 1024 and 187px
+   at 1099, both inside the cap, so there is nothing to restate here.
+
+   **The whiteboard properties drawer becomes a sheet.** As a floating column
+   it is 13.5rem wide, held 0.5rem off the right edge, with a card's rounded
+   corners on all four. At 1440 that reads as a panel over a canvas. At 1024
+   it reads as a card that has run out of room: the sliders inside it are the
+   narrowest controls in the app, and the gap behind it is 8px of canvas too
+   thin to use for anything. Flush to the edge, wider, square on the side it
+   is attached to, scrolling inside itself, it reads as part of the window
+   rather than as something dropped on it.
+
+   It stops above the tool row rather than running to the bottom of the
+   canvas, and that is deliberate: the tool dock is centred with a fit-content
+   width, so on a narrow board its wrapped rows reach under this column. The
+   existing `bottom` calc already clears it and is kept. Markup and
+   whiteboard.js are untouched. */
+@media (min-width: 820px) and (max-width: 1099.98px) {
+  .whiteboard-floating-panel.mid-right {
+    right: 0;
+    width: 17rem;
+    max-width: 55vw;
+    /* Square where it meets the window edge, rounded where it meets the
+       canvas: the shape that says "attached" rather than "floating". */
+    border-radius: var(--radius) 0 0 var(--radius);
+    border-right: none;
+    overflow-y: auto;
+  }
+}
+
+/* --- the arrange zone, once it is inside the overflow menu ----------------
+   `foldDockArrange` (app.js) moves the whole `.dock-arrange` element into the
+   dock's `...` menu below 1100 and moves it back above. The element arrives
+   still wearing `.dock-group`, which is a horizontal run of controls at the
+   dock's own height, and a menu is a stacked list of full-width rows. This is
+   the recipe for the same nodes in the other context.
+
+   It matches `.dock-menu-section` deliberately: the Notes menu already holds
+   a "Notes per page" section built that way, and the folded zone landing
+   directly above it has to read as another section of the same list rather
+   than as a control strip that fell into a popup. */
+.dock-menu-list > .dock-arrange-folded {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+}
+
+.dock-menu-list > .dock-arrange-folded + .dock-menu-section {
+  border-top: 1px solid var(--divider);
+}
+
+/* Full width, and free of the row's max-width cap: a select that stops at
+   14rem inside a 16rem menu leaves a ragged right edge next to the
+   full-width rows above and below it. */
+.dock-menu-list > .dock-arrange-folded > select,
+.dock-menu-list > .dock-arrange-folded > .select-shell,
+.dock-menu-list > .dock-arrange-folded > .seg {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+
+/* The view segment keeps its two icons but spreads them, because in a menu
+   there is width to spend and a 2rem icon button in a 16rem row reads as
+   something half-drawn. */
+.dock-menu-list > .dock-arrange-folded > .seg > button {
+  flex: 1 1 0;
+}
+
+.dock-arrange-label {
+  display: block;
+  padding: var(--space-3) var(--space-3) 0;
+  font-size: var(--text-sm);
+}
+
+/* A single control folded into a menu (the Timeline's view segment) takes the
+   same full-width row a folded zone's children take. */
+.dock-menu-list > .dock-folded-control {
+  width: auto;
+  max-width: none;
+  margin: 0 var(--space-3) var(--space-2);
+}
+
+.dock-menu-list > .seg.dock-folded-control > button {
+  flex: 1 1 0;
+}
+
+/* --- the dock row below 1100 ---------------------------------------------
+   Folding the arrange zone away buys most of the width back. What is left is
+   the identity and the search basis, both of which were sized for a 1440
+   window: measured at 820 with the fold in place, the Notes dock still took
+   two rows (80px) because a 14rem search basis plus a heading that refuses to
+   wrap or clip is wider than the content column a 192px sidebar leaves.
+
+   The heading clips rather than wraps. A dock's identity is one line by
+   definition (Phase 8), and a wrapped `<h2>` makes the whole row taller,
+   which is the failure this band exists to remove. */
+@media (max-width: 1099.98px) {
+  .dock-find {
+    flex-basis: 10rem;
+  }
+
+  .dock-identity h2 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* --- band 3: 600-820, iPad portrait, and the sheet that band 4 inherits ---
+   One column, and the sidebar stops being a row of the page.
+
+   **The sidebars become sheets.** Stacked, a sidebar sat above the content
+   and charged it the height: measured at 390, the Notes categories card was
+   48px before the first note and the chat list 99px before the first message,
+   and in tablet portrait it is worse because there is more of it. A panel you
+   are not using should cost the panel you are using nothing.
+
+   So below 820 the three sidebars leave the flow and slide in from the left,
+   over the content, with a rail left showing that carries the collapse toggle
+   they already own. No new control and no new gesture: the button that opens
+   and closes a sidebar on a desktop opens and closes the sheet here.
+   `applySidebarSheetMode` (app.js) takes the desktop `.sidebar-collapsed`
+   classes off on the way in and puts them back on the way out, so none of
+   that rule's `!important` widths and none of its hover-peek apply in this
+   band, and there is nothing here fighting them.
+
+   The rail is the toggle plus its inset on both sides, so a closed sheet
+   shows exactly the button and nothing else. Escape closes it, and so does a
+   tap on the content behind it (app.js): a sheet you can only close with the
+   control it is covering is a trap.
+
+   `.doc-layout` gets the same treatment and needs one extra line. It is a
+   two-track grid that never stacked at any width, so on a phone the editor
+   had 390 minus a 14rem minimum sidebar minus the gap, about 150px of column
+   to render a document in. Its non-sidebar children are pinned to
+   `grid-column: 2` by a rule written to survive the sidebar being hidden;
+   with the sidebar out of flow there is no track two, so they move to one. */
+@media (max-width: 819.98px) {
+
+  .doc-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .doc-layout > :not(.sidebar-panel) {
+    grid-column: 1;
+  }
+
+  /* **By id, and that is not decoration.** `#chat-sidebar` and `#doc-sidebar`
+     already carry `position: relative` from the phone block in
+     05-sidebars-themes.css and `position: sticky` from their own id rules, and
+     an id beats any class selector however late it is declared. Written as
+     classes first, this block applied its `transform` and its width and left
+     `position` alone, so the sheets rendered as ordinary in-flow cards shoved
+     268px off the left edge of the page. Measured: `position: relative`,
+     x=-255, and a sidebar still costing the content its height. */
+  #sidebar,
+  #chat-sidebar,
+  #doc-sidebar {
+    --sheet-rail: calc(var(--sidebar-toggle-size) + 2 * var(--sidebar-toggle-inset));
+    position: fixed;
+    top: var(--header-h);
+    bottom: var(--status-bar-h);
+    left: 0;
+    /* Wide enough for a conversation title, never more than most of a phone:
+       a sheet that covers the whole window is a page, and a page needs a way
+       back that a sheet does not. */
+    width: min(20rem, 84vw);
+    max-height: none;
+    height: auto;
+    margin: 0;
+    z-index: 35;
+    overflow-y: auto;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    transform: translateX(calc(var(--sheet-rail) - 100%));
+    transition: transform var(--motion-slow) ease, box-shadow var(--motion-slow) ease;
+    box-shadow: none;
+  }
+
+  #sidebar.sidebar-sheet-open,
+  #chat-sidebar.sidebar-sheet-open,
+  #doc-sidebar.sidebar-sheet-open {
+    transform: translateX(0);
+    box-shadow: var(--glass-shadow);
+  }
+
+  /* Closed, only the rail is on screen, so nothing inside the sheet may be
+     reached by a stray tap or by Tab. `visibility`, not `display`: a
+     `display: none` subtree cannot be animated back in, and the sheet
+     slides. */
+  #sidebar > *,
+  #chat-sidebar > *,
+  #doc-sidebar > * {
+    visibility: hidden;
+  }
+
+  #sidebar.sidebar-sheet-open > *,
+  #chat-sidebar.sidebar-sheet-open > *,
+  #doc-sidebar.sidebar-sheet-open > * {
+    visibility: visible;
+  }
+
+  /* The toggle rides on the rail: pinned to the sheet's right edge at the
+     inset the rail was measured from, so it lands centred on the strip that
+     stays visible. */
+  #sidebar > .sidebar-collapse-toggle,
+  #chat-sidebar > .sidebar-collapse-toggle,
+  #doc-sidebar > .sidebar-collapse-toggle {
+    right: var(--sidebar-toggle-inset);
+    visibility: visible;
+  }
+
+  /* A drag handle is a pointer affordance for a column that no longer exists:
+     the sheet has one width. */
+  #sidebar > .sidebar-resize,
+  #chat-sidebar > .sidebar-resize,
+  #doc-sidebar > .sidebar-resize {
+    display: none;
+  }
+
+  /* The content keeps the rail clear, so the opener never lands on a card's
+     own edge. Written from the sidebar rather than from the layout, because
+     `test_style_scale.py` reads any rule whose selector starts with `.layout`
+     or `.doc-layout` as the page container setting its own outer gutter. */
+  .sidebar-panel ~ * {
+    padding-left: calc(var(--sidebar-toggle-size) + 2 * var(--sidebar-toggle-inset));
+  }
+}
+
+/* --- two-up cards in tablet portrait --------------------------------------
+   The card grids are `column-width` masonry, which fills a 768px column with
+   three or four narrow cards and reads as a desktop grid that has been
+   squeezed rather than as a layout for this width. Two is the count that
+   keeps a card wide enough to still be a card. */
+@media (min-width: 600px) and (max-width: 819.98px) {
+
+  .library-grid:not(.library-list) {
+    columns: 2;
+  }
+
+  #dash-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* --- what the phone block assumed, and the sheet undoes --------------------
+   02-chat-graph.css hides the Notes sidebar's head row and its collapse
+   toggle below 600, with the reason written down: "a collapse toggle means
+   nothing when the sidebar is stacked". That was true. It is not true any
+   more: below 820 the sidebar is a sheet and that toggle is the only way to
+   open it, so the phone was left with a 52px rail carrying an invisible
+   button. Measured before this: the toggle's box was 0 by 0 at 390 and the
+   sheet could not be opened at all, while the identical interaction worked at
+   768. A rule that encodes an assumption has to be revisited when the
+   assumption changes, and the way to catch that is to drive the thing.
+
+   The head comes back with it, because a sheet with no title is a panel that
+   slid in from nowhere, and the category list stops being a sideways
+   scroller: a 320px sheet has room to wrap, and a wrapped chip cloud shows
+   every category at once where a horizontal scroller shows four. */
+@media (max-width: 819.98px) {
+
+  #sidebar > .sidebar-head {
+    display: flex;
+  }
+
+  #sidebar > .sidebar-collapse-toggle {
+    display: flex;
+  }
+
+  #sidebar ul#category-list {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+}
+
+/* --- band 4: below 600, the phone ----------------------------------------
+   **The tab bar moves to the bottom.** Measured at 390 before this: the top
+   bar was 158px and the tab strip another 40px under it, 198px of navigation
+   above every page on an 844px screen, and the seven tabs did not fit anyway
+   (`scrollWidth` 640 against `clientWidth` 364), so three of them lived
+   inside a horizontal scroller with a fade at the edge. BACKLOG.md records
+   that fade being photographed and read as "broken" rather than as "scroll
+   for more", and records the honest conclusion that a stronger affordance was
+   needed and that nothing in the app existed to match against.
+
+   A bottom tab bar answers both halves at once. Seven equal columns fit 390
+   with room to spare once each tab is an icon over a caption rather than a
+   word in a row, nothing scrolls, nothing needs a fade, and the navigation
+   sits where a thumb actually reaches instead of at the far top corner.
+
+   The icons are new markup (one `<i>` and one `<span>` per tab, plus an
+   `aria-label` so the accessible name survives the caption being hidden), and
+   they are **off above 600**: the desktop tab strip is a row of words and
+   stays one, so this costs nothing at any width but this band. */
+.tab-icon {
+  display: none;
+}
+
+@media (max-width: 599.98px) {
+
+  :root {
+    /* A control-height family member, not a spacing step: it is the size of
+       a hit target and must not move with the density setting. 44px of row
+       plus the strip's own padding. */
+    --bottom-tabs-h: 3.6rem;
+    /* The page's own bottom inset has the bar under it now. */
+    --page-viewport: calc(100dvh - var(--header-h) - var(--status-bar-h) - var(--bottom-tabs-h));
+  }
+
+  /* One row again. The tab strip leaves the header entirely in this band, so
+     the wrap that gave it a row of its own has nothing left to wrap. */
+  header#top-bar {
+    flex-wrap: nowrap;
+  }
+
+  #tab-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 45;
+    width: auto;
+    height: var(--bottom-tabs-h);
+    box-sizing: border-box;
+    /* Furniture at the edge of the window is never ambiguous about being
+       furniture: the same opaque treatment the status bar takes, for the
+       same reason its own comment gives. */
+    background: var(--modal-bg);
+    border-top: 1px solid var(--glass-border);
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    border-radius: 0;
+    box-shadow: none;
+    /* Nothing scrolls here any more, and a scroller with seven equal columns
+       would hide the fact that one of them is off screen. */
+    overflow-x: visible;
+    gap: 0;
+    padding: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  #tab-bar button {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    border-radius: 0;
+    /* The active tab is a colour, not a filled pill: a pill in a seven-column
+       strip paints a block the width of a seventh of the window. */
+    background: none;
+  }
+
+  #tab-bar button.active {
+    background: none;
+    color: var(--accent-surface);
+  }
+
+  :root[data-mode="dark"] #tab-bar button.active {
+    color: var(--accent-surface);
+  }
+
+  .tab-icon {
+    display: block;
+    font-size: var(--text-h3);
+    line-height: 1;
+  }
+
+  .tab-label {
+    font-size: var(--text-xs);
+    line-height: 1;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* **The caption goes below 480, and the number is measured, not chosen.**
+   Seven equal columns means each tab gets a seventh of the window. The
+   longest caption, "Dashboard", needs 68px at `--text-xs`; seven of those is
+   476. So above 480 every caption fits whole, and below it at least one is
+   cut. Measured at 390: "Dashboard" wanted 68px in 56 and "Reminders" 60 in
+   56, the only two of the seven that did not fit.
+
+   Cut is the operative word. An ellipsis here would be two captions out of
+   seven reading "Dashboa..." and "Reminde...", and this project has a
+   specific, expensive lesson about that shape: a tab label cut mid-word next
+   to six whole ones reads as broken rather than as abbreviated, and it took
+   a real screenshot at 390 to settle that the last time (BACKLOG.md, the tab
+   strip's edge fade). Seven distinct icons with the name still on the button
+   for assistive tech is the standard bottom-bar pattern and says one thing
+   clearly instead of seven things with two of them damaged.
+
+   A short caption per tab would be better than either, and it is deliberately
+   not invented here: "Dashboard" to "Home" is a copy decision about what the
+   app calls its own landing page, not a layout fix, and this phase does not
+   get to make it alone. Logged in UI_MODERNISATION_PLAN.md's Built section. */
+@media (max-width: 599.98px) {
+
+  /* The bar is `fixed`, so the page has to be told it is there. The status
+     bar is the last flex child of the body and does not shrink, so its own
+     bottom margin is what takes the height out of the scrolling region above
+     it. Nothing else in the shell has to know.
+
+     These two lived in the caption block below for one commit, because the
+     caption rule was written by splitting the phone block in two and they
+     were on the wrong side of the cut. Nothing failed: the bar was still at
+     the bottom and the status bar still rendered, it just rendered *behind*
+     it from 480 to 599. Measured: `margin-bottom` 57.6px at 390 and 0px at
+     520 and 599, from one pair of braces. */
+  #status-bar {
+    margin-bottom: calc(var(--bottom-tabs-h) + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* The sheets stop above the tab bar rather than behind it. */
+  #sidebar,
+  #chat-sidebar,
+  #doc-sidebar {
+    bottom: calc(var(--status-bar-h) + var(--bottom-tabs-h) + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (max-width: 479.98px) {
+  .tab-label {
+    display: none;
+  }
+}
+
+/* --- the primary action floats, where a dock has one ----------------------
+   Three docks in the app have a single filled action, and only three:
+   Graph's "New note", Library's "New document" and Timeline's "Today". On a
+   phone that button is the reason the tab is open, and it was sharing a
+   wrapped control row at the top of the screen with a search box and four
+   utilities.
+
+   Floated bottom-right it is in the same thumb arc as the tab bar, above it,
+   clear of the status bar. No new markup and no new listener: the same button
+   in the same place in the DOM, painted somewhere else, so the dock grammar
+   lint still sees exactly one filled control in the dock and the tab that
+   owns it is the only tab that shows it (a `fixed` child of a `display: none`
+   ancestor renders nowhere).
+
+   Deliberately only these three. A floating button on a surface with no one
+   obvious action is a guess about which action matters, and Notes, Chat and
+   Reminders each have their primary somewhere else entirely: Notes in the
+   capture box, Chat in the composer, Reminders in the magic row. */
+@media (max-width: 599.98px) {
+
+  #graph-add-node,
+  #library-new-doc,
+  #timeline-jump-today {
+    position: fixed;
+    right: var(--page-gutter);
+    bottom: calc(var(--status-bar-h) + var(--bottom-tabs-h) + var(--space-5) + env(safe-area-inset-bottom, 0px));
+    z-index: 44;
+    min-height: var(--target-min);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--shadow-lg);
+    padding-inline: var(--space-6);
+  }
+
+  /* --- one column of full-width cards ------------------------------------
+     The card grids are `column-width` masonry. At 390 that gives two columns
+     of 164px, which is a card too narrow for its own title, and the masonry
+     puts the second column's first card level with the first column's
+     second: a phone reading order that goes down, then up, then down.
+     One column, full width, top to bottom. */
+  .library-grid:not(.library-list) {
+    columns: unset;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  #dash-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+}
+
+/* --- the whiteboard's tools become a bottom strip -------------------------
+   The tool dock is already `bottom-center`, but as a fit-content pill centred
+   over the canvas with a reserve on each side for the zoom cluster. There is
+   no width for a reserve below 820, and the measurement says where it hurts:
+   at 768 the pill was **102px tall**, two rows floating over the middle of
+   the board, against 46px at 1440.
+
+   Edge to edge, one scrolling row, square where it meets the window: the same
+   shape the tab bar takes one strip below it, for the same reason. Applied
+   from 820 down rather than from 600 down, because 768 is where the wrap was
+   measured and a phone-only rule would have left the tablet exactly as it
+   was. */
+@media (max-width: 819.98px) {
+  .whiteboard-floating-panel.bottom-center:not([data-dock="side"]) {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-width: none;
+    margin: 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    justify-content: flex-start;
+  }
+
+  .whiteboard-floating-panel.bottom-center:not([data-dock="side"])::-webkit-scrollbar {
+    display: none;
+  }
+
+  .whiteboard-floating-panel.bottom-center:not([data-dock="side"]) .wb-tool-section,
+  .whiteboard-floating-panel.bottom-center:not([data-dock="side"]) .wb-tool-group {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+  }
+}
+
+/* --- the dashboard's quick actions stop wrapping --------------------------
+   Measured at 390: `.dash-quicklinks` was **459px tall for two children**.
+   Each child is a labelled row of shortcut buttons, and at 390 each row wrapped
+   to four and five lines, so the two groups between them pushed the first
+   dashboard widget to y=877 on an 844px screen. Nothing on the Dashboard was
+   visible without scrolling, and the cause was one flex row allowed to wrap.
+
+   One scrolling row each, the same recipe the Notes and Library strips take
+   at this width, and for the same reason: a row of equal shortcuts is a thing
+   you scan sideways, not a paragraph. */
+@media (max-width: 599.98px) {
+
+  .launch-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .launch-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .launch-row > * {
+    flex: 0 0 auto;
+  }
+}
+
+/* --- the dashboard's greeting banner, on a phone --------------------------
+   Measured at 390: the hero was 148px of the 844, and its three parts are an
+   emblem, a greeting with a sub-line, and a live clock. The clock is the one
+   that does not earn its place here: every phone paints the time at the top
+   of its own screen, permanently, a few pixels above this one. The emblem
+   comes down to the size the top bar uses, where it is the same mark doing
+   the same job.
+
+   The greeting stays. It is the only thing on the page that is addressed to
+   the person reading it, and cutting it to save 40px would be trading the
+   one warm thing on the Dashboard for a third of a card. */
+@media (max-width: 599.98px) {
+
+  .dash-hero .dash-clock {
+    display: none;
+  }
+
+  .dash-hero-emblem {
+    width: var(--control-h-lg);
+    height: var(--control-h-lg);
+  }
 }

@@ -2358,8 +2358,10 @@ span > .chip {
   border-radius: var(--radius-md);
 }
 
-.note-picker-list li:hover {
-  background: var(--accent-soft);
+@media (hover: hover) {
+  .note-picker-list li:hover {
+    background: var(--accent-soft);
+  }
 }
 
 .note-picker-list label {
@@ -2732,8 +2734,10 @@ span > .chip {
   cursor: pointer;
 }
 
-.doc-item-button:hover {
-  background: var(--accent-soft);
+@media (hover: hover) {
+  .doc-item-button:hover {
+    background: var(--accent-soft);
+  }
 }
 
 .doc-item.active .doc-item-button {

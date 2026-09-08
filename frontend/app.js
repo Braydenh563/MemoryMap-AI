@@ -17140,7 +17140,16 @@ function sidebarWidth(id, fallback = 260) {
 }
 
 // Below this the layout stacks into one column and there is no column to size.
-const STACKED_LAYOUT = "(max-width: 720px)";
+//
+// **Moved from 720 to 820** (UI_MODERNISATION_PLAN.md Phase 9, band 3: an
+// iPad in portrait is 768 or 810 CSS px). The number has to move here and in
+// the stylesheet together, and this is the half that is easy to forget:
+// `applySidebarWidth` writes an inline `grid-template-columns` when the
+// layout is *not* stacked, and an inline style beats a media query, so a CSS
+// breakpoint at 820 with this constant left at 720 would have left every
+// width from 721 to 819 silently two-column with a stylesheet that said
+// otherwise. Verified at 721, 780 and 819 after the move.
+const STACKED_LAYOUT = "(max-width: 819.98px)";
 
 function layoutIsStacked() {
   return window.matchMedia(STACKED_LAYOUT).matches;
@@ -17162,12 +17171,34 @@ function layoutIsStacked() {
 //: every rule. So the cap belongs here, where the number is decided.
 const SIDEBAR_VIEWPORT_SHARE = 0.24;
 
+//: The iPad-landscape band (UI_MODERNISATION_PLAN.md Phase 9, 820-1100).
+//:
+//: The share above is a ratio, and a ratio alone gets this band wrong in
+//: both directions: 24% of 1024 is 246px, which is a desktop sidebar on a
+//: tablet, and 24% of 820 is 197px, which is a different sidebar again on
+//: the same device held the other way. A band is supposed to look like one
+//: design, so this one names an absolute ceiling instead: 12rem, the width
+//: at which a category name and a conversation title still read.
+//:
+//: It has to live here rather than in the stylesheet. The sidebar's width is
+//: written as an inline `grid-template-columns` on the parent (see
+//: applySidebarWidth below), and an inline style beats every rule in every
+//: file, media query or not. A `clamp()` in CSS would have looked correct,
+//: passed review, and done nothing at all.
+const SIDEBAR_TABLET_MAX = 192;
+const SIDEBAR_TABLET_BAND = "(min-width: 820px) and (max-width: 1099.98px)";
+
+function layoutIsTablet() {
+  return window.matchMedia(SIDEBAR_TABLET_BAND).matches;
+}
+
 //: What the sidebar may actually occupy right now — the user's own width
 //: where there is room for it, less where there is not, never below the
 //: floor a category name needs to stay readable.
 function sidebarFittedWidth(saved) {
   const cap = Math.max(SIDEBAR_MIN, Math.round(window.innerWidth * SIDEBAR_VIEWPORT_SHARE));
-  return Math.min(saved, cap);
+  const banded = layoutIsTablet() ? Math.min(cap, SIDEBAR_TABLET_MAX) : cap;
+  return Math.min(saved, banded);
 }
 
 function applySidebarWidth(aside, width, { remember = true } = {}) {
@@ -17214,14 +17245,95 @@ window.addEventListener("resize", () => {
 
 // Rotating a phone, or dragging a desktop window narrow, crosses the
 // threshold without reloading — so re-decide then too.
-window.matchMedia(STACKED_LAYOUT).addEventListener("change", () => {
-  for (const id of ["sidebar", "chat-sidebar", "doc-sidebar"]) {
-    const aside = document.getElementById(id);
-    if (aside?.dataset.resizable) {
-      applySidebarWidth(aside, sidebarWidth(id, sidebarDefault(id)));
+// Rotating a phone, or dragging a desktop window narrow, crosses a band
+// boundary without reloading, so both boundaries re-decide the width. The
+// tablet band is listed with the stacking one because forgetting it is
+// exactly the failure the band exists to prevent: an iPad turned from
+// portrait to landscape would come back with the portrait sheet's width.
+for (const query of [STACKED_LAYOUT, SIDEBAR_TABLET_BAND]) {
+  window.matchMedia(query).addEventListener("change", () => {
+    applySidebarSheetMode(layoutIsStacked());
+    for (const id of SIDEBAR_IDS) {
+      const aside = document.getElementById(id);
+      if (aside?.dataset.resizable) {
+        applySidebarWidth(aside, sidebarWidth(id, sidebarDefault(id)), { remember: false });
+      }
     }
+  });
+}
+
+// --- the sidebars, as sheets (Phase 9, bands 3 and 4) -------------------------
+// Stacked, a sidebar used to sit *above* the content: at 390 the Notes
+// categories card was 48px of chrome before the first note and the chat list
+// was 99px before the first message, and on a tablet in portrait it is worse
+// because there is more of it. A panel you are not using should not cost the
+// panel you are using any height at all.
+//
+// So below 820 the three sidebars leave the flow and become sheets that slide
+// in from the left, over the content, with a rail left showing that carries
+// the collapse toggle they already have. No new control, no new gesture: the
+// button that opens and closes a sidebar on a desktop opens and closes the
+// sheet on a tablet.
+//
+// The state is a class of its own rather than a reuse of `.sidebar-collapsed`,
+// and the reason is worth writing down. `.sidebar-collapsed` means something
+// specific on a desktop, a 48px rail with a hover-peek, and it carries
+// `width: 48px !important` plus a `:hover` rule at higher specificity that
+// re-expands it. Reusing it here would mean fighting two `!important`
+// declarations from a later block, and a touch-hold would have triggered the
+// hover-peek. Instead the desktop classes are taken off while stacked and put
+// back on the way out, so none of those rules apply and there is nothing to
+// fight.
+const SIDEBAR_IDS = ["sidebar", "chat-sidebar", "doc-sidebar"];
+
+function eachSidebar(fn) {
+  for (const id of SIDEBAR_IDS) {
+    const aside = document.getElementById(id);
+    if (aside) fn(aside, id);
   }
-});
+}
+
+function applySidebarSheetMode(stacked) {
+  eachSidebar((aside) => {
+    if (stacked) {
+      // Remember the desktop state exactly once, so a second call inside the
+      // band cannot record "not collapsed" over the user's real preference.
+      if (aside.dataset.deskCollapsed === undefined) {
+        aside.dataset.deskCollapsed = aside.classList.contains("sidebar-collapsed") ? "1" : "";
+      }
+      aside.classList.remove("sidebar-collapsed");
+      aside.parentElement?.classList.remove("layout-sidebar-collapsed");
+      // A sheet opens closed. Arriving with the content already covered is
+      // the failure a sheet exists to avoid.
+      aside.classList.remove("sidebar-sheet-open");
+    } else {
+      aside.classList.remove("sidebar-sheet-open");
+      if (aside.dataset.deskCollapsed) {
+        aside.classList.add("sidebar-collapsed");
+        aside.parentElement?.classList.add("layout-sidebar-collapsed");
+      }
+      delete aside.dataset.deskCollapsed;
+    }
+  });
+}
+
+// Escape closes an open sheet, and a tap on the content behind it does too.
+// Both are what a sheet means; without them the only way back is the rail,
+// which is the half of the panel the sheet is covering.
+function initSidebarSheetDismissal() {
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    const open = document.querySelector(".sidebar-sheet-open");
+    if (!open) return;
+    open.classList.remove("sidebar-sheet-open");
+    open.querySelector(".sidebar-collapse-toggle")?.focus();
+  });
+  document.addEventListener("pointerdown", (event) => {
+    const open = document.querySelector(".sidebar-sheet-open");
+    if (!open || open.contains(event.target)) return;
+    open.classList.remove("sidebar-sheet-open");
+  }, true);
+}
 
 function makeSidebarResizable(aside) {
   if (!aside || aside.dataset.resizable) return;
@@ -17255,6 +17367,15 @@ function makeSidebarResizable(aside) {
     </svg>
   `;
   collapseBtn.addEventListener("click", () => {
+    // Stacked, this same button is the sheet's opener. The desktop classes
+    // are not applied in that band (applySidebarSheetMode takes them off), so
+    // toggling them here would put back exactly the rules the sheet was built
+    // to avoid fighting.
+    if (layoutIsStacked()) {
+      const open = aside.classList.toggle("sidebar-sheet-open");
+      collapseBtn.setAttribute("aria-expanded", String(open));
+      return;
+    }
     aside.classList.toggle("sidebar-collapsed");
     aside.parentElement.classList.toggle("layout-sidebar-collapsed");
     
@@ -17311,6 +17432,8 @@ function initResizableSidebars() {
     if (aside) makeSidebarResizable(aside);
   }
   makeWebPanelResizable(document.getElementById("web-panel"));
+  applySidebarSheetMode(layoutIsStacked());
+  initSidebarSheetDismissal();
 }
 
 // The Notes sidebar used to mirror `main`'s height into its own `min-height`
@@ -19960,6 +20083,17 @@ function syncTabOverflowFade() {
   // usable at. Photographed on a 7-tab window: "Dashboard" clipped to "oard"
   // at the left edge, which no amount of edge-fading makes readable.
   const header = document.getElementById("top-bar");
+  // Below 600 the strip is not in the header at all: `dockTabBar` moves it
+  // onto the body so `position: fixed` can reach the viewport past the
+  // header's backdrop filter. The wrap question is then meaningless, and
+  // leaving it to be asked kept `.tabs-wrapped` on a header that had nothing
+  // to wrap: measured at 390 the top bar stood at 110px against 58px at 599
+  // with identical contents.
+  if (header && bar.parentElement !== header) {
+    header.classList.remove("tabs-wrapped");
+    bar.classList.remove("fade-start", "fade-end");
+    return;
+  }
   if (header) {
     const needed = tabContentWidth();
     const space = tabRowSpace();
@@ -29871,6 +30005,269 @@ scrollTopUpdate = initScrollTopButton();
 // dashboard's below. See revealTab("dashboard")'s comment for the full
 // picture; both were part of one bug.
 initResizableSidebars();
+
+// --- the top bar's real height, as a token ------------------------------------
+// UI_MODERNISATION_PLAN.md Phase 9.
+//
+// `--header-h` is a constant in the stylesheet: `calc(3.7rem + 1px)`, with a
+// second value of 7.5rem below the phone breakpoint. Two things read it, and
+// both were wrong at ordinary widths. `--page-viewport` is how tall a sticky
+// sidebar may be, and the sheet added in band 3 is positioned from the top of
+// the header downward.
+//
+// The bar's height is not a constant. `syncTabOverflowFade` gives the tab
+// strip a row of its own (`.tabs-wrapped`) whenever the seven tabs cannot fit
+// beside the wordmark and the buttons, which depends on the space switcher's
+// current text as much as on the window. Measured at 768: the token said
+// 60.2px and the bar was 120px, so the sidebar sheet started 60px too high
+// and ran under the header, and every sticky sidebar in the app was told it
+// had 60px more room than it has.
+//
+// A ResizeObserver writes the measured height back into the same token, so
+// everything that already reads it gets the truth with no new property to
+// learn. Through the CSSOM rather than a style attribute, which this app's
+// own CSP refuses. No feedback loop: the bar's height comes from its content,
+// and nothing in it is sized from this token.
+function initHeaderHeightToken() {
+  const bar = document.getElementById("top-bar");
+  if (!bar || typeof ResizeObserver === "undefined") return;
+  const write = () => {
+    const h = Math.round(bar.getBoundingClientRect().height);
+    // Zero while the bar is display:none (the lock screen) would collapse
+    // every sticky sidebar to the full window height and hand the sheet a
+    // top of 0. Leave the stylesheet's value standing until there is a real
+    // one to replace it with.
+    if (h > 0) document.documentElement.style.setProperty("--header-h", `${h}px`);
+  };
+  new ResizeObserver(write).observe(bar);
+  write();
+}
+
+initHeaderHeightToken();
+
+// --- the tab bar docks to the bottom on a phone -------------------------------
+// UI_MODERNISATION_PLAN.md Phase 9, band 4.
+//
+// The stylesheet does the whole of the bottom bar's appearance. This function
+// exists for one reason, and it is a reason that cost a measurement to find:
+// **`position: fixed` does not reach the viewport from inside the header.**
+// `header#top-bar` carries `backdrop-filter`, and a filtered element becomes
+// the containing block for every fixed descendant, so the bar pinned itself
+// to the bottom of the *header* instead. Measured at 390: `position: fixed`,
+// `bottom: 0` applied, and the bar sitting at y=51 on an 844px screen.
+//
+// So the node moves. Out of the header and onto the body while the phone band
+// holds, and back into the header on the way out, in its original place. The
+// same element throughout, so every listener, the roving tabindex and the ids
+// survive; this is the move `foldDockArrange` makes for the same reason.
+//
+// `.tabs-wrapped` comes off with it. `syncTabOverflowFade` gives the strip a
+// row of its own inside the header when the seven tabs will not fit beside
+// the wordmark, and with the strip no longer in the header that class was
+// still on, holding the top bar at two rows: 110px at 390 against 58px at
+// 599, for a header with identical contents.
+const PHONE_TABS = "(max-width: 599.98px)";
+
+function dockTabBar(toBottom) {
+  const bar = document.getElementById("tab-bar");
+  const header = document.getElementById("top-bar");
+  if (!bar || !header) return;
+  if (toBottom) {
+    if (bar.parentElement === document.body) return;
+    // Where to put it back. The header's children are fixed markup, so the
+    // next sibling is a stable anchor.
+    bar.dataset.homeNext = bar.nextElementSibling?.className || "";
+    header.classList.remove("tabs-wrapped");
+    document.body.appendChild(bar);
+  } else {
+    if (bar.parentElement === header) return;
+    const anchor = bar.dataset.homeNext
+      ? header.querySelector(`:scope > .${CSS.escape(bar.dataset.homeNext.split(" ")[0])}`)
+      : null;
+    if (anchor) header.insertBefore(bar, anchor);
+    else header.appendChild(bar);
+    delete bar.dataset.homeNext;
+  }
+  // The fade is about a strip that scrolls inside the header; recompute it
+  // for wherever the strip now lives.
+  if (typeof syncTabOverflowFade === "function") syncTabOverflowFade();
+}
+
+function initBottomTabBar() {
+  const query = window.matchMedia(PHONE_TABS);
+  dockTabBar(query.matches);
+  query.addEventListener("change", (event) => dockTabBar(event.matches));
+}
+
+initBottomTabBar();
+
+// --- how much of the window the on-screen keyboard is covering ----------------
+// UI_MODERNISATION_PLAN.md Phase 9, band 4.
+//
+// The two strips you type at, the chat composer and the documents formatting
+// bar, sit at the bottom of their card. On a phone the on-screen keyboard
+// comes up over the bottom of the window and takes both with it, so the
+// buttons that act on what you are typing are under the keys you are typing
+// with.
+//
+// `window.innerHeight` does not change when a keyboard opens; the *visual*
+// viewport does. The difference between the two is the covered strip, and
+// writing it into `--keyboard-inset` lets the stylesheet handle the rest:
+// both docks already add the token to their bottom padding (07-whiteboard-
+// misc.css), so nothing here needs to know which elements exist.
+//
+// Through the CSSOM, because this app's own CSP refuses a style attribute,
+// and rounded because a fractional value here becomes a fractional padding
+// on every keystroke of a resize.
+//
+// **Not verifiable in this sandbox.** Chromium headless has no on-screen
+// keyboard, so what is tested here is that the property is written, that it
+// is 0 with no keyboard, and that the two docks read it. The behaviour with
+// a real keyboard on a real phone is reasoned, not observed.
+function initKeyboardInset() {
+  const viewport = window.visualViewport;
+  if (!viewport) return;
+  const write = () => {
+    const covered = window.innerHeight - viewport.height - viewport.offsetTop;
+    // Clamped at zero: `offsetTop` is negative while a page is rubber-banding
+    // on iOS, which would otherwise write a negative padding.
+    document.documentElement.style.setProperty(
+      "--keyboard-inset",
+      `${Math.max(0, Math.round(covered))}px`
+    );
+  };
+  viewport.addEventListener("resize", write);
+  viewport.addEventListener("scroll", write);
+  write();
+}
+
+initKeyboardInset();
+
+// --- the dock's arrange zone folds into its own overflow menu ------------------
+// UI_MODERNISATION_PLAN.md Phase 9, bands 2 and 3.
+//
+// Measured with `scratchpad/ui-sweeps/` at four widths, before this existed:
+// the Notes and Graph docks are 36px at 1440 and **80px at 1024 and 820** and
+// 172px at 390. They wrap. That is the whole of the owner's complaint about
+// this app having no responsive design: nothing was designed for a tablet,
+// the row simply ran out of width and folded onto a second and a fourth line
+// until the chrome ate the page.
+//
+// The grammar Phase 8 settled already says what to drop first. Identity,
+// search and the one primary action are what a narrow surface must keep;
+// order and view are settings you change occasionally, and the dock already
+// owns a place for a control used occasionally, its `...` menu. So below
+// 1100 the `.dock-arrange` zone moves into that menu, and above 1100 it moves
+// back out.
+//
+// **Moved, not cloned, and never hidden.** Two rules this phase is explicitly
+// held to, and both have bitten this codebase before. Cloning a control
+// leaves two elements with the same id and one of them wired to nothing
+// (`initNotesFiltersSheet` carries the same note). And `display: none` on a
+// sort select is a control that no longer exists on a tablet, which is not a
+// responsive design, it is a smaller app. Moving the same nodes keeps every
+// listener, every id and every enhanced `<select>` shell intact, and the
+// controls stay one tap away behind a button that is always in the row.
+const DOCK_FOLD_BELOW = "(max-width: 1099.98px)";
+
+// Where the zone came back to. A comment node would be tidier, but a marker
+// element can be found again after any re-render of the dock around it.
+function dockArrangeSlot(dock) {
+  let slot = dock.querySelector(":scope > .dock-arrange-slot");
+  if (!slot) {
+    slot = document.createElement("span");
+    slot.className = "dock-arrange-slot";
+    slot.hidden = true;
+  }
+  return slot;
+}
+
+// The zone label, created once per menu and removed when the zone leaves.
+function dockArrangeLabel(menu) {
+  let label = menu.querySelector(":scope > .dock-arrange-label");
+  if (!label) {
+    label = document.createElement("span");
+    label.className = "muted dock-menu-label dock-arrange-label";
+    label.textContent = "Sort and view";
+    menu.prepend(label);
+  }
+  return label;
+}
+
+// The whole `.dock-arrange` element, in and out of a menu that sits outside it.
+function foldZoneIntoMenu(dock, menu, fold) {
+  const inRow = dock.querySelector(":scope > .dock-arrange");
+  const inMenu = menu.querySelector(":scope > .dock-arrange");
+  if (fold && inRow) {
+    inRow.replaceWith(dockArrangeSlot(dock));
+    inRow.classList.add("dock-arrange-folded");
+    dockArrangeLabel(menu).after(inRow);
+  } else if (!fold && inMenu) {
+    inMenu.classList.remove("dock-arrange-folded");
+    const slot = dock.querySelector(":scope > .dock-arrange-slot");
+    if (slot) slot.replaceWith(inMenu);
+    else dock.querySelector(":scope > .dock-find")?.after(inMenu);
+    menu.querySelector(":scope > .dock-arrange-label")?.remove();
+  }
+}
+
+// The arrange zone's other children, in and out of a menu that is one of them.
+// `data-folded-from` records where each came back to, because unlike the zone
+// above these are several elements and they must return in order.
+function foldSiblingsIntoMenu(dock, menu, fold) {
+  const zone = dock.querySelector(":scope > .dock-arrange");
+  if (!zone) return;
+  const holder = menu.closest(".dock-menu");
+  if (fold) {
+    const moving = [...zone.children].filter(
+      (child) => child !== holder && !child.classList.contains("dock-native-hidden")
+    );
+    if (!moving.length) return;
+    const label = dockArrangeLabel(menu);
+    let after = label;
+    for (const child of moving) {
+      child.dataset.foldedFrom = dock.dataset.dockName;
+      child.classList.add("dock-folded-control");
+      after.after(child);
+      after = child;
+    }
+  } else {
+    const returning = [...menu.querySelectorAll(":scope > [data-folded-from]")];
+    for (const child of returning) {
+      delete child.dataset.foldedFrom;
+      child.classList.remove("dock-folded-control");
+      zone.prepend(child);
+    }
+    if (returning.length) menu.querySelector(":scope > .dock-arrange-label")?.remove();
+  }
+}
+
+function foldDockArrange(fold) {
+  for (const dock of document.querySelectorAll(".dock[data-dock-name]")) {
+    const menu = dock.querySelector(":scope > .dock-actions > .dock-more > .dock-menu-list");
+    if (menu) {
+      foldZoneIntoMenu(dock, menu, fold);
+      continue;
+    }
+    // A dock whose only overflow menu lives *inside* the arrange zone cannot
+    // fold the zone into it, because the zone contains the destination. The
+    // Timeline is the one: Phase 8 gave it an `Options` menu in the arrange
+    // group and no `...` in the actions group. Folding its siblings into that
+    // menu is the same move by the same rule, and it leaves the row at
+    // identity + Options + Today + help.
+    const inner = dock.querySelector(":scope > .dock-arrange .dock-menu > .dock-menu-list");
+    if (inner) foldSiblingsIntoMenu(dock, inner, fold);
+  }
+}
+
+function initDockFolding() {
+  const query = window.matchMedia(DOCK_FOLD_BELOW);
+  foldDockArrange(query.matches);
+  // A window dragged across the boundary, or a tablet rotated, re-decides.
+  query.addEventListener("change", (event) => foldDockArrange(event.matches));
+}
+
+initDockFolding();
 watchOverlays(); // page behind a dialog must not scroll
 initAutoGrow(); // capture + magic-add boxes follow their content
 // Used to reopen on whichever tab was last active, with only the very

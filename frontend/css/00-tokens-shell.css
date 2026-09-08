@@ -429,6 +429,21 @@ select optgroup {
      and --control-h play for the header and the chat dock. */
   --status-bar-h: 2.3rem;
 
+  /* How much of the window the on-screen keyboard is currently covering
+     (UI_MODERNISATION_PLAN.md Phase 9). Zero here and written by app.js from
+     `visualViewport` while a keyboard is open — the two bottom docks you
+     type at (the chat composer and the documents formatting bar) add it to
+     their own bottom padding so they rise with it instead of sitting under
+     it. Declared here, and read plainly with no `var(…, 0px)` fallback:
+     `test_style_scale.py` refuses a fallback on a declared token, and it is
+     right to — the fallback looks like a safety net and is really a way for
+     a rename to stop applying silently. Zero at the root is what makes a
+     rule that reads it before app.js has ever run resolve to a real length
+     rather than an invalid one, which is the APPEARANCE_DEFAULTS shape in
+     CLAUDE.md: a value that is invalid where it is *used*, not where it is
+     set, does its damage nowhere near the code that caused it. */
+  --keyboard-inset: 0px;
+
   --radius: 14px;
   /* --- the corner scale (§35L) ---------------------------------------------
      Three tiers derived from --radius, which is the slider in Settings →
@@ -856,7 +871,17 @@ header#top-bar {
      one strip in the shell with its own inset, so nothing in it lined up
      with the content under it. One token, and the logo, the sidebar edge,
      the first card and the status bar's first item share an x. */
-  padding: var(--space-4) var(--page-gutter);
+  /* Named, because two other rules have to agree with these numbers and
+     could not while they were spelled out here: the phone band tightens the
+     bar (05-sidebars-themes.css) and the safe-area rule adds the notch inset
+     to it (07-whiteboard-misc.css). A longhand `padding-top` in a later file
+     beats this shorthand for that side only, so with the value written
+     inline the two bands disagreed about the *bottom* — 0.6rem above the
+     logo and 0.4rem below it, on a phone, from two rules that each looked
+     right on its own. */
+  --header-pad-y: var(--space-4);
+  --header-pad-x: var(--page-gutter);
+  padding: var(--header-pad-y) var(--header-pad-x);
   background: var(--card);
   border-bottom: 1px solid var(--glass-border);
   backdrop-filter: blur(18px) saturate(150%);
@@ -887,7 +912,12 @@ header#top-bar h1 {
 @media (max-width: 1200px) {
   header#top-bar {
     gap: var(--space-6);
-    padding-inline: var(--space-6);
+    /* The token, not `padding-inline` — the safe-area rule in
+       07-whiteboard-misc.css adds the notch inset with a `padding-left`
+       longhand, and a longhand in a later file beats a shorthand here
+       whatever the media query says. Set the value the one rule reads and
+       both bands stay in agreement. */
+    --header-pad-x: var(--space-6);
   }
 }
 
@@ -1652,9 +1682,11 @@ header#top-bar.tabs-wrapped #tab-bar {
   font-weight: 500;
 }
 
-.library-chip:hover {
-  background: var(--ghost-btn-bg);
-  color: var(--ink);
+@media (hover: hover) {
+  .library-chip:hover {
+    background: var(--ghost-btn-bg);
+    color: var(--ink);
+  }
 }
 
 .library-chip.active {
@@ -3188,8 +3220,18 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 /* Stack the sidebar on small screens. minmax(0,…) + min-width let the
-   column actually shrink below its content's natural width. */
-@media (max-width: 720px) {
+   column actually shrink below its content's natural width.
+
+   **720 became 820** (UI_MODERNISATION_PLAN.md Phase 9, band 3): an iPad in
+   portrait is 768 or 810 CSS px, and at 721-819 this app was giving a tablet
+   a desktop two-column layout with a 197px sidebar against a 600px content
+   column. `STACKED_LAYOUT` in app.js carries the same number and has to move
+   with it: `applySidebarWidth` writes an inline `grid-template-columns` while
+   the layout is not stacked, and an inline style beats this rule whatever its
+   media query says. Below 820 the sidebar is a sheet (07-whiteboard-misc.css)
+   rather than a stacked row, so the row naming below only has to hand the
+   height to the one child left in flow. */
+@media (max-width: 819.98px) {
 
   /* The shell tightens once, for every tab, instead of each page shrinking its
      own gutter to a different number (§35L). */
@@ -3205,14 +3247,20 @@ header#top-bar.tabs-wrapped #tab-bar {
 
   .layout {
     grid-template-columns: minmax(0, 1fr);
-    /* Sidebar on top, content below, and the content takes the slack. The
-       grid is a `flex: 1 0 auto` child of the page, so it is taller than
-       its rows, and a grid hands that spare height out to *every* `auto`
-       row equally — measured at 390px, the Notes category strip (30px of
-       chips) sat in a 211px card with 180px of empty band under it, and
-       the first note began at y=509. Naming the rows sends the slack to
-       the row that scrolls. Both `.layout`s put the sidebar first. */
-    grid-template-rows: auto minmax(0, 1fr);
+    /* **One row, not two.** This used to say `auto minmax(0, 1fr)`, and the
+       comment it carried is still the reason the rows are named at all: the
+       grid is a `flex: 1 0 auto` child of the page, so it is taller than its
+       rows, and a grid hands the spare height to *every* `auto` row equally.
+       Measured at 390px before that fix, the Notes category strip (30px of
+       chips) sat in a 211px card with 180px of empty band under it and the
+       first note began at y=509.
+
+       Two rows were right while the sidebar stacked above the content. In
+       this band it is `position: fixed` (07-whiteboard-misc.css) and a fixed
+       child is not a grid item at all, so a second row would be empty and
+       would take half the spare height again, which is the same 180px band
+       arriving from a different direction. */
+    grid-template-rows: minmax(0, 1fr);
   }
 
   .layout>* {

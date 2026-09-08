@@ -323,8 +323,10 @@ button.ai-unavailable {
   vertical-align: middle;
 }
 
-.file-card:hover {
-  border-color: var(--accent);
+@media (hover: hover) {
+  .file-card:hover {
+    border-color: var(--accent);
+  }
 }
 
 .file-card-open {
@@ -342,8 +344,10 @@ button.ai-unavailable {
   cursor: pointer;
 }
 
-.file-card-open:hover {
-  background: var(--accent-soft);
+@media (hover: hover) {
+  .file-card-open:hover {
+    background: var(--accent-soft);
+  }
 }
 
 .file-card-icon {
@@ -2190,8 +2194,10 @@ body.resizing-sidebar {
   transition: border-color var(--motion-base) ease, transform var(--motion-base) ease;
 }
 
-.theme-card:hover {
-  border-color: var(--accent);
+@media (hover: hover) {
+  .theme-card:hover {
+    border-color: var(--accent);
+  }
 }
 
 /* A ghost button that is currently *on*. Peek is the first of these: it is an
@@ -2448,7 +2454,8 @@ button.is-on {
    ============================================================================= */
 @media (max-width: 720px) {
   header#top-bar {
-    padding: 0.4rem 0.8rem;
+    --header-pad-y: var(--space-2);
+    --header-pad-x: var(--space-5);
     gap: 0.6rem;
     /* On a phone the tab bar deliberately takes a row of its own (order: 3
        below), which needs the wrapping the desktop rule turns off. */

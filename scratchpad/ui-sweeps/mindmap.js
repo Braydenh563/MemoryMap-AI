@@ -460,6 +460,131 @@ function check(label, ok, detail) {
     `added ${plainBoard.added}, grip ${plainBoard.textBoxHasGrip}, handles ${plainBoard.textBoxHasHandles}, height ${plainBoard.textBoxHeight}`);
   await page.screenshot({ path: OUT + "/mindmap-plain-board.png" });
 
+  // --- the owner's reports A and B, on a real map ---------------------------
+  //
+  // A: "there's a permanent selection box on my mindmap". Reproduced first
+  // (a marquee released outside the container left a 552x440 `.wb-marquee`
+  // that survived Escape, an empty-canvas click and a board reopen), so
+  // these four checks are the four leaks, not a guess at one.
+  await page.evaluate(async () => {
+    const rows = await window.apiJson("/whiteboard/boards");
+    const map = rows.find((r) => r.type === "map");
+    window.openWhiteboardBoard(map.id);
+  });
+  await page.waitForTimeout(2500);
+  await page.evaluate(() => window.wbZoomToFit({ animate: false }));
+  await page.waitForTimeout(900);
+  const canvas = await page.evaluate(() => {
+    const r = document.getElementById("whiteboard-container").getBoundingClientRect();
+    return { x: r.x, y: r.y, w: r.width, h: r.height };
+  });
+  const emptyAt = { x: canvas.x + canvas.w * 0.62, y: canvas.y + canvas.h * 0.74 };
+  const strayCount = () => page.evaluate(() => document.querySelectorAll(".wb-marquee, .wb-lasso").length);
+
+  await page.mouse.move(emptyAt.x, emptyAt.y);
+  await page.mouse.down();
+  await page.mouse.move(emptyAt.x - 240, emptyAt.y - 250, { steps: 8 });
+  const drawing = await page.evaluate(() =>
+    [...document.querySelectorAll(".wb-marquee")].map((e) => `${e.getAttribute("width")}x${e.getAttribute("height")}`).join(",")
+  );
+  check("(A) the marquee still draws while the drag is running", /^\d+(\.\d+)?x\d+(\.\d+)?$/.test(drawing), drawing);
+  await page.mouse.move(6, 6, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(500);
+  const afterOutside = await strayCount();
+  check("(A) a marquee released outside the board leaves nothing behind", afterOutside === 0, `${afterOutside} stray`);
+
+  // A second pointerdown mid-drag used to orphan the first rectangle: one
+  // variable held it, and the second gesture overwrote the reference.
+  await page.mouse.move(emptyAt.x, emptyAt.y);
+  await page.mouse.down();
+  await page.mouse.move(emptyAt.x - 200, emptyAt.y - 180, { steps: 6 });
+  await page.evaluate((p) => {
+    document.getElementById("whiteboard-container").dispatchEvent(
+      new PointerEvent("pointerdown", { clientX: p.x - 300, clientY: p.y - 40, bubbles: true, pointerId: 7 })
+    );
+  }, emptyAt);
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  const afterSecond = await strayCount();
+  check("(A) a second pointerdown mid-drag orphans no rectangle", afterSecond === 0, `${afterSecond} stray`);
+
+  // And the sweep of last resort: whatever put one there, Escape and a click
+  // on empty canvas both clear it, and a board reopen does not carry it over.
+  await page.evaluate(() => {
+    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    rect.setAttribute("class", "wb-marquee");
+    rect.setAttribute("x", 40); rect.setAttribute("y", 40);
+    rect.setAttribute("width", 330); rect.setAttribute("height", 375);
+    document.getElementById("wb-zoom-group").appendChild(rect);
+  });
+  const planted = await strayCount();
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+  const afterEscape = await strayCount();
+  check("(A) Escape clears a stray selection rectangle", planted === 1 && afterEscape === 0,
+    `planted ${planted}, after Escape ${afterEscape}`);
+  await page.evaluate(() => {
+    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    rect.setAttribute("class", "wb-marquee");
+    rect.setAttribute("width", 330); rect.setAttribute("height", 375);
+    document.getElementById("wb-zoom-group").appendChild(rect);
+  });
+  await page.mouse.click(emptyAt.x, emptyAt.y);
+  await page.waitForTimeout(400);
+  const afterClick = await strayCount();
+  check("(A) a click on empty canvas clears a stray selection rectangle", afterClick === 0, `${afterClick} stray`);
+
+  // B: "I cant highlight text in mindmap text boxes". Reproduced first — the
+  // drag selected the empty string and moved the node 165px, because
+  // `objDrag`'s filter excluded `.wb-text-content` and a map node's editor
+  // is `.wb-map-text`.
+  await page.evaluate(() => window.wbZoomToFit({ animate: false }));
+  await page.waitForTimeout(800);
+  const textSel = ".wb-object.wb-map-node .wb-map-text";
+  await page.dblclick(textSel);
+  await page.waitForTimeout(600);
+  await page.keyboard.type("Alpha beta gamma");
+  await page.waitForTimeout(500);
+  const tr = await page.evaluate((s) => {
+    const r = document.querySelector(s).getBoundingClientRect();
+    return { x: r.x, y: r.y, w: r.width, h: r.height };
+  }, textSel);
+  const transformBefore = await page.evaluate((s) => document.querySelector(s).closest(".wb-object").style.transform, textSel);
+  await page.mouse.click(tr.x + 3, tr.y + tr.h / 2);
+  await page.waitForTimeout(200);
+  await page.mouse.move(tr.x + 3, tr.y + tr.h / 2);
+  await page.mouse.down();
+  await page.mouse.move(tr.x + tr.w - 8, tr.y + tr.h / 2, { steps: 12 });
+  await page.mouse.up();
+  await page.waitForTimeout(350);
+  const dragSelection = await page.evaluate(() => String(window.getSelection()));
+  const transformAfter = await page.evaluate((s) => document.querySelector(s).closest(".wb-object").style.transform, textSel);
+  check("(B) a click-drag inside a node's editor selects its text",
+    dragSelection.trim().length > 3, JSON.stringify(dragSelection));
+  check("(B) that drag does not move the node",
+    transformBefore === transformAfter, `${transformBefore} → ${transformAfter}`);
+  const wordSel = await page.evaluate(async (t) => {
+    const el = document.querySelector(t);
+    const r = el.getBoundingClientRect();
+    return { x: r.x, y: r.y, w: r.width, h: r.height };
+  }, textSel);
+  await page.mouse.dblclick(wordSel.x + 20, wordSel.y + wordSel.h / 2);
+  await page.waitForTimeout(300);
+  const word = await page.evaluate(() => String(window.getSelection()));
+  check("(B) double-click selects a word inside the editor", word.trim().length > 0, JSON.stringify(word));
+  await page.keyboard.press("End");
+  await page.keyboard.down("Shift");
+  for (let i = 0; i < 4; i++) await page.keyboard.press("ArrowLeft");
+  await page.keyboard.up("Shift");
+  await page.waitForTimeout(250);
+  const shifted = await page.evaluate(() => String(window.getSelection()));
+  check("(B) Shift+arrows extend the selection instead of walking the tree",
+    shifted.length > 0 && shifted.length <= 4, JSON.stringify(shifted));
+  await page.evaluate(() => document.activeElement?.blur?.());
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: OUT + "/mindmap-select-and-edit.png" });
+
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed.`);
   if (failed.length) console.log("FAILED: " + failed.map((f) => f.label).join(" ; "));

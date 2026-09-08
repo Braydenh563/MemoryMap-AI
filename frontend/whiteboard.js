@@ -120,7 +120,7 @@ let wbDeleteObjectRef = null;
 // can still call it, the same shape the delete-refs above already use.
 let wbSelectToolRef = null;
 // Same shape again, for the marquee/lasso selection drag. Reported directly:
-// "there's a permanent selection box on my mindmap" — a dashed accent
+// "there's a permanent selection box on my mindmap", a dashed accent
 // rectangle sitting on the canvas at rest, ~330x375, with nothing selected.
 //
 // Measured, not guessed: the rect is a real `.wb-marquee` element, and it
@@ -133,14 +133,14 @@ let wbSelectToolRef = null;
 // which the render joins by data and never clears wholesale.
 //
 // So the drag now captures the pointer and ends on `pointerup`,
-// `pointercancel` or `lostpointercapture` — and this ref lets Escape, a
+// `pointercancel` or `lostpointercapture`, and this ref lets Escape, a
 // click on empty canvas and every board load sweep up anything that still
 // got left behind.
 let wbCancelSelectionDragRef = null;
 //: Remove any marquee/lasso rectangle still on the canvas, wherever it came
 //: from. Safe to call at any time: with no drag in flight there is nothing
 //: to find. Deliberately a DOM sweep rather than "remove the element I am
-//: holding" — the leak this fixes was precisely an element nothing was
+//: holding", the leak this fixes was precisely an element nothing was
 //: holding any more.
 function wbClearSelectionOverlays() {
   wbCancelSelectionDragRef?.();
@@ -1284,6 +1284,45 @@ function wbBoxRayIntersection(box, towardX, towardY) {
 //: `wbState.nodes`; a link stores `sourceKind`/`targetKind` now ("node" when
 //: absent, so every existing link reads exactly as before) and both ends
 //: resolve through the one lookup below.
+//: Whether this row has anything to draw *now*.
+//:
+//: Reported: a node with "a dangling curved edge to nowhere". Deleting one
+//: end of a cross-link removes the link's row on the server (every delete
+//: route calls `_forget_links_to`) but the client kept its own copy, and the
+//: render then set the path's `d` to `""` and left the `<g>` on the canvas -
+//: measured: three nodes and one cross-link, delete one end, and the group is
+//: still there with an empty path. An empty path draws nothing, but the group
+//: is still a hit target and still carries the link's classes, and the next
+//: thing to give a `.sketch-group` a decoration would have made it visible.
+//:
+//: Filtering the data join instead of blanking the path means d3's own
+//: `exit().remove()` takes the element away, which is the mechanism that
+//: already exists for "this is no longer on the board". The row itself is the
+//: server's business: `_drop_orphan_links` deletes it on the next board load.
+function wbSketchIsDrawable(sketch) {
+  let parsed = null;
+  try {
+    parsed = JSON.parse(sketch.data || "{}");
+  } catch {
+    return true; // not ours to judge, a stroke, or a row we cannot read
+  }
+  if (!parsed || !String(parsed.type || "").startsWith("link-")) return true;
+  //: Ids only, deliberately, the same rule the server's `_drop_orphan_links`
+  //: applies. Asking `wbResolveLinkEndpoints` instead would drag the DOM into
+  //: this: it measures an item's box, which is null for anything not painted
+  //: yet, so a link would vanish on the first render of a board and reappear
+  //: on the second. A free end (`sourcePoint`/`targetPoint`) is a feature and
+  //: stays; only an end that names an id which is gone is an orphan.
+  for (const [id, kind] of [
+    [parsed.sourceId, parsed.sourceKind || "node"],
+    [parsed.targetId, parsed.targetKind || "node"],
+  ]) {
+    if (id == null) continue;
+    if (!wbLinkItem(kind, id)) return false;
+  }
+  return true;
+}
+
 function wbLinkItem(kind, id) {
   if (id == null) return null;
   const list = kind === "object" ? (wbState.objects || [])
@@ -6219,7 +6258,7 @@ async function initWhiteboard() {
     // Any editable body, not the two class names that were editable when
     // this was written: pulling focus to the canvas out from under a map
     // node's editor is the other half of "I cant highlight text in mindmap
-    // text boxes" — the caret went to the container mid-gesture.
+    // text boxes", the caret went to the container mid-gesture.
     if (e.target.closest(".whiteboard-floating-panel, [contenteditable=true]")) return;
     document.getElementById("whiteboard-container")?.focus({ preventScroll: true });
   });
@@ -6275,7 +6314,7 @@ async function initWhiteboard() {
     // away the pen.
     if (e.key === "Escape") {
       // A selection drag in flight (or a rectangle a previous one left
-      // behind) goes first — Escape is where people reach when something is
+      // behind) goes first, Escape is where people reach when something is
       // stuck on the canvas, and it did nothing about this before.
       wbClearSelectionOverlays();
       if (wbSelectedItem || wbMultiSelection.size > 0) clearWbSelection();
@@ -6596,8 +6635,8 @@ async function initWhiteboard() {
   let wbMarqueeEl = null;
   let wbMarqueeJustSelected = false;
   //: End the marquee gesture and take its rectangle off the canvas. Every
-  //: exit from the drag goes through here — the completed one, the cancelled
-  //: one, and the sweep `wbClearSelectionOverlays` runs — so there is exactly
+  //: exit from the drag goes through here, the completed one, the cancelled
+  //: one, and the sweep `wbClearSelectionOverlays` runs, so there is exactly
   //: one place that can forget to remove the element.
   function wbEndMarqueeDrag() {
     wbMarqueeEl?.remove();
@@ -6626,7 +6665,7 @@ async function initWhiteboard() {
     // **The capture is the fix.** Without it every pointermove and pointerup
     // outside the container went to whatever element was under the cursor,
     // so a drag that ended over the top bar, over the left rail or off the
-    // window simply never finished — and left its rectangle behind.
+    // window simply never finished, and left its rectangle behind.
     try {
       containerEl.setPointerCapture(e.pointerId);
     } catch (err) {
@@ -6736,7 +6775,7 @@ async function initWhiteboard() {
     wbLassoEl = null;
     wbLassoPoints = null;
   }
-  //: Both drags, from anywhere in the file — see `wbCancelSelectionDragRef`.
+  //: Both drags, from anywhere in the file, see `wbCancelSelectionDragRef`.
   wbCancelSelectionDragRef = () => {
     wbEndMarqueeDrag();
     wbEndLassoDrag();
@@ -7988,7 +8027,7 @@ function renderWhiteboard() {
   // Render Sketches (SVG)
   const svgGroup = d3.select("#wb-zoom-group");
   const sketchSelection = svgGroup.selectAll("g.sketch-group")
-    .data(wbState.sketches || [], d => d.id);
+    .data((wbState.sketches || []).filter(wbSketchIsDrawable), d => d.id);
     
   // Deleting a sketch two ways: "delete" is a click on the one thing you
   // mean to remove; "eraser" is a drag — mouseenter fires for everything the
@@ -8767,7 +8806,7 @@ function renderWbObjects(canvas) {
       // `.wb-map-text`, not `.wb-text-content`, so this filter let the drag
       // run: measured, a click-drag across a node being edited selected the
       // empty string and moved the node 165px instead. The node's own
-      // `pointerdown` stopPropagation cannot help — d3-drag listens for
+      // `pointerdown` stopPropagation cannot help, d3-drag listens for
       // `mousedown`, and this file already records that two event families
       // cannot cancel each other (see the marquee's handle-layer comment).
       // Asking the *element* whether it is editable rather than naming the

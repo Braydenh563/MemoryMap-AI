@@ -10,7 +10,7 @@ async function boot(opts={}) {
   // sweep after a dark screenshot run would otherwise measure dark. THEME=dark
   // to sweep the other one.
   // The welcome tour is a race, not a step. Every context is a fresh profile,
-  // so `maybeShowOnboarding` opens it after unlock — sometimes *after* the
+  // so `maybeShowOnboarding` opens it after unlock, sometimes *after* the
   // hide below has already run, and then every click times out on
   // "#onboarding-overlay intercepts pointer events" (it cost two sweep runs).
   // Marking it done before the app boots is the only ordering that cannot

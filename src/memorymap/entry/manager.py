@@ -95,7 +95,7 @@ def create_entry(
 
 
 #: What a listing does about boards. A board (and therefore a mind map) *is*
-#: an `Entry` — see `Entry.is_board` — so every query over entries has to say
+#: an `Entry`, see `Entry.is_board`, so every query over entries has to say
 #: which of the three it means rather than inherit whichever the last person
 #: assumed.
 #:

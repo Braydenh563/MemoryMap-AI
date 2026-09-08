@@ -189,7 +189,7 @@ const VIEWPORT = (() => {
   //: **The row geometry, reported against this dialog**: "the list rows
   //: overflow their width (long titles run past the row edges, icons drift
   //: off-centre, rows are centred text instead of left-aligned)". All three
-  //: were one cause — the row is a `<button>`, so the generic button rule
+  //: were one cause, the row is a `<button>`, so the generic button rule
   //: centred it, and `text-overflow` on a flex container does nothing to a
   //: flex item that will not shrink. Measured before the fix: 63px of title
   //: past the row's own edge.

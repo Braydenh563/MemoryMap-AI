@@ -46,7 +46,7 @@ function check(label, ok, detail) {
   check("a board id is open after creating the map", Boolean(boardId), `board ${boardId}`);
 
   //: **A map is not a note.** Reported: "I made a mindmap naming it test and I
-  //: think it came up as a new note??" — it did, on every surface built on
+  //: think it came up as a new note??", it did, on every surface built on
   //: `GET /entries`, which had no board filter at all. Asserted at the
   //: endpoint *and* in the rendered list, because the two failed together and
   //: either one alone would let the other come back.
@@ -554,7 +554,7 @@ function check(label, ok, detail) {
   const afterClick = await strayCount();
   check("(A) a click on empty canvas clears a stray selection rectangle", afterClick === 0, `${afterClick} stray`);
 
-  // B: "I cant highlight text in mindmap text boxes". Reproduced first — the
+  // B: "I cant highlight text in mindmap text boxes". Reproduced first, the
   // drag selected the empty string and moved the node 165px, because
   // `objDrag`'s filter excluded `.wb-text-content` and a map node's editor
   // is `.wb-map-text`.
@@ -603,6 +603,67 @@ function check(label, ok, detail) {
   await page.evaluate(() => document.activeElement?.blur?.());
   await page.waitForTimeout(400);
   await page.screenshot({ path: OUT + "/mindmap-select-and-edit.png" });
+
+  // --- report E: an edge does not outlive its node -------------------------
+  //
+  // Reported with a screenshot: a node with "a dangling curved edge to
+  // nowhere". Reproduced first: deleting one end of a cross-link removed the
+  // link's row on the server but left the client's `<g class="sketch-group">`
+  // on the canvas with an empty path, and it survived until a reload.
+  const edgeProbe = await page.evaluate(async () => {
+    const board = await window.apiJson("/whiteboard/boards", {
+      method: "POST",
+      body: JSON.stringify({ name: "Edge integrity", type: "map", layout: "tree-right" }),
+    });
+    const root = await window.apiJson(`/whiteboard/boards/${board.id}/nodes`, {
+      method: "POST", body: JSON.stringify({ kind: "topic", text: "Bubble Tea", x: 200, y: 200 }),
+    });
+    const a = await window.apiJson(`/whiteboard/boards/${board.id}/nodes`, {
+      method: "POST",
+      body: JSON.stringify({ kind: "topic", text: "Tapioca", parent_id: root.id, x: 520, y: 200 }),
+    });
+    const b = await window.apiJson(`/whiteboard/boards/${board.id}/nodes`, {
+      method: "POST",
+      body: JSON.stringify({ kind: "topic", text: "Milk", parent_id: root.id, x: 520, y: 340 }),
+    });
+    await window.apiJson("/whiteboard/sketches", {
+      method: "POST",
+      body: JSON.stringify({
+        board_id: board.id,
+        data: JSON.stringify({
+          type: "link-curve", sourceKind: "object", sourceId: a.id,
+          targetKind: "object", targetId: b.id,
+        }),
+      }),
+    });
+    return { board: board.id, doomed: b.id };
+  });
+  await page.evaluate((id) => window.openWhiteboardBoard(id), edgeProbe.board);
+  await page.waitForTimeout(2500);
+  await page.evaluate(() => window.wbZoomToFit({ animate: false }));
+  await page.waitForTimeout(700);
+  const edgesBefore = await page.evaluate(() => document.querySelectorAll(".sketch-group").length);
+  check("(E) the cross-link is drawn before its node is deleted", edgesBefore === 1, `${edgesBefore} link(s)`);
+  await page.evaluate((id) => {
+    document.querySelector(`.wb-object[data-id="${id}"]`)
+      .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  }, edgeProbe.doomed);
+  await page.waitForTimeout(500);
+  await page.keyboard.press("Delete");
+  await page.waitForTimeout(2000);
+  const edgesAfter = await page.evaluate(() => ({
+    groups: document.querySelectorAll(".sketch-group").length,
+    emptyPaths: [...document.querySelectorAll(".sketch-group .sketch-path")]
+      .filter((el) => !el.getAttribute("d")).length,
+  }));
+  check("(E) deleting a node takes its edge off the canvas with it",
+    edgesAfter.groups === 0 && edgesAfter.emptyPaths === 0, JSON.stringify(edgesAfter));
+  const afterReload = await page.evaluate(async (id) => {
+    const state = await window.apiJson(`/whiteboard/?board_id=${id}`);
+    return state.sketches.length;
+  }, edgeProbe.board);
+  check("(E) and the row is gone from the board, not just from the screen",
+    afterReload === 0, `${afterReload} sketch row(s)`);
 
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed.`);

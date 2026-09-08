@@ -23,6 +23,7 @@ now says so in its first line.
 | Work from these (in this order) | What it covers |
 | --- | --- |
 | [roadmap/WORLD_CLASS_PLAN.md](roadmap/WORLD_CLASS_PLAN.md) | The week and the quarter, the consistency contract, the flaw classes. **Start here.** |
+| [roadmap/SESSION_BRIEFS.md](roadmap/SESSION_BRIEFS.md) | One complete brief per session of the week, with the operating protocol for smaller models. **Take one brief and start.** |
 | [roadmap/UI_MODERNISATION_PLAN.md](roadmap/UI_MODERNISATION_PLAN.md) | Phases 8 and 9 still open (docks as one bar; responsive by device). |
 | [roadmap/DOCUMENTS_PLAN.md](roadmap/DOCUMENTS_PLAN.md) | The editor, Phases 1 to 7. |
 | [roadmap/GRAPH_PLAN.md](roadmap/GRAPH_PLAN.md) | The canvas graph, Phases 2 to 5. |

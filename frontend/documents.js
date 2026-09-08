@@ -135,6 +135,18 @@ function syncDocFileType() {
   // markup puts in front of the words.
   setLabel($("doc-export-md"), `ph:download-simple Download as .${type.ext}`);
   $("doc-export-md").title = `Download as a .${type.ext} file`;
+
+  //: **The prose check depends on the type, so a type change has to re-run
+  //: it.** `openDocument` gets this through `renderDocTools`; changing the
+  //: type of a document already open never did, and before Phase 0 that was
+  //: invisible: the findings simply stayed in a panel nobody had open. Now the
+  //: findings are drawn *on the document*, so switching a markdown file to
+  //: `.py` left squiggles under words in code, over a textarea whose own ink
+  //: is transparent, with the backdrop still laying the text out as `pre-wrap`
+  //: against a `white-space: pre` box. `renderDocProse` empties the findings
+  //: for a code file and `docSyncBackdrop` then takes the backdrop away and
+  //: gives the textarea its ink back.
+  renderDocProse();
 }
 
 // The dock's kebab closes when you pick something from it, and when you click

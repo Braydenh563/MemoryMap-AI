@@ -588,6 +588,45 @@ function ok(name, condition, detail) {
     offWhenNotSource.live && !offWhenNotSource.inkedInLive && offWhenNotSource.backInSource,
     JSON.stringify(offWhenNotSource));
 
+  // A code file has no prose findings, so it has no backdrop either. The type
+  // can change under an open document, and `syncDocFileType` never re-ran the
+  // prose pass: before this, switching a markdown file to .py left squiggles
+  // under words in code, over a textarea whose own ink is transparent.
+  const typeSwitch = await page.evaluate(async () => {
+    const read = () => {
+      const box = document.getElementById("doc-content");
+      const back = document.querySelector(".doc-backdrop");
+      return {
+        ext: docFileType().ext,
+        hidden: back.classList.contains("hidden"),
+        inked: box.classList.contains("has-backdrop"),
+        findings: docProseFound.length,
+        ink: getComputedStyle(box).color,
+      };
+    };
+    const pick = async (ext) => {
+      const select = document.getElementById("doc-file-type");
+      const option = [...select.options].find((o) => o.value === ext);
+      if (!option) return null;
+      select.value = ext;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 900));
+      return read();
+    };
+    const before = read();
+    const code = await pick("py");
+    const back = await pick("md");
+    return { before, code, back };
+  });
+  ok("P0 switching to a code file takes the backdrop away and the ink back",
+    typeSwitch.code && typeSwitch.code.hidden && !typeSwitch.code.inked &&
+      typeSwitch.code.findings === 0 && typeSwitch.code.ink !== "rgba(0, 0, 0, 0)",
+    JSON.stringify(typeSwitch.code));
+  ok("P0 switching back to markdown restores it",
+    typeSwitch.back && !typeSwitch.back.hidden && typeSwitch.back.inked &&
+      typeSwitch.back.findings === typeSwitch.before.findings,
+    JSON.stringify(typeSwitch.back));
+
   // --- 2. one click opens the suggestions ----------------------------------
   // Back to the small document, and typed rather than assigned, so the whole
   // path (input, debounce, findings, backdrop) is the one under test.

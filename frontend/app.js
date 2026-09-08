@@ -23990,9 +23990,28 @@ function autoGrow(el) {
   const chosen = Number(el.dataset.maxPx || 0);
   const viewportLimit = Math.min(AUTOGROW_MAX_PX, Math.round(window.innerHeight * AUTOGROW_MAX_VIEWPORT));
   const auto = Math.min(el.scrollHeight, viewportLimit);
+  //: **INBOX 37: an empty box is pinned to its CSS floor, not measured.**
+  //: Reported with a screenshot: Reminders' Magic add field taller than its
+  //: own Add button on the owner's desktop shell; measured 44/44 (equal) in
+  //: this sandbox's headless Chromium, on the bundled system font, in light
+  //: mode. `el.scrollHeight` on an *empty* box is still a function of the
+  //: rendered line box, which is a function of the actual font in use, and
+  //: that is exactly what differs: a fallback font before a webfont has
+  //: finished loading, a heavier weight dark mode's own stylesheet may pick,
+  //: a different system font entirely on another OS. Every one of those can
+  //: round `scrollHeight` a pixel or two past the button's fixed height,
+  //: which is why this was invisible here and not there. `min-height` in
+  //: rem is none of that, it is a fixed length the browser converts from the
+  //: root font size alone, so reading it back is the one measurement that
+  //: cannot drift with the textarea's own font. Only while there is nothing
+  //: to measure: the moment real content wraps past this floor, `scrollHeight`
+  //: takes back over below, which is the box actually growing to fit typed
+  //: text rather than a static height with nothing behind it.
   const next = chosen > 0
     ? (chosen < auto ? chosen : Math.max(auto, Math.min(chosen, viewportLimit)))
-    : Math.min(el.scrollHeight, limit);
+    : !el.value.trim()
+      ? (parseFloat(getComputedStyle(el).minHeight) || auto)
+      : Math.min(el.scrollHeight, limit);
   el.style.height = `${next}px`;
   el.style.overflowY = el.scrollHeight > next ? "auto" : "hidden";
   // What this function chose, so a later resize can be told apart from a drag

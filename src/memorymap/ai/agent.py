@@ -18,7 +18,7 @@ from collections.abc import Iterator
 
 from sqlalchemy.orm import Session
 
-from memorymap.ai import context, librarian, memory, tools
+from memorymap.ai import cards, context, librarian, memory, tools
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import (
     OllamaClient,
@@ -1791,6 +1791,15 @@ def run_agent(
                     # What this call actually touched, for the chat's live
                     # action line — see `_touched_items`.
                     "touched": _touched_items(result),
+                    #: **The same call, as things with actions** (PLAN.md §4
+                    #: A1). `touched` is notes and documents; this is all five
+                    #: kinds — a file, a board and a reminder are equally
+                    #: openable and had no representation at all. Kept beside
+                    #: `touched` rather than replacing it because a saved
+                    #: transcript from before this existed has only `touched`,
+                    #: and `skill_runner._absorb` reads it to carry ids across
+                    #: a run's steps.
+                    "cards": cards.result_cards(name, result),
                 }
                 if change:
                     event["change"] = change

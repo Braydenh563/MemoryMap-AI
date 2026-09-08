@@ -311,6 +311,101 @@ def _contract_met(spec: dict, called: set[str], changed: list[dict], answer: str
     return bool(called & named) if named else bool(called)
 
 
+#: **How many times one run may re-plan a step that failed** (PLAN.md §4, A2:
+#: "re-plans on a failed step (max 2)").
+#:
+#: The contract retries above (Phase A) re-send the *same* step with a nudge —
+#: they are for a model that narrated instead of calling. This is the level
+#: above: a step that has genuinely failed or stalled is *rewritten* and tried
+#: again, so a run bends rather than ending at the first bad step.
+#:
+#: **The step is rewritten in place, and the rest of the plan is not touched.**
+#: That is a deliberate scope call, not a shortcut. `stopped_at` is an index
+#: into the step list, and the client turns it into "Resume from step N" by
+#: sending the *saved skill's* name back down `/chat/stream` — so a re-plan
+#: that inserted, removed or reordered steps would leave `stopped_at` pointing
+#: into a list nothing else has, and Resume would silently re-run the wrong
+#: step, every one of which writes to the notebook. Rewriting one step keeps
+#: every index, every `earlier` marker and Resume exactly as correct as they
+#: were. What gets re-planned is *how* to do the step; what does not is the
+#: shape of the job.
+MAX_REPLANS = 2
+
+REPLAN_PROMPT = (
+    "You rewrite ONE step of a plan that has just failed, so it can be tried "
+    "again. Reply with the rewritten step and nothing else: one short "
+    "instruction, no numbering, no quotes, no explanation. Make it smaller "
+    "and more literal than the one that failed — name the single thing to do."
+)
+
+
+def _fallback_replan(step_text: str, spec: dict) -> str:
+    """The rewrite when the model cannot supply one.
+
+    Deliberately still a rewrite rather than a bare retry: the step goes back
+    with the tool it must call named inside it, which is the same lever the
+    contract nudge pulls and the one that actually moves a small model. Kept
+    inside `skills.MAX_STEP` so a re-planned step is still a step the plan
+    card, the skill editor and a later `normalise` all accept.
+    """
+    tool = next(iter(spec.get("tools") or []), None)
+    call = f" Call {tool} exactly once." if tool else " Do one thing only."
+    return f"{step_text.rstrip('.')}.{call}"[: skills.MAX_STEP]
+
+
+def _replan_step(
+    model_manager: ModelManager,
+    ollama: OllamaClient,
+    skill: dict,
+    values: dict | None,
+    step_text: str,
+    spec: dict,
+    reason: str,
+) -> str:
+    """A rewritten version of one failed step. Never raises, never empty.
+
+    Falls back to `_fallback_replan` on every failure path — offline, a
+    transport error, an empty reply, a reply that came back as a paragraph —
+    for the same reason `followups.suggest_followups` returns `[]` on all of
+    its: a run that stops because its own recovery could not reach the model
+    is a worse outcome than one that retries with a mechanically improved
+    instruction.
+    """
+    fallback = _fallback_replan(step_text, spec)
+    if not ollama.is_running():
+        return fallback
+    named = ", ".join(spec.get("tools") or [])
+    goal = skills.fill(skill.get("prompt") or "", skills.input_values(skill, values))
+    try:
+        reply = ollama.chat(
+            model_manager.utility_model(),
+            [
+                {"role": "system", "content": REPLAN_PROMPT},
+                {
+                    "role": "user",
+                    "content": (
+                        f"The whole job: {goal[: skills.MAX_GOAL]}\n"
+                        f"The step that failed: {step_text}\n"
+                        f"What went wrong: {reason}\n"
+                        + (f"It must call this tool: {named}\n" if named else "")
+                        + "Rewrite the step."
+                    ),
+                },
+            ],
+        )
+    except Exception:  # noqa: BLE001 — recovery must not itself end the run
+        logger.warning("couldn't re-plan a failed step", exc_info=True)
+        return fallback
+    text = " ".join(str(reply.get("content") or "").split())
+    # A model that answered with a paragraph, a refusal or an empty string has
+    # not given a step. One line, and shorter than the cap a step is allowed
+    # to be — otherwise the "rewrite" is a fresh wall of prose, which is the
+    # failure this whole file exists to stop.
+    if not text or len(text) > skills.MAX_STEP:
+        return fallback
+    return text
+
+
 def _step_tools(spec: dict, allowed: list[str] | None, small_model: bool) -> list[str] | None:
     """Which tools this one step is offered.
 
@@ -482,17 +577,34 @@ def run_skill(
     stopped_at: int | None = None
     paused = False
     resume_from = min(max(0, start_at), len(steps))
-    for index, step in enumerate(steps):
-        if index < resume_from:
-            # Done in the run this one is resuming, so it is neither re-run nor
-            # claimed as this run's work. The plan card shows it ticked in a
-            # quieter state, because a step somebody watched succeed ten
-            # minutes ago is not the same as one this run just did.
-            if not started:
-                yield plan
-                started = True
-            yield {"type": "step", "index": index, "state": "earlier", "text": step}
-            continue
+    #: **A copy**, because re-planning rewrites a step in place and
+    #: `skill["steps"]` belongs to the caller — a built-in skill's list *is*
+    #: the module-level catalogue's own list, so mutating it here would
+    #: quietly rewrite that skill for every later run in the process. The
+    #: `plan` event above still carries the original list, which is what the
+    #: plan card was drawn from; a rewrite arrives as its own `replanned`
+    #: step event rather than by mutating what the reader was already shown.
+    steps = list(steps)
+    replans = 0
+    for index in range(resume_from):
+        # Done in the run this one is resuming, so it is neither re-run nor
+        # claimed as this run's work. The plan card shows it ticked in a
+        # quieter state, because a step somebody watched succeed ten
+        # minutes ago is not the same as one this run just did.
+        if not started:
+            yield plan
+            started = True
+        yield {"type": "step", "index": index, "state": "earlier", "text": steps[index]}
+    index = resume_from
+    #: A `while`, not a `for`: a re-planned step is run again at the same
+    #: index with new text, and `continue` without advancing is what that is.
+    while index < len(steps):
+        step = steps[index]
+        # Whether the way this step ended is worth re-planning at all, and the
+        # one sentence saying what went wrong — the material `_replan_step`
+        # gives the model, and the reason the `replanned` event carries.
+        replannable = True
+        fail_reason = ""
         spec = specs[index]
         offered = _step_tools(spec, allowed, small_model)
         example = (
@@ -544,6 +656,9 @@ def run_skill(
                     "reason": "The model stopped being able to use tools part-way through.",
                 }
                 stopped_at = index
+                # Not re-plannable: no rewording of a step gives a model back
+                # the ability to call tools.
+                replannable = False
                 outcome = "failed"
                 break
             if not started:
@@ -608,6 +723,9 @@ def run_skill(
                     "reason": "Ollama isn't reachable — check Settings → Models and try again.",
                 }
                 stopped_at = index
+                # Not re-plannable, and the re-plan call itself would need the
+                # same model that has just gone away.
+                replannable = False
                 outcome = "failed"
                 break
             if ran_out:
@@ -629,6 +747,20 @@ def run_skill(
                     ),
                 }
                 stopped_at = index
+                fail_reason = "it used every round it had without finishing"
+                #: **Not re-plannable, and this is the sharpest line in the
+                #: whole mechanism.** A step that ran out of rounds was
+                #: *doing the job* and got cut off half way — unlike every
+                #: other ending here, work was done and more is left. Rewrite
+                #: it and run it again and the model, having no rounds' worth
+                #: of context about what it already tagged, answers in prose
+                #: — and the step goes green over a job that is still half
+                #: finished. That is precisely the bug this file exists to
+                #: prevent (`tests/test_long_runs.py` catches it), and the
+                #: honest ending for a cut-off step is the one it already
+                #: has: stop, and let Resume carry on from here with the
+                #: notebook as it now stands.
+                replannable = False
                 outcome = "stalled"
                 break
             # A step that ran no tools and said nothing did not happen. Anything
@@ -644,6 +776,7 @@ def run_skill(
                     "reason": failures[-1],
                 }
                 stopped_at = index
+                fail_reason = f"a tool failed: {failures[-1]}"
                 outcome = "failed"
                 break
             # **The other half of the reported bug.** A turn can end with no
@@ -684,6 +817,7 @@ def run_skill(
                     ),
                 }
                 stopped_at = index
+                fail_reason = "the model said nothing and called no tool"
                 outcome = "failed"
                 break
             if handed_over or _contract_met(spec, called, step_changes, answer):
@@ -723,8 +857,35 @@ def run_skill(
                 ),
             }
             stopped_at = index
+            fail_reason = _unmet_reason(spec)
             outcome = "stalled"
         if outcome != "done":
+            #: **Re-plan, then try the step again** (PLAN.md §4 A2). Bounded by
+            #: `MAX_REPLANS` per *run*, not per step: two rewrites is the point
+            #: at which a run that keeps failing is telling you something about
+            #: the job rather than about the wording, and an unbounded loop
+            #: here would be a model rewriting its own instructions forever
+            #: over a notebook it cannot act on.
+            if replannable and replans < MAX_REPLANS:
+                replans += 1
+                revised = _replan_step(
+                    model_manager, ollama, skill, values, step, spec, fail_reason
+                )
+                steps[index] = revised
+                yield {
+                    "type": "step",
+                    "index": index,
+                    "state": "replanned",
+                    "text": revised,
+                    "attempt": replans,
+                    "of": MAX_REPLANS,
+                    "reason": fail_reason,
+                }
+                # It is no longer where the run stopped — it is about to be
+                # tried again, and a `stopped_at` left behind here would offer
+                # a Resume for a step that is still running.
+                stopped_at = None
+                continue
             break
         # Manual mode: the same stop-and-resume machinery `stopped_at` already
         # gives a failed/stalled step, used deliberately here instead of a
@@ -735,6 +896,7 @@ def run_skill(
             stopped_at = index + 1
             paused = True
             break
+        index += 1
 
     if not started:  # every step failed before producing anything
         yield plan

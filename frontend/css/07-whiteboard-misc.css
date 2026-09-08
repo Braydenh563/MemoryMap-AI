@@ -1243,6 +1243,20 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   content: " ↻";
 }
 
+/* **A step the run rewrote** (PLAN.md §4 A2). One level above a retry: a
+   retry sends the same step again with a nudge, this replaces the step's own
+   words and runs it once more. Warn, like a retry, and for the same reason —
+   nothing has failed for good, the run is recovering — but its own glyph,
+   because the row's text has *changed* and a reader comparing the checklist
+   against what it said a moment ago needs to know that was deliberate. */
+.plan-step-replanned {
+  color: var(--warn);
+}
+
+.plan-step-replanned::after {
+  content: " ✎";
+}
+
 /* A run row's own state word borrows the same colours (`plan-step-*` is set on
    it by `renderAgentRunSummary`), and the two that only a *run* can be need
    their own: a run has no ✓/✕ suffix, because the word is already there. */
@@ -1250,6 +1264,7 @@ body.has-agent-monitor .doc-sidebar .doc-list {
 .agent-run-state.plan-step-failed::after,
 .agent-run-state.plan-step-stalled::after,
 .agent-run-state.plan-step-retrying::after,
+.agent-run-state.plan-step-replanned::after,
 .agent-run-state.plan-step-running::after {
   content: none;
 }
@@ -1282,6 +1297,7 @@ body.has-agent-monitor .doc-sidebar .doc-list {
    `--muted`, on a row that should have been `--warn`. Scoped through the
    container so it wins on specificity rather than on file order. */
 .monitor-runs .agent-run-step > summary[data-state="retrying"],
+.monitor-runs .agent-run-step > summary[data-state="replanned"],
 .monitor-runs .agent-run-step > summary[data-state="stalled"] {
   color: var(--warn);
 }

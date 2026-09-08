@@ -3360,9 +3360,20 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
             "related_notes",
             "path_between",
             "notebook_structure",
+            #: **Also found unreachable by the eval harness.** `find_similar_notes`
+            #: appeared in no group either, so "what reads like my thesis note?"
+            #: was offered every connection tool except the one that answers it.
+            #: It belongs here rather than in a group of its own: it is the same
+            #: question as `related_notes` asked of similarity instead of links,
+            #: and a question about one is a question about the other.
+            "find_similar_notes",
         ),
         (
             "link", "connect", "related", "relate", "join", "graph", "together",
+            # …and the words for a connection nobody has made yet, which is
+            # what `find_similar_notes` is for.
+            "similar", "similarly", "reads like", "looks like", "same sort of",
+            "same kind of",
             # What the notebook's shape gets called when somebody asks about
             # it. "orphan" and "cluster" are the words the answer uses, so they
             # are also the words the follow-up question uses.
@@ -3440,6 +3451,34 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         (
             "whiteboard", "board", "canvas", "diagram", "mind map", "mindmap",
             "mind-map", "sketch", "draw.io", "drawio", "flowchart",
+        ),
+    ),
+    (
+        #: **The uploaded-files group, and it had none at all.**
+        #:
+        #: Found by the eval harness on its first run (`tests/eval`, PLAN.md
+        #: §4 A6): three golden asks — "find the photo of the whiteboard",
+        #: "which file mentions the retention plan?", "read the whiteboard
+        #: photo for me" — were each offered a narrowed toolbox with neither
+        #: `search_files` nor `read_file` in it. Neither tool appeared in any
+        #: group, and `focus_for` only returns `None` (everything) for a broad
+        #: request or a follow-through, so on an ordinary question about a
+        #: file these two could not be called *at all*. The tools worked; they
+        #: were unreachable, which is CLAUDE.md's "features that never ran
+        #: once" one layer up from the code.
+        #:
+        #: The cues deliberately avoid `"file "` and `"filed "` — those belong
+        #: to the category group above ("file it under Work"), and taking them
+        #: would break filing to fix reading. `"which file"`/`"that file"`/
+        #: `"the file"` are the phrasings that mean an actual file, and they
+        #: cue both groups, which is fine: two small groups on the wire beats
+        #: the right one missing.
+        ("search_files", "read_file"),
+        (
+            "upload", "uploaded", "pdf", "photo", "photos", "picture",
+            "image", "screenshot", "scan", "scanned", "attachment",
+            "attached", "files", "which file", "that file", "the file",
+            "my file", "a file", "ocr",
         ),
     ),
 ]

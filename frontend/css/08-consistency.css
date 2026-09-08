@@ -1141,3 +1141,78 @@ summary > .ph-lead,
   height: var(--control-h-lg);
   font-size: var(--text-md);
 }
+
+/* ---------------------------------------------------------------------------
+   The two rows that still wrapped at 1024
+
+   consistency.md item 5 closed with one row at 1440 and two rows still on two
+   lines at 1024. Measured again here with `scratchpad/ui-sweeps/wraps.js`,
+   which counts lines from the bucketed y of a row's children rather than from
+   the row's height, so a tall child and a wrapped row cannot be confused:
+
+     1440   .draft-controls[0] 1 line   .draft-controls[1] 1 line
+            .capture-field-row[0] 1 line   .ask-query-row 1 line
+     1024   .draft-controls[1] 2 lines (h=88)
+            .capture-field-row[0] 2 lines (h=88)
+
+   That measurement also settles the item's third bullet, which asked for the
+   Ask composer's reading to be confirmed before anything was touched: it is
+   `flex-wrap: nowrap` with a 40px child in a 55px row and its children share
+   one line at both widths. A tall child, not a wrap. Nothing to fix, and this
+   is why nothing here touches it.
+
+   72rem rather than the 1100px the item suggested: the app's other width
+   query is in rem (`.wb-topbar` at 56rem), 72rem is 1152px so it clears the
+   1024 failure with room, and it stays under the contract's 1280 laptop
+   breakpoint so a laptop keeps the two-column Writing Room it is wide enough
+   for. One query covers both rows rather than inventing a breakpoint each. */
+@media (max-width: 72rem) {
+  /* The Writing Room is a two-column layout, so at 1024 each column is about
+     340px and four controls cannot fit on one line at any distribution of that
+     space. The row is not the problem; the column count is. There is already a
+     `max-width: 900px` collapse in 04-chat-dock-appearance.css and this raises
+     the point it happens, rather than adding a second, competing rule. */
+  .draft-columns {
+    grid-template-columns: 1fr;
+  }
+
+  /* The attach row is a label, a select and five labelled buttons in about
+     675px. Re-merging it with the commit row below is the one fix ruled out:
+     index.html:708 records why the attach family was moved out of that row.
+     So the five lose their words and keep their icons, the same move
+     `.wb-topbar .wb-menu-label` already makes at 56rem.
+
+     `font-size: 0` rather than hiding a label element, because these labels
+     are bare text nodes with no element to hide and this file may not add one.
+     All five carry an `aria-label` and a `title`, so the accessible name and
+     the tooltip survive; only the painted glyphs go.
+
+     **The five are named, not selected by `.capture-field-row > button`.**
+     Written that way first and measured: the selector also caught the commit
+     row below, which does not wrap, and `#save-draft-btn` has no icon at all,
+     so it rendered 34px wide with nothing in it. It also silenced `#save-btn`,
+     the surface's one primary, which is the last label that should go. A rule
+     that hides text has to name what it hides.
+
+     1.15rem on the icon, not a smaller token: that is exactly the 18.4px the
+     icon measured before the collapse (1.15em of the button's 16px), so the
+     glyph is the same size with the word gone rather than a size the row has
+     never drawn. Its trailing margin goes because a gap before a label is
+     dead space on one side when there is no label. */
+  #entry-attach-file,
+  #entry-attach-existing,
+  #sketch-btn,
+  #mic-note,
+  #improve-btn {
+    font-size: 0;
+  }
+
+  #entry-attach-file > .ph,
+  #entry-attach-existing > .ph,
+  #sketch-btn > .ph,
+  #mic-note > .ph,
+  #improve-btn > .ph {
+    margin-inline-end: 0;
+    font-size: 1.15rem;
+  }
+}

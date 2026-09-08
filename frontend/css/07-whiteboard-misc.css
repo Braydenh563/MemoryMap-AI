@@ -1469,74 +1469,22 @@ body.has-agent-monitor #tab-library .library-view-section {
   white-space: nowrap;
 }
 
-/* Reported: "the font is a different size to the rest of the controls", 
-   this one row had four different sizes in play: `.graph-physics label`
-   (Gravity/Spread) at 0.8rem, `.graph-temporal`'s own "Time Filter" label
-   with no size set at all (the ambient default), `.graph-time-label`
-   ("Up to…") at `--text-sm` (0.75rem), and `.tools-toggle`
-   (Similarity/Hide unlinked/Labels) at 0.85rem. One size for the whole
-   strip, matching `.tools-toggle`'s: the size already used for the
-   majority of toggle-style labels across the app, rather than four
-   separately-tuned ones nobody meant to disagree.
-   `.graph-options` in `index.html`, so a class selector without an id
-   would be no more specific than the rules above; `#graph-options` wins
-   without needing `!important`. */
-#graph-options .graph-physics label,
-#graph-options .graph-temporal label,
-#graph-options .graph-time-label {
-  font-size: 0.85rem;
-}
+/* **Four rules of the options strip used to sit here and are gone with it.**
+   The label-size rule (an id rule settling four sizes in one row: physics
+   labels at 0.8rem, the time filter's label at the ambient default, the
+   read-out at --text-sm, the toggles at 0.85rem), `.graph-toggle-group`'s
+   inline-flex wrapping row, the `+`-selector dividers that marked where one
+   group ended and the next began (Physics | Time | Toggles | Minimap), and
+   `.graph-minimap-option`'s matching inline row.
 
-/* Reported: "the labels and what UI control element they connect to is
-   confusing in the graph tab", `.graph-time-label` ("All time") is a plain
-   read-out of the slider to its left, styled identically (`muted text-sm`)
-   to the *interactive* toggle labels (Similarity/Hide unlinked/Labels)
-   sitting right after it in the same flex row with the same gap, so nothing
-   marked where one group ended and the next began. Grouping the toggles
-   under one `.graph-toggle-group` span and drawing a divider before each
-   group: the same `+`-selector convention `.chat-tool-group` already uses,
-   so a hidden group never leaves a stranded line, makes the row read as
-   Physics | Time | Toggles rather than one undifferentiated strip. */
-.graph-toggle-group {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-4);
-  /* **Wraps, because on a phone it did not.** Measured at 390x844: with no
-     wrap these four toggles ran straight off the right edge, `Hide unlinked`
-     ended at x=488 and `Labels` at x=652 on a 390px-wide screen, and unlike
-     the legend below (which is deliberately a scrolling row, and says so)
-     nothing here scrolls, so those two options were simply unreachable on a
-     phone. Wrapping is the right answer rather than scrolling: these are four
-     independent checkboxes, not one ranked row, so a second line costs
-     nothing and keeps every one of them hittable. */
-  flex-wrap: wrap;
-  row-gap: var(--space-2);
-}
-
-.graph-physics+.graph-temporal::before,
-.graph-temporal+.graph-toggle-group::before,
-.graph-toggle-group+.graph-minimap-option::before {
-  content: "";
-  align-self: stretch;
-  width: 1px;
-  /* Symmetric, and that is the fix: only the trailing margin was set, so the
-     line had the parent's gap on one side and gap+space-3 on the other, and
-     sat visibly tighter against the group it followed, reported as the
-     separator clashing with the "All time" read-out beside it. */
-  margin-inline: var(--space-3);
-  background: var(--border);
-}
-
-/* The minimap position picker, moved here from the main toolbar strip (see
-   index.html) as a "tuned once" setting: same shape as .graph-physics and
-   .graph-temporal above, so it gets the same inline-flex treatment and the
-   same divider convention marking where the toggle group ends and this
-   begins. */
-.graph-minimap-option {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
+   The options panel is a column of `.dock-menu-section`s now, in the order
+   Physics, Show, Time, Minimap, Links, each with its own heading and the
+   section recipe's own divider, and `.graph-option-row` in
+   03-dashboard-widgets.css gives every row one size and one height. So each
+   of those selectors either matched nothing or fought the section it sat on,
+   and the reports behind them are answered by the shape instead: the read-out
+   is under the slider it belongs to, inside the Time section, and the
+   switches are named rows inside Show. */
 
 /* The Library page and its three sub-views. The page is a column so that a
    sub-view can be the part that scrolls, rather than the window. Also the

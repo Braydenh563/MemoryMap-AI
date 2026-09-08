@@ -26,3 +26,6 @@ uploads/
 
 # Subagent worktrees (session-local)
 .claude/worktrees/
+
+# Playwright probe screenshots (scratchpad/ui-sweeps write here when SCRATCH is unset)
+shots/

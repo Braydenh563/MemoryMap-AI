@@ -342,7 +342,7 @@
 .task-log > summary:not(.icon-only):not(.icon-button) {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   width: 100%;
   padding: var(--space-3) var(--space-2);
   border: 1px solid transparent;
@@ -744,3 +744,87 @@ li:has(> .check-row) + li:has(> .check-row) > .check-row {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
 }
+
+/* ---------------------------------------------------------------------------
+   4. One gap between an icon and the label it leads
+   ---------------------------------------------------------------------------
+
+   Reported: "there are areas where the icons and accompanying text dont
+   align."
+
+   The vertical half of that does not reproduce, and it is worth saying so
+   with the number rather than fixing something that is not broken: swept
+   across seven tabs and seven Settings sections at 1440 (scratchpad/
+   ui-sweeps/iconalign.js, which compares each icon's vertical centre with a
+   Range around the label's own text nodes), **0 of 274 icon-and-text
+   controls are off by more than 1px, and the worst in the app is 0.87px.**
+
+   The horizontal half is real, and the same sweep names it: **10 distinct
+   icon-to-label gaps** across those rows - 4, 5.1, 5.5, 6.4, 8, 8.4, 11.9,
+   12.8, 13.5 and 14.4px. That is one visual relationship drawn at ten
+   widths, which is exactly the kind of almost-the-same difference DESIGN.md
+   opens by saying reads as unconsidered.
+
+   The cause is two mechanisms doing one job. `.ph-lead` carries
+   `margin-inline-end: 0.35em` (07-whiteboard-misc.css) from when these rows
+   were inline boxes; the rows are flex now and most of them also set their
+   own `gap`. Where only one applies you get 5.5px (the margin, at a 15.64px
+   icon) or 6.4px (`--space-2`). Where both apply they add up: 6.4 + 5.5 =
+   11.9 on the dock menu openers and their rows, 8 + 5.5 = 13.5 on the
+   filter check rows, 8 + 6.4 = 14.4 on a bare summary.
+
+   So: one mechanism. The container's `gap` is the one that survives, because
+   it is the same property already spacing every other child in the row (a
+   caret, a count, a shortcut key), and `.ph-lead`'s margin goes to zero in
+   the families measured as flex rows. 142 of the 243 gaps were already
+   `--space-2`; this brings the rest to it rather than inventing a new value.
+
+   `.ph-lead` keeps its margin everywhere else, which is where it is still
+   the only thing providing the gap: an icon inside a paragraph or any other
+   non-flex context is untouched by both rules below. */
+button,
+summary,
+.menu-item,
+.doc-dock-menu-item,
+.doc-dock-menu-btn,
+.dock-menu-check,
+.dock-link,
+.nav-history-item,
+.library-image-menu-item,
+.wb-menu-item,
+.quick-link,
+.status-item {
+  gap: var(--space-2);
+}
+
+/* A `.chip` is deliberately not in that list. It already declares
+   `gap: 0.3em`, which is 3.6px at its own 0.75rem size - a chip is small
+   enough that `--space-2` would be a third of its width. Zeroing the
+   double-counted margin below is all it needs. */
+
+button > .ph-lead,
+summary > .ph-lead,
+.menu-item > .ph-lead,
+.doc-dock-menu-item > .ph-lead,
+.doc-dock-menu-btn > .ph-lead,
+.dock-menu-check > .ph-lead,
+.dock-link > .ph-lead,
+.nav-history-item > .ph-lead,
+.library-image-menu-item > .ph-lead,
+.wb-menu-item > .ph-lead,
+.chip > .ph-lead,
+.quick-link > .ph-lead,
+.status-item > .ph-lead {
+  margin-inline-end: 0;
+}
+
+/* A summary in the settings modal was the last family still on `--space-3`
+   between its icon and its label: 12 of the 243 gaps measured 8px against
+   the 217 on `--space-2`. It is set at (0,1,1) in 01-forms-settings.css, so
+   restating it at the same weight from a later file is what settles it. */
+.about-whats-new,
+.settings-section summary,
+.help-accordion > summary {
+  gap: var(--space-2);
+}
+

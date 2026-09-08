@@ -104,6 +104,8 @@ const PROBE=(tol)=>{
       console.log(`    ${String(x.d).padStart(6)}px  ${x.who}  display=${x.disp} align=${x.ai} icon(fs=${x.ifs} lh=${x.ilh} va=${x.iva})  :: ${x.txt}`);
   }
   const gk=Object.keys(allGaps).map(Number).sort((a,b)=>a-b);
+  const tiny=gk.filter(k=>k<3);
+  if(tiny.length) console.log(`\nWARNING - ${tiny.length} gap value(s) under 3px, a row may have lost its gap entirely: ${tiny.join(', ')}`);
   console.log(`\nicon-to-label gaps: ${gk.length} distinct`);
   for(const k of gk) console.log(`   ${String(k).padStart(6)}px x${String(allGaps[k]).padEnd(4)} e.g. ${(allWho[k]||[]).join(' ; ')}`);
   console.log(`TOTAL: ${total} of ${examined} icon+text controls off by more than ${TOL}px at ${W}px, theme ${process.env.THEME||'light'}`);

@@ -196,8 +196,26 @@ if [ -z "${MM_LOG_ACTIVE:-}" ]; then
   if mkdir -p "$MM_LOG_DIR" 2>/dev/null && [ -w "$MM_LOG_DIR" ]; then
     MM_LOG="$MM_LOG_DIR/launcher-$(date +%Y-%m-%d).log"
     export MM_LOG_ACTIVE="$MM_LOG"
+    # errexit off across the redirection, and only here. `>(tee ...)` forks
+    # a process, and a fork can fail for reasons that have nothing to do
+    # with this app: a machine out of memory, a hit process limit. Under
+    # `set -e` that turned "could not open my own log" into "the launcher
+    # exited non-zero with no message", which is the worst possible trade -
+    # the log exists to explain failures, and it was causing one. Seen
+    # twice here, both times while the machine was thrashing.
+    #
+    # MM_LOG is cleared if the redirection did not take, so nothing
+    # downstream tells the reader to go and look at a file that will not be
+    # written; the launch then carries on unlogged, which is what it did
+    # before this block existed at all.
+    set +e
     exec > >(tee -a "$MM_LOG") 2>&1
-    echo "--- $(date '+%Y-%m-%d %H:%M:%S') ./start.sh ${*:-} (pid $$) ---"
+    if [ $? -ne 0 ]; then
+      MM_LOG=""
+      unset MM_LOG_ACTIVE
+    fi
+    set -e
+    [ -n "$MM_LOG" ] && echo "--- $(date '+%Y-%m-%d %H:%M:%S') ./start.sh ${*:-} (pid $$) ---"
     # Ten days of launches is plenty to answer "what changed since it last
     # worked", and this folder is inside the user's notebook - it must never
     # be the thing that fills a disk.

@@ -665,3 +665,65 @@ class TestAFlagMissingItsValue:
     def test_both_loops_tolerate_the_empty_shift(self):
         for script in (START_SH, UNINSTALL_SH):
             assert "shift || break" in _read(script), script
+
+
+class TestTheDesktopShortcut:
+    """`./start.sh --shortcut` is run for real against a scratch HOME, and
+    `./uninstall.sh --shortcuts` has to remove exactly what it wrote.
+    """
+
+    def _env(self, home, tmp_path):
+        env = dict(os.environ)
+        env["HOME"] = str(home)
+        env["MEMORYMAP_DATA_DIR"] = str(tmp_path / "data")
+        # Nothing must be able to look like a running MemoryMap and stop the
+        # uninstaller half way through this test.
+        env["MEMORYMAP_PORT"] = "9"
+        return env
+
+    def test_it_writes_an_entry_and_the_uninstaller_removes_it(self, tmp_path):
+        home = tmp_path / "home"
+        (home / "Desktop").mkdir(parents=True)
+        env = self._env(home, tmp_path)
+
+        made = subprocess.run(
+            ["./start.sh", "--shortcut"], cwd=ROOT, env=env,
+            capture_output=True, text=True, timeout=60,
+        )
+        assert made.returncode == 0, made.stdout + made.stderr
+        entry = home / ".local" / "share" / "applications" / "memorymap-ai.desktop"
+        copy = home / "Desktop" / "memorymap-ai.desktop"
+        assert entry.exists() and copy.exists()
+
+        body = entry.read_text(encoding="utf-8")
+        assert "Exec=" in body and "--desktop" in body
+        assert "Terminal=false" in body  # the case the splash exists for
+        icon = re.search(r"^Icon=(.+)$", body, re.M).group(1)
+        # Icon=frontend/icon.png was written for a file that has never
+        # existed in this repo, so both entries fell back to a generic icon.
+        assert Path(icon).exists(), icon
+
+        removed = subprocess.run(
+            ["./uninstall.sh", "--shortcuts", "--yes"], cwd=ROOT, env=env,
+            capture_output=True, text=True, timeout=60,
+        )
+        assert removed.returncode == 0, removed.stdout + removed.stderr
+        assert not entry.exists() and not copy.exists()
+
+    def test_the_dry_run_lists_the_shortcut_and_removes_nothing(self, tmp_path):
+        home = tmp_path / "home"
+        (home / "Desktop").mkdir(parents=True)
+        env = self._env(home, tmp_path)
+        subprocess.run(
+            ["./start.sh", "--shortcut"], cwd=ROOT, env=env,
+            capture_output=True, text=True, timeout=60,
+        )
+        entry = home / ".local" / "share" / "applications" / "memorymap-ai.desktop"
+        dry = subprocess.run(
+            ["./uninstall.sh", "--shortcuts", "--dry-run"], cwd=ROOT, env=env,
+            capture_output=True, text=True, timeout=60,
+        )
+        assert dry.returncode == 0, dry.stdout + dry.stderr
+        assert str(entry) in dry.stdout
+        assert "dry run" in dry.stdout
+        assert entry.exists()

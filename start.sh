@@ -703,7 +703,12 @@ mm_shortcut() {
     echo "Comment=Your notebook, on your own machine"
     echo "Exec=$here/start.sh --desktop"
     echo "Path=$here"
-    echo "Icon=$here/frontend/icon.png"
+    # icon-512.png, not icon.png, which has never existed in this repo: the
+    # entry was written with a path to a missing file, so the menu item and
+    # the Desktop copy both fell back to a generic icon. This is the same
+    # file __main__.py hands GTK on Linux, and for the same reason - ICO
+    # decoding through GdkPixbuf was never confirmed there.
+    echo "Icon=$here/frontend/icon-512.png"
     echo "Terminal=false"
     echo "Categories=Office;Utility;"
   } > "$entry"

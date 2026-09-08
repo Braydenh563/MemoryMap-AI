@@ -28,6 +28,7 @@ now says so in its first line.
 | [roadmap/DOCUMENTS_PLAN.md](roadmap/DOCUMENTS_PLAN.md) | The editor, Phases 1 to 7. |
 | [roadmap/GRAPH_PLAN.md](roadmap/GRAPH_PLAN.md) | The canvas graph, Phases 2 to 5. |
 | [roadmap/MINDMAP_PLAN.md](roadmap/MINDMAP_PLAN.md) | Phases 4 to 5. |
+| [roadmap/TIMELINE_PLAN.md](roadmap/TIMELINE_PLAN.md) | The line and table views rebuilt on one row model, Phases 1 to 4. |
 | [roadmap/AGENT_SKILLS_REFORM.md](roadmap/AGENT_SKILLS_REFORM.md) | Phase D (recovery) and the verifier in WORLD_CLASS_PLAN §4 B5. |
 
 | Reference (look things up, do not start from) | |

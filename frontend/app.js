@@ -29770,6 +29770,37 @@ $("tab-bar").addEventListener("keydown", (e) => {
   switchTab(names[next]);
   buttons[next].focus();
 });
+// Every other tablist gets the same keys. Reported directly: "I cant
+// navigate things like subtabs with arrow keys." Only the top bar and the
+// Notes strip had roving focus; the Library strip, the document sidebar
+// tabs, the note picker's sources and every strip added since were mouse
+// only, which is exactly the kind of small thing that makes an app feel
+// unfinished. One document-level handler covers all of them and any strip
+// added later, so long as it is marked role="tablist" with role="tab"
+// children. Strips with their own handler call preventDefault first and are
+// left alone; a click() on the target tab reuses each strip's own click
+// wiring rather than duplicating its section logic here.
+document.addEventListener("keydown", (e) => {
+  if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+  const keys = { ArrowRight: 1, ArrowLeft: -1, Home: 0, End: 0 };
+  if (!(e.key in keys)) return;
+  const tab = e.target.closest?.('[role="tab"]');
+  const list = tab?.closest('[role="tablist"]');
+  if (!tab || !list || list.id === "tab-bar") return;
+  const tabs = [...list.querySelectorAll('[role="tab"]')].filter(
+    (t) => !t.disabled && !t.hidden && t.offsetParent !== null
+  );
+  if (tabs.length < 2) return;
+  e.preventDefault();
+  const index = tabs.indexOf(tab);
+  let next;
+  if (e.key === "Home") next = 0;
+  else if (e.key === "End") next = tabs.length - 1;
+  else next = (index + keys[e.key] + tabs.length) % tabs.length;
+  const target = tabs[next];
+  target.click();
+  target.focus();
+});
 // Skip link (Wave L): jump keyboard focus straight into the open panel.
 $("skip-link").addEventListener("click", (e) => {
   e.preventDefault();

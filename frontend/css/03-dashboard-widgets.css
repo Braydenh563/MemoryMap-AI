@@ -1221,21 +1221,24 @@ header#top-bar select,
 }
 
 .quick-link-primary {
-  /* Filled tier: no edge. The accent border it carried was a fourth edge
-     colour in one row of tiles. */
-  border-color: transparent;
-  background: var(--accent-surface);
-  color: var(--on-accent);
-  border-color: var(--accent);
+  /* Marked, not inverted. This tile used to be a solid accent block with
+     dark ink, which on the dark theme made it the one pale slab in a row of
+     dark tiles: the icon went dark, the hint went white on lavender (2.1:1)
+     and the whole thing read as a pressed state rather than a suggestion.
+     A tinted fill with an accent edge and an accent icon says "start here"
+     while keeping the ink, hint and hover of every other tile, in both
+     themes. */
+  background: var(--accent-soft);
+  border-color: color-mix(in oklab, var(--accent) 55%, transparent);
+}
+
+.quick-link-primary .quick-link-icon {
+  color: var(--accent);
 }
 
 .quick-link-primary:hover {
-  background: var(--accent);
-  filter: brightness(1.08);
-}
-
-.quick-link-primary .quick-link-hint {
-  color: rgba(255, 255, 255, 0.82);
+  background: color-mix(in oklab, var(--accent) 22%, var(--card));
+  border-color: var(--accent);
 }
 
 /* An action: a tile you read before you press. Vertical padding rather than a

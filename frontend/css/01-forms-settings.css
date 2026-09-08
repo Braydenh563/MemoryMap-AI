@@ -2957,102 +2957,108 @@ html.modal-open body {
 }
 
 /* Full-width welcome banner across the top of the dashboard. */
-/* **One row, not a banner.** Measured at 1440 before this: 159px of hero for
-   a greeting — wordmark, greeting, name chip, sub-line and a 2.2rem clock
-   stacked in a gradient-washed glass panel. UI_MODERNISATION_PLAN Phase 1:
-   "a hero that is 150px tall for a greeting" is the uneven mass the page
-   reads as performative. The brand is in the top bar already, so the
-   wordmark goes; the greeting, the notebook line and the clock share one
-   baseline; the panel is a plain card with no wash. Target ≤ 64px. */
+/* **A banner, by the user's own choice.** Phase 1 made this a 53px row
+   (wordmark gone, clock in ink, no wash) to take mass out of the page; the
+   user saw the result and asked for the earlier hero back — the eyebrow
+   wordmark over a large greeting, the notebook line under it, and a large
+   accent clock stacked over its date, in a gradient-washed glass panel.
+   That is a design decision made by the person the page is for, and it
+   stands. Everything else in Phase 1 (one gutter, two card sizes, one head
+   row) is untouched; the values here are the scale's tokens rather than
+   the raw rems the original used. */
 .dash-hero {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-6);
-  flex-wrap: nowrap;
+  gap: var(--space-8);
+  flex-wrap: wrap;
   margin: 0 0 var(--space-6);
-  padding: var(--space-4) var(--space-6);
+  padding: var(--space-7) var(--space-8);
   border-radius: var(--radius);
   border: 1px solid var(--glass-border);
-  background: var(--card);
+  /* The wash is a corner glow rather than a diagonal band: a band across a
+     wide panel reads as a stripe, a glow reads as light on glass. The inset
+     highlight is the one-pixel top edge every glass surface in the app
+     carries. */
+  background:
+    radial-gradient(120% 160% at 0% 0%, var(--accent-soft) 0%, transparent 60%),
+    var(--card);
   backdrop-filter: var(--glass-filter);
   -webkit-backdrop-filter: var(--glass-filter);
-  box-shadow: var(--glass-shadow);
-  /* No `min-height` here, on purpose. The hero is a flex item of `.tab-page`
-     (a column flex container that scrolls), and an explicit `min-height` on
-     a flex item *replaces* its automatic min-content floor — measured: with
-     `min-height: 36px` the box was exactly 36px tall with 31px of text
-     hanging 3px past each padding edge. `flex-shrink: 0` is what keeps a row
-     its own height in that container. */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), var(--glass-shadow);
+  /* `flex-shrink: 0`, never a `min-height`: see the note this replaced —
+     an explicit min-height on a flex item of `.tab-page` replaces its
+     min-content floor and the text hangs past the padding. */
   flex: 0 0 auto;
 }
 
 .dash-hero-emblem {
   flex: 0 0 auto;
-  /* the emblem's canvas carries its own padding */
 }
 
+/* The emblem and the greeting are one unit, so the clock still pushes to the
+   far end. */
 .dash-hero-text {
-  /* min-width: 0 or a long AI-written greeting refuses to shrink and pushes
-     the clock off the row — automatic minimum sizing again. */
   min-width: 0;
   flex: 1 1 12rem;
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0 var(--space-4);
 }
 
-/* The wordmark is gone from the markup; the rule stays so a cached page from
-   an older build renders it hidden rather than as a third line. */
+/* The eyebrow: the brand, small, spaced and in the accent, with "AI" set
+   apart the way the top bar does it. */
 .dash-wordmark {
-  display: none;
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.dash-wordmark span {
+  opacity: 0.6;
 }
 
 .dash-greeting {
   margin: 0;
-  font-size: var(--text-h2);
+  font-size: var(--text-h1);
   font-weight: 700;
   letter-spacing: -0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
 }
 
 .dash-submessage {
-  margin: 0;
+  margin: var(--space-1) 0 0;
   color: var(--muted);
   font-size: var(--text-md);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .dash-submessage:empty {
   display: none;
 }
 
+/* The clock: the time large and in the accent, the date under it, both
+   right-aligned so the block reads as one object at the banner's far end. */
 .dash-clock {
   display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
+  flex-direction: column;
+  align-items: flex-end;
   line-height: 1.15;
   flex: 0 0 auto;
+  text-align: right;
 }
 
-/* Ink, not accent: the accent is for the one filled action, selection and
-   links (Phase 3). A clock is information. */
 .dash-clock-time {
-  font-size: var(--text-h3);
-  font-weight: 650;
+  font-size: var(--text-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
-  color: var(--ink);
+  color: var(--accent);
 }
 
 .dash-clock-date {
+  margin-top: var(--space-1);
   font-size: var(--text-sm);
+  font-weight: 500;
+  letter-spacing: 0.02em;
   color: var(--muted);
 }
 

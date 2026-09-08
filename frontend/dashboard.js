@@ -335,7 +335,7 @@ function renderDashboardGreeting() {
   // so it has to be redrawn when the dashboard repaints after a theme change.
   // It also can't be sized while the tab is display:none — p5 measures zero —
   // which is why this sits in the dashboard's own render and not in init.
-  renderEmblem($("dash-hero-emblem"), 32, { animate: true });
+  renderEmblem($("dash-hero-emblem"), 46, { animate: true });
   paintDashClock();
   // One ticking clock, however many times the dashboard re-renders.
   if (dashClockTimer) clearInterval(dashClockTimer);

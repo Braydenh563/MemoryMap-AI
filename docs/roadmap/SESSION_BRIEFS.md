@@ -610,6 +610,32 @@ WORLD_CLASS_PLAN §11's last paragraph.
 
 ---
 
+## Brief 15 (any day, Opus): network hardening before LAN mode
+
+**Goal.** WORLD_CLASS_PLAN §12 items S1, S2, S3, S5 closed, proven by a
+test that runs the app bound to 0.0.0.0.
+
+**Done when.** `tests/test_lan_mode.py` passes: media URLs carry a
+short-lived media token, not the session token, and the session token in
+`?token=` is refused; five wrong unlocks from one client address do not
+throttle another; `import_directory` returns 403 when the bind is not
+loopback; a bookmark or clip of `http://127.0.0.1:8781/` and of
+`http://10.0.0.1/` is refused by `assert_public_url()`; uvicorn access
+logs contain no `token=`.
+
+**Decisions made.** Media token = HMAC-SHA256 over `path|expiry` with a
+per-process key, 10 minutes, minted by `/media/token?path=` and cached by
+`mediaSrc`; the session token stays a header. Throttle keyed by
+`request.client.host` with the global list kept as a ceiling. The
+outbound guard lives in `core/security.py` and reuses `websearch.py`'s
+resolver (~689). Settings gets "Allow other devices on this network"
+only after this brief merges.
+
+**Steps.** Test file first (subprocess app on a free port, bound
+0.0.0.0); S1; S2; S3; S5; the log scrubber; the Settings toggle last.
+
+---
+
 ## The quarter's briefs (shorter; expand each into the shape above when
 its session starts)
 

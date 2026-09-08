@@ -701,3 +701,56 @@ review of B1 to B3 as merged; the design decision for the block editor
 (DOCUMENTS_PLAN §4) once CM6 is measured under the CSP; the sync
 conflict model; the answer-citation UX; and a fresh screenshot-driven
 pass on whatever still "feels off" once §1 is enforced.
+
+---
+
+## 12. Security review (read, not penetration-tested; each item names the file)
+
+The threat model matters: the app binds 127.0.0.1 by default, so most of
+these are "fine on localhost, real the day LAN mode ships". They are
+listed so LAN mode cannot ship without them (Brief 15).
+
+| # | Finding | Where | Severity now / on LAN | Fix |
+| --- | --- | --- | --- | --- |
+| S1 | The session token travels in `?token=` on every `/media` and `/files` URL (`mediaSrc`, `frontend/app.js` ~215), so it lands in browser history, in uvicorn's access log, and in any note a person pastes an image URL into (the code already notes a doubled `?token=`). `Referrer-Policy: no-referrer` stops the Referer leak only. | `app.js` mediaSrc; `core/security.py` query-token path | low / high | A media-scoped, short-lived HMAC token (path + expiry, signed with a per-session key) or an HttpOnly cookie set at unlock and read only by `/media` and `/files`; the API keeps the header. Log scrubbing for `token=` either way. |
+| S2 | Unlock throttling is one global list (`routes_auth.py` `_failed_unlocks`), not per client. | `routes_auth.py` ~93 | none / medium (five wrong tries from anyone locks the owner out for up to five minutes) | Key the throttle by client address once the bind is not loopback; keep the global ceiling as a second layer. |
+| S3 | `import_directory` and `import_markdown` take a filesystem path from the request body and read it. Correct for the single user on localhost; on LAN it is arbitrary directory read for any holder of a token. | `routes_settings.py` ~1750 | none / high | Refuse when the bind is not loopback; or restrict to the user's home; the desktop shell should use a native picker and pass a handle, not a path. |
+| S4 | `OriginCheckMiddleware` lets a request with neither Origin nor Referer through. Browsers always send Origin on cross-site state changes, so this is not the CSRF hole it looks like; it is a note so nobody "fixes" it into breaking curl and the desktop shell. | `core/security.py` ~78 | none | Keep; add the test that a cross-origin POST with Origin set is 403. |
+| S5 | Bookmarks normalise a URL by adding a scheme and nothing else; today nothing fetches it. The clipper (D9) and any title preview MUST reuse `websearch.py`'s private-address check (~689) before the first `requests.get`. | `routes_bookmarks.py` ~36 | none / high once fetching exists | Move the private-IP guard into `core/security.py` as `assert_public_url()` and call it from every outbound fetch (bookmarks, clipper, update downloader, provider base URL). |
+| S6 | The model provider base URL is user-set and fetched from the server; by design it points at localhost, so SSRF to the LAN is "the feature". | `ai/provider.py` | none / low | On LAN mode, show the configured URL in the privacy receipt; never follow redirects off the configured host. |
+| S7 | 18 SQL `LIKE`/`ILIKE` sites pass user text without escaping `%` and `_`. Not injection (parameterised), but a search for `100%` matches everything and `_` matches any character. | `grep -rn "\.like(\|ilike(" src/memorymap` | correctness | One `like_escape(text)` helper with `escape="\\"`; lint that every `.like(` uses it. |
+| S8 | Backups restore by `Path(name).name` inside `backups/` (good); `searxng_install` extracts tar members it vets (good); uploads are `basename`d and the media dir is checked with `is_relative_to` (good); `X-Content-Type-Options: nosniff` and `Content-Disposition: attachment` on files (good). Recorded so nobody re-audits them. | as named | none | Keep the tests that pin each. |
+| S9 | `renderMarkdown` builds DOM nodes rather than HTML strings (good); whether it filters link schemes (`javascript:`) was not read to the end. | `app.js` ~21269 | unknown | Read it; add a test that a note containing `[x](javascript:alert(1))` renders a link with no `href`. |
+| S10 | OpenAPI schema and `/docs` are behind the auth gate? Confirm; MODERNISATION_AUDIT D5 says they were not. | `api/app.py` | low | Behind the gate, or off in packaged builds. |
+
+**Brief 15 (network hardening, Opus, one session):** S1, S2, S3, S5 as one
+change set with a `tests/test_lan_mode.py` that starts the app bound to
+0.0.0.0 in a subprocess and asserts each behaviour; only after it passes
+does Settings offer "Allow other devices on this network".
+
+## 13. Open bugs and gaps from the merged agent reports (with owners)
+
+Each of these was found by measuring and deferred with evidence; the
+`agent-remaining/*.md` file named carries the file, id and next step.
+
+- Whiteboard board-preview minimap writes NaN rects (20 console errors on
+  a notebook with boards; `app.js` `board-minimap-card`). Owner: mindmap
+  item F (previews), since the new miniature renderer replaces it.
+- 1024px still wraps the Writing Room controls and the capture attachment
+  row. Owner: consistency.md.
+- Tab bar scrolls between 600 and 819px; short tab captions below 480 are
+  a copy decision for the owner. Owner: responsive.md.
+- Notes (8) and Graph (9) docks are over the seven-control ceiling. Owner:
+  docks.md; the fix is a second "more" group, not hiding.
+- `#wb-topbar` is 104px at 390. Owner: responsive.md.
+- The whiteboard's five menus were restyled but never driven (the board
+  would not open in the driver). Owner: consistency.md; first step is a
+  sweep that opens a board by API id, then each menu.
+- The SVG graph path stays behind a flag until the drag gate is met on a
+  quieter machine. Owner: GRAPH_PLAN Phase 2.
+- Timeline: everything (audited, not built). Owner: Brief 5.
+- 54 paragraphs still outside popovers. Owner: Brief 4.
+- `#library-media-refresh` is misnamed; Settings has two heading indents.
+  Owner: docks.md.
+- Tidy layout never measured past five nodes; a newly opened map leaves
+  its root under the top bar. Owner: mindmap.md item H.

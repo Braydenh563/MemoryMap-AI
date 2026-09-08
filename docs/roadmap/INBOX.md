@@ -283,6 +283,10 @@ named beside it in HANDOVER's completion table.
     rect.bottom 732/560 (172px past, no scroll) before, inside the
     viewport and scrollable after. `kebab-viewport.js` extended to sweep
     all five `details.dock-menu`s at 1440x900 and 1440x300, all OK.
+    **Third family, e1e395b:** the whiteboard's own top-bar menus were on a
+    cap of their own and not on this recipe, so an `overflow: hidden`
+    ancestor still cut them (49px of the View menu at 1280x640). Same
+    recipe, same order; see 43.
 32. **(fixed)** **Dashboard "Widgets / Edit layout" bar**: an empty bar with two
     buttons at the right, touching the stats above and the widgets below.
     Fix: `margin-block: var(--space-5)`; a left-side label ("Your
@@ -376,12 +380,33 @@ named beside it in HANDOVER's completion table.
     needs a redesign**; the graph needs a utility, UI and interaction
     clean-up. Owner: GRAPH Phase 2 remainder (gear button, INBOX 21) and
     Phase 4; the panel on the popover shell with the dock-menu sections.
-42. **Mind map still broken** (screenshot: a dangling curve not attached
-    to either node after a drag; the root and "New topic" far apart).
+42. **(fixed, e985f57; H closed in 047e385)** **Mind map still broken**
+    (screenshot: a dangling curve not attached to either node after a drag;
+    the root and "New topic" far apart).
     Owner: `agent-remaining/mindmap.md` item H, edge-follow on single-node
     drag; reproduce with mindmap.js first.
-43. **Whiteboard bottom tool rail and the properties panel** are not on
+    **Done:** a map's tree edges are derived from `parent_id` on render, not
+    link sketches, so nothing followed a one-node drag (the bulk case was
+    c2912cd). Measured before: the curve sat 155.6px from the child mid-drag
+    and 129.2px from the root, and stayed there after the drop for any node
+    already pinned, because `wbMapPinOnDrag` only re-renders the first time
+    it pins. After: 0px in every case, including a second drag and a reload.
+    The placement half was measured and is fine: a new child lands 76px to
+    the right of its parent, inside the visible canvas. mindmap.js 49 to 63
+    checks, including the concept map path (note cards and link sketches, a
+    different creation path) and both of section H.
+43. **(the top bar's menus: fixed, e1e395b; the rest is Phase 1)**
+    **Whiteboard bottom tool rail and the properties panel** are not on
     the refined recipes (the top bar is). Owner: WHITEBOARD_PLAN Phase 1.
+    **Done, one part:** the five top-bar menus (Insert, Edit, Arrange, View,
+    Board) clipped at the bottom of the panel, the View menu screenshot in
+    31. They were already capped to the window, which was not the bug:
+    measured at 1280x640, View and Arrange ended at y=628 inside a 640px
+    window while `#library-view-whiteboard` (`overflow: hidden`) ends at
+    y=579, so the last 49px was cut off by an ancestor. Now on 31's recipe
+    (escape the clipper, then cap, then scroll). kebab-viewport.js sweeps
+    all five at 1440x900, 1280x640 and 1280x420: 15 cases, all OK. The tool
+    rail and the properties panel are still open.
 44. **Documents toolbar crushed, its kebab menu rows tinted and
     misaligned**: deferred by the owner to DOCUMENTS Phase 1.
 45. **The Ask sub-tab**: extra scroll, overflow, and the owner wants a

@@ -121,7 +121,13 @@ while [ $# -gt 0 ]; do
     "") ;;
     *) MM_BAD_FLAG="$1" ;;
   esac
-  shift
+  # `shift || break`, not a bare `shift`: a flag that takes a value shifts
+  # once inside its own branch, so `--port` or `--export` typed as the last
+  # argument leaves nothing for this one to consume. Under `set -e` at the
+  # top of this script, that failing shift killed the launcher outright with
+  # exit 1 and no message, instead of reaching the validation below that
+  # prints the help and exits 2.
+  shift || break
 done
 
 # An unknown flag is a typo, and a typo that silently starts the app anyway

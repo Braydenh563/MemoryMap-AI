@@ -46,6 +46,7 @@ DELETE_DATA=0
 SHORTCUTS=0
 ASSUME_YES=0
 EXPORT_TO=""
+EXPORT_MISSING=0
 BAD_FLAG=""
 
 mm_help() {
@@ -74,8 +75,20 @@ MM_HELP
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run|-n) DRY_RUN=1 ;;
-    --export) shift; EXPORT_TO="${1:-}" ;;
-    --export=*) EXPORT_TO="${1#*=}" ;;
+    # `--export` with nothing after it, or with the next flag after it, used
+    # to be silently ignored: the uninstall then ran and removed .venv, and
+    # the export someone asked for never happened. Now it stops.
+    --export)
+      shift
+      EXPORT_TO="${1:-}"
+      case "$EXPORT_TO" in
+        ""|-*) EXPORT_MISSING=1; EXPORT_TO="" ;;
+      esac
+      ;;
+    --export=*)
+      EXPORT_TO="${1#*=}"
+      [ -n "$EXPORT_TO" ] || EXPORT_MISSING=1
+      ;;
     --delete-data) DELETE_DATA=1 ;;
     --shortcuts) SHORTCUTS=1 ;;
     --yes|-y) ASSUME_YES=1 ;;
@@ -83,13 +96,26 @@ while [ $# -gt 0 ]; do
     "") ;;
     *) BAD_FLAG="$1" ;;
   esac
-  shift
+  # `shift || break`, not a bare `shift`: a flag that takes a value shifts
+  # once inside its own branch, so `--port` or `--export` typed as the last
+  # argument leaves nothing for this one to consume. Under `set -e` at the
+  # top of this script, that failing shift killed the launcher outright with
+  # exit 1 and no message, instead of reaching the validation below that
+  # prints the help and exits 2.
+  shift || break
 done
 
 # Exit 2 for a typo, the same code start.sh uses, so a wrapper script can
 # tell "you typed it wrong" apart from "the uninstall failed".
 if [ -n "$BAD_FLAG" ]; then
   echo "Unknown option: $BAD_FLAG"
+  echo
+  mm_help
+  exit 2
+fi
+
+if [ "$EXPORT_MISSING" = "1" ]; then
+  echo "--export needs a path: ./uninstall.sh --export ~/my-notes.zip"
   echo
   mm_help
   exit 2

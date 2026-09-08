@@ -623,3 +623,45 @@ class TestTheSplashLayoutDoesNotOverlap:
         ps1 = self._ps1()
         assert "$ROW_TOP + 6 + $i * $ROW_STEP" in ps1
         assert "$i -ge $count" in ps1
+
+
+class TestAFlagMissingItsValue:
+    """A flag that takes a value shifts once inside its own branch, so
+    `--port` or `--export` typed as the last argument leaves nothing for the
+    loop's own shift to consume. Under `set -e` that failing shift killed
+    the script with exit 1 and no message at all, instead of reaching the
+    validation that prints the help and exits 2. Found by running it.
+    """
+
+    def _run(self, script: str, args: list[str], tmp_path):
+        env = dict(os.environ, MEMORYMAP_DATA_DIR=str(tmp_path / "data"))
+        env.pop("MEMORYMAP_PORT", None)
+        return subprocess.run(
+            ["./" + script, *args],
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+
+    def test_start_sh_port_with_no_value(self, tmp_path):
+        result = self._run("start.sh", ["--port"], tmp_path)
+        assert result.returncode == 2, result.stdout + result.stderr
+        assert "--port needs a number" in result.stdout
+        assert "MemoryMap AI launcher" in result.stdout
+
+    def test_uninstall_sh_export_with_no_value(self, tmp_path):
+        result = self._run("uninstall.sh", ["--export"], tmp_path)
+        assert result.returncode == 2, result.stdout + result.stderr
+        assert "--export needs a path" in result.stdout
+
+    def test_uninstall_sh_export_swallowing_the_next_flag(self, tmp_path):
+        """`--export --yes` used to export to a file called "--yes"."""
+        result = self._run("uninstall.sh", ["--export", "--yes"], tmp_path)
+        assert result.returncode == 2, result.stdout + result.stderr
+        assert "--export needs a path" in result.stdout
+
+    def test_both_loops_tolerate_the_empty_shift(self):
+        for script in (START_SH, UNINSTALL_SH):
+            assert "shift || break" in _read(script), script

@@ -128,6 +128,35 @@ merged only then.
   is registered with `register_cache_reset` so gate tests do not leak
   sessions into `test_account`.
 
+### After the usage limit reset — the second night
+
+- **Phase 7 merged** (lightbox for documents, per-page captioning, region
+  OCR, the Files row; 4 subagent commits reviewed), **D2 audited/D3 built**
+  (`scratchpad/ui-sweeps/editor.js` 35/35; two Live-view caret bugs found by
+  measuring), **A1/A2/A6 built** (`ai/cards.py`, `MAX_REPLANS`, `tests/eval`
+  scoring 1.000 over 33 asks; the eval found `search_files`, `read_file` and
+  `find_similar_notes` in no focus group — unreachable, not broken).
+- **Contrast**: `scratchpad/ui-sweeps/contrast.js` (computed colours, both
+  themes) went 30 flagged groups → 0. Sixteen rules painted white on the raw
+  accent (2.54:1 in dark); the default indigo is #4664f0 now (was #4f6df5).
+- **Copy pass**: sixteen Title Case labels → sentence case; the two
+  "Import Folder" buttons now say which is which.
+- **Phase 8, the dock grammar** (by direct instruction; the plan's Phase 8
+  has the inventory): Graph 28 controls/4 heights → 10 in one 36px row;
+  Library's duplicate sort gone; Notes' phone sheet retired for menus;
+  Timeline's options strip is a menu and its view an icon segment;
+  Reminders' eight preset buttons are one Quick set menu. `tests/
+  test_dock_grammar.py` ratchets it; `details.dock-menu` gets close-on-pick,
+  outside click, Escape and viewport flip from one delegated handler set.
+- **Three plans written**: DOCUMENTS_PLAN.md, UI_MODERNISATION_PLAN.md
+  Phases 8–9 — ROADMAP.md rows 10–12.
+- **Two more traps.** A merge dropped a `}` from a media block in the last
+  stylesheet and every later rule was silently scoped to ≤600px (the map
+  node face, the Library phone rules) — the mindmap sweep still passed on
+  structure alone. `data-dock` was already a whiteboard attribute; the dock
+  marker is `data-dock-name`. A glass card is a stacking context, so a menu
+  in one card paints under the next card unless the card is raised.
+
 ### Traps found this session (each cost real time)
 
 - **Two servers on one data dir.** A subagent's uvicorn used the parent's

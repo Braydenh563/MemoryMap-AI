@@ -999,7 +999,7 @@ Link to another note with [[its first few words]]."></textarea>
                help, more: notes per page). The sheet is gone: the menus are
                the overflow at every width, and the dock wraps the search onto
                its own row on a phone by itself. Every id is unchanged. -->
-          <div class="dock" data-dock-name="notes" role="toolbar" aria-label="Notes controls">
+          <div class="dock" data-dock-name="notes" role="group" aria-label="Notes controls">
             <div class="dock-identity">
               <h2 id="entries-heading" class="entries-heading"><span id="entries-heading-label">All notes</span></h2>
             </div>
@@ -1233,7 +1233,7 @@ Link to another note with [[its first few words]]."></textarea>
                (`#chat-active-model`, `#chat-context`, Undo) keep their small
                size instead of being stretched to a control height they are not
                and should not be. -->
-          <div class="chat-toolbar dock" data-dock-name="chat" role="toolbar"
+          <div class="chat-toolbar dock" data-dock-name="chat" role="group"
             aria-label="Conversation controls">
             <div class="dock-identity">
             <!-- **The thread has a face.** Reported: the header "feels fake,
@@ -1817,7 +1817,7 @@ Link to another note with [[its first few words]]."></textarea>
            bands and range), actions (Today as the one filled control, help).
            `#timeline-view` stays as the hidden native select every handler
            reads, driven by the segment. -->
-      <div class="dock" data-dock-name="timeline" role="toolbar" aria-label="Timeline controls">
+      <div class="dock" data-dock-name="timeline" role="group" aria-label="Timeline controls">
         <div class="dock-identity">
           <h2>Timeline</h2>
           <span id="timeline-count" class="muted dock-context"></span>
@@ -1949,7 +1949,7 @@ Link to another note with [[its first few words]]."></textarea>
            are verbs used sometimes and live in the kebab. The phone-only
            "more" toggle is gone: the menus are the overflow at every width.
            Every id is unchanged, so graph.js and app.js need no wiring. -->
-      <div class="dock" data-dock-name="graph" role="toolbar" aria-label="Graph controls">
+      <div class="dock" data-dock-name="graph" role="group" aria-label="Graph controls">
         <div class="dock-identity">
           <h2>Graph</h2>
           <button id="graph-concept-maps" class="ghost small dock-link" type="button"
@@ -2912,7 +2912,7 @@ Link to another note with [[its first few words]]."></textarea>
            done, more: completed per page); the Open/All/Done filter is the
            chip row under the dock, the same shape the Library gives its
            filters. Ids are unchanged. -->
-      <div class="dock" data-dock-name="reminders" role="toolbar" aria-label="Reminder list controls">
+      <div class="dock" data-dock-name="reminders" role="group" aria-label="Reminder list controls">
         <div class="dock-identity">
           <h2>Your reminders</h2>
         </div>
@@ -3025,7 +3025,7 @@ Link to another note with [[its first few words]]."></textarea>
                The chip row below stays: it is the visible filter. Every id
                is unchanged, so library.js needs no wiring beyond dropping the
                segmented sort's own click loop. -->
-          <div class="dock" data-dock-name="library" role="toolbar" aria-label="Library controls">
+          <div class="dock" data-dock-name="library" role="group" aria-label="Library controls">
             <div class="dock-identity">
               <h2>Library</h2>
             </div>
@@ -3141,7 +3141,7 @@ Link to another note with [[its first few words]]."></textarea>
                actions:  New document, refresh, more (documents per page)
              Every id is unchanged; the page-size select simply moves inside
              the ⋯ menu, exactly where the All dock keeps its own. -->
-        <div class="dock" data-dock-name="library-docs" role="toolbar"
+        <div class="dock" data-dock-name="library-docs" role="group"
           aria-label="Document list controls">
           <div class="dock-identity">
             <h2>Documents</h2>
@@ -3246,7 +3246,7 @@ Link to another note with [[its first few words]]."></textarea>
                rather than creating it. It keeps its id and its class, so the
                `.skills-search` rule and `renderSkillCards(search.value)`
                still mean what they meant. -->
-          <div class="dock" data-dock-name="library-skills" role="toolbar"
+          <div class="dock" data-dock-name="library-skills" role="group"
             aria-label="Skill library controls">
             <div class="dock-identity">
               <h2>AI skill library</h2>
@@ -3314,7 +3314,7 @@ Link to another note with [[its first few words]]."></textarea>
              and the comment it carries is the reason: a mind map reachable
              only by opening the board dialog and changing a control inside it
              is one nobody finds. One filled control, one quiet one beside it. -->
-        <div class="dock" data-dock-name="library-boards" role="toolbar"
+        <div class="dock" data-dock-name="library-boards" role="group"
           aria-label="Boards and maps controls">
           <div class="dock-identity">
             <!-- "Boards & maps", matching the sub-tab that opens it. It read
@@ -4216,7 +4216,7 @@ Link to another note with [[its first few words]]."></textarea>
              arrange:  one sort select, one view segment (Files only)
              actions:  Upload, refresh, help
            Ids are unchanged, so library.js needs no rewiring. -->
-      <div class="dock" data-dock-name="library-media" role="toolbar"
+      <div class="dock" data-dock-name="library-media" role="group"
         aria-label="Gallery controls">
         <div class="dock-identity">
           <h2 id="library-media-title">Images</h2>
@@ -4346,7 +4346,7 @@ Link to another note with [[its first few words]]."></textarea>
            action this app already routes (app.js) from the empty state's own
            button, so it needs no listener of its own and cannot drift from
            what that button does: it puts the cursor in the URL field. -->
-      <div class="dock" data-dock-name="library-links" role="toolbar"
+      <div class="dock" data-dock-name="library-links" role="group"
         aria-label="Saved link controls">
         <div class="dock-identity">
           <h2>Links</h2>
@@ -4442,7 +4442,7 @@ Link to another note with [[its first few words]]."></textarea>
            The words stay beside the icons because "By month" and "By folder"
            are not guessable from a picture, and the folder option keeps the
            tooltip that answers the question it was reported with. -->
-      <div class="dock" data-dock-name="library-contents" role="toolbar"
+      <div class="dock" data-dock-name="library-contents" role="group"
         aria-label="Contents controls">
         <div class="dock-identity">
           <h2>Contents</h2>

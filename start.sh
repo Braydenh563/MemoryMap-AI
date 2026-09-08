@@ -344,19 +344,19 @@ mm_status() {
     printf '%s|%s|%s|%s|%s\n' "$step" "$MM_STEP_TOTAL" "$title" "$detail" "$state" \
       >> "$MM_SPLASH_FILE" 2>/dev/null || true
   fi
-  # The terminal's own copy of the step list, one line per transition,
+  # The step list, in the terminal and in the log, one line per transition,
   # with the same marks the Windows splash and the Python loading window
   # draw. Asked for as part of one splash design on every surface: a
   # terminal is a surface too, and before this it narrated four numbered
   # phases that did not match the five-step list every other surface drew.
-  # Only on a real terminal: a redirected run gets the plain lines below
-  # and the log gets both.
-  # Printed on every run, not only on a terminal: this is also the launcher
+  #
+  # Printed on every run, not only on a terminal. This is also the launcher
   # log's narrative, and the log is the whole answer to "it did not start"
   # for the runs that have no terminal at all - a .desktop entry, a Finder
-  # double-click. Dropping these when stdout is redirected left the log with
-  # a header, a logo and pip's output, and nothing saying which phase any of
-  # it belonged to.
+  # double-click. A first version of this was gated on MM_TTY, in the same
+  # commit that removed the [n/4] echoes it replaced, which left a
+  # redirected run's log with a header, a logo and pip's output and nothing
+  # saying which phase any of it belonged to.
   #
   # Ticks on a terminal, the doctor's ASCII pair everywhere else. A log file
   # gets opened in whatever editor and code page someone has, and start.bat

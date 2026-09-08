@@ -1098,6 +1098,26 @@ details.tool-chip[open] > .tool-chip-body {
   justify-self: stretch;
 }
 
+/* **The app chrome goes with it** (INBOX 29: "the top bar stays"). The card
+   above covers the screen, inset by one spacing step and fixed, but the top
+   bar (which holds the tab bar and the space switcher) and the status bar
+   were still laid out behind it and still visible through that inset, so
+   full screen read as a card resting on the app rather than as the map
+   taking the screen. `display: none` rather than `visibility: hidden`: the
+   body is a flex column and leaving two rows reserved would keep exactly the
+   gap this is here to close.
+
+   The sidebars are on the list for completeness rather than for the Graph:
+   the tab has none, but they are the app's other piece of chrome and a
+   split view is the direction the plans point in. Everything comes back on
+   the same class, which is removed by the button, by Escape, and by leaving
+   the tab (app.js). */
+body.graph-fullscreen-on > #top-bar,
+body.graph-fullscreen-on > #status-bar,
+body.graph-fullscreen-on .sidebar-panel {
+  display: none;
+}
+
 /* Reported: the Options panel's suggested-links list "runs off the bottom
    without scrolling" in full screen. `#graph-card`'s own `overflow: hidden`
    (above, for a different bug, see its own comment) still applies here,

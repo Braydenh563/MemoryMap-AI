@@ -22107,6 +22107,12 @@ function switchTab(name) {
     // `graphSimulation` to stop: the same "a cooling layout must not go on
     // running in a tab nobody is looking at" rule needs its own message.
     if (typeof gcStop === "function") gcStop();
+    // Full screen is a state of the map, not of the app, and it now hides the
+    // top bar and the status bar with it. Leaving the tab while it is on (the
+    // command palette and the keyboard shortcuts still work with the chrome
+    // hidden) would otherwise land somebody on another tab with no tab bar to
+    // get back with.
+    if ($("graph-card")?.classList.contains("graph-fullscreen")) toggleGraphFullscreen();
   }
   // The generative-art animation only needs to run while it's on screen.
   if (name !== "dashboard") stopArt();
@@ -32055,6 +32061,15 @@ function toggleGraphFullscreen() {
   const card = $("graph-card");
   if (card) {
     const isFull = card.classList.toggle("graph-fullscreen");
+    // **Full screen hides the app chrome** (INBOX 29: "the top bar stays").
+    // The card has covered the screen for a while, inset by one step and
+    // fixed, but the top bar, the tab bar inside it and the status bar were
+    // still laid out under it and still showing through that inset, so full
+    // screen read as a card sitting on the app rather than as the map having
+    // the screen. The class goes on <body> because the chrome is not inside
+    // the card: what is hidden is listed in 02-chat-graph.css beside the
+    // `.graph-fullscreen` rule itself.
+    document.body.classList.toggle("graph-fullscreen-on", isFull);
     // The single zoom-cluster button now does both jobs a separate "Close
     // Full Screen" toolbar button used to split between them, asked for
     // directly: "move the close full screen button in the graph to be next

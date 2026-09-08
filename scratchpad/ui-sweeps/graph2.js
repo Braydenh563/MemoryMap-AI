@@ -557,27 +557,37 @@ const check = (ok, what) => {
   // 5. Fullscreen keeps the card's radius and hides the app chrome.
   await page.click("#graph-fullscreen");
   await page.waitForTimeout(1200);
-  const full = await page.evaluate(() => {
-    const card = document.getElementById("graph-card");
-    const r = card.getBoundingClientRect();
-    const box = document.getElementById("graph-box").getBoundingClientRect();
-    const cs = getComputedStyle(card);
-    const chrome = ["header", ".tabs", "#sidebar", ".app-header"]
-      .map((sel) => {
-        const el = document.querySelector(sel);
-        if (!el) return null;
-        const rect = el.getBoundingClientRect();
-        return { sel, visible: rect.height > 0 && getComputedStyle(el).visibility !== "hidden" };
-      })
-      .filter(Boolean);
-    return {
-      card: { w: r.width, h: r.height, x: r.x, y: r.y },
-      box: { w: box.width, h: box.height },
-      radius: cs.borderTopLeftRadius,
-      overflow: cs.overflowY,
-      chrome,
-    };
-  });
+  const measureFull = () =>
+    page.evaluate(() => {
+      const card = document.getElementById("graph-card");
+      const r = card.getBoundingClientRect();
+      const box = document.getElementById("graph-box").getBoundingClientRect();
+      const canvas = document.getElementById("graph-canvas").getBoundingClientRect();
+      const cs = getComputedStyle(card);
+      const chrome = ["#top-bar", "#tab-bar", "#status-bar", "#sidebar"]
+        .map((sel) => {
+          const el = document.querySelector(sel);
+          if (!el) return null;
+          const rect = el.getBoundingClientRect();
+          return {
+            sel,
+            visible: rect.height > 0 && getComputedStyle(el).visibility !== "hidden",
+            h: Math.round(rect.height),
+          };
+        })
+        .filter(Boolean);
+      return {
+        card: { w: r.width, h: r.height, x: r.x, y: r.y },
+        box: { w: box.width, h: box.height },
+        canvas: { w: canvas.width, h: canvas.height },
+        viewport: { w: innerWidth, h: innerHeight },
+        radius: cs.borderTopLeftRadius,
+        overflow: cs.overflowY,
+        gutter: parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-3")) || 0,
+        chrome,
+      };
+    });
+  const full = await measureFull();
   console.log("== fullscreen ==");
   console.log(
     `card ${round(full.card.w)}x${round(full.card.h)} at (${round(full.card.x)}, ${round(full.card.y)}), ` +
@@ -585,8 +595,76 @@ const check = (ok, what) => {
       `(${round((full.box.h / full.card.h) * 100)}% of the card)`
   );
   console.log(`app chrome still laid out: ${JSON.stringify(full.chrome)}`);
+  // INBOX 29, the three parts of it: the chrome is gone, the canvas is the
+  // viewport minus its gutters, and the card keeps its corner.
+  check(
+    full.chrome.every((c) => !c.visible),
+    `app chrome still on screen in full screen: ${JSON.stringify(full.chrome.filter((c) => c.visible))}`
+  );
+  // The card's own left offset is the gutter, so this needs no token maths:
+  // "the canvas is the viewport minus its gutters" in the terms the sweep can
+  // actually see.
+  const wantW = full.viewport.w - full.card.x * 2;
+  const wantH = full.viewport.h - full.card.y * 2;
+  check(
+    Math.abs(full.canvas.w - wantW) <= 6 && Math.abs(full.canvas.h - wantH) <= 6,
+    `the canvas is ${round(full.canvas.w)}x${round(full.canvas.h)} in full screen, not the ` +
+      `viewport minus its gutters (${wantW}x${wantH})`
+  );
+  check(full.radius === geometry.cardRadius, `full screen changed the card's corner to ${full.radius}`);
   await page.click("#graph-fullscreen");
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(900);
+  const restored = await measureFull();
+  console.log(
+    `after exit: card ${round(restored.card.w)}x${round(restored.card.h)}, canvas ` +
+      `${round(restored.canvas.w)}x${round(restored.canvas.h)}, chrome back: ` +
+      `${JSON.stringify(restored.chrome.map((c) => `${c.sel}:${c.h}`))}`
+  );
+  check(
+    Math.abs(restored.card.w - geometry.card.w) <= 2 && Math.abs(restored.card.h - geometry.card.h) <= 2,
+    `the card did not come back to its tab size: ${round(restored.card.w)}x${round(restored.card.h)} ` +
+      `against ${round(geometry.card.w)}x${round(geometry.card.h)}`
+  );
+  check(
+    Math.abs(restored.canvas.w - geometry.box.w) <= 4 && Math.abs(restored.canvas.h - geometry.box.h) <= 4,
+    `the canvas did not come back to the card: ${round(restored.canvas.w)}x${round(restored.canvas.h)}`
+  );
+  check(
+    restored.chrome.filter((c) => c.sel !== "#sidebar").every((c) => c.visible),
+    "the app chrome did not come back after full screen"
+  );
+
+  // The other two ways out, both of which now have to put the chrome back:
+  // Escape, and leaving the tab (the tab bar is hidden in full screen, but
+  // the command palette and the keyboard shortcuts are not, so this is
+  // reachable and used to strand somebody on a tab with no tab bar).
+  await page.click("#graph-fullscreen");
+  await page.waitForTimeout(700);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(700);
+  const afterEsc = await page.evaluate(() => ({
+    full: document.getElementById("graph-card").classList.contains("graph-fullscreen"),
+    body: document.body.classList.contains("graph-fullscreen-on"),
+    topBar: document.getElementById("top-bar").getBoundingClientRect().height,
+  }));
+  await page.click("#graph-fullscreen");
+  await page.waitForTimeout(700);
+  await page.evaluate(() => document.getElementById("tab-btn-notes").click());
+  await page.waitForTimeout(900);
+  const afterLeave = await page.evaluate(() => ({
+    full: document.getElementById("graph-card").classList.contains("graph-fullscreen"),
+    body: document.body.classList.contains("graph-fullscreen-on"),
+    topBar: document.getElementById("top-bar").getBoundingClientRect().height,
+  }));
+  console.log(
+    `Escape leaves full screen: ${!afterEsc.full} (top bar ${afterEsc.topBar}px); ` +
+      `leaving the tab leaves it: ${!afterLeave.full} (top bar ${afterLeave.topBar}px)`
+  );
+  check(!afterEsc.full && !afterEsc.body && afterEsc.topBar > 0, "Escape did not leave full screen");
+  check(
+    !afterLeave.full && !afterLeave.body && afterLeave.topBar > 0,
+    "leaving the tab left the app in full screen with no chrome"
+  );
 
   await browser.close();
   if (failures.length) {

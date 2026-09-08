@@ -2663,13 +2663,52 @@ p.graph-help-panel {
   padding: 0;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
-  /* Same tier/blur fix as .graph-trace directly above it in the cascade, 
+  /* Same tier/blur fix as .graph-trace directly above it in the cascade,
      see that rule's comment. */
   background: var(--modal-bg);
   box-shadow: var(--glass-shadow);
   backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   --control-h: 1.875rem;
+}
+
+/* graph.md section 2's last-named candidate: `.dock-menu-section`'s own
+   padding and row gap, "shared with every dock menu in the app". Scoped to
+   this panel rather than edited at the source, so the View and More menus
+   (and every other `.dock-menu-list` in the app) keep the room they have --
+   this panel alone has twelve rows in five sections stacked in one column,
+   which is what made it the one that scrolled at 1440x900 (627px of list in
+   a 488px cap) after the header-row merges above already took two whole
+   rows out of it. Still a control height (30px, unchanged) and never
+   smaller than the touch-target floor the row's own `min-height` still
+   enforces; only the air around the rows is tightened. */
+.graph-options .dock-menu-section {
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+}
+
+/* Six independent switches, two to a row, halving the "Show" section's
+   height (231px for one column of six at 1440x900, the panel's single
+   biggest room). Nothing here is a sequence a column would enforce, so
+   packing two per row costs nothing but the width, which this panel has:
+   `min(22rem, 100%)` is wide enough for two "Hide unlinked"-length rows
+   side by side without either wrapping. */
+.graph-toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+}
+
+@media (max-width: 820px) {
+  /* Below 820 the pointer is a finger and `--target-min` grows every row to
+     44px (07-whiteboard-misc.css, "touch targets, one step, one block"); two
+     of those side by side in a 22rem panel is a label and a knob fighting
+     for less than 11rem each. One column there, the same as the rest of the
+     panel already is. */
+  .graph-toggle-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* One setting, one row: what it is on the left, the control that changes it

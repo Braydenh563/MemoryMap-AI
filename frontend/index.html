@@ -2129,7 +2129,23 @@ Link to another note with [[its first few words]]."></textarea>
                the id is on the section and not on a wrapper inside it. -->
           <div class="dock-menu-section graph-physics" id="graph-physics"
             role="group" aria-labelledby="graph-physics-label">
-            <span class="muted dock-menu-label" id="graph-physics-label">Physics</span>
+            <!-- Unpin all rides the section's own header row now (graph.md
+                 section 2: "the 'Pinned notes' row's label -- the button
+                 could be the row"). It had its own row with a "Pinned notes"
+                 label that said nothing the button's own text didn't already
+                 say; removing that row (and the gap it cost) is one of the
+                 candidates that gets the panel back under its cap without
+                 shrinking anything. Still stays with the physics it undoes
+                 (releasing what you pinned hands the layout back to Gravity
+                 and Spread), just beside the section name instead of under
+                 it. -->
+            <div class="dock-menu-section-head">
+              <span class="muted dock-menu-label" id="graph-physics-label">Physics</span>
+              <button id="graph-unpin-all" class="ghost small" type="button"
+                title="Release every note you have pinned in place, so the layout can move freely again">
+                <i class="ph ph-arrows-out-cardinal ph-lead" aria-hidden="true"></i> Unpin all
+              </button>
+            </div>
             <div class="graph-option-row">
               <label for="graph-gravity">Gravity</label>
               <input id="graph-gravity" type="range" min="0" max="100" value="50"
@@ -2140,50 +2156,50 @@ Link to another note with [[its first few words]]."></textarea>
               <input id="graph-spread" type="range" min="0" max="100" value="50"
                 title="How far apart linked notes sit">
             </div>
-            <!-- Direct instruction: "I want to be able to unroot and reset
-                 the graph to free float if I want with a button." It stays
-                 with the physics it undoes: releasing what you pinned is what
-                 hands the layout back to Gravity and Spread. -->
-            <div class="graph-option-row">
-              <span class="muted">Pinned notes</span>
-              <button id="graph-unpin-all" class="ghost small" type="button"
-                title="Release every note you have pinned in place, so the layout can move freely again">
-                <i class="ph ph-arrows-out-cardinal ph-lead" aria-hidden="true"></i> Unpin all
-              </button>
-            </div>
           </div>
           <div class="dock-menu-section" id="graph-toggle-group"
             role="group" aria-labelledby="graph-show-label">
             <span class="muted dock-menu-label" id="graph-show-label">Show</span>
-            <label class="graph-option-row tools-toggle" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
-              <span>Similarity</span>
-              <input type="checkbox" id="graph-similarity">
-            </label>
-            <label class="graph-option-row tools-toggle" title="Show people, projects and things a local model has found mentioned across your notes, as their own nodes">
-              <span>Entities</span>
-              <input type="checkbox" id="graph-entities">
-            </label>
-            <label class="graph-option-row tools-toggle" title="Show documents linked to a note, as their own nodes">
-              <span>Documents</span>
-              <input type="checkbox" id="graph-documents">
-            </label>
-            <!-- MINDMAP_PLAN.md §5 item 13. A mind map is already a node here (a
-                 board IS an entry), so this adds no node, it marks the ones
-                 that are maps and draws a line to every note *on* a map. The
-                 §3.3 rule, decided once: a map's membership is a link; where a
-                 node sits on the canvas is not. -->
-            <label class="graph-option-row tools-toggle" title="Draw a line from each mind map to the notes on it">
-              <span>Mind maps</span>
-              <input type="checkbox" id="graph-maps">
-            </label>
-            <label class="graph-option-row tools-toggle" title="Hide notes that are not linked to anything, to declutter the map">
-              <span>Hide unlinked</span>
-              <input type="checkbox" id="graph-hide-orphans">
-            </label>
-            <label class="graph-option-row tools-toggle" title="Show a short label under every note (off = labels only when you hover)">
-              <span>Labels</span>
-              <input type="checkbox" id="graph-labels" checked>
-            </label>
+            <!-- Two columns, not one (graph.md section 2, beyond its own two
+                 named candidates: those two rows plus the tightened section
+                 spacing above still left this one section alone at 231px,
+                 the panel's single biggest room). Six independent on/off
+                 switches read the same in any order, so nothing here is a
+                 sequence a column enforces; two columns halves the row count
+                 the section pays for without shrinking a control (every
+                 switch is still the same 30px `.graph-option-row`) or
+                 touching a single word of copy. -->
+            <div class="graph-toggle-grid">
+              <label class="graph-option-row tools-toggle" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
+                <span>Similarity</span>
+                <input type="checkbox" id="graph-similarity">
+              </label>
+              <label class="graph-option-row tools-toggle" title="Show people, projects and things a local model has found mentioned across your notes, as their own nodes">
+                <span>Entities</span>
+                <input type="checkbox" id="graph-entities">
+              </label>
+              <label class="graph-option-row tools-toggle" title="Show documents linked to a note, as their own nodes">
+                <span>Documents</span>
+                <input type="checkbox" id="graph-documents">
+              </label>
+              <!-- MINDMAP_PLAN.md §5 item 13. A mind map is already a node here (a
+                   board IS an entry), so this adds no node, it marks the ones
+                   that are maps and draws a line to every note *on* a map. The
+                   §3.3 rule, decided once: a map's membership is a link; where a
+                   node sits on the canvas is not. -->
+              <label class="graph-option-row tools-toggle" title="Draw a line from each mind map to the notes on it">
+                <span>Mind maps</span>
+                <input type="checkbox" id="graph-maps">
+              </label>
+              <label class="graph-option-row tools-toggle" title="Hide notes that are not linked to anything, to declutter the map">
+                <span>Hide unlinked</span>
+                <input type="checkbox" id="graph-hide-orphans">
+              </label>
+              <label class="graph-option-row tools-toggle" title="Show a short label under every note (off = labels only when you hover)">
+                <span>Labels</span>
+                <input type="checkbox" id="graph-labels" checked>
+              </label>
+            </div>
           </div>
           <div class="dock-menu-section graph-temporal" id="graph-temporal"
             role="group" aria-labelledby="graph-time-heading">
@@ -2217,10 +2233,15 @@ Link to another note with [[its first few words]]."></textarea>
               </select>
             </div>
           </div>
+          <!-- One row, one button (graph.md section 2's other named
+               candidate): the section held its own name plus a second row
+               naming the one thing in it ("Similar notes") again before the
+               button that acts on it. The button's own words already carry
+               that, so the row folds into the header the same way Physics'
+               "Unpin all" does, just above. -->
           <div class="dock-menu-section" role="group" aria-labelledby="graph-links-label">
-            <span class="muted dock-menu-label" id="graph-links-label">Links</span>
-            <div class="graph-option-row">
-              <span class="muted">Similar notes</span>
+            <div class="dock-menu-section-head">
+              <span class="muted dock-menu-label" id="graph-links-label">Links</span>
               <button id="link-suggest-btn" class="ghost small" type="button"
                 title="Let the AI suggest links between notes that mean similar things"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Suggest links</button>
             </div>

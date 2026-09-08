@@ -8046,6 +8046,21 @@ input[type="file"] {
   font-size: var(--text-sm);
 }
 
+/* A section header that also carries its section's one action (GRAPH.md's
+   "the button could be the row" candidates: Physics' "Unpin all", Links'
+   "Suggest links"). Each used to sit under the label on its own
+   `.graph-option-row`, naming the thing again ("Pinned notes", "Similar
+   notes") before a button whose own words already said it; folding it into
+   the header removes that row, and the gap it cost, without shrinking
+   anything else in the panel. Shared by name with every dock menu, the same
+   as `.dock-menu-section` itself, for whichever one needs this shape next. */
+.dock-menu-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
 .dock-menu .segmented-control {
   height: var(--control-h);
 }

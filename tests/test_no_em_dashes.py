@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ROOTS = (ROOT / "frontend", ROOT / "src", ROOT / "tests")
 EXTS = {".js", ".html", ".css", ".py", ".json", ".md", ".txt"}
 SKIP_PARTS = {"vendor", "node_modules", "__pycache__"}
-EM_DASH = "\\u2014"  # written as an escape so this file passes its own check
+EM_DASH = chr(0x2014)  # built, not written, so this file passes its own check
 
 
 def _files():

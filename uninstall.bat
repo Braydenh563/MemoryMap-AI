@@ -48,6 +48,7 @@ set "DELETE_DATA=0"
 set "SHORTCUTS=0"
 set "ASSUME_YES=0"
 set "EXPORT_TO="
+set "EXPORT_GIVEN="
 set "BAD_FLAG="
 
 :parse_args
@@ -63,8 +64,12 @@ if /i "%~1"=="-n" (
   goto :parse_args
 )
 if /i "%~1"=="--export" (
-  REM  %~2 read before either SHIFT: see the header note.
+  REM  %~2 read before either SHIFT: see the header note. EXPORT_GIVEN
+  REM  separates "no --export" from "--export with nothing after it": the
+  REM  second used to fall through as the first, so the uninstall carried
+  REM  on and removed .venv while the export nobody noticed was skipped.
   set "EXPORT_TO=%~2"
+  set "EXPORT_GIVEN=1"
   shift
   shift
   goto :parse_args
@@ -105,6 +110,21 @@ if defined BAD_FLAG (
   endlocal
   exit /b 2
 )
+
+REM  A path that is missing, or that is the next flag rather than a path,
+REM  is the same mistake and gets the same answer as start.bat gives a bad
+REM  --port: exit 2 with the help, before anything is removed.
+if not defined EXPORT_GIVEN goto :export_ok
+if not defined EXPORT_TO goto :export_missing
+if "!EXPORT_TO:~0,1!"=="-" goto :export_missing
+goto :export_ok
+:export_missing
+echo --export needs a path, for example: uninstall.bat --export %USERPROFILE%\my-notes.zip
+echo.
+call :print_help
+endlocal
+exit /b 2
+:export_ok
 
 echo !ESC![1;38;5;73mMemoryMap AI - uninstall!ESC![0m
 echo.

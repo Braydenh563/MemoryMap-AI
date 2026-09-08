@@ -731,3 +731,35 @@ class TestTheDesktopShortcut:
         assert str(entry) in dry.stdout
         assert "dry run" in dry.stdout
         assert entry.exists()
+
+
+class TestBothUninstallersRejectAnExportWithNoPath:
+    """`--export` with nothing after it used to fall through as "no export
+    asked for": the uninstall then carried on and removed .venv while the
+    export nobody noticed was skipped. The shell one is run for this in
+    TestAFlagMissingItsValue; cmd cannot be run here, so the batch one is
+    read for the same three decisions.
+    """
+
+    def test_the_batch_file_separates_absent_from_empty(self):
+        bat = _read(UNINSTALL_BAT)
+        assert 'set "EXPORT_GIVEN=1"' in bat
+        assert "if not defined EXPORT_GIVEN goto :export_ok" in bat
+        assert "if not defined EXPORT_TO goto :export_missing" in bat
+
+    def test_the_batch_file_rejects_the_next_flag_as_a_path(self):
+        assert 'if "!EXPORT_TO:~0,1!"=="-" goto :export_missing' in _read(UNINSTALL_BAT)
+
+    def test_it_exits_2_before_removing_anything(self):
+        bat = _read(UNINSTALL_BAT)
+        # The label definitions, not the gotos that jump to them.
+        missing = re.search(r"(?m)^:export_missing$", bat).start()
+        ok = re.search(r"(?m)^:export_ok$", bat).start()
+        # The guard sits above every removal in the file.
+        for removal in ('rmdir /s /q ".venv"', 'rmdir /s /q ".pytest_cache"'):
+            assert missing < bat.index(removal), removal
+        assert "exit /b 2" in bat[missing:ok]
+
+    def test_both_say_the_same_thing(self):
+        assert "--export needs a path" in _read(UNINSTALL_SH)
+        assert "--export needs a path" in _read(UNINSTALL_BAT)

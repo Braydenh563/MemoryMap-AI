@@ -304,8 +304,21 @@ class TestUninstallers:
         """.env carries settings someone chose; a reinstall should find them
         again unless the notes are going too."""
         sh = _read(UNINSTALL_SH)
-        at = sh.index('".env"', sh.index("MM_DELETE_DATA"))
-        assert at > 0
+        # The only rm of .env sits inside the DELETE confirmation, after the
+        # notes have gone: .env carries the path to the notebook, so
+        # removing it while the notes survive loses them.
+        removals = [
+            ln for ln in sh.splitlines() if re.search(r'rm -f "\.env"', ln)
+        ]
+        assert len(removals) == 1, removals
+        at = sh.index(removals[0])
+        assert sh.index('if [ "$DELETE_DATA" = "1" ]; then', sh.index("--- 3.")) < at
+        assert sh.index('reply" = "DELETE"') < at
+
+        bat = _read(UNINSTALL_BAT)
+        bat_removals = [ln for ln in bat.splitlines() if 'del /q ".env"' in ln]
+        assert len(bat_removals) == 1, bat_removals
+        assert bat.index('if not "!REPLY!"=="DELETE"') < bat.index(bat_removals[0])
 
     def test_the_export_entry_point_exists(self):
         text = (ROOT / "src" / "memorymap" / "__main__.py").read_text(encoding="utf-8")

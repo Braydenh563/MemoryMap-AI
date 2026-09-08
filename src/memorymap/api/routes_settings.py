@@ -1588,11 +1588,20 @@ def _slug(text: str, length: int = 30) -> str:
     return re.sub(r"[\s]+", "-", cleaned) or "note"
 
 
-@router.get("/export/markdown")
-def export_markdown(session: Session = Depends(get_session)) -> Response:
-    """A zip of Obsidian-friendly .md files: one file per note, one
-    folder per category, YAML frontmatter carrying the metadata. Binned
-    notes go under _recycle-bin/, exports never silently drop data."""
+def build_markdown_export(session: Session) -> bytes:
+    """The zip itself, as bytes, with nothing HTTP about it.
+
+    Lifted out of the route below so `python -m memorymap --export PATH`
+    writes exactly the same archive the Settings button downloads, rather
+    than a second implementation that drifts. uninstall.sh and
+    uninstall.bat call that entry point for `--export`, which is the whole
+    point: someone removing the app should be able to take their notes out
+    first, from a terminal, with no browser and no running server.
+
+    The audit line is written here rather than in the route so a CLI export
+    is recorded too: "where did this zip come from" is the same question
+    either way.
+    """
     _categories, entries, _links = _export_rows(session)
     category_names = manager.bulk_category_names(session, entries)
     
@@ -1621,8 +1630,16 @@ def export_markdown(session: Session = Depends(get_session)) -> Response:
             archive.writestr(f"{folder}/{entry.id}-{_slug(readable)}.md", body)
     manager.log_action(session, "exported", "data", detail="markdown")
     session.commit()
+    return buffer.getvalue()
+
+
+@router.get("/export/markdown")
+def export_markdown(session: Session = Depends(get_session)) -> Response:
+    """A zip of Obsidian-friendly .md files: one file per note, one
+    folder per category, YAML frontmatter carrying the metadata. Binned
+    notes go under _recycle-bin/, exports never silently drop data."""
     return Response(
-        content=buffer.getvalue(),
+        content=build_markdown_export(session),
         media_type="application/zip",
         headers={"Content-Disposition": "attachment; filename=memorymap-markdown.zip"},
     )

@@ -1248,6 +1248,45 @@ def _start_tray(
     return icon
 
 
+def _export_markdown(destination: str) -> int:
+    """Write the Markdown export zip to `destination`, with no server.
+
+    Exists for the uninstallers: `./uninstall.sh --export ~/notes.zip`
+    should be able to take someone's notes out before `--delete-data`
+    removes them, on a machine where the app is exactly what is being
+    removed and a browser download is not an option.
+
+    It calls the same `build_markdown_export` the Settings download uses,
+    so there is one archive format and not two. A destination that names a
+    directory gets the default filename inside it, which is what someone
+    typing `--export .` means.
+    """
+    from memorymap.api.routes_settings import build_markdown_export
+    from memorymap.core import deps
+
+    target = Path(destination).expanduser()
+    if target.is_dir():
+        target = target / "memorymap-markdown.zip"
+    if target.suffix.lower() != ".zip":
+        target = target.with_suffix(".zip")
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        print(f"Could not create {target.parent}: {exc}")
+        return 1
+
+    db = deps.get_db()
+    with db.session() as session:
+        payload = build_markdown_export(session)
+    try:
+        target.write_bytes(payload)
+    except OSError as exc:
+        print(f"Could not write {target}: {exc}")
+        return 1
+    print(f"Exported your notes to {target} ({len(payload) // 1024} KB).")
+    return 0
+
+
 def _reset_password() -> int:
     """Forgotten password: clear the credential so setup runs again.
 
@@ -1317,6 +1356,12 @@ def main() -> None:
         help="open MemoryMap in its own app window (needs pywebview)",
     )
     parser.add_argument(
+        "--export",
+        metavar="PATH",
+        help="write your notes to PATH as a Markdown zip and exit "
+        "(the same archive Settings downloads)",
+    )
+    parser.add_argument(
         "--reset-password",
         action="store_true",
         help="forgot your password: clear it so you can set a new one "
@@ -1328,6 +1373,8 @@ def main() -> None:
     # SUPPRESS rather than a documented flag.
     parser.add_argument("--hidden-relaunch", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.export:
+        raise SystemExit(_export_markdown(args.export))
     if args.reset_password:
         raise SystemExit(_reset_password())
     if args.desktop:

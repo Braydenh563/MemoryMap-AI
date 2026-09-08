@@ -4297,6 +4297,11 @@ function docPaintBackdrop() {
     if (finding.start > at) frag.appendChild(document.createTextNode(text.slice(at, finding.start)));
     const mark = document.createElement("mark");
     mark.className = `doc-finding doc-finding-${docFindingKind(finding)}`;
+    //: Hung on the element so a point can be turned back into a finding
+    //: without arithmetic (`docFindingAtPoint`), the same way the Live view's
+    //: marks carry theirs. Re-deriving it from the text would pick the wrong
+    //: one wherever a word is flagged twice.
+    mark._docFinding = finding;
     mark.appendChild(document.createTextNode(text.slice(finding.start, finding.end)));
     frag.appendChild(mark);
     at = finding.end;
@@ -4459,8 +4464,12 @@ function renderDocProsePanel() {
     where.className = "doc-prose-where muted";
     //: The words themselves, trimmed — a row reading only "a very long
     //: sentence" makes you go and find it, which is the work the row was
-    //: supposed to save.
-    where.textContent = finding.text.replace(/\s+/g, " ").slice(0, 80);
+    //: supposed to save. `docFindingLabel` for the same reason the menu's
+    //: heading uses it: a spacing finding's own text is whitespace, and a row
+    //: with a blank second half reads as a row that failed to load.
+    where.textContent = finding.text.trim()
+      ? finding.text.replace(/\s+/g, " ").slice(0, 80)
+      : docFindingLabel(finding);
     jump.append(what, where);
     jump.title = "Show me this in the document, and what can be done about it";
     jump.addEventListener("click", (event) => {
@@ -5000,51 +5009,116 @@ function docOffsetOf(box) {
   return base === null ? null : base + box.selectionStart;
 }
 
-//: **The character under the pointer, not the character the caret happens to
-//: be at.** Right-clicking a word is how everyone expects to be offered a
-//: correction for *that* word — but a right-click does not reliably move the
+//: **The word under the pointer, found by asking the marks rather than the
+//: textarea.** Right-clicking a word is how everyone expects to be offered a
+//: correction for *that* word, and a right-click does not reliably move the
 //: caret first, so reading `selectionStart` answered a question about wherever
-//: the caret was last left, which is usually somewhere else entirely. That is
-//: half of "i still cant select on an underlined incorrectly spelled word and
-//: have a popup with suggestions".
+//: the caret was last left. That is half of "i still cant select on an
+//: underlined incorrectly spelled word and have a popup with suggestions".
 //:
-//: `caretPositionFromPoint` (and WebKit's older `caretRangeFromPoint`) gives
-//: the index inside a `<textarea>` directly. Falls back to the caret when
-//: neither exists or the point is outside the box, which is the old behaviour
-//: rather than a failure.
-function docOffsetAtPoint(box, x, y) {
-  if (typeof x !== "number" || typeof y !== "number") return docOffsetOf(box);
-  let offset = null;
-  if (document.caretPositionFromPoint) {
-    const position = document.caretPositionFromPoint(x, y);
-    if (position && position.offsetNode === box) offset = position.offset;
-  } else if (document.caretRangeFromPoint) {
-    const range = document.caretRangeFromPoint(x, y);
-    if (range && range.startContainer === box) offset = range.startOffset;
+//: This used to call `document.caretPositionFromPoint`, and **that was wrong
+//: in a way nothing here could see.** Measured in Chromium against a running
+//: app: inside a `<textarea>` it returns the offset *within the visual line*,
+//: not within the value. A caret at document offset 29 hit-tests as 6, at 50
+//: as 5, at 60 as 15. So on every line but the first it looked up a finding at
+//: an offset tens or hundreds of characters earlier, which either opened the
+//: wrong word's menu or, far more often, silently found nothing and let the
+//: browser's own menu through. The feature read as "sometimes it works".
+//:
+//: Since Phase 0 there is a better answer than an offset: both views now have
+//: a real element at the exact place the finding is (Live has its
+//: `.doc-flag`, Source has the backdrop's `.doc-finding`), so the question
+//: "which finding is under this point" is a rectangle test against boxes the
+//: browser itself laid out. No arithmetic, nothing to get wrong about
+//: wrapping, and it is the same element the menu is then anchored to.
+function docFindingMarks() {
+  const marks = [];
+  if (docBackdropEl && !docBackdropEl.classList.contains("hidden")) {
+    marks.push(...docBackdropEl.querySelectorAll(".doc-finding"));
   }
-  if (offset === null) return docOffsetOf(box);
-  if (box.id === "doc-content") return offset;
-  const base = docLiveBlockOffset(box);
-  return base === null ? null : base + offset;
+  const live = $("doc-live");
+  if (live && docView === "live") marks.push(...live.querySelectorAll(".doc-flag"));
+  return marks;
 }
 
-function docOpenSuggestAtCaret(box, point = null) {
-  const offset = point ? docOffsetAtPoint(box, point.x, point.y) : docOffsetOf(box);
-  if (offset === null) return false;
-  const finding = docFindingAtOffset(offset);
-  if (!finding) return false;
+function docFindingAtPoint(x, y) {
+  if (typeof x !== "number" || typeof y !== "number") return null;
+  for (const mark of docFindingMarks()) {
+    if (!mark._docFinding) continue;
+    const rect = mark.getBoundingClientRect();
+    if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+      return mark._docFinding;
+    }
+  }
+  return null;
+}
+
+//: Anchored to the word, not to the caret, wherever the word is a real
+//: element. A menu that opens at the caret when the pointer is on the word is
+//: a menu you have to look away to find.
+function docOpenSuggestFor(finding, focus = true) {
+  const mark = docFindingMarks().find((el) => el._docFinding === finding);
+  if (mark) {
+    openDocSuggest(finding, mark.getBoundingClientRect(), focus);
+    return true;
+  }
+  const box = docActiveBox() || $("doc-content");
+  if (!box) return false;
   const at = docCaretPoint(box);
-  openDocSuggest(finding, {
-    left: at.x,
-    top: at.y,
-    bottom: at.y + at.lineHeight,
-  });
+  openDocSuggest(finding, { left: at.x, top: at.y, bottom: at.y + at.lineHeight }, focus);
   return true;
+}
+
+function docOpenSuggestAtCaret(box, point = null, focus = true) {
+  let finding = point ? docFindingAtPoint(point.x, point.y) : null;
+  if (!finding) {
+    //: The fallback, and it is the right one for a double-click: that gesture
+    //: selects the word first, so the caret really is inside it.
+    const offset = docOffsetOf(box);
+    if (offset === null) return false;
+    finding = docFindingAtOffset(offset);
+  }
+  if (!finding) return false;
+  return docOpenSuggestFor(finding, focus);
 }
 
 document.addEventListener("dblclick", (event) => {
   const box = docToolsBoxFor(event.target);
   if (box) docOpenSuggestAtCaret(box, { x: event.clientX, y: event.clientY });
+});
+
+//: **One click on an underlined word, which is what an underline means
+//: everywhere else.** DOCUMENTS_PLAN Phase 0 item 2, and the instruction it
+//: comes from: "if something gets underlined, I want to be able to click on
+//: that and see suggestions". Double-click and right-click both still work,
+//: unchanged; this is the gesture nobody had to be told about.
+//:
+//: Two details decide whether this is helpful or infuriating:
+//:
+//:   * **The caret has not moved yet.** The click that opens this menu is the
+//:     same click that places the caret, and `selectionStart` still holds the
+//:     old position while the event is being dispatched. Read on the next
+//:     frame, so the offset is the one the person just clicked.
+//:   * **It does not take the focus.** A double-click or a right-click is a
+//:     request for the menu, so those move focus into it; a plain click is
+//:     usually someone putting the caret in a word to fix it by hand, and
+//:     stealing focus would send their next keystrokes to a button. The menu
+//:     opens beside the word and the caret stays where they put it, so typing
+//:     just carries on and the menu closes on the next edit.
+document.addEventListener("click", (event) => {
+  if (event.detail > 1 || event.altKey || event.ctrlKey || event.metaKey) return;
+  const box = docToolsBoxFor(event.target);
+  if (!box) return;
+  const point = { x: event.clientX, y: event.clientY };
+  requestAnimationFrame(() => {
+    //: A drag that selected something is not a click on a word.
+    if (box.selectionStart !== box.selectionEnd) return;
+    const finding = docFindingAtPoint(point.x, point.y) || docFindingAtOffset(docOffsetOf(box) ?? -1);
+    if (!finding) return;
+    //: Already open on this one (a double-click's first click got here first).
+    if (docSuggestOpenFor === finding) return;
+    docOpenSuggestFor(finding, false);
+  });
 });
 
 document.addEventListener("contextmenu", (event) => {
@@ -5080,6 +5154,82 @@ document.addEventListener("mousedown", (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
+  if (!$("doc-suggest-menu")?.classList.contains("hidden")) closeDocSuggest();
+});
+
+//: **The keyboard half of "click the underline", and both gestures are
+//: borrowed rather than invented.** `Alt+Enter` on a flagged word opens its
+//: menu and `F8`/`Shift+F8` walk the findings, which is what VS Code has
+//: bound to exactly these two jobs; anyone who writes code already knows
+//: them, and anyone who does not loses nothing. Word's own F7 is taken by
+//: this app's shortcuts, and stepping through problems is the half people
+//: actually use.
+//:
+//: They work from the menu as well as from the text: after F8 the focus is on
+//: the first suggestion, and pressing F8 again there has to mean "the next
+//: one" rather than nothing at all.
+function docFindingKeyBox(target) {
+  const box = docToolsBoxFor(target);
+  if (box) return box;
+  const menu = $("doc-suggest-menu");
+  if (menu && !menu.classList.contains("hidden") && menu.contains(target)) {
+    return docActiveBox() || $("doc-content");
+  }
+  return null;
+}
+
+//: The next finding after the caret, wrapping at the end. Wrapping rather than
+//: stopping, because a stepper that goes quiet at the last item reads as
+//: broken; the flash `docProseJump` draws is what says "back to the top".
+function docFindingStep(box, backwards) {
+  if (!docProseFound.length) return null;
+  const here = docSuggestOpenFor && docProseFound.includes(docSuggestOpenFor)
+    ? docSuggestOpenFor
+    : null;
+  //: Measured from the open menu's finding when there is one, so a run of F8s
+  //: advances instead of returning to the same word: opening a menu leaves
+  //: the caret inside the finding, and "the next one after the caret" would
+  //: then be this one again.
+  const from = here ? (backwards ? here.start : here.end) : docOffsetOf(box) ?? 0;
+  if (backwards) {
+    const before = docProseFound.filter((finding) => finding.end < from);
+    return before.length ? before[before.length - 1] : docProseFound[docProseFound.length - 1];
+  }
+  return docProseFound.find((finding) => finding.start > from) || docProseFound[0];
+}
+
+function docGoToFinding(finding) {
+  if (!finding) return false;
+  docProseJump(finding);
+  //: One frame, because `docProseJump` may have switched the view, scrolled a
+  //: textarea or re-rendered the Live blocks, and the menu is anchored to a
+  //: rectangle that none of those had settled yet.
+  requestAnimationFrame(() => docOpenSuggestFor(finding, true));
+  return true;
+}
+
+document.addEventListener("keydown", (event) => {
+  const box = docFindingKeyBox(event.target);
+  if (!box) return;
+  if (event.key === "Enter" && event.altKey) {
+    const offset = docOffsetOf(box);
+    const finding = offset === null ? null : docFindingAtOffset(offset);
+    if (!finding) return;
+    event.preventDefault();
+    docOpenSuggestFor(finding, true);
+    return;
+  }
+  if (event.key !== "F8") return;
+  if (!docProseFound.length) return;
+  event.preventDefault();
+  docGoToFinding(docFindingStep(box, event.shiftKey));
+});
+
+//: An edit moves every offset after it, so the menu that is open is about a
+//: span that may no longer be there. Closed rather than refreshed: the person
+//: has started typing, which is an answer to the suggestion.
+document.addEventListener("input", (event) => {
+  if (!docToolsBoxFor(event.target)) return;
   if (!$("doc-suggest-menu")?.classList.contains("hidden")) closeDocSuggest();
 });
 
@@ -5240,6 +5390,9 @@ function docDictionary() {
 
 async function docDictionaryWrite(words) {
   docDictionarySet = new Set(words.map((word) => word.toLowerCase()));
+  //: The ranked suggestions are drawn from this list, so a word added here has
+  //: to be offerable on the very next menu rather than after a reload.
+  docKnownWordsCache = null;
   prefsCache = await apiJson("/preferences", {
     method: "PUT",
     body: JSON.stringify({ writing_dictionary: [...docDictionarySet].sort() }),
@@ -5260,7 +5413,11 @@ async function docDictionaryAdd(word) {
 const docProseIgnored = new Set();
 
 function docProseKey(finding) {
-  return `${finding.rule}:${finding.text.toLowerCase()}`;
+  //: Scoped to the document, because the row says "in this document" and a
+  //: dismissal that silently applied to the next document you opened would be
+  //: the checker turning itself off with no way to see that it had.
+  const scope = currentDoc && currentDoc.id ? currentDoc.id : "unsaved";
+  return `${scope}:${finding.rule}:${finding.text.toLowerCase()}`;
 }
 
 //: **The popup, and the four answers a person actually has.** Fix it, this is
@@ -5274,28 +5431,192 @@ function closeDocSuggest() {
   docSuggestOpenFor = null;
 }
 
+// --- ranking the suggestions (DOCUMENTS_PLAN Phase 0 item 2) ------------------
+//
+// **Where a suggestion can honestly come from in an app with no dictionary
+// file.** This checker knows a fixed list of unambiguous typos and a UK/US
+// pair table, and that is the whole of its certainty. For a word it simply
+// does not recognise it had nothing to offer at all, and a menu whose only
+// row is "ignore this" is a menu that teaches you to stop opening it.
+//
+// So the order is by how much the app actually knows, strongest first:
+//
+//   1. the rule's own answer, where a rule was sure enough to have one;
+//   2. the other spelling of a UK/US pair, so a document set to UK still sees
+//      the US form offered rather than pretended out of existence;
+//   3. the nearest words by edit distance in the words this app can claim to
+//      know: your own dictionary, plus both halves of the pair table and the
+//      corrections in the typo list;
+//   4. the nearest words in your own writing, which is the only place your
+//      project names, your people and your jargon exist.
+//
+// Nothing here is a guess dressed as an answer: every row is a real word from
+// a list you could go and look at, and 3 and 4 are ordered by a distance the
+// reader can feel (one letter out sorts above two).
+
+const DOC_SUGGEST_MAX = 5;
+
+//: Two edits. Three matches almost anything at these word lengths, and the
+//: third suggestion for a five-letter word is noise a reader has to read
+//: before dismissing.
+const DOC_SUGGEST_DISTANCE = 2;
+
+//: The vocabulary of a big notebook is tens of thousands of words and this
+//: runs while a menu is opening, so the scan is bounded. `docCompleteWords`
+//: is sorted by how often you use a word, so the cap keeps the words most
+//: likely to be the one you meant.
+const DOC_SUGGEST_CANDIDATES = 3000;
+
+//: **Optimal string alignment**, which is Damerau-Levenshtein restricted to
+//: adjacent transpositions. The restriction is the right one here: the typos
+//: this is for are a swapped pair (`teh`), a doubled or dropped letter, or a
+//: neighbouring key, and full Damerau's extra bookkeeping buys nothing for
+//: those while costing more per candidate on a list scanned thousands of
+//: times.
+//:
+//: `cap` is not an optimisation detail, it is what keeps the answer sensible:
+//: a row whose minimum is already past the cap cannot produce a distance
+//: under it, so the rest of the matrix is not computed, and any word more
+//: than `cap` edits away is not a suggestion at all.
+function docEditDistance(a, b, cap) {
+  if (Math.abs(a.length - b.length) > cap) return cap + 1;
+  if (a === b) return 0;
+  let previous = Array.from({ length: b.length + 1 }, (_, i) => i);
+  let beforePrevious = null;
+  for (let i = 1; i <= a.length; i += 1) {
+    const row = new Array(b.length + 1);
+    row[0] = i;
+    let best = row[0];
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      let value = Math.min(row[j - 1] + 1, previous[j] + 1, previous[j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        value = Math.min(value, beforePrevious[j - 2] + 1);
+      }
+      row[j] = value;
+      if (value < best) best = value;
+    }
+    if (best > cap) return cap + 1;
+    beforePrevious = previous;
+    previous = row;
+  }
+  return previous[b.length];
+}
+
+//: The words this app can say it knows, as opposed to the words it has seen.
+//: Rebuilt when the dictionary changes, which is the only thing that can add
+//: to it.
+let docKnownWordsCache = null;
+
+function docKnownWords() {
+  if (docKnownWordsCache) return docKnownWordsCache;
+  const pool = new Set(docDictionary());
+  for (const correction of Object.values(DOC_AUTOCORRECT)) pool.add(correction.toLowerCase());
+  for (const [uk, us] of DOC_SPELLING_PAIRS) {
+    pool.add(uk);
+    pool.add(us);
+  }
+  docKnownWordsCache = [...pool];
+  return docKnownWordsCache;
+}
+
+//: A typo at the start of a sentence must not be corrected into a lowercase
+//: word, and a suggestion for `Recieve` that comes back as `receive` reads as
+//: a second mistake. The same rule the built-in fixes already follow, pulled
+//: out so every source of a suggestion follows it too.
+function docMatchCase(sample, word) {
+  if (!sample || !word) return word;
+  if (sample[0] !== sample[0].toUpperCase()) return word;
+  return word[0].toUpperCase() + word.slice(1);
+}
+
+//: `skip` is read, never written. It held the words already offered, and an
+//: earlier draft also *added* each result to it as a way of not repeating
+//: itself between the two candidate lists. That silently returned nothing at
+//: all: the caller's own de-duplicating `push` reads the same set, so every
+//: word this function found had already been marked as seen by the time it
+//: was offered. Measured, not reasoned: the ranked list came back empty for a
+//: word one edit from `environment` while `docNearestWords` on its own
+//: returned it.
+function docNearestWords(word, candidates, limit, skip) {
+  const lower = word.toLowerCase();
+  const scored = [];
+  let scanned = 0;
+  for (const candidate of candidates) {
+    if (scanned >= DOC_SUGGEST_CANDIDATES) break;
+    scanned += 1;
+    const clean = String(candidate).toLowerCase();
+    if (clean === lower || skip.has(clean)) continue;
+    if (Math.abs(clean.length - lower.length) > DOC_SUGGEST_DISTANCE) continue;
+    const distance = docEditDistance(lower, clean, DOC_SUGGEST_DISTANCE);
+    if (distance <= DOC_SUGGEST_DISTANCE) scored.push([clean, distance]);
+  }
+  //: Distance first, then alphabetically, so the same word always sorts to
+  //: the same place. A menu whose rows move between two openings of the same
+  //: word is one nobody learns the shape of.
+  scored.sort((a, b) => a[1] - b[1] || (a[0] < b[0] ? -1 : 1));
+  return scored.slice(0, limit).map(([candidate]) => candidate);
+}
+
+//: Word-level rules only. "The nearest word to `,,` by edit distance" is not
+//: a question with an answer, and the punctuation rules already carry the one
+//: correct fix in `replacement`.
+const DOC_WORD_RULES = new Set(["spelling", "variant"]);
+
+//: What the menu calls the thing it is about. Visible text wherever there is
+//: any, and a description of the whitespace wherever there is not.
+function docFindingLabel(finding) {
+  const text = finding.text || "";
+  if (text.trim()) return text.replace(/\s+/g, " ").slice(0, 48);
+  if (/^\n+$/.test(text)) return `${text.length} blank line${text.length === 1 ? "" : "s"}`;
+  return `${text.length} space${text.length === 1 ? "" : "s"}`;
+}
+
 function docSuggestAlternatives(finding) {
   //: More than one plausible answer, where there is one. A single suggestion
   //: presented as *the* answer is how a checker quietly rewrites someone's
   //: voice; two or three make it a choice.
   const out = [];
+  const seen = new Set();
+  const push = (word) => {
+    const clean = String(word);
+    const key = clean.toLowerCase();
+    if (!clean || seen.has(key) || key === finding.text.toLowerCase()) return;
+    seen.add(key);
+    out.push(clean);
+  };
   if (finding.replacement !== null && finding.replacement !== undefined) {
-    out.push(finding.replacement);
+    push(finding.replacement);
   }
-  if (finding.rule === "spelling" || finding.rule === "variant") {
+  if (DOC_WORD_RULES.has(finding.rule)) {
     const lower = finding.text.toLowerCase();
     //: The other direction of the variant table, so a document set to UK still
     //: offers the US spelling as the second option rather than pretending it
     //: does not exist.
     for (const [uk, us] of DOC_SPELLING_PAIRS) {
-      if (uk === lower && !out.includes(us)) out.push(us);
-      if (us === lower && !out.includes(uk)) out.push(uk);
+      if (uk === lower) push(docMatchCase(finding.text, us));
+      if (us === lower) push(docMatchCase(finding.text, uk));
+    }
+    if (out.length < DOC_SUGGEST_MAX) {
+      for (const word of docNearestWords(finding.text, docKnownWords(), DOC_SUGGEST_MAX - out.length, seen)) {
+        push(docMatchCase(finding.text, word));
+      }
+    }
+    if (out.length < DOC_SUGGEST_MAX) {
+      //: Built on demand rather than kept warm: this is the only caller that
+      //: needs it before the first completion popup, and building it walks the
+      //: document and four hundred notes.
+      if (!docCompleteWords) docBuildVocabulary();
+      const vocabulary = (docCompleteWords || []).map(([word]) => word);
+      for (const word of docNearestWords(finding.text, vocabulary, DOC_SUGGEST_MAX - out.length, seen)) {
+        push(docMatchCase(finding.text, word));
+      }
     }
   }
-  return out.slice(0, 4);
+  return out.slice(0, DOC_SUGGEST_MAX);
 }
 
-function openDocSuggest(finding, anchorRect) {
+function openDocSuggest(finding, anchorRect, focus = true) {
   const menu = $("doc-suggest-menu");
   if (!menu) return;
   docSuggestOpenFor = finding;
@@ -5304,7 +5625,11 @@ function openDocSuggest(finding, anchorRect) {
   const head = document.createElement("div");
   head.className = "doc-suggest-head";
   const word = document.createElement("strong");
-  word.textContent = finding.text.replace(/\s+/g, " ").slice(0, 48);
+  //: A spacing finding's text *is* whitespace, so the heading rendered as an
+  //: empty bold nothing above a sentence about it. Said in words instead:
+  //: "three spaces" is a thing you can look for in the line, an empty heading
+  //: is not.
+  word.textContent = docFindingLabel(finding);
   const why = document.createElement("span");
   why.className = "muted doc-suggest-why";
   why.textContent = finding.message;
@@ -5406,8 +5731,8 @@ function openDocSuggest(finding, anchorRect) {
   const ignore = document.createElement("button");
   ignore.type = "button";
   ignore.className = "doc-suggest-item";
-  setLabel(ignore, "ph:eye-slash Ignore this for now");
-  ignore.title = "Stop flagging this wording until MemoryMap is restarted";
+  setLabel(ignore, "ph:eye-slash Ignore in this document");
+  ignore.title = "Stop flagging this wording in this document until MemoryMap is restarted";
   ignore.addEventListener("click", () => {
     docProseIgnored.add(docProseKey(finding));
     closeDocSuggest();
@@ -5436,7 +5761,10 @@ function openDocSuggest(finding, anchorRect) {
   menu.classList.remove("hidden");
   docSuggestAnchor = anchorRect;
   placeDocSuggest();
-  menu.querySelector("button")?.focus();
+  //: Only when the gesture asked for the menu. A plain click on a word is
+  //: someone putting the caret in it, and taking the focus then sends their
+  //: next keystroke to a button (see the `click` listener below).
+  if (focus) menu.querySelector("button")?.focus();
 }
 
 //: Kept so the menu can be re-placed after it changes size — the AI wordings

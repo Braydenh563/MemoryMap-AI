@@ -588,6 +588,194 @@ function ok(name, condition, detail) {
     offWhenNotSource.live && !offWhenNotSource.inkedInLive && offWhenNotSource.backInSource,
     JSON.stringify(offWhenNotSource));
 
+  // --- 2. one click opens the suggestions ----------------------------------
+  // Back to the small document, and typed rather than assigned, so the whole
+  // path (input, debounce, findings, backdrop) is the one under test.
+  await page.evaluate(async (content) => {
+    const box = document.getElementById("doc-content");
+    box.value = content;
+    box.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 400));
+  }, P0);
+
+  // A real mouse click at the centre of the underline, not a synthesised
+  // event on an element: the click has to land in the textarea and be turned
+  // back into a finding, which is the whole mechanism.
+  const markBox = await page.evaluate(() => {
+    const mark = [...document.querySelectorAll(".doc-backdrop mark")]
+      .find((m) => m.textContent === "teh");
+    const r = mark.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  await page.mouse.click(markBox.x, markBox.y);
+  await page.waitForTimeout(250);
+  const clicked = await page.evaluate(() => {
+    const menu = document.getElementById("doc-suggest-menu");
+    const first = menu.querySelector(".doc-suggest-item");
+    return {
+      open: !menu.classList.contains("hidden"),
+      word: menu.querySelector(".doc-suggest-head strong")?.textContent,
+      why: menu.querySelector(".doc-suggest-why")?.textContent,
+      first: first?.textContent.trim(),
+      // The caret stays in the text on a plain click, so typing carries on.
+      focusIsMenu: menu.contains(document.activeElement),
+      items: [...menu.querySelectorAll(".doc-suggest-item")].map((b) => b.textContent.trim()),
+    };
+  });
+  ok("P0 ACCEPTANCE: one click on an underline opens the menu", clicked.open,
+    JSON.stringify(clicked).slice(0, 160));
+  ok("P0 the menu is about the word that was clicked", clicked.word === "teh", clicked.word);
+  ok("P0 every finding carries a one-line why", !!clicked.why && clicked.why.length > 0,
+    JSON.stringify(clicked.why));
+  ok("P0 a plain click leaves the caret in the text", clicked.focusIsMenu === false);
+  ok("P0 the menu offers 'Add to dictionary' and 'Ignore in this document'",
+    clicked.items.some((t) => /Add .* to dictionary/.test(t)) &&
+      clicked.items.some((t) => /Ignore in this document/.test(t)),
+    JSON.stringify(clicked.items));
+
+  // ACCEPTANCE: the first item replaces the word.
+  const replaced = await page.evaluate(async () => {
+    const before = document.getElementById("doc-content").value;
+    document.querySelector("#doc-suggest-menu .doc-suggest-item").click();
+    await new Promise((r) => setTimeout(r, 400));
+    return { before, after: document.getElementById("doc-content").value };
+  });
+  ok("P0 ACCEPTANCE: the menu's first item replaces the word",
+    replaced.before.includes("teh ") && replaced.after.includes("the beta") &&
+      !replaced.after.includes("teh "),
+    JSON.stringify(replaced.after.slice(0, 30)));
+
+  // Ranked candidates: a word one edit from something the app knows gets that
+  // word offered even though no rule has an answer for it.
+  const ranked = await page.evaluate(() => {
+    const near = docSuggestAlternatives({
+      rule: "spelling", text: "enviroment", replacement: null, start: 0, end: 10,
+    });
+    const distances = [
+      ["teh", "the", docEditDistance("teh", "the", 2)],
+      ["recieve", "receive", docEditDistance("recieve", "receive", 2)],
+      ["colour", "color", docEditDistance("colour", "color", 2)],
+      ["alpha", "omega", docEditDistance("alpha", "omega", 2)],
+    ];
+    return { near, distances, cap: DOC_SUGGEST_MAX, pool: docKnownWords().length };
+  });
+  ok("P0 a transposition is one edit, a far word is over the cap",
+    ranked.distances[0][2] === 1 && ranked.distances[1][2] === 1 &&
+      ranked.distances[2][2] === 1 && ranked.distances[3][2] > 2,
+    ranked.distances.map((d) => `${d[0]}/${d[1]}=${d[2]}`).join(" "));
+  ok("P0 the nearest known word is offered even with no rule answer",
+    ranked.near.includes("environment"), JSON.stringify(ranked.near));
+  ok("P0 the candidate list is capped", ranked.near.length <= ranked.cap,
+    `${ranked.near.length} of at most ${ranked.cap}, from a pool of ${ranked.pool}`);
+
+  // ACCEPTANCE: F8 moves to the next finding.
+  const stepped = await page.evaluate(async () => {
+    const box = document.getElementById("doc-content");
+    closeDocSuggest();
+    box.focus();
+    box.setSelectionRange(0, 0);
+    return { count: docProseFound.length, first: docProseFound[0].text };
+  });
+  await page.keyboard.press("F8");
+  await page.waitForTimeout(300);
+  const f8 = await page.evaluate(() => ({
+    open: !document.getElementById("doc-suggest-menu").classList.contains("hidden"),
+    on: docSuggestOpenFor && docSuggestOpenFor.text,
+  }));
+  await page.keyboard.press("F8");
+  await page.waitForTimeout(300);
+  const f8next = await page.evaluate(() => docSuggestOpenFor && docSuggestOpenFor.text);
+  await page.keyboard.press("Shift+F8");
+  await page.waitForTimeout(300);
+  const f8back = await page.evaluate(() => docSuggestOpenFor && docSuggestOpenFor.text);
+  ok("P0 ACCEPTANCE: F8 opens the first finding and moves to the next",
+    f8.open && f8.on === stepped.first && f8next !== null && f8next !== f8.on,
+    `${stepped.count} findings: ${f8.on} -> ${f8next}`);
+  ok("P0 Shift+F8 steps back", f8back === f8.on, `${f8next} -> ${f8back}`);
+
+  // Alt+Enter on a finding opens the same menu.
+  const altEnter = await page.evaluate(async () => {
+    closeDocSuggest();
+    const box = document.getElementById("doc-content");
+    const finding = docProseFound[1];
+    box.focus();
+    box.setSelectionRange(finding.start + 1, finding.start + 1);
+    return finding.text;
+  });
+  await page.keyboard.press("Alt+Enter");
+  await page.waitForTimeout(250);
+  const altOpen = await page.evaluate(() => ({
+    open: !document.getElementById("doc-suggest-menu").classList.contains("hidden"),
+    on: docSuggestOpenFor && docSuggestOpenFor.text,
+    focusIsMenu: document.getElementById("doc-suggest-menu").contains(document.activeElement),
+  }));
+  ok("P0 Alt+Enter on a finding opens its menu and takes the focus",
+    altOpen.open && altOpen.on === altEnter && altOpen.focusIsMenu,
+    JSON.stringify(altOpen));
+
+  // Double-click and right-click still work, and the right-click path is the
+  // one that was silently wrong before: `caretPositionFromPoint` inside a
+  // textarea returns a per-line offset, so on line 3 it looked up the wrong
+  // place entirely. Driven on a finding that is NOT on the first line.
+  const laterLine = await page.evaluate(() => {
+    closeDocSuggest();
+    const finding = docProseFound.find((f) => f.start > 40);
+    const mark = [...document.querySelectorAll(".doc-backdrop mark")]
+      .find((m) => m._docFinding === finding);
+    const r = mark.getBoundingClientRect();
+    return { text: finding.text, x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  await page.mouse.click(laterLine.x, laterLine.y, { button: "right" });
+  await page.waitForTimeout(250);
+  const rightClicked = await page.evaluate(() => ({
+    open: !document.getElementById("doc-suggest-menu").classList.contains("hidden"),
+    on: docSuggestOpenFor && docSuggestOpenFor.text,
+  }));
+  ok("P0 right-click opens the right finding on a line that is not the first",
+    rightClicked.open && rightClicked.on === laterLine.text,
+    `wanted ${laterLine.text}, got ${rightClicked.on}`);
+  await page.evaluate(() => closeDocSuggest());
+  await page.mouse.dblclick(laterLine.x, laterLine.y);
+  await page.waitForTimeout(250);
+  const doubleClicked = await page.evaluate(() => ({
+    open: !document.getElementById("doc-suggest-menu").classList.contains("hidden"),
+    on: docSuggestOpenFor && docSuggestOpenFor.text,
+  }));
+  ok("P0 double-click still opens the same menu",
+    doubleClicked.open && doubleClicked.on === laterLine.text,
+    JSON.stringify(doubleClicked));
+
+  // ACCEPTANCE: the same click-to-suggest in Live view, where the mark is a
+  // real element rather than a backdrop.
+  await page.evaluate(() => {
+    closeDocSuggest();
+    setDocView("live");
+  });
+  await page.waitForTimeout(700);
+  const liveMark = await page.evaluate(() => {
+    const mark = [...document.querySelectorAll("#doc-live .doc-flag")]
+      .find((m) => m.textContent === "teh" || m.textContent === "the the");
+    if (!mark) return { missing: true };
+    const r = mark.getBoundingClientRect();
+    return { text: mark.textContent, x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  if (!liveMark.missing) {
+    await page.mouse.click(liveMark.x, liveMark.y);
+    await page.waitForTimeout(300);
+  }
+  const liveOpen = await page.evaluate(() => ({
+    open: !document.getElementById("doc-suggest-menu").classList.contains("hidden"),
+    on: docSuggestOpenFor && docSuggestOpenFor.text,
+  }));
+  ok("P0 ACCEPTANCE: one click on a Live-view underline opens the menu too",
+    !liveMark.missing && liveOpen.open && liveOpen.on === liveMark.text,
+    liveMark.missing ? "no mark in Live" : `${liveMark.text} -> ${liveOpen.on}`);
+  await page.evaluate(() => {
+    closeDocSuggest();
+    setDocView("source");
+  });
+  await page.waitForTimeout(400);
+
   await page.waitForTimeout(400);
   ok("no console errors", consoleErrors.length === 0, JSON.stringify(consoleErrors.slice(0, 4)));
 

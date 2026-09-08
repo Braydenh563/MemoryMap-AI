@@ -6179,17 +6179,46 @@ async function initWhiteboard() {
   // board's own keydown swallows Escape from a focused toolbar button)
   // closes all. The Insert menu reuses the dock's own tool buttons so the
   // two can never disagree about what a sticky or a text box is.
-  const menuWraps = [...document.querySelectorAll(".wb-board-menu-wrap")];
+  //: Each menu is held by reference rather than found again through its wrap:
+  //: once `escapeMenuIfClipped` has moved it to <body> it is no longer inside
+  //: the wrap at all, and a `wrap.querySelector` close would find nothing and
+  //: leave the menu open for good.
+  const boardMenus = [...document.querySelectorAll(".wb-board-menu-wrap")]
+    .map((wrap) => ({ toggle: wrap.querySelector("[data-wb-menu-toggle]"), menu: wrap.querySelector(".wb-board-menu") }))
+    .filter((pair) => pair.toggle && pair.menu);
   const closeAllWbMenus = () => {
-    for (const wrap of menuWraps) {
-      wrap.querySelector(".wb-board-menu")?.classList.add("hidden");
-      wrap.querySelector("[data-wb-menu-toggle]")?.setAttribute("aria-expanded", "false");
+    for (const { toggle, menu } of boardMenus) {
+      menu.classList.add("hidden");
+      toggle.setAttribute("aria-expanded", "false");
+      // Back where it lives, and the stylesheet's own cap back: the next open
+      // measures from scratch rather than from a stale number.
+      restoreEscapedMenu(menu);
+      menu.style.maxHeight = "";
     }
   };
-  for (const wrap of menuWraps) {
-    const toggle = wrap.querySelector("[data-wb-menu-toggle]");
-    const menu = wrap.querySelector(".wb-board-menu");
-    if (!toggle || !menu) continue;
+  //: **A top-bar menu stays inside the window and scrolls when it is taller.**
+  //:
+  //: Reported with a screenshot of the View menu (INBOX 43): the menus "clip
+  //: at the bottom of the panel and do not scroll". The cap below existed and
+  //: was not the whole story: measured at 1280x640 with a board open, View
+  //: and Arrange both ended at y=628 inside a 640px window, correctly capped,
+  //: while `#library-view-whiteboard` (`overflow: hidden`) ends at y=579, so
+  //: the last 49px of each menu were cut off by an ancestor and unreachable,
+  //: scrollbar or no scrollbar.
+  //:
+  //: This is `details.dock-menu`'s recipe (INBOX 31, d8775e6), in the same
+  //: order and with the same numbers, not a third scheme: escape the clipping
+  //: ancestor first (a no-op when nothing clips), then cap to what is really
+  //: left below the menu's own final top, and let `overflow-y: auto` (the
+  //: stylesheet already sets it) do the rest.
+  const wbCapBoardMenu = (menu, toggle) => {
+    menu.style.maxHeight = "";
+    escapeMenuIfClipped(menu, toggle);
+    const margin = 8;
+    const top = menu.getBoundingClientRect().top;
+    menu.style.maxHeight = `${Math.max(120, Math.round(window.innerHeight - top - margin))}px`;
+  };
+  for (const { toggle, menu } of boardMenus) {
     toggle.addEventListener("click", (e) => {
       e.stopPropagation();
       const wasHidden = menu.classList.contains("hidden");
@@ -6197,11 +6226,10 @@ async function initWhiteboard() {
       if (wasHidden) {
         menu.classList.remove("hidden");
         toggle.setAttribute("aria-expanded", "true");
+        // Before the measurement: a switch's own state can change how tall
+        // the list is.
         syncPanelSwitches();
-        // Never past the bottom of the window (reported with the View
-        // menu): cap to what is left below the menu's own top, and scroll.
-        const top = menu.getBoundingClientRect().top;
-        menu.style.maxHeight = `${Math.max(160, window.innerHeight - top - 12)}px`;
+        wbCapBoardMenu(menu, toggle);
       }
     });
   }

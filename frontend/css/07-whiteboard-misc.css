@@ -7371,6 +7371,30 @@ input[type="file"] {
     order: 101;
     flex: 1 1 100%;
   }
+}
+/* ^ **This brace was missing, and it cost the whole map stylesheet.**
+   Without it every rule below — the 200 lines from `.wb-map-node` to the end
+   of this file — sat inside `@media (max-width: 600px)`, so a mind map was
+   drawn with its real styling only on a phone-width viewport and with *none*
+   of it anywhere else: no fill, no border, no branch spine, no rounded
+   corners, and `.wb-map-actions` laid out as a full-width block instead of a
+   positioned row.
+
+   Nothing failed. CSS does not report an unclosed block; it just keeps
+   swallowing rules. `node --check` does not read CSS, `test_style_scale.py`
+   lints declarations rather than nesting, and the mindmap sweep's 35
+   assertions are about DOM structure and JS-computed geometry, all of which
+   were still right — so the whole of Phase 2 could pass its own tests with
+   its stylesheet inert. Found by measuring what a node actually painted:
+   `getComputedStyle(node).backgroundColor` read `rgba(0, 0, 0, 0)` where
+   `--card` resolves to `color(srgb 1 1 1 / 0.549)`, and a probe over
+   `document.styleSheets` found *zero* rules with a background matching a map
+   node. This is CLAUDE.md's own shape — "a value that is invalid where it is
+   used, not where it is set" — one level up: a rule that is fine where it is
+   written and never reaches the element.
+
+   `tests/test_css_braces.py` now fails on any unbalanced stylesheet, because
+   the next one of these will be just as silent. */
 /* --- map nodes and their edges (MINDMAP_PLAN.md §5, Phase 2) ---------------
    A map node is a `.wb-object` like an image or a text box, so everything
    above about positioning, selection and the drag cursor already applies; only
@@ -7393,6 +7417,22 @@ input[type="file"] {
   /* The stated default when a node has no branch of its own: the root, and
      any node on a map whose palette has not been reached yet. */
   --wb-branch: var(--accent);
+  /* **The branch colour, made readable as a line.** `wbMapColors` assigns
+     `d3.schemeTableau10`, which is a palette designed for *fills* — an area
+     of colour large enough to identify. Drawn as a 4px spine on a near-white
+     board its lighter entries stop being a boundary: measured in light theme,
+     `#f28e2c` came out at 2.18:1 against the canvas, under the 3:1 WCAG 1.4.11
+     asks of a non-text UI boundary (`#4e79a7` managed 4.09:1, so it is the
+     palette's spread that is the problem, not the idea).
+
+     Mixed toward `--ink` rather than toward black or white, which is what
+     makes one declaration correct in both themes: `--ink` is the text colour,
+     so it contrasts with whatever the surface is *by definition* — dark in
+     light mode, near-white in dark mode. So this always moves the branch
+     colour away from its own background. 30% keeps every palette entry
+     plainly distinguishable from its neighbours, which is the whole job of a
+     branch colour; measured after, the same orange reads 3.6:1. */
+  --wb-branch-edge: color-mix(in srgb, var(--wb-branch) 70%, var(--ink));
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -7403,12 +7443,34 @@ input[type="file"] {
   min-height: 2.75rem;
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
-  background: var(--card);
-  border: 1.5px solid color-mix(in srgb, var(--wb-branch) 55%, transparent);
+  /* **A node keeps a surface even with glass turned off.**
+     `--card` is a `color-mix()` scaled by the user's glass-opacity setting, so
+     a plain `var(--card)` falls to *fully transparent* at the bottom of that
+     slider — measured, at GLASS=0: `background-color` computed to
+     `rgba(0, 0, 0, 0)` and a node's label sat straight on the canvas. The
+     board's own colour is picked freely (`#wb-bg-color-picker`), so nothing
+     here can assume it contrasts with the text the way an ordinary panel can.
+
+     Mixed toward `--modal-bg-opaque` — the app's own theme-aware *solid*
+     surface — rather than toward `transparent`, and that difference is the
+     whole fix. `.wb-object-text` a few hundred lines up uses
+     `max(var(--glass-opacity), 0.55)` against `transparent` and its comment
+     says that keeps it legible "even with glass opacity turned all the way
+     down"; it does not, and measuring is what showed it. `--card` is
+     *already* zero-alpha by then, and mixing more of nothing with transparent
+     is still nothing. Mixing with an opaque colour is what puts alpha back:
+     at full glass this is the same 0.55 pane it always was, and at zero it
+     becomes the solid surface instead of disappearing. */
+  background: color-mix(in srgb, var(--card) calc(var(--glass-opacity) * 100%), var(--modal-bg-opaque));
+  border: 1.5px solid color-mix(in srgb, var(--wb-branch-edge) 55%, transparent);
   /* The branch's colour as a spine down the leading edge. A whole node filled
      with the branch colour makes the text fight its own background at every
-     palette entry; a bar states the same grouping and leaves the label alone. */
-  border-left: 4px solid var(--wb-branch);
+     palette entry; a bar states the same grouping and leaves the label alone.
+     The spine is the node's real boundary against the canvas — the 1.5px
+     border above is a soft edge at 55% alpha and cannot carry that on its own
+     — so it takes the readable form of the branch colour (see
+     `--wb-branch-edge`) rather than the raw palette entry. */
+  border-left: 4px solid var(--wb-branch-edge);
   box-shadow: var(--glass-shadow);
   color: var(--text);
   font-size: var(--text-md);

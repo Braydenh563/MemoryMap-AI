@@ -2472,7 +2472,7 @@
      (a shape's properties are a longer list than a link's), and on a short
      window it used to simply run off the bottom of the board, taking its own
      last rows with it. Bounded by what is actually left between the panel
-     above it and the tool row below, so it scrolls instead of escaping. */
+     above it and the tool row below, so it scrolls instead of escaping.
      Only what is *above* it is subtracted. A first version also subtracted
      the tool row's height and went negative on a short window — measured at
      900x700, where the board is 394px and the sum came to 399, collapsing

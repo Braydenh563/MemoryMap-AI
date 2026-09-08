@@ -374,6 +374,10 @@ async function openDocument(id) {
   $("doc-title").value = doc.title;
   $("doc-content").value = doc.content;
   docDirty = false;
+  //: A new document is a new history. Carrying the previous one over would let
+  //: Ctrl+Z paste the *last* document's text into this one — the worst kind of
+  //: undo bug, because it looks like the app corrupted your file.
+  docUndoReset(doc.content);
   $("doc-saved").textContent = "Saved";
   // Before the renders below: it decides which of them are even reachable
   // (a code document has no Live or Split) and puts the editor into the
@@ -674,6 +678,11 @@ function markDocDirty() {
     return;
   }
   docDirty = true;
+  //: **The one place the document's undo stack is fed.** Every edit in either
+  //: mode already funnels through here (see `docUndoRecord`'s comment for the
+  //: list), so recording here cannot miss one — and a future edit path gets an
+  //: undo entry without anyone remembering to add it.
+  docUndoRecord();
   $("doc-saved").textContent = "Unsaved…";
   clearTimeout(docSaveTimer);
   // Autosave, but not on every keystroke — a pause is the natural moment.
@@ -1192,6 +1201,8 @@ function docReplaceRange(box, start, end, text) {
 }
 
 function indentDocSelection(box, outdent) {
+  //: One undo step per Tab, not one per burst — see `docUndoBreak`.
+  docUndoBreak();
   const type = docFileType();
   const unit = type.indent || "  ";
   const { start, end, text } = docSelectedLines(box);
@@ -1227,6 +1238,7 @@ function indentDocSelection(box, outdent) {
 }
 
 function toggleDocComment(box) {
+  docUndoBreak();
   const type = docFileType();
   const { start, end, text } = docSelectedLines(box);
   const lines = text.split("\n");
@@ -1376,11 +1388,45 @@ function docLiveBlockOffset(box) {
   return found === -1 ? null : found;
 }
 
+//: **True while `renderDocLive` is replacing the pane's children.**
+//:
+//: Tearing out the block the caret is in fires that textarea's own `blur`, and
+//: the blur handler's job is to re-render the view — so it re-entered
+//: `renderDocLive` *from inside* `host.replaceChildren()` and the browser threw
+//: `NotFoundError: The node to be removed is no longer a child of this node.
+//: Perhaps it was moved in a 'blur' event handler?`.
+//:
+//: Measured, not reasoned: type one character in Live view and wait out the
+//: 400ms prose debounce — `renderDocProse` calls `renderDocLive(true)`, the
+//: exception escapes, and `document.activeElement` is `<body>`. Your caret was
+//: dropped mid-sentence, and nothing in the UI said so. It only shows up on
+//: the *pause* after a keystroke, which is why it reads as the editor randomly
+//: losing focus rather than as a crash.
+//:
+//: A blur caused by a render needs no render: the render already knows what it
+//: is about to draw.
+let docLiveRendering = false;
+
 function renderDocLive(keepActive = false) {
   const host = $("doc-live");
   if (!host || docView !== "live") return;
+  //: Re-entered from a blur this very render caused. Returning is correct
+  //: rather than merely safe — the outer call is still mid-flight and is
+  //: about to draw the state this one would have drawn.
+  if (docLiveRendering) return;
   const blocks = docLiveBlocks($("doc-content").value);
   if (!keepActive) docLiveActive = -1;
+  docLiveRendering = true;
+  try {
+    renderDocLiveBlocks(host, blocks, keepActive);
+  } finally {
+    docLiveRendering = false;
+  }
+}
+
+//: The body of `renderDocLive`, split out only so the guard above can wrap it
+//: in one `try`/`finally` without re-indenting fifty lines of block building.
+function renderDocLiveBlocks(host, blocks) {
   host.replaceChildren();
 
   // An empty document still needs somewhere to click. Without this the pane
@@ -1522,6 +1568,10 @@ let docLiveDragFrom = null;
 //: source view all agree: it is the single source of truth this editor was
 //: built around (see `renderDocLive`).
 function docEditLiveBlocks(change) {
+  //: Moving, duplicating or deleting a paragraph is one undo step of its own —
+  //: it is a structural edit, and coalescing it into the typing that preceded
+  //: it would make one Ctrl+Z both un-move the block and un-type a sentence.
+  docUndoBreak();
   const source = $("doc-content");
   if (!source) return;
   const blocks = docLiveBlocks(source.value);
@@ -1652,6 +1702,20 @@ function docLiveEditor(source, index) {
   });
 
   box.addEventListener("blur", () => {
+    //: **A blur this box did not cause is not a blur.** `renderDocLive`
+    //: replaces the whole pane, which detaches this textarea and fires `blur`
+    //: on the way out — and this handler then set `docLiveActive = -1` *in the
+    //: middle of the render that was about to re-create this very block*. The
+    //: loop reading `docLiveActive` a few lines later therefore matched
+    //: nothing, no editor was drawn, and the caret ended up on `<body>`.
+    //:
+    //: Measured, and it is the whole bug behind "the editor keeps losing my
+    //: cursor in Live view": type one character and wait 400ms, and the
+    //: debounced prose pass (`renderDocProse` -> `renderDocLive(true)`) does
+    //: exactly this. Before the re-entrancy guard was added it also threw
+    //: `NotFoundError` out of `replaceChildren`; silencing the throw alone
+    //: left the focus loss, because this line is the cause of it.
+    if (docLiveRendering) return;
     // Leaving the block renders it. Guarded on still being the active one:
     // a blur caused by clicking straight into another block already moved
     // `docLiveActive` on, and re-rendering for the old one would undo that.
@@ -2020,6 +2084,10 @@ function applyMarkdown(kind, boxId = "doc-content") {
   const action = MD_ACTIONS[kind];
   const box = $(boxId);
   if (!action || !box) return;
+  //: A toolbar press is its own undo step, never part of the typing burst it
+  //: happened to follow. Set *before* the edit, because the recording happens
+  //: inside it (`finishMarkdownEdit` -> `markDocDirty`).
+  docUndoBreak();
   const { selectionStart: start, selectionEnd: end, value } = box;
   const selected = value.slice(start, end);
 
@@ -2039,6 +2107,20 @@ function applyMarkdown(kind, boxId = "doc-content") {
   //: user is certain about in any text box.
   if (action.custom === "undo" || action.custom === "redo") {
     box.focus();
+    //: **The document editor has its own history now, and these buttons use
+    //: it.** The paragraph above is still true everywhere else — the notes
+    //: composer and the note edit form are one textarea each, so the browser's
+    //: own stack is the right one and a second would only disagree with
+    //: Ctrl+Z. The document editor is the case that broke the assumption: its
+    //: text lives in `#doc-content` but is *edited* through whichever `.lp-src`
+    //: paragraph box Live built a moment ago, and `execCommand("undo")` on one
+    //: of those knows nothing about the edit you made in the other mode. See
+    //: the D3 section at the end of this file.
+    if (docToolsBoxFor(box)) {
+      if (action.custom === "undo") docUndo();
+      else docRedo();
+      return;
+    }
     document.execCommand(action.custom);
     finishMarkdownEdit(box, boxId);
     return;
@@ -2181,6 +2263,11 @@ function clearInlineFormatting(box) {
 
 // Wrap the selection in markdown syntax (Ctrl+B / Ctrl+I).
 function wrapDocSelection(marker, placeholder = "", boxId = "doc-content") {
+  //: Reached both from `applyMarkdown` (which has already broken the burst)
+  //: and directly from Ctrl+B / Ctrl+I / Ctrl+E, which have not. Idempotent, so
+  //: setting it twice costs nothing and missing it would silently fold a Bold
+  //: into the word you had just typed.
+  docUndoBreak();
   const box = $(boxId);
   const { selectionStart: start, selectionEnd: end, value } = box;
 
@@ -5307,3 +5394,289 @@ function docMarkLiveFindings() {
     }
   }
 }
+
+// =============================================================================
+// The document's own undo stack — PLAN.md §2 D3
+// =============================================================================
+//
+//: **Why the browser's own undo is not enough here, stated plainly.** A
+//: `<textarea>` keeps a native undo history, and `docReplaceRange` exists
+//: specifically so the toolbar's edits stay inside it (read its comment). That
+//: history belongs to *one element*, and this editor has more than one:
+//: Source is `#doc-content`, while Live gives every paragraph its own
+//: `.lp-src` textarea that is created when you click into it and destroyed
+//: when you leave. So:
+//:
+//:   - Type in Live, switch to Source, press Ctrl+Z — the textarea you are now
+//:     in never saw that edit, so its history has nothing to give back. That
+//:     is the exact acceptance line in PLAN.md D3, and it was broken.
+//:   - Type in one Live paragraph, click into another, come back — the first
+//:     block's textarea was replaced by a re-render, and its history went with
+//:     it.
+//:
+//: The fix is a stack that belongs to the *document*, not to an element:
+//: `#doc-content.value` is the single source of truth every mode already
+//: writes through (`renderDocLive`'s own comment says so), so snapshotting it
+//: is the one recording that cannot miss a mode.
+//:
+//: **Full snapshots, not diffs.** A document is text a person writes; 200 of
+//: them is a few megabytes at worst and the arithmetic is trivial to get
+//: right, where an operational-transform log is neither. The *application* of
+//: a snapshot is still a minimal range edit (`docUndoDiffRange` below), so
+//: what reaches the DOM is the small change, not a whole-document rewrite.
+const DOC_UNDO_LIMIT = 200;
+//: Long enough that a burst of typing is one undo, short enough that pausing
+//: to think starts a new one — the window every editor uses for this.
+const DOC_UNDO_COALESCE_MS = 500;
+
+const docUndoStack = [];
+//: The index of the entry that matches what is on screen. Redo is everything
+//: after it, which is why a fresh edit truncates rather than clearing: the
+//: pointer *is* the redo stack.
+let docUndoAt = -1;
+let docUndoLastPushAt = 0;
+//: Set by `docUndoBreak` before a scripted edit (a toolbar button, an indent,
+//: a block move) so it can never be swallowed into the typing burst that
+//: happened to precede it by less than half a second.
+let docUndoBoundary = false;
+//: True while an undo/redo is being applied. Everything downstream of an edit
+//: ends at `markDocDirty`, which records — so without this an undo would push
+//: itself onto the stack it just walked back.
+let docUndoApplying = false;
+//: The selection as it was *before* the edit now being recorded.
+//: `selectionchange` gives it to us one event ahead of `input`, which is the
+//: only reason undo can put the caret back where the user's hand was rather
+//: than where the edit left it. Kept in the document's coordinates so a Live
+//: selection is comparable with a Source one.
+let docUndoPreSelection = null;
+
+//: The selection in **document** coordinates, whichever box holds it. A Live
+//: block's own offsets start at zero for every paragraph —
+//: `docLiveBlockOffset` is the existing translation, and it returns null when
+//: it cannot be sure, which is when this does too rather than claiming a
+//: position it guessed.
+function docUndoSelectionNow() {
+  const box = docToolsBoxFor(document.activeElement);
+  if (!box) return null;
+  if (box.id === "doc-content") return { start: box.selectionStart, end: box.selectionEnd };
+  const base = docLiveBlockOffset(box);
+  if (base === null) return null;
+  return { start: base + box.selectionStart, end: base + box.selectionEnd };
+}
+
+function docUndoReset(content) {
+  docUndoStack.length = 0;
+  docUndoStack.push({ content: content ?? "", start: 0, end: 0, mode: docView });
+  docUndoAt = 0;
+  docUndoLastPushAt = 0;
+  docUndoBoundary = false;
+  docUndoPreSelection = null;
+}
+
+//: Force the next record to start a new entry. Called at the top of every
+//: scripted edit, *before* it runs — after would be too late, because the
+//: record happens inside the edit.
+function docUndoBreak() {
+  docUndoBoundary = true;
+}
+
+//: **The one recording point, and it is `markDocDirty`.** Every path that
+//: changes this document's text ends there: typing in Source, typing in a Live
+//: block (its `input` handler syncs `#doc-content` first), the toolbar via
+//: `finishMarkdownEdit`, indent, comment-toggle, block move/duplicate/delete,
+//: find-and-replace, the AI edit. Hooking the one funnel rather than eight
+//: call sites is what stops a ninth from being added without an undo entry —
+//: this repo's "features that never ran once" shape, in reverse.
+function docUndoRecord() {
+  if (docUndoApplying) return;
+  const source = $("doc-content");
+  if (!source) return;
+  const content = source.value;
+  if (docUndoAt < 0) {
+    //: No baseline yet (a document opened before this ran, or a brand-new
+    //: one). Seeding with the *current* text would make the first edit
+    //: un-undoable, so seed and return: the next edit gets a real boundary.
+    docUndoReset(content);
+    return;
+  }
+  const top = docUndoStack[docUndoAt];
+  //: Title edits call `markDocDirty` too, and a caret move is not a change.
+  if (top.content === content) return;
+  const now = performance.now();
+  const after = docUndoSelectionNow() || { start: source.selectionStart, end: source.selectionEnd };
+  const entry = { content, start: after.start, end: after.end, mode: docView };
+  const coalesce =
+    !docUndoBoundary &&
+    docUndoAt === docUndoStack.length - 1 &&
+    now - docUndoLastPushAt < DOC_UNDO_COALESCE_MS;
+  docUndoBoundary = false;
+  docUndoLastPushAt = now;
+  if (coalesce) {
+    //: Replace the top rather than push: the entry *below* it is still the
+    //: state undo goes back to, so a burst of typing stays one press.
+    docUndoStack[docUndoAt] = entry;
+    return;
+  }
+  //: The entry being left behind is what undo will restore, so it takes the
+  //: selection the user had when they started this edit — not the caret the
+  //: previous burst finished at. Without this, undoing a Bold gives the text
+  //: back with the caret somewhere else, and the word you were working on is
+  //: no longer selected to try again.
+  if (docUndoPreSelection) {
+    top.start = docUndoPreSelection.start;
+    top.end = docUndoPreSelection.end;
+  }
+  docUndoStack.length = docUndoAt + 1;
+  docUndoStack.push(entry);
+  if (docUndoStack.length > DOC_UNDO_LIMIT) docUndoStack.shift();
+  docUndoAt = docUndoStack.length - 1;
+}
+
+//: The smallest range that differs, as `[from, to, text]` against `before`.
+//: Common prefix and common suffix — enough to turn "the document is now this
+//: string" into the one insertion or deletion a person actually made, which is
+//: what keeps `docReplaceRange` (and with it the native history) from seeing
+//: every undo as a full rewrite.
+function docUndoDiffRange(before, after) {
+  let start = 0;
+  const shortest = Math.min(before.length, after.length);
+  while (start < shortest && before[start] === after[start]) start += 1;
+  let tail = 0;
+  while (
+    tail < shortest - start &&
+    before[before.length - 1 - tail] === after[after.length - 1 - tail]
+  ) {
+    tail += 1;
+  }
+  return [start, before.length - tail, after.slice(start, after.length - tail)];
+}
+
+//: Put the caret back, in whichever mode is on screen now. An entry records
+//: the mode it was made in, but undo deliberately does **not** switch view:
+//: pressing Ctrl+Z and having the editor change mode under you is a worse
+//: surprise than the caret landing in the pane you are already looking at.
+function docUndoRestoreSelection(entry) {
+  if (docView === "live") {
+    const blocks = docLiveBlocks($("doc-content").value);
+    let base = 0;
+    for (let index = 0; index < blocks.length; index += 1) {
+      const end = base + blocks[index].length;
+      if (entry.start <= end || index === blocks.length - 1) {
+        focusDocLiveBlock(index, Math.max(0, entry.start - base));
+        const live = $("doc-live")?.querySelector(".lp-src");
+        if (live) {
+          const from = Math.max(0, Math.min(entry.start - base, live.value.length));
+          const to = Math.max(from, Math.min(entry.end - base, live.value.length));
+          live.setSelectionRange(from, to);
+        }
+        return;
+      }
+      //: Two newlines between blocks — what `docLiveText` joins with, and so
+      //: what the document's own offsets contain.
+      base = end + 2;
+    }
+    return;
+  }
+  const box = $("doc-content");
+  if (!box) return;
+  box.focus();
+  const max = box.value.length;
+  box.setSelectionRange(Math.min(entry.start, max), Math.min(entry.end, max));
+}
+
+function docUndoApply(entry) {
+  const source = $("doc-content");
+  if (!source) return;
+  docUndoApplying = true;
+  try {
+    if (source.value !== entry.content) {
+      const [from, to, text] = docUndoDiffRange(source.value, entry.content);
+      if (docView === "live" || docView === "rendered") {
+        //: `#doc-content` is hidden in these modes, and `execCommand` needs a
+        //: focusable, visible target — it silently returns false on a hidden
+        //: textarea, which is this repo's "a policy silently refusing the
+        //: work" shape. A direct write is correct here: the Live boxes are
+        //: about to be rebuilt anyway, so there is no native history to keep.
+        source.value = entry.content;
+      } else {
+        //: Through the browser's own edit pipeline, so the native history
+        //: stays coherent with ours instead of being wiped by a `.value`
+        //: assignment — the reason `docReplaceRange` exists.
+        docReplaceRange(source, from, to, text);
+      }
+    }
+    markDocDirty();
+    renderDocPreview();
+    renderDocGutter();
+    //: **Before the caret is placed, not after.** `renderDocTools` runs the
+    //: prose pass, and that re-renders the Live view (`renderDocProse`'s last
+    //: lines) — so doing it afterwards would tear out the very block this is
+    //: about to put the caret in and leave the selection on a detached node.
+    renderDocTools();
+    if (docView === "live") {
+      docLiveActive = -1;
+      renderDocLive();
+    }
+    docUndoRestoreSelection(entry);
+  } finally {
+    docUndoApplying = false;
+  }
+}
+
+function docUndo() {
+  if (docUndoAt <= 0) return false;
+  docUndoAt -= 1;
+  docUndoApply(docUndoStack[docUndoAt]);
+  return true;
+}
+
+function docRedo() {
+  if (docUndoAt < 0 || docUndoAt >= docUndoStack.length - 1) return false;
+  docUndoAt += 1;
+  docUndoApply(docUndoStack[docUndoAt]);
+  return true;
+}
+
+//: **Capture phase, and it stops the event.** Two other handlers would
+//: otherwise see Ctrl+Z: the browser's native undo for whichever textarea has
+//: focus (the history this replaces, and the one that is *wrong* the moment a
+//: mode switch or a Live re-render has happened), and app.js's global shortcut
+//: table — that one already declines inside a text field, deliberately (see
+//: its comment), so this is the handler that fills the hole it leaves.
+document.addEventListener(
+  "keydown",
+  (event) => {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+    if (!docToolsBoxFor(event.target)) return;
+    const key = event.key.toLowerCase();
+    const undo = key === "z" && !event.shiftKey;
+    //: Ctrl+Shift+Z *and* Ctrl+Y: the first is what this app's own shortcut
+    //: sheet publishes, the second is what Windows editors have used for
+    //: thirty years and what half the people who press it will reach for.
+    const redo = (key === "z" && event.shiftKey) || key === "y";
+    if (!undo && !redo) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (undo) docUndo();
+    else docRedo();
+  },
+  true
+);
+
+//: The pre-edit selection, one event ahead of the edit. Not merged into the
+//: status bar's `selectionchange` listener above: that one returns early when
+//: the caret is outside the editor, which is exactly when this needs to keep
+//: the last editor selection it saw.
+document.addEventListener("selectionchange", () => {
+  if (docUndoApplying) return;
+  const now = docUndoSelectionNow();
+  if (now) docUndoPreSelection = now;
+});
+
+//: A baseline for a document that was already on screen when this file loaded
+//: (a reload straight onto the Documents tab). `openDocument` resets the stack
+//: for every deliberate open; this covers the one case it cannot.
+document.addEventListener("focusin", (event) => {
+  if (!docToolsBoxFor(event.target)) return;
+  if (docUndoAt < 0) docUndoReset($("doc-content")?.value || "");
+});

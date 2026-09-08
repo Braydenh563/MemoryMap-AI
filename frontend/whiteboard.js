@@ -782,6 +782,39 @@ function wbZoomToFit({ animate = true, padding = 64 } = {}) {
   (animate ? sel.transition().duration(350) : sel).call(wbZoom.transform, target);
 }
 
+//: A fit tighter than this is a map you cannot read: the nodes are there, the
+//: words in them are not. Below it, framing the root at 1:1 beats fitting the
+//: whole tree, which is what every map tool does on open.
+const WB_MAP_OPEN_MIN_SCALE = 0.45;
+
+//: **Frame a map when it opens**, rather than leaving the canvas wherever the
+//: last board left it.
+//:
+//: Reported (mindmap.md H item 2, measured while reproducing report B): a map
+//: whose root sits at the board origin opens with that root under
+//: `#wb-topbar`, and a double-click on its text hits the top bar instead of
+//: the node. Measured before this: the root's box was (16, 128)-(216, 172)
+//: against a top bar of (24, 136)-(1416, 182), and `elementFromPoint` at the
+//: root's own centre returned a top-bar button.
+//:
+//: Fit first, because a map is a tree and its shape is the point; but a fit
+//: that lands under `WB_MAP_OPEN_MIN_SCALE` is a picture of a map rather than
+//: a map, so a big one opens on its root at 1:1 instead. Only maps: an
+//: ordinary board is a place you arrange by hand, and re-framing one on every
+//: open would throw away the view its owner left it in.
+function wbFrameMapOnOpen() {
+  if (!wbIsMap()) return;
+  const container = document.getElementById("whiteboard-container");
+  if (!container) return;
+  wbZoomToFit({ animate: false });
+  if (d3.zoomTransform(container).k >= WB_MAP_OPEN_MIN_SCALE) return;
+  const root = wbMapIndex().roots[0];
+  //: `minScale: 1`, and `wbCenterOn` takes the larger of that and the current
+  //: zoom: the fit just above left the canvas at something illegible, so this
+  //: is the one call that has to be allowed to zoom back in.
+  if (root) wbCenterOn(wbItemBBox("object", root), { animate: false, minScale: 1 });
+}
+
 /** Centre the viewport on one board-space rectangle, keeping the current zoom. */
 function wbCenterOn(box, { animate = true, minScale = 0.55 } = {}) {
   const container = document.getElementById("whiteboard-container");
@@ -9842,6 +9875,13 @@ async function openWhiteboardBoard(boardId) {
   wbScheduleRender();
   wbApplyBgImage();
   renderWbGestureHints();
+  //: Rendered now rather than on the next frame, because the framing below
+  //: measures the nodes it is about to fit (a map node is `height: auto`, so
+  //: its real size only exists once it is in the document).
+  if (wbIsMap()) {
+    renderWhiteboardNow();
+    wbFrameMapOnOpen();
+  }
   //: **A board is a place, so opening one is a navigation.** Asked as part of
   //: "is everythign wired to the nav history and universal undo/redo": it was
   //: not. `switchTab("library")` above records "library", and then opening

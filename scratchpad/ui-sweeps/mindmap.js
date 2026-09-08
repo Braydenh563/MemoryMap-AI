@@ -922,6 +922,145 @@ function check(label, ok, detail) {
   check("(42) on the concept map path, a single card's connector follows it too",
     conceptDuring < 2 && conceptAfter < 2, `during ${conceptDuring}px, after ${conceptAfter}px`);
 
+
+  // --- H2: a map frames itself when it opens ------------------------------
+  //
+  // mindmap.md H item 2, measured before the fix: a map whose root sits at
+  // the board origin opened with the root's box at (16, 128)-(216, 172) and
+  // the top bar at (24, 136)-(1416, 182), so `elementFromPoint` at the root's
+  // own centre returned a top-bar button and the double-click that edits a
+  // node never reached it. `wbFrameMapOnOpen` fits the map (or frames its
+  // root at 1:1 when a fit would be illegible) on every open.
+  const framingBoard = await page.evaluate(async () => {
+    const b = await window.apiJson("/whiteboard/boards", {
+      method: "POST",
+      body: JSON.stringify({ name: "Framing check", type: "map", layout: "tree-right" }),
+    });
+    const root = await window.apiJson(`/whiteboard/boards/${b.id}/nodes`, {
+      method: "POST",
+      body: JSON.stringify({ kind: "topic", text: "Framing root", x: 0, y: 0 }),
+    });
+    await window.apiJson(`/whiteboard/boards/${b.id}/nodes`, {
+      method: "POST",
+      body: JSON.stringify({ kind: "topic", text: "Framing child", parent_id: root.id }),
+    });
+    return { board: b.id, root: root.id };
+  });
+  await page.evaluate((id) => window.openWhiteboardBoard(id), framingBoard.board);
+  await page.waitForTimeout(1800);
+  const framed = await page.evaluate((rootId) => {
+    const el = document.querySelector(`.wb-object[data-id="${rootId}"]`);
+    const bar = document.getElementById("wb-topbar");
+    if (!el || !bar) return null;
+    const r = el.getBoundingClientRect(), b = bar.getBoundingClientRect();
+    const overlap =
+      Math.max(0, Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top)) *
+      Math.max(0, Math.min(r.right, b.right) - Math.max(r.left, b.left));
+    const hit = document.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2);
+    return {
+      root: { t: Math.round(r.top), b: Math.round(r.bottom) },
+      barBottom: Math.round(b.bottom),
+      overlap: Math.round(overlap),
+      inNode: Boolean(hit && hit.closest(`.wb-object[data-id="${rootId}"]`)),
+    };
+  }, framingBoard.root);
+  check("(H2) a map opens with its root clear of the top bar",
+    framed && framed.overlap === 0, JSON.stringify(framed));
+  check("(H2) and a click at the root's own centre reaches the node",
+    framed && framed.inNode, JSON.stringify(framed));
+
+  // --- H1: tidy at scale --------------------------------------------------
+  //
+  // Every overlap number in this feature's history was measured on a
+  // five-node map (MINDMAP_PLAN §10.4 says so). This builds 201 nodes through
+  // the API, tidies, and measures: overlaps, the layout's own wall time, and
+  // one full render, so "tidy does not overlap" is a claim about a real map.
+  const scale = await page.evaluate(async () => {
+    const b = await window.apiJson("/whiteboard/boards", {
+      method: "POST",
+      body: JSON.stringify({ name: "Scale check", type: "map", layout: "tree-right" }),
+    });
+    const add = (text, parent) => window.apiJson(`/whiteboard/boards/${b.id}/nodes`, {
+      method: "POST",
+      body: JSON.stringify(parent == null
+        ? { kind: "topic", text, x: 0, y: 0 }
+        : { kind: "topic", text, parent_id: parent }),
+    });
+    const root = await add("Scale root", null);
+    let made = 1;
+    for (let i = 0; i < 10; i++) {
+      const branch = await add(`Branch ${i}`, root.id);
+      made += 1;
+      let first = null;
+      for (let j = 0; j < 10; j++) {
+        const leaf = await add(`Leaf ${made}`, branch.id);
+        if (j === 0) first = leaf.id;
+        made += 1;
+      }
+      for (let j = 0; j < 9; j++) {
+        await add(`Deep ${made}`, first);
+        made += 1;
+      }
+    }
+    return { board: b.id, made };
+  });
+  await page.evaluate((id) => window.openWhiteboardBoard(id), scale.board);
+  await page.waitForTimeout(2500);
+  const tidyRun = await page.evaluate(async () => {
+    const t0 = performance.now();
+    const moved = await window.wbMapTidy({ quiet: true });
+    const total = Math.round(performance.now() - t0);
+    const t1 = performance.now();
+    window.renderWhiteboardNow();
+    return { moved, total, render: Math.round(performance.now() - t1) };
+  });
+  await page.waitForTimeout(1200);
+  const scaleOverlaps = await page.evaluate(() => {
+    const boxes = [...document.querySelectorAll(".wb-object.wb-map-node")].map((el) => el.getBoundingClientRect());
+    let n = 0;
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a = boxes[i], b = boxes[j];
+        if (Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 &&
+            Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1) n++;
+      }
+    }
+    return { nodes: boxes.length, overlaps: n };
+  });
+  check("(H1) 200+ nodes: Tidy leaves no two node boxes overlapping",
+    scale.made > 200 && scaleOverlaps.nodes > 200 && scaleOverlaps.overlaps === 0,
+    `${scale.made} built, ${scaleOverlaps.nodes} drawn, ${scaleOverlaps.overlaps} overlaps, tidy ${tidyRun.total}ms (${tidyRun.moved} moved), one full render ${tidyRun.render}ms`);
+
+  // A drag on that map: the edges of the node under the pointer must still
+  // follow it (INBOX 42's fix at scale, where a full render per frame would
+  // be the "glitchy and slow" report all over again).
+  const scaleDrag = await page.evaluate(() => {
+    const kinds = new Set(["topic", "note", "document", "file", "link"]);
+    const objs = (wbState.objects || []).filter((o) => kinds.has(o.kind));
+    const child = objs.find((o) => o.parent_id != null && (objs.filter((x) => x.parent_id === o.id).length > 0));
+    return child ? child.id : null;
+  });
+  if (scaleDrag) {
+    // The pointer phase is timed on its own: `EDGE_PROBE` compares every
+    // parent/child pair against every drawn edge, which is 200x200
+    // `getPointAtLength` calls on this map and would otherwise be reported
+    // as if the app had spent that time.
+    const el = await page.$(`.wb-object[data-id="${scaleDrag}"]`);
+    const box = await el.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    const movedAt = Date.now();
+    await page.mouse.move(box.x + box.width / 2 + 90, box.y + box.height / 2 + 60, { steps: 12 });
+    const pointerMs = Date.now() - movedAt;
+    const during = await page.evaluate(EDGE_PROBE);
+    await page.mouse.up();
+    await page.waitForTimeout(900);
+    const after = await page.evaluate(EDGE_PROBE);
+    check("(H1) and a node's edges still follow a drag on a 200-node map",
+      during.worst < 2 && after.worst < 2,
+      `during ${during.worst}px, after ${after.worst}px, ${pointerMs}ms for 12 pointer frames`);
+  }
+
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed.`);
   if (failed.length) console.log("FAILED: " + failed.map((f) => f.label).join(" ; "));

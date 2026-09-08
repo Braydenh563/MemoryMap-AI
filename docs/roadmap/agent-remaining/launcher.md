@@ -34,9 +34,9 @@ those tests cannot see is a first-run risk on Windows:
   whatever the regional order; nothing reads the date back out.
 
 **Not run on macOS.** `./start.sh --shortcut`'s Finder-alias branch, its
-symlink fallback, `--logs` (`xdg-open`/`open`), and the `notify`-mode
-splash all take the untested branch there. The Linux branches of `--logs`
-and `--shortcut` were also not executed.
+symlink fallback, and the `notify`-mode splash all take the untested branch
+there. The Linux branches of `--shortcut` and `--logs` were run here, and
+both had a bug (see below).
 
 **The doctor's Ollama and Updates rows** were exercised only in their
 negative state: nothing answers at 11434 here, and a worktree's `.git` is a
@@ -45,6 +45,12 @@ file rather than a directory, so Updates reports "not a git checkout".
 ## What was verified, so a later session does not redo it
 
 - `./start.sh --doctor` runs in the suite and exits 0 or 1 with the table.
+- `--shortcut` and `uninstall.sh --shortcuts` round-trip against a scratch
+  HOME: both files written, both listed by the dry run, both removed.
+- `--logs` and `--version` print what they should.
+- The uninstaller's real removal path, in a scratch install: `.venv`,
+  `.pytest_cache` and every nested `__pycache__` go, notes and `.env` stay,
+  the wrong confirmation text keeps the notes and `DELETE` removes both.
 - A real launch on port 8842, in a pty, printed the whole step list with
   ticks and reached `uvicorn running`.
 - The uninstaller's running-instance guard: with a real server on 8841 it
@@ -54,6 +60,26 @@ file rather than a directory, so Updates reports "not a git checkout".
   ticked, the bar 240px of 300 at 80%, a phase push moving it to 95% and
   rewriting the active row, the error state flipping both, no console
   errors, no horizontal overflow.
+
+## Found by running it, and fixed
+
+Four bugs that a read would not have caught, all in code that already
+existed or landed in the first half of this brief. Each is now covered by
+`tests/test_launcher_scripts.py`:
+
+1. `./start.sh --port` with no value exited 1 in silence. The branch shifts
+   once to read the value, so the loop's trailing `shift` had nothing left,
+   and under `set -e` that failing shift ended the script before the
+   validation could print the help and exit 2. Same shape in
+   `uninstall.sh --export`, which also swallowed the next flag.
+2. `--shortcut` wrote `Icon=frontend/icon.png` into the desktop entry. That
+   file has never existed in this repo, so the menu item and the Desktop
+   copy both showed a generic icon.
+3. `--logs` told the reader to open a folder "in your browser", from a
+   fallback shared with the call that opens the app's URL.
+4. `start.bat`'s doctor built a variable from a line of a log carrying
+   git's and pip's text verbatim, where a double quote and an ampersand
+   would have ended the `SET` and run the rest as a command.
 
 ## Deliberately not done
 

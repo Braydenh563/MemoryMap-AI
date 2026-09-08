@@ -990,3 +990,16 @@ summary > .ph-lead,
 .chat-toolbar summary.icon-button {
   background: transparent;
 }
+
+/* The reminder form's date and time pickers took the text-field recipe
+   (paragraph padding and a bottom margin) beside a select on the control
+   height, so the row's three controls were three heights (reported with a
+   screenshot). One height, no stray margin. */
+.reminder-form input[type="date"],
+.reminder-form input[type="time"],
+.reminder-form .small-select {
+  height: var(--control-h-lg);
+  padding-top: 0;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}

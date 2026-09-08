@@ -87,7 +87,7 @@ takes them top-down inside each block.
     wrong place; arrow drawn shows both caps as Arrow in properties;
     missing align-centre and distribute-gaps; the arrange panel's buttons
     are unreadable (icons overlapping text).** Owner: WHITEBOARD_PLAN.md.
-13. **Reminders date/time inputs: different height and alignment** from
+13. **(fixed)** **Reminders date/time inputs: different height and alignment** from
     the other controls. Owner: D8, do as a quick fix (control recipe on
     `input[type=date|time]`).
 14. **Bottom bar icons and text misaligned; spaces combobox icon and text

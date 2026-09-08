@@ -124,7 +124,11 @@ def test_the_unix_splash_only_appears_when_there_is_no_terminal():
     over the top would be noise. The report is about launching from a file
     manager, where there is no console at all."""
     text = _start_sh()
-    assert "[ ! -t 1 ] && command -v zenity" in text
+    # The gate moved into a variable when the flag parser landed (Brief 17):
+    # MM_TTY is read once from `-t 1`, and the zenity branch checks it, so
+    # `--help` can be answered before any splash exists.
+    assert "MM_TTY=0" in text and "[ -t 1 ] && MM_TTY=1" in text
+    assert '[ "$MM_TTY" = "0" ]' in text and "command -v zenity" in text
 
 
 def test_both_exec_paths_take_the_unix_splash_down_by_hand():

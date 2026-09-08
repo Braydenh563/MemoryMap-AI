@@ -2636,6 +2636,25 @@ function initGraphKeyboard() {
 
   box.addEventListener("focus", () => {
     if (!graphNodesRef?.length) return;
+    // **A pan is not a request to select a note.** Reported: "sometimes when
+    // I scroll and pan on the graph, a random single separated and unlinked
+    // note will highlight itself and show its label". This box is
+    // `tabIndex = 0`, so a press anywhere on the map focuses it, and this
+    // listener then handed the keyboard to `graphNodesRef[0]`, an arbitrary
+    // note, while `focusGraphNode` (below) deliberately sets the *hover* id
+    // too: the canvas dims every non-neighbour to 20% and draws that one
+    // note's label. Measured after a single pan drag on empty map:
+    // activeElement=graph-box, hovered=1, graphKeyboardId=1, and node 1 is
+    // simply the first in the payload.
+    //
+    // `:focus-visible` is the browser's own answer to "did this focus come
+    // from the keyboard", which is exactly the question: a Tab into the map
+    // should land on a note, a mouse press should not. It is checked here
+    // rather than by tracking pointerdown ourselves because the browser
+    // already knows about every route in (Tab, shift-Tab, a script focus
+    // after a keyboard action, assistive tech) and a hand-rolled flag would
+    // have to learn them one bug at a time.
+    if (!box.matches(":focus-visible")) return;
     const current = graphNodeById(graphKeyboardId) || graphNodesRef[0];
     focusGraphNode(current);
   });

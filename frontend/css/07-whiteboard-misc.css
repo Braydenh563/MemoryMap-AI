@@ -7968,6 +7968,27 @@ input[type="file"] {
   white-space: nowrap;
 }
 
+/* A fact about what the dock names, standing with the title: a count, a
+   readout, the state of the thing on screen. The zone's own rule ("never a
+   control that changes the list") is what tells a chip from a button, so this
+   is deliberately not clickable and deliberately not control height: the
+   dock's height rule reaches `.dock > * > button` and leaves a chip alone,
+   which is the same split the Chat header's model badge already relies on.
+   It truncates rather than wrapping the dock onto a second row. */
+.dock-chip {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 0.1rem var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
 /* Search grows into what is left of the row and never drops below a
    readable width; the row wraps under it before it does. */
 .dock-find {
@@ -8118,7 +8139,11 @@ input[type="file"] {
 }
 
 @media (max-width: 600px) {
-  .dock-identity .dock-link {
+  /* Same trade as the link beside it: on a phone the dock's row is the
+     scarce thing, and a count is the one part of the identity zone that the
+     map itself already shows. */
+  .dock-identity .dock-link,
+  .dock-identity .dock-chip {
     display: none;
   }
 

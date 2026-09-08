@@ -320,3 +320,80 @@ positioned over the canvas. What is left is the dock, the stats line and the
 legend row, which are still in flow above the map: **the map gets 530 px of
 the card's 767 px, so 31% of the tab is chrome.** That, and the stats line
 becoming a chip in the dock, is the real content of Phase 2.
+
+---
+
+## Built, Phase 2 (the space)
+
+Half of the phase landed: the space itself. The gear button (INBOX item 21),
+the physics tuning and the hover-during-a-pan bug did not, and
+`docs/roadmap/agent-remaining/graph.md` says exactly where each one stands.
+
+### What landed
+
+- **One floating column, `.graph-overlay`** (index.html, and the section at
+  the end of `frontend/css/02-chat-graph.css`), holding the dock, the help
+  panel, the options panel, the trace strip and the link suggestions over the
+  map on the app's popover shell: `--modal-bg-opaque` ground, `--radius-lg`,
+  `--glass-shadow`, the recipe `.doc-dock-menu-list` already uses. The column
+  is `pointer-events: none` and its children are not, so the gaps between the
+  panels are still map and a drag that starts in one pans the graph.
+- **The legend floats bottom left** on the same shell, clear of the zoom
+  strip, and is gone (not an empty box) when collapsed or when the notebook
+  has no categories.
+- **The stats line is a chip in the dock's identity zone.** `.dock-chip` is
+  general, not a graph class: a count or a readout beside a dock's title,
+  never a control, truncating rather than wrapping the row, hidden below
+  600px with the sibling link beside it.
+- **The card pads nothing and the map has no border of its own.** One
+  hairline on the outermost pane, which is what DESIGN.md asks for.
+- **Full screen fills the screen again**, and keeps the card's own corner.
+
+### Decisions made while building
+
+- **The whole card, not a reserved strip.** The dock floats over the map
+  rather than the map being inset below it: an inset gives the same pixels
+  back to chrome under a different name, and a map application (every one of
+  them) floats its controls.
+- **Opaque, not glass, for the floating panels.** The panels sit over a
+  canvas that repaints every frame; `--modal-bg`'s 4% see-through leaves the
+  nodes under a panel legible as ghosts through the words, and three stacked
+  blurred layers over a live canvas is paint nobody sees.
+- **The minimap keeps its four corners and its top-left default**, with the
+  two top corners pushed down past the floating dock by
+  `--graph-chrome-top`. Bottom left is now the legend's, which is a collision
+  the corner setting exists to let someone step out of.
+
+### The numbers (1440x900, a 35-note fixture, `scratchpad/ui-sweeps/graph2.js`)
+
+| | before | after |
+| --- | --- | --- |
+| Map, share of the card's height | 588 of 767 px, 76.7% | **765 of 767 px, 99.7%** |
+| Map, share of the card's area | 74.0% | **99.6%** |
+| Page scroll on Graph | 900 = 900, none | **900 = 900, none** |
+| Full screen: the card | 1424x371 at y=264 | **1424x884 at y=8** |
+| Full screen: the map | 192 px, 51.8% of the card | **882 px, 99.8%** |
+| The card's corner, tab vs full screen | 14px vs 11.2px | **14px vs 14px** |
+
+The plan's own "measured before starting it" number (530 px of 767) was taken
+with the options panel open; 588 px is the same card with it closed.
+
+**Why full screen was not full screen**, since it is a trap worth writing
+down: `.card` resolves `align-self: center`, and for an absolutely positioned
+box the self-alignment properties apply *inside the inset-modified containing
+block*. With `height: auto` that means shrink-to-content and centre, not
+stretch. `inset: var(--space-3)` computed top and bottom of 8px and the box
+still came out 371px tall at y=264, which is content height, centred.
+`align-self: stretch` is the fix.
+
+### What was not verified
+
+- **Light theme only, and one width.** `contrast.js` was not run on the new
+  floating panels, and 1440x900 is the only viewport measured. The phone
+  rules (the column's smaller inset, the hidden stats chip) are reasoned, not
+  measured.
+- Nothing here was looked at. Every number above is a `getBoundingClientRect`
+  or a `getComputedStyle`; how the floating panels *read* over a moving map,
+  whether the legend fights the minimap at bottom left, and whether the dock
+  covers nodes people want at the top of the map are all unseen.
+- `errors.js` and `docks.js` were not run after the change.

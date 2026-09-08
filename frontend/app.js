@@ -32067,6 +32067,17 @@ function toggleGraphFullscreen() {
 }
 
 $("graph-fullscreen")?.addEventListener("click", toggleGraphFullscreen);
+// Escape leaves full screen. Reported with the rest of the full-screen state
+// ("restore on Esc"), and it is the one key every full-screen surface on the
+// web answers to, including this app's own whiteboard. Guarded on the class
+// so this listener does nothing at all on any other tab, and placed after the
+// popover handlers above so a help panel or a note popup open over the map
+// takes the first Escape and the map takes the second.
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  if (!$("graph-card")?.classList.contains("graph-fullscreen")) return;
+  toggleGraphFullscreen();
+});
 
 // Wave M: batch operations + skill/persona sharing.
 // Reported directly: "there's also no refresh button on the your notes

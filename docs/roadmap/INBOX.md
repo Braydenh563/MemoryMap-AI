@@ -251,6 +251,21 @@ named beside it in HANDOVER's completion table.
     findings as consistency.md rows, not fixing ad hoc. Owner:
     consistency.md, last item.
 
+27. **Graph labels pile up at fit zoom** (screenshot, 15:40): with labels on
+    and under 400 nodes every label draws, and the dense cluster is
+    unreadable. Decision: collision avoidance per frame, highest degree
+    first; a label that would overlap one already drawn waits for hover or
+    zoom. Owner: GRAPH Phase 2 (agent-remaining/graph.md).
+28. **Panning the graph highlights one unlinked node** and shows its label
+    while the rest dims. A pan must never change hover or focus. Owner:
+    GRAPH Phase 2.
+29. **Fullscreen is broken**: the card keeps its height, the top bar stays,
+    the canvas is not resized. Fullscreen hides the chrome, sizes the canvas
+    to the viewport, keeps the radius, restores on Esc. Owner: GRAPH Phase 2.
+30. **(fixed, 4caed49)** The widgets dialog painted closed behind the
+    Dashboard hero and on Graph; Done did nothing. A display rule on a
+    <dialog> not scoped to [open]. Reload after pulling.
+
 ## Placed (last 20, newest first)
 
 - 2026-09-08: dashboard hero preference, New note tile colours, sub-tab

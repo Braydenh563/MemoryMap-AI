@@ -751,9 +751,15 @@ function editorLinkMatches(needle) {
       group: "Boards",
       label: noteLabel(entry, 60),
       hint: "board",
+      //: **The board's title, not its first raw line.** A board's content is
+      //: `# My map`, so this used to insert `[[# My map]]` — which resolved
+      //: (the resolver matched by prefix) and read as a stray heading marker
+      //: inside a sentence. `resolveWikiTarget` matches a board title with or
+      //: without the `#`, so links written the old way still resolve.
       value: (entry.content || "")
         .split("\n")[0]
         .replace(/\[\[|\]\]/g, "")
+        .replace(/^#+\s*/, "")
         .replace(/\s+/g, " ")
         .trim()
         .slice(0, 60),

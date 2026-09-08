@@ -2969,15 +2969,13 @@ p.graph-help-panel {
   border-radius: var(--radius-sm);
 }
 
-.dash-board-thumb-card {
-  fill: var(--accent);
-  opacity: 0.75;
-}
-
-.dash-board-thumb-sketch {
-  fill: var(--ink);
-  opacity: 0.4;
-}
+/* `.dash-board-thumb-card` / `-sketch` lived here and are gone with the copy
+   of the drawing they belonged to. The widget's thumbnail is now produced by
+   `mapPreview` (app.js) exactly like the Library card's, so it carries
+   `.board-minimap-card` / `-object` / `-sketch` / `-edge` and is styled by
+   those rules in 07-whiteboard-misc.css — which is the point of §5 item 12:
+   one drawing, one set of rules, so the dashboard cannot end up showing a map
+   without its edges again. */
 
 /* A `.dash-list` row that opens something is a real control: it takes focus,
    so it has to show it. `miniEntryList`'s note rows are click-only and keep

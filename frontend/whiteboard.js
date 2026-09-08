@@ -9456,123 +9456,29 @@ async function renderLibraryBoardsGallery() {
     title.className = "library-card-title";
     title.textContent = board.title;
 
-    const nodeCount = board.node_count || 0;
-    const sketchCount = board.sketch_count || 0;
-    const objectCount = board.object_count || 0;
-    const total = nodeCount + sketchCount + objectCount;
-    const parts = [];
-    if (nodeCount) parts.push(`${nodeCount} card${nodeCount === 1 ? "" : "s"}`);
-    if (sketchCount) parts.push(`${sketchCount} sketch${sketchCount === 1 ? "" : "es"}`);
-    // On a map the objects *are* the nodes, so calling them "images" — which
-    // is what this line said for every map — is simply the wrong noun for the
-    // only thing on the board.
-    if (objectCount) {
-      parts.push(isMapCard
-        ? `${objectCount} node${objectCount === 1 ? "" : "s"}`
-        : `${objectCount} image${objectCount === 1 ? "" : "s"}`);
-    }
     const meta = document.createElement("span");
     meta.className = "muted library-card-meta";
-    meta.textContent = parts.length ? parts.join(" · ") : isMapCard ? "Empty map" : "Empty board";
+    // One sentence about how much is on a board, shared with every other
+    // surface that says it — `mapCountLabel` in app.js. It used to be nine
+    // lines here and four in the dashboard's own widget, which is how the two
+    // came to disagree about what to call a map's objects.
+    meta.textContent = mapCountLabel(board);
 
     // **A thumbnail of the board itself**, rather than the same icon on every
     // card. Asked for directly: the Boards & maps sub-tab is "boring and
-    // should probably have previews". `preview_points` is up to 40 of the
-    // board's card positions, already normalised into 0..1 against the
-    // board's own bounds by `routes_whiteboard._preview_points` — so this
-    // draws the real layout without the client ever holding the board.
+    // should probably have previews".
     //
-    // Built as inline SVG with attributes rather than a `style` string: this
-    // app's CSP rejects inline styles outright, and thirty-five of them
-    // shipped once as silently-dead markup (CLAUDE.md, "a policy silently
-    // refusing the work"). An empty board draws nothing and keeps its
-    // "Empty board" line, which says more than a blank rectangle would.
-    const items = Array.isArray(board.preview_items) ? board.preview_items : [];
-    if (items.length) {
-      const NS = "http://www.w3.org/2000/svg";
-      const map = document.createElementNS(NS, "svg");
-      map.setAttribute("class", "board-minimap");
-      map.setAttribute("viewBox", "0 0 100 56");
-      map.setAttribute("preserveAspectRatio", "none");
-      map.setAttribute("aria-hidden", "true");
-      // **A map's thumbnail draws its tree.** `preview_edges` is the
-      // parent→child segments in the same normalised 0..1 space as the items
-      // (§9.1), and it exists because structure is the entire difference
-      // between a map and a board — so a map previewing as a scatter of dots
-      // is indistinguishable from the thing it is not. Drawn *first*, so the
-      // lines sit under the blocks rather than across their labels; an
-      // ordinary board ships an empty list here and this loop does nothing.
-      // The +4.5/+3 offsets put a line at the centre of the block it joins,
-      // since a block is drawn from its top-left corner at 9×6.
-      for (const edge of Array.isArray(board.preview_edges) ? board.preview_edges : []) {
-        const line = document.createElementNS(NS, "line");
-        line.setAttribute("class", "board-minimap-edge");
-        line.setAttribute("x1", String(3 + (Number(edge.x1) || 0) * 88 + 4.5));
-        line.setAttribute("y1", String(3 + (Number(edge.y1) || 0) * 44 + 3));
-        line.setAttribute("x2", String(3 + (Number(edge.x2) || 0) * 88 + 4.5));
-        line.setAttribute("y2", String(3 + (Number(edge.y2) || 0) * 44 + 3));
-        map.appendChild(line);
-      }
-      for (const item of items) {
-        const nx = 3 + (Number(item.x) || 0) * 88;
-        const ny = 3 + (Number(item.y) || 0) * 44;
-        if (item.kind === "sketch") {
-          // A sketch is strokes, and the thumbnail does not have them — the
-          // board's stroke data is the one thing `preview_items` deliberately
-          // does not ship. A squiggle says "something drawn here", which is
-          // the fact that was missing entirely: a sketch-only board used to
-          // preview as an empty rectangle beside a line reading "2 sketches".
-          const mark = document.createElementNS(NS, "path");
-          mark.setAttribute("class", "board-minimap-sketch");
-          mark.setAttribute(
-            "d",
-            `M${nx} ${ny + 5} q2.5 -5 5 0 t5 0`
-          );
-          map.appendChild(mark);
-          continue;
-        }
-        const dot = document.createElementNS(NS, "rect");
-        dot.setAttribute("class", item.kind === "card" ? "board-minimap-card" : "board-minimap-object");
-        // Inset by the dot's own size so a card at the extreme edge of the
-        // board is drawn inside the thumbnail rather than half outside it.
-        dot.setAttribute("x", String(nx));
-        dot.setAttribute("y", String(ny));
-        dot.setAttribute("width", "9");
-        dot.setAttribute("height", "6");
-        dot.setAttribute("rx", "1.5");
-        map.appendChild(dot);
-        // **What the card says**, which is the whole reason this stopped
-        // being a list of bare points. Reported as "the whiteboard preview is
-        // poor", and the screenshot was three boards named "Cloud computing"
-        // showing three identical arrangements of blank grey rectangles —
-        // a picture that could not tell them apart, which is what a preview
-        // is for. Two or three words at this scale is a texture rather than
-        // readable text, and that is enough: two boards with different notes
-        // on them stop looking the same.
-        if (item.label) {
-          const text = document.createElementNS(NS, "text");
-          text.setAttribute("class", "board-minimap-label");
-          // **Which side of the block the label sits on.** Drawn always to
-          // the right in the first version, and looking at the result showed
-          // the problem immediately: a card at the far right of a board is at
-          // nx ≈ 91 in a 100-wide viewBox, so its label ran straight off the
-          // edge and came out sliced mid-word ("Cloud computi"). Past the
-          // halfway mark it hangs off the left of the block instead, which is
-          // the same amount of room from the other direction.
-          const rightHalf = nx > 50;
-          text.setAttribute("x", String(rightHalf ? nx - 1.5 : nx + 10.5));
-          text.setAttribute("y", String(ny + 4.4));
-          if (rightHalf) text.setAttribute("text-anchor", "end");
-          // An ellipsis rather than a bare slice: "Connections prob" reads as
-          // broken, "Connections pro…" reads as shortened. Sixteen characters
-          // is what fits beside a block at this scale before it starts
-          // colliding with the next one.
-          text.textContent =
-            item.label.length > 16 ? `${item.label.slice(0, 15).trimEnd()}…` : item.label;
-          map.appendChild(text);
-        }
-      }
-      card.append(top, title, map, meta);
+    // `mapPreview` (app.js) is now the only place this picture is drawn.
+    // MINDMAP_PLAN.md §5 item 12 asked for exactly one preview renderer, and
+    // the reason was already visible here: this card drew the tree edges, the
+    // labels and the sketch squiggles, while the dashboard's boards widget
+    // drew the same `preview_items` with none of them — so the one fact that
+    // tells a map from a board was missing from one of the two places a map
+    // shows up. An empty board still draws nothing and keeps its "Empty
+    // board" line, which says more than a blank rectangle would.
+    const minimap = mapPreview(board, { size: "card" });
+    if (minimap) {
+      card.append(top, title, minimap, meta);
     } else if (rowsMode) {
       //: Rows only. An empty board draws nothing in card view *by design*
       //: (see the comment above — the "Empty board" line says more than a

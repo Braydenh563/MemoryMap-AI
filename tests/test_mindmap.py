@@ -565,3 +565,39 @@ def test_the_node_endpoint_stores_position_and_colour(client):
     assert [json.loads(json.dumps(o["data"]))["color"] for o in stored] == ["#ff0000"]
     tree = client.get(f"/whiteboard/boards/{board['id']}/tree").json()
     assert tree["roots"][0]["color"] == "#ff0000"
+
+
+# --- Phase 3: the map as a citizen of the app (MINDMAP_PLAN.md §5 items 12-13)
+
+
+def test_a_map_a_tool_touched_becomes_a_chip_in_the_transcript():
+    """MINDMAP_PLAN.md §5 item 12, the chat half.
+
+    `_touched_items` reads `id` off a result row, and every map tool names its
+    board with `board_id` instead — so before this the four map tools
+    contributed nothing at all to the transcript's touched line. A turn that
+    read a whole map showed a bare tool name and no way to open what it read,
+    which is the failure that line exists to prevent.
+    """
+    from memorymap.ai import agent
+
+    rows = agent._touched_items(
+        {"board_id": 7, "board_title": "Thesis map", "node_count": 12, "outline": "…"}
+    )
+    assert rows == [{"kind": "map", "id": 7, "label": "Thesis map"}]
+
+
+def test_a_created_map_is_named_from_title_when_there_is_no_board_title():
+    """`create_mindmap` returns `title`, `read_mindmap` returns `board_title`.
+    Both are the map's name, and a chip reading "map #12" for one of them
+    would be the same bug wearing a different key."""
+    from memorymap.ai import agent
+
+    rows = agent._touched_items({"board_id": 12, "title": "New map", "root_id": 3})
+    assert rows == [{"kind": "map", "id": 12, "label": "New map"}]
+
+
+def test_a_result_with_no_board_id_still_contributes_nothing():
+    from memorymap.ai import agent
+
+    assert agent._touched_items({"ok": True}) == []

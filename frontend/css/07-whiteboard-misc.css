@@ -3991,6 +3991,19 @@ summary:not(.icon-only):not(.icon-button) {
   background: var(--chip-bg);
 }
 
+/* The row-sized preview (`mapPreview(board, {size: "row"})`) — the dashboard's
+   boards widget. It is the *same* drawing as the card above, so it carries the
+   same `.board-minimap` class and inherits the fills, the edge and the sketch
+   stroke; what it must not inherit is the card's own box, because a
+   dashboard row's thumbnail is a fixed square in a flex row, not a full-width
+   block with a card's margins. `.dash-list-thumb` sets the size; this only
+   has to stop the card rule fighting it. */
+.board-minimap-row {
+  width: auto;
+  aspect-ratio: 1 / 1;
+  margin: 0;
+}
+
 /* Rows mode. The minimap is `width: 100%` of a card that is now the full
    width of the panel, and `aspect-ratio` turned that into a 448px-tall
    "row" (measured). A row's job is to fit forty boards on a screen, so the

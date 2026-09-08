@@ -642,6 +642,64 @@ mark.text-highlight-grey { background: rgba(148, 163, 184, 0.25); }
   outline-offset: 2px;
 }
 
+/* --- the one map chip (MINDMAP_PLAN.md §5 item 12) --------------------------
+   A mind map referred to in passing: in a note body where a `[[wiki link]]`
+   names one, on a timeline dot, in a dashboard row and in the chat's touched
+   line. Deliberately built on `.chip`, the app's own recipe, so it inherits
+   the chip height, radius, and type scale rather than becoming a fourth pill
+   shape — the only things decided here are that it is pressable (when it is)
+   and that its node count is quieter than its name. */
+.map-chip {
+  border: 1px solid var(--border);
+  background: var(--chip-bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  max-width: 100%;
+  min-width: 0;
+  vertical-align: baseline;
+}
+
+/* A chip's title is the part that has to survive a narrow column; the count
+   is a fact you read second. Ellipsis on the title only, so a long map name
+   in a phone-width note never pushes "12 nodes" off the end of the line. */
+.map-chip .ph-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.map-chip .ph {
+  color: var(--accent);
+  flex: 0 0 auto;
+}
+
+.map-chip-count {
+  color: var(--muted);
+  font-weight: 400;
+  flex: 0 0 auto;
+}
+
+/* Only the pressable form reacts. The dashboard row and the timeline dot pass
+   `interactive: false` (the surrounding element is already the control), and a
+   chip that lit up under the pointer while doing nothing would be lying about
+   what is clickable. */
+button.map-chip {
+  cursor: pointer;
+}
+
+button.map-chip:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+button.map-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* --- [[ autocomplete ---------------------------------------------------------- */
 .wiki-suggest {
   list-style: none;

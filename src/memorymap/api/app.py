@@ -17,6 +17,7 @@ import threading
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import parse_qs
 
 from fastapi import Depends, FastAPI
 from fastapi.responses import JSONResponse
@@ -103,11 +104,30 @@ class RevalidatedStatic(StaticFiles):
     request still answers 304 from the etag above. All it removes is the
     guessing. Everything here is served from localhost, so the cost of a
     revalidation round-trip is not a real cost.
+
+    **The `?v=<version>` stamp changes this calculus for exactly the URLs
+    that carry it** (INBOX 47). `test_asset_cache_busting.py` already
+    guarantees every local css/js reference in `index.html` is stamped with
+    the current `__version__`, and a stamped URL is a *different* URL on
+    every release: nothing is ever served stale from it, unlike the
+    unstamped path above where staleness is only *revalidated* away. So a
+    stamped request gets `public, max-age=31536000, immutable` (the
+    one-year-plus-immutable idiom browsers treat as "never revalidate")
+    instead of `no-cache`, saving the round trip `no-cache` still pays.
+    Unstamped requests (`/vendor/*`, deliberately unstamped per that same
+    test, and any bare path) keep the `no-cache` behaviour above unchanged.
     """
 
     async def get_response(self, path: str, scope):
         response = await super().get_response(path, scope)
-        response.headers.setdefault("Cache-Control", "no-cache")
+        query = scope.get("query_string", b"")
+        if isinstance(query, bytes):
+            query = query.decode("latin-1")
+        stamped = "v" in parse_qs(query)
+        if stamped:
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        else:
+            response.headers.setdefault("Cache-Control", "no-cache")
         return response
 
 

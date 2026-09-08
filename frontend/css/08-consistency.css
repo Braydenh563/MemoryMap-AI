@@ -1323,3 +1323,40 @@ summary > .ph-lead,
 .dash-toolbar button:focus-visible {
   background: var(--ghost-btn-bg);
 }
+
+/* ---------------------------------------------------------------------------
+   Settings headings sit at one left edge
+
+   docks.md section 6 measured two edges, 529px and 546px, and left the
+   decision open. Measured across all seventeen sections here
+   (`scratchpad/ui-sweeps/setindent.js`) there are three, and the split is
+   clean: 43 headings sit at 546 because they head a `.settings-group`, 11 sit
+   at 529 because they head a section directly, and all 11 are direct children
+   of `.settings-section`. The 17px is `.settings-group`'s own inset, its 1rem
+   padding plus the 1px transparent border it keeps so high-contrast mode has
+   an edge to colour in.
+
+   The 11 move to the 43, not the other way round: aligning the minority is the
+   smaller change, and a heading that starts left of every other heading in the
+   dialog reads as a mistake rather than as a level. The item asked for the
+   change to be made to the headings rather than to the rule, and this is that:
+   `.settings-group` is not touched.
+
+   `calc(1rem + 1px)` and not `var(--space-6)`, deliberately. The two look
+   identical today and are not the same value: `--space-6` is
+   `calc(1rem * var(--density))`, and `.settings-group`'s padding is a raw
+   1rem. Reading the token here would align the edges at one density setting
+   and split them again at every other one, which is the same class of bug as
+   a value that is only wrong where it is used. The 1px is the group's border,
+   named in its own comment as geometry that other measurements are taken
+   against. */
+#settings-modal .settings-section > h3,
+/* One of the eleven does not sit directly under its section: Help's heading is
+   inside a `.row.space-between` so a button can sit opposite it. It is still a
+   section heading and still needs the inset, and it is measured, not assumed:
+   with only the first selector, `setindent.js` reported 53 headings at 546 and
+   "Help & guide" alone at 529. A `.row` inside a `.settings-group` is not
+   reached by this, which is correct: its heading is already at 546. */
+#settings-modal .settings-section > .row > h3 {
+  padding-left: calc(1rem + 1px);
+}

@@ -451,3 +451,224 @@
 .help-accordion p.help-topic-links {
   border-top-color: var(--divider);
 }
+
+/* ---------------------------------------------------------------------------
+   3. A dock is one bar, and its controls belong to it
+   ---------------------------------------------------------------------------
+
+   Reported: "the notes top dock feels very squished and the title feels like
+   it has no room, I feel like all these top docks need a unified bar where
+   the buttons and dropdowns and comboboxes feel a part of that and not just
+   separated buttons chucked together at the top of the panel."
+
+   Phase 8 gave every tab's control row one grammar (`.dock` and its four
+   zones, 07-whiteboard-misc.css) and that part holds: the zones are in the
+   right order on all five docks and every control is one height. What it did
+   not give them is a *surface*. Measured at 1440, light theme, before:
+
+     every .dock   background rgba(0,0,0,0)   no border   no radius   no padding
+
+   So the bar is nothing. The controls sit directly on the page, and the only
+   thing telling you they are related is that they happen to be on one line —
+   which is the report, almost word for word.
+
+   The second half is that the controls do not agree with each other either.
+   Counted per dock, before:
+
+     Notes      12 controls   5 fills   6 radii   5 borders   4 heights
+     Graph      11 controls   4 fills   5 radii   5 borders   3 heights
+     Timeline    9 controls   5 fills   5 radii   5 borders   5 heights
+     Library    11 controls   5 fills   5 radii   5 borders   2 heights
+     Reminders   5 controls   3 fills   2 radii   3 borders   3 heights
+
+   Five radii in one strip: 8.4px on buttons and menu openers, 11.2px on the
+   search field and the select opener, 9.8px on the native select behind it,
+   15.4px on the segmented wells, and 50% on the help dot. Five fills: the
+   tonal 0.12 ink, the field's 55% white, the chip well's 0.07 ink, the
+   accent, and transparent. Nothing in that set reads as one component.
+
+   One of those transparents was a bug rather than a choice: the ⋯ "more"
+   opener is a `<summary class="ghost small icon-only …">`, and the rule that
+   dresses a summary excludes `.icon-only`, so it measured
+   `background rgba(0,0,0,0)  border 0px  radius 0px` — no fill, no edge, no
+   corner — sitting immediately beside a refresh button wearing the full
+   tonal treatment. It was the one control in the row with no appearance at
+   all.
+
+   The design here is the one the report asks for: the bar carries the
+   surface, the controls are quiet inside it, and exactly three things are
+   allowed to be loud — the search field and the sort select (inset, because
+   they take input), the one primary action (filled, because it is what the
+   surface is for), and a selected segment (accent, because on is the
+   accent — DESIGN.md's rule, unchanged). Everything else earns its presence
+   from the bar behind it and answers the pointer with a tint. */
+.dock {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+}
+
+/* The title gets room and keeps it. `flex: 0 1 auto` let the identity zone
+   absorb a narrow window's shortfall before the row's own `flex-wrap` ever
+   ran, which is the "the title feels like it has no room" half of the
+   report; `0 0 auto` makes the row wrap instead of crushing the heading.
+   The `min-width: 0` the three zones share is what allowed it, so identity
+   opts back out of that. */
+.dock > .dock-identity {
+  flex: 0 0 auto;
+  min-width: auto;
+}
+
+.dock .dock-identity h2 {
+  flex: 0 0 auto;
+  min-width: max-content;
+}
+
+/* Search takes the slack, with a ceiling. Measured on the Library at 1440
+   the search field was 760px wide — a single-line query in a box wide enough
+   for a paragraph, with the rest of the row crowded into the last third. */
+.dock .dock-find {
+  flex: 1 1 14rem;
+}
+
+.dock .dock-find input[type="search"] {
+  flex: 1 1 12rem;
+  min-width: 8rem;
+  max-width: 28rem;
+}
+
+/* One inset for anything that takes input: one fill, one edge, one radius,
+   one height. Three of these (search, the select opener, the native select
+   behind it) drew three radii while sitting side by side. */
+.dock input:not([type="checkbox"]):not([type="radio"]),
+.dock select:not(.select-native-hidden):not(.dock-native-hidden),
+.dock .select-shell > .select-opener {
+  height: var(--control-h);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--field-inset);
+}
+
+/* Quiet by default. A control in a bar does not need its own fill to be
+   findable — the bar is what makes it findable — and 22 filled boxes in one
+   strip is what "separated buttons chucked together" describes. The tint
+   arrives under the pointer, which is the same shape an unselected segment
+   already uses. `1px solid transparent` rather than `none` so the geometry
+   does not move on hover and `[data-contrast="on"]` can colour the edge back
+   in. */
+/* The second selector is the same one again with the two `:not()`s the rule
+   it overrides carries. `summary:not(.icon-only):not(.icon-button)`
+   (07-whiteboard-misc.css) is (0,2,1); `.dock > * > details > summary` is
+   (0,1,3) and loses on class count, which is why the *labelled* menu openers
+   ("Filter", "View", "Options") kept the tonal fill through a first pass
+   while the icon-only ⋯ — excluded from that rule — did not. Restating the
+   selector with the exclusions makes it (0,3,3) and settles both. */
+.dock > * > button.ghost,
+.dock > * > details > summary,
+.dock > * > details > summary:not(.icon-only):not(.icon-button),
+.dock > * > .menu-wrap > button.ghost,
+.dock .dock-link {
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  box-shadow: none;
+  color: var(--ink);
+}
+
+.dock > * > button.ghost:hover,
+.dock > * > button.ghost:focus-visible,
+.dock > * > details > summary:hover,
+.dock > * > details > summary:focus-visible,
+.dock > * > details > summary:not(.icon-only):not(.icon-button):hover,
+.dock > * > details > summary:not(.icon-only):not(.icon-button):focus-visible,
+.dock > * > details[open] > summary:not(.icon-only):not(.icon-button),
+.dock > * > details[open] > summary,
+.dock > * > .menu-wrap > button.ghost:hover,
+.dock .dock-link:hover {
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
+}
+
+/* The one filled control per bar keeps its fill, and the radius everything
+   else in the row now uses. */
+.dock > * > button:not(.ghost):not(.icon-only):not(.linklike) {
+  border-radius: var(--radius-md);
+}
+
+/* A segmented control is a choice, not a button run, so it keeps its well
+   and its accent-filled selection (DESIGN.md: "on is the accent"). Only its
+   corners join the rest of the bar — a 15.4px pill beside 8.4px buttons was
+   two of the five radii on its own. */
+.dock .seg,
+.dock .segmented-control {
+  border-radius: var(--radius-md);
+}
+
+/* And its segments are inset by the well's own padding rather than each
+   deciding its own height: measured, the Notes and Timeline segments were
+   28px inside a 36px well while the Library's were 36px inside the same
+   36px well, so one group looked inset and the other looked flush. */
+.dock .seg,
+.dock .segmented-control {
+  padding: var(--space-1);
+}
+
+.dock .seg > button,
+.dock .segmented-control > button,
+.dock .seg > label,
+.dock .segmented-control > label {
+  height: auto;
+  align-self: stretch;
+  border-radius: var(--radius-sm);
+}
+
+/* The help dot is the app's one round control and stays round, but it sizes
+   itself to the row like everything else rather than sitting 4px shorter
+   than its neighbours (32px against 36px, measured on three docks). */
+.dock .graph-help-toggle,
+.dock [class*="help"][class*="icon-only"] {
+  width: var(--control-h);
+  height: var(--control-h);
+}
+
+/* Zones are separated by a hairline, not by guessing at a gap. The gap alone
+   was the Phase 8 decision and it is not enough once the bar has a surface:
+   `--space-4` between groups against `--space-3` inside one is a 3.2px
+   difference, which no eye reads as a boundary. */
+.dock > * + * {
+  border-left: 1px solid var(--divider);
+  padding-left: var(--space-4);
+}
+
+/* `.dock-actions` carries `margin-left: auto`, so without this its hairline
+   would float in the middle of the empty space rather than sitting against
+   the cluster it introduces. */
+.dock > .dock-actions {
+  padding-left: var(--space-4);
+}
+
+/* Icon-only utilities are one cluster at the far end (refresh · help · more),
+   not three separately-spaced buttons. The negative margin is written from
+   the two tokens it sits between so it tracks the density setting rather
+   than freezing at one multiplier's pixel value. */
+.dock-actions > :is(.icon-only, .dock-more, [class*="help"])
+  + :is(.icon-only, .dock-more, [class*="help"]) {
+  margin-left: calc(var(--space-1) - var(--space-3));
+}
+
+/* The documents editor's head already *is* a bar — `.doc-toolbar`
+   (05-sidebars-themes.css) has carried a `--card` fill, an edge and a radius
+   since the "fix the toolbar" round, so there is nothing to build here, only
+   to match: it drew `--glass-border` at `--radius` against the dock's
+   `--border` at `--radius-lg`, which is two bars an inch apart in the same
+   app disagreeing about what the edge of a bar looks like.
+
+   The whiteboard's top bar is deliberately not in this list. It floats over
+   the canvas rather than sitting on the page, so DESIGN.md's floating-surface
+   rule applies to it and `--modal-bg` with `--glass-border` is the correct
+   answer there, not drift. */
+.doc-toolbar {
+  border-color: var(--border);
+  border-radius: var(--radius-lg);
+}

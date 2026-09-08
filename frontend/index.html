@@ -2081,6 +2081,12 @@ Link to another note with [[its first few words]]."></textarea>
                 x="0" y="0" width="0" height="0"></rect>
             </svg>
           </div>
+        <!-- Two surfaces, one at a time: the Canvas 2D renderer
+             (graph-canvas.js, GRAPH_PLAN.md §5 Phase 1) and the SVG one it
+             replaces. `renderGraph()` in graph.js shows whichever is drawing
+             and hides the other, so nothing else on the page has to know which
+             it is looking at. The SVG element goes when the SVG path does. -->
+        <canvas id="graph-canvas" class="graph-canvas hidden"></canvas>
         <svg id="graph-svg"></svg>
         <!-- Click a node: edit it in place without leaving the map -->
         <div id="graph-popup" class="graph-popup hidden" role="dialog"
@@ -7300,6 +7306,11 @@ Link to another note with [[its first few words]]."></textarea>
        full explanation. -->
 
   <script src="/graph.js?v=0.2.2"></script>
+  <!-- After graph.js (which dispatches to it by name) and before app.js, for
+       the reason graph.js's own header gives at length: each <script> is its
+       own hoisting scope, and app.js's top-level wiring reads these files'
+       bare identifiers the moment that line runs. -->
+  <script src="/graph-canvas.js?v=0.2.2"></script>
   <script src="/app.js?v=0.2.2"></script>
   <!-- Document editor, split out of app.js (§10 of the app.js-split plan).
        Loaded after app.js and shares its global scope; the two directions

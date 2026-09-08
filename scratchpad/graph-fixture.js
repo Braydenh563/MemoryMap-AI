@@ -66,6 +66,14 @@ const WANT_LINKS = Number(process.argv[3] || 4000);
         async (i) => {
           const category = CATEGORIES[i % CATEGORIES.length];
           const body = {
+            // **The category is set explicitly, not left to the filer.** A
+            // fixture built without it lands every note in "Uncategorised",
+            // which quietly makes three of the things this fixture exists to
+            // measure untestable: the legend has one entry, colour-by-category
+            // has one colour, and there is no way to filter the map down to a
+            // smaller board. Found the hard way — the first 2,000-note run
+            // reported "200 notes (from 1 legend entries)".
+            category,
             content: `${category} note ${i}: ${sentence(i)}`,
             tags: [category.toLowerCase(), `t${i % 25}`],
           };
@@ -82,7 +90,29 @@ const WANT_LINKS = Number(process.argv[3] || 4000);
 
       // Every id, not only the ones this run made, so links can be topped up
       // on a second run against notes the first one created.
-      const ids = (await listEntries()).map((e) => e.id);
+      const rows = await listEntries();
+      const ids = rows.map((e) => e.id);
+      // Notes filed before the `category` field above was passed on create sit
+      // in one bucket; re-file them so a data dir built by an older run of this
+      // script still measures ten categories rather than one.
+      let refiled = 0;
+      const stray = rows.filter((e) => !CATEGORIES.includes(e.category));
+      await batched(
+        stray,
+        async (entry) => {
+          const wanted = CATEGORIES[ids.indexOf(entry.id) % CATEGORIES.length];
+          try {
+            await api(`/entries/${entry.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ category: wanted }),
+            });
+            refiled += 1;
+          } catch (error) {
+            /* one note in the wrong bucket is not a failed fixture */
+          }
+        },
+        40
+      );
       const linkCount = await api("/graph")
         .then((r) => r.json())
         .then((g) => (g.edges || []).filter((e) => e.kind === "link").length)
@@ -114,7 +144,14 @@ const WANT_LINKS = Number(process.argv[3] || 4000);
         },
         40
       );
-      return { have, created: created.length, notes: ids.length, linksBefore: linkCount, linksMade: made };
+      return {
+        have,
+        created: created.length,
+        refiled,
+        notes: ids.length,
+        linksBefore: linkCount,
+        linksMade: made,
+      };
     },
     { wantNotes: WANT_NOTES, wantLinks: WANT_LINKS }
   );

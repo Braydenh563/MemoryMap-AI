@@ -1033,16 +1033,49 @@ details.tool-chip[open] > .tool-chip-body {
   cursor: grabbing;
 }
 
-/* Fullscreen mode for the graph map */
+/* The Canvas 2D renderer's surface (GRAPH_PLAN.md §5 Phase 1). Same box, same
+   gestures, same cursors as the SVG surface above it in this file — one of the
+   two is `.hidden` at any moment, so they can share the rules that describe
+   "the map fills the card and swallows the scroll gesture".
+
+   The pixel buffer is sized in JS (device pixel ratio times the CSS box) and
+   the CSS box is set here, which is the split a canvas needs: give a canvas
+   only one of the two and it either renders blurry or stretches. */
+.graph-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+  /* d3-zoom and d3-drag listen for pointer events, so pan, pinch and node-drag
+     work on touch — but only once the browser stops treating the same gesture
+     as page-scroll or pinch-zoom first. */
+  touch-action: none;
+}
+
+.graph-canvas:active {
+  cursor: grabbing;
+}
+
+/* Fullscreen mode for the graph map.
+
+   **Reported directly: square corners.** This used to be `top/left: 0`,
+   `100vw x 100vh` and `border-radius: 0 !important` — a true edge-to-edge
+   overlay, which is the one shape in this app that has no corner radius at
+   all, so entering full screen visibly changed the *kind* of surface the map
+   was sitting on. Inset by one spacing step and given the card radius
+   instead: it is still the whole screen for every practical purpose, and it
+   still reads as this app's own panel rather than a browser window that
+   happens to be showing a graph. `#graph-card`'s own `overflow` (set with it
+   and kept by the `overflow-y` rule below) is what clips the map to the
+   rounded corner, so nothing inside has to know about the radius. */
 .graph-fullscreen {
   position: fixed !important;
-  top: 0;
-  left: 0;
-  width: 100vw !important;
-  height: 100vh !important;
+  inset: var(--space-3);
+  width: auto !important;
+  height: auto !important;
   z-index: 1000;
   margin: 0 !important;
-  border-radius: 0 !important;
+  border-radius: var(--radius-lg) !important;
   background: var(--bg) !important;
   display: flex;
   flex-direction: column;

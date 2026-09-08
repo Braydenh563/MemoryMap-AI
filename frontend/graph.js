@@ -114,6 +114,13 @@ function settleNoteClamps() {
 const GRAPH_NODE_MAX_RADIUS = 21;
 
 function graphNodeRadius(node) {
+  //: The canvas renderer sizes a node by its *degree* (GRAPH_PLAN.md §5 Phase
+  //: 1: `4 + 2·√degree`, clamped) and stores the answer on the node, because
+  //: degree is the one thing about a graph a reader can check by looking. Every
+  //: caller that only needs "how big is this dot" — `fitGraphToView`,
+  //: `graphNodeUnder`, the minimap — then gets the right number on either
+  //: renderer without knowing which one drew it.
+  if (node.r != null) return node.r;
   // A category heading in a tree layout is a fixed size — it has no access
   // count of its own, and sizing it by one would be inventing a number.
   if (node.isGroup) return node.id === "root" ? 14 : 11;
@@ -415,7 +422,12 @@ function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial) {
   // of the panel; the drawing is already in the DOM, so ask it. `getBBox` is
   // in the canvas's own coordinates — the zoom transform is not applied yet —
   // and covers the rotated labels' real corners.
-  const drawn = canvas.node().getBBox();
+  // `getBBox` is an SVG method: on the canvas renderer there is no element to
+  // ask, and `canvas` arrives null. The zero-width fallback below is the same
+  // path a hidden panel already took, so both cases are handled by the code
+  // that was already here rather than by a second branch.
+  const drawn =
+    canvas && canvas.node() && canvas.node().getBBox ? canvas.node().getBBox() : { width: 0 };
   const xs = nodes.map((n) => n.x);
   const ys = nodes.map((n) => n.y);
   // A hidden panel measures zero, so fall back to the node positions.
@@ -1055,6 +1067,14 @@ function positionTraceLines() {
 // the map are dropped rather than drawn to nowhere — the readout above still
 // names them.
 function drawTrace() {
+  // On the canvas renderer the overlay is painted from `graphTrace` /
+  // `graphTraceRoutes` inside the frame (see `gcDrawTrace`), so redrawing it is
+  // a redraw request. Everything above this line — running the search, filling
+  // the readout, the route chips — is renderer-agnostic and unchanged.
+  if (graphRenderer() === "canvas" && typeof gcRequestDraw === "function") {
+    gcRequestDraw();
+    return;
+  }
   if (!graphTraceLayer) return;
   const byId = new Map((graphNodesRef || []).map((n) => [n.id, n]));
   //: **Every route is drawn, not just the selected one.** The question a
@@ -1363,7 +1383,34 @@ function graphColourMode() {
 
 let graphFocusModeId = null;
 
+//: Which renderer draws the map, GRAPH_PLAN.md §5 Phase 1.
+//:
+//: The canvas renderer (graph-canvas.js) replaces the SVG one below; while
+//: both exist, `localStorage["graph-renderer"] = "svg"` puts the old one back.
+//: That switch is not a preference and has no control in the UI — it exists so
+//: the gate's before/after frame numbers could be measured on one build,
+//: against one fixture, rather than compared across two checkouts. The SVG
+//: path is deleted in one commit once the canvas one passes the gate, and this
+//: function goes with it.
+function graphRenderer() {
+  return localStorage.getItem("graph-renderer") === "svg" ? "svg" : "canvas";
+}
+
 async function renderGraph() {
+  const svg = document.getElementById("graph-svg");
+  const canvas = document.getElementById("graph-canvas");
+  // `typeof` rather than a bare name: graph-canvas.js is a separate <script>,
+  // and a load failure there must degrade to the old renderer rather than
+  // throw a ReferenceError out of every control that calls this.
+  const useCanvas =
+    graphRenderer() === "canvas" && canvas && typeof renderGraphCanvas === "function";
+  if (svg) svg.classList.toggle("hidden", Boolean(useCanvas));
+  if (canvas) canvas.classList.toggle("hidden", !useCanvas);
+  if (useCanvas) return renderGraphCanvas();
+  return renderGraphSvg();
+}
+
+async function renderGraphSvg() {
   const wantSimilarity = $("graph-similarity").checked;
   // ROADMAP.md item 34 — off by default and only on the top-level graph, not
   // the local/focus view: entities are membership edges to *notes*, and
@@ -2542,6 +2589,9 @@ function focusGraphNode(node, { announceIt = true } = {}) {
   if (graphNodeSelection) {
     graphNodeSelection.classed("graph-keyfocus", (d) => d.id === node.id);
   }
+  // The canvas renderer rings `graphKeyboardId` in the same pass as the hover
+  // ring, so moving the keyboard focus is one more frame.
+  if (typeof gcRequestDraw === "function") gcRequestDraw();
   if (announceIt) {
     const links = graphAdjacency?.get(node.id)?.size || 0;
     announce(
@@ -2556,19 +2606,15 @@ function focusGraphNode(node, { announceIt = true } = {}) {
 function graphNodeScreenPoint(node) {
   const box = document.getElementById("graph-box");
   const rect = box ? box.getBoundingClientRect() : { left: 0, top: 0, width: 0, height: 0 };
-  const transform = graphCanvas ? graphCanvas.attr("transform") : null;
-  let scale = 1;
-  let tx = 0;
-  let ty = 0;
-  if (transform) {
-    const move = /translate\(([-\d.]+)[ ,]([-\d.]+)\)/.exec(transform);
-    const zoom = /scale\(([-\d.]+)\)/.exec(transform);
-    if (move) {
-      tx = Number(move[1]);
-      ty = Number(move[2]);
-    }
-    if (zoom) scale = Number(zoom[1]);
-  }
+  // Read from the zoom behaviour rather than by parsing a `transform`
+  // attribute off a `<g>`. The old version did the latter, which only ever
+  // worked on the SVG renderer and quietly mis-parsed a transform d3 had
+  // written as a matrix; `d3.zoomTransform` is the same number on either
+  // renderer because both attach the same `d3.zoom` to their own element.
+  const transform = graphSvg && graphSvg.node() ? d3.zoomTransform(graphSvg.node()) : null;
+  const scale = transform ? transform.k : 1;
+  const tx = transform ? transform.x : 0;
+  const ty = transform ? transform.y : 0;
   return {
     clientX: rect.left + tx + node.x * scale,
     clientY: rect.top + ty + node.y * scale,
@@ -2754,7 +2800,6 @@ function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height) {
 let graphHighlightIds = null;
 
 function applyGraphHighlight() {
-  if (!graphNodeSelection) return;
   const query = $("graph-search").value.trim().toLowerCase();
   if (query) graphHighlightIds = null; // typing takes over the spotlight
   // Reported: no way to cancel the "≈ Similar" highlight - it only ever
@@ -2763,6 +2808,15 @@ function applyGraphHighlight() {
   // something to clear, synced here since this is the one function every
   // path that sets or resets graphHighlightIds already runs through.
   $("graph-highlight-clear")?.classList.toggle("hidden", !graphHighlightIds);
+  // The canvas renderer computes the same four-way spotlight (search, the
+  // "similar notes" set, a traced path, the hover neighbourhood) inside its own
+  // draw, from this same state — see `gcHighlight`. There are no selections to
+  // classed() there, so all this has to do is ask for a frame.
+  if (graphRenderer() === "canvas" && typeof gcRequestDraw === "function") {
+    gcRequestDraw();
+    return;
+  }
+  if (!graphNodeSelection) return;
   // A traced path is the strongest spotlight there is: it is the answer to a
   // question that was just asked, so it outranks a search box someone typed in
   // earlier. Everything not on the chain dims, which is what makes a six-note
@@ -3435,6 +3489,36 @@ function graphRasterizeSvg(svgString, width, height) {
 }
 
 async function exportGraphPng() {
+  // **The canvas renderer exports the canvas**, which is what §4 meant by
+  // "keeps the export path (`canvas.toBlob`) trivial": no clone, no inlining
+  // of every computed style, no SVG-to-image round trip. The one thing it
+  // still has to do by hand is the background — a transparent PNG over a dark
+  // page reads as "half my graph is missing" the moment it is opened
+  // anywhere else, so the frame is repainted onto an opaque copy.
+  const liveCanvas = document.getElementById("graph-canvas");
+  if (liveCanvas && !liveCanvas.classList.contains("hidden")) {
+    if (!graphNodesRef || !graphNodesRef.length) {
+      toast("Nothing to export yet.", true);
+      return;
+    }
+    const out = document.createElement("canvas");
+    out.width = liveCanvas.width;
+    out.height = liveCanvas.height;
+    const ctx = out.getContext("2d");
+    ctx.fillStyle = resolvedTheme() === "dark" ? "#12141c" : "#eef1f5";
+    ctx.fillRect(0, 0, out.width, out.height);
+    ctx.drawImage(liveCanvas, 0, 0);
+    try {
+      const blob = await new Promise((resolve, reject) =>
+        out.toBlob((result) => (result ? resolve(result) : reject(new Error("Couldn't export the graph."))), "image/png")
+      );
+      await saveFile("graph.png", blob);
+      toast("Graph exported as PNG.");
+    } catch (error) {
+      toast(error.message || "Couldn't export the graph.", true);
+    }
+    return;
+  }
   const liveSvg = document.getElementById("graph-svg");
   if (!liveSvg || !liveSvg.querySelector("circle")) {
     toast("Nothing to export yet.", true);

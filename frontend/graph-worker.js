@@ -51,6 +51,7 @@ let indexById = new Map();
 let world = null;
 let timer = null;
 let dragging = false;
+let ticks = 0;
 
 //: Buffers handed back by the main thread after it has painted them. A
 //: transfer neuters the sender's copy, so without this every frame allocates a
@@ -143,6 +144,12 @@ function post(final) {
       type: "tick",
       positions: buffer,
       alpha: simulation ? simulation.alpha() : 0,
+      // How many times the simulation has stepped since `init`. Posted because
+      // a frame the main thread paints and a step the worker takes are no
+      // longer the same event, and a slow layout could otherwise be either
+      // "the simulation is crawling" or "the paint is dropping frames" with no
+      // way to tell which from the outside. It is one integer per frame.
+      ticks,
       running: !final,
     },
     [buffer.buffer]
@@ -165,6 +172,7 @@ function loop() {
   if (!simulation) return;
   const started = Date.now();
   simulation.tick();
+  ticks += 1;
   clampToWorld();
   const settled = !dragging && simulation.alpha() < simulation.alphaMin();
   if (settled) {
@@ -186,6 +194,7 @@ self.onmessage = (event) => {
     case "init": {
       stopLoop();
       dragging = false;
+      ticks = 0;
       inFlight = 0;
       pool.length = 0;
       nodes = (message.nodes || []).map((n) => ({

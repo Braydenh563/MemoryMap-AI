@@ -268,46 +268,85 @@ named beside it in HANDOVER's completion table.
 
 ### The 16:00 pile (owner out of usage, asleep), placed in one pass
 
-31. **Dropdown menus clip off the bottom of the panel and do not scroll,
+31. **(fixed)** **Dropdown menus clip off the bottom of the panel and do not scroll,
     app-wide** (whiteboard View menu screenshot; the `details.dock-menu`
     family, not `.action-menu`). Fix: on toggle, measure the list's rect
     and set `max-height: calc(100vh - top - gutter)` with `overflow-y:
     auto`; escape an `overflow: hidden` ancestor the way
     `escapeMenuIfClipped` does for `.action-menu`. One recipe for both
     families. Owner: Sonnet batch A.
-32. **Dashboard "Widgets / Edit layout" bar**: an empty bar with two
+    **Done:** vertical cap now recomputed from the list's own top on every
+    open (was a flat `100vh` cap, position-unaware); `escapeMenuIfClipped`
+    extended to `.doc-dock-menu-list`. Reminders' Quick set at 1024x560:
+    rect.bottom 732/560 (172px past, no scroll) before, inside the
+    viewport and scrollable after. `kebab-viewport.js` extended to sweep
+    all five `details.dock-menu`s at 1440x900 and 1440x300, all OK.
+32. **(fixed)** **Dashboard "Widgets / Edit layout" bar**: an empty bar with two
     buttons at the right, touching the stats above and the widgets below.
     Fix: `margin-block: var(--space-5)`; a left-side label ("Your
     dashboard", muted) so the bar has an identity zone like every other
     bar; both buttons on the ghost recipe. Owner: Sonnet batch A.
-33. **Too much scroll room at the bottom of pages** (Notes > Ask, Notes,
+    **Done:** margin-block added, "Your dashboard" label added. Gap
+    0px/0px before, 13px/13px after at 1440x900.
+33. **(fixed)** **Too much scroll room at the bottom of pages** (Notes > Ask, Notes,
     Library). `--scroll-top-clearance` (about 100px) stacks with the
     agent-monitor buffer and the page gutter. Fix: clearance = the button's
     height plus one gap only, applied only while `.scroll-top` is visible
     (a body class the button toggles); measure `scrollHeight - clientHeight`
     on an empty Ask sub-tab and assert 0. Owner: Sonnet batch A.
-34. **Chat: "Jump to latest" pill and a square down-arrow button both show
+    **Done:** token shrunk to button height + one gap; applied only under
+    a new `body.scroll-top-visible` class the button's own `update()`
+    toggles. Notes > Ask at 1440x600: scrollHeight/clientHeight 618/467
+    (151px, 100px of it padding) before, 518/467 (51px, all real content)
+    after.
+34. **(fixed)** **Chat: "Jump to latest" pill and a square down-arrow button both show
     on a new chat with nothing to scroll.** Decision: one control, the
     pill; it shows only when the transcript is scrolled away from the end
     and has overflow. The `.chat-transcript` wrapper changed the scroll
     container; re-derive `data-stuck` from the element that scrolls.
     Owner: Sonnet batch A.
-35. **Chips show raw Markdown** (`**Ice Breakers:**`, `# CAB432`) in the
+    **Done:** `syncChatJumpLatest` re-derives `stuck` from the live rect
+    instead of trusting the cached `dataset.stuck` (stale after
+    `newChatConversation`'s `replaceChildren()`, which fires no scroll
+    event); chat joined `NO_SCROLL_TOP_TABS` (one control, the pill, per
+    the decision). Reproduced: pillHidden false / arrowVisible true on an
+    empty 40-message-then-cleared transcript before; both false after.
+35. **(fixed)** **Chips show raw Markdown** (`**Ice Breakers:**`, `# CAB432`) in the
     popup agent's Found / Opened rows and the chat's note badges; the
     palette's reference badges clip and centre their text. Fix: `noteLabel`
     strips Markdown markers for chip text; the chip recipe (left aligned,
     ellipsis) applied to `.command-palette` chips and answer badges. Owner:
     Sonnet batch A.
-36. **The streaming indicator still does not animate** (owner, desktop
+    **Done:** `cmdPaletteTouchedRow` and `renderRelatedElsewhere` now route
+    `item.label` through `noteLabel` (were raw); `.answer-related-chip` is
+    a `<button>` that never set `text-align`, so the UA default (`center`)
+    won, fixed to `left`. "# CAB432" -> "CAB432", "**Ice Breakers:**..." ->
+    "Ice Breakers: ...", buttonTextAlign "center" -> "left".
+36. **(fixed)** **The streaming indicator still does not animate** (owner, desktop
     shell). Likely `prefers-reduced-motion` from the OS or the app's
     `data-progress-motion` preference. Fix: check both in Chromium with
     `getAnimations()`; under reduced motion show the word "Writing" with a
     slow opacity pulse rather than three static dots. Owner: Sonnet batch A.
-37. **Reminders: the Magic add textarea is taller than the Add button** on
+    **Done:** "always" (the default) confirmed running via `getAnimations()`
+    in every combination tested; the "auto"+reduced-motion/"still" fallback
+    replaced the stepped-dots `.is-on` class-toggle (no Web Animation at
+    all) with a phase-labelled word and a `typing-word-pulse` opacity
+    animation, declared explicitly inside its own
+    `@media (prefers-reduced-motion: reduce)` block per
+    `test_style_scale.py`'s check, with a comment on why it stays on.
+37. **(fixed)** **Reminders: the Magic add textarea is taller than the Add button** on
     the owner's desktop (screenshot); measured 44/44 in headless light.
     Check dark-theme and font-load timing for `.autogrow`; pin the empty
     field to `--control-h-lg` until text wraps. Owner: Sonnet batch A.
-38. **Notes from a deleted space appear in All spaces** (the owner was in
+    **Done:** confirmed 44/44 here too, in both themes; reproduced the
+    drift by swapping the field's font (simulating a fallback font/
+    different engine's line-box metrics): 45px vs the button's 44px.
+    `autoGrow()` now reads `getComputedStyle(el).minHeight` for an empty
+    field instead of measuring `scrollHeight` (font-independent); 44/44 in
+    all four light/dark x normal/drifted combinations after. Growth once
+    text wraps, and the shrink back on clearing, still work (44 -> 66 ->
+    44).
+38. **(fixed, chip and label only)** **Notes from a deleted space appear in All spaces** (the owner was in
     the space). Reproduced the API: notes created with the space header
     are deleted with the space. Not reproduced: the owner's path. Fix the
     visibility first (INBOX 1a): every card shows its space chip when it
@@ -315,6 +354,13 @@ named beside it in HANDOVER's completion table.
     form names the space it files into. Then the owner can tell which
     workspace the survivors carry. Owner: Sonnet batch A (chip and label),
     D2 for the bulk move.
+    **Done:** `EntryOut` gained `workspace_id` (the row had it,
+    `_to_out` never sent it); note cards show a left-aligned, clickable
+    space chip whenever the picker doesn't already say it; capture form
+    shows "Filing into <space>." above File under, including the "All
+    spaces" case (files into Default Space, said explicitly). Verified
+    live with a real created/deleted-space scenario; D2's bulk-move action
+    still open.
 39. **Skills run in Ask mode should switch to the agent mode
     automatically; rename "Request" to "Agent"** (owner's suggestion for
     learnability). Decision: yes to both. Owner: CHAT batch B (Opus).

@@ -313,7 +313,11 @@ if not defined MM_CHILD if "!MM_ACTION!"=="" (
   REM  from its own location too; passing it explicitly means the packaged
   REM  layout, where scripts\ and frontend\ may not be siblings, does not
   REM  have to match the checkout's.
-  if exist "scripts\splash.ps1" start "" /b powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "scripts\splash.ps1" -StatusFile "!MM_SPLASH_FILE!" -IconPath "%~dp0frontend\icon.ico" >nul 2>nul
+  REM  -LogPath so Details can show the tail of this run's log and the error
+  REM  card can offer to open it; -LauncherPath so Try again re-runs this
+  REM  exact script; -DataDir for the tip that answers "where are my notes".
+  REM  All three are optional on the splash's side: it degrades to saying so.
+  if exist "scripts\splash.ps1" start "" /b powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "scripts\splash.ps1" -StatusFile "!MM_SPLASH_FILE!" -IconPath "%~dp0frontend\icon.ico" -LogPath "!MM_LOG!" -LauncherPath "%~f0" -DataDir "!MM_DATA_DIR!" >nul 2>nul
 )
 REM  The seed line, so the splash has a step list to draw the moment it
 REM  opens rather than an empty panel for the first second.

@@ -338,6 +338,21 @@ mm_status() {
     printf '%s|%s|%s|%s|%s\n' "$step" "$MM_STEP_TOTAL" "$title" "$detail" "$state" \
       >> "$MM_SPLASH_FILE" 2>/dev/null || true
   fi
+  # The terminal's own copy of the step list, one line per transition,
+  # with the same marks the Windows splash and the Python loading window
+  # draw. Asked for as part of one splash design on every surface: a
+  # terminal is a surface too, and before this it narrated four numbered
+  # phases that did not match the five-step list every other surface drew.
+  # Only on a real terminal: a redirected run gets the plain lines below
+  # and the log gets both.
+  if [ "$MM_TTY" = "1" ]; then
+    local mark=" ${TEAL}*${RESET}"
+    case "$state" in
+      done) mark=" ${TEAL}\xe2\x9c\x93${RESET}" ;;
+      failed) mark=" ${RED}\xc3\x97${RESET}" ;;
+    esac
+    printf '%b [%s/%s] %-15s %s\n' "$mark" "$step" "$MM_STEP_TOTAL" "$title" "$detail"
+  fi
   # Only the active step is worth a banner or a label change; a "done" line
   # is immediately followed by the next step's "active" one.
   [ "$state" = "done" ] && return 0
@@ -805,7 +820,6 @@ VENV_PY=".venv/bin/python"
 # Only the first run needs a system Python; later launches use .venv.
 if [ ! -x "$VENV_PY" ]; then
   mm_status "$MM_STEP_PYTHON" "Python" "Building the environment" "active"
-  echo " ${TEAL}[1/4]${RESET} First-time setup - looking for Python to build the environment..."
   PYTHON=""
   if command -v python3 >/dev/null 2>&1; then PYTHON=python3
   elif command -v python >/dev/null 2>&1; then PYTHON=python
@@ -833,7 +847,6 @@ if [ ! -x "$VENV_PY" ]; then
   fi
   mm_status "$MM_STEP_PYTHON" "Python" "Environment ready" "done"
 else
-  echo " ${TEAL}[1/4]${RESET} Using the app's virtual environment."
   mm_status "$MM_STEP_PYTHON" "Python" "Using the existing environment" "done"
 fi
 
@@ -851,13 +864,12 @@ if [ -f ".venv/.mm_installed" ]; then
 fi
 
 if [ "$NEED_INSTALL" = "0" ] && ! "$VENV_PY" -c "import memorymap" >/dev/null 2>&1; then
-  echo " ${TEAL}[2/4]${RESET} The app folder moved since it was installed - relinking it..."
+  echo "        The app folder moved since it was installed - relinking it..."
   NEED_INSTALL=1
 fi
 
 if [ "$NEED_INSTALL" = "1" ]; then
   mm_status "$MM_STEP_DEPS" "Dependencies" "Installing, this can take a few minutes" "active"
-  echo " ${TEAL}[2/4]${RESET} Installing dependencies - this can take a few minutes the first time."
   echo "        pip's own progress prints below as it happens:"
   # `--timeout 5 --retries 0` makes pip fail fast per-connection instead of
   # its default (a 15s socket timeout retried 5 times, which is several
@@ -922,7 +934,6 @@ if [ "$NEED_INSTALL" = "1" ]; then
   done
   rm -f "$PIP_LOG" 2>/dev/null || true
 else
-  echo " ${TEAL}[2/4]${RESET} Dependencies already up to date - skipping install."
   mm_status "$MM_STEP_DEPS" "Dependencies" "Already up to date" "done"
 fi
 mm_bail_if_cancelled
@@ -948,9 +959,9 @@ fi
 # --- 3. First-run .env ----------------------------------------------
 if [ ! -f ".env" ] && [ -f ".env.example" ]; then
   cp ".env.example" ".env"
-  echo " ${TEAL}[3/4]${RESET} Created .env from .env.example."
+  echo "        Created .env from .env.example."
 else
-  echo " ${TEAL}[3/4]${RESET} Configuration found."
+  echo "        Configuration found."
 fi
 
 # --- 4. Launch -------------------------------------------------------
@@ -958,7 +969,7 @@ mm_bail_if_cancelled
 mm_status "$MM_STEP_START" "Start" "Starting the app" "active"
 
 if [ -n "${MM_DESKTOP:-}" ]; then
-  echo " ${TEAL}[4/4]${RESET} Starting MemoryMap AI in its own window."
+  echo "        MemoryMap AI is opening in its own window."
   echo "        Close the window to stop it."
   echo
   echo " ${TEAL}Installed at:${RESET} $(pwd)"
@@ -969,7 +980,7 @@ if [ -n "${MM_DESKTOP:-}" ]; then
   exec "$VENV_PY" -m memorymap --desktop
 fi
 
-echo " ${TEAL}[4/4]${RESET} Starting MemoryMap AI at $MM_URL"
+echo "        $MM_URL"
 if [ "$MM_NO_BROWSER" = "1" ]; then
   echo "        No browser will be opened (--no-browser). Press Ctrl+C to stop."
 else

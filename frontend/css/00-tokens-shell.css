@@ -3728,6 +3728,18 @@ summary.small.icon-button {
   }
 }
 
+/* The one tip line. Muted and small: it is there for the second or two of
+   a cold start, and it must never compete with the progress bar above it
+   or the failure line below. */
+.boot-splash-tip {
+  max-width: 24rem;
+  margin: var(--space-5) var(--space-6) 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  text-align: center;
+}
+
 /* The splash's own failure line. Only ever created by the watchdog in
    index.html: a boot that works removes the splash before this can exist. */
 .boot-splash-error {

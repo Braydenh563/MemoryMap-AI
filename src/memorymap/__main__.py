@@ -18,7 +18,7 @@ from pathlib import Path
 import uvicorn
 
 from memorymap.api.app import create_app
-from memorymap.core import startup_status
+from memorymap.core import launch_status, startup_status
 
 logger = logging.getLogger("memorymap.launcher")
 
@@ -97,11 +97,41 @@ _LOADING_HTML = """<!doctype html>
   }
   .mark { display: flex; align-items: center; gap: 12px; font-size: 18px; font-weight: 600; }
   .mark svg { width: 46px; height: 46px; display: block; }
-  .bar-track { width: 240px; height: 6px; border-radius: 3px; background: #262b3a; overflow: hidden; }
+  /* The step list, the same one scripts/splash.ps1 draws before this
+     window exists, so the handoff from that window to this one looks
+     like the same list carrying on rather than a restart. */
+  .steps { list-style: none; margin: 0; padding: 0; width: 300px; }
+  .steps li { display: flex; align-items: baseline; gap: 8px; padding: 3px 0;
+              color: #5d6472; }
+  .steps li .tick { width: 14px; flex: none; text-align: center; }
+  .steps li .name { flex: none; }
+  .steps li .detail { color: #5d6472; font-size: 12px; overflow: hidden;
+                      text-overflow: ellipsis; white-space: nowrap; }
+  .steps li.done { color: #9aa1ad; }
+  .steps li.done .tick { color: #4a9d7a; }
+  .steps li.active { color: #e7e9ee; }
+  .steps li.active .tick { color: #4664f0; animation: mm-pulse 1.4s ease-in-out infinite; }
+  .steps li.active .detail { color: #9aa1ad; }
+  .steps li.failed { color: #e58f8f; }
+  .steps li.failed .tick { color: #e58f8f; }
+  @keyframes mm-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .bar-track { width: 300px; height: 6px; border-radius: 3px; background: #262b3a; overflow: hidden; }
   .bar-fill { height: 100%; width: 4%; background: #4664f0; border-radius: 3px;
               transition: width 300ms ease-out; }
   .bar-fill.error { background: #e5a13a; }
   #status { color: #9aa1ad; min-height: 1.2em; }
+  /* Two lines reserved, not one: the longest tip names the data folder,
+     which wraps, and a fixed 1.4em clipped its second line. min-height
+     rather than height so nothing can shift the bar and the step list
+     every six seconds either. */
+  #tip { color: #5d6472; font-size: 12px; min-height: 2.8em; max-width: 340px;
+         text-align: center; transition: opacity 200ms ease-out; }
+  /* Reduced motion: the pulse and both fades go, the information stays.
+     Nothing here is conveyed by movement alone. */
+  @media (prefers-reduced-motion: reduce) {
+    .steps li.active .tick { animation: none; }
+    .bar-fill, #tip { transition: none; }
+  }
 </style></head>
 <body>
   <div class="mark"><svg viewBox="0 0 100 100" role="img" aria-label="MemoryMap AI">
@@ -129,23 +159,172 @@ _LOADING_HTML = """<!doctype html>
     <circle cx="50" cy="50" r="13" fill="#4664f0"/>
     <circle cx="50" cy="50" r="9.5" fill="#ffffff"/>
   </svg><span>MemoryMap AI</span></div>
+  <ul class="steps" id="steps"></ul>
   <div class="bar-track"><div class="bar-fill" id="bar"></div></div>
   <div id="status">Starting…</div>
+  <div id="tip"></div>
   <script>
+    // Seeded by _loading_html() from the launcher's own status file before
+    // this window is created: see core/launch_status.py. The launcher's
+    // work (the git pull, building .venv, the pip install) is already over
+    // by the time this page exists, so without the seed the list would
+    // open empty and only ever learn about the steps still to come. An
+    // empty seed is the ordinary case for `python -m memorymap --desktop`
+    // run by hand, and falls back to the one step this process owns.
+    window.__mmSeed = [];
+    window.__mmTips = [
+      "Your notes never leave this machine.",
+      "Ctrl+K opens the command palette.",
+      "The capture box files a thought for you, in the right place.",
+      "The first run installs about 300 MB once. Later starts take seconds.",
+      "Your notes live in your own data folder, as plain files you can copy."
+    ];
+
+    var mmSteps = window.__mmSeed.slice();
+    // The share of the bar the launcher's steps already account for. This
+    // process's own phases divide up what is left, so the bar carries on
+    // from where the pre-Python splash stopped rather than resetting.
+    var mmBase = 0;
+    var mmOwn = null;   // the row this process is narrating into
+
+    // Built from DOM nodes rather than an innerHTML string: every title
+    // and detail here came out of a shell script by way of a text file,
+    // and the project's own lint exists because the next author to touch
+    // a line like this interpolates one.
+    function mmRender() {
+      var list = document.getElementById("steps");
+      list.textContent = "";
+      for (var i = 0; i < mmSteps.length; i++) {
+        var s = mmSteps[i];
+        var mark = s.state === "done" ? "\\u2713"
+                 : s.state === "failed" ? "\\u00d7"
+                 : s.state === "active" ? "\\u25cf" : "\\u25cb";
+        var row = document.createElement("li");
+        row.className = s.state;
+        var tick = document.createElement("span");
+        tick.className = "tick";
+        tick.textContent = mark;
+        var name = document.createElement("span");
+        name.className = "name";
+        name.textContent = s.title;
+        var detail = document.createElement("span");
+        detail.className = "detail";
+        detail.textContent = s.detail || "";
+        row.appendChild(tick);
+        row.appendChild(name);
+        row.appendChild(detail);
+        list.appendChild(row);
+      }
+    }
+
+    function mmSetup() {
+      var done = 0, total = 0;
+      for (var i = 0; i < mmSteps.length; i++) {
+        if (mmSteps[i].state === "done") done++;
+        total = mmSteps[i].total || total;
+      }
+      if (!total) total = mmSteps.length || 1;
+      // The last step is this process: whatever the launcher called it, it
+      // is the one still running, so this window narrates into it.
+      if (mmSteps.length && mmSteps[mmSteps.length - 1].state !== "done") {
+        mmOwn = mmSteps[mmSteps.length - 1];
+      } else {
+        mmOwn = { step: total, total: total, title: "Start",
+                  detail: "Starting the app", state: "active" };
+        mmSteps.push(mmOwn);
+      }
+      mmBase = Math.round(done * 100 / total);
+      mmRender();
+      document.getElementById("bar").style.width = Math.max(mmBase, 4) + "%";
+    }
+
     // Called from the Python side (window.evaluate_js) as the launcher
     // learns more, not polled from here, see startup_status.py's own
     // docstring for why the loading window can't ask the server itself.
     window.__mmSetStatus = function (text, pct) {
       document.getElementById("status").textContent = text;
-      document.getElementById("bar").style.width = pct + "%";
+      if (mmOwn) {
+        mmOwn.detail = text;
+        mmOwn.state = "active";
+        mmRender();
+      }
+      // pct is this process's own progress through its own phases; the bar
+      // shows it inside the slice the launcher's finished steps left.
+      var scaled = mmBase + (pct * (100 - mmBase) / 100);
+      document.getElementById("bar").style.width = Math.max(scaled, 4) + "%";
     };
     window.__mmSetError = function (text) {
       document.getElementById("status").textContent = text;
       document.getElementById("bar").className = "bar-fill error";
       document.getElementById("bar").style.width = "100%";
+      if (mmOwn) {
+        mmOwn.state = "failed";
+        mmOwn.detail = text;
+        mmRender();
+      }
     };
+
+    mmSetup();
+
+    // One tip at a time, changed every six seconds, starting at a random
+    // one so the same tip is not the only one anybody ever reads. Under
+    // reduced motion the fade goes and the text simply swaps.
+    var mmTip = document.getElementById("tip");
+    var mmTipAt = Math.floor(Math.random() * window.__mmTips.length);
+    var mmReduced = window.matchMedia
+      && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    function mmShowTip() {
+      mmTip.textContent = window.__mmTips[mmTipAt % window.__mmTips.length];
+      mmTipAt++;
+    }
+    mmShowTip();
+    setInterval(function () {
+      if (mmReduced) { mmShowTip(); return; }
+      mmTip.style.opacity = "0";
+      setTimeout(function () { mmShowTip(); mmTip.style.opacity = "1"; }, 200);
+    }, 6000);
   </script>
 </body></html>"""
+
+
+def _loading_html(steps=None, data_dir: str | None = None) -> str:
+    """`_LOADING_HTML` with the launcher's step history seeded into it.
+
+    Read before `_close_launch_splash()` deletes the status file, which is
+    the only window in which it exists: see `_run_desktop`. With no
+    launcher (someone ran `python -m memorymap --desktop` by hand) there is
+    no history, and the page renders the one step this process owns, which
+    is exactly what `_LOADING_HTML` already says on its own.
+    """
+    import json
+
+    if steps is None:
+        steps = launch_status.read_file(os.environ.get("MM_SPLASH_FILE"))
+    if data_dir is None:
+        data_dir = os.environ.get("MEMORYMAP_DATA_DIR") or ""
+
+    html = _LOADING_HTML
+    if steps:
+        seed = [
+            {
+                "step": s.step,
+                "total": s.total,
+                "title": s.title,
+                "detail": s.detail,
+                "state": s.state,
+            }
+            for s in launch_status.summarise(steps)
+        ]
+        html = html.replace("window.__mmSeed = [];", f"window.__mmSeed = {json.dumps(seed)};")
+    if data_dir:
+        # The last tip names the folder rather than describing it: "where
+        # are my notes" is the most-asked question this app has, and the
+        # loading window is one of the few places with room to answer it.
+        html = html.replace(
+            '"Your notes live in your own data folder, as plain files you can copy."',
+            json.dumps(f"Your notes live in {data_dir}, as plain files you can copy."),
+        )
+    return html
 
 # Coarse phase name -> a fixed progress-bar percentage. Real percentages
 # aren't knowable, create_app() has no notion of "38% done", but a handful
@@ -744,7 +923,7 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
     # blocking the window from appearing in the first place).
     window = webview.create_window(
         "MemoryMap AI",
-        html=_LOADING_HTML,
+        html=_loading_html(),
         width=1200,
         height=800,
         min_size=(420, 500),

@@ -387,3 +387,164 @@ class TestTheDoctorRunsHere:
         assert result.returncode == 0
         assert "MemoryMap AI" in result.stdout
         assert "Your notes:" in result.stdout
+
+
+class TestTheWindowsSplash:
+    """scripts/splash.ps1 cannot be run here: no PowerShell, no WinForms, no
+    display. So it is read instead, for the things Brief 17 asks it to draw
+    and for the regressions its own comments record.
+    """
+
+    @property
+    def text(self) -> str:
+        return _read(ROOT / "scripts" / "splash.ps1")
+
+    def test_the_braces_balance(self):
+        """The one structural error a read can catch. Counted outside
+        strings and comments, which is where every brace in this file that
+        is not a block actually lives."""
+        depth = 0
+        for raw in self.text.splitlines():
+            line = re.sub(r"'[^']*'", "", raw)
+            line = re.sub(r'"[^"]*"', "", line)
+            line = re.sub(r"#.*$", "", line)
+            depth += line.count("{") - line.count("}")
+            assert depth >= 0, raw
+        assert depth == 0
+
+    def test_it_parses_the_protocol_not_the_last_line_as_text(self):
+        """Between the protocol landing and this, the window showed a raw
+        `1|5|Update|...|active` line as its status text."""
+        t = self.text
+        assert "-split '\\|'" in t
+        assert "$parts.Count -lt 5" in t
+        assert '$state -ne "active"' in t
+
+    def test_it_draws_a_step_list_with_marks(self):
+        t = self.text
+        assert "0x2713" in t  # tick, done
+        assert "0x00D7" in t  # cross, failed
+        assert "0x25CF" in t  # dot, active
+        assert "$rowName" in t and "$rowDetail" in t
+
+    def test_the_real_bar_counts_finished_steps_not_the_current_one(self):
+        t = self.text
+        assert '$progress.Style    = "Continuous"' in t
+        assert '$_.State -eq "done"' in t
+        assert "$pct = [int](($done * 100) / $total)" in t
+
+    def test_the_marquee_is_only_inside_the_active_step(self):
+        """Both bars exist for different reasons: see $bar and $progress."""
+        t = self.text
+        assert '$bar.Style    = "Marquee"' in t
+        assert "$bar.Visible = $false" in t
+        assert "$bar.Visible = $true" in t
+
+    def test_the_active_step_shows_its_elapsed_seconds(self):
+        assert "TotalSeconds" in self.text
+        assert '$($secs)s' in self.text
+
+    def test_there_are_five_tips_and_they_rotate_every_six_seconds(self):
+        t = self.text
+        block = t[t.index("$tips = @(") : t.index("$tip  ", t.index("$tips = @("))]
+        quoted = re.findall(r'^\s*"[^"]+",?\s*$', block, re.M)
+        assert len(quoted) == 4, quoted  # the fifth is the data folder, below
+        assert "as plain files you can copy" in t
+        assert "TotalSeconds -ge 6" in t
+
+    def test_the_footer_has_all_three_buttons(self):
+        t = self.text
+        assert '"Details"' in t
+        assert '"Copy diagnostics"' in t
+        assert '"Cancel"' in t
+
+    def test_cancel_writes_the_control_file_the_launcher_polls(self):
+        t = self.text
+        assert '$StatusFile + ".cancel"' in t
+        assert '"__cancel__"' in t
+
+    def test_the_slow_step_hints_name_both_steps_and_their_budgets(self):
+        t = self.text
+        assert '$s.Title -eq "Dependencies" -and $secs -gt 300' in t
+        assert '$s.Title -eq "Update" -and $secs -gt 30' in t
+
+    def test_the_error_card_offers_the_log_and_a_retry(self):
+        t = self.text
+        assert "function Show-ErrorCard" in t
+        assert '$btnDetails.Text = "Open log"' in t
+        assert '$btnRetry.Text         = "Try again"' in t
+        assert "Start-Process -FilePath $LauncherPath" in t
+
+    def test_the_three_ways_to_die_survive(self):
+        t = self.text
+        assert "MaxMinutes" in t
+        assert "Test-Path -LiteralPath $StatusFile" in t
+        assert "__done__" in t
+
+    def test_one_click_handler_per_button(self):
+        """WinForms runs every handler on a button: a second Add_Click added
+        later fires alongside the first, so "Open log" would also toggle the
+        details panel."""
+        t = self.text
+        for name in ("$btnDetails", "$btnCancel", "$btnCopy"):
+            assert t.count(f"{name}.Add_Click(") == 1, name
+
+    def test_the_launcher_passes_the_new_arguments(self):
+        bat = _read(START_BAT)
+        for flag in ("-StatusFile", "-IconPath", "-LogPath", "-LauncherPath", "-DataDir"):
+            assert flag in bat, flag
+
+
+class TestTheBrowserBootSplash:
+    def test_it_carries_a_tip_line_in_the_markup(self):
+        """In the markup, not built by boot-guard.js: it has to be there
+        before first paint and survive a script that never runs, which is
+        the case boot-guard.js itself exists for."""
+        html = _read(ROOT / "frontend" / "index.html")
+        assert 'class="boot-splash-tip"' in html
+        assert "Your notes never leave this machine." in html
+
+    def test_the_tip_line_is_styled_in_the_first_stylesheet(self):
+        css = _read(ROOT / "frontend" / "css" / "00-tokens-shell.css")
+        assert ".boot-splash-tip {" in css
+
+    def test_still_loading_appears_at_eight_seconds_with_the_way_out(self):
+        js = _read(ROOT / "frontend" / "boot-guard.js")
+        at = js.index("}, 8000);")
+        block = js[js.rindex("setTimeout(", 0, at) : at]
+        assert "Still loading" in block
+        assert "offerReload(splash)" in block
+        # And the 12-second notice is still there, saying something else.
+        assert "}, 12000);" in js
+        assert "taking longer than it should" in js
+
+
+class TestOneDesignThreeSurfaces:
+    """The tips and the marks are the same on all three, or a first run
+    reads as three different programs."""
+
+    def test_the_same_tips_appear_on_every_surface(self):
+        main = _read(ROOT / "src" / "memorymap" / "__main__.py")
+        ps1 = _read(ROOT / "scripts" / "splash.ps1")
+        html = _read(ROOT / "frontend" / "index.html")
+        shared = "Your notes never leave this machine."
+        assert shared in main and shared in ps1 and shared in html
+        for tip in (
+            "Ctrl+K opens the command palette.",
+            "The first run installs about 300 MB once. Later starts take seconds.",
+        ):
+            assert tip in main, tip
+            assert tip in ps1, tip
+
+    def test_the_loading_window_seeds_itself_from_the_launcher(self):
+        main = _read(ROOT / "src" / "memorymap" / "__main__.py")
+        assert "def _loading_html" in main
+        assert "launch_status.read_file" in main
+        # Read before _close_launch_splash deletes the file: create_window's
+        # own argument list is the only place that is guaranteed.
+        assert main.index("html=_loading_html()") < main.index("_close_launch_splash()\n    #")
+
+    def test_reduced_motion_is_respected_on_the_python_window(self):
+        main = _read(ROOT / "src" / "memorymap" / "__main__.py")
+        assert "prefers-reduced-motion: reduce" in main
+        assert "animation: none" in main

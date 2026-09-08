@@ -214,6 +214,14 @@ def build_csp(script_hashes: list[str]) -> str:
         # Ollama directly — every call goes through this server — so there is
         # nothing else to allow.
         "connect-src": "'self'",
+        # `frontend/graph-worker.js` — the graph's force simulation, off the
+        # main thread (GRAPH_PLAN.md §4). Checked before that file was written
+        # rather than after: a missing `worker-src` falls back to
+        # `default-src 'self'` here so it would have worked anyway, but a
+        # Worker refused by CSP fails with nothing thrown at the constructor,
+        # which is the "policy silently refusing the work" shape §40 names.
+        # It is stated explicitly so the directive cannot be narrowed later
+        # without the graph's worker being the thing that notices.
         "worker-src": "'self'",
         # <object>/<embed> have no use here and are a classic bypass.
         "object-src": "'none'",

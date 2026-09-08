@@ -28,6 +28,7 @@ from pathlib import Path
 APP = Path(__file__).resolve().parents[1] / "frontend" / "app.js"
 WHITEBOARD = Path(__file__).resolve().parents[1] / "frontend" / "whiteboard.js"
 GRAPH = Path(__file__).resolve().parents[1] / "frontend" / "graph.js"
+GRAPH_CANVAS = Path(__file__).resolve().parents[1] / "frontend" / "graph-canvas.js"
 EDITOR = Path(__file__).resolve().parents[1] / "frontend" / "editor.js"
 DOCUMENTS = Path(__file__).resolve().parents[1] / "frontend" / "documents.js"
 LIBRARY = Path(__file__).resolve().parents[1] / "frontend" / "library.js"
@@ -69,9 +70,11 @@ def _source() -> str:
     whiteboard.js — §88.3) is the sixth, dashboard.js (widgets, masonry,
     the generative art — §88.3) is the seventh, and settings.js (the settings
     modal, the logs console, and appearance — §88.3, the fourth and last file
-    in the split) is the eighth — the reason this list has to grow with the
-    split rather than being left at however many files it started with: a
-    lint that cannot see a file cannot catch anything in it.
+    in the split) is the eighth, and graph-canvas.js (the Canvas 2D graph
+    renderer and its worker plumbing — GRAPH_PLAN.md §5 Phase 1) is the
+    ninth — the reason this list has to grow with the split rather than
+    being left at however many files it started with: a lint that cannot
+    see a file cannot catch anything in it.
 
     Only comments are stripped: a `$("x").addEventListener` inside a comment is
     documentation of the pattern, not a second registration — this test's own
@@ -83,6 +86,8 @@ def _source() -> str:
         + WHITEBOARD.read_text(encoding="utf-8")
         + "\n"
         + GRAPH.read_text(encoding="utf-8")
+        + "\n"
+        + GRAPH_CANVAS.read_text(encoding="utf-8")
         + "\n"
         + EDITOR.read_text(encoding="utf-8")
         + "\n"

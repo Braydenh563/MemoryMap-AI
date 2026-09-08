@@ -21961,7 +21961,13 @@ function switchTab(name) {
   const leavingGraph = localStorage.getItem("activeTab") === "graph" && name !== "graph";
   recordTabVisit(name);
   revealTab(name);
-  if (leavingGraph) graphSimulation?.stop();
+  if (leavingGraph) {
+    graphSimulation?.stop();
+    // The canvas renderer's simulation is in a Worker, so there is no
+    // `graphSimulation` to stop — the same "a cooling layout must not go on
+    // running in a tab nobody is looking at" rule needs its own message.
+    if (typeof gcStop === "function") gcStop();
+  }
   // The generative-art animation only needs to run while it's on screen.
   if (name !== "dashboard") stopArt();
   if (name === "chat") {
@@ -31590,6 +31596,9 @@ $("graph-hide-orphans").addEventListener("change", renderGraph);
 // Labels toggle just flips a class — no need to rebuild the whole map.
 $("graph-labels").addEventListener("change", (e) => {
   $("graph-box").classList.toggle("graph-labels-hidden", !e.target.checked);
+  // The canvas renderer reads the tickbox in its own draw (a label is drawn or
+  // it is not — there is no layer to fade), so it needs one more frame.
+  if (typeof gcRequestDraw === "function") gcRequestDraw();
   // The layer's positions are skipped while it is hidden (see graph.js's tick
   // handler — it is one <g> per note, transformed ~300 times a settle, and
   // moving something invisible is work nobody can see). A settled simulation
@@ -31676,7 +31685,10 @@ function toggleGraphFullscreen() {
         const box = $("graph-box");
         graphDims.w = box.clientWidth || 800;
         graphDims.h = box.clientHeight || 540;
-        if (graphSvg) {
+        // Only the SVG renderer has a viewBox; `graphSvg` points at the
+        // <canvas> on the other one, and a `viewBox` attribute on a <canvas>
+        // means nothing. The canvas resizes itself from its ResizeObserver.
+        if (graphSvg && graphSvg.node() && graphSvg.node().tagName === "svg") {
           graphSvg.attr("viewBox", [0, 0, graphDims.w, graphDims.h]);
         }
         if (graphSimulation) {

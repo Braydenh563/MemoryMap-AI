@@ -601,8 +601,8 @@ mark.text-highlight-grey { background: rgba(148, 163, 184, 0.25); }
 }
 
 .shortcut-list kbd.capturing {
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-surface);
+  color: var(--on-accent);
   animation: pulse-capture 1s ease-in-out infinite;
 }
 
@@ -633,8 +633,8 @@ mark.text-highlight-grey { background: rgba(148, 163, 184, 0.25); }
 }
 
 .wiki-link:hover {
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-surface);
+  color: var(--on-accent);
 }
 
 .wiki-link:focus-visible {
@@ -2583,8 +2583,8 @@ button.is-on {
 }
 
 .notes-subtabs button.active {
-  background: var(--accent);
-  color: #ffffff;
+  background: var(--accent-surface);
+  color: var(--on-accent);
   font-weight: 600;
   /* No shadow and no lift: the Library strip's active tab has neither, and
      a selected tab is the filled recipe, which does not float. */

@@ -40,8 +40,8 @@
 
 .msg.user {
   align-self: flex-end;
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-surface);
+  color: var(--on-accent);
   border-bottom-right-radius: 4px;
 }
 
@@ -3733,8 +3733,8 @@ mark.lightbox-hit {
 }
 
 #select-btn.active {
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-surface);
+  color: var(--on-accent);
 }
 
 .select-check {

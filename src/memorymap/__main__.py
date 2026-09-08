@@ -38,7 +38,7 @@ HOST, PORT = "127.0.0.1", 8000  # local only — this is a private app
 # Deliberately plain, inline HTML/CSS/JS rather than a page served from
 # `frontend/` — the whole point is that it must render with no server
 # listening on HOST:PORT yet, so it cannot be a request to that server. The
-# palette (#4f6df5) matches index.html's own `theme-color` meta tag rather
+# palette (#4664f0) matches index.html's own `theme-color` meta tag rather
 # than pulling in the real app's CSS, so the swap to the real window doesn't
 # jar even though nothing is actually shared between them.
 #
@@ -63,7 +63,7 @@ _LOADING_HTML = """<!doctype html>
   .mark { display: flex; align-items: center; gap: 12px; font-size: 18px; font-weight: 600; }
   .mark svg { width: 46px; height: 46px; display: block; }
   .bar-track { width: 240px; height: 6px; border-radius: 3px; background: #262b3a; overflow: hidden; }
-  .bar-fill { height: 100%; width: 4%; background: #4f6df5; border-radius: 3px;
+  .bar-fill { height: 100%; width: 4%; background: #4664f0; border-radius: 3px;
               transition: width 300ms ease-out; }
   .bar-fill.error { background: #e5a13a; }
   #status { color: #9aa1ad; min-height: 1.2em; }
@@ -72,7 +72,7 @@ _LOADING_HTML = """<!doctype html>
   <div class="mark"><svg viewBox="0 0 100 100" role="img" aria-label="MemoryMap AI">
     <defs>
       <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#5b7cff"/><stop offset="55%" stop-color="#4f6df5"/>
+        <stop offset="0%" stop-color="#5b7cff"/><stop offset="55%" stop-color="#4664f0"/>
         <stop offset="100%" stop-color="#a927d8"/>
       </linearGradient>
       <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
@@ -91,7 +91,7 @@ _LOADING_HTML = """<!doctype html>
       <circle cx="67.6" cy="74.3" r="7.5"/><circle cx="32.4" cy="74.3" r="7.5"/>
       <circle cx="21.5" cy="40.7" r="7.5"/>
     </g>
-    <circle cx="50" cy="50" r="13" fill="#4f6df5"/>
+    <circle cx="50" cy="50" r="13" fill="#4664f0"/>
     <circle cx="50" cy="50" r="9.5" fill="#ffffff"/>
   </svg><span>MemoryMap AI</span></div>
   <div class="bar-track"><div class="bar-fill" id="bar"></div></div>

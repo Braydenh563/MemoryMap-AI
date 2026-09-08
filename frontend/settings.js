@@ -1001,7 +1001,7 @@ function toggleTheme() {
 // (:root[data-accent="…"]); this list just drives the swatch picker and
 // gives the background art a hue to paint with.
 const ACCENTS = [
-  { name: "indigo", label: "Indigo", swatch: "#4f6df5" },
+  { name: "indigo", label: "Indigo", swatch: "#4664f0" },
   { name: "emerald", label: "Emerald", swatch: "#0e9f6e" },
   { name: "rose", label: "Rose", swatch: "#ec4899" },
   { name: "amber", label: "Amber", swatch: "#d97706" },
@@ -2010,7 +2010,7 @@ function renderAppearance() {
   _segActive("border-style-seg", "borderChoice", appearancePref("border-style", "solid"));
   $("shadow-intensity").value = appearancePref("shadow-intensity", "5");
   $("shadow-intensity-value").textContent = `${appearancePref("shadow-intensity", "5")}%`;
-  $("accent-custom").value = localStorage.getItem("accent-custom") || "#4f6df5";
+  $("accent-custom").value = localStorage.getItem("accent-custom") || "#4664f0";
   $("page-bg-custom").value = localStorage.getItem("page-bg") || "#f5f7fb";
   $("custom-css").value = localStorage.getItem("custom-css") || "";
   // Blur strength and opacity only matter while glass is on.
@@ -2077,7 +2077,7 @@ const PALETTES = [
     id: "default",
     name: "Aurora",
     note: "The original: indigo glass over a soft gradient.",
-    light: { page: "linear-gradient(135deg,#e9edfb,#f6f2ec 45%,#e6f1f2)", card: "rgba(255,255,255,0.75)", accent: "#4f6df5", border: "rgba(31,36,48,0.12)" },
+    light: { page: "linear-gradient(135deg,#e9edfb,#f6f2ec 45%,#e6f1f2)", card: "rgba(255,255,255,0.75)", accent: "#4664f0", border: "rgba(31,36,48,0.12)" },
     dark: { page: "linear-gradient(135deg,#0e1017,#171a26 45%,#0f1720)", card: "rgba(29,33,46,0.85)", accent: "#8b9df8", border: "rgba(255,255,255,0.14)" },
   },
   {

@@ -27,8 +27,8 @@
 }
 
 .improve-mode.active {
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-surface);
+  color: var(--on-accent);
 }
 
 #improve-custom-row {
@@ -218,8 +218,8 @@
 }
 
 .seg button.active {
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-surface);
+  color: var(--on-accent);
 }
 
 /* `.seg`'s own `margin-bottom` is for a segmented control sitting above the
@@ -1224,8 +1224,8 @@ header#top-bar select,
   /* Filled tier: no edge. The accent border it carried was a fourth edge
      colour in one row of tiles. */
   border-color: transparent;
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-surface);
+  color: var(--on-accent);
   border-color: var(--accent);
 }
 

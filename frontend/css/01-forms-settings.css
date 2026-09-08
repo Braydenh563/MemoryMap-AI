@@ -2500,8 +2500,8 @@ mark.global-find-hit {
 }
 
 mark.global-find-hit.global-find-current {
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-surface);
+  color: var(--on-accent);
 }
 
 /* The status-bar clock's detail popover: seconds, the full date, the
@@ -3417,8 +3417,8 @@ html.modal-open body {
    learns that one of them means something else. */
 #web-search-toggle.active,
 #chat-plan.active {
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-surface);
+  color: var(--on-accent);
   border-color: var(--accent);
 }
 

@@ -1848,9 +1848,9 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   /* The filled recipe, as every other selected toggle: accent fill, white
      glyph — no accent edge and no 3px halo, which were the only shadowed,
      bordered button on the board (surfaces.js). */
-  background: var(--accent);
+  background: var(--accent-surface);
   border-color: transparent;
-  color: #fff;
+  color: var(--on-accent);
   box-shadow: none;
 }
 
@@ -1932,9 +1932,9 @@ body.has-agent-monitor .doc-sidebar .doc-list {
 }
 
 #wb-add-note.is-on {
-  background: var(--accent);
+  background: var(--accent-surface);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 /* The "add a preference by hand" row above the list. Measured live during a

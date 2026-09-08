@@ -912,9 +912,9 @@
    reader; this is the sighted half of the same statement, and it was missing —
    🌐 Web looked identical on and off unless you noticed the panel. */
 .chat-dock-controls>.chat-tool-group>button[aria-pressed="true"] {
-  background-color: var(--accent);
+  background-color: var(--accent-surface);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 /* The skills group is the one that varies in width — a skill name can be
@@ -3246,9 +3246,9 @@ span > .chip {
 /* A goal that's set says so with the accent, the same way the chat dock's
    own toggles do (`.chat-tool-group>button[aria-pressed="true"]` above). */
 #doc-word-goal[aria-pressed="true"] {
-  background-color: var(--accent);
+  background-color: var(--accent-surface);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 /* --- the code editor: gutter + monospace ------------------------------------ */

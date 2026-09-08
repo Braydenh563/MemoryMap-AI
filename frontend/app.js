@@ -24584,7 +24584,7 @@ function startMeetingWave(stream) {
     // the line follows whatever theme is set — including a custom one.
     const accent =
       getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() ||
-      "#4f6df5";
+      "#4664f0";
     paint.strokeStyle = accent;
     paint.lineWidth = 2;
     paint.lineJoin = "round";

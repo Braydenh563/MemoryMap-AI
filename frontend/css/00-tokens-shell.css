@@ -188,7 +188,13 @@ select optgroup {
   --glass-catch: radial-gradient(70% 90px at 22% -30px, rgba(255, 255, 255, 0.30), transparent 65%);
   --ink: #1f2430;
   --muted: #5b6472;
-  --accent: #4f6df5;
+  /* #4664f0, not the #4f6df5 the palette was born with: measured with
+     scratchpad/ui-sweeps/contrast.js, white on the old indigo was 4.34:1 and
+     the indigo as text on a card 4.26:1 — both under AA's 4.5. Four percent
+     darker clears both (4.84 and 4.73) and no eye can tell the two apart. The
+     Settings swatch, the custom-accent default and the splash use the same
+     value so the "default" a person sees is one colour everywhere. */
+  --accent: #4664f0;
   --accent-soft: rgba(79, 109, 245, 0.14);
   /* Syntax highlighting in the file viewer (REDESIGN.md §R7.1 item 3). Its
      own token rather than `--accent`, and that is not a style preference: the
@@ -1652,9 +1658,9 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 .library-chip.active {
-  background: var(--accent);
+  background: var(--accent-surface);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 600;
 }
 
@@ -3018,8 +3024,8 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 #tab-bar button.active {
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-surface);
+  color: var(--on-accent);
   font-weight: 600;
 }
 

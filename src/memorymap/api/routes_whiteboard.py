@@ -348,11 +348,65 @@ def get_whiteboard_state(
     objects = db.scalars(
         select(WhiteboardObject).where(_board_filter(WhiteboardObject, board_id))
     ).all()
+    dropped = _drop_orphan_links(db, sketches, nodes, objects)
+    if dropped:
+        db.commit()
+        sketches = [row for row in sketches if row.id not in dropped]
     return WhiteboardStateOut(
         nodes=list(nodes),
         sketches=list(sketches),
         objects=[_object_to_out(o) for o in objects],
     )
+
+
+def _drop_orphan_links(db: Session, sketches, nodes, objects) -> set[int]:
+    """Delete every link on this board whose named end no longer exists, and
+    return the ids that went.
+
+    **An integrity pass, because the delete paths cannot be the only guard.**
+    Reported with a screenshot: a node "had a dangling curved edge to nowhere
+    (an edge whose other end is a deleted node or a point)". Every *delete*
+    route does call `_forget_links_to` — but a link's ends are ids inside a
+    JSON blob, not foreign keys, so nothing at the database level enforces
+    them, and any path that removes a row without going through those routes
+    leaves the link behind. One such path is live and was measured: purging a
+    note deletes its `WhiteboardNode` rows in bulk (`entry/manager.py`), and
+    the link sketch that pointed at the card survived with an id that resolves
+    to nothing.
+
+    Doing it on load rather than on write is deliberate. It is the one moment
+    the whole board is already in memory, so the check costs no extra query;
+    it catches an orphan whatever created it, including one already sitting in
+    a notebook from before this existed; and it cannot be forgotten by the
+    next route that deletes something.
+
+    A *free* end (`sourcePoint`/`targetPoint`, a fixed board-space point with
+    no item at all) is left alone: that is a real feature, asked for in those
+    words, and only an end that names an id which is gone is an orphan.
+    """
+    node_ids = {row.id for row in nodes}
+    object_ids = {row.id for row in objects}
+    known = {"node": node_ids, "object": object_ids, "sketch": {row.id for row in sketches}}
+    dropped: set[int] = set()
+    for row in sketches:
+        try:
+            data = json.loads(row.data or "{}")
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(data, dict) or not str(data.get("type", "")).startswith("link-"):
+            continue
+        ends = (
+            (data.get("sourceId"), data.get("sourceKind") or "node"),
+            (data.get("targetId"), data.get("targetKind") or "node"),
+        )
+        for end_id, end_kind in ends:
+            if end_id is None:
+                continue  # a free point, which is allowed
+            if end_id not in known.get(end_kind, set()):
+                dropped.add(row.id)
+                db.delete(row)
+                break
+    return dropped
 
 
 def _board_settings(entry: Entry | None) -> tuple[str, str]:

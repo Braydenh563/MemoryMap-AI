@@ -1284,6 +1284,45 @@ function wbBoxRayIntersection(box, towardX, towardY) {
 //: `wbState.nodes`; a link stores `sourceKind`/`targetKind` now ("node" when
 //: absent, so every existing link reads exactly as before) and both ends
 //: resolve through the one lookup below.
+//: Whether this row has anything to draw *now*.
+//:
+//: Reported: a node with "a dangling curved edge to nowhere". Deleting one
+//: end of a cross-link removes the link's row on the server (every delete
+//: route calls `_forget_links_to`) but the client kept its own copy, and the
+//: render then set the path's `d` to `""` and left the `<g>` on the canvas —
+//: measured: three nodes and one cross-link, delete one end, and the group is
+//: still there with an empty path. An empty path draws nothing, but the group
+//: is still a hit target and still carries the link's classes, and the next
+//: thing to give a `.sketch-group` a decoration would have made it visible.
+//:
+//: Filtering the data join instead of blanking the path means d3's own
+//: `exit().remove()` takes the element away, which is the mechanism that
+//: already exists for "this is no longer on the board". The row itself is the
+//: server's business: `_drop_orphan_links` deletes it on the next board load.
+function wbSketchIsDrawable(sketch) {
+  let parsed = null;
+  try {
+    parsed = JSON.parse(sketch.data || "{}");
+  } catch {
+    return true; // not ours to judge — a stroke, or a row we cannot read
+  }
+  if (!parsed || !String(parsed.type || "").startsWith("link-")) return true;
+  //: Ids only, deliberately — the same rule the server's `_drop_orphan_links`
+  //: applies. Asking `wbResolveLinkEndpoints` instead would drag the DOM into
+  //: this: it measures an item's box, which is null for anything not painted
+  //: yet, so a link would vanish on the first render of a board and reappear
+  //: on the second. A free end (`sourcePoint`/`targetPoint`) is a feature and
+  //: stays; only an end that names an id which is gone is an orphan.
+  for (const [id, kind] of [
+    [parsed.sourceId, parsed.sourceKind || "node"],
+    [parsed.targetId, parsed.targetKind || "node"],
+  ]) {
+    if (id == null) continue;
+    if (!wbLinkItem(kind, id)) return false;
+  }
+  return true;
+}
+
 function wbLinkItem(kind, id) {
   if (id == null) return null;
   const list = kind === "object" ? (wbState.objects || [])
@@ -7988,7 +8027,7 @@ function renderWhiteboard() {
   // Render Sketches (SVG)
   const svgGroup = d3.select("#wb-zoom-group");
   const sketchSelection = svgGroup.selectAll("g.sketch-group")
-    .data(wbState.sketches || [], d => d.id);
+    .data((wbState.sketches || []).filter(wbSketchIsDrawable), d => d.id);
     
   // Deleting a sketch two ways: "delete" is a click on the one thing you
   // mean to remove; "eraser" is a drag — mouseenter fires for everything the

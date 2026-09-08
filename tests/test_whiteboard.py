@@ -694,3 +694,69 @@ def test_a_created_map_does_not_appear_in_the_notes_list(board_client, session):
     assert {note.id, map_id, plain["id"]} <= set(both_ids)
 
     assert board_client.get("/entries?boards=sideways").status_code == 422
+
+
+def test_loading_a_board_drops_an_edge_whose_end_is_gone(board_client, session):
+    """Reported with a screenshot: a node with "a dangling curved edge to
+    nowhere (an edge whose other end is a deleted node or a point)".
+
+    Every *delete* route already calls `_forget_links_to`, so this is not
+    about those. A link's two ends are ids inside a JSON blob rather than
+    foreign keys, so nothing at the database level enforces them, and one live
+    path removes a row without going through a delete route at all: purging a
+    note deletes its `WhiteboardNode` rows in bulk (`entry/manager.py`). The
+    link that pointed at the card survived it, with an id resolving to
+    nothing — measured in the browser before this was written.
+
+    The free-point link in here is the control, and it matters as much as the
+    orphan: a link end with no item at all is a real feature ("even make it a
+    dangling unattached point"), so an integrity pass that ate one would be a
+    worse bug than the one it fixes.
+    """
+    import json
+
+    board = board_client.post("/whiteboard/boards", json={"name": "Integrity"}).json()
+    note = _note(session, "# A note that gets purged")
+    card = board_client.post(
+        "/whiteboard/nodes", json={"entry_id": note.id, "board_id": board["id"], "x": 0, "y": 0}
+    ).json()
+    keeper = board_client.post(
+        "/whiteboard/objects",
+        json={"kind": "topic", "board_id": board["id"], "data": {"content": "Bubble Tea"}},
+    ).json()
+
+    orphan = board_client.post(
+        "/whiteboard/sketches",
+        json={
+            "board_id": board["id"],
+            "data": json.dumps(
+                {"type": "link-curve", "sourceKind": "object", "sourceId": keeper["id"],
+                 "targetKind": "node", "targetId": card["id"]}
+            ),
+        },
+    ).json()
+    free_end = board_client.post(
+        "/whiteboard/sketches",
+        json={
+            "board_id": board["id"],
+            "data": json.dumps(
+                {"type": "link-curve", "sourceKind": "object", "sourceId": keeper["id"],
+                 "targetPoint": {"x": 300, "y": 520}}
+            ),
+        },
+    ).json()
+
+    # The purge path, which is the one that leaves the orphan behind.
+    board_client.delete(f"/entries/{note.id}")
+    purged = board_client.delete(f"/entries/{note.id}/purge")
+    assert purged.status_code == 200, purged.text
+
+    state = board_client.get(f"/whiteboard/?board_id={board['id']}").json()
+    ids = [row["id"] for row in state["sketches"]]
+    assert orphan["id"] not in ids, "an edge whose end is gone is dropped on load"
+    assert free_end["id"] in ids, "an edge that deliberately ends at a point is kept"
+
+    # And it is really deleted, not merely filtered out of one response.
+    again = board_client.get(f"/whiteboard/?board_id={board['id']}").json()
+    assert [row["id"] for row in again["sketches"]] == [free_end["id"]]
+

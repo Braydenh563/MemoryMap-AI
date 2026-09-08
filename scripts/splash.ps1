@@ -196,7 +196,7 @@ try {
   # Eight rows created once and reused, rather than rebuilt each tick: a
   # WinForms control added and removed four times a second flickers, and the
   # launcher never writes more steps than this.
-  $MAX_ROWS  = 8
+  $MAX_ROWS  = 6
   $ROW_TOP   = 104
   $ROW_STEP  = 22
   $rowMark   = @()
@@ -262,15 +262,15 @@ try {
   $progress.Minimum  = 0
   $progress.Maximum  = 100
   $progress.Value    = 0
-  $progress.Location = New-Object System.Drawing.Point(30, 292)
+  $progress.Location = New-Object System.Drawing.Point(30, 286)
   $progress.Size     = New-Object System.Drawing.Size(460, 8)
 
   $status           = New-Object System.Windows.Forms.Label
   $status.Text      = "Starting…"
   $status.ForeColor = $muted
   $status.Font      = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]9)
-  $status.Location  = New-Object System.Drawing.Point(30, 306)
-  $status.Size      = New-Object System.Drawing.Size(460, 34)
+  $status.Location  = New-Object System.Drawing.Point(30, 300)
+  $status.Size      = New-Object System.Drawing.Size(460, 26)
 
   # The slow-step hint. Empty almost always: it appears only when a step has
   # outlasted the time that step normally takes, which is the moment someone
@@ -279,7 +279,7 @@ try {
   $hint.Text        = ""
   $hint.ForeColor   = $warn
   $hint.Font        = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]8)
-  $hint.Location    = New-Object System.Drawing.Point(30, 246)
+  $hint.Location    = New-Object System.Drawing.Point(30, 240)
   $hint.Size        = New-Object System.Drawing.Size(460, 18)
 
   # One tip at a time, changed every six seconds. The same five the desktop
@@ -300,7 +300,7 @@ try {
   $tip             = New-Object System.Windows.Forms.Label
   $tip.ForeColor   = $dim
   $tip.Font        = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]8)
-  $tip.Location    = New-Object System.Drawing.Point(30, 266)
+  $tip.Location    = New-Object System.Drawing.Point(30, 260)
   $tip.Size        = New-Object System.Drawing.Size(460, 18)
   $tip.Text        = $tips[0]
 
@@ -312,7 +312,7 @@ try {
   function New-FooterButton([string]$text, [int]$x, [int]$width) {
     $b               = New-Object System.Windows.Forms.Button
     $b.Text          = $text
-    $b.Location      = New-Object System.Drawing.Point($x, 336)
+    $b.Location      = New-Object System.Drawing.Point($x, 334)
     $b.Size          = New-Object System.Drawing.Size($width, 26)
     $b.FlatStyle     = "Flat"
     $b.BackColor     = $panel
@@ -637,7 +637,7 @@ try {
   # launcher while it is still working would put two of them on one checkout.
   $btnRetry              = New-Object System.Windows.Forms.Button
   $btnRetry.Text         = "Try again"
-  $btnRetry.Location     = New-Object System.Drawing.Point(244, 336)
+  $btnRetry.Location     = New-Object System.Drawing.Point(244, 334)
   $btnRetry.Size         = New-Object System.Drawing.Size(78, 26)
   $btnRetry.FlatStyle    = "Flat"
   $btnRetry.BackColor    = $panel

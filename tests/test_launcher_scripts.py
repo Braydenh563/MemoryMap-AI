@@ -548,3 +548,78 @@ class TestOneDesignThreeSurfaces:
         main = _read(ROOT / "src" / "memorymap" / "__main__.py")
         assert "prefers-reduced-motion: reduce" in main
         assert "animation: none" in main
+
+
+class TestTheSplashLayoutDoesNotOverlap:
+    """The one thing a read can check about a window nothing here can draw.
+
+    Every control in splash.ps1 is absolutely positioned, so a band that
+    starts before the one above it ends is a control drawn on top of
+    another. It happened once already: the status label was 34px tall at
+    y=306 and ran under the footer buttons at y=336.
+    """
+
+    HEIGHTS = {  # control -> its own height, from the Size line beside it
+        "hint": 18,
+        "tip": 18,
+        "progress": 8,
+        "status": 26,
+    }
+
+    def _ps1(self) -> str:
+        return _read(ROOT / "scripts" / "splash.ps1")
+
+    def _y(self, name: str) -> int:
+        m = re.search(
+            r"\$" + name + r"\.Location\s*=\s*New-Object System\.Drawing\.Point\(\d+, (\d+)\)",
+            self._ps1(),
+        )
+        assert m, name
+        return int(m.group(1))
+
+    def _int(self, pattern: str) -> int:
+        m = re.search(pattern, self._ps1())
+        assert m, pattern
+        return int(m.group(1))
+
+    def test_the_bands_are_in_order_and_do_not_touch(self):
+        rows = self._int(r"\$MAX_ROWS\s*=\s*(\d+)")
+        top = self._int(r"\$ROW_TOP\s*=\s*(\d+)")
+        step = self._int(r"\$ROW_STEP\s*=\s*(\d+)")
+        buttons = self._int(
+            r"\$b\.Location\s*=\s*New-Object System\.Drawing\.Point\(\$x, (\d+)\)"
+        )
+        collapsed = self._int(r"\$COLLAPSED_HEIGHT\s*=\s*(\d+)")
+        expanded = self._int(r"\$EXPANDED_HEIGHT\s*=\s*(\d+)")
+
+        bands = [("steps", top, top + rows * step)]
+        for name in ("hint", "tip", "progress", "status"):
+            y = self._y(name)
+            bands.append((name, y, y + self.HEIGHTS[name]))
+        bands.append(("buttons", buttons, buttons + 26))
+
+        for (name_a, _, end_a), (name_b, start_b, _) in zip(bands, bands[1:]):
+            assert end_a <= start_b, name_a + " runs into " + name_b
+
+        # The footer has to fit inside the collapsed window, and the details
+        # box inside the expanded one.
+        assert bands[-1][2] <= collapsed
+        details_y = self._y("details")
+        details_h = self._int(
+            r"\$details\.Size\s*=\s*New-Object System\.Drawing\.Size\(\d+, (\d+)\)"
+        )
+        assert details_y >= collapsed
+        assert details_y + details_h <= expanded
+
+    def test_the_retry_button_shares_the_footer_row(self):
+        footer = self._int(
+            r"\$b\.Location\s*=\s*New-Object System\.Drawing\.Point\(\$x, (\d+)\)"
+        )
+        assert self._y("btnRetry") == footer
+
+    def test_rows_past_the_end_are_blanked_not_left_stale(self):
+        """The marquee is moved to the active row, and a list longer than
+        MAX_ROWS would otherwise park it beyond the last row that exists."""
+        ps1 = self._ps1()
+        assert "$ROW_TOP + 6 + $i * $ROW_STEP" in ps1
+        assert "$i -ge $count" in ps1

@@ -303,9 +303,20 @@
   /* See `--scroll-top-clearance`'s own comment (00-tokens-shell.css): the
      last note's row of controls, including its ⋯ kebab, sat directly under
      `.scroll-top` once the list was scrolled all the way down, and a real
-     click there landed on the button, not the row. */
-  padding-bottom: var(--scroll-top-clearance);
+     click there landed on the button, not the row. INBOX 33: this is now
+     `body.scroll-top-visible #tab-notes .layout > main` below, so a short
+     page (nothing to scroll, button never shown) does not carry padding
+     for a button that was never going to cover anything on it. */
   border-radius: var(--radius-lg);
+}
+
+/* INBOX 33: the clearance above only earns its keep while there is a
+   `.scroll-top` on screen to clear. `app.js`'s `initScrollTopButton`
+   toggles this class in the same `update()` that shows the button, so the
+   two can never drift out of sync with each other the way a fixed
+   always-on padding and a sometimes-visible button did. */
+body.scroll-top-visible #tab-notes .layout > main {
+  padding-bottom: var(--scroll-top-clearance);
 }
 
 #graph-card {

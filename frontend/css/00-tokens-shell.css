@@ -440,10 +440,23 @@ select optgroup {
      own `scrollHeight` let a row scroll to flush against the container's
      edge, directly under the button sitting on top of it, geometry a
      screenshot does not show because the button is *supposed* to float
-     there. Matches `.scroll-top`'s own three terms (04-chat-dock-
-     appearance.css): its `bottom` offset, its own height, plus one gap step
-     so the last row clears the button rather than merely touching it. */
-  --scroll-top-clearance: calc(var(--status-bar-h) + var(--space-4) + 2.75rem + var(--space-4));
+     there.
+
+     **INBOX 33 shrank this and made it conditional.** The original formula
+     added `.scroll-top`'s full viewport-relative offset (`--status-bar-h`
+     plus a gap) on top of its own height and a second gap: correct for how
+     far the button's *top edge* sits from the very bottom of the window,
+     wrong for how much a scroll container needs to reserve at its *own*
+     bottom edge, which already stops above the status bar (a separate fixed
+     footer, not part of the scrolling area) and already has `.tab-page`'s
+     own page gutter under it. The two stacked, plus the fixed rule below
+     applied even when the button was nowhere near visible: measured, an
+     empty Notes > Ask sub-tab scrolled ~190px of nothing at its own bottom.
+     Now just the button's own height plus one gap, and (04-chat-dock-
+     appearance.css, 07-whiteboard-misc.css) applied only while
+     `body.scroll-top-visible` says the button is actually on screen to
+     clear (app.js's `initScrollTopButton`). */
+  --scroll-top-clearance: calc(2.75rem + var(--space-4));
 
   /* How much of the window the on-screen keyboard is currently covering
      (UI_MODERNISATION_PLAN.md Phase 9). Zero here and written by app.js from

@@ -23671,10 +23671,17 @@ function initScrollTopButton() {
     const label = chat ? "Jump to the newest message" : "Back to top";
     button.title = label;
     button.setAttribute("aria-label", label);
-    button.classList.toggle(
-      "visible",
-      show && !NO_SCROLL_TOP_TABS.has(tab) && !coversAFormPrimary(button),
-    );
+    const visible = show && !NO_SCROLL_TOP_TABS.has(tab) && !coversAFormPrimary(button);
+    button.classList.toggle("visible", visible);
+    //: INBOX 33: `--scroll-top-clearance` used to be unconditional
+    //: `padding-bottom` on every scrolling list, so a short page (an empty
+    //: Ask sub-tab, three notes on a fresh space) scrolled a hundred-odd
+    //: pixels of nothing at its own bottom even though this button was
+    //: nowhere near visible to need clearing. Read by 04-chat-dock-
+    //: appearance.css and 07-whiteboard-misc.css, which now apply the
+    //: clearance only while this class says the button is actually there
+    //: to clear.
+    document.body.classList.toggle("scroll-top-visible", visible);
     positionScrollTopForNested(button, tab);
   };
   // Capture, because scroll events do not bubble: the listener has to see them

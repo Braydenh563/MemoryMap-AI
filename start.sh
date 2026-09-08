@@ -590,7 +590,7 @@ mm_doctor() {
     if [ -n "$tags" ]; then
       local count
       count="$(printf '%s' "$tags" | grep -o '"name"' | wc -l | tr -d ' ')"
-      mm_row ok "Ollama" "$ollama_url, $count model(s) installed"
+      mm_row ok "Ollama" "$ollama_url, models installed: $count"
     elif ! command -v curl >/dev/null 2>&1; then
       mm_row warn "Ollama" "cannot check $ollama_url without curl"
     else

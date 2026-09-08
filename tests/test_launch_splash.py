@@ -89,13 +89,20 @@ def test_the_child_process_does_not_open_a_second_splash():
     MM_SPLASH_FILE and must write to the window the parent already opened."""
     text = _start_bat()
     launch = text.index("start \"\" /b powershell")
-    guard = text.rindex("if not defined MM_CHILD (", 0, launch)
+    # The guard grew a second condition when the flag parser landed (Brief
+    # 17): --doctor and friends print a table and exit, so they get no
+    # splash either. Both conditions sit on the one IF that opens the block.
+    guard = text.rindex("if not defined MM_CHILD ", 0, launch)
     assert guard < launch
+    assert text[guard : text.index("\n", guard)].rstrip().endswith("(")
 
 
 def test_the_phases_the_splash_reports_are_the_slow_ones():
-    written = set(re.findall(r'echo ([^>]+)> "!MM_SPLASH_FILE!"', _start_bat()))
-    blob = " ".join(written).lower()
+    # The splash file stopped being one line of plain text when the
+    # step|total|title|detail|state protocol landed (Brief 17): every phase
+    # now goes through `call :status`, which is the only writer.
+    written = set(re.findall(r'call :status \S+ "([^"]+)" "([^"]+)"', _start_bat()))
+    blob = " ".join(part for pair in written for part in pair).lower()
     assert "update" in blob        # git pull
     assert "dependencies" in blob  # pip install, the long one
     assert "starting the app" in blob

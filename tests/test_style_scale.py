@@ -210,9 +210,16 @@ PAGE_CONTAINERS = (
 #: Selectors with no background of their own: a pure wrapper's padding is an
 #: outer inset by another name, so both properties are checked. A container
 #: that paints something, .dash-hero is a visible panel, owns its padding.
-PURE_WRAPPERS = frozenset(
-    {".layout", ".doc-layout", ".dash-quicklinks", ".dash-stats", ".dash-toolbar", "#dash-grid"}
-)
+#:
+#: `.dash-toolbar` moved off this list when it became a bar. It was a pure
+#: wrapper: transparent, no edge, no radius, two 28px controls sitting loose
+#: between the stats strip and the grid, which is what docks.md section 3 left
+#: open about it. 08-consistency.css now gives it the same surface every other
+#: head row in the app draws, so it paints, and by this list's own stated
+#: distinction a container that paints owns its padding. The membership test is
+#: "does it have a background", not "is it on the Dashboard": moving it is the
+#: rule being applied, not widened.
+PURE_WRAPPERS = frozenset({".layout", ".doc-layout", ".dash-quicklinks", ".dash-stats", "#dash-grid"})
 
 
 def test_no_page_draws_its_own_outer_gutter():

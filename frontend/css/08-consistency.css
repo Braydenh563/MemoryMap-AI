@@ -1250,3 +1250,76 @@ summary > .ph-lead,
     font-size: 1.15rem;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   The last two head rows that were not on the bar recipe
+
+   consistency.md section 3 listed the Chat head, the Dashboard head and the
+   seven Library sub-tab heads as "named in the brief but NOT on the recipe",
+   each waiting on another agent's branch. That branch has landed, and measured
+   here (`scratchpad/ui-sweeps/heads2.js`) nine of those are done: all twelve
+   `[data-dock-name]` surfaces draw the identical bar (`--card` at 1px
+   `--border`, radius 11.2px, padding 8/9.6, h=54), one control radius each and
+   at most one filled control each. That part of the table is stale and this
+   file's job there is finished.
+
+   Two things the same sweep found are not.
+--------------------------------------------------------------------------- */
+
+/* 1. The Chat head's kebab kept a resting fill while the three icon buttons
+   beside it were quiet, which is the "why is that one button highlighted"
+   report in a new place. The quiet rule above already names `.menu-wrap`, but
+   as a child of a zone, and this kebab is two wrappers deep:
+
+     .dock > div.dock-actions > span#chat-actions-menu > span.menu-wrap > button
+
+   so the rule missed it and nothing said why. A descendant combinator covers
+   any wrapper depth. It cannot leak into an open menu: a menu's rows live in
+   `.doc-dock-menu-list`, never in a `.menu-wrap`. */
+.dock .menu-wrap > button.ghost {
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  box-shadow: none;
+  color: var(--ink);
+}
+
+.dock .menu-wrap > button.ghost:hover,
+.dock .menu-wrap > button.ghost:focus-visible {
+  background: var(--ghost-btn-bg);
+}
+
+/* 2. The Dashboard toolbar was not a bar at all: transparent, no edge, no
+   radius, holding two 28px controls between the stats strip and the grid,
+   against every dock's 36px. docks.md section 3 left it open by name.
+
+   It gets the bar surface and the bar's control height rather than a
+   `data-dock-name` and the four zones: it holds a hint and two buttons, it has
+   no identity, find or arrange zone to declare, and inventing them to satisfy
+   a lint would be the markup following the test rather than the design. The
+   grammar lint asserts the set of dock names in the markup, so adding no
+   attribute leaves it exactly as it was.
+
+   The hero above it is untouched, deliberately: docks.md section 3 records
+   that the owner prefers it as it is. */
+.dash-toolbar {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+}
+
+.dash-toolbar button {
+  height: var(--control-h-lg);
+  min-height: var(--control-h-lg);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  box-shadow: none;
+  color: var(--ink);
+}
+
+.dash-toolbar button:hover,
+.dash-toolbar button:focus-visible {
+  background: var(--ghost-btn-bg);
+}

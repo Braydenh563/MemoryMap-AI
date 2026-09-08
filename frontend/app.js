@@ -12323,10 +12323,6 @@ function progressMotionWanted() {
   return !reducedMotionWanted();
 }
 
-//: How long each of the three dots takes to step, when it is stepping rather
-//: than bouncing. One second reads as deliberate rather than as a stutter.
-const PROGRESS_STEP_MS = 1000;
-
 // `label` is the reduced-motion fallback: with animations off the dots can't
 // convey "working", so a word has to. Callers that already print their own
 // sentence beside the indicator pass theirs in, the weekly digest used to
@@ -12491,50 +12487,49 @@ function typingDots(label = "Thinking…") {
   dots.dataset.phase = "thinking";
   dots.setAttribute("role", "status");
   dots.setAttribute("aria-label", label);
-  for (let i = 0; i < 3; i++) dots.appendChild(document.createElement("span"));
-  dots.appendChild(aiWritingTrace());
   dots.setStatus = (next) => {
     dots.setAttribute("aria-label", next);
   };
-  //: Idempotent, because the streaming callbacks that drive this fire on
-  //: every delta: setting the same phase again must not restart the
-  //: cross-fade or the line would stutter on each token.
+  if (progressMotionWanted()) {
+    for (let i = 0; i < 3; i++) dots.appendChild(document.createElement("span"));
+    dots.appendChild(aiWritingTrace());
+    //: Idempotent, because the streaming callbacks that drive this fire on
+    //: every delta: setting the same phase again must not restart the
+    //: cross-fade or the line would stutter on each token.
+    dots.setPhase = (phase) => {
+      const next = phase === "writing" ? "writing" : "thinking";
+      if (dots.dataset.phase !== next) dots.dataset.phase = next;
+    };
+    return dots;
+  }
+
+  //: **INBOX 36: stepping a dot's colour once a second did not read as
+  //: alive.** The previous fix here (a class moving from dot to dot) was
+  //: reasoned, not observed, and the owner's desktop shell still showed a
+  //: flat row of dots: `.typing-dots-stepped span.is-on` swapped `--border`
+  //: for `--accent`, a colour change with no size, position or brightness
+  //: cue big enough to notice out of the corner of an eye while reading an
+  //: answer. Reported again, unchanged: "the streaming indicator still does
+  //: not animate."
+  //:
+  //: A word that changes is unambiguous in a way three near-identical dots
+  //: never were, and a *slow* opacity pulse is movement of the one kind
+  //: `prefers-reduced-motion` guidance treats as safe: no translation, no
+  //: scaling, nothing that can trigger vestibular symptoms, just a fade
+  //: between two brightness levels over several seconds. The word itself
+  //: still changes with the phase, the same "value changing is information"
+  //: reasoning the old stepped dots were built on, just legible this time.
+  dots.classList.add("typing-dots-stepped");
+  const word = document.createElement("span");
+  word.className = "typing-word";
+  word.textContent = "Thinking";
+  dots.appendChild(word);
   dots.setPhase = (phase) => {
     const next = phase === "writing" ? "writing" : "thinking";
-    if (dots.dataset.phase !== next) dots.dataset.phase = next;
+    if (dots.dataset.phase === next) return;
+    dots.dataset.phase = next;
+    word.textContent = next === "writing" ? "Writing" : "Thinking";
   };
-  if (progressMotionWanted()) return dots;
-
-  //: **Motion is off, so this steps instead of moving.**
-  //:
-  //: The old answer was to replace the dots with one static italic word, and
-  //: that is the thing the user photographed and called broken, correctly,
-  //: because a sentence that never changes is exactly what a *hung* app also
-  //: shows. Reduced motion means no *movement*; a value that changes is
-  //: information, and information is still allowed.
-  //:
-  //: So the dots stay, nothing translates or fades, and the highlight moves
-  //: from one to the next once a second by swapping a class. The element is
-  //: in the same place from frame to frame, there is no animation to make
-  //: anyone unwell: and it is unmistakably alive.
-  dots.classList.add("typing-dots-stepped");
-  let at = 0;
-  //: **The dots only**: `aiWritingTrace()`'s `<svg>` is appended into this
-  //: same box (see its own note on why it goes after the spans), so a plain
-  //: `[...dots.children]` walked four elements for three dots. Every fourth
-  //: tick lit the SVG, which shows nothing in this mode, so one beat in four
-  //: had no dot on at all: a second of stillness that reads exactly like the
-  //: animation having stopped. Measured on the running app before the fix, 
-  //: the highlighted index cycled 0, 1, 2, 3 across four spans-and-an-SVG.
-  const children = [...dots.querySelectorAll(":scope > span")];
-  const tick = () => {
-    children.forEach((dot, i) => dot.classList.toggle("is-on", i === at));
-    at = (at + 1) % children.length;
-  };
-  tick();
-  //: Stops itself once the node is really gone, but not the instant it is
-  //: merely being moved. See `livingInterval`.
-  livingInterval(dots, tick, PROGRESS_STEP_MS);
   return dots;
 }
 

@@ -10,6 +10,37 @@ em-dashes, report in five lines. When unsure, the decision is already
 written in `WORLD_CLASS_PLAN.md` or a plan file; find it, do not remake
 it.
 
+### Standing orders for this session (whoever the model is)
+
+The owner will say "continue", or paste a batch of issues, possibly
+after a usage reset. Either way, without asking anything:
+
+1. **"Continue"** means: read this block, merge any agent worktree that
+   has commits not on the branch (table below, recipe below), then take
+   the next unfinished item in this order: the `agent-remaining/*.md`
+   lists (they are the owner's own reports, deferred not dropped), then
+   `SESSION_BRIEFS.md` Briefs 1 to 14 in order, then WORLD_CLASS_PLAN §11's
+   quarter. Commit per step, push per batch, five-line reports.
+2. **A batch of issues** means: for each one, reproduce it in the running
+   app first (Chromium, `scratchpad/ui-sweeps/lib.js`), fix it to the
+   standard (measured, a sweep check added where one exists), commit it
+   on its own with the owner's words in the message, and push the batch.
+   One that cannot be reproduced gets a line saying exactly what was
+   driven and what was seen, never "works for me". One that is bigger
+   than a fix gets a row in the relevant `agent-remaining` file or a
+   SESSION_BRIEFS brief, and the owner is told which.
+3. **Agents**: use them for well-scoped briefs (an `agent-remaining` file
+   is a brief), at most three at once, each in its own worktree cut from
+   the branch with its own port and data dir, told to commit per step and
+   to write its remaining list before stopping. Merge, gate, push.
+4. **Never stop on a red**: CI, CodeQL and review comments are fixed the
+   same hour; the hourly check-in re-arms itself (`send_later`), and the
+   subscription on PR #144 stays.
+5. **Quality does not drop with the model.** Tests first, measure before
+   claiming, no em-dashes, no scope creep, the four failure shapes checked
+   in every diff. If a decision seems needed, it is already written in a
+   plan file; find it.
+
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 
 - CI, ruff and CodeQL green as of `315825a`; the merge commit `dca50c6`

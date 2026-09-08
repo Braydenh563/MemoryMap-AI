@@ -26,6 +26,16 @@ say whether it meets what was asked, not just whether the code path exists.
 1. Check the running app before building. You said: {"Three sessions rebuilt existing work. It's the single most expensive recurring mistake in this project's history."}
 2. You can't see a browser — say what you couldn't verify. You said: {"Everything visual I did this session is reasoned, not observed. A session that forgets this will report UI work as done when it's untested."}
 
+## Standing orders on branch `claude/epic-ramanujan-8xocc0`
+
+When the owner says "continue" or pastes issues, do not ask; follow the
+"Standing orders" block at the top of
+[`docs/roadmap/HANDOVER.md`](docs/roadmap/HANDOVER.md): merge agent
+worktrees, work `docs/roadmap/agent-remaining/*.md` then
+`docs/roadmap/SESSION_BRIEFS.md` in order, reproduce every reported issue
+in the running app before fixing it, commit per fix, push per batch, keep
+PR #144 green.
+
 ## Where things are written down
 
 | File | What it answers |

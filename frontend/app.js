@@ -23374,6 +23374,71 @@ function positionScrollTopForNested(button, tab) {
   button.style.bottom = `${Math.max(margin, window.innerHeight - Math.min(rect.bottom, window.innerHeight) + margin)}px`;
 }
 
+//: **The back-to-top button must never sit on top of a Save button.**
+//: Reported with a screenshot of the capture form: the floating button
+//: landed over the one irreversible action on the screen, so the control you
+//: reached for was not the one you got.
+//:
+//: This is a geometric test rather than a bigger `bottom` offset, and that is
+//: deliberate. The button is `position: fixed` at the bottom-right of the
+//: viewport while a form's footer can be at any scroll position and any
+//: width, so "raise it by 3rem" is a value that happens to work at the width
+//: it was measured at and silently stops working at the next one. Asking, on
+//: every scroll and resize, whether the two boxes actually intersect is the
+//: only version of this that is a guarantee.
+//:
+//: Touching counts as covering: the clearance below is the same step the rest
+//: of the app puts between two adjacent controls, because the point is that
+//: the floating button and the form's Save must never read as one cluster.
+//:
+//: Only *primary* buttons count. A form footer also holds ghost buttons
+//: (Discard, Undo, Extract notes), and hiding the back-to-top control every
+//: time one of those drifted underneath would make it flicker in and out on
+//: pages that have no problem at all.
+const FORM_PRIMARY_SELECTOR = [
+  "#capture",
+  "#writing-room",
+  "#ask",
+  ".doc-ai-card",
+  ".extract-card",
+  ".modal-card",
+]
+  .map((scope) => `${scope} button:not(.ghost):not(.icon-only):not(.linklike)`)
+  .join(", ");
+
+//: `--space-3` is declared in rem and wrapped in the density multiplier, so
+//: it cannot be read as a pixel count directly. Resolving it through a real
+//: element is what makes the clearance track the density setting instead of
+//: freezing at one multiplier's value.
+function spacingPx(name, fallback) {
+  const probe = document.createElement("div");
+  probe.style.cssText = `position:absolute;visibility:hidden;width:var(${name})`;
+  document.body.appendChild(probe);
+  const px = probe.getBoundingClientRect().width;
+  probe.remove();
+  return px > 0 ? px : fallback;
+}
+
+function coversAFormPrimary(button) {
+  const f = button.getBoundingClientRect();
+  if (!f.width || !f.height) return false;
+  const pad = spacingPx("--space-3", 8);
+  for (const el of document.querySelectorAll(FORM_PRIMARY_SELECTOR)) {
+    const s = el.getBoundingClientRect();
+    if (!s.width || !s.height) continue;
+    //: Off-screen footers cannot be covered, and skipping them keeps this to
+    //: a handful of rect reads per scroll event.
+    if (s.bottom < 0 || s.top > window.innerHeight) continue;
+    const clear =
+      f.right < s.left - pad ||
+      f.left > s.right + pad ||
+      f.bottom < s.top - pad ||
+      f.top > s.bottom + pad;
+    if (!clear) return true;
+  }
+  return false;
+}
+
 function initScrollTopButton() {
   const button = document.createElement("button");
   button.id = "scroll-top";
@@ -23421,7 +23486,10 @@ function initScrollTopButton() {
     const label = chat ? "Jump to the newest message" : "Back to top";
     button.title = label;
     button.setAttribute("aria-label", label);
-    button.classList.toggle("visible", show && !NO_SCROLL_TOP_TABS.has(tab));
+    button.classList.toggle(
+      "visible",
+      show && !NO_SCROLL_TOP_TABS.has(tab) && !coversAFormPrimary(button),
+    );
     positionScrollTopForNested(button, tab);
   };
   // Capture, because scroll events do not bubble: the listener has to see them

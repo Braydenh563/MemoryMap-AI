@@ -342,7 +342,7 @@
 .task-log > summary:not(.icon-only):not(.icon-button) {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   width: 100%;
   padding: var(--space-3) var(--space-2);
   border: 1px solid transparent;
@@ -743,4 +743,241 @@ li:has(> .check-row) + li:has(> .check-row) > .check-row {
 .setting-check:has(+ .setting-check) {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   4. One gap between an icon and the label it leads
+   ---------------------------------------------------------------------------
+
+   Reported: "there are areas where the icons and accompanying text dont
+   align."
+
+   The vertical half of that does not reproduce, and it is worth saying so
+   with the number rather than fixing something that is not broken: swept
+   across seven tabs and seven Settings sections at 1440 (scratchpad/
+   ui-sweeps/iconalign.js, which compares each icon's vertical centre with a
+   Range around the label's own text nodes), **0 of 274 icon-and-text
+   controls are off by more than 1px, and the worst in the app is 0.87px.**
+
+   The horizontal half is real, and the same sweep names it: **10 distinct
+   icon-to-label gaps** across those rows - 4, 5.1, 5.5, 6.4, 8, 8.4, 11.9,
+   12.8, 13.5 and 14.4px. That is one visual relationship drawn at ten
+   widths, which is exactly the kind of almost-the-same difference DESIGN.md
+   opens by saying reads as unconsidered.
+
+   The cause is two mechanisms doing one job. `.ph-lead` carries
+   `margin-inline-end: 0.35em` (07-whiteboard-misc.css) from when these rows
+   were inline boxes; the rows are flex now and most of them also set their
+   own `gap`. Where only one applies you get 5.5px (the margin, at a 15.64px
+   icon) or 6.4px (`--space-2`). Where both apply they add up: 6.4 + 5.5 =
+   11.9 on the dock menu openers and their rows, 8 + 5.5 = 13.5 on the
+   filter check rows, 8 + 6.4 = 14.4 on a bare summary.
+
+   So: one mechanism. The container's `gap` is the one that survives, because
+   it is the same property already spacing every other child in the row (a
+   caret, a count, a shortcut key), and `.ph-lead`'s margin goes to zero in
+   the families measured as flex rows. 142 of the 243 gaps were already
+   `--space-2`; this brings the rest to it rather than inventing a new value.
+
+   `.ph-lead` keeps its margin everywhere else, which is where it is still
+   the only thing providing the gap: an icon inside a paragraph or any other
+   non-flex context is untouched by both rules below. */
+button,
+summary,
+.menu-item,
+.doc-dock-menu-item,
+.doc-dock-menu-btn,
+.dock-menu-check,
+.dock-link,
+.nav-history-item,
+.library-image-menu-item,
+.wb-menu-item,
+.quick-link,
+.status-item {
+  gap: var(--space-2);
+}
+
+/* A `.chip` is deliberately not in that list. It already declares
+   `gap: 0.3em`, which is 3.6px at its own 0.75rem size - a chip is small
+   enough that `--space-2` would be a third of its width. Zeroing the
+   double-counted margin below is all it needs. */
+
+button > .ph-lead,
+summary > .ph-lead,
+.menu-item > .ph-lead,
+.doc-dock-menu-item > .ph-lead,
+.doc-dock-menu-btn > .ph-lead,
+.dock-menu-check > .ph-lead,
+.dock-link > .ph-lead,
+.nav-history-item > .ph-lead,
+.library-image-menu-item > .ph-lead,
+.wb-menu-item > .ph-lead,
+.chip > .ph-lead,
+.quick-link > .ph-lead,
+.status-item > .ph-lead {
+  margin-inline-end: 0;
+}
+
+/* A summary in the settings modal was the last family still on `--space-3`
+   between its icon and its label: 12 of the 243 gaps measured 8px against
+   the 217 on `--space-2`. It is set at (0,1,1) in 01-forms-settings.css, so
+   restating it at the same weight from a later file is what settles it. */
+.about-whats-new,
+.settings-section summary,
+.help-accordion > summary {
+  gap: var(--space-2);
+}
+
+/* ---------------------------------------------------------------------------
+   7. Meta looks like meta
+   ---------------------------------------------------------------------------
+
+   Reported: on the Skills cards "'2 steps' and '1 tool' render as buttons and
+   'Never run.' renders as a chip-button"; on the Library image cards the
+   model-name and "Read by ..." chips look like buttons too. The persona
+   list's "built-in" chip was named as the reference.
+
+   Measured, light theme. The reference first, so the target is a number and
+   not a feeling:
+
+     persona "built-in"   bg --chip-bg (31,36,48,0.07)   no border
+                          radius 15.4px (pill)  pad 1.6/9.6  12px/400
+                          colour --muted        height 24px
+
+   And the three that do not match it, on one card, side by side:
+
+     "Built-in"     bg --accent-soft   pill   12px/600   height 21.2px
+     "2 steps"      bg --ghost-btn-bg  border 1px --ghost-btn-border
+                    radius 8.4px  pad 6.4/8  11.2px/600  height 31.6px
+     "Never run."   bg --chip-bg  radius 4.2px  pad 4/8  11.2px  height 24.8px
+
+   Four heights, three radii and three fills for four pieces of the same kind
+   of information, stacked in one card.
+
+   "2 steps" and "1 tool" are the third site of the bug item 2 records:
+   they are `<summary class="chip skill-fact">` elements, and
+   `summary:not(.icon-only):not(.icon-button)` (07-whiteboard-misc.css:3640)
+   outranks `.chip` at 0,2,1 against 0,1,0, so the summary rule's tonal fill,
+   its edge and its button padding all landed on top of the chip recipe. The
+   markup asked for a chip and got a button, silently.
+
+   These two are genuinely clickable (they expand the step and tool lists in
+   place, which was itself asked for), so they keep `cursor: pointer` and a
+   hover. The hover deepens the chip tone rather than switching to the button
+   fill: a disclosure that is invisible until you find it is the problem that
+   round was solving, and taking the affordance away to make it quieter would
+   just trade one report for the other. */
+.skill-card-facts .chip.skill-fact,
+.skill-fact-expand > summary.skill-fact {
+  /* `.chip`'s own declared padding, restated rather than referenced: `.chip`
+     is 0,1,0 and loses to the summary rule at 0,2,1, so the value has to be
+     repeated at a weight that wins. It is the one literal in this file, and
+     it is a literal because it is a copy - inventing a token-shaped
+     near-equivalent here would move these chips off the persona reference
+     they are being matched to. */
+  padding: 0.1rem 0.6rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--chip-bg);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  height: auto;
+  min-height: 0;
+}
+
+.skill-fact-expand > summary.skill-fact:hover,
+.skill-fact-expand > summary.skill-fact:focus-visible,
+.skill-fact-expand[open] > summary.skill-fact {
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
+}
+
+/* "Never run." / "Last run ..." is a sentence about the card, not a control
+   on it. A fill and a radius made it the fourth box in a row of three. */
+.skill-card-when {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--muted);
+}
+
+/* The card's own "Built-in" marker is the same fact the persona list states,
+   so it says it the same way. `--accent-soft` is this app's *selected* tone
+   (DESIGN.md), and nothing about a built-in skill is selected. */
+.skill-card .chip.skill-builtin,
+.skill-card-header .chip:not(.skill-fact) {
+  background: var(--chip-bg);
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* Library image cards: the model name and the "Read by ..." row are facts
+   about the picture. Same recipe, same reason. The usage chip stays
+   `cursor: pointer` because it really does navigate to the note it names. */
+.library-image-usage-chip,
+.library-image-model-chip,
+.library-image-tile .chip:not(.chip.tag) {
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--chip-bg);
+  color: var(--muted);
+  font-weight: 500;
+  box-shadow: none;
+}
+
+.library-image-usage-chip:hover,
+.library-image-usage-chip:focus-visible {
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
+}
+
+/* ---------------------------------------------------------------------------
+   5. The Write-with-AI footers are one row, primary on the right
+   ---------------------------------------------------------------------------
+
+   Reported: the Write-with-AI footer ("Save as note", a tags input, "Extract
+   notes", then "Discard" wrapped to a second line) and the "Draft it / Undo /
+   Optional: make it shorter" row above it.
+
+   Measured, both `.draft-controls` rows, children grouped by their y:
+
+                       1440              1024
+     Draft it row      h 40, 1 line      h 86, 2 lines
+     Save as note row  h 86, 2 lines     h 133, 3 lines
+
+   Three of those four are wrapped, and the reason is the same in each: the
+   free-text input declares no basis, so it holds its full intrinsic width and
+   pushes whatever follows it onto the next line instead of giving up space.
+   A control that can shrink is the one that should.
+
+   The order is the other half. Both rows lead with their primary - "Draft
+   it" and "Save as note" are the first children - so the eye finds the
+   irreversible action first and the row reads right-to-left. `order` puts
+   the quiet actions first, the input in the middle taking the slack, and the
+   one filled button at the far end, without moving a line of markup. */
+.draft-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.draft-controls > button.ghost {
+  order: 1;
+  flex: 0 0 auto;
+}
+
+/* The slack goes here. A 6rem basis with `min-width: 0` is what lets the row
+   compress instead of wrapping; the input is still the widest thing in it at
+   both widths measured. */
+.draft-controls > input[type="text"] {
+  order: 2;
+  flex: 1 1 6rem;
+  min-width: 0;
+}
+
+.draft-controls > button:not(.ghost) {
+  order: 3;
+  flex: 0 0 auto;
 }

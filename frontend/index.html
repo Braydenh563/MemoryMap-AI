@@ -126,13 +126,13 @@
     </div>
     <nav id="tab-bar" role="tablist" aria-label="App sections">
       <button role="tab" id="tab-btn-dashboard" data-tab="dashboard"
-        aria-selected="false" aria-controls="tab-dashboard" tabindex="-1">Dashboard</button>
+        aria-selected="false" aria-controls="tab-dashboard" tabindex="-1" aria-label="Dashboard"><i class="ph ph-layout tab-icon" aria-hidden="true"></i><span class="tab-label">Dashboard</span></button>
       <button role="tab" id="tab-btn-notes" data-tab="notes" class="active"
-        aria-selected="true" aria-controls="tab-notes">Notes</button>
+        aria-selected="true" aria-controls="tab-notes" aria-label="Notes"><i class="ph ph-note tab-icon" aria-hidden="true"></i><span class="tab-label">Notes</span></button>
       <button role="tab" id="tab-btn-chat" data-tab="chat"
-        aria-selected="false" aria-controls="tab-chat" tabindex="-1">Chat</button>
+        aria-selected="false" aria-controls="tab-chat" tabindex="-1" aria-label="Chat"><i class="ph ph-chat-circle tab-icon" aria-hidden="true"></i><span class="tab-label">Chat</span></button>
       <button role="tab" id="tab-btn-graph" data-tab="graph"
-        aria-selected="false" aria-controls="tab-graph" tabindex="-1">Graph</button>
+        aria-selected="false" aria-controls="tab-graph" tabindex="-1" aria-label="Graph"><i class="ph ph-graph tab-icon" aria-hidden="true"></i><span class="tab-label">Graph</span></button>
       <!-- Documents deliberately has no button here. It was promoted to a
            top-level tab earlier and then moved back: the complaint it was
            meant to fix ("documents feel inaccessible") turned out to be about
@@ -142,11 +142,11 @@
            is still in TABS and still switchable-to; see revealTab on why the
            Library button lights up while it is showing. -->
       <button role="tab" id="tab-btn-library" data-tab="library"
-        aria-selected="false" aria-controls="tab-library" tabindex="-1">Library</button>
+        aria-selected="false" aria-controls="tab-library" tabindex="-1" aria-label="Library"><i class="ph ph-books tab-icon" aria-hidden="true"></i><span class="tab-label">Library</span></button>
       <button role="tab" id="tab-btn-timeline" data-tab="timeline"
-        aria-selected="false" aria-controls="tab-timeline" tabindex="-1">Timeline</button>
+        aria-selected="false" aria-controls="tab-timeline" tabindex="-1" aria-label="Timeline"><i class="ph ph-clock-counter-clockwise tab-icon" aria-hidden="true"></i><span class="tab-label">Timeline</span></button>
       <button role="tab" id="tab-btn-reminders" data-tab="reminders"
-        aria-selected="false" aria-controls="tab-reminders" tabindex="-1">Reminders</button>
+        aria-selected="false" aria-controls="tab-reminders" tabindex="-1" aria-label="Reminders"><i class="ph ph-bell tab-icon" aria-hidden="true"></i><span class="tab-label">Reminders</span></button>
     </nav>
     <div class="header-controls">
       <!-- Fixed-width slot: the pill's text changes as status polls land, and

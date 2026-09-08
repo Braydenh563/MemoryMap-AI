@@ -19413,6 +19413,17 @@ function syncTabOverflowFade() {
   // usable at. Photographed on a 7-tab window: "Dashboard" clipped to "oard"
   // at the left edge, which no amount of edge-fading makes readable.
   const header = document.getElementById("top-bar");
+  // Below 600 the strip is not in the header at all: `dockTabBar` moves it
+  // onto the body so `position: fixed` can reach the viewport past the
+  // header's backdrop filter. The wrap question is then meaningless, and
+  // leaving it to be asked kept `.tabs-wrapped` on a header that had nothing
+  // to wrap: measured at 390 the top bar stood at 110px against 58px at 599
+  // with identical contents.
+  if (header && bar.parentElement !== header) {
+    header.classList.remove("tabs-wrapped");
+    bar.classList.remove("fade-start", "fade-end");
+    return;
+  }
   if (header) {
     const needed = tabContentWidth();
     const space = tabRowSpace();
@@ -29293,6 +29304,104 @@ function initHeaderHeightToken() {
 }
 
 initHeaderHeightToken();
+
+// --- the tab bar docks to the bottom on a phone -------------------------------
+// UI_MODERNISATION_PLAN.md Phase 9, band 4.
+//
+// The stylesheet does the whole of the bottom bar's appearance. This function
+// exists for one reason, and it is a reason that cost a measurement to find:
+// **`position: fixed` does not reach the viewport from inside the header.**
+// `header#top-bar` carries `backdrop-filter`, and a filtered element becomes
+// the containing block for every fixed descendant, so the bar pinned itself
+// to the bottom of the *header* instead. Measured at 390: `position: fixed`,
+// `bottom: 0` applied, and the bar sitting at y=51 on an 844px screen.
+//
+// So the node moves. Out of the header and onto the body while the phone band
+// holds, and back into the header on the way out, in its original place. The
+// same element throughout, so every listener, the roving tabindex and the ids
+// survive; this is the move `foldDockArrange` makes for the same reason.
+//
+// `.tabs-wrapped` comes off with it. `syncTabOverflowFade` gives the strip a
+// row of its own inside the header when the seven tabs will not fit beside
+// the wordmark, and with the strip no longer in the header that class was
+// still on, holding the top bar at two rows: 110px at 390 against 58px at
+// 599, for a header with identical contents.
+const PHONE_TABS = "(max-width: 599.98px)";
+
+function dockTabBar(toBottom) {
+  const bar = document.getElementById("tab-bar");
+  const header = document.getElementById("top-bar");
+  if (!bar || !header) return;
+  if (toBottom) {
+    if (bar.parentElement === document.body) return;
+    // Where to put it back. The header's children are fixed markup, so the
+    // next sibling is a stable anchor.
+    bar.dataset.homeNext = bar.nextElementSibling?.className || "";
+    header.classList.remove("tabs-wrapped");
+    document.body.appendChild(bar);
+  } else {
+    if (bar.parentElement === header) return;
+    const anchor = bar.dataset.homeNext
+      ? header.querySelector(`:scope > .${CSS.escape(bar.dataset.homeNext.split(" ")[0])}`)
+      : null;
+    if (anchor) header.insertBefore(bar, anchor);
+    else header.appendChild(bar);
+    delete bar.dataset.homeNext;
+  }
+  // The fade is about a strip that scrolls inside the header; recompute it
+  // for wherever the strip now lives.
+  if (typeof syncTabOverflowFade === "function") syncTabOverflowFade();
+}
+
+function initBottomTabBar() {
+  const query = window.matchMedia(PHONE_TABS);
+  dockTabBar(query.matches);
+  query.addEventListener("change", (event) => dockTabBar(event.matches));
+}
+
+initBottomTabBar();
+
+// --- how much of the window the on-screen keyboard is covering ----------------
+// UI_MODERNISATION_PLAN.md Phase 9, band 4.
+//
+// The two strips you type at, the chat composer and the documents formatting
+// bar, sit at the bottom of their card. On a phone the on-screen keyboard
+// comes up over the bottom of the window and takes both with it, so the
+// buttons that act on what you are typing are under the keys you are typing
+// with.
+//
+// `window.innerHeight` does not change when a keyboard opens; the *visual*
+// viewport does. The difference between the two is the covered strip, and
+// writing it into `--keyboard-inset` lets the stylesheet handle the rest:
+// both docks already add the token to their bottom padding (07-whiteboard-
+// misc.css), so nothing here needs to know which elements exist.
+//
+// Through the CSSOM, because this app's own CSP refuses a style attribute,
+// and rounded because a fractional value here becomes a fractional padding
+// on every keystroke of a resize.
+//
+// **Not verifiable in this sandbox.** Chromium headless has no on-screen
+// keyboard, so what is tested here is that the property is written, that it
+// is 0 with no keyboard, and that the two docks read it. The behaviour with
+// a real keyboard on a real phone is reasoned, not observed.
+function initKeyboardInset() {
+  const viewport = window.visualViewport;
+  if (!viewport) return;
+  const write = () => {
+    const covered = window.innerHeight - viewport.height - viewport.offsetTop;
+    // Clamped at zero: `offsetTop` is negative while a page is rubber-banding
+    // on iOS, which would otherwise write a negative padding.
+    document.documentElement.style.setProperty(
+      "--keyboard-inset",
+      `${Math.max(0, Math.round(covered))}px`
+    );
+  };
+  viewport.addEventListener("resize", write);
+  viewport.addEventListener("scroll", write);
+  write();
+}
+
+initKeyboardInset();
 
 // --- the dock's arrange zone folds into its own overflow menu ------------------
 // UI_MODERNISATION_PLAN.md Phase 9, bands 2 and 3.

@@ -8196,8 +8196,9 @@ header#top-bar {
    are where they are going to be. */
 @media (prefers-reduced-motion: reduce) {
 
-  .layout > .sidebar-panel,
-  .dock-fab {
+  #sidebar,
+  #chat-sidebar,
+  #doc-sidebar {
     transition: none;
   }
 }
@@ -8487,5 +8488,306 @@ header#top-bar {
   #sidebar ul#category-list {
     flex-wrap: wrap;
     overflow-x: visible;
+  }
+}
+
+/* --- band 4: below 600, the phone ----------------------------------------
+   **The tab bar moves to the bottom.** Measured at 390 before this: the top
+   bar was 158px and the tab strip another 40px under it, 198px of navigation
+   above every page on an 844px screen, and the seven tabs did not fit anyway
+   (`scrollWidth` 640 against `clientWidth` 364), so three of them lived
+   inside a horizontal scroller with a fade at the edge. BACKLOG.md records
+   that fade being photographed and read as "broken" rather than as "scroll
+   for more", and records the honest conclusion that a stronger affordance was
+   needed and that nothing in the app existed to match against.
+
+   A bottom tab bar answers both halves at once. Seven equal columns fit 390
+   with room to spare once each tab is an icon over a caption rather than a
+   word in a row, nothing scrolls, nothing needs a fade, and the navigation
+   sits where a thumb actually reaches instead of at the far top corner.
+
+   The icons are new markup (one `<i>` and one `<span>` per tab, plus an
+   `aria-label` so the accessible name survives the caption being hidden), and
+   they are **off above 600**: the desktop tab strip is a row of words and
+   stays one, so this costs nothing at any width but this band. */
+.tab-icon {
+  display: none;
+}
+
+@media (max-width: 599.98px) {
+
+  :root {
+    /* A control-height family member, not a spacing step: it is the size of
+       a hit target and must not move with the density setting. 44px of row
+       plus the strip's own padding. */
+    --bottom-tabs-h: 3.6rem;
+    /* The page's own bottom inset has the bar under it now. */
+    --page-viewport: calc(100dvh - var(--header-h) - var(--status-bar-h) - var(--bottom-tabs-h));
+  }
+
+  /* One row again. The tab strip leaves the header entirely in this band, so
+     the wrap that gave it a row of its own has nothing left to wrap. */
+  header#top-bar {
+    flex-wrap: nowrap;
+  }
+
+  #tab-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 45;
+    width: auto;
+    height: var(--bottom-tabs-h);
+    box-sizing: border-box;
+    /* Furniture at the edge of the window is never ambiguous about being
+       furniture: the same opaque treatment the status bar takes, for the
+       same reason its own comment gives. */
+    background: var(--modal-bg);
+    border-top: 1px solid var(--glass-border);
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    border-radius: 0;
+    box-shadow: none;
+    /* Nothing scrolls here any more, and a scroller with seven equal columns
+       would hide the fact that one of them is off screen. */
+    overflow-x: visible;
+    gap: 0;
+    padding: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  #tab-bar button {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    border-radius: 0;
+    /* The active tab is a colour, not a filled pill: a pill in a seven-column
+       strip paints a block the width of a seventh of the window. */
+    background: none;
+  }
+
+  #tab-bar button.active {
+    background: none;
+    color: var(--accent-surface);
+  }
+
+  :root[data-mode="dark"] #tab-bar button.active {
+    color: var(--accent-surface);
+  }
+
+  .tab-icon {
+    display: block;
+    font-size: var(--text-h3);
+    line-height: 1;
+  }
+
+  .tab-label {
+    font-size: var(--text-xs);
+    line-height: 1;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* **The caption goes below 480, and the number is measured, not chosen.**
+   Seven equal columns means each tab gets a seventh of the window. The
+   longest caption, "Dashboard", needs 68px at `--text-xs`; seven of those is
+   476. So above 480 every caption fits whole, and below it at least one is
+   cut. Measured at 390: "Dashboard" wanted 68px in 56 and "Reminders" 60 in
+   56, the only two of the seven that did not fit.
+
+   Cut is the operative word. An ellipsis here would be two captions out of
+   seven reading "Dashboa..." and "Reminde...", and this project has a
+   specific, expensive lesson about that shape: a tab label cut mid-word next
+   to six whole ones reads as broken rather than as abbreviated, and it took
+   a real screenshot at 390 to settle that the last time (BACKLOG.md, the tab
+   strip's edge fade). Seven distinct icons with the name still on the button
+   for assistive tech is the standard bottom-bar pattern and says one thing
+   clearly instead of seven things with two of them damaged.
+
+   A short caption per tab would be better than either, and it is deliberately
+   not invented here: "Dashboard" to "Home" is a copy decision about what the
+   app calls its own landing page, not a layout fix, and this phase does not
+   get to make it alone. Logged in UI_MODERNISATION_PLAN.md's Built section. */
+@media (max-width: 599.98px) {
+
+  /* The bar is `fixed`, so the page has to be told it is there. The status
+     bar is the last flex child of the body and does not shrink, so its own
+     bottom margin is what takes the height out of the scrolling region above
+     it. Nothing else in the shell has to know.
+
+     These two lived in the caption block below for one commit, because the
+     caption rule was written by splitting the phone block in two and they
+     were on the wrong side of the cut. Nothing failed: the bar was still at
+     the bottom and the status bar still rendered, it just rendered *behind*
+     it from 480 to 599. Measured: `margin-bottom` 57.6px at 390 and 0px at
+     520 and 599, from one pair of braces. */
+  #status-bar {
+    margin-bottom: calc(var(--bottom-tabs-h) + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* The sheets stop above the tab bar rather than behind it. */
+  #sidebar,
+  #chat-sidebar,
+  #doc-sidebar {
+    bottom: calc(var(--status-bar-h) + var(--bottom-tabs-h) + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (max-width: 479.98px) {
+  .tab-label {
+    display: none;
+  }
+}
+
+/* --- the primary action floats, where a dock has one ----------------------
+   Three docks in the app have a single filled action, and only three:
+   Graph's "New note", Library's "New document" and Timeline's "Today". On a
+   phone that button is the reason the tab is open, and it was sharing a
+   wrapped control row at the top of the screen with a search box and four
+   utilities.
+
+   Floated bottom-right it is in the same thumb arc as the tab bar, above it,
+   clear of the status bar. No new markup and no new listener: the same button
+   in the same place in the DOM, painted somewhere else, so the dock grammar
+   lint still sees exactly one filled control in the dock and the tab that
+   owns it is the only tab that shows it (a `fixed` child of a `display: none`
+   ancestor renders nowhere).
+
+   Deliberately only these three. A floating button on a surface with no one
+   obvious action is a guess about which action matters, and Notes, Chat and
+   Reminders each have their primary somewhere else entirely: Notes in the
+   capture box, Chat in the composer, Reminders in the magic row. */
+@media (max-width: 599.98px) {
+
+  #graph-add-node,
+  #library-new-doc,
+  #timeline-jump-today {
+    position: fixed;
+    right: var(--page-gutter);
+    bottom: calc(var(--status-bar-h) + var(--bottom-tabs-h) + var(--space-5) + env(safe-area-inset-bottom, 0px));
+    z-index: 44;
+    min-height: var(--target-min);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--shadow-lg);
+    padding-inline: var(--space-6);
+  }
+
+  /* --- one column of full-width cards ------------------------------------
+     The card grids are `column-width` masonry. At 390 that gives two columns
+     of 164px, which is a card too narrow for its own title, and the masonry
+     puts the second column's first card level with the first column's
+     second: a phone reading order that goes down, then up, then down.
+     One column, full width, top to bottom. */
+  .library-grid:not(.library-list) {
+    columns: unset;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  #dash-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+}
+
+/* --- the whiteboard's tools become a bottom strip -------------------------
+   The tool dock is already `bottom-center`, but as a fit-content pill centred
+   over the canvas with a reserve on each side for the zoom cluster. There is
+   no width for a reserve below 820, and the measurement says where it hurts:
+   at 768 the pill was **102px tall**, two rows floating over the middle of
+   the board, against 46px at 1440.
+
+   Edge to edge, one scrolling row, square where it meets the window: the same
+   shape the tab bar takes one strip below it, for the same reason. Applied
+   from 820 down rather than from 600 down, because 768 is where the wrap was
+   measured and a phone-only rule would have left the tablet exactly as it
+   was. */
+@media (max-width: 819.98px) {
+  .whiteboard-floating-panel.bottom-center:not([data-dock="side"]) {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-width: none;
+    margin: 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    justify-content: flex-start;
+  }
+
+  .whiteboard-floating-panel.bottom-center:not([data-dock="side"])::-webkit-scrollbar {
+    display: none;
+  }
+
+  .whiteboard-floating-panel.bottom-center:not([data-dock="side"]) .wb-tool-section,
+  .whiteboard-floating-panel.bottom-center:not([data-dock="side"]) .wb-tool-group {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+  }
+}
+
+/* --- the dashboard's quick actions stop wrapping --------------------------
+   Measured at 390: `.dash-quicklinks` was **459px tall for two children**.
+   Each child is a labelled row of shortcut buttons, and at 390 each row wrapped
+   to four and five lines, so the two groups between them pushed the first
+   dashboard widget to y=877 on an 844px screen. Nothing on the Dashboard was
+   visible without scrolling, and the cause was one flex row allowed to wrap.
+
+   One scrolling row each, the same recipe the Notes and Library strips take
+   at this width, and for the same reason: a row of equal shortcuts is a thing
+   you scan sideways, not a paragraph. */
+@media (max-width: 599.98px) {
+
+  .launch-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .launch-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .launch-row > * {
+    flex: 0 0 auto;
+  }
+}
+
+/* --- the dashboard's greeting banner, on a phone --------------------------
+   Measured at 390: the hero was 148px of the 844, and its three parts are an
+   emblem, a greeting with a sub-line, and a live clock. The clock is the one
+   that does not earn its place here: every phone paints the time at the top
+   of its own screen, permanently, a few pixels above this one. The emblem
+   comes down to the size the top bar uses, where it is the same mark doing
+   the same job.
+
+   The greeting stays. It is the only thing on the page that is addressed to
+   the person reading it, and cutting it to save 40px would be trading the
+   one warm thing on the Dashboard for a third of a card. */
+@media (max-width: 599.98px) {
+
+  .dash-hero .dash-clock {
+    display: none;
+  }
+
+  .dash-hero-emblem {
+    width: var(--control-h-lg);
+    height: var(--control-h-lg);
   }
 }

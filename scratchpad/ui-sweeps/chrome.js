@@ -18,7 +18,12 @@ const WIDTHS = (process.env.WIDTHS || '390').split(',').map(Number);
 // Per tab: the click target, and the first thing on the page that is content
 // rather than furniture. Ordered as the tab bar orders them.
 const TABS = [
+  // Two readings for the Dashboard, because the strict one is unfair to it
+  // and the fair one is easy to hide behind. `dashboard` is the first
+  // configurable widget, the page's own content; `dash-actions` is the first
+  // thing you can press, which is what the greeting banner sits above.
   { tab: 'dashboard', content: '#dash-grid > *' },
+  { tab: 'dashboard', label: 'dash-actions', content: '.dash-quicklinks .quick-link' },
   { tab: 'notes', content: '#entry-list > li' },
   { tab: 'chat', content: '#chat-messages > *, #chat-messages' },
   { tab: 'library', content: '#library-grid > *, #library-grid' },

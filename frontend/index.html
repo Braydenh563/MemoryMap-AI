@@ -2866,86 +2866,79 @@ Link to another note with [[its first few words]]."></textarea>
 
     <div id="library-view-documents" class="library-view-section">
       <section class="card library-controls glass">
-          <div class="row space-between library-head">
-            <h2>Library</h2>
-            <span class="row">
+          <!-- The Library dock (UI_MODERNISATION_PLAN.md Phase 8, surface 2).
+               Measured before: a head row with a filled New document and a
+               refresh, then a toolbar of sixteen controls at three heights —
+               two switches, a segmented sort AND a sort select saying the
+               same thing (the select was `hidden`, and the custom dropdown
+               that dresses every select drew it anyway), a view segment and
+               a page-size select. The four zones every dock shares:
+                 identity — the title
+                 find     — search, then one Filter menu (Semantic, Include bin)
+                 arrange  — one sort select, one view segment
+                 actions  — New document, refresh, more (items per page)
+               The chip row below stays: it is the visible filter. Every id
+               is unchanged, so library.js needs no wiring beyond dropping the
+               segmented sort's own click loop. -->
+          <div class="dock" data-dock-name="library" role="toolbar" aria-label="Library controls">
+            <div class="dock-identity">
+              <h2>Library</h2>
+            </div>
+            <div class="dock-group dock-find">
+              <input id="library-search" type="search" class="library-search"
+                placeholder="Search titles and previews…"
+                aria-label="Search the library">
+              <details class="doc-dock-menu dock-menu" id="library-filter-menu">
+                <summary class="ghost small doc-dock-menu-btn" title="Match by meaning, include the bin"><i class="ph ph-funnel-simple ph-lead" aria-hidden="true"></i> Filter <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
+                <div class="doc-dock-menu-list dock-menu-list">
+                  <label class="dock-menu-check"
+                    title="Also match notes by meaning, not just the words you typed. Documents, chats and images still match on their words.">
+                    <input type="checkbox" id="library-semantic-toggle">
+                    <i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Semantic — match by meaning
+                  </label>
+                  <label class="dock-menu-check" title="Also show things you have thrown away.">
+                    <input type="checkbox" id="library-show-binned" class="accent-check">
+                    <i class="ph ph-trash ph-lead" aria-hidden="true"></i> Include the bin
+                  </label>
+                </div>
+              </details>
+            </div>
+            <div class="dock-group dock-arrange">
+              <select id="library-sort" aria-label="Sort the library" title="Sort the library">
+                <option value="recent">Newest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="az">A–Z</option>
+                <option value="biggest">Biggest first</option>
+              </select>
+              <div class="seg seg-compact library-view" id="library-view" role="group"
+                aria-label="How to show the library">
+                <button class="icon-only" data-library-view="grid" type="button" title="Cards" aria-label="Card view"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
+                <button class="icon-only" data-library-view="list" type="button" title="Rows" aria-label="Rows"><i class="ph ph-list" aria-hidden="true"></i></button>
+              </div>
+            </div>
+            <div class="dock-actions">
               <button id="library-new-doc" class="small" type="button"
                 title="Start a new document"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New document</button>
               <button id="library-refresh" class="ghost small icon-only" type="button"
                 title="Reload the list" aria-label="Reload the list"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
-            </span>
-          </div>
-          <!-- The state of the notebook, as the numbers a management screen opens
-               with. Derived from the same payload the grid renders, so the header
-               and the grid can never disagree. -->
-          <div id="library-overview" class="library-overview" role="group"
-            aria-label="Your notebook at a glance"></div>
-          <div class="library-toolbar">
-            <input id="library-search" type="search" class="library-search"
-              placeholder="Search titles and previews…"
-              aria-label="Search the library">
-            <!-- Meaning-matching for the Library. It applies to notes only,
-                 and the label says so rather than implying more than it does:
-                 notes are the only kind with embeddings, so documents, chats,
-                 images and skills keep matching on their words. See
-                 `librarySemanticIds` in app.js for why that is the honest
-                 shape rather than a limitation to hide. -->
-            <label class="row align-center checkbox-label semantic-toggle"
-              title="Also match notes by meaning, not just the words you typed. Documents, chats and images still match on their words.">
-              <input type="checkbox" id="library-semantic-toggle">
-              <i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Semantic
-            </label>
-            <!-- Binned things are out of "Everything" unless you ask for them:
-                 the Library is where you find what you have, and what you threw
-                 away is not that. The Bin chip still shows them whatever this
-                 says, because pressing a filter called Bin is asking. -->
-            <!-- `checkbox-label` as well, so this is literally the same pill
-                 as Semantic beside it rather than a lookalike: reported as
-                 "add the button pill feature look to the 'Include Bin' toggle
-                 and text in the library as well to be same as the semantic
-                 search". The two sit side by side and do the same kind of job
-                 — one border, one padding, one checked state, one rule. -->
-            <label class="library-sort library-sort-check checkbox-label"
-              title="Also show things you have thrown away.">
-              <input type="checkbox" id="library-show-binned" class="accent-check">
-              <span>Include bin</span>
-            </label>
-            <div class="seg seg-compact library-sort-seg" id="library-sort-seg" role="group" aria-label="Sort the library">
-              <button data-sort="recent" class="active" type="button" title="Newest first">Newest</button>
-              <button data-sort="oldest" type="button" title="Oldest first">Oldest</button>
-              <button data-sort="az" type="button" title="A-Z">A-Z</button>
-              <button data-sort="biggest" type="button" title="Biggest first">Biggest</button>
-            </div>
-            <select id="library-sort" aria-label="Sort the library" title="Sort the library" hidden>
-              <option value="recent">Newest first</option>
-              <option value="oldest">Oldest first</option>
-              <option value="az">A–Z</option>
-              <option value="biggest">Biggest first</option>
-            </select>
-            <!-- Cards to browse, rows to manage. A grid shows you what a thing is;
-                 a list shows you forty of them at once with their metadata in
-                 columns, which is what you want when the job is tidying up. -->
-            <div class="seg seg-compact library-view" id="library-view" role="group"
-              aria-label="How to show the library">
-              <button class="icon-only" data-library-view="grid" type="button" title="Cards" aria-label="Card view"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
-              <button class="icon-only" data-library-view="list" type="button" title="Rows" aria-label="Rows"><i class="ph ph-list" aria-hidden="true"></i></button>
-            </div>
-            <!-- BACKLOG §77's pattern, completing §89 item 1's third and
-                 last surface. "All" already renders through
-                 renderIncrementally (the same chunked-scroll safety Notes'
-                 own "All" keeps) — this sits beside it exactly the way
-                 #notes-page-size sits beside Notes' continuous scroll: All
-                 (the default) keeps chunked scroll untouched; a number
-                 slices the already-filtered/sorted list to one flat page. -->
-            <select id="library-page-size" aria-label="Items per page" title="Items per page">
+              <details class="doc-dock-menu dock-menu dock-more" id="library-more-menu">
+                <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
+                <div class="doc-dock-menu-list dock-menu-list">
+                  <div class="dock-menu-section">
+                    <label class="muted dock-menu-label" for="library-page-size">Items per page</label>
+                    <select id="library-page-size" aria-label="Items per page" title="Items per page">
               <option value="all">All items</option>
               <option value="25">25 per page</option>
               <option value="50">50 per page</option>
               <option value="100">100 per page</option>
             </select>
+                  </div>
+                </div>
+              </details>
+            </div>
           </div>
-          <!-- Filled by renderLibraryFilters: one chip per kind, each with its
-               count, so an empty kind says so before you press it. -->
+          <div id="library-overview" class="library-overview" role="group"
+            aria-label="Your notebook at a glance"></div>
           <div id="library-filters" class="library-filters" role="group"
             aria-label="Filter by kind"></div>
           <!-- Two strips that appear only when they have something to say: the

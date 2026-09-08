@@ -1086,7 +1086,10 @@ async function runLibrarySearch() {
   libraryCurrentPage = 1; // a new search can move an item off whatever page it was on
   renderLibrary();
 }
-$("library-semantic-toggle").addEventListener("change", runLibrarySearch);
+$("library-semantic-toggle").addEventListener("change", () => {
+  syncLibraryFilterButton();
+  runLibrarySearch();
+});
 $("library-search").addEventListener("input", () => {
   clearTimeout(librarySearchDebounceTimeout);
   librarySearchDebounceTimeout = setTimeout(runLibrarySearch, 150);
@@ -1095,18 +1098,17 @@ $("library-sort").addEventListener("change", () => {
   libraryCurrentPage = 1;
   renderLibrary();
 });
-for (const button of document.querySelectorAll("#library-sort-seg button")) {
-  button.addEventListener("click", () => {
-    document.querySelectorAll("#library-sort-seg button").forEach(b => b.classList.remove("active"));
-    button.classList.add("active");
-    const select = $("library-sort");
-    if (select) select.value = button.dataset.sort;
-    libraryCurrentPage = 1;
-    renderLibrary();
-  });
+//: The Filter menu's button says when a filter is on (Phase 8): a menu that
+//: hides "Include bin" must not also hide that the bin is being shown.
+function syncLibraryFilterButton() {
+  const on = Boolean($("library-semantic-toggle")?.checked || $("library-show-binned")?.checked);
+  const summary = document.querySelector("#library-filter-menu > summary");
+  summary?.classList.toggle("is-on", on);
+  summary?.setAttribute("aria-pressed", String(on));
 }
 $("library-show-binned").addEventListener("change", () => {
   libraryCurrentPage = 1;
+  syncLibraryFilterButton();
   renderLibrary();
 });
 for (const button of document.querySelectorAll("#library-view button, #library-boards-view button")) {

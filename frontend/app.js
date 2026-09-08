@@ -12737,7 +12737,20 @@ function syncChatJumpLatest() {
   const button = $("chat-jump-latest");
   const pane = $("chat-messages");
   if (!button || !pane) return;
-  const scrolledAway = pane.dataset.stuck === "0";
+  //: INBOX 34: this used to trust `pane.dataset.stuck`, which only the
+  //: `scroll` listener in `followBottom` ever writes. `newChatConversation`
+  //: clears the pane with `replaceChildren()`, which fires no scroll event,
+  //: so a reader who had scrolled away in the *previous* conversation left
+  //: `dataset.stuck === "0"` behind, and this pill read that stale flag as
+  //: "still scrolled away" on a brand-new, empty transcript with nothing to
+  //: scroll to. Re-derived from the live rect on every call instead, so a
+  //: cleared or shrunk pane can never leave the pill (or, before this
+  //: change, the reused down-arrow, see NO_SCROLL_TOP_TABS) showing for a
+  //: transcript that has nothing left below the fold. Also keeps
+  //: `dataset.stuck` itself current for `keepAtBottom`'s own check.
+  const distance = pane.scrollHeight - pane.scrollTop - pane.clientHeight;
+  const scrolledAway = distance > SCROLL_STICK_SLACK;
+  pane.dataset.stuck = scrolledAway ? "0" : "1";
   const overflowing = pane.scrollHeight - pane.clientHeight > SCROLL_STICK_SLACK;
   button.classList.toggle("hidden", !(scrolledAway && overflowing));
   const streaming = Boolean(chatStreaming);
@@ -17196,6 +17209,16 @@ function newChatConversation() {
   renderChatContextMeter(null);
   renderChatEmptyState();
   loadChatSuggestions();
+  //: INBOX 34: `replaceChildren()` above fires no scroll event, so without
+  //: this the jump-to-latest pill (and, before NO_SCROLL_TOP_TABS below,
+  //: the reused down-arrow button) kept whatever visibility the *previous*
+  //: conversation left them in, both correctly hidden on the tab's own
+  //: first load but stale, and wrongly showing, the moment "+ New" was
+  //: clicked from a conversation you had scrolled away in. Both controls
+  //: re-check the actual (now empty) pane immediately instead of waiting
+  //: for a scroll or resize that a brand-new chat may never get.
+  syncChatJumpLatest();
+  scrollTopUpdate?.();
 }
 
 // Delete the conversation open in the main pane, saved or not.
@@ -23469,7 +23492,19 @@ function scrollPageToTop() {
 // Library tab (Documents/AI Skills/Whiteboards/Image Gallery) turned out to
 // have the identical shape and was still missing it. One lookup table, one
 // target per tab, rather than a growing pile of hardcoded special cases.
-const NO_SCROLL_TOP_TABS = new Set(["graph"]);
+//
+// **Chat is excluded too, but for the opposite reason (INBOX 34).** This
+// button used to flip into a "jump to the newest message" arrow there,
+// reading the same distance-from-bottom `#chat-jump-latest` (the pill
+// above the composer) already does. Reported and reproduced: both showed
+// at once on a brand-new chat with nothing to scroll, because starting one
+// clears `#chat-messages` without firing the scroll/resize event this
+// button's own `update()` waits for, leaving whichever state the *previous*
+// conversation left it in. Decision: one control in chat, the pill (it is
+// already wired to `syncChatJumpLatest`, called right after that clear);
+// this button simply never shows there any more rather than needing to be
+// kept in sync with a second copy of the same "scrolled away" logic.
+const NO_SCROLL_TOP_TABS = new Set(["graph", "chat"]);
 const NESTED_SCROLL_TABS = {
   chat: () => chatMessagesEl(),
   notes: () => document.querySelector("#tab-notes .layout > main"),

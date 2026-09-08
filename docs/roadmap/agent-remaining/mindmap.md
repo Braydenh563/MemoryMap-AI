@@ -83,15 +83,16 @@ each gated by its own sweep, in the plan's order.
   correct throughout; a reload inside those 2.8s would see some nodes at
   their old places. A bulk move endpoint, or bounded concurrency here, is
   the fix if it ever matters.
-- **The server stopped answering once**, during a sweep on a data dir that
-  already held ~500 objects and a 200-node map, with the Library gallery
-  open: no request logged after `GET /whiteboard/boards`, and a plain `GET
-  /` timed out. It did not reproduce after a restart on the same data dir
-  (every endpoint that gallery uses answered in under 60ms, including
-  `/whiteboard/boards/{id}/tree` on the 200-node map), and three other
-  agents' servers were on the box at the time. Recorded rather than
-  diagnosed: if a sweep hangs with the boards list open, this is the thing
-  it is.
+- **A sweep can stall for minutes with the server answering nothing, and it
+  is the embedding pass, not a hang.** Seen twice while running these
+  sweeps beside two other agents' full test suites on a four-core box: no
+  request logged for minutes, `GET /` timing out, the uvicorn process in
+  `R` state. The server log says what it is doing, between the request
+  lines: `Batches:   0%|          | 0/1 [00:00<?, ?it/s]`, the local
+  embedding model indexing the notes the sweep just created. It answers
+  again when that finishes. Worth knowing before anyone spends an hour on
+  it: check the server log for `Batches:` first, and run a sweep when the
+  box is not already running two suites.
 
 ## What could not be verified
 

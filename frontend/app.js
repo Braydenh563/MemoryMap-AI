@@ -1278,10 +1278,23 @@ function promptDialog(message, initial = "", { confirmLabel = "Save", segment = 
     overlay.setAttribute("aria-modal", "true");
 
     const card = document.createElement("div");
-    card.className = "card modal-card confirm-card";
-    const text = document.createElement("p");
-    text.className = "confirm-text";
+    card.className = "card modal-card confirm-card prompt-card";
+    //: **A title row, not a sentence above a field.** Reported as one of two
+    //: dialogs off the modal recipe: this card's first child was a `<p>`, so
+    //: the "New board" dialog had no heading at all while every other dialog
+    //: in the app leads with one. Every `promptDialog` message is a short
+    //: prompt ("Name the new board:", "Rename this chat:", "Tag to add to the
+    //: selected notes:"), which is a title, so all twenty-odd callers are
+    //: right to promote it rather than only this one.
+    //:
+    //: `confirmDialog`'s message stays a `<p>`: that one really is a
+    //: sentence, often two, and a question is body copy.
+    const head = document.createElement("div");
+    head.className = "row confirm-head";
+    const text = document.createElement("h3");
+    text.className = "confirm-title";
     text.textContent = message;
+    head.appendChild(text);
     const input = document.createElement("input");
     input.type = "text";
     input.value = initial;
@@ -1366,7 +1379,7 @@ function promptDialog(message, initial = "", { confirmLabel = "Save", segment = 
       smallButton("Cancel", "Cancel", () => close("")),
       smallButton(confirmLabel, confirmLabel, () => close(input.value.trim()), false)
     );
-    card.append(text, input);
+    card.append(head, input);
     if (segRow) card.append(segRow);
     card.append(row);
     overlay.appendChild(card);

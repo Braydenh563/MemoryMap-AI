@@ -1308,19 +1308,21 @@ function dashWidgetRow(name, layout, position = null) {
   }
   row.appendChild(main);
 
+  //: **One toggle and one icon cluster, not four boxes.** Reported as one of
+  //: two dialogs that are off the modal recipe. Measured before this, on a
+  //: dialog listing twenty-four widgets: four controls a row, every one of
+  //: them drawing its own resting tint, so the picker rendered 96 tinted
+  //: boxes and read as a wall of buttons rather than as a list of widgets.
+  //: That is the "everything is a button" complaint in one surface.
+  //:
+  //: The shape now: "Wide" stays a labelled toggle, because it is a property
+  //: of the widget and its state has to be readable without hovering, and the
+  //: three verbs (up, down, add/remove) become one icon cluster at the row's
+  //: end. Add/remove loses its word and keeps its name: `smallButton` puts the
+  //: title on `aria-label`, so it is still announced, and the icon already
+  //: carries the meaning (plus against x) that the word repeated.
   const controls = document.createElement("div");
   controls.className = "dash-widget-row-controls entry-actions";
-  if (!hidden && position) {
-    //: Only where they can do something: the first row's "up" and the last
-    //: row's "down" are disabled rather than absent, so the control cluster
-    //: keeps one width and the rows stay aligned down the list.
-    const up = smallButton("ph:arrow-up", "Move up", () => moveDashWidget(name, -1));
-    up.disabled = position.index === 0;
-    const down = smallButton("ph:arrow-down", "Move down", () => moveDashWidget(name, 1));
-    down.disabled = position.index === position.total - 1;
-    for (const button of [up, down]) button.classList.add("icon-button");
-    controls.append(up, down);
-  }
   if (!hidden) {
     controls.appendChild(
       dashWidgetToggle(
@@ -1335,8 +1337,21 @@ function dashWidgetRow(name, layout, position = null) {
       ),
     );
   }
+  const cluster = document.createElement("div");
+  cluster.className = "dash-widget-row-cluster";
+  if (!hidden && position) {
+    //: Only where they can do something: the first row's "up" and the last
+    //: row's "down" are disabled rather than absent, so the control cluster
+    //: keeps one width and the rows stay aligned down the list.
+    const up = smallButton("ph:arrow-up", "Move up", () => moveDashWidget(name, -1));
+    up.disabled = position.index === 0;
+    const down = smallButton("ph:arrow-down", "Move down", () => moveDashWidget(name, 1));
+    down.disabled = position.index === position.total - 1;
+    for (const button of [up, down]) button.classList.add("icon-button");
+    cluster.append(up, down);
+  }
   const onOff = smallButton(
-    hidden ? "ph:plus Add" : "ph:x Remove",
+    hidden ? "ph:plus" : "ph:x",
     hidden ? "Add this widget to the dashboard" : "Remove this widget from the dashboard",
     async () => {
       await toggleDashWidgetHidden(name);
@@ -1344,10 +1359,12 @@ function dashWidgetRow(name, layout, position = null) {
       renderDashWidgetsList($("dash-widgets-search").value);
     },
   );
+  onOff.classList.add("icon-button");
   //: The one row that takes something away says so in the app's own danger
   //: colour, rather than looking like the reversible toggle beside it.
   if (!hidden) onOff.classList.add("danger");
-  controls.appendChild(onOff);
+  cluster.appendChild(onOff);
+  controls.appendChild(cluster);
   row.appendChild(controls);
   return row;
 }

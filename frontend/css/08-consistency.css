@@ -1360,3 +1360,155 @@ summary > .ph-lead,
 #settings-modal .settings-section > .row > h3 {
   padding-left: calc(1rem + 1px);
 }
+
+/* ---------------------------------------------------------------------------
+   The two dialogs reported as off the modal recipe
+
+   The recipe, from the contract: a title row, a body, a footer whose last
+   control is the surface's one primary, and one control height throughout.
+   Measured before this with `scratchpad/ui-sweeps/dialogs.js`:
+
+     new board      no heading at all; children were p, input, seg, actions;
+                    button heights 27.2 and 28
+     widgets        heading present but at the same level as the body, so it
+                    scrolled with the list; 98 buttons at two heights; four
+                    controls a row, every one drawing its own resting tint,
+                    which is 96 tinted boxes in one dialog
+
+   Neither dialog had a true accent primary loose in its body, which is worth
+   saying because the first pass of the sweep claimed both did: it counted any
+   non-transparent fill, and a ghost button at rest has one. The defect is the
+   number of tinted boxes and the number of heights, not a stray primary.
+--------------------------------------------------------------------------- */
+
+/* The prompt dialog's title row. `promptDialog` now emits an h3 rather than a
+   paragraph (app.js says why); this gives it the heading's own size and takes
+   the paragraph margin off. */
+.confirm-card .confirm-head {
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.confirm-card .confirm-title {
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+/* One control height in a dialog, the same one the bars use. The footer's two
+   buttons measured 28px and the kind segment 27.2px, three sizes for controls
+   sitting 16px apart. `--control-h-lg` and not `--control-h`, for the reason
+   the menu recipe above gives at length: `--control-h` has no root value and a
+   dialog is exactly the kind of surface that can open anywhere. */
+.confirm-card .confirm-actions > button,
+.confirm-card > input,
+.confirm-card .seg > button {
+  height: var(--control-h-lg);
+  min-height: var(--control-h-lg);
+}
+
+/* The widgets dialog: head and foot hold still, the body is the only thing
+   that scrolls. Without this the heading and the filter field scrolled away
+   with the twenty-four rows they are there to control. */
+.dash-widgets-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  max-height: 85vh;
+}
+
+.dash-widgets-dialog > .modal-head,
+.dash-widgets-dialog > .modal-foot {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.dash-widgets-dialog > .modal-head h3 {
+  margin: 0;
+}
+
+.dash-widgets-dialog > .modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* A widget row is a name and its controls, not five boxes. The three verbs
+   are one cluster at the row's end; "Wide" keeps its word because its state
+   has to be readable without hovering. Quiet at rest, tint under the pointer,
+   which is the icon recipe and the same move the docks made. */
+.dash-widget-row-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-4);
+}
+
+.dash-widget-row-cluster {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.dash-widget-row-controls button {
+  height: var(--control-h-lg);
+  min-height: var(--control-h-lg);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  box-shadow: none;
+}
+
+.dash-widget-row-cluster button {
+  width: var(--control-h-lg);
+}
+
+.dash-widget-row-controls button:hover:not(:disabled),
+.dash-widget-row-controls button:focus-visible {
+  background: var(--ghost-btn-bg);
+}
+
+/* Remove keeps the danger colour on its glyph and loses the resting tint that
+   came with it. The controls container also carries `.entry-actions`, so
+   `.entry-actions button.danger` (0,2,1) outranked the quiet rule above
+   (0,1,1) and the one destructive icon in each of twenty-four rows kept a red
+   box at rest: measured rgba(248,113,113,0.16) after the other three had gone
+   quiet, which is the "which of these is the loud one" problem inverted. The
+   tint is a hover state, and the ink says danger the rest of the time. */
+.dash-widget-row-controls button.danger,
+.entry-actions.dash-widget-row-controls button.danger {
+  background: none;
+  color: var(--error);
+}
+
+.dash-widget-row-controls button.danger:hover:not(:disabled),
+.dash-widget-row-controls button.danger:focus-visible,
+.entry-actions.dash-widget-row-controls button.danger:hover:not(:disabled),
+.entry-actions.dash-widget-row-controls button.danger:focus-visible {
+  background: var(--error-soft);
+}
+
+/* On, and only on: the toggle's state is the one fill in the row. */
+.dash-widget-row-controls button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Every control in the dialog on one height, not only the ones in a row. The
+   sweep found two left behind by a narrower rule: "Reset layout" in the
+   summary line at 28px and the footer's own "Done" at 40px, in a dialog whose
+   other 96 controls were 36. */
+.dash-widgets-dialog #dash-widgets-search,
+.dash-widgets-dialog button {
+  height: var(--control-h-lg);
+  min-height: var(--control-h-lg);
+}
+
+.dash-widgets-dialog #dash-widgets-search {
+  margin: 0;
+}

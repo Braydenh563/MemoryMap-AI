@@ -472,13 +472,25 @@
   <!-- Widget picker (roadmap §26): a dedicated surface for the same
        dashboard_layout preference the inline "Edit layout" mode writes.
        Rows are built by renderDashWidgetsList() in app.js. -->
+  <!-- **Title row, body, footer**, the shape every other dialog in the app
+       has, reported as one of two that did not. Before, this card's children
+       were a heading, a paragraph, a search field, the list and an action row,
+       all at one level, so the heading and the filter scrolled with the
+       twenty-four rows they were meant to sit above. The three parts are
+       `.modal-head`, `.modal-body` and `.modal-foot` here rather than the
+       generic `.row`s, because a dialog with a scrolling body needs its head
+       and foot pinned and its middle to be the only thing that moves. -->
   <dialog id="dash-widgets-dialog" class="card space-dialog dash-widgets-dialog">
-    <h3>Widgets</h3>
-    <p class="muted">Add, remove or widen any dashboard widget. Changes save right away.</p>
-    <input type="search" id="dash-widgets-search" placeholder="Filter widgets…" autocomplete="off">
-    <div id="dash-widgets-list" class="dash-widgets-list"></div>
-    <div class="row right space-dialog-actions">
-      <button type="button" class="ghost" data-close-dialog="dash-widgets-dialog">Done</button>
+    <div class="modal-head row space-between">
+      <h3>Widgets</h3>
+    </div>
+    <div class="modal-body">
+      <p class="muted">Add, remove or widen any dashboard widget. Changes save right away.</p>
+      <input type="search" id="dash-widgets-search" placeholder="Filter widgets…" autocomplete="off">
+      <div id="dash-widgets-list" class="dash-widgets-list"></div>
+    </div>
+    <div class="modal-foot row right space-dialog-actions">
+      <button type="button" data-close-dialog="dash-widgets-dialog">Done</button>
     </div>
   </dialog>
 

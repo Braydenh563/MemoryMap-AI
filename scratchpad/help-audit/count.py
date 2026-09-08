@@ -83,18 +83,23 @@ class P(HTMLParser):
 
 
 def main(path):
-    src = open(path, encoding="utf-8").read()
+    with open(path, encoding="utf-8") as fh:
+        src = fh.read()
     # Blank comments, scripts and styles with a linear scan rather than a
     # lazy `.*?` regex: on a file with an unterminated opener the regex
     # rescans to the end from every candidate (CodeQL flags it as polynomial).
     def blank_between(text, opener, closer):
+        # Search a lower-cased copy so <SCRIPT> and <Style> are blanked too
+        # (CodeQL's "bad HTML filtering regexp" was about exactly that);
+        # slices come from the original so nothing else changes case.
+        haystack = text.lower()
         out, pos = [], 0
         while True:
-            start = text.find(opener, pos)
+            start = haystack.find(opener, pos)
             if start < 0:
                 out.append(text[pos:])
                 return "".join(out)
-            end = text.find(closer, start + len(opener))
+            end = haystack.find(closer, start + len(opener))
             if end < 0:
                 out.append(text[pos:])
                 return "".join(out)

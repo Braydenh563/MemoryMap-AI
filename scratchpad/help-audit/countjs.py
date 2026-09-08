@@ -31,7 +31,8 @@ def visible(raw):
 def main(paths):
     total = 0
     for path in paths:
-        lines = open(path, encoding="utf-8").read().split("\n")
+        with open(path, encoding="utf-8") as fh:
+            lines = fh.read().split("\n")
         for i, line in enumerate(lines):
             m = CLASSNAME.search(line)
             if not m:

@@ -113,3 +113,32 @@ def openai_client():
     c._catalog = []
     c._context_lengths = {"m": 8192}
     return c
+
+
+# --- no test may run pip ------------------------------------------------------
+#
+# The suite once installed torch. `EmbeddingService` auto-installs the
+# "semantic" extra when the sentence-transformers backend is selected and the
+# import fails, and one test reached that path with a real thread: the full
+# run then carried a live `pip install sentence-transformers` for twenty
+# minutes, `/debug/health` reported it as a running job (which failed
+# test_debug_health), and the sandbox venv grew by 700 MB of packages
+# CLAUDE.md says never to install. Every test that means to exercise the
+# installer already fakes `extras.subprocess.Popen` itself (a monkeypatch
+# inside the test overrides this one); everything else gets a Popen that
+# refuses, so an accidental install is a loud failure instead of a silent
+# download.
+
+
+@pytest.fixture(autouse=True)
+def _no_test_runs_pip(monkeypatch):
+    from memorymap.core import extras
+
+    def refuse(*args, **kwargs):
+        raise RuntimeError(
+            "a test reached the real installer; fake extras.subprocess.Popen "
+            "or extras.start in the test (see conftest._no_test_runs_pip)"
+        )
+
+    monkeypatch.setattr(extras.subprocess, "Popen", refuse)
+    yield

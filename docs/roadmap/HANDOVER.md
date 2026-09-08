@@ -1,3 +1,100 @@
+# HANDOVER
+
+## 2026-09-08, the third night: read this block first, whoever you are
+
+**If you are the Opus continuation of the Fable session** (same session,
+same branch, the owner's Fable window closed): the standard is the one
+in `SESSION_BRIEFS.md` §0 and it does not drop. Measure before claiming,
+tests first, one commit per step, push after every merged batch, no
+em-dashes, report in five lines. When unsure, the decision is already
+written in `WORLD_CLASS_PLAN.md` or a plan file; find it, do not remake
+it.
+
+### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
+
+- CI, ruff and CodeQL green as of `315825a`; the merge commit `dca50c6`
+  (six agents' work) is pushed and its checks are running.
+- Merged this night: the hero restored and refined; the primary start
+  tile tinted; arrow keys on every tablist; the Files reading shown in
+  full in place; sidebar toggle centred; the `data-help-for` popover
+  wiring and the Model backend section; the timeline audit scripts and
+  numbers; and the six agents' committed work below.
+- New plan files: `WORLD_CLASS_PLAN.md` (start there), `SESSION_BRIEFS.md`
+  (one brief per session). `ROADMAP.md` opens with the table that says
+  which of the fifteen roadmap files are live.
+
+### The agents (worktrees under `.claude/worktrees/agent-<id>`)
+
+Each is cut from main and merged with the branch; each has its own
+server port and data dir. Their committed heads are merged as of
+`dca50c6`; anything they commit after that is merged with
+`git merge worktree-agent-<id>`, then the lints, then push. If one is
+dead (usage limit, container restart), its worktree keeps its commits:
+merge those and re-brief the rest from its brief.
+
+| Worktree id | Brief | Port | State at hand-off |
+| --- | --- | --- | --- |
+| `a9ca1fcf2f7eb318b` | Phase 8 docks: Chat, Dashboard, Library sub-tabs | 8799 | 7 commits merged; finishing |
+| `a7b3e667c203e7caf` | Documents Phase 0 | 8800 | **Done**, 8 commits merged; editor.js sweep 89/89; six bugs found by measuring (report in its transcript) |
+| `a1fb06af7bc117427` | Phase 9 responsive by device | 8801 | 5 commits merged (one column below 820, sidebars as sheets); working |
+| `a97f8374639e599f8` | Graph Phase 1 canvas renderer | 8802 | 3 commits merged (worker, fixture, Canvas 2D renderer); working |
+| `a01201cb4507e3030` | Menus, summaries, one-bar docks, icon alignment, footers, toggle rows, meta chips (`08-consistency.css`) | 8815 | 3 commits merged; working |
+| `a12f6d594c4b9c730` | Mindmap bugs (selection box, text selection, map-as-note, node picker, dangling edges), previews, boards widget, Phases 4 to 5 | 8816 | 2 commits merged (a map is no longer a note); working |
+| `abcdedfb8d9f9f2bf` | Timeline redesign | 8817 | **Paused** to save usage after the audit; resume with SESSION_BRIEFS Brief 5 |
+| `a228ba0fe38c417dc` | Paragraphs to '?' popovers | 8818 | **Paused**; 54 paragraphs left; resume with Brief 4 |
+
+### Merge recipe (every time, no shortcuts)
+
+1. `git merge --no-edit worktree-agent-<id>`; on a conflict in
+   `07-whiteboard-misc.css` keep BOTH sides (both append), then run
+   `tests/test_css_braces.py`: the last merge left one block unclosed and
+   only that test saw it.
+2. `for f in frontend/*.js; do node --check $f; done`, `.venv/bin/ruff check .`,
+   the lint set in `SESSION_BRIEFS.md` §0 step 6.
+3. Restart the 8781 server (`setsid`, never `pkill`), run
+   `scratchpad/ui-sweeps/errors.js` (takes over two minutes: run it in
+   the background) and the sweep the brief names.
+4. Commit the merge, push, read the CI result when it arrives; CodeQL
+   comments are bug reports: fix, push, resolve the thread.
+
+### The owner's flagged list, and where each stands
+
+- Em-dashes everywhere: sweep script ready (`scratchpad/emdash.py`), run
+  it LAST, after every agent has merged (Brief 1). Not run yet.
+- Paragraphs to '?' buttons: wiring merged; 54 left (Brief 4).
+- Sub-tab arrow keys: done. Sub-tabs stay left-aligned (decision).
+- Mindmap: selection box, text selection, "test" map as a note (fixed),
+  node picker rows, dangling edge: with the mindmap agent.
+- Line numbers drifting: fixed (Documents Phase 0, measured 0.0px).
+- Docks as one bar, menus not stacks of buttons, icon alignment, capture
+  footer with the FAB over Save, toggle rows, meta chips: with the menus
+  agent.
+- Timeline line and table views: audited, paused (Brief 5).
+- Responsive by device: with the Phase 9 agent.
+- Graph fullscreen square corners: with the graph agent (Phase 2 item).
+- Files reading only first line: done.
+- New note tile colours: done. Hero: restored and refined (owner's call).
+- Sidebar toggle clash when collapsed: done.
+- llama.cpp in the project: no; dev-only script planned (WORLD_CLASS §9).
+
+### After the agents: the order
+
+`SESSION_BRIEFS.md` Briefs 1 to 14 in order. Brief 1 (the em-dash sweep)
+only after every agent above has merged, or their diffs conflict on every
+line that carried a dash.
+
+### Traps found this night
+
+- A merge of two appended CSS sections can drop a `}`; the braces test is
+  the only guard.
+- `kill $(pgrep ...)` in the same shell line as a `setsid` start kills the
+  shell; separate the commands.
+- The Bash tool times out at 120s; `errors.js` needs the background flag.
+- CodeQL reads `scratchpad/` too: lazy `.*?` regexes over argv paths,
+  unclosed `open()`, and case-sensitive tag filters were all flagged there.
+
+---
+
 # Handover
 
 **Next: [`PLAN.md`](PLAN.md)** — the scoped professional-grade plan (whiteboard, documents, backend, agent harness, performance), in ship order with measurements. Written by direct instruction; start there.

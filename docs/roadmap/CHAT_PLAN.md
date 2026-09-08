@@ -162,3 +162,44 @@ Threshold values for "supported" need the fixtures; passage highlighting
 on notes with images; behaviour with a 1B model (it may not follow the
 citation format at all, in which case marks come only from grounding,
 which is the design anyway).
+
+## 8. Research: what the reference products actually do, and what it changes here
+
+Written from working knowledge of the products as of 2026, not from a
+live teardown in this sandbox; where a claim matters to a decision, the
+session that builds the phase should confirm it in the product first.
+
+- **Perplexity** puts numbered marks inline at sentence ends, renders the
+  source list as a horizontal strip of small cards above the answer (not a
+  grid below it), shows "N sources" as a count you can expand, and offers
+  follow-up questions as the primary next action. Its marks come from the
+  model being asked to cite by number over a numbered context; the marks
+  are therefore only as honest as the model. Implication: decision 2
+  (grounding computed by us, by passage) is stronger than Perplexity's
+  own mechanism for a small local model, and the strip-above-answer layout
+  is worth copying for the sources disclosure (decision 4) because it
+  keeps sources visible without a second page.
+- **NotebookLM** cites by passage with an inline chip that opens the exact
+  passage in the source pane; it refuses ("not in your sources") when the
+  answer is not grounded. Implication: the hover-highlights-the-passage
+  behaviour and the designed "I don't know" state are table stakes, not
+  extras; the threshold in decision 2 should be calibrated so that
+  refusal happens *before* a fabricated sentence, erring towards refusal.
+- **ChatGPT, Claude.ai** composers: one field, a "+" for attachments and
+  tools, a mode toggle, a send button; nothing else on the bar. Implication:
+  decision 5 is the industry shape; the two-row composer is the outlier.
+- **Obsidian Copilot, Smart Connections** (local-model chat over a vault)
+  show the notes used as a list of links under the answer and let a note
+  be inserted as `[[link]]`. Implication: the "Add answer to note with
+  citations" action (§114 F2-4) belongs on the answer's action strip.
+- **Raycast AI, Spotlight-style agents** win on quick actions because
+  each starter is a verb with a slot ("Remind me to ___"), not a full
+  sentence, and the panel remembers the last three used. Implication:
+  decision 9's twelve starters should be verb-plus-slot chips, with the
+  three most recent first.
+- **Small-model reality**: a 3B model asked to cite by number over 17
+  sources will drop marks or invent numbers; the eval fixtures must
+  include this case so decision 2's grounding, not the model's marks, is
+  what the UI trusts. Decision 10's "loop until the contract is met" is
+  how Claude Code and similar harnesses behave; the missing piece in
+  `skill_runner` today is paging inside the step.

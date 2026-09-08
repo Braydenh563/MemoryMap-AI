@@ -139,3 +139,27 @@ The density scrubber's usefulness under 200 notes (it may read as noise
 and should hide below a threshold measured then); the "auto" scale
 thresholds are a first guess to be tuned on a real notebook; the table's
 column set on a tablet needs a measurement at 820.
+
+## 8. Research: what the reference products do, and what it changes here
+
+Written from working knowledge of the products, not a live teardown.
+
+- **Apple Photos** and **Google Photos** solve "a lot of items over time"
+  with a zoomable scale (years, months, days, all) and a scrubber at the
+  edge showing months; density changes the tile size, not the layout.
+  Implication: decisions 4 and 7 come from here; the "auto" scale should
+  also respond to pinch or Ctrl+wheel.
+- **Notion's timeline view** is a Gantt chart of date ranges, not a feed;
+  the table view beside it is what people actually use for dated
+  records. Implication: the table (decision 6) matters more than a Gantt;
+  notes with date ranges (EntryDate) could later render as spans in the
+  line view but that is not Phase 1 to 4.
+- **Linear's activity feed, GitHub's timeline**: a vertical spine with
+  sticky date headers, compact rows, kind icons on the spine. Implication:
+  decision 3's shape.
+- **Obsidian daily notes and the Calendar plugin**: the day is the unit;
+  a heatmap of writing density per day is the overview. Implication: the
+  density scrubber (decision 7) and the daily-note row (Phase 4).
+- **Day One** (the journaling app closest to "what was I doing then"):
+  a feed with a calendar and a "On this day" surface. Implication: an
+  "On this day" chip in the dock is a cheap Phase 4 addition.

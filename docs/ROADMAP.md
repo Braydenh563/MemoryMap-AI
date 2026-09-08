@@ -33,6 +33,20 @@ now says so in its first line.
 | [roadmap/CHAT_PLAN.md](roadmap/CHAT_PLAN.md) | Checkable answers, one composer, Ask unified, the popup agent, skills that finish; Phases 1 to 4. |
 | [roadmap/AGENT_SKILLS_REFORM.md](roadmap/AGENT_SKILLS_REFORM.md) | Phase D (recovery) and the verifier in WORLD_CLASS_PLAN §4 B5. |
 
+**How far each plan actually is (honest, as of 2026-09-08 late):**
+
+| Plan | Done | Left |
+| --- | --- | --- |
+| UI_MODERNISATION_PLAN | Phases 0 to 8 built; Phase 9 bands 1 to 4 | Phase 9 items in `agent-remaining/responsive.md`; the one-bar and alignment items in `agent-remaining/consistency.md` and `docks.md` |
+| AGENT_SKILLS_REFORM | Phases A to C | Phase D (recovery); the verifier and paging-inside-a-step (CHAT_PLAN Phase 4, Brief 13) |
+| MINDMAP_PLAN | Phases 1 to 3, five bug fixes | Phases 4 to 5; previews; root placement and edge-follow regressions (`agent-remaining/mindmap.md`) |
+| DOCUMENTS_PLAN | Phase 0 | Phases 1 to 7 |
+| GRAPH_PLAN | Phase 1 (canvas, worker, drag; SVG behind a flag) | Phases 2 to 5 |
+| TIMELINE_PLAN | audit and plan only | Phases 1 to 4 |
+| WHITEBOARD_PLAN | plan only | Phases 1 to 4 |
+| CHAT_PLAN | plan only | Phases 1 to 4 |
+| WORLD_CLASS_PLAN / SESSION_BRIEFS | Brief 1; parts of 3 and 10 | Briefs 2 to 15 |
+
 | Reference (look things up, do not start from) | |
 | --- | --- |
 | [roadmap/HANDOVER.md](roadmap/HANDOVER.md) | The last session's state. **Overgrown (12k lines); the first Sonnet session condenses it to under 300 with the rest appended to HISTORY.md.** |

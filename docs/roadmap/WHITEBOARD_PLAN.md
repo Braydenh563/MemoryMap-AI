@@ -150,3 +150,38 @@ are the one menu recipe; dialogs the modal recipe; keys in KEYMAP.
 Touch: the rail's long-press flyout on a tablet; pen pressure for the
 marker; whether the context bar should pin to the top of the canvas on a
 phone instead of floating (measure both at 390).
+
+## 8. Research: tldraw, Excalidraw, Miro, FigJam, and what it changes here
+
+Written from working knowledge of the products, not a live teardown;
+confirm in the product before building the phase where it matters.
+
+- **tldraw** (MIT-licensed core, the strongest reference for a web
+  canvas): one vertical or bottom tool rail of ghost buttons with a
+  single active state; a *style panel* that shows only the properties
+  the selection can take (colour, fill, dash, size, font, align) and
+  collapses to an icon when nothing is selected; selection handles are
+  identical for every shape; arrows bind to shapes and re-route; keys
+  V H D X R O A L T N F E, with the key shown in each tooltip. Implication:
+  decisions 1, 2, 6 and 8 are tldraw's shape almost exactly, which is a
+  good sign, and tldraw's style panel confirms that "only what applies"
+  is the right rule for the context bar.
+- **Excalidraw** puts the property panel at the left as a stacked card
+  and the tool rail at the top; its export dialog is exactly a scope
+  toggle (selection / whole) plus format buttons with a preview.
+  Implication: decision 4's dialog should include a live preview
+  thumbnail; it costs one `toBlob` and prevents the "which scope did I
+  pick" mistake.
+- **Miro** and **FigJam** show a *contextual toolbar* floating above the
+  selection for the common properties and put the long tail in a side
+  panel. Implication: the "..." popover in decision 2 is the same split;
+  keep the bar to at most seven controls and measure it.
+- **Highlighter**: FigJam and Apple Freeform draw highlighter strokes
+  with multiply blending and a fixed wide nib, straight with Shift.
+  Implication: decision 7 is the norm.
+- **Mind map tools** (XMind, Coggle): the root is created centred and
+  selected in edit mode; child nodes are created on Tab at the parent's
+  side and the layout re-flows; edges are part of the node model, not
+  separate objects. Implication: decision 9, and MINDMAP_PLAN Phases 4 to
+  5 should treat edges as derived from the tree, never as objects that
+  can detach.

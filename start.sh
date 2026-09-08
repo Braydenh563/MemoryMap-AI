@@ -477,10 +477,15 @@ mm_port_is_memorymap() {
   return 1
 }
 
+# $2 names what to open it with, for the machine that has neither `open` nor
+# `xdg-open` and gets told to do it by hand. It exists because this function
+# has two callers and they open different kinds of thing: telling someone to
+# open their launcher log folder "in your browser" is the sort of line that
+# makes a reader doubt the rest of the message.
 mm_open_url() {
   if command -v open >/dev/null 2>&1; then open "$1" >/dev/null 2>&1 || true
   elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$1" >/dev/null 2>&1 || true
-  else echo "        Open $1 in your browser."
+  else echo "        Open $1 in your ${2:-browser}."
   fi
 }
 
@@ -663,7 +668,7 @@ fi
 if [ "$MM_ACTION" = "logs" ]; then
   mkdir -p "$MM_LOG_DIR" 2>/dev/null || true
   echo "Launcher logs: $(cd "$MM_LOG_DIR" 2>/dev/null && pwd || echo "$MM_LOG_DIR")"
-  mm_open_url "$MM_LOG_DIR"
+  mm_open_url "$MM_LOG_DIR" "file manager"
   exit 0
 fi
 

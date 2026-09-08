@@ -456,18 +456,47 @@ named beside it in HANDOVER's completion table.
 
 ### Found by an agent while measuring something else (2026-09-08, graph)
 
-46. **Every off switch in the app has no track fill, app-wide.** The pill
-    toggle's rule (`06-timeline-dialogs.css`, the long comment beginning "An
-    off switch has to look like a switch") sets `background: color-mix(in
+46. **(fixed) Every off switch in the app has no track fill, app-wide.** The
+    pill toggle's rule (`06-timeline-dialogs.css`, the long comment beginning
+    "An off switch has to look like a switch") set `background: color-mix(in
     srgb, var(--ink) 12%, var(--page))`, and `--page` is a
-    `linear-gradient(...)`, not a colour, so the `color-mix` is invalid where
-    it is used and the declaration is dropped: measured on the Graph's
-    Similarity switch and the Chat dock's Tools switch, both
+    `linear-gradient(...)`, not a colour, so the `color-mix` was invalid
+    where it was used and the declaration was dropped: measured on the
+    Graph's Similarity switch and the Chat dock's Tools switch, both
     `rgba(0, 0, 0, 0)`. An off switch is still an outlined pill with a knob
-    (the `--muted` border survives), so this is the third round of a bug that
-    was reported twice, not a new blank gap. Fix: mix against a real colour
-    (`--card`, or a `--page-solid` token if one is wanted), then re-measure
-    both surfaces. Owner: consistency.md; one commit, one CSS rule.
+    (the `--muted` border survives), so this was the third round of a bug
+    that was reported twice, not a new blank gap. Fixed by mixing against
+    `--card` (the pane these controls actually sit in, per DESIGN.md)
+    instead. `scratchpad/ui-sweeps/switches.js` swept every selector the
+    rule targets, off-state only, both themes: 17 groups, all
+    `rgba(0, 0, 0, 0)` before (the graph options panel's five toggles, the
+    chat dock's `#tools-toggle` shown and as-shipped-hidden, and eight
+    Settings-section switches); all resolve to a real ~60%-alpha fill in
+    both themes after, none transparent. Owner: consistency.md.
+
+47. **Notes (10) and Library (9) still count over the seven-control
+    ceiling** (`scratchpad/ui-sweeps/docks.js`), same as Graph did before
+    this batch. Graph's fix (moving `#graph-view-picker` into its More menu)
+    is not a decision this item can reuse for these two: graph.md section 3
+    named its own two candidates for graph specifically, and named nothing
+    for Notes or Library beyond the counts, so guessing which of their
+    controls moves where is a design call, not a mechanical one (CLAUDE.md
+    §2 rule 3 -- a missing decision is recorded, not remade). Both docks'
+    inflated counts are partly an artefact of how `docks.js` counts, worth
+    knowing before picking a fix: a native `<select>` is auto-enhanced into
+    three counted elements (the select, its `.select-shell`, its
+    `.select-opener`), and a `.seg` segmented control counts as one plus one
+    per visible option, so Library's sort select and its two-button
+    Cards/Rows segment alone are 6 of its 9, and Notes' sort select and its
+    two-button Rows/Cards segment are 7 of its 10. Recommendation: before
+    moving anything, decide in UI_MODERNISATION_PLAN Phase 8 whether the
+    ceiling counts *controls a person reasons about* (a segmented view
+    toggle is one decision, not three) or literal DOM elements as `docks.js`
+    does today; if the latter stands, the same "into an existing menu"
+    treatment graph got is available for Library's `#library-sort` (into
+    Filter or More) and Notes' `#note-sort` (into a menu of its own), which
+    would need one new decision line each rather than either being moved on
+    a solo guess. Owner: UI_MODERNISATION_PLAN Phase 8.
 
 ## Placed (last 20, newest first)
 

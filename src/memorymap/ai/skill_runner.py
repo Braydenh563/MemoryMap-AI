@@ -603,7 +603,7 @@ def run_skill(
         # Whether the way this step ended is worth re-planning at all, and the
         # one sentence saying what went wrong — the material `_replan_step`
         # gives the model, and the reason the `replanned` event carries.
-        fatal = False
+        replannable = True
         fail_reason = ""
         spec = specs[index]
         offered = _step_tools(spec, allowed, small_model)
@@ -658,7 +658,7 @@ def run_skill(
                 stopped_at = index
                 # Not re-plannable: no rewording of a step gives a model back
                 # the ability to call tools.
-                fatal = True
+                replannable = False
                 outcome = "failed"
                 break
             if not started:
@@ -725,7 +725,7 @@ def run_skill(
                 stopped_at = index
                 # Not re-plannable, and the re-plan call itself would need the
                 # same model that has just gone away.
-                fatal = True
+                replannable = False
                 outcome = "failed"
                 break
             if ran_out:
@@ -748,6 +748,19 @@ def run_skill(
                 }
                 stopped_at = index
                 fail_reason = "it used every round it had without finishing"
+                #: **Not re-plannable, and this is the sharpest line in the
+                #: whole mechanism.** A step that ran out of rounds was
+                #: *doing the job* and got cut off half way — unlike every
+                #: other ending here, work was done and more is left. Rewrite
+                #: it and run it again and the model, having no rounds' worth
+                #: of context about what it already tagged, answers in prose
+                #: — and the step goes green over a job that is still half
+                #: finished. That is precisely the bug this file exists to
+                #: prevent (`tests/test_long_runs.py` catches it), and the
+                #: honest ending for a cut-off step is the one it already
+                #: has: stop, and let Resume carry on from here with the
+                #: notebook as it now stands.
+                replannable = False
                 outcome = "stalled"
                 break
             # A step that ran no tools and said nothing did not happen. Anything
@@ -853,7 +866,7 @@ def run_skill(
             #: the job rather than about the wording, and an unbounded loop
             #: here would be a model rewriting its own instructions forever
             #: over a notebook it cannot act on.
-            if not fatal and replans < MAX_REPLANS:
+            if replannable and replans < MAX_REPLANS:
                 replans += 1
                 revised = _replan_step(
                     model_manager, ollama, skill, values, step, spec, fail_reason

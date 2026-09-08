@@ -195,6 +195,42 @@ def test_a_replanned_run_never_ticks_a_step_it_did_not_finish(
     assert not [e for e in events if e["type"] == "step" and e["state"] == "done"]
 
 
+def test_a_step_cut_off_mid_job_is_not_replanned(ai_client, fake_ollama, app_state):
+    """**The sharpest line in the mechanism, and it was drawn by a failing
+    test** (`tests/test_long_runs.py`, which this must not be allowed to
+    break).
+
+    A step that ran out of rounds is unlike every other ending here: it was
+    *doing the job* and got cut off, so work has happened and more is left.
+    Rewrite it and run it again and the model — with none of the rounds'
+    context about what it already tagged — answers in prose, and the step goes
+    green over a job that is still half finished. That is the exact bug the
+    runner exists to prevent, arriving through its own recovery. A cut-off
+    step keeps the honest ending it already had: stop, and let Resume carry on
+    against the notebook as it now stands.
+    """
+    _save(
+        {
+            "name": "Big tidy",
+            "prompt": "Tidy the whole notebook.",
+            "steps": ["Tag everything", "Report back"],
+            "tools": ["search_notes", "tag_note"],
+        }
+    )
+    note = ai_client.post("/entries", json={"content": "something to tag"}).json()
+    rounds = skill_runner.STEP_ROUNDS + skill_runner.STEP_EARNED_ROUNDS + 2
+    fake_ollama.tool_script = [
+        [{"name": "tag_note", "arguments": {"note_id": note["id"], "tags": [f"t{n}"]}}]
+        for n in range(rounds)
+    ]
+    events = _events(ai_client, "ph:lightning Big tidy", skill="Big tidy", use_tools=True)
+    states = [e["state"] for e in events if e["type"] == "step" and e["index"] == 0]
+    assert states[-1] == "stalled"
+    assert "replanned" not in states
+    assert "done" not in states
+    assert next(e for e in events if e["type"] == "result")["stopped_at"] == 0
+
+
 def test_the_model_supplies_the_rewrite_when_it_can(ai_client, fake_ollama, app_state):
     """The re-plan asks the model for one short instruction, and uses it."""
     _save(

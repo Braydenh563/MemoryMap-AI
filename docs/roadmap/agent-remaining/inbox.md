@@ -39,7 +39,7 @@
   the shaft's own leading `M` as a start-cap marker. The rest of item 12
   (export-selection popover placement, missing align-centre/
   distribute-gaps, the arrange panel's icon/text overlap) is **untouched**
-  — out of the scope I was given ("12 only the caps part").
+ : out of the scope I was given ("12 only the caps part").
 - **Item 14** (icon/text alignment): measured all three named surfaces
   before touching anything. The bottom bar and the spaces switcher were
   already within a fraction of a pixel; only the popup agent's own row was
@@ -50,11 +50,11 @@
   fixed (`.doc-toolbar-tools` had none at all). The "opaque only on the
   note form" half was already fixed by an earlier commit, verified
   byte-identical CSS on both toolbars. "Squashed at 1440" **not
-  reproduced** — see below.
+  reproduced**: see below.
 - **Item 19** (Ctrl+Shift+S strikethrough): added to all three editors,
   wider than the literal ask, since Ctrl+B/I never actually worked from
   the keyboard in the note capture box or the note edit form (only
-  `#doc-content` had any keyboard shortcuts at all — the toolbar's own
+  `#doc-content` had any keyboard shortcuts at all: the toolbar's own
   "(Ctrl+B)" tooltips were aspirational on two of the three surfaces).
   `wireMdFormatShortcuts` (documents.js) is the one place all three now
   share. Help text updated.
@@ -63,7 +63,7 @@
 
 - **Item 18, "documents toolbar squashed at 1440"**: measured `gap`,
   `row-gap` and the space around every `.doc-toolbar-sep` on both
-  `#note-toolbar`'s clone and `#doc-toolbar` at 1440px — byte-identical
+  `#note-toolbar`'s clone and `#doc-toolbar` at 1440px: byte-identical
   (both `gap: 4px`, both `8px` around every separator). A screenshot of an
   open document at 1440 (`/tmp/mm-inbox/shots/doc-toolbar-1440.png` this
   session, not preserved) shows one comfortable row with clear group gaps,
@@ -72,7 +72,7 @@
   not reproduce. If this is still seen live, it is worth checking at a
   *narrower* width than 1440 (a sidebar or the Outline panel open would
   shrink the editor column) or with a document open whose own title is
-  long enough to compete with the toolbar for the head row's width — that
+  long enough to compete with the toolbar for the head row's width: that
   combination was not tried.
 - **Item 12, the rest**: export-selection popover placement, missing
   align-centre/distribute-gaps on the whiteboard's arrange panel, and its
@@ -107,5 +107,5 @@
   `wireEscapedActionMenu`.
 - **The "popup agent" is `#command-palette-overlay`** (Ctrl+Shift+A,
   `toggleAgentPalette`), not `#palette-overlay` (a plain `<input>`, the
-  global Ctrl+K command palette) — two different overlays with similarly
+  global Ctrl+K command palette): two different overlays with similarly
   named ids, easy to conflate.

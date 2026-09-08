@@ -379,6 +379,41 @@ under `tests/test_documents_*.py`, `scratchpad/ui-sweeps/editor.js`.
 
 ---
 
+## Built, Phase 1 (the chrome), 2026-09-09
+
+Measured in Chromium at 1280x800 and 820x800 with `scratchpad/doc-measure2.js`
+(a new document open), before and after.
+
+- **Header.** Before: ten controls at four heights (title 44, view
+  segment 28, icon buttons 36, a 39). After: title, Edit / Read with a
+  chevron for Live, Source and Split, AI edit, and the more menu, every
+  one at 36px; the bar is 36px tall at 1280 and wraps to two rows at 820.
+  The file-type select, the formatting-strip toggle and Extract moved
+  into the more menu (a document changes type once; the strip is opt-in;
+  extraction is an action, not a mode).
+- **View.** Edit / Read is the segment; Live, Source and Split sit behind
+  Edit's chevron and the Edit button returns to the last editing mode
+  (Read then Edit lands back in Split when Split was in use: measured).
+  The chevron menu is on the dock-menu recipe, so it closes on a pick and
+  stays in the viewport.
+- **The more menu.** Every row 36px; a row that is on shows a check at its
+  right edge with no fill (the tinted rows in the owner's screenshot are
+  gone: eleven rows, all `rgba(0,0,0,0)` at rest, the ticked helper
+  included); File type is a labelled section at the top; the two typing
+  helpers are switch rows.
+- **Status bar.** Facts left (counts, goal, suggestions), Ln and Col at the
+  right.
+- **Chrome above the first line:** 44px at 1280 (gate: 96). Sidebar
+  labels: 0 clipped at 820.
+- **INBOX 18.** The pinned group at the end of every formatting strip has
+  the strip's radius and an opaque ground.
+
+Not done in this phase: the floating selection toolbar as the formatting
+UI (item 3; the strip stays opt-in through "Always show formatting"), the
+Backlinks tab and counts in the sidebar (item 5), the sheet behaviour at
+1100px (Phase 6). Not verified: dark theme (the rules are token-driven),
+a real keyboard walk of the chevron menu.
+
 ## Built — Phase 0
 
 Everything in §5 Phase 0 is built and measured in Chromium at 1440x900

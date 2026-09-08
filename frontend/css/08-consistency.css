@@ -1610,3 +1610,69 @@ summary > .ph-lead,
   height: var(--control-h-lg);
   border-radius: var(--radius-md);
 }
+
+
+/* DOCUMENTS_PLAN Phase 1, the chrome: three questions, three places.
+   Measured before: the header held ten controls at four heights (44, 39,
+   36, 28), the file-type select and two icon buttons sat beside the title,
+   and the more menu drew its on-state rows with a tinted fill (reported
+   with a screenshot as "the dropdown is visually broken"). Now: title,
+   save state, Edit / Read, AI edit and the more menu, all at one height;
+   a menu row that is on shows a check at its right edge and no fill; the
+   two typing helpers are switch rows at the same height as the buttons. */
+.doc-dock {
+  --control-h: var(--control-h-lg);
+}
+.doc-dock-identity {
+  --identity-h: var(--control-h-lg);
+}
+.doc-view-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.doc-view-menu > summary {
+  width: var(--control-h-lg);
+}
+.doc-dock-menu-list .doc-dock-menu-item[aria-pressed="true"],
+.doc-dock-menu-list .doc-dock-menu-item.active,
+.doc-dock-menu-list .doc-dock-menu-item.is-on {
+  background: none;
+  font-weight: 500;
+}
+.doc-dock-menu-list .doc-dock-menu-item[aria-pressed="true"]::after,
+.doc-dock-menu-list .doc-dock-menu-item.active::after,
+.doc-dock-menu-list .doc-dock-menu-item.is-on::after {
+  content: "\2713";
+  margin-left: auto;
+  padding-left: var(--space-3);
+  color: var(--accent);
+}
+.doc-dock-menu-list .doc-dock-menu-check {
+  justify-content: space-between;
+  min-height: var(--control-h-lg);
+}
+.doc-dock-menu-list .doc-dock-menu-check > input {
+  margin-left: auto;
+}
+.doc-dock-menu-list #doc-file-type {
+  width: 100%;
+  max-width: none;
+}
+/* INBOX 18: the pinned group at the end of a formatting strip had square
+   corners and was opaque only on the note form. One ground, one radius,
+   on every strip that has it. */
+.doc-toolbar-tools {
+  border-radius: var(--radius-sm);
+  background: var(--modal-bg-opaque);
+  padding-right: var(--space-2);
+}
+.doc-dock .seg button {
+  height: var(--control-h-lg);
+  min-height: var(--control-h-lg);
+}
+/* A ticked helper row shows its state in the switch, not in a fill: the
+   tinted row was the one thing the owner's screenshot pointed at. */
+.doc-dock-menu-list .doc-dock-menu-check:has(input:checked) {
+  background: none;
+}

@@ -447,8 +447,9 @@ named beside it in HANDOVER's completion table.
     (escape the clipper, then cap, then scroll). kebab-viewport.js sweeps
     all five at 1440x900, 1280x640 and 1280x420: 15 cases, all OK. The tool
     rail and the properties panel are still open.
-44. **Documents toolbar crushed, its kebab menu rows tinted and
-    misaligned**: deferred by the owner to DOCUMENTS Phase 1.
+44. **(fixed, DOCUMENTS Phase 1)** **Documents toolbar crushed, its kebab menu rows tinted and
+    misaligned**: the header is one height with five controls, the menu rows
+    36px with no fill; the strip is opt-in from the menu.
 45. **The Ask sub-tab**: extra scroll, overflow, and the owner wants a
     redesign with an integrated advanced search and more utility. Owner:
     CHAT_PLAN Phase 1 (Ask) plus WORLD_CLASS 5.1 operators; the scroll

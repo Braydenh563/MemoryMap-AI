@@ -2510,8 +2510,6 @@ Link to another note with [[its first few words]]."></textarea>
                  server, because Ctrl+/ and Tab act on keystrokes and cannot
                  wait for a round trip, and a second copy here would be a
                  second thing to update. -->
-            <select id="doc-file-type" class="small-select doc-file-type"
-              aria-label="File type" title="What kind of file this document is"></select>
           </span>
           <span class="row doc-actions">
             <!-- **The counts moved out of here.** Reported: "redesign,
@@ -2554,33 +2552,39 @@ Link to another note with [[its first few words]]."></textarea>
                    editor mode and rendered mode", Split gives you both at
                    half width each, which is not the same thing as reading the
                    finished page. -->
-            <div class="seg seg-compact" id="doc-view-seg" role="group" aria-label="How to view this document">
-              <!-- `active` starts on Live because that is the view a document
-                   opens in now (see setDocView's call site in documents.js).
-                   The pressed state is re-derived on every `setDocView`, so
-                   this only matters for the flash before the first one runs, 
-                   which is exactly long enough to be noticed. -->
-              <button type="button" data-doc-view="live" class="active" aria-pressed="true"
-                title="Render as you write; the paragraph you're in shows its markdown"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Live</button>
-              <button type="button" data-doc-view="source"
-                title="The markdown itself, unrendered"><i class="ph ph-code ph-lead" aria-hidden="true"></i> Source</button>
-              <button type="button" data-doc-view="split"
-                title="Show a rendered preview beside the editor"><i class="ph ph-columns ph-lead" aria-hidden="true"></i> Split</button>
+            <span class="doc-view-cluster">
+            <div class="seg" id="doc-view-seg" role="group" aria-label="How to view this document">
+              <!-- DOCUMENTS_PLAN Phase 1 item 2: Edit / Read is the segment;
+                   Live, Source and Split are ways to edit, so they live behind
+                   Edit's chevron (Obsidian's shape: Edit / Read, with Source a
+                   setting). The Edit button remembers the last editing mode.
+                   `setDocView` treats the group button as on for any mode
+                   that is not Read. -->
+              <button type="button" data-doc-view="live" data-doc-view-group="edit" class="active" aria-pressed="true"
+                title="Edit the document"><i class="ph ph-pencil-simple ph-lead" aria-hidden="true"></i> Edit</button>
               <button type="button" data-doc-view="rendered"
                 title="The finished document on its own, full width, with no editor"><i class="ph ph-book-open ph-lead" aria-hidden="true"></i> Read</button>
             </div>
+            <details class="doc-dock-menu dock-menu doc-view-menu" id="doc-view-menu">
+              <summary class="ghost small icon-only doc-dock-menu-btn" aria-label="How to edit"
+                title="Rendered as you write, the markdown itself, or both side by side"><i class="ph ph-caret-down" aria-hidden="true"></i></summary>
+              <div class="doc-dock-menu-list">
+                <button type="button" class="doc-dock-menu-item" data-doc-view="live"
+                  title="Render as you write; the paragraph you're in shows its markdown"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Live</button>
+                <button type="button" class="doc-dock-menu-item" data-doc-view="source"
+                  title="The markdown itself, unrendered"><i class="ph ph-code ph-lead" aria-hidden="true"></i> Source</button>
+                <button type="button" class="doc-dock-menu-item" data-doc-view="split"
+                  title="A rendered preview beside the editor"><i class="ph ph-columns ph-lead" aria-hidden="true"></i> Split</button>
+              </div>
+            </details>
+          </span>
             <!-- PLAN.md D1: the formatting strip is hidden until asked for,
                  and this is what asks. It used to collapse to a 36px strip of
                  its own ("Formatting ▾" and three icons) under this row, 
                  measured, 139px of chrome above the first line at 1440. One
                  button here, one strip that appears below only while on. -->
-            <button id="doc-format-toggle" class="ghost small icon-only" type="button"
-              aria-controls="doc-toolbar" aria-pressed="false" aria-label="Show the formatting tools"
-              title="Show the formatting tools"><i class="ph ph-text-aa" aria-hidden="true"></i></button>
             <button id="doc-ai" class="ghost small" type="button"
               title="Ask the AI to rewrite this document, or the text you've selected"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> AI edit</button>
-            <button id="doc-extract" class="ghost small icon-only" type="button"
-              title="Turn this document (or the text you've selected) into one or more notes, auto-linked to what they relate to" aria-label="Extract notes"><i class="ph ph-scissors" aria-hidden="true"></i></button>
             <!-- Export and delete, folded away. Same `<details>` disclosure
                  the Library's image tiles use, for the same reason: the
                  browser gives the open/close, the keyboard handling and the
@@ -2593,6 +2597,14 @@ Link to another note with [[its first few words]]."></textarea>
                 title="More actions for this document"
                 aria-label="More actions for this document"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
               <div class="doc-dock-menu-list">
+                <div class="dock-menu-section">
+                  <span class="muted dock-menu-label" id="doc-file-type-label">File type</span>
+                  <select id="doc-file-type" class="small-select doc-file-type"
+                    aria-labelledby="doc-file-type-label" title="What kind of file this document is"></select>
+                </div>
+                <button id="doc-format-toggle" class="menu-item doc-dock-menu-item" type="button" aria-pressed="false"
+                  title="Show the formatting strip above the editor"><i class="ph ph-text-aa ph-lead" aria-hidden="true"></i> Always show formatting</button>
+
                 <!-- The same Connections dialog a note's own ⋯ menu opens
                      (REDESIGN.md §R7.3). A document's joins were split three
                      ways before it: attached notes came back inside
@@ -2610,6 +2622,8 @@ Link to another note with [[its first few words]]."></textarea>
                      both are worth having. -->
                 <button id="doc-history" class="menu-item doc-dock-menu-item" type="button"
                   title="Every version this document has had, and a way back to any of them"><i class="ph ph-clock-counter-clockwise ph-lead" aria-hidden="true"></i> History</button>
+                <button id="doc-extract" class="menu-item doc-dock-menu-item" type="button"
+                  title="Turn this document, or the text you have selected, into one or more notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Extract notes</button>
                 <button id="doc-export-md" class="menu-item doc-dock-menu-item" type="button"
                   title="Download as a .md file"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Download as .md</button>
                 <button id="doc-export-pdf" class="menu-item doc-dock-menu-item" type="button"
@@ -2809,8 +2823,6 @@ Link to another note with [[its first few words]]."></textarea>
              which is the only way it can exist in an app whose whole claim is
              that it works with the plug pulled. -->
         <div class="doc-statusbar" id="doc-statusbar" role="group" aria-label="Document status">
-          <span id="doc-caret" class="doc-statusbar-item doc-statusbar-fact"
-            title="Where the caret is, and what is selected">Ln 1, Col 1</span>
           <span id="doc-counts" class="doc-statusbar-item doc-statusbar-fact"
             title="Characters, words and roughly how long this takes to read"></span>
           <!-- The goal, where the count it is a goal for now lives. A button
@@ -2825,6 +2837,8 @@ Link to another note with [[its first few words]]."></textarea>
             aria-expanded="false" aria-controls="doc-prose-panel"
             title="Writing suggestions found in this document"><i class="ph ph-eyeglasses ph-lead" aria-hidden="true"></i> <span id="doc-prose-count">No suggestions</span></button>
           <span class="doc-statusbar-spacer"></span>
+          <span id="doc-caret" class="doc-statusbar-item doc-statusbar-fact"
+            title="Where the caret is, and what is selected">Ln 1, Col 1</span>
           <!-- The Autocorrect and Suggestions switches used to sit here, and
                they have moved into the document's own ⋯ menu (DOCUMENTS_PLAN
                Phase 0 item 3). A status bar states; it does not configure.

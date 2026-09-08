@@ -112,7 +112,10 @@ function syncDocFileType() {
   // disabled rather than hidden (hidden controls that come and go make a
   // toolbar feel unstable), and a document already in one of them is moved
   // back to Source rather than left looking at nothing.
-  for (const button of document.querySelectorAll("#doc-view-seg button")) {
+  for (const button of document.querySelectorAll("#doc-view-seg button, #doc-view-menu button")) {
+    // The Edit group button is never disabled: setDocView maps it to Source
+    // for a file with no rendered form, which is the mode it must reach.
+    if (button.dataset.docViewGroup) continue;
     const rendered = button.dataset.docView !== "source";
     button.disabled = rendered && !type.previewable;
     button.title = button.disabled
@@ -190,6 +193,10 @@ function docPreviewShowing(mode = docView) {
   return mode === "split" || mode === "rendered";
 }
 
+//: The editing mode the Edit button returns to after Read (DOCUMENTS_PLAN
+//: Phase 1 item 2): Live, Source or Split, whichever was last in use.
+let lastEditView = "live";
+
 function setDocView(mode) {
   const type = docFileType();
   // A code file is always Source. Asked for on any other mode, that is the
@@ -222,8 +229,11 @@ function setDocView(mode) {
   $("doc-panes").classList.toggle("split", docView === "split");
   $("doc-panes").classList.toggle("reading", docView === "rendered");
 
-  for (const button of document.querySelectorAll("#doc-view-seg button")) {
-    const on = button.dataset.docView === docView;
+  if (docView !== "rendered") lastEditView = docView;
+  for (const button of document.querySelectorAll("#doc-view-seg button, #doc-view-menu button")) {
+    // Edit is on for every mode that is not Read; the menu items behind
+    // it mark the one editing mode in use.
+    const on = button.dataset.docViewGroup === "edit" ? docView !== "rendered" : button.dataset.docView === docView;
     button.classList.toggle("active", on);
     button.setAttribute("aria-pressed", String(on));
   }
@@ -3404,12 +3414,14 @@ $("doc-word-goal-submit").addEventListener("click", () => {
   renderDocStats();
   $("doc-word-goal-dialog").close();
 });
-for (const button of document.querySelectorAll("#doc-view-seg button")) {
+for (const button of document.querySelectorAll("#doc-view-seg button, #doc-view-menu button")) {
   // The unmodified title is stashed before syncDocFileType ever overwrites it
   // with the "no rendered form" explanation, so switching back to a markdown
   // document restores the real one rather than leaving the disabled text.
   button.dataset.docTitle = button.title;
-  button.addEventListener("click", () => setDocView(button.dataset.docView));
+  button.addEventListener("click", () =>
+    setDocView(button.dataset.docViewGroup === "edit" ? lastEditView : button.dataset.docView)
+  );
 }
 $("doc-file-type").addEventListener("change", async (event) => {
   if (!currentDoc) return;

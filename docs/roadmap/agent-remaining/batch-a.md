@@ -84,28 +84,29 @@
   "Work" space, captured into it, confirmed the label and the chip's
   presence/absence rules in both "All spaces" and "Work" directly.
 
+## Fixed since (INBOX batch C, 2026-09-08)
+
+- **`loadChatSuggestions()`'s null-deref on `#chat-suggest`, root cause
+  found and fixed, not just guarded.** The real sequence needs no synthetic
+  race: `#chat-suggest` is on loan to `.chat-empty` whenever suggestions
+  have already loaded for the current empty chat (open the chat tab, let
+  them load once, `#chat-suggest` ends up inside `.chat-empty`), and
+  `newChatConversation`'s `$("chat-messages").replaceChildren()` wiped
+  `.chat-empty` -- and the loaned element inside it -- without sending it
+  home first the way `clearChatEmptyState` already knows how to.
+  `newChatConversation` calls `clearChatEmptyState()` before wiping now (a
+  no-op when there is no `.chat-empty` to rescue anything from);
+  `loadChatSuggestions` also guards `box` with `?.` as the belt to that
+  brace. `scratchpad/ui-sweeps/chatsuggestbug.js` reproduces the exact
+  sequence and confirmed both the crash against the pre-fix code (a
+  `PAGEERROR` and `#chat-suggest` gone from the document) and the fix.
+
 ## Left open
 
 - **Item 38's bulk-move action is D2's, not this batch's**, per the
   item's own "Owner" line. The chip and label are the visibility fix that
   lets a person tell which space a survivor is actually in; moving a
   batch of them is still to build.
-- **`loadChatSuggestions()` null-derefs on `#chat-suggest`** under a fast
-  synthetic sequence built while reproducing item 34 (seed 40 messages,
-  scroll away, `followBottom`, then click "+ New" — see
-  `docs/roadmap/HANDOVER.md`'s trap list before writing a repro for this
-  one). `#chat-suggest` is moved between the dock and `.chat-empty` by
-  `clearChatEmptyState`/`renderChatEmptyState`
-  (see the long comment on `openConversation`, app.js, around line 18617),
-  and `loadChatSuggestions` reads `$("chat-suggest")` without the
-  optional-chaining its sibling call site already uses. Not isolated
-  further: the synthetic sequence that surfaces it does things a real
-  session's timing may not (no `await` between the seed and the click),
-  so it is recorded here rather than "fixed" against a repro that may not
-  be the real shape. A cautious first fix, if reproduced for real: guard
-  `loadChatSuggestions`'s `box.replaceChildren()` the same
-  `$("chat-suggest")?.` way `openConversation` already does, and find
-  what actually removes the element mid-await.
 - **Whiteboard's own View menu** (`.wb-board-menu`, the screenshot INBOX
   31 opened with) was not touched: it already has its own
   max-height-on-open logic (whiteboard.js, `wb-board-menu-wrap` toggle

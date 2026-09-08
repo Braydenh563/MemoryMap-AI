@@ -43,7 +43,7 @@ def fix_file(path: Path) -> int:
     if "—" not in text:
         return 0
     lines = text.split("\n")
-    out = [fix_line(l) for l in lines]
+    out = [fix_line(line) for line in lines]
     new = "\n".join(out)
     path.write_text(new, encoding="utf-8")
     return text.count("—") - new.count("—")

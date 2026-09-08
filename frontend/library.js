@@ -1660,14 +1660,17 @@ async function renderSkillsDashboard() {
   container.appendChild(workers);
 
   // --- the skills themselves --------------------------------------------------
-  const search = document.createElement("input");
-  search.type = "search";
-  search.id = "skills-search";
-  search.className = "skills-search";
-  search.placeholder = "Search skills…";
-  search.setAttribute("aria-label", "Search your skills");
-  search.addEventListener("input", () => renderSkillCards(search.value));
-  container.appendChild(search);
+  //: The search box is markup now, in this sub-tab's dock, because a Library
+  //: sub-tab's search belongs in its head row beside the title like the other
+  //: six. It used to be built here and appended below the background-workers
+  //: card, which is where it rendered: a card and a half beneath the heading.
+  //:
+  //: `oninput` rather than `addEventListener`: this function runs again every
+  //: time the sub-tab is opened, and on an element that now outlives the
+  //: render a listener added per visit would re-render the cards once for
+  //: every visit ever made. Assigning the handler replaces it instead.
+  const search = $("skills-search");
+  if (search) search.oninput = () => renderSkillCards(search.value);
 
   const grid = document.createElement("div");
   grid.id = "skills-grid";
@@ -1681,7 +1684,7 @@ async function renderSkillsDashboard() {
   container.append(grid, empty);
 
   skillCardsCache = skills.map((skill) => ({ skill, lastRun: lastRuns.get(skill.name) }));
-  renderSkillCards(search.value);
+  renderSkillCards(search ? search.value : "");
 }
 
 // The AI Skills page is rendered when its sub-tab is opened, by the sub-tab

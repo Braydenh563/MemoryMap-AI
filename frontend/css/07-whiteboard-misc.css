@@ -748,9 +748,12 @@
   padding-left: var(--space-4);
 }
 
+/* Both margins were for a search box that sat on its own between two cards.
+   It is in the Skills dock now, where `.dock`'s own gaps place it and
+   `.dock input` zeroes the margin, so only the width behaviour is left to
+   say: search takes the leftover width, the same as every other dock's. */
 .skills-search {
-  margin-top: var(--space-6);
-  margin-bottom: 0;
+  margin: 0;
 }
 
 .skill-card-desc {
@@ -7124,18 +7127,10 @@ button.connection-row {
   padding-left: 1.2em;
 }
 
-/* The Contents header's two icon buttons sit together at the right edge.
-   `.graph-help-toggle`'s own `margin-left: auto` is a toolbar behaviour and
-   belongs to the button, so it is neutralised here rather than removed from
-   the shared rule -- every toolbar copy of that button still needs it. */
-.contents-head-actions {
-  gap: var(--space-2);
-  align-items: center;
-}
-
-.contents-head-actions .graph-help-toggle {
-  margin-left: 0;
-}
+/* `.contents-head-actions` lived here: a wrapper that existed to hold the
+   Contents header's two icon buttons together and to cancel
+   `.graph-help-toggle`'s own `margin-left: auto`. `.dock-actions` does both
+   jobs for every dock, so the wrapper and its two rules are gone. */
 
 /* --- the HUD: a momentary readout, not a notification ----------------------
    See `hud()` in app.js. Centred rather than in the toast corner on purpose:
@@ -7813,8 +7808,10 @@ input[type="file"] {
     white-space: nowrap;
   }
 
-  .library-head > .row,
-  #library-view-docs .row.space-between > .row {
+  /* The sub-tabs still on `.library-head`; the ones that have become docks
+     take `.dock`'s own ≤600 rules instead (search on its own row, actions
+     pushed right) and are dropped from these two selectors as they land. */
+  .library-head > .row {
     flex: 1 1 100%;
     min-width: 0;
     max-width: 100%;
@@ -7822,7 +7819,6 @@ input[type="file"] {
   }
 
   .library-head .library-search,
-  #library-view-docs .row.space-between > .row > .library-search,
   #library-view-documents .library-toolbar > .library-search {
     flex: 1 1 100%;
   }
@@ -7871,6 +7867,19 @@ input[type="file"] {
   flex: 0 1 auto;
 }
 
+/* **A dock with nothing to find gives the middle to its title.** `flex: 0 1
+   auto` above is right when a search box sits next to the title and should
+   own the leftover width. The Chat header has no find zone, and shrinking its
+   identity to content wrapped the subline onto a second line: measured at
+   390, the header went from 41px to 85px the moment it became a dock, because
+   `.chat-headline` had been taking that space through a `margin-right: auto`
+   the zone was now absorbing. Stated as the rule rather than as an id, so the
+   next dock without a search box does not have to rediscover it. */
+.dock:not(:has(.dock-find)) .dock-identity {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .dock-identity h2 {
   margin: 0;
   white-space: nowrap;
@@ -7912,6 +7921,36 @@ input[type="file"] {
 .dock .graph-help-toggle {
   width: 2rem;
   height: 2rem;
+}
+
+/* A kebab built by `kebabMenu` arrives wrapped in its own `.menu-wrap`, so it
+   is a great-grandchild of the dock and the rule above (deliberately shallow,
+   so a chip nested inside the identity zone is not stretched to a control
+   height) does not reach it. Measured on the Chat header: Fork and Compress
+   came up to 36px and the kebab beside them stayed at 28. `.menu-wrap >
+   button` is the opener only; the menu itself is `.action-menu`, and its rows
+   are its own children. */
+.dock .menu-wrap > button {
+  height: var(--control-h);
+  padding-block: 0;
+  margin: 0;
+}
+
+/* **A segment's cells fill the segment, and the segment fills the dock.**
+   The rule above pins the `.seg` group to the dock's height; `.seg` itself
+   carries `padding: 0.25rem`, so without this its buttons come out 8px
+   shorter than every other control and float inside their own track.
+   Measured on Library → Files: the preview/type pair rendered 28px inside a
+   36px group while search, both selects and Upload beside them were 36.
+   The All and Boards segments did *not* have this, purely because they
+   happen to carry `.library-view`, whose own rule sets the height: one
+   family, two outcomes, decided by a class that means something else.
+   Direct children of a zone only: a segmented control inside a `.dock-menu`
+   is a menu row and takes the menu's own sizing. */
+.dock > * > .seg > button {
+  height: var(--control-h);
+  margin: 0;
+  padding-block: 0;
 }
 
 .dock select {
@@ -7997,6 +8036,16 @@ input[type="file"] {
 
 @media (max-width: 600px) {
   .dock-identity .dock-link {
+    display: none;
+  }
+
+  /* The Chat thread mark is decoration: `aria-hidden`, and it says "this is a
+     conversation" on a screen where the conversation is the only thing there.
+     It costs 40px of a 330px row, and that is exactly what one height costs
+     here. Measured at 390: with the mark, the header wraps to two rows (85px)
+     once its controls come up to the dock height; without it, one row (45px).
+     The same trade `.dock-link` above already makes. */
+  .dock .chat-thread-mark {
     display: none;
   }
 

@@ -17648,6 +17648,30 @@ function enhanceSelect(select) {
   select.addEventListener("change", syncValue);
   new MutationObserver(rebuild).observe(select, { childList: true, subtree: true });
 
+  // **A `<select>` that has been hidden must take its stand-in with it.**
+  // Measured, not reasoned: on Library → Images the native
+  // `#library-media-read` was 0x0 (`setLibraryMediaKind` adds `hidden`, since a
+  // read filter is a Files idea) while the shell this function wraps it in
+  // still rendered a 124x36 dropdown reading "Read or not", on a tab where
+  // "read" means nothing. `#update-version-select` in Settings → About is
+  // toggled the same way and had the same hole.
+  //
+  // This is the shape CLAUDE.md names: the value was set correctly on the
+  // native control and did its damage on a *different element*, so the code
+  // that hides it reads as right at every line. The fix belongs here rather
+  // than at either call site, because every one of the app's 50-odd selects
+  // inherits the same stand-in and any of them could be hidden tomorrow.
+  // `hidden` is watched alongside the class for the same reason the
+  // stylesheet protects both: this app hides things with either.
+  const syncHidden = () => {
+    shell.classList.toggle("hidden", select.classList.contains("hidden") || select.hidden);
+  };
+  syncHidden();
+  new MutationObserver(syncHidden).observe(select, {
+    attributes: true,
+    attributeFilter: ["class", "hidden"],
+  });
+
   // **Programmatic `select.value = …` fires no event at all**, and this app
   // sets one directly in dozens of places — every "load the saved settings
   // into the form" path does. A `change` listener alone therefore leaves the

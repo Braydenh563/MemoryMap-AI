@@ -1017,9 +1017,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <button type="button" id="notes-view-rows" class="active icon-only"
                   title="Compact rows — more notes on screen" aria-label="Show notes as compact rows"><i class="ph ph-list" aria-hidden="true"></i></button>
                 <button type="button" id="notes-view-cards"
-                  title="Cards — full preview of each note" aria-label="Show notes as cards" class="icon-only"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
-                <button type="button" id="notes-expand-all" class="ghost small hidden"
-                  title="Open every note in this list" aria-label="Open every note in this list"></button>
+                  title="Cards, a full preview of each note" aria-label="Show notes as cards" class="icon-only"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
               </div>
             </div>
             <div class="dock-actions">
@@ -1034,6 +1032,23 @@ Link to another note with [[its first few words]]."></textarea>
               <details class="doc-dock-menu dock-menu dock-more" id="notes-more-menu">
                 <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
                 <div class="doc-dock-menu-list dock-menu-list">
+                  <!-- **Moved out of the view segment, where it was a verb in a
+                       row of view options.** Found by the segment rule in
+                       tests/test_dock_grammar.py: the segment held three cells
+                       and only two of them were views, so the third had neither
+                       an icon in the markup (`updateExpandAllButton` fills its
+                       label at runtime) nor any business being there. A segment
+                       means "the same list drawn differently"; "Expand all" is
+                       something you do to the list.
+
+                       In the kebab rather than beside Select, because the row
+                       is already at eight visible controls against the plan's
+                       ceiling of seven, and this is rule 5's exact case: a verb
+                       used sometimes. `updateExpandAllButton` still hides it
+                       outside rows view and still writes both its label and its
+                       icon, so nothing about app.js changes. -->
+                  <button type="button" id="notes-expand-all" class="doc-dock-menu-item hidden"
+                    title="Open every note in this list" aria-label="Open every note in this list"></button>
                   <div class="dock-menu-section">
                     <label class="muted dock-menu-label" for="notes-page-size">Notes per page</label>
                     <select id="notes-page-size" aria-label="Notes per page" title="Notes per page">
@@ -1166,7 +1181,30 @@ Link to another note with [[its first few words]]."></textarea>
                thread rather than a control. Previously it was a chip wedged
                between the title and the buttons, which read as a third button
                and pushed the actions around whenever the number grew a digit. -->
-          <div class="chat-toolbar">
+          <!-- **The dock (UI_MODERNISATION_PLAN.md Phase 8).** This row already
+               had the grammar's shape, argued for in the comments above and
+               below: identity on the left, one group of actions at the far
+               end. What it did not have was the grammar's *size*. Measured at
+               1440 with the sidebar head beside it: Fork, Compress and the
+               kebab rendered 28px while "New" in the Chats head next to them
+               was 36px, so the two head rows of one tab sat at two heights.
+
+               `.dock` alongside `.chat-toolbar` rather than instead of it: the
+               hairline, the sticky positioning and the recessed ground below
+               belong to this row and nothing else, while the height, the two
+               gaps and the zones belong to every dock. Ids are unchanged
+               throughout.
+
+               The title and its subline stay in identity, which is where they
+               belong: `#chat-title` is the heading and the subline is metadata
+               about the thread, not a control run. `.dock > * > button` is
+               deliberately shallow, so the subline's own chips
+               (`#chat-active-model`, `#chat-context`, Undo) keep their small
+               size instead of being stretched to a control height they are not
+               and should not be. -->
+          <div class="chat-toolbar dock" data-dock-name="chat" role="toolbar"
+            aria-label="Conversation controls">
+            <div class="dock-identity">
             <!-- **The thread has a face.** Reported: the header "feels fake,
                  with features and ui elements like buttons just slapped on
                  there with no design thought". Half of that is this: a bare
@@ -1225,6 +1263,7 @@ Link to another note with [[its first few words]]."></textarea>
                 </span>
               </span>
             </div>
+            </div>
             <!-- **One primary action and one menu, not three buttons and a
                  red one.** Asked for: "upgrade and expand the top, the
                  metadata, model used, chat functions, token usage data and
@@ -1260,17 +1299,17 @@ Link to another note with [[its first few words]]."></textarea>
                  handlers and simply stop being visible: the menu rows click
                  them, which is the pattern the Library's own kebab already
                  uses. Nothing in app.js has to know this happened. -->
-            <div class="chat-tool-group chat-tool-group-end" role="group" aria-label="This conversation">
+            <div class="dock-actions chat-tool-group chat-tool-group-end"
+              role="group" aria-label="This conversation">
               <button id="chat-fork" class="ghost small icon-only"
                 aria-label="Fork this conversation"
-                title="Fork — copy this conversation so you can try a different direction without losing this one"><i class="ph ph-git-branch" aria-hidden="true"></i></button>
+                title="Fork: copy this conversation so you can try a different direction without losing this one"><i class="ph ph-git-branch" aria-hidden="true"></i></button>
               <button id="chat-compress" class="ghost small icon-only"
                 aria-label="Compress the earlier messages"
-                title="Compress — summarise the earlier messages, so the model keeps the gist instead of losing the start of a long chat"><i class="ph ph-arrows-in" aria-hidden="true"></i></button>
-              <span id="chat-actions-menu" class="chat-actions-menu"></span>
+                title="Compress: summarise the earlier messages, so the model keeps the gist instead of losing the start of a long chat"><i class="ph ph-arrows-in" aria-hidden="true"></i></button>
               <button id="chat-export" class="ghost small visually-hidden" tabindex="-1" title="Download this chat as a Markdown file"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export</button>
               <!-- The saved-chat list has its own Delete, and deleting a
-                   conversation's last turn deletes the conversation with it —
+                   conversation's last turn deletes the conversation with it,
                    but the chat you're looking at right now, including a
                    brand-new one that hasn't sent a message yet, had no delete
                    of its own; "+ New" abandons it but doesn't say so. This
@@ -1278,6 +1317,13 @@ Link to another note with [[its first few words]]."></textarea>
                    was ever saved to lose), and a saved one asks first, same
                    as the sidebar's Delete does. -->
               <button id="chat-delete" class="ghost small danger visually-hidden" tabindex="-1" title="Delete this conversation"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
+              <!-- Last, and marked `dock-more`: the kebab is the grammar's
+                   final utility and the two buttons above it are
+                   `visually-hidden` proxies the menu rows click, not controls
+                   anyone sees. In DOM order they were sitting after it, so the
+                   row's last *tabbable* thing was not the one the eye ends
+                   on. -->
+              <span id="chat-actions-menu" class="chat-actions-menu dock-more"></span>
             </div>
           </div>
           <!-- The summary, before it is used. Editable on purpose: this is
@@ -3034,19 +3080,32 @@ Link to another note with [[its first few words]]."></textarea>
          sidebar uses. -->
     <div id="library-view-docs" class="library-view-section hidden">
       <section class="card glass">
-        <div class="row space-between library-head">
-          <h2>Documents</h2>
-          <div class="row">
+        <!-- **The dock (UI_MODERNISATION_PLAN.md Phase 8), not a head row.**
+             Before: nine controls in a `.row.space-between`: search, a sort
+             select and a page-size select side by side (two dropdowns for two
+             unrelated questions, read as one pair), then a filled New document
+             and a refresh. The same four zones the All sub-tab already uses,
+             so a person who has learned one Library head has learned all of
+             them:
+               identity: the title
+               find:     search
+               arrange:  one sort select
+               actions:  New document, refresh, more (documents per page)
+             Every id is unchanged; the page-size select simply moves inside
+             the ⋯ menu, exactly where the All dock keeps its own. -->
+        <div class="dock" data-dock-name="library-docs" role="toolbar"
+          aria-label="Document list controls">
+          <div class="dock-identity">
+            <h2>Documents</h2>
+          </div>
+          <div class="dock-group dock-find">
             <input id="library-docs-search" type="search" placeholder="Search documents…"
               aria-label="Search documents by title or content">
-            <!-- BACKLOG §77's Notes pattern, extended (§89 item 1). Unlike
-                 Reminders, a document list has no due/overdue framing to
-                 protect — plain newest-first, so a straight page-size
-                 selector is safe here without the "only paginate one
-                 subgroup" carve-out Reminders needed. -->
+          </div>
+          <div class="dock-group dock-arrange">
             <!-- The fourth Library sub-tab to get the sort control they were
-                 reported as missing. Before the page-size select, so the row
-                 reads in the order it is used: what to show, then how much. -->
+                 reported as missing. One select, never a select and a segment
+                 saying the same thing. -->
             <select id="library-docs-sort" aria-label="Sort documents" title="Sort documents">
               <option value="newest">Newest first</option>
               <option value="oldest">Oldest first</option>
@@ -3054,16 +3113,31 @@ Link to another note with [[its first few words]]."></textarea>
               <option value="za">Title Z → A</option>
               <option value="longest">Longest first</option>
             </select>
-            <select id="library-docs-page-size" aria-label="Documents per page" title="Documents per page">
-              <option value="all">All documents</option>
-              <option value="25">25 per page</option>
-              <option value="50">50 per page</option>
-              <option value="100">100 per page</option>
-            </select>
+          </div>
+          <div class="dock-actions">
             <button id="library-docs-new" class="small" type="button"
               title="Start a new document"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New document</button>
             <button id="library-docs-refresh" class="ghost small icon-only" type="button"
               title="Reload the list" aria-label="Reload the list"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+            <details class="doc-dock-menu dock-menu dock-more" id="library-docs-more-menu">
+              <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
+              <div class="doc-dock-menu-list dock-menu-list">
+                <div class="dock-menu-section">
+                  <!-- BACKLOG §77's Notes pattern, extended (§89 item 1). Unlike
+                       Reminders, a document list has no due/overdue framing to
+                       protect, so plain newest-first and a straight page-size
+                       selector is safe here without the "only paginate one
+                       subgroup" carve-out Reminders needed. -->
+                  <label class="muted dock-menu-label" for="library-docs-page-size">Documents per page</label>
+                  <select id="library-docs-page-size" aria-label="Documents per page" title="Documents per page">
+                    <option value="all">All documents</option>
+                    <option value="25">25 per page</option>
+                    <option value="50">50 per page</option>
+                    <option value="100">100 per page</option>
+                  </select>
+                </div>
+              </div>
+            </details>
           </div>
         </div>
         <p class="muted">
@@ -3105,23 +3179,44 @@ Link to another note with [[its first few words]]."></textarea>
       <div class="skills-split">
         <main>
           <section id="library-skills-section" class="card glass">
-          <!-- `library-head` was missing here and nowhere else, which is the
-               measurable half of "the button elements in the top row of each
-               library subtab are all different sizes and proportions between
-               tabs": that class is what pins `--control-h` for a sub-tab
-               header, so Skills' buttons were sized by the generic rule and
-               came out a different height from every other sub-tab's. -->
-          <div class="row space-between library-head">
-            <h2>AI skill library</h2>
-            <span class="row">
-              <button id="skills-add-new" class="small">+ New skill</button>
+          <!-- **The dock (UI_MODERNISATION_PLAN.md Phase 8).** Before: a head
+               row with the title and two buttons, and the skills search box
+               built by `renderSkillsDashboard` and appended a card and a
+               half further down the page, which made Skills the one Library
+               sub-tab whose search was not in its head row.
+
+               The zones every Library head now uses:
+                 identity: the title
+                 find:     search
+                 actions:  New skill, then help
+               There is no arrange zone: a skill library has no sort control
+               and inventing one to fill a slot is the opposite of this
+               phase. The zones a surface has appear in order; the ones it
+               does not have simply are not there.
+
+               `#skills-search` is now in the markup and library.js finds it
+               rather than creating it. It keeps its id and its class, so the
+               `.skills-search` rule and `renderSkillCards(search.value)`
+               still mean what they meant. -->
+          <div class="dock" data-dock-name="library-skills" role="toolbar"
+            aria-label="Skill library controls">
+            <div class="dock-identity">
+              <h2>AI skill library</h2>
+            </div>
+            <div class="dock-group dock-find">
+              <input id="skills-search" class="skills-search" type="search"
+                placeholder="Search skills…" aria-label="Search your skills">
+            </div>
+            <div class="dock-actions">
+              <button id="skills-add-new" class="small" type="button"
+                title="Write a new skill"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New skill</button>
               <button type="button" id="skills-help" class="icon-only ghost small graph-help-toggle"
                 aria-expanded="false" aria-controls="skills-intro"
                 title="Manage the capabilities of your AI agent. Enable, configure, and review execution logs."
                 aria-label="What is this?">
                 <i class="ph ph-question" aria-hidden="true"></i>
               </button>
-            </span>
+            </div>
           </div>
           <p class="muted graph-help-panel hidden" id="skills-intro" role="dialog" aria-label="What is this?">Manage the capabilities of your AI agent. Enable, configure, and review execution logs.</p>
           <!-- Not `skills-grid`: this holds the background-workers card, the
@@ -3153,14 +3248,35 @@ Link to another note with [[its first few words]]."></textarea>
          `#wb-canvas-view` below. -->
     <div id="wb-boards-landing">
       <section class="card glass">
-        <div class="row space-between library-head">
-          <!-- "Boards & maps", matching the sub-tab that opens it. It read
-               "Whiteboards" while the tab above it read "Boards & maps", which
-               was survivable when a map was only a board someone had drawn a
-               tree on — and stops being so now that a map is a first-class
-               kind with its own filter chip two lines below this heading. -->
-          <h2>Boards &amp; maps</h2>
-          <span class="row">
+        <!-- **The dock (UI_MODERNISATION_PLAN.md Phase 8).** Before: eleven
+             controls in a `.row.space-between` whose only structure was the
+             order they were written in: search, sort, the Cards/Rows switch,
+             two create buttons, refresh and "?" all as siblings of the title.
+             The same four zones every Library head now uses:
+               identity: the title
+               find:     search (the Maps/Boards/All chips below stay: they
+                         are the visible filter, the Everything sub-tab's own
+                         recipe)
+               arrange:  one sort select, one view segment
+               actions:  New board, then New mind map, then refresh and help
+             Ids are unchanged, so whiteboard.js needs no rewiring.
+
+             "New mind map" stays a ghost button in the row rather than moving
+             into a ⋯. It is the second verb, not a second answer to the first,
+             and the comment it carries is the reason: a mind map reachable
+             only by opening the board dialog and changing a control inside it
+             is one nobody finds. One filled control, one quiet one beside it. -->
+        <div class="dock" data-dock-name="library-boards" role="toolbar"
+          aria-label="Boards and maps controls">
+          <div class="dock-identity">
+            <!-- "Boards & maps", matching the sub-tab that opens it. It read
+                 "Whiteboards" while the tab above it read "Boards & maps", which
+                 was survivable when a map was only a board someone had drawn a
+                 tree on, and stops being so now that a map is a first-class
+                 kind with its own filter chip two lines below this heading. -->
+            <h2>Boards &amp; maps</h2>
+          </div>
+          <div class="dock-group dock-find">
             <!-- Parity with the Documents subtab's own search box (reported:
                  the two lists sat side by side with only one able to filter
                  by name). Filters client-side against the already-loaded
@@ -3168,12 +3284,12 @@ Link to another note with [[its first few words]]."></textarea>
                  already returns every board in one small array. -->
             <input id="library-boards-search" type="search" placeholder="Search boards…"
               aria-label="Search boards by title">
+          </div>
+          <div class="dock-group dock-arrange">
             <!-- The fifth and last sub-tab to get the sort control they were
-                 reported as missing. Same order as Documents — what to show
-                 (search), then how to order it — so the row reads the same way
-                 on whichever sub-tab you land on. `BoardOut` has no
-                 timestamps; see BOARD_SORTS in whiteboard.js for what
-                 "Newest first" is measuring. -->
+                 reported as missing. `BoardOut` has no timestamps; see
+                 BOARD_SORTS in whiteboard.js for what "Newest first" is
+                 measuring. -->
             <select id="library-boards-sort" aria-label="Sort boards" title="Sort boards">
               <option value="newest">Newest first</option>
               <option value="oldest">Oldest first</option>
@@ -3192,13 +3308,13 @@ Link to another note with [[its first few words]]."></textarea>
               <button class="icon-only" data-library-view="grid" type="button" title="Cards" aria-label="Card view"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
               <button class="icon-only" data-library-view="list" type="button" title="Rows" aria-label="Rows"><i class="ph ph-list" aria-hidden="true"></i></button>
             </div>
-            <button id="wb-boards-new" class="small" type="button"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New board</button>
+          </div>
+          <div class="dock-actions">
+            <button id="wb-boards-new" class="small" type="button"
+              title="Start a new board"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New board</button>
             <!-- A map is a board with a `type` (MINDMAP_PLAN.md §4 option B),
                  so this is the same dialog with the Mind map segment already
-                 chosen — not a second creation path. Beside "New board"
-                 because the two are the same decision made two ways, and a
-                 mind map that could only be reached by opening a board dialog
-                 and changing a control is one nobody finds. -->
+                 chosen, not a second creation path. -->
             <button id="wb-boards-new-map" class="ghost small" type="button" title="Start a mind map"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> New mind map</button>
             <!-- MINDMAP_PLAN.md §5 item 17. `POST /whiteboard/boards/import`
                  has existed since Phase 1 and §10.4 recorded it as having no
@@ -3216,13 +3332,13 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="library-media-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
             <button type="button" id="wb-boards-help" class="icon-only ghost small graph-help-toggle"
               aria-expanded="false" aria-controls="wb-boards-intro"
-              title="Every board and concept map you have made. Pick one to open it, or use ＋ Create → New concept map to start a map from a core idea."
+              title="Every board and concept map you have made. Pick one to open it, or start a mind map from the button beside New board."
               aria-label="What is this?">
               <i class="ph ph-question" aria-hidden="true"></i>
             </button>
-          </span>
+          </div>
         </div>
-        <p class="muted graph-help-panel hidden" id="wb-boards-intro" role="dialog" aria-label="What is this?">Every board and concept map you have made — they are the same kind of thing, so a map you build here can be drawn on, and a board can be branched with Tab. Pick one to open it, or start a new map from <strong>＋ Create → New concept map</strong>.</p>
+        <p class="muted graph-help-panel hidden" id="wb-boards-intro" role="dialog" aria-label="What is this?">Every board and concept map you have made. They are the same kind of thing, so a map you build here can be drawn on, and a board can be branched with Tab. Pick one to open it, or start a map with <strong>New mind map</strong>, beside New board above.</p>
         <!-- Maps / Boards / All (MINDMAP_PLAN.md §5 item 10, the user's own
              stated preference: maps live in Boards & maps behind a filter
              chip, not in a sub-tab of their own). `.library-filters` and
@@ -4037,9 +4153,81 @@ Link to another note with [[its first few words]]."></textarea>
        view now, so this is images only. -->
   <div id="library-view-media" class="library-view-section hidden">
     <section class="card glass">
-      <div class="row space-between library-head">
-        <h2 id="library-media-title">Images</h2>
-        <div class="row">
+      <!-- **The dock (UI_MODERNISATION_PLAN.md Phase 8).** Before: two rows.
+           A `.row.space-between` head carrying Upload, refresh and "?", and a
+           `.library-toolbar` under it carrying search, the read filter, sort
+           and the preview/type switch, so the one thing that acts on the
+           whole gallery (Upload) sat a row away from everything that chooses
+           what the gallery shows, and the title had three buttons pinned
+           beside it for no reason but that they arrived first.
+
+           One row, the four zones every Library head now uses:
+             identity: the title, which `setLibraryMediaKind` swaps between
+                       "Images" and "Files"
+             find:     search, then the read filter (Files only)
+             arrange:  one sort select, one view segment (Files only)
+             actions:  Upload, refresh, help
+           Ids are unchanged, so library.js needs no rewiring. -->
+      <div class="dock" data-dock-name="library-media" role="toolbar"
+        aria-label="Gallery controls">
+        <div class="dock-identity">
+          <h2 id="library-media-title">Images</h2>
+        </div>
+        <div class="dock-group dock-find">
+          <!-- Filters client-side against each image's filename and its OCR
+               text (ROADMAP.md item 30d), the same pattern as the main Library
+               search box above, not a server round-trip, since a gallery is
+               small enough that a plain substring pass costs nothing. -->
+          <input id="library-images-search" type="search" class="library-search"
+            placeholder="Search filenames, captions and text found in files…"
+            aria-label="Search the image gallery">
+          <!-- **Files is a reading list now, so it filters by whether a thing
+               has been read.** Asked for directly: "because the ocr worspace
+               exists, redesign the files library subtab and its capabilities."
+               The workspace is where a document gets read; the only question
+               this list could not answer was which ones already had been, so
+               every scan looked identical to every other and the way to find out
+               was to open each one.
+
+               Files only: an image is not "unread" in any sense a person
+               means, so `setLibraryMediaKind` hides this on the Images tab
+               rather than offering a filter that would divide pictures by
+               whether OCR happened to have run on them. A filter narrows what
+               is shown, so it sits in `find` beside search rather than in
+               `arrange` with sort. -->
+          <select id="library-media-read" class="hidden"
+            aria-label="Filter by whether it has been read"
+            title="Filter by whether it has been read">
+            <option value="all">Read or not</option>
+            <option value="read">Read</option>
+            <option value="unread">Not read yet</option>
+          </select>
+        </div>
+        <div class="dock-group dock-arrange">
+          <!-- Reported: "the library subtabs are missing sorting and filtering
+               options." Measured: none of the six sub-tabs had a sort control at
+               all; only the "All" view did. -->
+          <select id="library-media-sort" aria-label="Sort files" title="Sort files">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="az">Name A → Z</option>
+            <option value="za">Name Z → A</option>
+            <option value="largest">Largest first</option>
+          </select>
+          <!-- Asked for directly: "make it togglable to change between filetype
+               and previews". A preview tells four similarly-named PDFs apart; a
+               type icon scans a long mixed list faster. Neither is right for
+               everyone, so it is a choice rather than a default someone has to
+               live with. The same `.seg` the notes list uses for rows-vs-cards,
+               in the same zone: a segmented control means *view*, everywhere. -->
+          <div class="seg library-media-view" role="group" aria-label="How to show files">
+            <button type="button" id="library-media-view-preview" class="active icon-only"
+              title="Show a preview of each file" aria-label="Show a preview of each file"><i class="ph ph-image" aria-hidden="true"></i></button>
+            <button type="button" id="library-media-view-type" class="icon-only"
+              title="Show each file's type icon" aria-label="Show each file's type icon"><i class="ph ph-file" aria-hidden="true"></i></button>
+          </div>
+        </div>
+        <div class="dock-actions">
           <button id="library-images-upload" class="small" type="button"><i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Upload</button>
           <input id="library-images-upload-input" aria-label="Choose images or PDFs to upload" title="Choose images or PDFs to upload" type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/x-icon,application/pdf" multiple class="hidden">
           <button id="library-images-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
@@ -4052,72 +4240,6 @@ Link to another note with [[its first few words]]."></textarea>
         </div>
       </div>
       <p class="muted graph-help-panel hidden" id="library-images-intro" role="dialog" aria-label="What is this?">Every image pasted, dropped, or uploaded — in a note, a document, or on a whiteboard — or added directly here, then attachable to any note from its own "Attach from Library" action.</p>
-      <!-- Filters client-side against each image's filename and its OCR
-           text (ROADMAP.md item 30d) — same pattern as the main Library
-           search box above, not a server round-trip, since a gallery is
-           small enough that a plain substring pass costs nothing. -->
-      <!-- **One toolbar, the same one the other sub-tabs use.** These three
-           controls were loose children of the card, which is why the sort
-           dropdown looked wrong next to the ones in All and Documents —
-           reported directly. `.library-toolbar` is where `--control-h` and the
-           shared `select`/`button`/`.seg` height rule live, so being outside
-           it meant this select was the only one in the Library sized by
-           nothing. Wrapping them also puts search, then order, then how-to-draw
-           in one row in that order, rather than stacked down the card. -->
-      <div class="library-toolbar library-media-toolbar">
-      <input id="library-images-search" type="search" class="library-search"
-          placeholder="Search filenames, captions and text found in files…"
-          aria-label="Search the image gallery">
-        <!-- Asked for directly: "make it togglable to change between filetype
-             and previews". A preview tells four similarly-named PDFs apart; a
-             type icon scans a long mixed list faster. Neither is right for
-             everyone, so it is a choice rather than a default someone has to
-             live with.
-
-             The same `.seg` control the notes list uses for rows-vs-cards, in
-             the same shape and the same place in its toolbar — this app already
-             has a sign for "the same things, drawn a different way", and
-             inventing a second one here would be the inconsistency the rest of
-             this round is removing. -->
-        <!-- Reported: "the library subtabs are missing sorting and filtering
-             options." Measured: none of the six sub-tabs had a sort control at
-             all — only the "All" view did. Same `<select>` shape and the same
-             place in the toolbar as `#note-sort`, which is one of the two the
-             report calls good, so this is the pattern spreading rather than a
-             seventh way of doing it. -->
-        <!-- **Files is a reading list now, so it filters by whether a thing
-             has been read.** Asked for directly: "because the ocr worspace
-             exists, redesign the files library subtab and its capabilities."
-             The workspace is where a document gets read; the only question
-             this list could not answer was which ones already had been, so
-             every scan looked identical to every other and the way to find out
-             was to open each one.
-
-             Files only — an image is not "unread" in any sense a person
-             means, so `setLibraryMediaKind` hides this on the Images tab
-             rather than offering a filter that would divide pictures by
-             whether OCR happened to have run on them. -->
-        <select id="library-media-read" class="hidden"
-          aria-label="Filter by whether it has been read"
-          title="Filter by whether it has been read">
-          <option value="all">Read or not</option>
-          <option value="read">Read</option>
-          <option value="unread">Not read yet</option>
-        </select>
-        <select id="library-media-sort" aria-label="Sort files" title="Sort files">
-          <option value="newest">Newest first</option>
-          <option value="oldest">Oldest first</option>
-          <option value="az">Name A → Z</option>
-          <option value="za">Name Z → A</option>
-          <option value="largest">Largest first</option>
-        </select>
-        <div class="seg library-media-view" role="group" aria-label="How to show files">
-          <button type="button" id="library-media-view-preview" class="active icon-only"
-            title="Show a preview of each file" aria-label="Show a preview of each file"><i class="ph ph-image" aria-hidden="true"></i></button>
-          <button type="button" id="library-media-view-type" class="icon-only"
-            title="Show each file's type icon" aria-label="Show each file's type icon"><i class="ph ph-file" aria-hidden="true"></i></button>
-        </div>
-      </div>
       <!-- Multi-select, the same shape the Documents sub-tab already has —
            asked for directly: "in many of the library subtabs like for imges,
            files, whiteboards, links etc, there is no way to multi select".
@@ -4148,21 +4270,75 @@ Link to another note with [[its first few words]]."></textarea>
        else to file, search by content, or auto-categorise. -->
   <div id="library-view-links" class="library-view-section hidden">
     <section class="card glass">
-      <div class="row space-between library-head">
-        <h2>Links</h2>
-        <!-- Groups had no controls of their own: the only way to make one was
-             to type a name into the Add form, and the only way to rename or
-             retire one was to edit every link carrying it, one at a time.
-             Directly requested: "add buttons for creating and managing groups
-             in the links tab top dock". -->
-        <div class="row">
-          <button type="button" id="bookmark-group-new" class="ghost small">
-            <i class="ph ph-folder-plus ph-lead" aria-hidden="true"></i> New group</button>
-          <button type="button" id="bookmark-group-manage" class="ghost small">
-            <i class="ph ph-folders ph-lead" aria-hidden="true"></i> Manage groups</button>
+      <!-- **The dock (UI_MODERNISATION_PLAN.md Phase 8).** Before: two rows
+           and a form between them. A `.row.space-between` head carrying the
+           title and two group buttons, the Add form, then a
+           `.library-toolbar` with search and sort a full form below the
+           title. So the two things that choose what the list shows sat
+           underneath the thing that adds to it, which is the reverse of how
+           the other six sub-tabs read.
+
+           One row, the four zones every Library head now uses:
+             identity: the title
+             find:     search
+             arrange:  one sort select
+             actions:  Add link, then the two group verbs in the kebab
+           The group chips below the dock stay: they are the visible filter,
+           the same recipe the Everything sub-tab uses.
+
+           "New group" and "Manage groups" move into the kebab because of
+           rule 5: a menu is for verbs used sometimes, and a person who has
+           made their groups does not make another this week. They were
+           directly requested ("add buttons for creating and managing groups
+           in the links tab top dock") and they are still in the top dock,
+           one click further in. Ids unchanged, so library.js keeps both
+           listeners exactly as they are.
+
+           "Add link" carries `data-empty-action="add-link"`, the delegated
+           action this app already routes (app.js) from the empty state's own
+           button, so it needs no listener of its own and cannot drift from
+           what that button does: it puts the cursor in the URL field. -->
+      <div class="dock" data-dock-name="library-links" role="toolbar"
+        aria-label="Saved link controls">
+        <div class="dock-identity">
+          <h2>Links</h2>
+        </div>
+        <div class="dock-group dock-find">
+          <input id="bookmark-search" type="search" class="library-search"
+            placeholder="Search saved links…" aria-label="Search saved links">
+        </div>
+        <div class="dock-group dock-arrange">
+          <!-- Same shape and same place as the Notes and Files sort controls.
+               The Library sub-tabs were reported as "missing sorting and
+               filtering options", and this is the third of them to get one. -->
+          <select id="bookmark-sort" aria-label="Sort links" title="Sort links">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="az">Title A → Z</option>
+            <option value="za">Title Z → A</option>
+            <option value="site">By site</option>
+          </select>
+        </div>
+        <div class="dock-actions">
+          <button id="bookmark-add" class="small" type="button"
+            data-empty-action="add-link" title="Save a new link">
+            <i class="ph ph-plus ph-lead" aria-hidden="true"></i> Add link</button>
+          <details class="doc-dock-menu dock-menu dock-more" id="bookmark-more-menu">
+            <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
+            <div class="doc-dock-menu-list dock-menu-list">
+              <!-- Groups had no controls of their own: the only way to make one
+                   was to type a name into the Add form, and the only way to
+                   rename or retire one was to edit every link carrying it, one
+                   at a time. -->
+              <button type="button" id="bookmark-group-new" class="doc-dock-menu-item">
+                <i class="ph ph-folder-plus ph-lead" aria-hidden="true"></i> New group</button>
+              <button type="button" id="bookmark-group-manage" class="doc-dock-menu-item">
+                <i class="ph ph-folders ph-lead" aria-hidden="true"></i> Manage groups</button>
+            </div>
+          </details>
         </div>
       </div>
-      <p class="muted">Save links to websites you visit often — a bookmark
+      <p class="muted">Save links to websites you visit often: a bookmark
         shelf that lives in the notebook instead of the browser.</p>
       <form id="bookmark-form" class="row">
         <input id="bookmark-url-input" type="text" class="library-search"
@@ -4174,23 +4350,6 @@ Link to another note with [[its first few words]]."></textarea>
         <datalist id="bookmark-group-options"></datalist>
         <button type="submit" class="small"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Add</button>
       </form>
-      <!-- Same shape and same place as the Notes and Files sort controls —
-           the Library sub-tabs were reported as "missing sorting and filtering
-           options", and this is the third of them to get one. Wrapped in a
-           `.library-toolbar` so the select takes the shared control height
-           rather than being the one dropdown in the Library sized by nothing,
-           which is exactly how the Files sort went wrong first time. -->
-      <div class="library-toolbar library-links-toolbar">
-        <input id="bookmark-search" type="search" class="library-search"
-          placeholder="Search saved links…" aria-label="Search saved links">
-        <select id="bookmark-sort" aria-label="Sort links" title="Sort links">
-          <option value="newest">Newest first</option>
-          <option value="oldest">Oldest first</option>
-          <option value="az">Title A → Z</option>
-          <option value="za">Title Z → A</option>
-          <option value="site">By site</option>
-        </select>
-      </div>
       <div id="bookmark-group-chips" class="row bookmark-group-chips"></div>
       <div id="bookmark-list" class="bookmark-list"></div>
       <div id="bookmark-empty" class="empty-state hidden">
@@ -4210,58 +4369,80 @@ Link to another note with [[its first few words]]."></textarea>
        and filters by category); this is the fast, scannable list half. -->
   <div id="library-view-contents" class="library-view-section hidden">
     <section class="card glass">
-      <div class="row space-between library-head">
-        <h2>Contents</h2>
-        <!-- Directly requested: "make the text at the top of the contents page
-             one of those tooltip '?' buttons". Four lines of prose that only
-             ever needs reading once was pushing the controls a third of the
-             way down the card on every visit; the same words now open on
-             demand from the same "?" every other page in the app uses. -->
-        <!-- The two buttons travel together at the card's right edge.
-             `.graph-help-toggle` carries `margin-left: auto` of its own, which
-             is right in a toolbar and wrong in a `.row.space-between` header:
-             it pushed the "?" to the middle of the row, half a card away from
-             the refresh button it belongs beside. Reported with a screenshot. -->
-        <div class="row contents-head-actions">
+      <!-- **The dock (UI_MODERNISATION_PLAN.md Phase 8).** Before: two rows.
+           A `.row.space-between` head holding the title and two icon buttons
+           in the wrong order (help, then refresh), and a `.contents-controls`
+           row below it holding the grouping segment, the filter box and
+           "Collapse all". Nothing about that said which row was for finding
+           and which was for acting; they were simply the order the features
+           arrived in.
+
+           One row, the four zones every Library head now uses:
+             identity: the title
+             find:     the filter box
+             arrange:  the grouping segment
+             actions:  Collapse all, then refresh, then help
+           Utilities are refresh then help now, which is the fixed order the
+           grammar states and the order every other dock already uses.
+
+           Ids, `data-mode` values, `role="tab"` and the `active` class are
+           all unchanged, so library.js keeps its listeners as they are.
+
+           The segment gained an icon per option. Rule 7 wants a segmented
+           control to mean *view* and to carry icons, and this one does mean
+           view: it is four ways of drawing the same index, not four filters.
+           The words stay beside the icons because "By month" and "By folder"
+           are not guessable from a picture, and the folder option keeps the
+           tooltip that answers the question it was reported with. -->
+      <div class="dock" data-dock-name="library-contents" role="toolbar"
+        aria-label="Contents controls">
+        <div class="dock-identity">
+          <h2>Contents</h2>
+        </div>
+        <div class="dock-group dock-find">
+          <input id="contents-filter" type="search" placeholder="Filter this index…"
+            aria-label="Filter the index by title">
+        </div>
+        <div class="dock-group dock-arrange">
+          <div class="seg" id="contents-mode" role="tablist" aria-label="How to group the index">
+            <button role="tab" aria-selected="true" data-mode="category" class="active" type="button"><i class="ph ph-folders ph-lead" aria-hidden="true"></i> By category</button>
+            <button role="tab" aria-selected="false" data-mode="tag" type="button"><i class="ph ph-tag ph-lead" aria-hidden="true"></i> By tag</button>
+            <button role="tab" aria-selected="false" data-mode="date" type="button"><i class="ph ph-calendar-blank ph-lead" aria-hidden="true"></i> By month</button>
+            <!-- The vault's own folders, for notes imported from one. See
+                 `Entry.source_path`: everything written in this app groups
+                 under "(written here)" rather than vanishing.
+
+                 **The tooltip is the whole feature for anyone who has not
+                 imported a vault.** Reported as a question: "what does it mean
+                 by 'sort by folder' in the contents page??", which is the
+                 right question, because on a notebook with nothing imported
+                 this tab groups everything under one heading and looks broken.
+                 A control has to say what it is for where it is offered; the
+                 comment above says it to the next developer and said nothing
+                 to the user. -->
+            <button role="tab" aria-selected="false" data-mode="folder" type="button"
+              title="Group by the folders of an imported Obsidian or markdown vault. Notes written in MemoryMap have no folder, so they group under “(written here)”."><i class="ph ph-folder-open ph-lead" aria-hidden="true"></i> By folder</button>
+          </div>
+        </div>
+        <div class="dock-actions">
+          <button id="contents-collapse" class="ghost small" type="button"
+            title="Collapse or expand every section">Collapse all</button>
+          <button id="contents-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+          <!-- Directly requested: "make the text at the top of the contents page
+               one of those tooltip '?' buttons". Four lines of prose that only
+               ever needs reading once was pushing the controls a third of the
+               way down the card on every visit; the same words now open on
+               demand from the same "?" every other page in the app uses. -->
           <button id="contents-help" class="ghost small icon-only graph-help-toggle" type="button"
             aria-expanded="false" aria-controls="contents-intro"
-            title="An index of your notebook — by category, by tag, by the month you wrote it, or by the folder it came from if you imported a vault. Filter it, fold a section away, or jump straight to one. For the visual map of how notes link to each other, see the Graph tab."
+            title="An index of your notebook: by category, by tag, by the month you wrote it, or by the folder it came from if you imported a vault. Filter it, fold a section away, or jump straight to one. For the visual map of how notes link to each other, see the Graph tab."
             aria-label="What is this page?"><i class="ph ph-question" aria-hidden="true"></i></button>
-          <button id="contents-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
         </div>
       </div>
-      <p class="muted graph-help-panel hidden" id="contents-intro" role="dialog" aria-label="What is this page?">An index of your notebook — by category, by tag, by the
+      <p class="muted graph-help-panel hidden" id="contents-intro" role="dialog" aria-label="What is this page?">An index of your notebook: by category, by tag, by the
         month you wrote it, or by the folder it came from if you imported a
         vault. Filter it, fold a section away, or jump straight to one. For the
         visual map of how notes link to each other, see the Graph tab.</p>
-      <!-- The controls an index needs and this one did not have: a way to
-           narrow it, a third grouping (a notebook is as often "when did I
-           write that" as "what did I file it under"), and a jump bar, because
-           the fix for a long index is not a scrollbar per section. -->
-      <div class="row contents-controls library-head">
-        <div class="seg" id="contents-mode" role="tablist">
-          <button role="tab" aria-selected="true" data-mode="category" class="active" type="button">By category</button>
-          <button role="tab" aria-selected="false" data-mode="tag" type="button">By tag</button>
-          <button role="tab" aria-selected="false" data-mode="date" type="button">By month</button>
-          <!-- The vault's own folders, for notes imported from one. See
-               `Entry.source_path`: everything written in this app groups
-               under "(written here)" rather than vanishing. -->
-          <!-- **The tooltip is the whole feature for anyone who has not
-               imported a vault.** Reported as a question: "what does it mean
-               by 'sort by folder' in the contents page??" — which is the
-               right question, because on a notebook with nothing imported
-               this tab groups everything under one heading and looks broken.
-               A control has to say what it is for where it is offered; the
-               comment above says it to the next developer and said nothing
-               to the user. -->
-          <button role="tab" aria-selected="false" data-mode="folder" type="button"
-            title="Group by the folders of an imported Obsidian or markdown vault. Notes written in MemoryMap have no folder, so they group under “(written here)”.">By folder</button>
-        </div>
-        <input id="contents-filter" type="search" placeholder="Filter this index…"
-          aria-label="Filter the index by title">
-        <button id="contents-collapse" class="ghost small" type="button"
-          title="Collapse or expand every section">Collapse all</button>
-      </div>
       <nav id="contents-jump" class="contents-jump" aria-label="Jump to a section"></nav>
       <div id="contents-outline" class="contents-outline"></div>
       <p id="contents-no-match" class="muted hidden"></p>

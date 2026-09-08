@@ -2754,22 +2754,14 @@ p.graph-help-panel {
    Reported exactly that way: "the button elements in the top row of each
    library subtab are all different sizes and proportions between tabs". The
    `gap` stays — that is a real local choice, not a copy of a global one. */
-#library-view-docs .library-head {
-  gap: var(--space-2);
-}
-
-#library-view-docs .library-head input,
-#library-view-docs .library-head select,
-#library-view-docs .library-head button {
-  height: var(--control-h);
-  padding-block: 0;
-}
-
-#library-docs-search {
-  width: 14rem;
-  max-width: 100%;
-  margin: 0;
-}
+/* The Documents head is a `.dock` now (Phase 8): its gap, its one control
+   height and its search width all come from the dock recipe, so the three
+   local rules that used to live here are gone: a `--space-2` gap, a height
+   for every input/select/button, and a fixed 14rem on
+   `#library-docs-search`. The last of those had to go rather than stay harmless: `.dock-find
+   input[type="search"]` gives search `flex: 1 1 10rem` so it grows into the
+   row, and a `width` beside a flex-basis is exactly the "two answers to one
+   question" this phase is removing. */
 
 /* --- Library → Whiteboards -----------------------------------------------
    Same failure as the Documents dock above, unfixed here until now: the
@@ -2777,21 +2769,9 @@ p.graph-help-panel {
    rendered at its own natural size and the row grew to fit the tallest one. */
 /* Same as the Documents rule above: the local `--control-h: 2rem` is gone so
    this header takes the shared Library height. */
-#wb-boards-landing .library-head {
-  gap: var(--space-2);
-}
-
-#wb-boards-landing .library-head input,
-#wb-boards-landing .library-head button {
-  height: var(--control-h);
-  padding-block: 0;
-}
-
-#library-boards-search {
-  width: 14rem;
-  max-width: 100%;
-  margin: 0;
-}
+/* Gone for the same reason the Documents block above lost its three rules:
+   this head is a `.dock` now, and the dock recipe owns its gap, its one
+   control height and the width search grows to. */
 
 
 /* ---------------------------------------------------------------------------

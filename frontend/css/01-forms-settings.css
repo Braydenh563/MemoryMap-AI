@@ -2087,17 +2087,13 @@ progress {
   cursor: pointer;
 }
 
-.contents-controls {
-  gap: var(--space-3);
-  margin-top: var(--space-4);
-}
-
-/* The filter takes the leftover width the way every other search box in the
-   app does, rather than sitting at its intrinsic size beside a wide gap. */
-#contents-filter {
-  flex: 1 1 12rem;
-  min-width: 8rem;
-}
+/* `.contents-controls` and `#contents-filter` lived here. Contents is one
+   `.dock` now (Phase 8) rather than a head row plus a controls row, and the
+   dock owns both things these rules said: `.dock`'s own two gaps, and
+   `.dock-find input[type="search"]`'s `flex: 1 1 10rem` so the filter takes
+   the leftover width. The id rule had to go rather than stay: it set a 12rem
+   basis where every other dock's search box uses 10rem, which is one search
+   box in the app sized by itself. */
 
 .bookmark-actions {
   flex-shrink: 0;

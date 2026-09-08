@@ -32,7 +32,7 @@ When the owner says "continue" (or pastes their usual prompt: review the
 docs, proceed with the top-priority, most impactful, qualitative work,
 autonomously, token-efficiently, scanning for bugs, keeping docs current)
 or drops in issues mid-work, do not ask; follow the "Standing orders"
-block at the top of [`docs/roadmap/HANDOVER.md`](docs/roadmap/HANDOVER.md):
+block at the top of [`docs/roadmap/HANDOVER.md`](docs/roadmap/HANDOVER.md) (and, when no Fable is available, its "If Opus is the orchestrator" block):
 merge agent worktrees, work the owner's flagged items, then
 `docs/roadmap/SESSION_BRIEFS.md` in order, then ROADMAP and BACKLOG by
 impact; reproduce every reported issue in the running app before fixing

@@ -10,6 +10,45 @@ em-dashes, report in five lines. When unsure, the decision is already
 written in `WORLD_CLASS_PLAN.md` or a plan file; find it, do not remake
 it.
 
+### If Opus is the orchestrator (no Fable available)
+
+This is the expected case for most of the week. Everything Opus needs is
+already written; the rule is to work it, not to redesign it.
+
+1. **Open with:** read `CLAUDE.md`, this block, `ROADMAP.md`'s opening
+   table, the "Now" line below, `INBOX.md`, then the file the Now line
+   names. Nothing else before the first commit.
+2. **Order of work** is the standing orders' order: INBOX bugs (Sonnet
+   for the named-fix ones, Opus for the design ones), `agent-remaining/*.md`
+   (Opus), `SESSION_BRIEFS.md` Briefs 2 to 15 (by the specialty split),
+   then the plan phases in ROADMAP order (TIMELINE, WHITEBOARD, CHAT,
+   DOCUMENTS, GRAPH, MINDMAP), each against its plan's gates and, for the
+   backend, its spec tests (remove a strict-xfail marker only when the
+   test passes on its own).
+3. **Decisions are not remade.** Every plan carries a "Decisions made"
+   section; a session that finds itself choosing between two designs
+   looks there first, and if the answer is missing, records the question
+   in `INBOX.md` under "Design and feature requests" with a one-line
+   recommendation and takes the recommendation. Fable's next window
+   reviews those entries.
+4. **Review is Opus's job too.** Before merging any agent branch: read
+   the diff for the four failure shapes in `CLAUDE.md` (a working thing
+   rewritten riskier; a feature that never ran; a guard removed; a policy
+   silently refusing), run the lint set and the sweep the brief names,
+   and refuse a merge whose report has no numbers.
+5. **No new plan documents.** There are eleven; a new need becomes a brief
+   row in the plan it belongs to, or an INBOX entry. `HANDOVER.md`'s Now
+   line and this table are the only status surfaces; keep them true.
+6. **Agents:** at most two, by the specialty split below, each with its
+   own worktree, port and data dir, committing per step and writing its
+   remaining list before it stops.
+7. **The hourly check-in** (`send_later`) is re-armed at the end of every
+   turn; it carries the standing orders in its prompt, so a session that
+   went idle resumes itself.
+
+The opening prompt that does all of this: "Read CLAUDE.md, then the top
+of docs/roadmap/HANDOVER.md, and continue."
+
 ### Standing orders for this session (whoever the model is)
 
 The owner will say "continue", or paste a batch of issues, possibly

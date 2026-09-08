@@ -48,7 +48,7 @@ def test_related_is_first_so_it_can_be_the_default():
 def test_every_kind_has_a_human_description():
     for key, description in LINK_TYPES.items():
         assert description.strip(), f"{key} has no description"
-        assert ", " in description, (
+        assert ": " in description, (
             f"{key}'s description should read 'Name: what it means'; the UI "
             "splits on that dash to show the label and the hint separately."
         )

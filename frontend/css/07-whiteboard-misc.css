@@ -934,6 +934,21 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   padding-bottom: calc(var(--space-9) * 9);
 }
 
+/* The Library is the same shape again (reported with a screenshot after the
+   Phase 8/9 merges: "it flashed and then did this", the card grid cut off
+   at 423px of an 807px tab with nothing under it). #tab-library is a plain
+   flex column; the scroll container is .library-view-section one level
+   down, so the generic buffer on .tab-page shrank the view by 312px instead
+   of adding scroll room. Measured: view 423px with the buffer on the tab,
+   711px with it moved here; scrollHeight 1156 either way. */
+body.has-agent-monitor #tab-library {
+  padding-bottom: var(--page-bottom);
+}
+
+body.has-agent-monitor #tab-library .library-view-section {
+  padding-bottom: calc(var(--space-9) * 9);
+}
+
 /* Chat used to be listed alongside Notes above (`#tab-chat .layout > main`)
    and that was a real, user-reported bug, reproduced live: opening the
    Agent Activity monitor visibly shoved the whole chat card up the page, 

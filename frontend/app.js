@@ -10918,10 +10918,10 @@ function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0, u
   // as the same idea rather than a second vocabulary for it.
   if (usedTools != null) {
     row.appendChild(
-      metaItem(usedTools ? "Request" : "Ask", {
+      metaItem(usedTools ? "Agent" : "Ask", {
         icon: usedTools ? "ph:robot" : "ph:chat-circle",
         title: usedTools
-          ? "Answered in Request mode, the Librarian could use tools."
+          ? "Answered in Agent mode, the Librarian could use tools."
           : "Answered in Ask mode, read-only, no tools used.",
         kind: "mode",
       })
@@ -12576,7 +12576,7 @@ const PROGRESS_MUSINGS = [
   "Searching uses meaning and keywords together, then merges the two rankings.",
   "A note you never tagged is still findable, the links between notes count too.",
   "Private notes are held back from the AI, even when it asks for them.",
-  "Ask mode reads. Request mode can change things, and says so before it does.",
+  "Ask mode reads. Agent mode can change things, and says so before it does.",
   "Long answers are slower on a small model, not stuck.",
   "Every tool call the AI makes is listed under the answer, with what it touched.",
   "Type [[ in any note to link to another one.",
@@ -16785,7 +16785,7 @@ async function sendChatMessage(preset, opts = {}) {
       // rebuilding "3.9k/8k window · 12 tok/s · llama3.2", so on reload the
       // line used to vanish and the answer looked like it came from nowhere.
       stats: stats || null,
-      // §89.4: which mode actually answered this turn (Ask vs. Request): a
+      // §89.4: which mode actually answered this turn (Ask vs. Agent): a
       // conversation can span mode switches, so this has to be per-turn, not
       // read off the toggle's current state on reload.
       used_tools: effectiveUseTools,
@@ -19100,9 +19100,8 @@ function chosenSkillTools() {
 }
 
 // Run a skill. The server owns what a skill is, so this sends its name and
-// the values it asked for, not a prompt assembled here. An action skill
-// brings its own permission to act, so agent mode is not switched on behind
-// the user's back and left on afterwards.
+// the values it asked for, not a prompt assembled here. The mode a skill runs
+// in is settled in `startSkill`, which both entry points go through.
 function runSkill(skill) {
   if ((skill.inputs || []).length) {
     askSkillInputs(skill, (values) => startSkill(skill, values));
@@ -19120,7 +19119,7 @@ function startPlannedRun(goal, steps) {
   sendChatMessage(goal, { plan: { goal, steps }, skipPlanMode: true });
 }
 
-function startSkill(skill, values) {
+async function startSkill(skill, values) {
   // Both entry points land here, the Skill dropdown and a run the agent started
   // itself (§33): so the dashboard's recent-skill buttons cover both.
   noteSkillRun(skill.name);
@@ -19132,6 +19131,31 @@ function startSkill(skill, values) {
   // conversation, so starting one has to take you to the conversation. From
   // the Skill dropdown, where you are already here, this is a no-op.
   switchTab("chat");
+  //: **A skill runs in Agent mode, and says so** (INBOX 39, the owner's
+  //: decision).
+  //:
+  //: The rule until now was the opposite: an *action* skill carried its own
+  //: permission, so the backend turned tools on for that one call
+  //: (`skill["acts"]` in routes_chat.py) and the toggle was deliberately left
+  //: alone. As a contract that is tidy; read as a person it is not. The
+  //: segment said "Ask" while the run was creating and tagging notes, a
+  //: non-acting skill quietly got a different toolbox depending on a control
+  //: nobody had touched, and the mode a run actually used was invisible until
+  //: the meta line under the answer.
+  //:
+  //: So the mode moves, once, before the run starts, and stays moved: a
+  //: setting that flips back on its own is a worse surprise than one that
+  //: does not. Announced in a line, the way Plan mode already announces the
+  //: same switch, because a mode that changed under you and said so beats
+  //: "why can it suddenly do that?".
+  //:
+  //: Awaited, not fired off: `sendChatMessage` reads `#tools-toggle` to decide
+  //: what this turn sends and what the saved turn records, so the checkbox has
+  //: to be true before the message leaves.
+  if (!$("tools-toggle").checked) {
+    await setChatMode("agent");
+    toast("Switched to Agent for this skill.");
+  }
   const given = Object.values(values).filter(Boolean).join(", ");
   sendChatMessage(`${skill.name}${given ? `, ${given}` : ""}`, {
     skill: skill.name,
@@ -19214,7 +19238,7 @@ function askSkillInputs(skill, done) {
 // directly: fold the "+" into the combobox as an option, put the step-by-step
 // choice next to the skill it applies to as a two-option pill, and keep Run.
 //
-// The pill and the hidden checkbox is the same pattern the Ask/Request pair
+// The pill and the hidden checkbox is the same pattern the Ask/Agent pair
 // already uses in this strip: the checkbox stays as the thing the rest of the
 // app reads and stores (`sendChatMessage` reads `#skill-manual-toggle`), and
 // the pill is what a person operates. Two named options rather than a tickbox,
@@ -19300,7 +19324,7 @@ async function loadChatSkills() {
 
   // **One "Skills" dropdown, not four controls loose in the strip.** Asked for
   // directly, twice: the selector, the Auto|Manual pill and Run belong inside
-  // a Skills menu, not spread across the dock competing with Ask/Request/Web/
+  // a Skills menu, not spread across the dock competing with Ask/Agent/Web/
   // Plan for width. Running a skill is one job; it should occupy one control
   // until you are actually doing it.
   //
@@ -19445,7 +19469,7 @@ function skillPacePill() {
 //   are both things that change what happens to your notes.
 // - **Dismiss means dismissed.** Per draft, per kind, clearing the box or
 //   sending resets it, so it does not become a thing you dismiss every time.
-// - **It stays quiet when it has nothing to add**: already in Request mode, or
+// - **It stays quiet when it has nothing to add**: already in Agent mode, or
 //   the text is too short to be a request at all.
 //
 // Matching is a heuristic here rather than a model call for the same reason
@@ -19541,7 +19565,7 @@ function renderChatNudge() {
       kind: "agent",
       icon: "ph:robot",
       text: "That reads like something to do, not something to answer. Ask mode can't touch your notes.",
-      action: "Switch to Request",
+      action: "Switch to Agent",
       run: () => setChatMode("agent"),
     });
   }
@@ -32254,7 +32278,7 @@ $("chat-plan").addEventListener("click", async () => {
   // under you and said so beats "why did nothing happen?".
   if (!$("tools-toggle").checked) {
     await setChatMode("agent");
-    toast("Plan mode on, and switched to Request, a plan needs to be able to act.");
+    toast("Plan mode on, and switched to Agent, a plan needs to be able to act.");
   } else {
     toast("Plan mode on: your next message gets planned first.");
   }

@@ -954,7 +954,7 @@ callouts" entry before rebuilding anything that sounds finished.**
 
 ~~4. **A visual indicator on a chat message's own metadata line for which
    mode answered it.**~~ **Built.** `messageMetaLine()` (app.js) takes a new
-   `usedTools` param and renders an "Ask"/"Request" chip — same
+   `usedTools` param and renders an "Ask"/"Agent" chip — same
    icon/label pair as `#chat-mode-seg` — positioned beside the model name.
    Read off the turn's own `effectiveUseTools` at send time, not the live
    toggle, so a conversation that spans mode switches shows what each past
@@ -965,8 +965,9 @@ callouts" entry before rebuilding anything that sounds finished.**
    (test_conversations_api.py). **Live-verified in Chromium**: two turns
    posted straight through `/conversations` with `used_tools: false`/`true`
    and real `stats`, reopened via `openConversation` — the metadata line
-   reads `850 ms · 5% · Ask · llama3.2` and `4.2s · 11% · Request ·
-   llama3.2 · 1` respectively, chip text and position exactly as designed,
+   read `850 ms · 5% · Ask · llama3.2` and `4.2s · 11% · Request ·
+   llama3.2 · 1` respectively (the second chip says "Agent" since the
+   INBOX 39 rename), chip text and position exactly as designed,
    zero console errors. No live Ollama was needed since the chip renders
    from saved-turn data, not a live stream.
 

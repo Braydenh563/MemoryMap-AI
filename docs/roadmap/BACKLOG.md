@@ -115,7 +115,7 @@ Genuinely built afterwards:
 > sub-tabs".** Checked against the actual code rather than re-reading this
 > section's original wording as a spec:
 >
-> - **Chat vs Agent** → the Ask/Request mode toggle in the chat dock, not a
+> - **Chat vs Agent** → the Ask/Agent mode toggle in the chat dock, not a
 >   tab switch. Same distinction, one click instead of a navigation.
 > - **Browse** → the web panel (§36G), a persistent column beside the
 >   conversation rather than a third tab — and §36G's own reasoning

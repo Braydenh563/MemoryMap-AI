@@ -318,7 +318,7 @@ darker tonal.
 purpose.** A *tab strip* (`[role="tablist"]`: the tab bar, the Notes and
 Library sub-tabs) sits on the surface — the tab bar is a `--field-inset`
 well, the sub-tab strips are their own card. A *choice control* (`.seg`,
-`.segmented-control`: view toggles, sort, Ask/Request) is a `--chip-bg` well
+`.segmented-control`: view toggles, sort, Ask/Agent) is a `--chip-bg` well
 with no edge, whatever else it is inside. Measured: 28 `.seg` groups were
 already that, and the Graph's layout/colour pickers plus the chat dock's
 mode switch were the three drawn as cards — now conformed, not given a

@@ -839,9 +839,10 @@
 /* The segmented control also brings its own vertical padding around its two
    buttons, which made it taller again. It keeps its inset horizontally and
    gives it up vertically. */
-/* The mode buttons say "Ask the Librarian" where there is room and "Ask" where
-   there is not. Naming them for what you get rather than for the machinery is
-   the point: but two labels of that length are ~350px of a strip that also
+/* The mode buttons say "Ask the Librarian" and "Agent mode" where there is
+   room, and "Ask" and "Agent" where there is not. Naming them for the stance
+   rather than for the machinery is the point: but two labels of that length
+   are ~350px of a strip that also
    holds a skill picker, a length preset, a persona and a web toggle, and the
    whole strip wrapped to two rows below about 1500px. Measured: 30px tall at
    1900, 69px at 1440. The full phrase stays in the tooltip and in the
@@ -1522,7 +1523,7 @@ select {
 
 /* **One corner language per row.** Measured in the chat dock, the densest row
    of toggles in the app: Skills, Web, Plan and ⋯ are pills, and the segmented
-   Ask/Request between them came out at 2.2px from the tunable rule above, one
+   Ask/Agent between them came out at 2.2px from the tunable rule above, one
    strip, two shapes, which is what reads as the app not having decided.
    Scoped to the dock rather than changed above, because that rule is the
    user's own corner-rounding preference and every other `.seg` in the app is

@@ -1301,9 +1301,12 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     question = skill["question"] if skill else body.question
     allowed_tools = skill["tools"] if skill else None
     if skill and skill["acts"]:
-        # An action skill without tools is just a paragraph. This is what the
-        # frontend used to do by ticking the agent-mode box on the user's
-        # behalf, which left the box ticked afterwards.
+        # An action skill without tools is just a paragraph, so the route
+        # insists whatever the caller asked for. The frontend now switches the
+        # mode itself before it sends (INBOX 39: it announces the switch and
+        # leaves it switched), so in the app this branch no longer changes
+        # anything; it stays because the API is public and a caller that posts
+        # `use_tools: false` with an action skill still means the skill.
         use_tools = True
 
     def plain_events(prepared: dict, ollama_running: bool) -> Iterator[dict]:

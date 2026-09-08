@@ -19,7 +19,7 @@ compress, kebab), the transcript (user bubbles right, assistant cards
 left with a persona label, sources card grid, "Grounded in" chips, stats
 line, "Next" chips, a per-answer action strip), a composer (note and
 attachment buttons, textarea, mic, Send; a second row of Skills, Web,
-Plan, Ask/Request segment, settings). The Ask sub-tab on Notes has a
+Plan, Ask/Agent segment, settings). The Ask sub-tab on Notes has a
 single question field, a mode select, tune, Try-asking and Ask-again
 chips, and a History panel. The popup agent (`#agent-monitor` and the
 Ask-the-agent panel) has four starter chips. Skills run as a collapsible
@@ -39,7 +39,7 @@ plan with steps, tool cards and chips of the notes each step read.
    in the text are what Perplexity gets right and the grid is what it
    does not show by default.
 3. **The composer is two rows of chips** around one field, and its second
-   row (Skills, Web, Plan, Ask/Request, settings) is a bar of unrelated
+   row (Skills, Web, Plan, Ask/Agent, settings) is a bar of unrelated
    controls; the skills picker is a full-height list.
 4. **User bubbles** are a solid accent block with a "YOU" label and an
    avatar; the assistant card is a quiet card. The two do not belong to
@@ -64,7 +64,7 @@ mark, the mark names the note, hover highlights the passage, and "I don't
 know" is a designed state when fewer than half the sentences are
 supported. One composer everywhere (Chat, Ask, the popup agent): one
 field, a "+" menu for attachments, scope, persona and skill, a mode
-segment (Ask, Request), Send; nothing else on the bar. Ask is Chat in
+segment (Ask, Agent), Send; nothing else on the bar. Ask is Chat in
 single-turn mode with the same answer object. The popup agent is the
 same composer with twelve starters grouped by verb (capture, find,
 summarise, remind, do), and a "with the open note" toggle. Skills run

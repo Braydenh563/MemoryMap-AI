@@ -1436,8 +1436,8 @@ Link to another note with [[its first few words]]."></textarea>
             <div id="chat-selection-attachment" class="chat-attachments hidden"
               role="group" aria-label="The selection attached to your next message"></div>
             <!-- Two capabilities that only ever helped the people who already
-                 knew they were there. "Request the Librarian" is the mode that
-                 can actually *do* the thing you just typed, and a saved skill
+                 knew they were there. Agent mode is the mode that can
+                 actually *do* the thing you just typed, and a saved skill
                  is a job someone already wrote down, but both live behind
                  controls you have to think to reach, so asking the notebook to
                  "tag my untagged notes" in Ask mode got a polite description of
@@ -1592,20 +1592,30 @@ Link to another note with [[its first few words]]."></textarea>
                    opposite rather than mixed in with them. -->
               <div class="chat-tool-group chat-tool-group-mode" role="group" aria-label="How it answers">
                 <div class="seg seg-compact" id="chat-mode-seg" role="group" aria-label="Chat mode">
-                  <!-- Named for the difference between them rather than for
-                       the machinery. "Chat" and "Agent" describe how the app
-                       is built; "Ask" and "Request" describe what you get, 
-                       one reads your notes and answers, the other goes and
-                       does something to them. The Librarian is already this
-                       app's own voice (it has a Librarian persona and an
-                       `ai/librarian` module), so the pair reads as one idea
-                       instead of as two settings. -->
+                  <!-- Named for the difference between them: one reads your
+                       notes and answers, the other goes and does something to
+                       them. The Librarian is already this app's own voice (it
+                       has a Librarian persona and an `ai/librarian` module),
+                       so "Ask the Librarian" reads as one idea rather than as
+                       two settings.
+
+                       The second button was "Request the Librarian" and is
+                       now "Agent mode" (INBOX 39, the owner's decision, for
+                       learnability). "Request" described what you get, which
+                       is the better naming rule in general, but nobody
+                       arrives at this app without already knowing what an
+                       agent is, and the word was the one thing on the strip
+                       a reader had to be taught. The long half changes with
+                       it: "Agent the Librarian" is not English. Only the
+                       words move; `tools-enabled` and the `use_tools` field
+                       are untouched, so a saved preference still means what
+                       it meant. -->
                   <button data-chat-mode="chat" type="button"
                     title="Ask the Librarian about your notes. It reads and answers; it never changes anything."
                     aria-label="Ask the Librarian"><i class="ph ph-chat-circle ph-lead" aria-hidden="true"></i> Ask<span class="chat-mode-long"> the Librarian</span></button>
                   <button data-chat-mode="agent" type="button"
-                    title="Request something of the Librarian. It can use tools, search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first."
-                    aria-label="Request the Librarian"><i class="ph ph-robot ph-lead" aria-hidden="true"></i> Request<span class="chat-mode-long"> the Librarian</span></button>
+                    title="Agent mode. Ask the Librarian to do something: it can use tools, search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first."
+                    aria-label="Agent mode"><i class="ph ph-robot ph-lead" aria-hidden="true"></i> Agent<span class="chat-mode-long"> mode</span></button>
                 </div>
 
               <!-- How the answer comes out: who is speaking, and how hard they

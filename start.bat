@@ -966,9 +966,24 @@ if defined MM_LAST_LOG goto :doctor_last_read
 call :row ok "Last run" "no launcher log yet"
 goto :doctor_done
 :doctor_last_read
+REM  SET /P from a file, not a FOR /F over findstr's output. The line comes
+REM  out of a log that carries git's and pip's own text verbatim, and
+REM  `set "VAR=%%E"` on a line containing a double quote and an ampersand
+REM  ends the SET early and runs the rest as a command. SET /P assigns the
+REM  line with no parsing at all, which is the only cmd construct that
+REM  does. It reads the FIRST match rather than the last, which is usually
+REM  the cause rather than the cascade; the row names the log either way.
 set "MM_LAST_ERR="
-for /f "delims=" %%E in ('findstr /I /C:"FAILED" /C:"error" /C:"traceback" "!MM_LAST_LOG!" 2^>nul') do set "MM_LAST_ERR=%%E"
+set "MM_ERR_TMP=%TEMP%\mm_lasterr_%RANDOM%.txt"
+findstr /I /C:"FAILED" /C:"error" /C:"traceback" "!MM_LAST_LOG!" > "!MM_ERR_TMP!" 2>nul
+set /p MM_LAST_ERR=<"!MM_ERR_TMP!"
+del /q "!MM_ERR_TMP!" >nul 2>nul
 if not defined MM_LAST_ERR goto :doctor_last_clean
+REM  Unquoted SET, so the replacement can remove the double quotes: they are
+REM  the one character that could still shift CALL :row's argument
+REM  boundaries below. Delayed-expanded text is never re-scanned for
+REM  operators, so an ampersand in the line is already harmless here.
+set MM_LAST_ERR=!MM_LAST_ERR:"=!
 set "MM_LAST_ERR=!MM_LAST_ERR:~0,100!"
 call :row warn "Last run" "!MM_LAST_ERR!" "From !MM_LAST_LOG!"
 goto :doctor_done

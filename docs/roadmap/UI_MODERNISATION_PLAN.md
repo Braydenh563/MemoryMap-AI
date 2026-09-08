@@ -429,6 +429,22 @@ all four widths; a keyboard-only pass (Tab into each dock, arrows across
 it, Enter opens a popover, Escape closes it and returns focus) scripted in
 `scratchpad/ui-sweeps/keys.js`.
 
+### The two bars that are not docks (added by direct instruction)
+
+- **The top bar** (`#top-bar`: logo, space switcher, notifications, theme,
+  settings, lock, quit) and **the tab bar**: one height, one gap, utilities
+  in the same order as every dock's, the space switcher as a select-shaped
+  control rather than a button that looks like a tab. Phone: the tab bar
+  moves to the bottom (Phase 9).
+- **The whiteboard top bar** (`#wb-topbar`): a menu bar is its own valid
+  pattern (Insert · Edit · Arrange · View · Board) but it follows the
+  dock's zones — identity (Boards ‹, board select, rename, new; the Map
+  chip, layout, Tidy), find (search, navigator), the menus, actions
+  (Library, fullscreen) — one height, and its menus on the `.dock-menu`
+  recipe so they close on pick, outside click and Escape like every other
+  menu. The floating tool palette and the properties panel take the
+  popover shell. Nothing on the board may feel like a different app.
+
 ## Phase 9 — responsive by device, on purpose (1 session)
 
 **The instruction, verbatim:** "Also intentional and adjusted design that

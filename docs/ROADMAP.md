@@ -59,6 +59,7 @@ pushed.
 | 10 | **UI Phase 8 — the dock grammar** ([roadmap/UI_MODERNISATION_PLAN.md](roadmap/UI_MODERNISATION_PLAN.md) Phase 8): every tab's and sub-tab's control dock onto one zone order, one height, one primary action, with a lint | By direct instruction after the plans above: "features there and not intentionally designed" |
 | 11 | **UI Phase 9 — responsive by device** (Phase 9): iPad landscape/portrait and iPhone as stated breakpoints, touch targets, bottom docks above the keyboard | Same instruction |
 | 12 | **[roadmap/DOCUMENTS_PLAN.md](roadmap/DOCUMENTS_PLAN.md)** — the documents editor reimagined: Phase 0 (click an underline, see suggestions) first, then chrome, then the editing surface (§4's decision: CodeMirror 6, vendored), blocks, connections, review, export | The largest single gap left; §4's decision has to be made before code |
+| 13 | **[roadmap/GRAPH_PLAN.md](roadmap/GRAPH_PLAN.md)** — the graph redesigned front and back: a canvas renderer with the simulation in a worker, physical drag, degree sizing, zoom-level labels, colour rules and groups, a full-tab space, lasso → actions, a local-graph pane | By direct instruction; the graph is the surface furthest from the second-brain references the user named |
 
 **Status after the Fable session** (each line is measured and pushed on
 PR #144; the numbers are in the commit messages and in

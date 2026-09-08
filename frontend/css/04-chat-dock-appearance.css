@@ -4087,3 +4087,10 @@ input.doc-title-input::placeholder {
 .note-picker-sources button {
   flex: 1 1 0;
 }
+
+/* A dragged composer stops at two fifths of the window (reported: it could
+   be pulled off the screen). `resize` honours max-height, and autoGrow's
+   own ceiling (AUTOGROW_MAX_VIEWPORT) is the same fraction. */
+#chat-input {
+  max-height: min(480px, 40vh);
+}

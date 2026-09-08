@@ -2402,6 +2402,19 @@ function inlineActionIs(id, kind) {
 }
 
 // Close every open ⋯ menu (shared by outside-click and Esc, Wave L).
+// A kebab menu that stays where it opened while the list scrolls under it
+// ends up beside the wrong note (reported: "they stay sticky on the screen
+// even when I scroll putting the note I clicked it for off the page"). Any
+// scroll outside the open menu closes it; a scroll inside a long menu is
+// the menu's own and is left alone.
+function closeActionMenusOnScroll(event) {
+  const open = document.querySelector(".action-menu:not(.hidden)");
+  if (!open) return;
+  if (event.target instanceof Node && open.contains(event.target)) return;
+  closeActionMenus();
+}
+window.addEventListener("scroll", closeActionMenusOnScroll, true);
+
 function closeActionMenus() {
   for (const menu of document.querySelectorAll(".action-menu:not(.hidden)")) {
     menu.classList.add("hidden");
@@ -21757,6 +21770,17 @@ function recordTabVisit(name, section = null) {
   const current = tabHistory.stack[tabHistory.index];
   // Re-selecting exactly where you already are is not a step.
   if (current && current.tab === name && current.section === section) return;
+  // One entry per visit. A Notes arrival is recorded twice, as {notes,
+  // "browse"} by showNotesSection and as {notes, null} by switchTab (in
+  // either order), so Back from the next tab landed on the duplicate first
+  // and looked like it did nothing (reported: "I need to click back or
+  // forwards twice"). When the tab on top is this tab and one of the two
+  // sections is null, the entry is refined in place rather than pushed.
+  if (current && current.tab === name && (current.section == null || section == null)) {
+    if (section != null) current.section = section;
+    paintTabHistory();
+    return;
+  }
   tabHistory.stack = tabHistory.stack.slice(0, tabHistory.index + 1);
   tabHistory.stack.push({ tab: name, section });
   if (tabHistory.stack.length > TAB_HISTORY_CAP) tabHistory.stack.shift();
@@ -23745,6 +23769,7 @@ function autoGrow(el) {
     return;
   }
   delete el.dataset.autogrowPending;
+  if (el.dataset.resizing) return; // a grabber drag is in progress; it wins
   // Reset first: without it the height only ever ratchets upwards, because
   // scrollHeight is measured against the height already set.
   el.style.height = "auto";
@@ -23896,21 +23921,36 @@ function initComposerResize() {
   });
 
   if (typeof ResizeObserver !== "function") return;
-  const observer = new ResizeObserver(() => {
+  // The observer used to re-run autoGrow on every size change, including
+  // the ones the grabber drag itself was making: autoGrow reset the height,
+  // the drag set it again, the observer fired again (reported: "it just
+  // spasms and fails"). While the pointer is down on the grabber nothing
+  // fights the drag; the final height is recorded once on release. The
+  // deferred frame stays: a synchronous autoGrow inside the callback is
+  // the "ResizeObserver loop" console error.
+  let dragging = false;
+  const record = () => {
     const height = Math.round(box.getBoundingClientRect().height);
     const automatic = Number(box.dataset.autoHeight || 0);
-    // Two pixels of slack for sub-pixel layout; a drag is always more.
     if (!height || Math.abs(height - automatic) <= 2) return;
     box.dataset.maxPx = String(height);
-    localStorage.setItem(COMPOSER_HEIGHT_KEY, String(height));
-    // Deferred a frame: autoGrow() sets this same box's own height, and
-    // doing that synchronously inside the observer callback watching that
-    // box is exactly what triggers the browser's "ResizeObserver loop
-    // completed with undelivered notifications" warning (reported showing
-    // up as a browser console error). Re-running one frame later still
-    // matches overflow to the new ceiling well before the next keystroke,
-    // and moves the mutation out of the observer's own callback tick.
+    try { localStorage.setItem(COMPOSER_HEIGHT_KEY, String(height)); } catch { /* private mode */ }
     requestAnimationFrame(() => autoGrow(box));
+  };
+  box.addEventListener("pointerdown", (event) => {
+    const rect = box.getBoundingClientRect();
+    dragging = event.clientX >= rect.right - GRABBER && event.clientY >= rect.bottom - GRABBER;
+    if (dragging) box.dataset.resizing = "1";
+  });
+  window.addEventListener("pointerup", () => {
+    if (!dragging) return;
+    dragging = false;
+    delete box.dataset.resizing;
+    record();
+  });
+  const observer = new ResizeObserver(() => {
+    if (dragging) return;
+    record();
   });
   observer.observe(box);
 }

@@ -6768,6 +6768,12 @@ function renderEditForm(li, entry) {
   //: per-note id: `editingId` allows exactly one open edit form at a time.
   textarea.id = "entry-edit-content";
   textarea.className = "note-edit-box";
+  //: Ctrl+B/Ctrl+I/Ctrl+Shift+S, same as the capture box (documents.js:
+  //: `wireMdFormatShortcuts`). Passed the element itself, not its id: this
+  //: textarea is not in the document yet, and a fresh one exists every
+  //: time a note is opened for editing, so this runs on every open rather
+  //: than once at boot.
+  if (typeof wireMdFormatShortcuts === "function") wireMdFormatShortcuts(textarea);
   //: Three rows is a form field; a note is prose. Grows with its content the
   //: way the composer does, up to the same shared ceiling.
   textarea.addEventListener("input", () => autoGrow(textarea));

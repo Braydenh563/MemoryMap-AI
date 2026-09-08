@@ -3338,10 +3338,61 @@ function wireMarkdownToolbar(bar) {
   }
 }
 
+//: **Ctrl+B / Ctrl+I / Ctrl+Shift+S, in the two note editors too.**
+//:
+//: Reported alongside the missing strikethrough chord itself: both toolbar
+//: buttons have carried "Bold (Ctrl+B)"/"Italic (Ctrl+I)" tooltips since
+//: `noteEditToolbar` cloned this strip's markup for the note editors, but
+//: neither note editor ever actually wired the keys, the tooltip named a
+//: shortcut only `#doc-content`'s own handler (above this function) had.
+//:
+//: Not folded into that handler and shared: it also owns Tab-indent,
+//: Ctrl+/ comments, Ctrl+1..3 headings and Ctrl+F find, none of which a
+//: three-row note field has any use for, and giving it a second caller
+//: would mean guarding every one of those behind a "is this really
+//: #doc-content" check. This is the three chords the note editors and the
+//: document editor genuinely share, kept as one small function so the
+//: shifted-S-before-plain-S ordering (see that handler's own comment)
+//: exists in exactly one place rather than two copies that could drift.
+//:
+//: Idempotent via `dataset.mdFormatShortcuts`: `#entry-content` is wired
+//: once, at page load, but the note edit form's textarea is a fresh
+//: element every time a note is opened for editing, and calling this again
+//: on the *same* element (a note re-opened for editing without a full
+//: reload) must not stack a second listener that fires the same keydown
+//: twice.
+//: Takes the element itself, not only its id: `renderEditForm` (app.js)
+//: builds the note edit form's textarea and wires this before appending it
+//: to the document, where `$(id)` (`document.getElementById`) would find
+//: nothing yet. `#entry-content` is already in the page at boot, so the
+//: capture box still just passes its id string.
+function wireMdFormatShortcuts(boxOrId) {
+  const box = typeof boxOrId === "string" ? $(boxOrId) : boxOrId;
+  if (!box || box.dataset.mdFormatShortcuts) return;
+  const boxId = box.id;
+  box.dataset.mdFormatShortcuts = "1";
+  box.addEventListener("keydown", (event) => {
+    if (!(event.ctrlKey || event.metaKey)) return;
+    const key = event.key.toLowerCase();
+    if (key === "s" && event.shiftKey) {
+      event.preventDefault();
+      wrapDocSelection("~~", "struck through", boxId);
+    } else if (key === "b") {
+      event.preventDefault();
+      wrapDocSelection("**", "bold text", boxId);
+    } else if (key === "i") {
+      event.preventDefault();
+      wrapDocSelection("*", "italic text", boxId);
+    }
+  });
+}
+window.wireMdFormatShortcuts = wireMdFormatShortcuts;
+
 function initMarkdownToolbars() {
   for (const bar of document.querySelectorAll("[data-md-target], #doc-toolbar")) {
     wireMarkdownToolbar(bar);
   }
+  wireMdFormatShortcuts("entry-content");
 }
 initMarkdownToolbars();
 
@@ -3541,9 +3592,14 @@ $("doc-content").addEventListener("keydown", (event) => {
     return;
   }
   const key = event.key.toLowerCase();
-  if (key === "s") { event.preventDefault(); saveDocument(); }
-  else if (key === "b") { event.preventDefault(); wrapDocSelection("**"); }
-  else if (key === "i") { event.preventDefault(); wrapDocSelection("*"); }
+  // Checked before the plain Ctrl+S save case: Shift turns "s" into "S",
+  // which `.toLowerCase()` folds back to the same "s" this switch reads, so
+  // whichever branch runs first wins and the shifted chord has to come
+  // first, or it would save the document instead of striking the selection.
+  if (key === "s" && event.shiftKey) { event.preventDefault(); wrapDocSelection("~~", "struck through"); }
+  else if (key === "s") { event.preventDefault(); saveDocument(); }
+  else if (key === "b") { event.preventDefault(); wrapDocSelection("**", "bold text"); }
+  else if (key === "i") { event.preventDefault(); wrapDocSelection("*", "italic text"); }
   // Ctrl+1/2/3 headings and Ctrl+E inline code, the Notion / Typora /
   // Word set, so the hand does not leave the keyboard for the strip.
   else if (key === "1" || key === "2" || key === "3") { event.preventDefault(); applyMarkdown(`h${key}`); }

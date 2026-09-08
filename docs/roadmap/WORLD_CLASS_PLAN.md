@@ -631,3 +631,73 @@ decide whether it works; the script must fail loudly and the suite must
 never depend on it. It lifts the last half of CLAUDE.md's standing caveat
 (real inference) for skills evals, and `pytest -m evals --real` would use
 it. Add it as row 0 of §8 for the first session with network access.
+
+---
+
+## 10. Flaws found by static probes (cheap to reproduce, each with its command)
+
+Run from the repo root. Each line is a class of bug, not a single bug; the
+count is the size of the class today. A session that takes one of these
+should fix the class and add the lint that keeps it fixed.
+
+| # | Flaw | Evidence | Why it matters | Fix (and lint) |
+| --- | --- | --- | --- | --- |
+| F1 | 57 distinct `localStorage` keys read ad hoc, 14 of them `JSON.parse`d | `grep -o 'localStorage.getItem("[^"]*")' frontend/*.js \| sort -u \| wc -l` | This is the shape of the worst UI bug in the project's history (two settings missing from `APPEARANCE_DEFAULTS` wrote `NaN` into CSS): a value invalid where it is used, set somewhere else. Corrupt or missing storage throws inside JSON.parse and takes the caller's whole init with it. | One `prefs` module: a schema with defaults and a version per key, `prefs.get(key)` never throws and never returns undefined, migration on version bump. Lint: no direct `localStorage.getItem` outside `prefs.js`. |
+| F2 | 25 list endpoints, 3 accept `limit` | `grep -n "^def list_" -A 6 src/memorymap/api/routes_*.py \| grep -c limit` | Every list is O(notebook). A 5k-note notebook makes the Library, Timeline and Graph tabs multi-second. (MODERNISATION_AUDIT D4.) | Cursor pagination on all 25 with one helper, `?limit=&cursor=`, `next_cursor` in the body; the frontend's list renderers page on scroll. Lint: a test enumerates routers and asserts every `list_*` takes `limit`. |
+| F3 | Embedding similarity loads every vector per request | `sed -n 680,690p src/memorymap/api/routes_entries.py` and lines 817, 1038: `select(EmbeddingRecord...).all()` | O(n) memory per call, O(n²) for `?similarity=true` (§114 F3-3). Also the reason "related notes" is the slowest panel. | Keep a process-level float32 matrix refreshed by the event log (B1) or by `updated_at` polling; top-k by one matmul; `sqlite-vec` later. Gate in B3. |
+| F4 | 88 `except Exception:` / bare `except:` in `src/` | `grep -rn "except Exception:\|except:" src/memorymap --include=*.py \| wc -l` | Failures become silence (the "features that never ran once" shape). | Each one either re-raises as the error contract, logs with `exc_info` to the logbuffer, or is narrowed. Lint: ruff `BLE001` enabled with a per-site `# noqa: BLE001 <reason>`. |
+| F5 | 13 raw `fetch()` calls beside `api()` | `grep -n 'fetch(\`\|fetch("' frontend/*.js \| grep -v "api\b"` | Each re-implements the auth header, the error contract and the offline path; one is `/chat/stream`, the most important call in the app. | `api.stream()` and `api.upload()` helpers; the 13 sites move onto them. Lint: no bare `fetch(` outside `api.js`. |
+| F6 | 9 `setInterval` vs 7 `clearInterval`; two 1-second clocks and a 30-second one run forever | `grep -n "setInterval(" frontend/app.js` | Idle CPU and the 14-idle-requests-a-minute figure (MODERNISATION_AUDIT); a background tab still ticks. | One `scheduler` with `visibilitychange` pause, a single 1s tick that fans out, and every poll on it. Gate: idle requests ≤ 2/min, 0 timers while hidden. |
+| F7 | Threads in 16 modules share SQLAlchemy sessions created per call | `grep -rln "threading.Thread" src/memorymap` | SQLite is fine with this only while each thread opens its own session and nobody passes ORM objects across; nothing enforces it, and the "Could not refresh instance" 500 seen this session was exactly that shape. | B2 job runtime: one worker, jobs get a fresh session, results are plain dicts. Lint: `Thread(` allowed only in `core/jobs.py`. |
+| F8 | Two `innerHTML` writes with interpolated data | `grep -n 'innerHTML\s*=\s*\`[^\`]*\${' frontend/*.js` | Both interpolate app-controlled strings today; the pattern is the XSS shape and the next author will interpolate a title. | `setLabel()` (exists) at both sites. Lint: no `innerHTML =` with `${` anywhere. |
+| F9 | Every router relies on the app-level auth middleware; none declares it | `grep -L require_auth src/memorymap/api/routes_*.py` | Correct today (the middleware covers all but two routes); a new router mounted before the middleware or a `/logs/client` style exception is invisible in review. | A test that walks `app.routes` and asserts every route except the allowlist returns 401 without a token. |
+| F10 | Extracted text, captions and OCR live in three columns with three UIs | `grep -n "vision_ocr_text\|ocr_text\|caption" src/memorymap/api/routes_files.py \| wc -l` | The Files card shows one, hides one, and the search indexes some; the owner's "only the first line" report was one symptom. | One `readings` table (`media_id, kind, page, text, model, ts`), one renderer, all kinds indexed (B3). |
+| F11 | The graph, dashboard constellation and map thumbnails are three renderers | `grep -c "forceSimulation" frontend/graph.js frontend/dashboard.js frontend/whiteboard.js` | Three physics, three colour maps, three sets of bugs. | GRAPH_PLAN §3: one renderer with `size: "pane" | "tile" | "full"`. |
+| F12 | Frontend state lives in module globals, DOM and localStorage with no single owner | MODERNISATION_AUDIT C2 | Every "the list did not refresh" bug. | A small store: `state.get/set/subscribe` per slice, renderers subscribe; introduced slice by slice (notes list first). |
+
+Two flaws this session found by driving the app, recorded here so they are
+fixed as classes: a new board was created through a path that also created
+a note (entries and boards share a table and a create path; the filter
+belongs in one place), and a dialog's `<details>` did not close on Escape
+(now handled globally; the lint is "every `details` menu closes on Escape",
+in `docks.js`).
+
+---
+
+## 11. The week, session by session (Opus/Sonnet), and the quarter
+
+Assumes the in-flight agents have merged and PR #144 is green. One row is
+one session; a session ends with the gate green, a commit, and a HANDOVER
+line. Order matters: each row leaves the next one cheaper.
+
+| Day | Session | Model | Gate |
+| --- | --- | --- | --- |
+| Mon | Em-dash sweep (`scratchpad/emdash.py`), `test_no_em_dashes.py`, full suite | Sonnet | 0 em-dashes in frontend+src, suite green |
+| Mon | §1 lints: surface budget, one primary per surface, meta-no-hover, keymap table | Sonnet | lints pass on main |
+| Tue | F1 `prefs` module + F5 `api.stream/upload` + F8 | Sonnet | lints; errors.js 0 |
+| Tue | D13 Settings two-pane, rest of the '?' popovers (54 paragraphs left, `scratchpad/help-audit/count.py`) | Sonnet | count.py TOTAL 0 |
+| Wed | TIMELINE_PLAN.md Phases 1 to 2 (the measured baseline is in `scratchpad/ui-sweeps/timeline-audit*.js`) | Opus | timeline.js sweep |
+| Wed | F2 pagination on all 25 lists + F6 scheduler | Opus | route test; idle ≤ 2/min |
+| Thu | B1 event log | Opus | every manager write records one event |
+| Thu | D2 `[[` autocomplete + connections rail | Opus | 150ms; rail on every note |
+| Fri | B2 job runtime + F7 | Opus | resume after kill |
+| Fri | D4 Library one card recipe + D1 widget frame | Sonnet | uniform heights; ≤ 8 recipes |
+| Sat | B3 retrieval engine + F3 + F10 | Opus | 5k fixture perf; every hit explained |
+| Sat | D3 per-claim citations | Opus | 95% cited |
+| Sun | B5 harness verifier + corrections; evals | Opus | ≥ 80% on 3B |
+| Sun | HANDOVER, ROADMAP, BACKLOG rewritten to the new state; FABLE_BRIEF for the next Fable window | Sonnet | test_docs_layout |
+
+**The quarter after** (in order, each two to four sessions): GRAPH_PLAN
+Phases 2 to 5 · DOCUMENTS_PLAN Phases 1 to 7 · MINDMAP_PLAN Phases 4 to 5
+· B4 knowledge kernel and the Tensions widget · D5 properties and D6
+daily notes · D9 clipper and the PWA shell with share target · B6 sync
+design and a folder-transport spike · B8 extensions · the offline studio
+(§114 combo 3) · Notion and Obsidian importers · F12 the store, slice by
+slice · a11y audit with a screen reader script · packaging: one-click
+installers with a model-included first run sized honestly (§114 F11-1).
+
+**What to hand the next Fable window** (judgement-heavy, not typing-heavy):
+review of B1 to B3 as merged; the design decision for the block editor
+(DOCUMENTS_PLAN §4) once CM6 is measured under the CSP; the sync
+conflict model; the answer-citation UX; and a fresh screenshot-driven
+pass on whatever still "feels off" once §1 is enforced.

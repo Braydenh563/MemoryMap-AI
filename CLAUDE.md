@@ -163,6 +163,11 @@ Password `testpassword123`; `THEME=dark` for dark.
   `tests/test_asset_cache_busting.py`; a report that keeps coming back while
   the code tests clean is a stale file or a bad interaction shape, not the
   handler.
+- A test that runs a script able to delete things (the uninstallers, the
+  launcher's `--reinstall`) runs it in a scratch copy, never with
+  `cwd=ROOT`: one such test took the sandbox's own `.venv` mid-suite, and
+  every later test that spawned Python died with "No such file".
+  `tests/test_launcher_scripts.py` has the guard fixture.
 - CodeQL reads `scratchpad/` too: lazy `.*?` over argv paths, unclosed
   `open()`, case-sensitive tag filters and wrong keyword arguments have
   all been flagged there.

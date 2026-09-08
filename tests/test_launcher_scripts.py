@@ -12,12 +12,43 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+# **The repo's own .venv is not a fixture.** The first version of the shortcut
+# round-trip below ran `./uninstall.sh --shortcuts --yes` with cwd=ROOT, and
+# `--shortcuts` is "also remove", so `--yes` took the sandbox's real .venv
+# with it, mid-suite, and every later test that spawned sys.executable died
+# with "No such file or directory". A test that runs a script capable of
+# deleting things runs it in a scratch copy (see `_scratch_repo`), and this
+# fixture fails loudly if anything here ever touches the real one again.
+@pytest.fixture(autouse=True)
+def _repo_venv_is_not_a_fixture():
+    before = (ROOT / ".venv").exists()
+    yield
+    after = (ROOT / ".venv").exists()
+    assert before == after, "a test in this module created or deleted the repo's .venv"
+
+
+def _scratch_repo(tmp_path: Path) -> Path:
+    """A throwaway copy of the two scripts and the one asset `--shortcut`
+    reads, with a fake .venv, so an uninstaller run has something of its
+    own to remove and nothing of ours."""
+    repo = tmp_path / "repo"
+    (repo / "frontend").mkdir(parents=True)
+    (repo / ".venv" / "bin").mkdir(parents=True)
+    for name in ("start.sh", "uninstall.sh"):
+        target = repo / name
+        shutil.copy2(ROOT / name, target)
+        target.chmod(0o755)
+    shutil.copy2(ROOT / "frontend" / "icon-512.png", repo / "frontend" / "icon-512.png")
+    return repo
 START_SH = ROOT / "start.sh"
 START_BAT = ROOT / "start.bat"
 START_DESKTOP_SH = ROOT / "start-desktop.sh"
@@ -640,9 +671,13 @@ class TestAFlagMissingItsValue:
     def _run(self, script: str, args: list[str], tmp_path):
         env = dict(os.environ, MEMORYMAP_DATA_DIR=str(tmp_path / "data"))
         env.pop("MEMORYMAP_PORT", None)
+        # The uninstaller runs in a scratch copy even for a flag that should
+        # fail before it removes anything: "should" is the word this module
+        # once got wrong (see `_repo_venv_is_not_a_fixture`).
+        cwd = _scratch_repo(tmp_path) if script == "uninstall.sh" else ROOT
         return subprocess.run(
             ["./" + script, *args],
-            cwd=ROOT,
+            cwd=cwd,
             env=env,
             capture_output=True,
             text=True,
@@ -689,9 +724,10 @@ class TestTheDesktopShortcut:
         home = tmp_path / "home"
         (home / "Desktop").mkdir(parents=True)
         env = self._env(home, tmp_path)
+        repo = _scratch_repo(tmp_path)
 
         made = subprocess.run(
-            ["./start.sh", "--shortcut"], cwd=ROOT, env=env,
+            ["./start.sh", "--shortcut"], cwd=repo, env=env,
             capture_output=True, text=True, timeout=60,
         )
         assert made.returncode == 0, made.stdout + made.stderr
@@ -708,7 +744,7 @@ class TestTheDesktopShortcut:
         assert Path(icon).exists(), icon
 
         removed = subprocess.run(
-            ["./uninstall.sh", "--shortcuts", "--yes"], cwd=ROOT, env=env,
+            ["./uninstall.sh", "--shortcuts", "--yes"], cwd=repo, env=env,
             capture_output=True, text=True, timeout=60,
         )
         assert removed.returncode == 0, removed.stdout + removed.stderr
@@ -718,13 +754,14 @@ class TestTheDesktopShortcut:
         home = tmp_path / "home"
         (home / "Desktop").mkdir(parents=True)
         env = self._env(home, tmp_path)
+        repo = _scratch_repo(tmp_path)
         subprocess.run(
-            ["./start.sh", "--shortcut"], cwd=ROOT, env=env,
+            ["./start.sh", "--shortcut"], cwd=repo, env=env,
             capture_output=True, text=True, timeout=60,
         )
         entry = home / ".local" / "share" / "applications" / "memorymap-ai.desktop"
         dry = subprocess.run(
-            ["./uninstall.sh", "--shortcuts", "--dry-run"], cwd=ROOT, env=env,
+            ["./uninstall.sh", "--shortcuts", "--dry-run"], cwd=repo, env=env,
             capture_output=True, text=True, timeout=60,
         )
         assert dry.returncode == 0, dry.stdout + dry.stderr

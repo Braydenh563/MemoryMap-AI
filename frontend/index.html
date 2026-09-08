@@ -1937,191 +1937,207 @@ Link to another note with [[its first few words]]."></textarea>
            are verbs used sometimes and live in the kebab. The phone-only
            "more" toggle is gone: the menus are the overflow at every width.
            Every id is unchanged, so graph.js and app.js need no wiring. -->
-      <div class="dock" data-dock-name="graph" role="toolbar" aria-label="Graph controls">
-        <div class="dock-identity">
-          <h2>Graph</h2>
-          <button id="graph-concept-maps" class="ghost small dock-link" type="button"
-            title="A concept map is one you draw yourself: your own cards, your own links, your own arrangement, where this map is built for you from what your notes already say."><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> Concept maps</button>
-        </div>
-        <div class="dock-group dock-find">
-          <input id="graph-search" type="search" placeholder="Highlight notes…"
-            aria-label="Highlight matching notes in the graph">
-          <button id="graph-trace-toggle" class="ghost small" aria-expanded="false"
-            title="Find how two notes connect"><i class="ph ph-path ph-lead" aria-hidden="true"></i> Trace</button>
-          <button id="graph-highlight-clear" class="ghost small hidden" title="Clear the similar-notes highlight"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear highlight</button>
-          <button id="graph-focus-clear" class="ghost small hidden" title="Exit focus mode and return to the global map"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Exit focus</button>
-        </div>
-        <div class="dock-group dock-arrange">
-          <details class="doc-dock-menu dock-menu" id="graph-view-menu">
-            <summary class="ghost small doc-dock-menu-btn" title="Layout, colour, legend and display options"><i class="ph ph-eye ph-lead" aria-hidden="true"></i> View <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
-            <div class="doc-dock-menu-list dock-menu-list">
-              <div class="dock-menu-section">
-                <span class="muted dock-menu-label" id="graph-layout-label">Layout</span>
-                <div id="graph-layout" class="segmented-control" role="group" aria-labelledby="graph-layout-label">
-                  <label><input type="radio" name="graph-layout" value="force" checked> Force</label>
-                  <label><input type="radio" name="graph-layout" value="tree"> Tree</label>
-                  <label><input type="radio" name="graph-layout" value="radial"> Radial</label>
-                  <label><input type="radio" name="graph-layout" value="arc"> Arc</label>
+      <!-- The floating control layer (GRAPH_PLAN.md Phase 2, "the space").
+           The map fills the card; the dock and every panel that used to push
+           it down sit over it in this column, on the app's popover shell.
+           `pointer-events` is off on the column and back on for its children,
+           so the gaps between the panels are still map: a drag that starts in
+           one pans the graph. Measured before: the map got 588px of the
+           card's 767px at 1440x900. -->
+      <div class="graph-overlay">
+        <div class="dock" data-dock-name="graph" role="toolbar" aria-label="Graph controls">
+          <div class="dock-identity">
+            <h2>Graph</h2>
+            <!-- The stats line, which was a paragraph of its own between the
+                 controls and the map (GRAPH_PLAN.md Phase 2: "the stats line
+                 becomes a chip in the dock's identity zone"). It is context for
+                 the title, which is what the identity zone is for, and it cost
+                 a whole row of the map where it was. Still `role="status"`, so
+                 a screen reader hears the counts change; still carries the
+                 layout sentence as its title. -->
+            <span id="graph-stats" class="dock-chip graph-stats" role="status"></span>
+            <button id="graph-concept-maps" class="ghost small dock-link" type="button"
+              title="A concept map is one you draw yourself: your own cards, your own links, your own arrangement, where this map is built for you from what your notes already say."><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> Concept maps</button>
+          </div>
+          <div class="dock-group dock-find">
+            <input id="graph-search" type="search" placeholder="Highlight notes…"
+              aria-label="Highlight matching notes in the graph">
+            <button id="graph-trace-toggle" class="ghost small" aria-expanded="false"
+              title="Find how two notes connect"><i class="ph ph-path ph-lead" aria-hidden="true"></i> Trace</button>
+            <button id="graph-highlight-clear" class="ghost small hidden" title="Clear the similar-notes highlight"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear highlight</button>
+            <button id="graph-focus-clear" class="ghost small hidden" title="Exit focus mode and return to the global map"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Exit focus</button>
+          </div>
+          <div class="dock-group dock-arrange">
+            <details class="doc-dock-menu dock-menu" id="graph-view-menu">
+              <summary class="ghost small doc-dock-menu-btn" title="Layout, colour, legend and display options"><i class="ph ph-eye ph-lead" aria-hidden="true"></i> View <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
+              <div class="doc-dock-menu-list dock-menu-list">
+                <div class="dock-menu-section">
+                  <span class="muted dock-menu-label" id="graph-layout-label">Layout</span>
+                  <div id="graph-layout" class="segmented-control" role="group" aria-labelledby="graph-layout-label">
+                    <label><input type="radio" name="graph-layout" value="force" checked> Force</label>
+                    <label><input type="radio" name="graph-layout" value="tree"> Tree</label>
+                    <label><input type="radio" name="graph-layout" value="radial"> Radial</label>
+                    <label><input type="radio" name="graph-layout" value="arc"> Arc</label>
+                  </div>
                 </div>
-              </div>
-              <div class="dock-menu-section">
-                <span class="muted dock-menu-label" id="graph-colour-label">Colour</span>
-                <div id="graph-colour" class="segmented-control" role="group" aria-labelledby="graph-colour-label">
-                  <label><input type="radio" name="graph-colour" value="category" checked> Category</label>
-                  <label><input type="radio" name="graph-colour" value="cluster"> Cluster</label>
+                <div class="dock-menu-section">
+                  <span class="muted dock-menu-label" id="graph-colour-label">Colour</span>
+                  <div id="graph-colour" class="segmented-control" role="group" aria-labelledby="graph-colour-label">
+                    <label><input type="radio" name="graph-colour" value="category" checked> Category</label>
+                    <label><input type="radio" name="graph-colour" value="cluster"> Cluster</label>
+                  </div>
                 </div>
+                <button id="graph-legend-toggle" class="doc-dock-menu-item" type="button"
+                  title="Hide the legend" aria-label="Hide the legend" aria-expanded="true"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i> Legend</button>
+                <button id="graph-options-toggle" class="doc-dock-menu-item" type="button" aria-expanded="false"
+                  title="Physics, labels, similarity lines, minimap and link suggestions"><i class="ph ph-gear ph-lead" aria-hidden="true"></i> Display options…</button>
               </div>
-              <button id="graph-legend-toggle" class="doc-dock-menu-item" type="button"
-                title="Hide the legend" aria-label="Hide the legend" aria-expanded="true"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i> Legend</button>
-              <button id="graph-options-toggle" class="doc-dock-menu-item" type="button" aria-expanded="false"
-                title="Physics, labels, similarity lines, minimap and link suggestions"><i class="ph ph-gear ph-lead" aria-hidden="true"></i> Display options…</button>
-            </div>
-          </details>
-          <select id="graph-view-picker" class="ghost small" aria-label="Saved views"></select>
+            </details>
+            <select id="graph-view-picker" class="ghost small" aria-label="Saved views"></select>
+          </div>
+          <div class="dock-actions">
+            <button id="graph-add-node" class="small" title="Add a new note straight onto the map"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New note</button>
+            <button id="graph-refresh" class="ghost small icon-only" type="button" title="Reload the map from your notes" aria-label="Reload the map from your notes"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+            <button type="button" id="graph-help-toggle" class="icon-only ghost small graph-help-toggle"
+              aria-label="How to use this map">
+              <i class="ph ph-question" aria-hidden="true"></i>
+            </button>
+            <details class="doc-dock-menu dock-menu dock-more" id="graph-more-menu">
+              <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
+              <div class="doc-dock-menu-list dock-menu-list">
+                <button id="graph-view-save" class="doc-dock-menu-item" type="button"
+                  title="Save the current layout, filters and position as a named view"><i class="ph ph-bookmark-simple ph-lead" aria-hidden="true"></i> Save this view</button>
+                <button id="graph-view-delete" class="doc-dock-menu-item" type="button"
+                  title="Delete the selected saved view"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete saved view</button>
+                <button id="graph-export-png" class="doc-dock-menu-item" type="button" title="Save what's currently on screen as a PNG image"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export as PNG</button>
+              </div>
+            </details>
+          </div>
         </div>
-        <div class="dock-actions">
-          <button id="graph-add-node" class="small" title="Add a new note straight onto the map"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New note</button>
-          <button id="graph-refresh" class="ghost small icon-only" type="button" title="Reload the map from your notes" aria-label="Reload the map from your notes"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
-          <button type="button" id="graph-help-toggle" class="icon-only ghost small graph-help-toggle"
-            aria-label="How to use this map">
-            <i class="ph ph-question" aria-hidden="true"></i>
-          </button>
-          <details class="doc-dock-menu dock-menu dock-more" id="graph-more-menu">
-            <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
-            <div class="doc-dock-menu-list dock-menu-list">
-              <button id="graph-view-save" class="doc-dock-menu-item" type="button"
-                title="Save the current layout, filters and position as a named view"><i class="ph ph-bookmark-simple ph-lead" aria-hidden="true"></i> Save this view</button>
-              <button id="graph-view-delete" class="doc-dock-menu-item" type="button"
-                title="Delete the selected saved view"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete saved view</button>
-              <button id="graph-export-png" class="doc-dock-menu-item" type="button" title="Save what's currently on screen as a PNG image"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export as PNG</button>
-            </div>
-          </details>
+        <div id="graph-help-panel" class="graph-help-panel hidden" role="dialog" aria-label="How to use this map">
+          <!-- Rewritten to lead with placement. The old copy buried "drag to
+               arrange" mid-sentence and then said "double-click to pin it in
+               place", which was the only gesture that actually held a note
+               still, and the one nothing on screen pointed at. Now a drag
+               places, so the sentence people read first is the one that
+               describes what they are about to try. -->
+          <p class="muted">
+            <strong>Drag a note to place it.</strong> It stays where you put it,
+            and it is still there when you come back. Double-click a placed note
+            to hand it back to the layout.
+          </p>
+          <p class="muted">
+            <strong>This map is built for you</strong> from what your notes
+            already say. If you want to draw one yourself, your own cards, your
+            own links, your own arrangement, that is a
+            <strong>concept map</strong>, and the button in the toolbar opens
+            them.
+          </p>
+          <p class="muted">
+            Solid lines are links you made, dashed lines are trains of thought,
+            dotted lines are notes that mean similar things. Hover a note to
+            spotlight its connections, scroll or use the buttons to zoom, click a
+            note to edit it right here, and click a legend colour to hide that
+            category. Double-click empty space to add a note there. Gravity and
+            Spread reshape whatever you have not placed yourself.
+            <strong>Drop one note onto another to link them</strong>, and use
+            <strong>Trace</strong> to see how any two notes connect.
+          </p>
         </div>
+        <!-- The tuned-once controls. One row, one control height, margins
+             zeroed: the control-strip rule in DESIGN.md. -->
+        <div class="graph-options hidden" id="graph-options" role="group"
+          aria-label="Map display options">
+          <!-- Both sliders feed the force simulation and nothing else, so they
+               have no effect under Tree or Radial tree, where positions come
+               from the hierarchy. setGraphPhysicsEnabled() disables them there
+               rather than leaving two controls that silently do nothing. -->
+          <span class="graph-physics" id="graph-physics">
+            <label for="graph-gravity" class="muted">Gravity</label>
+            <input id="graph-gravity" type="range" min="0" max="100" value="50"
+              title="How strongly notes pull together">
+            <label for="graph-spread" class="muted">Spread</label>
+            <input id="graph-spread" type="range" min="0" max="100" value="50"
+              title="How far apart linked notes sit">
+            <!-- Direct instruction: "I want to be able to unroot and reset
+                 the graph to free float if I want with a button." Lives
+                 beside Gravity/Spread rather than the main toolbar (Refresh,
+                 Export) on purpose: an occasional reset, not a control
+                 reached for while reading the map, the same "tuned once"
+                 reasoning this whole panel already exists for. -->
+            <button id="graph-unpin-all" class="ghost small" type="button"
+              title="Release every node you've pinned in place, so the layout can move freely again">
+              <i class="ph ph-arrows-out-cardinal ph-lead" aria-hidden="true"></i> Unpin all
+            </button>
+          </span>
+          <span class="graph-temporal" id="graph-temporal">
+            <label for="graph-time-slider" class="muted">Time Filter</label>
+            <input id="graph-time-slider" class="graph-time-slider" type="range" min="0" max="100" value="100" title="Slide back in time to hide newer notes">
+            <span id="graph-time-label" class="muted text-sm graph-time-label">All Time</span>
+          </span>
+          <span class="graph-toggle-group" id="graph-toggle-group">
+            <label class="muted tools-toggle checkbox-label" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
+              <input type="checkbox" id="graph-similarity"> Similarity
+            </label>
+            <label class="muted tools-toggle checkbox-label" title="Show people/projects/things a local model has found mentioned across your notes, as their own nodes">
+              <input type="checkbox" id="graph-entities"> Entities
+            </label>
+            <label class="muted tools-toggle checkbox-label" title="Show documents linked to a note, as their own nodes">
+              <input type="checkbox" id="graph-documents"> Documents
+            </label>
+            <!-- MINDMAP_PLAN.md §5 item 13. A mind map is already a node here (a
+                 board IS an entry), so this adds no node, it marks the ones
+                 that are maps and draws a line to every note *on* a map. The
+                 §3.3 rule, decided once: a map's membership is a link; where a
+                 node sits on the canvas is not. -->
+            <label class="muted tools-toggle checkbox-label" title="Draw a line from each mind map to the notes on it">
+              <input type="checkbox" id="graph-maps"> Mind maps
+            </label>
+            <label class="muted tools-toggle checkbox-label" title="Hide notes that aren't linked to anything, to declutter the map">
+              <input type="checkbox" id="graph-hide-orphans"> Hide unlinked
+            </label>
+            <label class="muted tools-toggle checkbox-label" title="Show a short label under every note (off = labels only when you hover)">
+              <input type="checkbox" id="graph-labels" checked> Labels
+            </label>
+          </span>
+          <!-- Moved out of the main toolbar strip: a corner position you set
+               once and leave is exactly the "tuned once" shape this panel
+               exists for (see the comment on .graph-options above), not a
+               control you reach for while reading the map. Reported as
+               crowding the strip; one fewer label+select pair up top. -->
+          <span class="graph-minimap-option">
+            <label class="muted" for="graph-minimap-corner">Minimap</label>
+            <select id="graph-minimap-corner" class="ghost small" aria-label="Minimap position"
+              title="Where the minimap sits, or off">
+              <option value="off">Off</option>
+              <option value="tl">Top left</option>
+              <option value="tr">Top right</option>
+              <option value="bl">Bottom left</option>
+              <option value="br">Bottom right</option>
+            </select>
+          </span>
+          <button id="link-suggest-btn" class="ghost small"
+            title="Let the AI suggest links between notes that mean similar things"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Suggest links</button>
+        </div>
+        <!-- Trace: the one question a graph answers better than any list, 
+             "how are these two related?" (§9). Its own strip rather than a
+             tenth control in the toolbar above: it is a question you ask, not a
+             setting you leave. One --control-h for everything in it, and outside
+             margins zeroed, per DESIGN.md. -->
+        <div class="graph-trace hidden" id="graph-trace" role="group"
+          aria-label="Trace the connection between two notes">
+          <span class="graph-trace-label"><i class="ph ph-magnifying-glass ph-lead" aria-hidden="true"></i> Trace</span>
+          <!-- Two chips and, once both ends are picked, Swap and Undo. These
+               replaced two <select>s that listed every note in the notebook by
+               its opening words: the reason Trace was reported as unusable. The
+               ends are chosen by clicking the map now; this reads back what you
+               chose and what the next click will do. -->
+          <div class="graph-trace-ends" id="graph-trace-ends"></div>
+          <button id="graph-trace-clear" class="ghost small" title="Leave trace mode (Esc)">Done</button>
+        </div>
+        <div id="graph-trace-result" class="graph-trace-result hidden" role="status"></div>
+        <div id="link-suggestions" class="hidden"></div>
       </div>
-      <div id="graph-help-panel" class="graph-help-panel hidden" role="dialog" aria-label="How to use this map">
-        <!-- Rewritten to lead with placement. The old copy buried "drag to
-             arrange" mid-sentence and then said "double-click to pin it in
-             place", which was the only gesture that actually held a note
-             still, and the one nothing on screen pointed at. Now a drag
-             places, so the sentence people read first is the one that
-             describes what they are about to try. -->
-        <p class="muted">
-          <strong>Drag a note to place it.</strong> It stays where you put it,
-          and it is still there when you come back. Double-click a placed note
-          to hand it back to the layout.
-        </p>
-        <p class="muted">
-          <strong>This map is built for you</strong> from what your notes
-          already say. If you want to draw one yourself, your own cards, your
-          own links, your own arrangement, that is a
-          <strong>concept map</strong>, and the button in the toolbar opens
-          them.
-        </p>
-        <p class="muted">
-          Solid lines are links you made, dashed lines are trains of thought,
-          dotted lines are notes that mean similar things. Hover a note to
-          spotlight its connections, scroll or use the buttons to zoom, click a
-          note to edit it right here, and click a legend colour to hide that
-          category. Double-click empty space to add a note there. Gravity and
-          Spread reshape whatever you have not placed yourself.
-          <strong>Drop one note onto another to link them</strong>, and use
-          <strong>Trace</strong> to see how any two notes connect.
-        </p>
-      </div>
-      <!-- The tuned-once controls. One row, one control height, margins
-           zeroed: the control-strip rule in DESIGN.md. -->
-      <div class="graph-options hidden" id="graph-options" role="group"
-        aria-label="Map display options">
-        <!-- Both sliders feed the force simulation and nothing else, so they
-             have no effect under Tree or Radial tree, where positions come
-             from the hierarchy. setGraphPhysicsEnabled() disables them there
-             rather than leaving two controls that silently do nothing. -->
-        <span class="graph-physics" id="graph-physics">
-          <label for="graph-gravity" class="muted">Gravity</label>
-          <input id="graph-gravity" type="range" min="0" max="100" value="50"
-            title="How strongly notes pull together">
-          <label for="graph-spread" class="muted">Spread</label>
-          <input id="graph-spread" type="range" min="0" max="100" value="50"
-            title="How far apart linked notes sit">
-          <!-- Direct instruction: "I want to be able to unroot and reset
-               the graph to free float if I want with a button." Lives
-               beside Gravity/Spread rather than the main toolbar (Refresh,
-               Export) on purpose: an occasional reset, not a control
-               reached for while reading the map, the same "tuned once"
-               reasoning this whole panel already exists for. -->
-          <button id="graph-unpin-all" class="ghost small" type="button"
-            title="Release every node you've pinned in place, so the layout can move freely again">
-            <i class="ph ph-arrows-out-cardinal ph-lead" aria-hidden="true"></i> Unpin all
-          </button>
-        </span>
-        <span class="graph-temporal" id="graph-temporal">
-          <label for="graph-time-slider" class="muted">Time Filter</label>
-          <input id="graph-time-slider" class="graph-time-slider" type="range" min="0" max="100" value="100" title="Slide back in time to hide newer notes">
-          <span id="graph-time-label" class="muted text-sm graph-time-label">All Time</span>
-        </span>
-        <span class="graph-toggle-group" id="graph-toggle-group">
-          <label class="muted tools-toggle checkbox-label" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
-            <input type="checkbox" id="graph-similarity"> Similarity
-          </label>
-          <label class="muted tools-toggle checkbox-label" title="Show people/projects/things a local model has found mentioned across your notes, as their own nodes">
-            <input type="checkbox" id="graph-entities"> Entities
-          </label>
-          <label class="muted tools-toggle checkbox-label" title="Show documents linked to a note, as their own nodes">
-            <input type="checkbox" id="graph-documents"> Documents
-          </label>
-          <!-- MINDMAP_PLAN.md §5 item 13. A mind map is already a node here (a
-               board IS an entry), so this adds no node, it marks the ones
-               that are maps and draws a line to every note *on* a map. The
-               §3.3 rule, decided once: a map's membership is a link; where a
-               node sits on the canvas is not. -->
-          <label class="muted tools-toggle checkbox-label" title="Draw a line from each mind map to the notes on it">
-            <input type="checkbox" id="graph-maps"> Mind maps
-          </label>
-          <label class="muted tools-toggle checkbox-label" title="Hide notes that aren't linked to anything, to declutter the map">
-            <input type="checkbox" id="graph-hide-orphans"> Hide unlinked
-          </label>
-          <label class="muted tools-toggle checkbox-label" title="Show a short label under every note (off = labels only when you hover)">
-            <input type="checkbox" id="graph-labels" checked> Labels
-          </label>
-        </span>
-        <!-- Moved out of the main toolbar strip: a corner position you set
-             once and leave is exactly the "tuned once" shape this panel
-             exists for (see the comment on .graph-options above), not a
-             control you reach for while reading the map. Reported as
-             crowding the strip; one fewer label+select pair up top. -->
-        <span class="graph-minimap-option">
-          <label class="muted" for="graph-minimap-corner">Minimap</label>
-          <select id="graph-minimap-corner" class="ghost small" aria-label="Minimap position"
-            title="Where the minimap sits, or off">
-            <option value="off">Off</option>
-            <option value="tl">Top left</option>
-            <option value="tr">Top right</option>
-            <option value="bl">Bottom left</option>
-            <option value="br">Bottom right</option>
-          </select>
-        </span>
-        <button id="link-suggest-btn" class="ghost small"
-          title="Let the AI suggest links between notes that mean similar things"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Suggest links</button>
-      </div>
-      <!-- Trace: the one question a graph answers better than any list, 
-           "how are these two related?" (§9). Its own strip rather than a
-           tenth control in the toolbar above: it is a question you ask, not a
-           setting you leave. One --control-h for everything in it, and outside
-           margins zeroed, per DESIGN.md. -->
-      <div class="graph-trace hidden" id="graph-trace" role="group"
-        aria-label="Trace the connection between two notes">
-        <span class="graph-trace-label"><i class="ph ph-magnifying-glass ph-lead" aria-hidden="true"></i> Trace</span>
-        <!-- Two chips and, once both ends are picked, Swap and Undo. These
-             replaced two <select>s that listed every note in the notebook by
-             its opening words: the reason Trace was reported as unusable. The
-             ends are chosen by clicking the map now; this reads back what you
-             chose and what the next click will do. -->
-        <div class="graph-trace-ends" id="graph-trace-ends"></div>
-        <button id="graph-trace-clear" class="ghost small" title="Leave trace mode (Esc)">Done</button>
-      </div>
-      <div id="graph-trace-result" class="graph-trace-result hidden" role="status"></div>
-      <p id="graph-stats" class="muted graph-stats" role="status"></p>
-      <div id="link-suggestions" class="hidden"></div>
       <!-- The legend is a fixed-cost row (a single non-wrapping scroller,
            already fixed once from a three-row growth problem, see
            04-chat-dock-appearance.css's own comment on #graph-legend) taken

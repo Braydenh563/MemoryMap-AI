@@ -601,3 +601,77 @@ def test_a_result_with_no_board_id_still_contributes_nothing():
     from memorymap.ai import agent
 
     assert agent._touched_items({"ok": True}) == []
+
+
+def test_a_map_and_its_notes_are_a_node_and_edges_in_the_graph(client):
+    """MINDMAP_PLAN.md §5 item 13, and the §3.3 rule it settles: a map's
+    *membership* is a link, a node's *position* is not."""
+    note = client.post("/entries", json={"content": "Gradient descent"}).json()
+    other = client.post("/entries", json={"content": "Backprop"}).json()
+    board = _map(client, name="ML map")
+    root = _node(client, board["id"], text="Root")
+    _node(client, board["id"], parent_id=root["id"], kind="note", ref_id=note["id"])
+    _node(client, board["id"], parent_id=root["id"], kind="note", ref_id=other["id"])
+    # A topic is not a note and must never become a graph edge.
+    _node(client, board["id"], parent_id=root["id"], text="Just a thought")
+
+    data = client.get("/graph?include_maps=true").json()
+    map_edges = [e for e in data["edges"] if e["kind"] == "map"]
+    assert sorted(e["target"] for e in map_edges) == sorted([note["id"], other["id"]])
+    assert {e["source"] for e in map_edges} == {board["id"]}
+
+    # The board is the node it already was — marked, not duplicated.
+    ids = [n["id"] for n in data["nodes"]]
+    assert ids.count(board["id"]) == 1
+    node = next(n for n in data["nodes"] if n["id"] == board["id"])
+    assert node["type"] == "map"
+
+
+def test_map_edges_are_opt_in(client):
+    """Same contract as `include_entities` and `include_documents`: an existing
+    caller that assumes every edge joins two notes it retrieved keeps working
+    unasked."""
+    note = client.post("/entries", json={"content": "Gradient descent"}).json()
+    board = _map(client, name="ML map")
+    _node(client, board["id"], kind="note", ref_id=note["id"])
+
+    data = client.get("/graph").json()
+    assert [e for e in data["edges"] if e["kind"] == "map"] == []
+    node = next(n for n in data["nodes"] if n["id"] == board["id"])
+    assert "type" not in node
+
+
+def test_an_ordinary_whiteboard_is_marked_as_a_board_not_a_map(client):
+    """A board of either kind is not a note the way every other graph node is,
+    and one drawn as a note with a `# heading` for a label says so to nobody."""
+    board = client.post("/whiteboard/boards", json={"name": "Sketches"}).json()
+    data = client.get("/graph?include_maps=true").json()
+    node = next(n for n in data["nodes"] if n["id"] == board["id"])
+    assert node["type"] == "board"
+
+
+def test_a_map_node_pointing_at_a_deleted_note_makes_no_dangling_edge(client, session):
+    """d3 silently drops an edge naming a node it never received, so a
+    dangling edge is an invisible failure rather than a visible one."""
+    note = client.post("/entries", json={"content": "Temporary"}).json()
+    board = _map(client, name="ML map")
+    _node(client, board["id"], kind="note", ref_id=note["id"])
+    client.delete(f"/entries/{note['id']}")
+    session.expire_all()
+
+    data = client.get("/graph?include_maps=true").json()
+    ids = {n["id"] for n in data["nodes"]}
+    for edge in data["edges"]:
+        assert edge["source"] in ids and edge["target"] in ids
+
+
+def test_a_document_node_on_a_map_is_not_a_graph_edge(client):
+    """Only a *note* reference is an edge here: a document node's id is a
+    Document id, and emitting it into a space of Entry ids would join the map
+    to whichever unrelated note happened to share the number."""
+    board = _map(client, name="Reading")
+    document = client.post("/documents", json={"title": "Paper", "content": "x"}).json()
+    _node(client, board["id"], kind="document", ref_id=document["id"])
+
+    data = client.get("/graph?include_maps=true").json()
+    assert [e for e in data["edges"] if e["kind"] == "map"] == []

@@ -10,6 +10,7 @@ Nodes are non-deleted entries; edges come from three places:
 
 from __future__ import annotations
 
+import json
 import re
 import threading
 
@@ -187,6 +188,7 @@ def graph(
     similarity: bool = False,
     include_entities: bool = False,
     include_documents: bool = False,
+    include_maps: bool = False,
     session: Session = Depends(get_session),
 ) -> dict:
     # A draft is unfinished by definition, and the Notes tab already keeps
@@ -396,6 +398,89 @@ def graph(
                             "kind": "document",
                         }
                     )
+
+    #: **A mind map, and the notes it is made of** (MINDMAP_PLAN.md §5 item
+    #: 13). This is the "decide once" call §3.3 makes and §5 item 13 restates:
+    #: *a map's membership is a link; a node's position is not.* So the only
+    #: thing added here is one edge per `note`-kind object on a map — never an
+    #: x, never a y, never a parent-child edge between two topics (a topic is
+    #: not a note and has no place in a graph of notes).
+    #:
+    #: **No new node is created**, and that is the difference between this and
+    #: `include_entities` / `include_documents` just above. A board *is* an
+    #: `Entry` (§2), so it is already in `nodes` — it has been on the graph
+    #: since maps existed, drawn as an ordinary note whose text is `# My map`
+    #: and connected to nothing. Adding a second `map:<id>` node would put the
+    #: same object on the map twice. What was missing was that the node never
+    #: said it was a map and its membership was invisible, so this marks the
+    #: node and adds the edges.
+    #:
+    #: Opt-in for the reason the two above are: an existing consumer that
+    #: assumes every edge joins two notes it retrieved is not wrong, and a map
+    #: with forty notes on it would add forty edges to a picture nobody asked
+    #: to change.
+    if include_maps:
+        from memorymap.api.routes_whiteboard import _board_settings
+        from memorymap.core.database import WhiteboardObject
+
+        board_ids = {e.id for e in entries if getattr(e, "is_board", False)}
+        if board_ids:
+            by_id = {n["id"]: n for n in nodes}
+            maps: set[int] = set()
+            for entry in entries:
+                if entry.id not in board_ids:
+                    continue
+                board_type, _layout = _board_settings(entry)
+                node = by_id.get(entry.id)
+                if node is None:
+                    continue
+                # `board` and `map` both, because the graph's own reason for
+                # marking these is that a board of any kind is not a note the
+                # way every other node here is — and a whiteboard that says so
+                # is more honest than one drawn as a note with a heading.
+                node["type"] = board_type
+                if board_type == "map":
+                    maps.add(entry.id)
+            if maps:
+                #: **`kind == "note"` only, and this is not a tidiness
+                #: preference.** The first version queried every
+                #: `MAP_REFERENCE_KINDS` row and filtered on `ref_id in
+                #: node_ids` afterwards, reasoning that a document/file/
+                #: bookmark id simply would not be an entry id. It is: these
+                #: are four independent autoincrement sequences, so document 1
+                #: and note 1 both exist in any notebook with one of each.
+                #: `tests/test_mindmap.py` caught it emitting `{source: 1,
+                #: target: 1}` — a map joined to *itself* through a document
+                #: node — on the second row it was ever given. An id is only
+                #: meaningful with its table, and the kind is the table.
+                rows = session.execute(
+                    select(WhiteboardObject.board_id, WhiteboardObject.data).where(
+                        WhiteboardObject.board_id.in_(maps),
+                        WhiteboardObject.kind == "note",
+                    )
+                )
+                for board_id, raw in rows:
+                    try:
+                        ref_id = (json.loads(raw or "{}") or {}).get("ref_id")
+                    except (TypeError, ValueError):
+                        # A row edited by hand, or written before `data` was
+                        # JSON. A map node nobody can read points at nothing.
+                        continue
+                    # A note that has since been deleted, or a private one the
+                    # caller's `entries` query never returned: an edge naming a
+                    # node the client did not receive is silently dropped by
+                    # d3, which is an invisible failure rather than a visible
+                    # one.
+                    if not isinstance(ref_id, int) or ref_id not in node_ids:
+                        continue
+                    # A map that somehow points at itself is not a connection.
+                    if ref_id == board_id:
+                        continue
+                    pair = frozenset((board_id, ref_id))
+                    if pair in taken:
+                        continue
+                    taken.add(pair)
+                    edges.append({"source": board_id, "target": ref_id, "kind": "map"})
 
     return {"nodes": nodes, "edges": edges, "categories": categories}
 

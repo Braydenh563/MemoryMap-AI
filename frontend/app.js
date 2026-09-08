@@ -30248,6 +30248,7 @@ $("graph-unpin-all")?.addEventListener("click", async () => {
 $("graph-similarity").addEventListener("change", renderGraph);
 $("graph-entities")?.addEventListener("change", renderGraph);
 $("graph-documents")?.addEventListener("change", renderGraph);
+$("graph-maps")?.addEventListener("change", renderGraph);
 // The tuned-once controls, folded away. Remembered, because whether you want
 // physics sliders on screen is a property of how you use the map rather than
 // of one visit — and because a panel that reopens closed every time is one

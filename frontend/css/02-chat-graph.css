@@ -1144,6 +1144,20 @@ details.tool-chip[open] > .tool-chip-body {
   stroke: var(--accent);
 }
 
+/* Membership of a mind map (MINDMAP_PLAN.md §5 item 13). Dotted and quiet on
+   purpose: "this note is a node on that map" is a weaker statement than a link
+   the user drew between two notes, and a map with twenty notes on it
+   contributes twenty edges from one point — at full weight that is a starburst
+   that swamps everything the graph is actually about. Dotted rather than
+   dashed so it does not read as a thread edge, and long-dashed so it does not
+   read as a similarity line. */
+.graph-edge-map {
+  stroke-dasharray: 1 4;
+  stroke-width: 1.3;
+  stroke: var(--accent);
+  stroke-opacity: 0.7;
+}
+
 /* A manual link is clickable (opens the management panel); a documented
    reason gets its own visible weight, not just a hover tooltip — asked for
    directly ("a visual way to see the reasons for each connection"). */

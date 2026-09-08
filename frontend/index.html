@@ -2062,6 +2062,14 @@ Link to another note with [[its first few words]]."></textarea>
           <label class="muted tools-toggle checkbox-label" title="Show documents linked to a note, as their own nodes">
             <input type="checkbox" id="graph-documents"> Documents
           </label>
+          <!-- MINDMAP_PLAN.md §5 item 13. A mind map is already a node here (a
+               board IS an entry), so this adds no node — it marks the ones
+               that are maps and draws a line to every note *on* a map. The
+               §3.3 rule, decided once: a map's membership is a link; where a
+               node sits on the canvas is not. -->
+          <label class="muted tools-toggle checkbox-label" title="Draw a line from each mind map to the notes on it">
+            <input type="checkbox" id="graph-maps"> Mind maps
+          </label>
           <label class="muted tools-toggle checkbox-label" title="Hide notes that aren't linked to anything, to declutter the map">
             <input type="checkbox" id="graph-hide-orphans"> Hide unlinked
           </label>

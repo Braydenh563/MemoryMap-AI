@@ -45,6 +45,7 @@ ZONES = ["dock-identity", "dock-find", "dock-arrange", "dock-actions"]
 ON_THE_GRAMMAR = {
     "graph",
     "library",
+    "library-boards",
     "library-docs",
     "notes",
     "timeline",

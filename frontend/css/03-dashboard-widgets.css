@@ -2766,21 +2766,9 @@ p.graph-help-panel {
    rendered at its own natural size and the row grew to fit the tallest one. */
 /* Same as the Documents rule above: the local `--control-h: 2rem` is gone so
    this header takes the shared Library height. */
-#wb-boards-landing .library-head {
-  gap: var(--space-2);
-}
-
-#wb-boards-landing .library-head input,
-#wb-boards-landing .library-head button {
-  height: var(--control-h);
-  padding-block: 0;
-}
-
-#library-boards-search {
-  width: 14rem;
-  max-width: 100%;
-  margin: 0;
-}
+/* Gone for the same reason the Documents block above lost its three rules:
+   this head is a `.dock` now, and the dock recipe owns its gap, its one
+   control height and the width search grows to. */
 
 
 /* ---------------------------------------------------------------------------

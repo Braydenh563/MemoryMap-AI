@@ -3137,14 +3137,35 @@ Link to another note with [[its first few words]]."></textarea>
          `#wb-canvas-view` below. -->
     <div id="wb-boards-landing">
       <section class="card glass">
-        <div class="row space-between library-head">
-          <!-- "Boards & maps", matching the sub-tab that opens it. It read
-               "Whiteboards" while the tab above it read "Boards & maps", which
-               was survivable when a map was only a board someone had drawn a
-               tree on — and stops being so now that a map is a first-class
-               kind with its own filter chip two lines below this heading. -->
-          <h2>Boards &amp; maps</h2>
-          <span class="row">
+        <!-- **The dock (UI_MODERNISATION_PLAN.md Phase 8).** Before: eleven
+             controls in a `.row.space-between` whose only structure was the
+             order they were written in — search, sort, the Cards/Rows switch,
+             two create buttons, refresh and "?" all as siblings of the title.
+             The same four zones every Library head now uses:
+               identity — the title
+               find     — search (the Maps/Boards/All chips below stay: they
+                          are the visible filter, the Everything sub-tab's own
+                          recipe)
+               arrange  — one sort select, one view segment
+               actions  — New board, then New mind map, then refresh and help
+             Ids are unchanged, so whiteboard.js needs no rewiring.
+
+             "New mind map" stays a ghost button in the row rather than moving
+             into a ⋯. It is the second verb, not a second answer to the first
+             — and the comment it carries is the reason: a mind map reachable
+             only by opening the board dialog and changing a control inside it
+             is one nobody finds. One filled control, one quiet one beside it. -->
+        <div class="dock" data-dock-name="library-boards" role="toolbar"
+          aria-label="Boards and maps controls">
+          <div class="dock-identity">
+            <!-- "Boards & maps", matching the sub-tab that opens it. It read
+                 "Whiteboards" while the tab above it read "Boards & maps", which
+                 was survivable when a map was only a board someone had drawn a
+                 tree on — and stops being so now that a map is a first-class
+                 kind with its own filter chip two lines below this heading. -->
+            <h2>Boards &amp; maps</h2>
+          </div>
+          <div class="dock-group dock-find">
             <!-- Parity with the Documents subtab's own search box (reported:
                  the two lists sat side by side with only one able to filter
                  by name). Filters client-side against the already-loaded
@@ -3152,12 +3173,12 @@ Link to another note with [[its first few words]]."></textarea>
                  already returns every board in one small array. -->
             <input id="library-boards-search" type="search" placeholder="Search boards…"
               aria-label="Search boards by title">
+          </div>
+          <div class="dock-group dock-arrange">
             <!-- The fifth and last sub-tab to get the sort control they were
-                 reported as missing. Same order as Documents — what to show
-                 (search), then how to order it — so the row reads the same way
-                 on whichever sub-tab you land on. `BoardOut` has no
-                 timestamps; see BOARD_SORTS in whiteboard.js for what
-                 "Newest first" is measuring. -->
+                 reported as missing. `BoardOut` has no timestamps; see
+                 BOARD_SORTS in whiteboard.js for what "Newest first" is
+                 measuring. -->
             <select id="library-boards-sort" aria-label="Sort boards" title="Sort boards">
               <option value="newest">Newest first</option>
               <option value="oldest">Oldest first</option>
@@ -3176,24 +3197,24 @@ Link to another note with [[its first few words]]."></textarea>
               <button class="icon-only" data-library-view="grid" type="button" title="Cards" aria-label="Card view"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
               <button class="icon-only" data-library-view="list" type="button" title="Rows" aria-label="Rows"><i class="ph ph-list" aria-hidden="true"></i></button>
             </div>
-            <button id="wb-boards-new" class="small" type="button"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New board</button>
+          </div>
+          <div class="dock-actions">
+            <button id="wb-boards-new" class="small" type="button"
+              title="Start a new board"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New board</button>
             <!-- A map is a board with a `type` (MINDMAP_PLAN.md §4 option B),
                  so this is the same dialog with the Mind map segment already
-                 chosen — not a second creation path. Beside "New board"
-                 because the two are the same decision made two ways, and a
-                 mind map that could only be reached by opening a board dialog
-                 and changing a control is one nobody finds. -->
+                 chosen — not a second creation path. -->
             <button id="wb-boards-new-map" class="ghost small" type="button" title="Start a mind map"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> New mind map</button>
             <button id="library-media-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
             <button type="button" id="wb-boards-help" class="icon-only ghost small graph-help-toggle"
               aria-expanded="false" aria-controls="wb-boards-intro"
-              title="Every board and concept map you have made. Pick one to open it, or use ＋ Create → New concept map to start a map from a core idea."
+              title="Every board and concept map you have made. Pick one to open it, or start a mind map from the button beside New board."
               aria-label="What is this?">
               <i class="ph ph-question" aria-hidden="true"></i>
             </button>
-          </span>
+          </div>
         </div>
-        <p class="muted graph-help-panel hidden" id="wb-boards-intro" role="dialog" aria-label="What is this?">Every board and concept map you have made — they are the same kind of thing, so a map you build here can be drawn on, and a board can be branched with Tab. Pick one to open it, or start a new map from <strong>＋ Create → New concept map</strong>.</p>
+        <p class="muted graph-help-panel hidden" id="wb-boards-intro" role="dialog" aria-label="What is this?">Every board and concept map you have made — they are the same kind of thing, so a map you build here can be drawn on, and a board can be branched with Tab. Pick one to open it, or start a map with <strong>New mind map</strong>, beside New board above.</p>
         <!-- Maps / Boards / All (MINDMAP_PLAN.md §5 item 10, the user's own
              stated preference: maps live in Boards & maps behind a filter
              chip, not in a sub-tab of their own). `.library-filters` and

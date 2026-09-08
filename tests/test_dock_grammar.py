@@ -47,6 +47,7 @@ ON_THE_GRAMMAR = {
     "library",
     "library-boards",
     "library-docs",
+    "library-media",
     "notes",
     "timeline",
     "reminders",

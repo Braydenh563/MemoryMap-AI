@@ -7828,6 +7828,23 @@ input[type="file"] {
   height: 2rem;
 }
 
+/* **A segment's cells fill the segment, and the segment fills the dock.**
+   The rule above pins the `.seg` group to the dock's height; `.seg` itself
+   carries `padding: 0.25rem`, so without this its buttons come out 8px
+   shorter than every other control and float inside their own track.
+   Measured on Library → Files: the preview/type pair rendered 28px inside a
+   36px group while search, both selects and Upload beside them were 36.
+   The All and Boards segments did *not* have this, purely because they
+   happen to carry `.library-view`, whose own rule sets the height — one
+   family, two outcomes, decided by a class that means something else.
+   Direct children of a zone only: a segmented control inside a `.dock-menu`
+   is a menu row and takes the menu's own sizing. */
+.dock > * > .seg > button {
+  height: var(--control-h);
+  margin: 0;
+  padding-block: 0;
+}
+
 .dock select {
   width: auto;
   min-width: 9rem;

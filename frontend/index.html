@@ -4029,9 +4029,81 @@ Link to another note with [[its first few words]]."></textarea>
        view now, so this is images only. -->
   <div id="library-view-media" class="library-view-section hidden">
     <section class="card glass">
-      <div class="row space-between library-head">
-        <h2 id="library-media-title">Images</h2>
-        <div class="row">
+      <!-- **The dock (UI_MODERNISATION_PLAN.md Phase 8).** Before: two rows.
+           A `.row.space-between` head carrying Upload, refresh and "?", and a
+           `.library-toolbar` under it carrying search, the read filter, sort
+           and the preview/type switch — so the one thing that acts on the
+           whole gallery (Upload) sat a row away from everything that chooses
+           what the gallery shows, and the title had three buttons pinned
+           beside it for no reason but that they arrived first.
+
+           One row, the four zones every Library head now uses:
+             identity — the title, which `setLibraryMediaKind` swaps between
+                        "Images" and "Files"
+             find     — search, then the read filter (Files only)
+             arrange  — one sort select, one view segment (Files only)
+             actions  — Upload, refresh, help
+           Ids are unchanged, so library.js needs no rewiring. -->
+      <div class="dock" data-dock-name="library-media" role="toolbar"
+        aria-label="Gallery controls">
+        <div class="dock-identity">
+          <h2 id="library-media-title">Images</h2>
+        </div>
+        <div class="dock-group dock-find">
+          <!-- Filters client-side against each image's filename and its OCR
+               text (ROADMAP.md item 30d) — same pattern as the main Library
+               search box above, not a server round-trip, since a gallery is
+               small enough that a plain substring pass costs nothing. -->
+          <input id="library-images-search" type="search" class="library-search"
+            placeholder="Search filenames, captions and text found in files…"
+            aria-label="Search the image gallery">
+          <!-- **Files is a reading list now, so it filters by whether a thing
+               has been read.** Asked for directly: "because the ocr worspace
+               exists, redesign the files library subtab and its capabilities."
+               The workspace is where a document gets read; the only question
+               this list could not answer was which ones already had been, so
+               every scan looked identical to every other and the way to find out
+               was to open each one.
+
+               Files only — an image is not "unread" in any sense a person
+               means, so `setLibraryMediaKind` hides this on the Images tab
+               rather than offering a filter that would divide pictures by
+               whether OCR happened to have run on them. A filter narrows what
+               is shown, so it sits in `find` beside search rather than in
+               `arrange` with sort. -->
+          <select id="library-media-read" class="hidden"
+            aria-label="Filter by whether it has been read"
+            title="Filter by whether it has been read">
+            <option value="all">Read or not</option>
+            <option value="read">Read</option>
+            <option value="unread">Not read yet</option>
+          </select>
+        </div>
+        <div class="dock-group dock-arrange">
+          <!-- Reported: "the library subtabs are missing sorting and filtering
+               options." Measured: none of the six sub-tabs had a sort control at
+               all — only the "All" view did. -->
+          <select id="library-media-sort" aria-label="Sort files" title="Sort files">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="az">Name A → Z</option>
+            <option value="za">Name Z → A</option>
+            <option value="largest">Largest first</option>
+          </select>
+          <!-- Asked for directly: "make it togglable to change between filetype
+               and previews". A preview tells four similarly-named PDFs apart; a
+               type icon scans a long mixed list faster. Neither is right for
+               everyone, so it is a choice rather than a default someone has to
+               live with. The same `.seg` the notes list uses for rows-vs-cards,
+               in the same zone: a segmented control means *view*, everywhere. -->
+          <div class="seg library-media-view" role="group" aria-label="How to show files">
+            <button type="button" id="library-media-view-preview" class="active icon-only"
+              title="Show a preview of each file" aria-label="Show a preview of each file"><i class="ph ph-image" aria-hidden="true"></i></button>
+            <button type="button" id="library-media-view-type" class="icon-only"
+              title="Show each file's type icon" aria-label="Show each file's type icon"><i class="ph ph-file" aria-hidden="true"></i></button>
+          </div>
+        </div>
+        <div class="dock-actions">
           <button id="library-images-upload" class="small" type="button"><i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Upload</button>
           <input id="library-images-upload-input" aria-label="Choose images or PDFs to upload" title="Choose images or PDFs to upload" type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/x-icon,application/pdf" multiple class="hidden">
           <button id="library-images-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
@@ -4044,72 +4116,6 @@ Link to another note with [[its first few words]]."></textarea>
         </div>
       </div>
       <p class="muted graph-help-panel hidden" id="library-images-intro" role="dialog" aria-label="What is this?">Every image pasted, dropped, or uploaded — in a note, a document, or on a whiteboard — or added directly here, then attachable to any note from its own "Attach from Library" action.</p>
-      <!-- Filters client-side against each image's filename and its OCR
-           text (ROADMAP.md item 30d) — same pattern as the main Library
-           search box above, not a server round-trip, since a gallery is
-           small enough that a plain substring pass costs nothing. -->
-      <!-- **One toolbar, the same one the other sub-tabs use.** These three
-           controls were loose children of the card, which is why the sort
-           dropdown looked wrong next to the ones in All and Documents —
-           reported directly. `.library-toolbar` is where `--control-h` and the
-           shared `select`/`button`/`.seg` height rule live, so being outside
-           it meant this select was the only one in the Library sized by
-           nothing. Wrapping them also puts search, then order, then how-to-draw
-           in one row in that order, rather than stacked down the card. -->
-      <div class="library-toolbar library-media-toolbar">
-      <input id="library-images-search" type="search" class="library-search"
-          placeholder="Search filenames, captions and text found in files…"
-          aria-label="Search the image gallery">
-        <!-- Asked for directly: "make it togglable to change between filetype
-             and previews". A preview tells four similarly-named PDFs apart; a
-             type icon scans a long mixed list faster. Neither is right for
-             everyone, so it is a choice rather than a default someone has to
-             live with.
-
-             The same `.seg` control the notes list uses for rows-vs-cards, in
-             the same shape and the same place in its toolbar — this app already
-             has a sign for "the same things, drawn a different way", and
-             inventing a second one here would be the inconsistency the rest of
-             this round is removing. -->
-        <!-- Reported: "the library subtabs are missing sorting and filtering
-             options." Measured: none of the six sub-tabs had a sort control at
-             all — only the "All" view did. Same `<select>` shape and the same
-             place in the toolbar as `#note-sort`, which is one of the two the
-             report calls good, so this is the pattern spreading rather than a
-             seventh way of doing it. -->
-        <!-- **Files is a reading list now, so it filters by whether a thing
-             has been read.** Asked for directly: "because the ocr worspace
-             exists, redesign the files library subtab and its capabilities."
-             The workspace is where a document gets read; the only question
-             this list could not answer was which ones already had been, so
-             every scan looked identical to every other and the way to find out
-             was to open each one.
-
-             Files only — an image is not "unread" in any sense a person
-             means, so `setLibraryMediaKind` hides this on the Images tab
-             rather than offering a filter that would divide pictures by
-             whether OCR happened to have run on them. -->
-        <select id="library-media-read" class="hidden"
-          aria-label="Filter by whether it has been read"
-          title="Filter by whether it has been read">
-          <option value="all">Read or not</option>
-          <option value="read">Read</option>
-          <option value="unread">Not read yet</option>
-        </select>
-        <select id="library-media-sort" aria-label="Sort files" title="Sort files">
-          <option value="newest">Newest first</option>
-          <option value="oldest">Oldest first</option>
-          <option value="az">Name A → Z</option>
-          <option value="za">Name Z → A</option>
-          <option value="largest">Largest first</option>
-        </select>
-        <div class="seg library-media-view" role="group" aria-label="How to show files">
-          <button type="button" id="library-media-view-preview" class="active icon-only"
-            title="Show a preview of each file" aria-label="Show a preview of each file"><i class="ph ph-image" aria-hidden="true"></i></button>
-          <button type="button" id="library-media-view-type" class="icon-only"
-            title="Show each file's type icon" aria-label="Show each file's type icon"><i class="ph ph-file" aria-hidden="true"></i></button>
-        </div>
-      </div>
       <!-- Multi-select, the same shape the Documents sub-tab already has —
            asked for directly: "in many of the library subtabs like for imges,
            files, whiteboards, links etc, there is no way to multi select".

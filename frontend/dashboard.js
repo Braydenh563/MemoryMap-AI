@@ -2766,6 +2766,9 @@ async function renderBoardsWidget(body) {
  * MINDMAP_PLAN.md §5 item 12 asked for exactly that.
  */
 function dashBoardThumb(board) {
+  // Never null now: an empty board draws the designed empty state rather than
+  // leaving the row without its left rail (see mapPreview). The guard stays
+  // for a caller that hands this a board object it does not have yet.
   const svg = mapPreview(board, { size: "row" });
   if (!svg) return null;
   // The row's own thumbnail classes, on top of the shared `.board-minimap`

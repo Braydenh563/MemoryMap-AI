@@ -142,7 +142,7 @@ def test_labels_stay_with_their_own_positions(client):
     from memorymap.api.routes_whiteboard import _preview_items
 
     items = _preview_items(
-        [(0.0, 0.0, "card", "left"), (10.0, 0.0, "card", "right")]
+        [(0.0, 0.0, "card", "left", None), (10.0, 0.0, "card", "right", None)]
     )
     assert items[0]["x"] == 0.0 and items[0]["label"] == "left"
     assert items[1]["x"] == 1.0 and items[1]["label"] == "right"

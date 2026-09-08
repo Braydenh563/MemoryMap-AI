@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 
+from memorymap.api.routes_whiteboard import MAP_BRANCH_PALETTE
 from memorymap.core.database import Entry, WhiteboardObject
 
 
@@ -388,8 +389,11 @@ def test_a_maps_thumbnail_carries_its_edges(client):
     assert len(row["preview_items"]) == 2
     assert len(row["preview_edges"]) == 1
     edge = row["preview_edges"][0]
-    assert set(edge) == {"x1", "y1", "x2", "y2"}
-    assert all(0.0 <= value <= 1.0 for value in edge.values())
+    assert {"x1", "y1", "x2", "y2"} <= set(edge)
+    assert all(0.0 <= edge[axis] <= 1.0 for axis in ("x1", "y1", "x2", "y2"))
+    # The edge carries the branch it belongs to, so the thumbnail is the same
+    # picture as the canvas rather than a grey diagram of one.
+    assert edge["color"] in MAP_BRANCH_PALETTE
 
 
 def test_an_ordinary_board_has_no_edges_to_draw(client):

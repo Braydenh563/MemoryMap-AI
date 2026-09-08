@@ -1484,21 +1484,91 @@ function smallButton(label, title, onClick, ghost = true) {
 //: `labels` is off at row size deliberately. Sixteen characters beside a 9×6
 //: block is a legible texture in a 100×56 card; the same text in a 40×40
 //: thumbnail is a smear.
+//:
+//: `w`/`h` are the *box the picture is letterboxed into*, not the viewBox:
+//: since the drawing is now made at the board's own ratio, the two are the
+//: same only for a board that happens to be shaped like the card. Everything
+//: else here (`pad`, `blockW`, `blockH`, `font`) is a size in that box, and
+//: `mapPreview` divides each of them by the scale the browser is about to
+//: apply, so a node in a tall map is drawn the same number of pixels across
+//: as a node in a wide one. Without that division the block sizes are in
+//: viewBox units and a square board's nodes come out 44% smaller than a wide
+//: board's, for no reason a reader could see.
 const MAP_PREVIEW_SIZES = {
-  card: { w: 100, h: 56, pad: 3, blockW: 9, blockH: 6, labels: true },
-  row: { w: 40, h: 40, pad: 3, blockW: 4, blockH: 3, labels: false },
+  card: { w: 100, h: 56, pad: 3, blockW: 9, blockH: 6, labels: true, font: 4.2 },
+  row: { w: 40, h: 40, pad: 3, blockW: 4, blockH: 3, labels: false, font: 0 },
 };
+
+//: The long side of the board's own box, in viewBox units. Arbitrary: only
+//: the *ratio* of the viewBox is meaningful, since `preserveAspectRatio`
+//: scales it into the card either way. 100 keeps the numbers in the DOM
+//: readable when someone inspects a thumbnail.
+const MAP_PREVIEW_BASE = 100;
+
+//: How round a node is, as a fraction of its short side. A node on the canvas
+//: is a rounded card, not a dot and not a pill, and the miniature says the
+//: same thing at a twentieth of the size.
+const MAP_PREVIEW_NODE_ROUNDING = 0.35;
+
+//: How much of the card's width the letterboxed board has to fill before its
+//: labels are worth drawing, as a fraction. See where it is used.
+const MAP_PREVIEW_LABEL_FLOOR = 0.6;
+
+//: Two decimals, as a number. Every coordinate in a thumbnail is now a
+//: division by a scale factor, so without this the DOM fills with
+//: `x="17.142857142857142"`: bytes, and unreadable when someone inspects a
+//: card to work out what it drew.
+function round2(value) {
+  return Math.round(value * 100) / 100;
+}
+
+//: **One parent→child edge, as a curve.** Straight lines were what the first
+//: version drew, and a tree of straight segments at thumbnail size reads as a
+//: bar chart: the canvas draws cubic curves (`wbMapEdgePathD`), so the
+//: miniature draws them too, and the two pictures of one map agree.
+//:
+//: The control points follow the dominant axis rather than the board's
+//: `layout`: a `tree-right` map curves out sideways and a `tree-down` map
+//: curves downward, and asking each segment which way it actually runs gets
+//: both right, including the nodes someone dragged off the layout by hand.
+//: The caller says how the curve is coloured, because the two ways of doing it
+//: cannot both come from a class: an edge in its branch colour carries a
+//: `stroke` *attribute*, and a presentation attribute loses to any class that
+//: declares `stroke`. So `.board-minimap-edge` is geometry only, and an
+//: uncoloured edge takes `.board-minimap-edge-accent` on top of it. The
+//: alternative, `el.style.stroke`, writes a `style` attribute, which this
+//: app's CSP drops and `mindmap3.js` asserts the absence of.
+function mapPreviewEdge(NS, px, py, blockW, blockH, edge) {
+  const curve = document.createElementNS(NS, "path");
+  curve.setAttribute("class", "board-minimap-edge");
+  // Half a block: a line should meet the centre of what it joins, and a block
+  // is drawn from its top-left corner.
+  const x1 = px(edge.x1) + blockW / 2;
+  const y1 = py(edge.y1) + blockH / 2;
+  const x2 = px(edge.x2) + blockW / 2;
+  const y2 = py(edge.y2) + blockH / 2;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const d = Math.abs(dx) >= Math.abs(dy)
+    ? `M${round2(x1)} ${round2(y1)} C${round2(x1 + dx / 2)} ${round2(y1)} ${round2(x2 - dx / 2)} ${round2(y2)} ${round2(x2)} ${round2(y2)}`
+    : `M${round2(x1)} ${round2(y1)} C${round2(x1)} ${round2(y1 + dy / 2)} ${round2(x2)} ${round2(y2 - dy / 2)} ${round2(x2)} ${round2(y2)}`;
+  curve.setAttribute("d", d);
+  return curve;
+}
 
 //: A miniature of what is actually on a board, from `preview_items` /
 //: `preview_edges`, positions already normalised into 0..1 against the
 //: board's own bounds by `routes_whiteboard._board_preview`, so this draws the
 //: real layout without the client ever loading the board.
 //:
-//: Returns null for a board with nothing on it. That is deliberate and is not
-//: the same as drawing an empty rectangle: the card's "Empty map" line says
-//: more than a blank box would, and the caller decides whether it wants a
-//: placeholder (the Library's rows mode does, so its rows all start at the
-//: same x).
+//: **An empty board draws the empty state, not nothing.** It used to return
+//: null and each caller improvised: the Library's card mode drew no picture
+//: at all, its rows mode drew a dashed rail so the rows would still line up,
+//: and the dashboard skipped the thumbnail, so three surfaces disagreed about
+//: what an empty map looks like and two of them lost their left edge. The
+//: empty state is drawn here, once, in the same language as a real preview: a
+//: ghost of a three-node map on the same paper, which says "a map goes here"
+//: where a blank box said nothing.
 //:
 //: Built with SVG attributes and never an inline `style` string: this app's
 //: CSP drops those outright, and thirty-five of them once shipped as silently
@@ -1506,20 +1576,94 @@ const MAP_PREVIEW_SIZES = {
 function mapPreview(board, { size = "card" } = {}) {
   const geo = MAP_PREVIEW_SIZES[size] || MAP_PREVIEW_SIZES.card;
   const items = Array.isArray(board?.preview_items) ? board.preview_items : [];
-  if (!items.length) return null;
   const NS = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(NS, "svg");
   svg.setAttribute("class", `board-minimap board-minimap-${size}`);
-  svg.setAttribute("viewBox", `0 0 ${geo.w} ${geo.h}`);
-  svg.setAttribute("preserveAspectRatio", "none");
   svg.setAttribute("aria-hidden", "true");
+
+  //: **The board's own shape, letterboxed into the card's box.** The viewBox
+  //: is drawn at `preview_aspect` (the board's width/height, which
+  //: normalising the positions into 0..1 threw away) and `meet` fits it
+  //: inside the element rather than stretching it to fill: a map that runs
+  //: down the page used to come back as the same wide rectangle as one that
+  //: runs across, and every board in the Library was the same shape as every
+  //: other, which is a picture of the card, not of the board.
+  const aspect = Number(board?.preview_aspect) > 0 ? Number(board.preview_aspect) : 1;
+  const vw = aspect >= 1 ? MAP_PREVIEW_BASE : MAP_PREVIEW_BASE * aspect;
+  const vh = aspect >= 1 ? MAP_PREVIEW_BASE / aspect : MAP_PREVIEW_BASE;
+  svg.setAttribute("viewBox", `0 0 ${round2(vw)} ${round2(vh)}`);
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  // The scale `meet` is about to apply, so every fixed size below can be
+  // expressed in the box's units and divided back out: see MAP_PREVIEW_SIZES.
+  const scale = Math.min(geo.w / vw, geo.h / vh);
+  const unit = 1 / scale;
+  const pad = geo.pad * unit;
+  const blockW = geo.blockW * unit;
+  const blockH = geo.blockH * unit;
   // The drawable box, inset by the padding on both sides so an item at the
   // extreme edge of the board lands inside the thumbnail rather than half
-  // outside it.
-  const spanX = geo.w - geo.pad * 2 - geo.blockW;
-  const spanY = geo.h - geo.pad * 2 - geo.blockH;
-  const px = (x) => geo.pad + (Number(x) || 0) * spanX;
-  const py = (y) => geo.pad + (Number(y) || 0) * spanY;
+  // outside it. Floored at zero: an extreme ratio can leave less room than
+  // one block needs, and a negative span would mirror the whole picture.
+  const spanX = Math.max(0, vw - pad * 2 - blockW);
+  const spanY = Math.max(0, vh - pad * 2 - blockH);
+  //: **Labels need width, and a letterboxed tall board has not got it.**
+  //: Measured on the first run of the redesigned card: a board half as wide as
+  //: it is tall draws its paper 82px across inside a 293px card, and the
+  //: sixteen-character labels that read as a texture at 293px overlapped each
+  //: other and the nodes they belonged to ("First branchRoot"). Below
+  //: `MAP_PREVIEW_LABEL_FLOOR` of the box's width the labels come off and the
+  //: shape carries the card, which is what the row size already does.
+  const labels = geo.labels && vw * scale >= geo.w * MAP_PREVIEW_LABEL_FLOOR;
+  const px = (x) => pad + (Number(x) || 0) * spanX;
+  const py = (y) => pad + (Number(y) || 0) * spanY;
+
+  //: **The paper.** The frame and fill used to belong to the `<svg>` element
+  //: itself, which is the card's box, so the border said "this is the shape
+  //: of the board" while being the shape of the card. Drawn as a rect inside
+  //: the viewBox instead, it is the letterboxed board, and it is the thing a
+  //: sweep can measure: its rendered width/height *is* `preview_aspect`.
+  const paper = document.createElementNS(NS, "rect");
+  paper.setAttribute("class", "board-minimap-paper");
+  paper.setAttribute("x", "0");
+  paper.setAttribute("y", "0");
+  paper.setAttribute("width", String(round2(vw)));
+  paper.setAttribute("height", String(round2(vh)));
+  paper.setAttribute("rx", String(round2(2 * unit)));
+  svg.appendChild(paper);
+
+  if (!items.length) {
+    // The one designed empty state, in the same language as a real preview:
+    // three nodes and two curves, ghosted. See the header comment.
+    paper.classList.add("board-minimap-paper-empty");
+    const ghost = document.createElementNS(NS, "g");
+    ghost.setAttribute("class", "board-minimap-ghost");
+    const shape = [
+      { x: 0.04, y: 0.5 },
+      { x: 0.72, y: 0.16 },
+      { x: 0.72, y: 0.84 },
+    ];
+    for (const child of shape.slice(1)) {
+      ghost.appendChild(
+        mapPreviewEdge(NS, px, py, blockW, blockH, {
+          x1: shape[0].x,
+          y1: shape[0].y,
+          x2: child.x,
+          y2: child.y,
+        })
+      );
+    }
+    for (const node of shape) {
+      const block = document.createElementNS(NS, "rect");
+      block.setAttribute("x", String(round2(px(node.x))));
+      block.setAttribute("y", String(round2(py(node.y))));
+      block.setAttribute("width", String(round2(blockW)));
+      block.setAttribute("height", String(round2(blockH)));
+      block.setAttribute("rx", String(round2(Math.min(blockW, blockH) * MAP_PREVIEW_NODE_ROUNDING)));
+      ghost.appendChild(block);
+    }
+    svg.appendChild(ghost);
+    return svg;
+  }
 
   //: **The tree, drawn first so the lines sit under the blocks** rather than
   //: across their labels. `preview_edges` is the parent→child segments in the
@@ -1527,15 +1671,13 @@ function mapPreview(board, { size = "card" } = {}) {
   //: empty list and this loop does nothing, which is exactly the difference
   //: between the two kinds that a scatter of dots cannot show.
   for (const edge of Array.isArray(board.preview_edges) ? board.preview_edges : []) {
-    const line = document.createElementNS(NS, "line");
-    line.setAttribute("class", "board-minimap-edge");
-    // +half a block: a line should meet the centre of what it joins, and a
-    // block is drawn from its top-left corner.
-    line.setAttribute("x1", String(px(edge.x1) + geo.blockW / 2));
-    line.setAttribute("y1", String(py(edge.y1) + geo.blockH / 2));
-    line.setAttribute("x2", String(px(edge.x2) + geo.blockW / 2));
-    line.setAttribute("y2", String(py(edge.y2) + geo.blockH / 2));
-    svg.appendChild(line);
+    const curve = mapPreviewEdge(NS, px, py, blockW, blockH, edge);
+    // The branch's colour, from the server (`_map_branch_colors`), so the
+    // thumbnail is the same picture as the canvas rather than a grey diagram
+    // of it.
+    if (edge.color) curve.setAttribute("stroke", edge.color);
+    else curve.classList.add("board-minimap-edge-accent");
+    svg.appendChild(curve);
   }
 
   for (const item of items) {
@@ -1549,20 +1691,32 @@ function mapPreview(board, { size = "card" } = {}) {
       // beside a line reading "2 sketches".
       const mark = document.createElementNS(NS, "path");
       mark.setAttribute("class", "board-minimap-sketch");
-      const unit = geo.blockW / 1.8;
-      mark.setAttribute("d", `M${nx} ${ny + geo.blockH * 0.8} q${unit / 2} ${-unit} ${unit} 0 t${unit} 0`);
+      const wave = blockW / 1.8;
+      mark.setAttribute("d", `M${round2(nx)} ${round2(ny + blockH * 0.8)} q${round2(wave / 2)} ${round2(-wave)} ${round2(wave)} 0 t${round2(wave)} 0`);
       svg.appendChild(mark);
       continue;
     }
     const dot = document.createElementNS(NS, "rect");
-    dot.setAttribute("class", item.kind === "card" ? "board-minimap-card" : "board-minimap-object");
-    dot.setAttribute("x", String(nx));
-    dot.setAttribute("y", String(ny));
-    dot.setAttribute("width", String(geo.blockW));
-    dot.setAttribute("height", String(geo.blockH));
-    dot.setAttribute("rx", "1.5");
+    const grey = item.kind === "card" ? "board-minimap-card" : "board-minimap-object";
+    // A branch node takes its own class rather than the grey one, for the
+    // reason on `mapPreviewEdge`: the fill arrives as an attribute, and the
+    // grey classes declare `fill`, which would win.
+    dot.setAttribute("class", item.color ? "board-minimap-branch" : grey);
+    dot.setAttribute("x", String(round2(nx)));
+    dot.setAttribute("y", String(round2(ny)));
+    dot.setAttribute("width", String(round2(blockW)));
+    dot.setAttribute("height", String(round2(blockH)));
+    // Rounded like the node it stands for, and rounded by its own size rather
+    // than by a fixed 1.5: the block is drawn at a different number of viewBox
+    // units on every board shape now, so a constant radius was a sharp corner
+    // on one card and a pill on the next.
+    dot.setAttribute("rx", String(round2(Math.min(blockW, blockH) * MAP_PREVIEW_NODE_ROUNDING)));
+    // The grey blocks are faded because an unlabelled box is texture; a
+    // coloured node is carrying which branch it belongs to, so it is drawn at
+    // full strength (`.board-minimap-branch`).
+    if (item.color) dot.setAttribute("fill", item.color);
     svg.appendChild(dot);
-    if (!geo.labels || !item.label) continue;
+    if (!labels || !item.label) continue;
     //: **What the item says**, which is why this stopped being a list of bare
     //: points. Reported as "the whiteboard preview is poor", and the
     //: screenshot was three boards named "Cloud computing" showing three
@@ -1576,9 +1730,16 @@ function mapPreview(board, { size = "card" } = {}) {
     //: in a 100-wide viewBox, so its label ran off the edge and came out
     //: sliced mid-word ("Cloud computi"). Past halfway it hangs off the left
     //: instead, which is the same amount of room from the other direction.
-    const rightHalf = nx > geo.w / 2;
-    text.setAttribute("x", String(rightHalf ? nx - 1.5 : nx + geo.blockW + 1.5));
-    text.setAttribute("y", String(ny + geo.blockH * 0.73));
+    const rightHalf = nx > vw / 2;
+    const gap = 1.5 * unit;
+    text.setAttribute("x", String(round2(rightHalf ? nx - gap : nx + blockW + gap)));
+    text.setAttribute("y", String(round2(ny + blockH * 0.73)));
+    // The type size, in the box's units divided back out, for the same reason
+    // the blocks are: a fixed CSS `font-size` here is in viewBox units, so the
+    // labels on a square board came out half the size of the labels on a wide
+    // one. The stylesheet keeps the colour and the family; only the size,
+    // which depends on the board's shape, is set here.
+    text.setAttribute("font-size", String(round2(geo.font * unit)));
     if (rightHalf) text.setAttribute("text-anchor", "end");
     // An ellipsis rather than a bare slice: "Connections prob" reads as
     // broken, "Connections pro…" reads as shortened.

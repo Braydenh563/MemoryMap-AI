@@ -4001,9 +4001,42 @@ summary:not(.icon-only):not(.icon-button) {
   height: auto;
   aspect-ratio: 100 / 56;
   margin: var(--space-3) 0 var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: calc(var(--radius) * 0.5);
-  background: var(--chip-bg);
+}
+
+/* **The board itself, at the board's own shape.** The frame and the fill used
+   to sit on the `<svg>` element, which is the *card's* box: so every board in
+   the Library was framed as the same wide rectangle whatever shape it really
+   was, and the picture inside was stretched to fit it. The drawing is now made
+   at `preview_aspect` and letterboxed (`preserveAspectRatio="xMidYMid meet"`,
+   mapPreview in app.js), and this rect is the letterboxed board, which is also
+   the thing a sweep can measure. `non-scaling-stroke` keeps the border one
+   pixel: it is scaled by whatever `meet` decided, and a hairline on a wide
+   card came out three times heavier on a tall one. */
+.board-minimap-paper {
+  fill: var(--chip-bg);
+  stroke: var(--border);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+/* An empty board says so in the same language: a dashed frame around a ghost
+   of a three-node map, rather than the nothing-at-all each surface improvised
+   before (see mapPreview's header comment). */
+.board-minimap-paper-empty {
+  fill: none;
+  stroke-dasharray: 3 3;
+}
+
+.board-minimap-ghost {
+  fill: var(--border);
+  stroke: var(--border);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.5;
+}
+
+.board-minimap-ghost path {
+  fill: none;
 }
 
 /* The row-sized preview (`mapPreview(board, {size: "row"})`), the dashboard's
@@ -4050,15 +4083,6 @@ summary:not(.icon-only):not(.icon-button) {
   order: -1;
 }
 
-/* The empty board's stand-in rail: see `board-minimap-blank` in
-   whiteboard.js. A frame, not a filled box: it says "nothing on this board"
-   in the same place a map would say what is. */
-.board-minimap-blank {
-  display: block;
-  border: 1px dashed var(--border);
-  background: none;
-}
-
 .library-list .library-board-card .library-card-title {
   flex: 0 0 20rem;
   min-width: 0;
@@ -4076,9 +4100,20 @@ summary:not(.icon-only):not(.icon-button) {
   margin-left: auto;
 }
 
-.board-minimap rect {
+.board-minimap-card,
+.board-minimap-object {
   fill: var(--accent);
   opacity: 0.55;
+}
+
+/* A map node in its branch colour (`_map_branch_colors`, server-side). The
+   fill arrives as a `fill` *attribute* per node, so this rule deliberately
+   does not declare one: a class would win over the attribute and every node
+   would be grey again. It only has to stop the grey blocks' opacity from
+   muting the colour: those are faded because an unlabelled box is texture,
+   while a coloured node is carrying which branch it belongs to. */
+.board-minimap-branch {
+  opacity: 0.9;
 }
 
 /* An object (an image, a shape, a text box) is on the board but is not a
@@ -4093,10 +4128,17 @@ summary:not(.icon-only):not(.icon-button) {
    the thumbnail, and drawn at full weight they swamp the blocks they join. */
 .board-minimap-edge {
   fill: none;
-  stroke: var(--accent);
   stroke-width: 0.9;
   stroke-linecap: round;
   opacity: 0.5;
+}
+
+/* An edge with no branch behind it: an ordinary board's, and the ghost map in
+   the empty state (which takes its stroke from the group instead). A coloured
+   edge carries a `stroke` attribute, which any class declaring `stroke` would
+   beat, so the accent lives in its own class rather than in the rule above. */
+.board-minimap-edge-accent {
+  stroke: var(--accent);
 }
 
 /* Strokes, as a stroke. Drawn rather than filled because a sketch has no
@@ -4118,11 +4160,12 @@ summary:not(.icon-only):not(.icon-button) {
 .board-minimap-label {
   fill: var(--ink);
   opacity: 0.75;
-  font-size: 4.2px;
   font-family: inherit;
 }
 
-.library-board-card:hover .board-minimap rect,
+/* The paper is excluded: it is the board's frame, and lifting its opacity on
+   hover made the card look selected rather than pointed at. */
+.library-board-card:hover .board-minimap rect:not(.board-minimap-paper, .board-minimap-branch),
 .library-board-card:hover .board-minimap path {
   opacity: 0.8;
 }

@@ -9795,24 +9795,14 @@ async function renderLibraryBoardsGallery() {
     // tells a map from a board was missing from one of the two places a map
     // shows up. An empty board still draws nothing and keeps its "Empty
     // board" line, which says more than a blank rectangle would.
+    //: Every board gets one, including an empty one: `mapPreview` draws the
+    //: designed empty state itself now. This used to be a three-way branch,
+    //: with a hand-made dashed `<span>` for rows mode only, because the rows
+    //: whose board had a preview pushed their title 34px right of the rows
+    //: whose board did not (measured: 107px, 155px and 189px on three
+    //: consecutive rows). One picture per board, one left edge.
     const minimap = mapPreview(board, { size: "card" });
-    if (minimap) {
-      card.append(top, title, minimap, meta);
-    } else if (rowsMode) {
-      //: Rows only. An empty board draws nothing in card view *by design*
-      //: (see the comment above, the "Empty board" line says more than a
-      //: blank rectangle would), but in rows view the map is the row's left
-      //: rail: without a placeholder the boards that have one push their
-      //: title 34px further right than the boards that don't, and every row
-      //: starts at a different x. Measured before this existed: 107px, 155px
-      //: and 189px on three consecutive rows.
-      const blank = document.createElement("span");
-      blank.className = "board-minimap board-minimap-blank";
-      blank.setAttribute("aria-hidden", "true");
-      card.append(top, title, blank, meta);
-    } else {
-      card.append(top, title, meta);
-    }
+    card.append(top, title, minimap, meta);
 
     // The default (id === null) scratch board isn't a note and can't be
     // renamed or deleted the way a real board (a plain Entry: see

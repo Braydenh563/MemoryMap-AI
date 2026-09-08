@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from collections import OrderedDict
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -503,6 +504,17 @@ class BoardOut(BaseModel):
     #: so the one thing the picture has to show is the one thing points alone
     #: cannot.
     preview_edges: list[dict] = []
+    #: The board's own width/height, so a thumbnail can be drawn at the shape
+    #: the board actually has instead of stretched to whatever box it lands
+    #: in. Normalising into 0..1 threw this away: a tall map and a wide board
+    #: both came back as the unit square, so every card drew the same
+    #: rectangle and a tree that runs left to right looked identical to one
+    #: that runs top to bottom.
+    #:
+    #: Clamped into `PREVIEW_ASPECT_RANGE`. Past that the letterboxed picture
+    #: is a sliver a few pixels wide inside a card that is mostly empty, which
+    #: says less about the board than a slightly wrong ratio does.
+    preview_aspect: float = 1.0
 
 
 class BoardTypeMixin(BaseModel):
@@ -577,27 +589,119 @@ def _preview_points(rows: list[tuple[float, float]]) -> list[list[float]]:
 PREVIEW_LABEL_CHARS = 28
 
 
-def _preview_items(rows: list[tuple[float, float, str, str]]) -> list[dict]:
+#: The branch colours a map's thumbnail draws, in the order a first-level
+#: branch claims them.
+#:
+#: **This is `d3.schemeTableau10`, copied.** The canvas takes that scale from
+#: d3 at runtime (`wbMapColors`, whiteboard.js), and the thumbnail has to
+#: agree with the canvas or the same map is two different pictures depending
+#: on where you look at it. The server has no d3, and shipping a *branch
+#: index* instead would only move the same duplication into app.js, where the
+#: preview is drawn and d3 is not guaranteed to have loaded. Copied here, once,
+#: with `tests/test_board_preview.py` asserting a preview's colours come from
+#: this list.
+MAP_BRANCH_PALETTE = [
+    "#4e79a7",
+    "#f28e2c",
+    "#e15759",
+    "#76b7b2",
+    "#59a14f",
+    "#edc949",
+    "#af7aa1",
+    "#ff9da7",
+    "#9c755f",
+    "#bab0ab",
+]
+
+
+def _map_branch_colors(
+    parents: dict[int, int | None], own: dict[int, str | None]
+) -> dict[int, str]:
+    """Every map node's branch colour, by object id: Coggle's rule, which the
+    canvas already follows.
+
+    A first-level topic (a *child of a root*, not a root) takes the next
+    palette entry, and every descendant inherits it unless it sets its own
+    `data.color`. Starting at the roots instead would paint a whole map one
+    colour, which is the one thing branch colour exists not to do.
+
+    Iterative rather than recursive: a map imported from a deep OPML file is
+    still a tree, but nothing here should be able to turn a 1,000-deep import
+    into a `RecursionError` in a *thumbnail*. `seen` also makes a cycle (a
+    dangling or corrupt `parent_id`) terminate rather than hang, and any node
+    whose parent is missing is treated as a root, which is what every other
+    reader of `parent_id` does.
+    """
+    children: dict[int | None, list[int]] = {}
+    for node_id, parent_id in parents.items():
+        key = parent_id if parent_id in parents else None
+        children.setdefault(key, []).append(node_id)
+    colors: dict[int, str] = {}
+    seen: set[int] = set()
+    branch = 0
+    # (id, the colour inherited from above, depth from its root)
+    stack: list[tuple[int, str | None, int]] = [
+        (node_id, None, 0) for node_id in reversed(children.get(None, []))
+    ]
+    while stack:
+        node_id, inherited, depth = stack.pop()
+        if node_id in seen:
+            continue
+        seen.add(node_id)
+        colour = own.get(node_id)
+        if colour is None and depth == 1:
+            # Depth 1 *is* the branch, and it is the only depth that ever
+            # takes a new colour: the client decides this by asking whether
+            # the colour handed down was null, which is true for exactly one
+            # generation, a root's own children.
+            colour = MAP_BRANCH_PALETTE[branch % len(MAP_BRANCH_PALETTE)]
+            branch += 1
+        if colour is None:
+            colour = inherited
+        if colour:
+            colors[node_id] = colour
+        for child_id in reversed(children.get(node_id, [])):
+            stack.append((child_id, colour, depth + 1))
+    return colors
+
+
+def _preview_items(rows: list[tuple[float, float, str, str, str | None]]) -> list[dict]:
     """The same normalisation as `_preview_points`, carrying what each item
-    *is* and what it says.
+    *is*, what it says and what colour it is.
 
     Sampling happens before normalising and both use one stride, so the
     labels can never end up attached to the wrong positions, which is the
     obvious way to break this while every number still looks plausible.
+
+    `color` is omitted rather than sent as null for the items that have none
+    (every card, every sketch, every object on an ordinary board): a
+    twenty-board list ships eight hundred of these.
     """
     if not rows:
         return []
     stride = max(1, len(rows) // PREVIEW_POINTS)
     sampled = rows[::stride][:PREVIEW_POINTS]
-    points = _preview_points([(x, y) for x, y, _, _ in sampled])
-    return [
-        {"x": nx, "y": ny, "kind": kind, "label": label}
-        for (nx, ny), (_, _, kind, label) in zip(points, sampled, strict=True)
-    ]
+    points = _preview_points([(x, y) for x, y, _, _, _ in sampled])
+    items = []
+    for (nx, ny), (_, _, kind, label, colour) in zip(points, sampled, strict=True):
+        item = {"x": nx, "y": ny, "kind": kind, "label": label}
+        if colour:
+            item["color"] = colour
+        items.append(item)
+    return items
 
 
-def _board_preview(db: Session, board_id: int | None) -> tuple[list[dict], list[dict]]:
-    """Everything placed on one board, as a thumbnail: `(items, edges)`.
+#: How far a thumbnail's shape is allowed to depart from a square, as
+#: width/height. A board 30 times wider than it is tall is a real board, and
+#: letterboxed honestly into a Library card it is a two-pixel band of grey:
+#: past this the ratio stops being information and starts being an empty card.
+PREVIEW_ASPECT_RANGE = (0.5, 3.0)
+
+
+def _board_preview(
+    db: Session, board_id: int | None
+) -> tuple[list[dict], list[dict], float]:
+    """Everything placed on one board, as a thumbnail: `(items, edges, aspect)`.
 
     Cards, sketches *and* objects. Cards alone was the first version and it
     is why a sketch-only board previewed as an empty rectangle: the count
@@ -609,6 +713,14 @@ def _board_preview(db: Session, board_id: int | None) -> tuple[list[dict], list[
     emitted only when both of its ends survived sampling, and it reuses the
     normalised coordinates the items already got rather than normalising a
     second time against different bounds.
+
+    **`aspect` is the shape the normalisation threw away.** Positions come
+    back in 0..1 on both axes, so the client cannot tell a tall map from a
+    wide board and drew both stretched into the card's box. It is measured
+    over exactly the sampled corner span the items were normalised against,
+    not over the board's true extent including each item's own width and
+    height: the picture the client letterboxes *is* that span, so a ratio
+    measured any other way would be a number that does not match the drawing.
     """
     from memorymap.entry import manager
 
@@ -617,12 +729,18 @@ def _board_preview(db: Session, board_id: int | None) -> tuple[list[dict], list[
             model.board_id.is_(None) if board_id is None else model.board_id == board_id
         )
 
-    rows: list[tuple[float, float, str, str]] = []
+    rows: list[tuple[float, float, str, str, str | None]] = []
     #: Which object each row came from, positionally, `None` for a card or a
     #: sketch, which have no tree. Only map nodes ever claim a parent, so an
     #: ordinary board leaves `parent_of` empty and pays for nothing.
     owners: list[int | None] = []
     parent_of: dict[int, int] = {}
+    #: Every object's parent (including the roots, at None) and its own
+    #: `data.color`, which is what the branch-colour walk needs. Separate from
+    #: `parent_of` because that one carries only real parents and is what the
+    #: edges are drawn from.
+    tree_parents: dict[int, int | None] = {}
+    own_colors: dict[int, str | None] = {}
 
     for node in db.scalars(select(WhiteboardNode).where(on(WhiteboardNode))):
         entry = db.get(Entry, node.entry_id)
@@ -636,27 +754,56 @@ def _board_preview(db: Session, board_id: int | None) -> tuple[list[dict], list[
             label = (manager.extract_title(text) or text.strip().split("\n")[0])[
                 :PREVIEW_LABEL_CHARS
             ]
-        rows.append((float(node.x), float(node.y), "card", label))
+        rows.append((float(node.x), float(node.y), "card", label, None))
         owners.append(None)
 
     for sketch in db.scalars(select(WhiteboardSketch).where(on(WhiteboardSketch))):
-        rows.append((float(sketch.x), float(sketch.y), "sketch", ""))
+        rows.append((float(sketch.x), float(sketch.y), "sketch", "", None))
         owners.append(None)
 
-    for obj in db.scalars(select(WhiteboardObject).where(on(WhiteboardObject))):
+    # Ordered by id so the branch colours fall in the same order the canvas
+    # gives them: the client walks the objects in the order `GET /whiteboard`
+    # returns them, which is this one.
+    objects = list(
+        db.scalars(
+            select(WhiteboardObject)
+            .where(on(WhiteboardObject))
+            .order_by(WhiteboardObject.id)
+        )
+    )
+    for obj in objects:
         label = ""
+        data = {}
+        try:
+            parsed = json.loads(obj.data)
+            data = parsed if isinstance(parsed, dict) else {}
+        except (TypeError, ValueError):
+            data = {}
         if obj.kind == MAP_TOPIC_KIND:
-            # A map's thumbnail is mostly topics, and a topic *is* its text, 
+            # A map's thumbnail is mostly topics, and a topic *is* its text,
             # a tree of unlabelled boxes tells two maps apart no better than
             # a scatter of dots did.
-            try:
-                label = str(json.loads(obj.data).get("content") or "")[:PREVIEW_LABEL_CHARS]
-            except (TypeError, ValueError):
-                label = ""
-        rows.append((float(obj.x), float(obj.y), obj.kind or "object", label))
+            label = str(data.get("content") or "")[:PREVIEW_LABEL_CHARS]
+        rows.append((float(obj.x), float(obj.y), obj.kind or "object", label, None))
         owners.append(obj.id)
         if obj.parent_id is not None:
             parent_of[obj.id] = obj.parent_id
+        if obj.kind == MAP_TOPIC_KIND or obj.kind in MAP_REFERENCE_KINDS:
+            tree_parents[obj.id] = obj.parent_id
+            colour = data.get("color")
+            own_colors[obj.id] = colour if isinstance(colour, str) and colour else None
+
+    # **The branch colours, computed here and not in the client.** Every node
+    # drew in one grey before this, so a map's thumbnail showed its structure
+    # and nothing about which branch was which, while the same map on the
+    # canvas is colour-coded by branch. The rule is Coggle's and the canvas
+    # already implements it; see `_map_branch_colors`.
+    if tree_parents:
+        branch_colors = _map_branch_colors(tree_parents, own_colors)
+        rows = [
+            (x, y, kind, label, branch_colors.get(owner) if owner is not None else colour)
+            for (x, y, kind, label, colour), owner in zip(rows, owners, strict=True)
+        ]
 
     # Sample here rather than inside `_preview_items` so the edges can be
     # drawn against the *same* survivors: passing an already-sampled list
@@ -666,16 +813,132 @@ def _board_preview(db: Session, board_id: int | None) -> tuple[list[dict], list[
     kept = list(range(len(rows)))[::stride][:PREVIEW_POINTS]
     items = _preview_items([rows[i] for i in kept])
 
+    # The sampled corner span, which is the box the items were normalised
+    # into and therefore the box the client draws.
+    aspect = 1.0
+    if kept:
+        xs = [rows[i][0] for i in kept]
+        ys = [rows[i][1] for i in kept]
+        span_x, span_y = max(xs) - min(xs), max(ys) - min(ys)
+        if span_x > 0 and span_y > 0:
+            low, high = PREVIEW_ASPECT_RANGE
+            aspect = round(min(max(span_x / span_y, low), high), 3)
+        # A single item, or a straight line of them, has no extent on an axis
+        # and keeps the square: the alternative is a divide by zero or a
+        # thumbnail whose shape is an artefact of a rounding error.
+
     edges: list[dict] = []
     if parent_of:
         at = {owners[i]: n for n, i in enumerate(kept) if owners[i] is not None}
         for child_id, parent_id in parent_of.items():
             if child_id in at and parent_id in at:
                 child, parent = items[at[child_id]], items[at[parent_id]]
-                edges.append(
-                    {"x1": parent["x"], "y1": parent["y"], "x2": child["x"], "y2": child["y"]}
-                )
-    return items, edges
+                edge = {
+                    "x1": parent["x"],
+                    "y1": parent["y"],
+                    "x2": child["x"],
+                    "y2": child["y"],
+                }
+                # An edge takes the *child's* colour, which is what the canvas
+                # does: a branch is one colour from where it leaves the trunk
+                # all the way out, and colouring it by the parent would paint
+                # the first hop of every branch the trunk's colour.
+                if child.get("color"):
+                    edge["color"] = child["color"]
+                edges.append(edge)
+    return items, edges, aspect
+
+
+#: How many boards' thumbnails are remembered at once. The Library lists every
+#: board in the notebook, so this only has to cover one screenful of cards
+#: plus the dashboard's widget; a notebook with more boards than this simply
+#: recomputes the ones that fell off the end.
+PREVIEW_CACHE_LIMIT = 128
+
+#: `key -> (items, edges, aspect)`, where the key carries a fingerprint of
+#: everything the picture is drawn from (see `_preview_fingerprint`), so a
+#: stale entry cannot be served: a changed board has a different key, and the
+#: old entry ages out rather than being invalidated by hand.
+_PREVIEW_CACHE: "OrderedDict[tuple, tuple[list[dict], list[dict], float]]" = OrderedDict()
+
+#: Hits and misses since the process started. Read by
+#: `tests/test_board_preview.py`, which is the only way to assert a cache
+#: works: the response is identical either way, which is the point of it.
+PREVIEW_CACHE_STATS = {"hits": 0, "misses": 0}
+
+
+def _preview_fingerprint(db: Session, board_id: int | None) -> tuple:
+    """Everything a board's thumbnail depends on, as a cheap tuple.
+
+    Three counts and three high-water marks, one per table, plus the same
+    pair for the *notes* the board's cards stand for: a card's label is the
+    note's title, so renaming a note has to change this key even though
+    nothing on the board was touched. Six aggregates over indexed columns
+    against a full scan of every row on the board plus one `Entry` fetch per
+    card, which is what the miss path costs.
+
+    The database's own identity is in the key as well. The cache is module
+    state and the test suite builds a fresh database per test, so two
+    databases whose board 1 is empty in the same way would otherwise share an
+    entry: harmless today (both previews are empty) and exactly the sort of
+    cross-test leak that is diagnosed at three in the morning.
+    """
+    def on(model):
+        return model.board_id.is_(None) if board_id is None else model.board_id == board_id
+
+    stamps: list = []
+    for model in (WhiteboardNode, WhiteboardSketch, WhiteboardObject):
+        row = db.execute(
+            select(func.count(), func.max(model.updated_at)).where(on(model))
+        ).one()
+        stamps.append((row[0], str(row[1])))
+    cards = db.execute(
+        select(func.count(), func.max(Entry.updated_at))
+        .select_from(WhiteboardNode)
+        .join(Entry, Entry.id == WhiteboardNode.entry_id)
+        .where(on(WhiteboardNode))
+    ).one()
+    stamps.append((cards[0], str(cards[1])))
+    bind = db.get_bind()
+    return (
+        str(getattr(bind, "url", bind)),
+        db.info.get("workspace_id"),
+        board_id,
+        tuple(stamps),
+    )
+
+
+def _preview_fields(db: Session, board_id: int | None) -> dict:
+    """A board's three preview fields, ready to splat into `BoardOut`, from
+    the cache when the board has not moved since it was last drawn.
+
+    **Why this is cached at all**: the Library rebuilds every board's
+    thumbnail on every visit, and a thumbnail is a full scan of the board.
+    Twenty boards of a few hundred items each is twenty of those, per visit,
+    for a picture that changes only when the board does.
+    """
+    key = _preview_fingerprint(db, board_id)
+    cached = _PREVIEW_CACHE.get(key)
+    if cached is not None:
+        PREVIEW_CACHE_STATS["hits"] += 1
+        # Newest last: this is a plain LRU, and a board being looked at now is
+        # the one least worth dropping.
+        _PREVIEW_CACHE.move_to_end(key)
+        items, edges, aspect = cached
+    else:
+        PREVIEW_CACHE_STATS["misses"] += 1
+        items, edges, aspect = _board_preview(db, board_id)
+        _PREVIEW_CACHE[key] = (items, edges, aspect)
+        while len(_PREVIEW_CACHE) > PREVIEW_CACHE_LIMIT:
+            _PREVIEW_CACHE.popitem(last=False)
+    # Copied on the way out: the cached lists are shared with every later
+    # caller, and a response model that a caller mutated in place would poison
+    # every board list after it.
+    return {
+        "preview_items": [dict(item) for item in items],
+        "preview_edges": [dict(edge) for edge in edges],
+        "preview_aspect": aspect,
+    }
 
 
 @router.get("/boards", response_model=list[BoardOut])
@@ -741,7 +1004,6 @@ def list_boards(
     # The default scratch board has no note behind it, so it has nowhere to
     # store settings and is always an ordinary board, which is why it is
     # excluded by `?type=map` rather than being special-cased into it.
-    default_items, default_edges = _board_preview(db, None)
     boards = [
         BoardOut(
             id=None,
@@ -749,8 +1011,7 @@ def list_boards(
             node_count=default_nodes,
             sketch_count=default_sketches,
             object_count=default_objects,
-            preview_items=default_items,
-            preview_edges=default_edges,
+            **_preview_fields(db, None),
         )
     ] if type in (None, DEFAULT_BOARD_TYPE) else []
     # `is_board` entries are included even at zero counts, see its own
@@ -773,7 +1034,6 @@ def list_boards(
             if type is not None and board_type != type:
                 continue
             title = extract_title(entry.content) or entry.content.strip()[:40] or f"Note {entry.id}"
-            items, edges = _board_preview(db, entry.id)
             boards.append(
                 BoardOut(
                     id=entry.id,
@@ -783,8 +1043,7 @@ def list_boards(
                     object_count=object_counts.get(entry.id, 0),
                     type=board_type,
                     layout=layout,
-                    preview_items=items,
-                    preview_edges=edges,
+                    **_preview_fields(db, entry.id),
                 )
             )
     return boards
@@ -952,7 +1211,6 @@ def duplicate_board(board_id: int, db: Session = Depends(get_session)) -> BoardO
 
     db.commit()
     db.refresh(copy)
-    items, edges = _board_preview(db, copy.id)
     board_type, layout = _board_settings(copy)
     return BoardOut(
         id=copy.id,
@@ -962,8 +1220,7 @@ def duplicate_board(board_id: int, db: Session = Depends(get_session)) -> BoardO
         object_count=len(sources),
         type=board_type,
         layout=layout,
-        preview_items=items,
-        preview_edges=edges,
+        **_preview_fields(db, copy.id),
     )
 
 
@@ -1014,7 +1271,6 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
     object_count = db.scalar(
         select(func.count()).select_from(WhiteboardObject).where(WhiteboardObject.board_id == board_id)
     )
-    items, edges = _board_preview(db, board_id)
     return BoardOut(
         id=board_id,
         title=title,
@@ -1023,8 +1279,7 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
         object_count=object_count,
         type=board_type,
         layout=layout,
-        preview_items=items,
-        preview_edges=edges,
+        **_preview_fields(db, board_id),
     )
 
 
@@ -2045,7 +2300,6 @@ def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOu
     place(parsed, None, 0)
     db.commit()
     db.refresh(entry)
-    items, edges = _board_preview(db, entry.id)
     return BoardOut(
         id=entry.id,
         title=name,
@@ -2054,6 +2308,5 @@ def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOu
         object_count=created,
         type="map",
         layout=DEFAULT_BOARD_LAYOUT,
-        preview_items=items,
-        preview_edges=edges,
+        **_preview_fields(db, entry.id),
     )

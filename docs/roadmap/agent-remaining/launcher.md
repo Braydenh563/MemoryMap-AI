@@ -2,8 +2,10 @@
 
 Agent: Opus, worktree `agent-ac1cca0f51eca7323`, branch
 `claude/epic-ramanujan-8xocc0`. Brief 17's seven "Done when" items are all
-landed, across six commits. This file is now only the list of things that
-could not be checked here and the two small things deliberately left.
+landed: seven commits for the items themselves, and the rest for the bugs
+that showed up once the flags were actually run. This file is now only the
+list of things that could not be checked here, the bugs found, and the two
+small things deliberately left.
 
 Read Brief 17 in [`../SESSION_BRIEFS.md`](../SESSION_BRIEFS.md) first.
 

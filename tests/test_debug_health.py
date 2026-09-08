@@ -15,11 +15,19 @@ import logging
 import time
 
 from memorymap import __version__
-from memorymap.core import deps, taskhistory
+from memorymap.core import deps, logbuffer, taskhistory
 from memorymap.entry import manager
 
 
 def test_shape_on_an_empty_notebook(client):
+    # The log buffer is process-global and outlives every fixture, so a
+    # warning some earlier test provoked (CI: "couldn't read preferences.json"
+    # from a test that writes a broken one on purpose) is still in it here.
+    # Emptied first, so this asserts what the endpoint *does* — filters the
+    # buffer to warnings and errors — rather than what the rest of the suite
+    # happened to log before it. Passed alone, failed in the full run, on all
+    # three Python versions; that shape is always an order dependency.
+    logbuffer.clear()
     body = client.get("/debug/health").json()
     assert body["app_version"] == __version__
     assert body["data_dir"] == str(deps.get_config().data_dir)

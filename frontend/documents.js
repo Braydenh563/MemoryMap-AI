@@ -6481,6 +6481,15 @@ function docCmExtensions(CM) {
       ...CM.commands.defaultKeymap,
     ]),
     CM.view.EditorView.updateListener.of(docCmUpdate),
+    //: **The browser's own spellcheck, back on.** CodeMirror turns it off by
+    //: default, and for a code editor that is right: a red squiggle under
+    //: every identifier is noise. This is a *writing* surface, the textarea it
+    //: replaces carried `spellcheck="true"`, and losing it would be a
+    //: regression nobody asked for: this app's own checker knows a fixed list
+    //: of unambiguous typos and a UK/US pair table, which is a fraction of
+    //: what the browser's dictionary knows, and the two draw different marks
+    //: so they do not collide.
+    CM.view.EditorView.contentAttributes.of({ spellcheck: "true" }),
   ];
 }
 
@@ -6494,6 +6503,11 @@ function docCmUpdate(update) {
     docSurfaceInput();
     docSurfaceChanged();
     docToolsOnInput(docSurface());
+    //: editor.js hangs the "/" and `[[` triggers off a DOM `input` event,
+    //: which the engine never raises for a typed character: it applies the
+    //: change itself. Called rather than dispatched, so there is no synthetic
+    //: event on a contenteditable and no second pass through this pipeline.
+    if (typeof editorHandleInput === "function") editorHandleInput(docSurface());
     if (!$("doc-suggest-menu")?.classList.contains("hidden")) closeDocSuggest();
   }
   if (update.selectionSet) renderDocCaret();
@@ -6593,6 +6607,7 @@ function mountDocEditor(CM) {
   applyDocGutter();
   wireDocSurfaceScroll(docSurface());
   docWatchAppearance();
+  docGuardGlobalShortcuts(host);
   return docCmView;
 }
 
@@ -6613,6 +6628,41 @@ async function ensureDocEditor() {
     );
     return null;
   }
+}
+
+//: **The app's bare shortcuts must not eat what you are typing.**
+//:
+//: app.js decides "is the user typing?" with
+//: `["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)`,
+//: which was exactly right while every editing surface in this app was a
+//: textarea. CodeMirror's editable is a `contenteditable` div, so that check
+//: says no, and every unchorded shortcut fires while you write: measured, a
+//: literal "/" in a document focused the global search box and swallowed the
+//: rest of the word, and the `g`-then-letter tab jumps did the same thing
+//: mid-sentence. The "/" menu and the `[[` picker simply never opened,
+//: because their trigger character never reached the document.
+//:
+//: Stopped here rather than fixed there, and the phase matters. app.js's
+//: handler is on `document` in the bubble phase and was registered first, so
+//: nothing on `document` can get in front of it; a capture-phase listener
+//: would run before the event reached CodeMirror at all and break the
+//: editor's own key handling. A bubble listener on the host is between the
+//: two: the engine has already had the keystroke, the global table never
+//: sees it.
+//:
+//: Only single printable characters with no Ctrl, Alt or Meta, which is
+//: exactly the set app.js's bare-shortcut loop can match. Chorded shortcuts
+//: (Ctrl+K for the palette) still work from inside the editor, deliberately,
+//: and so does every key this file's own delegated handlers listen for: F8,
+//: Escape, Tab and the arrows are all longer than one character.
+function docGuardGlobalShortcuts(host) {
+  if (!host || host.dataset.shortcutGuard === "1") return;
+  host.dataset.shortcutGuard = "1";
+  host.addEventListener("keydown", (event) => {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    if (event.key.length !== 1) return;
+    event.stopPropagation();
+  });
 }
 
 //: **Light and dark, without a hook into settings.js.** The appearance code

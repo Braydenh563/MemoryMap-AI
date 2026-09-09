@@ -122,7 +122,7 @@ are only just begun or half done." True; this table is the state.
 | UI_MODERNISATION_PLAN | Phases 0 to 8 built; Phase 9 bands 1 to 4 | Phase 9 items in `agent-remaining/responsive.md`; the one-bar and alignment items in `agent-remaining/consistency.md` and `docks.md` |
 | AGENT_SKILLS_REFORM | Phases A to C | Phase D (recovery); the verifier and paging-inside-a-step (CHAT_PLAN Phase 4, Brief 13) |
 | MINDMAP_PLAN | Phases 1 to 3, five bug fixes, INBOX 42 and section H (edge-follow on a single-node drag, framing on open, tidy measured at 201 nodes) | Phases 4 to 5; the previews (`agent-remaining/mindmap.md` F) |
-| DOCUMENTS_PLAN | Phase 0 | Phases 1 to 7 |
+| DOCUMENTS_PLAN | Phases 0, 1 and 2 (the engine: adapter, CodeMirror 6, Live as decorations, findings, undo, search, folding) | Phases 3 to 7; `agent-remaining/documents-engine.md` (the `revalidateSelection` bug in app.js first, then the editor sweep) |
 | GRAPH_PLAN | Phase 1 (canvas, worker, drag; SVG behind a flag) | Phases 2 to 5 |
 | TIMELINE_PLAN | audit and plan only | Phases 1 to 4 |
 | WHITEBOARD_PLAN | plan only | Phases 1 to 4 |

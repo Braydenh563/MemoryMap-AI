@@ -930,8 +930,18 @@ function editorRefreshMenu() {
 // Wiring: one delegated listener per event, for every surface at once
 // ---------------------------------------------------------------------------
 
-document.addEventListener("input", (event) => {
-  const textarea = editorSurfaceFor(event.target);
+//: **Called, not only listened for.** A `<textarea>` raises `input` for every
+//: character and this file has always hung the trigger check off that. The
+//: engine does not: CodeMirror applies a typed character itself, through its
+//: own transaction pipeline, and no bubbling `input` reaches this listener at
+//: all. Measured, not reasoned: with the engine mounted the "/" menu and the
+//: `[[` picker simply never opened, and nothing logged, which is this repo's
+//: "a policy silently refusing the work" shape in the one place it is hardest
+//: to notice, because both menus look like they are just not wanted yet.
+//:
+//: So the body is a function, and documents.js's update listener calls it for
+//: the engine. One implementation, two ways in.
+function editorHandleInput(textarea) {
   if (!textarea) return;
   if (!editorSurfaceKind(textarea)) return;
 
@@ -978,6 +988,15 @@ document.addEventListener("input", (event) => {
       return;
     }
   }
+}
+
+document.addEventListener("input", (event) => {
+  //: The engine's own edits arrive through `editorHandleInput` above, called
+  //: from documents.js's update listener. Anything from inside the view that
+  //: *does* raise a DOM `input` (a paste, in some browsers) would otherwise
+  //: run the check a second time and reopen a menu the first pass closed.
+  if (typeof docEventFromCm === "function" && docEventFromCm(event.target)) return;
+  editorHandleInput(editorSurfaceFor(event.target));
 });
 
 document.addEventListener(

@@ -16,6 +16,20 @@ already a line in [0.2.2] above, one line each, grouped by the surface it
 touched, no commit hashes.
 
 ### Added
+- **A real editor under the Documents tab.** The document you write in is now
+  CodeMirror 6, loaded the first time you open a document and not before.
+  Live preview renders in place rather than in a second pane: headings look
+  like headings, bold looks bold, and the markdown markers hide themselves
+  until the caret enters the thing they mark. Links and `[[wiki links]]` are
+  chips, task checkboxes tick, quotes and `> [!note]` callouts get a left
+  bar, and images show. Source view is the same editor with the rendering
+  turned off, so switching between them keeps your place, your selection and
+  your undo history. Find and replace is the editor's own panel, with regular
+  expressions, whole-word matching and a Replace all that one Ctrl+Z puts
+  back. Headings fold, in the same column as the line numbers and behind the
+  same switch. Code files get syntax colouring for twenty-one languages.
+  Typing in a 20,000-word document went from a measured 160 ms per keystroke
+  to 16 ms.
 - **Groups for saved links, with buttons to make and manage them.** The Links
   sub-tab's top dock now has **New group** and **Manage groups**. Renaming a
   group moves every link in it; deleting one keeps the links and simply

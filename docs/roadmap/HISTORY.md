@@ -6574,6 +6574,59 @@ the same five panel signatures as before. Thirteen lints, `ruff`, and
 The remaining list, per surface and breakpoint with files and next steps, is
 in [`agent-remaining/responsive.md`](agent-remaining/responsive.md).
 
+### Built, INBOX 94's first three questions, 2026-09-09
+
+The background art measured for the first time, with a sweep that stays:
+`scratchpad/ui-sweeps/bgart.js`.
+
+**Frame cost per style**, 1440x900, the mean interval between frames over
+three seconds with the page otherwise idle:
+
+| style | mean | vs idle | worst frame |
+| --- | ---: | ---: | ---: |
+| background off | 16.6ms | | 16.8ms |
+| aurora | 37.6ms | +21.0 | 50.1ms |
+| constellation | 37.1ms | +20.4 | 50.1ms |
+| waves | 33.4ms | +16.8 | 50.1ms |
+| bubbles | 34.0ms | +17.4 | 83.3ms |
+| mesh | 44.2ms | +27.6 | 166.7ms |
+
+Headless Chromium has no GPU, so these are software-rasterised and a real
+machine will be faster; what they establish is the ranking, the order of
+magnitude, and that the art is by some distance the most expensive thing the
+app draws.
+
+**Performance mode did not stop it.** `bg-motion: moving` bypassed the
+reduced-motion test entirely, and Performance mode reaches the art only
+through that test, so the one setting whose whole job is to cut cost left
+the most expensive thing running. "Moving" still wins over the reduced-motion
+hint, which is a preference about motion; it does not win over Performance
+mode, which is a judgement about the machine (DESIGN.md rule 12). After:
+with `perf: on` the canvas bitmap is identical a second apart, with
+`perf: off` it is not.
+
+**And a screenshot said the opposite.** Comparing two element screenshots
+reported "still moving" after the fix, because the canvas sits at
+`--bg-art-opacity` over a page that paints its own gradient, so the
+composite changes even when the canvas does not. The sweep reads the
+canvas's own pixels now. The rule from CLAUDE.md held again: a screenshot is
+not a measurement.
+
+**Two styles ignored the intensity slider.** Aurora, bubbles and mesh scale
+their population by `ctx.density`; the constellation's star count and the
+waves' layer count were constants. Both scale now, which matters most for
+the constellation because its neighbour search is O(n squared): 19 stars is
+171 pairs a frame where 84 is 3,486.
+
+**No seams.** The canvas is resized with the window and covers it exactly at
+1440x900, 900x1200 and 1600x800.
+
+**Left open** (in the plan, on the item): whether the slider changes
+something a person notices at every step. Counting ink on the canvas varies
+more between two boots of the same settings than it does across the slider,
+and the frame cost at the two ends moves by less than this environment's
+noise. Both failures are written into the sweep so they are not repeated.
+
 ### From GRAPH_PLAN.md
 
 ### Built, Phase 5 (backend), 2026-09-09

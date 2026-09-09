@@ -92,15 +92,29 @@ decision. The recommendation there is to build the clear variant *with* a
 surface that genuinely floats over media, and to drop `--text-on-glass`
 until something measures badly.
 
-## 3. INBOX 94, background animations
+## 3. INBOX 94, background animations: one question left
 
-Untouched this sitting. `startBgArt` and `BG_ART_BUILDERS` in
-`frontend/settings.js` (about line 2496). What the item asks for: a measured
-frame cost per style, a still frame under Performance mode, no seams at the
-edges, and an intensity slider that changes something visible at every step.
-The frame cost is measurable here (`requestAnimationFrame` deltas in
-`page.evaluate` with each `bg-style` set through the appearance preference);
-the seams need a screenshot of the canvas edges at two window sizes.
+Three of the four are built (HISTORY.md, and `scratchpad/ui-sweeps/bgart.js`
+is the sweep): the frame cost per style is measured, Performance mode now
+stops the art, and there are no seams. Two styles that ignored the intensity
+slider now scale with it.
+
+**Left**: does the slider change something a person notices at every step?
+Two measurements failed and are recorded in the sweep so they are not
+repeated. Ink on the canvas varies by about 0.15 points between two boots of
+the *same* settings, because every style places its marks with `p.random`,
+which is more than the slider moves it. Frame cost at the two ends of the
+slider moves by less than this environment's noise (waves measured 41.4ms at
+10 and 37.2ms at 100 after its layer count started scaling, which is the
+wrong way round and is noise, not a result). The honest next step is a person
+looking at five screenshots, or a design change so the slider drives
+something with a large signature (the wash's own alpha) rather than the
+population alone.
+
+Also worth knowing before touching it: mesh is the expensive one (+27.6ms a
+frame, worst frame 166.7ms), and the full-screen wash rectangle in `p.draw`
+dominates every style's cost, which is why halving a population barely shows
+up in the frame time.
 
 ## 4. INBOX 60, the dashboard start section
 

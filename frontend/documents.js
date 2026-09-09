@@ -130,7 +130,7 @@ function syncDocFileType() {
 
   // Line numbers, and the monospace/tab behaviour that goes with them.
   const code = !type.previewable;
-  $("doc-content")?.classList.toggle("doc-content-code", code);
+  docSurface()?.classList.toggle("doc-content-code", code);
   applyDocGutter();
 
   // A menu row, so it can say the whole thing rather than "⬇ .py".
@@ -197,6 +197,272 @@ function docPreviewShowing(mode = docView) {
 //: Phase 1 item 2): Live, Source or Split, whichever was last in use.
 let lastEditView = "live";
 
+// DOC-SURFACE-BEGIN
+// =============================================================================
+// The editing surface, behind one adapter (DOCUMENTS_PLAN Phase 2 step 2)
+// =============================================================================
+//
+// For most of this file's life the document *was* a `<textarea>`: forty-odd
+// places spelled an edit as `$("doc-content").value.slice(...)` and a caret as
+// `.selectionStart`, and that was fine while there was exactly one kind of
+// box. Phase 2 puts CodeMirror 6 under the same editor, and a CodeMirror view
+// has neither of those properties. The failure mode of getting this wrong is
+// the quietest one this codebase has: the textarea stays in the DOM as the
+// fallback, so every stale read *works*, it just answers with the text as it
+// was before the real editor took over. Autosave then writes the old document
+// back over the new one and nothing logs a thing.
+//
+// So: one adapter, and `tests/test_doc_surface.py` fails the build if a call
+// site goes round it. `docSurface()` answers for whatever the document is
+// being edited in right now; `textareaSurface(el)` wears the same interface
+// over any other box (the note composer, the note edit form, a live-view
+// paragraph), which is what lets the formatting toolbar, the "/" menu and the
+// completion popup keep one implementation across all of them.
+//
+// **The interface is the plan's, plus the textarea's own names as aliases,
+// and the aliases are deliberate.** `text` / `selection()` / `setSelection` /
+// `replaceRange` / `onChange` / `coordsAt` / `focus` / `scrollTop` / `lineAt`
+// are what the plan specifies and what new code should use. But the shared
+// helpers in this file and in editor.js are written in `value` and
+// `selectionStart`, they are correct, they are covered, and rewriting every
+// line of them in the same commit that changes what is underneath is exactly
+// how a refactor this size loses a case. The aliases mean those helpers
+// become surface-agnostic by *receiving a surface instead of an element*,
+// with no edit to their bodies: one small reviewable change each rather than
+// forty rewritten expressions.
+
+//: The CodeMirror view once it exists, null before the bundle has loaded and
+//: null for good if it fails to. Read by `docSurface()` on every call, so the
+//: hand-over is one assignment rather than a re-wiring pass.
+let docCmView = null;
+
+//: The fallback textarea itself. Named rather than looked up at each site
+//: because a few things genuinely are about the *element*: its placeholder,
+//: its disabled flag, the `doc-content-code` class, and the Source-view
+//: backdrop and gutter that this phase retires. Everything about the
+//: document's *text* goes through the surface instead.
+function docBoxEl() {
+  return $("doc-content");
+}
+
+//: The empty-document prompt, kept here because the two engines spell it
+//: differently: a textarea has a `placeholder` attribute, CodeMirror has a
+//: placeholder extension that is built from this when the view is created.
+let docPlaceholderText = "";
+
+function docSetPlaceholder(text) {
+  docPlaceholderText = text;
+  const el = docBoxEl();
+  if (el) el.placeholder = text;
+}
+
+//: Surfaces are cached per element so `onChange` cannot stack a second
+//: listener and so identity comparisons keep working across calls.
+const docSurfaceCache = new WeakMap();
+
+//: A textarea, wearing the surface interface.
+function textareaSurface(el) {
+  if (!el) return null;
+  const cached = docSurfaceCache.get(el);
+  if (cached) return cached;
+  const surface = {
+    el,
+    kind: "textarea",
+    id: el.id,
+    isDocument: el.id === "doc-content",
+    scrollEl: el,
+    get text() { return el.value; },
+    set text(next) { el.value = next; },
+    //: The textarea's own names, see the section comment.
+    get value() { return el.value; },
+    set value(next) { el.value = next; },
+    get selectionStart() { return el.selectionStart; },
+    set selectionStart(at) { el.selectionStart = at; },
+    get selectionEnd() { return el.selectionEnd; },
+    set selectionEnd(at) { el.selectionEnd = at; },
+    get classList() { return el.classList; },
+    get dataset() { return el.dataset; },
+    get scrollTop() { return el.scrollTop; },
+    set scrollTop(at) { el.scrollTop = at; },
+    get scrollLeft() { return el.scrollLeft; },
+    set scrollLeft(at) { el.scrollLeft = at; },
+    get scrollHeight() { return el.scrollHeight; },
+    get clientHeight() { return el.clientHeight; },
+    selection() { return { from: el.selectionStart, to: el.selectionEnd }; },
+    setSelection(from, to = from) { el.setSelectionRange(from, to); },
+    setSelectionRange(from, to) { el.setSelectionRange(from, to); },
+    setRangeText(text, from, to, mode) { el.setRangeText(text, from, to, mode); },
+    //: Through the browser's own edit pipeline where it can be, so the native
+    //: history survives: see `docReplaceRange`'s own comment.
+    replaceRange(from, to, text) { docReplaceRange(surface, from, to, text); },
+    onChange(fn) { el.addEventListener("input", fn); },
+    coordsAt(pos) { return docMirrorPoint(el, pos); },
+    lineAt(pos) {
+      const text = el.value;
+      const at = Math.max(0, Math.min(pos, text.length));
+      const from = text.lastIndexOf("\n", at - 1) + 1;
+      const found = text.indexOf("\n", at);
+      const to = found === -1 ? text.length : found;
+      return {
+        number: text.slice(0, from).split("\n").length,
+        from,
+        to,
+        text: text.slice(from, to),
+      };
+    },
+    focus() { el.focus(); },
+    blur() { el.blur(); },
+    rect() { return el.getBoundingClientRect(); },
+    getBoundingClientRect() { return el.getBoundingClientRect(); },
+    //: A programmatic write fires no `input`, and half this editor hangs off
+    //: one. The name is the DOM's so the shared helpers need no edit.
+    dispatchEvent(event) { return el.dispatchEvent(event); },
+  };
+  docSurfaceCache.set(el, surface);
+  return surface;
+}
+
+//: The same interface over a CodeMirror view. Every write is a transaction,
+//: which is what gives the editor one undo history for the whole document
+//: instead of one per box: the thing PLAN D3's hand-rolled stack existed to
+//: work around.
+function cmSurface(view) {
+  const cached = docSurfaceCache.get(view);
+  if (cached) return cached;
+  const setRange = (from, to, insert, select) => {
+    const length = view.state.doc.length;
+    const start = Math.max(0, Math.min(from, length));
+    const end = Math.max(start, Math.min(to, length));
+    view.dispatch({
+      changes: { from: start, to: end, insert },
+      selection: select || undefined,
+      scrollIntoView: true,
+    });
+  };
+  const surface = {
+    get el() { return view.contentDOM; },
+    kind: "codemirror",
+    id: "doc-content",
+    isDocument: true,
+    view,
+    get scrollEl() { return view.scrollDOM; },
+    get text() { return view.state.doc.toString(); },
+    set text(next) {
+      if (next === view.state.doc.toString()) return;
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: next } });
+    },
+    get value() { return this.text; },
+    set value(next) { this.text = next; },
+    get selectionStart() { return view.state.selection.main.from; },
+    set selectionStart(at) { this.setSelection(at, this.selectionEnd); },
+    get selectionEnd() { return view.state.selection.main.to; },
+    set selectionEnd(at) { this.setSelection(this.selectionStart, at); },
+    get classList() { return view.dom.classList; },
+    get dataset() { return view.dom.dataset; },
+    get scrollTop() { return view.scrollDOM.scrollTop; },
+    set scrollTop(at) { view.scrollDOM.scrollTop = at; },
+    get scrollLeft() { return view.scrollDOM.scrollLeft; },
+    set scrollLeft(at) { view.scrollDOM.scrollLeft = at; },
+    get scrollHeight() { return view.scrollDOM.scrollHeight; },
+    get clientHeight() { return view.scrollDOM.clientHeight; },
+    selection() {
+      const range = view.state.selection.main;
+      return { from: range.from, to: range.to };
+    },
+    setSelection(from, to = from) {
+      const max = view.state.doc.length;
+      const anchor = Math.max(0, Math.min(from, max));
+      const head = Math.max(0, Math.min(to, max));
+      view.dispatch({ selection: { anchor, head }, scrollIntoView: true });
+    },
+    setSelectionRange(from, to) { this.setSelection(from, to); },
+    setRangeText(text, from, to, mode) {
+      const at = from + text.length;
+      const select =
+        mode === "select"
+          ? { anchor: from, head: at }
+          : mode === "preserve"
+            ? null
+            : { anchor: at, head: at };
+      setRange(from, to, text, select);
+    },
+    replaceRange(from, to, text) { setRange(from, to, text, null); },
+    onChange(fn) { docSurfaceChangeHandlers.push(fn); },
+    coordsAt(pos) {
+      const at = view.coordsAtPos(Math.max(0, Math.min(pos, view.state.doc.length)));
+      if (!at) {
+        const box = view.dom.getBoundingClientRect();
+        return { left: box.left, top: box.top, bottom: box.top + 18, lineHeight: 18 };
+      }
+      return { left: at.left, top: at.top, bottom: at.bottom, lineHeight: at.bottom - at.top };
+    },
+    lineAt(pos) {
+      const line = view.state.doc.lineAt(Math.max(0, Math.min(pos, view.state.doc.length)));
+      return { number: line.number, from: line.from, to: line.to, text: line.text };
+    },
+    focus() { view.focus(); },
+    blur() { view.contentDOM.blur(); },
+    rect() { return view.dom.getBoundingClientRect(); },
+    getBoundingClientRect() { return view.dom.getBoundingClientRect(); },
+    //: CodeMirror raises no `input` event for a scripted change, so the one
+    //: pipeline every other box reaches through `input` is called straight
+    //: instead. Same effect, and no synthetic event on a contenteditable.
+    dispatchEvent() {
+      docSurfaceChanged();
+      return true;
+    },
+  };
+  docSurfaceCache.set(view, surface);
+  return surface;
+}
+
+//: Registered through `onChange`; run for a CodeMirror edit by the view's own
+//: update listener and for a scripted write by `dispatchEvent` above.
+const docSurfaceChangeHandlers = [];
+
+function docSurfaceChanged() {
+  for (const fn of docSurfaceChangeHandlers) fn();
+}
+
+//: **The document's editing surface, whatever it currently is.** Null only
+//: before the markup exists, which is what keeps the `?.` at the call sites
+//: honest rather than decorative.
+function docSurface() {
+  if (docCmView) return cmSurface(docCmView);
+  return textareaSurface(docBoxEl());
+}
+
+//: The document's text: the single most-read thing in this file.
+function docText() {
+  return docSurface()?.text ?? "";
+}
+
+//: A surface by box id, which is how the formatting toolbar and the "/" menu
+//: address whichever editor they were mounted on. `doc-content` resolves to
+//: the live surface rather than to the fallback element, so a toolbar press
+//: reaches CodeMirror once it is mounted.
+function docSurfaceById(id) {
+  if (id === "doc-content") return docSurface();
+  return textareaSurface($(id));
+}
+
+//: Did this event come from inside the CodeMirror view? Asked in a handful of
+//: delegated listeners that must not double up with the view's own update
+//: listener.
+function docEventFromCm(target) {
+  return Boolean(docCmView && target instanceof Node && docCmView.dom.contains(target));
+}
+
+//: An element, a surface, or nothing, as a surface. Call sites handed an
+//: `event.target` need this; ones that already hold a surface pass through.
+function asSurface(box) {
+  if (!box) return null;
+  if (box.kind === "textarea" || box.kind === "codemirror") return box;
+  if (docCmView && box instanceof Node && docCmView.dom.contains(box)) return docSurface();
+  return box instanceof HTMLTextAreaElement ? textareaSurface(box) : null;
+}
+// DOC-SURFACE-END
+
 function setDocView(mode) {
   const type = docFileType();
   // A code file is always Source. Asked for on any other mode, that is the
@@ -215,7 +481,7 @@ function setDocView(mode) {
   // textarea reports scrollHeight === clientHeight === 0, so its own zero-range
   // guard makes it a no-op and you land back at the top of a long document you
   // were halfway down.
-  const editor = $("doc-content");
+  const editor = docSurface();
   const editorRange = editor ? editor.scrollHeight - editor.clientHeight : 0;
   const editorRatio = editorRange > 0 ? editor.scrollTop / editorRange : null;
 
@@ -372,15 +638,16 @@ function renderDocList() {
 function showNoDocument() {
   currentDoc = null;
   $("doc-title").value = "";
-  $("doc-content").value = "";
+  docSurface().text = "";
   // Deliberately NOT disabled. Disabling them meant that on a notebook with no
   // documents yet, clicking the editor did nothing and typing did nothing, 
   // a dead end whose only way out was noticing a small "+ New" button. Typing
   // now creates the document, which is what every editor does.
   $("doc-title").disabled = false;
-  $("doc-content").disabled = false;
-  $("doc-content").placeholder =
-    "Start typing and a new document is created for you.\n\nMarkdown works here, headings, **bold**, lists, tables, links.";
+  docBoxEl().disabled = false;
+  docSetPlaceholder(
+    "Start typing and a new document is created for you.\n\nMarkdown works here, headings, **bold**, lists, tables, links."
+  );
   $("doc-saved").textContent = "";
   renderDocPreview();
   renderDocStats();
@@ -390,8 +657,9 @@ function showNoDocument() {
 async function openDocument(id) {
   // Never lose unsaved work by switching away from it.
   if (docDirty) await saveDocument({ silent: true });
-  $("doc-content").placeholder =
-    "# Start writing\n\nMarkdown works here, headings, **bold**, lists, tables, links.";
+  docSetPlaceholder(
+    "# Start writing\n\nMarkdown works here, headings, **bold**, lists, tables, links."
+  );
   const doc = await apiJson(`/documents/${id}`).catch(() => null);
   if (!doc) return;
   // ROADMAP.md item 13: "opening/closing a document" was the one remaining
@@ -402,9 +670,9 @@ async function openDocument(id) {
   recordTabVisit("documents", `doc:${doc.id}`);
   currentDoc = doc;
   $("doc-title").disabled = false;
-  $("doc-content").disabled = false;
+  docBoxEl().disabled = false;
   $("doc-title").value = doc.title;
-  $("doc-content").value = doc.content;
+  docSurface().text = doc.content;
   docDirty = false;
   //: A new document is a new history. Carrying the previous one over would let
   //: Ctrl+Z paste the *last* document's text into this one, the worst kind of
@@ -725,7 +993,7 @@ async function saveDocument({ silent = false } = {}) {
   if (!currentDoc) return;
   clearTimeout(docSaveTimer);
   const title = $("doc-title").value.trim() || "Untitled";
-  const content = $("doc-content").value;
+  const content = docText();
   try {
     const saved = await apiJson(`/documents/${currentDoc.id}`, {
       method: "PUT",
@@ -813,7 +1081,7 @@ function setDocWordGoal(id, goal) {
 //: four places that mean "the document changed", and because a goal is
 //: per-document state while the counts are pure arithmetic over the box.
 function renderDocStats() {
-  const words = (($("doc-content")?.value || "").match(/\S+/g) || []).length;
+  const words = (docText().match(/\S+/g) || []).length;
   const goal = currentDoc ? getDocWordGoal(currentDoc.id) : 0;
   const button = $("doc-word-goal");
   const label = $("doc-goal-label");
@@ -856,7 +1124,7 @@ let docFindIndex = -1; // which match the Prev/Next cursor is currently on
 function docFindMatches() {
   const term = $("doc-find-input").value;
   if (!term) return [];
-  const text = $("doc-content").value;
+  const text = docText();
   const needle = term.toLowerCase();
   const haystack = text.toLowerCase();
   const matches = [];
@@ -872,7 +1140,7 @@ function docFindMatches() {
 
 function docFindSelect(index, matches) {
   const term = $("doc-find-input").value;
-  const box = $("doc-content");
+  const box = docSurface();
   if (!matches.length || index < 0 || index >= matches.length) {
     $("doc-find-count").textContent = term ? "No matches" : "";
     return;
@@ -896,7 +1164,7 @@ function docFindStep(delta) {
 }
 
 function docReplaceOne() {
-  const box = $("doc-content");
+  const box = docSurface();
   const term = $("doc-find-input").value;
   if (!term) return;
   const selected = box.value.slice(box.selectionStart, box.selectionEnd);
@@ -918,7 +1186,7 @@ function docReplaceAll() {
   const term = $("doc-find-input").value;
   if (!term) return;
   const replacement = $("doc-replace-input").value;
-  const box = $("doc-content");
+  const box = docSurface();
   const pattern = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
   const before = box.value;
   const count = (before.match(pattern) || []).length;
@@ -942,7 +1210,7 @@ function toggleDocFindBar(open) {
     $("doc-find-input").select();
   } else {
     docFindIndex = -1;
-    $("doc-content").focus();
+    docSurface().focus();
   }
 }
 
@@ -952,7 +1220,7 @@ function renderDocOutline() {
   const list = $("doc-outline");
   const wrap = $("doc-outline-wrap");
   if (!list || !wrap) return;
-  const text = $("doc-content").value || "";
+  const text = docText();
   const headings = [];
   let inFence = false;
   const lines = text.split("\n");
@@ -980,14 +1248,18 @@ function renderDocOutline() {
   }
 }
 
-// Put the caret at the start of a line and scroll it into view. A textarea
-// has no anchors, so this is done by character offset.
+// Put the caret at the start of a line and scroll it into view. Done by
+// character offset because that is the one coordinate both surfaces share: a
+// textarea has no anchors, and CodeMirror's own `scrollIntoView` is reached
+// through `setSelection` below rather than by arithmetic.
 function jumpToDocLine(lineIndex) {
-  const box = $("doc-content");
-  const lines = box.value.split("\n");
+  const box = docSurface();
+  if (!box) return;
+  const lines = box.text.split("\n");
   const offset = lines.slice(0, lineIndex).reduce((n, l) => n + l.length + 1, 0);
   box.focus();
-  box.setSelectionRange(offset, offset + (lines[lineIndex] || "").length);
+  box.setSelection(offset, offset + (lines[lineIndex] || "").length);
+  if (box.kind === "codemirror") return; // the transaction above scrolled it
   // Approximate: scroll proportionally to where the line sits in the text.
   const ratio = lineIndex / Math.max(1, lines.length);
   box.scrollTop = Math.max(0, ratio * box.scrollHeight - box.clientHeight / 3);
@@ -1034,7 +1306,8 @@ function renderDocPreview() {
   if (preview.classList.contains("hidden")) return;
   preview.replaceChildren();
   const title = ($("doc-title").value || "").trim();
-  renderMarkdown(preview, title ? `# ${title}\n\n${$("doc-content").value}` : $("doc-content").value);
+  const body = docText();
+  renderMarkdown(preview, title ? `# ${title}\n\n${body}` : body);
   layerDocWikiLinks(preview);
 }
 
@@ -1138,8 +1411,12 @@ function withDocPreviewShown(fn) {
 //: for any file type, in all three").
 function docGutters() {
   return [...document.querySelectorAll(".doc-gutter")]
-    .map((gutter) => ({ gutter, box: gutter.dataset.for ? $(gutter.dataset.for) : $("doc-content") }))
-    .filter((pair) => pair.box);
+    .map((gutter) => ({ gutter, box: gutter.dataset.for ? $(gutter.dataset.for) : docBoxEl() }))
+    //: The document's own gutter is the fallback textarea's. Once CodeMirror
+    //: is mounted the line numbers are `lineNumbers()` inside the view
+    //: (DOCUMENTS_PLAN Phase 2 decision 7) and this column is not drawn at
+    //: all, so it drops out of the list rather than numbering a hidden box.
+    .filter((pair) => pair.box && !(docCmView && pair.box === docBoxEl()));
 }
 
 //: Everything that decides where a *row* sits. The stylesheet carries a static
@@ -1283,6 +1560,14 @@ function docSelectedLines(box) {
 //: would make Ctrl+Z stop working in exactly the editor where people press it
 //: most: the single most important detail in this whole section.
 function docReplaceRange(box, start, end, text) {
+  //: CodeMirror has its own history and its own transaction pipeline, so the
+  //: `execCommand` dance below is not only unnecessary there, it is wrong:
+  //: `insertText` on a contenteditable goes through the browser rather than
+  //: through the state, and the two would disagree about the document.
+  if (box.kind === "codemirror") {
+    box.replaceRange(start, end, text);
+    return;
+  }
   box.focus();
   box.setSelectionRange(start, end);
   if (!document.execCommand || !document.execCommand("insertText", false, text)) {
@@ -1470,15 +1755,18 @@ function docLiveText(blocks) {
 //: deliberate: the caller says "position unknown" rather than claiming a
 //: number it guessed.
 function docLiveBlockOffset(box) {
-  const source = $("doc-content");
-  if (!source || !(box instanceof HTMLTextAreaElement)) return null;
+  //: A surface, not an element: the live blocks are handed round as surfaces
+  //: like every other editing box now. Only a live block has a `data-index`,
+  //: which is what makes this the right question to ask of it.
+  if (!box || !box.el || !(box.el instanceof HTMLTextAreaElement)) return null;
+  const text = docText();
   const index = Number(box.dataset.index);
   if (!Number.isInteger(index)) return null;
-  const blocks = docLiveBlocks(source.value);
+  const blocks = docLiveBlocks(text);
   const prefix = docLiveText(blocks.slice(0, index));
   const base = prefix ? prefix.length + 2 : 0;
-  if (source.value.slice(base, base + box.value.length) === box.value) return base;
-  const found = source.value.indexOf(box.value);
+  if (text.slice(base, base + box.text.length) === box.text) return base;
+  const found = text.indexOf(box.text);
   return found === -1 ? null : found;
 }
 
@@ -1508,7 +1796,7 @@ function renderDocLive(keepActive = false) {
   //: rather than merely safe, the outer call is still mid-flight and is
   //: about to draw the state this one would have drawn.
   if (docLiveRendering) return;
-  const blocks = docLiveBlocks($("doc-content").value);
+  const blocks = docLiveBlocks(docText());
   if (!keepActive) docLiveActive = -1;
   docLiveRendering = true;
   try {
@@ -1614,7 +1902,7 @@ function docLiveRow(block, index, total) {
       { label: "ph:copy Duplicate", run: () => docDuplicateLiveBlock(index) },
       {
         label: "ph:clipboard-text Copy as markdown",
-        run: () => copyToClipboard(docLiveBlocks($("doc-content").value)[index] || ""),
+        run: () => copyToClipboard(docLiveBlocks(docText())[index] || ""),
       },
       { label: "ph:plus Insert a block below", run: () => docInsertLiveBlock(index) },
       { label: "ph:trash Delete this block", danger: true, run: () => docDeleteLiveBlock(index) },
@@ -1666,13 +1954,13 @@ function docEditLiveBlocks(change) {
   //: it is a structural edit, and coalescing it into the typing that preceded
   //: it would make one Ctrl+Z both un-move the block and un-type a sentence.
   docUndoBreak();
-  const source = $("doc-content");
+  const source = docSurface();
   if (!source) return;
-  const blocks = docLiveBlocks(source.value);
+  const blocks = docLiveBlocks(source.text);
   if (!blocks.length) blocks.push("");
   const next = change(blocks);
   if (!next) return;
-  source.value = docLiveText(next);
+  source.text = docLiveText(next);
   markDocDirty();
   docLiveActive = -1;
   renderDocLive();
@@ -1718,7 +2006,7 @@ function docInsertLiveBlock(index) {
 }
 
 function docDeleteLiveBlock(index) {
-  const blocks = docLiveBlocks($("doc-content")?.value || "");
+  const blocks = docLiveBlocks(docText());
   const removed = blocks[index] ?? "";
   docEditLiveBlocks((list) => {
     list.splice(index, 1);
@@ -1769,14 +2057,14 @@ function docLiveEditor(source, index) {
 
   box.addEventListener("input", () => {
     autosize();
-    const blocks = docLiveBlocks($("doc-content").value);
+    const blocks = docLiveBlocks(docText());
     if (!blocks.length) blocks.push("");
     // A blank line typed inside the block is the user starting a new
     // paragraph. Splicing the *split* of what they typed keeps that working
     // without a special case for "did they press Enter twice".
     const replacement = docLiveBlocks(box.value);
     blocks.splice(index, 1, ...(replacement.length ? replacement : [""]));
-    $("doc-content").value = docLiveText(blocks);
+    docSurface().text = docLiveText(blocks);
     markDocDirty();
     // Deliberately NOT re-rendering here. Re-rendering on every keystroke
     // would replace the textarea the caret is in, and the caret would go
@@ -1835,7 +2123,7 @@ function docLiveEditor(source, index) {
       // the way it would in one continuous document. Only from the very edge,
       // so arrowing *within* a multi-line block still works normally.
       const step = event.key === "ArrowUp" ? -1 : 1;
-      const total = docLiveBlocks($("doc-content").value).length;
+      const total = docLiveBlocks(docText()).length;
       const target = index + step;
       if (target >= 0 && target < total) {
         event.preventDefault();
@@ -1935,9 +2223,9 @@ function focusDocLiveBlock(index, caret = "end") {
 //: when the last one has words in it, because "below it" means a new line and
 //: not the end of the previous paragraph.
 function docLiveFocusEnd() {
-  const source = $("doc-content");
+  const source = docSurface();
   if (!source) return;
-  const blocks = docLiveBlocks(source.value);
+  const blocks = docLiveBlocks(source.text);
   const last = blocks.length - 1;
   if (last >= 0 && !blocks[last].trim()) return focusDocLiveBlock(last, "end");
   //: **One past the end**, rather than writing a blank paragraph into the
@@ -2051,7 +2339,7 @@ function wireDocLive() {
     const visible = docLiveVisibleOffset(block, event.clientX, event.clientY);
     event.preventDefault();
     const index = Number(block.dataset.index);
-    const source = docLiveBlocks($("doc-content").value)[index] ?? "";
+    const source = docLiveBlocks(docText())[index] ?? "";
     focusDocLiveBlock(
       index,
       visible === null ? "end" : docLiveSourceOffset(source, visible),
@@ -2080,10 +2368,14 @@ function wireDocLive() {
 let docScrollDriver = null;
 
 function syncDocScroll(from) {
-  const editor = $("doc-content");
+  const editor = docSurface();
   const preview = $("doc-preview");
   if (!editor || !preview || preview.classList.contains("hidden")) return;
-  const to = from === editor ? preview : editor;
+  //: Compared against the *preview*, not against the editor. The editor half
+  //: of this pair is a surface whose identity is stable but whose scrolling
+  //: element changes when CodeMirror takes over, so "is this the preview"
+  //: is the question with one answer.
+  const to = from === preview ? editor : preview;
   // A pane with nothing to scroll has a zero range; dividing by it gives NaN,
   // and assigning NaN to scrollTop silently jumps the other pane to 0.
   const fromRange = from.scrollHeight - from.clientHeight;
@@ -2098,14 +2390,29 @@ function syncDocScroll(from) {
   syncDocScroll._release = setTimeout(() => { docScrollDriver = null; }, 120);
 }
 
+//: Idempotent per scrolling element, because the editor's scroller is
+//: replaced when CodeMirror mounts and the pair has to be re-wired then.
+//: `dataset` rather than a set, so a scroller that is thrown away takes its
+//: mark with it (tests/test_frontend_handlers.py exists because of exactly
+//: the duplicate-listener shape this avoids).
+function wireDocSurfaceScroll(surface) {
+  const el = surface?.scrollEl;
+  if (!el || el.dataset.docScrollSync === "1") return;
+  el.dataset.docScrollSync = "1";
+  el.addEventListener("scroll", () => {
+    if (docScrollDriver && docScrollDriver !== surface) return;
+    syncDocScroll(surface);
+  });
+}
+
 function wireDocScrollSync() {
-  for (const el of [$("doc-content"), $("doc-preview")]) {
-    if (!el) continue;
-    el.addEventListener("scroll", () => {
-      if (docScrollDriver && docScrollDriver !== el) return;
-      syncDocScroll(el);
-    });
-  }
+  wireDocSurfaceScroll(docSurface());
+  const preview = $("doc-preview");
+  if (!preview) return;
+  preview.addEventListener("scroll", () => {
+    if (docScrollDriver && docScrollDriver !== preview) return;
+    syncDocScroll(preview);
+  });
 }
 
 // Markdown formatting from a toolbar, so you don't have to remember the
@@ -2176,7 +2483,7 @@ const MD_ACTIONS = {
 // are already deliberately kept to one dialect.
 function applyMarkdown(kind, boxId = "doc-content") {
   const action = MD_ACTIONS[kind];
-  const box = $(boxId);
+  const box = docSurfaceById(boxId);
   if (!action || !box) return;
   //: A toolbar press is its own undo step, never part of the typing burst it
   //: happened to follow. Set *before* the edit, because the recording happens
@@ -2362,7 +2669,8 @@ function wrapDocSelection(marker, placeholder = "", boxId = "doc-content") {
   //: setting it twice costs nothing and missing it would silently fold a Bold
   //: into the word you had just typed.
   docUndoBreak();
-  const box = $(boxId);
+  const box = docSurfaceById(boxId);
+  if (!box) return;
   const { selectionStart: start, selectionEnd: end, value } = box;
 
   // Toggle off, case 1: the selection sits *inside* an existing pair of
@@ -2589,9 +2897,9 @@ function syncDocAiPanel() {
 
 function openDocAiPanel() {
   if (!currentDoc) return;
-  const box = $("doc-content");
-  const selection = box.value.slice(box.selectionStart, box.selectionEnd);
-  $("doc-ai-panel").dataset.selection = selection;
+  const box = docSurface();
+  const { from, to } = box.selection();
+  $("doc-ai-panel").dataset.selection = box.text.slice(from, to);
   // Always opens back on "Edit", the panel's original, still-default
   // behaviour: rather than remembering whatever verb was last used, so a
   // stray "Remove it" click a moment after opening isn't primed by the
@@ -2614,9 +2922,10 @@ function closeDocAiPanel() {
 // that, or leave nothing selected to extract from the whole document.
 function openDocExtractPreview() {
   if (!currentDoc) return;
-  const box = $("doc-content");
-  const selection = box.value.slice(box.selectionStart, box.selectionEnd).trim();
-  openExtractPreview(selection || box.value, { sourceDocumentId: currentDoc.id });
+  const box = docSurface();
+  const { from, to } = box.selection();
+  const selection = box.text.slice(from, to).trim();
+  openExtractPreview(selection || box.text, { sourceDocumentId: currentDoc.id });
 }
 
 async function runDocAiEdit() {
@@ -2688,7 +2997,7 @@ function pushDocAiUndo(docId, label, beforeContent, afterContent) {
     });
     if (currentDoc && currentDoc.id === docId) {
       currentDoc = saved;
-      $("doc-content").value = content;
+      docSurface().text = content;
       renderDocPreview();
       docDirty = false;
       $("doc-saved").textContent = "Saved";
@@ -2730,38 +3039,38 @@ function acceptDocAiEdit() {
   const verb = docAiVerb();
   const instruction = $("doc-ai-instruction").value.trim();
   const selection = $("doc-ai-panel").dataset.selection || "";
-  const box = $("doc-content");
-  const beforeContent = box.value;
+  const box = docSurface();
+  const beforeContent = box.text;
   const docId = currentDoc.id;
 
   if (verb === "write") {
     // Inserts rather than replaces, the selection (if any) is only the
     // anchor point, and stays exactly as it was.
     if (selection) {
-      const at = box.value.indexOf(selection);
-      const insertAt = at === -1 ? box.value.length : at + selection.length;
-      const before = box.value.slice(0, insertAt);
-      const after = box.value.slice(insertAt);
+      const at = box.text.indexOf(selection);
+      const insertAt = at === -1 ? box.text.length : at + selection.length;
+      const before = box.text.slice(0, insertAt);
+      const after = box.text.slice(insertAt);
       const glue = before && !before.endsWith("\n\n") ? (before.endsWith("\n") ? "\n" : "\n\n") : "";
-      box.value = before + glue + revised + after;
+      box.text = before + glue + revised + after;
     } else {
-      const glue = box.value && !box.value.endsWith("\n\n") ? (box.value.endsWith("\n") ? "\n" : "\n\n") : "";
-      box.value = box.value + glue + revised;
+      const glue = box.text && !box.text.endsWith("\n\n") ? (box.text.endsWith("\n") ? "\n" : "\n\n") : "";
+      box.text = box.text + glue + revised;
     }
   } else if (selection) {
     // "edit" and "remove" both replace the target with what the model
     // returned: for "remove" that's the same text with the requested
     // part gone, so no separate apply logic is needed.
-    const at = box.value.indexOf(selection);
-    box.value =
+    const at = box.text.indexOf(selection);
+    box.text =
       at === -1
-        ? box.value
-        : box.value.slice(0, at) + revised + box.value.slice(at + selection.length);
+        ? box.text
+        : box.text.slice(0, at) + revised + box.text.slice(at + selection.length);
   } else {
-    box.value = revised;
+    box.text = revised;
   }
 
-  const afterContent = box.value;
+  const afterContent = box.text;
   closeDocAiPanel();
   markDocDirty();
   renderDocPreview();
@@ -2840,7 +3149,7 @@ async function openDocAiHistory() {
           );
           if (currentDoc && currentDoc.id === saved.id) {
             currentDoc = saved;
-            $("doc-content").value = saved.content;
+            docSurface().text = saved.content;
             $("doc-title").value = saved.title;
             renderDocPreview();
             docDirty = false;
@@ -2991,7 +3300,7 @@ async function openDocHistory() {
           { method: "POST" }
         );
         currentDoc = saved;
-        $("doc-content").value = saved.content || "";
+        docSurface().text = saved.content || "";
         $("doc-title").value = saved.title || "";
         renderDocPreview();
         docDirty = false;
@@ -3078,7 +3387,11 @@ $("doc-browse-all").addEventListener("click", () => {
 // delegation set up below, Escape for free from <dialog>.showModal().
 $("doc-storage-toggle").addEventListener("click", () => $("doc-storage-dialog").showModal());
 $("doc-title").addEventListener("input", () => { markDocDirty(); scheduleDocPreview(); });
-$("doc-content").addEventListener("input", () => {
+//: **The document changed, whichever surface it changed in.** Bound to the
+//: fallback textarea's own `input` here and called straight by CodeMirror's
+//: update listener once the view is mounted, so there is one pipeline rather
+//: than one per engine.
+function docSurfaceInput() {
   markDocDirty();
   scheduleDocPreview();
   renderDocGutter();
@@ -3088,19 +3401,21 @@ $("doc-content").addEventListener("input", () => {
   //: still match the text (`docBackdropFindings`), so this is safe to run
   //: between passes.
   docPaintBackdrop();
-});
+}
+docBoxEl().addEventListener("input", docSurfaceInput);
 // The gutter is a separate element beside the textarea, so it has to be told
 // to follow it, because a textarea's own scroll does not move its siblings. The
 // backdrop is the same problem one layer down: it is a scrolling box of its
 // own, and text that does not follow the textarea's scroll is an underline
 // under the wrong line the moment the document is taller than the pane.
-$("doc-content").addEventListener("scroll", () => {
+docBoxEl().addEventListener("scroll", (event) => {
+  const box = event.currentTarget;
   const gutter = $("doc-gutter");
-  if (gutter && !gutter.classList.contains("hidden")) gutter.scrollTop = $("doc-content").scrollTop;
+  if (gutter && !gutter.classList.contains("hidden")) gutter.scrollTop = box.scrollTop;
   const back = docBackdropEl;
   if (back && !back.classList.contains("hidden")) {
-    back.scrollTop = $("doc-content").scrollTop;
-    back.scrollLeft = $("doc-content").scrollLeft;
+    back.scrollTop = box.scrollTop;
+    back.scrollLeft = box.scrollLeft;
   }
 });
 //: **Composition text is not in `value` yet, and transparent ink would hide
@@ -3110,10 +3425,12 @@ $("doc-content").addEventListener("scroll", () => {
 //: into what looks like an empty box. The ink comes back for the length of the
 //: composition, which costs one frame of double-drawn text at the end of it
 //: and is the only honest trade available here.
-$("doc-content").addEventListener("compositionstart", () => {
-  $("doc-content").classList.remove("has-backdrop");
+//: The fallback textarea's problem only: CodeMirror handles composition
+//: itself and has no transparent-ink layer to give back.
+docBoxEl().addEventListener("compositionstart", (event) => {
+  event.currentTarget.classList.remove("has-backdrop");
 });
-$("doc-content").addEventListener("compositionend", () => {
+docBoxEl().addEventListener("compositionend", () => {
   docSyncBackdrop();
 });
 // The document-textarea resize gap (Priority 0 #1): dragging #doc-content's
@@ -3131,7 +3448,7 @@ $("doc-content").addEventListener("compositionend", () => {
 // as close as the DOM gets to "yes", ordinary typing or a value swap on
 // loading a different document never changes offsetHeight.
 {
-  const box = $("doc-content");
+  const box = docBoxEl();
   let heightBeforeDrag = null;
   box.addEventListener("mousedown", () => { heightBeforeDrag = box.offsetHeight; });
   document.addEventListener("mouseup", () => {
@@ -3330,7 +3647,7 @@ function wireMarkdownToolbar(bar) {
       const colour = select.value;
       select.value = "";
       if (!colour) return;
-      const box = $(boxId);
+      const box = docSurfaceById(boxId);
       if (!box) return;
       const { selectionStart: start, selectionEnd: end, value } = box;
       const selected = value.slice(start, end) || (kind === "ink" ? "coloured text" : "highlighted");
@@ -3523,7 +3840,7 @@ function toggleDocFocus(force) {
     const icon = button.querySelector("i");
     if (icon) icon.className = on ? "ph ph-arrows-in" : "ph ph-frame-corners";
   }
-  if (on) $("doc-content")?.focus();
+  if (on) docSurface()?.focus();
 }
 
 $("doc-focus-toggle")?.addEventListener("click", () => toggleDocFocus());
@@ -3570,7 +3887,7 @@ for (const radio of document.querySelectorAll('input[name="doc-ai-verb"]')) {
 }
 $("doc-ai-history").addEventListener("click", openDocAiHistory);
 $("doc-extract").addEventListener("click", openDocExtractPreview);
-$("doc-content").addEventListener("keydown", (event) => {
+docBoxEl().addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !$("doc-find-bar").classList.contains("hidden")) {
     toggleDocFindBar(false);
     return;
@@ -3581,11 +3898,11 @@ $("doc-content").addEventListener("keydown", (event) => {
   // Shift+Tab still escapes even in code, so there is always a way out.
   if (event.key === "Tab" && !docFileType().previewable && !event.shiftKey) {
     event.preventDefault();
-    indentDocSelection($("doc-content"), false);
+    indentDocSelection(docSurface(), false);
     return;
   }
   if (event.key === "Tab" && event.shiftKey && !docFileType().previewable) {
-    const box = $("doc-content");
+    const box = docSurface();
     // Shift+Tab dedents when there is something to dedent, and otherwise
     // falls through to the browser's own focus-backwards: so a flush-left
     // caret is not a keyboard trap.
@@ -3600,7 +3917,7 @@ $("doc-content").addEventListener("keydown", (event) => {
   // Ctrl+/ (and Ctrl+' on the layouts where / needs a modifier of its own).
   if (event.key === "/" || event.key === "?") {
     event.preventDefault();
-    toggleDocComment($("doc-content"));
+    toggleDocComment(docSurface());
     return;
   }
   const key = event.key.toLowerCase();
@@ -3781,7 +4098,7 @@ function applyDocGutter() {
     anyOn = anyOn || on;
   }
   syncDocGutterMetrics();
-  watchDocGutter($("doc-content"));
+  watchDocGutter(docBoxEl());
   for (const button of document.querySelectorAll(".doc-toolbar-gutter")) {
     const bar = button.closest(".doc-toolbar");
     const own = bar?.id === "doc-toolbar"
@@ -3969,9 +4286,16 @@ mountDocToolbarControls();
 function docActiveBox() {
   const active = document.activeElement;
   if (active instanceof HTMLTextAreaElement) {
-    if (active.id === "doc-content" || active.classList.contains("lp-src")) return active;
+    if (active.id === "doc-content" || active.classList.contains("lp-src")) {
+      return textareaSurface(active);
+    }
   }
-  return $("doc-content");
+  //: CodeMirror's editable is a `div`, not a textarea, so the check above
+  //: cannot see it. `asSurface` maps any node inside the view onto the
+  //: document's surface, which is what makes the caret-following instruments
+  //: (the status bar, the completion popup, the findings menu) keep working
+  //: once the engine is under them.
+  return asSurface(active) || docSurface();
 }
 
 //: **Where the caret is, in pixels.** The standard mirror technique: a hidden
@@ -3994,33 +4318,48 @@ const DOC_MIRROR_PROPS = [
 
 let docMirror = null;
 
-function docCaretPoint(box) {
+//: The mirror itself, over a real textarea and an offset in its value. Split
+//: out of `docCaretPoint` because it is the *textarea's* answer to the
+//: question: CodeMirror has `coordsAtPos` and needs none of this, so the
+//: adapter routes each surface to whichever one is right for it.
+function docMirrorPoint(el, pos) {
   if (!docMirror) {
     docMirror = document.createElement("div");
     docMirror.className = "doc-caret-mirror";
     document.body.appendChild(docMirror);
   }
-  const style = getComputedStyle(box);
+  const style = getComputedStyle(el);
   for (const prop of DOC_MIRROR_PROPS) docMirror.style[prop] = style[prop];
   //: `pre-wrap`, always: a textarea wraps and preserves whitespace, and a
   //: mirror that collapsed spaces would put the caret a word early on every
   //: line that has two of them.
   docMirror.style.whiteSpace = "pre-wrap";
   docMirror.style.overflowWrap = "break-word";
-  docMirror.textContent = box.value.slice(0, box.selectionStart);
+  docMirror.textContent = el.value.slice(0, pos);
   const marker = document.createElement("span");
   //: A zero-width space rather than nothing: an empty span has no box, so it
   //: reports the wrong position at the end of a line.
   marker.textContent = "​";
   docMirror.appendChild(marker);
-  const boxRect = box.getBoundingClientRect();
+  const boxRect = el.getBoundingClientRect();
   const markRect = marker.getBoundingClientRect();
   const mirrorRect = docMirror.getBoundingClientRect();
+  const lineHeight = Number.parseFloat(style.lineHeight) || 18;
+  const top = boxRect.top + (markRect.top - mirrorRect.top) - el.scrollTop;
   return {
-    x: boxRect.left + (markRect.left - mirrorRect.left) - box.scrollLeft,
-    y: boxRect.top + (markRect.top - mirrorRect.top) - box.scrollTop,
-    lineHeight: Number.parseFloat(style.lineHeight) || 18,
+    left: boxRect.left + (markRect.left - mirrorRect.left) - el.scrollLeft,
+    top,
+    bottom: top + lineHeight,
+    lineHeight,
   };
+}
+
+//: **Where the caret is, in pixels, for whichever surface holds it.** The
+//: shape the plan names (`coordsAt(pos) -> {left, top, bottom}`), with the
+//: line height carried alongside because every caller here places a popup
+//: *under* the line and needs to know how tall it is.
+function docCaretPoint(box) {
+  return box.coordsAt(box.selection().from);
 }
 
 // --- the status bar -----------------------------------------------------------
@@ -4053,7 +4392,7 @@ function renderDocStatusBar() {
     if (offset === null) {
       stats = null;
     } else {
-      const full = $("doc-content").value.slice(0, offset + box.selectionStart);
+      const full = docText().slice(0, offset + box.selectionStart);
       stats = {
         line: full.split("\n").length,
         column: full.length - (full.lastIndexOf("\n") + 1) + 1,
@@ -4065,7 +4404,7 @@ function renderDocStatusBar() {
     ? `Ln ${stats.line}, Col ${stats.column}${stats.selected ? ` · ${stats.selected} selected` : ""}`
     : "In a paragraph";
 
-  const text = $("doc-content")?.value || "";
+  const text = docText();
   const words = (text.match(/\S+/g) || []).length;
   const chars = text.length;
   const minutes = words / DOC_READING_WPM;
@@ -4287,7 +4626,7 @@ function renderDocProse() {
   //: `;;` and every long line, which is noise a programmer cannot turn off
   //: fast enough.
   const isCode = !docFileType().previewable;
-  docProseFound = isCode ? [] : docProseFindings($("doc-content")?.value || "");
+  docProseFound = isCode ? [] : docProseFindings(docText());
   chip.hidden = isCode;
   count.textContent = docProseFound.length
     ? `${docProseFound.length} suggestion${docProseFound.length === 1 ? "" : "s"}`
@@ -4377,7 +4716,7 @@ let docBackdropEl = null;
 
 function docBackdrop() {
   if (docBackdropEl && docBackdropEl.isConnected) return docBackdropEl;
-  const box = $("doc-content");
+  const box = docBoxEl();
   if (!box || !box.parentElement) return null;
   docBackdropEl = box.parentElement.querySelector(".doc-backdrop");
   if (docBackdropEl) return docBackdropEl;
@@ -4397,7 +4736,7 @@ function docBackdrop() {
 //: geometry, and it is the only way to write one that is *measured* rather
 //: than guessed.
 function docSyncBackdropMetrics() {
-  const box = $("doc-content");
+  const box = docBoxEl();
   const back = docBackdrop();
   if (!box || !back) return;
   const metrics = getComputedStyle(box);
@@ -4443,7 +4782,7 @@ function docBackdropFindings(text) {
 }
 
 function docPaintBackdrop() {
-  const box = $("doc-content");
+  const box = docBoxEl();
   const back = docBackdrop();
   if (!box || !back || back.classList.contains("hidden")) return;
   const text = box.value;
@@ -4492,7 +4831,7 @@ function docSyncBackdrop() {
   //: it is set. Nothing is lost by the early return: the last line of this file
   //: paints the editor once everything is initialised.
   if (!docBackdropArmed) return;
-  const box = $("doc-content");
+  const box = docBoxEl();
   if (!box) return;
   const wanted = docBackdropWanted();
   const back = wanted ? docBackdrop() : docBackdropEl;
@@ -4736,10 +5075,10 @@ function docFlashLiveFinding(finding) {
 function docProseJump(finding) {
   if (docView === "live" && docFlashLiveFinding(finding)) return;
   if (docView !== "source" && docView !== "split") setDocView("source");
-  const box = $("doc-content");
+  const box = docSurface();
   if (!box) return;
   box.focus();
-  box.setSelectionRange(finding.start, finding.end);
+  box.setSelection(finding.start, finding.end);
   //: `blur`+`focus` is the only way to make a textarea scroll to a selection
   //: it already holds. Without it the caret is right and the view is not.
   box.blur();
@@ -4755,7 +5094,7 @@ function docProseApply(text, finding) {
 }
 
 function docProseFix(finding) {
-  const box = $("doc-content");
+  const box = docSurface();
   if (!box || finding.replacement === null) return;
   //: Checked against the document as it is *now*, not as it was when the panel
   //: was drawn. Editing while the panel is open moves every span after the
@@ -4773,7 +5112,7 @@ function docProseFix(finding) {
 }
 
 function docProseFixAll() {
-  const box = $("doc-content");
+  const box = docSurface();
   if (!box) return;
   //: Back to front, so each replacement cannot move the offsets of the ones
   //: still to be applied.
@@ -4829,7 +5168,7 @@ function docBuildVocabulary() {
     if (word.length < DOC_COMPLETE_MIN + 1) return;
     counts.set(word, (counts.get(word) || 0) + weight);
   };
-  for (const word of ($("doc-content")?.value || "").match(/[A-Za-z][A-Za-z'-]{2,}/g) || []) {
+  for (const word of docText().match(/[A-Za-z][A-Za-z'-]{2,}/g) || []) {
     //: Weighted above the notebook's words: while writing *this* document, the
     //: word you used two paragraphs ago is far likelier than one from a note
     //: last March.
@@ -4909,9 +5248,9 @@ function renderDocComplete(box) {
   list.classList.remove("hidden");
   const width = list.offsetWidth;
   const height = list.offsetHeight;
-  const left = Math.min(point.x, window.innerWidth - width - 8);
-  const below = point.y + point.lineHeight + 4;
-  const top = below + height > window.innerHeight - 8 ? point.y - height - 4 : below;
+  const left = Math.min(point.left, window.innerWidth - width - 8);
+  const below = point.bottom + 4;
+  const top = below + height > window.innerHeight - 8 ? point.top - height - 4 : below;
   list.style.left = `${Math.max(8, left)}px`;
   list.style.top = `${Math.max(8, top)}px`;
 }
@@ -5057,13 +5396,26 @@ function docToolsOnInput(box) {
   }, 1200);
 }
 
+//: **The editing box an event landed in, as a surface.** Three shapes reach
+//: this: the fallback textarea, a live-view paragraph, and any node inside
+//: CodeMirror's editable, which is a `div` and so matches none of the
+//: textarea checks that used to be the whole of this function. Returning null
+//: for anything else is what keeps the instruments off the note composer.
 function docToolsBoxFor(target) {
-  if (!(target instanceof HTMLTextAreaElement)) return null;
-  if (target.id === "doc-content" || target.classList.contains("lp-src")) return target;
-  return null;
+  if (target instanceof HTMLTextAreaElement) {
+    if (target.id === "doc-content" || target.classList.contains("lp-src")) {
+      return textareaSurface(target);
+    }
+    return null;
+  }
+  return docEventFromCm(target) ? docSurface() : null;
 }
 
 document.addEventListener("input", (event) => {
+  //: CodeMirror raises its own `input` on the contenteditable *and* tells us
+  //: through the update listener, and the update listener is the one that
+  //: also sees scripted changes. Running both would do every pass twice.
+  if (docEventFromCm(event.target)) return;
   const box = docToolsBoxFor(event.target);
   if (!box) return;
   //: Autocorrect first, because it edits the value the rest of this then
@@ -5261,10 +5613,10 @@ function docOpenSuggestFor(finding, focus = true) {
     openDocSuggest(finding, mark.getBoundingClientRect(), focus);
     return true;
   }
-  const box = docActiveBox() || $("doc-content");
+  const box = docActiveBox() || docSurface();
   if (!box) return false;
   const at = docCaretPoint(box);
-  openDocSuggest(finding, { left: at.x, top: at.y, bottom: at.y + at.lineHeight }, focus);
+  openDocSuggest(finding, { left: at.left, top: at.top, bottom: at.bottom }, focus);
   return true;
 }
 
@@ -5372,7 +5724,7 @@ function docFindingKeyBox(target) {
   if (box) return box;
   const menu = $("doc-suggest-menu");
   if (menu && !menu.classList.contains("hidden") && menu.contains(target)) {
-    return docActiveBox() || $("doc-content");
+    return docActiveBox() || docSurface();
   }
   return null;
 }
@@ -6048,15 +6400,14 @@ let docLastTranslateLanguage = "";
 const DOC_AI_REVIEW_SELECTION_CHARS = 1200;
 
 async function docAiReview() {
-  const box = $("doc-content");
-  const text = (box?.value || "").trim();
+  const box = docSurface();
+  const text = (box?.text || "").trim();
   if (!text) return toast("Nothing to review yet.", true);
   const input = document.getElementById("chat-input");
   if (!input) return toast("The chat isn't available right now.", true);
 
-  const selection = box
-    ? box.value.slice(box.selectionStart || 0, box.selectionEnd || 0).trim()
-    : "";
+  const range = box ? box.selection() : null;
+  const selection = range ? box.text.slice(range.from, range.to).trim() : "";
   const ask =
     "Read this for the things a spellchecker can't catch: its/it's and other " +
     "agreement mistakes, tense that shifts partway through, unclear or awkward " +
@@ -6291,9 +6642,9 @@ function docUndoBreak() {
 //: this repo's "features that never ran once" shape, in reverse.
 function docUndoRecord() {
   if (docUndoApplying) return;
-  const source = $("doc-content");
+  const source = docSurface();
   if (!source) return;
-  const content = source.value;
+  const content = source.text;
   if (docUndoAt < 0) {
     //: No baseline yet (a document opened before this ran, or a brand-new
     //: one). Seeding with the *current* text would make the first edit
@@ -6305,7 +6656,7 @@ function docUndoRecord() {
   //: Title edits call `markDocDirty` too, and a caret move is not a change.
   if (top.content === content) return;
   const now = performance.now();
-  const after = docUndoSelectionNow() || { start: source.selectionStart, end: source.selectionEnd };
+  const after = docUndoSelectionNow() || { start: source.selection().from, end: source.selection().to };
   const entry = { content, start: after.start, end: after.end, mode: docView };
   const coalesce =
     !docUndoBoundary &&
@@ -6359,7 +6710,7 @@ function docUndoDiffRange(before, after) {
 //: surprise than the caret landing in the pane you are already looking at.
 function docUndoRestoreSelection(entry) {
   if (docView === "live") {
-    const blocks = docLiveBlocks($("doc-content").value);
+    const blocks = docLiveBlocks(docText());
     let base = 0;
     for (let index = 0; index < blocks.length; index += 1) {
       const end = base + blocks[index].length;
@@ -6379,27 +6730,27 @@ function docUndoRestoreSelection(entry) {
     }
     return;
   }
-  const box = $("doc-content");
+  const box = docSurface();
   if (!box) return;
   box.focus();
-  const max = box.value.length;
-  box.setSelectionRange(Math.min(entry.start, max), Math.min(entry.end, max));
+  const max = box.text.length;
+  box.setSelection(Math.min(entry.start, max), Math.min(entry.end, max));
 }
 
 function docUndoApply(entry) {
-  const source = $("doc-content");
+  const source = docSurface();
   if (!source) return;
   docUndoApplying = true;
   try {
-    if (source.value !== entry.content) {
-      const [from, to, text] = docUndoDiffRange(source.value, entry.content);
+    if (source.text !== entry.content) {
+      const [from, to, text] = docUndoDiffRange(source.text, entry.content);
       if (docView === "live" || docView === "rendered") {
         //: `#doc-content` is hidden in these modes, and `execCommand` needs a
         //: focusable, visible target: it silently returns false on a hidden
         //: textarea, which is this repo's "a policy silently refusing the
         //: work" shape. A direct write is correct here: the Live boxes are
         //: about to be rebuilt anyway, so there is no native history to keep.
-        source.value = entry.content;
+        source.text = entry.content;
       } else {
         //: Through the browser's own edit pipeline, so the native history
         //: stays coherent with ours instead of being wiped by a `.value`
@@ -6480,5 +6831,5 @@ document.addEventListener("selectionchange", () => {
 //: for every deliberate open; this covers the one case it cannot.
 document.addEventListener("focusin", (event) => {
   if (!docToolsBoxFor(event.target)) return;
-  if (docUndoAt < 0) docUndoReset($("doc-content")?.value || "");
+  if (docUndoAt < 0) docUndoReset(docText());
 });

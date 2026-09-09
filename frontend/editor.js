@@ -66,10 +66,29 @@ const EDITOR_SURFACES = {
 //: `isEditorSurface` already keyed on and one predicate is better than two
 //: that can disagree. Returns null, not "note", for anything that is not an
 //: editing surface, so callers can tell "not a surface" from "a note".
-function editorSurfaceKind(textarea) {
-  if (!(textarea instanceof HTMLTextAreaElement)) return null;
-  if (textarea.id in EDITOR_SURFACES) return EDITOR_SURFACES[textarea.id];
-  return textarea.classList.contains("lp-src") ? "document" : null;
+function editorSurfaceKind(box) {
+  //: A surface, an element, or a node inside CodeMirror. The last of those is
+  //: why this can no longer be a `instanceof HTMLTextAreaElement` check:
+  //: CodeMirror's editable is a `div`, and gating on the textarea would have
+  //: silently taken the "/" menu, the selection bar and the inline AI away
+  //: from the document editor the moment the engine landed under it. Same
+  //: "policy silently refusing the work" shape this file's own comment
+  //: records for the Live view.
+  const surface = editorSurfaceFor(box);
+  if (!surface) return null;
+  if (surface.id in EDITOR_SURFACES) return EDITOR_SURFACES[surface.id];
+  return surface.classList.contains("lp-src") ? "document" : null;
+}
+
+//: Whatever this is, as a surface, or null. `asSurface` lives in
+//: documents.js beside the adapter itself; the guard is for the moment
+//: before that file has evaluated, which cannot happen in the browser (the
+//: script order is fixed) but does in any test that loads this file alone.
+function editorSurfaceFor(box) {
+  if (!box) return null;
+  if (box.kind === "textarea" || box.kind === "codemirror") return box;
+  if (typeof asSurface !== "function") return null;
+  return asSurface(box);
 }
 
 // The callout kinds, their icon and their accessible label. Kept as data
@@ -107,7 +126,7 @@ const CALLOUT_KINDS = {
 // `.value` from script fires neither, so a note inserted through this menu
 // would look right, count wrong, and never be saved as a draft.
 function editorNotifyHost(textarea) {
-  if (textarea.id === "doc-content") {
+  if (textarea.isDocument) {
     markDocDirty();
     renderDocPreview();
     return;
@@ -124,8 +143,15 @@ function editorNotifyHost(textarea) {
 // straight over: the behaviour wrapDocSelection() already establishes for the
 // formatting toolbar, kept identical here so the two feel like one editor.
 function editorSplice(textarea, start, end, text, select) {
-  const value = textarea.value;
-  textarea.value = value.slice(0, start) + text + value.slice(end);
+  //: CodeMirror gets a transaction rather than a whole-document rewrite: one
+  //: keeps the editor's own undo history granular, the other collapses every
+  //: insertion into "the document became this string".
+  if (textarea.kind === "codemirror") {
+    textarea.replaceRange(start, end, text);
+  } else {
+    const value = textarea.value;
+    textarea.value = value.slice(0, start) + text + value.slice(end);
+  }
   if (select) {
     textarea.setSelectionRange(start + select.from, start + select.to);
   } else {
@@ -567,47 +593,21 @@ const editorMenuState = {
 
 // Where the caret is, in page coordinates.
 //
-// A textarea gives no caret geometry at all, so the standard answer is to
-// build an invisible div with the same text metrics, put a marker where the
-// caret is, and measure that. It is more code than anchoring the menu under
-// the box would be, which is what the existing [[ suggest does, but the
-// document editor's textarea is most of the screen, and a menu that opens
-// hundreds of pixels from the caret reads as unrelated to what you just typed.
+// **One answer for the whole app, asked of the surface itself.** This used to
+// be a second mirror implementation: an invisible div with the same text
+// metrics, a marker span where the caret is, measured and thrown away, which
+// is the only thing a `<textarea>` can do because it exposes no caret
+// geometry at all. documents.js has the same technique in `docMirrorPoint`,
+// and two copies of a measurement this fiddly is two things to keep in step.
+//
+// The adapter already has to answer this question for CodeMirror (which does
+// have a real API for it, `coordsAtPos`), so it answers it for a textarea too
+// and this becomes the one line it always wanted to be. `lineHeight` comes
+// back with the point because every caller here places its popup *under* the
+// caret's line and needs to know how tall the line is.
 function editorCaretPoint(textarea) {
-  const mirror = document.createElement("div");
-  const style = getComputedStyle(textarea);
-  // Everything that affects where a glyph lands has to be copied, or the
-  // mirror wraps differently and the marker ends up on the wrong line.
-  for (const property of [
-    "boxSizing", "width", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
-    "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth",
-    "fontFamily", "fontSize", "fontWeight", "fontStyle", "letterSpacing",
-    "lineHeight", "textTransform", "wordSpacing", "textIndent", "whiteSpace",
-  ]) {
-    mirror.style[property] = style[property];
-  }
-  mirror.style.position = "absolute";
-  mirror.style.visibility = "hidden";
-  mirror.style.whiteSpace = "pre-wrap";
-  mirror.style.overflowWrap = "break-word";
-  mirror.style.top = "0";
-  mirror.style.left = "-9999px";
-
-  const upto = textarea.value.slice(0, textarea.selectionStart);
-  mirror.textContent = upto;
-  const marker = document.createElement("span");
-  // A zero-width span collapses and measures as nothing on some engines; a
-  // non-breaking space is guaranteed to have a box to measure.
-  marker.textContent = "​";
-  mirror.appendChild(marker);
-  document.body.appendChild(mirror);
-
-  const box = textarea.getBoundingClientRect();
-  const top = box.top + marker.offsetTop - textarea.scrollTop;
-  const left = box.left + marker.offsetLeft - textarea.scrollLeft;
-  const lineHeight = Number.parseFloat(style.lineHeight) || Number.parseFloat(style.fontSize) * 1.4;
-  mirror.remove();
-  return { top, left, lineHeight };
+  const at = textarea.coordsAt(textarea.selectionStart);
+  return { top: at.top, left: at.left, lineHeight: at.lineHeight };
 }
 
 // Put the menu at the caret, then pull it back on screen if it would hang off
@@ -936,8 +936,8 @@ function editorRefreshMenu() {
 // ---------------------------------------------------------------------------
 
 document.addEventListener("input", (event) => {
-  const textarea = event.target;
-  if (!(textarea instanceof HTMLTextAreaElement)) return;
+  const textarea = editorSurfaceFor(event.target);
+  if (!textarea) return;
   if (!editorSurfaceKind(textarea)) return;
 
   if (editorMenuState.open && editorMenuState.textarea === textarea) {
@@ -989,7 +989,9 @@ document.addEventListener(
   "keydown",
   (event) => {
     if (!editorMenuState.open) return;
-    if (event.target !== editorMenuState.textarea) return;
+    //: Compared as *surfaces*: the event target inside CodeMirror is whichever
+    //: line element the caret is in, never the object the menu was opened on.
+    if (editorSurfaceFor(event.target) !== editorMenuState.textarea) return;
     const { items } = editorMenuState;
 
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -1216,7 +1218,7 @@ function selectionBarSync() {
   //: other the moment an answer lands, and the one underneath is the one with
   //: Keep and Undo on it.
   if (inlineAiState.phase !== "idle") return selectionBarHide();
-  const active = document.activeElement;
+  const active = editorSurfaceFor(document.activeElement);
   if (!isEditorSurface(active)) {
     return selectionBarHide();
   }
@@ -1260,7 +1262,7 @@ function selectionContextFrom(textarea) {
   //: textarea entirely, since the block is replaced whenever it re-renders.
   //: Translating here means everything downstream sees one surface.
   if (textarea.classList.contains("lp-src")) {
-    const source = $("doc-content");
+    const source = docSurface();
     const base = typeof docLiveBlockOffset === "function" ? docLiveBlockOffset(textarea) : null;
     if (source && base !== null) {
       return selectionOffsets(

@@ -3053,7 +3053,13 @@ async function openGraphPopup(event, node) {
   const status = $("graph-popup-status");
   status.textContent = "";
   status.classList.remove("error");
-  $("graph-popup-title").textContent = node.category || "Note";
+  //: The node's own preview while the note is on its way, not its category:
+  //: the title says what this note is now, and a placeholder reading
+  //: "Uncategorised" for the length of a fetch is a wrong answer to that
+  //: question rather than an absent one. `preview` is the same string the
+  //: canvas paints beside the node (`gcLabelText`), so the panel opens
+  //: saying what the map said.
+  $("graph-popup-title").textContent = node.preview || node.category || "Note";
   $("graph-popup-confidence").classList.add("hidden");
   $("graph-popup-category").classList.add("hidden");
   $("graph-popup-info").textContent = "";

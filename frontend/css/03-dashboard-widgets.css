@@ -452,6 +452,7 @@ header#top-bar select,
 :root[data-glass="off"] .wb-object-text,
 :root[data-glass="off"] .wb-topbar,
 :root[data-glass="off"] dialog::backdrop,
+:root[data-glass="off"] .chord-guide,
 :root[data-glass="off"] .glass {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;

@@ -24464,9 +24464,19 @@ function initScrollTopButton() {
     //: scrolled past is already enough to lose the live one.
     const chat = tab === "chat";
     const fromBottom = target ? target.scrollHeight - target.clientHeight - scrollTop : 0;
+    //: **The dashboard shows it sooner, and that is the report.** The owner:
+    //: "also no back to top button appears on the dashboard??" Measured on a
+    //: seeded profile at 1440x900 it does appear, but only past 400px, and
+    //: the dashboard is the one page in the app whose *first* content sits at
+    //: y=613: the hero, the start band and the stats strip are 600px of
+    //: preamble before a single widget. So 400px of scrolling is barely one
+    //: screen in, on the longest scan-page the app has, and the button that
+    //: gets you back is still absent. 200px is chat's figure, for the same
+    //: reason chat uses it: this pane is scrolled in short movements and one
+    //: screen away is already lost.
     const show = chat
       ? fromBottom > 200
-      : scrollTop > 400 && !NO_SCROLL_TOP_TABS.has(tab);
+      : scrollTop > (tab === "dashboard" ? 200 : 400) && !NO_SCROLL_TOP_TABS.has(tab);
     button.dataset.mode = chat ? "bottom" : "top";
     button.textContent = chat ? "↓" : "↑";
     const label = chat ? "Jump to the newest message" : "Back to top";
@@ -34195,12 +34205,18 @@ document.addEventListener("keydown", (e) => {
     if (tabJumpArmedAt) {
       const stillArmed = performance.now() - tabJumpArmedAt < TAB_JUMP_WINDOW_MS;
       tabJumpArmedAt = 0;
-      const target = stillArmed && !e.ctrlKey && !e.metaKey && !e.altKey
-        ? TAB_JUMP_KEYS[e.key]
-        : undefined;
+      const usable = stillArmed && !e.ctrlKey && !e.metaKey && !e.altKey;
+      const target = usable ? TAB_JUMP_KEYS[e.key] : undefined;
+      const action = usable ? CHORD_ACTIONS[e.key] : undefined;
+      hideChordGuide();
       if (target) {
         e.preventDefault();
         switchTab(target);
+        return;
+      }
+      if (action) {
+        e.preventDefault();
+        action.run();
         return;
       }
       // Not a recognised second key (or the window lapsed), fall through
@@ -34743,32 +34759,113 @@ const TAB_JUMP_KEYS = {
   t: "timeline",
   r: "reminders",
 };
+//: The other half of the same chord: three things you *do* rather than three
+//: places you go. Asked for by the owner: "also add a shortcut for 'm' + 's'
+//: for opening up settings, maybe 'm' + 'q' for quick sketch?? maybe 'm' +
+//: 'm' or 'v' (for voice) for meeting notes or smth??"
+//:
+//: `v`, not `m`: `m` as the second key would mean the chord's own first key
+//: repeated, which is what a person presses when they are not sure the first
+//: press registered. Making that open a recorder is the one mapping in the
+//: set that could surprise someone twice in a row.
+//:
+//: These are declared beside `TAB_JUMP_KEYS` rather than in `shortcuts`,
+//: because the chord's second key is not a rebindable accelerator: it is a
+//: menu of ten entries the guide draws from these two tables, so a new entry
+//: here appears in the guide with no other change.
+const CHORD_ACTIONS = {
+  s: { label: "Settings", run: () => openSettingsModal() },
+  q: { label: "Quick sketch", run: () => openSketch() },
+  v: { label: "Meeting notes", run: () => openMeetingRecorder() },
+};
 const TAB_JUMP_WINDOW_MS = 900;
 let tabJumpArmedAt = 0;
 
-function showTabJumpHint() {
-  const box = $("toast-box");
-  if (!box) return;
-  let note = box.querySelector(".toast.tab-jump-hint");
-  if (!note) {
-    note = document.createElement("div");
-    note.className = "toast tab-jump-hint";
-    note.setAttribute("role", "status");
-    box.appendChild(note);
+//: **The chord's guide, and why it is not a toast any more.** Reported with a
+//: screenshot: "when I press 'm' for the quick nav, the popup notification is
+//: broken visually. also I want it to be more of a whole screen subtle but
+//: noticable guide like with the zoom visual thingo."
+//:
+//: Both halves of that were right. It was a `.toast`, which is a corner
+//: notification sized for one sentence, and ten key-and-label pairs laid in a
+//: row inside one wrapped mid-pair, so "m" and "then" broke onto separate
+//: lines beside the chips. And a toast is the wrong *kind* of thing: a
+//: notification is something that happened, while this is the app waiting for
+//: your next keystroke, which is a mode. The zoom readout (`hud()`) is the
+//: shape the owner pointed at, so this is that shape at the size the content
+//: needs: centred, over a scrim that dims the page enough to say "the next key
+//: means something", gone the moment the chord resolves or lapses.
+//:
+//: Not interactive, and deliberately so: `pointer-events: none` throughout,
+//: because a guide that can eat the click you were about to make is worse
+//: than no guide. `role="status"` and `aria-live` stay, so a screen reader
+//: hears the chord's targets rather than being shown them.
+let chordGuideTimer = null;
+
+function chordGuideEl() {
+  let guide = document.getElementById("chord-guide");
+  if (!guide) {
+    guide = document.createElement("div");
+    guide.id = "chord-guide";
+    guide.className = "chord-guide hidden";
+    guide.setAttribute("role", "status");
+    guide.setAttribute("aria-live", "polite");
+    document.body.appendChild(guide);
   }
-  note.replaceChildren();
-  const lead = document.createElement("span");
-  lead.textContent = "m then";
-  note.appendChild(lead);
-  for (const [key, tab] of Object.entries(TAB_JUMP_KEYS)) {
+  return guide;
+}
+
+function chordGuideGroup(title, entries) {
+  const group = document.createElement("div");
+  group.className = "chord-guide-group";
+  const heading = document.createElement("p");
+  heading.className = "chord-guide-title";
+  heading.textContent = title;
+  group.appendChild(heading);
+  const list = document.createElement("div");
+  list.className = "chord-guide-list";
+  for (const [key, label] of entries) {
+    const row = document.createElement("div");
+    row.className = "chord-guide-row";
     const kbd = document.createElement("kbd");
     kbd.textContent = key;
-    const label = document.createElement("span");
-    label.textContent = tab[0].toUpperCase() + tab.slice(1);
-    note.append(" ", kbd, " ", label);
+    const name = document.createElement("span");
+    name.textContent = label;
+    row.append(kbd, name);
+    list.appendChild(row);
   }
-  window.clearTimeout(note._timer);
-  note._timer = window.setTimeout(() => note.remove(), TAB_JUMP_WINDOW_MS);
+  group.appendChild(list);
+  return group;
+}
+
+function hideChordGuide() {
+  const guide = document.getElementById("chord-guide");
+  if (!guide) return;
+  window.clearTimeout(chordGuideTimer);
+  guide.classList.add("hidden");
+}
+
+function showTabJumpHint() {
+  const guide = chordGuideEl();
+  const lead = document.createElement("p");
+  lead.className = "chord-guide-lead";
+  const kbd = document.createElement("kbd");
+  kbd.textContent = "m";
+  lead.append(kbd, " then");
+  guide.replaceChildren(
+    lead,
+    chordGuideGroup(
+      "Go to",
+      Object.entries(TAB_JUMP_KEYS).map(([key, tab]) => [key, tab[0].toUpperCase() + tab.slice(1)])
+    ),
+    chordGuideGroup(
+      "Do",
+      Object.entries(CHORD_ACTIONS).map(([key, action]) => [key, action.label])
+    )
+  );
+  guide.classList.remove("hidden");
+  window.clearTimeout(chordGuideTimer);
+  chordGuideTimer = window.setTimeout(() => guide.classList.add("hidden"), TAB_JUMP_WINDOW_MS);
 }
 
 function saveShortcutOverrides() {

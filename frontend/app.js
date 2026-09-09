@@ -25200,9 +25200,27 @@ function autoGrow(el) {
   //: rule) is exactly what stopped the box expanding. Now a drag *below*
   //: the automatic height is a cap, a drag *above* it is a floor, and an
   //: empty box forgets the drag altogether.
+  //: One-shot, read and cleared here rather than inside the branch below:
+  //: when the drag happens on a box that *has* text the branch never runs,
+  //: so a flag cleared only there would still be set the next time the box
+  //: was emptied and would suppress the forget it exists to allow once.
+  const keptDrag = Boolean(el.dataset.keepDrag);
+  delete el.dataset.keepDrag;
   if (!el.value.trim() && el.dataset.maxPx) {
-    delete el.dataset.maxPx;
-    try { localStorage.removeItem(COMPOSER_HEIGHT_KEY); } catch { /* storage may be unavailable */ }
+    //: **Except on the release of the drag that just set it.** Reported:
+    //: "when I try to manually change the height of the chat bar, it snaps
+    //: back to what it was with or without text in it." Reproduced: with
+    //: text the drag holds at 240px, on an empty box it snapped straight
+    //: back to 44 and the height was never kept. `record()` sets `maxPx`
+    //: on pointerup and then asks for this function on the next frame, so
+    //: this branch was undoing the drag as part of performing it, and an
+    //: empty composer could not be resized at all. "Go back to normal when
+    //: empty" is about a box you *clear* after dragging it, not about
+    //: refusing the drag itself, so that one call is exempt.
+    if (!keptDrag) {
+      delete el.dataset.maxPx;
+      try { localStorage.removeItem(COMPOSER_HEIGHT_KEY); } catch { /* storage may be unavailable */ }
+    }
   }
   const chosen = Number(el.dataset.maxPx || 0);
   const viewportLimit = Math.min(AUTOGROW_MAX_PX, Math.round(window.innerHeight * AUTOGROW_MAX_VIEWPORT));
@@ -25370,6 +25388,10 @@ function initComposerResize() {
     if (!height || Math.abs(height - automatic) <= 2) return;
     box.dataset.maxPx = String(height);
     try { localStorage.setItem(COMPOSER_HEIGHT_KEY, String(height)); } catch { /* private mode */ }
+    //: Read and cleared by `autoGrow`'s "an empty box forgets the drag"
+    //: branch, so the height this just recorded survives the very call
+    //: that applies it. See that branch for the report.
+    box.dataset.keepDrag = "1";
     requestAnimationFrame(() => autoGrow(box));
   };
   box.addEventListener("pointerdown", (event) => {

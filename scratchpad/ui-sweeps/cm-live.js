@@ -118,6 +118,33 @@ function ok(name, condition, detail) {
   });
   ok("a checkbox writes the source", toggled.before && toggled.after, JSON.stringify(toggled));
 
+  // **Click an underlined word, see suggestions** (DOCUMENTS_PLAN Phase 0
+  // item 2, the sentence the whole plan started from). The finding is a
+  // decoration now, so this is a click on a real element in every view, and
+  // the menu anchors to the word rather than to the caret.
+  const suggest = await page.evaluate(async () => {
+    const mark = document.querySelector("#doc-editor .cm-finding");
+    if (!mark) return "no finding mark";
+    const r = mark.getBoundingClientRect();
+    const word = mark.textContent;
+    mark.dispatchEvent(new MouseEvent("click", {
+      bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, detail: 1,
+    }));
+    await new Promise((res) => setTimeout(res, 500));
+    const menu = document.getElementById("doc-suggest-menu");
+    const anchored = menu && Math.abs(menu.getBoundingClientRect().left - r.left) < 60;
+    return {
+      word,
+      open: Boolean(menu) && !menu.classList.contains("hidden"),
+      anchored,
+      first: menu?.querySelector(".doc-suggest-item")?.textContent?.trim(),
+    };
+  });
+  ok("clicking an underlined word opens its suggestions, at the word",
+    suggest.open && suggest.anchored && /the/.test(suggest.first || ""), JSON.stringify(suggest));
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+
   // Source view is the same editor with the decorations off.
   await page.evaluate(() => setDocView("source"));
   await page.waitForTimeout(500);

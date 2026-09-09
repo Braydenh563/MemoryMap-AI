@@ -1354,6 +1354,18 @@ header#top-bar.tabs-wrapped #tab-bar {
   gap: var(--space-3);
   min-width: 0;
   flex: 1 1 auto;
+  /* **Wrap allowed here after all, for the row this was written against.**
+     The comment above kept the title and its chip on one flex line so a
+     narrow modal could not separate them onto two unrelated ones. Reported
+     again with a screenshot on "Search by meaning (sentence-transformers)":
+     that title plus the "Installed" chip is long enough that keeping them
+     rigidly on one line left no room for Reinstall/Remove beside it, so
+     `.entry-actions` (itself `flex: 0 0 auto`, never shrinking) was the one
+     forced to wrap, landing right-aligned on its own line under an empty
+     gap. `wrap` here lets the chip drop under the name instead, which is
+     the outcome the original fix wanted in the first place, only one flex
+     item too conservative about which piece was allowed to give. */
+  flex-wrap: wrap;
 }
 
 .extras-row .entry-actions {

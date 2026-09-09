@@ -1292,10 +1292,23 @@ body.resizing-sidebar {
      out of whichever class it happened to carry. It is the same fault, with
      the same fix and the same token, as `.library-head` and the OCR
      workspace's header; DESIGN.md's control-height rule is about exactly this.
-     2rem rather than 2.25: this strip holds ~30 controls and sits directly
-     above the writing surface, so it is the one bar in the app that should be
-     the smaller of the two comfortable heights. */
-  --control-h: 2rem;
+
+     **Reversed, 2026-09-09.** Was `2rem`, on the stated reasoning that this
+     strip holds ~30 controls and sits directly above the writing surface, so
+     it should be the smaller of the two comfortable heights. The owner,
+     directly, with a screenshot: "the documents toolbar is still slightly
+     crushed vertically on the edit mode, it is fine on the read mode, fix it
+     and make it the same as the note capture toolbar." `#note-toolbar`
+     carries this same `.doc-toolbar` class (it is the composer's cloned
+     strip) but no size override of its own, so it renders at the app's
+     ordinary control size: measured, its `H1` button was 21.76px line-height
+     on a 13.6px font with 6.4px/12.8px padding, against this strip's 19.2px
+     line-height, 12.8px font and 4px/6.4px padding, the actual "crushed"
+     `#doc-toolbar` was reporting. `--control-h-lg` is that ordinary size,
+     the same token `.chat-dock` and the top bar already use, not a new
+     number: one editing surface's toolbar no longer reads smaller than the
+     other's for a reason nothing on screen explains. */
+  --control-h: var(--control-h-lg);
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
@@ -1414,6 +1427,9 @@ body.resizing-sidebar {
    else's 32: the same "five different heights" fault this rule was written
    to end, surviving in the one element type it did not name. */
 .doc-toolbar summary {
+  /* Padding and font are set below, on `.doc-toolbar button` (a later,
+     equal-specificity rule that would otherwise win this exact fight);
+     stated once, there, not duplicated here. */
   height: var(--control-h);
   padding-block: 0;
   margin: 0;
@@ -1584,8 +1600,14 @@ body.resizing-sidebar {
 .doc-toolbar button.icon-button,
 .doc-toolbar summary {
   min-width: 2rem;
-  padding: 0.25rem 0.4rem;
-  font-size: 0.8rem;
+  /* Was 0.25rem/0.4rem and 0.8rem: this rule, later in the file than the
+     `--control-h-lg` height/padding-inline/font-size fix above, was the
+     actual reason that fix never showed up measured live (0.8rem beat
+     `var(--text-md)` on identical specificity by coming second). Matched
+     to `#note-toolbar`'s own unstyled buttons, the "note capture toolbar"
+     size the owner asked this strip to equal: 0.4rem/0.8rem, 0.85rem. */
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-md);
   background: none;
   border: 1px solid transparent;
   box-shadow: none;

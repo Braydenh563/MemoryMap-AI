@@ -2,9 +2,14 @@
 
 **Agent id**: `agent-a93efefdb83c29141` (Brief 21, UI Phases 9 and 10, then
 the owner's evening batch).
-**Last worked**: 2026-09-09. The worktree is merged up to the branch (the
+**Last worked**: 2026-09-09, fourth batch. The worktree is merged up to the branch (the
 CodeMirror editor, the read-only graph layouts and the `place()` menu-height
 fix are all in) and the tree is clean at every commit below.
+
+**The fourth batch** (the `docks.js` artefact, the two escaped-menu
+placements, the paint lint's narrowness, then the Contents dock): all four
+done, commits `ccb8c46`, `f9553ad`, `6663bb2`, `e8f3ca7`. Section 7e has the
+numbers.
 
 **The third batch** (the map exports, the boards dock, the paint lint): all
 three done, commits `74e12d7`, `af14a42`, `39df02a`. The lint found a live
@@ -262,23 +267,93 @@ surfaces side by side:
 
 | | dashboard band | Library boards dock |
 | --- | --- | --- |
-| control height | 37px (pills), 52px (stat tiles) | **28px and 36px, two heights in one bar** |
+| control height | 37px (pills), 52px (stat tiles) | 36px, one height |
 | radius | 999px pills, 8.4px tiles | 999px chips |
 | rows at 1440 | 1 and 1, both filling the width | 1 (was 2 before `af14a42`) |
 | rows at 1024 | 1 and 1 | 1 (was 3) |
 
 They do not fight: the band is pills and tiles inside a page, the dock is a
-control bar, and the shared shapes (the pill radius) agree. **What does not
-agree is the dock with itself**: eleven controls at two heights, wrapping to
-two rows at 1440 and three at 1024. That is the wrapping report another agent
-holds, and the two-heights half is the dock-grammar defect `docks.js` already
-reports for the whiteboard's own bar. Recorded here rather than changed, as
-instructed.
+control bar, and the shared shapes (the pill radius) agree.
+
+**Corrected, and the correction matters more than the row it replaces.** This
+table first said the boards dock held "28px and 36px, two heights in one bar".
+It does not, and never did: `docks.js` was counting a segmented control three
+times, once as the `.seg` well at 36px and once per inset button at 28px, and
+those buttons are inset by the well's own padding on purpose
+(`08-consistency.css`). The bar was already consistent and I published it as
+broken. `ccb8c46` fixes the sweep; section 7e has the new baseline.
+
+## 7e. The fourth batch, and what it leaves
+
+- **`docks.js` counted parts, not controls** (`ccb8c46`). It reported `28/36`
+  for every dock holding a segment, which is the well and its inset buttons,
+  and `2/28/36` for the Timeline, which adds the hidden native `<select>`
+  behind an enhanced one. A `.seg`, a `.segmented-control` and a
+  `.select-shell` now count once, as themselves, and `.dock-native-hidden`,
+  `.dock-menu-label` and `.visually-hidden` count not at all. The new baseline
+  at 1440, controls/heights: notes 6/36, chat 4/36, graph 6/36, library 5/36,
+  timeline 4/36, reminders 1/36, whiteboard `#wb-topbar` 13/36 (13 controls,
+  not the 15 it claimed, at one height, not two). One real fault survived the
+  artefact and is fixed in the same commit: chat's `#chat-active-model` pill
+  was 28px in a 36px bar.
+  **Left**: nothing. The sweep's header says why it counts this way, so the
+  next reader does not "fix" it back.
+- **Two escaped-menu placements** (`f9553ad`). The finding was real but
+  mis-aimed: the whiteboard's top-bar menus are not a copy of
+  `wireEscapedActionMenu`'s `place()`, they are a copy of the
+  `details.dock-menu` toggle handler, identical to the margin and the 120px
+  floor, which `wbCapBoardMenu`'s own comment admitted. Those two are now one
+  function, `escapeAndCapMenu` in app.js. `place()` stays separate on purpose,
+  and the reason is written at both functions: it positions its menu itself
+  because an escaped `.action-menu` has no position of its own, while a dock
+  or whiteboard menu that nothing clips is still anchored by CSS where it
+  belongs. Measured identical before and after: the five whiteboard menus at
+  1440x900, 1280x640 and 1024x560 (View escapes at the two smaller sizes,
+  capped 576px and 496px, 20px and 100px of scroll), and nine
+  `details.dock-menu` panels at 1024x560 capping to exactly the room below
+  their own top.
+  **Left**: nothing on the consolidation. See section 8 for the one gap this
+  reading turned up.
+- **The paint lint's narrowness** (`6663bb2`). Widened where it can be:
+  the class assignment is read through a ternary, a multi-name
+  `classList.add` or a template literal, and a name touching a `${...}` hole
+  is dropped rather than reported as a prefix. Pairs seen: 0 before, 1 after
+  (`whiteboard.js:398`, correctly not an offence). Not widened, and now in the
+  docstring with the reason: an unclassed element reached by a descendant
+  selector, because matching those by element name alone flags a `<line>` in
+  a different subtree. `scratchpad/ui-sweeps/paint.js` covers that half in the
+  browser, where the tree is real, and proves it can see the fault before
+  reporting none. Nine surfaces: 0.
+- **The Contents dock** (`e8f3ca7`), the wrap `finalqa.js` found. Before, at
+  1024x768: two row tops, 162 and 206. After: one row at every width measured,
+  1440, 1024 and 820, the actions zone 200px wide down to 127px, and the
+  four-way segment folding into the new `...` below 1100 like every other
+  dock's arrange zone. Driven rather than looked at: switching mode from
+  inside the menu still switches the index, and Collapse all takes two
+  sections to zero and back with its label following and its icon intact.
+  `finalqa.js` across four passes is 0 and 0.
+  **Left**: nothing at these widths. Band 3 does not wrap here, unlike the
+  boards dock, because the filter field is the only thing competing with the
+  actions.
 
 ## 8. Found, not fixed
 
-**Fixed since**: the two XML exports that recursed (`74e12d7`), and the
-`.wb-map-edge` stroke attribute that the whole app ignored (`39df02a`).
+**Fixed since**: the two XML exports that recursed (`74e12d7`), the
+`.wb-map-edge` stroke attribute that the whole app ignored (`39df02a`), and
+`test_labels_stay_with_their_own_positions`, which was still building
+five-field preview rows after `_preview_items` grew each item's width and
+height and raised `ValueError` the moment a gate ran it (`e8f3ca7`).
+
+**`placeEscapedMenu` places but never caps.** The automatic escape path
+(`openActionMenu` to `escapeMenuIfClipped`) is the one caller that does not
+cap the menu afterwards: `wireEscapedActionMenu`'s `place()` caps, and
+`escapeAndCapMenu` caps, but a plain `.action-menu` that escapes a clipper and
+is taller than the window is clamped to `margin` and runs off the bottom with
+no scroll. Nothing reproduces it today, which is why it is here and not fixed:
+the fix is to move `place()`'s room-above/room-below cap into
+`placeEscapedMenu` itself, and it changes placement for the 21 menus that path
+covers, so it wants its own measurement pass rather than a rider on someone
+else's commit.
 
 **A `stroke` or `fill` attribute is beaten by any stylesheet rule for the
 same property**, and `tests/test_svg_paint_attributes.py` now holds that.

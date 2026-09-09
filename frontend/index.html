@@ -4842,8 +4842,6 @@ Link to another note with [[its first few words]]."></textarea>
           </div>
         </div>
         <div class="dock-actions">
-          <button id="contents-collapse" class="ghost small" type="button"
-            title="Collapse or expand every section">Collapse all</button>
           <button id="contents-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
           <!-- Directly requested: "make the text at the top of the contents page
                one of those tooltip '?' buttons". Four lines of prose that only
@@ -4854,6 +4852,31 @@ Link to another note with [[its first few words]]."></textarea>
             aria-expanded="false" aria-controls="contents-intro"
             title="An index of your notebook: by category, by tag, by the month you wrote it, or by the folder it came from if you imported a vault. Filter it, fold a section away, or jump straight to one. For the visual map of how notes link to each other, see the Graph tab."
             aria-label="What is this page?"><i class="ph ph-question" aria-hidden="true"></i></button>
+          <!-- The same answer the Boards and maps dock gave this morning to
+               the same question, so the two docks do not disagree. Measured
+               at 1024x768 before: the row wrapped, controls at tops 162 and
+               206, with Collapse all, refresh and help pushed under the
+               four-way segment, because 360px of filter plus 468px of segment
+               plus 200px of actions does not fit in 949px of dock.
+
+               Collapse all is the control that moves. It is a verb used
+               sometimes, which is rule 5's case for the menu, while refresh
+               and help are the utilities the grammar keeps in the row
+               (`tests/test_dock_grammar.py`: refresh, help, more, in that
+               order).
+
+               And, as there, the `...` is what `foldDockArrange` (app.js)
+               looks for: `:scope > .dock-actions > .dock-more >
+               .dock-menu-list`. Without one this dock could not fold its
+               arrange zone below 1100, so the four-way segment stayed in the
+               row at every width while every other dock's folded away. -->
+          <details class="doc-dock-menu dock-menu dock-more" id="contents-more">
+            <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
+            <div class="doc-dock-menu-list dock-menu-list">
+              <button id="contents-collapse" class="doc-dock-menu-item" type="button"
+                title="Collapse or expand every section"><i class="ph ph-arrows-in ph-lead" aria-hidden="true"></i> <span data-collapse-label>Collapse all</span></button>
+            </div>
+          </details>
         </div>
       </div>
       <p class="muted graph-help-panel hidden" id="contents-intro" role="dialog" aria-label="What is this page?">An index of your notebook: by category, by tag, by the

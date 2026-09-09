@@ -26116,9 +26116,22 @@ async function renderExtras() {
 
     const head = document.createElement("div");
     head.className = "entry-meta";
+    // The name and its state chip are one flex item now, not two. Reported:
+    // "there are also still wrapping issues in the packages tab with the
+    // buttons, titles, and badges" -- the Tesseract row's title, its
+    // "Installed" chip and its Reinstall/Remove buttons are three
+    // independent flex children of one wrapping row, same shape as the
+    // chat answer header's own wrap bug (see .answer-title). A long label
+    // like "Search inside images (Tesseract OCR)" plus a chip plus two
+    // buttons does not fit one line in the settings modal, and letting the
+    // three fragment independently is what put them on three unrelated
+    // lines instead of two related ones (title+chip, then actions).
+    const title = document.createElement("span");
+    title.className = "entry-title";
     const name = document.createElement("strong");
     name.textContent = extra.label;
-    head.appendChild(name);
+    title.appendChild(name);
+    head.appendChild(title);
 
     const actions = document.createElement("span");
     actions.className = "entry-actions";
@@ -26134,7 +26147,7 @@ async function renderExtras() {
       // first. A chip says "state", a button says "press me", and this is a
       // state.
       const done = chip("ph:check-circle Installed", "extras-installed");
-      head.appendChild(done);
+      title.appendChild(done);
       // And a way back out of the state detection cannot see. `find_spec`
       // answers "is it there", not "is it sound" — a half-finished download or
       // a wheel built for the wrong platform imports and does not work, and
@@ -26195,7 +26208,7 @@ async function renderExtras() {
       actions.appendChild(blocked);
       // Same treatment as Installed, and for the same reason: it is the row's
       // state, so it sits with the name rather than in the action column.
-      head.appendChild(chip("ph:hourglass Not ready yet", "extras-soon"));
+      title.appendChild(chip("ph:hourglass Not ready yet", "extras-soon"));
     } else {
       actions.appendChild(
         smallButton("⬇ Install", `Install ${extra.label}`, async () => {

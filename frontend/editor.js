@@ -128,9 +128,17 @@ function editorNotifyHost(textarea) {
     return;
   }
   textarea.dispatchEvent(new Event("input", { bubbles: true }));
-  // The capture box grows with its content; a scripted write has to ask.
+  //: The capture box grows with its content; a scripted write has to ask.
+  //: **`.el`, not the surface.** `autoGrow` is app.js's and works on a real
+  //: element: it writes `style.height`, and a surface has no `style`. Passing
+  //: the surface threw `Cannot set properties of undefined (setting
+  //: 'height')` out of every "/" command in the note composer, which still
+  //: *inserted* the text, so the menu looked like it worked and the box
+  //: silently stopped growing. Found by driving the capture box
+  //: (`scratchpad/ui-sweeps/cm-notes.js`), not by reading: the surface wears
+  //: enough of a textarea's names that the call site reads as correct.
   if (typeof autoGrow === "function" && textarea.classList.contains("autogrow")) {
-    autoGrow(textarea);
+    autoGrow(textarea.el);
   }
 }
 

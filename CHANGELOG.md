@@ -64,6 +64,20 @@ notes) is not repeated here; see `docs/roadmap/` for that record.
 - Phase 0: the fifth bug and the states checked, recorded and built.
 - Phase 1: the chrome, three questions in three places, plus one header
   row where the formatting strip only appears when asked for.
+- Phase 2 steps 2 to 4: the editor *is* CodeMirror 6 now, behind one
+  adapter (`docSurface()`), loaded the first time a document is opened.
+  Live preview renders in place instead of in a second pane, with the
+  markdown markers hiding themselves until the caret enters what they mark,
+  links and `[[wiki links]]` as chips, task checkboxes that tick, callouts
+  and quotes with a left bar and images shown; Source is the same editor
+  with the rendering off, so switching keeps your place, your selection and
+  your undo history. Find and replace is the engine's panel (regular
+  expressions, whole-word, a Replace all that one Ctrl+Z puts back),
+  headings fold in the line-number column, and twenty-one languages get
+  syntax colouring. Typing in a 20,000-word document went from a measured
+  160 ms per keystroke to 16 ms. The per-paragraph Live view, the Phase 0
+  backdrop and the snapshot undo stack are deleted with it, and the block
+  handle goes with them until Phase 3 brings block structure back.
 - The instruments VS Code and Word have that this editor did not: real
   underlines in Source view on a backdrop behind the textarea, one click
   on an underline opens ranked suggestions, a file-type change re-runs the

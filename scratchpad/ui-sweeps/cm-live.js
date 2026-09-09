@@ -25,6 +25,15 @@ const BODY = [
   "```",
   "",
   "This sentance has teh typo in it.",
+  "",
+  // A link whose text wraps across a line break, and an image whose alt text
+  // does. Both put a newline inside a range the decorations would replace,
+  // which CodeMirror refuses outright ("Decorations that replace line breaks
+  // may not be specified via plugin") by throwing out of the update. One
+  // document like this used to stop the view updating at all.
+  "A [wrapped",
+  "link](https://example.com) and an ![alt",
+  "text](/files/none.png) after it.",
 ].join("\n");
 
 let failures = 0;
@@ -82,7 +91,7 @@ function ok(name, condition, detail) {
   ok("inline code", (await count("#doc-editor .cm-md-code")) === 1);
   ok("strikethrough", (await count("#doc-editor .cm-md-strike")) === 1);
   ok("highlight", (await count("#doc-editor .cm-md-highlight")) === 1);
-  ok("a link chip", (await count("#doc-editor .cm-md-link")) === 1);
+  ok("a link chip", (await count("#doc-editor .cm-md-link")) >= 1);
   ok("a wiki chip", (await count("#doc-editor .cm-md-wiki")) === 1);
   ok("task checkboxes", (await count("#doc-editor input.cm-md-task")) === 2);
   ok("a quote bar", (await count("#doc-editor .cm-md-quote")) >= 1);
@@ -117,6 +126,33 @@ function ok(name, condition, detail) {
     return { before: before.includes("- [ ] a task"), after: docSurface().text.includes("- [x] a task") };
   });
   ok("a checkbox writes the source", toggled.before && toggled.after, JSON.stringify(toggled));
+
+  // **Click an underlined word, see suggestions** (DOCUMENTS_PLAN Phase 0
+  // item 2, the sentence the whole plan started from). The finding is a
+  // decoration now, so this is a click on a real element in every view, and
+  // the menu anchors to the word rather than to the caret.
+  const suggest = await page.evaluate(async () => {
+    const mark = document.querySelector("#doc-editor .cm-finding");
+    if (!mark) return "no finding mark";
+    const r = mark.getBoundingClientRect();
+    const word = mark.textContent;
+    mark.dispatchEvent(new MouseEvent("click", {
+      bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, detail: 1,
+    }));
+    await new Promise((res) => setTimeout(res, 500));
+    const menu = document.getElementById("doc-suggest-menu");
+    const anchored = menu && Math.abs(menu.getBoundingClientRect().left - r.left) < 60;
+    return {
+      word,
+      open: Boolean(menu) && !menu.classList.contains("hidden"),
+      anchored,
+      first: menu?.querySelector(".doc-suggest-item")?.textContent?.trim(),
+    };
+  });
+  ok("clicking an underlined word opens its suggestions, at the word",
+    suggest.open && suggest.anchored && /the/.test(suggest.first || ""), JSON.stringify(suggest));
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
 
   // Source view is the same editor with the decorations off.
   await page.evaluate(() => setDocView("source"));

@@ -1,7 +1,23 @@
 # Documents: the engine (DOCUMENTS_PLAN Phase 2 steps 2 to 4)
 
-Steps 2, 3 and 4 are built, measured and committed. What follows is what the
-next session should pick up, in order, with the file and the line area.
+**Worktree** `agent-a02238762ae6136e9`, branch
+`worktree-agent-a02238762ae6136e9`. Steps 2, 3 and 4 are **done**: built,
+measured in a browser, documented in HISTORY.md ("Built, Phase 2 steps 2 to
+4"), and committed. Nothing is half-finished and nothing is uncommitted; the
+branch is merged in and never pushed, which is the orchestrator's job.
+
+Fourteen commits, `7a1915d` (tests first) through the head. The first nine
+are already on `claude/epic-ramanujan-8xocc0`; the rest are the merge plus
+`f971cab`, `6256c86`, `c0bf99d`, `5d74595`, `cf668bd`, `8c11b48`.
+
+Gates at the head: `scripts/gate.sh --full` green (lints, `node --check`,
+ruff, full suite); `errors.js` 0 errors and 0 layout findings at 1440, 1024,
+820 and 390; seven new sweeps in `scratchpad/ui-sweeps/` (`cm-engine`,
+`cm-live`, `cm-search`, `cm-editor`, `cm-layout`, `cm-dark`, `cm-notes`) all
+pass; `doctype.js` Live p50 16 to 24 ms against a 30 ms gate.
+
+What follows is what the *next* session should pick up, in order, with the
+file and the line area.
 
 ## 1. `revalidateSelection` reads the stale fallback (a real bug, not a tidy-up)
 
@@ -67,6 +83,23 @@ reads at `docSurface()` and its Live interactions at
 `#doc-editor .cm-content`, drop the checks for the four retired things
 (`docUndoStack`, `docUndoAt`, `#doc-live .lp-src`, `has-backdrop`), and
 report how many of the 89 survive.
+
+## 2b. The surface's aliases are a trap worth one more pass
+
+The adapter answers to the textarea's own property names as well as to the
+plan's interface, which is what made the refactor tractable. It also means a
+call site that hands the surface to something expecting a *DOM element*
+reads as correct and fails at runtime: `editorNotifyHost` passed it to
+app.js's `autoGrow`, which writes `style.height`, and every "/" command in
+the note capture box threw while still inserting its text. Fixed, and
+`cm-notes.js` exists because of it.
+
+There is no lint for the class. A cheap one: fail on `autoGrow(`,
+`mountGutterFor(`, `syncDocGutterMetrics(` or `watchDocGutter(` called with
+an identifier the same function received as a surface. Better still, grep
+for the surface's own missing names (`.style`, `.offsetHeight`,
+`.parentElement`, `.isConnected`) applied to a variable a surface reaches.
+Neither is written.
 
 ## 3. Things the plan lists for this phase that are deliberately not here
 

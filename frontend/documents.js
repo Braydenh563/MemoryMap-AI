@@ -413,11 +413,15 @@ function cmSurface(view) {
     blur() { view.contentDOM.blur(); },
     rect() { return view.dom.getBoundingClientRect(); },
     getBoundingClientRect() { return view.dom.getBoundingClientRect(); },
-    //: CodeMirror raises no `input` event for a scripted change, so the one
-    //: pipeline every other box reaches through `input` is called straight
-    //: instead. Same effect, and no synthetic event on a contenteditable.
+    //: **Nothing to dispatch, and that is not a stub.** Callers written for a
+    //: textarea end a scripted write with an `input` event, because writing
+    //: `.value` raises none and half this editor hangs off one. Every write
+    //: through this adapter is a *transaction*, and the view's update
+    //: listener has already run the same pipeline by the time this is
+    //: reached: raising a synthetic event on a contenteditable would run it a
+    //: second time and reset the autosave timer twice per edit. Returns true
+    //: because that is what `dispatchEvent` means: nothing cancelled it.
     dispatchEvent() {
-      docSurfaceChanged();
       return true;
     },
   };
@@ -425,8 +429,10 @@ function cmSurface(view) {
   return surface;
 }
 
-//: Registered through `onChange`; run for a CodeMirror edit by the view's own
-//: update listener and for a scripted write by `dispatchEvent` above.
+//: Registered through `onChange` on a CodeMirror surface, and run by the
+//: view's own update listener. A textarea surface registers the same
+//: callbacks as real `input` listeners on the element, so the two engines
+//: reach one pipeline by the same call.
 const docSurfaceChangeHandlers = [];
 
 function docSurfaceChanged() {
@@ -1849,6 +1855,22 @@ function docLivePlugin(CM) {
     };
     const tree = syntaxTree(state);
 
+    //: **A replace decoration may not contain a line break, and this is not a
+    //: style rule: CodeMirror throws "Decorations that replace line breaks may
+    //: not be specified via plugin" and the whole view stops updating.** Every
+    //: hidden marker below is one or two characters, which looks safe and is
+    //: not: a markdown link's text can wrap across a soft line break, so
+    //: `[some\nlabel](url)` puts a newline inside the `](url)` this hides, and
+    //: an image's alt text can do the same. The failure lands on one unusual
+    //: document, in a plugin nowhere near the link that caused it, which is
+    //: the shape this codebase keeps recording. One guard, at the one place
+    //: that pushes a replacement.
+    const hide = (from, to) => {
+      if (to <= from) return;
+      if (doc.sliceString(from, to).includes("\n")) return;
+      ranges.push(hidden.range(from, to));
+    };
+
     for (const visible of view.visibleRanges) {
       tree.iterate({
         from: visible.from,
@@ -1865,7 +1887,7 @@ function docLivePlugin(CM) {
             if (lineTouched(node.from)) return false;
             let end = node.to;
             while (end < doc.length && doc.sliceString(end, end + 1) === " ") end += 1;
-            ranges.push(hidden.range(node.from, end));
+            hide(node.from, end);
             return false;
           }
           if (name === "StrongEmphasis" || name === "Emphasis" || name === "Strikethrough") {
@@ -1883,7 +1905,7 @@ function docLivePlugin(CM) {
             //: A fence's own ``` is a `CodeMark` too, and hiding those would
             //: leave a code block with no visible boundaries at all.
             if (!parent || parent.name === "FencedCode") return false;
-            if (!touched(parent.from, parent.to)) ranges.push(hidden.range(node.from, node.to));
+            if (!touched(parent.from, parent.to)) hide(node.from, node.to);
             return false;
           }
           if (name === "Link") {
@@ -1898,8 +1920,8 @@ function docLivePlugin(CM) {
               }).range(node.from + 1, node.from + close)
             );
             if (!touched(node.from, node.to)) {
-              ranges.push(hidden.range(node.from, node.from + 1));
-              ranges.push(hidden.range(node.from + close, node.to));
+              hide(node.from, node.from + 1);
+              hide(node.from + close, node.to);
             }
             return false;
           }
@@ -1909,6 +1931,9 @@ function docLivePlugin(CM) {
             if (close <= 1) return false;
             const src = sameOrigin(text.slice(close + 2, text.length - 1));
             if (!src || touched(node.from, node.to)) return false;
+            //: Same rule as `hide`: an image whose alt text wraps would put a
+            //: line break inside the range this widget replaces.
+            if (text.includes("\n")) return false;
             ranges.push(
               Decoration.replace({
                 widget: new DocImageWidget(src, text.slice(2, close)),
@@ -1943,7 +1968,7 @@ function docLivePlugin(CM) {
             if (touched(line.from, line.to)) return false;
             let end = node.to;
             while (end < doc.length && doc.sliceString(end, end + 1) === " ") end += 1;
-            ranges.push(hidden.range(node.from, end));
+            hide(node.from, end);
             return false;
           }
           if (name === "FencedCode") {
@@ -1989,8 +2014,8 @@ function docLivePlugin(CM) {
       scan(/==([^=\n]{1,200})==/g, (match, from, to) => {
         ranges.push(Decoration.mark({ class: "cm-md-highlight" }).range(from, to));
         if (touched(from, to)) return;
-        ranges.push(hidden.range(from, from + 2));
-        ranges.push(hidden.range(to - 2, to));
+        hide(from, from + 2);
+        hide(to - 2, to);
       });
       scan(/\[\[([^[\]\n]{1,120})\]\]/g, (match, from, to) => {
         const name = match[1].trim();
@@ -2001,8 +2026,8 @@ function docLivePlugin(CM) {
           }).range(from + 2, to - 2)
         );
         if (touched(from, to)) return;
-        ranges.push(hidden.range(from, from + 2));
-        ranges.push(hidden.range(to - 2, to));
+        hide(from, from + 2);
+        hide(to - 2, to);
       });
     }
     //: Sorted by CodeMirror rather than by hand: the tree walk and the two
@@ -3123,7 +3148,11 @@ function docSurfaceInput() {
   scheduleDocPreview();
   renderDocGutter();
 }
-docBoxEl().addEventListener("input", docSurfaceInput);
+//: Registered through the adapter rather than on the element, so the same
+//: line serves whichever engine is underneath. `mountDocEditor` says it
+//: again for the view it builds: a handler registered on the fallback's DOM
+//: cannot follow the document into CodeMirror.
+docSurface().onChange(docSurfaceInput);
 // The gutter is a separate element beside the textarea, so it has to be told
 // to follow it, because a textarea's own scroll does not move its siblings.
 // The fallback's problem only: the engine's own gutter is inside the view and
@@ -6500,7 +6529,6 @@ function docCmExtensions(CM) {
 //: pipeline for typed and scripted edits alike.
 function docCmUpdate(update) {
   if (update.docChanged) {
-    docSurfaceInput();
     docSurfaceChanged();
     docToolsOnInput(docSurface());
     //: editor.js hangs the "/" and `[[` triggers off a DOM `input` event,
@@ -6599,6 +6627,10 @@ function mountDocEditor(CM) {
     extensions: docCmExtensions(CM),
   });
   docCmView = new CM.view.EditorView({ state, parent: host });
+  //: The document-level pipeline, re-registered on the surface that exists
+  //: now: the fallback's own `input` listener is on an element the engine has
+  //: just taken out of the layout.
+  cmSurface(docCmView).onChange(docSurfaceInput);
   host.classList.remove("hidden");
   $("doc-source-wrap")?.classList.add("has-cm");
   //: The column beside the textarea is not the editor's gutter any more

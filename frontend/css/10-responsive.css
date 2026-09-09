@@ -403,6 +403,24 @@ header#top-bar,
   }
 }
 
+/* --- the one control in a dock that was not the dock's height -------------
+
+   Found by `docks.js` the moment it stopped counting a segment's buttons as
+   controls (the artefact that had every dock with a segment reporting
+   `28/36`). With the phantoms gone, exactly one bar still reports two
+   heights: Chat's, where `#chat-active-model` is 28px in a row of 36px
+   controls. It takes `min-height: var(--target-min)` and no height at all,
+   and the dock's own `height: var(--control-h)` rule does not reach it.
+
+   `line-height` with the height so the single line stays centred: the button
+   is `display: block` on purpose (see its rule in 07-whiteboard-misc.css:
+   that is what anchors the ellipsis at the start of a long model name), and a
+   block does not centre its text the way a flex row would. */
+.dock .chat-model-button {
+  height: var(--control-h);
+  line-height: var(--control-h);
+}
+
 /* --- INBOX 68: the board and map previews ---------------------------------
 
    The owner, twice: "Boards & maps preview looks so bad, especially in the

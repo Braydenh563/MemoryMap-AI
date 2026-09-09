@@ -131,7 +131,25 @@ are only just begun or half done." True; this table is the state.
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 
-**Now (2026-09-09 01:05 UTC):** two Opus agents in flight: DOCUMENTS Phase 2
+**Now (2026-09-09 05:00 UTC, written for the Opus orchestrator the owner
+is switching to at 95% Fable usage):** CI and CodeQL are green again as of
+433a3d6 (doc dock test, CHANGELOG mirror, two asserts). Two Opus agents are
+resumed in their worktrees after the 04:20 limit reset: DOCUMENTS Phase 2
+steps 2 to 4 (`agent-a02238762ae6136e9`, its tests-first commit is on the
+branch with strict-xfail markers) and GRAPH Phase 6 node panel + Library
+image cards + whiteboard bottom bar and properties panel (INBOX 52, 56, 59,
+64, 65; `agent-a39e62953a9e53b63`). When each reports: `git merge
+worktree-agent-<id>`, the lint set, `node --check`, ruff, errors.js at four
+widths, push. The complete open scope is **SESSION_BRIEFS Brief 18**; work
+it in its order: A (the owner's bugs, INBOX 66 to 96 minus the ones marked
+fixed) with Sonnet, then B documents and C graph with Opus, two agents at
+a time. The owner's rules stand: commit and push per step, five-line
+reports, no em-dashes, no exclamation marks, tokens not px, the
+`[data-glass="off"]` list for any new glass surface, measure before
+claiming. Not verified in a browser this hour (the sweeps are the first
+thing to run): INBOX 82, 91 and the chat selection kebab (75).
+
+**Previous (2026-09-09 01:05 UTC):** two Opus agents in flight: DOCUMENTS Phase 2
 steps 2 to 4 (worktree agent-a02238762ae6136e9) and GRAPH Phase 6 node
 panel + Library image cards + whiteboard bottom bar (agent-a39e62953a9e53b63).
 Merge, gate, push each as it reports. Fable this hour: INBOX 49 to 58 (glass

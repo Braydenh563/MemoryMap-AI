@@ -23,6 +23,29 @@ never lost to the smaller stuff.
 
 ## Open items
 
+112. **Chat citation pointed at the wrong note, 2026-09-09 evening, verbatim
+    (the owner), with two screenshots.** "I asked the popup agent this, and
+    the bubble tea note it mentioned was my bubble tea mind map, but the
+    link it gave and grounded was my shakespeare note??" The transcript:
+    asked "What did I write about this week?", answered "You only have
+    one note (note #68) in your notebook, and its content is simply '#
+    bubble tea'", with "Found in 1 note" and "Opened 1 item" chips both
+    labelled "bubble tea" (model `granite4.1:3b`, "Librarian", 1.7k
+    tokens, 2 rounds). Clicking the "note #68" link in the answer's own
+    text opened a Shakespeare sonnet parody ("Act I, Scene I", tagged
+    "Thoughts & Ideas", "3 days ago") instead. Whatever renders an inline
+    "note #N" citation into a clickable link is resolving a different id
+    (or a different index into a different list) than the one the answer
+    text and the chips agree on and than the one actually named. Not
+    investigated: the likely site is wherever chat.js/app.js turns a
+    grounding citation into an anchor (search for how "note #" or a
+    similar citation marker becomes a link's href/data-id, and compare it
+    against the tool-call results the chips are built from in the same
+    turn). High priority: a citation that opens the wrong note is worse
+    than no citation, and this looks like a plain id/index mix-up rather
+    than a model hallucination (the model named the right note by content
+    and id in its own prose; only the link disagreed).
+
 INBOX is the intake tray, not a backlog (the owner, 2026-09-09: "it should
 just be there to help you not miss anything"). A report lands here
 verbatim, is triaged at the next step boundary, and leaves: fixed now (then
@@ -30,6 +53,61 @@ verbatim, is triaged at the next step boundary, and leaves: fixed now (then
 ("Placed from INBOX" sections). Under twenty items at any time, by lint.
 What is here now is this PR's own bug list (Brief 18 section A, HANDOVER's
 done-when item 4 and 5), in priority order.
+
+111. **End-of-session drop, 2026-09-09 evening, verbatim (the owner), fixed
+    this pass in parentheses.** "the documents formatting toolbar still
+    gets clipped, and can you change the editor window background for
+    when on the plain text view to be like vs code??" (fixed: stale
+    `doc-toolbar-mode` "row" localStorage value from before the
+    2026-09-09 wrap-default change migrated once to "wrap"; Plain view
+    now paints a literal black/white ground behind CodeMirror's own
+    transparent editor, `49d78c1`) · "also the show line numbers button
+    on the documents formatting toolbar doesnt work" (not investigated:
+    `applyDocGutter`/`docCmGutter` read `docGutterWanted`, wiring not yet
+    traced live) · "I dragged a note from the library dropdown onto the
+    board but the note appeared in the top left, not in the centre where
+    I placed it" (fixed: the drop handler measured against
+    `#wb-html-layer`'s own rect, which already carries the pan/zoom as a
+    CSS transform, then applied that same transform again on top;
+    switched to the untransformed `#whiteboard-container`, `49d78c1`) ·
+    "can you make the 'm' navigation kinda like alt tab... if I hold it
+    down the popup stays up", refined to "press m again to close it or
+    an x close button" (fixed: the guide no longer auto-hides on a fixed
+    900ms timer; a second "m" or a new X button closes it, `49d78c1`) ·
+    "and fix the whiteboard dropdown menu heights, make sure they arent
+    too short but also not clipped off the bottom" (**not verified**: a
+    live probe found no open board in the scratch data dir to measure
+    against; the two CSS `max-height` rules on `.wb-board-menu`
+    (07-whiteboard-misc.css ~7330 and ~7601) already disagree, the later
+    one, `calc(100vh - var(--space-9) * 2)`, wins and is the more
+    generous of the two, so the "too short" report may already be stale
+    or may be a real bug this session could not reproduce) · "when I
+    pressed the jump to latest button in the chat, it jumped to the
+    right for a second. same with a lot of dropdown menus and tooltips,
+    they flicker into the top corner for a second then appear in the
+    right place" (not investigated, owner said focus elsewhere first:
+    likely candidate is a shared "measure at 0,0 then reposition" recipe
+    that is not synchronous with paint somewhere outside
+    `wireEscapedActionMenu`'s own `place()`, which IS synchronous inside
+    one MutationObserver callback and should not flicker) · "this text in
+    the files sub tab needs indenting, and the describe with ai feature
+    needs to show in background process, same for all ocr processes"
+    (not investigated) · "when I try to manually change the height of
+    the chat bar, it snaps back to what it was with or without text in
+    it" (not investigated) · "the ai edit history popover still not
+    centering" (carried from 107a, still found-not-fixed) · "fix the ui
+    spacing and padding in the graph suggested links tab, make it
+    consistent with the rest of the app" (not investigated). 107c
+    (whiteboard View/Arrange, Ctrl+S feedback, the dashboard band) and
+    107d (the segmented mini-bar redesign) remain not started. The
+    second batch's own remaining items (boards & maps widget visual
+    design, AI skills sidebar not reaching full height, square tab
+    corners, chat panel shadow, light-vs-dark glass difference) remain
+    not reproduced live, not fixed. Two background agents (a dashboard
+    hero MSN-style redesign, a bugs-batch covering the whiteboard menus
+    and the AI history popover) were dispatched this session and both
+    hit the weekly agent rate limit before landing any commits; nothing
+    from either survives to merge.
 
 110. **A second batch, mid-work, 2026-09-09, verbatim (the owner).**
     "These requests in the photos and in the following also werent

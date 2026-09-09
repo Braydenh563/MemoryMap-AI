@@ -9392,6 +9392,26 @@ header#top-bar {
     width: var(--target-min);
     height: var(--target-min);
   }
+
+  /* INBOX 77: "token window badge: not centred" (screenshot: the "6% of
+     window" pill off-centre in the chat header, "and the header wraps at
+     width" alongside it, this rule's own band). Measured: the floor above
+     stretched the chat header's context-window badge from 20px to 44px,
+     the same height as a real touch control, though `.chat-context-pill`
+     is `#chat-turns`'/`#chat-active-model`'s sibling metadata badge, not
+     one, sized to its own single line of --text-sm type at every other
+     width. The badge's own `align-items: center` still centred its text
+     inside the taller box correctly, which is why this read as the badge
+     itself sitting oddly rather than as a height change: a 12px line
+     floating in a 44px pill beside `#chat-turns` and the title at their
+     normal size looks unbalanced, not centred, even though nothing in it
+     was actually off-axis. Excluded here rather than given
+     `min-height: auto` inline on `.chat-context-pill`, so the one place
+     that decides "is this row's floor met" for every dock stays that one
+     place. */
+  .dock .chat-context-pill {
+    min-height: auto;
+  }
 }
 
 /* --- the agent activity panel: nothing scrolls sideways, nothing folds onto

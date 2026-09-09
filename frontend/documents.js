@@ -1228,6 +1228,25 @@ function docReplaceAll() {
 }
 
 function toggleDocFindBar(open) {
+  //: **CodeMirror's own search panel, where the engine is mounted**
+  //: (DOCUMENTS_PLAN Phase 2 decision 7). It is not a nicer version of the
+  //: bar below, it is a different class of thing: it searches the *document*
+  //: through the editor's own index, highlights every match at once, knows
+  //: about regular expressions and whole-word matching, and replaces through
+  //: transactions so one Ctrl+Z undoes a Replace all. The bar below stays for
+  //: the fallback textarea, which has none of that and never will.
+  //:
+  //: One entry point, so Ctrl+F, the toolbar button and Escape all reach
+  //: whichever of the two is real without any of them knowing which.
+  const CM = window.CM6;
+  if (docCmView && CM) {
+    const open_ = open ?? !docCmView.dom.querySelector(".cm-search");
+    if (open_) CM.search.openSearchPanel(docCmView);
+    else CM.search.closeSearchPanel(docCmView);
+    $("doc-find-toggle")?.setAttribute("aria-expanded", String(open_));
+    if (!open_) docCmView.focus();
+    return;
+  }
   const bar = $("doc-find-bar");
   const show = open ?? bar.classList.contains("hidden");
   bar.classList.toggle("hidden", !show);
@@ -6836,9 +6855,9 @@ function docCmKeymap(CM) {
     { key: "Mod-1", run: () => { applyMarkdown("h1"); return true; } },
     { key: "Mod-2", run: () => { applyMarkdown("h2"); return true; } },
     { key: "Mod-3", run: () => { applyMarkdown("h3"); return true; } },
-    //: The app's own find bar, still: CodeMirror's search panel is Phase 2
-    //: step 4, and swapping the gesture before the panel is styled would put
-    //: an unstyled dialog in front of the one thing people press most.
+    //: One gesture, one entry point: `toggleDocFindBar` opens the engine's
+    //: panel here and the app's own bar on the fallback, so this binding does
+    //: not have to know which is on screen.
     { key: "Mod-f", run: () => { toggleDocFindBar(true); return true; } },
   ];
 }
@@ -6861,7 +6880,7 @@ function docCmExtensions(CM) {
     //: is not a reason to stop being told.
     docCmParts.live.of(docView === "live" ? docLivePlugin(CM) : []),
     docFindingsPlugin(CM),
-    docCmParts.gutter.of(docGutterWanted(!type.previewable) ? CM.view.lineNumbers() : []),
+    docCmParts.gutter.of(docCmGutter(CM)),
     CM.view.highlightSpecialChars(),
     CM.commands.history(),
     CM.view.drawSelection(),
@@ -6871,6 +6890,11 @@ function docCmExtensions(CM) {
     CM.language.syntaxHighlighting(CM.language.defaultHighlightStyle, { fallback: true }),
     CM.language.bracketMatching(),
     CM.search.highlightSelectionMatches(),
+    //: The panel at the top, where the app's own find bar already sits, so
+    //: the control does not move when the engine takes over from the
+    //: fallback. Its chrome is restyled in 09-editor.css onto this app's
+    //: field and button recipe.
+    CM.search.search({ top: true }),
     CM.view.rectangularSelection(),
     CM.view.crosshairCursor(),
     docCmParts.wrap.of(type.previewable ? CM.view.EditorView.lineWrapping : []),
@@ -7072,9 +7096,53 @@ function docCmSyncFileType() {
 function docCmSyncGutter() {
   const CM = window.CM6;
   if (!docCmView || !CM || !docCmParts.gutter) return;
-  const wanted = docGutterWanted(!docFileType().previewable);
-  docCmView.dispatch({
-    effects: docCmParts.gutter.reconfigure(wanted ? CM.view.lineNumbers() : []),
+  docCmView.dispatch({ effects: docCmParts.gutter.reconfigure(docCmGutter(CM)) });
+}
+
+//: **The gutter: numbers and folding, together, because they share a lane.**
+//:
+//: Decision 7 puts folding behind the same preference the line numbers are
+//: behind, and that is not an arbitrary pairing: a fold arrow needs a column
+//: to live in, and a column of arrows beside prose that has no numbers in it
+//: is a strip of chevrons with nothing to anchor them. One choice, one lane,
+//: `applyDocGutter` still owns the decision.
+function docCmGutter(CM) {
+  if (!docGutterWanted(!docFileType().previewable)) return [];
+  return [
+    CM.view.lineNumbers(),
+    CM.language.codeFolding(),
+    CM.language.foldGutter(),
+    CM.view.keymap.of(CM.language.foldKeymap),
+    docHeadingFold(CM),
+  ];
+}
+
+//: **Folding on headings.** The markdown parser gives fold ranges for fenced
+//: code and lists; a *section* is the unit anyone actually wants to collapse
+//: in a long document, and nothing in the grammar calls it one. So this is a
+//: fold service rather than a syntax property: from the end of a heading line
+//: to just before the next heading at the same level or above, which is what
+//: every outliner means by folding a section.
+//:
+//: Only for markdown. In a `.py` file a `#` line is a comment, and folding
+//: from one comment to the next would be nonsense.
+function docHeadingFold(CM) {
+  return CM.language.foldService.of((state, lineStart, lineEnd) => {
+    if (!docFileType().previewable) return null;
+    const line = state.doc.lineAt(lineStart);
+    const here = /^(#{1,6})\s/.exec(line.text);
+    if (!here) return null;
+    const level = here[1].length;
+    for (let number = line.number + 1; number <= state.doc.lines; number += 1) {
+      const next = state.doc.line(number);
+      const found = /^(#{1,6})\s/.exec(next.text);
+      //: The same level or shallower ends the section. A deeper heading is
+      //: part of it, which is why this is not simply "the next heading".
+      if (found && found[1].length <= level) {
+        return next.from - 1 > lineEnd ? { from: lineEnd, to: next.from - 1 } : null;
+      }
+    }
+    return state.doc.length > lineEnd ? { from: lineEnd, to: state.doc.length } : null;
   });
 }
 

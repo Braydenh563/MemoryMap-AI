@@ -28,7 +28,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-import pytest
 
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
 DOCUMENTS_JS = FRONTEND / "documents.js"

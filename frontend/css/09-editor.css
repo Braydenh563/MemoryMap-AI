@@ -72,6 +72,10 @@
   color: var(--text);
 }
 
+.doc-editor .cm-panels.cm-panels-top {
+  border-bottom: 1px solid var(--border);
+}
+
 .doc-editor .cm-panels.cm-panels-bottom {
   border-top: 1px solid var(--border);
 }
@@ -84,7 +88,7 @@
   padding: var(--space-3) var(--space-4);
 }
 
-.doc-editor .cm-search input[type="text"] {
+.doc-editor .cm-search .cm-textfield {
   background: var(--input-bg);
   color: var(--text);
   border: 1px solid var(--border);
@@ -94,12 +98,12 @@
   min-width: 12ch;
 }
 
-.doc-editor .cm-search input[type="text"]:focus-visible {
+.doc-editor .cm-search .cm-textfield:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 
-.doc-editor .cm-search button:not([name="close"]) {
+.doc-editor .cm-search .cm-button {
   background: var(--ghost-btn-bg);
   color: var(--text);
   border: 1px solid var(--border);
@@ -109,7 +113,7 @@
   cursor: pointer;
 }
 
-.doc-editor .cm-search button:not([name="close"]):hover {
+.doc-editor .cm-search .cm-button:hover {
   background: var(--ghost-btn-bg-hover);
 }
 

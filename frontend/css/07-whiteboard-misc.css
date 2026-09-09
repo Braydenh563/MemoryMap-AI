@@ -2107,8 +2107,23 @@ body.scroll-top-visible .skills-split > main {
   display: none;
 }
 
+/* **A section is as tall as what is in it.** Measured with a two-heading
+   document open at 1440: `#doc-outline-wrap` was 312.4px tall around 68.3px of
+   content and `#doc-bookmarks-wrap` 296.5px around 46px, so 243.1px of empty
+   column sat between the last outline entry and the References heading, and
+   another 250px under References. That is the hole in the owner's screenshot
+   of this sidebar, and it is `flex: 1 1 auto` on both of them: two sections
+   growing to split whatever height the panel has left, whether or not they
+   have anything to put in it.
+
+   `0 1 auto`: never grow past the content, still shrink when the panel is
+   short, which is what the `min-height` floor below is for. The spare height
+   is left spare, so the sections stack from the top the way a column of
+   sections is read. The outline's own list keeps its `max-height` cap below,
+   so a long document scrolls inside the outline rather than pushing
+   References off the panel. */
 .doc-outline-wrap {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-height: 4rem;
   /* enough for a few entries even when squeezed */
   display: flex;

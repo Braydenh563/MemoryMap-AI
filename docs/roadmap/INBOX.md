@@ -537,6 +537,12 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     updated for the split; boot stays synchronous for app.js and the
     guards). Expected: the parse cost of about 1.3 MB of JavaScript leaves
     the startup path. Owner: Opus. Size M.
+59. **Graph node popup panel redesign** (screenshot, 00:50; the owner:
+    "include redesigning the graph node popup panels in the graph redesign
+    plan"): title, five meta chips at one weight, a file card, a tall
+    content editor, tags, Save, then a 3x3 grid of nine equal action
+    buttons (Favourite, Grow, Focus, Similar, Link, Trace, Remind, Open,
+    Bin). Placed as GRAPH_PLAN Phase 6. Owner: Opus, now.
 57. **Whiteboard View menu cut short** (screenshot, 00:47; reported as
     "the view menu in the library"): the top-bar View menu opens about 240px
     tall with a scrollbar, "Snap to grid" clipped at the bottom, with the

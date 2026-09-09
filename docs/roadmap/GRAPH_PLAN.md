@@ -126,6 +126,20 @@ beside an open note or document (the same renderer at `size: "pane"`);
 the time slider gains Play; export PNG at 2× of exactly the visible
 frame, with the legend.
 
+### Phase 6 — the node panel (½ session, INBOX 59)
+The popup that opens on a node is a form with nine equal buttons under it.
+Target: a header (title, category chip, the confidence as a small mark
+beside it, not a chip), one muted meta line (date, links, views), the
+attachment as a compact row, the content editor sized to its text (four
+lines minimum, grows), tags, and a single primary Save that appears only
+when something changed. Actions become one toolbar row of icon buttons
+with tooltips in three groups: read (Open, Similar, Trace), shape (Grow,
+Focus, Link, Remind), keep (Favourite; Bin last, separated, ghost). Open
+is the one filled button. Width and the dock grammar per DESIGN.md; the
+panel scrolls inside, never the page; measured at 1440 and 1024 and on
+390 as a sheet. Gate: `scratchpad/ui-sweeps/graph4b.js` plus a node-panel
+probe that counts buttons per row and the panel's own scrollHeight.
+
 ### Phase 5 — backend (½ session)
 `/graph` returns `degree`, `cluster`, `age_days`, `space_id`, `map_ids`
 per node; positions on `/graph/views`; `/graph/structure` cached per

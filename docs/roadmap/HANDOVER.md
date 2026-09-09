@@ -416,6 +416,31 @@ merge those and re-brief the rest from its brief.
 | `abcdedfb8d9f9f2bf` | Timeline redesign | 8817 | **Paused** to save usage after the audit; resume with SESSION_BRIEFS Brief 5 |
 | `a228ba0fe38c417dc` | Paragraphs to '?' popovers | 8818 | **Paused**; 54 paragraphs left; resume with Brief 4 |
 
+### The section 6 review of this branch, run 2026-09-09
+
+CLAUDE.md section 6 names four shapes to look for in work that came from
+somewhere else, and this branch is now mostly work that came from somewhere
+else: five agents' worth. Run against the whole diff from the branch point.
+
+- **A feature that never ran once.** 287 new top-level frontend functions;
+  eight had no `name(` call site, and all eight are wired by reference
+  instead (`addEventListener(..., fn)`, an update listener, a `filter`
+  predicate, a `setTimeout`). 131 new Python functions; ten are never
+  referenced by name and all ten carry a route decorator immediately above
+  them. Nothing dead. **The grep that finds this is worth keeping**: search
+  for `name(` first, then re-check every hit for a bare-name reference,
+  because a handler passed by reference looks exactly like dead code.
+- **A policy silently refusing the work.** No inline `style=` attribute was
+  added to any HTML or JS on this branch, so nothing is being refused by the
+  CSP unnoticed. (One was written today, in a sweep, and the CSP refused it
+  on the first run: `page.addStyleTag` fails the same way, and
+  `readmeshots.js` records it.)
+- **A working thing rewritten into a riskier thing**, and **a guard removed
+  while the shape around it was kept**: both need reading rather than
+  grepping, and the merges were reviewed one at a time as they landed. The
+  one deliberate rewrite is the graph's drag, which reverses a decision the
+  code defended at length; GRAPH_PLAN carries the reversal and the reason.
+
 ### Two traps an agent worktree sets (2026-09-09, both hit for real)
 
 1. **A worktree can be cut from an older base than you think.** Two agents

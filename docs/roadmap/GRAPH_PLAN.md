@@ -149,6 +149,26 @@ assumed, before it is adopted.
 
 ---
 
+## Built, Phase 5 (backend), 2026-09-09
+
+- Every note on `/graph` carries `degree` (counted from the edges the
+  payload itself holds), `age_days` (server-side, never negative),
+  `map_ids` (the maps whose note nodes reference it, one query over the
+  map nodes' data), beside Phase 3's `kind`, `tags`, `space_id` and
+  `has_file`. `cluster` stays on `/graph/structure`, which is where the
+  community detection lives.
+- `/graph/structure` is computed once per version of the notebook through
+  the same fingerprint cache the similarity edges use: two calls, one
+  build; a new note invalidates it (test).
+- Payload gate: 2,000 notes with links and tags gzip to under 240 KB
+  (the plan's 600 KB for 5,000, in proportion; measured in the suite,
+  `tests/test_graph_colour_rules.py`).
+
+Not built: positions stored on server-side views (views are still in
+localStorage; the local pane and multi-device views are the reason to move
+them, and neither exists yet) and the `?since=` cursor (nothing polls the
+graph, so nothing needs it).
+
 ## Built, Phase 4 (utility), part one, 2026-09-09
 
 Measured with `scratchpad/ui-sweeps/graph4.js` on the canvas renderer.

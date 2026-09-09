@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import re
 import threading
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -27,6 +28,15 @@ from memorymap.entry import manager, paths
 from memorymap.search import search_manager
 
 router = APIRouter(tags=["graph"])
+
+
+
+def _age_days(created_at, now) -> int:  # noqa: ANN001  # datetime, kept off the signature for the import
+    """Whole days since the note was written, never negative."""
+    if created_at is None:
+        return 0
+    stamp = created_at if created_at.tzinfo else created_at.replace(tzinfo=timezone.utc)
+    return max(0, int((now - stamp).total_seconds() // 86400))
 
 
 def _tags_of(entry: Entry) -> list[str]:
@@ -239,6 +249,25 @@ def graph(
     # each rule reads. One query for the file rule rather than a join per
     # node; tags are the column's JSON list, never the raw string.
     with_files = set(session.scalars(select(Attachment.entry_id).distinct()))
+    # GRAPH_PLAN Phase 5: which mind maps a note is on, from the map nodes'
+    # own data (a note node stores `ref_id`), one query for the whole
+    # payload. `map_ids` is what "has a map" colours by and what the local
+    # pane will list; it is here whether or not maps are drawn as nodes.
+    maps_of: dict[int, list[int]] = {}
+    from memorymap.core.database import WhiteboardObject
+
+    for board_id, raw in session.execute(
+        select(WhiteboardObject.board_id, WhiteboardObject.data).where(
+            WhiteboardObject.kind == "note", WhiteboardObject.board_id.is_not(None)
+        )
+    ):
+        try:
+            ref_id = (json.loads(raw or "{}") or {}).get("ref_id")
+        except (TypeError, ValueError):
+            continue
+        if isinstance(ref_id, int) and board_id is not None:
+            maps_of.setdefault(ref_id, []).append(board_id)
+    now = datetime.now(timezone.utc)
     nodes = [
         {
             "id": e.id,
@@ -246,6 +275,8 @@ def graph(
             "tags": _tags_of(e),
             "space_id": e.workspace_id,
             "has_file": e.id in with_files,
+            "map_ids": sorted(set(maps_of.get(e.id, []))),
+            "age_days": _age_days(e.created_at, now),
             # Through the manager, never off the column: a private note's
             # `content` is ciphertext at rest, so `_preview(e.content)` labelled
             # it with a base64 blob. `readable_content` names the graph in its
@@ -338,6 +369,15 @@ def graph(
     centrality_scores = _centrality(session, index, with_similarity)
 
     # Stable category order so the frontend assigns stable colours.
+    # Phase 5: degree per node, from the edges this payload carries, so a
+    # client never has to count them itself (the colour rule, the label
+    # priority and the local pane all read it).
+    degree: dict[int, int] = {}
+    for edge in edges:
+        degree[edge["source"]] = degree.get(edge["source"], 0) + 1
+        degree[edge["target"]] = degree.get(edge["target"], 0) + 1
+    for node in nodes:
+        node["degree"] = degree.get(node["id"], 0)
     categories = sorted({n["category"] for n in nodes})
     
     # Attach PageRank centrality to nodes for dynamic sizing
@@ -629,6 +669,13 @@ def graph_structure(session: Session = Depends(get_session)) -> dict:
     question asked twice. `cluster_of` is what makes the colouring a lookup
     rather than a second traversal in JavaScript.
     """
+    # GRAPH_PLAN Phase 5: computed once per version of the notebook. The
+    # colour rule "cluster" asks for this on every render, and community
+    # detection over a big notebook is the slowest thing the graph does.
+    return _cached("structure", _graph_fingerprint(session), lambda: _build_structure(session))
+
+
+def _build_structure(session: Session) -> dict:
     index = paths.build(session)
     category_names = manager.bulk_category_names(session, list(index.entries.values()))
 

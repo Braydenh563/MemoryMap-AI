@@ -134,8 +134,10 @@ are only just begun or half done." True; this table is the state.
 **Now (2026-09-09 00:50 UTC):** after the reset Fable took the owner's
 direct asks itself: DOCUMENTS Phase 1 (a6dc021, the chrome: five controls
 at one height, the menu rows unfilled, the strip opt-in), GRAPH Phase 3
-(f58ad7c, colour rules and groups) and GRAPH Phase 4 part one (lasso,
-selection dock, right-click menu, session hide). Two traps found and
+(f58ad7c, colour rules and groups), GRAPH Phase 4 (lasso, selection dock,
+right-click menu, session hide, 2x PNG export with the legend, Play on the
+time slider; only the local pane is left) and GRAPH Phase 5 (degree, age
+and map ids on every node, the structure cache, the payload gate). Two traps found and
 guarded: the launcher tests ran the real uninstaller in the repo and
 deleted the venv (scratch copies now, plus a fixture that fails the
 module if the repo's .venv changes); the suite ran a real pip install of
@@ -143,8 +145,8 @@ torch through the embedding auto-installer (an autouse fixture now makes
 `extras.subprocess.Popen` refuse). In flight: Opus on the mind map
 previews and Phases 4 to 5 (worktree agent-a9bcd9a1e1857d891); Sonnet on
 INBOX 47 gzip and the docs leftovers (worktree agent-a22cd38556273db70).
-Queue after them: GRAPH Phase 4 part two (local pane, Play, PNG export)
-and Phase 5 backend; DOCUMENTS Phase 2 (CodeMirror 6, CSP first); INBOX
+Queue after them: the graph's local pane (Phase 4's last item);
+DOCUMENTS Phase 2 (CodeMirror 6, CSP first); INBOX
 48 and 49 (lazy modules, performance mode); UI Phase 9 remainder; SKILLS
 Phase D; WHITEBOARD Phase 1. The owner's order for the rest of
 this session stands: **finish the phases of the plans already in

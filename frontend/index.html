@@ -7417,12 +7417,23 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- Logs -->
           <!-- Account & security: the one place credentials are managed. -->
           <section class="settings-section hidden" id="settings-account">
-            <p class="muted">
-              MemoryMap is a <strong>single-user app</strong>: one notebook,
-              one password, all on this machine. To keep separate notebooks,
-              run the app with a different data folder rather than a second
-              account.
-            </p>
+            <div class="row help-head">
+              <h3>Account &amp; security</h3>
+              <button type="button" class="icon-only ghost small graph-help-toggle"
+                data-help-for="account-help" aria-controls="account-help" aria-expanded="false"
+                title="About accounts" aria-label="About accounts">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
+            </div>
+            <p class="muted">MemoryMap is a single-user app: one notebook, one password.</p>
+            <div class="help-body hidden" id="account-help" role="dialog" aria-label="About accounts">
+              <p>
+                MemoryMap is a <strong>single-user app</strong>: one
+                notebook, one password, all on this machine. To keep
+                separate notebooks, run the app with a different data
+                folder rather than a second account.
+              </p>
+            </div>
 
             <div class="settings-group">
               <h3>This notebook</h3>
@@ -7430,13 +7441,23 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
 
             <div class="settings-group">
-              <h3>Change your password or PIN</h3>
-              <p class="muted">
-                Your current password is asked for even though you're already
-                unlocked: being at an unlocked screen isn't proof of knowing
-                it. Private notes move across to the new password
-                automatically.
-              </p>
+              <div class="row help-head">
+                <h3>Change your password or PIN</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="change-password-help" aria-controls="change-password-help" aria-expanded="false"
+                  title="Why your current password is asked for" aria-label="Why your current password is asked for">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">Private notes move across to the new password automatically.</p>
+              <div class="help-body hidden" id="change-password-help" role="dialog" aria-label="Why your current password is asked for">
+                <p>
+                  Your current password is asked for even though you're
+                  already unlocked: being at an unlocked screen isn't proof
+                  of knowing it. Private notes move across to the new
+                  password automatically.
+                </p>
+              </div>
               <label class="stacked-label" for="account-current">Current password</label>
               <input id="account-current" type="password" autocomplete="current-password"
                 placeholder="Your current password or PIN">
@@ -7453,13 +7474,23 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
 
             <div class="settings-group">
-              <h3>Sessions</h3>
-              <p class="muted">
-                Unlocking issues a token that lives in memory only, so
-                restarting the app locks it again. Changing your password ends
-                every other session.
-              </p>
-              
+              <div class="row help-head">
+                <h3>Sessions</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="sessions-help" aria-controls="sessions-help" aria-expanded="false"
+                  title="About sessions" aria-label="About sessions">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">Changing your password ends every other session.</p>
+              <div class="help-body hidden" id="sessions-help" role="dialog" aria-label="About sessions">
+                <p>
+                  Unlocking issues a token that lives in memory only, so
+                  restarting the app locks it again. Changing your password
+                  ends every other session.
+                </p>
+              </div>
+
               <label class="stacked-label" for="account-idle-ttl">Auto-lock when idle</label>
               <select id="account-idle-ttl" class="account-idle-ttl-select">
                 <option value="5">5 minutes</option>

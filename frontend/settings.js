@@ -1780,11 +1780,14 @@ function applyCustomCssLegacy(css) {
 // Applied once at startup (called from the pre-paint path) and on change.
 // A machine that will feel every blurred layer: the two signals a browser
 // gives without a permission prompt. `deviceMemory` is Chromium-only and
-// capped at 8, so a missing value never counts as small on its own.
+// capped at 8, so a missing value never counts as small on its own. Two
+// cores, not four: a 4-thread laptop is common and runs the glass fine, and
+// the owner wants the frosted art on by default, so only a machine that is
+// small on memory or down to two threads is switched without being asked.
 function smallMachine() {
   return (
     (navigator.deviceMemory && navigator.deviceMemory <= 4) ||
-    (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4)
+    (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2)
   ) === true;
 }
 
@@ -1806,7 +1809,7 @@ function perfModeOn() {
 function perfModeReason() {
   if (appearancePref("perf") !== "auto" || !perfModeOn()) return "";
   if (lessTransparencyWanted()) return "On: your system asks for less transparency.";
-  return "On for this machine: 4 cores or 4 GB of memory or fewer.";
+  return "On for this machine: 2 cores or 4 GB of memory or fewer.";
 }
 
 function applyAppearance() {

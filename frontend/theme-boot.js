@@ -46,14 +46,14 @@
   _r.dataset.font = pref("font", "system");
   _r.dataset.density = pref("density", "comfortable");
   // Performance mode, mirrored from perfModeOn() in settings.js: "on", or
-  // "auto" on a small machine (4 cores or 4 GB or fewer), or the operating
+  // "auto" on a small machine (2 cores or 4 GB or fewer), or the operating
   // system asking for less transparency. It takes the glass and the motion
   // off before first paint so a small laptop never draws the blurred frame
   // it is about to be spared. Keep the three readings in step.
   const perfPref = pref("perf", "auto");
   const small =
     (navigator.deviceMemory && navigator.deviceMemory <= 4) ||
-    (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
+    (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2);
   const lessGlass = window.matchMedia("(prefers-reduced-transparency: reduce)").matches;
   const perf = perfPref === "on" || (perfPref === "auto" && (small || lessGlass));
   _r.dataset.perf = perf ? "on" : "off";

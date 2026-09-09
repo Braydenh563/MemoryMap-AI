@@ -334,6 +334,7 @@ notes) is not repeated here; see `docs/roadmap/` for that record.
 - Performance mode (Effects & accessibility): flat panels, no animations
   and slower graph physics, auto-on for a machine with 4 cores or 4 GB or
   fewer or when the OS asks for less transparency, said once in a toast.
+  With the animated background on, cards still frost it.
   Glass itself now blurs only where something scrolls under a surface or
   where it floats (the top bar, sub-tab strips, dialogs, docks, popovers):
   the blurred area at rest fell from a third of the screen to under a tenth.

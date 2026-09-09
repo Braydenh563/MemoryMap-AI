@@ -276,7 +276,9 @@ page art, which is already a soft gradient. So a content panel (`.card`,
 and the rim and has **no `backdrop-filter`**. Blur belongs where something
 scrolls under a surface or where the surface floats over content: the top
 bar, the sticky sub-tab strips, `.card.glass`, the dialogs, popovers,
-docks, the graph's zoom pill, `.scroll-top`. The gate, kept by
+docks, the graph's zoom pill, `.scroll-top`. With the animated background
+on, the cards frost it again (`:root[data-bg-art="on"] .card`): that is
+the one place a card blur shows something, and the owner asked for it. The gate, kept by
 `tests/test_perf_mode.py` and the sweep: under 10% of the viewport blurred
 at rest on every tab (measured 6 to 10% after).
 
@@ -284,7 +286,7 @@ at rest on every tab (measured 6 to 10% after).
 preference, `auto | on | off`) takes the rest off: `data-glass="off"`,
 `data-motion="reduced"` and the graph worker resting twice as long between
 ticks, without rewriting the person's own glass and motion choices. "Auto"
-turns it on for a machine reporting 4 cores or 4 GB or fewer, or an OS
+turns it on for a machine reporting 2 cores or 4 GB or fewer, or an OS
 `prefers-reduced-transparency` setting, and says so once in a toast.
 `theme-boot.js` resolves the same rule before first paint.
 

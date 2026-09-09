@@ -3299,6 +3299,13 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 /* --- the glass card -------------------------------------------------------- */
+/* Frosted cards over the animated background only: see the note inside
+   `.card` below. `data-bg-art` is set by applyAppearance() (settings.js). */
+:root[data-bg-art="on"]:not([data-glass="off"]) .card {
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+}
+
 /* A dialog floats over arbitrary content, so it keeps the full glass recipe
    (DESIGN.md, Glass & materials); it is open for seconds, not at rest. */
 .card.modal-card,
@@ -3321,7 +3328,17 @@ header#top-bar.tabs-wrapped #tab-bar {
      floating panels), the dialogs, popovers, docks and `.scroll-top`. The
      rim, the border and the 55% fill stay, so a card still reads as a pane.
      `:root[data-perf="on"]` (Performance mode) and `[data-glass="off"]`
-     take the remaining blur off too. */
+     take the remaining blur off too.
+
+     The one exception is the rule right below: with the animated background
+     on, the card blur comes back. The owner's words: "with the glass, I
+     still want to be able to see background animations if I have them on,
+     that's partly why I wanted the glass aesthetic in the first place." A
+     card over moving art is exactly where a blur produces something visible
+     (frosted motion behind the pane), and the GPU is already compositing
+     that animation under the card every frame; over a still page the same
+     blur was invisible and only cost. So: art on, glass on, not Performance
+     mode: frosted cards. Anything else: none. */
   border: 1px solid var(--glass-border);
   /* `--radius`, the user's own corner setting -- not the 0.8 step below it.
      Measured: dashboard widgets, the modal and the graph box were 14px and

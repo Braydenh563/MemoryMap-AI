@@ -537,6 +537,44 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     updated for the split; boot stays synchronous for app.js and the
     guards). Expected: the parse cost of about 1.3 MB of JavaScript leaves
     the startup path. Owner: Opus. Size M.
+57. **Whiteboard View menu cut short** (screenshot, 00:47; reported as
+    "the view menu in the library"): the top-bar View menu opens about 240px
+    tall with a scrollbar, "Snap to grid" clipped at the bottom, with the
+    whole canvas free below it. Owner: Fable, now. Measure the menu's
+    max-height rule (`.wb-topbar` menus, batch A's "menus in viewport"
+    clamp) against the space actually available.
+58. **Copying a chat message copies only its last section.** The owner:
+    "when I copy text from a chat or assistant message bubble, it only
+    shows the last agent section of the message, I want it to capture
+    everything in the whole chat and assistant messages, including
+    thinking processes (if toggled), tool calls, and everything in the
+    chat." Owner: Fable, now: the message copy action serialises the whole
+    turn (thinking when shown, each tool call as a line, the answer), and
+    a "Copy chat" action does the same for every turn.
+53. **Capture box crushed** (screenshot, 00:44): the main "Type anything"
+    textarea on Notes is about two lines tall with its own scrollbar, the
+    placeholder's second line clipped, under the "Formatting" strip.
+    Owner: Fable, now. Measure `#note-input` (or the capture textarea's id)
+    height, min-height and the autogrow pin at 1440 and 1024.
+54. **Selection kebab menu invisible** (screenshot): highlight text, the
+    selection toolbar's "..." opens a flat dark bar with a scrollbar and no
+    items. INBOX 33's "completely crushed" shape, still present after batch
+    A. Owner: Fable, now. Reproduce by selecting text in the capture box
+    and clicking the toolbar's ellipsis; measure the menu's height and its
+    items' display.
+55. **Max gravity still spread out** (graph screenshot): at the gravity
+    slider's top the components sit far apart with empty space between.
+    Owner: Fable, now: raise the gravity force ceiling in graph-worker.js
+    tuning (and a component-packing pull at the top of the range).
+56. **Library image cards, "really ugly"** (screenshot): thumbnail, file
+    name, "Used in" chip, a Description bullet with Show more, a model chip,
+    a "Text in this image" bullet with Show more, a "Read by ..." chip: six
+    ranks of information at one weight, chips for provenance that read as
+    actions. Owner: Opus, next slot, with INBOX 52 (whiteboard bottom bar).
+    Recommendation: thumbnail with the file name on it; one line "Used in
+    <chip>"; the description as one paragraph with a "More" toggle; the OCR
+    text folded under a single "Text in this image" disclosure; provenance
+    as one muted line at the foot ("Described by X, read by Y"), no chips.
 50. **Fixed 2026-09-09 (Fable). `start-desktop.bat` fails after the update
     check: `'"C:\Projects\MemoryMap-AI\--desktop"' is not recognized as an
     internal or external command`.** SHIFT in the argument parser moved %0,

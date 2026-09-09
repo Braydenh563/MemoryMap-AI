@@ -1352,14 +1352,19 @@ body.resizing-sidebar {
    fight again no matter which one it was. */
 #doc-toolbar {
   --control-h: var(--control-h-lg);
-  /* Reported on the owner's regular browser (not the desktop shell this
-     was chased through): both wrap and row mode read crushed there, which
-     a fix scoped only to `[data-toolbar-mode="row"]` below cannot reach.
-     A floor on the strip itself is engine-agnostic: whatever a given
-     browser's flex/scrollbar box math actually does with the padding and
-     `--control-h` above, the strip cannot render shorter than this. */
-  min-height: calc(var(--control-h) + 0.8rem);
 }
+
+/* **No `min-height` on this strip, ever.** One was added here and reverted
+   the same hour: it broke wrap mode outright, the second row of buttons
+   spilling out below the strip's own border and over the document. The
+   mechanism is worth writing down because the rule looked harmless and
+   measured harmless in isolation. This strip is a child of a flex column,
+   where a flex item's default `min-height: auto` is what stops it being
+   shrunk below its own content. Declaring any explicit `min-height`
+   *replaces* that automatic floor, so the strip became shrinkable below
+   its content, and `overflow: visible` (wrap mode, above) then drew the
+   overflow rather than clipping it. Height here comes from the content
+   and the padding, and nothing else. */
 
 /* The compact alternative: one row that scrolls sideways.
 
@@ -1393,19 +1398,6 @@ body.resizing-sidebar {
      on the bottom edge only: the buttons keep a full, even gap and the
      scrollbar sits below it rather than in it. */
   padding-block: var(--space-3) calc(var(--space-3) + var(--space-1));
-}
-
-/* The floor for this mode, id-scoped so it outranks `#doc-toolbar`'s own
-   floor above: a class+attribute selector (0,2,0) loses to that id (1,0,0),
-   which is how a row-mode floor written as one silently resolved to the
-   smaller number. Measured at 520px wide with the scrollbar actually
-   present: the strip is 58px against a 36px control, 13px under the
-   buttons with the 4px scrollbar inside that, so ~9px of the clearance is
-   visible. Before it was 50.8px with 7.4px under the buttons, ~2px of it
-   visible past the scrollbar, which is the reported "squished, no
-   padding". */
-#doc-toolbar[data-toolbar-mode="row"] {
-  min-height: calc(var(--control-h) + var(--space-3) * 2 + var(--space-1));
 }
 
 /* **Un-clipping the strip to free a menu freed the whole toolbar too.**

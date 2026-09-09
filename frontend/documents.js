@@ -3738,9 +3738,6 @@ for (const button of document.querySelectorAll("#doc-view-seg [data-doc-view], #
 //: The same `setDocGutter`, so this and the strip's button are two views of
 //: one remembered choice rather than two settings; `applyDocGutter` writes
 //: both their pressed states back.
-$("doc-view-gutter")?.addEventListener("click", () => {
-  setDocGutter(!docGutterWanted(!docFileType().previewable));
-});
 $("doc-file-type").addEventListener("change", async (event) => {
   if (!currentDoc) return;
   currentDoc = { ...currentDoc, file_type: event.target.value };
@@ -4126,18 +4123,6 @@ function applyDocGutter() {
     button.setAttribute("aria-pressed", own ? "true" : "false");
     button.title = own ? "Hide line numbers" : "Show line numbers";
     button.setAttribute("aria-label", button.title);
-  }
-  //: The view menu's own row, which is the same choice seen from the other
-  //: door. Written here rather than in its click handler so that the strip's
-  //: button, a file-type change and a fresh document all keep it honest: a
-  //: `.py` file numbers itself without anyone pressing anything, and the row
-  //: has to show that.
-  const row = $("doc-view-gutter");
-  if (row) {
-    const on = docGutterWanted(!docFileType().previewable);
-    row.setAttribute("aria-pressed", on ? "true" : "false");
-    row.classList.toggle("is-on", on);
-    row.title = on ? "Stop numbering the lines" : "Number the lines in the editor";
   }
   renderDocGutter();
 }

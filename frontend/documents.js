@@ -523,6 +523,11 @@ function setDocView(mode) {
   //: no longer hides the editor for Live, and why there is no second pane to
   //: keep in step with the first.
   $("doc-source-wrap").classList.toggle("hidden", docView === "rendered");
+  //: Read by 09-editor.css: asked for directly, "the plain text view should
+  //: be more like a vs code editor with a plain black or white background",
+  //: which every other view (Live's decorations, Source's syntax colours)
+  //: should not carry.
+  $("doc-source-wrap").dataset.docView = docView;
   $("doc-preview").classList.toggle("hidden", !docPreviewShowing());
   $("doc-panes").classList.toggle("split", docView === "split");
   $("doc-panes").classList.toggle("reading", docView === "rendered");
@@ -3972,10 +3977,24 @@ initDocSidebarTabs();
 // visible` trap that caused both.
 
 const DOC_TOOLBAR_MODE_KEY = "doc-toolbar-mode";
+//: The default flipped from "row" to "wrap" on 2026-09-09 (see `.doc-toolbar`
+//: in 05-sidebars-themes.css), but a value saved before that still reads
+//: "row" from storage and renders the crushed single-line strip forever,
+//: which is exactly the "still gets clipped" report repeating on a build
+//: that already carries the fix. Migrated once: a bare stored "row" with no
+//: migration flag is the pre-2026-09-09 default, not a deliberate choice,
+//: so it is cleared back to the new default rather than honoured.
+const DOC_TOOLBAR_MODE_MIGRATED_KEY = "doc-toolbar-mode-migrated-2026-09-09";
 
 function docToolbarMode() {
   try {
-    return localStorage.getItem(DOC_TOOLBAR_MODE_KEY) === "row" ? "row" : "wrap";
+    const stored = localStorage.getItem(DOC_TOOLBAR_MODE_KEY);
+    if (stored === "row" && !localStorage.getItem(DOC_TOOLBAR_MODE_MIGRATED_KEY)) {
+      localStorage.removeItem(DOC_TOOLBAR_MODE_KEY);
+      localStorage.setItem(DOC_TOOLBAR_MODE_MIGRATED_KEY, "1");
+      return "wrap";
+    }
+    return stored === "row" ? "row" : "wrap";
   } catch {
     return "wrap"; // private mode: the safe shape, since it never clips
   }

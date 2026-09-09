@@ -508,6 +508,14 @@ header#top-bar,
   pointer-events: none;
 }
 
+/* `.lightbox-close` is `position: fixed`, so it places itself in the
+   viewport corner independent of `.chord-guide`'s own flex centring; this
+   is the one thing that recipe does not already carry, since it has never
+   before sat inside a `pointer-events: none` ancestor. */
+.chord-guide-close {
+  pointer-events: auto;
+}
+
 .chord-guide-lead {
   margin: 0;
   display: flex;

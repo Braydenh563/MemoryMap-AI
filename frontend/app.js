@@ -34686,10 +34686,23 @@ document.addEventListener("keydown", (e) => {
     // The second half of the "m" then a letter chord, armed below. Checked
     // first so a stray letter within the window is consumed (matched or
     // not) rather than falling through and re-arming on a later "g".
-    if (tabJumpArmedAt) {
-      const stillArmed = performance.now() - tabJumpArmedAt < TAB_JUMP_WINDOW_MS;
+    //: **A second "m" toggles the guide closed rather than being read as an
+    //: unrecognised chord key.** Asked for directly: "if i press it then the
+    //: popup opens and i can press m again to close it or an x close button
+    //: to close it." Checked before the general armed-branch below: without
+    //: this, a second "m" already fell through to "not recognised" and
+    //: closed the guide too, but only by accident, and only for as long as
+    //: `TAB_JUMP_WINDOW_MS` had not yet lapsed (the guide no longer
+    //: auto-hides on that timer at all, see `showTabJumpHint`, so this is
+    //: now the only way "m" closes it besides the X button).
+    if (tabJumpArmedAt && e.key === "m" && !e.ctrlKey && !e.metaKey && !e.altKey) {
       tabJumpArmedAt = 0;
-      const usable = stillArmed && !e.ctrlKey && !e.metaKey && !e.altKey;
+      hideChordGuide();
+      return;
+    }
+    if (tabJumpArmedAt) {
+      tabJumpArmedAt = 0;
+      const usable = !e.ctrlKey && !e.metaKey && !e.altKey;
       const target = usable ? TAB_JUMP_KEYS[e.key] : undefined;
       const action = usable ? CHORD_ACTIONS[e.key] : undefined;
       hideChordGuide();
@@ -34703,8 +34716,8 @@ document.addEventListener("keydown", (e) => {
         action.run();
         return;
       }
-      // Not a recognised second key (or the window lapsed), fall through
-      // and let this keypress do whatever it would have done anyway.
+      // Not a recognised second key, fall through and let this keypress do
+      // whatever it would have done anyway.
     } else if (e.key === "m" && !e.ctrlKey && !e.metaKey && !e.altKey) {
       tabJumpArmedAt = performance.now();
       //: Asked for: "m" rather than "g" (m for MemoryMap, and "g" collided
@@ -35336,7 +35349,28 @@ function showTabJumpHint() {
   const kbd = document.createElement("kbd");
   kbd.textContent = "m";
   lead.append(kbd, " then");
+  //: **Stays up until you dismiss it, not for a fixed 900ms.** Asked for
+  //: directly: "if i hold it down the popup stays up and I can more easily
+  //: navigate by reading the popup contents", refined a moment later to
+  //: "press m again to close it or an x close button to close it" (holding
+  //: a key sends repeated keydowns with no matching keyup this file
+  //: listens for, so a true hold-to-stay-open would need a new keyup
+  //: handler; a toggle needs none). `.lightbox-close` is the app's one
+  //: "circular x in the corner of a full-screen dark overlay" recipe
+  //: (the image viewer), reused rather than invented again; `chord-guide`'s
+  //: own `pointer-events: none` is what the second class undoes for this
+  //: one child.
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "lightbox-close chord-guide-close";
+  close.setAttribute("aria-label", "Close");
+  setLabel(close, "ph:x");
+  close.addEventListener("click", () => {
+    tabJumpArmedAt = 0;
+    hideChordGuide();
+  });
   guide.replaceChildren(
+    close,
     lead,
     chordGuideGroup(
       "Go to",
@@ -35348,8 +35382,6 @@ function showTabJumpHint() {
     )
   );
   guide.classList.remove("hidden");
-  window.clearTimeout(chordGuideTimer);
-  chordGuideTimer = window.setTimeout(() => guide.classList.add("hidden"), TAB_JUMP_WINDOW_MS);
 }
 
 function saveShortcutOverrides() {

@@ -69,6 +69,23 @@
   max-width: none;
 }
 
+/* Asked for directly: "the plain text view should be more like a vs code
+   editor with a plain black or white background." Plain is Source with the
+   language compartment emptied (documents.js), and the CM6 theme's own `&`
+   rule leaves `.cm-editor` transparent in every view (docCmTheme), so
+   painting the ground on `.doc-editor` behind it never fights the library's
+   own adopted stylesheet the way a rule on `.cm-editor` itself would. The
+   fallback textarea (`#doc-content`, no CM6 bundle) gets the same ground. */
+.doc-source-wrap[data-doc-view="plain"] .doc-editor,
+.doc-source-wrap[data-doc-view="plain"] > #doc-content {
+  background: #fff;
+}
+
+:root[data-mode="dark"] .doc-source-wrap[data-doc-view="plain"] .doc-editor,
+:root[data-mode="dark"] .doc-source-wrap[data-doc-view="plain"] > #doc-content {
+  background: #000;
+}
+
 /* Find and replace, restyled onto the app's own field recipe rather than
    left with the library's defaults (DOCUMENTS_PLAN Phase 2 decision 7). The
    panel is CodeMirror's own DOM, so this is layout and chrome only: the input

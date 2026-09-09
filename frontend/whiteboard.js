@@ -8100,11 +8100,22 @@ async function initWhiteboard() {
       return;
     }
     
-    // We need to figure out coordinates relative to the transformed html layer
-    const canvasEl = document.getElementById("wb-html-layer");
-    const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-    const rect = canvasEl.getBoundingClientRect();
-    
+    // Reported directly: "I dragged a note from the library dropdown onto
+    // the board but the note appeared in the top left, not in the centre
+    // where I placed it." `#wb-html-layer` already carries the pan/zoom as
+    // a CSS `transform` (handleWbZoom above), so its own
+    // `getBoundingClientRect()` is *already* shifted and scaled by
+    // `transform.x/y/k`; subtracting `transform.x` and dividing by
+    // `transform.k` again then applied the same pan and zoom a second
+    // time, which is exactly wrong once the board has been panned or
+    // zoomed away from its default 0,0/1x. `#whiteboard-container` is the
+    // element `d3.zoom` is attached to and never itself carries the CSS
+    // transform, so its rect is the stable reference `transform.invert`
+    // expects.
+    const container = document.getElementById("whiteboard-container");
+    const transform = d3.zoomTransform(container);
+    const rect = container.getBoundingClientRect();
+
     // Calculate logical x,y
     const logicalX = (e.clientX - rect.left - transform.x) / transform.k;
     const logicalY = (e.clientY - rect.top - transform.y) / transform.k;

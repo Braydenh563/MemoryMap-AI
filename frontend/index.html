@@ -6573,12 +6573,24 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="settings-group">
               <h3>Advanced</h3>
               <details class="advanced-css">
-                <summary>Custom CSS</summary>
-                <p class="muted">
-                  For tinkerers: these rules are applied on top of the app's own
-                  styles. Bad CSS only affects how things look, clear the box to
-                  undo.
-                </p>
+                <summary>
+                  <div class="row help-head">
+                    <span>Custom CSS</span>
+                    <button type="button" class="icon-only ghost small graph-help-toggle"
+                      data-help-for="custom-css-help" aria-controls="custom-css-help" aria-expanded="false"
+                      title="About custom CSS" aria-label="About custom CSS">
+                      <i class="ph ph-question" aria-hidden="true"></i>
+                    </button>
+                  </div>
+                </summary>
+                <p class="muted">For tinkerers: bad CSS only affects how things look.</p>
+                <div class="help-body hidden" id="custom-css-help" role="dialog" aria-label="About custom CSS">
+                  <p>
+                    For tinkerers: these rules are applied on top of the
+                    app's own styles. Bad CSS only affects how things look,
+                    clear the box to undo.
+                  </p>
+                </div>
                 <textarea id="custom-css" rows="5" spellcheck="false"
                   placeholder=".card { border-width: 2px; }"></textarea>
                 <div class="row">

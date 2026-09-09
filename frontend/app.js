@@ -3228,9 +3228,35 @@ function wireEscapedActionMenu(wrap) {
   menu._escapeWired = true;
   let homeParent = null;
   let homeNext = null;
-  const place = () => {
+  const place = (retry = true) => {
     const margin = 8;
     const anchor = opener.getBoundingClientRect();
+    //: **Never place against a rect that was not laid out.** Reported:
+    //: dropdowns and tooltips "flicker into the top corner for a second
+    //: then appear in the right place". Reproduced by measuring an open
+    //: menu frame by frame: with the opener unmeasurable (all-zero rect,
+    //: which is what an element inside a `display: none` or
+    //: not-yet-laid-out ancestor reports) the arithmetic below resolves to
+    //: the margin in both axes and the menu lands at 8,4: the top corner,
+    //: exactly as described. A later pass then places it properly, which
+    //: is the "and then it appears in the right place" half.
+    //:
+    //: So: one retry on the next frame, the same shape `clampToolbarMenu`
+    //: already uses, and the menu is held invisible rather than painted in
+    //: the corner while it waits. `visibility`, not `.hidden`: the class is
+    //: the open/closed state that this observer is driven by, and writing
+    //: it here would re-enter.
+    if (!anchor.width && !anchor.height && !anchor.top) {
+      if (retry) {
+        menu.style.visibility = "hidden";
+        requestAnimationFrame(() => place(false));
+        return;
+      }
+      //: Out of retries: show it where the stylesheet puts it rather than
+      //: never, and rather than in a corner of our own choosing.
+      menu.style.visibility = "";
+      return;
+    }
     // Reset first: a stale left/top from the last open would otherwise
     // seed the width/height measurement below at the wrong size on some
     // browsers' layout of a `position: fixed` element mid-transition.
@@ -3300,6 +3326,9 @@ function wireEscapedActionMenu(wrap) {
     }
     menu.style.left = `${Math.round(left)}px`;
     menu.style.top = `${Math.round(top)}px`;
+    //: Placed, so it may be seen (see the guard at the top of this
+    //: function for what this is undoing).
+    menu.style.visibility = "";
   };
   //: **A `<select>` inside a native `<dialog>` escapes to the dialog, not to
   //: `<body>`.** Reported directly, on the documents dictionary dialog's
@@ -3341,6 +3370,7 @@ function wireEscapedActionMenu(wrap) {
       menu.classList.remove("action-menu-escaped");
       menu.style.left = "";
       menu.style.top = "";
+      menu.style.visibility = "";
       // The height decisions are the escape's, not the menu's own: left
       // behind they would cap it in its home position too.
       menu.style.maxHeight = "";

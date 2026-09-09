@@ -6999,6 +6999,7 @@ the API surface above is what it builds against.
 | `cm-editor.js` | 14 checks: the selection toolbar anchors within 25px of the caret and its Bold is one undo, the `/` menu and the `[[` picker open and insert, a selection reports itself as this document in document coordinates, the inline AI bar opens and describes the selection, the completion popup opens and Tab completes |
 | `cm-layout.js` | 10 checks: the measure caps and centres the column (off by 0px), full width releases it (794px to 1,082px), Split is side by side (518px and 552px), Read hides the editor, and coming back from Read re-measures it |
 | `cm-dark.js` | 6 checks: the editor's ink is the app's ink in both modes, switching inverts it (rgb(31,36,48) to rgb(231,233,238)), CodeMirror's own `darkTheme` facet follows through the `data-mode` observer |
+| `cm-notes.js` | 8 checks on the two editors this work was *not* about: Bold through the shared table, Ctrl+I, the `/` menu and the selection bar all still work in the note capture box, and inline AI is correctly refused there |
 | `errors.js` | 0 errors and 0 layout findings at 1440, 1024, 820 and 390 |
 | `documents-chrome.js` | dock 36px at 1280 and 78px (two rows) at 820, every control 36px, chrome above the first line 44px at 1280 and 86px at 820 (Phase 1's gate: 96), 0 clipped sidebar labels |
 
@@ -7034,6 +7035,12 @@ materialising the whole document per character.
   image whose alt text wraps put a newline inside the range its widget
   replaced; CodeMirror throws out of `setState` and the editor never
   renders. Guarded, with the reproducing document now part of the sweep.
+- **The note composer stopped growing.** `editorNotifyHost` handed the
+  surface to app.js's `autoGrow`, which writes `style.height` on a real
+  element; every "/" command in the capture box threw while still inserting
+  the text, so the menu looked like it worked. The surface wears enough of a
+  textarea's names that the call site reads as correct, which is the cost of
+  the aliases and the reason `cm-notes.js` exists.
 
 **Lost, and named rather than left to be discovered:** the Notion-style
 block handle, its drag to reorder and its move/duplicate/delete menu went

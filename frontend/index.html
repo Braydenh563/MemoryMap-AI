@@ -5836,14 +5836,25 @@ Link to another note with [[its first few words]]."></textarea>
 
           <!-- Skills (§21): named, repeatable jobs over the notebook -->
           <section class="settings-section hidden" id="settings-skills">
-            <p class="muted">
-              A skill is a job you can run with one click from the Chat tab:
-              what to do, the steps to do it in, the tools it's allowed to
-              use, and anything it should ask you for first. Naming its tools
-              is what makes a small model actually reach for them, and only
-              those tools are offered while it runs. Destructive steps still
-              ask for your approval.
-            </p>
+            <div class="row help-head">
+              <h3>Skills</h3>
+              <button type="button" class="icon-only ghost small graph-help-toggle"
+                data-help-for="settings-skills-help" aria-controls="settings-skills-help" aria-expanded="false"
+                title="About skills" aria-label="About skills">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
+            </div>
+            <p class="muted">A skill is a job you can run with one click from the Chat tab.</p>
+            <div class="help-body hidden" id="settings-skills-help" role="dialog" aria-label="About skills">
+              <p>
+                A skill is a job you can run with one click from the Chat
+                tab: what to do, the steps to do it in, the tools it's
+                allowed to use, and anything it should ask you for first.
+                Naming its tools is what makes a small model actually reach
+                for them, and only those tools are offered while it runs.
+                Destructive steps still ask for your approval.
+              </p>
+            </div>
             <ul id="skill-list" class="entry-list"></ul>
             <h3>Add your own</h3>
             <input id="skill-name" type="text" maxlength="40" placeholder="Name (e.g. Weekly review)">
@@ -5858,13 +5869,26 @@ Link to another note with [[its first few words]]."></textarea>
             <textarea id="skill-inputs" rows="2"
               placeholder="tag: Which tag should I file?"></textarea>
             <details class="settings-fold">
-              <summary>Tools this skill may use (optional)</summary>
-              <p class="muted">
-                Leave everything unticked to let it use whatever is switched on
-                in Settings → Tools. Ticking a few is both safer and more
-                reliable: they're the only ones offered for the run, which
-                leaves far more room in a small model's context.
-              </p>
+              <summary>
+                <div class="row help-head">
+                  <span>Tools this skill may use (optional)</span>
+                  <button type="button" class="icon-only ghost small graph-help-toggle"
+                    data-help-for="skill-tools-help" aria-controls="skill-tools-help" aria-expanded="false"
+                    title="About tool choice" aria-label="About tool choice">
+                    <i class="ph ph-question" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </summary>
+              <p class="muted">Ticking a few leaves far more room in a small model's context.</p>
+              <div class="help-body hidden" id="skill-tools-help" role="dialog" aria-label="About tool choice">
+                <p>
+                  Leave everything unticked to let it use whatever is
+                  switched on in Settings → Tools. Ticking a few is both
+                  safer and more reliable: they're the only ones offered for
+                  the run, which leaves far more room in a small model's
+                  context.
+                </p>
+              </div>
               <div id="skill-tool-list" class="tool-picker"></div>
             </details>
             <!-- Measured live during a spacing audit: this row sat flush
@@ -6581,13 +6605,24 @@ Link to another note with [[its first few words]]."></textarea>
                as not having the feature at all. -->
           <section class="settings-section hidden" id="settings-extras">
             <div class="settings-group">
-              <h3>Packages</h3>
-              <p class="muted">
-                Things MemoryMap can do with one more package installed. Nothing
-                here is needed to write, search, tag or organise your notes, 
-                each one turns on a feature that is otherwise switched off, and
-                everything is downloaded from PyPI to this machine.
-              </p>
+              <div class="row help-head">
+                <h3>Packages</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="packages-help" aria-controls="packages-help" aria-expanded="false"
+                  title="About packages" aria-label="About packages">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">Things MemoryMap can do with one more package installed.</p>
+              <div class="help-body hidden" id="packages-help" role="dialog" aria-label="About packages">
+                <p>
+                  Things MemoryMap can do with one more package installed.
+                  Nothing here is needed to write, search, tag or organise
+                  your notes, each one turns on a feature that is otherwise
+                  switched off, and everything is downloaded from PyPI to
+                  this machine.
+                </p>
+              </div>
               <ul id="extras-list" class="extras-list"></ul>
               <p id="extras-status" class="status" role="status"></p>
               <details id="extras-log-wrap" class="task-log hidden">
@@ -6619,13 +6654,24 @@ Link to another note with [[its first few words]]."></textarea>
                  cache-validation requests on every start read as a re-download.
                  They are not one; the note below says so where it will be read. -->
             <div class="settings-group">
-              <h3>Embedding models</h3>
-              <p class="muted">
-                What “search by meaning” uses to understand a note. The model is
-                downloaded <strong>once</strong> and kept on this machine, 
-                the HuggingFace requests in the log on every start are checking
-                the copy you already have, not fetching it again.
-              </p>
+              <div class="row help-head">
+                <h3>Embedding models</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="embedding-models-help" aria-controls="embedding-models-help" aria-expanded="false"
+                  title="About embedding models" aria-label="About embedding models">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">What “search by meaning” uses to understand a note.</p>
+              <div class="help-body hidden" id="embedding-models-help" role="dialog" aria-label="About embedding models">
+                <p>
+                  What “search by meaning” uses to understand a note. The
+                  model is downloaded <strong>once</strong> and kept on this
+                  machine, the HuggingFace requests in the log on every
+                  start are checking the copy you already have, not
+                  fetching it again.
+                </p>
+              </div>
               <ul id="embed-models-list" class="extras-list"></ul>
               <p id="embed-models-cache" class="muted extras-meta"></p>
               <p id="embed-models-status" class="status" role="status"></p>

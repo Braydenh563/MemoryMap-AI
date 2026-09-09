@@ -6584,6 +6584,112 @@ the same five panel signatures as before. Thirteen lints, `ruff`, and
 The remaining list, per surface and breakpoint with files and next steps, is
 in [`agent-remaining/responsive.md`](agent-remaining/responsive.md).
 
+### Built, INBOX 60, the tablet header, the keyboard pass and four of the evening batch, 2026-09-09
+
+Seven commits, each measured before and after on the running app at
+1440x900 unless another width is named.
+
+**INBOX 60, the dashboard's start band.** The owner: "three pill links, three
+skill pills with dashed borders, four stat tiles, all left-aligned in a band
+with most of its width empty ... could do with an upgrade and better design,
+utility, features." Measured with the new `scratchpad/ui-sweeps/dashstart.js`,
+that was two thirds of two rows:
+
+| row | before | after |
+| --- | --- | --- |
+| Start something | 1408px of 1408 (100%) | unchanged |
+| Jump to | 476px of 1408 (34%) | 1408px of 1408 (100%) |
+| Stat tiles | 573px of 1408 (41%) | 1408px of 1408 (100%) |
+| band height | 187px | 187px |
+| first widget | y=613 | y=613 |
+
+Not by adding more pills: naming tabs there is a decision this project already
+took and undid, because the dashboard ended up showing its own navigation
+three times. A **Continue** pill (the most recently *updated* note, drafts
+excluded) is the one destination the tab bar cannot offer, and a **fortnight
+sparkline** is what four numbers cannot say, in the 835px the stats strip was
+leaving empty. Every skill pill now says when it last ran ("Last run 3h ago",
+"Not run yet on this device"), from a second localStorage key rather than a
+new shape for `recentSkills`, whose last shape change without a migration
+left a `null` in every affected profile and broke the whole dashboard.
+
+**The tablet header stops being two rows.** `tabfit.js` again: between 600 and
+1100 the strip cannot fit beside the wordmark, so it takes a row of its own
+and the header is 108px against 56px at 1440. Between 820 and 1100 the tabs
+are now icons with the selected one keeping its caption, which needs 489px
+where captions needed 696px:
+
+| width | before | after |
+| --- | --- | --- |
+| 900 | 474 in 497, header 108px | 474 in 474, header 64px |
+| 1024 | 696 in 521, header 108px | 489 in 521, header 64px |
+| 1099 | 696 in 596, header 108px | 489 in 596, header 64px |
+| 820 | 474 in 417, header 108px | unchanged: even icons do not fit 417px |
+
+**The keyboard pass per band** (`scratchpad/ui-sweeps/keysbands.js`, new), at
+1440, 1024 and 800: the roving tabindex survives the strip becoming icons (one
+button in the tab order, arrows move within it); a folded dock menu's summary
+is in the tab order and opening it reveals its control; and the sidebar sheet
+at 800 opens on Enter, takes focus, closes on Escape and returns focus to its
+toggle. PASS, 0 findings. Two probe lessons are recorded in the sweep: the
+strip **activates on focus**, so an arrow press changes tab and every later
+check has to re-select; and a menu measured *during* its 0.16s open animation
+reports `opacity: 0`, which the first version read as "reveals nothing".
+
+**Four of the owner's evening batch.**
+
+- **The quick-nav chord's guide.** It was a `.toast`, a corner notification
+  sized for one sentence, holding ten key-and-label pairs in a row that
+  wrapped mid-pair, which is the screenshot. It is now the HUD's idiom at the
+  size the content needs: a full-screen, non-interactive, blurred scrim with
+  one pill per pair. Measured with the new `chordguide.js`: 1440x900 at 0,0,
+  ten rows, zero wrapped, `pointer-events: none`, gone as soon as the chord
+  resolves.
+- **Three more second keys**: `m s` settings, `m q` quick sketch, `m v`
+  meeting notes, all driven and confirmed. `v` rather than `m` for the
+  recorder, because the chord's own first key repeated is what a person
+  presses when unsure the first press registered.
+- **The dashboard's back to top** ("also no back to top button appears on the
+  dashboard??") appears past 200px now, not 400px: measured hidden at 150 and
+  visible at 250. The dashboard is the one page whose first widget sits at
+  y=613, so 400px was barely one screen in. Every other tab keeps 400.
+- **The heatmap** went from a 306x41 grid of 3x3 cells to 662x89 of 11x11: the
+  gap was 3px and 53 weekly columns spent 156px of a 306px column on gaps, and
+  the widget now starts in a full-width section, where the cells reach the
+  12px cap the stylesheet always had.
+- **Dark glass.** `glassdepth.js` (new) samples a one-pixel column through a
+  card's top edge in composited luminance, which is the only place the answer
+  lives, since the tokens are alphas over opposite grounds:
+
+| | page | rim | fill | rim over fill | card over page |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| light | 238 | 254 | 248 | 5.6 | 10.0 |
+| dark, before | 21 | 53 | 28 | 24.9 | 7.1 |
+| dark, after | 21 | 59 | 35 | 23.9 | 14.0 |
+
+  The rim was never the problem: in dark it is four times stronger than in
+  light, so mirroring `--glass-highlight` would have made it worse. What was
+  missing is the surface separating from the page: the dark `--card` was
+  *darker* than the page it sat on. Now a little lighter, with the
+  `brightness` the light filter always had and a sheen halfway back to the
+  light one's. `rgba(48, 54, 72)` was measured at 18.9 units and rejected as a
+  solid panel rather than a pane. contrast.js in dark: 0 low-contrast items.
+
+#### Gates
+
+`scripts/gate.sh --changed` green at every step; errors.js 0 errors and 0
+layout findings at 1024 and 900 with the icon strip; contrast.js 0 findings in
+dark; tabfit.js, dashstart.js, keysbands.js, chordguide.js and glassdepth.js
+all as quoted above.
+
+#### Not verified
+
+How the dark palette reads on an OLED panel or at another display gamma;
+whether the owner's own dashboard was simply too short to have 400px to
+scroll, or whether `coversAFormPrimary` was hiding the button behind a
+widget's primary action (both remain possible causes of that report and
+neither reproduces here).
+
 ### Built, INBOX 94's first three questions, 2026-09-09
 
 The background art measured for the first time, with a sweep that stays:

@@ -365,6 +365,44 @@ header#top-bar,
   white-space: nowrap;
 }
 
+/* --- dark glass reads flatter, and here is which half of it does ----------
+
+   The owner: "glass looks better on light mode and not dark but idk if thats
+   an actual thing or if the values are different." It is an actual thing, and
+   measuring it (`scratchpad/ui-sweeps/glassdepth.js`, a one-pixel column
+   through a card's top edge on the running app, in composited luminance
+   units) says which half:
+
+     light   page 238, rim 254, fill 248: rim over fill 5.6, card over page 10
+     dark    page  21, rim  53, fill  28: rim over fill 24.9, card over page 7.1
+
+   The **rim is not the problem**: in dark it is four times stronger than in
+   light, which is why mirroring the alphas would have been the wrong move
+   (`--glass-highlight` is 0.75 against 0.11, and those are alphas over
+   opposite grounds, not comparable numbers). What is missing in dark is the
+   surface separating from the page at all: 7.1 units of lift against light's
+   10, on a page whose own luminance is 21, so a blurred backdrop with almost
+   nothing in it to blur.
+
+   Two changes, both to the dark palette only, and both aimed at that one
+   number. `brightness` was in the light filter and absent from the dark one
+   entirely, which is the asymmetry the report is feeling. And the light
+   catch, the sheen across the top of a pane, is a quarter of its light-mode
+   strength; halfway back is enough to be seen without becoming a stripe. */
+:root[data-mode="dark"] {
+  --card: color-mix(in srgb, rgba(40, 45, 60, 0.55) calc(var(--glass-opacity) * 100%), transparent);
+  --glass-filter: blur(var(--glass-blur)) saturate(140%) brightness(1.12);
+  --glass-catch: radial-gradient(70% 90px at 22% -30px, rgba(255, 255, 255, 0.14), transparent 65%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --card: color-mix(in srgb, rgba(40, 45, 60, 0.55) calc(var(--glass-opacity) * 100%), transparent);
+    --glass-filter: blur(var(--glass-blur)) saturate(140%) brightness(1.12);
+    --glass-catch: radial-gradient(70% 90px at 22% -30px, rgba(255, 255, 255, 0.14), transparent 65%);
+  }
+}
+
 /* --- the quick-nav chord's guide -----------------------------------------
 
    The owner, with a screenshot: "when I press 'm' for the quick nav, the

@@ -559,6 +559,11 @@ function setDocView(mode) {
   //: file-type change uses, so the two can never disagree about what a view is
   //: allowed to highlight.
   docCmSyncLanguage();
+  //: And the gutter, for the same reason: Plain's default is "numbered"
+  //: (docGutterWanted), so entering or leaving it changes what the engine
+  //: should be showing. Without this the numbers only appeared on the next
+  //: unrelated `applyDocGutter`, which reads as the setting not working.
+  applyDocGutter();
   //: The engine caches the geometry it lays out with, and a view inside a
   //: `display: none` wrapper measures as zero. Asked for after the panes have
   //: been shown, for the same reason the gutter's metrics are.
@@ -4068,6 +4073,14 @@ function docGutterWanted(isCode) {
   const pref = docGutterPref();
   if (pref === "1") return true;
   if (pref === "0") return false;
+  //: Plain numbers itself, like a code file does. Asked for directly:
+  //: "on the plain txt editor, they should show by default but be togglable
+  //: in the toolbar." Only the *default* moves: an explicit "0" above still
+  //: wins, so turning them off in Plain turns them off and stays off. Plain
+  //: is the view with no grammar and no decorations (docCmViewLanguage), so
+  //: the numbers are the only structure left to navigate by, which is why
+  //: this is the one view whose default differs from prose's.
+  if (typeof docView !== "undefined" && docView === "plain") return true;
   return Boolean(isCode);
 }
 

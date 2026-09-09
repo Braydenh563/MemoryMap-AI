@@ -1354,17 +1354,22 @@ body.resizing-sidebar {
   --control-h: var(--control-h-lg);
 }
 
-/* **No `min-height` on this strip, ever.** One was added here and reverted
-   the same hour: it broke wrap mode outright, the second row of buttons
-   spilling out below the strip's own border and over the document. The
-   mechanism is worth writing down because the rule looked harmless and
-   measured harmless in isolation. This strip is a child of a flex column,
-   where a flex item's default `min-height: auto` is what stops it being
-   shrunk below its own content. Declaring any explicit `min-height`
-   *replaces* that automatic floor, so the strip became shrinkable below
-   its content, and `overflow: visible` (wrap mode, above) then drew the
-   overflow rather than clipping it. Height here comes from the content
-   and the padding, and nothing else. */
+/* **Never a `min-height` on the base strip: row mode only.** One was put
+   here and reverted the same hour, because it broke wrap mode outright:
+   the second row of buttons spilled out below the strip's own border and
+   over the document. The mechanism is worth writing down, because the
+   rule looked harmless and measured harmless in isolation. This strip is
+   a child of a flex column, where a flex item's default `min-height:
+   auto` is what stops it being shrunk below its own content. Declaring
+   any explicit `min-height` *replaces* that automatic floor, so the strip
+   became shrinkable below its content, and `overflow: visible` (wrap
+   mode, above) then drew the overflow rather than clipping it.
+
+   Scoped to `[data-toolbar-mode="row"]` the same declaration is safe, and
+   is kept below: that mode is `nowrap`, so its content is always exactly
+   one control tall, always under the floor, and there is never a second
+   line to push out. The owner confirmed both halves of this from the
+   screen: "the min height worked but it broke the multiline". */
 
 /* The compact alternative: one row that scrolls sideways.
 
@@ -1398,6 +1403,16 @@ body.resizing-sidebar {
      on the bottom edge only: the buttons keep a full, even gap and the
      scrollbar sits below it rather than in it. */
   padding-block: var(--space-3) calc(var(--space-3) + var(--space-1));
+}
+
+/* The floor for this mode, and only this mode (see the base rule's note on
+   why it must never be written there). Measured at 520px wide with the
+   scrollbar actually rendering: 58px against a 36px control, 13px under
+   the buttons with the 4px scrollbar inside that. Without it the strip
+   came out at 50.8px with 7.4px under the buttons, about 2px of which
+   cleared the scrollbar, which is the reported clipping. */
+#doc-toolbar[data-toolbar-mode="row"] {
+  min-height: calc(var(--control-h) + var(--space-3) * 2 + var(--space-1));
 }
 
 /* **Un-clipping the strip to free a menu freed the whole toolbar too.**

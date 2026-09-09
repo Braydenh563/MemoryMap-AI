@@ -150,6 +150,29 @@ function graphLayout() {
   return ["force", "tree", "radial", "arc"].includes(saved) ? saved : "force";
 }
 
+//: **Tree, Radial and Arc compute every position, so nothing in them moves.**
+//: Reported on 2026-09-09: "on the other graph view types, they all have the
+//: dotted border as they are static but that shouldnt be the case ... I was
+//: on the tree graph, I test double clicked on a node and it broke them all
+//: out of position."
+//:
+//: Both halves have the same cause. A computed layout holds its nodes by
+//: setting `fx`/`fy` on every one of them, and `fx != null` is exactly the
+//: test the held ring and the pin toggle read: so every node in a tree wore
+//: the ring that means "you pinned this", and a double click cleared one
+//: node's `fx`, handing it back to the force simulation, which re-solved from
+//: there and pulled the whole tree apart.
+//:
+//: The decision, and it is the one the layouts already imply: a computed
+//: layout is read-only for position. The shape is the meaning in a tree, a
+//: ring or an arc, and a node dragged out of it makes the picture a lie. So
+//: no ring, no drag, no double-click pin here. Pan, zoom, hover, select and
+//: the node menu are untouched: nothing that reads the graph is lost, only
+//: the two gestures that would rearrange a layout the app arranged.
+function graphLayoutIsComputed() {
+  return graphLayout() !== "force";
+}
+
 // Gravity and Spread scale the force simulation, and the tree layouts do not
 // run one: their positions come from the hierarchy. Left enabled they are two
 // controls that move, save, and change nothing, which reads as a broken app
@@ -2029,10 +2052,16 @@ async function renderGraphSvg() {
     // the same held-look the dblclick handler gives a pin made live, 
     // otherwise a reload shows the node correctly *held in place* with no
     // visual sign it's pinned at all.
-    .classed("graph-held", (d) => d.fx != null)
+    .classed("graph-held", (d) => !graphLayoutIsComputed() && d.fx != null)
     .call(
       d3
         .drag()
+        //: A drag never starts in a computed layout. `filter` rather than a
+        //: guard inside `start`: d3-drag's own filter is what decides whether
+        //: the gesture exists at all, so the pointer keeps its normal
+        //: behaviour (the zoom behaviour's pan) instead of being captured by
+        //: a drag that then declines to do anything.
+        .filter((event) => !graphLayoutIsComputed() && !event.button && !event.ctrlKey)
         .on("start", (event, d) => {
           if (!event.active) graphSimulation?.alphaTarget(0.3).restart();
           // Real bug, found live while testing the pin-persistence feature
@@ -2203,6 +2232,11 @@ async function renderGraphSvg() {
     // they keep the old in-memory-only behaviour.
     .on("dblclick", function (event, d) {
       event.stopPropagation(); // don't also zoom
+      //: In a tree, a ring or an arc every node is already held at a computed
+      //: position, so "unpin" would release it into a simulation that then
+      //: re-solves the whole board: the reported "I test double clicked on a
+      //: node and it broke them all out of position".
+      if (graphLayoutIsComputed()) return;
       const wasPinned = d.fx != null;
       if (wasPinned) {
         d.fx = null;

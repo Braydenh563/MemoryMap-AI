@@ -1436,3 +1436,66 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
 98. **The documents formatting toolbar**: see 62; the owner asked again.
     Default stays opt-in until Phase 2's selection toolbar lands.
 
+## 17. The original vision, audited (2026-09-09)
+
+The owner's first notes, written months before a line of code (the
+"AI Assistant Personal Database Management" list and the May 2026 master
+reference), read against what exists. Almost all of it is built; the seven
+rows marked open are the vision's own features nobody has planned since,
+and they go first in the next session's World-class section.
+
+| The original idea | Today |
+| --- | --- |
+| Type anything, a local AI files it; guided mode when you want to choose | Built (capture, Let the AI decide, guided) |
+| Two AIs: a Janitor that files and never talks, a Librarian that answers and never writes | Built as the filing step and the chat; the librarian tags, links and flags duplicates in the background |
+| A conversational answer and the raw database results side by side | Built (Ask: the answer beside the matching records) |
+| Confidence on every filing, low ones flagged for review | Built half: the score shows; **open: a review queue** (below) |
+| The AI tidies the database over time: merges near-duplicate categories, removes empty ones, respects manual changes | Built half: duplicates flagged, links suggested; **open: category tidy proposals** |
+| Preferences for how the database is structured | **Open: a filing style preference** |
+| Recycle bin, 30 days, configurable, clearable | Built |
+| 100% offline, models local; optional web search for context | Built (models through Ollama, not bundled, by decision; web search opt-in) |
+| File attachments copied into the app's folder | Built (Files, three readings per image, PDFs read page by page) |
+| Google Drive plus Notion plus NotebookLM | Built as Library, Documents and Ask with sources |
+| AI-generated data visualisation | **Open: charts from questions** |
+| Last five queries; most-accessed information | Built (Ask history); **open: most-opened widget** |
+| A log of everything entered, accessed, altered, archived | Built (activity log) |
+| Manual links, or tell the AI about a link | Built |
+| The graph like Obsidian's | Built (the canvas graph, Phases 1 to 5) |
+| Submit a whole Markdown file as an entry | Built (documents import) |
+| A whiteboard or canvas, submitted as an entry, editable later | Built (whiteboard, mind maps) |
+| Export in bulk or in part | Built (JSON, CSV, Markdown, zip) |
+| Login with a hashed password | Built (bcrypt, throttled) |
+| A profile the AI uses, built over time, opt-out and delete | Built (About you; What it remembers) |
+| Speech to text; the AI reads answers aloud; explains what you entered | Built (Whisper, read aloud); **open: "explain this note"** |
+| Reminders, maybe a calendar | Built (reminders); **open: calendar export and month view** |
+| Fine-tuning | Dropped, correctly, in the May document |
+
+**The seven open rows, as quick rows for the next session (WORLD_CLASS,
+after Brief 18 section A):**
+
+1. **Review queue.** A Notes filter "Needs review" for filings under 60%
+   confidence and anything filed Uncategorised, with Accept, Refile and
+   Split per row; the count on the dashboard. Backend: `confidence` and
+   `category_id` exist; one query. Size S.
+2. **Tidy categories.** The librarian proposes merges (two categories
+   whose embeddings and names are near) and removals (empty for 30 days)
+   as a proposal list in Settings > What it remembers; nothing moves
+   until accepted; manual renames are remembered as "do not merge". Size M.
+3. **Filing style.** A preference (by topic, by project, by time) added
+   to the filing prompt and to the category namer, with three examples
+   each; the default is by topic. Size S.
+4. **Charts from questions.** Ask answers a counting or trend question
+   ("how many notes per category this month", "my race times") with a
+   bar or line drawn from the records, the data table under it, the
+   chart exportable as PNG. Size M.
+5. **Most opened.** A dashboard widget of the ten notes opened most this
+   month (the view counter exists on the node panel). Size S.
+6. **Explain this note.** A note action that reads the note aloud and
+   then says what it links to and why, from the link reasons. Size S.
+7. **Calendar.** `.ics` export per reminder and for all, and a month view
+   beside the reminders list. Size M.
+
+The principle the first notes state and the app keeps: the AI is a
+servant, not a gatekeeper; everything it does can be seen, edited and
+undone.
+

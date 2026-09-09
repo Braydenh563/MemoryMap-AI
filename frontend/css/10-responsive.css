@@ -90,6 +90,28 @@
   }
 }
 
+/* --- Phase 10, INBOX 101: concentric corners -----------------------------
+
+   DESIGN.md rule 3, from the HIG's "rounded shapes that are concentric to
+   their containers": a shape inside a rounded container looks wrong at the
+   container's own radius and wrong at a hand-picked one. The right value is
+   the outer radius minus the padding between the two, which is what makes
+   the two arcs share a centre.
+
+   `--space-3` is that padding: it is the inset a `.card` puts between its
+   edge and its contents, so one token expresses the whole relationship and
+   the pair still moves with the radius slider in Settings.
+
+   `max()` with a floor of zero, and this is not defensive dressing: at the
+   square end of the slider `--radius` is 2px and the subtraction is negative.
+   A negative `border-radius` is invalid, the declaration is dropped, and the
+   element quietly falls back to whatever it inherited, which is the
+   APPEARANCE_DEFAULTS shape from CLAUDE.md: a value that is invalid where it
+   is used does its damage nowhere near the code that set it. */
+:root {
+  --radius-inner: max(0px, calc(var(--radius) - var(--space-3)));
+}
+
 /* **A shadow, not the `::after` gradient the rule was written as**, and the
    reason is a measurement rather than a preference. The gradient was built
    first, as `position: absolute; top: 100%; height: 1rem` on each bar. An

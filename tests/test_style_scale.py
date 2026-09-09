@@ -183,6 +183,53 @@ def test_the_corner_tiers_are_derived_from_the_setting():
         assert "var(--radius)" in line.group(1), f"{tier} does not follow --radius"
 
 
+#: A radius written as a tier minus a length: the shape of a hand-picked inner
+#: corner. `- 1px` is exempt and is a different thing (see the test).
+HAND_PICKED_INNER = re.compile(r"calc\(\s*var\(--radius[a-z-]*\)\s*-([^)]+)\)")
+
+
+def test_an_inner_corner_uses_the_concentric_token():
+    """A shape inside a rounded container is concentric or it is wrong.
+
+    UI_MODERNISATION_PLAN Phase 10 / INBOX 101, from the HIG: "rounded shapes
+    that are concentric to their containers". The inner radius is the outer
+    one minus the padding between them, which is `--radius-inner`. Picking a
+    number instead breaks the relationship at every radius except the one it
+    was eyeballed at, and the radius is a user setting.
+
+    `calc(var(--radius-lg) - 1px)` is deliberately allowed and is not the same
+    thing: three rules square off the top corners of a panel inside a 1px
+    border, where the subtraction is the border's own width rather than a
+    guess at an inset.
+    """
+    offenders = Counter()
+    for declaration in RADIUS.findall(_stylesheet()):
+        for raw in HAND_PICKED_INNER.findall(declaration):
+            if raw.strip() == "1px":
+                continue
+            offenders[raw.strip()] += 1
+    assert not offenders, (
+        "Hand-picked inner radii:\n  "
+        + "\n  ".join(f"minus {v}: used {n}×" for v, n in sorted(offenders.items()))
+        + "\n\nUse var(--radius-inner)."
+    )
+
+
+def test_the_concentric_token_follows_the_setting():
+    """Same reason the three tiers do: pin it to a constant and the slider
+    stops reaching every inner corner in the app at once."""
+    line = re.search(r"--radius-inner:\s*([^;]+);", _stylesheet())
+    assert line, "--radius-inner is not declared"
+    assert "var(--radius)" in line.group(1), "--radius-inner does not follow --radius"
+    # A negative radius is invalid where it is *used*, so the declaration is
+    # dropped and the element inherits something unrelated. At the square end
+    # of the slider --radius is 2px and the subtraction is negative.
+    assert "max(" in line.group(1), (
+        "--radius-inner needs a floor of 0px: --radius goes down to 2px and a "
+        "negative border-radius is an invalid declaration, not a square corner"
+    )
+
+
 # --- the page shell -----------------------------------------------------------
 
 #: Containers that sit directly inside a tab page. Each one used to draw its

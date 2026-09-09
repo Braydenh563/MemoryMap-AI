@@ -332,6 +332,7 @@ this table and its lint in the same commit as the feature, never after.
 | A menu behind a button | `kebabMenu(items, ariaLabel)` in app.js (positions, clamps, escapes clipping, closes on outside click) or `details.dock-menu` in markup | `tests/test_ui_recipes.py` (hand-built menus may not multiply) |
 | A menu item | `makeMenuItem("ph:icon Label", title, run)` | same |
 | A dropdown of values | a plain `<select>`; `enhanceSelect` restyles every one at boot | `tests/test_frontend_handlers.py` |
+| Focus on a `<select>` | `focusSelect(select)` in app.js. **Never `select.focus()`**: `enhanceSelect` takes the native control out of the tab order (`tabindex="-1"`, `aria-hidden`), so the direct call focuses an aria-hidden element or nothing at all, silently. Measured across seven tabs: all thirteen reachable selects would have taken the focus onto the hidden control. The same goes for a `keydown` bound to a select, which never fires. | `scratchpad/ui-sweeps/selectfocus.js` (it cannot be a lint: what decides is what the variable holds at runtime, not what the source says) |
 | Help longer than one line | one line in place, the rest behind a `data-help-for` '?' button and a `.help-body` popover | `tests/test_ui_signatures.py` |
 | An on/off setting | `label.setting-check` with the switch first | `scratchpad/ui-sweeps/switches.js` |
 | Two to four exclusive choices | `.seg` with `aria-pressed` | `tests/test_ui_signatures.py` |

@@ -7510,7 +7510,10 @@ async function openBookmarkAttachPicker(entry, panel) {
     renderNoteBookmarksWhileEditing(panel.parentElement, entry);
   });
   panel.appendChild(select);
-  select.focus();
+  //: `focusSelect`, not `select.focus()`: the native control is out of the tab
+  //: order once `enhanceSelect` has replaced it, so the direct call focuses
+  //: nothing and this picker opened with the focus on the page body.
+  focusSelect(select);
 }
 
 // Category <select> shared by capture (guided mode) and the edit form.
@@ -9581,7 +9584,11 @@ async function renderAttachToDocument(entry, wrap) {
     })
   );
   wrap.append(picker, row);
-  setTimeout(() => picker.focus(), 0);
+  //: `picker` is a `<select>`, so the same trap: see `focusSelect`. The
+  //: `setTimeout` was there to wait for the element to be in the document;
+  //: `focusSelect` waits for the frame that gives it its opener, which is the
+  //: later of the two events and the one that actually matters.
+  focusSelect(picker);
 }
 
 function openDocumentFromNote(documentId) {
@@ -18835,6 +18842,69 @@ function enhanceAllSelects(root) {
   }
 }
 
+// **Focus a `<select>`. Never call `.focus()` on one directly.**
+//
+// `enhanceSelect` above takes the native control out of the tab order
+// (`select-native-hidden`, `tabIndex = -1`, `aria-hidden`) and puts a
+// `<button class="select-opener">` in front of it. So `select.focus()` on any
+// enhanced select focuses *nothing*: the keystrokes that follow go to
+// `document.body`, and a `keydown` bound to the select never fires at all
+// because the select never has the focus. Nothing throws and nothing logs;
+// the call reads as correct at every line involved.
+//
+// Found the hard way. Two listeners in the documents editor's "attach a link"
+// picker were written this way and only a Playwright sweep caught them: the
+// sweep pressed Escape, the picker stayed open, and the row's children read
+// back as SPAN and BUTTON rather than SELECT and BUTTON. Three more call
+// sites elsewhere in this file were doing the same thing silently
+// (the note's own bookmark picker, the chat skills panel, the note-to-document
+// picker), which is why this is a helper rather than three edits.
+//
+// **Why there is no lint for it.** `tests/test_frontend_handlers.py` and its
+// siblings read the source as text, and the thing that decides here is what a
+// variable *holds* at runtime: `picker.focus()` is dead when `picker` is a
+// select and correct when it is an input, and nothing in the text says which.
+// A name-based rule (`/select|picker/`) would both miss `box.focus()` on a
+// select and fail `picker.focus()` on a text input, and CLAUDE.md's rule is
+// that a lint which fires on the wrong thing gets widened until it means
+// nothing. So the guard is this function plus this comment, and the check is
+// the sweep: `scratchpad/ui-sweeps/selectfocus.js` walks every enhanced select
+// in the page and asserts that focusing it through here lands on something
+// focusable.
+//
+// The frame matters: `enhanceSelect` runs from a MutationObserver, so a select
+// created and focused in the same turn has no shell yet. One retry on the next
+// frame covers that without a timeout anyone has to tune.
+//
+// **`closest(".select-shell")`, not `parentElement`,** and that is a measured
+// correction rather than defensive coding. `enhanceSelect` does
+// `shell.append(select, opener, menu)`, so the shell *is* the parent at the
+// moment it runs, and the first version of this helper read the opener off
+// `select.parentElement`. `scratchpad/ui-sweeps/selectfocus.js` then found
+// three selects where that returns null (`notes-page-size`,
+// `library-page-size`, `reminders-page-size`): something in their markup sits
+// between them and the shell, so `parentElement` is not it, and the fallback
+// quietly focused the native control instead, which is `tabindex="-1"` and
+// `aria-hidden="true"`. `closest` finds the shell for every enhanced select in
+// the app, on every tab, measured.
+//
+// **When nothing takes the focus, nothing takes it.** Six of the app's selects
+// live inside a closed `<details>` menu (the timeline's options, the graph's,
+// the page-size pickers), where no descendant is focusable at all. This ends
+// up calling `opener.focus()` on a button that cannot have it, and the focus
+// stays where it was. That is the honest outcome for "the control you asked
+// for is inside a menu that is shut", and it is why the sweep skips those
+// rather than demanding a landing.
+function focusSelect(select) {
+  if (!select) return;
+  const land = () => {
+    const opener = select.closest(".select-shell")?.querySelector(".select-opener");
+    (opener || select).focus();
+  };
+  if (select.hasAttribute(SELECT_ENHANCED)) land();
+  else requestAnimationFrame(land);
+}
+
 // New selects appear whenever a panel renders, so watch for them rather
 // than asking every render path to remember to call this.
 function watchForSelects() {
@@ -20212,7 +20282,9 @@ async function loadChatSkills() {
     const open = trigger.getAttribute("aria-expanded") === "true";
     trigger.setAttribute("aria-expanded", String(!open));
     panel.classList.toggle("hidden", open);
-    if (!open) select.focus();
+    //: See `focusSelect`: a bare `select.focus()` here left the skills panel
+    //: open with nothing focused, so the first Tab went to the top of the page.
+    if (!open) focusSelect(select);
   });
   document.addEventListener("click", (event) => {
     if (!box.contains(event.target)) close();

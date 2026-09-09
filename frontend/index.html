@@ -7221,11 +7221,22 @@ Link to another note with [[its first few words]]."></textarea>
               </label>
             </div>
 
-            <h3>Quit MemoryMap</h3>
-            <p class="muted">
-              Stops the app and its server properly, so nothing is left running
-              in the background and the next start finds its port free.
-            </p>
+            <div class="row help-head">
+              <h3>Quit MemoryMap</h3>
+              <button type="button" class="icon-only ghost small graph-help-toggle"
+                data-help-for="quit-help" aria-controls="quit-help" aria-expanded="false"
+                title="About quitting" aria-label="About quitting">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
+            </div>
+            <p class="muted">Stops the app and its server properly.</p>
+            <div class="help-body hidden" id="quit-help" role="dialog" aria-label="About quitting">
+              <p>
+                Stops the app and its server properly, so nothing is left
+                running in the background and the next start finds its
+                port free.
+              </p>
+            </div>
             <button id="app-quit" class="ghost small"><i class="ph ph-power ph-lead" aria-hidden="true"></i> Quit the app</button>
           </section>
 

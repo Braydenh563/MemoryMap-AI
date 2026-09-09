@@ -4615,7 +4615,6 @@ summary:not(.icon-only):not(.icon-button) {
    Split view opts out: two panes side by side are already narrow, and
    capping each again would leave two thin ribbons with a gulf between. */
 .doc-source-wrap:not(.doc-split-pane) #doc-content,
-#doc-live:not(.doc-split-pane),
 #doc-preview:not(.doc-split-pane) {
   max-width: 78ch;
   margin-inline: auto;
@@ -4645,28 +4644,6 @@ summary:not(.icon-only):not(.icon-button) {
   margin-left: 0;
 }
 
-/* Task #41: a brand-new (or emptied-out) document's Live pane rendered as a
-   sliver: measured at 42px inside a 1100px pane. `margin-inline: auto`
-   above only centres a box that already has a width; per the flex spec, an
-   auto cross-axis margin on a flex item *disables* stretch alignment for
-   that axis, so #doc-live (a `flex: 1 1 auto` item of the column-flex
-   `#doc-panes`) falls back to shrinking to fit its own content instead of
-   filling the pane. With real paragraphs in it that shrink-to-fit width
-   usually still hits the 78ch cap and looks identical to filling the pane, 
-   which is why this only ever showed up on an empty document, and why
-   `#doc-content` and `#doc-preview` never needed this: the textarea already
-   gets `width: 100%` from the base `textarea` rule (01-forms-settings.css),
-   and `#doc-preview` gets an explicit width from whichever mode shows it
-   (`#doc-panes.reading>.doc-preview`'s own `width: 100%` for Rendered,
-   `#doc-panes.split>.doc-preview`'s `flex: 1 1 0` for Split): #doc-live had
-   no equivalent. `width: 100%` here restores the stretch this pane was
-   missing; `max-width` above still caps it and `margin-inline: auto` still
-   centres it once content is wide enough to reach that cap. */
-#doc-live {
-  width: 100%;
-}
-
-#doc-live,
 #doc-preview {
   /* The rendered halves hold real prose with no syntax in it, so they take
      the stricter measure the note cards already use. */
@@ -4688,9 +4665,7 @@ summary:not(.icon-only):not(.icon-button) {
    tidy `.doc-wide #doc-preview` at (0,2,0) loses to *both*, measured, the
    toggle flipped its own aria-pressed and moved the preview not one pixel. */
 .doc-wide .doc-source-wrap:not(.doc-split-pane) #doc-content,
-.doc-wide #doc-live:not(.doc-split-pane),
 .doc-wide #doc-preview:not(.doc-split-pane),
-.doc-wide #doc-live,
 .doc-wide #doc-preview {
   max-width: none;
 }
@@ -6167,46 +6142,18 @@ button.connection-row {
   text-align: center;
 }
 
-/* **"Take me there" has to end with something saying "here".** Asked for:
-   "if I click on an issue flagged in the document suggestions, it should auto
-   scroll to the issue and temporarily highlight the offending area."
-
-   Two flashes, because the two views can say it differently. Live view has a
-   real `<mark>` for the flagged word, so it pulses in place. Source view has
-   only a selection inside a `<textarea>`, nothing there can be marked, so
-   the selection colour itself becomes the flash for as long as it lasts.
-   Both are short: a highlight that stays is a highlight you then have to get
-   rid of. */
-@keyframes doc-flag-flash {
-  0% {
-    background: var(--accent);
-    color: var(--on-accent);
-  }
-
-  100% {
-    background: transparent;
-    color: inherit;
-  }
-}
-
-.doc-flag-flash {
-  animation: doc-flag-flash 1.6s ease-out;
-  border-radius: var(--radius-sm);
-}
+/* The "show me this one" flash lived here as two rules: a keyframe pulse on
+   the Live view's `<mark>` and a `::selection` colour on the Source view's
+   textarea. DOCUMENTS_PLAN Phase 2 left one editor, and it answers the
+   question itself: `docProseJump` puts the selection on the flagged span and
+   the engine scrolls it into view as part of the same transaction, with the
+   underline already saying which words are meant. `.doc-selection-flash` is
+   kept below for the fallback textarea, which still cannot mark a range it
+   already holds any other way. */
 
 .doc-selection-flash::selection {
   background: var(--accent);
   color: var(--on-accent);
-}
-
-/* Reduced motion keeps the information, the word still goes accent-coloured
-   and fades back: it just does not travel to get there (`scrollIntoView`
-   drops to `auto` in the JS for the same reason). */
-@media (prefers-reduced-motion: reduce) {
-  .doc-flag-flash {
-    animation-duration: 1.6s;
-    animation-timing-function: steps(2, end);
-  }
 }
 
 /* --- Inline AI (editor.js) ------------------------------------------------

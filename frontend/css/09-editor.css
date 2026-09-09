@@ -1,0 +1,141 @@
+/* =============================================================================
+   The documents editor: layout around the engine (DOCUMENTS_PLAN Phase 2)
+   =============================================================================
+
+   **What belongs here and what does not.** This file lays out the *space* the
+   editor occupies: the host the CodeMirror view mounts into, the fallback
+   textarea beside it, and the find panel's chrome. CodeMirror's own internals
+   (the content column, the gutter, the selection, the cursor) are styled from
+   the theme object in documents.js, built out of the same tokens, and the
+   reason is mechanical rather than stylistic: the library styles itself
+   through constructed stylesheets on `document.adoptedStyleSheets`, and
+   adopted sheets sort *after* every document stylesheet. A rule written here
+   would lose to CodeMirror's own base rule at equal specificity, silently, in
+   exactly the way this project's notes on "a policy refusing the work" keep
+   describing. So: layout here, ink in the theme.
+
+   Linked after 08-consistency.css so it is the last word on the panes it lays
+   out, and version-stamped like every other local stylesheet
+   (tests/test_asset_cache_busting.py). */
+
+/* The host, empty until a document is opened for the first time. `flex: 1`
+   rather than a height: it shares `.doc-source-wrap`'s column with the
+   fallback textarea, and only one of the two is ever on screen. */
+.doc-editor {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The wrapper says which engine is in charge, so the fallback textarea can be
+   taken out of the layout without being taken out of the DOM: it is still the
+   surface the adapter falls back to if the bundle never loads, and a
+   `display: none` textarea is one that keeps its value and its listeners. */
+.doc-source-wrap.has-cm > #doc-content,
+.doc-source-wrap.has-cm > .doc-gutter {
+  display: none;
+}
+
+/* The view fills the host, and carries the reading measure the textarea used
+   to carry. `.cm-editor` is CodeMirror's outer element; giving it a height
+   here rather than in the theme is the one exception to the rule above, and
+   it is safe because the library sets no height of its own.
+
+   **The cap is on the editor, not on `.cm-content`, and that is measured
+   rather than preferred.** `.cm-scroller` is a flex row and `.cm-content` is
+   a `flex-grow` item inside it, so a `max-width` there clamps the column but
+   the leftover space stays on one side: measured at 1440, an 1,082px pane
+   with a 794px column left 0px to its left and 288px to its right, which
+   reads as the writing having drifted rather than as a measure. Capping the
+   whole editor centres the column *and* keeps the line-number gutter beside
+   the text it numbers, which is what the textarea and its gutter did.
+
+   78ch rather than the preview's 72: markdown adds syntax characters that are
+   not prose, so the same prose measure needs slightly more room when the
+   marks are visible. `.doc-wide` on the tab is the opt-out
+   (see `applyDocWidth`). */
+.doc-editor .cm-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  max-width: 78ch;
+  margin-inline: auto;
+}
+
+#tab-documents.doc-wide .doc-editor .cm-editor {
+  max-width: none;
+}
+
+/* Find and replace, restyled onto the app's own field recipe rather than
+   left with the library's defaults (DOCUMENTS_PLAN Phase 2 decision 7). The
+   panel is CodeMirror's own DOM, so this is layout and chrome only: the input
+   and button *shapes* come from the app's existing rules by reusing their
+   selectors here rather than by re-describing them. */
+.doc-editor .cm-panels {
+  background: var(--card);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.doc-editor .cm-panels.cm-panels-top {
+  border-bottom: 1px solid var(--border);
+}
+
+.doc-editor .cm-panels.cm-panels-bottom {
+  border-top: 1px solid var(--border);
+}
+
+.doc-editor .cm-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+}
+
+.doc-editor .cm-search .cm-textfield {
+  background: var(--input-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-3);
+  font: inherit;
+  min-width: 12ch;
+}
+
+.doc-editor .cm-search .cm-textfield:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.doc-editor .cm-search .cm-button {
+  background: var(--ghost-btn-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-3);
+  font: inherit;
+  cursor: pointer;
+}
+
+.doc-editor .cm-search .cm-button:hover {
+  background: var(--ghost-btn-bg-hover);
+}
+
+.doc-editor .cm-search label {
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.doc-editor .cm-search button[name="close"] {
+  color: var(--muted);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: var(--space-1);
+}

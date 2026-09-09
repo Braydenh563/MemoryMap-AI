@@ -40,6 +40,11 @@
   <link rel="stylesheet" href="/css/06-timeline-dialogs.css?v=0.3.0">
   <link rel="stylesheet" href="/css/07-whiteboard-misc.css?v=0.3.0">
   <link rel="stylesheet" href="/css/08-consistency.css?v=0.3.0">
+  <!-- The documents editor's own layout, last so it is the final word on the
+       panes it lays out. CodeMirror's *internals* are styled from the theme
+       object in documents.js instead: adopted stylesheets sort after document
+       stylesheets, so a rule here could not override one of its own. -->
+  <link rel="stylesheet" href="/css/09-editor.css?v=0.3.0">
   <!-- **Its own file, not an inline block, and that is the point.** The CSP
        allows inline scripts only by sha256 hash, and `create_app` computes
        those hashes from index.html **once at startup**. A server still
@@ -2827,11 +2832,11 @@ Link to another note with [[its first few words]]."></textarea>
           <button type="button" id="doc-find-close" class="ghost small icon-only" title="Close (Esc)" aria-label="Close find and replace"><i class="ph ph-x" aria-hidden="true"></i></button>
         </div>
         <div class="doc-panes" id="doc-panes">
-          <!-- The textarea stays the source of truth in every mode, including
-               Live. Live writes back into it on every edit, so autosave, the
-               word count, find-and-replace, Extract notes and the AI panel
-               all keep working against one value and none of them had to
-               learn about a second editor. -->
+          <!-- One editor, in every mode but Read. Live and Source are the
+               same CodeMirror view with the markdown decorations on or off
+               (DOCUMENTS_PLAN Phase 2 decision 3), which is why there is no
+               second pane here any more: the block-per-paragraph Live view
+               and its `#doc-live` host were retired with it. -->
           <div class="doc-source-wrap" id="doc-source-wrap">
             <!-- Line numbers for a code file. Its own element rather than a
                  CSS trick because a textarea cannot render per-line content;
@@ -2841,13 +2846,13 @@ Link to another note with [[its first few words]]."></textarea>
             <textarea id="doc-content" spellcheck="true"
               placeholder="# Start writing&#10;&#10;Markdown works here, headings, **bold**, lists, tables, links."
               aria-label="Document content"></textarea>
+            <!-- Where the CodeMirror view mounts, the first time a document is
+                 opened (DOCUMENTS_PLAN Phase 2). Empty and hidden until then,
+                 and it stays empty for good if the bundle fails to load: the
+                 textarea above is the fallback, which is why it is still here
+                 rather than replaced. -->
+            <div id="doc-editor" class="doc-editor hidden"></div>
           </div>
-          <!-- Live Preview. One block per paragraph: every block renders,
-               except the one the caret is in, which shows its raw markdown in
-               a textarea so the syntax you are editing is the syntax you can
-               see. -->
-          <div id="doc-live" class="doc-live markdown-body hidden"
-            aria-label="Document, rendered as you write"></div>
           <div id="doc-preview" class="doc-preview markdown-body hidden" aria-live="off"></div>
         </div>
         <p id="doc-status" class="status doc-status" role="status"></p>

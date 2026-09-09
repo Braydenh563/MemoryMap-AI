@@ -50,26 +50,41 @@ const EDITOR_SURFACES = {
   "chat-input": "chat",
 };
 
-//: **What context a textarea is, including the ones with generated ids.**
+//: **What context an editing surface is.**
 //:
-//: `EDITOR_SURFACES` is an id-to-context table by construction, and the live
-//: view, the document editor's *default* view, is one textarea per
-//: paragraph, created by `docLiveEditor` with a generated id. The wiring
-//: below used to gate on `textarea.id in EDITOR_SURFACES`, so **the live view
-//: had no "/" menu at all**, and anything that asked the map for a context
-//: got the `|| "note"` fallback and was told the document AI commands did not
-//: apply to it. Neither failure logged or threw: this repo's "a policy
-//: silently refusing the work" shape, in the one view most editing happens
-//: in.
+//: `EDITOR_SURFACES` is an id-to-context table by construction, and for most
+//: of this file's life the hard case was the document's Live view, which was
+//: one textarea per paragraph with a generated id: gating on
+//: `textarea.id in EDITOR_SURFACES` gave those blocks no "/" menu at all and
+//: told them the document AI commands did not apply. Neither failure logged
+//: or threw, which is this repo's "a policy silently refusing the work"
+//: shape. DOCUMENTS_PLAN Phase 2 made Live and Source one editor, so the
+//: generated ids are gone; the surface reports `doc-content` in every view.
 //:
-//: Keyed on `.lp-src`, the class those blocks carry, because that is what
-//: `isEditorSurface` already keyed on and one predicate is better than two
-//: that can disagree. Returns null, not "note", for anything that is not an
-//: editing surface, so callers can tell "not a surface" from "a note".
-function editorSurfaceKind(textarea) {
-  if (!(textarea instanceof HTMLTextAreaElement)) return null;
-  if (textarea.id in EDITOR_SURFACES) return EDITOR_SURFACES[textarea.id];
-  return textarea.classList.contains("lp-src") ? "document" : null;
+//: Returns null, not "note", for anything that is not an editing surface, so
+//: callers can tell "not a surface" from "a note".
+function editorSurfaceKind(box) {
+  //: A surface, an element, or a node inside CodeMirror. The last of those is
+  //: why this can no longer be a `instanceof HTMLTextAreaElement` check:
+  //: CodeMirror's editable is a `div`, and gating on the textarea would have
+  //: silently taken the "/" menu, the selection bar and the inline AI away
+  //: from the document editor the moment the engine landed under it. Same
+  //: "policy silently refusing the work" shape this file's own comment
+  //: records for the Live view.
+  const surface = editorSurfaceFor(box);
+  if (!surface) return null;
+  return surface.id in EDITOR_SURFACES ? EDITOR_SURFACES[surface.id] : null;
+}
+
+//: Whatever this is, as a surface, or null. `asSurface` lives in
+//: documents.js beside the adapter itself; the guard is for the moment
+//: before that file has evaluated, which cannot happen in the browser (the
+//: script order is fixed) but does in any test that loads this file alone.
+function editorSurfaceFor(box) {
+  if (!box) return null;
+  if (box.kind === "textarea" || box.kind === "codemirror") return box;
+  if (typeof asSurface !== "function") return null;
+  return asSurface(box);
 }
 
 // The callout kinds, their icon and their accessible label. Kept as data
@@ -107,7 +122,7 @@ const CALLOUT_KINDS = {
 // `.value` from script fires neither, so a note inserted through this menu
 // would look right, count wrong, and never be saved as a draft.
 function editorNotifyHost(textarea) {
-  if (textarea.id === "doc-content") {
+  if (textarea.isDocument) {
     markDocDirty();
     renderDocPreview();
     return;
@@ -124,8 +139,15 @@ function editorNotifyHost(textarea) {
 // straight over: the behaviour wrapDocSelection() already establishes for the
 // formatting toolbar, kept identical here so the two feel like one editor.
 function editorSplice(textarea, start, end, text, select) {
-  const value = textarea.value;
-  textarea.value = value.slice(0, start) + text + value.slice(end);
+  //: CodeMirror gets a transaction rather than a whole-document rewrite: one
+  //: keeps the editor's own undo history granular, the other collapses every
+  //: insertion into "the document became this string".
+  if (textarea.kind === "codemirror") {
+    textarea.replaceRange(start, end, text);
+  } else {
+    const value = textarea.value;
+    textarea.value = value.slice(0, start) + text + value.slice(end);
+  }
   if (select) {
     textarea.setSelectionRange(start + select.from, start + select.to);
   } else {
@@ -194,9 +216,8 @@ function editorApplyAction(textarea, action) {
 //: "a policy silently refusing the work" shape, and it would have shipped as
 //: three menu rows that do nothing.
 //:
-//: `applyMarkdown` takes a box id and every editor surface has one (including
-//: each live-view block, which is why `docLiveEditor` sets one), so this is a
-//: call rather than a second implementation for the two to drift apart.
+//: `applyMarkdown` takes a box id and every editor surface has one, so this
+//: is a call rather than a second implementation for the two to drift apart.
 function editorApplyNamed(textarea, kind) {
   if (typeof applyMarkdown === "function" && textarea.id) {
     applyMarkdown(kind, textarea.id);
@@ -567,47 +588,21 @@ const editorMenuState = {
 
 // Where the caret is, in page coordinates.
 //
-// A textarea gives no caret geometry at all, so the standard answer is to
-// build an invisible div with the same text metrics, put a marker where the
-// caret is, and measure that. It is more code than anchoring the menu under
-// the box would be, which is what the existing [[ suggest does, but the
-// document editor's textarea is most of the screen, and a menu that opens
-// hundreds of pixels from the caret reads as unrelated to what you just typed.
+// **One answer for the whole app, asked of the surface itself.** This used to
+// be a second mirror implementation: an invisible div with the same text
+// metrics, a marker span where the caret is, measured and thrown away, which
+// is the only thing a `<textarea>` can do because it exposes no caret
+// geometry at all. documents.js has the same technique in `docMirrorPoint`,
+// and two copies of a measurement this fiddly is two things to keep in step.
+//
+// The adapter already has to answer this question for CodeMirror (which does
+// have a real API for it, `coordsAtPos`), so it answers it for a textarea too
+// and this becomes the one line it always wanted to be. `lineHeight` comes
+// back with the point because every caller here places its popup *under* the
+// caret's line and needs to know how tall the line is.
 function editorCaretPoint(textarea) {
-  const mirror = document.createElement("div");
-  const style = getComputedStyle(textarea);
-  // Everything that affects where a glyph lands has to be copied, or the
-  // mirror wraps differently and the marker ends up on the wrong line.
-  for (const property of [
-    "boxSizing", "width", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
-    "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth",
-    "fontFamily", "fontSize", "fontWeight", "fontStyle", "letterSpacing",
-    "lineHeight", "textTransform", "wordSpacing", "textIndent", "whiteSpace",
-  ]) {
-    mirror.style[property] = style[property];
-  }
-  mirror.style.position = "absolute";
-  mirror.style.visibility = "hidden";
-  mirror.style.whiteSpace = "pre-wrap";
-  mirror.style.overflowWrap = "break-word";
-  mirror.style.top = "0";
-  mirror.style.left = "-9999px";
-
-  const upto = textarea.value.slice(0, textarea.selectionStart);
-  mirror.textContent = upto;
-  const marker = document.createElement("span");
-  // A zero-width span collapses and measures as nothing on some engines; a
-  // non-breaking space is guaranteed to have a box to measure.
-  marker.textContent = "​";
-  mirror.appendChild(marker);
-  document.body.appendChild(mirror);
-
-  const box = textarea.getBoundingClientRect();
-  const top = box.top + marker.offsetTop - textarea.scrollTop;
-  const left = box.left + marker.offsetLeft - textarea.scrollLeft;
-  const lineHeight = Number.parseFloat(style.lineHeight) || Number.parseFloat(style.fontSize) * 1.4;
-  mirror.remove();
-  return { top, left, lineHeight };
+  const at = textarea.coordsAt(textarea.selectionStart);
+  return { top: at.top, left: at.left, lineHeight: at.lineHeight };
 }
 
 // Put the menu at the caret, then pull it back on screen if it would hang off
@@ -935,9 +930,19 @@ function editorRefreshMenu() {
 // Wiring: one delegated listener per event, for every surface at once
 // ---------------------------------------------------------------------------
 
-document.addEventListener("input", (event) => {
-  const textarea = event.target;
-  if (!(textarea instanceof HTMLTextAreaElement)) return;
+//: **Called, not only listened for.** A `<textarea>` raises `input` for every
+//: character and this file has always hung the trigger check off that. The
+//: engine does not: CodeMirror applies a typed character itself, through its
+//: own transaction pipeline, and no bubbling `input` reaches this listener at
+//: all. Measured, not reasoned: with the engine mounted the "/" menu and the
+//: `[[` picker simply never opened, and nothing logged, which is this repo's
+//: "a policy silently refusing the work" shape in the one place it is hardest
+//: to notice, because both menus look like they are just not wanted yet.
+//:
+//: So the body is a function, and documents.js's update listener calls it for
+//: the engine. One implementation, two ways in.
+function editorHandleInput(textarea) {
+  if (!textarea) return;
   if (!editorSurfaceKind(textarea)) return;
 
   if (editorMenuState.open && editorMenuState.textarea === textarea) {
@@ -983,13 +988,24 @@ document.addEventListener("input", (event) => {
       return;
     }
   }
+}
+
+document.addEventListener("input", (event) => {
+  //: The engine's own edits arrive through `editorHandleInput` above, called
+  //: from documents.js's update listener. Anything from inside the view that
+  //: *does* raise a DOM `input` (a paste, in some browsers) would otherwise
+  //: run the check a second time and reopen a menu the first pass closed.
+  if (typeof docEventFromCm === "function" && docEventFromCm(event.target)) return;
+  editorHandleInput(editorSurfaceFor(event.target));
 });
 
 document.addEventListener(
   "keydown",
   (event) => {
     if (!editorMenuState.open) return;
-    if (event.target !== editorMenuState.textarea) return;
+    //: Compared as *surfaces*: the event target inside CodeMirror is whichever
+    //: line element the caret is in, never the object the menu was opened on.
+    if (editorSurfaceFor(event.target) !== editorMenuState.textarea) return;
     const { items } = editorMenuState;
 
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -1172,22 +1188,15 @@ function selectionBarShow(textarea) {
   const { top, left, lineHeight } = editorCaretPoint(textarea);
   const size = bar.getBoundingClientRect();
   const margin = 8;
-  //: **The boundary is the editing *pane*, not the box the caret is in**, and
-  //: the two are only the same thing when the surface is one textarea.
-  //:
-  //: The Live view gives every paragraph its own `.lp-src` box, so
-  //: `textarea.getBoundingClientRect().top` is the top of *that paragraph*, 
-  //: and the rule below then read every selection in Live as "on the first
-  //: line, flip the bar below it". Measured: selecting inside the third
-  //: paragraph put the bar at y=358 against a selection at y=328, i.e. under
-  //: the words instead of above them, covering the next line of the document
-  //: every single time. What is actually above a Live paragraph is more
-  //: document, which the bar may sit over quite happily; the thing it must not
-  //: cover is the formatting row above the *pane*.
-  const surface = textarea.classList.contains("lp-src")
-    ? document.getElementById("doc-live") || textarea
-    : textarea;
-  const boxTop = surface.getBoundingClientRect().top;
+  //: **The boundary is the editing pane, and now that is the surface itself.**
+  //: This used to need a special case: the Live view gave every paragraph its
+  //: own box, so the caret's box was the top of *that paragraph*, and the rule
+  //: below read every selection in Live as "on the first line, flip the bar
+  //: below it". Measured at the time: selecting inside the third paragraph put
+  //: the bar at y=358 against a selection at y=328, under the words instead of
+  //: above them. With one editor in every view the surface's own rectangle is
+  //: the pane's, and the special case goes.
+  const boxTop = textarea.getBoundingClientRect().top;
   let y = top - size.height - 6;
   //: **Above the line, unless that means on top of the fixed toolbar.** Every
   //: editing surface in this app has its own formatting row immediately above
@@ -1216,7 +1225,7 @@ function selectionBarSync() {
   //: other the moment an answer lands, and the one underneath is the one with
   //: Keep and Undo on it.
   if (inlineAiState.phase !== "idle") return selectionBarHide();
-  const active = document.activeElement;
+  const active = editorSurfaceFor(document.activeElement);
   if (!isEditorSurface(active)) {
     return selectionBarHide();
   }
@@ -1253,33 +1262,12 @@ const SELECTION_CONTEXT_MARGIN = 240;
 //: every editor in the world shows the user, and the number is going into a
 //: chip they read.
 function selectionContextFrom(textarea) {
-  //: **A live-view block reports itself in the document's coordinates.** Its
-  //: own offsets start at zero for every paragraph, so left alone this would
-  //: tell the model "line 2" for the last paragraph of a long document, and
-  //: `revalidateSelection` would then check those offsets against the wrong
-  //: textarea entirely, since the block is replaced whenever it re-renders.
-  //: Translating here means everything downstream sees one surface.
-  if (textarea.classList.contains("lp-src")) {
-    const source = $("doc-content");
-    const base = typeof docLiveBlockOffset === "function" ? docLiveBlockOffset(textarea) : null;
-    if (source && base !== null) {
-      return selectionOffsets(
-        source,
-        base + textarea.selectionStart,
-        base + textarea.selectionEnd
-      );
-    }
-    //: The block could not be located in the document, it is mid-edit, or two
-    //: paragraphs are identical and neither the index nor the search settled
-    //: it. Still a *document* selection, and saying so matters: falling
-    //: through to the line below would label a document "the note you're
-    //: writing" and report a line number counted from the top of the
-    //: paragraph. The offsets are the block's own, which
-    //: `revalidateSelection` will find do not match `doc-content`, so it
-    //: reports the position as unknown, which is the truth.
-    return { ...selectionOffsets(textarea, textarea.selectionStart, textarea.selectionEnd),
-      surfaceId: "doc-content", kind: "document" };
-  }
+  //: **One set of coordinates.** This used to translate a live-view
+  //: paragraph's own offsets into the document's, because Live gave every
+  //: paragraph its own box and left alone this would have told the model
+  //: "line 2" for the last paragraph of a long document. DOCUMENTS_PLAN
+  //: Phase 2 made Live and Source one editor, so a selection is already in
+  //: the document's coordinates wherever it was made.
   return selectionOffsets(textarea, textarea.selectionStart, textarea.selectionEnd);
 }
 

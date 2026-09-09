@@ -28,7 +28,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-import pytest
 
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
 DOCUMENTS_JS = FRONTEND / "documents.js"
@@ -80,7 +79,6 @@ def _offences(body: str, pattern: re.Pattern[str], span: tuple[int, int] | None)
     return out
 
 
-@pytest.mark.xfail(strict=True, reason="Phase 2 step 2: the docSurface adapter lands with its markers")
 def test_documents_js_reads_the_surface_only_through_the_adapter():
     body = DOCUMENTS_JS.read_text(encoding="utf-8")
     span = _adapter_span(body)
@@ -92,7 +90,6 @@ def test_documents_js_reads_the_surface_only_through_the_adapter():
     )
 
 
-@pytest.mark.xfail(strict=True, reason="Phase 2 step 2: the docSurface adapter lands with its markers")
 def test_documents_js_does_not_stash_the_element_outside_the_adapter():
     body = DOCUMENTS_JS.read_text(encoding="utf-8")
     span = _adapter_span(body)
@@ -104,7 +101,6 @@ def test_documents_js_does_not_stash_the_element_outside_the_adapter():
     )
 
 
-@pytest.mark.xfail(strict=True, reason="Phase 2 step 2: the docSurface adapter lands with its markers")
 def test_editor_js_never_touches_the_document_textarea():
     body = EDITOR_JS.read_text(encoding="utf-8")
     bad = _offences(body, DIRECT_ACCESS, None) + _offences(body, ELEMENT_BINDING, None)
@@ -115,7 +111,6 @@ def test_editor_js_never_touches_the_document_textarea():
     )
 
 
-@pytest.mark.xfail(strict=True, reason="Phase 2 step 2: the host and 09-editor.css land with the adapter")
 def test_index_html_has_the_codemirror_host_and_the_editor_stylesheet():
     html = INDEX.read_text(encoding="utf-8")
     assert 'id="doc-editor"' in html, (
@@ -130,7 +125,6 @@ def test_index_html_has_the_codemirror_host_and_the_editor_stylesheet():
     assert (CSS_DIR / "09-editor.css").exists(), "frontend/css/09-editor.css is missing"
 
 
-@pytest.mark.xfail(strict=True, reason="Phase 2 step 2: loadCodeMirror lands with the adapter")
 def test_the_bundle_is_loaded_on_demand_and_not_at_boot():
     html = INDEX.read_text(encoding="utf-8")
     body = DOCUMENTS_JS.read_text(encoding="utf-8")
@@ -142,17 +136,19 @@ def test_the_bundle_is_loaded_on_demand_and_not_at_boot():
     assert "/vendor/codemirror/codemirror.min.js" in body
 
 
-@pytest.mark.xfail(strict=True, reason="Phase 2 step 3: the block renderer is retired with Live decorations")
 def test_the_block_live_renderer_is_gone():
     """`renderDocLive` and its `.lp-*` rows, retired once Live is decorations.
 
-    Strict-xfail because it is the acceptance for step 3 and nothing else:
-    the marker comes off the day the CodeMirror Live view replaces the
-    per-paragraph textareas, and until then a green result here would mean
-    the old renderer had been deleted while something still called it.
+    Live and Source are one CodeMirror view with a decorations compartment
+    now (DOCUMENTS_PLAN Phase 2 decision 3), so the per-paragraph renderer
+    and its rules are deleted rather than left dead. The CSS check strips
+    comments first: the rules are gone, and the note that says where they
+    went names them, which is the whole point of leaving a note.
     """
     body = DOCUMENTS_JS.read_text(encoding="utf-8")
     assert "function renderDocLive" not in body
     assert "lp-src" not in body
     css = "".join(p.read_text(encoding="utf-8") for p in sorted(CSS_DIR.glob("*.css")))
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
     assert ".lp-" not in css
+    assert "doc-live" not in css

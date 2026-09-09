@@ -33,6 +33,10 @@ CSS_FILES = [
     CSS_DIR / "06-timeline-dialogs.css",
     CSS_DIR / "07-whiteboard-misc.css",
     CSS_DIR / "08-consistency.css",
+    #: The documents editor's own layout (DOCUMENTS_PLAN Phase 2). Appended
+    #: rather than inserted: it is linked last in index.html, and this list is
+    #: load order, which is what makes the concatenation above meaningful.
+    CSS_DIR / "09-editor.css",
 ]
 
 

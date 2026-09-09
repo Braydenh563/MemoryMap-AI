@@ -2147,6 +2147,34 @@ $("library-docs-bulk-delete")?.addEventListener("click", async () => {
 //: the main Library search already uses against `libraryItems`.
 let libraryImagesCache = [];
 
+//: **What the gallery last drew**, so a poll that finds nothing new draws
+//: nothing new. Reported on 2026-09-09, against both media sub-tabs: "when I
+//: expand the ocr text in this image on the image cards in the images library
+//: sub tab, it keeps auto closing and scrolling me back to the top", and "the
+//: same happens on the text extracted from this file dropdown in the files
+//: subtab". The six-second caption poll rebuilt every tile from scratch
+//: whether or not anything had changed, so an open `<details>` was replaced
+//: by a closed one and the grid's scroll offset went with it: a reader had
+//: about six seconds to read a transcription before the app shut it.
+//:
+//: The signature is the fields a tile actually draws, not the whole payload:
+//: `/media` carries timestamps and sizes that move without changing a pixel,
+//: and comparing those would make this test always fail, which is the bug
+//: again with extra steps.
+let libraryImagesSignature = "";
+function libraryImagesFingerprint(rows) {
+  return JSON.stringify(
+    (rows || []).map((row) => [
+      row.url,
+      row.name,
+      row.caption || "",
+      row.ocr_text || "",
+      row.vision_ocr_text || "",
+      row.usage_count ?? null,
+    ]),
+  );
+}
+
 // Captioning runs on a background thread after upload (routes_files.py): 
 // the gallery only ever showed the caption once something re-fetched
 // `/media`, and nothing did that on its own. Reported directly: a caption
@@ -2162,7 +2190,7 @@ function startLibraryImagesPoll() {
     if (document.querySelector(".library-image-caption-input, .library-image-rename-input")) {
       return;
     }
-    renderLibraryImagesGallery();
+    renderLibraryImagesGallery({ ifUnchanged: "skip" });
   }, 6000);
 }
 function stopLibraryImagesPoll() {
@@ -5133,7 +5161,12 @@ async function bulkDeleteLibraryMedia() {
   if (answer.checked) loadEntries().catch(() => {});
 }
 
-async function renderLibraryImagesGallery() {
+//: `ifUnchanged: "skip"` is the poll's call. Every other caller (a sub-tab
+//: click, an upload, a delete, the search box) means "draw this now" and must
+//: not be silently skipped: a delete that leaves the tile on screen because
+//: the fingerprint had not been refreshed yet would be a far worse bug than
+//: the one this fixes.
+async function renderLibraryImagesGallery({ ifUnchanged = "render" } = {}) {
   const grid = $("library-images-grid");
   const empty = $("library-images-empty");
   if (!grid) return;
@@ -5180,6 +5213,10 @@ async function renderLibraryImagesGallery() {
     item.vision_ocr_text = item.vision_ocr_text || "";
   }
   libraryImagesCache = [...(images || []), ...(attachments || [])];
+  const fingerprint = libraryImagesFingerprint(libraryImagesCache);
+  const unchanged = fingerprint === libraryImagesSignature;
+  libraryImagesSignature = fingerprint;
+  if (unchanged && ifUnchanged === "skip") return;
   if (!images && !attachments?.length) {
     grid.replaceChildren();
     empty?.classList.remove("hidden");
@@ -5360,12 +5397,21 @@ function filterLibraryImagesGallery() {
       const idx = images.indexOf(image);
       if (idx !== -1) images.splice(idx, 1);
     });
-    img.addEventListener("click", () => {
-      // A sketch's "full size" is the board it lives on, there is no file
-      // to open in a lightbox, and the board is where it can actually be
-      // edited, moved or deleted in context.
-      openLightbox(libraryLightboxItems(images), images.indexOf(image));
-    });
+    //: **What a click on a row opens**, asked for on 2026-09-09: "I want the
+    //: file to be opened in the ocr workspace if I click on the main top part
+    //: of the panel and not an element and when I click the file title".
+    //:
+    //: A picture opens in the lightbox, which is the view that answers "what
+    //: is this": a document opens in the OCR workspace, which is the view
+    //: that answers the same question about a document, page beside text. A
+    //: PDF in a lightbox was always the compromise, and the workspace
+    //: rasterises its pages server-side (`_pdf_regions_for`), so there is no
+    //: longer a reason to send a document to the image viewer.
+    const openThisRow = () => {
+      if (image._isImage) openLightbox(libraryLightboxItems(images), images.indexOf(image));
+      else openOcrWorkspace(image, images);
+    };
+    img.addEventListener("click", openThisRow);
     // The tick. Same control the Documents list already uses, so selecting
     // works the same way wherever you are in the Library.
     const tick = document.createElement("input");
@@ -5440,7 +5486,18 @@ function filterLibraryImagesGallery() {
 
     const cap = document.createElement("figcaption");
     cap.textContent = image.original_name;
-    cap.title = image.original_name;
+    cap.title = image._isImage
+      ? image.original_name
+      : `${image.original_name}\n\nClick to open it page by page, beside the text.`;
+    //: The title is the row's name, so it opens the row, the same click the
+    //: thumbnail takes. Not while it is being renamed: `rename` replaces the
+    //: caption's contents with an `<input>`, and a click into a text field
+    //: you are typing in must never navigate away from it.
+    cap.addEventListener("click", (event) => {
+      if (cap.querySelector("input")) return;
+      event.stopPropagation();
+      openThisRow();
+    });
 
     rename.addEventListener("click", (event) => {
       event.stopPropagation();

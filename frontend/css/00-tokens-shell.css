@@ -2622,21 +2622,31 @@ header#top-bar.tabs-wrapped #tab-bar {
   display: none;
 }
 
-.library-image-reading > summary::after {
+/* **The caret leads the label, it does not trail the row.** Reported on
+   2026-09-09: "the text extracted from this file dropdown doesnt even have a
+   dropdown arrow and make sure it is aligned with the text". It had one, as
+   `::after` with `margin-left: auto`: on an image tile that put it a few
+   pixels past a short label, but a Files row's summary is the full width of
+   the row, so the caret sat about 300px away from the words it belongs to,
+   with nothing between them. A marker that far from its label is not a marker.
+
+   Leading, which is also what every other disclosure in this app does (the
+   chat's `.agent-step` and `details.tool-chip` both draw theirs before the
+   text) and therefore what DESIGN.md's <details> recipe means. */
+.library-image-reading > summary::before {
   content: "▸";
-  margin-left: auto;
   flex: 0 0 auto;
   opacity: 0.7;
   transition: transform var(--motion-base) ease;
 }
 
-.library-image-reading[open] > summary::after {
+.library-image-reading[open] > summary::before {
   transform: rotate(90deg);
 }
 
 @media (prefers-reduced-motion: reduce) {
 
-  .library-image-reading > summary::after {
+  .library-image-reading > summary::before {
     transition: none;
   }
 }

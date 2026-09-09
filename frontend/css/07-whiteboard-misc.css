@@ -9404,3 +9404,16 @@ header#top-bar {
 .monitor-runs .agent-run-row:not(.has-steps) > summary {
   cursor: default;
 }
+
+/* **A Files row's fields start where its title starts.** Measured at 1440 on
+   the running app (2026-09-09): the title and the "PDF · 121 KB · added"
+   strip both began at x=172, the caption field and the transcription fold at
+   x=181, so the lower half of every row was nine pixels adrift of the upper
+   half. `.library-image-fields` carries its own horizontal padding for the
+   Images grid, where the tile itself has none; in the rows layout the tile
+   supplies the padding and the field block's own is a second inset on top of
+   it. Reported as "this text needs to be better aligned in the files". */
+.library-file-rows .library-image-tile > .library-image-fields {
+  padding-left: 0;
+  padding-right: 0;
+}

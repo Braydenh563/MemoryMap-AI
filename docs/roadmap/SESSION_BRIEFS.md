@@ -900,3 +900,87 @@ at four widths; contrast.js; docks.js; touch.js; weight.js under 10%
 blurred at rest with the art off; every number in the plan's Built block;
 no em-dashes, no exclamation marks, sentence case; commit trailers;
 push per batch.
+
+## Brief 19 (Opus agent): DOCUMENTS Phase 2 steps 2 to 4, the engine
+
+Relaunch text, verbatim, when the agent dies (its worktree survives:
+`git worktree list`, resume with the same words). Read CLAUDE.md, then
+DOCUMENTS_PLAN "Phase 2" and "Built, Phase 2 step 1", then DESIGN.md.
+Own worktree, commit per working piece, never push, five-line report,
+`agent-remaining/documents-engine.md` before stopping.
+
+Decisions (not remade): the bundle loads on demand via `loadCodeMirror()`
+(script-inject `/vendor/codemirror/codemirror.min.js`, no `?v=`), the
+textarea stays as the fallback; one adapter `docSurface()` (text get/set,
+`selection()`, `setSelection`, `replaceRange`, `onChange`, `coordsAt`,
+`focus`, `scrollTop`, `lineAt`) is the only thing documents.js and
+editor.js touch (the 18 `.value` reads, listeners at ~3081, 3097, 3113,
+3116, 3573; editor.js's 8); the view mounts in `#doc-source-wrap` as
+`#doc-editor`; Live = the same view with a decorations Compartment on,
+Source = off; `setDocView` (~200) keeps its contract; `renderDocLive`
+(~1504) and the `.lp-*` CSS are deleted once acceptance passes; Live
+decorations in value order (headings with hidden markers, inline marks
+with markers hidden until the caret enters, links as chips, task boxes
+that toggle, quotes and callouts, images as widgets, `[[wiki]]` chips via
+`layerDocWikiLinks`), computed from the lezer tree over
+`view.visibleRanges`; findings (docProseFindings ~4187,
+docBackdropFindings ~4437, docFindingAtOffset ~5201, docOpenSuggestFor
+~5258) become `cm-finding cm-finding-<kind>` marks, the backdrop layer
+retired; undo = CM6 history, the docUndo* stack (~6260 to 6440) retired
+after the editor.js sweep gate passes; find/replace = CM6 search panel
+restyled by CSS; folding on headings with the gutter preference; line
+numbers via CM6 for the document, `mountGutterFor` (~1139) stays for the
+other textareas; the `/` menu, `[[` autocomplete (~4819 to 4940), the
+toolbar (wrapDocSelection ~2359, wireMarkdownToolbar ~3301,
+wireMdFormatShortcuts ~3379) and selection to chat re-point at the
+adapter; styling via `EditorView.theme` from tokens plus a new
+`frontend/css/09-editor.css` linked with `?v=`; dark via
+`dataset.mode`; code files get their language (js/ts, py, css, html,
+json, yaml, stream modes), unknown plain.
+
+Tests first: `tests/test_doc_surface.py` is on the branch, strict-xfail;
+remove each marker as it passes. Gates: doctype.js under 30 ms keydown to
+paint in Live at 20k words; editor.js undo gate; documents-chrome.js
+unchanged; errors.js clean at four widths; zero `securitypolicyviolation`;
+the bundle absent from the boot request list. Serve on 8786; never pkill
+uvicorn; CSP rejects `style=`; no em-dashes; commit trailers.
+
+## Brief 20 (Opus agent): graph node panel, Library image cards, whiteboard panels
+
+Relaunch text, verbatim. Read CLAUDE.md, DESIGN.md, INBOX 59, 56, 52, 64,
+65 and GRAPH_PLAN "Phase 6 — the node panel". Own worktree, commit per
+item, never push, five-line report, `agent-remaining/visual-c.md`. Do not
+touch documents.js or editor.js.
+
+Item 1, the graph node panel (grep "Favourite" and "Trace" together in
+graph.js/app.js and the panel in index.html): header (title, one category
+chip, confidence as a small muted mark), one muted meta line, the
+attachment as a compact row, the content editor four lines minimum and
+autogrowing, tags, one primary Save shown only when changed; actions as
+one icon toolbar row in three hairline-divided groups: read (Open,
+Similar, Trace), shape (Grow, Focus, Link, Remind), keep (Favourite; Bin
+last, ghost); Open the one filled button; the panel scrolls inside.
+Measure at 1440, 1024 and 390 (buttons per row, scrollHeight vs
+clientHeight, nothing under 36px, nothing clipped); graph4b.js passes.
+
+Item 2, Library image cards (library.js ~5271 `.library-image-tile`, CSS
+in 05 and 07): thumbnail with the file name as a scrim caption, one line
+"Used in <chip>" or "Not used yet", the description clamped to three
+lines with a "More" ghost button, OCR text under one disclosure,
+provenance as one muted foot line "Described by X · read by Y", edit and
+delete controls unchanged. Measure card height before/after with a long
+description, three font sizes per card, nothing clipped at 1024.
+
+Item 3, whiteboard panels: the bottom tool bar (`.whiteboard-floating-
+panel.bottom-center`, zoom pill `.bottom-right`, CSS in 07): one surface,
+hairline dividers, no per-control background except the active tool, the
+zoom pill on the same recipe and height; the properties panel (INBOX 64):
+sections Style, Guides, Arrange, Notes; Arrange as one icon toolbar row
+(align x3, distribute x2, group/ungroup pair) with tooltips; Extract notes
+as the section's one text button; no two control rects intersect; the
+panel scrolls inside. Measure: elements with their own background inside
+the bar, bar height equals the zoom pill, touch.js and docks.js
+unchanged, errors.js clean. Serve on 8788. Every new glass surface goes on
+the `[data-glass="off"]` list. Sentence case, no em-dashes, tokens only,
+commit trailers.
+

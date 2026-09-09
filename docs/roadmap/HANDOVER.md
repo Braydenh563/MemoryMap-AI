@@ -49,6 +49,78 @@ already written; the rule is to work it, not to redesign it.
 The opening prompt that does all of this: "Read CLAUDE.md, then the top
 of docs/roadmap/HANDOVER.md, and continue."
 
+### Fable's working notes for Opus (2026-09-09 05:10 UTC)
+
+What made this session's fixes land first time, written down so the method
+survives the model change. Use it verbatim.
+
+**The method, per report.** (1) Find the code by grep before reading any
+file whole; the sites below are already found. (2) Write a 20-line
+Playwright probe (`scratchpad/ui-sweeps/lib.js` `boot()`, then
+`page.evaluate` returning numbers: rects, computed styles, counts) and run
+it against `serve.sh 8784 /tmp/mm-8784`; never screenshot-and-look. (3)
+Fix the cause, not the symptom (the shape that recurs here: a handler
+re-renders over what it just opened; a rule set on the wrong class; a
+value measured while hidden). (4) Re-run the probe, then the lint set,
+`node --check`, ruff; errors.js in the background. (5) One commit per
+report with the measured numbers in the message, the INBOX line marked
+"Fixed" with the numbers, push. (6) Say "not verified" when a browser did
+not confirm it. Never widen a lint; a failing lint found something.
+
+**Where each open section-A item lives** (INBOX number: file, area,
+diagnosis):
+- 66 lightbox in graph fullscreen: `frontend/app.js` lightbox mount (grep
+  `lightbox`), `#graph-card` is the fullscreen element; mount the dialog
+  inside `document.fullscreenElement` while it is set.
+- 69 agent panel rows: `frontend/app.js` ~35850 (`agent-run-summary`,
+  `agent-run-name`); the caret's toggle handler is per-row and lost on
+  re-render; delegate it on the panel.
+- 70 notifications combobox: the panel's outside-click guard closes on a
+  click inside `.select-menu` (enhanceSelect at `app.js` ~18359); exclude
+  it.
+- 73 mute toggle resets: `frontend/settings.js`, grep `mute`; write the
+  value into `prefsCache` before the save round-trip, not after.
+- 74 profile panels and Ctrl+S: `frontend/index.html` "About you
+  (optional)" group; a `keydown` on `#settings-modal` for Ctrl/Cmd+S that
+  clicks the visible section's Save.
+- 77 token badge: `frontend/index.html` ~1238 `.chat-subline`; the pill's
+  padding is asymmetric and its text is `x% of window`; centre with
+  `inline-flex; align-items:center; line-height:1`.
+- 81 web links: the answer renderer's link rule (grep `renderMarkdown` in
+  `app.js`), accept `<https://...>` autolinks; number web sources after
+  the notes in the Sources list.
+- 83 Tools paragraphs: `frontend/index.html` Settings > Tools, "How many
+  are offered at once" and "Small model mode"; one line each, the rest
+  behind `data-help-for` (pattern at index.html ~5321).
+- 84 marquee behind objects: `frontend/whiteboard.js`, the selection
+  rectangle is drawn on the object canvas; draw it on the overlay canvas
+  (the one the guides use).
+- 86 zoom popup under dialogs: the zoom indicator's z-index (grep
+  `zoom-indicator` in CSS) is below `.modal-overlay`'s; raise it.
+- 88 fullscreen graph glass: `:fullscreen .graph-card` paints over
+  `--page` with nothing behind it; give it `--modal-bg` on purpose and a
+  comment.
+- 89 glass sliders: measure `--glass-blur` on `header#top-bar`'s computed
+  backdrop-filter, `--glass-opacity` on `.card` background alpha (palette
+  override order in `00-tokens-shell.css` 131/628/677), sheen on
+  `:root[data-glass-sheen="on"] .card` (3389); the card blur is off unless
+  `data-bg-art="on"` (INBOX 49), which is why "blur does nothing" on a
+  still page.
+- 96 drag without pin: `frontend/graph-canvas.js` drag end (grep `fx =`
+  and `gcTogglePin`); on drop set `x/y`, clear `fx/fy`, reheat at
+  alpha 0.1; pin only on Shift+drag or the menu.
+- 67 gravity: `frontend/graph-worker.js` `tuning()`; `pull` is 0.25x to
+  3.25x; if still spread at 100 on the owner's build, raise to 5x and add
+  the component ring.
+
+**The two agent briefs**, verbatim, are SESSION_BRIEFS Briefs 19 and 20 so
+an agent that dies can be relaunched by anyone with the same words.
+
+**What Opus should not do:** redesign what a plan decided; touch
+`documents.js`/`editor.js` while the documents agent runs; merge a report
+without numbers; run pkill on uvicorn; install torch; use inline
+`style=`; add a glass surface without the `[data-glass="off"]` list.
+
 ### Standing orders for this session (whoever the model is)
 
 The owner will say "continue", or paste a batch of issues, possibly

@@ -2968,9 +2968,33 @@ function menuClippingAncestor(el) {
 
 //: The placement `wireEscapedActionMenu` has always used, factored out so the
 //: automatic path and the hand-wired one cannot drift into placing the same
-//: menu differently. Right-aligned to the opener, flipped above when there is
-//: no room below, and clamped to the viewport on both axes, which is the
+//: menu differently. Right-aligned to the opener, flipped above when the whole
+//: box fits there, and clamped to the viewport on both axes, which is the
 //: "or go off the screen" half of the same report.
+//:
+//: **This is deliberately not `place()`'s vertical rule** (see
+//: `wireEscapedActionMenu` below), and the difference was measured rather
+//: than assumed, on the note cards' own kebab menus, which are the automatic
+//: path's largest population. `place()` decides between the room above the
+//: trigger and the room below it and scrolls inside whichever is larger; this
+//: one is allowed to span *across* the trigger and use the whole window. For
+//: a menu taller than either side, that is the difference between showing all
+//: of it and showing part of it: at 1280x640 a 375px menu opened from a card
+//: at y=313 sits 257 to 632 here and needs no scrollbar at all, while
+//: `place()`'s rule caps it to the 301px above the card and makes it scroll;
+//: at 1280x360 the same menu shows 294px of itself against `place()`'s 207px,
+//: with 143px of empty window left under it. A kebab covering its own three
+//: dots for as long as it is open costs nothing. A `<select>` dropdown
+//: covering the field you are choosing a value in is a different matter,
+//: which is why `place()`, whose callers are that shell and the wrap kebabs,
+//: keeps the trigger clear and takes the scrollbar instead.
+//:
+//: What is shared is everything else: the horizontal clamp, the 8px margin,
+//: the 4px gap, and the rule that the whole box lands inside the window.
+//: Neither can run past the bottom, because `07-whiteboard-misc.css` caps
+//: every `.action-menu` at `calc(100vh - var(--space-9) * 2)` with
+//: `overflow-y: auto`, measured as 576px in a 640px window and 296px in a
+//: 360px one, so a menu is never taller than the window it is placed in.
 function placeEscapedMenu(menu, opener) {
   const margin = 8;
   const anchor = opener.getBoundingClientRect();
@@ -2987,7 +3011,17 @@ function placeEscapedMenu(menu, opener) {
   }
   if (top + box.height > window.innerHeight - margin) {
     const above = anchor.top - 4 - box.height;
-    top = above >= margin ? above : Math.max(margin, window.innerHeight - margin - box.height);
+    //: **Both edges, not just the top.** This branch used to accept `above`
+    //: on `above >= margin` alone, which is only half the question: with a
+    //: trigger below the fold (a card the list has scrolled past, a menu
+    //: opened from script), "above the trigger" is itself off the bottom of
+    //: the window. Measured at 1280x360 on the third note card, whose kebab
+    //: sits at y=405: the menu landed at top 105, bottom 401, with 41px of it
+    //: past the window and nothing able to bring that back. The fallback
+    //: below, which pins the box to the last position that fits, was always
+    //: the right answer for that case.
+    const fits = above >= margin && above + box.height <= window.innerHeight - margin;
+    top = fits ? above : Math.max(margin, window.innerHeight - margin - box.height);
   }
   menu.style.left = `${Math.round(left)}px`;
   menu.style.top = `${Math.round(top)}px`;
@@ -3142,6 +3176,15 @@ function wireEscapedActionMenu(wrap) {
     //: Whichever rule caps it, an inline `max-height: none` for the
     //: duration of the measurement is what makes `box.height` the height this
     //: menu actually wants, so the choice below is made on the real number.
+    //:
+    //: **And the cap below is not `placeEscapedMenu`'s job, deliberately.**
+    //: Sharing it was tried and measured: giving the automatic path this rule
+    //: made a 375px note-card menu that fitted whole at 1280x640 into a 301px
+    //: scrolling one, and cost 87px of visible menu at 1280x360, because that
+    //: path is allowed to span across its trigger and use the window while
+    //: this one keeps the trigger clear. The numbers are at
+    //: `placeEscapedMenu`, which is the site a reader is more likely to reach
+    //: first.
     menu.style.maxHeight = "none";
     const box = menu.getBoundingClientRect();
     let left = anchor.right - box.width;

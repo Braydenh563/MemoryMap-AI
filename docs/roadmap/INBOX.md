@@ -56,6 +56,7 @@ done-when item 4 and 5), in priority order.
     should be the space below its trigger, not a fixed figure, and a row
     must never be cut in half. Measure it open at 1440 and at 820. Owner:
     WHITEBOARD Phase 1. Size S.
+<<<<<<< HEAD
 67. **Max gravity: "the nodes are all still so spread out"** (screenshot at
     max, 01:30). The screenshot predates the pull fix in e1... (commit
     "graph: the centre pull follows the gravity slider", pushed 01:00) if
@@ -71,6 +72,16 @@ done-when item 4 and 5), in priority order.
     paper with "Empty board", the dashboard widget uses the same renderer
     at thumbnail size.
 
+=======
+106. **Links: the Save and Cancel buttons do not match.** The owner,
+    2026-09-09: "the links edit save and cancel buttons arent consistent"
+    (screenshot: Save is a filled accent pill, Cancel a grey rounded
+    rectangle at a different radius and a different height). Two buttons
+    side by side in one row must share a radius, a height and a padding;
+    only the fill should differ. Fix on DESIGN.md's button recipe, and
+    check the same pair everywhere an edit row appears. Owner: UI
+    modernisation, placed. Size S.
+>>>>>>> worktree-agent-a93efefdb83c29141
 ## Placed (last 20, newest first)
 
 - 2026-09-08: dashboard hero preference, New note tile colours, sub-tab

@@ -588,6 +588,19 @@ def _preview_points(rows: list[tuple[float, float]]) -> list[list[float]]:
 #: high, so a longer string is only bytes.
 PREVIEW_LABEL_CHARS = 28
 
+#: What a thing is drawn at on the canvas when it has no size of its own,
+#: so a thumbnail draws the same picture the board does. These mirror
+#: `WB_CARD_DEFAULT_SIZE`, `WB_MAP_NODE_W/H` and the sketch's own box in
+#: frontend/whiteboard.js; a card's width and height are nullable columns and
+#: a sketch has none at all, so without a figure here every one of them would
+#: have to be drawn as a point.
+PREVIEW_DEFAULT_SIZES = {
+    "card": (250.0, 150.0),
+    "sketch": (200.0, 150.0),
+    MAP_TOPIC_KIND: (200.0, 56.0),
+}
+PREVIEW_FALLBACK_SIZE = (200.0, 120.0)
+
 
 #: The branch colours a map's thumbnail draws, in the order a first-level
 #: branch claims them.
@@ -665,9 +678,27 @@ def _map_branch_colors(
     return colors
 
 
-def _preview_items(rows: list[tuple[float, float, str, str, str | None]]) -> list[dict]:
+def _preview_size(
+    kind: str, width: float | None, height: float | None
+) -> tuple[float, float]:
+    """How big this thing is on the board, falling back to what the canvas
+    would draw it at.
+
+    A card's `width`/`height` are nullable columns and a sketch has neither,
+    so "no size stored" is the common case rather than the odd one, and it
+    means "the default", not "zero".
+    """
+    default = PREVIEW_DEFAULT_SIZES.get(kind, PREVIEW_FALLBACK_SIZE)
+    w = float(width) if width else default[0]
+    h = float(height) if height else default[1]
+    return (max(1.0, w), max(1.0, h))
+
+
+def _preview_items(
+    rows: list[tuple[float, float, str, str, str | None, float, float]],
+) -> list[dict]:
     """The same normalisation as `_preview_points`, carrying what each item
-    *is*, what it says and what colour it is.
+    *is*, what it says, what colour it is and **how big it is**.
 
     Sampling happens before normalising and both use one stride, so the
     labels can never end up attached to the wrong positions, which is the
@@ -676,17 +707,35 @@ def _preview_items(rows: list[tuple[float, float, str, str, str | None]]) -> lis
     `color` is omitted rather than sent as null for the items that have none
     (every card, every sketch, every object on an ordinary board): a
     twenty-board list ships eight hundred of these.
+
+    **`w` and `h` are why a board stopped previewing as identical grey
+    blobs** (INBOX 68, the owner twice: "Boards & maps preview looks so bad,
+    especially in the dashboard"). Positions alone cannot say that the banner
+    across the top of a board is six times the width of the sticky under it,
+    so every item was drawn as the same rectangle and the picture was of the
+    renderer rather than of the board. They are fractions of the same span
+    the positions were normalised into, so the client multiplies them by
+    exactly what it multiplies `x` and `y` by, and a span of zero (one item,
+    or a straight line of them) leaves them out rather than shipping an
+    infinity.
     """
     if not rows:
         return []
     stride = max(1, len(rows) // PREVIEW_POINTS)
     sampled = rows[::stride][:PREVIEW_POINTS]
-    points = _preview_points([(x, y) for x, y, _, _, _ in sampled])
+    points = _preview_points([(x, y) for x, y, _, _, _, _, _ in sampled])
+    xs = [x for x, _, _, _, _, _, _ in sampled]
+    ys = [y for _, y, _, _, _, _, _ in sampled]
+    span_x = max(xs) - min(xs)
+    span_y = max(ys) - min(ys)
     items = []
-    for (nx, ny), (_, _, kind, label, colour) in zip(points, sampled, strict=True):
+    for (nx, ny), (_, _, kind, label, colour, w, h) in zip(points, sampled, strict=True):
         item = {"x": nx, "y": ny, "kind": kind, "label": label}
         if colour:
             item["color"] = colour
+        if span_x > 0 and span_y > 0:
+            item["w"] = round(w / span_x, 4)
+            item["h"] = round(h / span_y, 4)
         items.append(item)
     return items
 
@@ -729,7 +778,7 @@ def _board_preview(
             model.board_id.is_(None) if board_id is None else model.board_id == board_id
         )
 
-    rows: list[tuple[float, float, str, str, str | None]] = []
+    rows: list[tuple[float, float, str, str, str | None, float, float]] = []
     #: Which object each row came from, positionally, `None` for a card or a
     #: sketch, which have no tree. Only map nodes ever claim a parent, so an
     #: ordinary board leaves `parent_of` empty and pays for nothing.
@@ -754,11 +803,29 @@ def _board_preview(
             label = (manager.extract_title(text) or text.strip().split("\n")[0])[
                 :PREVIEW_LABEL_CHARS
             ]
-        rows.append((float(node.x), float(node.y), "card", label, None))
+        rows.append(
+            (
+                float(node.x),
+                float(node.y),
+                "card",
+                label,
+                None,
+                *_preview_size("card", node.width, node.height),
+            )
+        )
         owners.append(None)
 
     for sketch in db.scalars(select(WhiteboardSketch).where(on(WhiteboardSketch))):
-        rows.append((float(sketch.x), float(sketch.y), "sketch", "", None))
+        rows.append(
+            (
+                float(sketch.x),
+                float(sketch.y),
+                "sketch",
+                "",
+                None,
+                *_preview_size("sketch", None, None),
+            )
+        )
         owners.append(None)
 
     # Ordered by id so the branch colours fall in the same order the canvas
@@ -779,12 +846,29 @@ def _board_preview(
             data = parsed if isinstance(parsed, dict) else {}
         except (TypeError, ValueError):
             data = {}
-        if obj.kind == MAP_TOPIC_KIND:
+        if obj.kind == MAP_TOPIC_KIND or obj.kind == "text":
             # A map's thumbnail is mostly topics, and a topic *is* its text,
             # a tree of unlabelled boxes tells two maps apart no better than
             # a scatter of dots did.
+            #
+            # A whiteboard's text boxes and sticky notes are the same case and
+            # were left out of it (INBOX 68: "Boards & maps preview looks so
+            # bad"). A board of five text boxes previewed as five blank
+            # rectangles, so the one thing written on the board, which is what
+            # a person named it after, was the one thing the picture of it did
+            # not have. An image object still has no label: what it says is a
+            # picture, and a thumbnail of a thumbnail is a different feature.
             label = str(data.get("content") or "")[:PREVIEW_LABEL_CHARS]
-        rows.append((float(obj.x), float(obj.y), obj.kind or "object", label, None))
+        rows.append(
+            (
+                float(obj.x),
+                float(obj.y),
+                obj.kind or "object",
+                label,
+                None,
+                *_preview_size(obj.kind or "object", obj.width, obj.height),
+            )
+        )
         owners.append(obj.id)
         if obj.parent_id is not None:
             parent_of[obj.id] = obj.parent_id
@@ -801,8 +885,16 @@ def _board_preview(
     if tree_parents:
         branch_colors = _map_branch_colors(tree_parents, own_colors)
         rows = [
-            (x, y, kind, label, branch_colors.get(owner) if owner is not None else colour)
-            for (x, y, kind, label, colour), owner in zip(rows, owners, strict=True)
+            (
+                x,
+                y,
+                kind,
+                label,
+                branch_colors.get(owner) if owner is not None else colour,
+                w,
+                h,
+            )
+            for (x, y, kind, label, colour, w, h), owner in zip(rows, owners, strict=True)
         ]
 
     # Sample here rather than inside `_preview_items` so the edges can be

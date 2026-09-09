@@ -1510,6 +1510,22 @@ const MAP_PREVIEW_BASE = 100;
 //: same thing at a twentieth of the size.
 const MAP_PREVIEW_NODE_ROUNDING = 0.35;
 
+//: The floor on a block's drawn size, as a multiple of the size every block
+//: used to be. A small object on a large board is a fraction of a viewBox
+//: unit once it is drawn to scale, and a preview whose smallest things are
+//: invisible is a preview of the big ones only.
+const MAP_PREVIEW_MIN_BLOCK = 0.5;
+
+//: A character's width as a fraction of the type size, for deciding whether a
+//: label fits inside its own shape. Rough on purpose: the alternative is
+//: measuring text in the DOM, which means laying out every thumbnail twice.
+const MAP_PREVIEW_CHAR_WIDTH = 0.55;
+
+//: The shortest label worth putting inside a shape. Below this the block is
+//: too small to hold a word and the label goes beside it, where it has the
+//: whole margin to run into: "M…" on a node says less than nothing.
+const MAP_PREVIEW_MIN_INSIDE_CHARS = 5;
+
 //: How much of the card's width the letterboxed board has to fill before its
 //: labels are worth drawing, as a fraction. See where it is used.
 const MAP_PREVIEW_LABEL_FLOOR = 0.6;
@@ -1680,9 +1696,37 @@ function mapPreview(board, { size = "card" } = {}) {
     svg.appendChild(curve);
   }
 
+  //: **How big this thing is on the board**, in the viewBox's units, from the
+  //: `w`/`h` the server now ships as fractions of the same span `x` and `y`
+  //: were normalised into (INBOX 68).
+  //:
+  //: This is the difference between a picture of the board and a picture of
+  //: the renderer. Measured before it: every block in every preview came back
+  //: at one size (29.1x21.8 in the dashboard, 26.4x17.6 in the Library), so a
+  //: banner across the top of a board, the column beside it and a sticky note
+  //: were three identical grey rectangles, which is the owner's "grey blobs"
+  //: exactly. A board's own shapes are most of what tells two boards apart.
+  //:
+  //: Floors, not raw values: a small object on a large board is a fraction of
+  //: a viewBox unit and would vanish, and something has to be visible for the
+  //: preview to be a preview. The ceiling is the drawable span, so one huge
+  //: object cannot spill outside the paper it is drawn on. An older payload
+  //: (a cached list from before the server sent sizes) has no `w`, and falls
+  //: back to the uniform block, which is what this drew for everything.
+  const sizeOf = (item) => {
+    const w = Number(item.w);
+    const h = Number(item.h);
+    if (!(w > 0) || !(h > 0)) return { w: blockW, h: blockH };
+    return {
+      w: Math.min(spanX + blockW, Math.max(blockW * MAP_PREVIEW_MIN_BLOCK, w * spanX)),
+      h: Math.min(spanY + blockH, Math.max(blockH * MAP_PREVIEW_MIN_BLOCK, h * spanY)),
+    };
+  };
+
   for (const item of items) {
     const nx = px(item.x);
     const ny = py(item.y);
+    const size = sizeOf(item);
     if (item.kind === "sketch") {
       // A sketch is strokes, and the thumbnail does not have them, stroke
       // data is the one thing `preview_items` deliberately does not ship. A
@@ -1704,13 +1748,13 @@ function mapPreview(board, { size = "card" } = {}) {
     dot.setAttribute("class", item.color ? "board-minimap-branch" : grey);
     dot.setAttribute("x", String(round2(nx)));
     dot.setAttribute("y", String(round2(ny)));
-    dot.setAttribute("width", String(round2(blockW)));
-    dot.setAttribute("height", String(round2(blockH)));
+    dot.setAttribute("width", String(round2(size.w)));
+    dot.setAttribute("height", String(round2(size.h)));
     // Rounded like the node it stands for, and rounded by its own size rather
     // than by a fixed 1.5: the block is drawn at a different number of viewBox
     // units on every board shape now, so a constant radius was a sharp corner
     // on one card and a pill on the next.
-    dot.setAttribute("rx", String(round2(Math.min(blockW, blockH) * MAP_PREVIEW_NODE_ROUNDING)));
+    dot.setAttribute("rx", String(round2(Math.min(size.w, size.h) * MAP_PREVIEW_NODE_ROUNDING)));
     // The grey blocks are faded because an unlabelled box is texture; a
     // coloured node is carrying which branch it belongs to, so it is drawn at
     // full strength (`.board-minimap-branch`).
@@ -1730,21 +1774,53 @@ function mapPreview(board, { size = "card" } = {}) {
     //: in a 100-wide viewBox, so its label ran off the edge and came out
     //: sliced mid-word ("Cloud computi"). Past halfway it hangs off the left
     //: instead, which is the same amount of room from the other direction.
+    //: **Inside the shape when the shape can hold it**, beside it when it
+    //: cannot. Reported as the text "sitting off its shapes", and measured
+    //: before this: six of six labels on a map card were drawn outside every
+    //: block, because a block was a fixed 9x6 units whatever it stood for and
+    //: nothing could ever contain a word. Now that a topic is drawn at its own
+    //: size, a 200x56 node has room for its own name, which is where a person
+    //: reading a map expects to find it.
+    //:
+    //: The test is the text's own width against the block's: `font` units per
+    //: character is the same approximation the ellipsis below uses, and a
+    //: character is about half the type size in this family.
+    const fontUnits = geo.font * unit;
+    const perChar = fontUnits * MAP_PREVIEW_CHAR_WIDTH;
+    //: How many characters the block itself can hold, with a character's
+    //: width of padding at each end. A node is usually wider than it is long
+    //: in words, so this is normally the whole label; when it is not, the
+    //: label is cut to fit *inside* rather than being pushed outside, because
+    //: a name on its own node reads as that node's name and the same name
+    //: floating between two edges reads as a third thing on the board.
+    const roomFor = Math.floor((size.w - perChar * 2) / perChar);
+    const tall = size.h >= fontUnits * 1.6;
+    const fits = tall && roomFor >= MAP_PREVIEW_MIN_INSIDE_CHARS;
+    const budget = fits ? Math.min(roomFor, 16) : 16;
+    const shown = item.label.length > budget
+      ? `${item.label.slice(0, Math.max(1, budget - 1)).trimEnd()}…`
+      : item.label;
     const rightHalf = nx > vw / 2;
     const gap = 1.5 * unit;
-    text.setAttribute("x", String(round2(rightHalf ? nx - gap : nx + blockW + gap)));
-    text.setAttribute("y", String(round2(ny + blockH * 0.73)));
+    if (fits) {
+      text.setAttribute("x", String(round2(nx + size.w / 2)));
+      text.setAttribute("y", String(round2(ny + size.h / 2 + fontUnits * 0.36)));
+      text.setAttribute("text-anchor", "middle");
+      text.classList.add("board-minimap-label-inside");
+    } else {
+      text.setAttribute("x", String(round2(rightHalf ? nx - gap : nx + size.w + gap)));
+      text.setAttribute("y", String(round2(ny + size.h * 0.73)));
+    }
     // The type size, in the box's units divided back out, for the same reason
     // the blocks are: a fixed CSS `font-size` here is in viewBox units, so the
     // labels on a square board came out half the size of the labels on a wide
     // one. The stylesheet keeps the colour and the family; only the size,
     // which depends on the board's shape, is set here.
-    text.setAttribute("font-size", String(round2(geo.font * unit)));
-    if (rightHalf) text.setAttribute("text-anchor", "end");
+    text.setAttribute("font-size", String(round2(fontUnits)));
+    if (!fits && rightHalf) text.setAttribute("text-anchor", "end");
     // An ellipsis rather than a bare slice: "Connections prob" reads as
     // broken, "Connections pro…" reads as shortened.
-    text.textContent =
-      item.label.length > 16 ? `${item.label.slice(0, 15).trimEnd()}…` : item.label;
+    text.textContent = shown;
     svg.appendChild(text);
   }
   return svg;

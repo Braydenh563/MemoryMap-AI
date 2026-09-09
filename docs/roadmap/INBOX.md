@@ -227,11 +227,6 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     the settings close.** Owner: Fable, now: the preference is written on
     change but the panel re-renders from `prefsCache` before the save
     round-trip lands; write to the cache first, then save.
-74. **Preferences page: "Save preferences" and "Delete my profile data" in
-    separate panels; Ctrl+S saves progress such as settings.** Owner: Fable,
-    now: the profile group gets its own settings-group with Delete as a
-    ghost destructive button and a confirm; a `keydown` for Ctrl/Cmd+S on
-    the Settings dialog clicks the section's Save.
 76. **Inline citations must be accurate to the specific notes referenced
     where they are referenced.** Owner: WORLD_CLASS §14 grounding (Fable):
     the distinctive-terms rule already places numbers per sentence; add

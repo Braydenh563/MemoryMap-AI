@@ -8450,6 +8450,12 @@ named beside it in HANDOVER's completion table.
     `scratchpad/ui-sweeps/glass.js` as the gate (blurred area at rest under
     10% of the viewport). Size M.
 
+74. **Fixed 2026-09-09 (Fable): Delete my profile data is its own settings group; Ctrl/Cmd+S saves the visible Settings section, the open document, or the capture box, and never opens the browser dialog. Not verified in a browser. Preferences page: "Save preferences" and "Delete my profile data" in
+    separate panels; Ctrl+S saves progress such as settings.** Owner: Fable,
+    now: the profile group gets its own settings-group with Delete as a
+    ghost destructive button and a confirm; a `keydown` for Ctrl/Cmd+S on
+    the Settings dialog clicks the section's Save.
+
 ## HANDOVER archive, 2026-09-09
 
 ### The Fable session — UI Phases 0-4, skills reform A-B, backend sprint 1, the audit

@@ -95,7 +95,9 @@ full text, with the reasons, is the block at the top of
    count, version and mode names against the code, so a change that makes
    the README stale fails the build until the README says the same. Every
    merge ends with: CHANGELOG line, README if a number or name moved,
-   INBOX entry marked, the plan's Built block moved.
+   INBOX entry marked and moved (`python scratchpad/inbox_resolve.py <n>`
+   moves it to HISTORY's "INBOX resolved"; the lint fails on a "Fixed"
+   item left in INBOX), the plan's Built block moved.
 11. **New UI comes from DESIGN.md's recipe index**, never from scratch: a
    menu is `kebabMenu`, a bar is `.dock`, help is `data-help-for`, a
    blurred surface is on the glass-off list, spacing and radius are

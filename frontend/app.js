@@ -33970,6 +33970,32 @@ document.addEventListener("keydown", (e) => {
       return; // wait for the second key; a lone "m" does nothing on its own
     }
   }
+  //: Ctrl+S saves what is in front of you (INBOX 74, asked for: "register
+  //: the ctrl s command for saving progress such as settings"). Settings:
+  //: the visible section's own Save button; Documents: the document;
+  //: Capture: the note. Always swallowed, so the browser's "save page"
+  //: dialog never appears over the app.
+  if ((e.key === "s" || e.key === "S") && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+    e.preventDefault();
+    if (settingsModalOpen()) {
+      const section = document.querySelector(".settings-section:not(.hidden)");
+      const save = section?.querySelector('button[id$="-save"]:not([disabled])');
+      if (save) save.click();
+      else toast("This section saves as you change it.");
+      return;
+    }
+    if (!$("tab-documents")?.classList.contains("hidden") && typeof saveDocument === "function") {
+      saveDocument();
+      return;
+    }
+    const capture = $("save-btn");
+    if (capture && capture.offsetParent && !capture.disabled) {
+      capture.click();
+      return;
+    }
+    toast("Nothing to save here.");
+    return;
+  }
   if (e.key === "Escape" && settingsModalOpen()) closeSettingsModal();
   if (e.key === "Escape") closeActionMenus();
   if (e.key === "Escape" && linkSource !== null) {

@@ -5668,9 +5668,9 @@ function filterLibraryImagesGallery() {
       captionText.title = text
         ? "Click to edit this description"
         : "Click to add a description";
-      captionBtn.title = text
-        ? `Describe “${image.original_name}” again with AI`
-        : `Describe “${image.original_name}” with AI`;
+      captionBtn.title = image._isImage
+        ? `Describe “${image.original_name}” ${text ? "again " : ""}with AI`
+        : `Summarise “${image.original_name}” ${text ? "again " : ""}from its text`;
       captionBtn.setAttribute("aria-label", captionBtn.title);
       syncCaptionClamp();
       syncProvenance();
@@ -5765,7 +5765,18 @@ function filterLibraryImagesGallery() {
         //: empty caption when no vision model answers, and silence here read
         //: as a dead button. Say so, once, with the likely cause.
         if (!updated.caption) {
-          toast(updated.message || "No description was written. Is a vision model running in Settings > Models?", true);
+          //: Two different missing models, so two different sentences: a
+          //: picture is described by the vision model, a document by the
+          //: utility model reading its extracted text, and sending someone to
+          //: install a vision model for a .docx would be a wrong answer
+          //: delivered confidently.
+          toast(
+            updated.message ||
+              (image._isImage
+                ? "No description was written. Is a vision model running in Settings > Models?"
+                : "No description was written. Check a model is running in Settings > Models."),
+            true,
+          );
         }
       } catch (error) {
         captionText.textContent = previousCaptionText;

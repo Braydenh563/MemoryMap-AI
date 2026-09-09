@@ -106,6 +106,18 @@ done-when item 4 and 5), in priority order.
     by building rows once and updating in place. Fix: keep the open set and
     the scroll offset across a re-render, or skip the re-render when nothing
     in the list changed. Owner: Fable/Opus, now. Size S.
+98. **Graph: the static layouts (Tree, Radial, Arc) look editable and can
+    be knocked out of shape.** The owner, 2026-09-09: "on the other graph
+    view types, they all have the dotted border as they are static but that
+    shouldnt be the case on those views as the nodes on those views arent
+    movable ... I was on the tree graph, I test double clicked on a node and
+    it broke them all out of position". Two halves: the pinned-node dotted
+    ring is drawn in layouts where pinning has no meaning, and a double
+    click (or a drag) in a computed layout hands the node to the force
+    simulation, which then re-solves the whole board and destroys the tree.
+    Decide and say so in GRAPH_PLAN: a computed layout is read-only for
+    position, so no ring, no drag, no double-click release, and the node
+    menu's Pin and Unpin are hidden there. Owner: GRAPH Phase 6. Size S.
 67. **Max gravity: "the nodes are all still so spread out"** (screenshot at
     max, 01:30). The screenshot predates the pull fix in e1... (commit
     "graph: the centre pull follows the gravity slider", pushed 01:00) if

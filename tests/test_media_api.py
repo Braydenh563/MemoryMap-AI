@@ -401,15 +401,25 @@ def test_an_empty_typed_caption_clears_it(ai_client, fake_ollama):
     assert response.json()["caption_model"] == ""
 
 
-def test_a_hand_typed_caption_works_on_a_pdf_upload_target_refused(ai_client, fake_ollama):
-    """Manual text still goes through the same suffix guard as generation, 
-    typing a caption for a PDF is refused the same way, for the same
-    reason (this endpoint is images only)."""
+def test_a_hand_typed_caption_is_stored_on_a_pdf_upload(ai_client, fake_ollama):
+    """A document may carry a description, typed or generated.
+
+    This test asserted a 415 until 2026-09-09, when the owner asked for the
+    opposite: "the describe with ai button in the files tab doesnt work. it
+    should be a button for generating a description/summary of the file from
+    the readable and/or extractable content of the file." The suffix guard
+    that produced the refusal is gone from both caption routes, so the
+    hand-typed half it also blocked works as well: a Files row's description
+    field is the same field an image's is, and refusing to store what someone
+    typed into it was never the part anybody asked for.
+    """
     upload_id = ai_client.post(
         "/media/upload", files={"file": ("scan.pdf", b"%PDF-1.4", "application/pdf")}
     ).json()["id"]
     response = ai_client.post(f"/media/{upload_id}/caption", json={"text": "a caption"})
-    assert response.status_code == 415
+    assert response.status_code == 200, response.text
+    assert response.json()["caption"] == "a caption"
+    assert response.json()["caption_edited"] is True
 
 
 def test_media_meta_returns_what_the_app_knows_about_one_upload(ai_client):

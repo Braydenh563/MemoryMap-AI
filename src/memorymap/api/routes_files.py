@@ -390,6 +390,45 @@ def analyse_attachment(
         session.commit()
         return _attachment_out(session, attachment)
 
+    #: **Describing a document needs no vision model, only its own text.**
+    #: Reported on 2026-09-09: "the describe with ai button in the files tab
+    #: doesnt work. it should be a button for generating a
+    #: description/summary of the file from the readable and/or extractable
+    #: content of the file." It refused with a 415 for everything that was
+    #: not a picture or a PDF, and even a PDF went to a vision model, which
+    #: most machines do not have installed.
+    #:
+    #: This branch sits above the vision-model checks deliberately: a .md, a
+    #: .docx, a .csv or a text-layer PDF is described by the utility model
+    #: that already writes tag suggestions, on a machine with no vision model
+    #: at all. `ocr_text` first when it is there, since that is this file's
+    #: reading as the reader has it (corrections included) rather than a
+    #: second extraction that may disagree with what they can see.
+    #:
+    #: A file whose text extraction comes back empty is a scan, and falls
+    #: through to the vision path below, which rasterises its pages. A file
+    #: whose text is there but whose model had nothing to say stores nothing
+    #: and says so: those are different answers and must not share a branch.
+    if body.kind == "caption" and not is_image:
+        if attachment.caption and not body.force:
+            return _attachment_out(session, attachment)
+        readable = (attachment.ocr_text or "").strip() or (docview.extract(path).text or "").strip()
+        if readable:
+            if not deps.get_ollama().is_running():
+                raise HTTPException(status_code=409, detail="The AI model isn't running.")
+            models = deps.get_model_manager()
+            described = captioning.describe_document(readable, models, deps.get_ollama())
+            attachment.caption = described or None
+            attachment.caption_model = models.utility_model() if described else None
+            attachment.caption_edited = False
+            session.commit()
+            return _attachment_out(session, attachment)
+        if suffix != ".pdf":
+            raise HTTPException(
+                status_code=415,
+                detail="There is no readable text in this file to describe.",
+            )
+
     # Both remaining kinds need a vision model.
     if not deps.get_ollama().is_running():
         raise HTTPException(status_code=409, detail="The AI model isn't running.")
@@ -403,11 +442,6 @@ def analyse_attachment(
     ollama = deps.get_ollama()
 
     if body.kind == "caption":
-        if not is_image and suffix != ".pdf":
-            raise HTTPException(
-                status_code=415,
-                detail="Only images and PDFs can be described, there is nothing to look at.",
-            )
         if attachment.caption and not body.force:
             return _attachment_out(session, attachment)
         # `pdf_vision_reader` returns the reader callable itself (docview's
@@ -1517,8 +1551,7 @@ def caption_media(
     thread): `session.refresh` below picks up what it committed.
     """
     upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
-    if Path(upload.filename).suffix.lower() not in captioning.CAPTION_SUFFIXES:
-        raise HTTPException(status_code=415, detail="Only images can be captioned.")
+    is_picture = Path(upload.filename).suffix.lower() in captioning.CAPTION_SUFFIXES
     if body.text is not None:
         # A hand-typed caption needs no model at all, set it and return,
         # skipping every Ollama/vision-model check below.
@@ -1536,6 +1569,31 @@ def caption_media(
             upload.caption_model = None
             upload.caption_edited = False
         session.commit()
+    elif not is_picture:
+        #: The same document describer the attachment route uses, for the
+        #: rows that arrived through `/media/upload` rather than as a note's
+        #: attachment: both kinds land in the same Files sub-tab, and a
+        #: button that works on one of them and 415s on the other would be
+        #: the same report again from the other side.
+        if upload.caption and not body.force:
+            pass
+        else:
+            if not deps.get_ollama().is_running():
+                raise HTTPException(status_code=409, detail="The AI model isn't running.")
+            media_dir = deps.get_config().data_dir / "media"
+            path = _within_dir(media_dir, upload.filename)
+            readable = (upload.ocr_text or "").strip() or (docview.extract(path).text or "").strip()
+            if not readable:
+                raise HTTPException(
+                    status_code=415,
+                    detail="There is no readable text in this file to describe.",
+                )
+            models = deps.get_model_manager()
+            described = captioning.describe_document(readable, models, deps.get_ollama())
+            upload.caption = described or None
+            upload.caption_model = models.utility_model() if described else None
+            upload.caption_edited = False
+            session.commit()
     else:
         if not deps.get_ollama().is_running():
             raise HTTPException(status_code=409, detail="The AI model isn't running.")

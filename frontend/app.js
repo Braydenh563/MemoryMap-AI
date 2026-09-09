@@ -32719,6 +32719,11 @@ $("graph-popup-close").addEventListener("click", closeGraphPopup);
 // Resizing the window changes the map's size, so an open popup needs re-clamping.
 window.addEventListener("resize", placeGraphPopup, { passive: true });
 $("graph-popup-save").addEventListener("click", saveGraphPopup);
+// Save is shown only once the note differs from what loaded (GRAPH_PLAN
+// Phase 6), so both fields have to tell the gate when they change.
+for (const id of ["graph-popup-content", "graph-popup-tags"]) {
+  $(id).addEventListener("input", syncGraphPopupSave);
+}
 // "Open in Notes" now lives in the popup's action row (renderGraphPopupActions).
 // Clicking empty canvas dismisses the popups.
 $("graph-svg").addEventListener("click", () => {

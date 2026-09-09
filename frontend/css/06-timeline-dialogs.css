@@ -2594,8 +2594,13 @@
    `.header-divider` spans this replaced were hand-placed between whichever
    controls happened to be adjacent, which is how a fill tool and a link tool
    ended up sharing one divider and delete/undo/redo shared none. */
+/* --divider, not --border: a separator between two groups of icons inside
+   one bar, which is what the token is for (DESIGN.md, "Surface tiers"). With
+   the resting fill off every button (07-whiteboard-misc.css), --border was
+   the heaviest line in a bar whose whole complaint was that its parts looked
+   separate (INBOX 52). */
 .wb-tool-section + .wb-tool-section {
-  border-left: 1px solid var(--border);
+  border-left: 1px solid var(--divider);
   padding-left: var(--space-2);
   margin-left: var(--space-1);
 }
@@ -2871,6 +2876,43 @@
 .wb-multi-actions {
   display: flex;
   gap: var(--space-1);
+}
+
+/* **Arrange is a column of one toolbar, not a row of four rows** (INBOX 64).
+   It used to be a `.wb-properties-row`, which is `justify-content:
+   space-between` and does not wrap, holding four button groups: ten labelled
+   buttons laid across 200px, and four pairs of them measurably intersected.
+   A column that wraps cannot do that, and the buttons are icons now, so the
+   whole set fits in two lines of a 216px panel. */
+.wb-prop-arrange,
+.wb-prop-notes {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+
+.wb-prop-arrange.hidden,
+.wb-prop-notes.hidden {
+  display: none;
+}
+
+.wb-arrange-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  /* Between groups. Inside a group the gap is 2px (below), and that
+     difference is the only grouping this toolbar needs: a hairline that
+     wrapped onto the next line would mark a boundary that is not there,
+     which is the same trap the graph node panel's sheet records. */
+  gap: var(--space-3);
+}
+
+.wb-arrange-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 
 .wb-multi-actions button {

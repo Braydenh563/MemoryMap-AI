@@ -112,6 +112,53 @@ kind. Every tool has a key and every key is in the tooltip and the help.
    every drag frame (the marquee fix must not have detached them; add the
    sweep check that a dragged node's edge endpoint moves with it).
 
+## Built, 2026-09-09: one surface per panel, and the Arrange section
+
+INBOX 52 (the bottom tool bar's groups "feel separate from the panels and
+not integrated"), INBOX 65 (every panel: "the buttons look separate from
+the panels") and INBOX 64 (the properties panel "needs a massive redesign
+and fix"). Measured with `scratchpad/ui-sweeps/wbbars.js` and
+`wbprops.js` (both new) at 1440 and 1024, in both themes.
+
+- **Nothing rests filled except the active tool.** `button.ghost` carries a
+  tonal fill, which is right on a page and wrong inside a floating bar that
+  already says "these are controls": fifteen filled discs in a row read as
+  fifteen objects sharing a tray. The fill returns on hover and on keyboard
+  focus. Elements painting a background of their own: tool bar **16 to 1**,
+  zoom pill **3 to 0**, properties panel **15 to 3** (the three are colour
+  swatches, where the background is the value).
+- **The group hairlines are `--divider`**, the token for a separator between
+  parts of one surface, not `--border`.
+- **The bar and the zoom pill are the same height** (46px) and the same
+  surface recipe: they were already, and the sweep now says so.
+- **Every panel is at the floating tier again.**
+  `.whiteboard-floating-panel` sets `--modal-bg` with a comment recording
+  why; `.card.glass` in an earlier file is two classes against its one and
+  silently won, so the bars were rendering at `color(srgb 1 1 1 / 0.549)`,
+  the 55%-opaque page-card tier. Restated at a specificity the class pair
+  cannot beat: measured 0.96 light, 0.97 dark.
+- **The properties panel has sections with headings** (Style, Draw with,
+  Guides, Arrange, Notes) and **Arrange is one icon toolbar**. Before: four
+  `.wb-multi-actions` groups were flex items on one `.wb-properties-row`,
+  which is `space-between` and does not wrap, so ten labelled buttons were
+  laid across 200px of a 216px panel and **four pairs measurably
+  intersected** (group/align-left, ungroup/align-left, ungroup/align-hcentre,
+  align-bottom/distribute-h). Now: icon buttons with tooltips in four groups
+  (group and ungroup, align across, align down, space evenly), separated by
+  a gap rather than a rule, wrapping to two lines. Six aligns in one group
+  measured 178px against 200px of content width and were clipped by the
+  panel edge when the group beside them arrived, so they are two groups of
+  three, which is also the two questions being asked. Extract notes is the
+  Notes section's one text button. **0 overlapping pairs, 0 controls past
+  the panel's left or right edge, 26 controls visible at once, and the
+  panel scrolls inside itself** (scrollHeight 892 against clientHeight 587).
+- Every id and handler is unchanged; `docks.js` and `touch.js` are
+  unchanged (touch PASS, 0 findings) and `errors.js` is 0 at 1440, 1024,
+  820 and 390.
+
+Not verified: a real touch device, and the align and distribute actions
+themselves (their handlers were not touched, only their buttons' markup).
+
 ## 5. Phases
 
 ### Phase 1: the rail and the keys (half a session)

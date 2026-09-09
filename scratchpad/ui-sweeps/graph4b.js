@@ -1,7 +1,7 @@
 const {chromium}=require('/opt/node22/lib/node_modules/playwright');
 (async()=>{const browser=await chromium.launch(); const page=await browser.newPage({viewport:{width:1440,height:900}});
   const errs=[]; page.on('pageerror',e=>errs.push(e.message)); page.on('console',m=>{if(m.type()==='error')errs.push(m.text().slice(0,120));});
-  await page.goto('http://127.0.0.1:8784/',{waitUntil:'domcontentloaded'}); await page.waitForSelector('#lock-password',{state:'visible'}); await page.fill('#lock-password','testpassword123'); await page.click('#lock-submit'); await page.waitForTimeout(2500);
+  await page.goto((process.env.BASE||'http://127.0.0.1:8784')+'/',{waitUntil:'domcontentloaded'}); await page.waitForSelector('#lock-password',{state:'visible'}); await page.fill('#lock-password','testpassword123'); await page.click('#lock-submit'); await page.waitForTimeout(2500);
   await page.evaluate(()=>document.getElementById('onboarding-overlay')?.remove()); await page.evaluate(()=>switchTab('graph')); await page.waitForTimeout(3000);
   const exp=await page.evaluate(()=>{const out=gcExportPng(2); const live=document.getElementById('graph-canvas'); const ctx=out.getContext('2d'); const d=ctx.getImageData(0,0,out.width,out.height).data; let nonBg=0; for(let i=0;i<d.length;i+=4*97){ if(d[i+3]>0 && (d[i]<200||d[i+1]<200)) nonBg++; } return {w:out.width,h:out.height,liveW:live.width,liveH:live.height,sampledInk:nonBg, liveAfter:gcCtx===live.getContext('2d')};});
   await page.evaluate(()=>{document.getElementById('graph-options-toggle')?.click();}); await page.waitForTimeout(300);

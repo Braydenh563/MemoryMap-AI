@@ -3038,6 +3038,46 @@ function restoreEscapedMenu(menu) {
   menu._escapedHome = null;
 }
 
+//: **Escape a clipping ancestor, then cap to the room really left below.**
+//: The second of this file's two menu recipes, and the one for a menu whose
+//: ordinary position comes from the stylesheet rather than from us:
+//: `details.dock-menu`'s panel (INBOX 31) and the whiteboard's five top-bar
+//: menus (INBOX 43). It was written twice, once in each place, with the same
+//: margin, the same floor and the same order; the second copy's own comment
+//: said it was "the same recipe ... not a third scheme", which is exactly the
+//: state in which a reader improves one of them and leaves the other behind.
+//: Measured identical before and after on the whiteboard's own menus at
+//: 1440x900, 1280x640 and 1024x560 (View: escaped at the two smaller sizes,
+//: capped to 576px and 496px, 20px and 100px of scroll inside it).
+//:
+//: **Not** folded into `wireEscapedActionMenu`'s `place()`, this file's other
+//: recipe, and the difference is not a detail: `place()` *positions* the menu
+//: itself, fixed and right-aligned under its opener, every time it opens,
+//: because the `.action-menu` it is wired to has no position of its own once
+//: it is a child of <body>. These menus do have one. A dock menu that nothing
+//: clips is still anchored by CSS under its own summary, and a whiteboard menu
+//: under its own toolbar button, so running them through `place()` would move
+//: menus that were never in the wrong place to satisfy a shared function. Here
+//: the escape stays conditional (a no-op when nothing clips) and only the
+//: height is decided.
+function escapeAndCapMenu(menu, opener) {
+  //: Cleared before the measurement rather than after the close: the `top`
+  //: read below has to be this open's real one, and a cap left over from the
+  //: last open changes it (a menu that would have flipped above no longer
+  //: needs to) as well as hiding the fact that the menu wants more room.
+  menu.style.maxHeight = "";
+  escapeMenuIfClipped(menu, opener);
+  const margin = 8;
+  //: After the escape, so the number is measured against wherever the menu
+  //: has ended up: `placeEscapedMenu` may have flipped it above the opener or
+  //: clamped it to the top of the window, and a cap computed from the old top
+  //: would be the wrong one for the new position.
+  const top = menu.getBoundingClientRect().top;
+  //: The floor keeps a menu opened near the bottom edge a menu rather than a
+  //: slit; under it, scrolling inside the panel is the affordance.
+  menu.style.maxHeight = `${Math.max(120, Math.round(window.innerHeight - top - margin))}px`;
+}
+
 // **Escapes a `kebabMenu()` dropdown from a clipping scroll ancestor.**
 // Reported live, with a screenshot: "the documents popup menu in the
 // library subtab gets cut off." `.library-view-section` is
@@ -3088,10 +3128,12 @@ function wireEscapedActionMenu(wrap) {
     //: retest, not in the fix: this `place()` is `wireEscapedActionMenu`'s
     //: own, wired only to `enhanceSelect`'s dropdown shell and `kebabMenu`'s
     //: wrap (this file's own two call sites) -- the whiteboard's
-    //: `.wb-board-menu` (View, Edit, Arrange, Board) never calls it. It has
-    //: its own equivalent, `wbCapBoardMenu` in whiteboard.js, which escapes
-    //: via `escapeMenuIfClipped`/`placeEscapedMenu` (this file, above) and
-    //: then caps `max-height` to the room below the menu's own final `top`.
+    //: `.wb-board-menu` (Insert, Edit, Arrange, View, Board) never calls it.
+    //: It goes through the file's other recipe, `escapeAndCapMenu` above,
+    //: which leaves a menu the stylesheet has already anchored where it is
+    //: and caps `max-height` to the room below its own final `top`. Read that
+    //: function's comment before moving anything between the two: they differ
+    //: because one owns the menu's position and the other does not.
     //: Retested directly on the real View menu, board and mind map, at
     //: 1440 and 820 wide, 900/700/640 tall: it already holds up (see INBOX
     //: 105's own retest note for the numbers), which is why this fix stayed
@@ -23095,13 +23137,14 @@ document.addEventListener("click", (event) => {
 //: list's own top on every open, so it can never claim more room than is
 //: actually left below it.
 //:
-//: `escapeMenuIfClipped` (written for `.action-menu`, see its own comment)
-//: is the same recipe for the other half of the report -- a dock menu whose
-//: panel sits inside a scrolling ancestor (`overflow` anything but
-//: `visible`) is still cut by that ancestor even once its own height is
-//: capped correctly, and only reparenting to <body> escapes it. It is a
-//: no-op whenever there is no such ancestor, which is most of these menus,
-//: so this changes nothing for a dock menu that already had room.
+//: `escapeAndCapMenu` (above) is both halves of that: it escapes a clipping
+//: ancestor first, because a dock menu whose panel sits inside a scrolling
+//: one (`overflow` anything but `visible`) is still cut by that ancestor
+//: however correctly its own height is capped, and only reparenting to <body>
+//: gets it out. The escape is a no-op whenever there is no such ancestor,
+//: which is most of these menus, so nothing changes for a dock menu that
+//: already had room. The whiteboard's top-bar menus call the same function;
+//: this handler used to hold its own copy of it.
 document.addEventListener(
   "toggle",
   (event) => {
@@ -23122,10 +23165,7 @@ document.addEventListener(
     }
     menu.classList.remove("dock-menu-flip");
     if (list.getBoundingClientRect().right > window.innerWidth - 8) menu.classList.add("dock-menu-flip");
-    escapeMenuIfClipped(list, menu.querySelector("summary") || menu);
-    const margin = 8;
-    const available = window.innerHeight - list.getBoundingClientRect().top - margin;
-    list.style.maxHeight = `${Math.max(120, Math.round(available))}px`;
+    escapeAndCapMenu(list, menu.querySelector("summary") || menu);
   },
   true
 );

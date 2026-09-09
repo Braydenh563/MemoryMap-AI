@@ -18842,6 +18842,20 @@ function enhanceSelect(select) {
   const rebuild = () => {
     menu.replaceChildren();
     for (const option of select.options) {
+      //: **An option the app has hidden is not offered here either.** Measured
+      //: on the OCR workspace's reader picker: `#ocr-reader` carries
+      //: `<option value="ocr" hidden>AI vision model</option>`, which
+      //: `ocrLoadReaders` unhides only on a machine that really has two
+      //: different readers, and this stand-in listed all three regardless, so
+      //: the control offered a reader that does not exist here. The native
+      //: `<select>` has honoured `hidden` on an option for years; the shell in
+      //: front of it had never been told to. `syncHidden` below covers the same
+      //: mistake one level up, for a select that is hidden as a whole.
+      //:
+      //: No observer needed for it: `rebuild()` runs on every open, so a
+      //: picker that gains a reader while the app is running shows it the next
+      //: time it is opened.
+      if (option.hidden) continue;
       const row = document.createElement("button");
       row.type = "button";
       row.className = "menu-item select-option";

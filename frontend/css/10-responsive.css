@@ -365,6 +365,16 @@ header#top-bar,
   white-space: nowrap;
 }
 
+/* The heatmap's gap was costing more than its cells (the owner: "the heatmap
+   on the dashboard is a little small"). Measured in a 306px column: 53 weekly
+   columns at a 3px gap spend 156px on gaps and leave 2.8px per cell. At 1px
+   the same column gives 4.8px, and in the full-width section the widget now
+   starts in, the cells reach their 12px cap. A denser grid is also the right
+   shape for the thing: this is a year read as a texture, not a table. */
+.heatmap {
+  gap: 1px;
+}
+
 /* The chart is the first thing to go when there is no width to spend on it:
    at phone widths the strip is already a sideways scroller of four numbers,
    and a fifth item that is only a shape would be scrolled past. */

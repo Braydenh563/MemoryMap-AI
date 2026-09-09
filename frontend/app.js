@@ -24464,9 +24464,19 @@ function initScrollTopButton() {
     //: scrolled past is already enough to lose the live one.
     const chat = tab === "chat";
     const fromBottom = target ? target.scrollHeight - target.clientHeight - scrollTop : 0;
+    //: **The dashboard shows it sooner, and that is the report.** The owner:
+    //: "also no back to top button appears on the dashboard??" Measured on a
+    //: seeded profile at 1440x900 it does appear, but only past 400px, and
+    //: the dashboard is the one page in the app whose *first* content sits at
+    //: y=613: the hero, the start band and the stats strip are 600px of
+    //: preamble before a single widget. So 400px of scrolling is barely one
+    //: screen in, on the longest scan-page the app has, and the button that
+    //: gets you back is still absent. 200px is chat's figure, for the same
+    //: reason chat uses it: this pane is scrolled in short movements and one
+    //: screen away is already lost.
     const show = chat
       ? fromBottom > 200
-      : scrollTop > 400 && !NO_SCROLL_TOP_TABS.has(tab);
+      : scrollTop > (tab === "dashboard" ? 200 : 400) && !NO_SCROLL_TOP_TABS.has(tab);
     button.dataset.mode = chat ? "bottom" : "top";
     button.textContent = chat ? "↓" : "↑";
     const label = chat ? "Jump to the newest message" : "Back to top";

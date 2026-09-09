@@ -126,20 +126,36 @@ const DASH_WIDGETS = {
   pace: { title: "ph:chart-line-up Writing pace", description: "How many words you have written each day this fortnight.", render: renderPaceWidget },
 };
 
+//: Widgets that are the wrong shape in one column, so they start in two.
+//:
+//: The owner: "the heatmap on the dashboard is a little small." Measured at
+//: 1440x900, and it is arithmetic rather than taste: the widget column is
+//: 306px, a year is 53 columns of squares, and at a 3px gap the gaps alone
+//: eat 156px of the 306, leaving **2.8px per cell**. A year of activity is
+//: supposed to be a shape you read at a glance and that is a texture. In a
+//: full-width section the same grid gets 1408px and its cells hit the 12px
+//: cap, which is the size GitHub's own is drawn at.
+//:
+//: Applied only when the saved layout widens *nothing*, so it is a default
+//: rather than an override: the moment anyone presses "Wide" or "Narrow" on
+//: any widget, their list wins and this is never consulted again.
+const DASH_DEFAULT_WIDE = ["heatmap"];
+
 function dashLayout() {
   const saved = (prefsCache && prefsCache.dashboard_layout) || {};
   const order = [...(saved.order || [])];
   for (const name of Object.keys(DASH_WIDGETS)) {
     if (!order.includes(name)) order.push(name); // new widgets append
   }
+  // Older layouts stored this as {name: "wide"}, fold those in so a saved
+  // layout still works.
+  const legacyWide = Object.keys(saved.sizes || {}).filter((n) => saved.sizes[n] === "wide");
   return {
     order: order.filter((n) => DASH_WIDGETS[n]),
     hidden: saved.hidden || [],
-    // Widgets set to span two columns. Older layouts stored this as
-    // {name: "wide"}, fold those in so a saved layout still works.
     wide: saved.wide?.length
       ? saved.wide
-      : Object.keys(saved.sizes || {}).filter((n) => saved.sizes[n] === "wide"),
+      : (legacyWide.length ? legacyWide : DASH_DEFAULT_WIDE.filter((n) => DASH_WIDGETS[n])),
   };
 }
 

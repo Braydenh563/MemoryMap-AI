@@ -49,6 +49,45 @@ already written; the rule is to work it, not to redesign it.
 The opening prompt that does all of this: "Read CLAUDE.md, then the top
 of docs/roadmap/HANDOVER.md, and continue."
 
+### PR 144 is done when (the owner's checklist, 2026-09-09 05:30 UTC)
+
+Tick these in order; the PR merges on the last tick. Everything added to
+the plans this session (DOCUMENTS Phase 8, MINDMAP §12, GRAPH 6b, INBOX
+100 to 104, CHAT and TIMELINE in full) is the next session's, not this
+PR's.
+
+- [ ] 1. Documents Phase 2 steps 2 to 4 merged: the CodeMirror surface is
+      the editor, Live as decorations, findings, undo, search, folding;
+      `tests/test_doc_surface.py` has no xfail markers left; doctype.js
+      under 30 ms; the vendor bundle absent at boot.
+- [ ] 2. Graph Phase 6 merged: the node panel on the new recipe, measured
+      at 1440, 1024 and 390; graph4b.js passes.
+- [ ] 3. Library image cards and the whiteboard bottom bar and properties
+      panel merged (INBOX 52, 56, 64, 65), with their numbers.
+- [ ] 4. The owner's section-A bugs closed or ruled out at head: INBOX 66,
+      69, 70, 73, 77, 81, 83, 84, 86, 88, 89, 96 (each fixed and moved to
+      HISTORY, or marked "not reproduced" with the measurement).
+- [ ] 5. The three "not verified in a browser" fixes measured: INBOX 75
+      (kebab first click), 82 (settings rows), 91 (chat header), plus
+      Ctrl+S and the profile group; errors.js, contrast.js, docks.js,
+      touch.js and weight.js green on the head.
+- [ ] 6. Mind map previews (INBOX 68) acceptable in the dashboard widget
+      and the Library gallery (the board's real shapes at its aspect, no
+      inner scrollbar).
+- [ ] 7. The full suite green on the final head; ruff and CodeQL green;
+      no open CodeQL threads; the branch mergeable.
+- [ ] 8. Documentation: every Built block of the merged phases in
+      HISTORY (the lint holds it), INBOX holding open items only, the
+      README's numbers passing `test_readme_freshness.py`, CHANGELOG's
+      "Since 0.2.2" carrying one line per merged item, this Now line
+      rewritten as "PR 144 merged; next: Brief 18 section A onward".
+- [ ] 9. The owner has run the updated build once: `start-desktop.bat`
+      launches, the splash reads right, the glass frosts the art.
+
+Then: merge PR 144, restart the branch from main for the next session
+(the branch rule at the top of the session prompt), and open with "Read
+CLAUDE.md, then the top of docs/roadmap/HANDOVER.md, and continue".
+
 ### Fable's working notes for Opus (2026-09-09 05:10 UTC)
 
 What made this session's fixes land first time, written down so the method

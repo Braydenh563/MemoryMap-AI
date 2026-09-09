@@ -8894,6 +8894,22 @@ themselves (their handlers were not touched, only their buttons' markup).
     WHITEBOARD Phase 1 (Fable, now): the marquee is drawn on the objects'
     layer; move it to the overlay canvas above them.
 
+73. **"Mute notifications except reminders" toggle disables itself when
+    the settings close.** Owner: Fable, now: the preference is written on
+    change but the panel re-renders from `prefsCache` before the save
+    round-trip lands; write to the cache first, then save.
+83. **Tools settings: the big paragraphs ("How many are offered at once",
+    "Small model mode") become '?' popovers** (screenshot). Owner: Fable,
+    now: one line each, the rest behind `data-help-for`.
+89. **Glass settings: sheen strength, opacity and blur "don't do
+    anything"**. Owner: Fable, now: measure each with getComputedStyle
+    against the top bar and a dialog; the card blur is now off unless the
+    animated background is on (INBOX 49), so the slider must also drive
+    the top bar, the docks and the dialogs (it does through
+    `--glass-blur`); opacity drives `--card` alpha (check the palette
+    override order); sheen is a gradient over `.card` only when
+    `data-glass-sheen=on`.
+
 ## HANDOVER archive, 2026-09-09
 
 ### The Fable session — UI Phases 0-4, skills reform A-B, backend sprint 1, the audit

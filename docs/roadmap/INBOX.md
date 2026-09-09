@@ -31,10 +31,6 @@ verbatim, is triaged at the next step boundary, and leaves: fixed now (then
 What is here now is this PR's own bug list (Brief 18 section A, HANDOVER's
 done-when item 4 and 5), in priority order.
 
-73. **"Mute notifications except reminders" toggle disables itself when
-    the settings close.** Owner: Fable, now: the preference is written on
-    change but the panel re-renders from `prefsCache` before the save
-    round-trip lands; write to the cache first, then save.
 96. **Graph: reimagine the pinned position after a drag.** The owner:
     "my original annoyance was that I'd try to drag a node or cluster
     around and it would just snap back ... but I move a node a little and
@@ -57,17 +53,6 @@ done-when item 4 and 5), in priority order.
     window setting next session): a `num_ctx` preference per model in
     Settings > Models with Auto (the model file's value) or a number, sent
     on every request; the badge shows "used / window".
-83. **Tools settings: the big paragraphs ("How many are offered at once",
-    "Small model mode") become '?' popovers** (screenshot). Owner: Fable,
-    now: one line each, the rest behind `data-help-for`.
-89. **Glass settings: sheen strength, opacity and blur "don't do
-    anything"**. Owner: Fable, now: measure each with getComputedStyle
-    against the top bar and a dialog; the card blur is now off unless the
-    animated background is on (INBOX 49), so the slider must also drive
-    the top bar, the docks and the dialogs (it does through
-    `--glass-blur`); opacity drives `--card` alpha (check the palette
-    override order); sheen is a gradient over `.card` only when
-    `data-glass-sheen=on`.
 97. **Library and Files: an expanded dropdown closes itself and scrolls
     back to the top.** The owner, 2026-09-09: "when I expand the ocr text in
     this image on the image cards in the images library sub tab, it keeps

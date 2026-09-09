@@ -137,17 +137,19 @@ def test_the_bundle_is_loaded_on_demand_and_not_at_boot():
     assert "/vendor/codemirror/codemirror.min.js" in body
 
 
-@pytest.mark.xfail(strict=True, reason="Phase 2 step 3: the block renderer is retired with Live decorations")
 def test_the_block_live_renderer_is_gone():
     """`renderDocLive` and its `.lp-*` rows, retired once Live is decorations.
 
-    Strict-xfail because it is the acceptance for step 3 and nothing else:
-    the marker comes off the day the CodeMirror Live view replaces the
-    per-paragraph textareas, and until then a green result here would mean
-    the old renderer had been deleted while something still called it.
+    Live and Source are one CodeMirror view with a decorations compartment
+    now (DOCUMENTS_PLAN Phase 2 decision 3), so the per-paragraph renderer
+    and its rules are deleted rather than left dead. The CSS check strips
+    comments first: the rules are gone, and the note that says where they
+    went names them, which is the whole point of leaving a note.
     """
     body = DOCUMENTS_JS.read_text(encoding="utf-8")
     assert "function renderDocLive" not in body
     assert "lp-src" not in body
     css = "".join(p.read_text(encoding="utf-8") for p in sorted(CSS_DIR.glob("*.css")))
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
     assert ".lp-" not in css
+    assert "doc-live" not in css

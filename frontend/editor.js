@@ -50,22 +50,19 @@ const EDITOR_SURFACES = {
   "chat-input": "chat",
 };
 
-//: **What context a textarea is, including the ones with generated ids.**
+//: **What context an editing surface is.**
 //:
-//: `EDITOR_SURFACES` is an id-to-context table by construction, and the live
-//: view, the document editor's *default* view, is one textarea per
-//: paragraph, created by `docLiveEditor` with a generated id. The wiring
-//: below used to gate on `textarea.id in EDITOR_SURFACES`, so **the live view
-//: had no "/" menu at all**, and anything that asked the map for a context
-//: got the `|| "note"` fallback and was told the document AI commands did not
-//: apply to it. Neither failure logged or threw: this repo's "a policy
-//: silently refusing the work" shape, in the one view most editing happens
-//: in.
+//: `EDITOR_SURFACES` is an id-to-context table by construction, and for most
+//: of this file's life the hard case was the document's Live view, which was
+//: one textarea per paragraph with a generated id: gating on
+//: `textarea.id in EDITOR_SURFACES` gave those blocks no "/" menu at all and
+//: told them the document AI commands did not apply. Neither failure logged
+//: or threw, which is this repo's "a policy silently refusing the work"
+//: shape. DOCUMENTS_PLAN Phase 2 made Live and Source one editor, so the
+//: generated ids are gone; the surface reports `doc-content` in every view.
 //:
-//: Keyed on `.lp-src`, the class those blocks carry, because that is what
-//: `isEditorSurface` already keyed on and one predicate is better than two
-//: that can disagree. Returns null, not "note", for anything that is not an
-//: editing surface, so callers can tell "not a surface" from "a note".
+//: Returns null, not "note", for anything that is not an editing surface, so
+//: callers can tell "not a surface" from "a note".
 function editorSurfaceKind(box) {
   //: A surface, an element, or a node inside CodeMirror. The last of those is
   //: why this can no longer be a `instanceof HTMLTextAreaElement` check:
@@ -76,8 +73,7 @@ function editorSurfaceKind(box) {
   //: records for the Live view.
   const surface = editorSurfaceFor(box);
   if (!surface) return null;
-  if (surface.id in EDITOR_SURFACES) return EDITOR_SURFACES[surface.id];
-  return surface.classList.contains("lp-src") ? "document" : null;
+  return surface.id in EDITOR_SURFACES ? EDITOR_SURFACES[surface.id] : null;
 }
 
 //: Whatever this is, as a surface, or null. `asSurface` lives in
@@ -220,9 +216,8 @@ function editorApplyAction(textarea, action) {
 //: "a policy silently refusing the work" shape, and it would have shipped as
 //: three menu rows that do nothing.
 //:
-//: `applyMarkdown` takes a box id and every editor surface has one (including
-//: each live-view block, which is why `docLiveEditor` sets one), so this is a
-//: call rather than a second implementation for the two to drift apart.
+//: `applyMarkdown` takes a box id and every editor surface has one, so this
+//: is a call rather than a second implementation for the two to drift apart.
 function editorApplyNamed(textarea, kind) {
   if (typeof applyMarkdown === "function" && textarea.id) {
     applyMarkdown(kind, textarea.id);
@@ -1174,22 +1169,15 @@ function selectionBarShow(textarea) {
   const { top, left, lineHeight } = editorCaretPoint(textarea);
   const size = bar.getBoundingClientRect();
   const margin = 8;
-  //: **The boundary is the editing *pane*, not the box the caret is in**, and
-  //: the two are only the same thing when the surface is one textarea.
-  //:
-  //: The Live view gives every paragraph its own `.lp-src` box, so
-  //: `textarea.getBoundingClientRect().top` is the top of *that paragraph*, 
-  //: and the rule below then read every selection in Live as "on the first
-  //: line, flip the bar below it". Measured: selecting inside the third
-  //: paragraph put the bar at y=358 against a selection at y=328, i.e. under
-  //: the words instead of above them, covering the next line of the document
-  //: every single time. What is actually above a Live paragraph is more
-  //: document, which the bar may sit over quite happily; the thing it must not
-  //: cover is the formatting row above the *pane*.
-  const surface = textarea.classList.contains("lp-src")
-    ? document.getElementById("doc-live") || textarea
-    : textarea;
-  const boxTop = surface.getBoundingClientRect().top;
+  //: **The boundary is the editing pane, and now that is the surface itself.**
+  //: This used to need a special case: the Live view gave every paragraph its
+  //: own box, so the caret's box was the top of *that paragraph*, and the rule
+  //: below read every selection in Live as "on the first line, flip the bar
+  //: below it". Measured at the time: selecting inside the third paragraph put
+  //: the bar at y=358 against a selection at y=328, under the words instead of
+  //: above them. With one editor in every view the surface's own rectangle is
+  //: the pane's, and the special case goes.
+  const boxTop = textarea.getBoundingClientRect().top;
   let y = top - size.height - 6;
   //: **Above the line, unless that means on top of the fixed toolbar.** Every
   //: editing surface in this app has its own formatting row immediately above
@@ -1255,33 +1243,12 @@ const SELECTION_CONTEXT_MARGIN = 240;
 //: every editor in the world shows the user, and the number is going into a
 //: chip they read.
 function selectionContextFrom(textarea) {
-  //: **A live-view block reports itself in the document's coordinates.** Its
-  //: own offsets start at zero for every paragraph, so left alone this would
-  //: tell the model "line 2" for the last paragraph of a long document, and
-  //: `revalidateSelection` would then check those offsets against the wrong
-  //: textarea entirely, since the block is replaced whenever it re-renders.
-  //: Translating here means everything downstream sees one surface.
-  if (textarea.classList.contains("lp-src")) {
-    const source = docSurface();
-    const base = typeof docLiveBlockOffset === "function" ? docLiveBlockOffset(textarea) : null;
-    if (source && base !== null) {
-      return selectionOffsets(
-        source,
-        base + textarea.selectionStart,
-        base + textarea.selectionEnd
-      );
-    }
-    //: The block could not be located in the document, it is mid-edit, or two
-    //: paragraphs are identical and neither the index nor the search settled
-    //: it. Still a *document* selection, and saying so matters: falling
-    //: through to the line below would label a document "the note you're
-    //: writing" and report a line number counted from the top of the
-    //: paragraph. The offsets are the block's own, which
-    //: `revalidateSelection` will find do not match `doc-content`, so it
-    //: reports the position as unknown, which is the truth.
-    return { ...selectionOffsets(textarea, textarea.selectionStart, textarea.selectionEnd),
-      surfaceId: "doc-content", kind: "document" };
-  }
+  //: **One set of coordinates.** This used to translate a live-view
+  //: paragraph's own offsets into the document's, because Live gave every
+  //: paragraph its own box and left alone this would have told the model
+  //: "line 2" for the last paragraph of a long document. DOCUMENTS_PLAN
+  //: Phase 2 made Live and Source one editor, so a selection is already in
+  //: the document's coordinates wherever it was made.
   return selectionOffsets(textarea, textarea.selectionStart, textarea.selectionEnd);
 }
 

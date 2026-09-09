@@ -3428,126 +3428,20 @@ span > .chip {
   flex: 0 0 auto;
 }
 
-/* --- Live Preview ------------------------------------------------------------ */
+/* --- Live preview -----------------------------------------------------------
 
-/* The rendered document you write into (documents.js, `renderDocLive`).
-   Scrolls as one piece, the blocks inside are flow content, not panes. */
-.doc-live {
-  flex: 1 1 auto;
-  min-height: 12rem;
-  overflow-y: auto;
-  padding: 0.8rem 1rem;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius);
-  background: var(--card);
-}
+   The per-paragraph block view's rules lived here: `.doc-live` (the pane),
+   `.lp-row`/`.lp-gutter`/`.lp-grip` (the Notion-style handle and its drag
+   affordances), `.lp-block` and `.lp-src` (a rendered paragraph and the
+   textarea it became when you clicked into it). DOCUMENTS_PLAN Phase 2 made
+   Live the same CodeMirror view as Source with a decorations compartment on,
+   so there is no second pane, no per-paragraph box and nothing here to style:
+   the rendered shapes are decoration classes, and they are set from the theme
+   object in documents.js because adopted stylesheets sort after document
+   stylesheets and a rule here would lose to the library's own.
 
-.doc-live.hidden {
-  display: none;
-}
-
-/* A rendered block. The hover tint is the only thing telling you these are
-   editable at all: without it the pane looks like the read-only preview it
-   sits next to in the mode switcher. */
-.lp-block {
-  padding: 0.05rem 0.25rem;
-  border-radius: var(--radius-sm);
-  cursor: text;
-}
-
-.lp-block:hover {
-  background: var(--card-bg-hover);
-}
-
-/* An empty paragraph still has to be clickable, or a new document has
-   nowhere to put the caret and the mode looks broken. */
-.lp-block-empty {
-  min-height: 1.5rem;
-}
-
-/* **A block and its handle.** The gutter is a fixed lane to the left, so the
-   prose keeps one left edge down the whole document whether a handle is
-   showing or not: a gutter that appears *in flow* would shove every
-   paragraph sideways on hover, which is worse than having no handle. */
-.lp-row {
-  position: relative;
-  display: grid;
-  grid-template-columns: 3rem minmax(0, 1fr);
-  align-items: start;
-}
-
-.lp-gutter {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  justify-content: flex-end;
-  padding-top: 0.15rem;
-  padding-right: var(--space-1);
-  /* Hidden until wanted: handles beside every paragraph, always, turn a page
-     of prose into a form. `visibility` rather than `display` so the lane keeps
-     its width and nothing moves when they appear. */
-  visibility: hidden;
-}
-
-.lp-row:hover .lp-gutter,
-.lp-row:focus-within .lp-gutter {
-  visibility: visible;
-}
-
-.lp-grip {
-  cursor: grab;
-}
-
-.lp-grip:active {
-  cursor: grabbing;
-}
-
-.lp-row.is-dragging {
-  opacity: 0.5;
-}
-
-/* Where it would land. A line rather than a moving placeholder: the blocks
-   are rendered markdown of any height, and animating a gap between them is
-   both expensive and less precise than a rule the eye can aim at. */
-.lp-row.is-drop-before::before,
-.lp-row.is-drop-after::after {
-  content: "";
-  position: absolute;
-  left: 3rem;
-  right: 0;
-  height: 2px;
-  border-radius: var(--radius-sm);
-  background: var(--accent);
-}
-
-.lp-row.is-drop-before::before {
-  top: -1px;
-}
-
-.lp-row.is-drop-after::after {
-  bottom: -1px;
-}
-
-/* The block being edited: raw markdown, monospaced so the syntax reads as
-   syntax, and marked with the accent so it is obvious which one is live.
-   Height is set from content by JS, a fixed height would clip a long
-   paragraph or leave a hole after a short one. */
-.lp-src {
-  display: block;
-  width: 100%;
-  margin: 0.05rem 0;
-  padding: 0.25rem;
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-sm);
-  background: var(--card);
-  color: inherit;
-  font-family: var(--mono, ui-monospace, monospace);
-  font-size: 0.92rem;
-  line-height: 1.6;
-  /* JS owns the height; the browser's own grip would fight it. */
-  resize: none;
-  overflow: hidden;
-}
+   Deleted rather than left dead: `tests/test_doc_surface.py` fails the build
+   if a `.lp-` rule comes back. */
 
 /* Only `gap` is live here. Everything about the layout itself is on
    `#doc-panes` above, because an id selector beats this class and a rule that

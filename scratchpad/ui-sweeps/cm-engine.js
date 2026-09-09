@@ -68,7 +68,8 @@ const { boot } = require('./lib.js');
   // Undo: type in Live, switch to Source, Ctrl+Z gives the Live edit back.
   await page.evaluate(() => setDocView('live'));
   await page.waitForTimeout(500);
-  await page.evaluate(() => docLiveFocusEnd());
+  await page.click('#doc-editor .cm-content');
+  await page.keyboard.press('Control+End');
   await page.waitForTimeout(300);
   await page.keyboard.type('LIVEEDIT');
   await page.waitForTimeout(700);

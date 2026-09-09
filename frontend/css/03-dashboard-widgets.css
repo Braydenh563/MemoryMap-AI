@@ -75,16 +75,22 @@
   border-color: var(--border);
 }
 
+/* On the app's own scale, not on four numbers typed by hand. Part of the
+   same report that the panel is "not consistent with the rest of the app ui
+   style": every other list row in this app is spaced in `--space-*` and
+   sized in `--text-*`, and 0.5/0.6/0.4rem and 0.92rem are none of those, so
+   this list sat a couple of pixels off everything around it in every
+   direction at once. */
 .link-suggestion {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-3);
   flex-wrap: wrap;
-  padding: 0.5rem 0.6rem;
-  margin-bottom: 0.4rem;
+  padding: var(--space-3);
+  margin-bottom: var(--space-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  font-size: 0.92rem;
+  font-size: var(--text-sm);
 }
 
 .link-suggestion-text {

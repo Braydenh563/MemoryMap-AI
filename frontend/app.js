@@ -30551,9 +30551,25 @@ async function loadLinkSuggestions() {
     row.className = "link-suggestion";
     const text = document.createElement("span");
     text.className = "link-suggestion-text";
-    text.append(
-      document.createTextNode(`“${s.source_preview}” ↔ “${s.target_preview}”`)
-    );
+    //: **The note's name, not its markdown.** Reported on 2026-09-09: this
+    //: panel is "poorly designed and not consistent with the rest of the app
+    //: ui style", with a screenshot whose rows read `"# Leafeon Pokemon image
+    //: test ![WallpaperEngineOverride_ran..." ↔ "Some ideas for features I
+    //: had: ![image.png](/media/8f5884..."`. That is not a styling problem:
+    //: the server sends a raw slice of the note's content and this list
+    //: printed it verbatim, so headings, image syntax and media paths landed
+    //: in a sentence a person is meant to read. `notePreviewText` is what
+    //: every other surface in this app already uses for exactly this, and it
+    //: was the one caller that never did.
+    const name = (raw) => {
+      const clean = notePreviewText(raw || "").replace(/\s+/g, " ").trim();
+      return clean.length > 70 ? `${clean.slice(0, 69)}…` : clean || "Untitled note";
+    };
+    const pair = `${name(s.source_preview)} ↔ ${name(s.target_preview)}`;
+    text.append(document.createTextNode(pair));
+    //: Truncating to one readable line means the whole of each name has to be
+    //: reachable, and hover is what the rest of the app uses.
+    text.title = `${notePreviewText(s.source_preview || "")}\n↔\n${notePreviewText(s.target_preview || "")}`;
 
     // **A reason you can type before you link.** Every suggestion offered
     // "similar in meaning" and there was no way to say anything else without

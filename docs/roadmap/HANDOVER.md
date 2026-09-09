@@ -93,9 +93,14 @@ PR's.
       rows carrying both a field and a button, zero height mismatches, which
       is thin coverage rather than a result. 91 is measured by the wrap
       sweep, which took the answer header from three fragmented lines at
-      1280px to two clean rows. 75 is still unmeasured: the probe could not
-      find a card kebab to click, so the first-click behaviour is unproven
-      and must not be ticked on the strength of the others.
+      1280px to two clean rows. 75 is measured now
+      (`scratchpad/ui-sweeps/kebabfirst.js`): 58 kebab wraps on the Notes
+      tab, the first click opens exactly one menu at 375px tall, the second
+      closes it. The earlier probe reported "no kebab found" because it
+      looked for `[aria-haspopup]`; the recipe is `kebabMenu()`, which builds
+      a `.menu-wrap` around a `.action-menu` and a `smallButton`, so the wrap
+      is what to look for. Worth writing down: the same wrong selector would
+      fail the same way next time.
       A note on the metric, so the next attempt does not repeat it: counting
       distinct `top` values among a row's children does **not** detect
       wrapping. A `nowrap` row whose children are baseline- or

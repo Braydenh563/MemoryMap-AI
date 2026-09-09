@@ -7243,7 +7243,14 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- Data: markdown + backups join the exports -->
           <section class="settings-section hidden" id="settings-data">
             <div class="settings-group">
-              <h3>Export your data</h3>
+              <div class="row help-head">
+                <h3>Export your data</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="export-help" aria-controls="export-help" aria-expanded="false"
+                  title="About exports" aria-label="About exports">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
               <div class="row">
                 <button id="export-json" class="ghost small">Export JSON</button>
                 <button id="export-csv" class="ghost small">Export CSV</button>
@@ -7252,10 +7259,14 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="row settings-row-spaced">
                 <button id="export-backup-zip" class="small" title="A portable zip of your database and media folder">Export full backup (.zip)</button>
               </div>
-              <p class="muted">
-                JSON/CSV/Markdown exports include everything, even binned notes.
-                Full Backup is a portable zip of the raw database and media folder.
-              </p>
+              <p class="muted">JSON/CSV/Markdown exports include everything, even binned notes.</p>
+              <div class="help-body hidden" id="export-help" role="dialog" aria-label="About exports">
+                <p>
+                  JSON/CSV/Markdown exports include everything, even binned
+                  notes. Full Backup is a portable zip of the raw database
+                  and media folder.
+                </p>
+              </div>
               <!-- Desktop only (shown/hidden by desktopShell() in JS): a graph
                    PNG, a chat export, and the like all land in data_dir/exports
                    with just a toast naming the path, real, but easy to lose
@@ -7284,12 +7295,23 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
 
             <div class="settings-group">
-              <h3>Tidy up duplicates</h3>
-              <p class="muted">
-                Finds notes that say much the same thing, by comparing their
-                words: no AI needed. Merging keeps every tag, and the notes it
-                replaces go to the recycle bin, so nothing is destroyed.
-              </p>
+              <div class="row help-head">
+                <h3>Tidy up duplicates</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="duplicates-help" aria-controls="duplicates-help" aria-expanded="false"
+                  title="About finding duplicates" aria-label="About finding duplicates">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">Finds notes that say much the same thing, by comparing their words.</p>
+              <div class="help-body hidden" id="duplicates-help" role="dialog" aria-label="About finding duplicates">
+                <p>
+                  Finds notes that say much the same thing, by comparing
+                  their words: no AI needed. Merging keeps every tag, and
+                  the notes it replaces go to the recycle bin, so nothing is
+                  destroyed.
+                </p>
+              </div>
               <div class="row">
                 <button id="find-duplicates" class="small"><i class="ph ph-magnifying-glass ph-lead" aria-hidden="true"></i> Find duplicates</button>
                 <label for="duplicate-threshold" class="muted">How alike</label>
@@ -7333,21 +7355,38 @@ Link to another note with [[its first few words]]."></textarea>
                 (category, tags) is understood.
               </p>
 
-              <h3>Import a document</h3>
+              <div class="row help-head">
+                <h3>Import a document</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="import-document-help" aria-controls="import-document-help" aria-expanded="false"
+                  title="About importing a document" aria-label="About importing a document">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
               <div class="row">
                 <input id="import-document-file" aria-label="Choose a document to import" title="Choose a document to import" type="file" accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.html,.htm">
                 <button id="import-document" class="small">Import</button>
               </div>
               <p id="import-document-status" class="status" role="status"></p>
-              <p class="muted">
-                Turns a PDF, Word file or slide deck into notes, one per
-                chapter or slide when the file has that shape, one note
-                otherwise. Needs the markitdown extra below.
-              </p>
+              <p class="muted">Turns a PDF, Word file or slide deck into notes.</p>
+              <div class="help-body hidden" id="import-document-help" role="dialog" aria-label="About importing a document">
+                <p>
+                  Turns a PDF, Word file or slide deck into notes, one per
+                  chapter or slide when the file has that shape, one note
+                  otherwise. Needs the markitdown extra below.
+                </p>
+              </div>
             </div>
 
             <div class="settings-group">
-              <h3>Backups</h3>
+              <div class="row help-head">
+                <h3>Backups</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="backups-help" aria-controls="backups-help" aria-expanded="false"
+                  title="About backups" aria-label="About backups">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
               <div class="row">
                 <button id="backup-now" class="small">Back up now</button>
                 <span id="backup-status" class="status" role="status"></span>
@@ -7363,12 +7402,15 @@ Link to another note with [[its first few words]]."></textarea>
                 <input id="backup-retention" type="number" class="small-select backup-retention-input">
                 <span id="backup-retention-status" class="status" role="status"></span>
               </div>
-              <p class="muted">
-                A backup is also taken automatically once a day when the app
-                starts. Restoring first snapshots the current state, so even a
-                restore can be undone. Backups live in your data folder, 
-                they never leave this computer.
-              </p>
+              <p class="muted">Backups live in your data folder, they never leave this computer.</p>
+              <div class="help-body hidden" id="backups-help" role="dialog" aria-label="About backups">
+                <p>
+                  A backup is also taken automatically once a day when the
+                  app starts. Restoring first snapshots the current state,
+                  so even a restore can be undone. Backups live in your
+                  data folder, they never leave this computer.
+                </p>
+              </div>
             </div>
           </section>
 

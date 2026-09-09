@@ -67,14 +67,41 @@ changed_tests() {
       src/memorymap/*.py|src/memorymap/*/*.py|frontend/*.js|frontend/css/*.css)
         stem="$(basename "$f")"; stem="${stem%.*}"
         ls tests/test_"${stem}"*.py 2>/dev/null
-        case "$stem" in routes_*) ls tests/test_"${stem#routes_}"*.py 2>/dev/null ;; esac ;;
+        case "$stem" in routes_*) ls tests/test_"${stem#routes_}"*.py 2>/dev/null ;; esac
+        # **And any test that names this file, when the name is distinctive.**
+        # The rule above maps a changed file to tests *named* after it, which
+        # misses a test that exercises it under another name: on 2026-09-09 a
+        # preview change turned `tests/test_library_previews.py` red and this
+        # gate stayed green, because nothing anyone touched was called
+        # "library_previews". An agent found it while doing something else.
+        #
+        # Distinctive is the whole difficulty. A first attempt grepped every
+        # stem and `app`, `library` and `graph` selected most of the suite,
+        # which is the full run this flag exists to avoid. So: at least seven
+        # characters, and never one of the handful of words that name a whole
+        # surface. A stem below the bar keeps the name-based rule above and
+        # nothing more, and `--full` and CI are what cover the rest.
+        case "$stem" in
+          app|main|utils|index|graph|library|settings|documents|whiteboard|chat|notes) ;;
+          ???????*) grep -rls --include='test_*.py' -e "$stem" tests/ 2>/dev/null ;;
+        esac ;;
     esac
   done | sort -u
 }
 if [ "$CHANGED" = 1 ]; then
   mapfile -t TARGETED < <(changed_tests)
+  # A selection this large is not a targeted run any more, and pretending
+  # otherwise would hide how long the gate is about to take. Say so and run
+  # it: a slow honest gate beats a fast one that skipped the thing that
+  # matters.
+  if [ "${#TARGETED[@]}" -gt 40 ]; then
+    echo "changed-tests: ${#TARGETED[@]} files selected, which is most of the suite; consider --full"
+  fi
   if [ "${#TARGETED[@]}" = 0 ]; then skipped+=("changed-tests (none matched)");
-  else echo "changed-tests: ${TARGETED[*]}"; step changed-tests "$PY" -m pytest -q -p no:warnings "${TARGETED[@]}"; fi
+  else
+    [ "${#TARGETED[@]}" -le 40 ] && echo "changed-tests: ${TARGETED[*]}"
+    step changed-tests "$PY" -m pytest -q -p no:warnings "${TARGETED[@]}"
+  fi
 else skipped+=("changed-tests (--changed)"); fi
 if [ "$FULL" = 1 ]; then step full-suite "$PY" -m pytest -q -p no:warnings tests/; else skipped+=("full-suite (--full)"); fi
 if [ "$SWEEPS" = 1 ]; then

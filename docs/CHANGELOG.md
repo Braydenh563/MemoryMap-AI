@@ -464,6 +464,16 @@ A bug-fix and consistency release, from one long round of live reports.
   preview view; sticky rows painted a hard rectangle over their own card.
 
 ### Changed
+- **A bar with content moving under it says so.** The top bar, a dock or a
+  sub-tab strip fades a soft edge beneath itself while the list under it is
+  scrolled, and paints nothing at rest.
+- **Menus open out of the button that opened them** rather than appearing
+  beside it, and stay still under Reduce motion.
+- **All seven tabs are reachable on a tablet in portrait.** Between 600 and
+  820 pixels the strip used to need more room than its row had, so two tabs
+  sat behind a fade; the captions and their padding step down there instead.
+- Anything rounded inside a rounded container follows one token, so it stays
+  concentric at every setting of the corner slider.
 - Tab indents four spaces where a file type has no convention of its own.
 - Zoom feedback is a HUD, not a notification, so muting no longer hides it.
 - One menu shell app-wide, matched to the note-card kebab menu.

@@ -268,26 +268,45 @@ are only just begun or half done." True; this table is the state.
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 
-**Now (2026-09-09 05:00 UTC, written for the Opus orchestrator the owner
-is switching to at 95% Fable usage):** CI and CodeQL are green again as of
-433a3d6 (doc dock test, CHANGELOG mirror, two asserts). Three Opus agents are
-in flight (the owner asked for the third at 05:40, above the two-agent
-cap, scoped to its own CSS file to keep merges clean: UI Phases 9 and 10,
-Brief 21, `agent-a93efefdb83c29141`); the first two were resumed in their
-worktrees after the 04:20 limit reset: DOCUMENTS Phase 2
-steps 2 to 4 (`agent-a02238762ae6136e9`, its tests-first commit is on the
-branch with strict-xfail markers) and GRAPH Phase 6 node panel + Library
-image cards + whiteboard bottom bar and properties panel (INBOX 52, 56, 59,
-64, 65; `agent-a39e62953a9e53b63`). When each reports: `git merge
-worktree-agent-<id>`, the lint set, `node --check`, ruff, errors.js at four
-widths, push. The complete open scope is **SESSION_BRIEFS Brief 18**; work
-it in its order: A (the owner's bugs, INBOX 66 to 96 minus the ones marked
-fixed) with Sonnet, then B documents and C graph with Opus, two agents at
-a time. The owner's rules stand: commit and push per step, five-line
-reports, no em-dashes, no exclamation marks, tokens not px, the
-`[data-glass="off"]` list for any new glass surface, measure before
-claiming. Not verified in a browser this hour (the sweeps are the first
-thing to run): INBOX 82, 91 and the chat selection kebab (75).
+**Now (2026-09-09 11:20 UTC, Opus orchestrating, four agents in flight):**
+CI and CodeQL green on every head today. INBOX is at two items, both
+assigned; everything else from the owner's evening batch is merged or with
+an agent. What is left of this PR is HANDOVER's own done-when checklist
+above, and the two things it names last: one full pytest run on the final
+head, and the README's eight screenshots, recaptured only once every UI
+batch has landed.
+
+The agents, by worktree, each merged and pushed as it reports:
+`a6db54045f3f6f144` (Sonnet: the Boards and maps dock, INBOX 77 the token
+badge), `ad99faa1d715c7412` (Sonnet: INBOX 105's on-surface retest of the
+whiteboard and mind map View menus, and the Documents Edit and Read
+toggle), `a93efefdb83c29141` (Opus: the recursive OPML and FreeMind
+exports, which 500 on a deep map, then the Boards and maps dock heights),
+`ad5696bf1be5660c3` (Opus: the Documents batch, click-an-underline first).
+
+Three things this session learned the hard way, all now enforced rather
+than remembered:
+
+- **A worktree can be cut from an older base than the branch.** Two agents
+  reported that `scripts/gate.sh` and half the lint set "did not exist";
+  neither was wrong about its own tree, and six em-dashes reached the branch
+  through the gap. Every brief says "merge the branch into your worktree
+  first" now.
+- **Never pipe a `git merge` into anything in a loop that relies on
+  `set -e`.** The pipeline's exit status is the last command's, so a
+  conflicted merge looks like a success, and the `git add -A` that follows a
+  gate will commit the markers. That happened, and
+  `tests/test_plan_hygiene.py` now fails on a conflict marker in any tracked
+  text file.
+- **Counting distinct `top` values does not detect wrapping.** A `nowrap`
+  row whose children are baseline-aligned reports several distinct tops and
+  has not wrapped. Test whether a child's top is at or below the first
+  child's bottom.
+
+The owner's rules stand: commit and push per step, five-line reports, no
+em-dashes, no exclamation marks, tokens not px, the `[data-glass="off"]`
+list for any new glass surface, measure before claiming, and never run the
+full pytest suite as routine.
 
 **Previous (2026-09-09 01:05 UTC):** two Opus agents in flight: DOCUMENTS Phase 2
 steps 2 to 4 (worktree agent-a02238762ae6136e9) and GRAPH Phase 6 node

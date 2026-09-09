@@ -616,12 +616,33 @@ function libraryActions(item) {
         loadEntries();
       }),
       makeMenuItem("ph:trash Move to bin", "Bin this note: recoverable", async () => {
-        await apiJson(`/entries/${item.id}`, { method: "DELETE" }).catch((e) =>
-          toast(e.message, true)
-        );
-        toast("Moved to the bin.");
+        try {
+          await apiJson(`/entries/${item.id}`, { method: "DELETE" });
+        } catch (e) {
+          toast(e.message, true);
+          return;
+        }
         reload();
         loadEntries();
+        //: The one bin action in the app without Undo on its toast: the
+        //: Notes tab's had it (pushUndo, the undo bar and the toast agree),
+        //: the Library's card menu did not. Same recipe, same words.
+        const restoreIt = async () => {
+          await apiJson(`/entries/${item.id}/restore`, { method: "POST" });
+          reload();
+          loadEntries();
+        };
+        const binIt = async () => {
+          await apiJson(`/entries/${item.id}`, { method: "DELETE" });
+          reload();
+          loadEntries();
+        };
+        const action = pushUndo("Moved a note to the bin", restoreIt, binIt);
+        toastAction("Moved to the recycle bin.", "Undo", async () => {
+          settleUndoFromToast(action);
+          await restoreIt();
+          toast("Note restored.");
+        });
       }),
     ];
   }

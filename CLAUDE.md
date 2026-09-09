@@ -218,6 +218,10 @@ new" is a fact rather than a guess.
 - `python -m pytest tests/`: 2,700+ tests, about eight minutes, all green.
   Keep it that way. `PYTHONPATH=src` is needed to run the app.
 - `.venv/bin/ruff check .` before pushing; CI runs it and CodeQL.
+- `scripts/gate.sh` is the merge gate in one command: the lint set,
+  `node --check`, ruff; `--full` adds the suite; `BASE=... --sweeps` adds
+  errors, docks, contrast and touch against a running app. Run it before
+  every push and paste its five lines into the report.
 - `node --check frontend/<file>.js` after any JS edit; there is no bundler.
 - The lints that exist because the suite cannot see the DOM:
   `test_style_scale.py`, `test_ui_signatures.py`, `test_css_braces.py`,

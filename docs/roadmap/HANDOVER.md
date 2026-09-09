@@ -347,6 +347,10 @@ merge those and re-brief the rest from its brief.
 
 ### Merge recipe (every time, no shortcuts)
 
+The whole recipe below is `scripts/gate.sh --full` plus
+`BASE=<port> scripts/gate.sh --sweeps` against a fresh server; the steps
+are listed so a failure can be read.
+
 1. `git merge --no-edit worktree-agent-<id>`; on a conflict in
    `07-whiteboard-misc.css` keep BOTH sides (both append), then run
    `tests/test_css_braces.py`: the last merge left one block unclosed and

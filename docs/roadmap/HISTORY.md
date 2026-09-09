@@ -6946,6 +6946,106 @@ Steps 2 to 4 (the `docSurface()` adapter, Live as decorations, findings,
 undo, search, folding and gutters on the engine) are the next Opus brief;
 the API surface above is what it builds against.
 
+### Built, Phase 2 steps 2 to 4 (the engine under the editor), 2026-09-09
+
+- **One adapter, and a lint that keeps it that way.** `docSurface()`
+  (documents.js, between the `DOC-SURFACE-BEGIN` / `DOC-SURFACE-END`
+  markers) answers `text`, `selection()`, `setSelection`, `replaceRange`,
+  `onChange`, `coordsAt`, `focus`, `scrollTop` and `lineAt` for whatever the
+  document is being edited in, and wears the textarea's own property names as
+  documented aliases so the helpers shared with the note editors became
+  surface-agnostic by *receiving* a surface rather than by having forty
+  expressions rewritten under them. `tests/test_doc_surface.py` fails the
+  build if documents.js or editor.js reads the box's text or caret through
+  `$("doc-content")`, or stashes the element in a local.
+- **Loaded on demand.** `loadCodeMirror()` script-injects the bundle the
+  first time a document is opened; `openDocument` awaits it before handing
+  the text over, so the document goes straight into the engine rather than
+  into the fallback and then into a view mounted a moment later. Measured: 0
+  codemirror entries in `performance.getEntriesByType('resource')` at boot, 1
+  after a document is opened. The textarea stays in the DOM as the fallback,
+  `display: none` while the engine is up.
+- **Live is Source with a compartment on** (decision 3). Headings at heading
+  size with the `#` hidden until the caret is on the line; bold, italic,
+  code, strikethrough and `==highlight==` with their markers hidden until the
+  caret enters the range; links and `[[wiki links]]` as chips; task
+  checkboxes that write the source; quotes and `> [!note]` callouts with a
+  left bar; same-origin images as widgets. Computed from the lezer markdown
+  tree over `view.visibleRanges`.
+- **Findings are decorations** (decision 5), in every view rather than on a
+  backdrop under Source and a block re-render in Live. The Phase 0 backdrop
+  layer is deleted.
+- **Undo is the engine's** (decision 6). The D3 snapshot stack is deleted: it
+  existed because Live gave every paragraph its own textarea, and there is
+  one surface in every view now.
+- **Find and replace is CodeMirror's panel** (decision 7), restyled onto the
+  app's field and button recipe in `frontend/css/09-editor.css`; folding on
+  headings through a fold service, in the same lane and behind the same
+  remembered preference as the line numbers.
+- **Languages** (decision 10): markdown (GitHub dialect, `base:
+  markdownLanguage`, without which `~~struck~~` and `- [ ] task` produce no
+  syntax nodes at all), js, ts, py, css, html, json, yaml, and the stream
+  modes for bash, sql, toml, go, rust, c, cpp, csharp, java, kotlin, ruby,
+  xml. Anything else is plain, which is the honest answer.
+
+**Measured** in Chromium at 1440x900 against a running app
+(`scratchpad/ui-sweeps/serve.sh 8786 /tmp/mm-8786`), six new sweeps:
+
+| Sweep | Result |
+| --- | --- |
+| `cm-engine.js` | bundle absent at boot (0) and present after open (1); view mounted, fallback `display: none`; typing reaches `docSurface().text`, the outline, the status bar and the prose chip; the D3 gate (type in Live, switch to Source, Ctrl+Z) passes on the engine's history; a save round trip matches exactly; **zero** `securitypolicyviolation` events, **zero** `<style>` tags added, two adopted sheets |
+| `cm-live.js` | 24 checks, all pass, zero console errors, including the sentence the plan opens with: one click on an underlined word opens its suggestions, anchored within 60px of the word |
+| `cm-search.js` | 8 checks: Ctrl+F opens the panel and leaves the old bar down, the field matches `#doc-find-input`'s font and colour, Replace all replaces 2 and one Ctrl+Z puts both back, the fold column follows the numbers, folding `# One` takes 11 rendered lines to 4 |
+| `cm-editor.js` | 14 checks: the selection toolbar anchors within 25px of the caret and its Bold is one undo, the `/` menu and the `[[` picker open and insert, a selection reports itself as this document in document coordinates, the inline AI bar opens and describes the selection, the completion popup opens and Tab completes |
+| `cm-layout.js` | 10 checks: the measure caps and centres the column (off by 0px), full width releases it (794px to 1,082px), Split is side by side (518px and 552px), Read hides the editor, and coming back from Read re-measures it |
+| `cm-dark.js` | 6 checks: the editor's ink is the app's ink in both modes, switching inverts it (rgb(31,36,48) to rgb(231,233,238)), CodeMirror's own `darkTheme` facet follows through the `data-mode` observer |
+| `errors.js` | 0 errors and 0 layout findings at 1440, 1024, 820 and 390 |
+| `documents-chrome.js` | dock 36px at 1280 and 78px (two rows) at 820, every control 36px, chrome above the first line 44px at 1280 and 86px at 820 (Phase 1's gate: 96), 0 clipped sidebar labels |
+
+**Typing latency** (`doctype.js`, 20k words, keydown and input event
+durations over 16 ms, PLAN P4's gate is 30 ms):
+
+| | before | after |
+| --- | --- | --- |
+| Live | p50 160 ms, p95 200 ms, 1,178 renders | **p50 16 to 24 ms, p95 24 to 32 ms, 0 renders** |
+| Split | p50 112 ms, p95 176 ms | p50 32 to 48 ms, p95 64 to 72 ms |
+
+Three whole-document passes came off the keystroke to get there: the word
+goal, the outline and the status bar's counts are scheduled the way the
+preview already was; the caret's line and column are asked of the surface
+(O(log n) on the engine) rather than counted from the start of the text; and
+the completion fragment and autocorrect read the caret's line rather than
+materialising the whole document per character.
+
+**Three bugs the browser found that reading could not:**
+
+- **Every bare shortcut fired while you typed.** app.js decides "is the user
+  typing?" from `["INPUT", "TEXTAREA", "SELECT"].includes(tagName)`, and
+  CodeMirror's editable is a `contenteditable` div: a literal `/` in a
+  document focused the global search box and swallowed the rest of the word.
+  Stopped at the editor's own host in the bubble phase; the app.js guard
+  itself is still wrong for the next contenteditable and is written up in
+  `agent-remaining/documents-engine.md`.
+- **The `/` menu and the `[[` picker never opened.** editor.js hung their
+  trigger check off a DOM `input` event, and the engine raises none for a
+  typed character. The listener body is `editorHandleInput` now and the
+  update listener calls it.
+- **A decoration that replaces a line break stops the whole view.** An
+  image whose alt text wraps put a newline inside the range its widget
+  replaced; CodeMirror throws out of `setState` and the editor never
+  renders. Guarded, with the reproducing document now part of the sweep.
+
+**Lost, and named rather than left to be discovered:** the Notion-style
+block handle, its drag to reorder and its move/duplicate/delete menu went
+with the block DOM. Phase 3 is where block structure comes back, over one
+document rather than as a second copy of it.
+
+**Not verified:** IME composition in the engine; the fallback path end to
+end (the bundle failing to load was simulated with a flag, not by a blocked
+request); and `revalidateSelection` in app.js still resolves a selection's
+surface with `document.getElementById(surfaceId)`, which now finds the stale
+fallback textarea, see `agent-remaining/documents-engine.md`.
+
 ### From DOCUMENTS_PLAN.md
 
 ### Built — Phase 0

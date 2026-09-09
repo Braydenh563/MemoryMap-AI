@@ -1457,10 +1457,32 @@ body.scroll-top-visible #tab-notes .layout > main {
    `flex-wrap` rather than a fixed count: at the sheet width the row is
    allowed to become two, and the dividers still fall between groups because
    they are drawn by the group, not by the row. */
+/* **A footer band, not a row of icons floating on the panel's body.** Asked
+   for on 2026-09-09: "I want these buttons at the bottom of the graph node
+   popup panels to be cenered or to feel properly integrated into the
+   panel". They were left-aligned on the panel background with only a
+   hairline above them, so nine icons in three groups read as leftovers below
+   the content rather than as the panel's own controls.
+
+   Three changes, and each is doing one job: centred, so a short row is not
+   hard against the left edge with a gap of nothing on the right; pulled out
+   to the panel's padding edges with `--graph-popup-pad` so the band is as
+   wide as the panel and not a stripe inside it; and given the panel's own
+   bottom corners, so the band ends where the panel ends. The surface tint is
+   the app's chip fill, which is the quietest surface it has: a footer that
+   competes with the content above it is the opposite of integrated. */
 .graph-popup-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
+  margin-inline: calc(-1 * var(--graph-popup-pad));
+  margin-bottom: calc(-1 * var(--graph-popup-pad));
+  padding-inline: var(--graph-popup-pad);
+  padding-bottom: var(--graph-popup-pad);
+  background: var(--chip-bg);
+  border-bottom-left-radius: var(--radius);
+  border-bottom-right-radius: var(--radius);
   /* No column gap: the divider's own margins are the space between two
      groups, and a gap on top of them would say "separate" twice. The row
      gap only matters at the sheet width, where the row becomes two. */
@@ -1598,7 +1620,10 @@ body.scroll-top-visible #tab-notes .layout > main {
      422px of content width at 28rem, which still clears a 15px scrollbar. */
   width: 28rem;
   max-width: calc(100% - 1rem);
-  padding: 0.8rem 0.8rem;
+  /* Named so the actions footer below can reach the panel's own edges
+     without a second copy of this number going stale against it. */
+  --graph-popup-pad: 0.8rem;
+  padding: var(--graph-popup-pad);
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);

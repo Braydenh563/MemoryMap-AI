@@ -1713,7 +1713,12 @@ summary > .ph-lead,
 }
 
 .extras-row > .entry-meta {
-  flex: 1 1 16rem;
+  /* Measured after the first cut: two of four rows still wrapped their
+     actions under the title (a long name plus a status chip plus three
+     buttons at the modal's width). A smaller basis and a wrapping meta
+     let the chip drop under the name before the actions leave the line. */
+  flex: 1 1 10rem;
+  flex-wrap: wrap;
   min-width: 0;
   margin: 0;
 }

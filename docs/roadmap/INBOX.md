@@ -133,6 +133,10 @@ done-when item 4 and 5), in priority order.
     title click) · 107c the rest (whiteboard View and Arrange, Ctrl+S
     feedback, the packages row, the dashboard band) · 107d the segmented
     mini bars, a redesign recorded in DOCUMENTS_PLAN and DESIGN.md.
+    **Status, 2026-09-09 evening.** 107a: five of six closed (`9a2ddf1`),
+    the AI history popover still found-not-fixed. 107b: an Opus agent is
+    running against it now (worktree, not yet merged). 107c and 107d: not
+    started.
 
 77. **Half done, 2026-09-09: the badge is fixed.** It reads "1.2k / 20k"
     instead of "6% of window", is 20px tall at every width from 420 to 1440

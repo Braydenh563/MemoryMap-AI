@@ -6890,11 +6890,22 @@ Link to another note with [[its first few words]]."></textarea>
                Preferences page: it is the only feature that leaves the
                machine, and the error messages point people here by name. -->
           <section class="settings-section hidden" id="settings-websearch">
-            <p class="muted">
-              This is the one part of MemoryMap that goes online. It is off
-              until you turn it on, and even then only your search words
-              leave this computer: never your notes.
-            </p>
+            <div class="row help-head">
+              <h3>Web search</h3>
+              <button type="button" class="icon-only ghost small graph-help-toggle"
+                data-help-for="websearch-help" aria-controls="websearch-help" aria-expanded="false"
+                title="About web search" aria-label="About web search">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
+            </div>
+            <p class="muted">The one part of MemoryMap that goes online, and it is off by default.</p>
+            <div class="help-body hidden" id="websearch-help" role="dialog" aria-label="About web search">
+              <p>
+                This is the one part of MemoryMap that goes online. It is
+                off until you turn it on, and even then only your search
+                words leave this computer: never your notes.
+              </p>
+            </div>
 
             <h3>Let the AI search the web</h3>
             <label class="check-row">
@@ -6907,7 +6918,14 @@ Link to another note with [[its first few words]]."></textarea>
               role="radiogroup" aria-label="Web search engine"></div>
             <p id="search-provider-status" class="status" role="status"></p>
 
-            <h3>Your SearXNG instance</h3>
+            <div class="row help-head">
+              <h3>Your SearXNG instance</h3>
+              <button type="button" class="icon-only ghost small graph-help-toggle"
+                data-help-for="searxng-help" aria-controls="searxng-help" aria-expanded="false"
+                title="About SearXNG" aria-label="About SearXNG">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
+            </div>
             <div class="row field-row">
               <label for="pref-searxng" class="muted">Address</label>
               <input id="pref-searxng" type="text" maxlength="200"
@@ -6916,27 +6934,40 @@ Link to another note with [[its first few words]]."></textarea>
                 title="Look for a SearXNG on the usual local ports"><i class="ph ph-magnifying-glass ph-lead" aria-hidden="true"></i> Auto-detect</button>
             </div>
             <p id="searxng-status" class="status" role="status"></p>
-            <p class="muted">
-              <strong>SearXNG is the recommended way to search.</strong> It is a
-              self-hosted search engine that MemoryMap can install and run for
-              you in one click, you don't need Docker, an account, or any
-              setup of your own. It gives better results than scraping
-              DuckDuckGo, it can't be rate-limited the way scraping can, and
-              the query never leaves your own network. It has to be on this
-              machine or your own network, MemoryMap won't send searches to
-              somebody else's instance, and the one it runs for you listens on
-              <code>127.0.0.1</code> only.
-            </p>
+            <p class="muted"><strong>SearXNG is the recommended way to search.</strong> It gives better results, and the query never leaves your own network.</p>
+            <div class="help-body hidden" id="searxng-help" role="dialog" aria-label="About SearXNG">
+              <p>
+                <strong>SearXNG is the recommended way to search.</strong> It
+                is a self-hosted search engine that MemoryMap can install
+                and run for you in one click, you don't need Docker, an
+                account, or any setup of your own. It gives better results
+                than scraping DuckDuckGo, it can't be rate-limited the way
+                scraping can, and the query never leaves your own network.
+                It has to be on this machine or your own network, MemoryMap
+                won't send searches to somebody else's instance, and the
+                one it runs for you listens on <code>127.0.0.1</code> only.
+              </p>
+            </div>
             <div class="searxng-host">
               <div class="row space-between">
-                <strong>Let MemoryMap run SearXNG</strong>
+                <span class="row help-head">
+                  <strong>Let MemoryMap run SearXNG</strong>
+                  <button type="button" class="icon-only ghost small graph-help-toggle"
+                    data-help-for="searxng-host-help" aria-controls="searxng-host-help" aria-expanded="false"
+                    title="About running SearXNG" aria-label="About running SearXNG">
+                    <i class="ph ph-question" aria-hidden="true"></i>
+                  </button>
+                </span>
                 <span id="searxng-host-state" class="chip">Checking…</span>
               </div>
-              <p class="muted">
-                MemoryMap can start and stop SearXNG for you, settings and the
-                JSON API are configured automatically, so there's nothing to
-                edit.
-              </p>
+              <p class="muted">Settings and the JSON API are configured automatically.</p>
+              <div class="help-body hidden" id="searxng-host-help" role="dialog" aria-label="About running SearXNG">
+                <p>
+                  MemoryMap can start and stop SearXNG for you, settings and
+                  the JSON API are configured automatically, so there's
+                  nothing to edit.
+                </p>
+              </div>
               <p class="muted" id="searxng-backend"></p>
               <!-- Answers "is the port free?" instead of telling people to go
                    and check, which was the only advice a failed start had. -->

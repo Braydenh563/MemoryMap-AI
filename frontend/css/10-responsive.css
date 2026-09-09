@@ -57,3 +57,88 @@
     font-size: var(--text-xs);
   }
 }
+
+/* --- Phase 10, INBOX 100: the scroll edge effect --------------------------
+
+   DESIGN.md, "Taken from Liquid Glass and the HIG", rule 2: "Optimize for
+   legibility when content scrolls beneath controls." A bar with content
+   moving under it says so with a soft edge; a bar with nothing under it says
+   nothing, which is the half that makes the first half mean something.
+
+   `data-scrolled="1"` is set by one listener in app.js, on the *one* bar
+   whose bottom edge is against the top of the region that scrolled. The
+   listener picks it by measuring, not by name, and the reasoning is written
+   there: on Notes three bars are stacked above the list and only the last of
+   them has anything passing behind it.
+
+   A token of its own rather than a shadow: `--glass-shadow` is a drop shadow
+   around a whole surface, and what this needs is a one-sided fall-off from
+   the bar into the content. Its light value is the border ink at a tenth;
+   its dark value is real black, because on a dark page a translucent grey
+   lightens what it covers and the effect inverts into a glow. */
+:root {
+  --scroll-edge: rgba(31, 36, 48, 0.10);
+}
+
+:root[data-mode="dark"] {
+  --scroll-edge: rgba(0, 0, 0, 0.38);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --scroll-edge: rgba(0, 0, 0, 0.38);
+  }
+}
+
+/* **A shadow, not the `::after` gradient the rule was written as**, and the
+   reason is a measurement rather than a preference. The gradient was built
+   first, as `position: absolute; top: 100%; height: 1rem` on each bar. An
+   absolutely positioned box extends its containing block's *scrollable*
+   overflow, so every bar that carries the effect gained 16px of vertical
+   scroll: `#notes-subtabs` is `overflow: auto` in both axes and turned from
+   a horizontal strip into a 60/44 vertical scroller, which the sweep caught
+   as a new scroll region on the Notes tab. Clipping it back with
+   `overflow-y: hidden` hides the gradient with it, because the pseudo-element
+   is a child of the bar and the bar is what clips.
+
+   A box shadow is drawn outside the border box, is not clipped by the
+   element's own overflow, and adds nothing to scrollable overflow. Same
+   16px fall-off, none of the side effects, and one declaration instead of
+   three. The two strips restate `--shadow-sm` because they already carry it
+   and `box-shadow` replaces rather than adds. */
+header#top-bar[data-scrolled="1"],
+.dock[data-scrolled="1"] {
+  box-shadow: 0 var(--space-2) var(--space-6) calc(-1 * var(--space-3)) var(--scroll-edge);
+}
+
+.notes-subtabs[data-scrolled="1"],
+.library-subtabs[data-scrolled="1"] {
+  box-shadow:
+    var(--shadow-sm),
+    0 var(--space-2) var(--space-6) calc(-1 * var(--space-3)) var(--scroll-edge);
+}
+
+/* `transition` is a shorthand, so this is only safe because none of the four
+   declares one: checked in the stylesheets and confirmed in the browser,
+   where each of them computed to no transition before this rule. A fifth bar
+   added to the effect later needs the same check, or its own transition goes
+   silently missing.
+
+   Under Reduce motion the edge still appears; it just stops being animated
+   about it, which is the rule DESIGN.md states for every one of these. */
+header#top-bar,
+.dock,
+.notes-subtabs,
+.library-subtabs {
+  transition: box-shadow var(--motion-base) ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  header#top-bar,
+  .dock,
+  .notes-subtabs,
+  .library-subtabs {
+    transition: none;
+  }
+}

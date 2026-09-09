@@ -384,11 +384,18 @@ the slider thumb light up on drag, nothing else in a card blurs).
    background or an image, and it always pairs with `--glass-scrim`
    (35% ink) when the surface is light. Never a third variant.
 2. **Scroll edge effect.** "Optimize for legibility when content scrolls
-   beneath controls": the bar over a scroll region fades a gradient under
+   beneath controls": the bar over a scroll region fades a soft edge under
    itself as content passes. Ours: `.dock`, `.notes-subtabs`,
-   `.library-subtabs` and `header#top-bar` get a `::after` gradient from
-   `--page` to transparent, 16px, shown only while the region is scrolled
-   (`data-scrolled="1"` set by one scroll listener). INBOX 100.
+   `.library-subtabs` and `header#top-bar` take a 16px `box-shadow` in
+   `--scroll-edge`, shown only while the region is scrolled
+   (`data-scrolled="1"`, set by one listener in app.js on the single bar
+   whose bottom edge is against the top of the region that scrolled: it
+   picks by measuring, because three bars can be stacked over one list and
+   only the last of them has anything passing behind it). **A shadow, not
+   the `::after` gradient this rule was first written as**: an absolutely
+   positioned pseudo-element extends its bar's scrollable overflow, which
+   turned `#notes-subtabs` into a 60/44 vertical scroller, and clipping it
+   back hides the gradient with it. Built, INBOX 100.
 3. **Concentric corners.** "Rounded shapes that are concentric to their
    containers": an inner radius is the outer radius minus the padding
    between them. Ours: `--radius-inner: calc(var(--radius) - var(--space-3))`

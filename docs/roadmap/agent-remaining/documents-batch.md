@@ -2,7 +2,7 @@
 
 **Worktree** `agent-ad5696bf1be5660c3`, branch
 `worktree-agent-ad5696bf1be5660c3`, cut from `claude/epic-ramanujan-8xocc0`
-at `edb6aae`. Five commits, all five items of the batch done, nothing
+at `edb6aae`. Thirteen commits, all five items of the batch done, nothing
 half-finished and nothing uncommitted. Never pushed; that is the
 orchestrator's job.
 

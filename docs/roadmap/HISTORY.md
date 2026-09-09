@@ -9317,6 +9317,18 @@ themselves (their handlers were not touched, only their buttons' markup).
     must never be cut in half. Measure it open at 1440 and at 820. Owner:
     WHITEBOARD Phase 1. Size S.
 
+109. **(fixed)** **Dashboard heatmap, reversed, 2026-09-09.** The owner,
+    mid-work: "the whole thing fits into the small not wide dshboard, it
+    looked better bigger and scrolled to the right." An earlier fix this
+    same day (8519ee2) traded a scrollbar for cropping the grid to
+    whatever recent weeks fit at full cell size; the owner's preference is
+    the opposite of that trade. Reversed: the grid's columns are a fixed
+    `--heat-cell-max` width instead of a `1fr` share of the widget, the
+    whole year is drawn every time, and `.heatmap` scrolls horizontally
+    instead of clipping. Measured: 371 cells at 12x12px, `scrollWidth` 701
+    against a 662px `clientWidth`, opens scrolled to the recent end.
+    `9b3b271`.
+
 ## HANDOVER archive, 2026-09-09
 
 ### The Fable session — UI Phases 0-4, skills reform A-B, backend sprint 1, the audit

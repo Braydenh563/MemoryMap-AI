@@ -137,6 +137,18 @@ Worktree `agent-a6db54045f3f6f144`. Not pushed; orchestrator merges.
 
 ## Found, not fixed (out of scope for this sweep)
 
+- ~~**The standalone keyboard-shortcuts overlay**~~ **Fixed** (orchestrator,
+  2026-09-09, `d8b9038`). The cause was one tier up from where this entry
+  put it: `.modal-card` itself, not `#shortcuts-card`, capped every dialog
+  at 88vh with `overflow-y: visible`, so any dialog filled from script lost
+  what fell past the cap. `overflow: hidden auto` plus
+  `overscroll-behavior: contain` on the class fixes all of them at once.
+  Measured before: 1925px inside 790px, scrollTop stuck at 0, the heading
+  at y=1444 below an 846px window. After: scrollTop reaches 1171, the last
+  list ends at 762.7, Settings unchanged at 790 in 790 with no scrollbar.
+  The original text follows for its diagnosis of what the static markup
+  measurement misses.
+
 - **The standalone keyboard-shortcuts overlay (`#shortcuts-overlay`,
   opened by the `?` key) has no scroll mechanism at 1440x900.** Its
   content (the full rebindable list plus "Always available") is taller

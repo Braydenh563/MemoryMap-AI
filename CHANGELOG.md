@@ -292,7 +292,9 @@ orchestrator; these are the ones that change what the app does.
   marks the button it pressed; the zoom readout appears over dialogs; a menu
   a panel owns no longer counts as a click away from it; the whiteboard's
   selection rectangle draws above the cards; the Arrange tools sit in three
-  named rows; nine settings sections trade walls of prose for help popovers;
+  named rows; a dialog taller than the window scrolls to its last line
+  instead of losing it, which the keyboard shortcuts overlay had been doing
+  to its whole "Always available" section; nine settings sections trade walls of prose for help popovers;
   the glass sheen slider drives something for the first time. The Library's
   Contents dock keeps one row at 1024 and at 820, where it wrapped in both
   themes: Collapse all sits in a `...` menu and the four-way segment folds

@@ -27,8 +27,10 @@ class _Models:
 
 @pytest.fixture
 def pdf_attachment(client, monkeypatch):
-    monkeypatch.setattr(deps, "get_ollama", lambda: _Ollama())
-    monkeypatch.setattr(deps, "get_model_manager", lambda: _Models())
+    # The classes themselves, not lambdas around them: calling a class is
+    # already a factory (CodeQL's "unnecessary lambda").
+    monkeypatch.setattr(deps, "get_ollama", _Ollama)
+    monkeypatch.setattr(deps, "get_model_manager", _Models)
     monkeypatch.setattr(
         routes_files.vision_ocr,
         "pdf_vision_reader",

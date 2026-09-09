@@ -234,3 +234,105 @@ header#top-bar,
     --menu-origin-x: 0%;
   }
 }
+
+/* --- INBOX 60: the dashboard's start band uses its own width --------------
+
+   The owner: the band is "all left-aligned in a band with most of its width
+   empty". Measured at 1440x900 with `scratchpad/ui-sweeps/dashstart.js`
+   before this: the "Start something" row filled its 1408px, the "Jump to"
+   row used 476px of it and left 932px empty, and the four stat tiles used
+   573px and left 835px. Two thirds of two rows was nothing.
+
+   The answer is not more pills naming tabs. That was tried and undone with
+   its reason recorded in dashboard.js: the dashboard ended up showing its
+   own navigation three times. It is to let the rows own the width they are
+   already given, and to spend the space the stats had on the one thing four
+   numbers cannot say, which is the shape of the fortnight. */
+/* Everything that stretches is behind `min-width: 600px`, and that is not
+   caution: the phone band gives `.launch-row > *` a `flex: 0 0 auto` so the
+   rows scroll sideways instead of squeezing, and this file loads after the
+   file that says so. A stretched pill there would undo the phone's own
+   design, which belongs to Phase 11 rather than to this change. */
+@media (min-width: 600px) {
+
+  .dash-stats > .stat-tile {
+    /* Equal columns, and `0` basis so a longer label does not buy its tile a
+       wider share of the row than the tile beside it. */
+    flex: 1 1 0;
+  }
+
+  .dash-stats > .stat-spark {
+    /* Twice a tile: it is a chart, and fourteen bars in a tile's width is a
+       texture rather than a reading. */
+    flex: 2 1 0;
+  }
+
+  /* The navigation row: three constants and, when there is one, a Continue
+     pill in front of them. They share the row rather than huddling at its
+     left edge, and they keep their reading order. */
+  .launch-row-go > .quick-link {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  /* Continue is the one pill whose text is a note's own first line, so it is
+     the one that needs room; the three beside it are two words each. */
+  .launch-row-go > .quick-link-continue {
+    flex: 2 1 0;
+  }
+}
+
+/* Not written as `.dash-stats > .stat-spark`: `test_style_scale.py` reads
+   any rule whose selector *starts* with a page container's name as that
+   container setting its own outer inset, and `.dash-stats` is one of them.
+   The class is unique to this chart, so the descendant part buys nothing. */
+.stat-spark {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  background: var(--card);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
+
+.stat-spark-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-1);
+  flex: 1 1 auto;
+  /* The row's own height decides the chart's, so the strip does not grow:
+     INBOX 60 asks for the band's height to be unchanged. */
+  align-self: stretch;
+  min-width: 0;
+}
+
+.stat-spark-bars > span {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  opacity: 0.75;
+}
+
+.stat-spark-bars > span.empty {
+  background: var(--divider);
+  opacity: 1;
+}
+
+.stat-spark-label {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+/* The chart is the first thing to go when there is no width to spend on it:
+   at phone widths the strip is already a sideways scroller of four numbers,
+   and a fifth item that is only a shape would be scrolled past. */
+@media (max-width: 599.98px) {
+
+  .stat-spark {
+    display: none;
+  }
+}

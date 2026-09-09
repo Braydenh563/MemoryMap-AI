@@ -9000,6 +9000,48 @@ themselves (their handlers were not touched, only their buttons' markup).
     WHITEBOARD Phase 1 (Fable, now): the marquee is drawn on the objects'
     layer; move it to the overlay canvas above them.
 
+67. **(Not reproduced) Max gravity: "the nodes are all still so spread
+    out"** (screenshot at max, 01:30). Re-measured on the current build with
+    `scratchpad/ui-sweeps/gravity.js` (new), on a 52-note notebook that is
+    mostly disconnected components, which is the shape in the screenshot:
+
+    | gravity | RMS radius | extent | zoom | RMS on screen |
+    | ---: | ---: | --- | ---: | ---: |
+    | 0 | 738 | 2278x2088 | 0.592 | 437px |
+    | 50 | 400 | 1245x984 | 0.592 | 237px |
+    | 100 | 169 | 536x385 | 0.592 | 100px |
+
+    The slider reaches the layout and the picture really does tighten: 77%
+    off the radius from 0 to 100, and the view does not silently re-fit
+    afterwards (the zoom is the same 0.592 at all three), so what the layout
+    loses the screen loses too. The screenshot predates the pull fix, as this
+    entry suspected. **Neither proposal is needed**: not a wider range, not a
+    component-packing pass.
+
+    One thing the numbers do say, and it is a different lever: at the fitted
+    zoom a node is drawn at a 2.4px radius, so at maximum gravity the picture
+    is a compact cloud of very small dots. If "spread out" comes back on a
+    current build, it is the node size against the empty space around it, not
+    the pull. Recommendation, untaken: zoom to fit after the layout settles,
+    so a tighter layout is also a *larger* one.
+68. **(Fixed) Boards & maps preview "looks so bad, especially in the
+    dashboard"**
+    (screenshot: a flat grey square with four rounded blobs and a squiggle,
+    a scrollbar beside it). Owner: MINDMAP §11.1's preview renderer, Opus:
+    draw the board's real shapes at its aspect, cap the widget's height,
+    never a scrollbar inside a preview, an empty board shows a dotted
+    paper with "Empty board", the dashboard widget uses the same renderer
+    at thumbnail size.
+
+    Fixed 2026-09-09, measured with `scratchpad/ui-sweeps/preview.js`:
+    every block used to be the same rectangle (one distinct size per
+    preview) because the payload carried no sizes; the whiteboard card now
+    draws its five things at four sizes (214.5x45.6 down to 70.5x53.2) and
+    labels all five inside their own shapes, and the map card puts 6 of 6
+    labels inside (it was 0 of 6). The dashboard's thumbnail was drawn for
+    44px and displayed at 293px, which is why that widget scrolled
+    (602/320); it is 40.5px square again and the widget does not scroll.
+
 ## HANDOVER archive, 2026-09-09
 
 ### The Fable session — UI Phases 0-4, skills reform A-B, backend sprint 1, the audit

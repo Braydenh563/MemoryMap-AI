@@ -104,21 +104,6 @@ done-when item 4 and 5), in priority order.
     only the fill should differ. Fix on DESIGN.md's button recipe, and
     check the same pair everywhere an edit row appears. Owner: UI
     modernisation, placed. Size S.
-67. **Max gravity: "the nodes are all still so spread out"** (screenshot at
-    max, 01:30). The screenshot predates the pull fix in e1... (commit
-    "graph: the centre pull follows the gravity slider", pushed 01:00) if
-    the owner's build was older; retest after updating. If still spread:
-    raise the top of the range further (pull 3.25x to 5x at 100) and add a
-    component-packing pass (place each disconnected component's centre on a
-    tight ring at max gravity). Owner: Fable, on the next report.
-68. **Boards & maps preview "looks so bad, especially in the dashboard"**
-    (screenshot: a flat grey square with four rounded blobs and a squiggle,
-    a scrollbar beside it). Owner: MINDMAP §11.1's preview renderer, Opus:
-    draw the board's real shapes at its aspect, cap the widget's height,
-    never a scrollbar inside a preview, an empty board shows a dotted
-    paper with "Empty board", the dashboard widget uses the same renderer
-    at thumbnail size.
-
 ## Placed (last 20, newest first)
 
 - 2026-09-08: dashboard hero preference, New note tile colours, sub-tab

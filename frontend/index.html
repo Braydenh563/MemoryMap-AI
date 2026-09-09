@@ -5791,13 +5791,24 @@ Link to another note with [[its first few words]]."></textarea>
 
           <!-- Templates: prefills for the Capture box -->
           <section class="settings-section hidden" id="settings-templates">
-            <p class="muted">
-              A template fills the Capture box with a starting shape, a
-              recipe's ingredient list, a meeting's agenda. The built-in ones
-              can't be edited or removed; your own can. Picking one from the
-              Capture tab's dropdown never throws away text you've already
-              typed there without asking first.
-            </p>
+            <div class="row help-head">
+              <h3>Templates</h3>
+              <button type="button" class="icon-only ghost small graph-help-toggle"
+                data-help-for="templates-help" aria-controls="templates-help" aria-expanded="false"
+                title="About templates" aria-label="About templates">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
+            </div>
+            <p class="muted">A template fills the Capture box with a starting shape you can pick from a dropdown.</p>
+            <div class="help-body hidden" id="templates-help" role="dialog" aria-label="About templates">
+              <p>
+                A template fills the Capture box with a starting shape, a
+                recipe's ingredient list, a meeting's agenda. The built-in
+                ones can't be edited or removed; your own can. Picking one
+                from the Capture tab's dropdown never throws away text
+                you've already typed there without asking first.
+              </p>
+            </div>
             <ul id="template-list" class="entry-list"></ul>
             <h3>Add your own</h3>
             <input id="template-name" type="text" maxlength="40" placeholder="Name (e.g. Book notes)">
@@ -5818,19 +5829,31 @@ Link to another note with [[its first few words]]."></textarea>
 
           <!-- AI Tools: toggle what the chat AI is allowed to do -->
           <section class="settings-section hidden" id="settings-memory">
-            <p class="muted">
-              The AI can keep standing instructions, say
-              <em>"always answer in British English"</em> and it will keep
-              doing that in every conversation from then on. This is the whole
-              list, and you can switch any of them off or delete them.
-            </p>
-            <p class="muted">
-              When the AI spots one of these in conversation it
-              <strong>suggests</strong> it rather than saving it: the
-              suggestion appears in the chat with a yes/no, and again at the
-              top of this list until you answer. Nothing reaches the AI's
-              instructions until you say yes.
-            </p>
+            <div class="row help-head">
+              <h3>What it remembers</h3>
+              <button type="button" class="icon-only ghost small graph-help-toggle"
+                data-help-for="memory-help" aria-controls="memory-help" aria-expanded="false"
+                title="About what it remembers" aria-label="About what it remembers">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
+            </div>
+            <p class="muted">Standing instructions the AI follows in every conversation, from either side.</p>
+            <div class="help-body hidden" id="memory-help" role="dialog" aria-label="About what it remembers">
+              <p>
+                The AI can keep standing instructions, say
+                <em>"always answer in British English"</em> and it will keep
+                doing that in every conversation from then on. This is the
+                whole list, and you can switch any of them off or delete
+                them.
+              </p>
+              <p>
+                When the AI spots one of these in conversation it
+                <strong>suggests</strong> it rather than saving it: the
+                suggestion appears in the chat with a yes/no, and again at
+                the top of this list until you answer. Nothing reaches the
+                AI's instructions until you say yes.
+              </p>
+            </div>
             <p class="muted" id="memory-budget"></p>
             <!-- Adding one by hand. The tool covers "tell it in conversation";
                  this covers "I already know what I want it to always do". -->
@@ -6794,13 +6817,23 @@ Link to another note with [[its first few words]]."></textarea>
                  other began). Its own group makes the running-now list read
                  as status, not as another setting. -->
             <div class="settings-group" id="tasks-live-group">
-              <h3>Running now</h3>
-              <p class="muted">
-                Everything the app is doing in the background right now, 
-                re-indexing your notes, downloading a model, loading the
-                embedding model, setting up SearXNG. Jobs that can be stopped
-                safely have a Quit button; the rest are left to finish.
-              </p>
+              <div class="row help-head">
+                <h3>Running now</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="tasks-live-help" aria-controls="tasks-live-help" aria-expanded="false"
+                  title="About running jobs" aria-label="About running jobs">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">What the app is doing in the background right now.</p>
+              <div class="help-body hidden" id="tasks-live-help" role="dialog" aria-label="About running jobs">
+                <p>
+                  Everything the app is doing in the background right now,
+                  re-indexing your notes, downloading a model, loading the
+                  embedding model, setting up SearXNG. Jobs that can be stopped
+                  safely have a Quit button; the rest are left to finish.
+                </p>
+              </div>
               <ul id="task-list" class="entry-list"></ul>
               <p id="tasks-empty" class="muted">Nothing running right now.</p>
 
@@ -6819,10 +6852,22 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
 
             <div class="settings-group">
-              <h3>Autonomous background AI</h3>
-              <p class="muted">
-                Have the agent automatically optimize your notes in the background, tagging untagged notes, finding duplicates, and linking related items.
-              </p>
+              <div class="row help-head">
+                <h3>Autonomous background AI</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="autonomous-ai-help" aria-controls="autonomous-ai-help" aria-expanded="false"
+                  title="About autonomous background AI" aria-label="About autonomous background AI">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">Let the agent optimize your notes on its own, in the background.</p>
+              <div class="help-body hidden" id="autonomous-ai-help" role="dialog" aria-label="About autonomous background AI">
+                <p>
+                  Have the agent automatically optimize your notes in the
+                  background, tagging untagged notes, finding duplicates, and
+                  linking related items.
+                </p>
+              </div>
               <label class="check-row">
                 <input type="checkbox" id="pref-autonomous-tasks">
                 <span>Enable autonomous optimization</span>
@@ -6929,10 +6974,22 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
 
             <div class="settings-group">
-              <h3>Battery-efficient mode</h3>
-              <p class="muted">
-                Pause background AI tasks and heavy graph calculations to save power. When enabled, autonomous background tasks will not run, and the graph may be slower to update connections.
-              </p>
+              <div class="row help-head">
+                <h3>Battery-efficient mode</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="battery-mode-help" aria-controls="battery-mode-help" aria-expanded="false"
+                  title="About battery-efficient mode" aria-label="About battery-efficient mode">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">Pause background AI tasks and heavy graph work to save power.</p>
+              <div class="help-body hidden" id="battery-mode-help" role="dialog" aria-label="About battery-efficient mode">
+                <p>
+                  Pause background AI tasks and heavy graph calculations to
+                  save power. When enabled, autonomous background tasks will
+                  not run, and the graph may be slower to update connections.
+                </p>
+              </div>
               <label class="check-row">
                 <input type="checkbox" id="pref-battery-mode">
                 <span>Enable battery-efficient mode</span>

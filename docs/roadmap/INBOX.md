@@ -545,6 +545,22 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     formatting", and Phase 2 makes the floating selection toolbar the
     formatting UI. Nothing to fix; if the owner wants the strip on by
     default, flip the default in one line (documents.js `docToolbarMode`).
+99. **Quick wins (Fable, 05:20): five features the plans did not list,
+    each a day or less, each with the site.** (a) Undo on every delete
+    toast: notes, boards, documents and reminders already soft-delete;
+    `toastAction(msg, "Undo", () => restore)` at each delete call site
+    (grep `toast(` beside `DELETE`), so a wrong click never reaches the
+    bin. (b) "Reopen where I left off": documents and chats restore
+    scroll position per id (localStorage `scroll:<kind>:<id>`), the
+    Dashboard "Continue" tile (INBOX 60) reads the same keys. (c) The AI
+    dot's tooltip shows the last answer's latency and the model's context
+    use ("granite4.1:3b, 2.1 s, 39% of window"), from data the chat
+    header already has. (d) A "Paste as note" global shortcut
+    (Ctrl+Shift+V anywhere) that captures the clipboard as a new note
+    with the AI filing it, the fastest capture path on a desktop. (e)
+    Search operators in the Notes search box (`tag:`, `space:`,
+    `before:`, `after:`, `has:file`), parsed client-side into the existing
+    filters, with the operators listed in the box's '?' popover.
 64. **Whiteboard properties panel, "needs a massive redesign and fix"**
     (three screenshots, 01:30): Copy style row, Guide colours (three swatch
     rows), then Group / Ungroup overlapping each other, an arrow button, the

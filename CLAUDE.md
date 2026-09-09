@@ -84,6 +84,18 @@ full text, with the reasons, is the block at the top of
    itself at the end of every turn with these orders in its prompt.
 8. **No new plan documents.** Eleven exist. A new need is a brief row in
    the plan it belongs to or an INBOX entry.
+10. **Documentation hygiene, enforced by a lint** (the owner, after the
+   fourth time: "I keep having to ask you to clean up and move the
+   documentation"). A plan holds open work only. When a phase or step is
+   built, its "Built" block moves whole into `HISTORY.md` ("Moved from the
+   plans") at that step boundary, leaving a one-line pointer;
+   `tests/test_plan_hygiene.py` fails otherwise, and fails when
+   `HANDOVER.md` passes 600 lines (the session record goes to HISTORY).
+   `tests/test_readme_freshness.py` checks the README's tool count, skill
+   count, version and mode names against the code, so a change that makes
+   the README stale fails the build until the README says the same. Every
+   merge ends with: CHANGELOG line, README if a number or name moved,
+   INBOX entry marked, the plan's Built block moved.
 9. **Commit trailers** on every commit: the `Co-Authored-By` and
    `Claude-Session` lines the recent commits carry. No model identifiers in
    commits, PR bodies or code.

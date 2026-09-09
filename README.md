@@ -123,7 +123,7 @@ six colours.
 
 **Ask.** A question returns a conversational answer and the notes behind
 it, side by side, with each sentence linked to the note it came from. Chat
-is saved and resumable. In Request mode the assistant has 58 tools to
+is saved and resumable. In Agent mode the assistant has 58 tools to
 search, link, organise and act on your notebook; anything destructive
 asks first, and every step it takes is shown.
 

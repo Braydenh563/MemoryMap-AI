@@ -205,19 +205,20 @@ Password `testpassword123`; `THEME=dark` for dark.
   days.** `start-desktop.bat`/`.sh` launches `webview.start(...,
   private_mode=False, storage_path=<data dir>/webview)`
   (`src/memorymap/__main__.py`), a deliberately persistent profile so
-  settings and theme survive between launches. It also keeps its cache,
-  and every local CSS/JS URL is stamped `?v=<__version__>`
-  (`test_asset_cache_busting.py`), which does not change between commits,
-  only at a release. A browser tab opened fresh always fetches current
-  files; the desktop window, once open, may keep serving whatever it
-  cached at its first launch of the day, unchanged, no matter how many
-  fixes land after. Cost one owner report of "basically all my bugs are
-  still there" after a long stretch of fixes each individually measured
-  correct against the branch. The fix is deleting the `webview` folder
-  inside the data directory (never the data directory itself, that is
-  the real notes) and relaunching, not rebuilding or reinstalling
-  anything. When a report keeps recurring against code that measures
-  correct, ask what launched the app before re-chasing the code.
+  settings and theme survive between launches. It also keeps its cache.
+  Cost one owner report of "basically all my bugs are still there" after
+  a long stretch of fixes each individually measured correct against the
+  branch: a browser tab opened fresh always fetches current files, the
+  desktop window did not. **Fixed, not a manual step**: every local
+  CSS/JS URL is stamped `?v=<__version__>`, and `RevalidatedStatic` in
+  `src/memorymap/api/app.py` now splices a `_BOOT_TOKEN` (fixed once per
+  server process) onto every one of those stamps inside `index.html`'s
+  own served body, so a fresh launch of either script always gets its
+  own stamp and can never reuse a previous launch's cache; `__version__`
+  alone still governs what a *released* build caches for a year. If this
+  report recurs anyway on a head after `dd2d843`, the bug is real, not a
+  cache: reproduce it, do not repeat the deleted-`webview`-folder advice
+  this replaced.
 
 ## 6. Reviewing work that came from somewhere else
 

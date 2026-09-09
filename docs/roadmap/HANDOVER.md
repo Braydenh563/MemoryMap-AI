@@ -342,9 +342,19 @@ the desktop window has been serving whatever it cached at the first
 launch of the day, at the same URL, ever since, no matter how many fixes
 landed. The owner reported "basically all my bugs are still there"
 after a long stretch of fixes that were each individually measured
-correct against the branch; the fix is deleting the `webview` folder
-inside the data directory (not the data directory itself, that is the
-real notes) and relaunching. Every "regression" traced today (the
+correct against the branch. Fixed properly rather than left as a
+manual step, per the owner's own ask ("I need this cache problem...
+fixed and automatically handled for me"): `dd2d843` splices a
+per-process `_BOOT_TOKEN` onto every `?v=` stamp in `index.html`'s own
+served body, so a fresh launch of either script can never reuse a
+previous launch's cache, and `__version__` alone still governs what a
+released build caches for a year. A real bug caught in review before it
+shipped: the first version rewrote the response after `super()` had
+already run, which meant a client with an already-cached `index.html`
+could get a 304 from the file's own constant etag and never see the new
+body at all; fixed by handling the three path spellings before `super()`
+is called, so no validator exists to trigger one. Every "regression"
+traced today (the
 heatmap, the boards widget, the skills button, the Edit/Read pill, the
 dashboard sparkline) checked out correct in code every single time; this
 is very likely why, for the whole session, not only the last hour of it.

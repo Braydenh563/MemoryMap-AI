@@ -31,28 +31,18 @@ verbatim, is triaged at the next step boundary, and leaves: fixed now (then
 What is here now is this PR's own bug list (Brief 18 section A, HANDOVER's
 done-when item 4 and 5), in priority order.
 
-77. **Token window badge: not centred, text wrong; the window itself
+77. **Half done, 2026-09-09: the badge is fixed.** It reads "1.2k / 20k"
+    instead of "6% of window", is 20px tall at every width from 420 to 1440
+    (it stretched to 44px below 820 before), and is centred against the chat
+    subline. What is left is the second half below, the per-model context
+    size, which the entry already assigns to the next session.
+    **Token window badge: not centred, text wrong; the window itself
     should be manageable by the user and auto when set** (screenshots:
     "6% of window" pill off-centre in the chat header, and the header wraps
     at width). Owner: CHAT_PLAN header (Fable, now for the badge; the
     window setting next session): a `num_ctx` preference per model in
     Settings > Models with Auto (the model file's value) or a number, sent
     on every request; the badge shows "used / window".
-67. **Max gravity: "the nodes are all still so spread out"** (screenshot at
-    max, 01:30). The screenshot predates the pull fix in e1... (commit
-    "graph: the centre pull follows the gravity slider", pushed 01:00) if
-    the owner's build was older; retest after updating. If still spread:
-    raise the top of the range further (pull 3.25x to 5x at 100) and add a
-    component-packing pass (place each disconnected component's centre on a
-    tight ring at max gravity). Owner: Fable, on the next report.
-68. **Boards & maps preview "looks so bad, especially in the dashboard"**
-    (screenshot: a flat grey square with four rounded blobs and a squiggle,
-    a scrollbar beside it). Owner: MINDMAP §11.1's preview renderer, Opus:
-    draw the board's real shapes at its aspect, cap the widget's height,
-    never a scrollbar inside a preview, an empty board shows a dotted
-    paper with "Empty board", the dashboard widget uses the same renderer
-    at thumbnail size.
-
 ## Placed (last 20, newest first)
 
 - 2026-09-08: dashboard hero preference, New note tile colours, sub-tab

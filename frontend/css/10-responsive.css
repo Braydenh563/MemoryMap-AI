@@ -70,6 +70,44 @@
   }
 }
 
+/* --- band 2 (820 to 1100): the tabs are icons, and the header is one row --
+
+   The measurement that made this worth doing (`tabfit.js`, 1440x900 down to
+   600): between 600 and 1100 the tab strip cannot fit beside the wordmark
+   and the header controls, so `syncTabOverflowFade` gives it a row of its
+   own. That costs 52px of every screen in the band: the header is 108px at
+   1024 and 1099 against 56px at 1440, on a laptop, above every page.
+
+   At 1024 the strip needs 696px of captions and the row beside the wordmark
+   has 521px. No amount of tightening closes 175px with seven words in it.
+   Seven *icons* need about 280px, which fits with room to spare, and the
+   selected tab keeps its caption so the strip still says where you are: the
+   HIG's own tab-bar guidance, and the shape the phone band already uses
+   (icon over caption) turned on its side.
+
+   Deliberately not applied below 820. There the space beside the wordmark is
+   376px at 819 and 171px at 600, which even icons do not fit, so band 3
+   keeps its own row and the smaller captions above. And not above 1100,
+   where the captions fit and a word beats a glyph. */
+@media (min-width: 820px) and (max-width: 1099.98px) {
+
+  .tab-icon {
+    display: inline-flex;
+  }
+
+  /* The accessible name is on the button (`aria-label` in the markup), so
+     hiding the caption costs a screen reader nothing. `title` is what a
+     pointer gets, and app.js already sets neither, so the label element
+     stays in the DOM as the tooltip's source rather than being removed. */
+  #tab-bar button:not(.active) .tab-label {
+    display: none;
+  }
+
+  #tab-bar button {
+    gap: var(--space-2);
+  }
+}
+
 /* --- Phase 10, INBOX 100: the scroll edge effect --------------------------
 
    DESIGN.md, "Taken from Liquid Glass and the HIG", rule 2: "Optimize for

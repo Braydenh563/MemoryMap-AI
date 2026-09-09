@@ -5823,19 +5823,31 @@ Link to another note with [[its first few words]]."></textarea>
 
           <!-- AI Tools: toggle what the chat AI is allowed to do -->
           <section class="settings-section hidden" id="settings-memory">
-            <p class="muted">
-              The AI can keep standing instructions, say
-              <em>"always answer in British English"</em> and it will keep
-              doing that in every conversation from then on. This is the whole
-              list, and you can switch any of them off or delete them.
-            </p>
-            <p class="muted">
-              When the AI spots one of these in conversation it
-              <strong>suggests</strong> it rather than saving it: the
-              suggestion appears in the chat with a yes/no, and again at the
-              top of this list until you answer. Nothing reaches the AI's
-              instructions until you say yes.
-            </p>
+            <div class="row help-head">
+              <h3>What it remembers</h3>
+              <button type="button" class="icon-only ghost small graph-help-toggle"
+                data-help-for="memory-help" aria-controls="memory-help" aria-expanded="false"
+                title="About what it remembers" aria-label="About what it remembers">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
+            </div>
+            <p class="muted">Standing instructions the AI follows in every conversation, from either side.</p>
+            <div class="help-body hidden" id="memory-help" role="dialog" aria-label="About what it remembers">
+              <p>
+                The AI can keep standing instructions, say
+                <em>"always answer in British English"</em> and it will keep
+                doing that in every conversation from then on. This is the
+                whole list, and you can switch any of them off or delete
+                them.
+              </p>
+              <p>
+                When the AI spots one of these in conversation it
+                <strong>suggests</strong> it rather than saving it: the
+                suggestion appears in the chat with a yes/no, and again at
+                the top of this list until you answer. Nothing reaches the
+                AI's instructions until you say yes.
+              </p>
+            </div>
             <p class="muted" id="memory-budget"></p>
             <!-- Adding one by hand. The tool covers "tell it in conversation";
                  this covers "I already know what I want it to always do". -->

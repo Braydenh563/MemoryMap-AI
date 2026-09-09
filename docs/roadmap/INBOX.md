@@ -31,6 +31,20 @@ verbatim, is triaged at the next step boundary, and leaves: fixed now (then
 What is here now is this PR's own bug list (Brief 18 section A, HANDOVER's
 done-when item 4 and 5), in priority order.
 
+108. **The graph, mid-work, 2026-09-09 (the owner, verbatim).** "the tree
+    view on the graph is completely screwed" (screenshot: the tree reads as a
+    force blob, root at the right, categories overlapping, labels colliding)
+    and, on the second look, "on the other map views, they all have the
+    dotted borders and when I tap on one node, it resets them all and they go
+    flying off. and I think the selection bar should be under, not above the
+    top bar, maybe centre it at the bottom" (screenshot: the "10 selected"
+    bar overlapping the Graph top dock from above).
+    **Note for whoever takes this**: the static-layout fix of earlier today
+    was made in `frontend/graph.js`, the SVG renderer. The owner's build runs
+    the canvas renderer (`frontend/graph-canvas.js`), which has its own drag,
+    its own held-ring test and its own worker start, so the guard has to
+    exist there too. Reproduce with `__graphDebug.renderer === "canvas"`.
+
 107. **The 0.3.0 blocker list (the owner, 2026-09-09 23:25, verbatim).**
     "should I leave this pr open until we can finish the rest of the still
     open and half finished stuff?? otherwise I need to to absolutely make

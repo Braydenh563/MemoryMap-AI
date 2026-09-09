@@ -560,6 +560,26 @@ body.scroll-top-visible #tab-notes .layout > main {
      #chat-main's own column and under/behind #web-panel next to it
      (reported directly, from a screenshot). */
   min-width: 0;
+  /* Reported "the main chat panel shadow actually reaches all the way down
+     on the gap." Measured (chat is the one card that is `height: 100%` of
+     the page, so only --page-bottom, 24px, sits under it, never more):
+     diffing a shadow-off render against the default found the card's own
+     `--glass-shadow` fades to a difference of 3-5 RGB units by the last
+     visible row, which is real but not what the screenshot shows -- the
+     rest of that patch is `html`'s fixed ambient blob (00-tokens-shell.css,
+     `radial-gradient(700px 500px at 85% 90%, var(--blob-b), …)`), on every
+     tab and both themes, that this is the one tab where nothing sits in
+     front of it to break it up, being 100% height with no neighbour below.
+     That art is deliberate (the owner: "with the glass, I still want to be
+     able to see background animations") and this card's own contribution,
+     however small, is still real and still the one part of "the panel's
+     shadow reaches into the gap" this rule can honestly answer: `--shadow-
+     sm`, not a one-off, is DESIGN.md's own smaller tier ("resting cards")
+     for exactly a pane that -- uniquely among this app's cards -- never
+     floats over a neighbour below it. `--glass-rim` stays: the inset
+     specular lip is about the top edge reading as glass, not about how far
+     the drop shadow reaches. */
+  box-shadow: var(--shadow-sm), var(--glass-rim);
 }
 
 #chat-messages {

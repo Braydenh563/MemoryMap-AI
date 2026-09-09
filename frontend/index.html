@@ -6001,12 +6001,22 @@ Link to another note with [[its first few words]]."></textarea>
 
             <!-- ---------- Curated themes ---------- -->
             <div class="settings-group">
-              <h3>Themes</h3>
-              <p class="muted">
-                A theme sets everything below in one go. Anything you then
-                change by hand sits on top of it and wins, so you can pick a
-                theme and still choose your own accent colour.
-              </p>
+              <div class="row help-head">
+                <h3>Themes</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="themes-help" aria-controls="themes-help" aria-expanded="false"
+                  title="About themes" aria-label="About themes">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">A theme sets everything below in one go, and you can still override any of it.</p>
+              <div class="help-body hidden" id="themes-help" role="dialog" aria-label="About themes">
+                <p>
+                  A theme sets everything below in one go. Anything you then
+                  change by hand sits on top of it and wins, so you can pick
+                  a theme and still choose your own accent colour.
+                </p>
+              </div>
               <div id="theme-presets" class="theme-presets"></div>
               <p class="muted" id="theme-override-note"></p>
 
@@ -6426,13 +6436,23 @@ Link to another note with [[its first few words]]."></textarea>
                  a slot added in a later version appears by default instead of
                  being invisible to everyone who ever touched this screen. -->
             <div class="settings-group">
-              <h3>Status bar</h3>
-              <p class="muted">
-                What shows in the strip along the bottom. The offline and
-                power-saver badges and the running-job slot aren't listed:
-                they appear only when there's something to say, and hiding a
-                warning you asked for is a different kind of setting.
-              </p>
+              <div class="row help-head">
+                <h3>Status bar</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="statusbar-help" aria-controls="statusbar-help" aria-expanded="false"
+                  title="About the status bar" aria-label="About the status bar">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">What shows in the strip along the bottom of every screen.</p>
+              <div class="help-body hidden" id="statusbar-help" role="dialog" aria-label="About the status bar">
+                <p>
+                  What shows in the strip along the bottom. The offline and
+                  power-saver badges and the running-job slot aren't listed:
+                  they appear only when there's something to say, and hiding
+                  a warning you asked for is a different kind of setting.
+                </p>
+              </div>
               <div id="status-bar-items" class="status-bar-items">
                 <!-- Opt-in, not part of the STATUS_SLOTS list rendered into
                      this container by app.js: those are permanent landmarks

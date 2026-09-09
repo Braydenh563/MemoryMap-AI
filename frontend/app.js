@@ -6713,6 +6713,19 @@ function clampSelectionMenu(menu) {
 
 function showSelectionPopupAt(rect, text, source, point) {
   const box = selectionPopup();
+  //: Reported: "I have to click it twice for it to actually properly
+  //: expand". The click on the ⋯ opener ends in a `selectionchange` (the
+  //: selection is unchanged, the event still fires), which re-entered here
+  //: and rebuilt the popup, closed, over the menu that had just opened. The
+  //: same selection with its menu open is left exactly as it is.
+  if (
+    !box.classList.contains("hidden") &&
+    selectionPopupText === text &&
+    selectionPopupSource === source &&
+    box.querySelector(".action-menu:not(.hidden)")
+  ) {
+    return;
+  }
   selectionPopupText = text;
   selectionPopupSource = source;
 
@@ -33931,7 +33944,7 @@ document.addEventListener("keydown", (e) => {
         return;
       }
     }
-    // The second half of the "g" then a letter chord, armed below. Checked
+    // The second half of the "m" then a letter chord, armed below. Checked
     // first so a stray letter within the window is consumed (matched or
     // not) rather than falling through and re-arming on a later "g".
     if (tabJumpArmedAt) {
@@ -33947,9 +33960,14 @@ document.addEventListener("keydown", (e) => {
       }
       // Not a recognised second key (or the window lapsed), fall through
       // and let this keypress do whatever it would have done anyway.
-    } else if (e.key === "g" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    } else if (e.key === "m" && !e.ctrlKey && !e.metaKey && !e.altKey) {
       tabJumpArmedAt = performance.now();
-      return; // wait for the second key; a lone "g" does nothing on its own
+      //: Asked for: "m" rather than "g" (m for MemoryMap, and "g" collided
+      //: with Graph's own letter), and "some visual assistance and guides":
+      //: the first key shows the chord's targets for as long as it is armed,
+      //: so the second key is never a guess.
+      showTabJumpHint();
+      return; // wait for the second key; a lone "m" does nothing on its own
     }
   }
   if (e.key === "Escape" && settingsModalOpen()) closeSettingsModal();
@@ -34382,7 +34400,7 @@ let shortcuts = loadShortcuts();
 // establishes the disabled state the HTML already carries, not a real render.
 renderUndoBar();
 
-// "g" then a letter jumps tabs, GitHub and Gmail's own "go to" chord, and
+// "m" then a letter jumps tabs (m for MemoryMap), GitHub and Gmail's own "go to" chord, and
 // the reason it isn't in DEFAULT_SHORTCUTS/rebindable above: a chord needs
 // somewhere to hold the first keypress while it waits for the second, and
 // that's state this file has to own regardless, so it lives beside the
@@ -34392,13 +34410,38 @@ const TAB_JUMP_KEYS = {
   d: "dashboard",
   n: "notes",
   c: "chat",
-  g: "graph", // "gg", the same double-tap vim uses for "go to top"
+  g: "graph",
   l: "library",
   t: "timeline",
   r: "reminders",
 };
 const TAB_JUMP_WINDOW_MS = 900;
 let tabJumpArmedAt = 0;
+
+function showTabJumpHint() {
+  const box = $("toast-box");
+  if (!box) return;
+  let note = box.querySelector(".toast.tab-jump-hint");
+  if (!note) {
+    note = document.createElement("div");
+    note.className = "toast tab-jump-hint";
+    note.setAttribute("role", "status");
+    box.appendChild(note);
+  }
+  note.replaceChildren();
+  const lead = document.createElement("span");
+  lead.textContent = "m then";
+  note.appendChild(lead);
+  for (const [key, tab] of Object.entries(TAB_JUMP_KEYS)) {
+    const kbd = document.createElement("kbd");
+    kbd.textContent = key;
+    const label = document.createElement("span");
+    label.textContent = tab[0].toUpperCase() + tab.slice(1);
+    note.append(" ", kbd, " ", label);
+  }
+  window.clearTimeout(note._timer);
+  note._timer = window.setTimeout(() => note.remove(), TAB_JUMP_WINDOW_MS);
+}
 
 function saveShortcutOverrides() {
   // Only store what differs from the defaults, so improving a default later

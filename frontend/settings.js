@@ -112,6 +112,17 @@ const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "memory", "w
 let currentSettingsSection = "models";
 
 function showSettingsSection(name) {
+  //: Reported: reopening Settings lands on Models "but the scroll doesn't
+  //: reset", so the first section opened halfway down. The section's own
+  //: scrolling ancestor goes back to the top whenever the section changes.
+  const box = $(`settings-${name}`);
+  for (let el = box && box.parentElement; el; el = el.parentElement) {
+    const overflow = getComputedStyle(el).overflowY;
+    if (overflow === "auto" || overflow === "scroll") {
+      el.scrollTop = 0;
+      break;
+    }
+  }
   currentSettingsSection = name;
   // Part of the same back/forward stack every tab and sub-tab already lives
   // in (app.js's tabHistory): asked for directly. Safe to call on every

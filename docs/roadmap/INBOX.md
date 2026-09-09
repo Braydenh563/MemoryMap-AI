@@ -608,7 +608,7 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     now: the profile group gets its own settings-group with Delete as a
     ghost destructive button and a confirm; a `keydown` for Ctrl/Cmd+S on
     the Settings dialog clicks the section's Save.
-75. **Selection kebab menu needs two clicks to open** (chat message
+75. **Fixed 2026-09-09 (Fable): the selectionchange after the click rebuilt the popup over the open menu; the same selection with its menu open is left alone. Not verified in a browser. Selection kebab menu needs two clicks to open** (chat message
     selection "..." button). Owner: Fable, now: the first click moves
     focus off the selection, the selectionchange handler hides the button
     and the menu with it; the menu must open on `mousedown` with
@@ -646,7 +646,7 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     `<https://...>`). Owner: Fable, now: the answer renderer's link rule
     accepts autolinks in angle brackets; the sources list numbers web
     results after the notes so `[5]` resolves to a site.
-82. **Settings misalignment**: "Search inside images (Tesseract OCR)" and
+82. **Fixed 2026-09-09 (Fable, CSS in 08-consistency, not verified in a browser): the row is one flex line, title first, actions right, description under. Settings misalignment**: "Search inside images (Tesseract OCR)" and
     "BGE Small (English)" rows show the status chip and the two buttons
     on a second line, right-aligned, under the heading (two screenshots).
     Owner: Fable, now: the row's header is a flex row that wraps; give the
@@ -658,14 +658,14 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
 84. **Whiteboard rectangle selection draws behind objects.** Owner:
     WHITEBOARD Phase 1 (Fable, now): the marquee is drawn on the objects'
     layer; move it to the overlay canvas above them.
-85. **Quick navigation: change the "g" prefix to "m", with visual
+85. **Fixed 2026-09-09 (Fable): "m" then a letter, with a toast listing the targets while the chord is armed; the Keyboard shortcuts page updated. Quick navigation: change the "g" prefix to "m", with visual
     assistance** (a hint strip after the first key listing the targets).
     Owner: Fable, now (app.js ~33950): key "m", a small "m then: n Notes,
     c Chat, g Graph..." toast for 2 s after the prefix.
 86. **Zoom popup does not show while a dialog (Settings) is open.** Owner:
     Fable: the zoom indicator's z-index sits under the modal; raise it
     above dialogs or show it inside the open dialog.
-87. **Settings: reopening goes back to Models but the scroll does not
+87. **Fixed 2026-09-09 (Fable): showSettingsSection scrolls its scrolling ancestor to the top. Settings: reopening goes back to Models but the scroll does not
     reset.** Owner: Fable, now: `showSettingsSection` scrolls the body to
     0 when the section changes.
 88. **Fullscreen graph has no glass opacity** (screenshot: the graph card
@@ -685,7 +685,7 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     with "YOU" and an avatar circle top-right). Owner: CHAT_PLAN (Opus):
     a quieter bubble (accent-soft fill, no avatar, the label as a small
     muted "You" above, radius from tokens, max-width 70%).
-91. **Chat header wraps and misaligns at width** (screenshot: title, model,
+91. **Fixed 2026-09-09 (Fable, CSS, not verified in a browser): the chat identity shrinks with an ellipsis on the title, the readouts stay on one line, the actions never wrap. Chat header wraps and misaligns at width** (screenshot: title, model,
     exchanges, window pill, tokens, then the three icons on a second
     line). Owner: Fable, now: title `flex: 1 1 auto` with ellipsis, the
     meta as one `flex: 0 0 auto` group that hides tokens then exchanges
@@ -712,7 +712,7 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     follow-up (Opus): each style gets a measured frame cost, a still frame
     under Performance mode, no seams at the edges, the intensity slider
     changes something visible at every step.
-95. **Streaming icon: the three-dot line beside the cycling text does not
+95. **Fixed 2026-09-09 (Fable): the writing trace joins the progress-motion "always" exception the dots already had, so it moves under Reduce motion and Performance mode too. Streaming icon: the three-dot line beside the cycling text does not
     move while text streams** (the jumping dots work while waiting).
     Owner: Fable, now: the streaming state class is set on the wrapper
     but the icon's keyframes are keyed to the waiting class; one class

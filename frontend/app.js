@@ -246,13 +246,38 @@ function mediaSrc(url) {
 // true, there was an image here and it is not available, in the app's own
 // materials, and leaves the source as the record.
 function replaceMissingMedia(img) {
-  if (img.dataset.mediaMissing) return;
-  img.dataset.mediaMissing = "1";
   const src = img.getAttribute("src") || "";
   // Only this app's own stored files. An external image that fails is a
   // different situation, and the note may well want it back when the network
   // returns.
   if (!/^\/(media|files)\//.test(src)) return;
+  //: **An image the app addresses by id is hidden, never replaced.** This
+  //: listener was written for the images inside rendered markdown, which are
+  //: built fresh on every render and referred to by nobody: swapping one for a
+  //: placeholder costs nothing. `#ocr-image` is the opposite: one long-lived
+  //: element that the OCR workspace sets a new `src` on for every page of
+  //: every document it opens.
+  //:
+  //: Measured. Opening a text file (a .md attachment) in the workspace sets
+  //: `img.src` to that file's own url before the text branch of `ocrLoadPage`
+  //: runs, the browser cannot decode markdown as an image, this listener fired
+  //: and `img.replaceWith(gone)` deleted `#ocr-image` from the document. After
+  //: that the stage held `SPAN.media-missing` and no `<img>` at all, for the
+  //: rest of the session: every later open threw "Cannot set properties of
+  //: null (setting 'src')" at `ocrLoadPage`, so clicking the next file's name
+  //: opened a workspace that never showed the page. CLAUDE.md's own shape: the
+  //: damage lands nowhere near the code that caused it.
+  //:
+  //: Hidden rather than replaced, so nothing draws a torn-page glyph and the
+  //: element the app is holding on to is still there. The surfaces that own
+  //: such an image say what happened in their own words (`#ocr-message`), and
+  //: they unhide it themselves the moment a page really loads.
+  if (img.id) {
+    img.classList.add("hidden");
+    return;
+  }
+  if (img.dataset.mediaMissing) return;
+  img.dataset.mediaMissing = "1";
   const gone = document.createElement("span");
   gone.className = "media-missing";
   const name = (img.getAttribute("alt") || "").trim();
@@ -2949,7 +2974,43 @@ function openActionMenu(menu, opener) {
   //: a menu that fits, and a menu that does not gets the same reparent-to-body
   //: treatment rather than being clipped.
   escapeMenuIfClipped(menu, opener);
-  menu.querySelector("button")?.focus();
+  focusMenuItem(menu.querySelector("button"), menu);
+}
+
+//: **Focusing the first row of a menu must never scroll the page behind it.**
+//:
+//: Measured, not reasoned. The reader picker at the top of the OCR workspace
+//: (`#ocr-reader`) would not open at all: one real Chromium click produced,
+//: in order, `openActionMenu` (the menu unhides and escapes to <body>), a
+//: `focusin` on the chosen row, a `scroll` event on `.ocr-toolbar`, and then
+//: `closeActionMenusOnScroll` shutting the menu it had just opened, 3 option
+//: rows built and 0 visible. `.ocr-toolbar` is `overflow-x: auto` (it scrolls
+//: sideways rather than wrapping, by design), the menu is still a child of
+//: that toolbar at the moment the focus lands, and a plain `.focus()` asks
+//: the browser to scroll every ancestor until the focused element is in view.
+//: So the open *caused* the scroll, and the scroll-away rule, which exists
+//: for a real one (a kebab left beside the wrong note while its list scrolls
+//: under it), could not tell the two apart.
+//:
+//: The fix is at the cause rather than at that rule: this app positions its
+//: own menus, from the opener's rect, escaping to <body> when they would be
+//: clipped, so an ancestor scrolling to "reveal" a menu item is never what is
+//: wanted and is the browser undoing the placement. `preventScroll` says
+//: exactly that, with no timer for anyone to tune.
+//:
+//: What it must not lose is the scrolling that *is* wanted: a long menu (the
+//: model picker, a 30-option select) whose chosen row is below its own fold
+//: has to bring that row into view. So the menu scrolls itself, by the two
+//: lines below, and nothing above it moves.
+function focusMenuItem(item, menu) {
+  if (!item) return;
+  item.focus({ preventScroll: true });
+  const box = menu || item.closest(".action-menu");
+  if (!box || box.scrollHeight <= box.clientHeight) return;
+  const top = item.offsetTop;
+  const bottom = top + item.offsetHeight;
+  if (top < box.scrollTop) box.scrollTop = top;
+  else if (bottom > box.scrollTop + box.clientHeight) box.scrollTop = bottom - box.clientHeight;
 }
 
 //: The nearest ancestor that would clip this menu, `overflow` anything but
@@ -3553,16 +3614,16 @@ function wireMenuKeyboard(menu, opener) {
     const current = menuItems.indexOf(document.activeElement);
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      menuItems[(current + 1) % menuItems.length]?.focus();
+      focusMenuItem(menuItems[(current + 1) % menuItems.length], menu);
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
-      menuItems[(current - 1 + menuItems.length) % menuItems.length]?.focus();
+      focusMenuItem(menuItems[(current - 1 + menuItems.length) % menuItems.length], menu);
     } else if (event.key === "Home") {
       event.preventDefault();
-      menuItems[0]?.focus();
+      focusMenuItem(menuItems[0], menu);
     } else if (event.key === "End") {
       event.preventDefault();
-      menuItems[menuItems.length - 1]?.focus();
+      focusMenuItem(menuItems[menuItems.length - 1], menu);
     } else if (event.key === "Escape") {
       event.preventDefault();
       closeActionMenus();
@@ -18781,6 +18842,20 @@ function enhanceSelect(select) {
   const rebuild = () => {
     menu.replaceChildren();
     for (const option of select.options) {
+      //: **An option the app has hidden is not offered here either.** Measured
+      //: on the OCR workspace's reader picker: `#ocr-reader` carries
+      //: `<option value="ocr" hidden>AI vision model</option>`, which
+      //: `ocrLoadReaders` unhides only on a machine that really has two
+      //: different readers, and this stand-in listed all three regardless, so
+      //: the control offered a reader that does not exist here. The native
+      //: `<select>` has honoured `hidden` on an option for years; the shell in
+      //: front of it had never been told to. `syncHidden` below covers the same
+      //: mistake one level up, for a select that is hidden as a whole.
+      //:
+      //: No observer needed for it: `rebuild()` runs on every open, so a
+      //: picker that gains a reader while the app is running shows it the next
+      //: time it is opened.
+      if (option.hidden) continue;
       const row = document.createElement("button");
       row.type = "button";
       row.className = "menu-item select-option";
@@ -18809,7 +18884,7 @@ function enhanceSelect(select) {
     if (menu.classList.contains("hidden")) {
       rebuild();
       openActionMenu(menu, opener);
-      menu.querySelector(".is-chosen")?.focus();
+      focusMenuItem(menu.querySelector(".is-chosen"), menu);
     } else {
       closeActionMenus();
     }

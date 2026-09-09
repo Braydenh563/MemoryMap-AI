@@ -1809,6 +1809,11 @@ const libraryExpandedCaptions = new Set();
 // tile unboundedly.
 const libraryExpandedOcr = new Set();
 const libraryExpandedVisionOcr = new Set();
+//: All three are keyed by `mediaRowKey(image)` rather than `image.id`. An
+//: `Attachment` and a `MediaUpload` have separate id sequences and this one
+//: grid renders both kinds, so `id` alone names two rows at once: expanding
+//: attachment 1's reading also expanded upload 1's, on whichever sub-tab
+//: they happened to share.
 // Which documents are ticked in the Library's Documents sub-tab: this
 // view's own selection, separate from `librarySelection` (the "All" view's),
 // because this section never populates `libraryItems` and mixing the two
@@ -3287,7 +3292,14 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     //: page 6 outlining part of page 1.
     ocrMoveOverlays(target);
     if (!opts.fromScroll) ocrScrollToPage(ocrWorkspacePage);
-  } else {
+  } else if (!ocrIsTextFile(image)) {
+    //: **A text file has no picture of a page, so none is asked for.** The
+    //: branch further down renders a .md, a .txt or a .docx as text and hides
+    //: this `<img>`, but the `src` was set first, to the file's own url, and a
+    //: browser handed markdown to decode as an image raises `error`: which is
+    //: how a text file used to delete `#ocr-image` from the document (see
+    //: `replaceMissingMedia` in app.js, which no longer lets it). Skipping the
+    //: assignment removes the request as well as the error.
     img.src = ocrPageImageUrl(image, ocrWorkspacePage);
     img.alt = ocrIsPdf(image)
       ? `Page ${ocrWorkspacePage + 1} of ${image.original_name}`
@@ -5044,6 +5056,34 @@ function libraryLightboxItems(images) {
 //: Rows whose whole reading is open; survives the gallery poll re-render.
 const openReadings = new Set();
 
+//: **And the fold above it, which had no such memory.** Reported again on
+//: 2026-09-09, against both media sub-tabs, after the poll's own signature
+//: check had already landed: "the text extracted from this file disclosure
+//: closes itself when the reader scrolls to the bottom of the text", and the
+//: same for "text in this image" on the Images tab.
+//:
+//: Measured rather than reasoned. With the disclosure and the reading inside
+//: it both open and the list scrolled to 240, a caption written in the
+//: background (which is what the six-second poll exists to notice) rebuilt
+//: every tile: 9 rebuilds, the inner <details> still open because
+//: `openReadings` above remembers it, and the outer one *closed*, because
+//: nothing remembered that one at all. The signature check only ever covered
+//: the case where nothing changed; a poll that finds a real change still
+//: rebuilds, and then the fold a reader is holding open is gone. Six seconds
+//: is also about how long it takes to reach the bottom of a page of text,
+//: which is why the report reads as "when I scroll to the bottom".
+//:
+//: Keyed by `mediaRowKey`, not by `image.id`: an `Attachment` and a
+//: `MediaUpload` have separate id sequences and both kinds are rendered into
+//: this one grid, so `id` alone names two different rows.
+const openRowReadings = new Set();
+
+//: How far down its own text each open reading was scrolled. Restoring the
+//: fold without this puts the reader back at line 1 of sixty, which is the
+//: same complaint one step further in ("it keeps ... scrolling me back to the
+//: top"). Written on the reading's own scroll, read back on the next build.
+const readingScrollTops = new Map();
+
 function buildFileReadingSummary(image, summary, images) {
   const holder = document.createElement("div");
   holder.className = "library-file-reading";
@@ -5116,6 +5156,15 @@ function buildFileReadingSummary(image, summary, images) {
     else openReadings.delete(mediaRowKey(image));
     syncReadingLabel();
   });
+  fullText.addEventListener("scroll", () => {
+    readingScrollTops.set(mediaRowKey(image), fullText.scrollTop);
+  });
+  //: After layout, not now: this element is built before it is in the
+  //: document, so it has no scroll height yet and `scrollTop` would be
+  //: dropped on the floor. One frame is enough, the tile is appended
+  //: synchronously in the same task.
+  const savedScroll = readingScrollTops.get(mediaRowKey(image)) || 0;
+  if (savedScroll > 0) requestAnimationFrame(() => { fullText.scrollTop = savedScroll; });
   full.addEventListener("click", (event) => event.stopPropagation());
   holder.append(line, meta, full, open);
   return holder;
@@ -5632,18 +5681,18 @@ function filterLibraryImagesGallery() {
     captionToggle.type = "button";
     captionToggle.className = "ghost small library-image-caption-more hidden";
     const captionClamped = () =>
-      !libraryExpandedCaptions.has(image.id) &&
+      !libraryExpandedCaptions.has(mediaRowKey(image)) &&
       (image.caption || "").length > CAPTION_CLAMP_CHARS;
     const syncCaptionClamp = () => {
       captionText.classList.toggle("library-image-caption-clamped", captionClamped());
       const needsToggle = (image.caption || "").length > CAPTION_CLAMP_CHARS;
       captionToggle.classList.toggle("hidden", !needsToggle);
-      captionToggle.textContent = libraryExpandedCaptions.has(image.id) ? "Less" : "More";
+      captionToggle.textContent = libraryExpandedCaptions.has(mediaRowKey(image)) ? "Less" : "More";
     };
     captionToggle.addEventListener("click", (event) => {
       event.stopPropagation();
-      if (libraryExpandedCaptions.has(image.id)) libraryExpandedCaptions.delete(image.id);
-      else libraryExpandedCaptions.add(image.id);
+      if (libraryExpandedCaptions.has(mediaRowKey(image))) libraryExpandedCaptions.delete(mediaRowKey(image));
+      else libraryExpandedCaptions.add(mediaRowKey(image));
       syncCaptionClamp();
     });
     //: **Provenance is one muted line at the foot of the card, not chips.**
@@ -5826,17 +5875,17 @@ function filterLibraryImagesGallery() {
     ocrToggle.type = "button";
     ocrToggle.className = "entry-more library-image-ocr-more hidden";
     const ocrClamped = () =>
-      !libraryExpandedOcr.has(image.id) && (image.ocr_text || "").length > OCR_CLAMP_CHARS;
+      !libraryExpandedOcr.has(mediaRowKey(image)) && (image.ocr_text || "").length > OCR_CLAMP_CHARS;
     const syncOcrClamp = () => {
       ocrText.classList.toggle("library-image-ocr-clamped", ocrClamped());
       const needsToggle = (image.ocr_text || "").length > OCR_CLAMP_CHARS;
       ocrToggle.classList.toggle("hidden", !needsToggle);
-      ocrToggle.textContent = libraryExpandedOcr.has(image.id) ? "Show less" : "Show more";
+      ocrToggle.textContent = libraryExpandedOcr.has(mediaRowKey(image)) ? "Show less" : "Show more";
     };
     ocrToggle.addEventListener("click", (event) => {
       event.stopPropagation();
-      if (libraryExpandedOcr.has(image.id)) libraryExpandedOcr.delete(image.id);
-      else libraryExpandedOcr.add(image.id);
+      if (libraryExpandedOcr.has(mediaRowKey(image))) libraryExpandedOcr.delete(mediaRowKey(image));
+      else libraryExpandedOcr.add(mediaRowKey(image));
       syncOcrClamp();
     });
 
@@ -5992,20 +6041,20 @@ function filterLibraryImagesGallery() {
     visionOcrToggle.type = "button";
     visionOcrToggle.className = "entry-more library-image-vision-ocr-more hidden";
     const visionOcrClamped = () =>
-      !libraryExpandedVisionOcr.has(image.id) &&
+      !libraryExpandedVisionOcr.has(mediaRowKey(image)) &&
       (image.vision_ocr_text || "").length > VISION_OCR_CLAMP_CHARS;
     const syncVisionOcrClamp = () => {
       visionOcrText.classList.toggle("library-image-vision-ocr-clamped", visionOcrClamped());
       const needsToggle = (image.vision_ocr_text || "").length > VISION_OCR_CLAMP_CHARS;
       visionOcrToggle.classList.toggle("hidden", !needsToggle);
-      visionOcrToggle.textContent = libraryExpandedVisionOcr.has(image.id)
+      visionOcrToggle.textContent = libraryExpandedVisionOcr.has(mediaRowKey(image))
         ? "Show less"
         : "Show more";
     };
     visionOcrToggle.addEventListener("click", (event) => {
       event.stopPropagation();
-      if (libraryExpandedVisionOcr.has(image.id)) libraryExpandedVisionOcr.delete(image.id);
-      else libraryExpandedVisionOcr.add(image.id);
+      if (libraryExpandedVisionOcr.has(mediaRowKey(image))) libraryExpandedVisionOcr.delete(mediaRowKey(image));
+      else libraryExpandedVisionOcr.add(mediaRowKey(image));
       syncVisionOcrClamp();
     });
 
@@ -6232,6 +6281,12 @@ function filterLibraryImagesGallery() {
     //: in the chat transcript.
     const visionField = document.createElement("details");
     visionField.className = "library-image-reading";
+    //: Open across a rebuild, for the reason at `openRowReadings`.
+    visionField.open = openRowReadings.has(mediaRowKey(image));
+    visionField.addEventListener("toggle", () => {
+      if (visionField.open) openRowReadings.add(mediaRowKey(image));
+      else openRowReadings.delete(mediaRowKey(image));
+    });
     const readingSummary = document.createElement("summary");
     readingSummary.textContent = image._isImage
       ? "Text in this image"

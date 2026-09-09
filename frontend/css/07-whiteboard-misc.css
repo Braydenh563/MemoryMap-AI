@@ -4394,10 +4394,7 @@ summary:not(.icon-only):not(.icon-button) {
    `display: block` on the ones that truncate hands the ellipsis back and
    anchors the text at its start. Applied to the badge shapes, not to buttons
    generally: a normal button wants its label centred. */
-.chat-model-button,
-.library-image-vision-ocr-badge,
-.library-image-ocr-badge,
-.library-image-caption-badge {
+.chat-model-button {
   display: block;
   text-align: left;
   overflow: hidden;
@@ -4558,8 +4555,15 @@ summary:not(.icon-only):not(.icon-button) {
   /* `min()`, not a flat 16rem: a gallery tile is ~11.5rem wide, so a 16rem
      cap let a long board or note title run straight past the card's own
      edge: visible on the sketch tiles, whose titles are the longest in the
-     gallery ("Sketch on SD board 1788528271333"). */
-  max-width: min(16rem, 100%);
+     gallery ("Sketch on SD board 1788528271333").
+
+     62%, not 100%: the row wraps, and a wrapping row places an item at its
+     *base* size before it will shrink anything, so a chip allowed the full
+     width of the card could never sit beside the "Used in" lead and always
+     took a second line. "Used in" measures 46px of a 160px card, so 66% is
+     what is left after it and the row's gap; the chip ellipsises inside that
+     and keeps the full title in its tooltip (INBOX 56 asks for one line). */
+  max-width: min(16rem, 66%);
   overflow: hidden;
   white-space: nowrap;
   cursor: pointer;

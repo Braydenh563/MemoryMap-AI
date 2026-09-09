@@ -572,15 +572,32 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     slider's top the components sit far apart with empty space between.
     Owner: Fable, now: raise the gravity force ceiling in graph-worker.js
     tuning (and a component-packing pull at the top of the range).
-56. **Library image cards, "really ugly"** (screenshot): thumbnail, file
-    name, "Used in" chip, a Description bullet with Show more, a model chip,
-    a "Text in this image" bullet with Show more, a "Read by ..." chip: six
-    ranks of information at one weight, chips for provenance that read as
-    actions. Owner: Opus, next slot, with INBOX 52 (whiteboard bottom bar).
-    Recommendation: thumbnail with the file name on it; one line "Used in
-    <chip>"; the description as one paragraph with a "More" toggle; the OCR
-    text folded under a single "Text in this image" disclosure; provenance
-    as one muted line at the foot ("Described by X, read by Y"), no chips.
+56. **Fixed 2026-09-09. Library image cards, "really ugly"** (screenshot):
+    thumbnail, file name, "Used in" chip, a Description bullet with Show
+    more, a model chip, a "Text in this image" bullet with Show more, a
+    "Read by ..." chip: six ranks of information at one weight, chips for
+    provenance that read as actions. Built as recommended: the filename is
+    an overlay caption on the thumbnail's lower edge over a scrim built from
+    --scrim (measured (89, 90, 93) behind the text, 6.8:1 against white,
+    where the first attempt's fading gradient left it at (134, 134, 137) and
+    3.6:1); "Used in <chip>" on one line or a muted "Not used yet"; the
+    description as one paragraph clamped to three lines with a
+    `button.ghost.small` More toggle; both readings folded under one
+    "Text in this image" disclosure on the app's <details> recipe; the two
+    model pills replaced by one muted "Described by X, read by Y" line at
+    the foot, and their CSS deleted rather than restyled.
+    **Numbers** (`scratchpad/ui-sweeps/libimages.js`, `libgrid.js`, a card
+    with a 220-character description): card height at 1440 and at 1024
+    **651.6px to 371.8px** (43% shorter); distinct font sizes inside a card
+    **4 to 3** (11.2 / 12 / 13.6); usage lines 2 to 1; nothing clipped at
+    1440 or 1024; `errors.js` clean at 1440, 1024, 820 and 390. Two clamp
+    bugs fixed on the way: `overflow: hidden` clips at the padding box, so
+    the paragraph's own 8px bottom padding was showing an 8px strip of the
+    fourth line under the ellipsis, and the card had two left edges (the
+    fields' --space-4 inset plus each paragraph's own --space-3).
+    Not verified: a real vision model's own description or reading (the
+    fixture writes both through the API), and the Files rows share this
+    tile builder but were checked with one hand-made PDF only.
 50. **Fixed 2026-09-09 (Fable). `start-desktop.bat` fails after the update
     check: `'"C:\Projects\MemoryMap-AI\--desktop"' is not recognized as an
     internal or external command`.** SHIFT in the argument parser moved %0,

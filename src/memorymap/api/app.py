@@ -14,13 +14,14 @@ import logging
 import os
 import sys
 import threading
+import time
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import parse_qs
 
 from fastapi import Depends, FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import DEFAULT_EXCLUDED_CONTENT_TYPES, GZipMiddleware
@@ -82,6 +83,22 @@ else:
 # tracks running/failed state for the status pill.)
 
 
+#: **One value, fixed the moment this module is imported, i.e. once per
+#: server process.** `start-desktop.bat`/`.sh` starts a fresh server every
+#: launch; a browser tab hitting an already-running dev server keeps
+#: whatever token that process picked at its own boot. Either way this
+#: answers exactly the question the `?v=` stamp exists to answer ("is this
+#: the same build the reader last cached?") one level more finely than
+#: `__version__` alone can between releases: not just "different version"
+#: but "different process start", which is what an unreleased branch full
+#: of same-version commits actually needs. See `RevalidatedStatic.
+#: get_response` below for where this gets spliced into `index.html`'s own
+#: asset URLs, never into the on-disk file (`test_asset_cache_busting.py`
+#: still reads that file literally, and still should: it is the contract
+#: for what a human edits, this is the contract for what a browser fetches).
+_BOOT_TOKEN = format(int(time.time()), "x")
+
+
 class RevalidatedStatic(StaticFiles):
     """The frontend, served so a cache can never hand back yesterday's build.
 
@@ -116,9 +133,53 @@ class RevalidatedStatic(StaticFiles):
     instead of `no-cache`, saving the round trip `no-cache` still pays.
     Unstamped requests (`/vendor/*`, deliberately unstamped per that same
     test, and any bare path) keep the `no-cache` behaviour above unchanged.
+
+    **`index.html` itself gets one more thing: `_BOOT_TOKEN` spliced onto
+    every `?v={__version__}` it hands out.** The desktop shell restarts its
+    *server* on every launch (a fresh Python process, a fresh `_BOOT_TOKEN`)
+    but not necessarily its own on-disk cache, and this branch's whole day
+    sat on one unmoving `__version__` while dozens of real fixes landed:
+    reported directly as "basically all my bugs are still there" after a
+    long stretch of changes each individually verified against the running
+    server. `__version__` alone answers "which release" and is right to
+    keep doing that (a released build should cache its assets for a year,
+    which is what the `immutable` header above still means); splicing this
+    token in as well answers the question that matters *during*
+    development, "which time this server was started", with no manual step
+    and no change to what gets tagged at release.
     """
 
+    #: `index.html`'s body needs to change per boot (it is the source of
+    #: every other URL's `?v=` stamp), and it needs to change *even when the
+    #: file on disk has not*, since the whole point is one server process's
+    #: stamp differing from the next one's. Handled before `super()` is ever
+    #: called, not after: `StaticFiles.get_response` answers a conditional
+    #: `If-None-Match`/`If-Modified-Since` against the file's own constant
+    #: etag/mtime with a 304 before this class sees a status code to check,
+    #: and a 304 tells the browser to keep exactly the stale cached body
+    #: this fix exists to stop it keeping. Skipping `super()` for this one
+    #: path means no validator is ever computed or sent, no conditional
+    #: request has grounds to fire, and every request gets this boot's real
+    #: body. Three spellings of the same request reach here: Starlette's own
+    #: `get_path` runs `os.path.normpath` on the route, which turns `/`'s
+    #: empty split into `"."` rather than `""` (confirmed live: the first
+    #: version of this checked `""` and never fired), and a request for the
+    #: file by its literal name arrives as `"index.html"` unchanged.
+    _INDEX_PATHS = ("", ".", "index.html")
+
     async def get_response(self, path: str, scope):
+        #: `super().get_response` raises this same 405 for anything but
+        #: GET/HEAD; the bypass above skips straight past that check along
+        #: with the conditional-request one, so it has to raise it itself.
+        if path in self._INDEX_PATHS and scope["method"] not in ("GET", "HEAD"):
+            raise StarletteHTTPException(status_code=405)
+        if path in self._INDEX_PATHS:
+            body = (FRONTEND_DIR / "index.html").read_bytes()
+            stamp = f"?v={__version__}".encode()
+            replacement = f"?v={__version__}-{_BOOT_TOKEN}".encode()
+            response = HTMLResponse(content=body.replace(stamp, replacement))
+            response.headers["Cache-Control"] = "no-cache"
+            return response
         response = await super().get_response(path, scope)
         query = scope.get("query_string", b"")
         if isinstance(query, bytes):

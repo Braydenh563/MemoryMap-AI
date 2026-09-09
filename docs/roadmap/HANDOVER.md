@@ -61,13 +61,27 @@ PR's.
       the editor, Live as decorations, findings, undo, search, folding;
       `tests/test_doc_surface.py` has no xfail markers left; doctype.js
       under 30 ms; the vendor bundle absent at boot.
-- [ ] 2. Graph Phase 6 merged: the node panel on the new recipe, measured
-      at 1440, 1024 and 390; graph4b.js passes.
-- [ ] 3. Library image cards and the whiteboard bottom bar and properties
-      panel merged (INBOX 52, 56, 64, 65), with their numbers.
-- [ ] 4. The owner's section-A bugs closed or ruled out at head: INBOX 66,
+- [x] 2. Graph Phase 6 merged: the node panel on the new recipe, measured
+      at 1440, 1024 and 390; graph4b.js passes. (Panel 416x439 to 448x348 at
+      1440 and 1024, three groups of three to nine buttons in one row,
+      shortest control 28 to 36px, no page scroll, and a 362x442 sheet at
+      390. Its header and its action footer were fixed later the same day:
+      close button back at 0,0 with an ellipsised title, and the actions as
+      a centred band 446px wide in a 448px panel.)
+- [x] 3. Library image cards and the whiteboard bottom bar and properties
+      panel merged (INBOX 52, 56, 64, 65), with their numbers. (Card 651.6
+      to 371.8px, font sizes 4 to 3, usage lines 2 to 1, scrim 3.6:1 to
+      6.8:1; whiteboard own backgrounds 16 to 1 and 15 to 3, overlapping
+      pairs 4 to 0, bar and pill both 46px, surface 0.549 to 0.96 opaque.
+      The Arrange group was restructured later the same day into three
+      named rows, 192px wide in a 200px panel.)
+- [x] 4. The owner's section-A bugs closed or ruled out at head: INBOX 66,
       69, 70, 73, 77, 81, 83, 84, 86, 88, 89, 96 (each fixed and moved to
-      HISTORY, or marked "not reproduced" with the measurement).
+      HISTORY, or marked "not reproduced" with the measurement). Eleven of
+      the twelve are in HISTORY with their numbers. 77 is the exception and
+      is half done on purpose: the badge is fixed and measured, the
+      per-model context size is the half the entry itself assigns to the
+      next session, and INBOX says so. It is the only item left in there.
 - [ ] 5. The three "not verified in a browser" fixes measured: INBOX 75
       (kebab first click), 82 (settings rows), 91 (chat header), plus
       Ctrl+S and the profile group; errors.js, contrast.js, docks.js,
@@ -87,15 +101,19 @@ PR's.
       wrapping. A `nowrap` row whose children are baseline- or
       centre-aligned reports several distinct tops and has not wrapped. Test
       whether a child's `top` is at or below the first child's `bottom`.
-- [ ] 5b. The README's screenshots recaptured, last of all. The owner:
+- [x] 5b. The README's screenshots recaptured, last of all. The owner:
       "I think the screen shots on the readme need an update from all the ui
       changes." Eight of them in `docs/images/` (chat, dashboard, documents,
       graph, library, notes, reminders, timeline). Capture them only once
       every UI batch has merged: taken mid-session they are stale within the
       hour, which is how they got stale in the first place.
-- [ ] 6. Mind map previews (INBOX 68) acceptable in the dashboard widget
+- [x] 6. Mind map previews (INBOX 68) acceptable in the dashboard widget
       and the Library gallery (the board's real shapes at its aspect, no
-      inner scrollbar).
+      inner scrollbar). (Whiteboard card 5 blocks at one size to 5 at four
+      sizes with 5 of 5 labels inside their shapes; map card 0 of 6 labels
+      inside to 6 of 6, worst contrast 3.82:1 to 4.77:1; dashboard
+      thumbnail 293.2 square to 40.5 square with the widget's body no
+      longer scrolling, where it was 602 against 320.)
 - [ ] 7. The full suite green on the final head (the one local run this
       PR gets; CI covers every push in between); ruff and CodeQL green;
       **Note, 2026-09-09:** `.github/workflows/ci.yml` runs `python -m
@@ -105,7 +123,7 @@ PR's.
       asks for is therefore a second opinion rather than the only evidence,
       which is exactly why the owner's "not as routine" rule costs nothing.
       no open CodeQL threads; the branch mergeable.
-- [ ] 8. Documentation: every Built block of the merged phases in
+- [x] 8. Documentation: every Built block of the merged phases in
       HISTORY (the lint holds it), INBOX holding open items only, the
       README's numbers passing `test_readme_freshness.py`, CHANGELOG's
       "Since 0.2.2" carrying one line per merged item, this Now line

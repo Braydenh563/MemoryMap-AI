@@ -6573,12 +6573,24 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="settings-group">
               <h3>Advanced</h3>
               <details class="advanced-css">
-                <summary>Custom CSS</summary>
-                <p class="muted">
-                  For tinkerers: these rules are applied on top of the app's own
-                  styles. Bad CSS only affects how things look, clear the box to
-                  undo.
-                </p>
+                <summary>
+                  <div class="row help-head">
+                    <span>Custom CSS</span>
+                    <button type="button" class="icon-only ghost small graph-help-toggle"
+                      data-help-for="custom-css-help" aria-controls="custom-css-help" aria-expanded="false"
+                      title="About custom CSS" aria-label="About custom CSS">
+                      <i class="ph ph-question" aria-hidden="true"></i>
+                    </button>
+                  </div>
+                </summary>
+                <p class="muted">For tinkerers: bad CSS only affects how things look.</p>
+                <div class="help-body hidden" id="custom-css-help" role="dialog" aria-label="About custom CSS">
+                  <p>
+                    For tinkerers: these rules are applied on top of the
+                    app's own styles. Bad CSS only affects how things look,
+                    clear the box to undo.
+                  </p>
+                </div>
                 <textarea id="custom-css" rows="5" spellcheck="false"
                   placeholder=".card { border-width: 2px; }"></textarea>
                 <div class="row">
@@ -6694,12 +6706,22 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
 
             <div class="settings-group">
-              <h3>Always available</h3>
-              <p class="muted">
-                These follow the conventions every app shares, so they aren't
-                rebindable: being unable to press Escape in the dialog you
-                rebound it in is not a state worth allowing.
-              </p>
+              <div class="row help-head">
+                <h3>Always available</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="always-available-help" aria-controls="always-available-help" aria-expanded="false"
+                  title="Why these aren't rebindable" aria-label="Why these aren't rebindable">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">These follow the conventions every app shares, so they aren't rebindable.</p>
+              <div class="help-body hidden" id="always-available-help" role="dialog" aria-label="Why these aren't rebindable">
+                <p>
+                  These follow the conventions every app shares, so they
+                  aren't rebindable: being unable to press Escape in the
+                  dialog you rebound it in is not a state worth allowing.
+                </p>
+              </div>
               <ul class="shortcut-list">
                 <li><kbd>Esc</kbd><span>Close any dialog, menu, or overlay</span></li>
                 <li><kbd>←</kbd> <kbd>→</kbd><span>Move between tabs (when a tab is focused)</span></li>

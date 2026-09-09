@@ -244,8 +244,11 @@ are only just begun or half done." True; this table is the state.
 
 **Now (2026-09-09 05:00 UTC, written for the Opus orchestrator the owner
 is switching to at 95% Fable usage):** CI and CodeQL are green again as of
-433a3d6 (doc dock test, CHANGELOG mirror, two asserts). Two Opus agents are
-resumed in their worktrees after the 04:20 limit reset: DOCUMENTS Phase 2
+433a3d6 (doc dock test, CHANGELOG mirror, two asserts). Three Opus agents are
+in flight (the owner asked for the third at 05:40, above the two-agent
+cap, scoped to its own CSS file to keep merges clean: UI Phases 9 and 10,
+Brief 21, `agent-a93efefdb83c29141`); the first two were resumed in their
+worktrees after the 04:20 limit reset: DOCUMENTS Phase 2
 steps 2 to 4 (`agent-a02238762ae6136e9`, its tests-first commit is on the
 branch with strict-xfail markers) and GRAPH Phase 6 node panel + Library
 image cards + whiteboard bottom bar and properties panel (INBOX 52, 56, 59,

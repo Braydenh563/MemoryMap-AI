@@ -38,24 +38,6 @@ done-when item 4 and 5), in priority order.
     window setting next session): a `num_ctx` preference per model in
     Settings > Models with Auto (the model file's value) or a number, sent
     on every request; the badge shows "used / window".
-105. **The placement fix landed on 2026-09-09 and is measured, but the
-    on-surface retest is still owed.** `place()` in app.js now measures the
-    menu at `max-height: none` and caps it against the room its trigger
-    actually has, opening downward when the whole menu fits, upward only when
-    the whole menu fits there, and otherwise scrolling inside the larger
-    side. That was measured on a menu built for the purpose. What is not
-    done is opening the real View menu at 1440 and at 820 and reading its
-    height: three probe attempts clicked `[data-wb-menu-toggle]` and the menu
-    stayed hidden, so the retest below is unproven either way.
-    **Whiteboard: the View dropdown is still too short.** The owner,
-    2026-09-09: "the view dropdown is still overly short" (screenshot: the
-    panel clips mid-row on "Snap to grid" with its own inner scrollbar,
-    about 230px tall against a viewport with hundreds to spare). It was
-    reported once before as INBOX 57 and closed as not reproduced at head,
-    so this is the retest and it reproduces. Fix: the menu's max-height
-    should be the space below its trigger, not a fixed figure, and a row
-    must never be cut in half. Measure it open at 1440 and at 820. Owner:
-    WHITEBOARD Phase 1. Size S.
 67. **Max gravity: "the nodes are all still so spread out"** (screenshot at
     max, 01:30). The screenshot predates the pull fix in e1... (commit
     "graph: the centre pull follows the gravity slider", pushed 01:00) if

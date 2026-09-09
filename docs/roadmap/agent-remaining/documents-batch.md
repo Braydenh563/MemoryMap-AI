@@ -88,6 +88,21 @@ looking at the finished panel rather than at the report list: the outline
 matched `#` headings only, so it read "2" over a document with three, the
 missing one being the setext heading the editor had just started rendering.
 
+## Gates at the head
+
+`scripts/gate.sh --sweeps` with a server on 8833:
+
+    ran:     lints node-check ruff sweep-errors sweep-docks sweep-contrast sweep-touch
+    passed:  lints node-check ruff sweep-errors sweep-docks sweep-contrast sweep-touch
+    failed:  none
+
+errors.js 0 errors and 0 layout findings at 1440, 1024, 820 and 390;
+contrast ok on all thirteen surfaces it walks; touch 0 findings at 390x844;
+`doctype.js` Live p50 24 ms against its 30 ms gate. The batch's own sweeps
+(`docseg`, `docsuggest`, `cm-reveal`, `docviews`, `docoutline`) and the
+engine's (`cm-engine`, `cm-live`, `cm-editor`, `cm-layout`, `cm-search`) all
+pass. The full suite's result is in the final report.
+
 ## The exact next step
 
 **DOCUMENTS_PLAN Phase 3, item 1: tables as a real editor.** It is the
@@ -116,9 +131,13 @@ the tree work is done.
 - **Plain view with the fallback textarea.** `docCmViewLanguage` is only
   consulted where the engine is mounted; with `docCmBroken` set, Plain and
   Source are the same thing, which is correct but was never run.
-- **The full suite** was run once at the end of the batch and is recorded in
-  the final report; per-step gating was `scripts/gate.sh --changed`, as the
-  brief asked.
+- **A server that dies under you is the sandbox, not the app.** The uvicorn
+  behind these sweeps was killed twice mid-run by something outside this
+  worktree (`pkill -f uvicorn` from another agent is the likely cause;
+  CLAUDE.md warns about it from the other side). It cost one whole
+  `gate.sh --sweeps --full` run, whose four sweeps all "failed" with
+  `ERR_CONNECTION_REFUSED` and read exactly like a regression. If a sweep
+  fails, `curl -s -o /dev/null -w "%{http_code}" $BASE` before believing it.
 
 ## Found and not fixed
 

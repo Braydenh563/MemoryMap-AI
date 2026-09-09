@@ -3602,6 +3602,18 @@ textarea.autogrow {
   margin-bottom: var(--space-3);
 }
 
+/* Same recipe as `.note-edit-meta`'s own row a few hundred lines up:
+   `.select-opener`'s `min-height: var(--target-min)` (28px) and a plain
+   `button.small`'s own height never agreed, reported here as "the
+   preferences combobox and add a word button arent the same height". */
+.doc-dictionary-controls .select-opener,
+.doc-dictionary-controls #doc-dictionary-add {
+  height: var(--control-h-lg);
+  min-height: 0;
+  padding-block: 0;
+  box-sizing: border-box;
+}
+
 .doc-dictionary-variant {
   flex: none;
 }

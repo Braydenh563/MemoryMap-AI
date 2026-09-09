@@ -350,6 +350,137 @@ The sweeps that say whether a new surface matches the rest are
 `kebab-viewport.js` under `scratchpad/ui-sweeps/`; a UI change is not
 done until they are green and its numbers are in the commit message.
 
+## Taken from Liquid Glass and the Human Interface Guidelines (2026-09-09)
+
+Read from Apple's own pages (the Liquid Glass overview, "Adopting Liquid
+Glass", and the HIG's materials, layout, toolbars, menus, sheets,
+popovers, typography, colour, motion, buttons, tab bars, sidebars, search
+and accessibility pages). What transfers to a web app with its own tokens,
+what we already do, and what we deliberately leave.
+
+### The one idea worth the most
+
+Liquid Glass "forms a distinct functional layer for controls and
+navigation elements that floats above the content layer". "Don't use
+Liquid Glass in the content layer." "Use Liquid Glass effects sparingly ...
+limit these effects to the most important functional elements." That is
+INBOX 49's decision word for word: blur on the top bar, the sub-tab
+strips, docks, menus, popovers and dialogs; never on a content card. The
+one exception Apple names is ours too: "controls in the content layer with
+a transient interactive element like sliders and toggles ... take on a
+Liquid Glass appearance when a person activates it" (the switch knob and
+the slider thumb light up on drag, nothing else in a card blurs).
+
+### Rules adopted, with the token or recipe they land on
+
+1. **Two glass variants.** Regular: "blurs and adjusts the luminosity of
+   background content to maintain legibility of text"; use it "when
+   components have a significant amount of text, such as alerts, sidebars,
+   or popovers". Clear: "highly translucent ... for components that float
+   above media backgrounds", with "a dark dimming layer of 35% opacity"
+   when the content behind is bright. Ours: `--glass-filter` is the regular
+   variant (blur plus saturate plus a luminosity lift); a `.glass-clear`
+   modifier (blur only, `--card` at 30%) is for panels over the animated
+   background or an image, and it always pairs with `--glass-scrim`
+   (35% ink) when the surface is light. Never a third variant.
+2. **Scroll edge effect.** "Optimize for legibility when content scrolls
+   beneath controls": the bar over a scroll region fades a gradient under
+   itself as content passes. Ours: `.dock`, `.notes-subtabs`,
+   `.library-subtabs` and `header#top-bar` get a `::after` gradient from
+   `--page` to transparent, 16px, shown only while the region is scrolled
+   (`data-scrolled="1"` set by one scroll listener). INBOX 100.
+3. **Concentric corners.** "Rounded shapes that are concentric to their
+   containers": an inner radius is the outer radius minus the padding
+   between them. Ours: `--radius-inner: calc(var(--radius) - var(--space-3))`
+   and a lint that a `.card` child with its own radius uses it. INBOX 101.
+4. **Vibrant colour on glass.** "Use vibrant colors on top of materials";
+   "Use color sparingly, especially on glass"; "Avoid applying a similar
+   color to toolbar item labels and content layer backgrounds". Ours:
+   `--text-on-glass` (one step higher contrast than `--text`) for text on
+   any blurred surface; accent only on the one filled control per surface.
+5. **Toolbars group by function, icons over text.** "Group items that
+   perform similar actions ... maintain consistent groupings"; "don't mix
+   text and icons across items that share a background"; "Provide an
+   accessibility label for every icon"; "Use the prominent style for key
+   actions such as Done or Submit" (one). Ours: the dock grammar (three
+   zones, hairline dividers, seven controls, one filled) is this rule; the
+   lint holds it; a group is all icons or all text, never mixed.
+6. **Menus.** "Prefer listing important or frequently used menu items
+   first"; "Use menu item icons sparingly and with purpose"; "Consider
+   using a checkmark to show that an attribute is currently in effect";
+   "Show people when a menu item is unavailable"; "Prefer displaying a menu
+   near the content it controls"; and, new: "an action sheet originates
+   from the element that initiates the action". Ours: `kebabMenu` orders
+   by frequency, the check mark on-state exists, disabled items stay
+   visible and dimmed, and every menu anchors to its opener (never the
+   screen edge).
+7. **Buttons.** "Keep the number of prominent buttons to one or two per
+   view"; "Use style, not size, to distinguish the preferred choice";
+   "Don't assign the primary role to a button that performs a destructive
+   action"; help buttons are "circular, consistently sized buttons that
+   contain a question mark" and "avoid displaying text that introduces a
+   help button". Ours: the ramp, Bin is never filled, the `data-help-for`
+   '?' is round and unlabelled.
+8. **Sheets and popovers.** "Show one popover at a time"; "Make a popover
+   only big enough to display its contents"; "Avoid displaying popovers in
+   compact views" (a sheet on a phone instead); half sheets are "inset
+   from the edge of the display to allow content to peek through" and go
+   opaque at full height. Ours: one popover open at a time (the outside
+   click closes the rest), popovers become bottom sheets under 640px, a
+   sheet has `--space-3` inset and the regular glass until it fills the
+   height, then `--modal-bg`.
+9. **Lists breathe.** "Organizational components like lists, tables, and
+   forms have a larger row height and padding. Sections have an increased
+   corner radius to match the curvature of controls." Ours: `--row-h`
+   steps up one token at comfortable density; `.settings-group` radius is
+   `--radius-lg`. (Apple also moved section headers to title case; we keep
+   sentence case, the owner's rule.)
+10. **Tab bar and sidebar.** "Use a tab bar to support navigation, not to
+    provide actions"; "Don't disable or hide tab bar buttons"; "Consider
+    automatically hiding and revealing a sidebar when its container window
+    resizes"; tab bars can "recede when a person scrolls". Ours: the phone
+    tab bar shrinks to icons on scroll down and returns on scroll up
+    (UI Phase 9); the sidebar auto-hides under 1100px and is never hidden
+    by default on desktop.
+11. **Search.** "Place search at the top when there's no bottom toolbar";
+    "Use tokens to filter by common search terms"; "Consider showing
+    suggested search terms". Ours: INBOX 99e's operators become tokens in
+    the Notes search box, suggestions under it.
+12. **Motion.** "Don't add motion for the sake of adding motion";
+    "Consider using fades when you need to relocate an object"; controls
+    "fluidly morph into menus and popovers". Ours: a button that opens a
+    menu scales the menu from the button's rect (`--motion-base`, spring
+    easing), a fade for anything that moves more than its own width, and
+    every one of these is off under Reduce motion and Performance mode
+    except the progress indicators.
+13. **Accessibility settings are inputs, not exceptions.** "People can ...
+    turn on accessibility settings that reduce transparency or motion";
+    "Make sure all your app's colors work well in light, dark, and
+    increased contrast contexts"; "Let people use the keyboard alone".
+    Ours: `prefers-reduced-transparency` turns Performance mode on,
+    `prefers-contrast` sets `data-contrast`, every menu and dialog walks
+    by keyboard (contrast.js and touch.js are the gates).
+14. **Extra-large controls.** Controls "feature an option for an
+    extra-large size, allowing more space for labels". Ours:
+    `--control-h-xl` for the primary action on a phone sheet and the
+    capture Save.
+
+### Deliberately not taken
+
+Refraction and lensing (a displacement filter on every glass surface is
+the one effect measured as too costly on an integrated GPU; the lit rim
+stands in for it), layered app icons, the background extension effect
+under sidebars (our sidebar is a content panel, not glass), title-case
+section headers.
+
+### Where this goes next
+
+INBOX 100 (scroll edge effect), 101 (concentric radius token and lint),
+102 (clear variant with the scrim, the text-on-glass token), 103 (menus
+morph from their opener; sheets inset and opaque at full height), 104
+(phone tab bar recedes on scroll); UI Phase 9 carries 104. Each is a
+half-day for Opus with the measurement named on its INBOX line.
+
 ## Buttons: the ramp
 
 Three tiers, and a view should be readable from them alone:

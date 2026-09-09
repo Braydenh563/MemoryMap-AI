@@ -153,6 +153,28 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     formatting", and Phase 2 makes the floating selection toolbar the
     formatting UI. Nothing to fix; if the owner wants the strip on by
     default, flip the default in one line (documents.js `docToolbarMode`).
+100. **Scroll edge effect** (DESIGN.md, "Taken from Liquid Glass" rule 2):
+    `.dock`, the sub-tab strips and `header#top-bar` fade a 16px gradient
+    under themselves while their region is scrolled (`data-scrolled`). Gate:
+    contrast.js on a scrolled notes list; the gradient absent at scrollTop 0.
+    Owner: Opus, UI Phase 9 batch. Size S.
+101. **Concentric corners**: `--radius-inner: calc(var(--radius) -
+    var(--space-3))` for anything rounded inside a card (inputs, chips,
+    thumbnails, the dock's groups); `tests/test_style_scale.py` extended to
+    fail on a hand-picked inner radius. Owner: Sonnet. Size S.
+102. **Clear glass with a scrim, and text on glass**: `.glass-clear` (blur
+    only, `--card` at 30%) for the whiteboard's floating panels and the
+    graph's docks over the art, paired with `--glass-scrim` (35% ink) when
+    the surface is light; `--text-on-glass` one contrast step above
+    `--text` on every blurred surface. Gate: contrast.js over the aurora
+    and constellation backgrounds. Owner: Opus. Size S.
+103. **Menus morph from their opener; sheets inset**: `kebabMenu` and
+    `details.dock-menu` scale in from the opener's rect (`--motion-base`,
+    spring), off under Reduce motion; a phone sheet has a `--space-3` inset
+    and turns `--modal-bg` at full height. Gate: menus.js, touch.js.
+    Owner: Opus. Size S.
+104. **The phone tab bar recedes on scroll** (icons only on scroll down,
+    full on scroll up), never hidden. Owner: UI Phase 9. Size S.
 99. **Quick wins (Fable, 05:20): five features the plans did not list,
     each a day or less, each with the site.** (a) Undo on every delete
     toast: notes, boards, documents and reminders already soft-delete;

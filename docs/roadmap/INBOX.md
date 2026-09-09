@@ -31,6 +31,52 @@ verbatim, is triaged at the next step boundary, and leaves: fixed now (then
 What is here now is this PR's own bug list (Brief 18 section A, HANDOVER's
 done-when item 4 and 5), in priority order.
 
+107. **The 0.3.0 blocker list (the owner, 2026-09-09 23:25, verbatim).**
+    "should I leave this pr open until we can finish the rest of the still
+    open and half finished stuff?? otherwise I need to to absolutely make
+    sure that finishing this list of unfinished items and half finishe
+    items in the number one priority, I need them finished, this pr is
+    v0.3.0 and I dont want to merge it if things arent complete... work
+    through these bugs really fast: can you make the live view on
+    documents the default if it isnt already?? also when I click on the
+    plain and line numbers view nothing happens and they dont do anything.
+    note in the redesign documents and where it is supposed to that I want
+    to get rid of and redesign these mini menu bars as they are in a couple
+    popups around the place and they desperately need a modern redesign or
+    alternative, the ai assistant popup blurred background in the documents
+    doesnt reach the full height of the scree, leaving a clear strip at the
+    top and bottom, and the ai history popup goes to the left of the
+    screen, should it be in the middle?? I put in a link to a note in the
+    document, but when I clicked it, it didnt take me to the note and
+    instead a notification showed saying no document by that name exists
+    yet. fix the formatting bar in the documents tab, it is crushed
+    bertically and has a vertical scrollbar. I cant open the reader ai
+    dropdown combobox at the top of the ocr workspace. I scroll to the
+    bottom of the ocr text in the files row in the files subtab, and the
+    whole \"extracted text from this file\" dropdown closes. the same
+    happens when I scroll to the bottom and expand, and click see more the
+    \"text in this image\" dropdown in the images tab. I cant click on the
+    file name header in the files subtab file rows to open the file up in
+    the lightbox or ocr workspace. the view dropdown in the whiteboard
+    opens on top of the top bar, not under it, and it is overly short, the
+    arrange dropdown is also very short, there's no visula feedback when I
+    press ctrl + s in settings. the pckage headers, badges and buttons
+    still get displaced onto separate rows did you make changes to the
+    section between the hero section and the widgets on the dashboard? they
+    look the same..."
+    Screenshots: a bolded run showing literal `**` markers in a document; the
+    Edit/Write/Remove segmented bar; the AI assistant dialog with its
+    backdrop; the AI edit history popover at the left edge; a document with
+    an `Act I, Scene I` link and two identical "No document called ... yet"
+    toasts.
+    **Split, 2026-09-09**: 107a documents (live default, the plain and
+    line-number views, the assistant backdrop, the history popover
+    placement, the note link, the formatting bar) · 107b files and images
+    (the reader combobox, the two dropdowns closing on scroll, the file
+    title click) · 107c the rest (whiteboard View and Arrange, Ctrl+S
+    feedback, the packages row, the dashboard band) · 107d the segmented
+    mini bars, a redesign recorded in DOCUMENTS_PLAN and DESIGN.md.
+
 77. **Half done, 2026-09-09: the badge is fixed.** It reads "1.2k / 20k"
     instead of "6% of window", is 20px tall at every width from 420 to 1440
     (it stretched to 44px below 820 before), and is centred against the chat

@@ -9329,6 +9329,33 @@ themselves (their handlers were not touched, only their buttons' markup).
     against a 662px `clientWidth`, opens scrolled to the recent end.
     `9b3b271`.
 
+108. **(checked)** **The graph, mid-work, 2026-09-09 (the owner, verbatim).** "the tree
+    view on the graph is completely screwed" (screenshot: the tree reads as a
+    force blob, root at the right, categories overlapping, labels colliding)
+    and, on the second look, "on the other map views, they all have the
+    dotted borders and when I tap on one node, it resets them all and they go
+    flying off. and I think the selection bar should be under, not above the
+    top bar, maybe centre it at the bottom" (screenshot: the "10 selected"
+    bar overlapping the Graph top dock from above).
+    **Note for whoever takes this**: the static-layout fix of earlier today
+    was made in `frontend/graph.js`, the SVG renderer. The owner's build runs
+    the canvas renderer (`frontend/graph-canvas.js`), which has its own drag,
+    its own held-ring test and its own worker start, so the guard has to
+    exist there too. Reproduce with `__graphDebug.renderer === "canvas"`.
+    **Checked at head, 2026-09-09.** All three of the canvas renderer's own
+    guards were already there before this session touched anything today:
+    `subject()` returns `null` for a drag when `gcLayoutKind !== "force"`,
+    the dblclick handler returns before `gcTogglePin` under the same test,
+    and the held-ring paint adds `&& gcLayoutKind === "force"`. A tree
+    render on a 36-node, 35-edge seeded notebook (`__graphDebug`, renderer
+    "canvas", layout "tree") comes back with 0 pairwise node overlaps and
+    a clean hierarchy (root at the origin, first-level children at one
+    column, their own children at the next). Not reproduced against this
+    branch's code. Whatever rendered the screenshot was very likely not
+    running this branch, the same conclusion reached twice already today
+    on the heatmap, the boards widget and the skills button width, each
+    time with the fix still present and measured at head.
+
 ## HANDOVER archive, 2026-09-09
 
 ### The Fable session — UI Phases 0-4, skills reform A-B, backend sprint 1, the audit

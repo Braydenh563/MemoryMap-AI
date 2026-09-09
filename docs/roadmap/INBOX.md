@@ -31,10 +31,6 @@ verbatim, is triaged at the next step boundary, and leaves: fixed now (then
 What is here now is this PR's own bug list (Brief 18 section A, HANDOVER's
 done-when item 4 and 5), in priority order.
 
-73. **"Mute notifications except reminders" toggle disables itself when
-    the settings close.** Owner: Fable, now: the preference is written on
-    change but the panel re-renders from `prefsCache` before the save
-    round-trip lands; write to the cache first, then save.
 77. **Token window badge: not centred, text wrong; the window itself
     should be manageable by the user and auto when set** (screenshots:
     "6% of window" pill off-centre in the chat header, and the header wraps
@@ -42,17 +38,6 @@ done-when item 4 and 5), in priority order.
     window setting next session): a `num_ctx` preference per model in
     Settings > Models with Auto (the model file's value) or a number, sent
     on every request; the badge shows "used / window".
-83. **Tools settings: the big paragraphs ("How many are offered at once",
-    "Small model mode") become '?' popovers** (screenshot). Owner: Fable,
-    now: one line each, the rest behind `data-help-for`.
-89. **Glass settings: sheen strength, opacity and blur "don't do
-    anything"**. Owner: Fable, now: measure each with getComputedStyle
-    against the top bar and a dialog; the card blur is now off unless the
-    animated background is on (INBOX 49), so the slider must also drive
-    the top bar, the docks and the dialogs (it does through
-    `--glass-blur`); opacity drives `--card` alpha (check the palette
-    override order); sheen is a gradient over `.card` only when
-    `data-glass-sheen=on`.
 105. **The placement fix landed on 2026-09-09 and is measured, but the
     on-surface retest is still owed.** `place()` in app.js now measures the
     menu at `max-height: none` and caps it against the room its trigger

@@ -9055,8 +9055,9 @@ header#top-bar {
        same reason its own comment gives. */
     background: var(--modal-bg);
     border-top: 1px solid var(--glass-border);
-    backdrop-filter: blur(18px) saturate(150%);
-    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    /* INBOX 89: same hand-picked-18px bug as #top-bar (00-tokens-shell.css). */
+    backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
     border-radius: 0;
     box-shadow: none;
     /* Nothing scrolls here any more, and a scroller with seven equal columns

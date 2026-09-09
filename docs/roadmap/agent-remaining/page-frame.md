@@ -176,9 +176,104 @@ step**: ask for the viewport size and whether "Performance mode" or
 and whether the notebook at the time was genuinely tall enough to need
 400px of scroll on that specific window.
 
+## Second batch: three INBOX items (73, 83, 89), fixed and resolved
+
+Merged and pushed by the orchestrator between batches, then fast-forwarded
+into this worktree before starting. All three fixed, gated, committed, and
+moved out of `INBOX.md` into `HISTORY.md`'s "INBOX resolved, 2026-09-09"
+section (`scratchpad/inbox_resolve.py 73 83 89`).
+
+### INBOX 73: mute-notifications toggle disabling itself on close
+
+Owner: *"'Mute notifications except reminders' toggle disables itself when
+the settings close."* Reproduced with Playwright route interception rather
+than guessed at, in two shapes: (1) check the box, Save, then anything that
+re-shows Preferences (closing and reopening Settings does, via
+`showSettingsSection` -> `renderPrefs`) fires a fresh GET while the PUT is
+still in flight, and the GET can win, replacing `prefsCache` wholesale with
+the pre-save value; (2) delaying the PUT leaving the browser at all (a slow
+connection) makes a concurrent GET win outright, leaving the checkbox wrong
+*forever*, not just mid-flight, since nothing re-reads it once the PUT
+does succeed.
+
+Fixed in `frontend/app.js`'s `savePrefs()`/`renderPrefs()`: the built
+payload is written into `prefsCache` immediately, before the PUT's await
+(closes case 1), and the PUT's own promise is held in
+`prefsSaveInFlight`, which `renderPrefs()` awaits before doing its own GET
+(closes case 2 outright, rather than narrowing the window). Measured with
+the fix: both scenarios end checkbox/cache agreeing (true/true), where
+case 2 previously ended false/true and stayed that way. Commit `1422575`.
+
+### INBOX 83: Tools settings' two wall-of-prose paragraphs
+
+Owner: *"Tools settings: the big paragraphs ('How many are offered at
+once', 'Small model mode') become '?' popovers."* Done with the existing
+`data-help-for` recipe (no JS needed, `initHelpToggles()` already wires
+every `[data-help-for]` at boot): one line in place, the original
+paragraph behind a "?" that opens a `.help-body` popover, verified live to
+open/close correctly and to obey "one popover at a time". Commit `e6e48a9`.
+
+**Other settings sections with the same pattern, not converted (the brief's
+own instruction: list them, don't convert them all).** A sweep of every
+`<p class="muted">` in the Settings modal at 35+ words, with its nearest
+heading (approximate: a few of these may actually belong to the item after
+the named heading, this is a start-here list, not a precise catalogue):
+
+| Section | Near | Words |
+| --- | --- | --- |
+| Models | "Utility model (filing, digest & writing fixes)" | 46 |
+| Models | "Reading text (OCR: scanned PDFs, and text in images)" | 35 |
+| Skills | "Share" | 67 |
+| Skills | "Add your own" | 42 |
+| Templates | "Share" | 46 |
+| What it remembers | "Add your own" | 40 |
+| What it remembers | "Add your own" | 45 |
+| Tools | "Add your own" | 39 |
+| Appearance | "Status bar" | 40 |
+| Packages | "Packages" | 41 |
+| Packages | "Embedding models" | 39 |
+| Web search | "Your SearXNG instance" | 89 |
+| Web search | "Your SearXNG instance" | 35 |
+| Background tasks | "Running now" | 39 |
+| Data (backups) | "Backups" | 37 |
+| Account & security | "If you forget your password" | 62 |
+
+The Web search "Your SearXNG instance" one (89 words) is the longest
+survivor and the most obvious next candidate if this list gets picked up.
+
+### INBOX 89: glass sheen strength, opacity and blur
+
+Owner: *"sheen strength, opacity and blur don't do anything."* Measured
+all three with `getComputedStyle` against `#top-bar`, a dialog and a
+`.card`, glass sheen and the animated background both switched on first
+(the card's own blur is conditional on the art being on, INBOX 49, so
+testing with it off reads as this bug even when it isn't):
+
+- **Opacity: already correct.** `#top-bar`/`.card` background alpha
+  scaled exactly with the slider (0.549 at 100%, 0.0275 at 5%, the same
+  ratio); dialogs correctly did not move (`--modal-bg` is a fixed tier,
+  never tied to this slider, by design).
+- **Blur: correct on dialogs, wrong on the top bar.** Dialog blur measured
+  14px -> 30px correctly. `#top-bar` stayed at a hard-coded `blur(18px)`
+  the entire time, close enough to `--glass-blur`'s own 14px default that
+  only moving the slider ever exposed it. The same literal 18px was on
+  `.toast` and the mobile bottom-tabs bar too. All three now read
+  `var(--glass-blur)`; top bar measured 14px -> 30px after the fix.
+- **Sheen strength: drove nothing.** `--glass-sheen-strength` was
+  declared and written by the slider, read by zero CSS: `--glass-catch`
+  (the sheen's actual gradient) hard-coded its alpha, even though the
+  comment on the sheen's own `.card` rule already claimed it was "scaled
+  by `--glass-sheen-strength` through the same color-mix trick
+  `--glass-opacity` uses" -- a real feature-never-ran gap between the
+  comment and the code. Fixed by actually doing that: a card's own
+  `background-image` now measures alpha 0.302 at 100%, 0.151 at 50%, 0 at
+  0% in light; 0.0745 down to 0 in dark.
+
+Commit `acb178a`.
+
 ## Gate status
 
-Every commit in this batch: `scripts/gate.sh --changed` (lints, `node
+Every commit in both batches: `scripts/gate.sh --changed` (lints, `node
 --check`, ruff, plus `tests/test_dashboard_layout_cap.py` once it started
 matching) all green. Full suite not run (not routine per standing order 5a;
 CI covers it on push). Not pushed: the orchestrator merges.

@@ -185,7 +185,17 @@ select optgroup {
   --glass-shadow:
     0 1px 2px rgba(31, 38, 135, 0.06),
     0 12px 32px rgba(31, 38, 135, var(--shadow-intensity));
-  --glass-catch: radial-gradient(70% 90px at 22% -30px, rgba(255, 255, 255, 0.30), transparent 65%);
+  /* INBOX 89: "sheen strength ... doesn't do anything" -- true. The comment
+     on the sheen's own `.card` rule (further down this file) already
+     claimed "both rgba stops below are scaled by --glass-sheen-strength
+     through the same color-mix-with-transparent trick --glass-opacity
+     already uses", but nothing here ever did that: `--glass-sheen-strength`
+     was declared above and written by the slider (settings.js), read by
+     nothing. `color-mix()`, same trick as `--glass-opacity`'s own card
+     definitions: mixing towards transparent can only dial the 0.30 down,
+     never past it, so the strength slider's 100% is this literal value,
+     unchanged from before. */
+  --glass-catch: radial-gradient(70% 90px at 22% -30px, color-mix(in srgb, rgba(255, 255, 255, 0.30) calc(var(--glass-sheen-strength) * 100%), transparent), transparent 65%);
   --ink: #1f2430;
   --muted: #5b6472;
   /* #4664f0, not the #4f6df5 the palette was born with: measured with
@@ -636,7 +646,8 @@ select,
   --glass-shadow:
     0 1px 2px rgba(0, 0, 0, 0.35),
     0 12px 32px rgba(0, 0, 0, 0.42);
-  --glass-catch: radial-gradient(70% 90px at 22% -30px, rgba(255, 255, 255, 0.075), transparent 65%);
+  /* Same fix as the light value above: color-mix so --glass-sheen-strength (unwired here before) actually scales it. */
+  --glass-catch: radial-gradient(70% 90px at 22% -30px, color-mix(in srgb, rgba(255, 255, 255, 0.075) calc(var(--glass-sheen-strength) * 100%), transparent), transparent 65%);
   --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
   --modal-bg: rgba(24, 27, 37, 0.97);
   --modal-bg-opaque: rgb(24, 27, 37);
@@ -685,7 +696,8 @@ select,
     --glass-shadow:
       0 1px 2px rgba(0, 0, 0, 0.35),
       0 12px 32px rgba(0, 0, 0, 0.42);
-    --glass-catch: radial-gradient(70% 90px at 22% -30px, rgba(255, 255, 255, 0.075), transparent 65%);
+    /* Same fix as the light value above: color-mix so --glass-sheen-strength (unwired here before) actually scales it. */
+    --glass-catch: radial-gradient(70% 90px at 22% -30px, color-mix(in srgb, rgba(255, 255, 255, 0.075) calc(var(--glass-sheen-strength) * 100%), transparent), transparent 65%);
     --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
     --modal-bg: rgba(24, 27, 37, 0.97);
     --modal-bg-opaque: rgb(24, 27, 37);
@@ -913,8 +925,11 @@ header#top-bar {
   padding: var(--header-pad-y) var(--header-pad-x);
   background: var(--card);
   border-bottom: 1px solid var(--glass-border);
-  backdrop-filter: blur(18px) saturate(150%);
-  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  /* INBOX 89: "blur ... doesn't do anything." A hand-picked 18px here,
+     matching --glass-blur's own default so closely that only moving the
+     slider ever exposed it: the top bar never read the token at all. */
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
 }
 
 /* The wordmark is the first thing that may go: it is decoration next to the

@@ -3490,52 +3490,12 @@ textarea.autogrow {
   );
 }
 
-/* The squiggle, and it is now one recipe for both views. Live view marks the
-   rendered blocks (`docMarkLiveFindings`); Source view marks the backdrop
-   behind the textarea (`docPaintBackdrop`, DOCUMENTS_PLAN Phase 0). Two views
-   that flag the same word in two different colours would read as two
-   different checkers, so `.doc-flag` (Live, clickable) says only *that this
-   is a flag*, and `.doc-finding-*` (both views) says *what kind*, which is
-   the half a reader is actually decoding.
-
-   A wavy underline rather than a highlight: the word still has to read as the
-   word, and a coloured block behind it is the thing that makes a checked
-   document unreadable. */
-.doc-flag,
-.doc-finding {
-  background: none;
-  color: inherit;
-  text-decoration: underline wavy color-mix(in srgb, var(--warn) 80%, transparent);
-  text-decoration-thickness: 1.5px;
-  text-underline-offset: 3px;
-}
-
-.doc-flag {
-  cursor: pointer;
-}
-
-/* Three kinds, three marks, and the difference is the strength of the claim.
-   A spelling is "this is wrong" and takes the colour this app uses for that;
-   a style note is "look here" and takes the accent; a word typed twice is
-   neither: it is a thing your eye skipped, so it is dotted rather than wavy,
-   which reads as a note rather than an error. */
-.doc-finding-spelling {
-  text-decoration-color: color-mix(in srgb, var(--error) 80%, transparent);
-}
-
-.doc-finding-style {
-  text-decoration-color: color-mix(in srgb, var(--accent) 80%, transparent);
-}
-
-.doc-finding-repeat {
-  text-decoration-style: dotted;
-  text-decoration-thickness: 2px;
-}
-
-.doc-flag:hover {
-  background: color-mix(in srgb, var(--warn) 14%, transparent);
-  border-radius: var(--radius-sm);
-}
+/* The squiggle's rules lived here, shared by the Live view's `<mark>`s and
+   the Source view's backdrop. Both are gone: DOCUMENTS_PLAN Phase 2 made the
+   findings mark decorations inside the editor, and a decoration's classes are
+   styled from the theme object in documents.js because adopted stylesheets
+   sort after document stylesheets and a rule here would lose to CodeMirror's
+   own. The three shapes and the reasoning behind them moved there intact. */
 
 /* The template picker's rows: name over a one-line hint, full width, so
    the list reads as choices rather than as a stack of pill buttons. */

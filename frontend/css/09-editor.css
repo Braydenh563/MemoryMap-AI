@@ -34,8 +34,7 @@
    surface the adapter falls back to if the bundle never loads, and a
    `display: none` textarea is one that keeps its value and its listeners. */
 .doc-source-wrap.has-cm > #doc-content,
-.doc-source-wrap.has-cm > .doc-gutter,
-.doc-source-wrap.has-cm > .doc-backdrop {
+.doc-source-wrap.has-cm > .doc-gutter {
   display: none;
 }
 

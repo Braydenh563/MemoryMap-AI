@@ -6142,46 +6142,18 @@ button.connection-row {
   text-align: center;
 }
 
-/* **"Take me there" has to end with something saying "here".** Asked for:
-   "if I click on an issue flagged in the document suggestions, it should auto
-   scroll to the issue and temporarily highlight the offending area."
-
-   Two flashes, because the two views can say it differently. Live view has a
-   real `<mark>` for the flagged word, so it pulses in place. Source view has
-   only a selection inside a `<textarea>`, nothing there can be marked, so
-   the selection colour itself becomes the flash for as long as it lasts.
-   Both are short: a highlight that stays is a highlight you then have to get
-   rid of. */
-@keyframes doc-flag-flash {
-  0% {
-    background: var(--accent);
-    color: var(--on-accent);
-  }
-
-  100% {
-    background: transparent;
-    color: inherit;
-  }
-}
-
-.doc-flag-flash {
-  animation: doc-flag-flash 1.6s ease-out;
-  border-radius: var(--radius-sm);
-}
+/* The "show me this one" flash lived here as two rules: a keyframe pulse on
+   the Live view's `<mark>` and a `::selection` colour on the Source view's
+   textarea. DOCUMENTS_PLAN Phase 2 left one editor, and it answers the
+   question itself: `docProseJump` puts the selection on the flagged span and
+   the engine scrolls it into view as part of the same transaction, with the
+   underline already saying which words are meant. `.doc-selection-flash` is
+   kept below for the fallback textarea, which still cannot mark a range it
+   already holds any other way. */
 
 .doc-selection-flash::selection {
   background: var(--accent);
   color: var(--on-accent);
-}
-
-/* Reduced motion keeps the information, the word still goes accent-coloured
-   and fades back: it just does not travel to get there (`scrollIntoView`
-   drops to `auto` in the JS for the same reason). */
-@media (prefers-reduced-motion: reduce) {
-  .doc-flag-flash {
-    animation-duration: 1.6s;
-    animation-timing-function: steps(2, end);
-  }
 }
 
 /* --- Inline AI (editor.js) ------------------------------------------------

@@ -3270,11 +3270,12 @@ span > .chip {
 .doc-source-wrap {
   display: flex;
   flex: 1 1 auto;
-  /* The positioning context the backdrop is placed against (see .doc-backdrop
-     below). Without it the backdrop's offsetParent is whatever ancestor
-     happens to be positioned. Measured, that was an element 219px to the
-     left and 72px up, so every underline landed a paragraph away from its
-     word. */
+  /* A positioning context of its own, so anything absolutely placed inside
+     this pane is placed against the pane. The Phase 0 backdrop needed it and
+     is gone; CodeMirror's own panels and tooltips need the same thing, and
+     without it their offsetParent is whatever ancestor happens to be
+     positioned (measured, at the time: an element 219px to the left and 72px
+     up from where it should have been). */
   position: relative;
   min-height: 0;
   min-width: 0;
@@ -3360,65 +3361,13 @@ span > .chip {
   border-radius: 0 var(--radius) var(--radius) 0;
 }
 
-/* --- The backdrop: a squiggle under a textarea's own text --------------------
-   DOCUMENTS_PLAN.md §4 A, Phase 0 item 1. A `<textarea>`'s value is a string,
-   not a DOM, so nothing inside it can carry a mark, which is why Source view
-   had no underlines at all and the answer to "click the underlined word" was
-   "double-click and we look up the caret offset".
-
-   The way every editor built on a textarea solves this: a div holding the
-   same text, in the same type, at the same size, behind a textarea whose own
-   ink is transparent. The div can carry `<mark>`s; the textarea keeps the
-   caret, the selection, the native undo, IME, spellcheck and every keyboard
-   behaviour a real editing surface has. What the reader sees as text is the
-   div; what they type into is the textarea.
-
-   The contract is *exact* geometry, and it is enforced by measurement rather
-   than by hope: documents.js `docSyncBackdropMetrics` copies the type metrics
-   and the box through the CSSOM (an inline `style=` would be refused by the
-   CSP, same as the gutter's), and the sweep asserts that a mark's box and the
-   glyph it is under agree within 1px. A backdrop that drifts is worse than
-   none: the underline points at the wrong word, and every click on it is
-   then wrong too. Everything that decides where a glyph sits therefore lives
-   in the JS copy list, not here: this rule only says *what kind of box it
-   is*. */
-.doc-backdrop {
-  position: absolute;
-  z-index: 0;
-  overflow: hidden;
-  margin: 0;
-  /* The width is copied, so the border has to exist and take its 1px, but
-     the textarea in front draws the visible edge. */
-  border-style: solid;
-  border-color: transparent;
-  background: var(--input-bg);
-  color: var(--ink);
-  /* The textarea is the thing you click. Every gesture (caret, selection,
-     drag, right-click) has to reach it, so the layer under it takes none. */
-  pointer-events: none;
-}
-
-.doc-backdrop.hidden {
-  display: none;
-}
-
-/* The ink moves to the backdrop. `caret-color` is what keeps the caret
-   visible once the text it sits in is transparent. Without it the caret goes
-   transparent too and the editor looks like it has stopped accepting input. */
-#doc-content.has-backdrop {
-  position: relative;
-  z-index: 1;
-  background: transparent;
-  color: transparent;
-  caret-color: var(--ink);
-}
-
-/* Selection is painted by the textarea, which is *in front* of the ink now, so
-   an opaque highlight would black out the words it selects. Translucent, so
-   the glyphs underneath read through it. */
-#doc-content.has-backdrop::selection {
-  background: color-mix(in srgb, var(--accent) 30%, transparent);
-}
+/* The Phase 0 backdrop's rules lived here: `.doc-backdrop` (a div behind the
+   textarea holding the same text) and `#doc-content.has-backdrop` (the
+   textarea whose own ink went transparent so the div's could show through).
+   DOCUMENTS_PLAN Phase 2 decision 5 retired the layer: the findings are mark
+   decorations inside CodeMirror now, which have no geometry to keep in step
+   with anything because they are the text. The three underline shapes live
+   in the theme object in documents.js, for the reason 09-editor.css gives. */
 
 .doc-file-type {
   /* On the title row now, where there is room for the whole label, it was

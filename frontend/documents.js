@@ -143,14 +143,11 @@ function syncDocFileType() {
 
   //: **The prose check depends on the type, so a type change has to re-run
   //: it.** `openDocument` gets this through `renderDocTools`; changing the
-  //: type of a document already open never did, and before Phase 0 that was
-  //: invisible: the findings simply stayed in a panel nobody had open. Now the
-  //: findings are drawn *on the document*, so switching a markdown file to
-  //: `.py` left squiggles under words in code, over a textarea whose own ink
-  //: is transparent, with the backdrop still laying the text out as `pre-wrap`
-  //: against a `white-space: pre` box. `renderDocProse` empties the findings
-  //: for a code file and `docSyncBackdrop` then takes the backdrop away and
-  //: gives the textarea its ink back.
+  //: type of a document already open never did, and that was invisible while
+  //: the findings only ever appeared in a panel nobody had open. They are
+  //: drawn *on the document* now, so switching a markdown file to `.py` left
+  //: squiggles under words in code until this ran: `renderDocProse` empties
+  //: the findings for a code file, and the decorations go with them.
   renderDocProse();
 }
 
@@ -240,9 +237,9 @@ let docCmView = null;
 
 //: The fallback textarea itself. Named rather than looked up at each site
 //: because a few things genuinely are about the *element*: its placeholder,
-//: its disabled flag, the `doc-content-code` class, and the Source-view
-//: backdrop and gutter that this phase retires. Everything about the
-//: document's *text* goes through the surface instead.
+//: its disabled flag, the `doc-content-code` class and its line-number
+//: column. Everything about the document's *text* goes through the surface
+//: instead.
 function docBoxEl() {
   return $("doc-content");
 }
@@ -339,6 +336,7 @@ function cmSurface(view) {
       changes: { from: start, to: end, insert },
       selection: select || undefined,
       scrollIntoView: true,
+      annotations: docCmIsolate(),
     });
   };
   const surface = {
@@ -360,7 +358,7 @@ function cmSurface(view) {
       const current = view.state.doc.toString();
       if (next === current) return;
       const [from, to, insert] = docUndoDiffRange(current, next);
-      view.dispatch({ changes: { from, to, insert } });
+      view.dispatch({ changes: { from, to, insert }, annotations: docCmIsolate() });
     },
     get value() { return this.text; },
     set value(next) { this.text = next; },
@@ -535,13 +533,11 @@ function setDocView(mode) {
   docSetLiveDecorations(docView === "live");
   //: The engine caches the geometry it lays out with, and a view inside a
   //: `display: none` wrapper measures as zero. Asked for after the panes have
-  //: been shown, for the same reason the backdrop below is.
+  //: been shown, for the same reason the gutter's metrics are.
   if (!$("doc-source-wrap").classList.contains("hidden")) docCmViewShown();
-  //: After the panes have been shown and hidden, never before: the backdrop's
-  //: geometry is copied from a textarea that reports zeros while its wrapper
-  //: is `display: none`. The gutter's height has the same problem and the same
-  //: answer.
-  docSyncBackdrop();
+  //: After the panes have been shown and hidden, never before: the gutter's
+  //: height is copied from a textarea that reports zeros while its wrapper is
+  //: `display: none`.
   syncDocGutterMetrics();
 }
 
@@ -701,10 +697,6 @@ async function openDocument(id) {
   $("doc-title").value = doc.title;
   docResetDocument(doc.content);
   docDirty = false;
-  //: A new document is a new history. Carrying the previous one over would let
-  //: Ctrl+Z paste the *last* document's text into this one, the worst kind of
-  //: undo bug, because it looks like the app corrupted your file.
-  docUndoReset(doc.content);
   $("doc-saved").textContent = "Saved";
   // Before the renders below: it decides which of them are even reachable
   // (a code document has no Live or Split) and puts the editor into the
@@ -1005,11 +997,6 @@ function markDocDirty() {
     return;
   }
   docDirty = true;
-  //: **The one place the document's undo stack is fed.** Every edit in either
-  //: mode already funnels through here (see `docUndoRecord`'s comment for the
-  //: list), so recording here cannot miss one, and a future edit path gets an
-  //: undo entry without anyone remembering to add it.
-  docUndoRecord();
   $("doc-saved").textContent = "Unsaved…";
   clearTimeout(docSaveTimer);
   // Autosave, but not on every keystroke, a pause is the natural moment.
@@ -3135,43 +3122,17 @@ function docSurfaceInput() {
   markDocDirty();
   scheduleDocPreview();
   renderDocGutter();
-  //: Repainted on *every* keystroke, not on the debounced prose pass: the
-  //: backdrop is the visible text now, so a repaint that waits is a character
-  //: you typed and cannot see yet. The marks it draws are only the ones that
-  //: still match the text (`docBackdropFindings`), so this is safe to run
-  //: between passes.
-  docPaintBackdrop();
 }
 docBoxEl().addEventListener("input", docSurfaceInput);
 // The gutter is a separate element beside the textarea, so it has to be told
-// to follow it, because a textarea's own scroll does not move its siblings. The
-// backdrop is the same problem one layer down: it is a scrolling box of its
-// own, and text that does not follow the textarea's scroll is an underline
-// under the wrong line the moment the document is taller than the pane.
+// to follow it, because a textarea's own scroll does not move its siblings.
+// The fallback's problem only: the engine's own gutter is inside the view and
+// scrolls with it.
 docBoxEl().addEventListener("scroll", (event) => {
-  const box = event.currentTarget;
   const gutter = $("doc-gutter");
-  if (gutter && !gutter.classList.contains("hidden")) gutter.scrollTop = box.scrollTop;
-  const back = docBackdropEl;
-  if (back && !back.classList.contains("hidden")) {
-    back.scrollTop = box.scrollTop;
-    back.scrollLeft = box.scrollLeft;
+  if (gutter && !gutter.classList.contains("hidden")) {
+    gutter.scrollTop = event.currentTarget.scrollTop;
   }
-});
-//: **Composition text is not in `value` yet, and transparent ink would hide
-//: it.** Typing Japanese or Chinese puts a preview string in the textarea that
-//: no `input` event has reported, so the backdrop has nothing to paint for it
-//: and with the textarea's own ink transparent the writer would be typing
-//: into what looks like an empty box. The ink comes back for the length of the
-//: composition, which costs one frame of double-drawn text at the end of it
-//: and is the only honest trade available here.
-//: The fallback textarea's problem only: CodeMirror handles composition
-//: itself and has no transparent-ink layer to give back.
-docBoxEl().addEventListener("compositionstart", (event) => {
-  event.currentTarget.classList.remove("has-backdrop");
-});
-docBoxEl().addEventListener("compositionend", () => {
-  docSyncBackdrop();
 });
 // The document-textarea resize gap (Priority 0 #1): dragging #doc-content's
 // native `resize: vertical` handle shorter pins the textarea's own height,
@@ -4424,243 +4385,45 @@ function renderDocProse() {
   //: computed from `docProseFound` over the visible lines, so the repaint is a
   //: screenful whatever the document's length.
   docCmRepaintFindings();
-  //: The fallback textarea's marks live on the backdrop, and this is the one
-  //: place that knows the findings just changed.
-  docSyncBackdrop();
   if (!panel.classList.contains("hidden")) renderDocProsePanel();
 }
 
 // =============================================================================
-// The backdrop: underlines in Source view (DOCUMENTS_PLAN.md §4 A, Phase 0)
+// The three shapes a finding is drawn in (DOCUMENTS_PLAN Phase 0 and Phase 2)
 // =============================================================================
 //
-// **What this replaces, and why it is not a hack.** Until now the comment
-// further down this file (at `docFindingAtOffset`) said the honest thing: a
-// `<textarea>`'s value is a string, so nothing in Source view can be
-// underlined, and the substitute was "double-click the word and we look up
-// the caret offset". Nothing on screen said so, which made the app's most
-// asked-for writing feature invisible in the view most people write in.
+// **What used to be here, and where it went.** Phase 0 drew the findings on a
+// `<div>` behind the textarea: same text, same type, same size, with the
+// textarea's own ink turned transparent so the reader looked at the div and
+// typed into the box. It was the standard technique and it was the right
+// answer while the surface was a textarea, but it cost twenty-six computed
+// properties copied on every resize to keep two layers of glyphs on top of
+// each other, and the comment it carried recorded what happens when one of
+// them is missed: the underline is right at the top of the file and a word
+// out by the bottom.
 //
-// The technique is the one every textarea-based editor uses: a div behind the
-// textarea holding the same text in the same type at the same size, and a
-// textarea whose own ink is transparent. The div carries the `<mark>`s; the
-// textarea keeps the caret, the selection, native undo, IME, the browser's own
-// spellcheck and every keyboard behaviour a real editing surface has. The
-// reader looks at the div and types into the textarea, and the two are one
-// thing only for as long as their geometry agrees exactly.
-//
-// **Built with `createTextNode`, never `innerHTML`.** The backdrop holds the
-// document's own text; a document containing `<script>` or `<img onerror=…>`
-// is an ordinary markdown document, and building this with a template string
-// would turn every such document into an injection into the app's own page.
+// Phase 2 decision 5 retires it. The findings are mark decorations inside the
+// engine now (`docFindingsPlugin`), which have no geometry to keep in step
+// because they *are* the text, and they are drawn in every view rather than
+// only in the two the backdrop could cover. What is left here is the part
+// that was never about the layer: which findings are drawable at all, and
+// what shape each kind gets.
 
-//: Everything that decides where a glyph lands. Missing one is not a small
-//: error: the drift accumulates down the document, so the underline is right
-//: at the top of the file and a word out by the bottom, which is exactly how
-//: a backdrop stops being better than no backdrop at all. `borderRadius` and
-//: the border widths are here because the backdrop paints the field's
-//: background under a transparent-backgrounded textarea, so it has to be the
-//: same shape, and because a border's width moves the content box.
-const DOC_BACKDROP_PROPS = [
-  "boxSizing", "fontFamily", "fontSize", "fontWeight", "fontStyle",
-  "fontVariant", "letterSpacing", "lineHeight", "textAlign", "textIndent",
-  "textTransform", "whiteSpace", "overflowWrap", "wordSpacing", "wordBreak",
-  "tabSize", "direction", "paddingTop", "paddingRight", "paddingBottom",
-  "paddingLeft", "borderTopWidth", "borderRightWidth", "borderBottomWidth",
-  "borderLeftWidth", "borderRadius",
-];
+//: A long sentence is the one finding that must not be underlined: the span
+//: is a whole paragraph, and a wavy line under all of it says "everything
+//: here is wrong", which is the opposite of what that finding means.
+const DOC_FINDING_SKIP = new Set(["long-sentence"]);
 
-//: A long sentence is the one finding that must not be underlined: the span is
-//: a whole paragraph, and a wavy line under all of it says "everything here is
-//: wrong", which is the opposite of what that finding means. Read by the
-//: engine's finding decorations as well as by the backdrop, so the two agree.
-const DOC_BACKDROP_SKIP = new Set(["long-sentence"]);
-
-//: Three kinds, because three is what a reader can decode at a glance from the
-//: shape of a line. The rules are more numerous than that (there are eight),
-//: but "a spacing slip" and "a UK/US spelling" are the same *kind* of note as
-//: far as the eye is concerned, and both are answered the same way.
+//: Three kinds, because three is what a reader can decode at a glance from
+//: the shape of a line. The rules are more numerous than that (there are
+//: eight), but "a spacing slip" and "a UK/US spelling" are the same *kind* of
+//: note as far as the eye is concerned, and both are answered the same way.
 function docFindingKind(finding) {
   if (finding.rule === "spelling") return "spelling";
   if (finding.rule === "repeat") return "repeat";
   return "style";
 }
 
-//: Source view only, and only where there is prose to check. A code file has
-//: no findings at all (`renderDocProse` empties them), so a backdrop over one
-//: would be a second copy of the text buying nothing, and it would have to
-//: fight `.doc-content-code`'s `white-space: pre` and its horizontal scroll to
-//: do it.
-function docBackdropWanted() {
-  //: **Never once the engine is mounted.** The backdrop is a second copy of
-  //: the text laid out behind a transparent-ink textarea, and with CodeMirror
-  //: on screen that textarea is `display: none`: the layer would draw
-  //: nothing, and `has-backdrop` would still be taking the ink out of a box
-  //: that becomes visible again the moment the bundle fails to load on the
-  //: next boot. Findings become decorations in Phase 2 step 4.
-  if (docCmView) return false;
-  if (docView !== "source" && docView !== "split") return false;
-  return docFileType().previewable;
-}
-
-//: Found by class rather than by id, and cached: the same shape `docMirror`
-//: uses a few storeys up, for the same reason: an element this file creates
-//: has nothing to declare in index.html, and `tests/test_frontend_ids.py`
-//: rightly fails a `$("…")` lookup that the markup cannot answer.
-let docBackdropEl = null;
-
-function docBackdrop() {
-  if (docBackdropEl && docBackdropEl.isConnected) return docBackdropEl;
-  const box = docBoxEl();
-  if (!box || !box.parentElement) return null;
-  docBackdropEl = box.parentElement.querySelector(".doc-backdrop");
-  if (docBackdropEl) return docBackdropEl;
-  docBackdropEl = document.createElement("div");
-  docBackdropEl.className = "doc-backdrop hidden";
-  //: It is a duplicate of text the textarea already exposes to the
-  //: accessibility tree, and announcing it twice would make the document read
-  //: itself out twice to a screen reader.
-  docBackdropEl.setAttribute("aria-hidden", "true");
-  box.parentElement.insertBefore(docBackdropEl, box);
-  return docBackdropEl;
-}
-
-//: The CSSOM copy. An inline `style=` attribute in the markup would be refused
-//: by this app's CSP (the note at `mountGutterFor` records the same
-//: constraint); `element.style.x = …` is the allowed way to write a computed
-//: geometry, and it is the only way to write one that is *measured* rather
-//: than guessed.
-function docSyncBackdropMetrics() {
-  const box = docBoxEl();
-  const back = docBackdrop();
-  if (!box || !back) return;
-  const metrics = getComputedStyle(box);
-  for (const prop of DOC_BACKDROP_PROPS) back.style[prop] = metrics[prop];
-  //: Placed against `.doc-source-wrap`, which the CSS makes the positioning
-  //: context. Measured rather than assumed, because the textarea is centred
-  //: by `margin-inline: auto` inside a 78ch measure and may sit beside a
-  //: gutter, and neither of those is something a fixed rule here could know.
-  //:
-  //: Rects, not `offsetLeft`/`offsetWidth`: those round to whole pixels, and
-  //: the textarea's real box here is 691.1875 wide at x=512.40625. Rounding it
-  //: put the backdrop 0.41px to the left of the text it is drawing, which is
-  //: under the 1px the sweep asserts but is drift bought for nothing.
-  //: `getBoundingClientRect` carries the fraction.
-  const boxRect = box.getBoundingClientRect();
-  const anchor = back.offsetParent || box.parentElement;
-  const anchorRect = anchor.getBoundingClientRect();
-  const anchorStyle = getComputedStyle(anchor);
-  //: `offsetLeft` is measured from the offsetParent's *padding* edge, so the
-  //: border has to come out of a rect-to-rect difference to mean the same
-  //: thing.
-  back.style.left = `${boxRect.left - anchorRect.left - Number.parseFloat(anchorStyle.borderLeftWidth || 0)}px`;
-  back.style.top = `${boxRect.top - anchorRect.top - Number.parseFloat(anchorStyle.borderTopWidth || 0)}px`;
-  back.style.width = `${boxRect.width}px`;
-  back.style.height = `${boxRect.height}px`;
-  back.scrollTop = box.scrollTop;
-  back.scrollLeft = box.scrollLeft;
-}
-
-//: Only the findings that still describe the text as it is *now*. The prose
-//: pass is debounced, so between a keystroke and the next pass every offset
-//: after the caret is stale, and painting a stale offset draws a squiggle
-//: under the wrong word, which is the one thing a checker must never do. The
-//: check is a string compare per finding over a list that is rarely past a
-//: few dozen, so it costs nothing and it means an underline elsewhere in the
-//: document stays put while you type rather than flickering off and back.
-function docBackdropFindings(text) {
-  return docProseFound.filter(
-    (finding) =>
-      !DOC_BACKDROP_SKIP.has(finding.rule) &&
-      text.slice(finding.start, finding.end) === finding.text
-  );
-}
-
-function docPaintBackdrop() {
-  const box = docBoxEl();
-  const back = docBackdrop();
-  if (!box || !back || back.classList.contains("hidden")) return;
-  const text = box.value;
-  const frag = document.createDocumentFragment();
-  let at = 0;
-  for (const finding of docBackdropFindings(text)) {
-    //: Findings are sorted by start but two rules can overlap (a double space
-    //: inside a repeated word). The first one wins rather than nesting: a mark
-    //: inside a mark would draw two underlines on one word.
-    if (finding.start < at) continue;
-    if (finding.start > at) frag.appendChild(document.createTextNode(text.slice(at, finding.start)));
-    const mark = document.createElement("mark");
-    mark.className = `doc-finding doc-finding-${docFindingKind(finding)}`;
-    //: Hung on the element so a point can be turned back into a finding
-    //: without arithmetic (`docFindingAtPoint`), the same way the Live view's
-    //: marks carry theirs. Re-deriving it from the text would pick the wrong
-    //: one wherever a word is flagged twice.
-    mark._docFinding = finding;
-    mark.appendChild(document.createTextNode(text.slice(finding.start, finding.end)));
-    frag.appendChild(mark);
-    at = finding.end;
-  }
-  //: The trailing newline, and it is not cosmetic. CSS removes a segment break
-  //: at the end of a block, so a document ending in a blank line is one line
-  //: shorter on the backdrop than in the textarea, and from that point the
-  //: two scroll out of step, which puts every underline on the wrong line at
-  //: the bottom of a long file. One extra break restores the parity; where the
-  //: text does not end in a break, this one is the one that gets removed and
-  //: nothing changes.
-  frag.appendChild(document.createTextNode(`${text.slice(at)}\n`));
-  back.replaceChildren(frag);
-}
-
-//: Everything at once: mount it if it is wanted, take it out of the way if it
-//: is not. Called whenever the findings change, the view changes or the box
-//: resizes: the three things that can put the two layers out of step.
-function docSyncBackdrop() {
-  //: **`var`, and it has to be.** `setDocView` runs at module load, hundreds of
-  //: lines above this section, and it calls this. But `const`/`let` at module
-  //: scope are hoisted into a temporal dead zone, so reading `docProseFound` or
-  //: `DOC_BACKDROP_PROPS` from up there throws `Cannot access … before
-  //: initialization` (measured, in the browser: the same trap `renderDocTools`
-  //: records a few storeys down, and the reason `typeof` cannot be used as the
-  //: guard either: it throws for a binding in the dead zone too). A `var` is
-  //: hoisted as `undefined`, so this is the one flag that can be *read* before
-  //: it is set. Nothing is lost by the early return: the last line of this file
-  //: paints the editor once everything is initialised.
-  if (!docBackdropArmed) return;
-  const box = docBoxEl();
-  if (!box) return;
-  const wanted = docBackdropWanted();
-  const back = wanted ? docBackdrop() : docBackdropEl;
-  if (!back) return;
-  back.classList.toggle("hidden", !wanted);
-  //: The class is what makes the textarea's own ink transparent, so it comes
-  //: off the moment the backdrop is not painting: a code file with an
-  //: invisible-ink textarea and no backdrop behind it is a blank editor.
-  box.classList.toggle("has-backdrop", wanted);
-  if (!wanted) return;
-  docSyncBackdropMetrics();
-  docPaintBackdrop();
-  docWatchBackdropSize(box);
-}
-
-//: **The box changes size for four reasons and only one of them is a window
-//: resize.** Dragging the textarea's own `resize: vertical` handle, opening
-//: the chat dock, switching to Split, toggling `.doc-wide` or the gutter. A
-//: `window.resize` listener sees none of those. One observer on the element
-//: itself sees all five.
-let docBackdropObserver = null;
-
-//: Read the comment at the top of `docSyncBackdrop` before changing this to a
-//: `let`: it is a `var` on purpose, and the reason is a real crash.
-var docBackdropArmed = true;
-
-function docWatchBackdropSize(box) {
-  if (docBackdropObserver || typeof ResizeObserver !== "function") return;
-  docBackdropObserver = new ResizeObserver(() => {
-    if (!docBackdropEl || docBackdropEl.classList.contains("hidden")) return;
-    docSyncBackdropMetrics();
-  });
-  docBackdropObserver.observe(box);
-}
 
 //: One header for both states of the panel: what it is, what can be done to
 //: all of it at once, and the way out.
@@ -5168,9 +4931,10 @@ function docToolsOnInput(box) {
   //: even with a free pass.
   //:
   //: The work itself is cheap, measured on a 2,629-character document in the
-  //: sandbox Chromium: 0.82ms to find the findings, 6.3ms for the whole
-  //: `renderDocProse` (which repaints the chip and, in Live view, the blocks),
-  //: 0.07ms to repaint the backdrop. So the number here is almost the whole
+  //: sandbox Chromium: 0.82ms to find the findings and 6.3ms for the whole
+  //: `renderDocProse`, which repaints the chip and asks the engine for a
+  //: decoration pass over the visible lines. So the number here is almost the
+  //: whole
   //: latency, and it is set for headroom rather than for the average: at 200
   //: the sweep measured 284ms end to end against a 300ms bound, which is a
   //: check that would fail on a slower machine while nothing was wrong.
@@ -5383,9 +5147,6 @@ function docOffsetOf(box) {
 //: decorations were drawn from.
 function docFindingMarks() {
   const marks = [];
-  if (docBackdropEl && !docBackdropEl.classList.contains("hidden")) {
-    marks.push(...docBackdropEl.querySelectorAll(".doc-finding"));
-  }
   if (docCmView) {
     for (const el of docCmView.dom.querySelectorAll("[data-doc-finding]")) {
       const finding = docProseFound[Number(el.dataset.docFinding)];
@@ -6285,156 +6046,37 @@ async function openDocDictionary() {
 renderDocTools();
 
 // =============================================================================
-// The document's own undo stack, PLAN.md §2 D3
+// Undo, and where it comes from now (PLAN.md §2 D3, DOCUMENTS_PLAN Phase 2)
 // =============================================================================
 //
-//: **Why the browser's own undo is not enough here, stated plainly.** A
-//: `<textarea>` keeps a native undo history, and `docReplaceRange` exists
-//: specifically so the toolbar's edits stay inside it (read its comment). That
-//: history belongs to *one element*, and the editor used to have more than
-//: one: Source was `#doc-content` while Live gave every paragraph its own
-//: textarea, created when you clicked into it and destroyed when you left. So:
-//:
-//:   - Type in Live, switch to Source, press Ctrl+Z, the textarea you are now
-//:     in never saw that edit, so its history has nothing to give back. That
-//:     is the exact acceptance line in PLAN.md D3, and it was broken.
-//:   - Type in one Live paragraph, click into another, come back, the first
-//:     block's textarea was replaced by a re-render, and its history went with
-//:     it.
-//:
-//: The fix was a stack that belongs to the *document*, not to an element: the
-//: surface's own text is the single source of truth every mode writes
-//: through, so snapshotting it is the one recording that cannot miss a mode.
-//:
-//: **This is now the fallback's history only** (DOCUMENTS_PLAN Phase 2
-//: decision 6). CodeMirror keeps a real one, over transactions rather than
-//: over snapshots, and `docUndoRecord` stands aside where the engine is
-//: mounted: two histories fed by the same edits is the shape where Ctrl+Z
-//: walks one of them while the editor shows the other. Kept rather than
-//: deleted because the textarea is still the surface when the bundle cannot
-//: be loaded, and it has exactly the problem this was written for.
-//:
-//: **Full snapshots, not diffs.** A document is text a person writes; 200 of
-//: them is a few megabytes at worst and the arithmetic is trivial to get
-//: right, where an operational-transform log is neither. The *application* of
-//: a snapshot is still a minimal range edit (`docUndoDiffRange` below), so
-//: what reaches the DOM is the small change, not a whole-document rewrite.
-const DOC_UNDO_LIMIT = 200;
-//: Long enough that a burst of typing is one undo, short enough that pausing
-//: to think starts a new one, the window every editor uses for this.
-const DOC_UNDO_COALESCE_MS = 500;
-
-const docUndoStack = [];
-//: The index of the entry that matches what is on screen. Redo is everything
-//: after it, which is why a fresh edit truncates rather than clearing: the
-//: pointer *is* the redo stack.
-let docUndoAt = -1;
-let docUndoLastPushAt = 0;
-//: Set by `docUndoBreak` before a scripted edit (a toolbar button, an indent,
-//: a block move) so it can never be swallowed into the typing burst that
-//: happened to precede it by less than half a second.
-let docUndoBoundary = false;
-//: True while an undo/redo is being applied. Everything downstream of an edit
-//: ends at `markDocDirty`, which records: so without this an undo would push
-//: itself onto the stack it just walked back.
-let docUndoApplying = false;
-//: The selection as it was *before* the edit now being recorded.
-//: `selectionchange` gives it to us one event ahead of `input`, which is the
-//: only reason undo can put the caret back where the user's hand was rather
-//: than where the edit left it. Kept in the document's coordinates so a Live
-//: selection is comparable with a Source one.
-let docUndoPreSelection = null;
-
-//: The selection in document coordinates. One editor means one set of them,
-//: so this is now the surface's own answer; the live-block translation it used
-//: to need went with the per-paragraph boxes.
-function docUndoSelectionNow() {
-  const box = docToolsBoxFor(document.activeElement);
-  if (!box) return null;
-  const range = box.selection();
-  return { start: range.from, end: range.to };
-}
-
-function docUndoReset(content) {
-  docUndoStack.length = 0;
-  docUndoStack.push({ content: content ?? "", start: 0, end: 0, mode: docView });
-  docUndoAt = 0;
-  docUndoLastPushAt = 0;
-  docUndoBoundary = false;
-  docUndoPreSelection = null;
-}
-
-//: Force the next record to start a new entry. Called at the top of every
-//: scripted edit, *before* it runs, after would be too late, because the
-//: record happens inside the edit.
-function docUndoBreak() {
-  docUndoBoundary = true;
-}
-
-//: **The one recording point, and it is `markDocDirty`.** Every path that
-//: changes this document's text ends there: typing in Source, typing in a Live
-//: block (its `input` handler syncs `#doc-content` first), the toolbar via
-//: `finishMarkdownEdit`, indent, comment-toggle, block move/duplicate/delete,
-//: find-and-replace, the AI edit. Hooking the one funnel rather than eight
-//: call sites is what stops a ninth from being added without an undo entry, 
-//: this repo's "features that never ran once" shape, in reverse.
-function docUndoRecord() {
-  if (docUndoApplying) return;
-  //: **Not while CodeMirror is the surface** (DOCUMENTS_PLAN Phase 2 decision
-  //: 6). The engine keeps a real history of its own, over transactions rather
-  //: over snapshots, and two histories fed by the same edits is the shape
-  //: where Ctrl+Z walks one of them and the editor shows the other. The stack
-  //: below stays for the fallback textarea, which has the problem it was
-  //: written for.
-  if (docCmView) return;
-  const source = docSurface();
-  if (!source) return;
-  const content = source.text;
-  if (docUndoAt < 0) {
-    //: No baseline yet (a document opened before this ran, or a brand-new
-    //: one). Seeding with the *current* text would make the first edit
-    //: un-undoable, so seed and return: the next edit gets a real boundary.
-    docUndoReset(content);
-    return;
-  }
-  const top = docUndoStack[docUndoAt];
-  //: Title edits call `markDocDirty` too, and a caret move is not a change.
-  if (top.content === content) return;
-  const now = performance.now();
-  const after = docUndoSelectionNow() || { start: source.selection().from, end: source.selection().to };
-  const entry = { content, start: after.start, end: after.end, mode: docView };
-  const coalesce =
-    !docUndoBoundary &&
-    docUndoAt === docUndoStack.length - 1 &&
-    now - docUndoLastPushAt < DOC_UNDO_COALESCE_MS;
-  docUndoBoundary = false;
-  docUndoLastPushAt = now;
-  if (coalesce) {
-    //: Replace the top rather than push: the entry *below* it is still the
-    //: state undo goes back to, so a burst of typing stays one press.
-    docUndoStack[docUndoAt] = entry;
-    return;
-  }
-  //: The entry being left behind is what undo will restore, so it takes the
-  //: selection the user had when they started this edit, not the caret the
-  //: previous burst finished at. Without this, undoing a Bold gives the text
-  //: back with the caret somewhere else, and the word you were working on is
-  //: no longer selected to try again.
-  if (docUndoPreSelection) {
-    top.start = docUndoPreSelection.start;
-    top.end = docUndoPreSelection.end;
-  }
-  docUndoStack.length = docUndoAt + 1;
-  docUndoStack.push(entry);
-  if (docUndoStack.length > DOC_UNDO_LIMIT) docUndoStack.shift();
-  docUndoAt = docUndoStack.length - 1;
-}
+// **What used to be here.** A stack of whole-document snapshots, 200 deep,
+// coalesced on a 500 ms window, fed from `markDocDirty` and applied as a
+// minimal range edit. It existed for one reason, and the reason was the Live
+// view: a `<textarea>` keeps a native undo history, but that history belongs
+// to *one element*, and Live gave every paragraph its own textarea, created
+// when you clicked into it and destroyed when you left. Type in Live, switch
+// to Source, press Ctrl+Z, and the box you were now in had never seen the
+// edit. That is PLAN D3's own acceptance line, and it was broken.
+//
+// **Why it goes.** Phase 2 leaves exactly one editing surface in every view.
+// Where the engine is mounted, CodeMirror keeps a real history over
+// transactions, which is strictly better than snapshots: it knows what
+// changed rather than inferring it, it survives a view switch because there
+// is no second box to switch to, and one Ctrl+Z undoes a Replace all as one
+// thing. Where the engine is not mounted the surface is a single textarea
+// with its own native history, and `docReplaceRange` already keeps the
+// toolbar's edits inside it. Neither case has the problem the stack was
+// written for, and keeping two histories fed by the same edits is the shape
+// where Ctrl+Z walks one of them while the editor shows the other.
+//
+// What survives is the diff, because the surface adapter uses it to turn "the
+// document is now this string" into the one edit that was actually made.
 
 //: The smallest range that differs, as `[from, to, text]` against `before`.
-//: Common prefix and common suffix, enough to turn "the document is now this
-//: string" into the one insertion or deletion a person actually made, which is
-//: what keeps `docReplaceRange` (and with it the native history) from seeing
-//: every undo as a full rewrite.
+//: Common prefix and common suffix, enough to turn a whole rebuilt document
+//: into the one insertion or deletion a person made, which is what keeps a
+//: caller that hands over a full string from costing the length of the
+//: document and from collapsing into a single undoable rewrite.
 function docUndoDiffRange(before, after) {
   let start = 0;
   const shortest = Math.min(before.length, after.length);
@@ -6449,114 +6091,44 @@ function docUndoDiffRange(before, after) {
   return [start, before.length - tail, after.slice(start, after.length - tail)];
 }
 
-//: Put the caret back, in whichever mode is on screen now. An entry records
-//: the mode it was made in, but undo deliberately does **not** switch view:
-//: pressing Ctrl+Z and having the editor change mode under you is a worse
-//: surprise than the caret landing in the pane you are already looking at.
-function docUndoRestoreSelection(entry) {
-  const box = docSurface();
-  if (!box) return;
-  box.focus();
-  const max = box.text.length;
-  box.setSelection(Math.min(entry.start, max), Math.min(entry.end, max));
+//: **A scripted edit is its own undo step.** Called at the top of every one
+//: (a toolbar button, an indent, a comment toggle), *before* it runs. On the
+//: engine it arms an `isolateHistory` annotation that the next transaction
+//: carries, so a Bold pressed half a second after typing cannot be folded
+//: into the sentence it was applied to; on the fallback textarea the
+//: browser's own history already breaks on a scripted `insertText`.
+let docCmBreakNext = false;
+
+function docUndoBreak() {
+  docCmBreakNext = true;
 }
 
-function docUndoApply(entry) {
-  const source = docSurface();
-  if (!source) return;
-  docUndoApplying = true;
-  try {
-    if (source.text !== entry.content) {
-      const [from, to, text] = docUndoDiffRange(source.text, entry.content);
-      if (docView === "live" || docView === "rendered") {
-        //: `#doc-content` is hidden in these modes, and `execCommand` needs a
-        //: focusable, visible target: it silently returns false on a hidden
-        //: textarea, which is this repo's "a policy silently refusing the
-        //: work" shape. A direct write is correct here: the Live boxes are
-        //: about to be rebuilt anyway, so there is no native history to keep.
-        source.text = entry.content;
-      } else {
-        //: Through the browser's own edit pipeline, so the native history
-        //: stays coherent with ours instead of being wiped by a `.value`
-        //: assignment: the reason `docReplaceRange` exists.
-        docReplaceRange(source, from, to, text);
-      }
-    }
-    markDocDirty();
-    renderDocPreview();
-    renderDocGutter();
-    //: **Before the caret is placed, not after.** `renderDocTools` runs the
-    //: prose pass, and that re-renders the Live view (`renderDocProse`'s last
-    //: lines): so doing it afterwards would tear out the very block this is
-    //: about to put the caret in and leave the selection on a detached node.
-    renderDocTools();
-    docUndoRestoreSelection(entry);
-  } finally {
-    docUndoApplying = false;
-  }
+//: Consumed by the adapter's own dispatches. Returns `undefined` rather than
+//: an empty array when nothing is armed, because that is what CodeMirror
+//: expects for "no annotations".
+function docCmIsolate() {
+  if (!docCmBreakNext) return undefined;
+  docCmBreakNext = false;
+  const CM = window.CM6;
+  return CM ? CM.commands.isolateHistory.of("before") : undefined;
 }
 
 function docUndo() {
-  //: The engine's own history where there is one, so the toolbar's Undo
-  //: button and Ctrl+Z are the same action rather than two that disagree.
-  if (docCmView && window.CM6) return window.CM6.commands.undo(docCmView);
-  if (docUndoAt <= 0) return false;
-  docUndoAt -= 1;
-  docUndoApply(docUndoStack[docUndoAt]);
-  return true;
+  const CM = window.CM6;
+  if (docCmView && CM) return CM.commands.undo(docCmView);
+  //: The fallback is one textarea, so the browser's own history is the right
+  //: one and a second would only disagree with Ctrl+Z: which is what
+  //: `applyMarkdown`'s own comment said before Live ever existed.
+  docSurface()?.focus();
+  return document.execCommand("undo");
 }
 
 function docRedo() {
-  if (docCmView && window.CM6) return window.CM6.commands.redo(docCmView);
-  if (docUndoAt < 0 || docUndoAt >= docUndoStack.length - 1) return false;
-  docUndoAt += 1;
-  docUndoApply(docUndoStack[docUndoAt]);
-  return true;
+  const CM = window.CM6;
+  if (docCmView && CM) return CM.commands.redo(docCmView);
+  docSurface()?.focus();
+  return document.execCommand("redo");
 }
-
-//: **Capture phase, and it stops the event.** Two other handlers would
-//: otherwise see Ctrl+Z: the browser's native undo for whichever textarea has
-//: focus (the history this replaces, and the one that is *wrong* the moment a
-//: mode switch or a Live re-render has happened), and app.js's global shortcut
-//: table: that one already declines inside a text field, deliberately (see
-//: its comment), so this is the handler that fills the hole it leaves.
-document.addEventListener(
-  "keydown",
-  (event) => {
-    if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
-    if (!docToolsBoxFor(event.target)) return;
-    const key = event.key.toLowerCase();
-    const undo = key === "z" && !event.shiftKey;
-    //: Ctrl+Shift+Z *and* Ctrl+Y: the first is what this app's own shortcut
-    //: sheet publishes, the second is what Windows editors have used for
-    //: thirty years and what half the people who press it will reach for.
-    const redo = (key === "z" && event.shiftKey) || key === "y";
-    if (!undo && !redo) return;
-    event.preventDefault();
-    event.stopPropagation();
-    if (undo) docUndo();
-    else docRedo();
-  },
-  true
-);
-
-//: The pre-edit selection, one event ahead of the edit. Not merged into the
-//: status bar's `selectionchange` listener above: that one returns early when
-//: the caret is outside the editor, which is exactly when this needs to keep
-//: the last editor selection it saw.
-document.addEventListener("selectionchange", () => {
-  if (docUndoApplying) return;
-  const now = docUndoSelectionNow();
-  if (now) docUndoPreSelection = now;
-});
-
-//: A baseline for a document that was already on screen when this file loaded
-//: (a reload straight onto the Documents tab). `openDocument` resets the stack
-//: for every deliberate open; this covers the one case it cannot.
-document.addEventListener("focusin", (event) => {
-  if (!docToolsBoxFor(event.target)) return;
-  if (docUndoAt < 0) docUndoReset(docText());
-});
 
 // =============================================================================
 // The engine: CodeMirror 6 under the documents editor (DOCUMENTS_PLAN Phase 2)
@@ -6782,8 +6354,7 @@ function docCmTheme(CM) {
       ".cm-md-image": { maxWidth: "100%", borderRadius: "var(--radius-sm)" },
 
       //: --- the prose findings ---------------------------------------------
-      //: The same three shapes the backdrop draws, so a word is marked the
-      //: same way whichever surface is under the editor. Wavy for a spelling
+      //: Three shapes, one per kind of claim. Wavy for a spelling
       //: the checker is sure about, wavy in the accent for a style note,
       //: dotted for a repeated word: three, because three is what a reader can
       //: decode at a glance from the shape of a line.
@@ -6925,17 +6496,7 @@ function docCmUpdate(update) {
     docToolsOnInput(docSurface());
     if (!$("doc-suggest-menu")?.classList.contains("hidden")) closeDocSuggest();
   }
-  if (update.selectionSet) {
-    renderDocCaret();
-    //: The pre-edit selection the undo stack needs. `selectionchange` does
-    //: fire for a contenteditable, but for a typed character it arrives after
-    //: the edit, which is one event too late to be the selection the writer
-    //: started from.
-    if (!docUndoApplying) {
-      const now = docSurface().selection();
-      docUndoPreSelection = { start: now.from, end: now.to };
-    }
-  }
+  if (update.selectionSet) renderDocCaret();
 }
 
 //: **The prose findings, as decorations** (DOCUMENTS_PLAN Phase 2 decision 5).
@@ -6963,7 +6524,7 @@ function docFindingsPlugin(CM) {
     const text = view.state.doc.toString();
     const ranges = [];
     docProseFound.forEach((finding, index) => {
-      if (DOC_BACKDROP_SKIP.has(finding.rule)) return;
+      if (DOC_FINDING_SKIP.has(finding.rule)) return;
       if (text.slice(finding.start, finding.end) !== finding.text) return;
       const visible = view.visibleRanges.some(
         (range) => finding.start < range.to && finding.end > range.from
@@ -7028,10 +6589,8 @@ function mountDocEditor(CM) {
   $("doc-source-wrap")?.classList.add("has-cm");
   //: The column beside the textarea is not the editor's gutter any more
   //: (decision 7), so it is taken down rather than left numbering a box
-  //: nobody can see, and the backdrop with it: findings become decorations in
-  //: step 4, and until then Source view is a plain highlighted editor.
+  //: nobody can see.
   applyDocGutter();
-  docSyncBackdrop();
   wireDocSurfaceScroll(docSurface());
   docWatchAppearance();
   return docCmView;
@@ -7149,7 +6708,8 @@ function docHeadingFold(CM) {
 //: A different document is a different history: carrying the previous one
 //: over would let Ctrl+Z paste the last document's text into this one, which
 //: is the worst kind of undo bug because it reads as the app corrupting your
-//: file. The textarea path says the same thing through `docUndoReset`.
+//: file. `setState` replaces the history along with the text, which is the
+//: whole reason this is not a change transaction.
 function docResetDocument(text) {
   const CM = window.CM6;
   if (!docCmView || !CM) {

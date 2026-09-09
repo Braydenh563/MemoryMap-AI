@@ -416,6 +416,29 @@ merge those and re-brief the rest from its brief.
 | `abcdedfb8d9f9f2bf` | Timeline redesign | 8817 | **Paused** to save usage after the audit; resume with SESSION_BRIEFS Brief 5 |
 | `a228ba0fe38c417dc` | Paragraphs to '?' popovers | 8818 | **Paused**; 54 paragraphs left; resume with Brief 4 |
 
+### The whole-app visual pass, 2026-09-09
+
+Run once, at the end, because every batch this session was measured in its
+own area and none against the others. `scratchpad/ui-sweeps/finalqa.js`.
+
+Covered: dashboard, notes and its four sub-tabs, chat, graph, library and
+its eight sub-tabs including an opened board and an opened document,
+timeline, reminders, and all seventeen settings sections, at 1440 and 1024
+in both themes, so four full passes, plus five menus at both widths.
+
+**Zero console, JavaScript and HTTP errors in all four passes.**
+
+One real finding, written down rather than fixed: the Library's Contents
+dock wraps to two lines at 1024 in both themes (row tops 162 and 206, with
+Collapse all, refresh and help pushed under the four-way segment). `.dock`'s
+`flex-wrap: wrap` is a deliberate recipe, so narrowing the segment against
+moving the actions behind a kebab is a design call rather than a small fix.
+The boards dock met the same shape today and took the kebab, which is the
+answer this one should take too.
+
+The pass also independently observed the kebab's first click and the chat
+header holding up, which were the two "reasoned, never observed" items.
+
 ### The section 6 review of this branch, run 2026-09-09
 
 CLAUDE.md section 6 names four shapes to look for in work that came from

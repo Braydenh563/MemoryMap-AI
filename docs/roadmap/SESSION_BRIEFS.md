@@ -899,7 +899,10 @@ absorbed into MODERNISATION_AUDIT. INBOX 48 lazy modules. TIMELINE_PLAN
 in full.
 
 ### The gates that do not move
-Lint set green after each step; the full suite once per merge; errors.js
+Lint set and targeted tests green after each step (`scripts/gate.sh
+--changed`); the full suite in CI on push, locally only once before a
+large agent task's final report and once before the PR closes, never per
+step or per merge; errors.js
 at four widths; contrast.js; docks.js; touch.js; weight.js under 10%
 blurred at rest with the art off; every number in the plan's Built block;
 no em-dashes, no exclamation marks, sentence case; commit trailers;

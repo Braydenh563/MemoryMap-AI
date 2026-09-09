@@ -66,9 +66,14 @@ full text, with the reasons, is the block at the top of
 5a. **Speed without losing quality** (the owner's ask, 2026-09-08). Three
    rules, none of which trims a measurement:
    - An agent runs the targeted tests for the files it touched plus the
-     lint set after each step, and the full eight-minute suite once,
-     before its final report. The orchestrator runs the full suite once
-     per merge, not once per agent.
+     lint set (`scripts/gate.sh --changed`) after each step. **The full
+     suite is not routine** (the owner, 2026-09-09: it is ten to fifteen
+     minutes now): CI runs it on every push; locally it runs only when
+     absolutely needed, meaning once before a large agent task's final
+     report (a backend move, a multi-file surface), once at the end of a
+     session before the PR closes (HANDOVER done-when item 7), or when a
+     change touches something the targeted tests cannot see (migrations,
+     the event bus, conftest). Never per step, never per merge.
    - A brief names the files, selectors and line areas, the plan's
      measured numbers, and the sweep script to run, so the agent starts
      at the change, not at orientation. Most agent tokens otherwise go to
@@ -215,13 +220,19 @@ new" is a fact rather than a guess.
 
 - **Do not install torch or `sentence-transformers`.** Install by hand:
   `python3 -m venv .venv && .venv/bin/pip install fastapi "uvicorn[standard]" SQLAlchemy alembic python-dotenv requests numpy "fsspec[http]" bcrypt cryptography python-multipart pytest httpx ruff defusedxml`
-- `python -m pytest tests/`: 2,700+ tests, about eight minutes, all green.
-  Keep it that way. `PYTHONPATH=src` is needed to run the app.
+- `python -m pytest tests/`: 2,800+ tests, ten to fifteen minutes, all
+  green. Keep it that way, but run it locally only when absolutely
+  needed (`scripts/gate.sh --full`: the end of a large agent task, the
+  end of a session); CI runs it on every push. `PYTHONPATH=src` is
+  needed to run the app.
 - `.venv/bin/ruff check .` before pushing; CI runs it and CodeQL.
 - `scripts/gate.sh` is the merge gate in one command: the lint set,
-  `node --check`, ruff; `--full` adds the suite; `BASE=... --sweeps` adds
-  errors, docks, contrast and touch against a running app. Run it before
-  every push and paste its five lines into the report.
+  `node --check`, ruff; `--changed` adds the tests that name the files
+  changed since `origin/main` (the routine local gate); `--full` adds
+  the whole suite (only when absolutely needed, standing order 5a);
+  `BASE=... --sweeps` adds errors,
+  docks, contrast and touch against a running app. Run it before every
+  push and paste its five lines into the report.
 - `node --check frontend/<file>.js` after any JS edit; there is no bundler.
 - The lints that exist because the suite cannot see the DOM:
   `test_style_scale.py`, `test_ui_signatures.py`, `test_css_braces.py`,

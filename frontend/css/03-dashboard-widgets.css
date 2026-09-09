@@ -406,8 +406,6 @@ header#top-bar select,
 :root[data-glass="off"] .wb-stroke-width-badge,
 :root[data-glass="off"] .chat-skills-panel,
 :root[data-glass="off"] .note-picker-panel,
-:root[data-glass="off"] .library-image-tile .library-image-edit,
-:root[data-glass="off"] .library-image-tile .library-image-delete,
 /* The region offer (Phase 7.4) is glass like every other floating panel, so it
    has to be on this list too, DESIGN.md says so in as many words: "Adding a
    new glass surface means adding it to that list too", and a panel missing
@@ -428,6 +426,8 @@ header#top-bar select,
    surfaces that blurred on their own and stayed glassy with the setting
    off. Every one is here now; the lint fails on the next. */
 :root[data-glass="off"] .library-image-menu-list,
+:root[data-glass="off"] .library-image-tile,
+:root[data-glass="off"] .library-image-tile .library-image-menu-btn,
 :root[data-glass="off"] #global-find-bar,
 :root[data-glass="off"] #status-clock-detail,
 :root[data-glass="off"] .answer,

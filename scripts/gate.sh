@@ -2,7 +2,10 @@
 # The merge gate, in one command, so no merge skips a step it is tired of:
 #
 #   scripts/gate.sh            # lint set + node --check + ruff (about 40 s)
-#   scripts/gate.sh --full     # plus the full suite (about nine minutes)
+#   scripts/gate.sh --changed  # plus the tests that name files changed since
+#                              # origin/main (the routine local gate)
+#   scripts/gate.sh --full     # plus the whole suite (10 to 15 minutes: CI runs
+#                              # it on push; locally once before the PR closes)
 #   BASE=http://127.0.0.1:8784 scripts/gate.sh --sweeps   # plus errors, docks,
 #                                                          # contrast, touch on a running app
 #
@@ -15,10 +18,11 @@ cd "$ROOT"
 PY="${PY:-$ROOT/.venv/bin/python}"
 LOG="${GATE_LOG:-$ROOT/.gate}"
 mkdir -p "$LOG"
-FULL=0; SWEEPS=0
+FULL=0; SWEEPS=0; CHANGED=0
 for arg in "$@"; do
   case "$arg" in
     --full) FULL=1 ;;
+    --changed) CHANGED=1 ;;
     --sweeps) SWEEPS=1 ;;
   esac
 done
@@ -38,6 +42,30 @@ step lints "$PY" -m pytest -q -p no:warnings "${LINTS[@]}"
 node_check() { local bad=0; for f in frontend/*.js; do node --check "$f" || bad=1; done; return $bad; }
 step node-check node_check
 step ruff "$ROOT/.venv/bin/ruff" check .
+# --changed: every changed test file, plus tests/test_<stem>*.py for each
+# changed source or frontend file (routes_files.py -> test_files*.py and
+# test_routes_files*.py; graph.js -> test_graph*.py), for the files changed
+# since the last push (the branch's upstream; GATE_BASE overrides) plus the
+# working tree. Not since origin/main: on a long branch that is the whole
+# suite again. It prints the list it picked so a miss is visible.
+changed_tests() {
+  local base; base="${GATE_BASE:-$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || echo HEAD~1)}"
+  { git diff --name-only "$base"; git diff --name-only; git ls-files --others --exclude-standard; } | sort -u |
+  while read -r f; do
+    case "$f" in
+      tests/test_*.py) [ -f "$f" ] && echo "$f" ;;
+      src/memorymap/*.py|src/memorymap/*/*.py|frontend/*.js|frontend/css/*.css)
+        stem="$(basename "$f")"; stem="${stem%.*}"
+        ls tests/test_"${stem}"*.py 2>/dev/null
+        case "$stem" in routes_*) ls tests/test_"${stem#routes_}"*.py 2>/dev/null ;; esac ;;
+    esac
+  done | sort -u
+}
+if [ "$CHANGED" = 1 ]; then
+  mapfile -t TARGETED < <(changed_tests)
+  if [ "${#TARGETED[@]}" = 0 ]; then skipped+=("changed-tests (none matched)");
+  else echo "changed-tests: ${TARGETED[*]}"; step changed-tests "$PY" -m pytest -q -p no:warnings "${TARGETED[@]}"; fi
+else skipped+=("changed-tests (--changed)"); fi
 if [ "$FULL" = 1 ]; then step full-suite "$PY" -m pytest -q -p no:warnings tests/; else skipped+=("full-suite (--full)"); fi
 if [ "$SWEEPS" = 1 ]; then
   export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}"

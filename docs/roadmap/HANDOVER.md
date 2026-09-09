@@ -74,7 +74,8 @@ PR's.
 - [ ] 6. Mind map previews (INBOX 68) acceptable in the dashboard widget
       and the Library gallery (the board's real shapes at its aspect, no
       inner scrollbar).
-- [ ] 7. The full suite green on the final head; ruff and CodeQL green;
+- [ ] 7. The full suite green on the final head (the one local run this
+      PR gets; CI covers every push in between); ruff and CodeQL green;
       no open CodeQL threads; the branch mergeable.
 - [ ] 8. Documentation: every Built block of the merged phases in
       HISTORY (the lint holds it), INBOX holding open items only, the
@@ -347,9 +348,12 @@ merge those and re-brief the rest from its brief.
 
 ### Merge recipe (every time, no shortcuts)
 
-The whole recipe below is `scripts/gate.sh --full` plus
+The whole recipe below is `scripts/gate.sh --changed` plus
 `BASE=<port> scripts/gate.sh --sweeps` against a fresh server; the steps
-are listed so a failure can be read.
+are listed so a failure can be read. The full suite is not part of a
+merge: CI runs it on the push; locally it runs once before a large
+agent task's final report and once before the PR closes (done-when
+item 7), never per step or per merge.
 
 1. `git merge --no-edit worktree-agent-<id>`; on a conflict in
    `07-whiteboard-misc.css` keep BOTH sides (both append), then run

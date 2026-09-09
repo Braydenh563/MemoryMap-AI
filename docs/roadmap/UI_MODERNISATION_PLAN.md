@@ -551,3 +551,43 @@ menus that open out of their opener.
     Run button per skill, a "Continue" tile for the last note or document
     touched; the band's height unchanged.
 
+## Placed from INBOX, 2026-09-09 (the owner's evening batch)
+
+Global, cross-surface. Phase 9 (responsive) and Phase 10 (Liquid Glass)
+own most of these.
+
+- "ctrl s for saving settings changes while on the settings modal doesnt
+  work and it needs visual confirmation as well."
+- "there are also still wrapping issues in the packages tab with the
+  buttons, titles, and badges" (screenshot: the Tesseract row's title, its
+  Installed badge, and Reinstall / Remove on three lines).
+- "when I press 'm' for the quick nav, the popup notification is broken
+  visually. also I want it to be more of a whole screen subtle but
+  noticable guide like with the zoom visual thingo" (screenshot: the hint
+  wrapping "m" and "then" onto two lines beside the key chips).
+- "also add a shortcut for 'm' + 's' for opening up settings, maybe 'm' +
+  'q' for quick sketch?? maybe 'm' + 'm' or 'v' (for voice) for meeting
+  notes or smth??"
+- "the panels and sidebars in windows actually go quite far down below
+  where the scroll should stop, and the ai skill sidebar isnt 100%
+  height."
+- "the containers of all the ui in each tab page have hard corner
+  rectangular edges so I want that fixed because the shadows make the cut
+  off pretty obvious."
+- "also no back to top button appears on the dashboard??"
+- "the heatmap on the dashboard is a little small."
+- "glass looks better on light mode and not dark but idk if thats an actual
+  thing or if the values are different." It is an actual thing: the dark
+  palette's `--card` alpha and `--glass-highlight` are not the light one's
+  mirrored, so the same blur reads flatter. Measure both before changing
+  either.
+- "the links edit save and cancel buttons arent consistent" (screenshot: an
+  accent pill beside a grey rounded rectangle at a different radius and
+  height).
+- "the words 'write something first' is at the bottom of the note capture
+  tab when I didnt do anything?? maybe I fumbled a button": a validation
+  message shown on load rather than on submit.
+- "I was in the ocr workspace and the model dropdown combobox at the top
+  bar didnt open."
+- "I think the screen shots on the readme need an update from all the ui
+  changes."

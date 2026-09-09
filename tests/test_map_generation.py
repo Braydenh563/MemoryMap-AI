@@ -253,6 +253,9 @@ def test_deleting_a_generated_map_leaves_its_notes(client):
         json={"name": "Doomed", "outline": "- Root\n  - Entropy\n", "note_ids": [notes[0]["id"]]},
     ).json()
 
-    assert client.delete(f"/entries/{board['id']}").status_code == 200
-    assert client.delete(f"/entries/{board['id']}/purge").status_code == 200
-    assert client.get(f"/entries/{notes[0]['id']}").status_code == 200
+    deleted = client.delete(f"/entries/{board['id']}")
+    assert deleted.status_code == 200
+    purged = client.delete(f"/entries/{board['id']}/purge")
+    assert purged.status_code == 200
+    still_there = client.get(f"/entries/{notes[0]['id']}")
+    assert still_there.status_code == 200

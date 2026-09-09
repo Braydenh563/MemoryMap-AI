@@ -245,6 +245,9 @@ notes) is not repeated here; see `docs/roadmap/` for that record.
   readable in dark theme and with glass off.
 
 **Documents**
+- CodeMirror 6 vendored (`frontend/vendor/codemirror/`, built by its own
+  script from pinned versions, licence beside it) and verified under the
+  app's CSP; the editor moves onto it next.
 - Phase 0: the fifth bug and the states checked, recorded and built.
 - Phase 1: the chrome, three questions in three places, plus one header
   row where the formatting strip only appears when asked for.
@@ -328,6 +331,13 @@ notes) is not repeated here; see `docs/roadmap/` for that record.
   new widgets.
 
 **Settings and the popup agent**
+- Performance mode (Effects & accessibility): flat panels, no animations
+  and slower graph physics, auto-on for a machine with 4 cores or 4 GB or
+  fewer or when the OS asks for less transparency, said once in a toast.
+  With the animated background on, cards still frost it.
+  Glass itself now blurs only where something scrolls under a surface or
+  where it floats (the top bar, sub-tab strips, dialogs, docks, popovers):
+  the blurred area at rest fell from a third of the screen to under a tenth.
 - The popup agent gets a slot beside the Ctrl-K hint, on by default and
   hideable like every other slot.
 - One integrated toggle row everywhere (switch leading), replacing the
@@ -361,6 +371,10 @@ notes) is not repeated here; see `docs/roadmap/` for that record.
   costs nothing, and a fifth of the blurred layers left, none nested.
 
 **Launcher, installer and uninstaller**
+- `start-desktop.bat` no longer fails after the update check with
+  `"...\--desktop" is not recognized`: the launcher captures its own path
+  before parsing flags, since SHIFT moved %0 along with them.
+- The splash's step marquee sits under the step text instead of across it.
 - `start.sh`/`start.bat`/`start-desktop.sh`/`start-desktop.bat`: one flag
   set, a doctor, a log for every run, and a splash screen shared by all
   three surfaces.

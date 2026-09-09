@@ -5661,6 +5661,13 @@ function filterLibraryImagesGallery() {
           caption_model: updated.caption_model,
           caption_edited: updated.caption_edited,
         });
+        //: Reported: "image captioning just straight up didn't work with no
+        //: notification, log or anything". The route answers 200 with an
+        //: empty caption when no vision model answers, and silence here read
+        //: as a dead button. Say so, once, with the likely cause.
+        if (!updated.caption) {
+          toast(updated.message || "No description was written. Is a vision model running in Settings > Models?", true);
+        }
       } catch (error) {
         captionText.textContent = previousCaptionText;
         syncCaptionBadge();

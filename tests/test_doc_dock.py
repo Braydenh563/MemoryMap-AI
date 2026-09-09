@@ -98,7 +98,12 @@ def test_the_name_and_the_type_share_a_row():
     1018px, it was 20px too wide with the select still in it."""
     identity = HTML.split('class="doc-dock-identity"')[1].split("</span>")[0]
     assert 'id="doc-title"' in identity
-    assert 'id="doc-file-type"' in identity
+    # DOCUMENTS Phase 1 moved the file type off the identity row into the
+    # dock's ⋯ menu (its "File type" section): the row is the title alone and
+    # the action row stays at five controls.
+    menu = HTML.split('id="doc-dock-menu"')[1].split("</details>")[0]
+    assert 'id="doc-file-type"' in menu
+    assert 'id="doc-file-type"' not in identity
 
 
 def test_printing_still_hides_the_dock():

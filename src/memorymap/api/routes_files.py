@@ -410,10 +410,14 @@ def analyse_attachment(
             )
         if attachment.caption and not body.force:
             return _attachment_out(session, attachment)
+        # `pdf_vision_reader` returns the reader callable itself (docview's
+        # `vision_reader` contract), not an object with a `.read`: calling
+        # `.read(path)` on it was the reported 500 on "generate a caption" for
+        # a PDF ("'function' object has no attribute 'read'").
         text = (
             captioning.caption_text(path, model, ollama)
             if is_image
-            else vision_ocr.pdf_vision_reader(model, ollama).read(path)
+            else vision_ocr.pdf_vision_reader(model, ollama)(path)
         )
         attachment.caption = (text or "").strip() or None
         attachment.caption_model = model if attachment.caption else None
@@ -427,7 +431,7 @@ def analyse_attachment(
         text = (
             vision_ocr.vision_ocr_text(path, model, ollama)
             if is_image
-            else vision_ocr.pdf_vision_reader(model, ollama).read(path)
+            else vision_ocr.pdf_vision_reader(model, ollama)(path)
         )
         attachment.vision_ocr_text = (text or "").strip() or None
         attachment.vision_ocr_model = model if attachment.vision_ocr_text else None

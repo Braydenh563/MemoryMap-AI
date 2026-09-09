@@ -2,7 +2,7 @@
 
 **Worktree** `agent-ad5696bf1be5660c3`, branch
 `worktree-agent-ad5696bf1be5660c3`, cut from `claude/epic-ramanujan-8xocc0`
-at `edb6aae`. Thirteen commits, all five items of the batch done, nothing
+at `edb6aae`. Fourteen commits, all five items of the batch done, nothing
 half-finished and nothing uncommitted. Never pushed; that is the
 orchestrator's job.
 
@@ -101,7 +101,17 @@ contrast ok on all thirteen surfaces it walks; touch 0 findings at 390x844;
 `doctype.js` Live p50 24 ms against its 30 ms gate. The batch's own sweeps
 (`docseg`, `docsuggest`, `cm-reveal`, `docviews`, `docoutline`) and the
 engine's (`cm-engine`, `cm-live`, `cm-editor`, `cm-layout`, `cm-search`) all
-pass. The full suite's result is in the final report.
+pass.
+
+The full suite: **one failure, and it is not this batch's.**
+`tests/test_debug_health.py::test_renders_fast_on_an_empty_notebook` came in
+at a **median of 20.28 ms against a 20 ms budget**, 0.28 ms over, while three
+other agents' suites were running on the same box. It is a wall-clock
+assertion, this batch changes no Python at all (a diff of the branch limited
+to `*.py` is empty), and the file passes on its own in under a second with
+the load gone. Not fixed and not papered over: if it starts failing on a
+quiet machine, the budget or the endpoint is the thing to look at, not this
+branch.
 
 ## The exact next step
 

@@ -1579,6 +1579,27 @@ body.scroll-top-visible .library-view-section {
   padding-bottom: var(--scroll-top-clearance);
 }
 
+/* AI skills overrides the rule above rather than using it: reported "the ai
+   skill sidebar isnt 100% height", and it measured true, but only once
+   scrolled. `#library-view-skills` is `#skills-sidebar`'s own `100cqh`
+   ancestor (05-sidebars-themes.css), and container-query length units
+   follow the queried element's CONTENT box, which is the border box minus
+   its own padding -- so giving `#library-view-skills` itself the clearance
+   above shrinks the very size `100cqh` reads, while the sidebar's sticky
+   `top: 0` does not move. Measured at 1440x900: sidebar 711.4px tall with
+   the button hidden, 657.8px with it visible, a 53.6px gap opening under
+   its rounded bottom corner while the visible scroll area stayed 711.4px
+   -- exactly `--scroll-top-clearance`. The clearance is for the *list*, not
+   the sidebar, so it moves to the scrolling column alone, the same split
+   `#tab-notes .layout > main` already uses (04-chat-dock-appearance.css). */
+body.scroll-top-visible #library-view-skills {
+  padding-bottom: 0;
+}
+
+body.scroll-top-visible .skills-split > main {
+  padding-bottom: var(--scroll-top-clearance);
+}
+
 /* The whiteboard is the one sub-view that must NOT scroll: it pans instead,
    and its two layers are absolutely positioned inside it. */
 .library-view-whiteboard {

@@ -331,6 +331,24 @@ only appears once the dialog's own opener has filled it, which is the
 difference between `modalscroll.js` (walks every overlay, reports clean)
 and `shortcuts.js` (runs `openShortcuts()` first, reports the fault).
 
+**The one that unblocked the rest of the evening.** `start-desktop.bat`
+launches `webview.start(..., private_mode=False, storage_path=<data
+dir>/webview)` (`src/memorymap/__main__.py`), a deliberately persistent
+profile so the desktop window keeps its theme and settings between
+launches. It also keeps its cache, and every CSS/JS URL in the app is
+stamped `?v=0.3.0` (`test_asset_cache_busting.py`), a version that has
+not moved all day. A browser tab opened fresh fetches everything current;
+the desktop window has been serving whatever it cached at the first
+launch of the day, at the same URL, ever since, no matter how many fixes
+landed. The owner reported "basically all my bugs are still there"
+after a long stretch of fixes that were each individually measured
+correct against the branch; the fix is deleting the `webview` folder
+inside the data directory (not the data directory itself, that is the
+real notes) and relaunching. Every "regression" traced today (the
+heatmap, the boards widget, the skills button, the Edit/Read pill, the
+dashboard sparkline) checked out correct in code every single time; this
+is very likely why, for the whole session, not only the last hour of it.
+
 Three things this session learned the hard way, all now enforced rather
 than remembered:
 

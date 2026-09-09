@@ -201,6 +201,23 @@ Password `testpassword123`; `THEME=dark` for dark.
 - CodeQL reads `scratchpad/` too: lazy `.*?` over argv paths, unclosed
   `open()`, case-sensitive tag filters and wrong keyword arguments have
   all been flagged there.
+- **The desktop window caches independently of every browser tab, for
+  days.** `start-desktop.bat`/`.sh` launches `webview.start(...,
+  private_mode=False, storage_path=<data dir>/webview)`
+  (`src/memorymap/__main__.py`), a deliberately persistent profile so
+  settings and theme survive between launches. It also keeps its cache,
+  and every local CSS/JS URL is stamped `?v=<__version__>`
+  (`test_asset_cache_busting.py`), which does not change between commits,
+  only at a release. A browser tab opened fresh always fetches current
+  files; the desktop window, once open, may keep serving whatever it
+  cached at its first launch of the day, unchanged, no matter how many
+  fixes land after. Cost one owner report of "basically all my bugs are
+  still there" after a long stretch of fixes each individually measured
+  correct against the branch. The fix is deleting the `webview` folder
+  inside the data directory (never the data directory itself, that is
+  the real notes) and relaunching, not rebuilding or reinstalling
+  anything. When a report keeps recurring against code that measures
+  correct, ask what launched the app before re-chasing the code.
 
 ## 6. Reviewing work that came from somewhere else
 

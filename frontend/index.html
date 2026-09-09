@@ -3634,8 +3634,6 @@ Link to another note with [[its first few words]]."></textarea>
                  for in a second dialog, the extension already says which of
                  the two it is, and a picker that made you repeat it is the
                  friction this app's own bookmark-URL lesson is about. -->
-            <button id="wb-boards-generate" class="ghost small" type="button" title="Pick some notes and let the app propose a map of them"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Map from notes…</button>
-            <button id="wb-boards-import" class="ghost small" type="button" title="Import a mind map from an OPML, FreeMind or Markdown outline"><i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Import outline…</button>
             <input id="wb-import-map-file" type="file" accept=".opml,.xml,.mm,.md,.markdown,.txt" class="hidden"
               aria-label="Choose an OPML, FreeMind or Markdown outline to import as a mind map"
               title="Choose an OPML, FreeMind or Markdown outline to import as a mind map">
@@ -3646,6 +3644,32 @@ Link to another note with [[its first few words]]."></textarea>
               aria-label="What is this?">
               <i class="ph ph-question" aria-hidden="true"></i>
             </button>
+            <!-- **The ⋯ this dock never had**, and the two things it holds.
+                 The owner: "the ui at the top of the boards and maps subtab
+                 dock is broken and miss wrapped. remember responsive design!"
+                 Measured: the actions zone was 730px of six labelled buttons,
+                 which sits on one row at 1440 and drops to a row of its own at
+                 1024 and 820. `Map from notes…` and `Import outline…` are the
+                 two secondary ways to start a map (New board and New mind map
+                 are the two primary ones), which is rule 5's case exactly: a
+                 verb used sometimes lives in the menu.
+
+                 It also gives `foldDockArrange` (app.js) the destination it
+                 looks for, `:scope > .dock-actions > .dock-more >
+                 .dock-menu-list`. Without one this dock was the only Phase 8
+                 dock that could not fold its arrange zone below 1100, so the
+                 sort select and the view switch stayed in the row at every
+                 width while every other dock's folded away.
+
+                 Last in the zone: the grammar's utility order is refresh,
+                 help, more (`tests/test_dock_grammar.py`). -->
+            <details class="doc-dock-menu dock-menu dock-more" id="library-boards-more">
+              <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
+              <div class="doc-dock-menu-list dock-menu-list">
+                <button id="wb-boards-generate" class="doc-dock-menu-item" type="button" title="Pick some notes and let the app propose a map of them"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Map from notes…</button>
+                <button id="wb-boards-import" class="doc-dock-menu-item" type="button" title="Import a mind map from an OPML, FreeMind or Markdown outline"><i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Import outline…</button>
+              </div>
+            </details>
           </div>
         </div>
         <p class="muted graph-help-panel hidden" id="wb-boards-intro" role="dialog" aria-label="What is this?">Every board and concept map you have made. They are the same kind of thing, so a map you build here can be drawn on, and a board can be branched with Tab. Pick one to open it, or start a map with <strong>New mind map</strong>, beside New board above.</p>

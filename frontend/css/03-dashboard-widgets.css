@@ -1437,16 +1437,27 @@ header#top-bar select,
    this widget's width; JS reads both custom properties back rather than
    a second copy of these numbers, so widening the column (or the "wide"
    toggle, INBOX/Edit layout) still fits more real weeks in, not bigger
-   gaps. */
+   gaps.
+
+   **Reversed, 2026-09-09.** The owner: "the whole thing fits into the
+   small not wide dshboard, it looked better bigger and scrolled to the
+   right". `grid-auto-columns` was `minmax(0, 1fr)`, which divides
+   whatever width the widget has among however many weeks
+   `renderHeatmapWidget` decided to draw, so the grid could never be wider
+   than its container and never needed to scroll. A fixed column width
+   removes that: the grid's natural width is now weeks times
+   `--heat-cell-max` plus gaps, which is wider than the widget for a full
+   year, and `overflow-x: auto` is what used to be `hidden`. */
 .heatmap {
   --heat-cell-max: 12px;
   --heat-gap: 3px;
   display: grid;
   grid-auto-flow: column;
   grid-template-rows: repeat(7, auto);
-  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-columns: var(--heat-cell-max);
   gap: var(--heat-gap);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding-bottom: 0.25rem;
 }
 

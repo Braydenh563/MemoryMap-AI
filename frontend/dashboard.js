@@ -2403,32 +2403,26 @@ async function renderHeatmapWidget(body) {
   grid.className = "heatmap";
   body.appendChild(grid);
 
-  //: **Cells scale to the widget's own width instead of shrinking to fit a
-  //: whole year.** Reported "the heatmap on the dashboard is a little
-  //: small" -- measured, cells were 2.7px: 53 weeks of gaps alone (159px)
-  //: outweighed the 306px-wide widget they were squeezed into. `--heat-
-  //: cell-max`/`--heat-gap` (03-dashboard-widgets.css) are the one
-  //: declaration of both numbers; read back here rather than copied, so
-  //: they cannot drift the way the two-file duplication in this codebase
-  //: keeps getting caught. However many recent weeks fit at the real
-  //: (uncapped) size are the weeks shown -- fewer, legible squares rather
-  //: than a year of illegible ones. Re-painted on resize (the "wide"
-  //: toggle in Edit layout, or the window itself) so a widened widget
-  //: earns back more real weeks instead of stretching a fixed set into
-  //: bigger gaps.
+  //: **Full size, full year, scrolled rather than shrunk.** The first
+  //: version of this widget shrank its cells to fit whatever width the
+  //: widget had (reported "the heatmap on the dashboard is a little
+  //: small" at 2.7px cells), and the fix after that kept the cells at
+  //: their real size by showing fewer weeks instead, so nothing ever
+  //: scrolled. Reported again, 2026-09-09: "the whole thing fits into the
+  //: small not wide dashboard, it looked better bigger and scrolled to the
+  //: right" -- a year read a glance at a time is still the point, but the
+  //: owner's own preference is the wider, scrollable shape over the
+  //: cropped one, so this reverses the second fix and keeps the first: the
+  //: whole year at `--heat-cell-max` (03-dashboard-widgets.css sets the
+  //: grid's own columns to that width now, rather than a `1fr` this
+  //: function used to divide up), the grid scrolls horizontally
+  //: (`.heatmap`'s `overflow-x: auto`), and it opens scrolled to today
+  //: (below) rather than to the oldest day, so the crop this replaces is
+  //: not missed on first paint.
   function paint() {
     grid.replaceChildren();
-    const cs = getComputedStyle(grid);
-    const cellMax = Number.parseFloat(cs.getPropertyValue("--heat-cell-max")) || 12;
-    const gap = Number.parseFloat(cs.getPropertyValue("--heat-gap")) || 3;
-    const available = grid.getBoundingClientRect().width || cellMax * 7;
-    const columns = Math.max(1, Math.floor((available + gap) / (cellMax + gap)));
-    const days = Math.min(data.counts.length, columns * 7);
-    const counts = data.counts.slice(data.counts.length - days);
+    const counts = data.counts;
     const start = new Date(`${data.start}T00:00:00`);
-    // Advance past however many leading days this window dropped, so the
-    // remaining counts still line up with their real calendar dates.
-    start.setDate(start.getDate() + (data.counts.length - counts.length));
     // Pad so each column is a whole week starting on Sunday.
     const lead = start.getDay();
     for (let i = 0; i < lead; i++) {
@@ -2455,19 +2449,10 @@ async function renderHeatmapWidget(body) {
     });
   }
 
+  //: No `ResizeObserver` any more: the grid's own width no longer decides
+  //: how many weeks are drawn (the column width is fixed in CSS), so a
+  //: widget resize has nothing left for a repaint to change.
   paint();
-  if (typeof ResizeObserver !== "undefined") {
-    let queued = false;
-    const ro = new ResizeObserver(() => {
-      if (queued) return;
-      queued = true;
-      requestAnimationFrame(() => {
-        queued = false;
-        paint();
-      });
-    });
-    ro.observe(grid);
-  }
 
   const legend = document.createElement("div");
   legend.className = "heat-legend muted";

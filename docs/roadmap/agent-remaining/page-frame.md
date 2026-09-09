@@ -271,9 +271,98 @@ testing with it off reads as this bug even when it isn't):
 
 Commit `acb178a`.
 
+## Third batch: two retests the coordinator could not reach
+
+### INBOX 105 retest: the whiteboard View menu, on the real surface
+
+Owner, twice: *"the view dropdown is still overly short"*, then *"on the
+mindmap, the view dropdown is even more visually broken."* Today's
+placement fix (`aee7a19`) was measured on a menu built for the purpose,
+not the real one, and three prior attempts to open the real one failed:
+`scratchpad/ui-sweeps/viewmenu.js` clicked `[data-tab="whiteboard"]`,
+which does not exist (the whiteboard is Library's "Boards & maps"
+sub-tab, and its canvas, `#wb-canvas-view`, stays `hidden` until a board
+is actually open, not just the picker).
+
+Fixed the script (created a board and a map via the API directly, opened
+with the app's own `openWhiteboardBoard(id)`, sidestepping
+`createNewBoard()`'s naming dialog) and measured the real `#wb-view-menu`
+at 1440 and 820 wide, 900 and 640 tall, on both a plain board and a mind
+map (8 configurations): `fitsOnScreen` true and 0 unreachable cut rows in
+every one. Content height 594px (board), 674px (map, the extra "Map"
+section a mind map adds); at 640px tall it correctly scrolls inside
+itself (`maxHeight` 576px) with only the expected last-row-at-the-
+scroll-boundary partial row, which is the documented affordance, not a
+failure.
+
+**Why it already worked, despite the fix landing on the wrong function.**
+`aee7a19`'s comment claimed the whiteboard's View menu "shares this code"
+with `wireEscapedActionMenu`'s `place()` (frontend/app.js). It does not:
+that function is wired only to `enhanceSelect`'s dropdown shell and
+`kebabMenu`'s wrap, and the whiteboard's `.wb-board-menu` goes through
+its own separate implementation, `wbCapBoardMenu` in whiteboard.js (from
+an earlier fix, `e1e395b` / INBOX 43), which the toolbar's fixed
+top-of-window position makes correct in practice even though its
+algorithm is less general (it does not compare "room above" vs "room
+below" the way the newer `place()` does; it always tries below first,
+which happens to be right here since the toolbar never sits anywhere
+else). The misleading comment is corrected in commit `37eefe0` rather
+than left to send the next session hunting for shared code that is not
+there.
+
+Resolved: closed as not reproduced, `scratchpad/inbox_resolve.py 105`.
+Commits `37eefe0`, `c2d68f9`.
+
+**Not touched, worth a look if the report ever DOES reproduce**: the two
+implementations (`wireEscapedActionMenu`'s `place()` and whiteboard.js's
+`wbCapBoardMenu`/`escapeMenuIfClipped`/`placeEscapedMenu`) solve the same
+problem two different ways in two files. Neither is currently broken, so
+consolidating them is a nice-to-have, not a bug fix, and out of scope
+here.
+
+### Documents Edit/Read toggle: already fixed, confirmed with numbers
+
+Owner: *"the documents edit and read toggle options dont fit in the
+toggle and go out of it at the bottom."* `DOCUMENTS_PLAN.md`'s own entry
+had a partial reading (`.doc-dock .seg button` zeroing `padding-block`)
+but no measurement, because the dock only exists with a document open
+and three probe attempts never reached the editor.
+
+**Already fixed by another agent's work, merged in before this retest.**
+`08-consistency.css`'s `.doc-dock .seg button` rule (added since
+DOCUMENTS_PLAN.md's entry was written) gives the buttons an explicit
+centred box, `height: calc(var(--control-h) - 2 * var(--seg-pad))` with
+`min-height: 0` and `place-items: center` on the segment, exactly the
+"explicit centred box at a control-height token rather than zeroing
+their padding" this retest was asked to apply if it were still needed.
+
+Reached the real editor with `scratchpad/ui-sweeps/docopen.js` (written
+by that same agent, to solve exactly the "probe never reaches the
+editor" problem DOCUMENTS_PLAN.md recorded) and measured `#doc-view-seg`
+and its two buttons at 1440 and 1280:
+
+| Width | `.seg` height | Button height | Button top inset | Button bottom inset |
+| --- | --- | --- | --- | --- |
+| 1440 | 36px | 28px | 4px | 4px |
+| 1280 | 36px | 28px | 4px | 4px |
+
+Both buttons sit exactly 4px inside the segment's own top and bottom
+(its padding) at both widths, `scrollHeight === clientHeight` (36 = 36,
+no overflow) on the segment itself, and a screenshot shows both pills
+cleanly inside the rounded edge. **Not reproduced; no overflow at
+either width.**
+
+Per the brief ("do not touch anything else in the Documents editor: that
+agent owns it"), no code changed here, and `DOCUMENTS_PLAN.md`'s own
+entry is left for that agent to close in their own file rather than
+edited from here -- this is the confirmation measurement it was waiting
+on, recorded so it does not get re-investigated blind. No commit: nothing
+in the tree changed.
+
 ## Gate status
 
-Every commit in both batches: `scripts/gate.sh --changed` (lints, `node
---check`, ruff, plus `tests/test_dashboard_layout_cap.py` once it started
-matching) all green. Full suite not run (not routine per standing order 5a;
-CI covers it on push). Not pushed: the orchestrator merges.
+Every commit across all three batches: `scripts/gate.sh --changed`
+(lints, `node --check`, ruff, plus `tests/test_dashboard_layout_cap.py`
+once it started matching) all green. Full suite not run (not routine per
+standing order 5a; CI covers it on push). Not pushed: the orchestrator
+merges.

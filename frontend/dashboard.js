@@ -671,6 +671,25 @@ function noteQuickLinkUse(label) {
 //: belongs on the dashboard too.
 const RECENT_SKILLS_KEY = "recentSkills";
 
+//: When each of them was last run, name to ISO timestamp. A second key rather
+//: than a richer `recentSkills`, and that is deliberate: the list is written
+//: by three call sites and read by two, and a profile that has run a skill
+//: already has an array of plain strings on disk. Changing that shape in
+//: place means a migration, and the last time this list changed shape without
+//: one it left a `null` in every affected profile that broke the whole
+//: dashboard on load (see `noteSkillRun`). A separate map has no old shape to
+//: be wrong about: a name that is missing from it simply has no time to show.
+const SKILL_RUN_TIMES_KEY = "recentSkillTimes";
+
+function skillRunTimes() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(SKILL_RUN_TIMES_KEY) || "{}");
+    return stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
+  } catch {
+    return {};
+  }
+}
+
 function noteSkillRun(name) {
   // **Refuse a nameless run rather than storing it.** This guard exists
   // because the absence of it cost the whole dashboard, and the failure is
@@ -706,6 +725,14 @@ function noteSkillRun(name) {
   }
   recent = [name, ...recent.filter((n) => n !== name)].slice(0, 8);
   localStorage.setItem(RECENT_SKILLS_KEY, JSON.stringify(recent));
+  // The time goes in beside it, pruned to the names still on the list so the
+  // map cannot grow forever in a profile that tries a lot of skills.
+  const times = skillRunTimes();
+  times[name] = new Date().toISOString();
+  for (const key of Object.keys(times)) {
+    if (!recent.includes(key)) delete times[key];
+  }
+  localStorage.setItem(SKILL_RUN_TIMES_KEY, JSON.stringify(times));
 }
 
 //: A skill's name usually starts with its own emoji, "stethoscope Notebook health
@@ -752,9 +779,15 @@ function recentSkillLinks() {
   if (clean.length !== recent.length) {
     localStorage.setItem(RECENT_SKILLS_KEY, JSON.stringify(clean));
   }
+  const times = skillRunTimes();
   return clean.slice(0, QUICK_SKILL_SLOTS).map((name) => ({
     icon: "ph:lightning",
     label: withoutLeadingEmoji(name),
+    // **What the row was missing**, INBOX 60: a skill pill said only its own
+    // name, so the row could not answer "did I already run this today?",
+    // which is the question you ask before spending a model call. The other
+    // two groups carry a hint each and this one carried none.
+    hint: times[name] ? `Last run ${relativeTime(times[name])}` : "Not run yet on this device",
     // The full name, unaltered, is what the button remembers itself by: the
     // use counter and `runSkill` both key off it, and stripping the emoji from
     // either would silently start a second tally or fail to find the skill.

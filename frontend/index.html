@@ -7679,12 +7679,25 @@ Link to another note with [[its first few words]]."></textarea>
                      sub-heading larger and heavier than the heading it sits
                      under is hierarchy upside down, and nothing in the app
                      had ever styled it. -->
-                <h4 class="flush setting-subhead"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Ask the guide</h4>
+                <div class="row help-head">
+                  <h4 class="flush setting-subhead"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Ask the guide</h4>
+                  <button type="button" class="icon-only ghost small graph-help-toggle"
+                    data-help-for="help-chat-help" aria-controls="help-chat-help" aria-expanded="false"
+                    title="About this chat" aria-label="About this chat">
+                    <i class="ph ph-question" aria-hidden="true"></i>
+                  </button>
+                </div>
                 <button type="button" id="help-chat-clear" class="ghost small" title="Clear this chat and start over">
                   <i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> New chat
                 </button>
               </div>
-              <p class="muted">Quick "how do I…" answers about MemoryMap itself, from your utility model, not your notes, and nothing here is saved.</p>
+              <p class="muted">Quick app help from your utility model, not your notes.</p>
+              <div class="help-body hidden" id="help-chat-help" role="dialog" aria-label="About this chat">
+                <p>
+                  Quick "how do I…" answers about MemoryMap itself, from your
+                  utility model, not your notes, and nothing here is saved.
+                </p>
+              </div>
               <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite" aria-label="Help chat"></div>
               <form id="help-chat-form" class="row help-chat-form">
                 <input type="text" id="help-chat-input" placeholder="e.g. How do I turn off web search?" maxlength="1000" autocomplete="off" aria-label="Ask the guide a question">
@@ -8067,12 +8080,22 @@ Link to another note with [[its first few words]]."></textarea>
         <button id="shortcuts-reset" class="ghost small" type="button"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Reset to defaults</button>
       </div>
 
-      <h3>Always available</h3>
-      <p class="muted">
-        These follow the conventions every app shares, so they aren't
-        rebindable: being unable to press Escape in the dialog you rebound it
-        in is not a state worth allowing.
-      </p>
+      <div class="row help-head">
+        <h3>Always available</h3>
+        <button type="button" class="icon-only ghost small graph-help-toggle"
+          data-help-for="shortcuts-overlay-always-help" aria-controls="shortcuts-overlay-always-help"
+          aria-expanded="false" title="Why these aren't rebindable" aria-label="Why these aren't rebindable">
+          <i class="ph ph-question" aria-hidden="true"></i>
+        </button>
+      </div>
+      <p class="muted">These aren't rebindable, the same in every app.</p>
+      <div class="help-body hidden" id="shortcuts-overlay-always-help" role="dialog" aria-label="Why these aren't rebindable">
+        <p>
+          These follow the conventions every app shares, so they aren't
+          rebindable: being unable to press Escape in the dialog you rebound it
+          in is not a state worth allowing.
+        </p>
+      </div>
       <ul class="shortcut-list">
         <li><kbd>Esc</kbd><span>Close any dialog, menu, or overlay</span></li>
         <li><kbd>←</kbd> <kbd>→</kbd><span>Move between tabs (when a tab is focused)</span></li>

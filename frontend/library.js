@@ -3292,7 +3292,14 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     //: page 6 outlining part of page 1.
     ocrMoveOverlays(target);
     if (!opts.fromScroll) ocrScrollToPage(ocrWorkspacePage);
-  } else {
+  } else if (!ocrIsTextFile(image)) {
+    //: **A text file has no picture of a page, so none is asked for.** The
+    //: branch further down renders a .md, a .txt or a .docx as text and hides
+    //: this `<img>`, but the `src` was set first, to the file's own url, and a
+    //: browser handed markdown to decode as an image raises `error`: which is
+    //: how a text file used to delete `#ocr-image` from the document (see
+    //: `replaceMissingMedia` in app.js, which no longer lets it). Skipping the
+    //: assignment removes the request as well as the error.
     img.src = ocrPageImageUrl(image, ocrWorkspacePage);
     img.alt = ocrIsPdf(image)
       ? `Page ${ocrWorkspacePage + 1} of ${image.original_name}`

@@ -246,13 +246,38 @@ function mediaSrc(url) {
 // true, there was an image here and it is not available, in the app's own
 // materials, and leaves the source as the record.
 function replaceMissingMedia(img) {
-  if (img.dataset.mediaMissing) return;
-  img.dataset.mediaMissing = "1";
   const src = img.getAttribute("src") || "";
   // Only this app's own stored files. An external image that fails is a
   // different situation, and the note may well want it back when the network
   // returns.
   if (!/^\/(media|files)\//.test(src)) return;
+  //: **An image the app addresses by id is hidden, never replaced.** This
+  //: listener was written for the images inside rendered markdown, which are
+  //: built fresh on every render and referred to by nobody: swapping one for a
+  //: placeholder costs nothing. `#ocr-image` is the opposite: one long-lived
+  //: element that the OCR workspace sets a new `src` on for every page of
+  //: every document it opens.
+  //:
+  //: Measured. Opening a text file (a .md attachment) in the workspace sets
+  //: `img.src` to that file's own url before the text branch of `ocrLoadPage`
+  //: runs, the browser cannot decode markdown as an image, this listener fired
+  //: and `img.replaceWith(gone)` deleted `#ocr-image` from the document. After
+  //: that the stage held `SPAN.media-missing` and no `<img>` at all, for the
+  //: rest of the session: every later open threw "Cannot set properties of
+  //: null (setting 'src')" at `ocrLoadPage`, so clicking the next file's name
+  //: opened a workspace that never showed the page. CLAUDE.md's own shape: the
+  //: damage lands nowhere near the code that caused it.
+  //:
+  //: Hidden rather than replaced, so nothing draws a torn-page glyph and the
+  //: element the app is holding on to is still there. The surfaces that own
+  //: such an image say what happened in their own words (`#ocr-message`), and
+  //: they unhide it themselves the moment a page really loads.
+  if (img.id) {
+    img.classList.add("hidden");
+    return;
+  }
+  if (img.dataset.mediaMissing) return;
+  img.dataset.mediaMissing = "1";
   const gone = document.createElement("span");
   gone.className = "media-missing";
   const name = (img.getAttribute("alt") || "").trim();

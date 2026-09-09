@@ -960,8 +960,22 @@ Link to another note with [[its first few words]]."></textarea>
           <div id="chat-results" class="chat-grid hidden">
             <div class="chat-half">
               <h3 class="panel-head">
-                <i class="ph ph-sparkle ph-lead" aria-hidden="true"></i>
-                AI answer <span id="answered-by" class="chip"></span>
+                <!-- The title (icon, label, model badge) and the actions are
+                     one flex item each here, not four loose ones: at a
+                     laptop's ~1280-1366px width this card is half the
+                     already-narrow chat-grid column, and a long model id
+                     beside three buttons does not fit. Four independent flex
+                     children let the browser wrap them into whichever
+                     fragments happened to fit — reported as "misaligned
+                     because of wrap": the badge alone flush left on its own
+                     line, the buttons flush right on a third line, nothing
+                     lining up with anything. Grouped, the title wraps or
+                     doesn't as a unit, and the worst case is two clean rows
+                     (title, then actions right-aligned beneath it). -->
+                <span class="answer-title">
+                  <i class="ph ph-sparkle ph-lead" aria-hidden="true"></i>
+                  AI answer <span id="answered-by" class="chip"></span>
+                </span>
                 <span class="answer-actions">
                   <button id="retry-btn" class="ghost small hidden"
                     title="Ask this question again"><i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i> Retry</button>

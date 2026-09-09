@@ -784,6 +784,13 @@ body.scroll-top-visible #tab-notes .layout > main {
   border-top: 1px solid var(--border);
   padding-top: var(--space-3);
   margin-top: var(--space-3);
+  /* Declared here, not on `.chat-composer` below, so the *other* row of the
+     dock can read it too — see `#chat-skills-btn`'s width, which is bound to
+     this and to the composer's own icon-button gap rather than to a number
+     copied from a screenshot. A custom property set on `.chat-composer`
+     itself would not reach `.chat-dock-controls`, its next sibling, since
+     inheritance runs down the tree and they are not one another's ancestor. */
+  --composer-h: 2.75rem;
   /* **No background.** Reported as "a weird box shadow behind the bottom dock",
      and that is what it looked like, but the cause was a repaint rather than a
      shadow: this said `background: var(--card)` while sitting *inside* a card
@@ -1009,6 +1016,17 @@ body.scroll-top-visible #tab-notes .layout > main {
      text-overflow still kicks in for anything longer. */
   /* Removed text-overflow from here, applied to .ph-text child instead */
   max-width: 18rem;
+  /* "Make the skills button the width of the two buttons above it so it
+     looks neat and symmetrical." Those two are the note picker and the
+     attach button in `.chat-composer`, directly above this one in the dock —
+     each `--composer-h` square with `--space-2` between them. Bound to those
+     same two custom properties rather than to a measured pixel figure, so a
+     change to either (density, the touch-target minimum) keeps the two rows
+     lined up without this rule being re-measured by hand. `min-width`, not
+     `width`: a long armed skill name still grows the button up to
+     `max-width` above; a short one or none no longer leaves it narrower than
+     the row it sits under. */
+  min-width: calc(var(--composer-h) * 2 + var(--space-2));
 
   /* An inline-flex box with the default `align-items: normal` STRETCHES its
      children, so the icon and the label were sized by the button's height
@@ -1129,7 +1147,9 @@ body.scroll-top-visible #tab-notes .layout > main {
 
    `--composer-h` is the row's control height, the same idea as `--control-h`
    in the strip above, and 2.75rem is deliberately at the 44px touch-target
-   minimum: this is the one row of the app used on a phone.
+   minimum: this is the one row of the app used on a phone. Declared on
+   `.chat-dock` itself now, not here — see that rule's own comment — so the
+   controls row below can size against it too.
 
    `align-items: end` rather than `center` because the box is `autogrow`, when
    a three-line question makes it taller, the buttons must stay level with its
@@ -1138,7 +1158,6 @@ body.scroll-top-visible #tab-notes .layout > main {
 .chat-dock .chat-composer {
   margin-top: var(--space-2);
   align-items: end;
-  --composer-h: 2.75rem;
   /* One hairline for the block, not two. `.chat-composer` draws its own
      `border-top` for the surfaces where it stands alone; inside the dock that
      put a second rule 49px below the dock's own, which is what made one strip

@@ -294,15 +294,15 @@ are only just begun or half done." True; this table is the state.
 
 | Plan | Done | Left |
 | --- | --- | --- |
-| UI_MODERNISATION_PLAN | Phases 0 to 8 built; Phase 9 bands 1 to 4 | Phase 9 items in `agent-remaining/responsive.md`; the one-bar and alignment items in `agent-remaining/consistency.md` and `docks.md` |
-| AGENT_SKILLS_REFORM | Phases A to C | Phase D (recovery); the verifier and paging-inside-a-step (CHAT_PLAN Phase 4, Brief 13) |
-| MINDMAP_PLAN | Phases 1 to 3, five bug fixes, INBOX 42 and section H (edge-follow on a single-node drag, framing on open, tidy measured at 201 nodes) | Phases 4 to 5; the previews (`agent-remaining/mindmap.md` F) |
-| DOCUMENTS_PLAN | Phases 0, 1 and 2 (the engine: adapter, CodeMirror 6, Live as decorations, findings, undo, search, folding) | Phases 3 to 7; `agent-remaining/documents-engine.md` (the `revalidateSelection` bug in app.js first, then the editor sweep) |
-| GRAPH_PLAN | Phase 1 (canvas, worker, drag; SVG behind a flag) | Phases 2 to 5 |
-| TIMELINE_PLAN | audit and plan only | Phases 1 to 4 |
-| WHITEBOARD_PLAN | plan only | Phases 1 to 4 |
-| CHAT_PLAN | plan only | Phases 1 to 4 |
-| WORLD_CLASS_PLAN / SESSION_BRIEFS | Brief 1; parts of 3 and 10 | Briefs 2 to 15 |
+| UI_MODERNISATION_PLAN | Phases 0 to 10 (tooling, mass, components, type and glass, motion, per-surface, states, dock grammar, responsive, the Liquid Glass adoptions) | Phase 11, the phone done properly; the items in `agent-remaining/responsive.md`, `consistency.md` and `docks.md` |
+| GRAPH_PLAN | Phases 1 to 6 (canvas and drag, the space, colour rules and groups, utility part one, backend, the node panel) | Phase 4 part two, 6b the minimap, the local pane |
+| DOCUMENTS_PLAN | Phases 0, 1 and 2 in full (the chrome, then CodeMirror 6 as the surface: Live as decorations, findings, undo, search, folding) | Phases 3 to 8; `agent-remaining/documents-engine.md` and `documents-batch.md` |
+| MINDMAP_PLAN | Phases 1 to 5 and the previews | §12, Coggle-level controls (INBOX 93) |
+| AGENT_SKILLS_REFORM | Phases A to C | Phase D (recovery); the verifier and paging inside a step (CHAT_PLAN Phase 4) |
+| WHITEBOARD_PLAN | One surface per panel, the Arrange section, the marquee and the export fixes | Phases 1 to 4: the rail and keys, the context bar, the export dialog and handles, the mind map regressions and Tidy |
+| CHAT_PLAN | The header and badge, citation numbering, the Sources panel, angle-bracket links (as bug fixes, not phases) | Phases 1 to 4 |
+| TIMELINE_PLAN | Audit and plan only | Phases 1 to 4 |
+| WORLD_CLASS_PLAN / SESSION_BRIEFS | Brief 1; parts of 3 and 10; Brief 18 section A | Briefs 2 to 15; Brief 18 sections B onward |
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 

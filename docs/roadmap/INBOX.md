@@ -38,10 +38,6 @@ done-when item 4 and 5), in priority order.
     Fullscreen API is active. Fix: mount the lightbox (and every dialog the
     node panel can open) inside the fullscreen element while fullscreen is
     on, or exit fullscreen first and re-enter on close. Size S.
-69. **Agent activity panel: the dropdowns don't expand** (screenshot: a
-    "Starting SearXNG" row with a caret that does nothing). Owner: Fable,
-    now: the row is a `details`-like custom toggle; check its handler is
-    wired after the panel re-renders (delegated listener, not per-row).
 73. **"Mute notifications except reminders" toggle disables itself when
     the settings close.** Owner: Fable, now: the preference is written on
     change but the panel re-renders from `prefsCache` before the save
@@ -61,9 +57,6 @@ done-when item 4 and 5), in priority order.
     fullscreen element paints `--page` under it, so the card's 55% shows
     nothing; give `:fullscreen .graph-card` the page background art or a
     solid `--modal-bg` on purpose and say so.
-86. **Zoom popup does not show while a dialog (Settings) is open.** Owner:
-    Fable: the zoom indicator's z-index sits under the modal; raise it
-    above dialogs or show it inside the open dialog.
 84. **Whiteboard rectangle selection draws behind objects.** Owner:
     WHITEBOARD Phase 1 (Fable, now): the marquee is drawn on the objects'
     layer; move it to the overlay canvas above them.

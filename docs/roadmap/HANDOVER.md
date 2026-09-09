@@ -71,6 +71,12 @@ PR's.
       (kebab first click), 82 (settings rows), 91 (chat header), plus
       Ctrl+S and the profile group; errors.js, contrast.js, docks.js,
       touch.js and weight.js green on the head.
+- [ ] 5b. The README's screenshots recaptured, last of all. The owner:
+      "I think the screen shots on the readme need an update from all the ui
+      changes." Eight of them in `docs/images/` (chat, dashboard, documents,
+      graph, library, notes, reminders, timeline). Capture them only once
+      every UI batch has merged: taken mid-session they are stale within the
+      hour, which is how they got stale in the first place.
 - [ ] 6. Mind map previews (INBOX 68) acceptable in the dashboard widget
       and the Library gallery (the board's real shapes at its aspect, no
       inner scrollbar).

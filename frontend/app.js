@@ -25795,13 +25795,38 @@ function setZoom(percent) {
 //: is not something anyone wants to scroll back through tomorrow.
 let hudTimer = null;
 
+//: Where the HUD has to live to be seen. INBOX 86: "zoom popup does not show
+//: while a dialog (Settings) is open." Two different reasons, and only one of
+//: them is a z-index.
+//:
+//: Settings is a `.modal-overlay` div at `z-index: 1010` against the HUD's
+//: 90, so it simply painted over it: that is fixed in the stylesheet. A
+//: native `<dialog>` opened with `showModal()` is a harder case, because it
+//: renders in the browser's top layer, which sits above *every* z-index in
+//: the document, so no number would ever win. The only way in is to be inside
+//: that dialog, so while one is open the HUD is moved into it and put back
+//: afterwards. `hudHome` remembers where it belongs rather than assuming
+//: `<body>`, the same shape `wireEscapedActionMenu` uses for menus.
+let hudHome = null;
+
 function hud(text) {
   const box = $("hud");
   if (!box) return;
+  const dialog = document.querySelector("dialog[open]");
+  const wanted = dialog || hudHome || document.body;
+  if (box.parentElement !== wanted) {
+    if (!hudHome) hudHome = box.parentElement;
+    wanted.appendChild(box);
+  }
   box.textContent = text;
   box.classList.remove("hidden");
   clearTimeout(hudTimer);
-  hudTimer = setTimeout(() => box.classList.add("hidden"), 1100);
+  hudTimer = setTimeout(() => {
+    box.classList.add("hidden");
+    //: Home again once it is hidden, so a dialog that closes does not take
+    //: the app's only HUD element out of the document with it.
+    if (hudHome && box.parentElement !== hudHome) hudHome.appendChild(box);
+  }, 1100);
 }
 window.hud = hud;
 

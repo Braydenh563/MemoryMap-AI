@@ -7417,7 +7417,14 @@ button.connection-row {
      for is not a readout. */
   bottom: 34%;
   transform: translateX(-50%);
-  z-index: 90;
+  /* Above `.modal-overlay`'s 1010, which is what INBOX 86 reported: the zoom
+     readout answered a key the reader had just pressed and then painted
+     underneath the Settings dialog they had pressed it over. A readout that
+     the thing it is about can cover is not a readout. Native `<dialog>`
+     elements render in the top layer, above every z-index there is, so
+     `hud()` moves this element inside an open one; this number is for the
+     overlay divs, which are the common case. */
+  z-index: 1100;
   padding: var(--space-4) var(--space-7);
   border-radius: var(--radius-pill);
   background: var(--modal-bg-opaque);

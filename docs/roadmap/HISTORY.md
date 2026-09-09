@@ -8868,6 +8868,15 @@ themselves (their handlers were not touched, only their buttons' markup).
     outside click, which the enhanced menu counts as. Fix: the popover's
     outside-click guard ignores clicks inside `.select-menu`.
 
+69. **Agent activity panel: the dropdowns don't expand** (screenshot: a
+    "Starting SearXNG" row with a caret that does nothing). Owner: Fable,
+    now: the row is a `details`-like custom toggle; check its handler is
+    wired after the panel re-renders (delegated listener, not per-row).
+
+86. **Zoom popup does not show while a dialog (Settings) is open.** Owner:
+    Fable: the zoom indicator's z-index sits under the modal; raise it
+    above dialogs or show it inside the open dialog.
+
 ## HANDOVER archive, 2026-09-09
 
 ### The Fable session — UI Phases 0-4, skills reform A-B, backend sprint 1, the audit

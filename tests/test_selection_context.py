@@ -77,29 +77,62 @@ def test_a_position_that_cannot_be_confirmed_is_not_claimed():
     )
 
 
-def test_live_view_blocks_report_document_offsets():
-    """The live view is the default document view and every paragraph is its
-    own textarea starting at offset zero. Left untranslated, a selection in
-    the last paragraph of a long document is reported as line 2."""
+def test_a_selection_is_already_in_the_documents_coordinates():
+    """**What this used to check, and why it now checks the opposite.**
+
+    The live view was one `<textarea>` per paragraph, each starting at offset
+    zero, so a selection in the last paragraph of a long document reported
+    itself as line 2 unless `selectionContextFrom` translated it through
+    `docLiveBlockOffset`. This pinned that translation.
+
+    DOCUMENTS_PLAN Phase 2 made Live and Source one CodeMirror view, so there
+    are no paragraph-local offsets left to translate and the translation was
+    deleted. The invariant the old test was really protecting is unchanged and
+    is what is pinned here: what reaches the model is the *document's* line
+    and column. Keeping the old assertions would have pinned the workaround
+    rather than the thing it worked around.
+
+    Measured on the engine by `scratchpad/ui-sweeps/cm-editor.js`: a selection
+    made in the editor reports `surfaceId: "doc-content"`, `kind: "document"`
+    and the line it is actually on.
+    """
     editor = _read("editor.js")
-    assert 'classList.contains("lp-src")' in editor
-    assert "docLiveBlockOffset" in editor
-    documents = _read("documents.js")
-    assert "function docLiveBlockOffset(box)" in documents
-    body = documents[documents.index("function docLiveBlockOffset(box)") :][:900]
-    assert "indexOf" in body and "return found === -1 ? null : found" in body, (
-        "the block index is the primary answer and the search is the fallback "
-        ", a document with two identical paragraphs makes indexOf pick wrong"
+    assert "docLiveBlockOffset" not in editor, (
+        "the per-paragraph translation is gone with the per-paragraph boxes"
     )
-
-
-def test_a_live_view_block_has_an_id_so_formatting_is_not_a_silent_no_op():
-    """`applyMarkdown(kind, boxId)` and everything under it resolves the box
-    with `$(boxId)`. A textarea without an id makes every formatting button a
-    no-op that still draws, this repo's "a policy silently refusing the work"
-    shape, found live the day the selection bar started appearing there."""
+    start = editor.index("function selectionContextFrom(")
+    body = editor[start : editor.index("function selectionOffsets(")]
+    assert (
+        "return selectionOffsets(textarea, textarea.selectionStart, textarea.selectionEnd);"
+        in body
+    ), "a selection is reported straight, in the surface's own coordinates"
     documents = _read("documents.js")
-    assert "box.id = `doc-live-block-${index}`" in documents
+    assert "function docLiveBlockOffset" not in documents
+
+
+def test_formatting_addresses_the_surface_and_is_not_a_silent_no_op():
+    """`applyMarkdown(kind, boxId)` resolves the box it acts on by id, and a
+    box it cannot resolve makes every formatting button a no-op that still
+    draws: this repo's "a policy silently refusing the work" shape, found live
+    the day the selection bar started appearing over live-view paragraphs.
+
+    The id it resolves used to be a generated `doc-live-block-N` on whichever
+    paragraph textarea existed at that moment. There is one editor now, and it
+    reports `doc-content` in every view, so what has to hold is that the
+    lookup goes through the adapter rather than through `$(id)`: with
+    CodeMirror mounted `$("doc-content")` is a hidden fallback holding stale
+    text, and formatting it would draw nothing and change nothing.
+    """
+    documents = _read("documents.js")
+    assert "function docSurfaceById(id)" in documents
+    start = documents.index("function applyMarkdown(")
+    body = documents[start : start + 400]
+    assert "docSurfaceById(boxId)" in body, (
+        "applyMarkdown resolves its box through the adapter, so `doc-content` "
+        "reaches the engine rather than the fallback element"
+    )
+    start = documents.index("function wrapDocSelection(")
+    assert "docSurfaceById(boxId)" in documents[start : start + 600]
 
 
 def test_applying_a_marker_tells_the_box_it_changed():

@@ -1855,6 +1855,22 @@ function docLivePlugin(CM) {
     };
     const tree = syntaxTree(state);
 
+    //: **A replace decoration may not contain a line break, and this is not a
+    //: style rule: CodeMirror throws "Decorations that replace line breaks may
+    //: not be specified via plugin" and the whole view stops updating.** Every
+    //: hidden marker below is one or two characters, which looks safe and is
+    //: not: a markdown link's text can wrap across a soft line break, so
+    //: `[some\nlabel](url)` puts a newline inside the `](url)` this hides, and
+    //: an image's alt text can do the same. The failure lands on one unusual
+    //: document, in a plugin nowhere near the link that caused it, which is
+    //: the shape this codebase keeps recording. One guard, at the one place
+    //: that pushes a replacement.
+    const hide = (from, to) => {
+      if (to <= from) return;
+      if (doc.sliceString(from, to).includes("\n")) return;
+      ranges.push(hidden.range(from, to));
+    };
+
     for (const visible of view.visibleRanges) {
       tree.iterate({
         from: visible.from,
@@ -1871,7 +1887,7 @@ function docLivePlugin(CM) {
             if (lineTouched(node.from)) return false;
             let end = node.to;
             while (end < doc.length && doc.sliceString(end, end + 1) === " ") end += 1;
-            ranges.push(hidden.range(node.from, end));
+            hide(node.from, end);
             return false;
           }
           if (name === "StrongEmphasis" || name === "Emphasis" || name === "Strikethrough") {
@@ -1889,7 +1905,7 @@ function docLivePlugin(CM) {
             //: A fence's own ``` is a `CodeMark` too, and hiding those would
             //: leave a code block with no visible boundaries at all.
             if (!parent || parent.name === "FencedCode") return false;
-            if (!touched(parent.from, parent.to)) ranges.push(hidden.range(node.from, node.to));
+            if (!touched(parent.from, parent.to)) hide(node.from, node.to);
             return false;
           }
           if (name === "Link") {
@@ -1904,8 +1920,8 @@ function docLivePlugin(CM) {
               }).range(node.from + 1, node.from + close)
             );
             if (!touched(node.from, node.to)) {
-              ranges.push(hidden.range(node.from, node.from + 1));
-              ranges.push(hidden.range(node.from + close, node.to));
+              hide(node.from, node.from + 1);
+              hide(node.from + close, node.to);
             }
             return false;
           }
@@ -1915,6 +1931,9 @@ function docLivePlugin(CM) {
             if (close <= 1) return false;
             const src = sameOrigin(text.slice(close + 2, text.length - 1));
             if (!src || touched(node.from, node.to)) return false;
+            //: Same rule as `hide`: an image whose alt text wraps would put a
+            //: line break inside the range this widget replaces.
+            if (text.includes("\n")) return false;
             ranges.push(
               Decoration.replace({
                 widget: new DocImageWidget(src, text.slice(2, close)),
@@ -1949,7 +1968,7 @@ function docLivePlugin(CM) {
             if (touched(line.from, line.to)) return false;
             let end = node.to;
             while (end < doc.length && doc.sliceString(end, end + 1) === " ") end += 1;
-            ranges.push(hidden.range(node.from, end));
+            hide(node.from, end);
             return false;
           }
           if (name === "FencedCode") {
@@ -1995,8 +2014,8 @@ function docLivePlugin(CM) {
       scan(/==([^=\n]{1,200})==/g, (match, from, to) => {
         ranges.push(Decoration.mark({ class: "cm-md-highlight" }).range(from, to));
         if (touched(from, to)) return;
-        ranges.push(hidden.range(from, from + 2));
-        ranges.push(hidden.range(to - 2, to));
+        hide(from, from + 2);
+        hide(to - 2, to);
       });
       scan(/\[\[([^[\]\n]{1,120})\]\]/g, (match, from, to) => {
         const name = match[1].trim();
@@ -2007,8 +2026,8 @@ function docLivePlugin(CM) {
           }).range(from + 2, to - 2)
         );
         if (touched(from, to)) return;
-        ranges.push(hidden.range(from, from + 2));
-        ranges.push(hidden.range(to - 2, to));
+        hide(from, from + 2);
+        hide(to - 2, to);
       });
     }
     //: Sorted by CodeMirror rather than by hand: the tree walk and the two

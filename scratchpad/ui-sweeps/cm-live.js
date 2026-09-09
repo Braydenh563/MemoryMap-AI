@@ -25,6 +25,15 @@ const BODY = [
   "```",
   "",
   "This sentance has teh typo in it.",
+  "",
+  // A link whose text wraps across a line break, and an image whose alt text
+  // does. Both put a newline inside a range the decorations would replace,
+  // which CodeMirror refuses outright ("Decorations that replace line breaks
+  // may not be specified via plugin") by throwing out of the update. One
+  // document like this used to stop the view updating at all.
+  "A [wrapped",
+  "link](https://example.com) and an ![alt",
+  "text](/files/none.png) after it.",
 ].join("\n");
 
 let failures = 0;
@@ -82,7 +91,7 @@ function ok(name, condition, detail) {
   ok("inline code", (await count("#doc-editor .cm-md-code")) === 1);
   ok("strikethrough", (await count("#doc-editor .cm-md-strike")) === 1);
   ok("highlight", (await count("#doc-editor .cm-md-highlight")) === 1);
-  ok("a link chip", (await count("#doc-editor .cm-md-link")) === 1);
+  ok("a link chip", (await count("#doc-editor .cm-md-link")) >= 1);
   ok("a wiki chip", (await count("#doc-editor .cm-md-wiki")) === 1);
   ok("task checkboxes", (await count("#doc-editor input.cm-md-task")) === 2);
   ok("a quote bar", (await count("#doc-editor .cm-md-quote")) >= 1);

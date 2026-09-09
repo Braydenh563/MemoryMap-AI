@@ -1,5 +1,5 @@
 const {chromium}=require('/opt/node22/lib/node_modules/playwright');
-const PW='testpassword123'; const BASE='http://127.0.0.1:8781';
+const PW='testpassword123'; const BASE=process.env.BASE||'http://127.0.0.1:8781';
 (async()=>{
   const browser=await chromium.launch();
   for (const width of [1280, 820]) {
@@ -17,7 +17,7 @@ const PW='testpassword123'; const BASE='http://127.0.0.1:8781';
     const dock=document.querySelector('.doc-dock');
     const vis=(el)=>el.getBoundingClientRect().width>0&&!el.closest('details:not([open]) > :not(summary)');
     const ctrls=[...dock.querySelectorAll('button,select,input,summary')].filter(el=>vis(el)&&!el.closest('.doc-dock-menu-list')).map(el=>`${el.tagName.toLowerCase()}#${el.id||el.textContent.trim().slice(0,8)}:${Math.round(el.getBoundingClientRect().height)}`);
-    const editor=document.getElementById('doc-content');
+    const editor=document.querySelector('#doc-editor .cm-content')||document.getElementById('doc-content');
     const firstLine=editor?r(editor).y:null;
     const menu=document.getElementById('doc-dock-menu'); menu.open=true;
     const rows=[...menu.querySelectorAll('.doc-dock-menu-item')].filter(vis).map(el=>({t:el.textContent.trim().slice(0,22),h:Math.round(el.getBoundingClientRect().height),bg:getComputedStyle(el).backgroundColor}));

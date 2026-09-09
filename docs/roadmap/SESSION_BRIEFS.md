@@ -889,7 +889,8 @@ section · 92 suggested links panel · 74 preferences panels · 97 RapidOCR
 as a Packages option · 94 background animations.
 
 ### G. The plans' own remainders
-UI_MODERNISATION Phase 9 (responsive by device) · AGENT_SKILLS Phase D
+UI_MODERNISATION Phase 9 (desktop and tablet in this PR; the phone is
+Phase 11, its own session or two, the owner's call) · AGENT_SKILLS Phase D
 (resume a stalled step, edit and re-run a step, "why did this stall") ·
 WORLD_CLASS 1.1 lints for the consistency contract, §9 llama.cpp dev
 script, §12 flaw classes S7 (LIKE escaping) · PLAN.md and REDESIGN.md are
@@ -898,7 +899,10 @@ absorbed into MODERNISATION_AUDIT. INBOX 48 lazy modules. TIMELINE_PLAN
 in full.
 
 ### The gates that do not move
-Lint set green after each step; the full suite once per merge; errors.js
+Lint set and targeted tests green after each step (`scripts/gate.sh
+--changed`); the full suite in CI on push, locally only once before a
+large agent task's final report and once before the PR closes, never per
+step or per merge; errors.js
 at four widths; contrast.js; docks.js; touch.js; weight.js under 10%
 blurred at rest with the art off; every number in the plan's Built block;
 no em-dashes, no exclamation marks, sentence case; commit trailers;

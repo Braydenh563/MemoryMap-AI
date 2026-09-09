@@ -58,6 +58,54 @@ CAPTION_PROMPT = (
     "just the description."
 )
 
+#: The same job for a document, and deliberately the same shape of answer, so
+#: a gallery of pictures and files reads as one list rather than two.
+#:
+#: Reported on 2026-09-09: "the describe with ai button in the files tab
+#: doesnt work. it should be a button for generating a description/summary of
+#: the file from the readable and/or extractable content of the file." It did
+#: not work because both caption routes were written for pictures and refused
+#: everything else with a 415. A .md, a .docx, a .csv or a text-layer PDF
+#: carries its whole content in reach of `docview`, so describing one needs no
+#: vision model at all: it is a utility-model completion like tag suggestion
+#: or the meeting summary, and it works on the machines that have no vision
+#: model installed, which is most of them.
+DOCUMENT_PROMPT = (
+    "Describe this document in one or two short, factual sentences: what it "
+    "is and what it covers. Name the subject rather than the format, a reader "
+    "can already see it is a PDF. No preamble, no opinions, no bullet list, "
+    "just the description."
+)
+
+#: How much of a document the describer reads. Two thousand characters is
+#: about a page and a half, which is where a document says what it is: the
+#: title, the abstract, the first heading and the opening paragraphs. Sending
+#: a forty-page handout instead would blow a 4B model's context for no gain,
+#: and the tail of a long document is the part least likely to describe it.
+DOCUMENT_PROMPT_CHARS = 2000
+
+
+def describe_document(text: str, model_manager, ollama) -> str:
+    """One or two sentences about a document, from the document's own text.
+
+    Returns "" when there is nothing to read or the model had nothing to say,
+    so the caller can leave the description unset rather than storing a
+    sentence that admits it. Raises nothing of its own: an unreachable model
+    raises out of `ollama.chat`, and the route turns that into a 409, the same
+    contract `summarize_meeting` follows.
+    """
+    body = (text or "").strip()
+    if not body:
+        return ""
+    reply = ollama.chat(
+        model_manager.utility_model(),
+        [
+            {"role": "system", "content": DOCUMENT_PROMPT},
+            {"role": "user", "content": body[:DOCUMENT_PROMPT_CHARS]},
+        ],
+    )
+    return (reply.get("content") or "").strip()
+
 #: Same raster-only restriction OCR uses (`ocr.OCR_SUFFIXES`), a vision
 #: model is handed the same file either would open, and a PDF needs the
 #: same page-rasterisation step neither of them has.

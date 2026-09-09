@@ -444,6 +444,47 @@ Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2026-09-09: a plan holds open work only.
 
+## Built, Phase 2 steps 2 to 4 (the engine under the editor), 2026-09-09
+
+Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2026-09-09: a plan holds open work only. What is left open from this phase is in `agent-remaining/documents-engine.md`.
+
 ## Built — Phase 0
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2026-09-09: a plan holds open work only.
+
+## Placed from INBOX, 2026-09-09 (the owner's evening batch)
+
+Verbatim, with the reading each one gets. All are Phase 3 or later; the
+engine landed in Phase 2, so none of these is a regression from it.
+
+- "the documents edit and read toggle options dont fit in the toggle and go
+  out of it at the bottom" (screenshot: Edit / Read pills overflowing their
+  segmented control). Measure the control's height against its label's line
+  box at 1440 and 1280; the segmented-control recipe in DESIGN.md sets both.
+- "md formatting should go invisible unless i click back on that word or
+  section or navigate with backspace, delete or arrow keys etc to where
+  those formatting markers are." This is CodeMirror's own
+  cursor-in-range test on the Live decorations: a mark is hidden unless the
+  selection touches it. The decorations compartment from Phase 2 is where
+  it goes.
+- "I want to be able to use the documents tab as a plain text editor like
+  before as a view option (not the default though)", "and also if I select
+  a txt document, and/or other code file document, and these can have line
+  numbers as well", "for code files, include code syntax and make it a
+  proper code editor like vs code." One view menu: Live (default), Source,
+  Plain. A `.txt`/`.md` gets line numbers on request; a code file gets a
+  language mode and line numbers by default. CodeMirror carries both, so
+  this is configuration of the surface Phase 2 built, not a new editor.
+- "i still cant click on a grammar or misspeled underlined word and see a
+  popup like in a realworld editor like obsidian, word, notion, vs code."
+  Phase 0 built the underline; the click target and its popover never
+  landed. This is the oldest open item in this plan and should go first.
+- "redesign and refine the outlines section of the documents tab as well"
+  (two screenshots). Measured problems in them: the outline entries are
+  centre-aligned and indented by depth in the wrong direction, the empty
+  state is a bare heading with nothing under it, References stacks a close
+  button above its own select, and "Where are my documents kept?" is a
+  full-width underlined link pinned to the bottom like a footer.
+- "the whole documents sidebar and ui needs fixing and the document editor
+  still needs a lot of refinement and cleaning but its still in development
+  so just make sure you cover it all."

@@ -970,12 +970,7 @@ summary > .ph-lead,
    written here from the shape of the feature rather than from the markup, and
    `document.querySelectorAll('.library-image-model-chip').length` is 0 on a
    Library with images in it (`scratchpad/ui-sweeps/imagebadges.js`), so the
-   half of item 7 this rule was meant to settle never ran once. The model name
-   is drawn by `library.js` as `.library-image-caption-badge` and
-   `.library-image-vision-ocr-badge`; `.library-image-ocr-badge` is styled
-   beside them in 00-tokens-shell.css and has no call site either, and is kept
-   here so that if it ever gains one it lands on the recipe rather than on the
-   bordered pill.
+   half of item 7 this rule was meant to settle never ran once.
 
    Measured on one card, with the badges given text and unhidden, before this:
 
@@ -986,13 +981,17 @@ summary > .ph-lead,
    Three heights, two borders, two paddings, two sizes and two weights for
    three pieces of the same kind of information in the same card. The meta
    recipe is no border, no hover, muted, and the usage chip is already on it,
-   so the badges come to it. The `--text-sm` is deliberate over the
-   `text-xs` class one of the two call sites carries: one object, one size,
-   and this file is last so the class does not have to be edited in JS. */
+   so the badges came to it.
+
+   **The three badges are gone entirely now** (INBOX 56): who described the
+   picture and who read it are one muted line at the foot of the card, in
+   plain text, because a pill next to the usage chips read as another button.
+   `.library-image-caption-badge`, `.library-image-vision-ocr-badge` and
+   `.library-image-ocr-badge` are struck from this rule with them, rather
+   than left behind: a selector kept "in case it gains a call site" is the
+   `.library-image-model-chip` mistake this comment already records, one
+   paragraph up. */
 .library-image-usage-chip,
-.library-image-caption-badge,
-.library-image-vision-ocr-badge,
-.library-image-ocr-badge,
 .library-image-tile .chip:not(.chip.tag) {
   border: none;
   border-radius: var(--radius-pill);
@@ -1713,7 +1712,12 @@ summary > .ph-lead,
 }
 
 .extras-row > .entry-meta {
-  flex: 1 1 16rem;
+  /* Measured after the first cut: two of four rows still wrapped their
+     actions under the title (a long name plus a status chip plus three
+     buttons at the modal's width). A smaller basis and a wrapping meta
+     let the chip drop under the name before the actions leave the line. */
+  flex: 1 1 10rem;
+  flex-wrap: wrap;
   min-width: 0;
   margin: 0;
 }
@@ -1754,4 +1758,26 @@ summary > .ph-lead,
 .chat-toolbar .chat-subline {
   flex: 0 0 auto;
   white-space: nowrap;
+}
+
+/* The mark a keyboard save leaves on the button it pressed (app.js,
+   `flashSaved`). Reported on 2026-09-09: Ctrl+S in settings "needs visual
+   confirmation as well". A ring rather than a colour change, so it reads the
+   same on an accent button and on a ghost one, and short enough that it is
+   an acknowledgement rather than a state. No animation under reduced motion,
+   where the toast the save handler raises is the whole confirmation. */
+@keyframes just-saved-ring {
+  0% { box-shadow: 0 0 0 0 var(--accent); }
+  100% { box-shadow: 0 0 0 6px transparent; }
+}
+
+.just-saved {
+  animation: just-saved-ring var(--motion-slow) ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .just-saved {
+    animation: none;
+  }
 }

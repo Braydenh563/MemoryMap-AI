@@ -421,6 +421,57 @@ receding tab bar (104) is phone work and moves to Phase 11 with the rest of
 it. Deliberately not taken: refraction and lensing (measured too costly),
 title-case headers.
 
+## Phase 11 — the phone, done properly (1 to 2 sessions, next session or later)
+
+The owner, 2026-09-09: "the mobile view still needs quite a lot of work but
+that isn't for this PR, scope and plan it for later sessions." Phase 9's
+under-600 rules are moved here whole; this PR ships desktop and tablet.
+
+**Decisions (made here).** The phone is a design of its own, not the
+desktop squeezed: one column, one thing at a time, the primary action
+within thumb reach, every panel a sheet, every list a full-width row.
+Standalone (installed) mode and the browser tab get the same layout;
+`env(safe-area-inset-*)` on every fixed edge. Nothing is hidden that the
+desktop has; it is reached through a sheet or a ⋯ menu instead.
+
+1. **Navigation.** A five-item bottom tab bar (Notes, Chat, Graph,
+   Library, More) that recedes to icons on scroll down and returns on
+   scroll up (INBOX 104), never hidden; More is a sheet with the rest of
+   the tabs and Settings; the top bar keeps the title, the AI dot and one
+   action.
+2. **Notes.** Capture as a full-height sheet from the floating + button;
+   the list as full-width rows with swipe actions (pin, bin) matched to
+   the row's menu (the HIG rule); filters in a sheet; the note view as a
+   page with a back button, its actions in a bottom bar.
+3. **Chat.** The composer above the keyboard with the attachments and
+   mode in one row; sources as a sheet; the sidebar as a sheet from the
+   left edge; the popup agent unavailable on the phone (the chat is the
+   agent).
+4. **Graph.** Pan and pinch, tap to select, long-press for the node
+   menu (no right click), lasso by long-press then drag, the docks as one
+   bottom sheet with the colour rule, groups and views; the node panel as
+   a sheet.
+5. **Library and Files.** Two-up cards, the reader full-screen with a
+   bottom bar; upload from the share sheet.
+6. **Documents.** Read view by default, Edit as a full-screen sheet with
+   the selection toolbar only (no strip), the outline as a sheet.
+7. **Whiteboard and maps.** View and light edit only on a phone (pan,
+   zoom, select, move, edit text); creation tools in a sheet; the mind
+   map's + handles are touch-sized.
+8. **Settings, dashboard, timeline, reminders.** Settings as a page list
+   (sections as rows) with a back button; dashboard widgets one column;
+   timeline as the table view; reminders as rows with swipe done.
+9. **Touch.** 44px targets everywhere below 820 (Phase 9's token step
+   holds), no hover-only affordance (every hover state has a tap
+   equivalent), long-press replaces right-click app-wide.
+10. **Gates.** A phone sweep (`scratchpad/ui-sweeps/phone.js`) at 390 x 844
+    and 430 x 932 per tab: no horizontal scroll, no control under 44px,
+    the primary action within the lower 40% of the screen, the composer
+    above a simulated keyboard, every desktop action reachable in at most
+    two taps (counted); errors.js and contrast.js at 390; a screenshot
+    set for the owner per tab, because this is the one surface the owner
+    checks on a real phone.
+
 ## Placed from INBOX, 2026-09-09
 
 The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.
@@ -500,3 +551,43 @@ menus that open out of their opener.
     Run button per skill, a "Continue" tile for the last note or document
     touched; the band's height unchanged.
 
+## Placed from INBOX, 2026-09-09 (the owner's evening batch)
+
+Global, cross-surface. Phase 9 (responsive) and Phase 10 (Liquid Glass)
+own most of these.
+
+- "ctrl s for saving settings changes while on the settings modal doesnt
+  work and it needs visual confirmation as well."
+- "there are also still wrapping issues in the packages tab with the
+  buttons, titles, and badges" (screenshot: the Tesseract row's title, its
+  Installed badge, and Reinstall / Remove on three lines).
+- "when I press 'm' for the quick nav, the popup notification is broken
+  visually. also I want it to be more of a whole screen subtle but
+  noticable guide like with the zoom visual thingo" (screenshot: the hint
+  wrapping "m" and "then" onto two lines beside the key chips).
+- "also add a shortcut for 'm' + 's' for opening up settings, maybe 'm' +
+  'q' for quick sketch?? maybe 'm' + 'm' or 'v' (for voice) for meeting
+  notes or smth??"
+- "the panels and sidebars in windows actually go quite far down below
+  where the scroll should stop, and the ai skill sidebar isnt 100%
+  height."
+- "the containers of all the ui in each tab page have hard corner
+  rectangular edges so I want that fixed because the shadows make the cut
+  off pretty obvious."
+- "also no back to top button appears on the dashboard??"
+- "the heatmap on the dashboard is a little small."
+- "glass looks better on light mode and not dark but idk if thats an actual
+  thing or if the values are different." It is an actual thing: the dark
+  palette's `--card` alpha and `--glass-highlight` are not the light one's
+  mirrored, so the same blur reads flatter. Measure both before changing
+  either.
+- "the links edit save and cancel buttons arent consistent" (screenshot: an
+  accent pill beside a grey rounded rectangle at a different radius and
+  height).
+- "the words 'write something first' is at the bottom of the note capture
+  tab when I didnt do anything?? maybe I fumbled a button": a validation
+  message shown on load rather than on submit.
+- "I was in the ocr workspace and the model dropdown combobox at the top
+  bar didnt open."
+- "I think the screen shots on the readme need an update from all the ui
+  changes."

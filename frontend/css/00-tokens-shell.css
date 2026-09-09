@@ -2509,6 +2509,62 @@ header#top-bar.tabs-wrapped #tab-bar {
   color: var(--accent);
 }
 
+/* **The picture and its name are one object** (INBOX 56). The name under the
+   thumbnail was the second of six blocks stacked at one weight; on the
+   picture it is a caption, which is what it has always been. The frame is
+   the positioning context, and it is the only child of the tile that reaches
+   the tile's own top corners. */
+.library-image-frame {
+  position: relative;
+  border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
+  overflow: hidden;
+}
+
+/* A scrim, not a bar: a solid strip would be a second surface on the card,
+   and the picture behind the name is worth keeping. Built from --scrim, the
+   token the command palette's dim already uses, mixed towards black so it
+   carries white text over a *white* photograph too: --scrim alone is 0.45
+   alpha, which leaves white-on-white at about 3.2:1, under AA for text this
+   size. The mix takes it to about 0.67 and roughly 6:1.
+
+   White ink rather than --ink, for the reason `.lightbox-info` records about
+   its own panel: this is a fixed dark surface in both themes, so a theme
+   token that flips would be wrong on one of them.
+
+   **The scrim is solid where the words are and only fades above them.** A
+   gradient that starts fading at the bottom edge puts the text in the middle
+   of its own ramp: measured with scratchpad/pngpixel.py on the seeded
+   gallery, the pixels behind the filename came out (134, 134, 137), which is
+   3.6:1 against white and under AA for text this size. Held at full strength
+   for the bottom two thirds (which is the whole padded text band) it
+   measures dark enough to clear it, and the fade still hides the edge. */
+.library-image-frame figcaption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: var(--space-5) var(--space-3) var(--space-2);
+  color: #fff;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--scrim) 60%, #000 40%) 0%,
+    color-mix(in srgb, var(--scrim) 60%, #000 40%) 68%,
+    transparent 100%
+  );
+}
+
+.library-image-frame figcaption:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+/* Renaming in place: the input is over the scrim, so it carries its own
+   legible ground rather than white-on-photograph. */
+.library-image-frame .library-image-rename-input {
+  color: #fff;
+  border-bottom-color: #fff;
+}
+
 /* A vision model's own description of the image, below the filename, 
    deliberately not <figcaption> (that already names the filename above;
    this is metadata about what's IN the picture, not what it's called).
@@ -2531,6 +2587,79 @@ header#top-bar.tabs-wrapped #tab-bar {
   flex-direction: column;
   gap: var(--space-4);
   padding: 0 var(--space-4) var(--space-4);
+}
+
+/* **One disclosure, on the app's own <details> recipe** (details.tool-chip,
+   02-chat-graph.css): the marker is replaced by a caret that turns, and the
+   body is hidden by an author rule when closed rather than by trusting the
+   user-agent one (the bug that comment records). Two clamped transcriptions,
+   each with a label and a Show more, were four of the card's six ranks of
+   information; folded away they are one row. */
+.library-image-reading > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  list-style: none;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  /* The resting tonal fill and hairline come from the app's own
+     `summary:not(.icon-only):not(.icon-button)` rule (07-whiteboard-misc.css)
+     and are deliberately left alone: that rule exists because a disclosure
+     that looks like a line of text is a control nobody finds, and this is the
+     same object in a different place. Overriding it here would need a
+     two-class selector to beat that one, which is the shape of a decision
+     being quietly remade. */
+}
+
+.library-image-reading > summary:hover {
+  color: var(--ink);
+}
+
+.library-image-reading > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* **The caret leads the label, it does not trail the row.** Reported on
+   2026-09-09: "the text extracted from this file dropdown doesnt even have a
+   dropdown arrow and make sure it is aligned with the text". It had one, as
+   `::after` with `margin-left: auto`: on an image tile that put it a few
+   pixels past a short label, but a Files row's summary is the full width of
+   the row, so the caret sat about 300px away from the words it belongs to,
+   with nothing between them. A marker that far from its label is not a marker.
+
+   Leading, which is also what every other disclosure in this app does (the
+   chat's `.agent-step` and `details.tool-chip` both draw theirs before the
+   text) and therefore what DESIGN.md's <details> recipe means. */
+.library-image-reading > summary::before {
+  content: "▸";
+  flex: 0 0 auto;
+  opacity: 0.7;
+  transition: transform var(--motion-base) ease;
+}
+
+.library-image-reading[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .library-image-reading > summary::before {
+    transition: none;
+  }
+}
+
+.library-image-reading:not([open]) > .library-image-reading-body {
+  display: none;
+}
+
+.library-image-reading[open] > .library-image-reading-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
 }
 
 .library-image-field {
@@ -2566,52 +2695,28 @@ header#top-bar.tabs-wrapped #tab-bar {
   background: color-mix(in srgb, var(--accent) 70%, transparent);
 }
 
-/* Which model wrote it, as a real badge rather than a bare model id dropped
-   under the text: `qwen3-vl:4b` on its own line read as leftover output. */
-/* **One badge, three classes, and only one of them was centred.** Reported:
-   "the model used badges in the images library subtab dont have their text
-   centred". Measured, the three said different things: `.ocr-badge` was a
-   correct pill (flex, 3px above and below, 15.5px tall); `.caption-badge` was
-   a pill whose later override reset it to `padding: 0 x x`, nothing above,
-   6px below, so its text sat hard against the top edge; and
-   `.vision-ocr-badge` had neither the pill nor the centring, at 22.8px tall
-   against the others' 15.5px.
-
-   They all say the same kind of thing, which model produced the text beneath
-   them: so they are one object now. Asymmetric vertical padding is the whole
-   defect: `align-items: center` centres the *line box*, and a box with no
-   padding above and 6px below is not centred no matter what the flex
-   alignment says. */
-.library-image-caption-badge,
-.library-image-vision-ocr-badge,
-.library-image-ocr-badge {
-  /* Reported alongside the centring: "there is no gap below the badges for the
-     used in section and the captions text box". The field around these is a
-     `--space-1` stack, which is right for a label sitting on its own value but
-     too tight for a pill following a paragraph, the badge read as another
-     line of the caption rather than as a note about it. A step up separates
-     the annotation from the thing it annotates without loosening the label
-     that belongs tight to its field. */
-  margin-top: var(--space-2);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  align-self: flex-start;
-  max-width: 100%;
-  padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  background: var(--chip-bg);
-  color: var(--muted);
+/* **Provenance is a byline, not two pills** (INBOX 56). The three model
+   badges that used to live here (`.library-image-caption-badge`,
+   `.library-image-vision-ocr-badge`, `.library-image-ocr-badge`) were
+   bordered, filled pills sitting in the middle of the card beside the "Used
+   in" chips, which are buttons: the same shape for a thing you press and a
+   thing you read. One muted line at the foot says both, in the smallest type
+   on the card, and the pills and their rules are gone rather than restyled. */
+.library-image-provenance {
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-4);
   font-size: var(--text-xs);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.library-image-provenance.hidden {
+  display: none;
 }
 
 .library-image-caption {
   margin: 0;
-  padding: 0 var(--space-3) var(--space-3);
+  padding: 0 0 var(--space-3);
   cursor: text;
   /* A pasted URL or a long slash-run ("make/manage/delete/access") has no
      break opportunity, so it ran straight through the tile's edge: 
@@ -2645,11 +2750,30 @@ header#top-bar.tabs-wrapped #tab-bar {
   line-height: 1.6;
 }
 
+/* Three, since the "Description" label above it went (INBOX 56): the
+   paragraph is the card's one piece of prose and two lines of it was a
+   preview of a preview.
+
+   **And no bottom padding while it is clamped.** `overflow: hidden` clips at
+   the *padding* box, not the content box, so the paragraph's own 8px of
+   bottom padding showed 8px of the fourth line under the ellipsis: a sliced
+   strip of letters, which is the "cut off half way through the letters"
+   report this rule's neighbour already records, arriving by a second route.
+   Measured: box 65.6px against 3 x 19.2 = 57.6px of text. The gap below is
+   the More button's own margin when there is one, and there always is one
+   when this class is present. */
 .library-image-caption.library-image-caption-clamped {
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  padding-bottom: 0;
+}
+
+/* The same clip, the same cause, on the two readings inside the fold. */
+.library-image-ocr.library-image-ocr-clamped,
+.library-image-vision-ocr.library-image-vision-ocr-clamped {
+  padding-bottom: 0;
 }
 
 .library-image-caption-empty {
@@ -2657,41 +2781,17 @@ header#top-bar.tabs-wrapped #tab-bar {
   opacity: 0.7;
 }
 
-/* Which model wrote the caption, and whether it's since been edited, a
-   quiet byline under the caption text, not a chip competing with it. */
-/* The `display: block` + `padding: 0 x x` override that used to sit here is
-   gone: it undid the pill above and pushed this badge's text to the top of
-   its own box. See the note on the shared rule. */
-.library-image-caption-badge {
-  margin-inline: 0;
-  margin-bottom: 0;
-}
 
-.library-image-caption-badge.hidden {
-  display: none;
-}
-
-/* `.entry-more`'s own negative margin-top assumes it directly follows
-   clamped text inside a padded <li> - here it's a sibling of the caption
-   <p>, not a child, so it needs the caption's own horizontal padding
-   repeated rather than inherited. Reported: sat with no visible gap above
-   the caption text. The caption's own bottom padding (space-3) already
-   separates its *last line* from whatever comes next when there's no
-   button there at all - this adds `space-2` of its own top padding on top
-   of that, so the two stack into a real gap specifically when the button
-   is shown, rather than the button sitting flush against the text above
-   it. */
-/* Compound selector, not just `.library-image-caption-more`: `.entry-more`
-   (06-timeline-dialogs.css, loaded after this file) sets its own
-   `padding: 0.1rem 0`, and same-specificity same-property rules resolve by
-   source order - so a single-class selector here lost every time, and the
-   button sat flush against the card's edge (reported) no matter what padding
-   was written above. Two classes outweighs `.entry-more`'s one regardless of
-   load order. */
-.entry-more.library-image-caption-more {
-  margin: 0;
-  padding: var(--space-2) var(--space-3) var(--space-3);
-  display: block;
+/* The description's More/Less toggle is a real tonal button now, not
+   `.entry-more`'s accent-coloured link (INBOX 56: three accent links stacked
+   down a card read as its three actions). It sits at the paragraph's own
+   left edge, so it lines up with the text it belongs to rather than with the
+   card. */
+.library-image-caption-more,
+.library-image-ocr-more,
+.library-image-vision-ocr-more {
+  align-self: flex-start;
+  margin: 0 0 var(--space-3);
 }
 
 .library-image-caption-input {
@@ -2723,7 +2823,7 @@ header#top-bar.tabs-wrapped #tab-bar {
    the box, which is exactly the case being fixed. */
 .library-image-ocr {
   margin: 0;
-  padding: 0 var(--space-3) var(--space-3);
+  padding: 0 0 var(--space-3);
   white-space: pre-wrap;
   cursor: text;
   overflow-wrap: anywhere;
@@ -2747,11 +2847,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   overflow: hidden;
 }
 
-.entry-more.library-image-ocr-more {
-  margin: 0;
-  padding: var(--space-2) var(--space-3) var(--space-3);
-  display: block;
-}
+
 
 .library-image-vision-ocr.library-image-vision-ocr-clamped {
   display: -webkit-box;
@@ -2760,11 +2856,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   overflow: hidden;
 }
 
-.entry-more.library-image-vision-ocr-more {
-  margin: 0;
-  padding: var(--space-2) var(--space-3) var(--space-3);
-  display: block;
-}
+
 
 .library-image-ocr-input {
   width: 100%;
@@ -2788,7 +2880,7 @@ header#top-bar.tabs-wrapped #tab-bar {
    always-visible "Add a caption…" placeholder. */
 .library-image-vision-ocr {
   margin: 0;
-  padding: 0 var(--space-3) var(--space-3);
+  padding: 0 0 var(--space-3);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -2797,14 +2889,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   display: none;
 }
 
-.library-image-vision-ocr-badge {
-  margin-inline: 0;
-  margin-bottom: 0;
-}
-
-.library-image-vision-ocr-badge.hidden {
-  display: none;
-}
 
 /* Library → Drafts (§80 this session): one row per draft, same .entry-list
    card look every other list in this app uses, laid out as a row rather

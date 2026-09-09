@@ -112,6 +112,10 @@ kind. Every tool has a key and every key is in the tooltip and the help.
    every drag frame (the marquee fix must not have detached them; add the
    sweep check that a dragged node's edge endpoint moves with it).
 
+## Built, 2026-09-09: one surface per panel, and the Arrange section
+
+Moved to HISTORY.md ("Moved from the plans, 2026-09-09", WHITEBOARD_PLAN.md) on 2026-09-09: a plan holds open work only.
+
 ## 5. Phases
 
 ### Phase 1: the rail and the keys (half a session)
@@ -290,3 +294,21 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     one bar surface, groups separated by a hairline divider only, no
     per-group background; the zoom pill on the same recipe. Size S.
 
+## Placed from INBOX, 2026-09-09 (the owner's evening batch)
+
+- "can the whiteboard arrange tools be better structured??" (screenshot):
+  ten icon-only buttons under one ARRANGE heading in a ragged 2-3-3-2 grid.
+  Three labelled sub-rows (Group, Align, Distribute), three per row, each
+  with a title and an aria-label.
+- "the view dropdown is still overly short", and separately "on the
+  mindmap, the view dropdown is even more visually broken". Both are the
+  escaped-menu height, fixed on 2026-09-09 (`place()` now measures at
+  `max-height: none` and caps against the room the trigger actually has).
+  Retest both at 1440 and 820 before closing.
+- Console, 2026-09-09: `POST /whiteboard/nodes` answered 422 with
+  `entry_id: Input should be a valid integer, input: null`, and the app
+  logged "Error creating node: {}". A node created with no backing entry
+  sends null where the schema wants an int. Two halves: the schema should
+  accept a node with no entry (a plain shape is not a note), and the
+  client's error path should say what failed rather than print an empty
+  object.

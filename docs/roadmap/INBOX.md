@@ -38,11 +38,6 @@ done-when item 4 and 5), in priority order.
     Fullscreen API is active. Fix: mount the lightbox (and every dialog the
     node panel can open) inside the fullscreen element while fullscreen is
     on, or exit fullscreen first and re-enter on close. Size S.
-70. **Notifications: the "AI activity" combobox doesn't open, and the
-    feature doesn't work** (screenshot). Owner: Fable, now: the select is
-    replaced by enhanceSelect; the panel is a popover that closes on any
-    outside click, which the enhanced menu counts as. Fix: the popover's
-    outside-click guard ignores clicks inside `.select-menu`.
 69. **Agent activity panel: the dropdowns don't expand** (screenshot: a
     "Starting SearXNG" row with a caret that does nothing). Owner: Fable,
     now: the row is a `details`-like custom toggle; check its handler is
@@ -95,6 +90,42 @@ done-when item 4 and 5), in priority order.
     `--glass-blur`); opacity drives `--card` alpha (check the palette
     override order); sheen is a gradient over `.card` only when
     `data-glass-sheen=on`.
+97. **Library and Files: an expanded dropdown closes itself and scrolls
+    back to the top.** The owner, 2026-09-09: "when I expand the ocr text in
+    this image on the image cards in the images library sub tab, it keeps
+    auto closing and scrolling me back to the top", and "the same happens on
+    the text extracted from this file dropdown in the files subtab". One
+    cause, two surfaces: the list re-renders on a poll and rebuilds every
+    row, so an open `<details>` is replaced by a closed one and the scroll
+    position goes with it. The agent activity panel solved this in Phase C
+    by building rows once and updating in place. Fix: keep the open set and
+    the scroll offset across a re-render, or skip the re-render when nothing
+    in the list changed. Owner: Fable/Opus, now. Size S.
+104. **Whiteboard: the Arrange group needs structure.** The owner,
+    2026-09-09: "can the whiteboard arrange tools be better structured??"
+    (screenshot). Ten icon-only buttons under one ARRANGE heading in a
+    ragged 2-3-3-2 grid, with group/ungroup, three horizontal aligns, three
+    vertical aligns and two distributes all reading as one undifferentiated
+    field. Fix: three labelled sub-rows (Group, Align, Distribute), three
+    per row, each button with a title and an aria-label, on DESIGN.md's
+    icon-button recipe. Owner: WHITEBOARD Phase 1. Size S.
+105. **Whiteboard: the View dropdown is still too short.** The owner,
+    2026-09-09: "the view dropdown is still overly short" (screenshot: the
+    panel clips mid-row on "Snap to grid" with its own inner scrollbar,
+    about 230px tall against a viewport with hundreds to spare). It was
+    reported once before as INBOX 57 and closed as not reproduced at head,
+    so this is the retest and it reproduces. Fix: the menu's max-height
+    should be the space below its trigger, not a fixed figure, and a row
+    must never be cut in half. Measure it open at 1440 and at 820. Owner:
+    WHITEBOARD Phase 1. Size S.
+106. **Links: the Save and Cancel buttons do not match.** The owner,
+    2026-09-09: "the links edit save and cancel buttons arent consistent"
+    (screenshot: Save is a filled accent pill, Cancel a grey rounded
+    rectangle at a different radius and a different height). Two buttons
+    side by side in one row must share a radius, a height and a padding;
+    only the fill should differ. Fix on DESIGN.md's button recipe, and
+    check the same pair everywhere an edit row appears. Owner: UI
+    modernisation, placed. Size S.
 67. **Max gravity: "the nodes are all still so spread out"** (screenshot at
     max, 01:30). The screenshot predates the pull fix in e1... (commit
     "graph: the centre pull follows the gravity slider", pushed 01:00) if

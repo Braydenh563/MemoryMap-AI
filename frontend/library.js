@@ -616,12 +616,33 @@ function libraryActions(item) {
         loadEntries();
       }),
       makeMenuItem("ph:trash Move to bin", "Bin this note: recoverable", async () => {
-        await apiJson(`/entries/${item.id}`, { method: "DELETE" }).catch((e) =>
-          toast(e.message, true)
-        );
-        toast("Moved to the bin.");
+        try {
+          await apiJson(`/entries/${item.id}`, { method: "DELETE" });
+        } catch (e) {
+          toast(e.message, true);
+          return;
+        }
         reload();
         loadEntries();
+        //: The one bin action in the app without Undo on its toast: the
+        //: Notes tab's had it (pushUndo, the undo bar and the toast agree),
+        //: the Library's card menu did not. Same recipe, same words.
+        const restoreIt = async () => {
+          await apiJson(`/entries/${item.id}/restore`, { method: "POST" });
+          reload();
+          loadEntries();
+        };
+        const binIt = async () => {
+          await apiJson(`/entries/${item.id}`, { method: "DELETE" });
+          reload();
+          loadEntries();
+        };
+        const action = pushUndo("Moved a note to the bin", restoreIt, binIt);
+        toastAction("Moved to the recycle bin.", "Undo", async () => {
+          settleUndoFromToast(action);
+          await restoreIt();
+          toast("Note restored.");
+        });
       }),
     ];
   }
@@ -2126,6 +2147,34 @@ $("library-docs-bulk-delete")?.addEventListener("click", async () => {
 //: the main Library search already uses against `libraryItems`.
 let libraryImagesCache = [];
 
+//: **What the gallery last drew**, so a poll that finds nothing new draws
+//: nothing new. Reported on 2026-09-09, against both media sub-tabs: "when I
+//: expand the ocr text in this image on the image cards in the images library
+//: sub tab, it keeps auto closing and scrolling me back to the top", and "the
+//: same happens on the text extracted from this file dropdown in the files
+//: subtab". The six-second caption poll rebuilt every tile from scratch
+//: whether or not anything had changed, so an open `<details>` was replaced
+//: by a closed one and the grid's scroll offset went with it: a reader had
+//: about six seconds to read a transcription before the app shut it.
+//:
+//: The signature is the fields a tile actually draws, not the whole payload:
+//: `/media` carries timestamps and sizes that move without changing a pixel,
+//: and comparing those would make this test always fail, which is the bug
+//: again with extra steps.
+let libraryImagesSignature = "";
+function libraryImagesFingerprint(rows) {
+  return JSON.stringify(
+    (rows || []).map((row) => [
+      row.url,
+      row.name,
+      row.caption || "",
+      row.ocr_text || "",
+      row.vision_ocr_text || "",
+      row.usage_count ?? null,
+    ]),
+  );
+}
+
 // Captioning runs on a background thread after upload (routes_files.py): 
 // the gallery only ever showed the caption once something re-fetched
 // `/media`, and nothing did that on its own. Reported directly: a caption
@@ -2141,7 +2190,7 @@ function startLibraryImagesPoll() {
     if (document.querySelector(".library-image-caption-input, .library-image-rename-input")) {
       return;
     }
-    renderLibraryImagesGallery();
+    renderLibraryImagesGallery({ ifUnchanged: "skip" });
   }, 6000);
 }
 function stopLibraryImagesPoll() {
@@ -5112,7 +5161,12 @@ async function bulkDeleteLibraryMedia() {
   if (answer.checked) loadEntries().catch(() => {});
 }
 
-async function renderLibraryImagesGallery() {
+//: `ifUnchanged: "skip"` is the poll's call. Every other caller (a sub-tab
+//: click, an upload, a delete, the search box) means "draw this now" and must
+//: not be silently skipped: a delete that leaves the tile on screen because
+//: the fingerprint had not been refreshed yet would be a far worse bug than
+//: the one this fixes.
+async function renderLibraryImagesGallery({ ifUnchanged = "render" } = {}) {
   const grid = $("library-images-grid");
   const empty = $("library-images-empty");
   if (!grid) return;
@@ -5159,6 +5213,10 @@ async function renderLibraryImagesGallery() {
     item.vision_ocr_text = item.vision_ocr_text || "";
   }
   libraryImagesCache = [...(images || []), ...(attachments || [])];
+  const fingerprint = libraryImagesFingerprint(libraryImagesCache);
+  const unchanged = fingerprint === libraryImagesSignature;
+  libraryImagesSignature = fingerprint;
+  if (unchanged && ifUnchanged === "skip") return;
   if (!images && !attachments?.length) {
     grid.replaceChildren();
     empty?.classList.remove("hidden");
@@ -5339,12 +5397,21 @@ function filterLibraryImagesGallery() {
       const idx = images.indexOf(image);
       if (idx !== -1) images.splice(idx, 1);
     });
-    img.addEventListener("click", () => {
-      // A sketch's "full size" is the board it lives on, there is no file
-      // to open in a lightbox, and the board is where it can actually be
-      // edited, moved or deleted in context.
-      openLightbox(libraryLightboxItems(images), images.indexOf(image));
-    });
+    //: **What a click on a row opens**, asked for on 2026-09-09: "I want the
+    //: file to be opened in the ocr workspace if I click on the main top part
+    //: of the panel and not an element and when I click the file title".
+    //:
+    //: A picture opens in the lightbox, which is the view that answers "what
+    //: is this": a document opens in the OCR workspace, which is the view
+    //: that answers the same question about a document, page beside text. A
+    //: PDF in a lightbox was always the compromise, and the workspace
+    //: rasterises its pages server-side (`_pdf_regions_for`), so there is no
+    //: longer a reason to send a document to the image viewer.
+    const openThisRow = () => {
+      if (image._isImage) openLightbox(libraryLightboxItems(images), images.indexOf(image));
+      else openOcrWorkspace(image, images);
+    };
+    img.addEventListener("click", openThisRow);
     // The tick. Same control the Documents list already uses, so selecting
     // works the same way wherever you are in the Library.
     const tick = document.createElement("input");
@@ -5419,7 +5486,18 @@ function filterLibraryImagesGallery() {
 
     const cap = document.createElement("figcaption");
     cap.textContent = image.original_name;
-    cap.title = image.original_name;
+    cap.title = image._isImage
+      ? image.original_name
+      : `${image.original_name}\n\nClick to open it page by page, beside the text.`;
+    //: The title is the row's name, so it opens the row, the same click the
+    //: thumbnail takes. Not while it is being renamed: `rename` replaces the
+    //: caption's contents with an `<input>`, and a click into a text field
+    //: you are typing in must never navigate away from it.
+    cap.addEventListener("click", (event) => {
+      if (cap.querySelector("input")) return;
+      event.stopPropagation();
+      openThisRow();
+    });
 
     rename.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -5519,15 +5597,24 @@ function filterLibraryImagesGallery() {
     captionText.className = "library-image-caption muted text-sm";
     captionText.tabIndex = 0;
     captionText.setAttribute("role", "button");
-    // Roughly two lines' worth of this tile's narrow column at text-sm, 
+    // Roughly three lines' worth of this tile's narrow column at text-sm,
     // approximate on purpose, the same way LONG_NOTE_CHARS is: the tile is
     // still `display: none` inside a hidden sub-tab at render time for most
     // gallery loads, so a measured height would read 0 (the trap the Notes
     // list's own long-note comment already names).
-    const CAPTION_CLAMP_CHARS = 90;
+    //: Two lines became three when the "Description" heading above it went
+    //: (INBOX 56): the label was one of the six ranks of information the card
+    //: stacked at one weight, and the paragraph it labelled is the only prose
+    //: on the card, so it does not need naming.
+    const CAPTION_CLAMP_CHARS = 140;
+    //: `button.ghost.small`, not `.entry-more`. `.entry-more` is the
+    //: link-coloured, semibold inline "Show more" the Notes list uses inside
+    //: running text; on a card of six stacked blocks, three of them in accent
+    //: blue read as the card's three actions. A tonal button reads as what it
+    //: is: a small control belonging to the paragraph above it.
     const captionToggle = document.createElement("button");
     captionToggle.type = "button";
-    captionToggle.className = "entry-more library-image-caption-more hidden";
+    captionToggle.className = "ghost small library-image-caption-more hidden";
     const captionClamped = () =>
       !libraryExpandedCaptions.has(image.id) &&
       (image.caption || "").length > CAPTION_CLAMP_CHARS;
@@ -5535,9 +5622,7 @@ function filterLibraryImagesGallery() {
       captionText.classList.toggle("library-image-caption-clamped", captionClamped());
       const needsToggle = (image.caption || "").length > CAPTION_CLAMP_CHARS;
       captionToggle.classList.toggle("hidden", !needsToggle);
-      captionToggle.textContent = libraryExpandedCaptions.has(image.id)
-        ? "Show less"
-        : "Show more";
+      captionToggle.textContent = libraryExpandedCaptions.has(image.id) ? "Less" : "More";
     };
     captionToggle.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -5545,35 +5630,50 @@ function filterLibraryImagesGallery() {
       else libraryExpandedCaptions.add(image.id);
       syncCaptionClamp();
     });
-    // Which model wrote the caption, and whether a person has since edited
-    // it: asked for directly ("AI generated image captions should be
-    // tagged on the ui and list what model generated it and if it has been
-    // manually modified"). Quiet by design: a byline under a sentence of
-    // metadata, not another chip competing with the caption for attention.
-    const captionBadge = document.createElement("span");
-    captionBadge.className = "library-image-caption-badge muted text-sm hidden";
-    const syncCaptionBadge = () => {
+    //: **Provenance is one muted line at the foot of the card, not chips.**
+    //: Reported (INBOX 56): "chips for provenance that read as actions". Who
+    //: described the picture and who read the text out of it were two pills
+    //: in the middle of the card, at the same weight and with the same
+    //: bordered shape as the "Used in" chips beside them, which *are*
+    //: buttons. They are a byline: the smallest type on the card, plain
+    //: text, last, where a byline goes. (The ask they came from is still
+    //: met: "AI generated image captions should be tagged on the ui and list
+    //: what model generated it and if it has been manually modified.")
+    //:
+    //: Built from `image.*` rather than from arguments, because both setters
+    //: write the row first and then call this, and the tile's two readings
+    //: change independently.
+    const provenance = document.createElement("p");
+    provenance.className = "library-image-provenance muted";
+    const syncProvenance = () => {
       const parts = [];
-      if (image.caption_model) parts.push(shortModelName(image.caption_model));
-      if (image.caption_edited) parts.push(image.caption_model ? "edited" : "typed by hand");
-      captionBadge.textContent = parts.join(" · ");
-      captionBadge.classList.toggle("hidden", !image.caption || parts.length === 0);
+      if (image.caption_model) {
+        parts.push(
+          `Described by ${shortModelName(image.caption_model)}${image.caption_edited ? ", edited by hand" : ""}`
+        );
+      } else if (image.caption && image.caption_edited) {
+        parts.push("Described by hand");
+      }
+      if (image.vision_ocr_model) parts.push(`read by ${shortModelName(image.vision_ocr_model)}`);
+      provenance.textContent = parts.join(" · ");
+      provenance.title = [image.caption_model, image.vision_ocr_model].filter(Boolean).join(" · ");
+      provenance.classList.toggle("hidden", parts.length === 0);
     };
     const setCaptionState = (text, meta = {}) => {
       image.caption = text || "";
       if ("caption_model" in meta) image.caption_model = meta.caption_model || "";
       if ("caption_edited" in meta) image.caption_edited = Boolean(meta.caption_edited);
-      captionText.textContent = text || "Add a caption…";
+      captionText.textContent = text || "Add a description";
       captionText.classList.toggle("library-image-caption-empty", !text);
       captionText.title = text
-        ? "Click to edit this caption"
-        : "Click to add a caption";
-      captionBtn.title = text
-        ? `Regenerate the AI caption for “${image.original_name}”`
-        : `Generate an AI caption for “${image.original_name}”`;
+        ? "Click to edit this description"
+        : "Click to add a description";
+      captionBtn.title = image._isImage
+        ? `Describe “${image.original_name}” ${text ? "again " : ""}with AI`
+        : `Summarise “${image.original_name}” ${text ? "again " : ""}from its text`;
       captionBtn.setAttribute("aria-label", captionBtn.title);
       syncCaptionClamp();
-      syncCaptionBadge();
+      syncProvenance();
     };
     setCaptionState(image.caption);
     const startEditingCaption = () => {
@@ -5650,8 +5750,7 @@ function filterLibraryImagesGallery() {
       // just sat unchanged for however long the model took, asked for
       // directly, a visible "generating" state while one is in flight.
       const previousCaptionText = captionText.textContent;
-      captionText.replaceChildren(typingDots("Generating caption…"));
-      captionBadge.classList.add("hidden");
+      captionText.replaceChildren(typingDots("Generating a description…"));
       try {
         // force: true: a manual click is exactly "the user pressed the
         // button to rewrite it", the one case the write-once default
@@ -5666,11 +5765,22 @@ function filterLibraryImagesGallery() {
         //: empty caption when no vision model answers, and silence here read
         //: as a dead button. Say so, once, with the likely cause.
         if (!updated.caption) {
-          toast(updated.message || "No description was written. Is a vision model running in Settings > Models?", true);
+          //: Two different missing models, so two different sentences: a
+          //: picture is described by the vision model, a document by the
+          //: utility model reading its extracted text, and sending someone to
+          //: install a vision model for a .docx would be a wrong answer
+          //: delivered confidently.
+          toast(
+            updated.message ||
+              (image._isImage
+                ? "No description was written. Is a vision model running in Settings > Models?"
+                : "No description was written. Check a model is running in Settings > Models."),
+            true,
+          );
         }
       } catch (error) {
         captionText.textContent = previousCaptionText;
-        syncCaptionBadge();
+        syncProvenance();
         toast(error.message || "Couldn't generate a caption.", true);
       } finally {
         captionBtn.disabled = false;
@@ -5859,8 +5969,6 @@ function filterLibraryImagesGallery() {
     visionOcrText.tabIndex = 0;
     visionOcrText.setAttribute("role", "button");
 
-    const visionOcrBadge = document.createElement("span");
-    visionOcrBadge.className = "library-image-vision-ocr-badge muted text-xs hidden";
 
     // Same clamp/toggle shape as captionText's/ocrText's above.
     const VISION_OCR_CLAMP_CHARS = 90;
@@ -5898,14 +6006,14 @@ function filterLibraryImagesGallery() {
         text || (hasRun ? "No legible text found, click to edit" : "No text yet, click to add");
       visionOcrText.classList.toggle("library-image-ocr-empty", !text);
       visionOcrText.title = text ? "Click to edit or clear this reading" : "Click to add text";
-      visionOcrBadge.textContent = hasRun ? `Read by ${shortModelName(model)}` : "";
-      visionOcrBadge.title = hasRun ? `Read by ${model}` : "";
-      visionOcrBadge.classList.toggle("hidden", !hasRun);
       visionOcrBtn.title = hasRun
         ? `Read the text in “${image.original_name}” again`
         : `Read any text in “${image.original_name}” with AI`;
       visionOcrBtn.setAttribute("aria-label", visionOcrBtn.title);
       syncVisionOcrClamp();
+      //: "Read by X" used to be a pill of its own here; it is half of the
+      //: card's one provenance line now.
+      syncProvenance();
     };
     setVisionOcrState(image.vision_ocr_text, image.vision_ocr_model);
 
@@ -5973,7 +6081,6 @@ function filterLibraryImagesGallery() {
       event.stopPropagation();
       visionOcrBtn.disabled = true;
       visionOcrText.replaceChildren(typingDots("Reading text…"));
-      visionOcrBadge.classList.add("hidden");
       try {
         // force: true: a manual click always re-reads, the same "the user
         // pressed the button" reasoning captionBtn's own force:true uses.
@@ -6075,12 +6182,14 @@ function filterLibraryImagesGallery() {
       return section;
     };
 
-    const captionField = field(
-      "Description",
-      captionText,
-      captionToggle,
-      captionBadge
-    );
+    //: **The description is the card's paragraph, not a labelled field.**
+    //: It keeps the section box (the click-to-edit paragraph and its More
+    //: toggle belong together) and loses the "Description" heading: with the
+    //: filename now on the picture and the readings folded away, this is the
+    //: only prose left on the card and nothing else could be mistaken for it.
+    const captionField = document.createElement("section");
+    captionField.className = "library-image-field library-image-describe";
+    captionField.append(captionText, captionToggle);
     //: A PDF is not an image, and the heading said so anyway. Reported: "in
     //: the files tab, the ocr heading still says 'text in this image' when it
     //: should probably say something like 'extracted text from file'".
@@ -6098,17 +6207,24 @@ function filterLibraryImagesGallery() {
     //: document's reading was never really possible in a two-line clamp
     //: anyway; the workspace edits it per page, which is where it belongs.
     const summary = image._isImage ? null : mediaReadingSummary(image);
-    const visionField = image._isImage
-      ? field(
-          "Text in this image",
-          visionOcrText,
-          visionOcrToggle,
-          visionOcrBadge
-        )
-      : field(
-          "Text extracted from this file",
-          buildFileReadingSummary(image, summary, images)
-        );
+    //: **Folded away, under one disclosure.** A transcription is the thing
+    //: you go looking for, not the thing you are shown: two clamped
+    //: paragraphs of it, each with its own label and its own Show more,
+    //: were four of the card's six ranks of information (INBOX 56). Closed
+    //: by default, and the app's own <details> recipe (details.tool-chip,
+    //: 02-chat-graph.css) so the marker and the caret read the same here as
+    //: in the chat transcript.
+    const visionField = document.createElement("details");
+    visionField.className = "library-image-reading";
+    const readingSummary = document.createElement("summary");
+    readingSummary.textContent = image._isImage
+      ? "Text in this image"
+      : "Text extracted from this file";
+    const readingBody = document.createElement("div");
+    readingBody.className = "library-image-reading-body";
+    if (image._isImage) readingBody.append(visionOcrText, visionOcrToggle);
+    else readingBody.append(buildFileReadingSummary(image, summary, images));
+    visionField.append(readingSummary, readingBody);
     // The Tesseract reading is shown only when it actually found something.
     // Tesseract is a system binary this app never installs on its own (by
     // instruction, and `tesseract_available` in /models/status now says so
@@ -6116,6 +6232,10 @@ function filterLibraryImagesGallery() {
     // permanently empty, and an empty second "no text found" box under a
     // filled one is the confusion this whole block exists to remove.
     // Reachable regardless from the kebab menu.
+    //: Tesseract's reading goes inside the same disclosure, under the vision
+    //: one: it is the same question ("what does this say"), answered by the
+    //: other reader, and a second top-level box asking it again is what made
+    //: the card read as a form.
     const ocrField = field("Also read with Tesseract OCR", ocrText, ocrToggle);
     const syncOcrFieldVisibility = () =>
       ocrField.classList.toggle("hidden", !(image.ocr_text || "").trim());
@@ -6123,11 +6243,18 @@ function filterLibraryImagesGallery() {
     ocrText.addEventListener("mm:changed", syncOcrFieldVisibility);
     // Running it from the menu reveals the field, so the result has somewhere
     // to appear even when the run finds nothing and says so.
-    ocrBtn.addEventListener("click", () => ocrField.classList.remove("hidden"));
+    ocrBtn.addEventListener("click", () => {
+      ocrField.classList.remove("hidden");
+      //: The field lives inside the fold now, so revealing it is not enough:
+      //: a result that lands in a closed <details> is a button that looks
+      //: like it did nothing.
+      visionField.open = true;
+    });
 
+    readingBody.appendChild(ocrField);
     const fields = document.createElement("div");
     fields.className = "library-image-fields";
-    fields.append(captionField, visionField, ocrField);
+    fields.append(captionField, visionField);
 
     // **Where this file is actually used.** Asked for as the Files tab being
     // "properly integrated" rather than just redesigned, and it was the one
@@ -6187,7 +6314,10 @@ function filterLibraryImagesGallery() {
     } else {
       const note = document.createElement("span");
       note.className = "muted text-sm";
-      note.textContent = "Not used in any note, document or board yet";
+      //: One line, and the shortest true one: the card says where the file is
+      //: used or that it is not, and "in any note, document or board" spent a
+      //: whole line of a 180px card restating the three places it looked.
+      note.textContent = "Not used yet";
       usage.appendChild(note);
     }
 
@@ -6232,11 +6362,20 @@ function filterLibraryImagesGallery() {
         openOcrWorkspace(image, libraryImagesCache);
       });
       strip.appendChild(read);
-      fig.append(img, actions, cap, fileMetaLine(image), strip, usage, fields);
+      fig.append(img, actions, cap, fileMetaLine(image), strip, usage, fields, provenance);
       grid.appendChild(fig);
       continue;
     }
-    fig.append(img, actions, cap, usage, fields);
+    //: **The filename sits on the picture, not under it.** An image card is
+    //: a picture and what is known about it; the name is what the picture is
+    //: called, so it belongs to the picture (INBOX 56). A scrim behind it
+    //: keeps it legible over a light photograph without a second surface.
+    //: Files (the rows layout above) keep the name as a sibling: that layout
+    //: puts the thumbnail out of flow and lays the text out beside it.
+    const frame = document.createElement("div");
+    frame.className = "library-image-frame";
+    frame.append(img, cap);
+    fig.append(frame, actions, usage, fields, provenance);
     grid.appendChild(fig);
   }
 }

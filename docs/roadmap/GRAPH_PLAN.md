@@ -163,6 +163,10 @@ assumed, before it is adopted.
 
 ---
 
+## Built, Phase 6 (the node panel), 2026-09-09
+
+Moved to HISTORY.md ("Moved from the plans, 2026-09-09", GRAPH_PLAN.md) on 2026-09-09: a plan holds open work only.
+
 ## Built, Phase 5 (backend), 2026-09-09
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", GRAPH_PLAN.md) on 2026-09-09: a plan holds open work only.
@@ -202,3 +206,19 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
     buttons (Favourite, Grow, Focus, Similar, Link, Trace, Remind, Open,
     Bin). Placed as GRAPH_PLAN Phase 6. Owner: Opus, now.
 
+## Placed from INBOX, 2026-09-09 (the owner's evening batch)
+
+- "sometimes the x close button in the graph popup panels gets pushed out
+  of place by the note title, and the note title gets cut off with no
+  ellipse" (screenshot: a two-line title pushing the X down and right). The
+  title needs `min-width: 0` and an ellipsis, and the X `flex: none`, which
+  is the same pair the chat header needed.
+- "I want these buttons at the bottom of the graph node popup panels to be
+  centered or to feel properly integrated into the panel" (screenshot: nine
+  icon buttons in three groups with two dividers, sitting on the panel's
+  own background with a hairline above them).
+- "the graph suggested links panel is poorly designed and not consistent
+  with the rest of the app ui style" (screenshot: five rows, each a quoted
+  pair, a free-text Why box, a percentage, a Link button and an X, in a
+  panel with its own scrollbar).
+- Phase 6 already holds the node panel work; these are its remaining rows.

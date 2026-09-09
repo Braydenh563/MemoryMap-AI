@@ -27,7 +27,9 @@ capture a thought
   -> an answer, with the notes behind it
 ```
 
-Everything runs on your own computer. No account, no cloud, no telemetry.
+The AI files, you decide: everything it does can be seen, edited and
+undone. Everything runs on your own computer. No account, no cloud, no
+telemetry.
 Your notes are a SQLite file in a folder you control, and the app is fully
 usable with no AI model running at all.
 
@@ -247,7 +249,7 @@ Python 3.11 to 3.13 on every push.
 
 ## Status
 
-Version 0.2.2. The core is built and stable: capture, chat, the graph,
+Version 0.3.0. The core is built and stable: capture, chat, the graph,
 documents, the whiteboard and mind maps, private notes, themes, desktop
 packaging for Windows and Linux. Current work is a modernisation of the
 whole interface and a redesign of the graph, documents, timeline and chat

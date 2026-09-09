@@ -7,13 +7,229 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
-This section had drifted below [0.2.2] in reading order (Keep a Changelog
-puts Unreleased first) and its own note still said `0.2.1`; `__version__`
-and `pyproject.toml` are both `0.2.2` now, so most of the section below this
-point already shipped in that release. What follows it, "Since 0.2.2, by
-surface", is new: every commit on the branch since 2026-09-06 that is not
-already a line in [0.2.2] above, one line each, grouped by the surface it
-touched, no commit hashes.
+**0.3.0 is the modernisation release.** Everything on the branch since
+0.2.2 (2026-09-06 to 2026-09-09): a canvas graph with colour rules, groups,
+lasso and export; mind maps through Phase 5 with previews and generation
+from notes; the documents editor's new chrome and CodeMirror 6 vendored
+under the CSP; launchers, uninstallers and a splash on three platforms; the
+glass aesthetic scoped to the functional layer with Performance mode;
+grounding that names the note each sentence came from; a README and
+documentation written for the public; and about forty of the owner's
+reported bugs. The detail, by surface, follows; the tag is cut at merge
+(docs/RELEASING.md).
+
+### 0.3.0, by surface
+
+Every non-merge commit on `claude/epic-ramanujan-8xocc0` since 2026-09-06,
+not already covered above or in [0.2.2], one line each, no hashes. Pure
+roadmap bookkeeping (INBOX/HANDOVER updates, plan documents, agent-remaining
+notes) is not repeated here; see `docs/roadmap/` for that record.
+
+**Graph**
+- Phase 1: a Web Worker running d3-force behind one `renderGraph()` entry
+  point, a Canvas 2D renderer, a 2,000-note gate fixture and the numbers
+  from running it.
+- Phase 2: full-screen mode, label collision avoidance (hover and hits
+  first, then degree), a scaled spread so a map opens framed, pan no longer
+  re-lights a note nobody pointed at, and the display options moved off a
+  strip and onto a dock gear/popover.
+- Phase 3: colour rules and groups.
+- Phase 4: lasso selection, a selection dock, a right-click menu, session
+  hide, saved views moved into the More menu (9 controls down to 6), PNG
+  export at 2x with the legend, and Play on the time slider.
+- The options panel holds up on a phone and a short window, and fits
+  1440x900 without scrolling.
+- Concept maps get a labelled door in the Graph tab.
+
+**Mind maps**
+- Phase 1 (backend): the map object, containment, tree endpoints,
+  export/import, four AI tools.
+- Phase 2 (frontend): nodes are drawn and a map is editable from the
+  keyboard; a new map's root opens centred and edges follow every card a
+  bulk drag moves; edges also follow a single node's drag; a map frames
+  itself on open and Tidy is measured at 200 nodes.
+- A mind map is a node in the graph, joined to the notes on it, and is also
+  a note in its own right (`GET /entries` lists it again).
+- Import from an OPML or Markdown outline, and export the same way; attach
+  a mind map to a chat message as its outline.
+- A map node can point at a note, document, file or link, by hand; purging
+  a map unlinks its image files.
+- No permanent selection box, and a map node's text can be highlighted;
+  readable in dark theme and with glass off.
+
+**Documents**
+- CodeMirror 6 vendored (`frontend/vendor/codemirror/`, built by its own
+  script from pinned versions, licence beside it) and verified under the
+  app's CSP; the editor moves onto it next.
+- Phase 0: the fifth bug and the states checked, recorded and built.
+- Phase 1: the chrome, three questions in three places, plus one header
+  row where the formatting strip only appears when asked for.
+- Phase 2 steps 2 to 4: the editor *is* CodeMirror 6 now, behind one
+  adapter (`docSurface()`), loaded the first time a document is opened.
+  Live preview renders in place instead of in a second pane, with the
+  markdown markers hiding themselves until the caret enters what they mark,
+  links and `[[wiki links]]` as chips, task checkboxes that tick, callouts
+  and quotes with a left bar and images shown; Source is the same editor
+  with the rendering off, so switching keeps your place, your selection and
+  your undo history. Find and replace is the engine's panel (regular
+  expressions, whole-word, a Replace all that one Ctrl+Z puts back),
+  headings fold in the line-number column, and twenty-one languages get
+  syntax colouring. Typing in a 20,000-word document went from a measured
+  160 ms per keystroke to 16 ms. The per-paragraph Live view, the Phase 0
+  backdrop and the snapshot undo stack are deleted with it, and the block
+  handle goes with them until Phase 3 brings block structure back.
+- The instruments VS Code and Word have that this editor did not: real
+  underlines in Source view on a backdrop behind the textarea, one click
+  on an underline opens ranked suggestions, a file-type change re-runs the
+  prose pass, the caret mirror gets a border, the line-number gutter is
+  pinned to the textarea it numbers, and line numbers are one remembered
+  setting across all three editors.
+- An on-request AI review ("Check with AI") for what the local rules
+  cannot judge, and inline AI at the caret (`/ai`, Ctrl+J, a wand in the
+  selection bar) instead of a side panel.
+- A document-local undo stack that spans Live and Source; Live view stops
+  dropping the caret.
+- The findings chip is a control and the switches moved to the kebab; the
+  preview waits for typing to pause.
+- Undo for deleting a document, the one permanent loss left in the app.
+
+**Whiteboard**
+- Text formatting on boxes and stickies: bold/italic/bullets, alignment,
+  toggleable rendered markdown.
+- Top-bar menus escape the panel that was cutting them off; the five
+  whiteboard menus become one measured menu; pan desync fixed.
+- Captioning for documents, not photographs; the lightbox shows a document
+  like a document.
+- Outline a region on a page and read or describe just that.
+
+**Chat and Ask**
+- The chat mode is called Agent, and a skill can switch to it.
+- Citations land on the answer a run actually ends with (the inline
+  citations were being written and then thrown away).
+- Grounds answers in the notes the tools actually read, and in a note's
+  distinctive words.
+- Ground the Help chatbot in real facts; Help gets its own mini AI chat
+  (Help → "Ask the guide").
+- A "still writing" pill floats over the transcript instead of taking a
+  row, doubling as jump-to-latest, and keeps working after the live turn
+  is re-parented.
+- The chat box gets a "/" menu of its own commands.
+- Chat can attach what the notebook already holds, and attached documents
+  finally reach the model.
+- Tool results are typed cards; a failed plan step is re-planned, not
+  abandoned; a step cut off mid-job is stopped, not re-planned.
+- **Tensions**: the notebook finds where you disagreed with yourself,
+  reachable as an agent tool, a skill, and from the command palette.
+- `read_file` can target a search term instead of only the first ~2000
+  characters; `list_documents` and `get_document` got the matching fix.
+
+**Notes, Library and Files**
+- Notes carry a space chip, and capture says where it is filing.
+- The Files sub-tab is a reading list: a "Read · N words" badge, a primary
+  read/open action, and a Read/Not-read filter; the OCR workspace finds its
+  own siblings (Images/Files/Pages) and every entry point populates it.
+- OCR readings are kept as they complete, split into typed sections without
+  Tesseract, deletable on their own, and a Stop button plus a Background
+  tasks row while a read runs.
+- Ask the notebook about itself: most common tags, busiest categories,
+  untagged notes, most-linked notes, when you write most, word counts,
+  longest notes, stale notes, tags that keep turning up together, all
+  counted from your data with no AI running, and surviving a misspelling.
+- Archive extended to chats and documents, alongside notes.
+- A "Read · N words" badge on chat images already OCR'd; Contents says what
+  a folder is instead of "(written here)"; the Library fits a phone.
+
+**Chat, Notes, Documents copy and small fixes**
+- Mark a notification unread, per row, plus "Mark all read".
+- "Ask the AI for wordings" in the document suggestion menu.
+- Double-tap the chat composer's resize corner to reset its height; the
+  composer can be dragged and stops at 40vh.
+- Several routes between two notes at once (Yen's K-shortest paths), each
+  in its own colour; "Generate story from path" becomes a menu of six
+  shapes.
+- The onboarding "Your setup" slide warns when the notebook folder has
+  gone read-only.
+
+**Dashboard**
+- The widgets dialog no longer paints closed behind the hero; the hero
+  banner is restored and refined, with the primary start tile tinted
+  rather than inverted.
+- The toolbar gets breathing room and a name; rearranging now saves; two
+  new widgets.
+
+**Settings and the popup agent**
+- Performance mode (Effects & accessibility): flat panels, no animations
+  and slower graph physics, auto-on for a machine with 4 cores or 4 GB or
+  fewer or when the OS asks for less transparency, said once in a toast.
+  With the animated background on, cards still frost it.
+  Glass itself now blurs only where something scrolls under a surface or
+  where it floats (the top bar, sub-tab strips, dialogs, docks, popovers):
+  the blurred area at rest fell from a third of the screen to under a tenth.
+- The popup agent gets a slot beside the Ctrl-K hint, on by default and
+  hideable like every other slot.
+- One integrated toggle row everywhere (switch leading), replacing the
+  divider-separated grid.
+- Ctrl+F searches the Settings dialog and jumps to the answering section;
+  the About page reads as a hierarchy again.
+- Settings → Packages installs, reinstalls or removes dictation, the
+  desktop window and search-by-meaning without a terminal.
+
+**UI modernisation, phases 0-9**
+- Phase 0: the sweep runner, screenshot set and signature ratchet.
+- Phase 1: one gutter for the shell, two card sizes, a one-row hero, one
+  head row.
+- Phase 2: buttons on the ramp, two row gaps, one popover shell, one tile.
+- Phases 3-4: glass on the shell only, one control size, tone-only hover,
+  one focus ring.
+- Phase 5: Settings nav and label column, the reminders form rhythm, a
+  Voice pass; Settings fits a phone at 390px; Notes and Chat fit a phone.
+- Phase 6: one voice, sentence case on every label, every empty state
+  offers its next step, every piece of text clears AA contrast in both
+  themes.
+- Phase 7: line numbers as one remembered setting; the caption/read
+  pipeline described above.
+- Phase 8: every top dock becomes one bar, applied surface by surface
+  (Graph, Library, Notes, Timeline, Reminders, Whiteboard, chat header).
+- Phase 9: the phone pass, breakpoint by breakpoint, down to a one-column
+  layout, safe areas, hover gating and a working jump list on a phone.
+- Keyboard: every tablist walks with arrow keys, Home and End; a
+  roving-tabindex pass informed by it.
+- Glass, three passes: one token recipe for every surface, a lit rim that
+  costs nothing, and a fifth of the blurred layers left, none nested.
+
+**Launcher, installer and uninstaller**
+- `start-desktop.bat` no longer fails after the update check with
+  `"...\--desktop" is not recognized`: the launcher captures its own path
+  before parsing flags, since SHIFT moved %0 along with them.
+- The splash's step marquee sits under the step text instead of across it.
+- `start.sh`/`start.bat`/`start-desktop.sh`/`start-desktop.bat`: one flag
+  set, a doctor, a log for every run, and a splash screen shared by all
+  three surfaces.
+- `--doctor`, `--logs`, `--shortcut`, `--port`, `--reinstall` and friends
+  now behave as documented, including a flag typed without its value
+  failing with a message instead of silently killing the script.
+- The uninstaller: a dry run with sizes, an `--export` (fixed to work with
+  no path given), and a guard against deleting under a running app; the
+  freed-space figure now counts the notes that actually went.
+- The launcher must not die because it could not open its own log.
+
+**Backend, security and CI**
+- Backend hardening: SQLite pragmas and indexes, one error contract,
+  media size handling.
+- Add `GET /debug/health` (PLAN.md B9) and a Health block in Settings →
+  About.
+- The session token is redacted from uvicorn's access log; Markdown links
+  in notes go through a scheme allow-list; the API schema is behind the
+  unlock.
+- Several CodeQL findings closed: cyclic imports, no side effects inside
+  `assert` in the learned spec, unused regex dropped from an audit script,
+  wrong keyword arguments in spec tests, `py/import-and-import-from`.
+- Every `.py`/`.js` file in the app's own code and tests: no em-dashes,
+  enforced by a lint that cannot match its own needle.
+
+## [0.2.2] — 2026-09-07
+
+### Recorded late (shipped in 0.2.2, listed under Unreleased until 0.3.0 was cut)
 
 ### Added
 - **Groups for saved links, with buttons to make and manage them.** The Links
@@ -204,203 +420,6 @@ touched, no commit hashes.
   SSE framing included — all round-trip correctly through
   `OpenAICompatClient`, the dialect LM Studio/llama.cpp/Jan/vLLM share.
   Tool-call streaming remains spec-verified only; see HISTORY.md §113.
-
-### Since 0.2.2, by surface
-
-Every non-merge commit on `claude/epic-ramanujan-8xocc0` since 2026-09-06,
-not already covered above or in [0.2.2], one line each, no hashes. Pure
-roadmap bookkeeping (INBOX/HANDOVER updates, plan documents, agent-remaining
-notes) is not repeated here; see `docs/roadmap/` for that record.
-
-**Graph**
-- Phase 1: a Web Worker running d3-force behind one `renderGraph()` entry
-  point, a Canvas 2D renderer, a 2,000-note gate fixture and the numbers
-  from running it.
-- Phase 2: full-screen mode, label collision avoidance (hover and hits
-  first, then degree), a scaled spread so a map opens framed, pan no longer
-  re-lights a note nobody pointed at, and the display options moved off a
-  strip and onto a dock gear/popover.
-- Phase 3: colour rules and groups.
-- Phase 4: lasso selection, a selection dock, a right-click menu, session
-  hide, saved views moved into the More menu (9 controls down to 6), PNG
-  export at 2x with the legend, and Play on the time slider.
-- The options panel holds up on a phone and a short window, and fits
-  1440x900 without scrolling.
-- Concept maps get a labelled door in the Graph tab.
-
-**Mind maps**
-- Phase 1 (backend): the map object, containment, tree endpoints,
-  export/import, four AI tools.
-- Phase 2 (frontend): nodes are drawn and a map is editable from the
-  keyboard; a new map's root opens centred and edges follow every card a
-  bulk drag moves; edges also follow a single node's drag; a map frames
-  itself on open and Tidy is measured at 200 nodes.
-- A mind map is a node in the graph, joined to the notes on it, and is also
-  a note in its own right (`GET /entries` lists it again).
-- Import from an OPML or Markdown outline, and export the same way; attach
-  a mind map to a chat message as its outline.
-- A map node can point at a note, document, file or link, by hand; purging
-  a map unlinks its image files.
-- No permanent selection box, and a map node's text can be highlighted;
-  readable in dark theme and with glass off.
-
-**Documents**
-- CodeMirror 6 vendored (`frontend/vendor/codemirror/`, built by its own
-  script from pinned versions, licence beside it) and verified under the
-  app's CSP; the editor moves onto it next.
-- Phase 0: the fifth bug and the states checked, recorded and built.
-- Phase 1: the chrome, three questions in three places, plus one header
-  row where the formatting strip only appears when asked for.
-- The instruments VS Code and Word have that this editor did not: real
-  underlines in Source view on a backdrop behind the textarea, one click
-  on an underline opens ranked suggestions, a file-type change re-runs the
-  prose pass, the caret mirror gets a border, the line-number gutter is
-  pinned to the textarea it numbers, and line numbers are one remembered
-  setting across all three editors.
-- An on-request AI review ("Check with AI") for what the local rules
-  cannot judge, and inline AI at the caret (`/ai`, Ctrl+J, a wand in the
-  selection bar) instead of a side panel.
-- A document-local undo stack that spans Live and Source; Live view stops
-  dropping the caret.
-- The findings chip is a control and the switches moved to the kebab; the
-  preview waits for typing to pause.
-- Undo for deleting a document, the one permanent loss left in the app.
-
-**Whiteboard**
-- Text formatting on boxes and stickies: bold/italic/bullets, alignment,
-  toggleable rendered markdown.
-- Top-bar menus escape the panel that was cutting them off; the five
-  whiteboard menus become one measured menu; pan desync fixed.
-- Captioning for documents, not photographs; the lightbox shows a document
-  like a document.
-- Outline a region on a page and read or describe just that.
-
-**Chat and Ask**
-- The chat mode is called Agent, and a skill can switch to it.
-- Citations land on the answer a run actually ends with (the inline
-  citations were being written and then thrown away).
-- Grounds answers in the notes the tools actually read, and in a note's
-  distinctive words.
-- Ground the Help chatbot in real facts; Help gets its own mini AI chat
-  (Help → "Ask the guide").
-- A "still writing" pill floats over the transcript instead of taking a
-  row, doubling as jump-to-latest, and keeps working after the live turn
-  is re-parented.
-- The chat box gets a "/" menu of its own commands.
-- Chat can attach what the notebook already holds, and attached documents
-  finally reach the model.
-- Tool results are typed cards; a failed plan step is re-planned, not
-  abandoned; a step cut off mid-job is stopped, not re-planned.
-- **Tensions**: the notebook finds where you disagreed with yourself,
-  reachable as an agent tool, a skill, and from the command palette.
-- `read_file` can target a search term instead of only the first ~2000
-  characters; `list_documents` and `get_document` got the matching fix.
-
-**Notes, Library and Files**
-- Notes carry a space chip, and capture says where it is filing.
-- The Files sub-tab is a reading list: a "Read · N words" badge, a primary
-  read/open action, and a Read/Not-read filter; the OCR workspace finds its
-  own siblings (Images/Files/Pages) and every entry point populates it.
-- OCR readings are kept as they complete, split into typed sections without
-  Tesseract, deletable on their own, and a Stop button plus a Background
-  tasks row while a read runs.
-- Ask the notebook about itself: most common tags, busiest categories,
-  untagged notes, most-linked notes, when you write most, word counts,
-  longest notes, stale notes, tags that keep turning up together, all
-  counted from your data with no AI running, and surviving a misspelling.
-- Archive extended to chats and documents, alongside notes.
-- A "Read · N words" badge on chat images already OCR'd; Contents says what
-  a folder is instead of "(written here)"; the Library fits a phone.
-
-**Chat, Notes, Documents copy and small fixes**
-- Mark a notification unread, per row, plus "Mark all read".
-- "Ask the AI for wordings" in the document suggestion menu.
-- Double-tap the chat composer's resize corner to reset its height; the
-  composer can be dragged and stops at 40vh.
-- Several routes between two notes at once (Yen's K-shortest paths), each
-  in its own colour; "Generate story from path" becomes a menu of six
-  shapes.
-- The onboarding "Your setup" slide warns when the notebook folder has
-  gone read-only.
-
-**Dashboard**
-- The widgets dialog no longer paints closed behind the hero; the hero
-  banner is restored and refined, with the primary start tile tinted
-  rather than inverted.
-- The toolbar gets breathing room and a name; rearranging now saves; two
-  new widgets.
-
-**Settings and the popup agent**
-- Performance mode (Effects & accessibility): flat panels, no animations
-  and slower graph physics, auto-on for a machine with 4 cores or 4 GB or
-  fewer or when the OS asks for less transparency, said once in a toast.
-  With the animated background on, cards still frost it.
-  Glass itself now blurs only where something scrolls under a surface or
-  where it floats (the top bar, sub-tab strips, dialogs, docks, popovers):
-  the blurred area at rest fell from a third of the screen to under a tenth.
-- The popup agent gets a slot beside the Ctrl-K hint, on by default and
-  hideable like every other slot.
-- One integrated toggle row everywhere (switch leading), replacing the
-  divider-separated grid.
-- Ctrl+F searches the Settings dialog and jumps to the answering section;
-  the About page reads as a hierarchy again.
-- Settings → Packages installs, reinstalls or removes dictation, the
-  desktop window and search-by-meaning without a terminal.
-
-**UI modernisation, phases 0-9**
-- Phase 0: the sweep runner, screenshot set and signature ratchet.
-- Phase 1: one gutter for the shell, two card sizes, a one-row hero, one
-  head row.
-- Phase 2: buttons on the ramp, two row gaps, one popover shell, one tile.
-- Phases 3-4: glass on the shell only, one control size, tone-only hover,
-  one focus ring.
-- Phase 5: Settings nav and label column, the reminders form rhythm, a
-  Voice pass; Settings fits a phone at 390px; Notes and Chat fit a phone.
-- Phase 6: one voice, sentence case on every label, every empty state
-  offers its next step, every piece of text clears AA contrast in both
-  themes.
-- Phase 7: line numbers as one remembered setting; the caption/read
-  pipeline described above.
-- Phase 8: every top dock becomes one bar, applied surface by surface
-  (Graph, Library, Notes, Timeline, Reminders, Whiteboard, chat header).
-- Phase 9: the phone pass, breakpoint by breakpoint, down to a one-column
-  layout, safe areas, hover gating and a working jump list on a phone.
-- Keyboard: every tablist walks with arrow keys, Home and End; a
-  roving-tabindex pass informed by it.
-- Glass, three passes: one token recipe for every surface, a lit rim that
-  costs nothing, and a fifth of the blurred layers left, none nested.
-
-**Launcher, installer and uninstaller**
-- `start-desktop.bat` no longer fails after the update check with
-  `"...\--desktop" is not recognized`: the launcher captures its own path
-  before parsing flags, since SHIFT moved %0 along with them.
-- The splash's step marquee sits under the step text instead of across it.
-- `start.sh`/`start.bat`/`start-desktop.sh`/`start-desktop.bat`: one flag
-  set, a doctor, a log for every run, and a splash screen shared by all
-  three surfaces.
-- `--doctor`, `--logs`, `--shortcut`, `--port`, `--reinstall` and friends
-  now behave as documented, including a flag typed without its value
-  failing with a message instead of silently killing the script.
-- The uninstaller: a dry run with sizes, an `--export` (fixed to work with
-  no path given), and a guard against deleting under a running app; the
-  freed-space figure now counts the notes that actually went.
-- The launcher must not die because it could not open its own log.
-
-**Backend, security and CI**
-- Backend hardening: SQLite pragmas and indexes, one error contract,
-  media size handling.
-- Add `GET /debug/health` (PLAN.md B9) and a Health block in Settings →
-  About.
-- The session token is redacted from uvicorn's access log; Markdown links
-  in notes go through a scheme allow-list; the API schema is behind the
-  unlock.
-- Several CodeQL findings closed: cyclic imports, no side effects inside
-  `assert` in the learned spec, unused regex dropped from an audit script,
-  wrong keyword arguments in spec tests, `py/import-and-import-from`.
-- Every `.py`/`.js` file in the app's own code and tests: no em-dashes,
-  enforced by a lint that cannot match its own needle.
-
-## [0.2.2] — 2026-09-07
 
 A bug-fix and consistency release, from one long round of live reports.
 

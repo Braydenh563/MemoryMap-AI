@@ -266,3 +266,24 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
     Detailed, Bullets) replacing the select, keyboard: Enter asks,
     Shift+Enter newline, Esc clears; the settings popover keeps its id.
 
+## Placed from INBOX, 2026-09-09 (the owner's evening batch)
+
+- "at 100% and 95% zoom on my laptop, the ai answer with the ai model badge
+  and the retry, copy and dictate read out loud buttons are misalligned
+  because of wrap" (screenshot: the ANSWERED BY badge on the first line and
+  Retry / Copy / speak dropping to a second, overlapping row). The answer
+  header is one flex row that wraps without a reflow rule; measure it at
+  1440, 1366 and 1280 and at 95% and 100% zoom.
+- "can you make the skills button the width of the two buttons above it so
+  it looks neat and symmetrical?? is that a good design choice??" Yes, with
+  a caveat worth stating: matching the pair's combined width plus their gap
+  is the symmetry the eye reads, and it only holds while the row above has
+  exactly two buttons. Bind it to the row rather than to a fixed number.
+- "Im wondering if the elements in the bottom row of the chat dock should
+  be rearranged better??" (screenshot at full width: Skills, a divider, Web
+  and Plan, then a long gap, then Ask / Agent and a gear). The gap is the
+  problem, not the order: the mode pair and the gear are pinned right by
+  `margin-left: auto` while the left group sits at the far left of a 2000px
+  bar.
+- "in the chat tab, the main chat panel shadow actually reaches all the way
+  down on the gap."

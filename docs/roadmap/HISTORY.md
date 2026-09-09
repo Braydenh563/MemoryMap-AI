@@ -7126,6 +7126,113 @@ Steps 2 to 4 (the `docSurface()` adapter, Live as decorations, findings,
 undo, search, folding and gutters on the engine) are the next Opus brief;
 the API surface above is what it builds against.
 
+### Built, Phase 2 steps 2 to 4 (the engine under the editor), 2026-09-09
+
+- **One adapter, and a lint that keeps it that way.** `docSurface()`
+  (documents.js, between the `DOC-SURFACE-BEGIN` / `DOC-SURFACE-END`
+  markers) answers `text`, `selection()`, `setSelection`, `replaceRange`,
+  `onChange`, `coordsAt`, `focus`, `scrollTop` and `lineAt` for whatever the
+  document is being edited in, and wears the textarea's own property names as
+  documented aliases so the helpers shared with the note editors became
+  surface-agnostic by *receiving* a surface rather than by having forty
+  expressions rewritten under them. `tests/test_doc_surface.py` fails the
+  build if documents.js or editor.js reads the box's text or caret through
+  `$("doc-content")`, or stashes the element in a local.
+- **Loaded on demand.** `loadCodeMirror()` script-injects the bundle the
+  first time a document is opened; `openDocument` awaits it before handing
+  the text over, so the document goes straight into the engine rather than
+  into the fallback and then into a view mounted a moment later. Measured: 0
+  codemirror entries in `performance.getEntriesByType('resource')` at boot, 1
+  after a document is opened. The textarea stays in the DOM as the fallback,
+  `display: none` while the engine is up.
+- **Live is Source with a compartment on** (decision 3). Headings at heading
+  size with the `#` hidden until the caret is on the line; bold, italic,
+  code, strikethrough and `==highlight==` with their markers hidden until the
+  caret enters the range; links and `[[wiki links]]` as chips; task
+  checkboxes that write the source; quotes and `> [!note]` callouts with a
+  left bar; same-origin images as widgets. Computed from the lezer markdown
+  tree over `view.visibleRanges`.
+- **Findings are decorations** (decision 5), in every view rather than on a
+  backdrop under Source and a block re-render in Live. The Phase 0 backdrop
+  layer is deleted.
+- **Undo is the engine's** (decision 6). The D3 snapshot stack is deleted: it
+  existed because Live gave every paragraph its own textarea, and there is
+  one surface in every view now.
+- **Find and replace is CodeMirror's panel** (decision 7), restyled onto the
+  app's field and button recipe in `frontend/css/09-editor.css`; folding on
+  headings through a fold service, in the same lane and behind the same
+  remembered preference as the line numbers.
+- **Languages** (decision 10): markdown (GitHub dialect, `base:
+  markdownLanguage`, without which `~~struck~~` and `- [ ] task` produce no
+  syntax nodes at all), js, ts, py, css, html, json, yaml, and the stream
+  modes for bash, sql, toml, go, rust, c, cpp, csharp, java, kotlin, ruby,
+  xml. Anything else is plain, which is the honest answer.
+
+**Measured** in Chromium at 1440x900 against a running app
+(`scratchpad/ui-sweeps/serve.sh 8786 /tmp/mm-8786`), six new sweeps:
+
+| Sweep | Result |
+| --- | --- |
+| `cm-engine.js` | bundle absent at boot (0) and present after open (1); view mounted, fallback `display: none`; typing reaches `docSurface().text`, the outline, the status bar and the prose chip; the D3 gate (type in Live, switch to Source, Ctrl+Z) passes on the engine's history; a save round trip matches exactly; **zero** `securitypolicyviolation` events, **zero** `<style>` tags added, two adopted sheets |
+| `cm-live.js` | 24 checks, all pass, zero console errors, including the sentence the plan opens with: one click on an underlined word opens its suggestions, anchored within 60px of the word |
+| `cm-search.js` | 8 checks: Ctrl+F opens the panel and leaves the old bar down, the field matches `#doc-find-input`'s font and colour, Replace all replaces 2 and one Ctrl+Z puts both back, the fold column follows the numbers, folding `# One` takes 11 rendered lines to 4 |
+| `cm-editor.js` | 14 checks: the selection toolbar anchors within 25px of the caret and its Bold is one undo, the `/` menu and the `[[` picker open and insert, a selection reports itself as this document in document coordinates, the inline AI bar opens and describes the selection, the completion popup opens and Tab completes |
+| `cm-layout.js` | 10 checks: the measure caps and centres the column (off by 0px), full width releases it (794px to 1,082px), Split is side by side (518px and 552px), Read hides the editor, and coming back from Read re-measures it |
+| `cm-dark.js` | 6 checks: the editor's ink is the app's ink in both modes, switching inverts it (rgb(31,36,48) to rgb(231,233,238)), CodeMirror's own `darkTheme` facet follows through the `data-mode` observer |
+| `cm-notes.js` | 8 checks on the two editors this work was *not* about: Bold through the shared table, Ctrl+I, the `/` menu and the selection bar all still work in the note capture box, and inline AI is correctly refused there |
+| `errors.js` | 0 errors and 0 layout findings at 1440, 1024, 820 and 390 |
+| `documents-chrome.js` | dock 36px at 1280 and 78px (two rows) at 820, every control 36px, chrome above the first line 44px at 1280 and 86px at 820 (Phase 1's gate: 96), 0 clipped sidebar labels |
+
+**Typing latency** (`doctype.js`, 20k words, keydown and input event
+durations over 16 ms, PLAN P4's gate is 30 ms):
+
+| | before | after |
+| --- | --- | --- |
+| Live | p50 160 ms, p95 200 ms, 1,178 renders | **p50 16 to 24 ms, p95 24 to 32 ms, 0 renders** |
+| Split | p50 112 ms, p95 176 ms | p50 32 to 48 ms, p95 64 to 72 ms |
+
+Three whole-document passes came off the keystroke to get there: the word
+goal, the outline and the status bar's counts are scheduled the way the
+preview already was; the caret's line and column are asked of the surface
+(O(log n) on the engine) rather than counted from the start of the text; and
+the completion fragment and autocorrect read the caret's line rather than
+materialising the whole document per character.
+
+**Three bugs the browser found that reading could not:**
+
+- **Every bare shortcut fired while you typed.** app.js decides "is the user
+  typing?" from `["INPUT", "TEXTAREA", "SELECT"].includes(tagName)`, and
+  CodeMirror's editable is a `contenteditable` div: a literal `/` in a
+  document focused the global search box and swallowed the rest of the word.
+  Stopped at the editor's own host in the bubble phase; the app.js guard
+  itself is still wrong for the next contenteditable and is written up in
+  `agent-remaining/documents-engine.md`.
+- **The `/` menu and the `[[` picker never opened.** editor.js hung their
+  trigger check off a DOM `input` event, and the engine raises none for a
+  typed character. The listener body is `editorHandleInput` now and the
+  update listener calls it.
+- **A decoration that replaces a line break stops the whole view.** An
+  image whose alt text wraps put a newline inside the range its widget
+  replaced; CodeMirror throws out of `setState` and the editor never
+  renders. Guarded, with the reproducing document now part of the sweep.
+- **The note composer stopped growing.** `editorNotifyHost` handed the
+  surface to app.js's `autoGrow`, which writes `style.height` on a real
+  element; every "/" command in the capture box threw while still inserting
+  the text, so the menu looked like it worked. The surface wears enough of a
+  textarea's names that the call site reads as correct, which is the cost of
+  the aliases and the reason `cm-notes.js` exists.
+
+**Lost, and named rather than left to be discovered:** the Notion-style
+block handle, its drag to reorder and its move/duplicate/delete menu went
+with the block DOM. Phase 3 is where block structure comes back, over one
+document rather than as a second copy of it.
+
+**Not verified:** IME composition in the engine; the fallback path end to
+end (the bundle failing to load was simulated with a flag, not by a blocked
+request); and `revalidateSelection` in app.js still resolves a selection's
+surface with `document.getElementById(surfaceId)`, which now finds the stale
+fallback textarea, see `agent-remaining/documents-engine.md`.
+
 ### From DOCUMENTS_PLAN.md
 
 ### Built — Phase 0
@@ -8635,6 +8742,131 @@ named beside it in HANDOVER's completion table.
     now: the profile group gets its own settings-group with Delete as a
     ghost destructive button and a confirm; a `keydown` for Ctrl/Cmd+S on
     the Settings dialog clicks the section's Save.
+
+### From GRAPH_PLAN.md
+
+### Built, Phase 6 (the node panel), 2026-09-09
+
+Measured with `scratchpad/ui-sweeps/graphnode.js` (new: opens a node, counts
+the toolbar's buttons per row, reads the panel's own scrollHeight and every
+control shorter than the row's declared height) at 1440, 1024 and 390.
+
+- **The header carries identity only**: the note's own title (it used to show
+  the *category*, with the category also a chip below it), the category as
+  the one chip, and the AI's filing confidence as a small muted percentage
+  beside the title. Confidence shows only above 0, since an unfiled note
+  carries 0 and "0% confident" read as a verdict rather than as "no figure".
+- **One muted meta line** (date, links, views) in place of five chips plus up
+  to six tag chips: 11 marks at one weight became 1 line and 1 chip.
+- **The editor is sized to its text**: `.autogrow` with a four-line floor
+  (`min-height: calc(4 * 1.45em + var(--space-6))`, 108.8px measured) instead
+  of a fixed 7rem slot.
+- **Save appears only when something changed** and puts itself away when the
+  change is undone (both measured in the probe); the status line stays, so
+  "couldn't load this note" can still speak.
+- **The 3x3 grid of nine equal buttons is one toolbar row** of icon buttons
+  in three groups, hairline-separated: read (Open, Similar, Trace), shape
+  (Grow, Focus, Link, Remind), keep (Favourite, then Bin after a gap of its
+  own). Open is the one filled control. Labels moved to `title`/`aria-label`.
+- **"Filled" had to be measured, not written.** `smallButton(..., ghost =
+  false)` is how the app says filled, and it was not enough: a six-class
+  rule in 07-whiteboard-misc.css paints every `.icon-only:not(.ghost)`
+  button tonal, on purpose, so Open rendered identical to its eight
+  neighbours while the markup said otherwise. No readable selector naming
+  that button could outrank six classes, so it is the fourth name on that
+  rule's own exception list and falls through to the base `button` recipe.
+  The sweep now reads the computed background rather than the class list,
+  because the class list is what was wrong.
+- **Numbers.** Panel 416x439 before, 448x348 after at 1440 and 1024 (21%
+  shorter; 26rem to 28rem wide, which is what lets the nine actions sit in
+  one row: the row needs 398px and the panel offers 422px of content width).
+  Buttons per row 3/3/3 before, 9 after. Filled buttons 0 before, 1 after.
+  Shortest control 28px before, 36px after (the toolbar declares
+  `--control-h: 2.25rem` and the close button matches it). Panel scrollHeight
+  346 = clientHeight 346 at 1440 and 1024: nothing scrolls. The page does not
+  scroll at any width.
+- **At 390 it is a sheet**: full width, flush to the bottom of the map,
+  square where it meets the edges, 362x442 with the panel scrolling inside
+  (scrollHeight 488 vs clientHeight 441) and the page still not scrolling.
+  The groups stack one per line (3 / 4 / 2) and the hairlines go, because a
+  wrapped row leaves a divider at the start of the second line marking a
+  boundary that is not there. `placeGraphPopup` writes the sheet's position:
+  the inline left/top it owns cannot be overridden by a media query.
+- **Gates.** `graph4b.js` passes unchanged (export 2812x1530, time-slider
+  play runs and returns to "All time", 0 errors); `errors.js` 0 errors and 0
+  layout findings at 1440, 1024, 820 and 390.
+
+Not verified: a real touch device (the sheet is measured in a 390px Chromium
+viewport, not on a phone), and the Trace, Link and Grow flows past the click
+that starts them, which Phase 4's own sweep covers.
+
+### From WHITEBOARD_PLAN.md
+
+### Built, 2026-09-09: one surface per panel, and the Arrange section
+
+INBOX 52 (the bottom tool bar's groups "feel separate from the panels and
+not integrated"), INBOX 65 (every panel: "the buttons look separate from
+the panels") and INBOX 64 (the properties panel "needs a massive redesign
+and fix"). Measured with `scratchpad/ui-sweeps/wbbars.js` and
+`wbprops.js` (both new) at 1440 and 1024, in both themes.
+
+- **Nothing rests filled except the active tool.** `button.ghost` carries a
+  tonal fill, which is right on a page and wrong inside a floating bar that
+  already says "these are controls": fifteen filled discs in a row read as
+  fifteen objects sharing a tray. The fill returns on hover and on keyboard
+  focus. Elements painting a background of their own: tool bar **16 to 1**,
+  zoom pill **3 to 0**, properties panel **15 to 3** (the three are colour
+  swatches, where the background is the value).
+- **The group hairlines are `--divider`**, the token for a separator between
+  parts of one surface, not `--border`.
+- **The bar and the zoom pill are the same height** (46px) and the same
+  surface recipe: they were already, and the sweep now says so.
+- **Every panel is at the floating tier again.**
+  `.whiteboard-floating-panel` sets `--modal-bg` with a comment recording
+  why; `.card.glass` in an earlier file is two classes against its one and
+  silently won, so the bars were rendering at `color(srgb 1 1 1 / 0.549)`,
+  the 55%-opaque page-card tier. Restated at a specificity the class pair
+  cannot beat: measured 0.96 light, 0.97 dark.
+- **The properties panel has sections with headings** (Style, Draw with,
+  Guides, Arrange, Notes) and **Arrange is one icon toolbar**. Before: four
+  `.wb-multi-actions` groups were flex items on one `.wb-properties-row`,
+  which is `space-between` and does not wrap, so ten labelled buttons were
+  laid across 200px of a 216px panel and **four pairs measurably
+  intersected** (group/align-left, ungroup/align-left, ungroup/align-hcentre,
+  align-bottom/distribute-h). Now: icon buttons with tooltips in four groups
+  (group and ungroup, align across, align down, space evenly), separated by
+  a gap rather than a rule, wrapping to two lines. Six aligns in one group
+  measured 178px against 200px of content width and were clipped by the
+  panel edge when the group beside them arrived, so they are two groups of
+  three, which is also the two questions being asked. Extract notes is the
+  Notes section's one text button. **0 overlapping pairs, 0 controls past
+  the panel's left or right edge, 26 controls visible at once, and the
+  panel scrolls inside itself** (scrollHeight 892 against clientHeight 587).
+- Every id and handler is unchanged; `docks.js` and `touch.js` are
+  unchanged (touch PASS, 0 findings) and `errors.js` is 0 at 1440, 1024,
+  820 and 390.
+
+Not verified: a real touch device, and the align and distribute actions
+themselves (their handlers were not touched, only their buttons' markup).
+
+98. **Graph: the static layouts (Tree, Radial, Arc) look editable and can
+    be knocked out of shape.** The owner, 2026-09-09: "on the other graph
+    view types, they all have the dotted border as they are static but that
+    shouldnt be the case on those views as the nodes on those views arent
+    movable ... I was on the tree graph, I test double clicked on a node and
+    it broke them all out of position". Two halves: the pinned-node dotted
+    ring is drawn in layouts where pinning has no meaning, and a double
+    click (or a drag) in a computed layout hands the node to the force
+    simulation, which then re-solves the whole board and destroys the tree.
+    Decide and say so in GRAPH_PLAN: a computed layout is read-only for
+    position, so no ring, no drag, no double-click release, and the node
+    menu's Pin and Unpin are hidden there. Owner: GRAPH Phase 6. Size S.
+
+70. **Notifications: the "AI activity" combobox doesn't open, and the
+    feature doesn't work** (screenshot). Owner: Fable, now: the select is
+    replaced by enhanceSelect; the panel is a popover that closes on any
+    outside click, which the enhanced menu counts as. Fix: the popover's
+    outside-click guard ignores clicks inside `.select-menu`.
 
 ## HANDOVER archive, 2026-09-09
 

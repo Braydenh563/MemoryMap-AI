@@ -447,3 +447,16 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
     one-line hint. Two side-by-side filled buttons is the wrong answer.
     Owner: docks.md.
 
+## Placed from INBOX, 2026-09-09 (the owner's evening batch)
+
+- "in the all library subtab, the mindmap I made called bubble tea shows as
+  a note" (two screenshots: the All list draws a "bubble tea" row with a
+  note's pencil icon, while Boards & maps draws the same thing as a map
+  with 3 nodes). The All view's kind test does not know about maps, so a
+  map falls through to the note branch.
+- "the boards and maps dashboard widget is ugly and needs fixing", and
+  "also the ui at the top of the boards and maps subtab dock is broken and
+  miss wrapped. remember responsive design!" (screenshot at ~2000px: the
+  search box and sort/view controls on one line, then New board, New mind
+  map, Map from notes, Import outline, refresh and help wrapped onto a
+  second line below them, left-aligned under nothing).

@@ -74,7 +74,8 @@ PR's.
 - [ ] 6. Mind map previews (INBOX 68) acceptable in the dashboard widget
       and the Library gallery (the board's real shapes at its aspect, no
       inner scrollbar).
-- [ ] 7. The full suite green on the final head; ruff and CodeQL green;
+- [ ] 7. The full suite green on the final head (the one local run this
+      PR gets; CI covers every push in between); ruff and CodeQL green;
       no open CodeQL threads; the branch mergeable.
 - [ ] 8. Documentation: every Built block of the merged phases in
       HISTORY (the lint holds it), INBOX holding open items only, the
@@ -84,7 +85,10 @@ PR's.
 - [ ] 9. The owner has run the updated build once: `start-desktop.bat`
       launches, the splash reads right, the glass frosts the art.
 
-Then: merge PR 144, restart the branch from main for the next session
+Then: tag the release (`__version__` is already 0.3.0, a minor bump by
+RELEASING.md's rule: new features, not fixes; rename "## [Unreleased]" to
+"## [0.3.0] - <date>" in both CHANGELOG copies, `git tag v0.3.0`, push the
+tag, watch the release workflow), merge PR 144, restart the branch from main for the next session
 (the branch rule at the top of the session prompt), and open with "Read
 CLAUDE.md, then the top of docs/roadmap/HANDOVER.md, and continue".
 
@@ -233,7 +237,7 @@ are only just begun or half done." True; this table is the state.
 | UI_MODERNISATION_PLAN | Phases 0 to 8 built; Phase 9 bands 1 to 4 | Phase 9 items in `agent-remaining/responsive.md`; the one-bar and alignment items in `agent-remaining/consistency.md` and `docks.md` |
 | AGENT_SKILLS_REFORM | Phases A to C | Phase D (recovery); the verifier and paging-inside-a-step (CHAT_PLAN Phase 4, Brief 13) |
 | MINDMAP_PLAN | Phases 1 to 3, five bug fixes, INBOX 42 and section H (edge-follow on a single-node drag, framing on open, tidy measured at 201 nodes) | Phases 4 to 5; the previews (`agent-remaining/mindmap.md` F) |
-| DOCUMENTS_PLAN | Phase 0 | Phases 1 to 7 |
+| DOCUMENTS_PLAN | Phases 0, 1 and 2 (the engine: adapter, CodeMirror 6, Live as decorations, findings, undo, search, folding) | Phases 3 to 7; `agent-remaining/documents-engine.md` (the `revalidateSelection` bug in app.js first, then the editor sweep) |
 | GRAPH_PLAN | Phase 1 (canvas, worker, drag; SVG behind a flag) | Phases 2 to 5 |
 | TIMELINE_PLAN | audit and plan only | Phases 1 to 4 |
 | WHITEBOARD_PLAN | plan only | Phases 1 to 4 |
@@ -343,6 +347,13 @@ merge those and re-brief the rest from its brief.
 | `a228ba0fe38c417dc` | Paragraphs to '?' popovers | 8818 | **Paused**; 54 paragraphs left; resume with Brief 4 |
 
 ### Merge recipe (every time, no shortcuts)
+
+The whole recipe below is `scripts/gate.sh --changed` plus
+`BASE=<port> scripts/gate.sh --sweeps` against a fresh server; the steps
+are listed so a failure can be read. The full suite is not part of a
+merge: CI runs it on the push; locally it runs once before a large
+agent task's final report and once before the PR closes (done-when
+item 7), never per step or per merge.
 
 1. `git merge --no-edit worktree-agent-<id>`; on a conflict in
    `07-whiteboard-misc.css` keep BOTH sides (both append), then run

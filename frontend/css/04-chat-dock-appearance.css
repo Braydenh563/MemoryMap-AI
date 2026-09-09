@@ -1334,6 +1334,8 @@ body.scroll-top-visible #tab-notes .layout > main {
 }
 
 /* --- graph: physics sliders + node popup ----------------------------------- */
+/* Kept for the timeline's own popup, which still shows one date chip. The
+   graph node panel's facts are a muted line now (.graph-popup-meta below). */
 .graph-popup-info {
   display: flex;
   flex-wrap: wrap;
@@ -1341,37 +1343,135 @@ body.scroll-top-visible #tab-notes .layout > main {
   margin: 0.15rem 0 0.5rem;
 }
 
-/* **A grid, not a wrapping row.** Reported with a screenshot: "the popups
-   when interacting with graph nodes need a full redesign as well." Nine
-   actions in a `flex-wrap` row pack by *label length*, so they landed 4 / 3
-   / 2 across three ragged rows with the edges lining up nowhere, the
-   alignment failure DESIGN.md's own CARP section is about, in one component.
-
-   Three equal columns means every button is the same width, every row has
-   the same count, and the block reads as one set of related actions rather
-   than a spill. `minmax(0, 1fr)` so a long label ellipsises inside its cell
-   instead of widening the column and taking the grid with it. */
-.graph-popup-actions {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-2);
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border);
+/* The node panel's header: identity on the left, close on the right. The
+   identity line wraps as a unit so a long title never pushes the close
+   button off the panel. */
+.graph-popup-head {
+  align-items: flex-start;
+  gap: var(--space-3);
+  /* `.row` wraps, and at the sheet width that put the close button on a line
+     of its own under the title, where it reads as a control belonging to the
+     note rather than to the panel. The identity block shrinks instead
+     (min-width: 0 below) and the title wraps inside it. */
+  flex-wrap: nowrap;
 }
 
+.graph-popup-ident {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.graph-popup-ident>strong {
+  font-size: var(--text-body);
+  line-height: 1.3;
+  min-width: 0;
+}
+
+/* The AI's filing confidence, beside the title rather than as a fifth chip
+   in a row of chips (INBOX 59). It is a footnote about how the note was
+   filed, not a fact about the note, so it is the smallest, quietest thing in
+   the header, and the tooltip carries the sentence. */
+.graph-popup-confidence {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Date, links, views. One line, one weight: they are the same rank of fact,
+   and five bordered chips claimed they were five ranks. */
+.graph-popup-meta {
+  margin: var(--space-1) 0 var(--space-3);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
+/* The Save button is hidden until the note is edited, so most of the time
+   this row holds nothing visible at all: it must not reserve height it is
+   not using, or the panel keeps a gap the reader cannot account for. */
+.graph-popup-saverow {
+  gap: var(--space-3);
+  min-height: 0;
+}
+
+/* **One toolbar row, three groups, not a 3x3 grid of nine equal buttons.**
+   Reported with a screenshot (INBOX 59, GRAPH_PLAN Phase 6): the grid was
+   taller than the note it belonged to and gave Open and Bin the same
+   prominence. The groups are read / shape / keep, separated by a hairline
+   and nothing else, so the structure costs one pixel per boundary instead
+   of a heading or a box each.
+
+   `flex-wrap` rather than a fixed count: at the sheet width the row is
+   allowed to become two, and the dividers still fall between groups because
+   they are drawn by the group, not by the row. */
+.graph-popup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  /* No column gap: the divider's own margins are the space between two
+     groups, and a gap on top of them would say "separate" twice. The row
+     gap only matters at the sheet width, where the row becomes two. */
+  column-gap: 0;
+  row-gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--divider);
+  /* The strip declares its height and every control in it is that tall
+     (DESIGN.md, "Control height"). 36px, above the app's 28px floor,
+     because these carry no label to widen them. */
+  --control-h: 2.25rem;
+}
+
+.graph-popup-tool-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* The hairline is the only thing between two groups. Drawn by the second of
+   the pair (the chat dock's own recipe, 06-timeline-dialogs.css) so it can
+   never be left dangling at the end of the row, and in --border rather than
+   --divider for the same reason that dock uses it: --divider is the line
+   between stacked rows, faint because the rows are already apart, and two
+   groups of icons standing shoulder to shoulder need a mark you can see. */
+.graph-popup-tool-group+.graph-popup-tool-group::before {
+  content: "";
+  align-self: stretch;
+  width: 1px;
+  margin-inline: var(--space-2);
+  background: var(--border);
+}
+
+/* Bin is set apart inside its own group by a gap rather than a fourth
+   hairline: three groups is the structure. */
+.graph-popup-tool-bin {
+  margin-left: var(--space-3);
+}
+
+/* A row of icons with no words has to be tall enough to hit: 2.25rem (36px)
+   here, above the app's 28px floor, because these are the panel's only
+   actions and they carry no label to widen them. */
 .graph-popup-actions button {
   display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: var(--space-2);
+  justify-content: center;
   min-width: 0;
-  min-height: var(--target-min);
-  padding: 0 var(--space-3);
+  min-height: var(--control-h);
+  height: var(--control-h);
   font-size: var(--text-md);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+/* The close button belongs to the same panel and is the same size as the
+   toolbar under it: a 28px close over a row of 36px icons is the four-pixel
+   mismatch DESIGN.md's control-height section is about, and here it is a
+   whole step. */
+#graph-popup-close {
+  flex: 0 0 auto;
+  min-height: 2.25rem;
+  height: 2.25rem;
 }
 
 /* Gravity, Spread and Unpin all used to be an inline-flex row inside the
@@ -1440,8 +1540,13 @@ body.scroll-top-visible #tab-notes .layout > main {
   /* Widened from 22rem. At the old width the three-column action grid below
      is too tight for its labels, and the note's own text: the thing the
      popup exists to show, wrapped every four or five words into a column
-     narrower than the buttons under it. */
-  width: 26rem;
+     narrower than the buttons under it.
+
+     28rem since Phase 6: the nine actions are one row of icon buttons now,
+     and at 26rem that row wrapped 7 + 2, which is the ragged shape the grid
+     was introduced to cure. Measured: the row needs 398px, the panel offers
+     422px of content width at 28rem, which still clears a 15px scrollbar. */
+  width: 28rem;
   max-width: calc(100% - 1rem);
   padding: 0.8rem 0.8rem;
   background: var(--modal-bg);
@@ -1468,9 +1573,15 @@ body.scroll-top-visible #tab-notes .layout > main {
 }
 
 /* The note's own text is the reason this popup opened, so it gets room to
-   be read rather than a three-line slot above a wall of buttons. */
-.graph-popup textarea {
-  min-height: 7rem;
+   be read rather than a three-line slot above a wall of buttons.
+
+   Four lines and then it grows with the note (`.autogrow`, app.js): a fixed
+   7rem slot was two lines of whitespace under a one-line note and a
+   scrollbar inside a long one, which is the "tall content editor" INBOX 59
+   reports. 1.45 is `textarea.autogrow`'s own line-height; --space-6 stands
+   in for the field's vertical padding. */
+#graph-popup-content {
+  min-height: calc(4 * 1.45em + var(--space-6));
 }
 
 .graph-popup .row {
@@ -3270,11 +3381,12 @@ span > .chip {
 .doc-source-wrap {
   display: flex;
   flex: 1 1 auto;
-  /* The positioning context the backdrop is placed against (see .doc-backdrop
-     below). Without it the backdrop's offsetParent is whatever ancestor
-     happens to be positioned. Measured, that was an element 219px to the
-     left and 72px up, so every underline landed a paragraph away from its
-     word. */
+  /* A positioning context of its own, so anything absolutely placed inside
+     this pane is placed against the pane. The Phase 0 backdrop needed it and
+     is gone; CodeMirror's own panels and tooltips need the same thing, and
+     without it their offsetParent is whatever ancestor happens to be
+     positioned (measured, at the time: an element 219px to the left and 72px
+     up from where it should have been). */
   position: relative;
   min-height: 0;
   min-width: 0;
@@ -3360,65 +3472,13 @@ span > .chip {
   border-radius: 0 var(--radius) var(--radius) 0;
 }
 
-/* --- The backdrop: a squiggle under a textarea's own text --------------------
-   DOCUMENTS_PLAN.md §4 A, Phase 0 item 1. A `<textarea>`'s value is a string,
-   not a DOM, so nothing inside it can carry a mark, which is why Source view
-   had no underlines at all and the answer to "click the underlined word" was
-   "double-click and we look up the caret offset".
-
-   The way every editor built on a textarea solves this: a div holding the
-   same text, in the same type, at the same size, behind a textarea whose own
-   ink is transparent. The div can carry `<mark>`s; the textarea keeps the
-   caret, the selection, the native undo, IME, spellcheck and every keyboard
-   behaviour a real editing surface has. What the reader sees as text is the
-   div; what they type into is the textarea.
-
-   The contract is *exact* geometry, and it is enforced by measurement rather
-   than by hope: documents.js `docSyncBackdropMetrics` copies the type metrics
-   and the box through the CSSOM (an inline `style=` would be refused by the
-   CSP, same as the gutter's), and the sweep asserts that a mark's box and the
-   glyph it is under agree within 1px. A backdrop that drifts is worse than
-   none: the underline points at the wrong word, and every click on it is
-   then wrong too. Everything that decides where a glyph sits therefore lives
-   in the JS copy list, not here: this rule only says *what kind of box it
-   is*. */
-.doc-backdrop {
-  position: absolute;
-  z-index: 0;
-  overflow: hidden;
-  margin: 0;
-  /* The width is copied, so the border has to exist and take its 1px, but
-     the textarea in front draws the visible edge. */
-  border-style: solid;
-  border-color: transparent;
-  background: var(--input-bg);
-  color: var(--ink);
-  /* The textarea is the thing you click. Every gesture (caret, selection,
-     drag, right-click) has to reach it, so the layer under it takes none. */
-  pointer-events: none;
-}
-
-.doc-backdrop.hidden {
-  display: none;
-}
-
-/* The ink moves to the backdrop. `caret-color` is what keeps the caret
-   visible once the text it sits in is transparent. Without it the caret goes
-   transparent too and the editor looks like it has stopped accepting input. */
-#doc-content.has-backdrop {
-  position: relative;
-  z-index: 1;
-  background: transparent;
-  color: transparent;
-  caret-color: var(--ink);
-}
-
-/* Selection is painted by the textarea, which is *in front* of the ink now, so
-   an opaque highlight would black out the words it selects. Translucent, so
-   the glyphs underneath read through it. */
-#doc-content.has-backdrop::selection {
-  background: color-mix(in srgb, var(--accent) 30%, transparent);
-}
+/* The Phase 0 backdrop's rules lived here: `.doc-backdrop` (a div behind the
+   textarea holding the same text) and `#doc-content.has-backdrop` (the
+   textarea whose own ink went transparent so the div's could show through).
+   DOCUMENTS_PLAN Phase 2 decision 5 retired the layer: the findings are mark
+   decorations inside CodeMirror now, which have no geometry to keep in step
+   with anything because they are the text. The three underline shapes live
+   in the theme object in documents.js, for the reason 09-editor.css gives. */
 
 .doc-file-type {
   /* On the title row now, where there is room for the whole label, it was
@@ -3428,126 +3488,20 @@ span > .chip {
   flex: 0 0 auto;
 }
 
-/* --- Live Preview ------------------------------------------------------------ */
+/* --- Live preview -----------------------------------------------------------
 
-/* The rendered document you write into (documents.js, `renderDocLive`).
-   Scrolls as one piece, the blocks inside are flow content, not panes. */
-.doc-live {
-  flex: 1 1 auto;
-  min-height: 12rem;
-  overflow-y: auto;
-  padding: 0.8rem 1rem;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius);
-  background: var(--card);
-}
+   The per-paragraph block view's rules lived here: `.doc-live` (the pane),
+   `.lp-row`/`.lp-gutter`/`.lp-grip` (the Notion-style handle and its drag
+   affordances), `.lp-block` and `.lp-src` (a rendered paragraph and the
+   textarea it became when you clicked into it). DOCUMENTS_PLAN Phase 2 made
+   Live the same CodeMirror view as Source with a decorations compartment on,
+   so there is no second pane, no per-paragraph box and nothing here to style:
+   the rendered shapes are decoration classes, and they are set from the theme
+   object in documents.js because adopted stylesheets sort after document
+   stylesheets and a rule here would lose to the library's own.
 
-.doc-live.hidden {
-  display: none;
-}
-
-/* A rendered block. The hover tint is the only thing telling you these are
-   editable at all: without it the pane looks like the read-only preview it
-   sits next to in the mode switcher. */
-.lp-block {
-  padding: 0.05rem 0.25rem;
-  border-radius: var(--radius-sm);
-  cursor: text;
-}
-
-.lp-block:hover {
-  background: var(--card-bg-hover);
-}
-
-/* An empty paragraph still has to be clickable, or a new document has
-   nowhere to put the caret and the mode looks broken. */
-.lp-block-empty {
-  min-height: 1.5rem;
-}
-
-/* **A block and its handle.** The gutter is a fixed lane to the left, so the
-   prose keeps one left edge down the whole document whether a handle is
-   showing or not: a gutter that appears *in flow* would shove every
-   paragraph sideways on hover, which is worse than having no handle. */
-.lp-row {
-  position: relative;
-  display: grid;
-  grid-template-columns: 3rem minmax(0, 1fr);
-  align-items: start;
-}
-
-.lp-gutter {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  justify-content: flex-end;
-  padding-top: 0.15rem;
-  padding-right: var(--space-1);
-  /* Hidden until wanted: handles beside every paragraph, always, turn a page
-     of prose into a form. `visibility` rather than `display` so the lane keeps
-     its width and nothing moves when they appear. */
-  visibility: hidden;
-}
-
-.lp-row:hover .lp-gutter,
-.lp-row:focus-within .lp-gutter {
-  visibility: visible;
-}
-
-.lp-grip {
-  cursor: grab;
-}
-
-.lp-grip:active {
-  cursor: grabbing;
-}
-
-.lp-row.is-dragging {
-  opacity: 0.5;
-}
-
-/* Where it would land. A line rather than a moving placeholder: the blocks
-   are rendered markdown of any height, and animating a gap between them is
-   both expensive and less precise than a rule the eye can aim at. */
-.lp-row.is-drop-before::before,
-.lp-row.is-drop-after::after {
-  content: "";
-  position: absolute;
-  left: 3rem;
-  right: 0;
-  height: 2px;
-  border-radius: var(--radius-sm);
-  background: var(--accent);
-}
-
-.lp-row.is-drop-before::before {
-  top: -1px;
-}
-
-.lp-row.is-drop-after::after {
-  bottom: -1px;
-}
-
-/* The block being edited: raw markdown, monospaced so the syntax reads as
-   syntax, and marked with the accent so it is obvious which one is live.
-   Height is set from content by JS, a fixed height would clip a long
-   paragraph or leave a hole after a short one. */
-.lp-src {
-  display: block;
-  width: 100%;
-  margin: 0.05rem 0;
-  padding: 0.25rem;
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-sm);
-  background: var(--card);
-  color: inherit;
-  font-family: var(--mono, ui-monospace, monospace);
-  font-size: 0.92rem;
-  line-height: 1.6;
-  /* JS owns the height; the browser's own grip would fight it. */
-  resize: none;
-  overflow: hidden;
-}
+   Deleted rather than left dead: `tests/test_doc_surface.py` fails the build
+   if a `.lp-` rule comes back. */
 
 /* Only `gap` is live here. Everything about the layout itself is on
    `#doc-panes` above, because an id selector beats this class and a rule that

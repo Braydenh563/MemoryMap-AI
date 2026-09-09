@@ -517,9 +517,16 @@ function gcDraw() {
     } else if (item.matched) {
       ctx.strokeStyle = gcTokens.accent;
       ctx.lineWidth = 3 / k;
-    } else if (node.fx != null) {
+    } else if (node.fx != null && gcLayoutKind === "force") {
       // Held in place by a drag or a double-click: the same dashed ink ring
       // `.graph-held` draws, so a held note looks held on both renderers.
+      //
+      //: Force layout only. Tree, radial and arc hold every node by setting
+      //: `fx`/`fy` from the computed hierarchy, so this test was true for all
+      //: of them at once and the whole board wore the ring that means "you
+      //: pinned this". Reported on 2026-09-09: "on the other graph view
+      //: types, they all have the dotted border as they are static but that
+      //: shouldnt be the case".
       ctx.strokeStyle = gcTokens.ink;
       ctx.lineWidth = 2 / k;
       ctx.setLineDash([3 / k, 2 / k]);
@@ -855,6 +862,13 @@ function gcWireInteraction() {
       // the moment anything is laid out above the canvas inside the box.
       .container(() => gcCanvas)
       .subject((event) => {
+        //: **Nothing is dragged in a computed layout.** A tree, a ring or an
+        //: arc *is* its shape, and a node pulled out of it makes the picture
+        //: a lie; the position also comes back on the next relayout, so the
+        //: gesture would not even hold. A null subject means d3-drag declines
+        //: the gesture and the zoom behaviour keeps the pointer, so panning
+        //: still works where a drag used to start.
+        if (gcLayoutKind !== "force") return null;
         const [x, y] = gcWorldPoint(event);
         const node = gcNodeAtWorld(x, y);
         if (!node) return null;
@@ -985,6 +999,12 @@ function gcWireInteraction() {
       openGraphNewNote(event);
       return;
     }
+    //: A double click in a computed layout used to clear that one node's
+    //: `fx`/`fy` and hand it to the force simulation, which then re-solved
+    //: from there and pulled the rest of the tree apart with it: reported as
+    //: "I test double clicked on a node and it broke them all out of
+    //: position". There is no pin to toggle where every position is computed.
+    if (gcLayoutKind !== "force") return;
     gcTogglePin(node);
   });
   gcWireLasso();

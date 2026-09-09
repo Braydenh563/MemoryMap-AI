@@ -2971,6 +2971,15 @@ function wireEscapedActionMenu(wrap) {
     // browsers' layout of a `position: fixed` element mid-transition.
     menu.style.left = "0px";
     menu.style.top = "0px";
+    //: **Measure the menu at its full height, not at whatever a stylesheet
+    //: last capped it to.** Reported three times against the whiteboard's
+    //: View menu (INBOX 57, then 105) and once against the mind map's, which
+    //: shares this code: the panel opened about 230px tall with its own inner
+    //: scrollbar and a row cut in half, on a window with hundreds of pixels
+    //: to spare. Whichever rule caps it, an inline `max-height: none` for the
+    //: duration of the measurement is what makes `box.height` the height this
+    //: menu actually wants, so the choice below is made on the real number.
+    menu.style.maxHeight = "none";
     const box = menu.getBoundingClientRect();
     let left = anchor.right - box.width;
     let top = anchor.bottom + 4;
@@ -2978,9 +2987,30 @@ function wireEscapedActionMenu(wrap) {
     if (left + box.width > window.innerWidth - margin) {
       left = Math.max(margin, window.innerWidth - margin - box.width);
     }
-    if (top + box.height > window.innerHeight - margin) {
-      const above = anchor.top - 4 - box.height;
-      top = above >= margin ? above : Math.max(margin, window.innerHeight - margin - box.height);
+    //: The room on each side of the trigger, which is the only honest cap:
+    //: a fixed figure is either smaller than the window (the reported bug) or
+    //: larger than it (a menu running off the bottom).
+    const roomBelow = window.innerHeight - margin - (anchor.bottom + 4);
+    const roomAbove = anchor.top - 4 - margin;
+    if (box.height <= roomBelow) {
+      top = anchor.bottom + 4;
+      menu.style.maxHeight = "";
+    } else if (box.height <= roomAbove) {
+      //: Upwards only when the whole menu fits there. Opening up and *then*
+      //: scrolling puts the first row at the bottom of the panel, furthest
+      //: from the button that opened it, which reads as a different menu.
+      top = anchor.top - 4 - box.height;
+      menu.style.maxHeight = "";
+    } else {
+      //: Taller than both sides: take the larger side and scroll inside it,
+      //: with the cut row visible rather than sliced, which is the
+      //: affordance. `--space-*` is not reachable from here, so the eight
+      //: pixels are the same `margin` the placement already uses.
+      const takeBelow = roomBelow >= roomAbove;
+      const room = Math.max(120, takeBelow ? roomBelow : roomAbove);
+      top = takeBelow ? anchor.bottom + 4 : margin;
+      menu.style.maxHeight = `${Math.round(room)}px`;
+      menu.style.overflowY = "auto";
     }
     menu.style.left = `${Math.round(left)}px`;
     menu.style.top = `${Math.round(top)}px`;
@@ -3012,6 +3042,10 @@ function wireEscapedActionMenu(wrap) {
       menu.classList.remove("action-menu-escaped");
       menu.style.left = "";
       menu.style.top = "";
+      // The height decisions are the escape's, not the menu's own: left
+      // behind they would cap it in its home position too.
+      menu.style.maxHeight = "";
+      menu.style.overflowY = "";
     }
   });
   observer.observe(menu, { attributes: true, attributeFilter: ["class"] });
@@ -9519,6 +9553,21 @@ function scheduleCaptureTagSuggestions() {
   }, 1200);
 }
 
+//: Wipes the composer's error line as soon as the person answers it. Bound
+//: once per complaint rather than at startup, so a composer that never
+//: errored carries no listener at all, and `{ once: true }` means the pair
+//: cannot accumulate over a session of near-misses.
+function clearCaptureStatusOnInput() {
+  const status = $("save-status");
+  const clear = () => {
+    if (!status.classList.contains("error")) return;
+    status.textContent = "";
+    status.classList.remove("error");
+  };
+  $("entry-content")?.addEventListener("input", clear, { once: true });
+  $("entry-title")?.addEventListener("input", clear, { once: true });
+}
+
 async function saveEntry() {
   const contentBox = $("entry-content");
   const titleBox = $("entry-title");
@@ -9527,8 +9576,16 @@ async function saveEntry() {
 
   const content = withTitle(contentBox.value.trim(), titleBox?.value);
   if (!content) {
-    status.textContent = "Write something first!";
+    //: No exclamation mark (the copy rule), and it clears itself the moment
+    //: anything is typed. Reported on 2026-09-09: "the words 'write something
+    //: first' is at the bottom of the note capture tab when I didnt do
+    //: anything?? maybe I fumbled a button." Nothing ever cleared this line,
+    //: so one press of Save (or of Ctrl+S, which reaches the same button) on
+    //: an empty box left an error sitting under the composer for the rest of
+    //: the session, long after it had stopped being true.
+    status.textContent = "Write something first, then save.";
     status.classList.add("error");
+    clearCaptureStatusOnInput();
     return;
   }
   const tags = $("entry-tags").value.split(",").map((t) => t.trim()).filter(Boolean);
@@ -9632,8 +9689,16 @@ async function saveEntryAsDraft() {
 
   const content = withTitle(contentBox.value.trim(), titleBox?.value);
   if (!content) {
-    status.textContent = "Write something first!";
+    //: No exclamation mark (the copy rule), and it clears itself the moment
+    //: anything is typed. Reported on 2026-09-09: "the words 'write something
+    //: first' is at the bottom of the note capture tab when I didnt do
+    //: anything?? maybe I fumbled a button." Nothing ever cleared this line,
+    //: so one press of Save (or of Ctrl+S, which reaches the same button) on
+    //: an empty box left an error sitting under the composer for the rest of
+    //: the session, long after it had stopped being true.
+    status.textContent = "Write something first, then save.";
     status.classList.add("error");
+    clearCaptureStatusOnInput();
     return;
   }
   const tags = $("entry-tags").value.split(",").map((t) => t.trim()).filter(Boolean);
@@ -30948,7 +31013,19 @@ $("notif-mute-toggle").addEventListener("click", () => {
 document.addEventListener("click", (event) => {
   const panel = $("notif-panel");
   if (panel.classList.contains("hidden")) return;
-  if (event.target.closest(".notif-wrap")) return;
+  //: **A menu this panel owns counts as inside it.** INBOX 70: "the 'AI
+  //: activity' combobox doesn't open, and the feature doesn't work". It
+  //: opened: `enhanceSelect` replaces the `<select>` with an
+  //: `.action-menu.select-menu`, which is reparented to `<body>` while open,
+  //: so a click on one of its options is not a descendant of `.notif-wrap`,
+  //: this guard read it as a click away, and the panel closed under the menu
+  //: before the option's own handler could run. The choice never landed, and
+  //: the control read as dead.
+  //:
+  //: `.action-menu` rather than `.select-menu` alone: every escaped menu in
+  //: this app carries it, so a panel that grows a second kind of menu later
+  //: does not have to rediscover this.
+  if (event.target.closest(".notif-wrap, .action-menu")) return;
   closeNotifications();
   $("notif-btn").setAttribute("aria-expanded", "false");
 });
@@ -32077,7 +32154,11 @@ $("note-picker-clear").addEventListener("click", () => {
 // Click-away and Escape close it, like every other popover in the app.
 document.addEventListener("click", (event) => {
   if (!notePickerOpen()) return;
-  if (event.target.closest(".note-picker")) return;
+  // `.action-menu` for the same reason the notifications panel needs it: a
+  // menu this panel owns is reparented to <body> while open, so a click on
+  // one of its options is not a descendant of the panel and would otherwise
+  // read as a click away.
+  if (event.target.closest(".note-picker, .action-menu")) return;
   closeNotePicker();
 });
 $("note-picker-panel").addEventListener("keydown", (event) => {
@@ -32095,7 +32176,7 @@ $("chat-dock-more-btn").addEventListener("click", () => {
 });
 document.addEventListener("click", (event) => {
   if (!chatDockMoreOpen()) return;
-  if (event.target.closest(".chat-dock-more")) return;
+  if (event.target.closest(".chat-dock-more, .action-menu")) return;
   closeChatDockMore();
 });
 $("chat-dock-more-panel").addEventListener("keydown", (event) => {
@@ -32837,6 +32918,11 @@ $("graph-popup-close").addEventListener("click", closeGraphPopup);
 // Resizing the window changes the map's size, so an open popup needs re-clamping.
 window.addEventListener("resize", placeGraphPopup, { passive: true });
 $("graph-popup-save").addEventListener("click", saveGraphPopup);
+// Save is shown only once the note differs from what loaded (GRAPH_PLAN
+// Phase 6), so both fields have to tell the gate when they change.
+for (const id of ["graph-popup-content", "graph-popup-tags"]) {
+  $(id).addEventListener("input", syncGraphPopupSave);
+}
 // "Open in Notes" now lives in the popup's action row (renderGraphPopupActions).
 // Clicking empty canvas dismisses the popups.
 $("graph-svg").addEventListener("click", () => {
@@ -34088,7 +34174,23 @@ document.addEventListener("keydown", (e) => {
       return; // wait for the second key; a lone "m" does nothing on its own
     }
   }
-  //: Ctrl+S saves what is in front of you (INBOX 74, asked for: "register
+  //: A short, non-blocking mark on the control a shortcut just pressed, so a
+//: keyboard save is visibly a save rather than a key that did nothing. The
+//: class is removed on the animation's own end rather than on a timer, so
+//: two presses in a row both show, and it is a no-op under
+//: `prefers-reduced-motion` (the rule carries no animation there).
+function flashSaved(el) {
+  if (!el) return;
+  el.classList.remove("just-saved");
+  // Reading a layout property between the remove and the add is what restarts
+  // a CSS animation on an element that already has the class; without it a
+  // second press inside the animation's own duration shows nothing.
+  void el.offsetWidth;
+  el.classList.add("just-saved");
+  el.addEventListener("animationend", () => el.classList.remove("just-saved"), { once: true });
+}
+
+//: Ctrl+S saves what is in front of you (INBOX 74, asked for: "register
   //: the ctrl s command for saving progress such as settings"). Settings:
   //: the visible section's own Save button; Documents: the document;
   //: Capture: the note. Always swallowed, so the browser's "save page"
@@ -34096,10 +34198,41 @@ document.addEventListener("keydown", (e) => {
   if ((e.key === "s" || e.key === "S") && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
     e.preventDefault();
     if (settingsModalOpen()) {
-      const section = document.querySelector(".settings-section:not(.hidden)");
-      const save = section?.querySelector('button[id$="-save"]:not([disabled])');
-      if (save) save.click();
-      else toast("This section saves as you change it.");
+      //: **Look for a control that is actually on screen, not for a naming
+      //: convention.** Reported on 2026-09-09: "ctrl s for saving settings
+      //: changes while on the settings modal doesnt work and it needs visual
+      //: confirmation as well." Measured with the modal open on its default
+      //: section: seventeen `.settings-section` elements, exactly one of them
+      //: visible (`#settings-models`), and every one of the six
+      //: `button[id$="-save"]` in the document laid out at zero height,
+      //: because they all belong to other sections. So the lookup found
+      //: nothing every time and the keystroke answered "this section saves as
+      //: you change it" whether or not that was true.
+      //:
+      //: `offsetParent` is the test that a screenshot would use: is this
+      //: button on screen. The id suffix stays as the first preference, since
+      //: it is exact where it applies, and a visible "Save…" button anywhere
+      //: in the modal is the fallback for the sections that never adopted it.
+      const onScreen = (el) => el && el.offsetParent !== null && !el.disabled;
+      const section = [...document.querySelectorAll(".settings-section")].find(
+        (el) => el.offsetParent !== null,
+      );
+      let save = [...(section?.querySelectorAll('button[id$="-save"]') || [])].find(onScreen);
+      if (!save) {
+        save = [...document.querySelectorAll("#settings-modal button")].find(
+          (el) => onScreen(el) && /^save\b/i.test((el.textContent || "").trim()),
+        );
+      }
+      if (save) {
+        save.click();
+        //: The visual half of the same report. The save handlers each raise
+        //: their own toast, but a keystroke with no immediate mark on the
+        //: control it pressed reads as a keystroke that went nowhere, so the
+        //: button itself acknowledges the press before its handler answers.
+        flashSaved(save);
+      } else {
+        toast("Nothing on this settings page needs saving. It saves as you change it.");
+      }
       return;
     }
     if (!$("tab-documents")?.classList.contains("hidden") && typeof saveDocument === "function") {
@@ -34108,7 +34241,17 @@ document.addEventListener("keydown", (e) => {
     }
     const capture = $("save-btn");
     if (capture && capture.offsetParent && !capture.disabled) {
+      //: Ctrl+S on an empty composer is a keystroke, not a mistake worth
+      //: scolding: pressing the button would raise the composer's own "write
+      //: something first" error, which is the line the owner found sitting
+      //: there having "didnt do anything".
+      const written = ($("entry-content")?.value || "").trim() || ($("entry-title")?.value || "").trim();
+      if (!written) {
+        toast("Nothing to save yet.");
+        return;
+      }
       capture.click();
+      flashSaved(capture);
       return;
     }
     toast("Nothing to save here.");
@@ -35968,6 +36111,7 @@ const agentMonitorRuns = $("agent-monitor-runs");
 const agentMonitorEmpty = $("agent-monitor-empty");
 const agentMonitorLogToggle = $("agent-monitor-log-toggle");
 const agentMonitorClose = $("agent-monitor-close");
+const agentMonitorClear = $("agent-monitor-clear");
 
 //: Runs kept in the panel for this session, oldest first. Twelve because the
 //: panel is 350px wide and a row is one line collapsed: past that it is a list
@@ -36122,6 +36266,18 @@ function addAgentRun({ kind, name, icon = "", steps = [], detail = "" }) {
   run.body.className = "agent-run-body";
   el.append(summary, run.body);
   run.el = el;
+  //: **A run with no steps must not offer a fold.** Reported twice (INBOX 69,
+  //: "a 'Starting SearXNG' row with a caret that does nothing"; and again on
+  //: 2026-09-09 against "Loading the embedding model"). Both are background
+  //: jobs, which is exactly the case that declares no steps: the `<details>`
+  //: still drew the marker and still toggled, onto an empty body. The step
+  //: rows have had this rule since Phase C (`:not(.has-tools)`), the run row
+  //: never got it. `has-steps` is set by `agentRunAddStep`; the guard below
+  //: is the half the CSS cannot do, since a hidden marker is still a summary
+  //: and a click on it still toggles.
+  summary.addEventListener("click", (event) => {
+    if (!el.classList.contains("has-steps")) event.preventDefault();
+  });
 
   for (const [index, text] of steps.entries()) agentRunAddStep(run, index, text);
 
@@ -36159,6 +36315,7 @@ function agentRunAddStep(run, index, text) {
   el.append(summary, step.tools);
   step.el = el;
   run.body.appendChild(el);
+  run.el.classList.add("has-steps");
   run.steps.push(step);
   agentRunPaintStep(run, step);
   return step;
@@ -36367,6 +36524,32 @@ function nudgeAgentMonitorIdle() {
     }
     setAgentMonitorVisible(false);
   }, AGENT_MONITOR_IDLE_MS);
+}
+
+//: **Clear**, reported on 2026-09-09: "the agent activity logs cant be
+//: cleared". The panel is a session tail with a fifty-line cap and an
+//: eight-row run cap, so it never emptied on its own except by ageing out,
+//: and a reader who has read it had no way to say so. Both halves go, since
+//: the button is in the header above both and clearing one while the other
+//: kept its backlog would be the sort of half-action that reads as broken.
+//: A run still going is kept: it is the live thing the panel is for, and
+//: removing its row would strand its end with nothing to draw it on.
+if (agentMonitorClear) {
+  agentMonitorClear.addEventListener("click", () => {
+    const kept = [];
+    for (const run of agentRuns) {
+      if (run.state === "running") kept.push(run);
+      else run.el.remove();
+    }
+    agentRuns.length = 0;
+    agentRuns.push(...kept);
+    agentMonitorLogs.textContent = "";
+    agentMonitorEmpty?.classList.toggle(
+      "hidden",
+      agentRuns.length > 0 || !agentMonitorLogs.classList.contains("hidden"),
+    );
+    renderActivityStatusItem();
+  });
 }
 
 if (agentMonitorClose) {

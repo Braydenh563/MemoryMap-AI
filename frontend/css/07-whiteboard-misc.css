@@ -1256,9 +1256,20 @@ body.has-agent-monitor #tab-library .library-view-section {
   white-space: nowrap;
 }
 
-.agent-run-meta,
+/* The state ("Done", "Running") is two words and never shrinks; the meta is
+   either "Step 2 of 5" or, for a step-less background job, the run's whole
+   detail sentence, so it has to be allowed to shrink and wrap. */
+.agent-run-meta {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
 .agent-run-state {
   flex: none;
+}
+
+.agent-run-meta,
+.agent-run-state {
   font-weight: 400;
   color: var(--muted);
   font-size: var(--text-sm);
@@ -1340,8 +1351,14 @@ body.has-agent-monitor #tab-library .library-view-section {
   flex-wrap: wrap;
 }
 
+/* `1 1 100%`, not `1 0 100%`: a run with no steps puts its whole detail
+   sentence in `.agent-run-meta` on this line, and a line that may not shrink
+   below its content pushed the run list 501px wide inside a 300px panel
+   (measured, 2026-09-09). It still takes a line of its own, it just may now
+   give width back. */
 .agent-run-progress {
-  flex: 1 0 100%;
+  flex: 1 1 100%;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -3059,6 +3076,71 @@ summary:not(.icon-only):not(.icon-button):hover {
   color: var(--ink);
 }
 
+/* **The panels were drawing at the page-card tier, not the floating one, and
+   their own rule says otherwise.** `.whiteboard-floating-panel`
+   (06-timeline-dialogs.css) sets `background: var(--modal-bg)` with a comment
+   recording why: it floats over the board's own art and cards and has to stay
+   legible against all of it. Every one of these panels also carries `card
+   glass` in the markup, and `.card.glass` (03-dashboard-widgets.css) is a
+   two-class selector against that rule's one, so it won: measured
+   `color(srgb 1 1 1 / 0.549)`, which is --card, the 55%-opaque tier meant for
+   a surface content scrolls *inside*.
+
+   That is the shape CLAUDE.md warns about, a fix and the thing it fixed
+   drifting apart in two different rules, and it is half of why the bars read
+   as "unrefined" (INBOX 65): a control bar you can see the canvas through is
+   a bar that does not look like a surface. Restated here, later in the
+   cascade and at a specificity the class pair cannot beat. The blur, border
+   and shadow already come from the panel rule and are unchanged; only the
+   opacity tier is put back. */
+.whiteboard-floating-panel.card.glass,
+.wb-selection-bar.card.glass {
+  background: var(--modal-bg);
+}
+
+/* --- the whiteboard's panels are one surface each -------------------------
+   Reported twice. INBOX 52, of the bottom tool bar: the controls "feel
+   separate from the panels and not integrated". INBOX 65, of all of them:
+   "the buttons look separate from the panels".
+
+   Measured before this, at 1440 with a board open: the tool bar painted
+   **16** backgrounds of its own inside one glass surface (fifteen tonal
+   discs plus the accent-filled active tool), and the zoom pill painted
+   three more. A tonal fill is right for a button that sits on a page, where
+   it is the thing that says "this is a control"; inside a floating bar the
+   bar itself already says that, and fifteen filled discs in a row read as
+   fifteen separate objects that happen to share a tray.
+
+   So: nothing rests filled except the active tool, and the fill comes back
+   under the pointer and on keyboard focus, so the affordance is not lost,
+   only postponed. The group hairlines (--divider) are then the only marks
+   inside the bar.
+
+   Scoped to the floating panels over the canvas. The board's top bar is a
+   different surface with its own settled recipe, and the page's own buttons
+   are untouched. */
+.whiteboard-floating-panel button.ghost:not(.active):not(:disabled),
+.wb-selection-bar button.ghost:not(.active):not(:disabled) {
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.whiteboard-floating-panel button.ghost:not(.active):hover,
+.whiteboard-floating-panel button.ghost:not(.active):focus-visible,
+.wb-selection-bar button.ghost:not(.active):hover,
+.wb-selection-bar button.ghost:not(.active):focus-visible {
+  background: var(--ghost-btn-bg);
+}
+
+/* A disabled control (undo with nothing to undo) rests flat like the rest and
+   does not light up, which is what "disabled" has to look like once the
+   others have stopped resting filled. */
+.whiteboard-floating-panel button.ghost:disabled {
+  background: none;
+  border-color: transparent;
+}
+
 /* --- scrollbars ----------------------------------------------------------
    Reported: "the scrollbar in the categories sidebar actually comes out of
    the curved sidebar corners", and the screenshot shows why. That panel was
@@ -3543,8 +3625,19 @@ details[open].help-accordion > summary::before {
    that already says "these are buttons", and a per-item ground both competes
    with the group's own selection fill and doubles the visual weight of a bar
    that is meant to sit quietly under the app. */
-button.icon-only:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool),
-button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool) {
+/*: `.graph-popup-tool-primary` is the fourth name on this list, and it is
+   here rather than in a rule of its own for the reason the list exists.
+   GRAPH_PLAN Phase 6 asks the graph node panel's toolbar for one filled
+   control (Open), and `smallButton(..., ghost=false)` is how the app says
+   "filled" everywhere else: it was not enough, because this rule is six
+   classes deep and no readable selector naming that button could outrank
+   it. Measured on the running panel, Open rendered identical to its eight
+   neighbours, which is the shape CLAUDE.md warns about: the markup said one
+   filled button and the pixels said none. Named here, it falls through to
+   the base `button` recipe, the app's real filled tier, rather than to a
+   fourth button colour invented for one control. */
+button.icon-only:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):not(.graph-popup-tool-primary),
+button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):not(.graph-popup-tool-primary) {
   /* Tonal, like `.ghost` (01-forms-settings.css): fill, transparent edge. */
   background: var(--ghost-btn-bg);
   border: 1px solid transparent;
@@ -4394,10 +4487,7 @@ summary:not(.icon-only):not(.icon-button) {
    `display: block` on the ones that truncate hands the ellipsis back and
    anchors the text at its start. Applied to the badge shapes, not to buttons
    generally: a normal button wants its label centred. */
-.chat-model-button,
-.library-image-vision-ocr-badge,
-.library-image-ocr-badge,
-.library-image-caption-badge {
+.chat-model-button {
   display: block;
   text-align: left;
   overflow: hidden;
@@ -4558,8 +4648,15 @@ summary:not(.icon-only):not(.icon-button) {
   /* `min()`, not a flat 16rem: a gallery tile is ~11.5rem wide, so a 16rem
      cap let a long board or note title run straight past the card's own
      edge: visible on the sketch tiles, whose titles are the longest in the
-     gallery ("Sketch on SD board 1788528271333"). */
-  max-width: min(16rem, 100%);
+     gallery ("Sketch on SD board 1788528271333").
+
+     62%, not 100%: the row wraps, and a wrapping row places an item at its
+     *base* size before it will shrink anything, so a chip allowed the full
+     width of the card could never sit beside the "Used in" lead and always
+     took a second line. "Used in" measures 46px of a 160px card, so 66% is
+     what is left after it and the row's gap; the chip ellipsises inside that
+     and keeps the full title in its tooltip (INBOX 56 asks for one line). */
+  max-width: min(16rem, 66%);
   overflow: hidden;
   white-space: nowrap;
   cursor: pointer;
@@ -4615,7 +4712,6 @@ summary:not(.icon-only):not(.icon-button) {
    Split view opts out: two panes side by side are already narrow, and
    capping each again would leave two thin ribbons with a gulf between. */
 .doc-source-wrap:not(.doc-split-pane) #doc-content,
-#doc-live:not(.doc-split-pane),
 #doc-preview:not(.doc-split-pane) {
   max-width: 78ch;
   margin-inline: auto;
@@ -4645,28 +4741,6 @@ summary:not(.icon-only):not(.icon-button) {
   margin-left: 0;
 }
 
-/* Task #41: a brand-new (or emptied-out) document's Live pane rendered as a
-   sliver: measured at 42px inside a 1100px pane. `margin-inline: auto`
-   above only centres a box that already has a width; per the flex spec, an
-   auto cross-axis margin on a flex item *disables* stretch alignment for
-   that axis, so #doc-live (a `flex: 1 1 auto` item of the column-flex
-   `#doc-panes`) falls back to shrinking to fit its own content instead of
-   filling the pane. With real paragraphs in it that shrink-to-fit width
-   usually still hits the 78ch cap and looks identical to filling the pane, 
-   which is why this only ever showed up on an empty document, and why
-   `#doc-content` and `#doc-preview` never needed this: the textarea already
-   gets `width: 100%` from the base `textarea` rule (01-forms-settings.css),
-   and `#doc-preview` gets an explicit width from whichever mode shows it
-   (`#doc-panes.reading>.doc-preview`'s own `width: 100%` for Rendered,
-   `#doc-panes.split>.doc-preview`'s `flex: 1 1 0` for Split): #doc-live had
-   no equivalent. `width: 100%` here restores the stretch this pane was
-   missing; `max-width` above still caps it and `margin-inline: auto` still
-   centres it once content is wide enough to reach that cap. */
-#doc-live {
-  width: 100%;
-}
-
-#doc-live,
 #doc-preview {
   /* The rendered halves hold real prose with no syntax in it, so they take
      the stricter measure the note cards already use. */
@@ -4688,9 +4762,7 @@ summary:not(.icon-only):not(.icon-button) {
    tidy `.doc-wide #doc-preview` at (0,2,0) loses to *both*, measured, the
    toggle flipped its own aria-pressed and moved the preview not one pixel. */
 .doc-wide .doc-source-wrap:not(.doc-split-pane) #doc-content,
-.doc-wide #doc-live:not(.doc-split-pane),
 .doc-wide #doc-preview:not(.doc-split-pane),
-.doc-wide #doc-live,
 .doc-wide #doc-preview {
   max-width: none;
 }
@@ -6167,46 +6239,18 @@ button.connection-row {
   text-align: center;
 }
 
-/* **"Take me there" has to end with something saying "here".** Asked for:
-   "if I click on an issue flagged in the document suggestions, it should auto
-   scroll to the issue and temporarily highlight the offending area."
-
-   Two flashes, because the two views can say it differently. Live view has a
-   real `<mark>` for the flagged word, so it pulses in place. Source view has
-   only a selection inside a `<textarea>`, nothing there can be marked, so
-   the selection colour itself becomes the flash for as long as it lasts.
-   Both are short: a highlight that stays is a highlight you then have to get
-   rid of. */
-@keyframes doc-flag-flash {
-  0% {
-    background: var(--accent);
-    color: var(--on-accent);
-  }
-
-  100% {
-    background: transparent;
-    color: inherit;
-  }
-}
-
-.doc-flag-flash {
-  animation: doc-flag-flash 1.6s ease-out;
-  border-radius: var(--radius-sm);
-}
+/* The "show me this one" flash lived here as two rules: a keyframe pulse on
+   the Live view's `<mark>` and a `::selection` colour on the Source view's
+   textarea. DOCUMENTS_PLAN Phase 2 left one editor, and it answers the
+   question itself: `docProseJump` puts the selection on the flagged span and
+   the engine scrolls it into view as part of the same transaction, with the
+   underline already saying which words are meant. `.doc-selection-flash` is
+   kept below for the fallback textarea, which still cannot mark a range it
+   already holds any other way. */
 
 .doc-selection-flash::selection {
   background: var(--accent);
   color: var(--on-accent);
-}
-
-/* Reduced motion keeps the information, the word still goes accent-coloured
-   and fades back: it just does not travel to get there (`scrollIntoView`
-   drops to `auto` in the JS for the same reason). */
-@media (prefers-reduced-motion: reduce) {
-  .doc-flag-flash {
-    animation-duration: 1.6s;
-    animation-timing-function: steps(2, end);
-  }
 }
 
 /* --- Inline AI (editor.js) ------------------------------------------------
@@ -8919,6 +8963,39 @@ header#top-bar {
   display: none;
 }
 
+/* --- the graph node panel becomes a sheet (GRAPH_PLAN Phase 6) ------------
+   At 390 the panel is wider than the space either side of the node it was
+   opened from, so a floating card with a corner near the pointer is a card
+   that covers the map and points at nothing. Flush to the bottom of the map,
+   full width, square where it meets the edges: the same "attached, not
+   dropped on" shape the whiteboard drawer takes at 1024. `placeGraphPopup`
+   (graph.js) writes the position, because it owns the inline left/top. */
+@media (max-width: 599.98px) {
+
+  .graph-popup.graph-popup-sheet {
+    width: 100%;
+    max-width: 100%;
+    border-radius: var(--radius) var(--radius) 0 0;
+    border-bottom: none;
+  }
+
+  /* One group per line rather than one wrapped row. A wrapped row leaves a
+     divider at the start of the second line, marking a boundary that is not
+     there: the line break already separates the groups, so the hairlines
+     have nothing left to do. */
+  .graph-popup-sheet .graph-popup-tool-group {
+    flex: 1 0 100%;
+  }
+
+  .graph-popup-sheet .graph-popup-tool-group+.graph-popup-tool-group::before {
+    display: none;
+  }
+
+  .graph-popup-sheet .graph-popup-actions {
+    row-gap: var(--space-3);
+  }
+}
+
 @media (max-width: 599.98px) {
 
   :root {
@@ -9287,4 +9364,56 @@ header#top-bar {
     width: var(--target-min);
     height: var(--target-min);
   }
+}
+
+/* --- the agent activity panel: nothing scrolls sideways, nothing folds onto
+   an empty body (INBOX 69 and the owner's report of 2026-09-09) -------------
+
+   Measured before the fix, at the panel's real 348px: the log view's content
+   was 317px wide against a 300px box, so the panel grew a horizontal
+   scrollbar and the first characters of every line sat off the left edge,
+   which is the screenshot. The cause is a logger line's own unbroken tokens
+   (a model id, an absolute path): nothing in a 300px column can break
+   `sentence-transformers/all-MiniLM-L6-v2` without being told it may.
+
+   `anywhere` rather than `break-word`: `break-word` still refuses to break
+   inside a token when the token is the first thing on its line, which is
+   exactly this case. `overflow-x: hidden` is the belt: a glance panel that
+   scrolls sideways has already lost, and with the wrap above there is
+   nothing left to scroll to. */
+.monitor-logs,
+.monitor-runs {
+  overflow-x: hidden;
+}
+
+.monitor-log-item,
+.monitor-runs .agent-run-step > summary,
+.monitor-runs .agent-run-tools,
+.monitor-runs .agent-run-meta {
+  overflow-wrap: anywhere;
+}
+
+/* A run that declared no steps (every background job) has an empty body, so
+   its marker is a control that does nothing: the same rule the step rows have
+   had since Phase C. The click guard in app.js is the other half, since a
+   hidden marker is still a summary and a click on it still toggles. */
+.monitor-runs .agent-run-row:not(.has-steps) > summary::before {
+  visibility: hidden;
+}
+
+.monitor-runs .agent-run-row:not(.has-steps) > summary {
+  cursor: default;
+}
+
+/* **A Files row's fields start where its title starts.** Measured at 1440 on
+   the running app (2026-09-09): the title and the "PDF · 121 KB · added"
+   strip both began at x=172, the caption field and the transcription fold at
+   x=181, so the lower half of every row was nine pixels adrift of the upper
+   half. `.library-image-fields` carries its own horizontal padding for the
+   Images grid, where the tile itself has none; in the rows layout the tile
+   supplies the padding and the field block's own is a second inset on top of
+   it. Reported as "this text needs to be better aligned in the files". */
+.library-file-rows .library-image-tile > .library-image-fields {
+  padding-left: 0;
+  padding-right: 0;
 }

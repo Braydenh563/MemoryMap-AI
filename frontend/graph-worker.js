@@ -150,14 +150,17 @@ function tuning(params) {
   const gravityScale = 0.4 + gravity / 41.7; // 0.4x-2.8x
   const spreadScale = 0.5 + spread / 50; // 0.5x-2.5x
   const density = SPREAD_TRIM * densityScale(nodes.length);
-  //: Reported twice, with a screenshot the second time: "max gravity on the
-  //: graph is still quite spread out". Weaker repulsion alone cannot close
-  //: the gaps *between* components, nothing links them, so they sit wherever
-  //: the initial spiral left them. The centre pull is the only force that
-  //: acts across a gap, and it did not move with the slider. Quadratic so
-  //: the middle of the range is untouched (1x at 50) and the top of it packs
-  //: the islands together: 0.25x at 0, 3.25x at 100.
-  const pull = 0.25 + 0.75 * (gravity / 50) ** 2;
+  //: Reported three times now, most recently "max gravity on the graph
+  //: isnt tight enough". Weaker repulsion alone cannot close the gaps
+  //: *between* components, nothing links them, so they sit wherever the
+  //: initial spiral left them. The centre pull is the only force that
+  //: acts across a gap. Cubed rather than squared: `(gravity/50) ** n`
+  //: passes through exactly 0.25 at 0 and exactly 1 at 50 for *any* n, so
+  //: raising the exponent only steepens the top half of the range, the
+  //: half the report is about, and leaves the untouched-default contract
+  //: at 50 exact rather than approximate. 0.25x at 0, 1x at 50 (unchanged),
+  //: 6.25x at 100 (was 3.25x).
+  const pull = 0.25 + 0.75 * (gravity / 50) ** 3;
   return {
     charge: (-340 * density) / gravityScale,
     linkDistance: (edge) => (edge.kind === "similar" ? 130 : 80) * density * spreadScale,

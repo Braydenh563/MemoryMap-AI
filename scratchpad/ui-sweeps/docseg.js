@@ -1,61 +1,80 @@
-// The Documents Edit / Read segment: does the label fit inside its control?
+// The Documents Edit / Read segment: do the pills fit inside their control?
+//
+// The owner, with a screenshot: "the documents edit and read toggle options
+// dont fit in the toggle and go out of it at the bottom".
+//
+// This file used to be the probe that could not answer that. It clicked its
+// way to the tab through `[data-tab="library"]` and a text-matched sub-tab,
+// never reached `#tab-documents`, and the entry in DOCUMENTS_PLAN had to be
+// written as a reading of the CSS rules rather than as a measurement. It now
+// opens a document through `docopen.js`, which is the path the other seven
+// cm-* sweeps already take, and asserts two independent numbers rather than
+// looking at a screenshot:
+//
+//   - the segment's own `scrollHeight` equals its `clientHeight` (nothing
+//     inside it is taller than it is), and
+//   - every button's `getBoundingClientRect()` is inside the segment's, top
+//     and bottom.
+//
+// Before the fix, at both 1440 and 1280: scrollHeight 40 / clientHeight 36,
+// and each button's bottom 4px below the segment's. After: 36 / 36, and each
+// button 4px inside at both ends.
+//
+//   BASE=http://127.0.0.1:8830 node scratchpad/ui-sweeps/docseg.js
 const { boot } = require('./lib.js');
+const { openDoc } = require('./docopen.js');
+
 (async () => {
   const { browser, page } = await boot();
-  const made = await page.evaluate(async () => {
-    const h = { 'X-Auth-Token': localStorage.getItem('token') || '', 'Content-Type': 'application/json' };
-    const r = await fetch('/documents', { method: 'POST', headers: h,
-      body: JSON.stringify({ title: 'Markdown test rendering', content: '# Heading\n\nSome body text.' }) });
-    return r.status + ' ' + (await r.text()).slice(0, 120);
-  });
-  await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(2500);
-  const route = await page.evaluate(() => {
-    const hit = (sel) => { const e = document.querySelector(sel); if (e) { e.click(); return sel; } return null; };
-    const tab = hit('[data-tab="library"]') || hit('[data-tab="documents"]');
-    return tab;
-  });
-  await page.waitForTimeout(1500);
-  const sub = await page.evaluate(() => {
-    const el = [...document.querySelectorAll('button, a')].find((b) => /^documents$/i.test((b.textContent || '').trim()));
-    if (el) { el.click(); return el.className; }
-    return 'no documents sub-tab';
-  });
-  await page.waitForTimeout(2500);
-  console.log('route:', route, '| sub:', sub);
-  const opened = await page.evaluate(() => {
-    const candidates = [...document.querySelectorAll('#tab-documents button, #tab-documents li, #tab-documents [data-id]')]
-      .filter((el) => /Markdown test/.test(el.textContent || ''));
-    if (candidates.length) { candidates[0].click(); return 'clicked ' + candidates[0].tagName + '.' + candidates[0].className; }
-    return 'no row; tab hidden=' + document.getElementById('tab-documents')?.classList.contains('hidden');
-  });
-  await page.waitForTimeout(2500);
-  console.log('open:', opened);
-  console.log('seed:', made);
-  const r = await page.evaluate(() => {
-    const seg = document.getElementById('doc-view-seg');
-    if (!seg) return { missing: true };
-    const segBox = seg.getBoundingClientRect();
-    const rows = [...seg.querySelectorAll('button')].map((b) => {
-      const r = b.getBoundingClientRect();
-      const cs = getComputedStyle(b);
+  const say = (k, v) => console.log(`${k}: ${JSON.stringify(v)}`);
+  let bad = 0;
+
+  await openDoc(page, { title: 'Segment fit', content: '# Heading\n\nSome body text.' });
+  const mounted = await page.evaluate(() => Boolean(document.querySelector('#doc-editor .cm-editor')));
+  say('cm_mounted', mounted);
+  if (!mounted) { console.log('FAIL: the editor never mounted, nothing below is measured'); bad++; }
+
+  for (const width of [1440, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.waitForTimeout(400);
+    const seg = await page.evaluate(() => {
+      const s = document.querySelector('.doc-dock .seg');
+      if (!s) return null;
+      const sr = s.getBoundingClientRect();
       return {
-        text: b.textContent.trim(),
-        h: +r.height.toFixed(1),
-        top: +(r.top - segBox.top).toFixed(1),
-        bottom: +(segBox.bottom - r.bottom).toFixed(1),
-        lineHeight: cs.lineHeight,
-        paddingBlock: cs.paddingBlock || `${cs.paddingTop} ${cs.paddingBottom}`,
-        overflowsBottom: r.bottom > segBox.bottom + 0.5,
+        scrollH: s.scrollHeight,
+        clientH: s.clientHeight,
+        h: +sr.height.toFixed(2),
+        buttons: [...s.querySelectorAll('button')].map((b) => {
+          const br = b.getBoundingClientRect();
+          return {
+            txt: b.textContent.trim().slice(0, 12),
+            h: +br.height.toFixed(2),
+            // Positive means the button is inside the segment on that edge.
+            insetTop: +(br.top - sr.top).toFixed(2),
+            insetBottom: +(sr.bottom - br.bottom).toFixed(2),
+            // A label sliced by its own box shows up here and nowhere else.
+            clipped: b.scrollHeight > b.clientHeight,
+          };
+        }),
       };
     });
-    return {
-      segH: +segBox.height.toFixed(1),
-      segPad: getComputedStyle(seg).padding,
-      visible: segBox.height > 0,
-      rows,
-    };
-  });
-  console.log(JSON.stringify(r, null, 1));
+    say(`seg_${width}`, seg);
+    if (!seg) { console.log(`FAIL ${width}: no .doc-dock .seg in the page`); bad++; continue; }
+    if (seg.scrollH > seg.clientH) {
+      console.log(`FAIL ${width}: seg scrollHeight ${seg.scrollH} > clientHeight ${seg.clientH}`);
+      bad++;
+    }
+    for (const b of seg.buttons) {
+      if (b.insetTop < 0 || b.insetBottom < 0) {
+        console.log(`FAIL ${width}: "${b.txt}" out of the segment (top ${b.insetTop}, bottom ${b.insetBottom})`);
+        bad++;
+      }
+      if (b.clipped) { console.log(`FAIL ${width}: "${b.txt}" clips its own label`); bad++; }
+    }
+  }
+
+  console.log(bad ? `docseg: ${bad} failures` : 'docseg: all checks pass');
   await browser.close();
+  process.exit(bad ? 1 : 0);
 })();

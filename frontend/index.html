@@ -4422,29 +4422,43 @@ Link to another note with [[its first few words]]."></textarea>
       <div class="wb-prop-arrange hidden" id="wb-prop-multi-row">
         <span class="wb-properties-group-label">Arrange</span>
         <div class="wb-arrange-toolbar" role="toolbar" aria-label="Arrange the selection">
-          <div class="wb-arrange-group" role="group" aria-label="Group">
-            <button type="button" id="wb-multi-group" class="ghost small icon-only" title="Group (Ctrl+G)" aria-label="Group"><i class="ph ph-link" aria-hidden="true"></i></button>
-            <button type="button" id="wb-multi-ungroup" class="ghost small icon-only" title="Ungroup (Ctrl+Shift+G)" aria-label="Ungroup"><i class="ph ph-link-break" aria-hidden="true"></i></button>
+          <!-- One labelled row per question, asked for on 2026-09-09: "can
+               the whiteboard arrange tools be better structured??" The ten
+               buttons used to flow as one wrapping strip and came out 2-3-3-2
+               on the panel's width, so the only thing saying which button
+               belonged with which was a 2px gap against a 6px one. Three
+               rows, each named, and the six aligns in the 3x2 grid their own
+               meaning already has. Every id and handler is unchanged. -->
+          <div class="wb-arrange-row" role="group" aria-label="Group">
+            <span class="wb-arrange-label">Group</span>
+            <div class="wb-arrange-group">
+              <button type="button" id="wb-multi-group" class="ghost small icon-only" title="Group (Ctrl+G)" aria-label="Group"><i class="ph ph-link" aria-hidden="true"></i></button>
+              <button type="button" id="wb-multi-ungroup" class="ghost small icon-only" title="Ungroup (Ctrl+Shift+G)" aria-label="Ungroup"><i class="ph ph-link-break" aria-hidden="true"></i></button>
+            </div>
           </div>
-          <!-- Two groups of three, not one of six: six icon buttons plus
-               their gaps measure 178px against the panel's 200px of content
-               width, which fits until the group beside them does not, and a
-               group is an atom that never splits, so the sixth was clipped
-               by the panel's own edge. Left/centre/right and top/middle/
-               bottom are the two questions anyway. -->
-          <div class="wb-arrange-group" role="group" aria-label="Align across">
-            <button type="button" id="wb-align-left" class="ghost small icon-only" title="Align left edges" aria-label="Align left edges"><i class="ph ph-align-left-simple" aria-hidden="true"></i></button>
-            <button type="button" id="wb-align-hcenter" class="ghost small icon-only" title="Align horizontal centres" aria-label="Align horizontal centres"><i class="ph ph-align-center-vertical-simple" aria-hidden="true"></i></button>
-            <button type="button" id="wb-align-right" class="ghost small icon-only" title="Align right edges" aria-label="Align right edges"><i class="ph ph-align-right-simple" aria-hidden="true"></i></button>
+          <!-- The six aligns as one named question in a 3x2 grid: across
+               on the first line, down on the second, which is what the icons
+               themselves say. Splitting them into "Align across" and "Align
+               down" was a workaround for a single row of six not fitting the
+               panel's 200px of content width; a grid fits three per line by
+               construction and needs no such split. -->
+          <div class="wb-arrange-row" role="group" aria-label="Align">
+            <span class="wb-arrange-label">Align</span>
+            <div class="wb-arrange-grid">
+              <button type="button" id="wb-align-left" class="ghost small icon-only" title="Align left edges" aria-label="Align left edges"><i class="ph ph-align-left-simple" aria-hidden="true"></i></button>
+              <button type="button" id="wb-align-hcenter" class="ghost small icon-only" title="Align horizontal centres" aria-label="Align horizontal centres"><i class="ph ph-align-center-vertical-simple" aria-hidden="true"></i></button>
+              <button type="button" id="wb-align-right" class="ghost small icon-only" title="Align right edges" aria-label="Align right edges"><i class="ph ph-align-right-simple" aria-hidden="true"></i></button>
+              <button type="button" id="wb-align-top" class="ghost small icon-only" title="Align top edges" aria-label="Align top edges"><i class="ph ph-align-top-simple" aria-hidden="true"></i></button>
+              <button type="button" id="wb-align-vcenter" class="ghost small icon-only" title="Align vertical centres" aria-label="Align vertical centres"><i class="ph ph-align-center-horizontal-simple" aria-hidden="true"></i></button>
+              <button type="button" id="wb-align-bottom" class="ghost small icon-only" title="Align bottom edges" aria-label="Align bottom edges"><i class="ph ph-align-bottom-simple" aria-hidden="true"></i></button>
+            </div>
           </div>
-          <div class="wb-arrange-group" role="group" aria-label="Align down">
-            <button type="button" id="wb-align-top" class="ghost small icon-only" title="Align top edges" aria-label="Align top edges"><i class="ph ph-align-top-simple" aria-hidden="true"></i></button>
-            <button type="button" id="wb-align-vcenter" class="ghost small icon-only" title="Align vertical centres" aria-label="Align vertical centres"><i class="ph ph-align-center-horizontal-simple" aria-hidden="true"></i></button>
-            <button type="button" id="wb-align-bottom" class="ghost small icon-only" title="Align bottom edges" aria-label="Align bottom edges"><i class="ph ph-align-bottom-simple" aria-hidden="true"></i></button>
-          </div>
-          <div class="wb-arrange-group" role="group" aria-label="Distribute">
-            <button type="button" id="wb-distribute-h" class="ghost small icon-only" title="Space evenly, left to right" aria-label="Space evenly, left to right"><i class="ph ph-arrows-horizontal" aria-hidden="true"></i></button>
-            <button type="button" id="wb-distribute-v" class="ghost small icon-only" title="Space evenly, top to bottom" aria-label="Space evenly, top to bottom"><i class="ph ph-arrows-vertical" aria-hidden="true"></i></button>
+          <div class="wb-arrange-row" role="group" aria-label="Distribute">
+            <span class="wb-arrange-label">Distribute</span>
+            <div class="wb-arrange-group">
+              <button type="button" id="wb-distribute-h" class="ghost small icon-only" title="Space evenly, left to right" aria-label="Space evenly, left to right"><i class="ph ph-arrows-horizontal" aria-hidden="true"></i></button>
+              <button type="button" id="wb-distribute-v" class="ghost small icon-only" title="Space evenly, top to bottom" aria-label="Space evenly, top to bottom"><i class="ph ph-arrows-vertical" aria-hidden="true"></i></button>
+            </div>
           </div>
         </div>
         <!-- BACKLOG.md §62: the selected note cards' own content is the

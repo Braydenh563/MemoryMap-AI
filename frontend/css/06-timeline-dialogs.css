@@ -2898,15 +2898,51 @@
   display: none;
 }
 
+/* **Three named rows, not one wrapping strip** (the owner, 2026-09-09: "can
+   the whiteboard arrange tools be better structured??"). Ten icon buttons
+   flowed as one strip and came out 2-3-3-2 on the panel's width, so the only
+   thing saying which button belonged with which was a 2px gap against a 6px
+   one, and the rows a reader saw were an accident of where the wrap fell.
+   A row per question, each with its own name, cannot come out ragged. */
 .wb-arrange-toolbar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  /* Between groups. Inside a group the gap is 2px (below), and that
-     difference is the only grouping this toolbar needs: a hairline that
-     wrapped onto the next line would mark a boundary that is not there,
-     which is the same trap the graph node panel's sheet records. */
-  gap: var(--space-3);
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+/* Label beside the buttons, not above them. Above cost 70px of panel height
+   for the three labels (221px against 151px measured), and a properties
+   panel that scrolls sooner is a worse trade than a label column: the row's
+   own buttons are 112px at their widest, which leaves room for the name
+   inside the panel's 200px of content width. */
+.wb-arrange-row {
+  display: grid;
+  grid-template-columns: 4.5rem auto;
+  align-items: start;
+  gap: var(--space-2);
+}
+
+/* Quieter and smaller than `.wb-properties-group-label` above it: that one
+   names the whole section, these name a row inside it, and two labels at the
+   same weight would read as two sections. */
+.wb-arrange-label {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  /* Level with the first row of buttons rather than with the top of a
+     two-line grid: the name belongs to the row a reader is looking at. */
+  line-height: var(--control-h);
+}
+
+/* Three per line by construction, which is what made splitting the six
+   aligns into "across" and "down" unnecessary: a single row of six measured
+   178px against the panel's 200px of content width and could not survive
+   anything beside it. */
+.wb-arrange-grid {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  justify-content: start;
+  gap: 2px;
 }
 
 .wb-arrange-group {

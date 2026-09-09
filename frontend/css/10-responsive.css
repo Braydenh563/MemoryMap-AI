@@ -164,3 +164,61 @@ header#top-bar,
     transition: none;
   }
 }
+
+/* --- Phase 10, INBOX 103: a menu opens out of the control that opened it --
+
+   DESIGN.md rule 12, from the HIG: controls "fluidly morph into menus and
+   popovers", and rule 6: "an action sheet originates from the element that
+   initiates the action". A menu that simply appears has no relationship to
+   the button you pressed; one that grows out of that button's corner is the
+   same object continuing.
+
+   **A clip, not a scale, and the reason is a measurement rather than
+   taste.** `openActionMenu` (app.js) reads `menu.getBoundingClientRect()` in
+   the same turn it removes `.hidden`, twice: once to decide whether the menu
+   would spill past its scroll parent and flip upward, and again inside
+   `escapeMenuIfClipped`, which reparents a clipped menu to the body and
+   positions it from those coordinates. A transform is included in that rect,
+   so a menu scaling in from 0.92 would be measured at 92% of itself and
+   placed accordingly, permanently. `clip-path` changes nothing about the
+   box; it only decides which of it is painted.
+
+   The circle grows from the opener's own corner: `.action-menu` is anchored
+   `right: 0; top: calc(100% + 4px)` under its opener, so the top-right
+   corner *is* the button, and the flipped variant's origin moves to the
+   bottom with it. 140% is the diagonal of a box, so the last frame is a
+   whole menu rather than a clipped rectangle. */
+@keyframes menu-open-from-opener {
+  from {
+    opacity: 0;
+    clip-path: circle(0% at var(--menu-origin-x) var(--menu-origin-y));
+  }
+
+  to {
+    opacity: 1;
+    clip-path: circle(140% at var(--menu-origin-x) var(--menu-origin-y));
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+
+  .action-menu:not(.hidden),
+  .dock-menu[open] > .dock-menu-list {
+    /* Declared here rather than as a `var()` fallback: a fallback on a token
+       that is declared somewhere is dead code, and `test_style_scale.py`
+       says so by name. */
+    --menu-origin-x: 100%;
+    --menu-origin-y: 0%;
+    animation: menu-open-from-opener var(--motion-base) cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+
+  /* Flipped upward, so it grew out of the bottom of the button instead. */
+  .action-menu.action-menu-flip:not(.hidden) {
+    --menu-origin-y: 100%;
+  }
+
+  /* A dock's `<details>` menu hangs under the left edge of its summary. */
+  .dock-menu[open] > .dock-menu-list {
+    --menu-origin-x: 0%;
+  }
+}

@@ -9948,7 +9948,22 @@ function clickableResult(entry) {
 //: what a reader takes away. A step's own unique sentence still gets its
 //: marker where it is, which is what walking all of them buys over simply
 //: picking the last.
-function addInlineCitations(answerEl, sentences, rawResults) {
+//: `orderedSources` is the Sources panel's own list, in the order it numbers
+//: them. INBOX 81's second half asks that "the sources list numbers web
+//: results after the notes so [5] resolves to a site", and reading the two
+//: numberings side by side showed a wider problem than that: the panel counts
+//: its rows from 1 in list order (notes, then what the turn touched, then
+//: what it read off the web), while the block below counted from 1 in
+//: *order first cited* among the grounded sentences. Those are two unrelated
+//: sequences, so [2] in the prose and 2 in the panel were only ever the same
+//: source by luck, with no web results involved at all.
+//:
+//: Passed rather than recomputed here, because the panel builds the list from
+//: three inputs this function does not have, and two functions deriving "the
+//: same" order independently is how they drift apart again. Optional, so the
+//: Ask box's own call keeps its existing behaviour until it grows a panel to
+//: agree with.
+function addInlineCitations(answerEl, sentences, rawResults, orderedSources = null) {
   const targets = [
     ...(answerEl && !answerEl.nodeType ? [...answerEl] : answerEl ? [answerEl] : []),
   ].reverse();
@@ -9957,8 +9972,22 @@ function addInlineCitations(answerEl, sentences, rawResults) {
   // One number per note, in the order they are first cited, the numbering a
   // reader expects, rather than note ids, which mean nothing to anyone.
   const numberFor = new Map();
-  for (const g of sentences) {
-    if (!numberFor.has(g.note_id)) numberFor.set(g.note_id, numberFor.size + 1);
+  if (orderedSources && orderedSources.length) {
+    //: The panel's numbering, so a marker and a row that carry the same digit
+    //: are the same source. A note the panel did not list (it caps its rows)
+    //: keeps a number after the listed ones rather than none at all: an
+    //: unnumbered citation is worse than one whose row needs scrolling to.
+    orderedSources.forEach((source, index) => {
+      if (source && source.kind === "note") numberFor.set(source.id, index + 1);
+    });
+    let next = orderedSources.length + 1;
+    for (const g of sentences) {
+      if (!numberFor.has(g.note_id)) numberFor.set(g.note_id, next++);
+    }
+  } else {
+    for (const g of sentences) {
+      if (!numberFor.has(g.note_id)) numberFor.set(g.note_id, numberFor.size + 1);
+    }
   }
   // Longest first: when one grounded sentence is a prefix of another, marking
   // the short one first would leave the long one unmatchable.
@@ -14868,7 +14897,11 @@ function sourceHost(url) {
 //: point. A web card is a real `<a href>`, middle-click, copy link address
 //: and open-in-new-tab all work, which no button can offer.
 function chatSourcesPanel(input) {
-  const sources = chatSourcesFrom(input);
+  //: `input.sources` when the caller has already built the list, so the
+  //: numbers on these rows are the same numbers the inline citations used.
+  //: Two derivations of "the same" order is how they drift apart, which is
+  //: what INBOX 81's second half is about.
+  const sources = input.sources || chatSourcesFrom(input);
   if (!sources.length) return null;
   const details = document.createElement("details");
   details.className = "chat-sources";
@@ -17201,11 +17234,20 @@ async function sendChatMessage(preset, opts = {}) {
   //: re-renders every prose step from its raw markdown, throwing all of them
   //: away a few milliseconds later. The grounding event always arrives before
   //: `done`, so this was true of every answer that had any.
+  //: Built once, here, and handed to both the citation pass and the panel,
+  //: so the digit in the prose and the digit on the row are the same number
+  //: by construction rather than by two functions agreeing about order.
+  const turnSources = chatSourcesFrom({
+    meta,
+    toolEvents,
+    touched: [...touchedItems.values()],
+  });
   if (groundingSentences?.length) {
     addInlineCitations(
       bubble.querySelectorAll(".bubble-answer"),
       groundingSentences,
-      meta?.raw_results || []
+      meta?.raw_results || [],
+      turnSources
     );
   }
   const answerRaw = timeline.text();
@@ -17219,6 +17261,7 @@ async function sendChatMessage(preset, opts = {}) {
     meta,
     toolEvents,
     touched: [...touchedItems.values()],
+    sources: turnSources,
   });
   if (sourcesPanel) recordsHolder.appendChild(sourcesPanel);
   // What this answer cost: model, wall-clock time, tokens, speed.

@@ -9000,6 +9000,16 @@ themselves (their handlers were not touched, only their buttons' markup).
     WHITEBOARD Phase 1 (Fable, now): the marquee is drawn on the objects'
     layer; move it to the overlay canvas above them.
 
+81. **Half done, 2026-09-09: the angle-bracket autolink renders as a link
+    now** (`expandAngleAutolinks`, measured end to end through a real note:
+    the href is right, `Array<T>` is untouched and a `javascript:` scheme is
+    refused). What is left is the second half below, the numbering.
+    **Web search results in the Sources dropdown: links rendered as
+    Markdown links and number-referenced** (the model's table showed raw
+    `<https://...>`). Owner: Fable, now: the answer renderer's link rule
+    accepts autolinks in angle brackets; the sources list numbers web
+    results after the notes so `[5]` resolves to a site.
+
 ## HANDOVER archive, 2026-09-09
 
 ### The Fable session — UI Phases 0-4, skills reform A-B, backend sprint 1, the audit

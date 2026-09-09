@@ -45,15 +45,6 @@ done-when item 4 and 5), in priority order.
     explicit pin is Shift+drag or the menu; a dragged cluster (lasso
     selection) moves together the same way; a small "pinned" ring only
     on real pins.
-81. **Half done, 2026-09-09: the angle-bracket autolink renders as a link
-    now** (`expandAngleAutolinks`, measured end to end through a real note:
-    the href is right, `Array<T>` is untouched and a `javascript:` scheme is
-    refused). What is left is the second half below, the numbering.
-    **Web search results in the Sources dropdown: links rendered as
-    Markdown links and number-referenced** (the model's table showed raw
-    `<https://...>`). Owner: Fable, now: the answer renderer's link rule
-    accepts autolinks in angle brackets; the sources list numbers web
-    results after the notes so `[5]` resolves to a site.
 77. **Token window badge: not centred, text wrong; the window itself
     should be manageable by the user and auto when set** (screenshots:
     "6% of window" pill off-centre in the chat header, and the header wraps

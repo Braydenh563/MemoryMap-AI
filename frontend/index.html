@@ -6832,16 +6832,26 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
             </div>
             <div class="settings-group">
-              <h3>Notifications</h3>
+              <div class="row help-head">
+                <h3>Notifications</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="notifications-help" aria-controls="notifications-help" aria-expanded="false"
+                  title="About muting notifications" aria-label="About muting notifications">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
               <label class="check-row">
                 <input type="checkbox" id="pref-notif-mute-except-reminders">
                 <span>Mute notifications except reminders</span>
               </label>
-              <p class="muted">
-                Quiets the toasts and the notifications panel for background
-                jobs, agent runs and general activity, a due reminder still
-                gets through either way.
-              </p>
+              <p class="muted">Quiets background activity; a due reminder still gets through.</p>
+              <div class="help-body hidden" id="notifications-help" role="dialog" aria-label="About muting notifications">
+                <p>
+                  Quiets the toasts and the notifications panel for
+                  background jobs, agent runs and general activity, a due
+                  reminder still gets through either way.
+                </p>
+              </div>
               <h3>Web search</h3>
               <p class="muted">
                 Web search is the one feature that goes online, so it has a

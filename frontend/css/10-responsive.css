@@ -403,6 +403,38 @@ header#top-bar,
   }
 }
 
+/* --- INBOX 68: the board and map previews ---------------------------------
+
+   The owner, twice: "Boards & maps preview looks so bad, especially in the
+   dashboard", and "the boards and maps dashboard widget is ugly and needs
+   fixing".
+
+   **The dashboard's thumbnail was drawn for 44px and displayed at 293px.**
+   Measured with `scratchpad/ui-sweeps/preview.js` before this: the widget's
+   miniatures rendered 293.2 by 293.2 while `mapPreview(board, {size: "row"})`
+   had drawn them with the row geometry (a 40-unit box, blocks of 4 by 3, no
+   labels), so every row was a 300px-tall square of six blown-up grey blocks
+   and the widget's own body scrolled at 602 against 320. The cause is one
+   declaration: `.board-minimap-row` sets `width: auto` to stop the card rule
+   sizing it, and it is declared *after* `.dash-list-thumb`'s `width: 2.75em`,
+   so it took that with it and the square grew to fill the row.
+
+   The row thumbnail is the square the row was built for again. `height` as
+   well as `width`, because `aspect-ratio` with an auto height is what turned
+   one loose width into a 293px box in the first place. */
+.dash-list .board-minimap-row {
+  width: 2.75em;
+  height: 2.75em;
+  min-width: 2.75em;
+  flex: 0 0 auto;
+}
+
+/* A label that fits inside its own shape sits on it, so it needs to read
+   against a filled block rather than against the paper. */
+.board-minimap-label-inside {
+  opacity: 0.95;
+}
+
 /* --- the quick-nav chord's guide -----------------------------------------
 
    The owner, with a screenshot: "when I press 'm' for the quick nav, the

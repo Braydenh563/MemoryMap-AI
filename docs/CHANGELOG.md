@@ -78,6 +78,20 @@ notes) is not repeated here; see `docs/roadmap/` for that record.
   160 ms per keystroke to 16 ms. The per-paragraph Live view, the Phase 0
   backdrop and the snapshot undo stack are deleted with it, and the block
   handle goes with them until Phase 3 brings block structure back.
+- The owner's evening batch: the Edit / Read pills fit inside their own
+  segment (they overhung it by 4px); `---` and a callout's `[!note]` join
+  the markdown markers that go invisible until the caret reaches them, the
+  callout showing its kind's own label where its marker was; a **Plain**
+  view for using the tab as a plain text editor, offered for code files
+  too; line numbers reachable from the view menu instead of only from the
+  collapsed formatting strip; and code syntax colours drawn from the app's
+  own palette, which is what finally makes a code file readable in dark
+  mode (a keyword measured 1.76:1 against the page and now reads 6.47:1).
+- The Outline sidebar reads as an outline: entries left-aligned and
+  indented by depth in the direction depth goes, an empty state that says
+  what fills it, References with its close button on its own line, and the
+  "Where are my documents kept?" help no longer pinned across the bottom
+  like a footer.
 - The instruments VS Code and Word have that this editor did not: real
   underlines in Source view on a backdrop behind the textarea, one click
   on an underline opens ranked suggestions, a file-type change re-runs the

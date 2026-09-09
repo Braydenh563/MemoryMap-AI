@@ -249,7 +249,7 @@ Python 3.11 to 3.13 on every push.
 
 ## Status
 
-Version 0.2.2. The core is built and stable: capture, chat, the graph,
+Version 0.3.0. The core is built and stable: capture, chat, the graph,
 documents, the whiteboard and mind maps, private notes, themes, desktop
 packaging for Windows and Linux. Current work is a modernisation of the
 whole interface and a redesign of the graph, documents, timeline and chat

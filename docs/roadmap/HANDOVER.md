@@ -84,7 +84,10 @@ PR's.
 - [ ] 9. The owner has run the updated build once: `start-desktop.bat`
       launches, the splash reads right, the glass frosts the art.
 
-Then: merge PR 144, restart the branch from main for the next session
+Then: tag the release (`__version__` is already 0.3.0, a minor bump by
+RELEASING.md's rule: new features, not fixes; rename "## [Unreleased]" to
+"## [0.3.0] - <date>" in both CHANGELOG copies, `git tag v0.3.0`, push the
+tag, watch the release workflow), merge PR 144, restart the branch from main for the next session
 (the branch rule at the top of the session prompt), and open with "Read
 CLAUDE.md, then the top of docs/roadmap/HANDOVER.md, and continue".
 

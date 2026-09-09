@@ -7,205 +7,18 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
-This section had drifted below [0.2.2] in reading order (Keep a Changelog
-puts Unreleased first) and its own note still said `0.2.1`; `__version__`
-and `pyproject.toml` are both `0.2.2` now, so most of the section below this
-point already shipped in that release. What follows it, "Since 0.2.2, by
-surface", is new: every commit on the branch since 2026-09-06 that is not
-already a line in [0.2.2] above, one line each, grouped by the surface it
-touched, no commit hashes.
+**0.3.0 is the modernisation release.** Everything on the branch since
+0.2.2 (2026-09-06 to 2026-09-09): a canvas graph with colour rules, groups,
+lasso and export; mind maps through Phase 5 with previews and generation
+from notes; the documents editor's new chrome and CodeMirror 6 vendored
+under the CSP; launchers, uninstallers and a splash on three platforms; the
+glass aesthetic scoped to the functional layer with Performance mode;
+grounding that names the note each sentence came from; a README and
+documentation written for the public; and about forty of the owner's
+reported bugs. The detail, by surface, follows; the tag is cut at merge
+(docs/RELEASING.md).
 
-### Added
-- **Groups for saved links, with buttons to make and manage them.** The Links
-  sub-tab's top dock now has **New group** and **Manage groups**. Renaming a
-  group moves every link in it; deleting one keeps the links and simply
-  ungroups them. A group you make before filing anything into it is remembered
-  until a link lands there.
-- **Document history.** Every version a document has had, with who changed it,
-  how many words it gained or lost, the opening of that version, and a way to
-  read or restore any of them. A stretch of editing coalesces into one entry
-  rather than one per autosave, so the list reads as sittings rather than
-  keystrokes. Restoring keeps the version it replaced.
-- **Ask the notebook about itself.** "What are my most common tags", "which
-  categories have the most notes", "how many notes have no tags", "which are my
-  most linked notes", "when do I write most" are counted from your data rather
-  than generated — exact, instant, and answered with no AI model running at all.
-  Private and binned notes are never counted.
-- **"Ask the AI for wordings"** in the document suggestion menu: where the
-  built-in checks have no mechanical fix, the local model offers two or three
-  alternative phrasings to pick from. Nothing changes until you choose one.
-- **OCR readings are kept.** A page read is stored as it completes, so a read
-  that finishes after you close the workspace is still there when you come
-  back, and a range read that is interrupted keeps the pages it managed.
-- **The OCR reader picker offers both AI readers** where a machine has two
-  different models — a dedicated document reader and a general vision model —
-  instead of one option named after whichever it happened to resolve.
-- **Mark a notification unread**, per row, plus "Mark all read".
-- **"Edit document"** on a previewed document in the lightbox.
-- **A "Still writing" pill** in Chat when you scroll away from a live answer,
-  doubling as jump-to-latest.
-- **Double-tap the chat composer's resize corner** to reset it to the automatic
-  height.
-- **Help → "Ask the guide"**, a small embedded AI chat for "how do I…"
-  questions about the app itself. Answers with the utility model, grounded
-  in a fixed set of reference notes (`ai/help_chat.py`'s `HELP_TOPICS`) so a
-  small local model isn't guessing at features it has never seen, never
-  reads the user's notes, and keeps no history past the current browser
-  session. Replies can carry quick-access badges into the exact tab or
-  settings section they describe.
-- **Onboarding's data-dir writability check.** `GET /storage` now reports
-  `data_dir_writable`, and the "Your setup" onboarding slide warns if the
-  notebook folder has gone read-only.
-- **Document editor: "Check with AI."** Sends the current document to Chat
-  with a prompt asking the model to flag wording issues a spellchecker
-  can't catch — agreement, tense, clarity — without rewriting the document.
-- **Archive extended to chats and documents** (BACKLOG §30b's own named
-  remaining scope, after notes got this first). An "Archive" action beside
-  Delete in the chat sidebar and the documents dock — kept, never deleted,
-  out of the way — and the Library's Shelved filter now covers all three
-  kinds.
-- **The popup agent in the status bar.** It works from every tab and had
-  nothing on screen saying so. Now a slot beside the Ctrl-K hint, on by
-  default (the ask was discoverability, and a control nobody switches on
-  advertises nothing) and hideable from Settings like every other slot.
-- **A Stop button for OCR page and range reads**, and both now appear in
-  Settings → Background tasks while they run. A read is a model round-trip
-  of several seconds that could not be cancelled and showed up in that panel
-  nowhere, so closing the workspace mid-read left no sign the app was still
-  working.
-- **Inline AI in the document editor.** `/ai` in the "/" menu, Ctrl+J, and a
-  wand in the selection bar open a small bar at the caret instead of a side
-  panel: type an instruction, the answer replaces the selection (or writes at
-  the cursor) and lands *selected*, with Keep / Try again / Undo underneath.
-  No new endpoint — the existing `POST /documents/{id}/ai-edit`.
-- **Several routes between two notes, not just the best one.** The graph's
-  Trace panel now finds up to three genuinely different, loopless routes
-  (Yen's K-shortest paths) and draws all of them at once, each in its own
-  colour, with switchable chips above the readout.
-- **"Generate story from path" is a menu of six shapes** — narrative,
-  explainer, timeline, argument, teaching notes, short brief — instead of one
-  fixed prompt.
-- **The Files sub-tab is a reading list.** Every file tile carries a
-  "Read · N words" / "Not read" badge and a primary "Read this" / "Open
-  reader" button, plus a Read/Not-read filter.
-- **The OCR workspace finds its own siblings and switches between them.** An
-  Images/Files/Pages switch above the rail, and every entry point (including
-  the lightbox, which previously opened to an empty rail) now populates it.
-- **Sections without Tesseract.** A stored reading is split into typed blocks
-  (heading/list/table/code/text, read off their own shape) instead of one
-  whole-page fallback region, and each region shows which page and section it
-  came from.
-- **Delete a stored OCR reading**, not just overwrite it by reading again —
-  `DELETE /{files,media}/{id}/page-reads/{page}` plus a "Delete this reading"
-  action in the workspace. Redo already worked (a re-read replaces the stored
-  answer); its button now says so.
-- **Ask the notebook about itself, in more ways, and past a typo.** Word
-  count, longest notes, notes gone stale, and which tags keep turning up
-  together — and every question now survives a misspelling ("catagories",
-  "docuemnts") against a small fixed vocabulary, transpositions included.
-- **Undo for deleting a document.** The one permanent loss left in the app —
-  notes, chats, files and boards were all recoverable, a document was not.
-  All four delete doors now offer Undo.
-- **A refresh button on the Your Notes sub-tab**, matching the one every
-  other Library list already had.
-- **A "Read · N words" badge on chat images that have been OCR'd.** The
-  caption already showed under the thumbnail; the vision-OCR/Tesseract
-  reading was resolved by the backend the whole time but nothing in the
-  bubble said it existed. Clicking the badge opens the same lightbox the
-  picture itself does.
-- **`read_file` can target a search term.** A new optional `query` argument
-  returns the text around where it actually appears instead of only the
-  first ~2000 characters — a multi-page scan's later pages were previously
-  unreachable through this tool no matter how precisely `search_files` had
-  already located the match. `list_documents`'s search preview and
-  `get_document`'s no-embedding-backend fallback got the same fix.
-
-### Fixed
-- **The chat sidebar never marked the open conversation.** A `null` passed as
-  the highlight terms threw inside the Sources panel, which aborted
-  `openConversation` before it repainted the sidebar — the click worked, the
-  transcript rendered, and an unrelated null check stopped the row from ever
-  being marked. A third of each row was also dead to clicks, and the mark it
-  would have got was a 3px bar and a 13% tint.
-- **The chat header's model name opened its panel off the bottom of the
-  window** — `position: absolute` with no positioned ancestor put it at (0, 905)
-  in a 900px viewport, which is indistinguishable from a control that does
-  nothing.
-- **A page read that finished after the OCR workspace was closed was lost**,
-  even though the app announces such reads as background tasks precisely so the
-  window can be closed.
-- **The OCR picker and the OCR reader disagreed about which model would run.**
-- **The gallery's per-image select checkboxes could not be clicked** — the
-  actions row above them stretched across the tile and swallowed every click.
-- **The lightbox could not be dismissed by clicking beside the picture**, and
-  its close button was covered by the content column on taller documents.
-- **The streaming indicator froze and, on a long answer, vanished.** Its
-  animation timer destroyed itself the first time the live turn was re-parented,
-  and one beat in four of the reduced-motion cycle lit nothing at all.
-- **Nineteen buttons drew a typed character where an icon belonged**, and
-  eleven more had no gap between icon and label. Two lint tests now refuse both.
-- **Twenty-five icon-only buttons were rectangular**, including nine popup close
-  buttons measured at 43.6x28.
-- **The formatting toolbar's dropdowns un-clipped the whole toolbar**, spilling
-  every control past the panel edge.
-- **Files and attachments did not render in the timeline or graph popups** —
-  both filtered to images and dropped everything else.
-- **The dashboard greeting could call you by a misspelt or invented name.**
-- **The note cards' ⋯ glyph sat above centre**, drawn as a typed character
-  where the app's other ⋯ builder uses the icon font.
-- **Deleting a document failed** once it had a history, on a foreign key.
-- **Restoring a document version restored the wrong text** — the snapshot taken
-  first coalesced into the very revision being restored. Caught by a test
-  before it shipped.
-- **Short background AI jobs were invisible.** The status loop idles at 10s
-  (120s in a hidden tab) and can only announce a job it has seen in a
-  `/tasks` payload, so an image caption — often shorter than that gap —
-  began and ended unobserved: no "Started" line, no status-bar slot, no
-  "Finished" toast. Writes that can leave work on a background thread now
-  kick a poll, and `jobsRunning()` counts every task rather than only
-  re-index and model pulls.
-- **Formatting-toolbar dropdowns escaped their panel.** Measured in the
-  capture composer: the Insert menu sat 123px outside the panel's left edge,
-  because `.doc-dock-menu-list` is anchored `right: 0` and grows leftwards —
-  right for the document ⋯ it was written for, wrong for an opener near the
-  left of a toolbar. Clamped inside the panel on open.
-- **The OCR workspace's reader picker named the wrong model.** It resolved a
-  generic vision model instead of the configured or auto-detected OCR
-  document reader, so a dedicated reader could never be chosen even when
-  installed.
-- **One toggle row everywhere in Settings.** `.setting-check` was a
-  divider-separated grid with the switch pinned hard right; it is now the
-  same integrated, filled-when-on row with a leading switch that the rest of
-  the app uses, which moves the tools list and the appearance outliers
-  together.
-- **Attached non-image files rendered as nothing** in dashboard widget note
-  lists, and the widget picker listed "On this day" twice.
-- **Toolbar dropdowns in the capture and documents toolbars opened up to
-  151px from the button that opened them**, and after that, in the top-left
-  corner of the panel — three related bugs in the same placement function,
-  in the same viewport-fixed-menu change: wrong alignment axis, no
-  containing-block correction, and a zeroed fallback on a failed measurement.
-- **The traced graph path's chips clipped from both ends** ("ting is the
-  delivery of computing se") — a flex item that could not shrink, centred in
-  its box, overflowing equally on either side; `text-overflow` on the parent
-  button never touched it.
-- **A misspelt "ask the notebook about itself" question fell through to
-  ordinary semantic search**, which is precisely the case that feature exists
-  to answer better — and one new question's own pre-filter accidentally
-  rejected it before any matcher saw it.
-- **`clampToolbarMenu`'s CodeQL-adjacent cousin**: three cyclic imports
-  (one already a CodeQL alert, two more of the same shape unreported)
-  closed and pinned by a new AST-based lint.
-
-### Verified
-- **A real (non-Ollama) backend, driven live for the first time.** A
-  stand-in OpenAI-`/v1` server (a real socket, not a mocked `requests`)
-  proved `/help/ask`, `/voice/summarize` and a full `/chat/stream` turn —
-  SSE framing included — all round-trip correctly through
-  `OpenAICompatClient`, the dialect LM Studio/llama.cpp/Jan/vLLM share.
-  Tool-call streaming remains spec-verified only; see HISTORY.md §113.
-
-### Since 0.2.2, by surface
+### 0.3.0, by surface
 
 Every non-merge commit on `claude/epic-ramanujan-8xocc0` since 2026-09-06,
 not already covered above or in [0.2.2], one line each, no hashes. Pure
@@ -401,6 +214,198 @@ notes) is not repeated here; see `docs/roadmap/` for that record.
   enforced by a lint that cannot match its own needle.
 
 ## [0.2.2] — 2026-09-07
+
+### Recorded late (shipped in 0.2.2, listed under Unreleased until 0.3.0 was cut)
+
+### Added
+- **Groups for saved links, with buttons to make and manage them.** The Links
+  sub-tab's top dock now has **New group** and **Manage groups**. Renaming a
+  group moves every link in it; deleting one keeps the links and simply
+  ungroups them. A group you make before filing anything into it is remembered
+  until a link lands there.
+- **Document history.** Every version a document has had, with who changed it,
+  how many words it gained or lost, the opening of that version, and a way to
+  read or restore any of them. A stretch of editing coalesces into one entry
+  rather than one per autosave, so the list reads as sittings rather than
+  keystrokes. Restoring keeps the version it replaced.
+- **Ask the notebook about itself.** "What are my most common tags", "which
+  categories have the most notes", "how many notes have no tags", "which are my
+  most linked notes", "when do I write most" are counted from your data rather
+  than generated — exact, instant, and answered with no AI model running at all.
+  Private and binned notes are never counted.
+- **"Ask the AI for wordings"** in the document suggestion menu: where the
+  built-in checks have no mechanical fix, the local model offers two or three
+  alternative phrasings to pick from. Nothing changes until you choose one.
+- **OCR readings are kept.** A page read is stored as it completes, so a read
+  that finishes after you close the workspace is still there when you come
+  back, and a range read that is interrupted keeps the pages it managed.
+- **The OCR reader picker offers both AI readers** where a machine has two
+  different models — a dedicated document reader and a general vision model —
+  instead of one option named after whichever it happened to resolve.
+- **Mark a notification unread**, per row, plus "Mark all read".
+- **"Edit document"** on a previewed document in the lightbox.
+- **A "Still writing" pill** in Chat when you scroll away from a live answer,
+  doubling as jump-to-latest.
+- **Double-tap the chat composer's resize corner** to reset it to the automatic
+  height.
+- **Help → "Ask the guide"**, a small embedded AI chat for "how do I…"
+  questions about the app itself. Answers with the utility model, grounded
+  in a fixed set of reference notes (`ai/help_chat.py`'s `HELP_TOPICS`) so a
+  small local model isn't guessing at features it has never seen, never
+  reads the user's notes, and keeps no history past the current browser
+  session. Replies can carry quick-access badges into the exact tab or
+  settings section they describe.
+- **Onboarding's data-dir writability check.** `GET /storage` now reports
+  `data_dir_writable`, and the "Your setup" onboarding slide warns if the
+  notebook folder has gone read-only.
+- **Document editor: "Check with AI."** Sends the current document to Chat
+  with a prompt asking the model to flag wording issues a spellchecker
+  can't catch — agreement, tense, clarity — without rewriting the document.
+- **Archive extended to chats and documents** (BACKLOG §30b's own named
+  remaining scope, after notes got this first). An "Archive" action beside
+  Delete in the chat sidebar and the documents dock — kept, never deleted,
+  out of the way — and the Library's Shelved filter now covers all three
+  kinds.
+- **The popup agent in the status bar.** It works from every tab and had
+  nothing on screen saying so. Now a slot beside the Ctrl-K hint, on by
+  default (the ask was discoverability, and a control nobody switches on
+  advertises nothing) and hideable from Settings like every other slot.
+- **A Stop button for OCR page and range reads**, and both now appear in
+  Settings → Background tasks while they run. A read is a model round-trip
+  of several seconds that could not be cancelled and showed up in that panel
+  nowhere, so closing the workspace mid-read left no sign the app was still
+  working.
+- **Inline AI in the document editor.** `/ai` in the "/" menu, Ctrl+J, and a
+  wand in the selection bar open a small bar at the caret instead of a side
+  panel: type an instruction, the answer replaces the selection (or writes at
+  the cursor) and lands *selected*, with Keep / Try again / Undo underneath.
+  No new endpoint — the existing `POST /documents/{id}/ai-edit`.
+- **Several routes between two notes, not just the best one.** The graph's
+  Trace panel now finds up to three genuinely different, loopless routes
+  (Yen's K-shortest paths) and draws all of them at once, each in its own
+  colour, with switchable chips above the readout.
+- **"Generate story from path" is a menu of six shapes** — narrative,
+  explainer, timeline, argument, teaching notes, short brief — instead of one
+  fixed prompt.
+- **The Files sub-tab is a reading list.** Every file tile carries a
+  "Read · N words" / "Not read" badge and a primary "Read this" / "Open
+  reader" button, plus a Read/Not-read filter.
+- **The OCR workspace finds its own siblings and switches between them.** An
+  Images/Files/Pages switch above the rail, and every entry point (including
+  the lightbox, which previously opened to an empty rail) now populates it.
+- **Sections without Tesseract.** A stored reading is split into typed blocks
+  (heading/list/table/code/text, read off their own shape) instead of one
+  whole-page fallback region, and each region shows which page and section it
+  came from.
+- **Delete a stored OCR reading**, not just overwrite it by reading again —
+  `DELETE /{files,media}/{id}/page-reads/{page}` plus a "Delete this reading"
+  action in the workspace. Redo already worked (a re-read replaces the stored
+  answer); its button now says so.
+- **Ask the notebook about itself, in more ways, and past a typo.** Word
+  count, longest notes, notes gone stale, and which tags keep turning up
+  together — and every question now survives a misspelling ("catagories",
+  "docuemnts") against a small fixed vocabulary, transpositions included.
+- **Undo for deleting a document.** The one permanent loss left in the app —
+  notes, chats, files and boards were all recoverable, a document was not.
+  All four delete doors now offer Undo.
+- **A refresh button on the Your Notes sub-tab**, matching the one every
+  other Library list already had.
+- **A "Read · N words" badge on chat images that have been OCR'd.** The
+  caption already showed under the thumbnail; the vision-OCR/Tesseract
+  reading was resolved by the backend the whole time but nothing in the
+  bubble said it existed. Clicking the badge opens the same lightbox the
+  picture itself does.
+- **`read_file` can target a search term.** A new optional `query` argument
+  returns the text around where it actually appears instead of only the
+  first ~2000 characters — a multi-page scan's later pages were previously
+  unreachable through this tool no matter how precisely `search_files` had
+  already located the match. `list_documents`'s search preview and
+  `get_document`'s no-embedding-backend fallback got the same fix.
+
+### Fixed
+- **The chat sidebar never marked the open conversation.** A `null` passed as
+  the highlight terms threw inside the Sources panel, which aborted
+  `openConversation` before it repainted the sidebar — the click worked, the
+  transcript rendered, and an unrelated null check stopped the row from ever
+  being marked. A third of each row was also dead to clicks, and the mark it
+  would have got was a 3px bar and a 13% tint.
+- **The chat header's model name opened its panel off the bottom of the
+  window** — `position: absolute` with no positioned ancestor put it at (0, 905)
+  in a 900px viewport, which is indistinguishable from a control that does
+  nothing.
+- **A page read that finished after the OCR workspace was closed was lost**,
+  even though the app announces such reads as background tasks precisely so the
+  window can be closed.
+- **The OCR picker and the OCR reader disagreed about which model would run.**
+- **The gallery's per-image select checkboxes could not be clicked** — the
+  actions row above them stretched across the tile and swallowed every click.
+- **The lightbox could not be dismissed by clicking beside the picture**, and
+  its close button was covered by the content column on taller documents.
+- **The streaming indicator froze and, on a long answer, vanished.** Its
+  animation timer destroyed itself the first time the live turn was re-parented,
+  and one beat in four of the reduced-motion cycle lit nothing at all.
+- **Nineteen buttons drew a typed character where an icon belonged**, and
+  eleven more had no gap between icon and label. Two lint tests now refuse both.
+- **Twenty-five icon-only buttons were rectangular**, including nine popup close
+  buttons measured at 43.6x28.
+- **The formatting toolbar's dropdowns un-clipped the whole toolbar**, spilling
+  every control past the panel edge.
+- **Files and attachments did not render in the timeline or graph popups** —
+  both filtered to images and dropped everything else.
+- **The dashboard greeting could call you by a misspelt or invented name.**
+- **The note cards' ⋯ glyph sat above centre**, drawn as a typed character
+  where the app's other ⋯ builder uses the icon font.
+- **Deleting a document failed** once it had a history, on a foreign key.
+- **Restoring a document version restored the wrong text** — the snapshot taken
+  first coalesced into the very revision being restored. Caught by a test
+  before it shipped.
+- **Short background AI jobs were invisible.** The status loop idles at 10s
+  (120s in a hidden tab) and can only announce a job it has seen in a
+  `/tasks` payload, so an image caption — often shorter than that gap —
+  began and ended unobserved: no "Started" line, no status-bar slot, no
+  "Finished" toast. Writes that can leave work on a background thread now
+  kick a poll, and `jobsRunning()` counts every task rather than only
+  re-index and model pulls.
+- **Formatting-toolbar dropdowns escaped their panel.** Measured in the
+  capture composer: the Insert menu sat 123px outside the panel's left edge,
+  because `.doc-dock-menu-list` is anchored `right: 0` and grows leftwards —
+  right for the document ⋯ it was written for, wrong for an opener near the
+  left of a toolbar. Clamped inside the panel on open.
+- **The OCR workspace's reader picker named the wrong model.** It resolved a
+  generic vision model instead of the configured or auto-detected OCR
+  document reader, so a dedicated reader could never be chosen even when
+  installed.
+- **One toggle row everywhere in Settings.** `.setting-check` was a
+  divider-separated grid with the switch pinned hard right; it is now the
+  same integrated, filled-when-on row with a leading switch that the rest of
+  the app uses, which moves the tools list and the appearance outliers
+  together.
+- **Attached non-image files rendered as nothing** in dashboard widget note
+  lists, and the widget picker listed "On this day" twice.
+- **Toolbar dropdowns in the capture and documents toolbars opened up to
+  151px from the button that opened them**, and after that, in the top-left
+  corner of the panel — three related bugs in the same placement function,
+  in the same viewport-fixed-menu change: wrong alignment axis, no
+  containing-block correction, and a zeroed fallback on a failed measurement.
+- **The traced graph path's chips clipped from both ends** ("ting is the
+  delivery of computing se") — a flex item that could not shrink, centred in
+  its box, overflowing equally on either side; `text-overflow` on the parent
+  button never touched it.
+- **A misspelt "ask the notebook about itself" question fell through to
+  ordinary semantic search**, which is precisely the case that feature exists
+  to answer better — and one new question's own pre-filter accidentally
+  rejected it before any matcher saw it.
+- **`clampToolbarMenu`'s CodeQL-adjacent cousin**: three cyclic imports
+  (one already a CodeQL alert, two more of the same shape unreported)
+  closed and pinned by a new AST-based lint.
+
+### Verified
+- **A real (non-Ollama) backend, driven live for the first time.** A
+  stand-in OpenAI-`/v1` server (a real socket, not a mocked `requests`)
+  proved `/help/ask`, `/voice/summarize` and a full `/chat/stream` turn —
+  SSE framing included — all round-trip correctly through
+  `OpenAICompatClient`, the dialect LM Studio/llama.cpp/Jan/vLLM share.
+  Tool-call streaming remains spec-verified only; see HISTORY.md §113.
 
 A bug-fix and consistency release, from one long round of live reports.
 

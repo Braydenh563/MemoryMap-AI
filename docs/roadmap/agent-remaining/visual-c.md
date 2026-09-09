@@ -22,6 +22,22 @@ pushed. Server `:8788`, data dir `/tmp/mm-8788`.
    WHITEBOARD_PLAN.md's Built block, ready to paste onto both entries.
    Entry 52 *is* marked fixed, because it predates the cut.
 
+## The two suite failures are not this pass's
+
+Checked against the base commit rather than assumed:
+
+- `test_doc_dock.py::test_the_name_and_the_type_share_a_row` wants
+  `id="doc-file-type"` inside `class="doc-dock-identity"`. That section of
+  `index.html` is byte-identical to `ab7f7f4` and does not contain it in
+  either version, so the select moved and its lint did not. Documents is
+  being rewritten by another agent in parallel and was out of bounds here.
+- `test_docs_site.py::test_the_mirrored_docs_match_the_originals[CHANGELOG.md]`
+  wants `docs/CHANGELOG.md` to match the root copy. Neither file is in this
+  branch's diff; the mirror is stale on the branch (`cp CHANGELOG.md
+  docs/CHANGELOG.md` is what the test itself suggests).
+
+Everything else in the suite passes.
+
 ## Not verified, said plainly
 
 - **A real touch device.** The graph node panel's 390 sheet and the

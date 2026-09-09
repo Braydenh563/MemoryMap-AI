@@ -7027,25 +7027,21 @@ async function initWhiteboard() {
   //: **A top-bar menu stays inside the window and scrolls when it is taller.**
   //:
   //: Reported with a screenshot of the View menu (INBOX 43): the menus "clip
-  //: at the bottom of the panel and do not scroll". The cap below existed and
-  //: was not the whole story: measured at 1280x640 with a board open, View
-  //: and Arrange both ended at y=628 inside a 640px window, correctly capped,
-  //: while `#library-view-whiteboard` (`overflow: hidden`) ends at y=579, so
-  //: the last 49px of each menu were cut off by an ancestor and unreachable,
-  //: scrollbar or no scrollbar.
+  //: at the bottom of the panel and do not scroll". A cap alone was not the
+  //: whole story: measured at 1280x640 with a board open, View and Arrange
+  //: both ended at y=628 inside a 640px window, correctly capped, while
+  //: `#library-view-whiteboard` (`overflow: hidden`) ends at y=579, so the
+  //: last 49px of each menu were cut off by an ancestor and unreachable,
+  //: scrollbar or no scrollbar. Escaping that ancestor is what fixed it.
   //:
-  //: This is `details.dock-menu`'s recipe (INBOX 31, d8775e6), in the same
-  //: order and with the same numbers, not a third scheme: escape the clipping
-  //: ancestor first (a no-op when nothing clips), then cap to what is really
-  //: left below the menu's own final top, and let `overflow-y: auto` (the
-  //: stylesheet already sets it) do the rest.
-  const wbCapBoardMenu = (menu, toggle) => {
-    menu.style.maxHeight = "";
-    escapeMenuIfClipped(menu, toggle);
-    const margin = 8;
-    const top = menu.getBoundingClientRect().top;
-    menu.style.maxHeight = `${Math.max(120, Math.round(window.innerHeight - top - margin))}px`;
-  };
+  //: `escapeAndCapMenu` (app.js) is that fix, and `details.dock-menu`'s too:
+  //: this file used to hold its own copy of it, identical down to the margin
+  //: and the 120px floor, which is how a later improvement to one of them
+  //: would have missed the other. It is deliberately not the same recipe as
+  //: `wireEscapedActionMenu`'s `place()`, which positions its menu itself;
+  //: these menus keep the position the stylesheet gives them whenever nothing
+  //: clips them, and only their height is decided. The reasons are written out
+  //: at both functions in app.js.
   for (const { toggle, menu } of boardMenus) {
     toggle.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -7057,7 +7053,7 @@ async function initWhiteboard() {
         // Before the measurement: a switch's own state can change how tall
         // the list is.
         syncPanelSwitches();
-        wbCapBoardMenu(menu, toggle);
+        escapeAndCapMenu(menu, toggle);
       }
     });
   }

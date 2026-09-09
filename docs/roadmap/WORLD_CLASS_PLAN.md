@@ -1367,3 +1367,72 @@ insert. Now one lock around the cache, never around the embedding call.
 "defined once, never referenced" probe is noise for them; excluding
 decorated functions leaves under ten candidates, all private helpers
 behind a feature flag. Not worth a session.
+
+## Placed from INBOX, 2026-09-09
+
+The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.
+
+1. **Deleting a space leaves its notes in "All spaces".** Read and not
+   reproduced in code: `routes_spaces.delete_space` hard-deletes every
+   workspace-scoped row in one transaction and
+   `tests/test_space_delete_cascades.py` proves it. The likeliest cause is
+   notes captured while "All spaces" was selected: those carry the default
+   workspace, not the space, so deleting the space cannot touch them. Fix
+   the cause of the confusion, not the cascade: (a) show the space chip on
+   every note card and in the edit form; (b) the capture form files into
+   the *selected* space and says which; (c) a "Move to space" bulk action.
+   Owner: D2 and D5. If the owner can reproduce with a note that shows the
+   space chip, reopen as a backend bug.
+15. **Modal backdrop blur does not cover the full viewport height.** Read: `.modal-overlay` is `position: fixed; inset: 0`, so the unblurred strip is the desktop shell's native title bar, outside the page. Not a CSS bug; if it matters, the shell (pywebview/Electron) must draw a frameless window with the app's own title bar. Owner: packaging.
+22. **Settings > Packages rows misaligned** (icon, text and the install
+    button on different baselines). Owner: consistency.md item 4; the
+    alignment sweep must include Settings > Packages and Settings > Help.
+23. **Settings > Help gaps** (accordion rows touch, sections have no
+    rhythm). Owner: help-popovers.md, with item 22.
+26. **"Things that feel off that I cannot place."** After the consistency
+    and docks lists close, one review pass per tab with the vendored
+    design skills (`.claude/skills/README.md`) against DESIGN.md, writing
+    findings as consistency.md rows, not fixing ad hoc. Owner:
+    consistency.md, last item.
+
+62. **"The documents formatting toolbar is gone."** Intentional, DOCUMENTS
+    Phase 1: the strip is opt-in through the editor's ⋯ menu, "Always show
+    formatting", and Phase 2 makes the floating selection toolbar the
+    formatting UI. Nothing to fix; if the owner wants the strip on by
+    default, flip the default in one line (documents.js `docToolbarMode`).
+99. **Quick wins (Fable, 05:20): five features the plans did not list,
+    each a day or less, each with the site.** (a) Undo on every delete
+    toast: notes, boards, documents and reminders already soft-delete;
+    `toastAction(msg, "Undo", () => restore)` at each delete call site
+    (grep `toast(` beside `DELETE`), so a wrong click never reaches the
+    bin. (b) "Reopen where I left off": documents and chats restore
+    scroll position per id (localStorage `scroll:<kind>:<id>`), the
+    Dashboard "Continue" tile (INBOX 60) reads the same keys. (c) The AI
+    dot's tooltip shows the last answer's latency and the model's context
+    use ("granite4.1:3b, 2.1 s, 39% of window"), from data the chat
+    header already has. (d) A "Paste as note" global shortcut
+    (Ctrl+Shift+V anywhere) that captures the clipboard as a new note
+    with the AI filing it, the fastest capture path on a desktop. (e)
+    Search operators in the Notes search box (`tag:`, `space:`,
+    `before:`, `after:`, `has:file`), parsed client-side into the existing
+    filters, with the operators listed in the box's '?' popover.
+79. **Files sub-tab rows "could still use a massive redesign upgrade", and
+    clicking the file name does nothing**. Owner: Library dossier
+    (WORLD_CLASS 4), Opus: one row recipe (thumbnail, name as the one
+    link that opens the reader, meta line, reading state as a small
+    disclosure, actions in a kebab), the name clickable.
+92. **Suggested links panel UI refine** (screenshot: rows of quoted
+    pairs, a wide "Why?" input, a percent chip, Link and X). Owner: Opus,
+    next slot: two note chips joined by an arrow, the score as a small
+    bar, the reason field collapsed behind "Add a reason", Link primary
+    per row, a "Link all above 70%" action in the head.
+97. **OCR alternative to pytesseract**, asked directly. Answer: RapidOCR
+    (PaddleOCR models on onnxruntime, pip-installable, no system binary,
+    better on photos and mixed layouts, about 60 MB of models, Apache-2)
+    is the one to offer; EasyOCR needs torch (never). Placed as a
+    Settings > Packages option beside Tesseract, same reading pipeline,
+    the reader named on the row. Owner: next session, Sonnet (backend
+    adapter with a fake in tests) plus the Packages row.
+98. **The documents formatting toolbar**: see 62; the owner asked again.
+    Default stays opt-in until Phase 2's selection toolbar lands.
+

@@ -44,3 +44,10 @@ def test_inbox_holds_open_reports_only() -> None:
         if re.match(r"^\d+\. \*\*\(?(fixed|Fixed|Not reproduced|checked|Checked|Done|done)", line)
     ]
     assert resolved == [], "move these to HISTORY.md, INBOX resolved: " + "; ".join(r[:60] for r in resolved)
+
+
+def test_inbox_is_a_tray_not_a_backlog() -> None:
+    """Under twenty open items: anything older is placed in its plan."""
+    text = (ROADMAP / "INBOX.md").read_text(encoding="utf-8")
+    count = len(re.findall(r"(?m)^\d+\. \*\*", text))
+    assert count < 20, f"INBOX has {count} items; place the rest in their plans (Placed from INBOX)"

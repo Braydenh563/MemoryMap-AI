@@ -46,7 +46,9 @@ full text, with the reasons, is the block at the top of
    into `INBOX.md` verbatim and are triaged at the next step boundary in
    one pass; the step in hand is finished to standard first; the "Now"
    line in HANDOVER is never lost to the pile. A usage figure means commit
-   and push now, then continue more tersely.
+   and push now, then continue more tersely. INBOX is a tray, not a
+   backlog: under twenty items by lint; a triaged item is fixed now and
+   moved to HISTORY, or placed in its plan's "Placed from INBOX" section.
 3. **Decisions are not remade.** Every plan has a "Decisions made"
    section. A missing decision becomes an INBOX entry with a one-line
    recommendation, which is then taken.

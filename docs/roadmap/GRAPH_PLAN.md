@@ -182,3 +182,23 @@ Moved to HISTORY.md ("Moved from the plans, 2026-09-09", GRAPH_PLAN.md) on 2026-
 ## Built, Phase 2 (the space)
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", GRAPH_PLAN.md) on 2026-09-09: a plan holds open work only.
+
+## Placed from INBOX, 2026-09-09
+
+The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.
+
+41. **(the panel: fixed, 5724587 and dbff8f0; the clean-up is Phase 4)**
+    **Graph display options belong on the dock, and the options panel
+    needs a redesign**; the graph needs a utility, UI and interaction
+    clean-up. Owner: GRAPH Phase 2 remainder (gear button, INBOX 21) and
+    Phase 4; the panel on the popover shell with the dock-menu sections.
+78. **Graph minimap UX and utility**: Owner: GRAPH Phase 6b (Opus): a
+    viewport rectangle you can drag, click-to-jump, a size toggle, hide
+    when the whole graph fits, cluster colours, the same in fullscreen.
+59. **Graph node popup panel redesign** (screenshot, 00:50; the owner:
+    "include redesigning the graph node popup panels in the graph redesign
+    plan"): title, five meta chips at one weight, a file card, a tall
+    content editor, tags, Save, then a 3x3 grid of nine equal action
+    buttons (Favourite, Grow, Focus, Similar, Link, Trace, Remind, Open,
+    Bin). Placed as GRAPH_PLAN Phase 6. Owner: Opus, now.
+

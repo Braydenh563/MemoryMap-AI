@@ -185,3 +185,108 @@ confirm in the product before building the phase where it matters.
   separate objects. Implication: decision 9, and MINDMAP_PLAN Phases 4 to
   5 should treat edges as derived from the tree, never as objects that
   can detach.
+
+## Placed from INBOX, 2026-09-09
+
+The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.
+
+12. **Whiteboard: export-selection popover opens a full-height list in the
+    wrong place; arrow drawn shows both caps as Arrow in properties;
+    missing align-centre and distribute-gaps; the arrange panel's buttons
+    are unreadable (icons overlapping text).** Owner: WHITEBOARD_PLAN.md.
+    **The caps part only is fixed** (my scope was "12 only the caps part"):
+    `wbDetectArrowStyle`'s own regex scan included the shaft's leading `M`
+    (matched separately, one line above, specifically to exclude it) in
+    its search for head markers, so a shaft with zero start caps still
+    measured a false zero-distance hit on its own start point and reported
+    "both". Slicing the shaft's own match off the string before scanning
+    fixed it; verified live (`startcap: "none"`, was `"arrow"`). The
+    export-popover placement, align-centre/distribute-gaps and the arrange
+    panel's icon/text overlap are **still open**, not touched this session.
+25. **Whiteboard: the edge anchor outline on note objects differs from
+    every other object kind.** Decision: one anchor recipe for all kinds
+    (the shape one; the note one goes). Owner: WHITEBOARD_PLAN Phase 1.
+43. **(the top bar's menus: fixed, e1e395b; the rest is Phase 1)**
+    **Whiteboard bottom tool rail and the properties panel** are not on
+    the refined recipes (the top bar is). Owner: WHITEBOARD_PLAN Phase 1.
+    **Done, one part:** the five top-bar menus (Insert, Edit, Arrange, View,
+    Board) clipped at the bottom of the panel, the View menu screenshot in
+    31. They were already capped to the window, which was not the bug:
+    measured at 1280x640, View and Arrange ended at y=628 inside a 640px
+    window while `#library-view-whiteboard` (`overflow: hidden`) ends at
+    y=579, so the last 49px was cut off by an ancestor. Now on 31's recipe
+    (escape the clipper, then cap, then scroll). kebab-viewport.js sweeps
+    all five at 1440x900, 1280x640 and 1280x420: 15 cases, all OK. The tool
+    rail and the properties panel are still open.
+47. **Notes (10) and Library (9) still count over the seven-control
+    ceiling** (`scratchpad/ui-sweeps/docks.js`), same as Graph did before
+    this batch. Graph's fix (moving `#graph-view-picker` into its More menu)
+    is not a decision this item can reuse for these two: graph.md section 3
+    named its own two candidates for graph specifically, and named nothing
+    for Notes or Library beyond the counts, so guessing which of their
+    controls moves where is a design call, not a mechanical one (CLAUDE.md
+    §2 rule 3 -- a missing decision is recorded, not remade). Both docks'
+    inflated counts are partly an artefact of how `docks.js` counts, worth
+    knowing before picking a fix: a native `<select>` is auto-enhanced into
+    three counted elements (the select, its `.select-shell`, its
+    `.select-opener`), and a `.seg` segmented control counts as one plus one
+    per visible option, so Library's sort select and its two-button
+    Cards/Rows segment alone are 6 of its 9, and Notes' sort select and its
+    two-button Rows/Cards segment are 7 of its 10. Recommendation: before
+    moving anything, decide in UI_MODERNISATION_PLAN Phase 8 whether the
+    ceiling counts *controls a person reasons about* (a segmented view
+    toggle is one decision, not three) or literal DOM elements as `docks.js`
+    does today; if the latter stands, the same "into an existing menu"
+    treatment graph got is available for Library's `#library-sort` (into
+    Filter or More) and Notes' `#note-sort` (into a menu of its own), which
+    would need one new decision line each rather than either being moved on
+    a solo guess. Owner: UI_MODERNISATION_PLAN Phase 8.
+
+### Performance on small laptops, measured 2026-09-08 23:30 UTC (Chromium, 1366x768, no GPU)
+
+Numbers from `scratchpad/weight.js`: first load 6.7 MB over 71 requests
+(uncompressed; the gzip layer is scoped to non-streaming API replies and
+does not cover static files); unlock to ready 4.0s; idle traffic 4
+requests a minute (was 14 in the audit); DOM 5,870 elements; JS heap 16 MB;
+four blurred surfaces covering 32% of the viewport at rest; frame p95
+16.7ms scrolling Notes. Script weight: app.js 1.6 MB, whiteboard.js 469 KB,
+library.js 348 KB, documents.js 280 KB, graph.js 177 KB, all loaded at boot,
+plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
+
+48. **Every module parses at boot, whichever tab opens.** Decision: load
+    whiteboard.js, documents.js, library.js and graph.js on first use of
+    their tab (a small loader in app.js, `tests/test_frontend_load_order.py`
+    updated for the split; boot stays synchronous for app.js and the
+    guards). Expected: the parse cost of about 1.3 MB of JavaScript leaves
+    the startup path. Owner: Opus. Size M.
+64. **Whiteboard properties panel, "needs a massive redesign and fix"**
+    (three screenshots, 01:30): Copy style row, Guide colours (three swatch
+    rows), then Group / Ungroup overlapping each other, an arrow button, the
+    three align icons, two Space buttons and Extract notes "just chucked at
+    the bottom". Owner: WHITEBOARD Phase 1 (properties panel), Opus.
+    Decision: sections with a heading each (Style, Guides, Arrange, Notes);
+    Arrange as one icon toolbar row on the dock recipe (align x3, distribute
+    x2, group/ungroup as a pair) with tooltips, never label buttons that
+    overlap; Extract notes as the section's one text button; measure that
+    no two controls' rects intersect and the panel scrolls inside.
+65. **Whiteboard panels "feel unrefined": the buttons look separate from
+    the panels** (bottom tool bar, zoom pill, properties). Same fix as
+    INBOX 52: one surface per panel, hairline dividers, no per-control
+    background except the active tool. Owner: WHITEBOARD Phase 1.
+56. **Library image cards, "really ugly"** (screenshot): thumbnail, file
+    name, "Used in" chip, a Description bullet with Show more, a model chip,
+    a "Text in this image" bullet with Show more, a "Read by ..." chip: six
+    ranks of information at one weight, chips for provenance that read as
+    actions. Owner: Opus, next slot, with INBOX 52 (whiteboard bottom bar).
+    Recommendation: thumbnail with the file name on it; one line "Used in
+    <chip>"; the description as one paragraph with a "More" toggle; the OCR
+    text folded under a single "Text in this image" disclosure; provenance
+    as one muted line at the foot ("Described by X, read by Y"), no chips.
+52. **Whiteboard bottom bar: the tool groups "feel separate from the
+    panels and not integrated"** (screenshot: seven pill groups with their
+    own backgrounds and dividers inside one bar, and the zoom pill on the
+    right in a different style). Owner: WHITEBOARD Phase 1 (bottom rail),
+    with the mind map agent's whiteboard work merged first. Recommendation:
+    one bar surface, groups separated by a hairline divider only, no
+    per-group background; the zoom pill on the same recipe. Size S.
+

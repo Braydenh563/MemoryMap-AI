@@ -409,3 +409,44 @@ Moved to HISTORY.md ("Moved from the plans, 2026-09-09", UI_MODERNISATION_PLAN.m
 
 New features. The plan is subtraction and alignment; the feature backlog
 (BACKLOG.md) waits until the shell is quiet.
+
+## Placed from INBOX, 2026-09-09
+
+The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.
+
+100. **Scroll edge effect** (DESIGN.md, "Taken from Liquid Glass" rule 2):
+    `.dock`, the sub-tab strips and `header#top-bar` fade a 16px gradient
+    under themselves while their region is scrolled (`data-scrolled`). Gate:
+    contrast.js on a scrolled notes list; the gradient absent at scrollTop 0.
+    Owner: Opus, UI Phase 9 batch. Size S.
+101. **Concentric corners**: `--radius-inner: calc(var(--radius) -
+    var(--space-3))` for anything rounded inside a card (inputs, chips,
+    thumbnails, the dock's groups); `tests/test_style_scale.py` extended to
+    fail on a hand-picked inner radius. Owner: Sonnet. Size S.
+102. **Clear glass with a scrim, and text on glass**: `.glass-clear` (blur
+    only, `--card` at 30%) for the whiteboard's floating panels and the
+    graph's docks over the art, paired with `--glass-scrim` (35% ink) when
+    the surface is light; `--text-on-glass` one contrast step above
+    `--text` on every blurred surface. Gate: contrast.js over the aurora
+    and constellation backgrounds. Owner: Opus. Size S.
+103. **Menus morph from their opener; sheets inset**: `kebabMenu` and
+    `details.dock-menu` scale in from the opener's rect (`--motion-base`,
+    spring), off under Reduce motion; a phone sheet has a `--space-3` inset
+    and turns `--modal-bg` at full height. Gate: menus.js, touch.js.
+    Owner: Opus. Size S.
+104. **The phone tab bar recedes on scroll** (icons only on scroll down,
+    full on scroll up), never hidden. Owner: UI Phase 9. Size S.
+94. **Background animations: fix, refine and improve.** Owner: UI Phase 3
+    follow-up (Opus): each style gets a measured frame cost, a still frame
+    under Performance mode, no seams at the edges, the intensity slider
+    changes something visible at every step.
+60. **Dashboard "Jump to / Run a skill / stat tiles" section** (screenshot,
+    00:58; the owner: "could do with an upgrade and better design, utility,
+    features"): three pill links, three skill pills with dashed borders, four
+    stat tiles, all left-aligned in a band with most of its width empty.
+    Owner: Opus, next slot (dashboard). Recommendation: one "Start" row
+    that fills the width, the stats as a compact strip with a sparkline for
+    the week and the streak, the skills row showing the last-run time and a
+    Run button per skill, a "Continue" tile for the last note or document
+    touched; the band's height unchanged.
+

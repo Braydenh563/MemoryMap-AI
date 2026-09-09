@@ -437,3 +437,13 @@ the study mode measured on a 40-node map.
 Real-time collaboration, cloud sync, voice-to-map, AI image generation
 in nodes.
 
+## Placed from INBOX, 2026-09-09
+
+The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.
+
+24. **"New board" and "New mind map": same or different?** Decision: the
+    dock grammar allows one filled button per dock, so one filled "New"
+    button opens a two-row menu (Board, Mind map), each with its icon and a
+    one-line hint. Two side-by-side filled buttons is the wrong answer.
+    Owner: docks.md.
+

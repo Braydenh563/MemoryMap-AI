@@ -45,6 +45,18 @@ done-when item 4 and 5), in priority order.
     its own held-ring test and its own worker start, so the guard has to
     exist there too. Reproduce with `__graphDebug.renderer === "canvas"`.
 
+109. **(fixed)** **Dashboard heatmap, reversed, 2026-09-09.** The owner,
+    mid-work: "the whole thing fits into the small not wide dshboard, it
+    looked better bigger and scrolled to the right." An earlier fix this
+    same day (8519ee2) traded a scrollbar for cropping the grid to
+    whatever recent weeks fit at full cell size; the owner's preference is
+    the opposite of that trade. Reversed: the grid's columns are a fixed
+    `--heat-cell-max` width instead of a `1fr` share of the widget, the
+    whole year is drawn every time, and `.heatmap` scrolls horizontally
+    instead of clipping. Measured: 371 cells at 12x12px, `scrollWidth` 701
+    against a 662px `clientWidth`, opens scrolled to the recent end.
+    `9b3b271`.
+
 107. **The 0.3.0 blocker list (the owner, 2026-09-09 23:25, verbatim).**
     "should I leave this pr open until we can finish the rest of the still
     open and half finished stuff?? otherwise I need to to absolutely make

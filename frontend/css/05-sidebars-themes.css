@@ -1352,6 +1352,13 @@ body.resizing-sidebar {
    fight again no matter which one it was. */
 #doc-toolbar {
   --control-h: var(--control-h-lg);
+  /* Reported on the owner's regular browser (not the desktop shell this
+     was chased through): both wrap and row mode read crushed there, which
+     a fix scoped only to `[data-toolbar-mode="row"]` below cannot reach.
+     A floor on the strip itself is engine-agnostic: whatever a given
+     browser's flex/scrollbar box math actually does with the padding and
+     `--control-h` above, the strip cannot render shorter than this. */
+  min-height: calc(var(--control-h) + 0.8rem);
 }
 
 /* The compact alternative: one row that scrolls sideways.
@@ -1374,17 +1381,31 @@ body.resizing-sidebar {
   /* A scrolling strip needs its own scrollbar to be unobtrusive: this is
      chrome, not content. */
   scrollbar-width: thin;
-  /* Reported directly: "icons get cut off top/bottom" in this mode only.
-     A horizontal scrollbar reserves its own strip of space at the bottom
-     of the box it scrolls, and `overflow-y: hidden` above (required, see
-     this rule's own history) means that strip is carved out of the
-     content box rather than added beneath it: with the base rule's
-     `0.4rem` bottom padding, the scrollbar's reserved space ate into the
-     button row itself, clipping a couple of pixels off the bottom of
-     every icon. `--space-1` matches the 4px `::-webkit-scrollbar` height
-     set below, so the buttons keep their full, unclipped height and the
-     scrollbar gets the room it was already taking regardless. */
-  padding-bottom: calc(0.4rem + var(--space-1));
+  /* Reported directly: this mode reads "squished", with "no padding"
+     under the icons. A horizontal scrollbar reserves its own strip of
+     space at the bottom of the box it scrolls, and `overflow-y: hidden`
+     above (required, see this rule's own history) means that strip comes
+     out of the existing bottom padding rather than being added beneath
+     it. Measured at 520px wide with the scrollbar actually rendering:
+     the base rule's 6.4px of bottom padding left the 4px scrollbar and
+     the buttons sharing one gap, ~2px of it visible. So the block
+     padding is stated here, with the scrollbar's own height added back
+     on the bottom edge only: the buttons keep a full, even gap and the
+     scrollbar sits below it rather than in it. */
+  padding-block: var(--space-3) calc(var(--space-3) + var(--space-1));
+}
+
+/* The floor for this mode, id-scoped so it outranks `#doc-toolbar`'s own
+   floor above: a class+attribute selector (0,2,0) loses to that id (1,0,0),
+   which is how a row-mode floor written as one silently resolved to the
+   smaller number. Measured at 520px wide with the scrollbar actually
+   present: the strip is 58px against a 36px control, 13px under the
+   buttons with the 4px scrollbar inside that, so ~9px of the clearance is
+   visible. Before it was 50.8px with 7.4px under the buttons, ~2px of it
+   visible past the scrollbar, which is the reported "squished, no
+   padding". */
+#doc-toolbar[data-toolbar-mode="row"] {
+  min-height: calc(var(--control-h) + var(--space-3) * 2 + var(--space-1));
 }
 
 /* **Un-clipping the strip to free a menu freed the whole toolbar too.**

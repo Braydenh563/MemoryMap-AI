@@ -42,6 +42,10 @@ BASE=… WIDTH=390 node scratchpad/ui-sweeps/touch.js
   only for the surfaces a ratio cannot see).
 - `tabfit.js`: green at 600, 660, 720, 819, 1024, 1440.
 - `scrolledge.js`: green on notes, library, timeline, reminders, chat.
+- `touch.js`: **PASS, 0 findings at 800x1180 and 600x1024**, which is the
+  first time it has been pointed at the tablet band rather than the phone.
+  It found the tab buttons at 40px against the band's own 44px rule, and
+  they are 44px now.
 
 ---
 

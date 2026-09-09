@@ -6494,6 +6494,16 @@ first and is a trap**: `tabContentWidth` sums the buttons' own widths to
 decide whether to wrap, so stretching them to fill the row makes the strip
 report that it needs the whole header and the header can never unwrap again.
 
+**And a tab became a 44px target in that band**, which it had never been:
+the strip's buttons take `--header-control-h`, because they are levelled
+with the rest of the header's controls, so they were 40px at every width
+while Phase 9's rule is 44px below 820. `touch.js` at 800x1180 with
+`hasTouch` reported all seven at 40.0px and every dock control passing;
+after a `min-height` in the band it is `PASS: 0 findings` at 800 and at 600,
+for 4px of header (106 to 110 at 600 and 720, 120 to 124 at 819). The sweep
+itself stopped asserting the phone's bottom tab bar at every width, which
+had been reporting a failure for a layout behaving as its band says.
+
 **INBOX 100, the scroll edge effect.** One listener in app.js
 (`markScrollEdge`) marks the single bar whose bottom edge is against the top
 of the region that scrolled, within 24px, and CSS paints a 16px fall-off in

@@ -1076,8 +1076,8 @@ header#top-bar select,
 
 .stat-tile {
   display: flex;
-  align-items: baseline;
-  gap: 0.4rem;
+  align-items: center;
+  gap: 0.6rem;
   padding: 0.6rem 1rem;
   /* The tile recipe: see `.quick-link`. */
   background: var(--card);
@@ -1087,18 +1087,54 @@ header#top-bar select,
   box-shadow: none;
   cursor: pointer;
   font-weight: 500;
+  /* Reported "bland, needs a modern improvement": four flat rows of an
+     icon glyph and two numbers, no depth, nothing that reads as pressable
+     until the pointer is already on it. The lift below is the same
+     hover language `.dash-widget` and `.quick-link` already use
+     elsewhere on this page; this row was the one place on the dashboard
+     that had opted out of it. */
+  transition: transform var(--motion-base) ease, box-shadow var(--motion-base) ease,
+    border-color var(--motion-base) ease, background var(--motion-base) ease;
 }
 
 @media (hover: hover) {
   .stat-tile:hover {
     border-color: var(--accent);
     background: var(--accent-soft);
+    transform: translateY(-1px);
+    box-shadow: var(--glass-shadow);
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .stat-tile {
+    transition: none;
+  }
+}
+
+/* The icon graduates from a bare glyph to a small tinted chip behind it,
+   the same "icon on a soft circle" language the command palette and the
+   skill cards already use, so this row reads as belonging to the same
+   app rather than as a plainer, earlier design left behind. Colour comes
+   from `currentColor` through `--ink`, so it needs no per-stat palette
+   and stays correct through every theme and accent choice; `.stat-alert`
+   already recolours its whole tile to `--warn`, which this inherits. */
 .stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
   font-size: 0.92rem;
-  align-self: center;
+  flex: none;
+}
+
+.stat-tile.stat-alert .stat-icon {
+  background: color-mix(in srgb, var(--warn) 16%, transparent);
+  color: var(--warn);
 }
 
 .stat-value {

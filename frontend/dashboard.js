@@ -504,6 +504,19 @@ async function renderDashStats() {
     button.addEventListener("click", tile.go);
     box.appendChild(button);
   }
+  //: **The four tiles and the sparkline are two independent things to
+  //: render, and one throwing used to take the other down with it.**
+  //: `renderDashStats` is one function with no `try` anywhere in it: an
+  //: exception in the block below (a malformed `per_day` entry, a
+  //: `days.join` on something unexpected) would abort the whole call
+  //: after the tiles loop had already run, leaving exactly four tiles
+  //: and a silently missing fifth chip -- a row that reads as "bland"
+  //: with nothing in the console to say why, reported as "the section
+  //: of the dashboard needs something more". The `try` below cannot make
+  //: bad data good, but it stops one bar chart's problem from being the
+  //: whole row's problem, and a caught failure is at least visible in
+  //: the console rather than a wordless gap.
+  try {
 
   // **The shape of the fortnight, where the empty half of the strip was.**
   // Measured before this (`scratchpad/ui-sweeps/dashstart.js`, 1440x900): the
@@ -541,6 +554,9 @@ async function renderDashStats() {
       `Notes captured on each of the last ${days.length} days: ${days.join(", ")}`
     );
     box.appendChild(spark);
+  }
+  } catch (err) {
+    console.error("dashboard sparkline failed to render", err);
   }
 }
 

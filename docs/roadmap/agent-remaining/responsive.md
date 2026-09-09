@@ -6,6 +6,12 @@ the owner's evening batch).
 CodeMirror editor, the read-only graph layouts and the `place()` menu-height
 fix are all in) and the tree is clean at every commit below.
 
+**The third batch** (the map exports, the boards dock, the paint lint): all
+three done, commits `74e12d7`, `af14a42`, `39df02a`. The lint found a live
+bug on its first run: every mind map's edges were drawn in the accent rather
+than in their branch colours, because a stylesheet `stroke` beats a `stroke`
+attribute. Fixed and measured.
+
 **The second batch** (the previews, max gravity, the mind map's visual
 phases): all four items are done or answered, commits `6e365ab`, `25a9cc7`,
 `3aeb733` and this file. INBOX 67 and 68 are closed in HISTORY's "INBOX
@@ -227,6 +233,28 @@ last-run times, `5bd1bd2` the icon tab strip, `c8c2cf6` the keyboard pass,
   The mindmap remaining list's items 2 to 4 (perspectives on a map of real
   notes, INBOX 43's second half, the AI half) are also untouched here.
 
+## 7d. The third batch, and what it leaves
+
+- **The map exports** (`74e12d7`). `_export_opml` and `_export_freemind` were
+  the only recursive walks in `routes_whiteboard.py`; both are iterative and
+  seen-guarded now, and `_outline_rows` (the Markdown export) gained the seen
+  set it never had. Proved against the old shapes: a 1,200-deep chain raised
+  `RecursionError`, a ring ran 200,000 rows and was still going. Two tests
+  cover both, and both fail on the old code.
+  **Left**: nothing on this item. Worth knowing: nothing caps how deep a map
+  built by hand can be, so `MAX_MAP_DEPTH` is a clamp on the *file's* nesting
+  rather than on the map.
+- **The Library's boards dock** (`af14a42`). It had no `⋯` at all, which is
+  why its 730px actions zone dropped to a row of its own below about 1200 and
+  why it was the one Phase 8 dock that could not fold its arrange zone (the
+  fold looks for `.dock-actions > .dock-more > .dock-menu-list`). One row at
+  1024 now, 54px instead of 98px.
+  **Left**: at 820 it is still two rows, because the search field takes 584px
+  of a 750px row. That is band 3's own wrapping and every other dock does the
+  same there; if it should not, the fix is a `min-width` on `.dock-find`, and
+  it belongs to Phase 11's band work rather than to this dock.
+- **The paint lint** (`39df02a`), and the map edges it found. See section 8.
+
 ## 7c. The dashboard band against the Library's boards dock
 
 Asked for after both changes land, measured at 1440 and 1024 with the two
@@ -236,8 +264,8 @@ surfaces side by side:
 | --- | --- | --- |
 | control height | 37px (pills), 52px (stat tiles) | **28px and 36px, two heights in one bar** |
 | radius | 999px pills, 8.4px tiles | 999px chips |
-| rows at 1440 | 1 and 1, both filling the width | 2 |
-| rows at 1024 | 1 and 1 | 3 |
+| rows at 1440 | 1 and 1, both filling the width | 1 (was 2 before `af14a42`) |
+| rows at 1024 | 1 and 1 | 1 (was 3) |
 
 They do not fight: the band is pills and tiles inside a page, the dock is a
 control bar, and the shared shapes (the pill radius) agree. **What does not
@@ -249,9 +277,13 @@ instructed.
 
 ## 8. Found, not fixed
 
-**Two XML exports recurse** (`_export_opml`, `_export_freemind`), noted by
-the mind map run before this one and still true: a deep map exports as a
-`RecursionError`, which is a 500. Not touched here.
+**Fixed since**: the two XML exports that recursed (`74e12d7`), and the
+`.wb-map-edge` stroke attribute that the whole app ignored (`39df02a`).
+
+**A `stroke` or `fill` attribute is beaten by any stylesheet rule for the
+same property**, and `tests/test_svg_paint_attributes.py` now holds that.
+Worth knowing when it fires: the fix is a class or `el.style`, never a
+more specific attribute, because there is no such thing.
 
 `menus.js` times out at its last step, clicking a `.select-opener` on Chat
 after the model panel has been opened and dismissed. It times out

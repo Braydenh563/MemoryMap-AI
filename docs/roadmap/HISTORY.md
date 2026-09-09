@@ -6584,6 +6584,60 @@ the same five panel signatures as before. Thirteen lints, `ruff`, and
 The remaining list, per surface and breakpoint with files and next steps, is
 in [`agent-remaining/responsive.md`](agent-remaining/responsive.md).
 
+### Built, the map exports, the boards dock and the paint lint, 2026-09-09
+
+Three commits, each measured before and after.
+
+**The two XML exports could be made to recurse, and one walk could be made to
+loop.** `_export_opml` and `_export_freemind` were the only recursive walks in
+`routes_whiteboard.py`, where every other one is iterative with a seen set and
+`_is_descendant` carries the comment saying why. Proved against the old
+shapes: a 1,200-deep chain raised `RecursionError` (a 500 on the download of a
+map that opens perfectly well), and a ring ran 200,000 rows through the
+already-iterative `_outline_rows` and was still going, because that one had no
+seen set. Both are now one `_export_tree(root_element, roots, build)`:
+iterative, seen-guarded, holding no state between calls, with nesting clamped
+at `MAX_MAP_DEPTH` so a node past the cap is written as a sibling rather than
+dropped. Two tests, both of which fail on the old code.
+
+**The Library's Boards-and-maps dock had no `⋯`.** The owner: "the ui at the
+top of the boards and maps subtab dock is broken and miss wrapped. remember
+responsive design!"
+
+| width | before | after |
+| --- | --- | --- |
+| 2000 | 9 controls, 1 row, 54px | 8 controls, 1 row, 54px |
+| 1440 | 9 controls, 1 row, 54px | 8 controls, 1 row, 54px |
+| 1024 | 9 controls, 2 rows, 98px | 6 controls, 1 row, 54px |
+| 820 | 9 controls, 2 rows, 98px | 6 controls, 2 rows, 98px |
+
+Two faults in one absence: the actions zone was 730px of six labelled buttons,
+and `foldDockArrange` looks for `.dock-actions > .dock-more > .dock-menu-list`
+as its destination, so this was the only Phase 8 dock that could not fold its
+arrange zone below 1100. "Map from notes…" and "Import outline…" moved into
+the new menu (730px to 424px), both driven after the move: one opens its
+modal, the other the file picker.
+
+**And the "two control heights" reported for this dock the batch before was a
+sweep's mistake**, recorded because it would otherwise be re-fixed:
+`08-consistency.css` gives `.dock .seg > button` `height: auto; align-self:
+stretch` on purpose, so a segmented choice is *one* control (the 36px well)
+holding buttons inset by its padding. `docks.js` has the same artefact for
+every dock with a segment.
+
+**A stylesheet `fill` beats a `fill` attribute, and now a lint says so.**
+`tests/test_svg_paint_attributes.py` pairs every paint attribute in the
+frontend with the class assigned just above it and fails when the stylesheets
+already paint that class. It failed on its first run on something nobody had
+reported: a mind map's tree edges carry their branch colour as a `stroke`
+attribute while `.wb-map-edge` declares `stroke: var(--accent)`. Measured on a
+five-edge map: three distinct attributes, one computed colour. After: no
+attributes, three computed colours. Every map in the app has been drawn in one
+colour while the *thumbnail* of the same map was branch-coloured, which is the
+exact opposite of what MINDMAP_PLAN §11.1 set out to do. The colour now goes
+through `--wb-map-edge-colour`, written with `el.style`, which sits above the
+stylesheet.
+
 ### Built, INBOX 60, the tablet header, the keyboard pass and four of the evening batch, 2026-09-09
 
 Seven commits, each measured before and after on the running app at

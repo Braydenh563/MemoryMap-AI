@@ -8456,6 +8456,112 @@ named beside it in HANDOVER's completion table.
     ghost destructive button and a confirm; a `keydown` for Ctrl/Cmd+S on
     the Settings dialog clicks the section's Save.
 
+### From GRAPH_PLAN.md
+
+### Built, Phase 6 (the node panel), 2026-09-09
+
+Measured with `scratchpad/ui-sweeps/graphnode.js` (new: opens a node, counts
+the toolbar's buttons per row, reads the panel's own scrollHeight and every
+control shorter than the row's declared height) at 1440, 1024 and 390.
+
+- **The header carries identity only**: the note's own title (it used to show
+  the *category*, with the category also a chip below it), the category as
+  the one chip, and the AI's filing confidence as a small muted percentage
+  beside the title. Confidence shows only above 0, since an unfiled note
+  carries 0 and "0% confident" read as a verdict rather than as "no figure".
+- **One muted meta line** (date, links, views) in place of five chips plus up
+  to six tag chips: 11 marks at one weight became 1 line and 1 chip.
+- **The editor is sized to its text**: `.autogrow` with a four-line floor
+  (`min-height: calc(4 * 1.45em + var(--space-6))`, 108.8px measured) instead
+  of a fixed 7rem slot.
+- **Save appears only when something changed** and puts itself away when the
+  change is undone (both measured in the probe); the status line stays, so
+  "couldn't load this note" can still speak.
+- **The 3x3 grid of nine equal buttons is one toolbar row** of icon buttons
+  in three groups, hairline-separated: read (Open, Similar, Trace), shape
+  (Grow, Focus, Link, Remind), keep (Favourite, then Bin after a gap of its
+  own). Open is the one filled control. Labels moved to `title`/`aria-label`.
+- **"Filled" had to be measured, not written.** `smallButton(..., ghost =
+  false)` is how the app says filled, and it was not enough: a six-class
+  rule in 07-whiteboard-misc.css paints every `.icon-only:not(.ghost)`
+  button tonal, on purpose, so Open rendered identical to its eight
+  neighbours while the markup said otherwise. No readable selector naming
+  that button could outrank six classes, so it is the fourth name on that
+  rule's own exception list and falls through to the base `button` recipe.
+  The sweep now reads the computed background rather than the class list,
+  because the class list is what was wrong.
+- **Numbers.** Panel 416x439 before, 448x348 after at 1440 and 1024 (21%
+  shorter; 26rem to 28rem wide, which is what lets the nine actions sit in
+  one row: the row needs 398px and the panel offers 422px of content width).
+  Buttons per row 3/3/3 before, 9 after. Filled buttons 0 before, 1 after.
+  Shortest control 28px before, 36px after (the toolbar declares
+  `--control-h: 2.25rem` and the close button matches it). Panel scrollHeight
+  346 = clientHeight 346 at 1440 and 1024: nothing scrolls. The page does not
+  scroll at any width.
+- **At 390 it is a sheet**: full width, flush to the bottom of the map,
+  square where it meets the edges, 362x442 with the panel scrolling inside
+  (scrollHeight 488 vs clientHeight 441) and the page still not scrolling.
+  The groups stack one per line (3 / 4 / 2) and the hairlines go, because a
+  wrapped row leaves a divider at the start of the second line marking a
+  boundary that is not there. `placeGraphPopup` writes the sheet's position:
+  the inline left/top it owns cannot be overridden by a media query.
+- **Gates.** `graph4b.js` passes unchanged (export 2812x1530, time-slider
+  play runs and returns to "All time", 0 errors); `errors.js` 0 errors and 0
+  layout findings at 1440, 1024, 820 and 390.
+
+Not verified: a real touch device (the sheet is measured in a 390px Chromium
+viewport, not on a phone), and the Trace, Link and Grow flows past the click
+that starts them, which Phase 4's own sweep covers.
+
+### From WHITEBOARD_PLAN.md
+
+### Built, 2026-09-09: one surface per panel, and the Arrange section
+
+INBOX 52 (the bottom tool bar's groups "feel separate from the panels and
+not integrated"), INBOX 65 (every panel: "the buttons look separate from
+the panels") and INBOX 64 (the properties panel "needs a massive redesign
+and fix"). Measured with `scratchpad/ui-sweeps/wbbars.js` and
+`wbprops.js` (both new) at 1440 and 1024, in both themes.
+
+- **Nothing rests filled except the active tool.** `button.ghost` carries a
+  tonal fill, which is right on a page and wrong inside a floating bar that
+  already says "these are controls": fifteen filled discs in a row read as
+  fifteen objects sharing a tray. The fill returns on hover and on keyboard
+  focus. Elements painting a background of their own: tool bar **16 to 1**,
+  zoom pill **3 to 0**, properties panel **15 to 3** (the three are colour
+  swatches, where the background is the value).
+- **The group hairlines are `--divider`**, the token for a separator between
+  parts of one surface, not `--border`.
+- **The bar and the zoom pill are the same height** (46px) and the same
+  surface recipe: they were already, and the sweep now says so.
+- **Every panel is at the floating tier again.**
+  `.whiteboard-floating-panel` sets `--modal-bg` with a comment recording
+  why; `.card.glass` in an earlier file is two classes against its one and
+  silently won, so the bars were rendering at `color(srgb 1 1 1 / 0.549)`,
+  the 55%-opaque page-card tier. Restated at a specificity the class pair
+  cannot beat: measured 0.96 light, 0.97 dark.
+- **The properties panel has sections with headings** (Style, Draw with,
+  Guides, Arrange, Notes) and **Arrange is one icon toolbar**. Before: four
+  `.wb-multi-actions` groups were flex items on one `.wb-properties-row`,
+  which is `space-between` and does not wrap, so ten labelled buttons were
+  laid across 200px of a 216px panel and **four pairs measurably
+  intersected** (group/align-left, ungroup/align-left, ungroup/align-hcentre,
+  align-bottom/distribute-h). Now: icon buttons with tooltips in four groups
+  (group and ungroup, align across, align down, space evenly), separated by
+  a gap rather than a rule, wrapping to two lines. Six aligns in one group
+  measured 178px against 200px of content width and were clipped by the
+  panel edge when the group beside them arrived, so they are two groups of
+  three, which is also the two questions being asked. Extract notes is the
+  Notes section's one text button. **0 overlapping pairs, 0 controls past
+  the panel's left or right edge, 26 controls visible at once, and the
+  panel scrolls inside itself** (scrollHeight 892 against clientHeight 587).
+- Every id and handler is unchanged; `docks.js` and `touch.js` are
+  unchanged (touch PASS, 0 findings) and `errors.js` is 0 at 1440, 1024,
+  820 and 390.
+
+Not verified: a real touch device, and the align and distribute actions
+themselves (their handlers were not touched, only their buttons' markup).
+
 ## HANDOVER archive, 2026-09-09
 
 ### The Fable session — UI Phases 0-4, skills reform A-B, backend sprint 1, the audit

@@ -716,6 +716,27 @@ progress {
   gap: 0.4rem;
 }
 
+/* **The title and the actions are one flex item each, not four.** Reported
+   "at 100% and 95% zoom on my laptop, the ai answer with the ai model badge
+   and the retry, copy and dictate read out loud buttons are misalligned
+   because of wrap": at 1280px (half the already-narrow chat-grid column) a
+   real model id — "answered by llama3.1:8b-instruct-q4_K_M", nothing exotic
+   — measured wrapping to *three* lines: "AI answer" alone, the badge flush
+   left on its own line, the buttons flush right on a third, none of them
+   aligned with any other. Four independent flex children let the browser
+   fragment them into whatever fit; grouped, `.answer-title` wraps or
+   doesn't as one unit, so the worst case still reads as two rows — title
+   above, actions right-aligned beneath it — never three unrelated ones.
+   `min-width: 0` is required on a flex item for its text content to be
+   allowed to wrap/shrink at all, rather than forcing the row wider. */
+.answer-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 /* A long Ollama model id (e.g. hf.co/…) must wrap, not force the row wider. */
 #answered-by {
   max-width: 100%;

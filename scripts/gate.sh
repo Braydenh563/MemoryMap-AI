@@ -15,7 +15,17 @@
 set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+# An agent worktree has no `.venv` of its own, so resolve the interpreter and
+# ruff from the main checkout when this copy lacks them. Reported by an agent
+# whose ruff step failed for that reason alone, on a tree with nothing wrong
+# with it. `git rev-parse --git-common-dir` names the main repo's .git even
+# from inside a linked worktree, which is what makes the fallback findable
+# without hard-coding a path.
+MAIN="$(cd "$(git -C "$ROOT" rev-parse --git-common-dir 2>/dev/null || echo "$ROOT/.git")/.." && pwd)"
 PY="${PY:-$ROOT/.venv/bin/python}"
+[ -x "$PY" ] || PY="$MAIN/.venv/bin/python"
+RUFF="$ROOT/.venv/bin/ruff"
+[ -x "$RUFF" ] || RUFF="$MAIN/.venv/bin/ruff"
 LOG="${GATE_LOG:-$ROOT/.gate}"
 mkdir -p "$LOG"
 FULL=0; SWEEPS=0; CHANGED=0
@@ -41,7 +51,7 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
 step lints "$PY" -m pytest -q -p no:warnings "${LINTS[@]}"
 node_check() { local bad=0; for f in frontend/*.js; do node --check "$f" || bad=1; done; return $bad; }
 step node-check node_check
-step ruff "$ROOT/.venv/bin/ruff" check .
+step ruff "$RUFF" check .
 # --changed: every changed test file, plus tests/test_<stem>*.py for each
 # changed source or frontend file (routes_files.py -> test_files*.py and
 # test_routes_files*.py; graph.js -> test_graph*.py), for the files changed

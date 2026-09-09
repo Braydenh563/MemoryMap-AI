@@ -19,12 +19,32 @@ that sets a paint attribute on an element carrying a class that the stylesheets
 paint is a fault, and the fix is a class (`.board-minimap-label-light`) or
 `el.style.fill`, both of which sit above the stylesheet.
 
-**Scope, deliberately narrow.** Only `fill` and `stroke`, only where the same
-function assigns a class in the lines just above the attribute, and only for
-classes the CSS paints. That is the shape the bug had, it needs no CSS parser
-and no DOM, and it cannot fire on the many places that set a paint attribute
-on an element with no class at all (`whiteboard.js` does this all over the
-canvas, correctly).
+**Scope, and what it cannot see.** Only `fill` and `stroke`, only where the
+same function assigns a class to that element in the ten lines above the
+attribute, and only for classes the stylesheets paint. The class may be
+assigned conditionally (`setAttribute("class", flag ? "a" : "b")`, a
+`classList.add(a, b)` with several names, a template literal with a suffix
+interpolated into it): every class name spelled out in the assignment is
+checked, because the version that only read a bare string literal walked past
+`mapPreview`'s own coloured block, one function away from the bug that caused
+this file.
+
+What it cannot see is an element with **no** class that a descendant selector
+paints: `.graph-node text { fill: ... }` reaches a `<text>` that names no
+class of its own, and knowing whether a given `createElementNS(..., "text")`
+ends up inside a `.graph-node` means knowing the tree, which a text scan does
+not. Matching on the element name alone was tried and is wrong: the four
+descendant paint rules in the stylesheets (`.board-minimap-ghost path`,
+`.graph-node text`, `.timeline-branch-ticks line`, `.timeline-branch-ticks
+text`) would flag `whiteboard.js`'s alignment guide, a `<line>` painted by
+attribute in a different subtree entirely, and a lint with a false positive in
+it gets widened until it is silent. Nine paint attributes on unclassed
+elements are outside this file's reach for that reason.
+
+That half is checked in a browser instead, where the tree is real:
+`scratchpad/ui-sweeps/paint.js` walks every rendered SVG element carrying a
+`fill` or `stroke` attribute and reports the ones whose computed paint is a
+different colour, which is the same fault from the other end.
 """
 
 from __future__ import annotations
@@ -49,11 +69,30 @@ PAINTS = ("fill", "stroke")
 #: search well before the previous element in the same loop.
 LOOKBACK = 10
 
+#: The three ways this codebase gives an element a class, matched as far as
+#: the closing bracket or the end of the line rather than to one string
+#: literal. `mapPreview` writes `dot.setAttribute("class", item.color ?
+#: "board-minimap-branch" : grey)`, and a pattern that insisted on a literal
+#: right after the comma saw no class there at all and so checked nothing,
+#: three lines above a `fill` attribute. Every name the assignment spells out
+#: is then taken from the captured text by `_class_names`; one built entirely
+#: out of variables is invisible either way, and stays that way.
 CLASS_ASSIGNMENT = re.compile(
-    r"""setAttribute\(\s*["']class["']\s*,\s*["']([^"']+)["']"""
-    r"""|className\s*=\s*["']([^"']+)["']"""
+    r"""setAttribute\(\s*["']class["']\s*,([^)]*)\)"""
+    r"""|className\s*=(?!=)([^;]*)"""
     r"""|classList\.add\(([^)]*)\)"""
 )
+
+#: A string literal inside such an assignment, single-quoted, double-quoted or
+#: a template. A template's interpolations are dropped and its fixed text is
+#: kept: `` `board-minimap-label-${tone}` `` contributes no class name, which
+#: is the honest reading, while `` `${base} graph-label` `` contributes one.
+STRING_LITERAL = re.compile(r"""'([^']*)'|"([^"]*)"|`([^`]*)`""")
+
+#: A template literal's `${...}` while the names around it are read: a
+#: character no class name can contain and no source file holds, so a name
+#: that touches one is recognisable afterwards and thrown away.
+HOLE = "\x01"
 PAINT_ATTRIBUTE = re.compile(
     r"""(\w+)\.setAttribute\(\s*["'](fill|stroke)["']"""
 )
@@ -74,6 +113,33 @@ def _painted_classes() -> dict[str, set[str]]:
                 continue
             painted[paint].update(re.findall(r"\.([A-Za-z][\w-]*)", selector))
     return painted
+
+
+def _class_names(assignment: re.Match[str]) -> list[str]:
+    """Every class name spelled out in one class assignment.
+
+    A name is taken only from a string literal, so a variable holding a class
+    contributes nothing and a template's `${...}` holes contribute nothing:
+    both are simply unknown here, and a lint that guesses at them would be
+    matching on the shape of the code rather than on what it does. Splitting
+    on whitespace is what turns `class="a b"` into two names.
+    """
+    text = " ".join(group for group in assignment.groups() if group)
+    names = []
+    for literal in STRING_LITERAL.finditer(text):
+        value = next(group for group in literal.groups() if group is not None)
+        #: A template's interpolations are holes *inside* a name as often as
+        #: they are whole names: `wb-align-guide-${kind}` is one class whose
+        #: ending is unknown, not the class `wb-align-guide-`. So each hole
+        #: becomes a marker that counts as part of a word, and any name that
+        #: ends up carrying one is dropped rather than reported as a prefix.
+        #: The neighbouring `wb-align-guide-line` in the same literal is still
+        #: read, which is the point of splitting on whitespace at all.
+        marked = re.sub(r"\$\{[^}]*\}", HOLE, value)
+        for name in re.findall(rf"[A-Za-z{HOLE}][\w{HOLE}-]*", marked):
+            if HOLE not in name:
+                names.append(name)
+    return names
 
 
 def _sites_in(source: str, where: str) -> list[tuple[str, int, str, str, str]]:
@@ -99,8 +165,7 @@ def _sites_in(source: str, where: str) -> list[tuple[str, int, str, str, str]]:
             assignment = CLASS_ASSIGNMENT.search(above)
             if not assignment:
                 continue
-            names = " ".join(group for group in assignment.groups() if group)
-            for name in re.findall(r"[A-Za-z][\w-]*", names):
+            for name in _class_names(assignment):
                 found.append((where, number, variable, paint, name))
     return found
 
@@ -136,6 +201,12 @@ SAMPLE = '''
   const text = document.createElementNS(NS, "text");
   text.setAttribute("class", "board-minimap-label");
   text.setAttribute("fill", "#ffffff");
+  const other = document.createElementNS(NS, "text");
+  other.setAttribute("class", tone ? "board-minimap-label" : "quiet");
+  other.setAttribute("fill", "#ffffff");
+  const third = document.createElementNS(NS, "line");
+  third.setAttribute("class", `board-minimap-edge guide-${kind}`);
+  third.setAttribute("stroke", "#ffffff");
 '''
 
 
@@ -157,5 +228,8 @@ def test_the_lint_can_see_the_bug_it_was_written_for():
     )
     caught = _sites_in(SAMPLE, "sample")
     assert [(paint, name) for _, _, _, paint, name in caught] == [
-        ("fill", "board-minimap-label")
+        ("fill", "board-minimap-label"),
+        ("fill", "board-minimap-label"),
+        ("fill", "quiet"),
+        ("stroke", "board-minimap-edge"),
     ], f"the JavaScript scan no longer pairs a class with its paint: {caught}"

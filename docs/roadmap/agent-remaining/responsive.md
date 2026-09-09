@@ -1,68 +1,77 @@
-# Responsive and Liquid Glass: what is left
+# Responsive, Liquid Glass and the dashboard: what is left
 
-**Agent id**: `agent-a93efefdb83c29141` (Brief 21, UI Phases 9 and 10).
-**Stopped**: 2026-09-09, on the owner's usage limit, at a clean tree with
-eight commits, the last `059f8d1` plus a ninth for the mirrored CHANGELOG.
-Nothing is half-edited: every change named below is committed.
+**Agent id**: `agent-a93efefdb83c29141` (Brief 21, UI Phases 9 and 10, then
+the owner's evening batch).
+**Last worked**: 2026-09-09. The worktree is merged up to the branch (the
+CodeMirror editor, the read-only graph layouts and the `place()` menu-height
+fix are all in) and the tree is clean at every commit below.
 
-**The one thing to do first if you are picking this up cold**: this worktree
-was cut before the CodeMirror editor, the read-only graph layouts and the
-`place()` menu-height fix landed on the branch, and it has *not* been rebased
-onto them. Merge the branch in before touching `frontend/css/10-responsive.css`
-again, and do not undo `place()`.
+**What is done**, with its record in `HISTORY.md` ("Moved from the plans,
+2026-09-09"):
 
-**The next step, exactly**: section 2 below (INBOX 102) is a decision to put
-to the owner rather than code to write, so the first piece of building work
-is section 4, INBOX 60, the dashboard start section. Section 5 (the tab
-strip's own row from 600 to 1100) is measured and deliberate, and section 7
-(a keyboard-only pass) is the cheapest unstarted piece.
+- Phase 9's tablet bands and Phase 10 items 100, 101 and 103 (the scroll edge
+  effect, the concentric corner token and its lints, menus opening out of
+  their opener), plus the tab strip fitting its own row from 600 to 820 and
+  44px tab targets below 820.
+- INBOX 94's first three questions: a measured frame cost per background
+  style, Performance mode stopping the art, no seams, and two styles that now
+  hear the intensity slider.
+- INBOX 60, the dashboard's start band: it fills its width, carries a Continue
+  pill and a fortnight sparkline, and every skill pill says when it last ran.
+- The tablet header: icons between 820 and 1100, so it is one row (64px) not
+  two (108px).
+- The keyboard pass per band (`keysbands.js`), PASS at 1440, 1024 and 800.
+- Four of the owner's evening batch: the quick-nav guide and its three new
+  keys, the dashboard's back-to-top threshold, the heatmap's size, and dark
+  glass separating from the page.
 
-Rewritten 2026-09-09 at the end of the Phases 9-and-10 sitting (Brief 21).
-The scope of that sitting was narrowed by the owner mid-session: **the
-desktop and tablet bands only** (>= 1100, 820-1100, 600-820). The phone
-band (< 600) and INBOX 104 were taken out of it entirely and become
-**UI_MODERNISATION_PLAN Phase 11**, a session of its own.
+**The sweeps this work left behind**, all in `scratchpad/ui-sweeps/`:
+`tabfit.js` (does the strip fit, per width), `scrolledge.js` (the scroll edge
+on the right bar), `onglass.js` (text contrast on a blurred surface),
+`bgart.js` (frame cost per background style), `dashstart.js` (the dashboard
+band's used and empty width), `keysbands.js` (the keyboard pass),
+`chordguide.js` (the "m" chord) and `glassdepth.js` (rim and lift in
+composited luminance, both themes).
 
-What that sitting built is in `HISTORY.md`, "Moved from the plans,
-2026-09-09", under UI_MODERNISATION_PLAN: the tab strip fitting its own row
-between 600 and 820, INBOX 100 (the scroll edge effect), 101 (the concentric
-corner token and its two lints) and 103 (menus opening out of their opener).
+**Where to start if you are picking this up cold**: section 2 below is a
+decision for the owner rather than code; section 3 is one open question with
+two failed ways of measuring it recorded; section 6 needs hardware. So the
+first piece of building work left in this file is whatever the orchestrator
+hands you next from the plan's evening batch.
 
 Every number below was measured in Chromium against
-`bash scratchpad/ui-sweeps/serve.sh 8790 /tmp/mm-8790` seeded with `seed.js`.
+`bash scratchpad/ui-sweeps/serve.sh 8795 /tmp/mm-8795` seeded with `seed.js`.
 Re-measure before changing anything.
 
 ## How to reproduce the numbers
 
 ```bash
-bash scratchpad/ui-sweeps/serve.sh 8790 /tmp/mm-8790      # own port, own data dir
-BASE=http://127.0.0.1:8790 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
+bash scratchpad/ui-sweeps/serve.sh 8795 /tmp/mm-8795      # own port, own data dir
+BASE=http://127.0.0.1:8795 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
   node scratchpad/ui-sweeps/seed.js
 BASE=… WIDTHS=1440,1024,820,600 node scratchpad/ui-sweeps/errors.js   # background flag
-BASE=… WIDTHS=600,660,720,819,1024,1440 node scratchpad/ui-sweeps/tabfit.js
-BASE=… node scratchpad/ui-sweeps/scrolledge.js
-BASE=… node scratchpad/ui-sweeps/onglass.js      # and THEME=dark
+BASE=… WIDTHS=600,820,900,1024,1440 node scratchpad/ui-sweeps/tabfit.js
+BASE=… node scratchpad/ui-sweeps/dashstart.js
+BASE=… node scratchpad/ui-sweeps/keysbands.js
+BASE=… node scratchpad/ui-sweeps/chordguide.js
+BASE=… node scratchpad/ui-sweeps/glassdepth.js
 BASE=… node scratchpad/ui-sweeps/contrast.js     # and THEME=dark
-BASE=… WIDTH=390 node scratchpad/ui-sweeps/touch.js
+BASE=… WIDTH=800 HEIGHT=1180 node scratchpad/ui-sweeps/touch.js
 ```
 
-`tabfit.js`, `scrolledge.js` and `onglass.js` are new this sitting.
+`scripts/gate.sh --changed` is the per-step gate. Note that it resolves
+`ruff` from `<worktree>/.venv`, which an agent worktree does not have: symlink
+the main checkout's `.venv` into it (and keep the symlink out of git) or the
+ruff step fails with "No such file or directory".
 
-## The state at the end of it
+## The state at the end of this sitting
 
-- `errors.js`: **0 errors, 0 layout findings at 1440, 1024, 820 and 600**,
-  on the base tree and again after each step. No horizontal page scroll at
-  any of the four.
+- `errors.js`: **0 errors, 0 layout findings at 1440, 1024, 900, 820 and 600**.
 - `contrast.js`: **0 low-contrast items in both themes**, seven tabs and ten
-  Settings sections. This is also the dark-theme pass the previous list
-  asked for (item 10 below is therefore closed for text contrast, and open
-  only for the surfaces a ratio cannot see).
-- `tabfit.js`: green at 600, 660, 720, 819, 1024, 1440.
-- `scrolledge.js`: green on notes, library, timeline, reminders, chat.
-- `touch.js`: **PASS, 0 findings at 800x1180 and 600x1024**, which is the
-  first time it has been pointed at the tablet band rather than the phone.
-  It found the tab buttons at 40px against the band's own 44px rule, and
-  they are 44px now.
+  Settings sections, after the dark-glass change.
+- `tabfit.js`: green at 600, 660, 720, 819, 820, 900, 1024, 1099, 1100, 1440.
+- `keysbands.js`: PASS at 1440, 1024, 800. `chordguide.js`: PASS.
+- `touch.js`: PASS, 0 findings at 800x1180 and 600x1024.
 
 ---
 
@@ -137,27 +146,22 @@ frame, worst frame 166.7ms), and the full-screen wash rectangle in `p.draw`
 dominates every style's cost, which is why halving a population barely shows
 up in the frame time.
 
-## 4. INBOX 60, the dashboard start section
+## 4. INBOX 60, the dashboard start section: built
 
-Untouched this sitting, and it is the largest open item in the plan. The
-recommendation is written on the item and has not been taken: one "Start"
-row that fills the width, the stats as a compact strip with a sparkline for
-the week and the streak, the skills row showing the last-run time and a Run
-button per skill, a "Continue" tile for the last note or document touched,
-with the band's height unchanged. `frontend/dashboard.js` and
-`frontend/css/03-dashboard-widgets.css`.
+In HISTORY.md. The band fills its width (the "Jump to" row went from 34% used
+to 100%, the stats strip from 41% to 100%, the band's height and the first
+widget's position unchanged at 187px and y=613), and every skill pill says
+when it last ran. Nothing is left on the item.
 
-## 5. The tab strip still takes a row of its own from 600 to 1100
+## 5. The tab strip from 600 to 1100: built for the top half of that band
 
-Not a bug, and now deliberate, but worth stating because it is 50px of
-chrome on every tablet and small laptop: the header is 106px at 600 and 720,
-120px at 819 (the 44px targets) and 108px at 1024, against 56px at 1440.
-Measured with `tabfit.js`, the strip needs 498px at 600 and 696px at 1024
-while the space beside the wordmark and the controls is 171px and 521px, so
-it cannot share the row at any width below about 1100 without hiding the
-wordmark, which was reported twice. The only untried lever is icons instead
-of captions from 820 down; measure before believing it, since seven icon
-buttons at 44px plus gaps is already 340px.
+Between 820 and 1100 the tabs are icons with the selected one keeping its
+caption, so the header is 64px rather than 108px. Below 820 it is still two
+rows and that is measured rather than unfinished: the space beside the
+wordmark is 417px at 820 and 171px at 600, and even seven icons plus the
+selected caption need 474px. The only lever left there is hiding the active
+caption too, which buys 44px and costs the one thing in the strip that says
+where you are; it was considered and not taken.
 
 ## 6. A real iPad, and a real on-screen keyboard
 
@@ -169,26 +173,25 @@ without changing the width. `--keyboard-inset` is verified to be written, to
 be `0px` with no keyboard, and to be read by both bottom docks; its
 behaviour with a keyboard up is reasoned, not observed.
 
-## 7. A keyboard-only pass at each band
+## 7. A keyboard-only pass at each band: built
 
-`scratchpad/ui-sweeps/keys.js` exists but has not been run against the
-sheets, the folded arrange zone or the menus' new open animation. Three
-questions it should answer: does focus enter a sheet when it opens and
-return to the toggle on Escape (Escape is wired, focus return only on that
-path); is a sort select inside a closed `<details>` still reachable by Tab;
-and does the roving tabindex still work on the tab strip.
+`scratchpad/ui-sweeps/keysbands.js`, PASS with 0 findings at 1440, 1024 and
+800: the roving tabindex survives the icon strip, a folded dock menu's summary
+is in the tab order and opening it reveals its control, and the sidebar sheet
+opens on Enter, takes focus, closes on Escape and gives focus back to its
+toggle. Not run below 600, which is Phase 11's band.
 
-## 7a. What this sitting built, in one place
+## 7a. The commits, in one place
 
-Eight commits, all on `worktree-agent-a93efefdb83c29141` and merged onto the
-branch: the tab strip fitting its own row from 600 to 820 (`3a2a3e5`), the
-scroll edge effect (`b03692e`), the concentric corner token and its two
-lints (`de53d90`), menus opening out of their opener (`dc3d201`), the docs
-move and INBOX 102's measurements (`38b2b47`), Performance mode stopping the
-background art plus two styles that now hear the intensity slider
-(`0a77e8c`), the 94 record (`9565a75`), and the 44px tab target on a tablet
-(`4ea8fee`, `059f8d1`). New sweeps: `tabfit.js`, `scrolledge.js`,
-`onglass.js`, `bgart.js`.
+`3a2a3e5` the tab strip at 600 to 820 and the new stylesheet, `b03692e` the
+scroll edge effect, `de53d90` the concentric corner token and its lints,
+`dc3d201` menus opening out of their opener, `38b2b47` the docs move and INBOX
+102's numbers, `0a77e8c` Performance mode and the background styles, `9565a75`
+the 94 record, `4ea8fee` and `059f8d1` the 44px tab target, `f46fd4d` the
+changelog mirror and handover, `92effa0` the dashboard band, `50f20e7` skill
+last-run times, `5bd1bd2` the icon tab strip, `c8c2cf6` the keyboard pass,
+`4270f12` back-to-top and heatmap, `409f044` the chord guide and its keys,
+`9932854` dark glass.
 
 ## 8. Found, not fixed
 
@@ -213,8 +216,14 @@ it is not in the lint set.
 - **No real iPad and no on-screen keyboard** (section 6).
 - **The intensity slider's visible effect per step** (section 3): two ways
   of measuring it failed, and the failures are recorded in `bgart.js`.
-- **The full pytest suite was not run to completion** on the final tree.
-  The lint set, ruff, `node --check` and the targeted tests for every file
-  touched are green, and a full run that was in flight when this stopped
-  had reached about 36% with one failure, the mirrored `docs/CHANGELOG.md`,
-  which is fixed in the last commit.
+- **How the dark palette reads on an OLED panel or at another display
+  gamma.** Every figure in `glassdepth.js` is Chromium's compositor on this
+  machine.
+- **Whether the owner's own dashboard was simply too short to have 400px to
+  scroll**, or whether `coversAFormPrimary` was hiding the back-to-top button
+  behind a widget's primary action. Both remain possible causes of that
+  report and neither reproduces here.
+- **The full pytest suite has not been run to completion** on this tree, by
+  the owner's own rule (it is ten to fifteen minutes and CI runs it on every
+  push). `scripts/gate.sh --changed` is green at every commit, which is the
+  lint set, `node --check`, ruff and the tests naming the files touched.

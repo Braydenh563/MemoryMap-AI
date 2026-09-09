@@ -464,6 +464,23 @@ A bug-fix and consistency release, from one long round of live reports.
   preview view; sticky rows painted a hard rectangle over their own card.
 
 ### Changed
+- **The dashboard's top band uses its whole width**: a Continue pill that takes
+  you back to the note you were last in, and a fortnight of activity drawn
+  beside the counts, where two thirds of two rows used to be empty.
+- **Every skill on the dashboard says when it last ran**, so you know before
+  spending a model call.
+- **Pressing "m" shows a full-screen guide** to what the next key does, instead
+  of a notification that wrapped mid-word, and three more keys do things:
+  settings, a quick sketch and meeting notes.
+- **The activity heatmap is legible**: it starts full width, and its squares are
+  four times the size.
+- **Back to top appears sooner on the dashboard**, which is the page you scroll
+  furthest down.
+- **Glass reads like glass in dark mode.** A card sat at almost exactly the
+  page's own brightness, so the blur had nothing to separate it from; it now
+  sits above it, measured.
+- **On a small laptop or an iPad the tabs are icons**, so the header is one row
+  again rather than two, and every tab is still one press away.
 - **A bar with content moving under it says so.** The top bar, a dock or a
   sub-tab strip fades a soft edge beneath itself while the list under it is
   scrolled, and paints nothing at rest.

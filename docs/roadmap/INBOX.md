@@ -537,6 +537,37 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     updated for the split; boot stays synchronous for app.js and the
     guards). Expected: the parse cost of about 1.3 MB of JavaScript leaves
     the startup path. Owner: Opus. Size M.
+61. **Fixed 2026-09-09 (Fable): the Help & guide topics box sat flush
+    against the "Ask the guide" box** (screenshot, 01:12); one group gap
+    between them now.
+62. **"The documents formatting toolbar is gone."** Intentional, DOCUMENTS
+    Phase 1: the strip is opt-in through the editor's ⋯ menu, "Always show
+    formatting", and Phase 2 makes the floating selection toolbar the
+    formatting UI. Nothing to fix; if the owner wants the strip on by
+    default, flip the default in one line (documents.js `docToolbarMode`).
+63. **Redesign the Ask sub-tab, Write with the AI and Capture** (three
+    screenshots, 01:12; the owner: "modernise them and bring them up to
+    standard with features, function and ui ux"). Owner: Opus, next slot,
+    one brief (CHAT_PLAN's INBOX 45 folds in). Decisions: Capture keeps
+    its one-column form but the title, the formatting strip and the box
+    become one framed field (title as the first line, strip inside the
+    frame's top edge, no separate rounded strip), the six action buttons
+    collapse to Attach + Dictate + Improve with From library and Sketch
+    under Attach, the "Add to document" and "File under" selects move to
+    one settings row under the box with the space note, Save primary and
+    "Save as draft" ghost; a live "N words · reading time" in the foot;
+    Ctrl+Enter saves. Write with the AI becomes a two-pane editor with
+    one shared toolbar (Draft it primary; Undo, Extract notes, Discard
+    ghost; tone and length as a segmented control instead of a free
+    text hint, with the hint field behind it), the draft pane in the
+    body font not monospace, a word count per pane, and the tag field
+    beside Save. Ask keeps its layout and gets: the AI answer and the
+    matching records as two equal-height columns with their own scroll,
+    the answer box unframed (one panel, not a card in a card), the
+    "Ask again" chips as a scrolling row, a "Sources" foot listing every
+    grounded note with confidence, an Answer style segment (Brief,
+    Detailed, Bullets) replacing the select, keyboard: Enter asks,
+    Shift+Enter newline, Esc clears; the settings popover keeps its id.
 60. **Dashboard "Jump to / Run a skill / stat tiles" section** (screenshot,
     00:58; the owner: "could do with an upgrade and better design, utility,
     features"): three pill links, three skill pills with dashed borders, four

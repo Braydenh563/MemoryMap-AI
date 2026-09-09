@@ -1676,3 +1676,11 @@ summary > .ph-lead,
 .doc-dock-menu-list .doc-dock-menu-check:has(input:checked) {
   background: none;
 }
+
+/* --- Help & guide: the topics box and the "Ask the guide" box are two
+   groups, and read as one until there was air between them. Reported with a
+   screenshot: "there's no gap between the ask the guide box and help
+   dropdowns panel". The group gap every other Settings section uses. */
+.help-accordion + .help-chat-group {
+  margin-top: var(--space-6);
+}

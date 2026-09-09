@@ -2423,6 +2423,7 @@ async function wbRefreshMapState() {
   try {
     const tree = await apiJson(`/whiteboard/boards/${boardId}/tree`, { silent: true });
     const labels = new Map();
+    const facets = new Map();
     // Iterative and seen-guarded: `parent_id` has no database constraint
     // behind it (§9.1), so a ring is possible in principle and has to end this
     // walk rather than the tab.
@@ -2433,12 +2434,23 @@ async function wbRefreshMapState() {
       if (!node || seen.has(node.id)) continue;
       seen.add(node.id);
       labels.set(node.id, node.text || "");
+      //: What the notebook knows about the note behind this node, for the
+      //: perspectives (§5 item 19). Only reference nodes have any, and only
+      //: the server can resolve it, so it rides along with the labels rather
+      //: than being a second request per node.
+      if (node.ref_category || node.ref_updated_at) {
+        facets.set(node.id, {
+          category: node.ref_category || null,
+          updated_at: node.ref_updated_at || null,
+        });
+      }
       frontier.push(...(node.children || []));
     }
     window.wbMapState = {
       type: tree.type,
       layout: tree.layout,
       labels,
+      facets,
       crossLinks: tree.cross_links || [],
     };
   } catch {
@@ -2448,6 +2460,611 @@ async function wbRefreshMapState() {
     window.wbMapState = null;
   }
   return window.wbMapState;
+}
+
+// --- Phase 5: perspectives, focus, metrics, templates ------------------------
+//
+//: MINDMAP_PLAN.md §5 items 18 to 21. Four things that make a map worth
+//: keeping rather than worth making, and all four are *views* of the same
+//: tree: none of them changes a node, and nothing here writes to the server
+//: except a template, which creates nodes exactly as the keyboard does.
+//:
+//: They live together because they share one idea. A map's own structure is
+//: all the canvas knew: which node is whose child, and what each is called.
+//: The notebook knows more than that about half the nodes, what they are
+//: filed under and when they were last touched, and item 19's own note says
+//: this is "the thing a general mindmapper cannot do". `wbMapState.facets`
+//: is that knowledge, resolved server-side in `/tree` (a reference node's
+//: category and age) and never guessed here.
+
+//: What a node's colour means. Branch is Coggle's rule and the default: the
+//: other three answer a question about the notebook instead.
+const WB_MAP_PERSPECTIVES = [
+  { key: "branch", label: "Branch", hint: "Coggle's own rule: one colour per first-level branch" },
+  { key: "category", label: "Category", hint: "The category each note behind a node is filed under" },
+  { key: "age", label: "Age", hint: "When the note behind each node was last edited" },
+  { key: "notes", label: "Behind a note", hint: "Which nodes stand for a real note and which are just topics" },
+];
+
+//: Kept in the browser, not on the board: a perspective is how *you* are
+//: looking at a map right now, not a property of the map, and two people
+//: opening the same notebook should not change each other's view. Same
+//: reasoning as the Library's Cards/Rows preference, which is stored the same
+//: way.
+function wbMapPerspective() {
+  try {
+    const stored = localStorage.getItem("wbMapPerspective");
+    return WB_MAP_PERSPECTIVES.some((p) => p.key === stored) ? stored : "branch";
+  } catch {
+    return "branch";
+  }
+}
+
+function wbMapSetPerspective(key) {
+  try {
+    localStorage.setItem("wbMapPerspective", key);
+  } catch {
+    // A browser with storage switched off still gets the view it asked for
+    // for this session; it just will not be remembered.
+  }
+  wbSyncMapChrome();
+  renderWhiteboardNow();
+}
+
+//: The categories and ages the tree endpoint resolved, by node id. Empty for
+//: every topic (a topic has nothing behind it) and for a private note, whose
+//: facts stay behind the same boundary its text does.
+function wbMapFacets() {
+  return window.wbMapState?.facets || new Map();
+}
+
+//: Age, in the four buckets a person actually thinks in. Not a continuous
+//: ramp: "how old is this" is answered as today / this week / this month /
+//: older, and a gradient over six months makes two notes a fortnight apart
+//: look identical anyway.
+const WB_MAP_AGE_BUCKETS = [
+  { key: "today", label: "Today", days: 1 },
+  { key: "week", label: "This week", days: 7 },
+  { key: "month", label: "This month", days: 31 },
+  { key: "older", label: "Older", days: Infinity },
+];
+
+function wbMapAgeBucket(iso) {
+  if (!iso) return null;
+  const then = Date.parse(iso.endsWith("Z") || iso.includes("+") ? iso : `${iso}Z`);
+  if (Number.isNaN(then)) return null;
+  const days = (Date.now() - then) / 86400000;
+  return WB_MAP_AGE_BUCKETS.find((bucket) => days < bucket.days) || WB_MAP_AGE_BUCKETS[3];
+}
+
+//: The palette every perspective draws from, `d3.schemeTableau10`, which is
+//: what branch colour already uses and what `graph.js` colours clusters with.
+//: One scale for the whole app rather than a second list of hex per view.
+function wbMapPalette() {
+  return (window.d3?.schemeTableau10 || []).slice(0, 10);
+}
+
+//: A grey for "this node has nothing to say under this perspective": a topic
+//: with no note behind it, or a note whose category is unknown. Read off the
+//: stylesheet rather than written here, so it follows the theme: a hard-coded
+//: grey is invisible in dark mode, which is the failure `--wb-branch` was
+//: introduced to avoid.
+function wbMapQuietColour() {
+  const style = getComputedStyle(document.documentElement);
+  return (style.getPropertyValue("--muted") || "#8a8f98").trim();
+}
+
+//: Every node's colour under the current perspective, `Map<id, colour>`, the
+//: same shape `wbMapColors` returns, so the renderer, the edge pass and the
+//: export all keep taking one map and asking it for a colour.
+function wbMapNodeColors(index) {
+  const perspective = wbMapPerspective();
+  if (perspective === "branch") return wbMapColors(index);
+  const facets = wbMapFacets();
+  const palette = wbMapPalette();
+  const quiet = wbMapQuietColour();
+  const colors = new Map();
+
+  if (perspective === "notes") {
+    for (const node of index.nodes) {
+      colors.set(node.id, WB_MAP_REFERENCE_KINDS.has(node.kind) ? palette[0] : quiet);
+    }
+    return colors;
+  }
+  if (perspective === "age") {
+    for (const node of index.nodes) {
+      const bucket = wbMapAgeBucket(facets.get(node.id)?.updated_at);
+      const at = bucket ? WB_MAP_AGE_BUCKETS.indexOf(bucket) : -1;
+      // Newest darkest: `schemeBlues[4]` runs light to dark, so the index is
+      // read from the end. More ink on the thing you touched today is the
+      // reading a ramp is for.
+      const blues = window.d3?.schemeBlues?.[4];
+      colors.set(node.id, at < 0 || !blues ? quiet : blues[blues.length - 1 - at]);
+    }
+    return colors;
+  }
+  // Category. The order is the order they appear walking the tree, so the
+  // same map draws the same colours twice running.
+  const seen = new Map();
+  for (const node of index.nodes) {
+    const name = facets.get(node.id)?.category;
+    if (!name) {
+      colors.set(node.id, quiet);
+      continue;
+    }
+    if (!seen.has(name)) seen.set(name, palette[seen.size % palette.length] || quiet);
+    colors.set(node.id, seen.get(name));
+  }
+  return colors;
+}
+
+//: What the colours mean, on screen, while they are on screen. A view that
+//: recolours a map and does not say what the colours are is a puzzle: the
+//: legend is the difference between "these are blue" and "these were edited
+//: this week".
+function wbRenderMapLegend(passed = null) {
+  const box = document.getElementById("wb-map-legend");
+  if (!box) return;
+  const perspective = wbMapPerspective();
+  if (!wbIsMap() || perspective === "branch") {
+    box.hidden = true;
+    box.replaceChildren();
+    return;
+  }
+  const index = passed || wbMapIndex();
+  const facets = wbMapFacets();
+  const palette = wbMapPalette();
+  const quiet = wbMapQuietColour();
+  const rows = [];
+  if (perspective === "notes") {
+    rows.push({ label: "Stands for a note", colour: palette[0] });
+    rows.push({ label: "A topic of its own", colour: quiet });
+  } else if (perspective === "age") {
+    const blues = window.d3?.schemeBlues?.[4] || [];
+    WB_MAP_AGE_BUCKETS.forEach((bucket, at) => {
+      rows.push({ label: bucket.label, colour: blues[blues.length - 1 - at] || quiet });
+    });
+    rows.push({ label: "No note behind it", colour: quiet });
+  } else {
+    const seen = new Map();
+    for (const node of index.nodes) {
+      const name = facets.get(node.id)?.category;
+      if (!name || seen.has(name)) continue;
+      seen.set(name, palette[seen.size % palette.length] || quiet);
+    }
+    for (const [name, colour] of seen) rows.push({ label: name, colour });
+    rows.push({ label: "No note behind it", colour: quiet });
+  }
+
+  const title = document.createElement("span");
+  title.className = "wb-map-legend-title";
+  title.textContent = `Colour: ${WB_MAP_PERSPECTIVES.find((p) => p.key === perspective)?.label || perspective}`;
+  const list = document.createElement("div");
+  list.className = "wb-map-legend-rows";
+  for (const row of rows) {
+    const line = document.createElement("span");
+    line.className = "wb-map-legend-row";
+    const swatch = document.createElement("i");
+    swatch.className = "wb-map-legend-swatch";
+    swatch.setAttribute("aria-hidden", "true");
+    // Through the CSSOM, not an inline `style` attribute in markup: the CSP
+    // drops those (CLAUDE.md, "a policy silently refusing the work").
+    swatch.style.background = row.colour;
+    const text = document.createElement("span");
+    text.textContent = row.label;
+    line.append(swatch, text);
+    list.appendChild(line);
+  }
+  box.replaceChildren(title, list);
+  box.hidden = false;
+}
+
+//: **Focus** (§5 item 18, Kumu's): start at one node and reveal the map a
+//: step at a time, so a map of two hundred nodes can be read as the six that
+//: matter right now.
+//:
+//: Never persisted, unlike the perspective above: focus is a gesture inside
+//: one reading of a map, and coming back tomorrow to a map that only shows
+//: four of its nodes, with no memory of having asked for that, is a map that
+//: looks broken.
+let wbMapFocusState = null;
+
+//: How far focus reaches by default. One step shows the node, its parent and
+//: its children, which is the smallest view that still says where you are.
+const WB_MAP_FOCUS_DEFAULT_DEPTH = 1;
+const WB_MAP_FOCUS_MAX_DEPTH = 6;
+
+//: Everything focus is hiding: every node more than `depth` steps from the
+//: focused one, counting parents, children *and* cross-links.
+//:
+//: Cross-links count because a map's own answer to "what is near this" cannot
+//: exclude the edges the user drew to say exactly that; and the walk is a
+//: plain breadth-first one over an undirected view of the tree, because
+//: "near" is not a direction.
+function wbMapFocusHidden(index) {
+  const hidden = new Set();
+  if (!wbMapFocusState) return hidden;
+  const start = index.byId.get(wbMapFocusState.id);
+  if (!start) {
+    // The focused node was deleted while focus was on. Clearing it here
+    // rather than leaving an empty canvas: a view pinned to something that no
+    // longer exists shows nothing and explains nothing.
+    wbMapFocusState = null;
+    return hidden;
+  }
+  const near = new Map([[start.id, 0]]);
+  const queue = [start.id];
+  const crossed = new Map();
+  for (const link of window.wbMapState?.crossLinks || []) {
+    if (!crossed.has(link.source_id)) crossed.set(link.source_id, []);
+    if (!crossed.has(link.target_id)) crossed.set(link.target_id, []);
+    crossed.get(link.source_id).push(link.target_id);
+    crossed.get(link.target_id).push(link.source_id);
+  }
+  while (queue.length) {
+    const id = queue.shift();
+    const step = near.get(id);
+    if (step >= wbMapFocusState.depth) continue;
+    const node = index.byId.get(id);
+    const neighbours = [
+      ...(index.childrenOf.get(id) || []).map((child) => child.id),
+      ...(node?.parent_id != null && index.byId.has(node.parent_id) ? [node.parent_id] : []),
+      ...(crossed.get(id) || []),
+    ];
+    for (const next of neighbours) {
+      if (near.has(next) || !index.byId.has(next)) continue;
+      near.set(next, step + 1);
+      queue.push(next);
+    }
+  }
+  for (const node of index.nodes) {
+    if (!near.has(node.id)) hidden.add(node.id);
+  }
+  return hidden;
+}
+
+//: Everything not on screen: a collapsed branch, and whatever focus is
+//: holding back. One function so the renderer, the arrow keys and the edge
+//: pass cannot disagree about what is visible, which is how a key once moved
+//: the selection to a node nobody could see.
+function wbMapConcealed(index) {
+  // A copy, not the set `wbMapHidden` returned: adding focus's own hidden ids
+  // to that one would be this function editing another function's answer.
+  const concealed = new Set(wbMapHidden(index));
+  for (const id of wbMapFocusHidden(index)) concealed.add(id);
+  return concealed;
+}
+
+function wbMapSetFocus(id, depth = WB_MAP_FOCUS_DEFAULT_DEPTH) {
+  const index = wbMapIndex();
+  if (!index.byId.has(id)) return;
+  wbMapFocusState = { id, depth: Math.max(1, Math.min(WB_MAP_FOCUS_MAX_DEPTH, depth)) };
+  wbSyncMapFocusChrome();
+  renderWhiteboardNow();
+}
+
+function wbMapClearFocus() {
+  if (!wbMapFocusState) return;
+  wbMapFocusState = null;
+  wbSyncMapFocusChrome();
+  renderWhiteboardNow();
+}
+
+function wbMapStepFocus(by) {
+  if (!wbMapFocusState) return;
+  wbMapSetFocus(wbMapFocusState.id, wbMapFocusState.depth + by);
+}
+
+//: The focus bar: what is focused, how far it reaches, and the way out.
+//:
+//: Over the canvas rather than in the top bar, beside the gesture hints, for
+//: two reasons: the bar is already fifteen controls wide, and a state this
+//: strong (most of the map is not being drawn) has to be visible *where the
+//: map is*, not in a strip above it that the eye has learned to skip.
+function wbSyncMapFocusChrome(passed = null) {
+  const bar = document.getElementById("wb-map-focus");
+  if (!bar) return;
+  if (!wbIsMap() || !wbMapFocusState) {
+    bar.hidden = true;
+    return;
+  }
+  const label = document.getElementById("wb-map-focus-label");
+  const depth = document.getElementById("wb-map-focus-depth");
+  const index = passed || wbMapIndex();
+  const node = index.byId.get(wbMapFocusState.id);
+  const name = node ? wbMapLabel(node) : "";
+  if (label) label.textContent = name.length > 40 ? `${name.slice(0, 39)}…` : name;
+  const shown = index.nodes.length - wbMapFocusHidden(index).size;
+  if (depth) {
+    depth.textContent = `${wbMapFocusState.depth} step${wbMapFocusState.depth === 1 ? "" : "s"}, ${shown} of ${index.nodes.length} nodes`;
+  }
+  bar.hidden = false;
+}
+
+//: **Map metrics** (§5 item 20), and only the honest ones. Node count, depth
+//: and how much of the map stands for something real are facts about this
+//: tree; "influence" and the rest of the centrality family need a graph with
+//: cycles in it to mean anything, so the one graph measure here is the count
+//: of cross-links, which is the thing that makes a map a network at all.
+//:
+//: An orphan branch is a root that is not the *first* root: a map has one
+//: trunk by construction (the creation flow makes one), so a second root is
+//: either deliberate or a node that lost its parent, and either way it is
+//: worth being told about rather than left to be noticed.
+function wbMapStats(index) {
+  const facets = wbMapFacets();
+  let deepest = 0;
+  const depthOf = new Map();
+  for (const root of index.roots) {
+    const stack = [[root, 1]];
+    while (stack.length) {
+      const [node, depth] = stack.pop();
+      if (depthOf.has(node.id)) continue;
+      depthOf.set(node.id, depth);
+      deepest = Math.max(deepest, depth);
+      for (const child of index.childrenOf.get(node.id) || []) stack.push([child, depth + 1]);
+    }
+  }
+  const references = index.nodes.filter((n) => WB_MAP_REFERENCE_KINDS.has(n.kind));
+  const leaves = index.nodes.filter((n) => !(index.childrenOf.get(n.id) || []).length);
+  const widest = index.nodes.reduce(
+    (best, node) => {
+      const kids = (index.childrenOf.get(node.id) || []).length;
+      return kids > best.kids ? { node, kids } : best;
+    },
+    { node: null, kids: 0 }
+  );
+  const filed = new Set();
+  for (const node of index.nodes) {
+    const name = facets.get(node.id)?.category;
+    if (name) filed.add(name);
+  }
+  return {
+    nodes: index.nodes.length,
+    topics: index.nodes.length - references.length,
+    references: references.length,
+    depth: deepest,
+    roots: index.roots.length,
+    orphans: Math.max(0, index.roots.length - 1),
+    leaves: leaves.length,
+    crossLinks: (window.wbMapState?.crossLinks || []).length,
+    collapsed: index.nodes.filter((n) => n.data?.collapsed).length,
+    categories: filed.size,
+    widest: widest.node ? { label: wbMapLabel(widest.node), kids: widest.kids } : null,
+  };
+}
+
+function wbShowMapStats() {
+  if (!wbIsMap()) {
+    toast("Stats are about a map's tree: this board is a free canvas.");
+    return;
+  }
+  const stats = wbMapStats(wbMapIndex());
+  const rows = [
+    ["Nodes", `${stats.nodes} (${stats.references} from the library, ${stats.topics} topics of their own)`],
+    ["Depth", `${stats.depth} level${stats.depth === 1 ? "" : "s"}`],
+    ["Ends", `${stats.leaves} node${stats.leaves === 1 ? "" : "s"} with nothing under them`],
+    ["Widest branch", stats.widest ? `${stats.widest.label} (${stats.widest.kids} children)` : "None yet"],
+    ["Cross-links", `${stats.crossLinks}`],
+    ["Categories behind it", `${stats.categories}`],
+    ["Collapsed", `${stats.collapsed}`],
+  ];
+  if (stats.orphans) {
+    rows.push([
+      "Loose roots",
+      `${stats.orphans} branch${stats.orphans === 1 ? "" : "es"} not hanging off the first one`,
+    ]);
+  }
+  const body = document.createElement("dl");
+  body.className = "wb-map-stats";
+  for (const [term, value] of rows) {
+    const name = document.createElement("dt");
+    name.textContent = term;
+    const said = document.createElement("dd");
+    said.textContent = value;
+    body.append(name, said);
+  }
+  wbInfoDialog("What this map is made of", body);
+}
+
+//: A read-only dialog: a title, a block of content, one way out.
+//:
+//: `confirmDialog` is the app's dialog for a *question*, and its shape says
+//: so: a sentence and two buttons, one of them destructive by default.
+//: Reporting facts through it would put an OK and a Cancel under a table of
+//: numbers, which asks the reader what they are agreeing to.
+function wbInfoDialog(title, body) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay confirm-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", title);
+  const card = document.createElement("div");
+  card.className = "card modal-card confirm-card";
+  const head = document.createElement("div");
+  head.className = "row confirm-head";
+  const heading = document.createElement("h3");
+  heading.className = "confirm-title";
+  heading.textContent = title;
+  head.appendChild(heading);
+  const row = document.createElement("div");
+  row.className = "row confirm-actions";
+  const returnFocus = document.activeElement;
+  const close = () => {
+    document.removeEventListener("keydown", onKey, true);
+    overlay.remove();
+    returnFocus?.focus?.();
+  };
+  const onKey = (event) => {
+    if (event.key !== "Escape") return;
+    event.stopPropagation();
+    close();
+  };
+  row.append(smallButton("Close", "Close", close, false));
+  card.append(head, body, row);
+  overlay.appendChild(card);
+  wireBackdropClose(overlay, close);
+  document.addEventListener("keydown", onKey, true);
+  document.body.appendChild(overlay);
+}
+
+//: **Templates** (§5 item 21). The plan's reason, quoted: "an empty canvas is
+//: the main reason mindmap features go unused."
+//:
+//: Offered on the canvas of a map that has nothing but its root, and never
+//: again after that: this is the one moment the offer helps, and a panel that
+//: kept appearing over a map someone was building would be the opposite of
+//: helpful. Dismissing it is remembered per board.
+//:
+//: Each template is a plain nested list, applied by creating nodes through
+//: the same endpoint Tab uses. No new endpoint and no server-side template
+//: table: a template *is* a few Tab presses, and writing it as data here
+//: keeps it that way.
+const WB_MAP_TEMPLATES = [
+  {
+    key: "brainstorm",
+    label: "Brainstorm",
+    hint: "Ideas, questions and what to do next",
+    nodes: [
+      { text: "Ideas", children: [{ text: "First idea" }] },
+      { text: "Questions", children: [{ text: "What do I not know yet?" }] },
+      { text: "Themes" },
+      { text: "Next steps" },
+    ],
+  },
+  {
+    key: "decision",
+    label: "Decision",
+    hint: "Options, what they cost, and what would change your mind",
+    nodes: [
+      { text: "Options", children: [{ text: "Option A" }, { text: "Option B" }] },
+      { text: "What matters", children: [{ text: "Cost" }, { text: "Time" }] },
+      { text: "Risks" },
+      { text: "What would change my mind" },
+    ],
+  },
+  {
+    key: "project",
+    label: "Project",
+    hint: "Goal, milestones, tasks and who is involved",
+    nodes: [
+      { text: "Goal" },
+      { text: "Milestones", children: [{ text: "First milestone" }] },
+      { text: "Tasks" },
+      { text: "People" },
+      { text: "Risks" },
+    ],
+  },
+  {
+    key: "causes",
+    label: "Cause and effect",
+    hint: "Ishikawa's four: people, process, tools, surroundings",
+    nodes: [
+      { text: "People" },
+      { text: "Process" },
+      { text: "Tools" },
+      { text: "Surroundings" },
+      { text: "What actually happened" },
+    ],
+  },
+];
+
+//: The three panels, resynced together.
+//:
+//: Called from the render as well as from `wbSyncMapChrome`, because all three
+//: describe the map as it is *now*: the template offer has to go the moment a
+//: second node exists, the legend has to grow a row when a node arrives from a
+//: category nothing else on the map is filed under, and the focus bar counts
+//: nodes. Syncing them only on board load left the offer sitting over a map
+//: someone had already started building.
+//:
+//: `index` is passed in where the caller already has one: `wbMapIndex` walks
+//: every object, and the render has just done that.
+function wbSyncMapViews(index = null) {
+  wbSyncMapFocusChrome(index);
+  wbRenderMapLegend(index);
+  wbRenderMapTemplates();
+  wbSyncMapTemplates(index);
+}
+
+function wbMapTemplatesDismissedKey(boardId) {
+  return `wbMapTemplatesDone:${boardId}`;
+}
+
+//: Shown when the map is still just its root, which is exactly when a
+//: starting shape is worth offering and never after.
+function wbSyncMapTemplates(passed = null) {
+  const panel = document.getElementById("wb-map-templates");
+  if (!panel) return;
+  const boardId = window.currentBoardId;
+  let dismissed = false;
+  try {
+    dismissed = Boolean(boardId && localStorage.getItem(wbMapTemplatesDismissedKey(boardId)));
+  } catch {
+    dismissed = false;
+  }
+  const index = wbIsMap() ? passed || wbMapIndex() : null;
+  // Not while focus is on: they share the strip under the top bar, and a map
+  // being read one branch at a time is not a map anyone wants a starting shape
+  // for.
+  panel.hidden = !index || dismissed || Boolean(wbMapFocusState) || index.nodes.length > 1;
+}
+
+function wbDismissMapTemplates() {
+  try {
+    if (window.currentBoardId) {
+      localStorage.setItem(wbMapTemplatesDismissedKey(window.currentBoardId), "1");
+    }
+  } catch {
+    // Not remembering the dismissal is a smaller failure than refusing to
+    // dismiss it, so this is deliberately silent.
+  }
+  wbSyncMapTemplates();
+}
+
+//: Fill the map from a template, under whatever root it already has.
+//:
+//: Sequential rather than parallel on purpose: every child needs its parent's
+//: real id, and a template is a dozen nodes at most, so this is a fraction of
+//: a second either way and the order the nodes land in is the order they are
+//: written here.
+async function wbApplyMapTemplate(key) {
+  const template = WB_MAP_TEMPLATES.find((t) => t.key === key);
+  if (!template || !wbIsMap()) return;
+  const index = wbMapIndex();
+  const root = index.roots[0] || null;
+  let made = 0;
+  const place = async (nodes, parentId) => {
+    for (const node of nodes) {
+      const created = await wbMapCreateNode({ parentId, text: node.text });
+      if (!created) return;
+      made += 1;
+      if (node.children?.length) await place(node.children, created.id);
+    }
+  };
+  await place(template.nodes, root ? root.id : null);
+  wbDismissMapTemplates();
+  await wbRefreshMapState();
+  await wbMapTidy({ quiet: true });
+  renderWhiteboardNow();
+  toast(`Started from the ${template.label.toLowerCase()} template: ${made} nodes.`);
+}
+
+//: The template panel's own buttons, built once from the list above so a
+//: fifth template is one entry rather than one entry and one button.
+function wbRenderMapTemplates() {
+  const row = document.getElementById("wb-map-template-row");
+  if (!row || row.childElementCount) return;
+  for (const template of WB_MAP_TEMPLATES) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ghost small";
+    button.dataset.wbTemplate = template.key;
+    button.textContent = template.label;
+    button.title = template.hint;
+    button.addEventListener("click", () => wbApplyMapTemplate(template.key));
+    row.appendChild(button);
+  }
 }
 
 //: The board's map nodes as a tree, rebuilt from `wbState.objects`.
@@ -2926,8 +3543,8 @@ function wbRenderMapEdges() {
     zoomGroup.insertBefore(group, zoomGroup.firstChild);
   }
   const index = wbMapIndex();
-  const colors = wbMapColors(index);
-  const hidden = wbMapHidden(index);
+  const colors = wbMapNodeColors(index);
+  const hidden = wbMapConcealed(index);
   const layout = wbMapLayout();
   const NS = "http://www.w3.org/2000/svg";
   const next = [];
@@ -3128,7 +3745,7 @@ function wbMapNavigate(id, key) {
   const index = wbMapIndex();
   const node = index.byId.get(id);
   if (!node) return false;
-  const hidden = wbMapHidden(index);
+  const hidden = wbMapConcealed(index);
   const siblings = node.parent_id != null && index.byId.has(node.parent_id)
     ? index.childrenOf.get(node.parent_id) || []
     : index.roots;
@@ -3619,6 +4236,20 @@ function wbSyncMapChrome() {
     picker.hidden = !isMap;
     picker.value = wbMapLayout();
   }
+  //: Phase 5's own chrome. All of it is a *view* of the map, so it is synced
+  //: from the same place the layout picker is rather than from wherever each
+  //: happened to be changed: the failure this avoids is a control that reports
+  //: a state the canvas disagrees with.
+  const perspective = document.getElementById("wb-map-perspective");
+  if (perspective) {
+    perspective.value = wbMapPerspective();
+    const row = perspective.closest(".wb-menu-row");
+    if (row) row.hidden = !isMap;
+  }
+  const statsRow = document.getElementById("wb-map-stats-item");
+  if (statsRow) statsRow.hidden = !isMap;
+  if (!isMap && wbMapFocusState) wbMapFocusState = null;
+  wbSyncMapViews();
 }
 
 //: Change the layout, then lay the map out in it. Changing a layout without
@@ -4132,6 +4763,9 @@ function wbBuildContextMenu(kind) {
     item("Add from the library…", "Point a new child at a note, document, file or link", () =>
       wbMapAddReference(mapNode.id)
     );
+    //: Focus (§5 item 18). On the node's own menu because focus is about one
+    //: node: "show me around here" is a thing you say pointing at something.
+    item("Focus here", "F", () => wbMapSetFocus(mapNode.id));
   }
   // Asked for directly. Available for every kind, a sketch reorders
   // against other sketches, a card/object against both (wbZOrderPeers'
@@ -4776,7 +5410,7 @@ function wbBuildExportSvg(scope) {
   // canvas), so cloning them is exact and cannot disagree with what is on
   // screen. First in the list, so they sit under every node.
   const exportMapIndex = wbIsMap() ? wbMapIndex() : null;
-  const exportMapColors = exportMapIndex ? wbMapColors(exportMapIndex) : null;
+  const exportMapColors = exportMapIndex ? wbMapNodeColors(exportMapIndex) : null;
   if (exportMapIndex) {
     for (const edge of document.querySelectorAll(".wb-map-edges .wb-map-edge")) {
       const clone = edge.cloneNode(true);
@@ -5471,6 +6105,17 @@ async function initWhiteboard() {
   $("wb-new-board")?.addEventListener("click", createNewBoard);
   $("wb-rename-board")?.addEventListener("click", renameCurrentBoard);
   $("wb-map-layout")?.addEventListener("change", (e) => wbMapSetLayout(e.target.value));
+  //: Phase 5's controls (§5 items 18 to 21). Wired here with the rest of the
+  //: board chrome rather than inside their own render functions, which is the
+  //: shape `tests/test_frontend_handlers.py` exists to keep: a listener added
+  //: where an element is drawn is a listener added again every time it is
+  //: redrawn.
+  $("wb-map-perspective")?.addEventListener("change", (e) => wbMapSetPerspective(e.target.value));
+  $("wb-map-stats-item")?.addEventListener("click", wbShowMapStats);
+  $("wb-map-focus-less")?.addEventListener("click", () => wbMapStepFocus(-1));
+  $("wb-map-focus-more")?.addEventListener("click", () => wbMapStepFocus(1));
+  $("wb-map-focus-clear")?.addEventListener("click", wbMapClearFocus);
+  $("wb-map-templates-dismiss")?.addEventListener("click", wbDismissMapTemplates);
   $("wb-map-tidy")?.addEventListener("click", async () => {
     const moved = await wbMapTidy({ quiet: true });
     toast(moved
@@ -6661,6 +7306,16 @@ async function initWhiteboard() {
       if (e.key === "F2") {
         e.preventDefault();
         wbMapEditNode(mapNode.id);
+        return;
+      }
+      //: F focuses here, and F again lets the whole map back (§5 item 18).
+      //: One key for both directions because focus is a mode you look through
+      //: rather than a thing you set: the way out has to be as cheap as the
+      //: way in, or people stop using it.
+      if ((e.key === "f" || e.key === "F") && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        if (wbMapFocusState && wbMapFocusState.id === mapNode.id) wbMapClearFocus();
+        else wbMapSetFocus(mapNode.id);
         return;
       }
       if ((e.key === "Delete" || e.key === "Backspace") && !e.ctrlKey && !e.metaKey) {
@@ -9252,8 +9907,11 @@ function renderWbObjects(canvas) {
   // node: `wbMapColors` walks the whole tree by design (see its own comment),
   // and calling it from inside a per-node callback would walk it once per node.
   const mapIndex = wbIsMap() ? wbMapIndex() : null;
-  const mapColors = mapIndex ? wbMapColors(mapIndex) : null;
-  const mapHidden = mapIndex ? wbMapHidden(mapIndex) : null;
+  const mapColors = mapIndex ? wbMapNodeColors(mapIndex) : null;
+  const mapHidden = mapIndex ? wbMapConcealed(mapIndex) : null;
+  // The focus bar's counts, the legend's rows and the template offer all
+  // describe the map this pass is about to draw (§5 items 18 to 21).
+  wbSyncMapViews(mapIndex);
   // **A collapsed branch leaves the DOM rather than being hidden with CSS.**
   // The export, the board bounds, the marquee and every `querySelector` in
   // this file read the DOM, a `display: none` node would still be found by

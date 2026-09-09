@@ -3992,6 +3992,139 @@ summary:not(.icon-only):not(.icon-button) {
   line-height: 1.5;
 }
 
+/* --- Phase 5: the three things a map says about itself ---------------------
+   MINDMAP_PLAN.md §5 items 18, 19 and 21. All three float over the canvas
+   beside `.wb-gestures` rather than joining the top bar, which is already
+   fifteen controls wide (measured, scratchpad/ui-sweeps/docks.js): a state
+   about what the canvas is showing belongs where the canvas is. They sit on
+   `.card.glass`, the app's own floating-panel recipe, so they are the same
+   surface as the overview and the gesture strip rather than a fourth one. */
+.wb-map-focus {
+  position: absolute;
+  z-index: 6;
+  /* **Below the top bar, not under it.** Measured the hard way: at
+     `top: var(--space-4)` this bar rendered inside `#wb-topbar`'s box, and the
+     sweep's click on its own + button was refused for four minutes with
+     "#wb-search-toggle ... intercepts pointer events". `--wb-h-topbar` is the
+     bar's real measured height (a ResizeObserver in whiteboard.js publishes
+     it), which is the same clearance the library sidebar takes, so a top bar
+     that wraps on a narrow window moves this with it instead of leaving it
+     behind. */
+  top: calc(0.5rem + var(--wb-h-topbar) + var(--space-3));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: min(38rem, 90%);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-md);
+}
+
+/* The focused node's own name, which is the one part of that row that can be
+   any length at all. */
+.wb-map-focus-name {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wb-map-legend {
+  position: absolute;
+  z-index: 6;
+  /* Clear of the tool row, which is what `.wb-gestures` does and for the
+     reason recorded there: the row wraps to two or three lines on a narrow
+     board, so a constant puts a panel straight back underneath it. */
+  bottom: calc(0.5rem + var(--wb-h-tools) + var(--space-4));
+  left: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 14rem;
+  padding: var(--space-3);
+  font-size: var(--text-base);
+}
+
+.wb-map-legend-title {
+  color: var(--muted);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.wb-map-legend-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.wb-map-legend-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The swatch carries the colour it is standing for as a `background` set from
+   the data, so this rule sets everything except that. */
+.wb-map-legend-swatch {
+  flex: 0 0 auto;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: calc(var(--radius) * 0.25);
+}
+
+.wb-map-templates {
+  position: absolute;
+  z-index: 6;
+  /* Same clearance as the focus bar above, and for the same reason. The two
+     never show at once: `wbSyncMapTemplates` withdraws the offer while focus
+     is on. */
+  top: calc(0.5rem + var(--wb-h-topbar) + var(--space-3));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  max-width: min(44rem, 92%);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-md);
+}
+
+.wb-map-templates-title {
+  font-weight: 600;
+}
+
+.wb-map-templates-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* What a map is made of (§5 item 20), as a definition list: a term and its
+   number, which is what these rows are, rather than a table nobody needs the
+   second column of. */
+.wb-map-stats {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  font-size: var(--text-md);
+}
+
+.wb-map-stats dt {
+  color: var(--muted);
+}
+
+.wb-map-stats dd {
+  margin: 0;
+}
+
 /* The map proposal dialog (`wbReviewMapProposal`, whiteboard.js: "make a map
    of these notes"). `.confirm-card`'s min(30rem, 92vw) is sized for a question
    and two buttons; what this holds is a twenty-line outline, and at that width

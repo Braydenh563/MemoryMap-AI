@@ -429,6 +429,54 @@ def test_duplicating_a_map_keeps_its_shape(client):
     assert not copied_ids & {root["id"]}
 
 
+# --- what the notebook knows about a node (section 5 item 19) ---------------
+
+
+def test_a_note_node_carries_its_category_and_age(client):
+    """The perspectives colour a map by the notebook's own metadata, which is
+    the thing a general mindmapper cannot do. It has to be resolved here: a
+    copy on the client goes stale the moment a note is refiled, and the client
+    has no way to know it did."""
+    note = client.post("/entries", json={"content": "# Filed thing\n\nbody"}).json()
+    board = _map(client)
+    _node(client, board["id"], kind="note", ref_id=note["id"])
+
+    node = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]
+    assert node["ref_category"]
+    assert node["ref_updated_at"]
+
+
+def test_a_topic_carries_no_facets_at_all(client):
+    """A topic stands for nothing, so it has nothing to be coloured by, and
+    the payload says so by leaving the keys out rather than by sending nulls
+    for every node on the board."""
+    board = _map(client)
+    _node(client, board["id"], text="Just a topic")
+
+    node = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]
+    assert "ref_category" not in node
+    assert "ref_updated_at" not in node
+
+
+def test_a_private_notes_filing_stays_behind_the_boundary(client, session):
+    """Its title already does (`_reference_label` renders "Private note"), and
+    its category and its edit time are facts about it too."""
+    from memorymap.core import vault
+
+    vault.close()
+    vault.create(session, "test-passphrase")
+    session.commit()
+    note = client.post("/entries", json={"content": "# Secret\n\nbody"}).json()
+    board = _map(client)
+    _node(client, board["id"], kind="note", ref_id=note["id"])
+    assert client.post(f"/entries/{note['id']}/privacy", json={"private": True}).status_code == 200
+
+    node = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]
+    assert node["text"] == "Private note"
+    assert "ref_category" not in node
+    vault.close()
+
+
 # --- export and import ------------------------------------------------------
 
 

@@ -1650,6 +1650,37 @@ def _reference_label(db: Session, kind: str, ref_id: int | None, fallback: str) 
     return fallback
 
 
+def _reference_facets(db: Session, kind: str, ref_id: int | None) -> dict:
+    """What the *notebook* knows about the note behind a node: its category
+    and when it was last edited.
+
+    MINDMAP_PLAN.md §5 item 19, and the sentence in it that is the reason
+    this is here at all: colouring a map by category or by age is "the thing
+    a general mindmapper cannot do", because a general mindmapper has only
+    the tree. Resolved on the server for the same reason the label is
+    (`_reference_label`): a copy on the client goes stale the moment a note is
+    refiled, and the client has no way to know it did.
+
+    Only for `note` nodes. A document, file or link has no filing of its own
+    in this notebook, and a private note contributes nothing at all, which is
+    the same boundary its title is behind one function above.
+    """
+    from memorymap.core.database import Category
+
+    if kind != "note" or ref_id is None:
+        return {}
+    entry = db.get(Entry, ref_id)
+    if entry is None or entry.is_deleted or entry.is_private:
+        return {}
+    category = db.get(Category, entry.category_id) if entry.category_id is not None else None
+    return {
+        "ref_category": category.name if category is not None else "Unfiled",
+        # Naive UTC, as every timestamp in this database is: the client reads
+        # it as UTC explicitly rather than letting the browser guess a zone.
+        "ref_updated_at": entry.updated_at.isoformat() if entry.updated_at else None,
+    }
+
+
 def _object_data(obj: WhiteboardObject) -> dict:
     """An object's JSON blob, never raising. A row edited by hand, or written
     by an older version, must not take a whole board's tree down with it."""
@@ -1671,7 +1702,7 @@ def _map_node_dict(db: Session, obj: WhiteboardObject) -> dict:
         if obj.kind in (MAP_TOPIC_KIND, "text")
         else _reference_label(db, obj.kind, ref_id, content)
     )
-    return {
+    node = {
         "id": obj.id,
         "kind": obj.kind,
         "text": text,
@@ -1683,6 +1714,8 @@ def _map_node_dict(db: Session, obj: WhiteboardObject) -> dict:
         "pinned": bool(data.get("pinned")),
         "children": [],
     }
+    node.update(_reference_facets(db, obj.kind, ref_id))
+    return node
 
 
 def _build_tree(db: Session, objects: list[WhiteboardObject]) -> list[dict]:

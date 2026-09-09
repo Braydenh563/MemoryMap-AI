@@ -3083,11 +3083,21 @@ function wireEscapedActionMenu(wrap) {
     menu.style.left = "0px";
     menu.style.top = "0px";
     //: **Measure the menu at its full height, not at whatever a stylesheet
-    //: last capped it to.** Reported three times against the whiteboard's
-    //: View menu (INBOX 57, then 105) and once against the mind map's, which
-    //: shares this code: the panel opened about 230px tall with its own inner
-    //: scrollbar and a row cut in half, on a window with hundreds of pixels
-    //: to spare. Whichever rule caps it, an inline `max-height: none` for the
+    //: last capped it to.** Written in response to the whiteboard's View
+    //: menu (INBOX 57, then 105), but the correction belongs here in the
+    //: retest, not in the fix: this `place()` is `wireEscapedActionMenu`'s
+    //: own, wired only to `enhanceSelect`'s dropdown shell and `kebabMenu`'s
+    //: wrap (this file's own two call sites) -- the whiteboard's
+    //: `.wb-board-menu` (View, Edit, Arrange, Board) never calls it. It has
+    //: its own equivalent, `wbCapBoardMenu` in whiteboard.js, which escapes
+    //: via `escapeMenuIfClipped`/`placeEscapedMenu` (this file, above) and
+    //: then caps `max-height` to the room below the menu's own final `top`.
+    //: Retested directly on the real View menu, board and mind map, at
+    //: 1440 and 820 wide, 900/700/640 tall: it already holds up (see INBOX
+    //: 105's own retest note for the numbers), which is why this fix stayed
+    //: scoped to the surfaces that actually call it rather than being
+    //: ported into a second implementation that was not shown to need it.
+    //: Whichever rule caps it, an inline `max-height: none` for the
     //: duration of the measurement is what makes `box.height` the height this
     //: menu actually wants, so the choice below is made on the real number.
     menu.style.maxHeight = "none";

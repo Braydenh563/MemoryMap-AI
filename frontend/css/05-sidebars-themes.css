@@ -1343,6 +1343,17 @@ body.resizing-sidebar {
   overflow: visible;
 }
 
+/* Reported short a second time after the class rule above was already
+   raised to `--control-h-lg`: nothing else in this file sets
+   `--control-h` on `.doc-toolbar` or `[data-toolbar-mode="row"]`, so
+   whatever still wins on the owner's build is outside what this session
+   could reproduce live. An id selector is (1,0,0,0), which beats every
+   class-level rule regardless of source order, so this cannot lose that
+   fight again no matter which one it was. */
+#doc-toolbar {
+  --control-h: var(--control-h-lg);
+}
+
 /* The compact alternative: one row that scrolls sideways.
 
    **`overflow-y` stated explicitly.** The base rule above sets `overflow:

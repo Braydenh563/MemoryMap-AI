@@ -3282,12 +3282,24 @@ function wireEscapedActionMenu(wrap) {
     menu.style.left = `${Math.round(left)}px`;
     menu.style.top = `${Math.round(top)}px`;
   };
+  //: **A `<select>` inside a native `<dialog>` escapes to the dialog, not to
+  //: `<body>`.** Reported directly, on the documents dictionary dialog's
+  //: spelling picker: "the dictionary preferences dropdown appears behind
+  //: the panel." A `showModal()` dialog paints in the browser's top layer,
+  //: which is *always* above the regular document regardless of z-index;
+  //: `<body>` is the regular document, so a menu reparented there is behind
+  //: every open dialog by construction, not by any z-index this file could
+  //: raise. The dialog element itself is still the top-layer root, so
+  //: appending inside it keeps the menu in the same painting layer as its
+  //: own opener.
+  const escapeTarget = () => opener.closest("dialog[open]") || document.body;
   const observer = new MutationObserver(() => {
     const open = !menu.classList.contains("hidden");
-    if (open && menu.parentElement !== document.body) {
+    const target = escapeTarget();
+    if (open && menu.parentElement !== target) {
       homeParent = menu.parentElement;
       homeNext = menu.nextSibling;
-      document.body.appendChild(menu);
+      target.appendChild(menu);
       menu.classList.add("action-menu-escaped");
       // openActionMenu() may have already set `.action-menu-flip` (`bottom:
       // calc(100% + 4px)`) based on the menu's *pre-escape* position. `place()`
@@ -3300,11 +3312,12 @@ function wireEscapedActionMenu(wrap) {
       // this class redundant once escaped, so drop it rather than fight it.
       menu.classList.remove("action-menu-flip");
       place();
-    } else if (!open && menu.parentElement === document.body && homeParent) {
-      // Restored on close, not left in <body>, closeActionMenus() and
-      // any future openActionMenu() call both expect to find this menu
-      // where it started, and a page that never puts an escaped menu back
-      // accumulates stray position:fixed nodes at <body>'s end forever.
+    } else if (!open && menu.parentElement !== homeParent && homeParent) {
+      // Restored on close, not left wherever it escaped to (`<body>` or an
+      // open dialog): closeActionMenus() and any future openActionMenu()
+      // call both expect to find this menu where it started, and a page
+      // that never puts an escaped menu back accumulates stray
+      // position:fixed nodes at the end of whichever element it escaped to.
       homeParent.insertBefore(menu, homeNext);
       menu.classList.remove("action-menu-escaped");
       menu.style.left = "";
@@ -8547,9 +8560,19 @@ function resolveWikiTarget(name) {
   );
   if (note) return { kind: "note", entry: note };
   const documents = typeof editorDocumentCache !== "undefined" ? editorDocumentCache : null;
-  const doc = (documents || []).find(
-    (d) => (d.title || "").trim().toLowerCase() === needle
-  );
+  const docList = documents || [];
+  const doc =
+    docList.find((d) => (d.title || "").trim().toLowerCase() === needle) ||
+    //: Reported directly: "still cant open note links from the document
+    //: editor", on a link whose visible text ended mid-word ("...and
+    //: progr"). Exact match only fails both plausible causes of that: a
+    //: shorter string was written into the `[[...]]` than the document's
+    //: current title (however that happened), or the document was
+    //: retitled after the link was made. A prefix match is the same
+    //: fallback `note` above already gets for exactly the same reason,
+    //: and a link that is a genuine prefix of a longer title is a much
+    //: likelier accident than two documents sharing one.
+    docList.find((d) => (d.title || "").trim().toLowerCase().startsWith(needle));
   if (doc) return { kind: "document", doc };
   return null;
 }

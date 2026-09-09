@@ -1396,7 +1396,17 @@ body.scroll-top-visible #tab-notes .layout > main {
    is the reported "gets pushed out of place". With the identity block told
    to absorb the width and the button told to keep its own, both stay on the
    first line at any title length. */
-.graph-popup .graph-popup-head {
+/* **This beats `.card > .row.space-between`, and it has to say so.** That
+   rule (01-forms-settings.css) wraps a card's title-plus-actions head on a
+   narrow window, which is right where the actions are a group of buttons.
+   Here the actions are one 36px close button, and wrapping put it on a line
+   of its own at the far left. At (0,3,0) it outranked the `nowrap` this
+   header has always declared, which is why that declaration looked like it
+   was doing nothing: measured at the panel's real 340px with a long title,
+   the header was 92px tall with the button 56px down and 276px in from the
+   right. Named through `.card` so the specificity is visibly deliberate
+   rather than accidentally sufficient. */
+.card.graph-popup > .row.graph-popup-head {
   flex-wrap: nowrap;
 }
 

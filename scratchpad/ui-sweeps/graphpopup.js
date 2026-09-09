@@ -40,6 +40,10 @@ const { boot } = require('./lib.js');
       ellipsisOn: getComputedStyle(strong).textOverflow === 'ellipsis'
         && getComputedStyle(strong).whiteSpace === 'nowrap',
       truncated: strong.scrollWidth > strong.clientWidth,
+      headWrap: getComputedStyle(head).flexWrap,
+      identFlex: getComputedStyle(ident).flex,
+      closeFlex: getComputedStyle(close).flex,
+      identH: Math.round(ident.getBoundingClientRect().height),
     });
     strong.textContent = 'Short note';
     const short = read();

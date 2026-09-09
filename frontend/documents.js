@@ -846,6 +846,13 @@ async function renderDocBookmarks() {
   list.replaceChildren();
   for (const bookmark of attached) {
     const item = document.createElement("li");
+    //: **The link and its ✕ are one row.** Reported as "References stacks a
+    //: close button above its own select": `.outline-link` is `width: 100%`,
+    //: so the remove button beside it had nowhere to go but the next line,
+    //: and a reference read as two controls with no relationship. The class
+    //: is what makes the `li` a flex row and lets the link shrink; nothing
+    //: about the buttons themselves changes.
+    item.className = "doc-outline-row";
     const open = document.createElement("button");
     open.type = "button";
     open.className = "outline-link";
@@ -856,6 +863,7 @@ async function renderDocBookmarks() {
       await apiJson(`/documents/${currentDoc.id}/bookmarks/${bookmark.id}`, { method: "DELETE" });
       renderDocBookmarks();
     });
+    remove.classList.add("doc-outline-row-action");
     item.append(open, remove);
     list.appendChild(item);
   }
@@ -875,6 +883,17 @@ async function attachBookmarkToDocument() {
     return;
   }
   const wrap = $("doc-bookmarks-wrap");
+  //: **The picker and its way out are one row, and it replaces the button
+  //: that opened it.** Before this the select was inserted above a
+  //: still-visible "Attach a link", so asking to attach one left two
+  //: full-width controls stacked with no way to change your mind but to pick
+  //: something: the other half of "References stacks a close button above its
+  //: own select". Opening it twice also stacked two selects, because nothing
+  //: checked for one already there.
+  const existing = wrap.querySelector(".doc-attach-row");
+  if (existing) existing.remove();
+  const row = document.createElement("div");
+  row.className = "row doc-attach-row";
   const select = document.createElement("select");
   select.className = "bookmark-attach-picker";
   const placeholder = document.createElement("option");
@@ -887,17 +906,59 @@ async function attachBookmarkToDocument() {
     option.textContent = bookmark.title || bookmark.url;
     select.appendChild(option);
   }
+  const close = () => {
+    document.removeEventListener("keydown", onEscape, true);
+    row.remove();
+    $("doc-attach-bookmark").classList.remove("hidden");
+    $("doc-attach-bookmark").focus();
+  };
+  //: Escape as well as the ✕, because a picker that opened on a button press
+  //: is the shape everyone tries Escape on first.
+  //:
+  //: **On the document, not on the `<select>` or even on the row.**
+  //: `enhanceSelect` in app.js replaces every select in the page with a shell
+  //: holding a `<button>` opener and a listbox, and takes the real select out
+  //: of the tab order (`select-native-hidden`, `tabindex="-1"`), so the
+  //: `select.focus()` below lands nowhere and the keystroke is dispatched at
+  //: `document.body`. A listener on the element never fired; one on the row
+  //: never fired either, because the event's target was outside it. Both were
+  //: caught by measuring, not by reading: the sweep pressed Escape twice and
+  //: the picker stayed open twice, and the row's children read back as SPAN
+  //: and BUTTON rather than SELECT and BUTTON. Removed again in `close`, so
+  //: nothing outlives the picker.
+  function onEscape(event) {
+    if (event.key !== "Escape") return;
+    //: Only when the listbox is shut. Escape inside an open listbox is that
+    //: menu's own way out, and taking it would close the picker from under
+    //: someone who was only backing out of the list.
+    if (row.querySelector('[aria-expanded="true"]')) return;
+    event.preventDefault();
+    close();
+  }
+  document.addEventListener("keydown", onEscape, true);
   select.addEventListener("change", async () => {
     if (!select.value || !currentDoc) return;
     await apiJson(`/documents/${currentDoc.id}/bookmarks`, {
       method: "POST",
       body: JSON.stringify({ bookmark_id: Number(select.value) }),
     });
-    select.remove();
+    close();
     renderDocBookmarks();
   });
-  wrap.insertBefore(select, $("doc-attach-bookmark"));
-  select.focus();
+  const cancel = smallButton("✕", "Don't attach a link", close);
+  cancel.classList.add("doc-outline-row-action");
+  row.append(select, cancel);
+  wrap.insertBefore(row, $("doc-attach-bookmark"));
+  $("doc-attach-bookmark").classList.add("hidden");
+  //: The focus goes to whatever `enhanceSelect` built, once it has built it.
+  //: It runs off a MutationObserver, so the shell does not exist in the frame
+  //: this function returns in; focusing the select directly puts the focus on
+  //: a `tabindex="-1"` element that is about to be hidden, which is the same
+  //: bug as the Escape one above and looks like the picker opening unfocused.
+  requestAnimationFrame(() => {
+    const opener = row.querySelector(".select-opener");
+    (opener || select).focus();
+  });
 }
 
 //: **Templates: a starting shape for the five documents people make most.**
@@ -1288,8 +1349,27 @@ function renderDocOutline() {
     if (match) headings.push({ level: match[1].length, text: match[2], line: index });
   });
 
-  wrap.classList.toggle("hidden", headings.length < 2);
+  //: **The Outline tab always shows an outline section, even with nothing in
+  //: it.** It used to hide itself below two headings, which meant that opening
+  //: the tab called Outline on a document without them showed a "References"
+  //: heading, a button and a help link, and nothing that mentioned outlines at
+  //: all. Reported as "the empty state is a bare heading with nothing under
+  //: it". An empty state that says what fills it is the difference between a
+  //: panel that is empty and a panel that looks broken.
+  wrap.classList.remove("hidden");
+  //: The count belongs beside the word, the way every other counted list in
+  //: this sidebar reads, so the heading answers "how deep is this document"
+  //: without the eye having to run down the list.
+  const count = $("doc-outline-count");
+  if (count) count.textContent = headings.length ? String(headings.length) : "";
   list.replaceChildren();
+  const empty = $("doc-outline-empty");
+  if (empty) {
+    empty.classList.toggle("hidden", headings.length > 0);
+    empty.textContent = headings.length
+      ? ""
+      : "Headings you write appear here, and each one jumps to its place in the document.";
+  }
   for (const heading of headings) {
     const li = document.createElement("li");
     li.className = `outline-h${heading.level}`;
@@ -1931,7 +2011,17 @@ function docLivePlugin(CM) {
         to: visible.to,
         enter: (node) => {
           const name = node.name;
-          const heading = /^ATXHeading([1-6])$/.exec(name);
+          //: `Setext` as well as `ATX`, and this was a real hole. A setext
+          //: heading is the `Title` / `=====` form, and its underline is a
+          //: `HeaderMark` like any other, so the branch below was already
+          //: hiding it while this branch matched `ATXHeading` only: the
+          //: underline vanished, the line got no heading class, and a setext
+          //: heading rendered as ordinary body text. Found by taking an
+          //: inventory of every markdown line against what it renders as,
+          //: which is what `scratchpad/ui-sweeps/cm-reveal.js` now does.
+          //: A setext heading spans two lines and the class belongs on the
+          //: first, which `doc.lineAt(node.from)` already gives.
+          const heading = /^(?:ATX|Setext)Heading([1-6])$/.exec(name);
           if (heading) {
             const line = doc.lineAt(node.from);
             ranges.push(Decoration.line({ class: `cm-md-h${heading[1]}` }).range(line.from));

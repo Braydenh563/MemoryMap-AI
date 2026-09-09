@@ -34,6 +34,11 @@ const CASES = [
   ['---', ''],
   ['==highlighted== and [[wikilink]] and [label](/path).', 'highlighted and wikilink and label.'],
 ];
+// The `Title` / `=====` form. Its underline is a HeaderMark like any other, so
+// it was already being hidden while the heading branch matched `ATXHeading`
+// only: the markers went and the line stayed body text. Both lines are checked
+// here, the second for the hidden underline and the first for the class.
+const SETEXT = ['A setext heading', '================'];
 // A callout is its own block: put it after a blank line, or the blockquote
 // above swallows it and the first line the plugin reads is that one instead.
 const CALLOUT = '> [!warning] a callout';
@@ -44,7 +49,8 @@ const CALLOUT = '> [!warning] a callout';
   let bad = 0;
   const fail = (m) => { console.log('FAIL: ' + m); bad++; };
 
-  const body = CASES.map(([src]) => src).join('\n\n') + '\n\n' + CALLOUT + '\n\ntail\n';
+  const body = CASES.map(([src]) => src).join('\n\n') + '\n\n' + CALLOUT
+    + '\n\n' + SETEXT.join('\n') + '\n\ntail\n';
   await openDoc(page, { title: 'Reveal', content: body });
   await page.waitForTimeout(1400);
   say('view', await page.evaluate(() => docView));
@@ -63,6 +69,19 @@ const CALLOUT = '> [!warning] a callout';
     say(`hidden_${i}`, { src, want, got });
     if (got !== want) fail(`"${src}" rendered as ${JSON.stringify(got)}, wanted ${JSON.stringify(want)}`);
   }
+  const setext = await page.evaluate((first) => {
+    const line = [...document.querySelectorAll('#doc-editor .cm-line')].find((l) => l.innerText.trim() === first);
+    if (!line) return null;
+    const next = line.nextElementSibling;
+    return { classes: line.className, underlineHidden: next ? next.innerText.trim() === '' : null };
+  }, SETEXT[0]);
+  say('setext_heading', setext);
+  if (!setext) fail('the setext heading is not in the render at all');
+  else {
+    if (!/cm-md-h1/.test(setext.classes)) fail(`a setext heading gets no heading class (${setext.classes})`);
+    if (setext.underlineHidden === false) fail('a setext heading shows its own === underline');
+  }
+
   const label = await page.evaluate(() => {
     const e = document.querySelector('.cm-md-callout-label');
     return e ? e.textContent : null;

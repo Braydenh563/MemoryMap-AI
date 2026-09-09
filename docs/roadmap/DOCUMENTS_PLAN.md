@@ -454,102 +454,58 @@ Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2
 
 ## Placed from INBOX, 2026-09-09 (the owner's evening batch)
 
-Verbatim, with the reading each one gets. All are Phase 3 or later; the
-engine landed in Phase 2, so none of these is a regression from it.
+Verbatim, with the reading each one gets.
+
+**All five were worked on 2026-09-09 and all five are done.** The built
+record, with every measurement, is in HISTORY.md, "Built, the owner's
+evening batch (DOCUMENTS_PLAN's INBOX items), 2026-09-09". What is left of
+each below is the owner's sentence, the one-line answer, and anything the
+work found and did *not* fix, which is the part that is still open.
 
 - "the documents edit and read toggle options dont fit in the toggle and go
-  out of it at the bottom" (screenshot: Edit / Read pills overflowing their
-  segmented control). Where to start, from a partial measurement on
-  2026-09-09: `.doc-dock .seg button` (04-chat-dock-appearance.css, about
-  line 3258) sets `padding-block: 0`, so each button's box is exactly its
-  line box, computed at 24px, inside a `.seg` whose own padding is 4px. That
-  leaves the label's fit entirely to the line box, and the buttons carry an
-  icon (`ph-lead`) whose own line box is taller than the text's, which is
-  the shape that pushes a label past the container's rounded edge. Not
-  confirmed against the running app: the dock only exists once a document is
-  open, and three attempts to open one from a Playwright probe did not reach
-  the editor (the Documents sub-tab activates but `#tab-documents` stays
-  hidden), so this is a reading of the rules and not a measurement. Give the
-  buttons an explicit centred box at a control-height token rather than
-  zeroing their padding, then measure `getBoundingClientRect().bottom`
-  against the `.seg`'s at 1440 and 1280.
+  out of it at the bottom". Done: the pills fit inside their segment at 1440
+  and 1280. The cause was not the `padding-block: 0` this entry used to
+  guess at; see HISTORY.
 - "md formatting should go invisible unless i click back on that word or
   section or navigate with backspace, delete or arrow keys etc to where
-  those formatting markers are." ~~This is CodeMirror's own cursor-in-range
-  test on the Live decorations.~~ **Phase 2 had already built that test**
-  (`touched`/`lineTouched` in `docLivePlugin`, repainting on `selectionSet`),
-  and it was measured working through all three gestures the owner names.
-  What was *not* hidden, found by taking an inventory rather than by reading:
-  `---` drew its border **and** its three dashes, and `> [!note]` hid its `>`
-  and kept its `[!note]`. Both fixed; `scratchpad/ui-sweeps/cm-reveal.js` is
-  the standing inventory and passes. Left as they are, deliberately: list
-  bullets, ordered numbers and a fence's ``` (a list with no bullets is not a
-  list); tables are Phase 3; a setext heading's `===` underline hides but its
-  line gets no heading class, which is a real if small gap.
-  **Measured and not fixed:** the caret shifts when a marker reveals. Walking
-  left across `A **bold** word`, `coordsAtPos` reads x 560.3, 554, 544.2,
-  531.1 and then **559.5** on the press that reveals the markers, a 28.4px
-  jump to the right on a leftward keystroke, because the reveal inserts four
-  characters to the left of the caret. `EditorView.atomicRanges` is the usual
-  answer and is the **wrong** one here: it would make the arrow keys skip the
-  hidden marker rather than enter it, and entering it is precisely what this
-  sentence asks for.
+  those formatting markers are." Done: the cursor-in-range test was already
+  built and works; `---` and a callout's `[!kind]` were the two markers it
+  had never been run on, and both hide now.
+  **Still open, measured:** revealing a marker shifts the caret 28.4px to
+  the right on a leftward keystroke, because the reveal inserts four
+  characters left of it. `EditorView.atomicRanges` is the usual answer and
+  is the wrong one here: it would skip the marker rather than enter it, and
+  entering it is what this sentence asks for. No good answer found.
 - "I want to be able to use the documents tab as a plain text editor like
   before as a view option (not the default though)", "and also if I select
   a txt document, and/or other code file document, and these can have line
   numbers as well", "for code files, include code syntax and make it a
-  proper code editor like vs code." **Done, 2026-09-09.** The edit menu is
-  Live (default), Source, Split, Plain, with Line numbers as a row under
-  them; `scratchpad/ui-sweeps/docviews.js` is the standing check and passes
-  in both themes. Two of the three were already configuration, one was not:
-  - Plain is new. It is the language compartment emptied
-    (`docCmViewLanguage`), so no grammar and therefore no highlighting,
-    folding by syntax or bracket matching, and everything else untouched.
-    Measured: Source colours 2 kinds of token on a markdown file, Plain 0,
-    and the document and the engine are the same ones.
-  - Line numbers already worked and were unreachable: the only control was
-    on the formatting strip, which D1 collapses by default. A second door
-    (`#doc-view-gutter`) is in the view menu, on the same remembered
-    preference. Measured: a markdown document 0 numbers, 7 after one press,
-    0 again; a `.py` file 7 without being asked, from a fresh profile.
-  - Code syntax existed and **was unreadable in dark**. The bundle fell back
-    to CodeMirror's `defaultHighlightStyle`, a fixed light-page palette with
-    no dark variant: every token byte-identical in both themes, a keyword at
-    **1.76:1** and a variable name at **1.91:1** against the dark ground
-    sampled at `rgb(27, 31, 44)`. `docCmHighlight` maps six roles onto the
-    app's own tokens. Now: light 4.56 to 14.62, dark 6.47 to 13.52, all
-    above WCAG AA's 4.5.
-  Not fixed, and worth knowing: `csv`, `ini`, `php`, `r` and `swift` are
-  offered as file types and have no mode in the vendored bundle, so they are
-  plain text with numbers. `php` and `swift` would need
-  `@codemirror/legacy-modes` entries added to `entry.js` and a rebuild
-  (build.sh, node and npm); `r` has no mode in the CodeMirror packages at
-  all. Everything else the type list offers does have one.
+  proper code editor like vs code." Done: the edit menu is Live (default),
+  Source, Split, Plain, with Line numbers as a row under them.
+  **Still open:** `csv`, `ini`, `php`, `r` and `swift` are offered as file
+  types and have no mode in the vendored bundle, so they are plain text with
+  numbers. `php` and `swift` need two lines in
+  `frontend/vendor/codemirror/entry.js` and a `build.sh` run (node and npm);
+  `r` has no CodeMirror mode at all.
 - "i still cant click on a grammar or misspeled underlined word and see a
   popup like in a realworld editor like obsidian, word, notion, vs code."
-  ~~Phase 0 built the underline; the click target and its popover never
-  landed.~~ **Measured in a browser on 2026-09-09 and it had landed.** The
-  reading above was written without one, which is the second time on this
-  surface (see the Edit/Read entry). `scratchpad/ui-sweeps/docsuggest.js`
-  is the standing check and passes every assertion: in Live *and* in Source,
-  all three underline kinds (repeat dotted, spelling wavy red, style wavy
-  blue) draw with `cursor: pointer`; one plain click opens
-  `.doc-suggest-menu` anchored to the word (left 470.6 against the mark's
-  own left, top 172.8 against its bottom of 168.8) and inside the viewport
-  at every finding including one against the right edge; pressing the first
-  item rewrites the document ("teh mat" to "the mat"); `Alt+Enter` opens the
-  same menu from the keyboard. `long-sentence` draws no underline, which is
-  `DOC_FINDING_SKIP` doing what its comment says. Nothing was rebuilt.
-  **What would still read as "cant click" and is not covered:** Read view
-  has no editing surface and so no marks, and a code file suppresses
-  findings entirely. If the report comes back, ask which view it was in
-  before touching this code again.
+  **It already worked**, and this entry's previous claim that "the click
+  target and its popover never landed" was a reading of the source without a
+  browser. `scratchpad/ui-sweeps/docsuggest.js` is now the standing check.
+  **What would still read as "cant click":** Read view has no editing
+  surface and so no marks, and a code file suppresses findings entirely. If
+  the report comes back, ask which view it was in before touching the code.
 - "redesign and refine the outlines section of the documents tab as well"
-  (two screenshots). Measured problems in them: the outline entries are
-  centre-aligned and indented by depth in the wrong direction, the empty
-  state is a bare heading with nothing under it, References stacks a close
-  button above its own select, and "Where are my documents kept?" is a
-  full-width underlined link pinned to the bottom like a footer.
+  (two screenshots). Done: all five problems in them.
+  **Found while measuring and still open:** `enhanceSelect` (app.js ~18427)
+  rebuilds every `<select>` as a shell with a `<button>` opener and takes the
+  native element out of the tab order, so `select.focus()` anywhere in this
+  app focuses nothing and a `keydown` bound to a select never fires. Two
+  listeners in this batch were written that way before a sweep caught it.
+  There is no lint for the class; a cheap one would fail on `.focus()` or
+  `addEventListener("keydown"` applied to a variable holding a `<select>`.
+  And `.doc-outline-wrap` is `flex: 1 1 auto`, so a short outline leaves
+  ~250px of empty column above References. Not reported, not fixed.
 - "the whole documents sidebar and ui needs fixing and the document editor
   still needs a lot of refinement and cleaning but its still in development
   so just make sure you cover it all."

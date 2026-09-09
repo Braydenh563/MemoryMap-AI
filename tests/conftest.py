@@ -134,11 +134,21 @@ def openai_client():
 def _no_test_runs_pip(monkeypatch):
     from memorymap.core import extras
 
-    def refuse(*args, **kwargs):
-        raise RuntimeError(
-            "a test reached the real installer; fake extras.subprocess.Popen "
-            "or extras.start in the test (see conftest._no_test_runs_pip)"
-        )
+    # `extras.subprocess` is the one shared `subprocess` module, so a blanket
+    # refusal broke every other Popen in the process: `platform.platform()`
+    # runs `file` through it, and the support bundle test failed in isolation
+    # while passing in the full run only because an earlier test had filled
+    # platform's cache. Refuse pip; let everything else through.
+    real_popen = extras.subprocess.Popen
 
-    monkeypatch.setattr(extras.subprocess, "Popen", refuse)
+    def guard(args, *rest, **kwargs):
+        argv = args if isinstance(args, (list, tuple)) else [args]
+        if any("pip" in str(part) for part in argv):
+            raise RuntimeError(
+                "a test reached the real installer; fake extras.subprocess.Popen "
+                "or extras.start in the test (see conftest._no_test_runs_pip)"
+            )
+        return real_popen(args, *rest, **kwargs)
+
+    monkeypatch.setattr(extras.subprocess, "Popen", guard)
     yield

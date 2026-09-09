@@ -418,14 +418,32 @@ def analyse_attachment(
     #: reading as the reader has it (corrections included) rather than a
     #: second extraction that may disagree with what they can see.
     #:
-    #: A file whose text extraction comes back empty is a scan, and falls
-    #: through to the vision path below, which rasterises its pages. A file
-    #: whose text is there but whose model had nothing to say stores nothing
-    #: and says so: those are different answers and must not share a branch.
+    #: **`vision_ocr_text` was missing from this chain entirely.** Reported
+    #: directly: a scan already read page by page with the AI document
+    #: reader (fourteen pages stored here) still had "Describe with AI" call
+    #: a vision model itself, on one raw page image, because this fallback
+    #: only ever checked the Tesseract field and a fresh local extraction,
+    #: never the field this exact reading is written to. Checked second,
+    #: after `ocr_text`: Tesseract's own reading, when both exist, is the
+    #: one already corrected by hand and shown as the file's own text; the
+    #: AI reader's is the one likelier to exist at all for a scan, since it
+    #: needs no separate OCR binary. `docview.extract` stays last of the
+    #: three, since it is a *native* text layer and only a text-layer PDF or
+    #: a `.docx`/`.csv`/etc. has one at all.
+    #:
+    #: A file whose text extraction comes back empty is a scan with nothing
+    #: already read either, and falls through to the vision path below,
+    #: which rasterises its first page. A file whose text is there but whose
+    #: model had nothing to say stores nothing and says so: those are
+    #: different answers and must not share a branch.
     if body.kind == "caption" and not is_image:
         if attachment.caption and not body.force:
             return _attachment_out(session, attachment)
-        readable = (attachment.ocr_text or "").strip() or (docview.extract(path).text or "").strip()
+        readable = (
+            (attachment.ocr_text or "").strip()
+            or (attachment.vision_ocr_text or "").strip()
+            or (docview.extract(path).text or "").strip()
+        )
         if readable:
             if not deps.get_ollama().is_running():
                 raise HTTPException(status_code=409, detail="The AI model isn't running.")

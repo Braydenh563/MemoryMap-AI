@@ -98,6 +98,36 @@ def test_a_scan_with_no_text_layer_still_falls_back_to_the_vision_reader(
     assert "whiteboard" in got.json()["caption"]
 
 
+def test_an_already_read_scan_is_described_from_that_reading_not_recaptioned(
+    client, entry_id, monkeypatch
+):
+    """Reported directly: "it used my lfm2.5-vl vision model to do it" on a
+    scan the AI document reader had already read fourteen pages of. The
+    `readable` fallback checked `ocr_text` (Tesseract) and a fresh
+    `docview.extract` and skipped straight to a vision caption of one raw
+    page when both were empty, never looking at `vision_ocr_text`, the field
+    that exact reading is stored in. If the vision reader below runs at all
+    here, this test fails: `describe_document`'s own model call is the only
+    one that should fire when a reading already exists.
+    """
+    monkeypatch.setattr(deps, "get_ollama", _Ollama)
+    monkeypatch.setattr(deps, "get_model_manager", _Models)
+
+    def _must_not_be_called(model, ollama):
+        raise AssertionError("the vision reader ran despite an existing vision_ocr_text reading")
+
+    monkeypatch.setattr(routes_files.vision_ocr, "pdf_vision_reader", _must_not_be_called)
+    file_id = _attach(client, entry_id, "scan.pdf", b"%PDF-1.4\n" + b"0" * 64, "application/pdf")
+    with deps.get_db().session() as session:
+        row = session.get(routes_files.Attachment, file_id)
+        row.vision_ocr_text = "Page 1: Some readable content.\nPage 2: more of it."
+        session.commit()
+    got = client.post(f"/files/{file_id}/analyse", json={"kind": "caption", "force": True})
+    assert got.status_code == 200, got.text
+    assert got.json()["caption"] == "A short note about readable content."
+    assert got.json()["caption_model"] == "fake-utility"
+
+
 def test_a_media_row_that_is_not_an_image_is_described_too(client, monkeypatch):
     monkeypatch.setattr(deps, "get_ollama", _Ollama)
     monkeypatch.setattr(deps, "get_model_manager", _Models)

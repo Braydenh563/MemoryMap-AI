@@ -2971,6 +2971,15 @@ function wireEscapedActionMenu(wrap) {
     // browsers' layout of a `position: fixed` element mid-transition.
     menu.style.left = "0px";
     menu.style.top = "0px";
+    //: **Measure the menu at its full height, not at whatever a stylesheet
+    //: last capped it to.** Reported three times against the whiteboard's
+    //: View menu (INBOX 57, then 105) and once against the mind map's, which
+    //: shares this code: the panel opened about 230px tall with its own inner
+    //: scrollbar and a row cut in half, on a window with hundreds of pixels
+    //: to spare. Whichever rule caps it, an inline `max-height: none` for the
+    //: duration of the measurement is what makes `box.height` the height this
+    //: menu actually wants, so the choice below is made on the real number.
+    menu.style.maxHeight = "none";
     const box = menu.getBoundingClientRect();
     let left = anchor.right - box.width;
     let top = anchor.bottom + 4;
@@ -2978,9 +2987,30 @@ function wireEscapedActionMenu(wrap) {
     if (left + box.width > window.innerWidth - margin) {
       left = Math.max(margin, window.innerWidth - margin - box.width);
     }
-    if (top + box.height > window.innerHeight - margin) {
-      const above = anchor.top - 4 - box.height;
-      top = above >= margin ? above : Math.max(margin, window.innerHeight - margin - box.height);
+    //: The room on each side of the trigger, which is the only honest cap:
+    //: a fixed figure is either smaller than the window (the reported bug) or
+    //: larger than it (a menu running off the bottom).
+    const roomBelow = window.innerHeight - margin - (anchor.bottom + 4);
+    const roomAbove = anchor.top - 4 - margin;
+    if (box.height <= roomBelow) {
+      top = anchor.bottom + 4;
+      menu.style.maxHeight = "";
+    } else if (box.height <= roomAbove) {
+      //: Upwards only when the whole menu fits there. Opening up and *then*
+      //: scrolling puts the first row at the bottom of the panel, furthest
+      //: from the button that opened it, which reads as a different menu.
+      top = anchor.top - 4 - box.height;
+      menu.style.maxHeight = "";
+    } else {
+      //: Taller than both sides: take the larger side and scroll inside it,
+      //: with the cut row visible rather than sliced, which is the
+      //: affordance. `--space-*` is not reachable from here, so the eight
+      //: pixels are the same `margin` the placement already uses.
+      const takeBelow = roomBelow >= roomAbove;
+      const room = Math.max(120, takeBelow ? roomBelow : roomAbove);
+      top = takeBelow ? anchor.bottom + 4 : margin;
+      menu.style.maxHeight = `${Math.round(room)}px`;
+      menu.style.overflowY = "auto";
     }
     menu.style.left = `${Math.round(left)}px`;
     menu.style.top = `${Math.round(top)}px`;
@@ -3012,6 +3042,10 @@ function wireEscapedActionMenu(wrap) {
       menu.classList.remove("action-menu-escaped");
       menu.style.left = "";
       menu.style.top = "";
+      // The height decisions are the escape's, not the menu's own: left
+      // behind they would cap it in its home position too.
+      menu.style.maxHeight = "";
+      menu.style.overflowY = "";
     }
   });
   observer.observe(menu, { attributes: true, attributeFilter: ["class"] });

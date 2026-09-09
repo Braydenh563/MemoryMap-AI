@@ -106,18 +106,31 @@ done-when item 4 and 5), in priority order.
     by building rows once and updating in place. Fix: keep the open set and
     the scroll offset across a re-render, or skip the re-render when nothing
     in the list changed. Owner: Fable/Opus, now. Size S.
-98. **Graph: the static layouts (Tree, Radial, Arc) look editable and can
-    be knocked out of shape.** The owner, 2026-09-09: "on the other graph
-    view types, they all have the dotted border as they are static but that
-    shouldnt be the case on those views as the nodes on those views arent
-    movable ... I was on the tree graph, I test double clicked on a node and
-    it broke them all out of position". Two halves: the pinned-node dotted
-    ring is drawn in layouts where pinning has no meaning, and a double
-    click (or a drag) in a computed layout hands the node to the force
-    simulation, which then re-solves the whole board and destroys the tree.
-    Decide and say so in GRAPH_PLAN: a computed layout is read-only for
-    position, so no ring, no drag, no double-click release, and the node
-    menu's Pin and Unpin are hidden there. Owner: GRAPH Phase 6. Size S.
+104. **Whiteboard: the Arrange group needs structure.** The owner,
+    2026-09-09: "can the whiteboard arrange tools be better structured??"
+    (screenshot). Ten icon-only buttons under one ARRANGE heading in a
+    ragged 2-3-3-2 grid, with group/ungroup, three horizontal aligns, three
+    vertical aligns and two distributes all reading as one undifferentiated
+    field. Fix: three labelled sub-rows (Group, Align, Distribute), three
+    per row, each button with a title and an aria-label, on DESIGN.md's
+    icon-button recipe. Owner: WHITEBOARD Phase 1. Size S.
+105. **Whiteboard: the View dropdown is still too short.** The owner,
+    2026-09-09: "the view dropdown is still overly short" (screenshot: the
+    panel clips mid-row on "Snap to grid" with its own inner scrollbar,
+    about 230px tall against a viewport with hundreds to spare). It was
+    reported once before as INBOX 57 and closed as not reproduced at head,
+    so this is the retest and it reproduces. Fix: the menu's max-height
+    should be the space below its trigger, not a fixed figure, and a row
+    must never be cut in half. Measure it open at 1440 and at 820. Owner:
+    WHITEBOARD Phase 1. Size S.
+106. **Links: the Save and Cancel buttons do not match.** The owner,
+    2026-09-09: "the links edit save and cancel buttons arent consistent"
+    (screenshot: Save is a filled accent pill, Cancel a grey rounded
+    rectangle at a different radius and a different height). Two buttons
+    side by side in one row must share a radius, a height and a padding;
+    only the fill should differ. Fix on DESIGN.md's button recipe, and
+    check the same pair everywhere an edit row appears. Owner: UI
+    modernisation, placed. Size S.
 67. **Max gravity: "the nodes are all still so spread out"** (screenshot at
     max, 01:30). The screenshot predates the pull fix in e1... (commit
     "graph: the centre pull follows the gravity slider", pushed 01:00) if

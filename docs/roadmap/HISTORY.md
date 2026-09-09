@@ -8849,6 +8849,19 @@ and fix"). Measured with `scratchpad/ui-sweeps/wbbars.js` and
 Not verified: a real touch device, and the align and distribute actions
 themselves (their handlers were not touched, only their buttons' markup).
 
+98. **Graph: the static layouts (Tree, Radial, Arc) look editable and can
+    be knocked out of shape.** The owner, 2026-09-09: "on the other graph
+    view types, they all have the dotted border as they are static but that
+    shouldnt be the case on those views as the nodes on those views arent
+    movable ... I was on the tree graph, I test double clicked on a node and
+    it broke them all out of position". Two halves: the pinned-node dotted
+    ring is drawn in layouts where pinning has no meaning, and a double
+    click (or a drag) in a computed layout hands the node to the force
+    simulation, which then re-solves the whole board and destroys the tree.
+    Decide and say so in GRAPH_PLAN: a computed layout is read-only for
+    position, so no ring, no drag, no double-click release, and the node
+    menu's Pin and Unpin are hidden there. Owner: GRAPH Phase 6. Size S.
+
 ## HANDOVER archive, 2026-09-09
 
 ### The Fable session — UI Phases 0-4, skills reform A-B, backend sprint 1, the audit

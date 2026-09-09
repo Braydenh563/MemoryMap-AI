@@ -1112,6 +1112,27 @@ details.tool-chip[open] > .tool-chip-body {
    split view is the direction the plans point in. Everything comes back on
    the same class, which is removed by the button, by Escape, and by leaving
    the tab (app.js). */
+/* **Full screen keeps the glass, when there is something to see through it.**
+   INBOX 88: "fullscreen graph has no glass opacity", with a screenshot of a
+   flat panel. The rule above forces `--bg`, an opaque page colour, so the
+   card's translucency had nothing behind it: entering full screen turned the
+   app's own surface into a plain rectangle.
+
+   Only with the animated background on, and only when glass is not switched
+   off, which is the same pair of conditions `.card` itself carries
+   (00-tokens-shell.css) after the owner's note that seeing the background
+   animations through the glass "is partly why I wanted the glass aesthetic
+   in the first place". With the art off there is nothing behind the card but
+   the page colour, and blurring a flat colour costs a compositor pass to
+   produce the same pixels. `.graph-fullscreen` is on the glass-off list in
+   03-dashboard-widgets.css for Performance mode, so this cannot bring the
+   blur back on a machine that asked for none. */
+:root[data-bg-art="on"]:not([data-glass="off"]) .graph-fullscreen {
+  background: var(--card) !important;
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+}
+
 body.graph-fullscreen-on > #top-bar,
 body.graph-fullscreen-on > #status-bar,
 body.graph-fullscreen-on .sidebar-panel {
@@ -3053,7 +3074,15 @@ html {
 .lightbox {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  /* **Above the full-screen graph, which is `z-index: 1000`.** INBOX 66: "I
+     clicked to view a document while in the graph fullscreen" and the
+     lightbox appeared only after leaving it. The entry blamed the Fullscreen
+     API, but this app's full screen is CSS (`position: fixed` on
+     `.graph-card`), so nothing was in a top layer and nothing was hidden: at
+     80 the lightbox simply opened underneath the card. 1020 puts it above
+     that and above `.modal-overlay`'s 1010, and below the HUD's 1100, which
+     is a momentary readout and belongs over everything. */
+  z-index: 1020;
   background: rgba(8, 10, 18, 0.82);
   display: flex;
   flex-direction: column;

@@ -8877,6 +8877,19 @@ themselves (their handlers were not touched, only their buttons' markup).
     Fable: the zoom indicator's z-index sits under the modal; raise it
     above dialogs or show it inside the open dialog.
 
+66. **Lightbox opened only after leaving graph fullscreen** ("I clicked to
+    view a document while in the graph fullscreen"). Owner: GRAPH Phase 6
+    (Fable/Opus): the lightbox mounts at body level and the fullscreen
+    element is `#graph-card`, so a body-level dialog is invisible while the
+    Fullscreen API is active. Fix: mount the lightbox (and every dialog the
+    node panel can open) inside the fullscreen element while fullscreen is
+    on, or exit fullscreen first and re-enter on close. Size S.
+88. **Fullscreen graph has no glass opacity** (screenshot: the graph card
+    in fullscreen is a flat panel). Owner: GRAPH Phase 6 (Fable): the
+    fullscreen element paints `--page` under it, so the card's 55% shows
+    nothing; give `:fullscreen .graph-card` the page background art or a
+    solid `--modal-bg` on purpose and say so.
+
 ## HANDOVER archive, 2026-09-09
 
 ### The Fable session — UI Phases 0-4, skills reform A-B, backend sprint 1, the audit

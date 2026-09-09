@@ -31,13 +31,6 @@ verbatim, is triaged at the next step boundary, and leaves: fixed now (then
 What is here now is this PR's own bug list (Brief 18 section A, HANDOVER's
 done-when item 4 and 5), in priority order.
 
-66. **Lightbox opened only after leaving graph fullscreen** ("I clicked to
-    view a document while in the graph fullscreen"). Owner: GRAPH Phase 6
-    (Fable/Opus): the lightbox mounts at body level and the fullscreen
-    element is `#graph-card`, so a body-level dialog is invisible while the
-    Fullscreen API is active. Fix: mount the lightbox (and every dialog the
-    node panel can open) inside the fullscreen element while fullscreen is
-    on, or exit fullscreen first and re-enter on close. Size S.
 73. **"Mute notifications except reminders" toggle disables itself when
     the settings close.** Owner: Fable, now: the preference is written on
     change but the panel re-renders from `prefsCache` before the save
@@ -52,11 +45,6 @@ done-when item 4 and 5), in priority order.
     explicit pin is Shift+drag or the menu; a dragged cluster (lasso
     selection) moves together the same way; a small "pinned" ring only
     on real pins.
-88. **Fullscreen graph has no glass opacity** (screenshot: the graph card
-    in fullscreen is a flat panel). Owner: GRAPH Phase 6 (Fable): the
-    fullscreen element paints `--page` under it, so the card's 55% shows
-    nothing; give `:fullscreen .graph-card` the page background art or a
-    solid `--modal-bg` on purpose and say so.
 84. **Whiteboard rectangle selection draws behind objects.** Owner:
     WHITEBOARD Phase 1 (Fable, now): the marquee is drawn on the objects'
     layer; move it to the overlay canvas above them.

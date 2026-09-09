@@ -431,6 +431,7 @@ header#top-bar select,
 /* Found by tests/test_ui_recipes.py the day it was written: nineteen
    surfaces that blurred on their own and stayed glassy with the setting
    off. Every one is here now; the lint fails on the next. */
+:root[data-glass="off"] .graph-fullscreen,
 :root[data-glass="off"] .library-image-menu-list,
 :root[data-glass="off"] .library-image-tile,
 :root[data-glass="off"] .library-image-tile .library-image-menu-btn,

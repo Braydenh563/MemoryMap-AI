@@ -170,8 +170,15 @@ Measured with `scratchpad/ui-sweeps/graph4.js` on the canvas renderer.
 - The pin toggle the double-click already did is one function now,
   shared with the menu.
 
-Not built in this part: the local graph pane beside an open note, Play on
-the time slider, PNG export at 2x with the legend. Not verified: touch
+**Part two (same day):** PNG export re-renders exactly the visible frame
+at 2x by swapping the draw target for one frame (2812x1530 from a
+1406x765 canvas, measured, the live context restored afterwards) and
+paints the legend's visible entries and a caption over it; Play on the
+time slider sweeps the cutoff from the first note to the last over eight
+seconds (18% after 1.5s, measured; the button shows Pause meanwhile and
+resets at the end; a touch on the slider stops it).
+
+Not built in this phase: the local graph pane beside an open note. Not verified: touch
 (no Shift on a phone: a long-press lasso is the Phase 4 follow-up), the
 SVG renderer (no lasso there, by design).
 

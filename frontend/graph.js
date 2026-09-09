@@ -3638,13 +3638,21 @@ async function exportGraphPng() {
       toast("Nothing to export yet.", true);
       return;
     }
-    const out = document.createElement("canvas");
-    out.width = liveCanvas.width;
-    out.height = liveCanvas.height;
-    const ctx = out.getContext("2d");
-    ctx.fillStyle = resolvedTheme() === "dark" ? "#12141c" : "#eef1f5";
-    ctx.fillRect(0, 0, out.width, out.height);
-    ctx.drawImage(liveCanvas, 0, 0);
+    // GRAPH_PLAN Phase 4: exactly the visible frame, re-rendered at 2x with
+    // the legend and a caption painted on (gcExportPng); the live bitmap is
+    // the fallback if the renderer is not wired yet.
+    const out =
+      (typeof gcExportPng === "function" && gcExportPng(2)) ||
+      (() => {
+        const fallback = document.createElement("canvas");
+        fallback.width = liveCanvas.width;
+        fallback.height = liveCanvas.height;
+        const ctx = fallback.getContext("2d");
+        ctx.fillStyle = resolvedTheme() === "dark" ? "#12141c" : "#eef1f5";
+        ctx.fillRect(0, 0, fallback.width, fallback.height);
+        ctx.drawImage(liveCanvas, 0, 0);
+        return fallback;
+      })();
     try {
       const blob = await new Promise((resolve, reject) =>
         out.toBlob((result) => (result ? resolve(result) : reject(new Error("Couldn't export the graph."))), "image/png")

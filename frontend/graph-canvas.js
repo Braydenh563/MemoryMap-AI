@@ -252,6 +252,65 @@ function gcVisibleAtTime(node) {
   return at <= gcTimeCutoff;
 }
 
+// --- Phase 4: export at 2x with the legend ------------------------------------------
+//: Re-renders the map into an offscreen canvas at `scale` times the screen's
+//: pixel density by swapping the draw target for one frame (gcDraw reads
+//: gcCtx and gcDpr; gcDims, the CSS size, stays the same, so the transform
+//: is identical and nothing moves), then paints the legend and a caption
+//: over it. Upscaling the live bitmap would only blur it.
+function gcExportPng(scale = 2) {
+  if (!gcCtx || !gcCanvas || !gcDims.w) return null;
+  const out = document.createElement("canvas");
+  out.width = Math.round(gcDims.w * gcDpr * scale);
+  out.height = Math.round(gcDims.h * gcDpr * scale);
+  const ctx = out.getContext("2d");
+  const liveCtx = gcCtx;
+  const liveDpr = gcDpr;
+  ctx.fillStyle = gcTokens.page || (document.documentElement.dataset.mode === "dark" ? "#12141c" : "#eef1f5");
+  ctx.fillRect(0, 0, out.width, out.height);
+  try {
+    gcCtx = ctx;
+    gcDpr = liveDpr * scale;
+    gcDraw();
+  } finally {
+    gcCtx = liveCtx;
+    gcDpr = liveDpr;
+  }
+  ctx.setTransform(gcDpr * scale, 0, 0, gcDpr * scale, 0, 0);
+  const rows = [...document.querySelectorAll("#graph-legend .legend-toggle:not(.legend-off)")]
+    .map((item) => ({ text: item.textContent.trim(), colour: item.querySelector(".legend-dot")?.style.background || gcTokens.muted }))
+    .filter((row) => row.text)
+    .slice(0, 14);
+  const noteCount = gcNodes.filter((n) => !n.isGroup).length;
+  const caption = `${noteCount} note${noteCount === 1 ? "" : "s"} · ${new Date().toLocaleDateString()}`;
+  ctx.font = "12px system-ui, sans-serif";
+  const lineH = 18;
+  const pad = 10;
+  const width = Math.max(ctx.measureText(caption).width, ...rows.map((r) => ctx.measureText(r.text).width + 18)) + pad * 2;
+  const height = (rows.length + 1) * lineH + pad * 2;
+  const x = 12;
+  const y = gcDims.h - height - 12;
+  ctx.globalAlpha = 0.92;
+  ctx.fillStyle = gcTokens.card || "#ffffff";
+  ctx.beginPath();
+  ctx.roundRect(x, y, width, height, 8);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = gcTokens.ink || "#111";
+  ctx.textBaseline = "middle";
+  ctx.fillText(caption, x + pad, y + pad + lineH / 2);
+  rows.forEach((row, i) => {
+    const cy = y + pad + lineH * (i + 1) + lineH / 2;
+    ctx.fillStyle = row.colour;
+    ctx.beginPath();
+    ctx.arc(x + pad + 5, cy, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = gcTokens.ink || "#111";
+    ctx.fillText(row.text, x + pad + 18, cy);
+  });
+  return out;
+}
+
 function gcDraw() {
   if (!gcCtx || !gcCanvas) return;
   const started = performance.now();
@@ -1805,6 +1864,54 @@ function graphSyncTimeSlider(data, apply) {
   slider.oninput = (event) => set(Number(event.target.value));
   say(Number(slider.value));
   set(Number(slider.value));
+  graphWireTimePlay(slider, set);
+}
+
+// --- Phase 4: Play on the time slider --------------------------------------------------
+//: Sweeps the cutoff from the first note to the last over about eight
+//: seconds, so the notebook grows on screen in the order it was written.
+//: A touch on the slider, or a second press, stops it where it is.
+let gcTimePlayFrame = null;
+function graphWireTimePlay(slider, set) {
+  const button = document.getElementById("graph-time-play");
+  if (!button || button._wired) return;
+  button._wired = true;
+  const setPlaying = (on) => {
+    button.setAttribute("aria-pressed", String(on));
+    button.title = on ? "Pause" : "Play through time";
+    setLabel(button, on ? "ph:pause" : "ph:play");
+  };
+  const stop = () => {
+    if (gcTimePlayFrame) cancelAnimationFrame(gcTimePlayFrame);
+    gcTimePlayFrame = null;
+    setPlaying(false);
+  };
+  button.addEventListener("click", () => {
+    if (gcTimePlayFrame) {
+      stop();
+      return;
+    }
+    const min = Number(slider.min);
+    const max = Number(slider.max);
+    if (!(max > min)) return;
+    const duration = 8000;
+    const startValue = Number(slider.value) >= max ? min : Number(slider.value);
+    const startAt = performance.now() - ((startValue - min) / (max - min)) * duration;
+    setPlaying(true);
+    const tick = (now) => {
+      const value = Math.min(max, min + ((now - startAt) / duration) * (max - min));
+      slider.value = value;
+      set(value);
+      if (value >= max) {
+        stop();
+        return;
+      }
+      gcTimePlayFrame = requestAnimationFrame(tick);
+    };
+    gcTimePlayFrame = requestAnimationFrame(tick);
+  });
+  slider.addEventListener("pointerdown", stop);
+  setPlaying(false);
 }
 
 // --- the read-only debug surface -------------------------------------------------

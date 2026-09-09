@@ -6637,7 +6637,13 @@ document.addEventListener("DOMContentLoaded", () => {
     for (const heading of outline.querySelectorAll(".contents-heading")) {
       if ((heading.getAttribute("aria-expanded") === "true") === anyOpen) heading.click();
     }
-    event.currentTarget.textContent = anyOpen ? "Expand all" : "Collapse all";
+    //: The words only, not the whole button. This control now lives in the
+    //: dock's `...` menu, where it carries an icon beside its label, and
+    //: writing `textContent` on the button replaced that icon with a bare
+    //: string on the first press. The span is the label; the button is the
+    //: fallback for anywhere this markup is simpler.
+    const label = event.currentTarget.querySelector("[data-collapse-label]") || event.currentTarget;
+    label.textContent = anyOpen ? "Expand all" : "Collapse all";
   });
 });
 

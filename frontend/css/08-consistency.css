@@ -970,12 +970,7 @@ summary > .ph-lead,
    written here from the shape of the feature rather than from the markup, and
    `document.querySelectorAll('.library-image-model-chip').length` is 0 on a
    Library with images in it (`scratchpad/ui-sweeps/imagebadges.js`), so the
-   half of item 7 this rule was meant to settle never ran once. The model name
-   is drawn by `library.js` as `.library-image-caption-badge` and
-   `.library-image-vision-ocr-badge`; `.library-image-ocr-badge` is styled
-   beside them in 00-tokens-shell.css and has no call site either, and is kept
-   here so that if it ever gains one it lands on the recipe rather than on the
-   bordered pill.
+   half of item 7 this rule was meant to settle never ran once.
 
    Measured on one card, with the badges given text and unhidden, before this:
 
@@ -986,13 +981,17 @@ summary > .ph-lead,
    Three heights, two borders, two paddings, two sizes and two weights for
    three pieces of the same kind of information in the same card. The meta
    recipe is no border, no hover, muted, and the usage chip is already on it,
-   so the badges come to it. The `--text-sm` is deliberate over the
-   `text-xs` class one of the two call sites carries: one object, one size,
-   and this file is last so the class does not have to be edited in JS. */
+   so the badges came to it.
+
+   **The three badges are gone entirely now** (INBOX 56): who described the
+   picture and who read it are one muted line at the foot of the card, in
+   plain text, because a pill next to the usage chips read as another button.
+   `.library-image-caption-badge`, `.library-image-vision-ocr-badge` and
+   `.library-image-ocr-badge` are struck from this rule with them, rather
+   than left behind: a selector kept "in case it gains a call site" is the
+   `.library-image-model-chip` mistake this comment already records, one
+   paragraph up. */
 .library-image-usage-chip,
-.library-image-caption-badge,
-.library-image-vision-ocr-badge,
-.library-image-ocr-badge,
 .library-image-tile .chip:not(.chip.tag) {
   border: none;
   border-radius: var(--radius-pill);
@@ -1683,4 +1682,80 @@ summary > .ph-lead,
    dropdowns panel". The group gap every other Settings section uses. */
 .help-accordion + .help-chat-group {
   margin-top: var(--space-6);
+}
+
+/* --- Progress that keeps moving (INBOX 95) -------------------------------
+   The writing trace (the drawn line beside "Writing…") was left out of the
+   `data-progress-motion="always"` exception the dots already have, so with
+   Reduce motion or Performance mode on, the dots bounced while waiting and
+   the trace froze the moment text streamed: "the icon which should be
+   different when the text is streaming" did not move. Same rule, same
+   reason as the dots: an indicator is feedback, not decoration. */
+:root[data-progress-motion="always"] .ai-writing-edge {
+  animation: ai-writing-draw 1.5s ease-in-out infinite !important;
+}
+
+:root[data-progress-motion="always"] .ai-writing-node {
+  animation: ai-writing-node-lit 1.5s ease-in-out infinite !important;
+}
+
+/* --- Settings rows that wrap their actions under the title (INBOX 82) ----
+   Reported with two screenshots (the Tesseract OCR package, the BGE model):
+   the status chip and the two buttons dropped to a second line under the
+   heading. The row is one flex line: the title takes the room, the actions
+   keep theirs, the description spans the full width beneath. */
+.extras-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.extras-row > .entry-meta {
+  /* Measured after the first cut: two of four rows still wrapped their
+     actions under the title (a long name plus a status chip plus three
+     buttons at the modal's width). A smaller basis and a wrapping meta
+     let the chip drop under the name before the actions leave the line. */
+  flex: 1 1 10rem;
+  flex-wrap: wrap;
+  min-width: 0;
+  margin: 0;
+}
+
+.extras-row > .entry-actions {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.extras-row > :not(.entry-meta):not(.entry-actions) {
+  flex: 1 1 100%;
+}
+
+/* --- The chat header stays one line (INBOX 91) ---------------------------
+   The identity zone of every dock is `flex: 0 0 auto` so a heading is never
+   crushed; the chat's identity carries the title *and* the model, exchange,
+   window and token readouts, so at width it took the whole row and the
+   three actions wrapped under it. Here the identity shrinks with an
+   ellipsis on the title and the readouts stay on one line. */
+.chat-toolbar.dock > .dock-identity {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.chat-toolbar .chat-headline {
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.chat-toolbar .chat-headline > :first-child {
+  flex: 0 1 auto;
+  min-width: 4rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-toolbar .chat-subline {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }

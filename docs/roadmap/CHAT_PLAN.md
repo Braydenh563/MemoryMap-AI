@@ -203,3 +203,66 @@ session that builds the phase should confirm it in the product first.
   what the UI trusts. Decision 10's "loop until the contract is met" is
   how Claude Code and similar harnesses behave; the missing piece in
   `skill_runner` today is paging inside the step.
+
+## Placed from INBOX, 2026-09-09
+
+The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.
+
+45. **The Ask sub-tab**: extra scroll, overflow, and the owner wants a
+    redesign with an integrated advanced search and more utility. Owner:
+    CHAT_PLAN Phase 1 (Ask) plus WORLD_CLASS 5.1 operators; the scroll
+    part is 33.
+
+### Found by an agent while measuring something else (2026-09-08, graph)
+
+71. **Web search panel, function extraction UI, agent tools: "redesign
+    them and make them better, more utility and abilities"**. Owner:
+    CHAT_PLAN (next session, Opus): web search results as a source list
+    with favicon, domain, title and a one-line snippet, "Open" and "Save as
+    note" per result, persistent in the turn; the extraction UI (Extract
+    notes) as a review list with checkboxes and per-item edit before
+    saving; the Tools settings as a grouped table (read, write, destructive)
+    with a search box, per-tool on/off and a "why" popover.
+72. **Popup agent panel "still hasn't had its modern redesign"**. Owner:
+    CHAT_PLAN (next session, Opus), with INBOX 45's Ask redesign.
+76. **Inline citations must be accurate to the specific notes referenced
+    where they are referenced.** Owner: WORLD_CLASS §14 grounding (Fable):
+    the distinctive-terms rule already places numbers per sentence; add
+    the evaluation: a fixture of 20 answers with hand-marked sentence to
+    note pairs, precision and recall reported by `tests/test_grounding.py`,
+    and the popover (INBOX 80) shows the matched terms so a wrong number
+    is visible.
+80. **Citation hover/click preview**: hovering or clicking a numbered
+    reference shows a popover with a preview of the thing (note, document,
+    mind map, file, website) and a button to go to it; clicking the
+    preview panel itself goes there. Owner: CHAT_PLAN (Opus, next
+    session): one `referencePopover(kind, id)` for every kind, reusing the
+    Library's previews.
+90. **User chat bubbles "still very ugly"** (screenshot: a lavender block
+    with "YOU" and an avatar circle top-right). Owner: CHAT_PLAN (Opus):
+    a quieter bubble (accent-soft fill, no avatar, the label as a small
+    muted "You" above, radius from tokens, max-width 70%).
+63. **Redesign the Ask sub-tab, Write with the AI and Capture** (three
+    screenshots, 01:12; the owner: "modernise them and bring them up to
+    standard with features, function and ui ux"). Owner: Opus, next slot,
+    one brief (CHAT_PLAN's INBOX 45 folds in). Decisions: Capture keeps
+    its one-column form but the title, the formatting strip and the box
+    become one framed field (title as the first line, strip inside the
+    frame's top edge, no separate rounded strip), the six action buttons
+    collapse to Attach + Dictate + Improve with From library and Sketch
+    under Attach, the "Add to document" and "File under" selects move to
+    one settings row under the box with the space note, Save primary and
+    "Save as draft" ghost; a live "N words · reading time" in the foot;
+    Ctrl+Enter saves. Write with the AI becomes a two-pane editor with
+    one shared toolbar (Draft it primary; Undo, Extract notes, Discard
+    ghost; tone and length as a segmented control instead of a free
+    text hint, with the hint field behind it), the draft pane in the
+    body font not monospace, a word count per pane, and the tag field
+    beside Save. Ask keeps its layout and gets: the AI answer and the
+    matching records as two equal-height columns with their own scroll,
+    the answer box unframed (one panel, not a card in a card), the
+    "Ask again" chips as a scrolling row, a "Sources" foot listing every
+    grounded note with confidence, an Answer style segment (Brief,
+    Detailed, Bullets) replacing the select, keyboard: Enter asks,
+    Shift+Enter newline, Esc clears; the settings popover keeps its id.
+

@@ -310,6 +310,63 @@ extended per phase.
   Acceptance: `errors.js` at 390/820/1024 reports 0 findings on the
   editor; the first line of text is on screen with the keyboard open.
 
+### Phase 8 — one editor everywhere (1 session, the owner's ask, 2026-09-09)
+
+The owner: "plan for the note capture and editors in the notes tab, making
+a new note from the graph, and anywhere there is a note related capture,
+edit or view area with a text box to integrate features similar to the
+documents upgrade. The editors need to be consistent in form and
+function." Today the app has nineteen textareas in the page and seventeen
+more made in script, and five of them are note editors with five
+different feature sets: the capture box (`#entry-content`: formatting
+strip, `[[` autocomplete, attachments, dictate, improve), the inline note
+edit (`app.js` ~3988 and ~15256: a bare textarea), the graph's note popup
+and new-note box (`#graph-popup-content`, `#graph-new-content`: bare), the
+Write with the AI panes (`#draft-thoughts`, `#draft-text`: bare, the draft
+in monospace) and the document (`#doc-content`: the engine after Phase 2).
+
+**Decisions (made here, not remade).**
+- One factory, `noteSurface(host, options)`, built on Phase 2's
+  `docSurface()` adapter and the same CodeMirror bundle, replaces every
+  note editor. Options: `size` (`inline` for a card, `box` for capture
+  and popups, `page` for the document), `live` (decorations on or off),
+  `strip` (the formatting strip, opt-in as in Phase 1), `findings`,
+  `attachments`. The textarea stays as the fallback and as the form value
+  carrier (the surface mirrors into it on change), so every existing
+  save path, test and handler keeps working unchanged.
+- The same features in every surface: Live decorations, `[[` note
+  autocomplete, the `/` menu, the selection toolbar (bold, italic, code,
+  link, list, ask the AI), undo history, Ctrl+S, `==highlight==`, task
+  boxes, paste of images and files into the attachments row where the
+  surface has one. What differs is size and chrome, never behaviour.
+- One recipe in `09-editor.css`: `.note-surface` with the three size
+  variants, the tokens' radius, `--control-h` for the strip, the same
+  focus ring; a lint (`tests/test_note_surface.py`) that every note
+  textarea in the page carries `data-note-surface` and is mounted through
+  the factory (grep the ids), and that no new `<textarea>` for note text
+  appears without it.
+- The engine loads on the first focus of any surface, once per page.
+- The chat composer is not a note editor: it gets `[[` and `/` only, and
+  keeps its own recipe (send on Enter).
+
+**8a, capture and the inline note edit** (½ session): `#entry-content` and
+the two script-made edit boxes mount the surface (`size: box` and
+`inline`); the capture's formatting strip becomes the selection toolbar
+with the strip opt-in; attachments, dictate and improve stay. Gate: every
+capture test passes; typing in capture with 2,000 notes loaded keeps
+keydown to paint under 30 ms; errors.js clean.
+
+**8b, the graph's popups and Write with the AI** (¼ session): the node
+popup's editor (GRAPH Phase 6 sizes it four lines minimum) and the
+new-note box mount `size: box`; Write with the AI's two panes mount the
+surface with `live` on for the draft (no monospace). Gate: graph4b.js
+and the write panel's own test.
+
+**8c, the rest** (¼ session): whiteboard note cards edit in a `size:
+inline` surface in place of the canvas text field; reminders' magic box
+stays plain (it is a sentence, not a note); the skill editor's steps box
+gets the `/` menu only. Gate: touch.js and mindmap.js unchanged.
+
 ### Phase 7 — export and interchange (½ session)
 
 PDF (via the print stylesheet), HTML (self-contained), DOCX (server-side
@@ -381,341 +438,12 @@ under `tests/test_documents_*.py`, `scratchpad/ui-sweeps/editor.js`.
 
 ## Built, Phase 1 (the chrome), 2026-09-09
 
-Measured in Chromium at 1280x800 and 820x800 with `scratchpad/doc-measure2.js`
-(a new document open), before and after.
-
-- **Header.** Before: ten controls at four heights (title 44, view
-  segment 28, icon buttons 36, a 39). After: title, Edit / Read with a
-  chevron for Live, Source and Split, AI edit, and the more menu, every
-  one at 36px; the bar is 36px tall at 1280 and wraps to two rows at 820.
-  The file-type select, the formatting-strip toggle and Extract moved
-  into the more menu (a document changes type once; the strip is opt-in;
-  extraction is an action, not a mode).
-- **View.** Edit / Read is the segment; Live, Source and Split sit behind
-  Edit's chevron and the Edit button returns to the last editing mode
-  (Read then Edit lands back in Split when Split was in use: measured).
-  The chevron menu is on the dock-menu recipe, so it closes on a pick and
-  stays in the viewport.
-- **The more menu.** Every row 36px; a row that is on shows a check at its
-  right edge with no fill (the tinted rows in the owner's screenshot are
-  gone: eleven rows, all `rgba(0,0,0,0)` at rest, the ticked helper
-  included); File type is a labelled section at the top; the two typing
-  helpers are switch rows.
-- **Status bar.** Facts left (counts, goal, suggestions), Ln and Col at the
-  right.
-- **Chrome above the first line:** 44px at 1280 (gate: 96). Sidebar
-  labels: 0 clipped at 820.
-- **INBOX 18.** The pinned group at the end of every formatting strip has
-  the strip's radius and an opaque ground.
-
-Not done in this phase: the floating selection toolbar as the formatting
-UI (item 3; the strip stays opt-in through "Always show formatting"), the
-Backlinks tab and counts in the sidebar (item 5), the sheet behaviour at
-1100px (Phase 6). Not verified: dark theme (the rules are token-driven),
-a real keyboard walk of the chevron menu.
+Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2026-09-09: a plan holds open work only.
 
 ## Built, Phase 2 step 1 (the engine, vendored and verified under the CSP), 2026-09-09
 
-- **The bundle.** `frontend/vendor/codemirror/codemirror.min.js`, one IIFE
-  exposing `CM6` with namespaces `state`, `view`, `commands`, `search`,
-  `language`, `autocomplete`, `lint`, `markdown`, `javascript`, `python`,
-  `css`, `html`, `json`, `yaml`, `highlight` (lezer tags) and the legacy
-  stream modes `shell`, `sql`, `toml`, `go`, `rust`, `c`, `cpp`, `csharp`,
-  `java`, `kotlin`, `ruby`, `xml`, `diff`, `dockerFile`. 772 KB, 269 KB
-  gzipped; no `import()`, no `eval`. Versions pinned in `package.json`
-  beside it; `build.sh` rebuilds it (npm plus esbuild, run by hand, the app
-  has no build step); `LICENSE` lists every package. Not loaded at boot:
-  the editor script-injects it the first time a document opens (INBOX 48's
-  shape; `?v=` is not applied to vendor files, the version is in the pin).
-- **The CSP check, first as the plan asked.** CodeMirror styles itself
-  through style-mod, which for a Document injects a `<style>` tag, and
-  `style-src 'self'` refuses that with no error at the constructor: an
-  editor with no styling at all, the "policy silently refusing the work"
-  shape. The decision: no nonce, no `'unsafe-inline'`. `build.sh` patches
-  one line of style-mod so a Document takes the constructed-stylesheet
-  branch (`document.adoptedStyleSheets`), which CSP does not treat as
-  inline content and which is how Settings custom CSS already works. The
-  build fails if the line moves; `tests/test_vendor_licences.py` fails if
-  a rebuild loses the patch.
-- **Measured in Chromium under the app's real policy** (8784, a script
-  injected into the live page): zero `securitypolicyviolation` events,
-  zero `<style>` tags added, two adopted sheets, `.cm-editor` styled
-  (flex, relative), gutter visible, markdown highlight classes on the
-  heading, typing and `Ctrl+Z` through the default keymap working.
-- **Licences.** `tests/test_vendor_licences.py`: every directory under
-  `frontend/vendor/` has a `LICENSE`, every top-level bundle a
-  `<name>.LICENSE.txt` (d3 ISC and p5 LGPL-2.1 notices added; Phosphor's
-  MIT file added).
-
-## Built, Phase 2 steps 2 to 4 (the engine under the editor), 2026-09-09
-
-- **One adapter, and a lint that keeps it that way.** `docSurface()`
-  (documents.js, between the `DOC-SURFACE-BEGIN` / `DOC-SURFACE-END`
-  markers) answers `text`, `selection()`, `setSelection`, `replaceRange`,
-  `onChange`, `coordsAt`, `focus`, `scrollTop` and `lineAt` for whatever
-  the document is being edited in, and wears the textarea's own property
-  names as documented aliases so the helpers shared with the note editors
-  became surface-agnostic by *receiving* a surface rather than by having
-  forty expressions rewritten under them. `tests/test_doc_surface.py`
-  fails the build if documents.js or editor.js reads the box's text or
-  caret through `$("doc-content")`, or stashes the element in a local.
-- **Loaded on demand.** `loadCodeMirror()` script-injects the bundle the
-  first time a document is opened; `openDocument` awaits it before handing
-  the text over, so the document goes straight into the engine rather than
-  into the fallback and then into a view mounted a moment later. Measured:
-  0 codemirror entries in `performance.getEntriesByType('resource')` at
-  boot, 1 after a document is opened. The textarea stays in the DOM as the
-  fallback, `display: none` while the engine is up.
-- **Live is Source with a compartment on** (decision 3). Headings at
-  heading size with the `#` hidden until the caret is on the line; bold,
-  italic, code, strikethrough and `==highlight==` with their markers
-  hidden until the caret enters the range; links and `[[wiki links]]` as
-  chips; task checkboxes that write the source; quotes and `> [!note]`
-  callouts with a left bar; same-origin images as widgets. Computed from
-  the lezer markdown tree over `view.visibleRanges`.
-- **Findings are decorations** (decision 5), in every view rather than on
-  a backdrop under Source and a block re-render in Live. The Phase 0
-  backdrop layer is deleted.
-- **Undo is the engine's** (decision 6). The D3 snapshot stack is deleted:
-  it existed because Live gave every paragraph its own textarea, and there
-  is one surface in every view now.
-- **Find and replace is CodeMirror's panel** (decision 7), restyled onto
-  the app's field and button recipe in `frontend/css/09-editor.css`;
-  folding on headings through a fold service, in the same lane and behind
-  the same remembered preference as the line numbers.
-- **Languages** (decision 10): markdown (GitHub dialect, `base:
-  markdownLanguage`, without which `~~struck~~` and `- [ ] task` produce
-  no syntax nodes at all), js, ts, py, css, html, json, yaml, and the
-  stream modes for bash, sql, toml, go, rust, c, cpp, csharp, java,
-  kotlin, ruby, xml. Anything else is plain, which is the honest answer.
-
-**Measured** in Chromium at 1440x900 against a running app
-(`scratchpad/ui-sweeps/serve.sh 8786 /tmp/mm-8786`), three new sweeps:
-
-| Sweep | Result |
-| --- | --- |
-| `cm-engine.js` | bundle absent at boot, present after open; view mounted, fallback `display: none`; typing reaches `docSurface().text`, the outline, the status bar and the prose chip; the D3 gate (type in Live, switch to Source, Ctrl+Z) passes on the engine's history; a save round trip matches exactly; **zero** `securitypolicyviolation` events, **zero** `<style>` tags added, two adopted sheets |
-| `cm-live.js` | 23 checks, all pass, zero console errors |
-| `cm-search.js` | 8 checks, all pass: Ctrl+F opens the panel and leaves the old bar down, the field matches `#doc-find-input`'s font and colour, Replace all replaces 2 and one Ctrl+Z puts both back, the fold column follows the numbers, folding `# One` takes 11 rendered lines to 4 |
-| `cm-editor.js` | 14 checks, all pass: the selection toolbar anchors within 25px of the caret and its Bold is one undo, the `/` menu and the `[[` picker open and insert, a selection reports itself as this document in document coordinates, the inline AI bar opens and describes the selection, the completion popup opens and Tab completes |
-| `errors.js` | 0 errors and 0 layout findings at 1440, 1024, 820 and 390 |
-| `cm-dark.js` | 6 checks, all pass: the editor's ink is the app's ink in both modes, switching inverts it (rgb(31,36,48) to rgb(231,233,238)), and CodeMirror's own `darkTheme` facet follows, through the `data-mode` observer |
-| `documents-chrome.js` | dock 36px at 1280 and 78px (two rows) at 820, every control 36px, chrome above the first line 44px at 1280 and 86px at 820 (Phase 1's gate: 96), 0 clipped sidebar labels, the eleven menu rows all untinted, view switching and "back to the last edit mode" all correct |
-
-**Two bugs the sweeps found that reading could not**, both fixed here:
-
-- **Every bare shortcut fired while you typed.** app.js decides "is the user
-  typing?" from `["INPUT", "TEXTAREA", "SELECT"].includes(tagName)`, which
-  was exactly right while every surface was a textarea. CodeMirror's editable
-  is a `contenteditable` div, so a literal `/` in a document focused the
-  global search box and swallowed the rest of the word, and the
-  `g`-then-letter tab jumps did the same mid-sentence. Stopped at the
-  editor's own host in the bubble phase (`docGuardGlobalShortcuts`): the
-  engine has already had the keystroke, the global table never sees it, and
-  chorded shortcuts still work from inside the editor.
-- **The `/` menu and the `[[` picker never opened.** editor.js hung their
-  trigger check off a DOM `input` event, and the engine raises none for a
-  typed character: it applies the change itself. The listener body is a
-  function now (`editorHandleInput`) and the update listener calls it.
-
-**Typing latency** (`doctype.js`, 20k words, keydown and input event
-durations over 16 ms, PLAN P4's gate is 30 ms):
-
-| | before | after |
-| --- | --- | --- |
-| Live | p50 160 ms, p95 200 ms, 1,178 renders | **p50 16 ms, p95 24 ms, max 48 ms, 0 renders** |
-| Split | p50 112 ms, p95 176 ms | p50 32 ms, p95 64 ms |
-
-Three whole-document passes came off the keystroke to get there: the word
-goal, the outline and the status bar's counts are scheduled the way the
-preview already was; the caret's line and column are asked of the surface
-(O(log n) on the engine) rather than counted from the start of the text;
-and the completion fragment and autocorrect read the caret's line rather
-than materialising the whole document per character.
-
-**Lost, and named rather than left to be discovered:** the Notion-style
-block handle, its drag to reorder and its move/duplicate/delete menu went
-with the block DOM. Phase 3 is where block structure comes back, over one
-document rather than as a second copy of it.
-
-**Not verified:** IME composition in the engine; the fallback
-path end to end (the bundle failing to load was simulated with a flag, not
-by a blocked request); and `revalidateSelection` in app.js still resolves
-a selection's surface with `document.getElementById(surfaceId)`, which now
-finds the stale fallback textarea, see `agent-remaining/documents-engine.md`.
-
+Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2026-09-09: a plan holds open work only.
 
 ## Built — Phase 0
 
-Everything in §5 Phase 0 is built and measured in Chromium at 1440x900
-against a running app (`scratchpad/ui-sweeps/serve.sh 8800 /tmp/mm-docs0`).
-The editor sweep, `scratchpad/ui-sweeps/editor.js`, grew from 35 checks to
-89 and is green; the 35 D2/D3 checks it already had still pass unchanged.
-
-### 1. Backdrop underlines in Source view
-
-§4 A, as written. A `div.doc-backdrop` behind a transparent-ink
-`#doc-content` holds the same text in the same type and carries a
-`<mark class="doc-finding doc-finding-{kind}">` at each finding's range,
-built with `createTextNode`/`createElement`. The textarea keeps the caret,
-the selection, native undo, IME and the browser's own spellcheck; the
-backdrop is what you read.
-
-Metrics are copied through the CSSOM, the way `mountGutterFor` copies the
-gutter's, because the CSP refuses an inline `style=`. Measured:
-
-| | |
-| --- | --- |
-| mark box vs glyph box | dx 0.00px, dy 0.00px on all four findings |
-| the same, 60 lines down after a scroll | dx 0.00px, dy 0.00px |
-| placement | box left 512.40625px, backdrop left 512.40625px, widths both 691.1875px |
-| scrollHeight parity | 1126 vs 1126 |
-| selected text through the highlight | darkest glyph (41,54,104) on (198,206,249), about 7.3:1 |
-
-Three details that are not obvious and are worth keeping:
-
-- **Rects, not `offsetLeft`.** Those round to whole pixels and put the
-  backdrop 0.41px off the text it draws.
-- **A trailing `\n` on every paint.** CSS removes a segment break at the end
-  of a block, so a document ending in a blank line is one line shorter on the
-  backdrop, and from there the two scroll out of step.
-- **Only findings that still match the text are marked.** The prose pass is
-  debounced, so between a keystroke and the next pass every offset after the
-  caret is stale, and a stale offset draws a squiggle under the wrong word.
-
-`DOC_PROSE_DEBOUNCE_MS` is 150, down from 400. The acceptance ("an underline
-within 300 ms") is now the thing that constant decides: the sweep measures
-217ms from the last keystroke to the mark existing. The pass itself is cheap
-(0.82ms to find findings, 6.3ms for the whole of `renderDocProse`, 0.07ms to
-repaint the backdrop, on a 2,629-character document), so the constant is
-almost the whole latency.
-
-Live view's marks take the same kind classes, so one word is marked the same
-way in both views. Live still marks word-level rules only, because a spacing
-finding's span does not exist in rendered HTML.
-
-### 2. One click opens the suggestions
-
-A plain left click opens the finding's menu; the caret has not moved when the
-click is dispatched, so the offset is read on the next frame. It does not take
-the focus, because a plain click is usually someone putting the caret in a
-word to fix it by hand. Double-click and right-click are unchanged and do take
-it. `Alt+Enter` opens the menu for the finding under the caret; `F8` and
-`Shift+F8` walk the findings and open each one. All three are VS Code's
-bindings for these jobs.
-
-**A bug this found, which no amount of reading the source would have.**
-The point-to-finding lookup used `document.caretPositionFromPoint`, and inside
-a `<textarea>` Chromium returns the offset *within the visual line*, not
-within the value: measured, document offset 29 hit-tests as 6, 50 as 5, 60 as
-15. On every line but the first, right-clicking a flagged word looked up a
-finding hundreds of characters earlier and usually found nothing, which is why
-this feature has read as "sometimes it works". Both views now have a real
-element where the finding is, so the lookup is a rectangle test against boxes
-the browser laid out itself, and the sweep drives a right-click on a finding
-that is deliberately not on the first line.
-
-Suggestions are ranked by how much the app actually knows, strongest first:
-the rule's own answer, the other half of a UK/US pair, the nearest words in
-the dictionary plus the correction list, then the nearest words in your own
-writing (`docCompleteWords`). Distance is optimal string alignment
-(Damerau-Levenshtein restricted to adjacent transpositions), capped at 2 edits
-over at most 3,000 candidates, at most 5 rows. Measured: teh/the 1,
-recieve/receive 1, colour/color 1, alpha/omega 3 and so rejected; a word one
-edit from `environment` is offered where the menu previously had no answer at
-all.
-
-Every finding already carried its one-line *why* (`finding.message`, shown as
-`.doc-suggest-why`), which is exactly what §5 item 4 asked for; the sweep now
-asserts it is non-empty. "Ignore this for now" is "Ignore in this document"
-and the ignore key is scoped to the document id, so the label is true.
-
-### 3. The status bar count is a control
-
-The chip was already a `<button>` with `aria-controls`/`aria-expanded` that
-opened the panel; what it lacked was a look that said so, so a real count
-takes an edge and a wash while "No suggestions" stays flat.
-
-Autocorrect and Suggestions left `#doc-statusbar` for the document's kebab,
-beside the two settings already there. Ids and handlers are untouched; only
-the markup moved. The kebab stays open when a switch is pressed, because a
-switch has a state you have to see move.
-
-The panel groups by kind with a count on each group (Spelling 6, Repeated
-words 2, Style and spacing 2 on the probe document), in a fixed order so the
-strongest claim is at the top and the list does not reshuffle between two
-openings.
-
-### Bugs found by measuring, not by reading
-
-Each of these was invisible in the source and is now covered by the sweep.
-
-1. **The caret mirror had no border.** `.doc-caret-mirror` set no
-   `border-style`, and `border-width` does nothing without one, so the border
-   widths `DOC_MIRROR_PROPS` copies computed to 0. Every caret point, and so
-   every popup anchored to one, sat 1px left and 1px up; worse, with
-   `box-sizing: border-box` and the textarea's width copied, the mirror's
-   content box was 2px wider than the textarea's, so a line could wrap one
-   character later in the mirror than on screen. Found because the backdrop
-   lays the same text out independently and disagreed by exactly 1.00px.
-2. **The suggestions panel's rows were centred.** `.doc-prose-jump` is a
-   `<button>`, so it takes the app's global `justify-content: center`, and the
-   `text-align: left` beside it has nothing to align because the children are
-   flex items. Measured: a row starting at x=326 whose first word began at
-   x=751.7. Now 7px.
-3. **`docNearestWords` marked its own results as already seen**, so every
-   ranked candidate rejected itself and the list came back empty.
-4. **The line-number gutter**, reported separately with a screenshot (rows
-   1..18 below a textarea ending at 11) and fixed across all three editors
-   that carry one. Three causes: the column stretched to the flex row's height
-   rather than the textarea's (9.6px past the box untouched, 325.4px once the
-   resize handle was dragged up, and a clamped scroll that left the numbers
-   2.5 lines adrift); the stylesheet's static `padding-top: 0.5rem` against
-   the textarea's `--space-4` (1.59px per row, and density-dependent); and
-   `applyDocGutter` never applying `has-gutter` to `#doc-content`, so a
-   numbered markdown document soft-wrapped while its numbers did not. Row tops
-   now match line tops to 0.00px at rows 1, 5, 11, 20 and 30 in the documents
-   editor, the capture form and the note edit form, before and after
-   scrolling. The gutter also sat 178px away from the code it numbers, because
-   the reading measure centres the textarea while the gutter sits at the row's
-   left edge; the pair is centred as one thing now, gap 0.0px.
-
-5. **A file-type change never re-ran the prose pass.** `syncDocFileType`
-   toggles the code class, the toolbar and the gutter, but `renderDocProse`
-   only reached it through `openDocument`. Before Phase 0 that was invisible
-   (stale findings sat in a panel nobody had open); with the findings drawn on
-   the document, switching an open markdown file to `.py` left squiggles under
-   words in code, over a transparent-ink textarea, with the backdrop laying
-   text out `pre-wrap` against a `white-space: pre` box.
-
-### Also checked
-
-- **Split** keeps the backdrop exactly on the textarea (dx, dy, dw, dh all
-  0.00px); **Rendered** takes it away.
-- **Dark theme.** The backdrop paints the dark field colour with
-  rgb(231, 233, 238) ink and a matching caret, and the three underline colours
-  follow their dark tokens.
-
-### Not verified
-
-- **Native spellcheck alongside ours.** Headless Chromium ships no
-  dictionary, so whether the browser's own red squiggle doubles up with the
-  backdrop's under the same word could not be observed. `spellcheck="true"`
-  is deliberately left on: the browser's dictionary is far larger than this
-  app's 40-word list, and its context menu still opens over text with no
-  finding under it.
-- **IME.** Composition text is not in `value`, so the ink is restored for the
-  length of a composition (`compositionstart`/`compositionend`). Reasoned from
-  the spec and not driven with a real IME.
-- **A real touch device.** Every gesture here was driven with a mouse.
-- **Very large documents.** The largest measured is 2,629 characters plus a
-  61-line case; the paint is O(text) per keystroke and measured at 0.07ms
-  there, but nothing was driven at 5,000 lines.
-
-### What Phase 1 should know
-
-`docSurface()` in §4 B does not exist yet, and Phase 0 has added a second
-consumer of the textarea's exact geometry (the backdrop, beside the gutter and
-the caret mirror). All three copy metrics through the CSSOM from the same box,
-which is three copies of one idea: when CM6 lands, the backdrop and the mirror
-both retire into decorations and only the adapter remains.
+Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2026-09-09: a plan holds open work only.

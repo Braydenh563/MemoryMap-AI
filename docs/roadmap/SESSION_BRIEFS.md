@@ -861,8 +861,11 @@ blocks (tables, callouts, footnotes, math, embeds, properties, columns) ·
 Phase 4 connected document (backlinks with context, block refs, outline
 drag, command palette, daily notes and templates) · Phase 5 review and AI
 (comments, version history UI, AI diff preview, focus mode, print) ·
-Phase 6 responsive · Phase 7 as written. Then 62/98: the selection
-toolbar becomes the formatting UI and the strip default is revisited.
+Phase 6 responsive · Phase 7 as written · Phase 8 one editor everywhere
+(capture, inline note edit, the graph's popups, Write with the AI, the
+whiteboard's note cards, all on the Phase 2 surface; the owner's ask,
+2026-09-09). Then 62/98: the selection toolbar becomes the formatting UI
+and the strip default is revisited.
 
 ### C. Graph (GRAPH_PLAN), the owner's second priority
 Phase 6 node panel (INBOX 59, the brief in the plan) · 6b minimap (78) ·
@@ -886,7 +889,8 @@ section · 92 suggested links panel · 74 preferences panels · 97 RapidOCR
 as a Packages option · 94 background animations.
 
 ### G. The plans' own remainders
-UI_MODERNISATION Phase 9 (responsive by device) · AGENT_SKILLS Phase D
+UI_MODERNISATION Phase 9 (desktop and tablet in this PR; the phone is
+Phase 11, its own session or two, the owner's call) · AGENT_SKILLS Phase D
 (resume a stalled step, edit and re-run a step, "why did this stall") ·
 WORLD_CLASS 1.1 lints for the consistency contract, §9 llama.cpp dev
 script, §12 flaw classes S7 (LIKE escaping) · PLAN.md and REDESIGN.md are
@@ -900,3 +904,133 @@ at four widths; contrast.js; docks.js; touch.js; weight.js under 10%
 blurred at rest with the art off; every number in the plan's Built block;
 no em-dashes, no exclamation marks, sentence case; commit trailers;
 push per batch.
+
+## Brief 19 (Opus agent): DOCUMENTS Phase 2 steps 2 to 4, the engine
+
+Relaunch text, verbatim, when the agent dies (its worktree survives:
+`git worktree list`, resume with the same words). Read CLAUDE.md, then
+DOCUMENTS_PLAN "Phase 2" and "Built, Phase 2 step 1", then DESIGN.md.
+Own worktree, commit per working piece, never push, five-line report,
+`agent-remaining/documents-engine.md` before stopping.
+
+Decisions (not remade): the bundle loads on demand via `loadCodeMirror()`
+(script-inject `/vendor/codemirror/codemirror.min.js`, no `?v=`), the
+textarea stays as the fallback; one adapter `docSurface()` (text get/set,
+`selection()`, `setSelection`, `replaceRange`, `onChange`, `coordsAt`,
+`focus`, `scrollTop`, `lineAt`) is the only thing documents.js and
+editor.js touch (the 18 `.value` reads, listeners at ~3081, 3097, 3113,
+3116, 3573; editor.js's 8); the view mounts in `#doc-source-wrap` as
+`#doc-editor`; Live = the same view with a decorations Compartment on,
+Source = off; `setDocView` (~200) keeps its contract; `renderDocLive`
+(~1504) and the `.lp-*` CSS are deleted once acceptance passes; Live
+decorations in value order (headings with hidden markers, inline marks
+with markers hidden until the caret enters, links as chips, task boxes
+that toggle, quotes and callouts, images as widgets, `[[wiki]]` chips via
+`layerDocWikiLinks`), computed from the lezer tree over
+`view.visibleRanges`; findings (docProseFindings ~4187,
+docBackdropFindings ~4437, docFindingAtOffset ~5201, docOpenSuggestFor
+~5258) become `cm-finding cm-finding-<kind>` marks, the backdrop layer
+retired; undo = CM6 history, the docUndo* stack (~6260 to 6440) retired
+after the editor.js sweep gate passes; find/replace = CM6 search panel
+restyled by CSS; folding on headings with the gutter preference; line
+numbers via CM6 for the document, `mountGutterFor` (~1139) stays for the
+other textareas; the `/` menu, `[[` autocomplete (~4819 to 4940), the
+toolbar (wrapDocSelection ~2359, wireMarkdownToolbar ~3301,
+wireMdFormatShortcuts ~3379) and selection to chat re-point at the
+adapter; styling via `EditorView.theme` from tokens plus a new
+`frontend/css/09-editor.css` linked with `?v=`; dark via
+`dataset.mode`; code files get their language (js/ts, py, css, html,
+json, yaml, stream modes), unknown plain.
+
+Tests first: `tests/test_doc_surface.py` is on the branch, strict-xfail;
+remove each marker as it passes. Gates: doctype.js under 30 ms keydown to
+paint in Live at 20k words; editor.js undo gate; documents-chrome.js
+unchanged; errors.js clean at four widths; zero `securitypolicyviolation`;
+the bundle absent from the boot request list. Serve on 8786; never pkill
+uvicorn; CSP rejects `style=`; no em-dashes; commit trailers.
+
+## Brief 20 (Opus agent): graph node panel, Library image cards, whiteboard panels
+
+Relaunch text, verbatim. Read CLAUDE.md, DESIGN.md, INBOX 59, 56, 52, 64,
+65 and GRAPH_PLAN "Phase 6 — the node panel". Own worktree, commit per
+item, never push, five-line report, `agent-remaining/visual-c.md`. Do not
+touch documents.js or editor.js.
+
+Item 1, the graph node panel (grep "Favourite" and "Trace" together in
+graph.js/app.js and the panel in index.html): header (title, one category
+chip, confidence as a small muted mark), one muted meta line, the
+attachment as a compact row, the content editor four lines minimum and
+autogrowing, tags, one primary Save shown only when changed; actions as
+one icon toolbar row in three hairline-divided groups: read (Open,
+Similar, Trace), shape (Grow, Focus, Link, Remind), keep (Favourite; Bin
+last, ghost); Open the one filled button; the panel scrolls inside.
+Measure at 1440, 1024 and 390 (buttons per row, scrollHeight vs
+clientHeight, nothing under 36px, nothing clipped); graph4b.js passes.
+
+Item 2, Library image cards (library.js ~5271 `.library-image-tile`, CSS
+in 05 and 07): thumbnail with the file name as a scrim caption, one line
+"Used in <chip>" or "Not used yet", the description clamped to three
+lines with a "More" ghost button, OCR text under one disclosure,
+provenance as one muted foot line "Described by X · read by Y", edit and
+delete controls unchanged. Measure card height before/after with a long
+description, three font sizes per card, nothing clipped at 1024.
+
+Item 3, whiteboard panels: the bottom tool bar (`.whiteboard-floating-
+panel.bottom-center`, zoom pill `.bottom-right`, CSS in 07): one surface,
+hairline dividers, no per-control background except the active tool, the
+zoom pill on the same recipe and height; the properties panel (INBOX 64):
+sections Style, Guides, Arrange, Notes; Arrange as one icon toolbar row
+(align x3, distribute x2, group/ungroup pair) with tooltips; Extract notes
+as the section's one text button; no two control rects intersect; the
+panel scrolls inside. Measure: elements with their own background inside
+the bar, bar height equals the zoom pill, touch.js and docks.js
+unchanged, errors.js clean. Serve on 8788. Every new glass surface goes on
+the `[data-glass="off"]` list. Sentence case, no em-dashes, tokens only,
+commit trailers.
+
+## Brief 21 (Opus agent): UI_MODERNISATION Phases 9 and 10, the rest of the plan
+
+Relaunch text, verbatim. Read CLAUDE.md, DESIGN.md (the recipe index and
+"Taken from Liquid Glass and the HIG"), UI_MODERNISATION_PLAN Phase 9
+(the breakpoint table and its rules), Phase 10 and its placed items
+(INBOX 60, 94, 100 to 104), and `agent-remaining/responsive.md`. Own
+worktree, commit per step, never push, five-line report,
+`agent-remaining/responsive.md` rewritten before stopping.
+
+Scope rules, because two other agents are running: every new CSS goes in
+a new `frontend/css/10-responsive.css` linked after 08-consistency.css
+with `?v=` (tests/test_asset_cache_busting.py); edits to existing CSS
+files only when a rule must be removed; do not touch documents.js,
+editor.js, whiteboard.js, library.js, graph.js or graph-canvas.js (their
+owners are mid-flight); app.js and index.html edits kept to the tab bar,
+the sidebars, the docks' responsive behaviour and the scroll-edge
+listener.
+
+Phase 9, in the plan's order: the four breakpoints as stated once
+(≥1100, 820 to 1100, 600 to 820, <600) with what changes app-wide;
+`--target-min` steps up in the 820 block; safe-area insets; sidebars
+collapse to icons then become sheets; docks keep identity, search, Filter
+and the primary under 820 with the rest in ⋯; two-up grids on iPad
+portrait; on the phone every tab gets the Phase 5 rules (strips scroll,
+one control row, the primary pinned bottom-right, bottom docks above the
+keyboard), the tab bar pinned to the bottom. Gate: errors.js and touch.js
+at 1440, 1024, 820, 600 and 390; no horizontal page scroll at any width;
+docks.js unchanged at desktop; the numbers per width in the commit.
+
+Phase 10, each with its own commit and measurement: 100 the scroll edge
+effect (`data-scrolled` set by one listener, a 16px gradient under
+`.dock`, the sub-tab strips and the top bar; absent at scrollTop 0;
+contrast.js on a scrolled list); 101 `--radius-inner` and the
+test_style_scale rule; 102 `.glass-clear` with `--glass-scrim` for the
+panels over the art and `--text-on-glass` on every blurred surface
+(contrast.js over aurora and constellation); 103 menus morphing from
+their opener (`kebabMenu`, `details.dock-menu`; off under Reduce motion)
+and sheets inset by `--space-3` then `--modal-bg` at full height (menus.js,
+touch.js); 104 the phone tab bar receding on scroll down, back on scroll
+up, never hidden; then 94 (the background animations: a measured frame
+cost per style, still under Performance mode, no seams, the intensity
+slider visible at every step) and 60 (the dashboard start section per its
+decision). Every new glass surface goes on the `[data-glass="off"]` list
+(tests/test_ui_recipes.py). Serve on 8790; never pkill uvicorn; sentence
+case; no em-dashes; tokens only; commit trailers.
+

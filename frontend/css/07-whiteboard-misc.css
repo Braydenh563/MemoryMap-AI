@@ -3059,6 +3059,71 @@ summary:not(.icon-only):not(.icon-button):hover {
   color: var(--ink);
 }
 
+/* **The panels were drawing at the page-card tier, not the floating one, and
+   their own rule says otherwise.** `.whiteboard-floating-panel`
+   (06-timeline-dialogs.css) sets `background: var(--modal-bg)` with a comment
+   recording why: it floats over the board's own art and cards and has to stay
+   legible against all of it. Every one of these panels also carries `card
+   glass` in the markup, and `.card.glass` (03-dashboard-widgets.css) is a
+   two-class selector against that rule's one, so it won: measured
+   `color(srgb 1 1 1 / 0.549)`, which is --card, the 55%-opaque tier meant for
+   a surface content scrolls *inside*.
+
+   That is the shape CLAUDE.md warns about, a fix and the thing it fixed
+   drifting apart in two different rules, and it is half of why the bars read
+   as "unrefined" (INBOX 65): a control bar you can see the canvas through is
+   a bar that does not look like a surface. Restated here, later in the
+   cascade and at a specificity the class pair cannot beat. The blur, border
+   and shadow already come from the panel rule and are unchanged; only the
+   opacity tier is put back. */
+.whiteboard-floating-panel.card.glass,
+.wb-selection-bar.card.glass {
+  background: var(--modal-bg);
+}
+
+/* --- the whiteboard's panels are one surface each -------------------------
+   Reported twice. INBOX 52, of the bottom tool bar: the controls "feel
+   separate from the panels and not integrated". INBOX 65, of all of them:
+   "the buttons look separate from the panels".
+
+   Measured before this, at 1440 with a board open: the tool bar painted
+   **16** backgrounds of its own inside one glass surface (fifteen tonal
+   discs plus the accent-filled active tool), and the zoom pill painted
+   three more. A tonal fill is right for a button that sits on a page, where
+   it is the thing that says "this is a control"; inside a floating bar the
+   bar itself already says that, and fifteen filled discs in a row read as
+   fifteen separate objects that happen to share a tray.
+
+   So: nothing rests filled except the active tool, and the fill comes back
+   under the pointer and on keyboard focus, so the affordance is not lost,
+   only postponed. The group hairlines (--divider) are then the only marks
+   inside the bar.
+
+   Scoped to the floating panels over the canvas. The board's top bar is a
+   different surface with its own settled recipe, and the page's own buttons
+   are untouched. */
+.whiteboard-floating-panel button.ghost:not(.active):not(:disabled),
+.wb-selection-bar button.ghost:not(.active):not(:disabled) {
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.whiteboard-floating-panel button.ghost:not(.active):hover,
+.whiteboard-floating-panel button.ghost:not(.active):focus-visible,
+.wb-selection-bar button.ghost:not(.active):hover,
+.wb-selection-bar button.ghost:not(.active):focus-visible {
+  background: var(--ghost-btn-bg);
+}
+
+/* A disabled control (undo with nothing to undo) rests flat like the rest and
+   does not light up, which is what "disabled" has to look like once the
+   others have stopped resting filled. */
+.whiteboard-floating-panel button.ghost:disabled {
+  background: none;
+  border-color: transparent;
+}
+
 /* --- scrollbars ----------------------------------------------------------
    Reported: "the scrollbar in the categories sidebar actually comes out of
    the curved sidebar corners", and the screenshot shows why. That panel was
@@ -3543,8 +3608,19 @@ details[open].help-accordion > summary::before {
    that already says "these are buttons", and a per-item ground both competes
    with the group's own selection fill and doubles the visual weight of a bar
    that is meant to sit quietly under the app. */
-button.icon-only:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool),
-button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool) {
+/*: `.graph-popup-tool-primary` is the fourth name on this list, and it is
+   here rather than in a rule of its own for the reason the list exists.
+   GRAPH_PLAN Phase 6 asks the graph node panel's toolbar for one filled
+   control (Open), and `smallButton(..., ghost=false)` is how the app says
+   "filled" everywhere else: it was not enough, because this rule is six
+   classes deep and no readable selector naming that button could outrank
+   it. Measured on the running panel, Open rendered identical to its eight
+   neighbours, which is the shape CLAUDE.md warns about: the markup said one
+   filled button and the pixels said none. Named here, it falls through to
+   the base `button` recipe, the app's real filled tier, rather than to a
+   fourth button colour invented for one control. */
+button.icon-only:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):not(.graph-popup-tool-primary),
+button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):not(.graph-popup-tool-primary) {
   /* Tonal, like `.ghost` (01-forms-settings.css): fill, transparent edge. */
   background: var(--ghost-btn-bg);
   border: 1px solid transparent;
@@ -4394,10 +4470,7 @@ summary:not(.icon-only):not(.icon-button) {
    `display: block` on the ones that truncate hands the ellipsis back and
    anchors the text at its start. Applied to the badge shapes, not to buttons
    generally: a normal button wants its label centred. */
-.chat-model-button,
-.library-image-vision-ocr-badge,
-.library-image-ocr-badge,
-.library-image-caption-badge {
+.chat-model-button {
   display: block;
   text-align: left;
   overflow: hidden;
@@ -4558,8 +4631,15 @@ summary:not(.icon-only):not(.icon-button) {
   /* `min()`, not a flat 16rem: a gallery tile is ~11.5rem wide, so a 16rem
      cap let a long board or note title run straight past the card's own
      edge: visible on the sketch tiles, whose titles are the longest in the
-     gallery ("Sketch on SD board 1788528271333"). */
-  max-width: min(16rem, 100%);
+     gallery ("Sketch on SD board 1788528271333").
+
+     62%, not 100%: the row wraps, and a wrapping row places an item at its
+     *base* size before it will shrink anything, so a chip allowed the full
+     width of the card could never sit beside the "Used in" lead and always
+     took a second line. "Used in" measures 46px of a 160px card, so 66% is
+     what is left after it and the row's gap; the chip ellipsises inside that
+     and keeps the full title in its tooltip (INBOX 56 asks for one line). */
+  max-width: min(16rem, 66%);
   overflow: hidden;
   white-space: nowrap;
   cursor: pointer;
@@ -8864,6 +8944,39 @@ header#top-bar {
    stays one, so this costs nothing at any width but this band. */
 .tab-icon {
   display: none;
+}
+
+/* --- the graph node panel becomes a sheet (GRAPH_PLAN Phase 6) ------------
+   At 390 the panel is wider than the space either side of the node it was
+   opened from, so a floating card with a corner near the pointer is a card
+   that covers the map and points at nothing. Flush to the bottom of the map,
+   full width, square where it meets the edges: the same "attached, not
+   dropped on" shape the whiteboard drawer takes at 1024. `placeGraphPopup`
+   (graph.js) writes the position, because it owns the inline left/top. */
+@media (max-width: 599.98px) {
+
+  .graph-popup.graph-popup-sheet {
+    width: 100%;
+    max-width: 100%;
+    border-radius: var(--radius) var(--radius) 0 0;
+    border-bottom: none;
+  }
+
+  /* One group per line rather than one wrapped row. A wrapped row leaves a
+     divider at the start of the second line, marking a boundary that is not
+     there: the line break already separates the groups, so the hairlines
+     have nothing left to do. */
+  .graph-popup-sheet .graph-popup-tool-group {
+    flex: 1 0 100%;
+  }
+
+  .graph-popup-sheet .graph-popup-tool-group+.graph-popup-tool-group::before {
+    display: none;
+  }
+
+  .graph-popup-sheet .graph-popup-actions {
+    row-gap: var(--space-3);
+  }
 }
 
 @media (max-width: 599.98px) {

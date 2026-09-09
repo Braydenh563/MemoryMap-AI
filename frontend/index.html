@@ -31,20 +31,24 @@
        every later file's var() calls depend on. See
        tests/test_style_scale.py's STYLE_FILES for the list the design-token
        lint reads instead of a single style.css path. -->
-  <link rel="stylesheet" href="/css/00-tokens-shell.css?v=0.2.2">
-  <link rel="stylesheet" href="/css/01-forms-settings.css?v=0.2.2">
-  <link rel="stylesheet" href="/css/02-chat-graph.css?v=0.2.2">
-  <link rel="stylesheet" href="/css/03-dashboard-widgets.css?v=0.2.2">
-  <link rel="stylesheet" href="/css/04-chat-dock-appearance.css?v=0.2.2">
-  <link rel="stylesheet" href="/css/05-sidebars-themes.css?v=0.2.2">
-  <link rel="stylesheet" href="/css/06-timeline-dialogs.css?v=0.2.2">
-  <link rel="stylesheet" href="/css/07-whiteboard-misc.css?v=0.2.2">
-  <link rel="stylesheet" href="/css/08-consistency.css?v=0.2.2">
+  <link rel="stylesheet" href="/css/00-tokens-shell.css?v=0.3.0">
+  <link rel="stylesheet" href="/css/01-forms-settings.css?v=0.3.0">
+  <link rel="stylesheet" href="/css/02-chat-graph.css?v=0.3.0">
+  <link rel="stylesheet" href="/css/03-dashboard-widgets.css?v=0.3.0">
+  <link rel="stylesheet" href="/css/04-chat-dock-appearance.css?v=0.3.0">
+  <link rel="stylesheet" href="/css/05-sidebars-themes.css?v=0.3.0">
+  <link rel="stylesheet" href="/css/06-timeline-dialogs.css?v=0.3.0">
+  <link rel="stylesheet" href="/css/07-whiteboard-misc.css?v=0.3.0">
+  <link rel="stylesheet" href="/css/08-consistency.css?v=0.3.0">
   <!-- The documents editor's own layout, last so it is the final word on the
        panes it lays out. CodeMirror's *internals* are styled from the theme
        object in documents.js instead: adopted stylesheets sort after document
        stylesheets, so a rule here could not override one of its own. -->
-  <link rel="stylesheet" href="/css/09-editor.css?v=0.2.2">
+  <link rel="stylesheet" href="/css/09-editor.css?v=0.3.0">
+  <!-- Phases 9 and 10 of UI_MODERNISATION_PLAN: the tablet bands and the
+       Liquid Glass adoptions. Last, so it wins ties on source order, and its
+       own file so three agents can edit the stylesheets at once. -->
+  <link rel="stylesheet" href="/css/10-responsive.css?v=0.3.0">
   <!-- **Its own file, not an inline block, and that is the point.** The CSP
        allows inline scripts only by sha256 hash, and `create_app` computes
        those hashes from index.html **once at startup**. A server still
@@ -54,7 +58,7 @@
        the loading screen". A guard that exists to report a broken boot must
        not itself be the thing that breaks, and `script-src 'self'` covers a
        same-origin file unconditionally. -->
-  <script src="/boot-guard.js?v=0.2.2"></script>
+  <script src="/boot-guard.js?v=0.3.0"></script>
   <!-- **Its own file for the same reason boot-guard.js is**, and this one
        was reported: "[browser/csp] blocked script-src-elem: inline". The
        policy has no `'unsafe-inline'`, so an inline block has to be named by
@@ -70,7 +74,7 @@
        class rather than one more of its causes. It stays a plain synchronous
        script element in the head, so it still runs before first paint and the
        anti-flash guarantee is unchanged. -->
-  <script src="/theme-boot.js?v=0.2.2"></script>
+  <script src="/theme-boot.js?v=0.3.0"></script>
 </head>
 <body>
   <!-- The very first thing in <body>, on purpose: painted before any data
@@ -2355,22 +2359,37 @@ Link to another note with [[its first few words]]."></textarea>
         <!-- Click a node: edit it in place without leaving the map -->
         <div id="graph-popup" class="graph-popup hidden" role="dialog"
           aria-label="Edit note">
-          <div class="row space-between">
-            <strong id="graph-popup-title">Note</strong>
+          <!-- The header carries the note's identity and nothing else: the
+               title, the category as the one chip, and the AI's filing
+               confidence as a small muted mark beside the title rather than a
+               sixth chip at the same weight as everything around it
+               (GRAPH_PLAN Phase 6, INBOX 59). -->
+          <div class="row space-between graph-popup-head">
+            <span class="graph-popup-ident">
+              <strong id="graph-popup-title">Note</strong>
+              <span id="graph-popup-confidence" class="graph-popup-confidence hidden"></span>
+              <span id="graph-popup-category" class="chip tag hidden"></span>
+            </span>
             <button id="graph-popup-close" class="ghost small icon-only" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
           </div>
-          <!-- At-a-glance facts about this note -->
-          <div id="graph-popup-info" class="graph-popup-info"></div>
+          <!-- Date, links, views: one muted line, because they are the same
+               rank of fact and five chips said they were five ranks. -->
+          <p id="graph-popup-info" class="graph-popup-meta muted"></p>
           <!-- A sketch is a note plus a PNG, so its node on the map used to
                show only the caption, the drawing itself was unreachable from
                the graph entirely (user-reported: "sketches don't open from
                the graph"). Any image attachment previews here. -->
           <div id="graph-popup-media" class="graph-popup-media hidden"></div>
-          <textarea id="graph-popup-content" rows="4" aria-label="Note content"></textarea>
+          <textarea id="graph-popup-content" class="autogrow" rows="4" aria-label="Note content"></textarea>
           <input id="graph-popup-tags" type="text" placeholder="Tags, comma separated"
             aria-label="Tags">
-          <div class="row">
-            <button id="graph-popup-save" class="small">Save</button>
+          <!-- The button is hidden until the note is actually edited: a Save
+               that is always there is a permanent call to action on a panel
+               you mostly open to read. The status line stays in the row
+               either way, because "couldn't load this note" has to be able to
+               speak before anything has been changed. -->
+          <div class="row graph-popup-saverow" id="graph-popup-saverow">
+            <button id="graph-popup-save" class="small hidden">Save</button>
             <span id="graph-popup-status" class="status" role="status"></span>
           </div>
           <!-- Everything you can do with this note, without leaving the map -->
@@ -4196,9 +4215,9 @@ Link to another note with [[its first few words]]."></textarea>
            style lives, and because both actions read the current selection,
            which is what this panel is already about. -->
       <div class="wb-properties-group" id="wb-style-transfer-group">
-        <span class="wb-properties-group-label">Copy style</span>
+        <span class="wb-properties-group-label">Style</span>
         <div class="wb-properties-row">
-          <span>Colour, thickness, fill</span>
+          <span>Copy style</span>
           <span class="row wb-inline-controls">
             <button type="button" id="wb-copy-style" class="ghost small icon-button"
               title="Copy this item's style (Ctrl+Alt+C)" aria-label="Copy style"><i class="ph ph-copy" aria-hidden="true"></i></button>
@@ -4256,7 +4275,7 @@ Link to another note with [[its first few words]]."></textarea>
         </label>
       </div>
       <div class="wb-properties-group" id="wb-guide-colour-group">
-        <span class="wb-properties-group-label">Guide colours</span>
+        <span class="wb-properties-group-label">Guides</span>
         <label class="wb-properties-row" title="Shown while dragging when an edge lines up with another item's edge">
           <span>Edges</span>
           <input type="color" id="wb-guide-color-edge" aria-label="Alignment guide colour: edges" title="Alignment guide colour: edges" class="wb-color-picker" value="#ff00ff">
@@ -4382,31 +4401,59 @@ Link to another note with [[its first few words]]."></textarea>
            ("alignment tools... missing") and only meaningful once two or
            more items are selected at once, so it replaces the single-item
            rows above rather than sitting alongside them. -->
-      <div class="wb-properties-row wb-prop-multi hidden" id="wb-prop-multi-row">
-        <div class="wb-multi-actions">
-          <button type="button" id="wb-multi-group" class="ghost small" title="Group (Ctrl+G)"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Group</button>
-          <button type="button" id="wb-multi-ungroup" class="ghost small" title="Ungroup (Ctrl+Shift+G)"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Ungroup</button>
-        </div>
-        <div class="wb-multi-actions">
-          <button type="button" id="wb-align-left" class="ghost small" title="Align left edges">⇤</button>
-          <button type="button" id="wb-align-hcenter" class="ghost small" title="Align horizontal centres">⇔</button>
-          <button type="button" id="wb-align-right" class="ghost small" title="Align right edges">⇥</button>
-        </div>
-        <div class="wb-multi-actions">
-          <button type="button" id="wb-align-top" class="ghost small" title="Align top edges">⇡</button>
-          <button type="button" id="wb-align-vcenter" class="ghost small" title="Align vertical centres">⇕</button>
-          <button type="button" id="wb-align-bottom" class="ghost small" title="Align bottom edges">⇣</button>
-        </div>
-        <div class="wb-multi-actions">
-          <button type="button" id="wb-distribute-h" class="ghost small" title="Distribute evenly, left to right"><i class="ph ph-arrows-horizontal ph-lead" aria-hidden="true"></i> Space</button>
-          <button type="button" id="wb-distribute-v" class="ghost small" title="Distribute evenly, top to bottom"><i class="ph ph-arrows-vertical ph-lead" aria-hidden="true"></i> Space</button>
+      <!-- **Arrange is one icon toolbar, and every button in it is square**
+           (INBOX 64). Reported with three screenshots: "Group / Ungroup
+           overlapping each other, an arrow button, the three align icons,
+           two Space buttons and Extract notes just chucked at the bottom."
+           Measured before this: four `.wb-multi-actions` rows sat as flex
+           items on ONE `.wb-properties-row` line, which is
+           `justify-content: space-between` and does not wrap, so ten
+           labelled buttons were laid out across 200px of a 216px panel and
+           four pairs of them literally intersected (wb-multi-group with
+           wb-align-left, wb-multi-ungroup with wb-align-left and with
+           wb-align-hcenter, wb-align-bottom with wb-distribute-h).
+
+           A label is what made them too wide, and two buttons labelled
+           "Space" were the same word for two different axes anyway. Icons
+           with tooltips, in three groups separated by a gap rather than a
+           rule, on the dock's own recipe: group/ungroup, the six aligns,
+           the two distributes. Every id and handler is unchanged. -->
+      <div class="wb-prop-arrange hidden" id="wb-prop-multi-row">
+        <span class="wb-properties-group-label">Arrange</span>
+        <div class="wb-arrange-toolbar" role="toolbar" aria-label="Arrange the selection">
+          <div class="wb-arrange-group" role="group" aria-label="Group">
+            <button type="button" id="wb-multi-group" class="ghost small icon-only" title="Group (Ctrl+G)" aria-label="Group"><i class="ph ph-link" aria-hidden="true"></i></button>
+            <button type="button" id="wb-multi-ungroup" class="ghost small icon-only" title="Ungroup (Ctrl+Shift+G)" aria-label="Ungroup"><i class="ph ph-link-break" aria-hidden="true"></i></button>
+          </div>
+          <!-- Two groups of three, not one of six: six icon buttons plus
+               their gaps measure 178px against the panel's 200px of content
+               width, which fits until the group beside them does not, and a
+               group is an atom that never splits, so the sixth was clipped
+               by the panel's own edge. Left/centre/right and top/middle/
+               bottom are the two questions anyway. -->
+          <div class="wb-arrange-group" role="group" aria-label="Align across">
+            <button type="button" id="wb-align-left" class="ghost small icon-only" title="Align left edges" aria-label="Align left edges"><i class="ph ph-align-left-simple" aria-hidden="true"></i></button>
+            <button type="button" id="wb-align-hcenter" class="ghost small icon-only" title="Align horizontal centres" aria-label="Align horizontal centres"><i class="ph ph-align-center-vertical-simple" aria-hidden="true"></i></button>
+            <button type="button" id="wb-align-right" class="ghost small icon-only" title="Align right edges" aria-label="Align right edges"><i class="ph ph-align-right-simple" aria-hidden="true"></i></button>
+          </div>
+          <div class="wb-arrange-group" role="group" aria-label="Align down">
+            <button type="button" id="wb-align-top" class="ghost small icon-only" title="Align top edges" aria-label="Align top edges"><i class="ph ph-align-top-simple" aria-hidden="true"></i></button>
+            <button type="button" id="wb-align-vcenter" class="ghost small icon-only" title="Align vertical centres" aria-label="Align vertical centres"><i class="ph ph-align-center-horizontal-simple" aria-hidden="true"></i></button>
+            <button type="button" id="wb-align-bottom" class="ghost small icon-only" title="Align bottom edges" aria-label="Align bottom edges"><i class="ph ph-align-bottom-simple" aria-hidden="true"></i></button>
+          </div>
+          <div class="wb-arrange-group" role="group" aria-label="Distribute">
+            <button type="button" id="wb-distribute-h" class="ghost small icon-only" title="Space evenly, left to right" aria-label="Space evenly, left to right"><i class="ph ph-arrows-horizontal" aria-hidden="true"></i></button>
+            <button type="button" id="wb-distribute-v" class="ghost small icon-only" title="Space evenly, top to bottom" aria-label="Space evenly, top to bottom"><i class="ph ph-arrows-vertical" aria-hidden="true"></i></button>
+          </div>
         </div>
         <!-- BACKLOG.md §62: the selected note cards' own content is the
              "notes-in-context" this extracts from: shown only once the
              selection actually includes at least one note card
              (wbUpdatePropertiesPanel), same gating as the mind-map row
-             above. -->
-        <div class="wb-multi-actions hidden" id="wb-extract-notes-row">
+             above. Its own section, because it is the one thing here that
+             is not about where the selection sits. -->
+        <div class="wb-prop-notes hidden" id="wb-extract-notes-row">
+          <span class="wb-properties-group-label">Notes</span>
           <button type="button" id="wb-extract-notes" class="ghost small"
             title="Turn the selected notes' content into one or more new notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Extract notes</button>
         </div>
@@ -6400,17 +6447,17 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="settings-group">
               <h3>Jump to a tab</h3>
               <p class="muted">
-                Press <kbd>g</kbd> and then a letter, the same way GitHub and
+                Press <kbd>m</kbd> and then a letter, the same way GitHub and
                 Gmail do it. Only when you aren't typing in a box.
               </p>
               <ul class="shortcut-list">
-                <li><kbd>g</kbd> <kbd>d</kbd><span>Dashboard</span></li>
-                <li><kbd>g</kbd> <kbd>n</kbd><span>Notes</span></li>
-                <li><kbd>g</kbd> <kbd>c</kbd><span>Chat</span></li>
-                <li><kbd>g</kbd> <kbd>g</kbd><span>Graph</span></li>
-                <li><kbd>g</kbd> <kbd>l</kbd><span>Library</span></li>
-                <li><kbd>g</kbd> <kbd>t</kbd><span>Timeline</span></li>
-                <li><kbd>g</kbd> <kbd>r</kbd><span>Reminders</span></li>
+                <li><kbd>m</kbd> <kbd>d</kbd><span>Dashboard</span></li>
+                <li><kbd>m</kbd> <kbd>n</kbd><span>Notes</span></li>
+                <li><kbd>m</kbd> <kbd>c</kbd><span>Chat</span></li>
+                <li><kbd>m</kbd> <kbd>g</kbd><span>Graph</span></li>
+                <li><kbd>m</kbd> <kbd>l</kbd><span>Library</span></li>
+                <li><kbd>m</kbd> <kbd>t</kbd><span>Timeline</span></li>
+                <li><kbd>m</kbd> <kbd>r</kbd><span>Reminders</span></li>
               </ul>
             </div>
           </section>
@@ -6518,13 +6565,19 @@ Link to another note with [[its first few words]]."></textarea>
                 placeholder="e.g. I'm Brayden, in Brisbane. I run track and collect dad jokes."></textarea>
               <div class="row">
                 <button id="prefs-save" class="small">Save preferences</button>
-                <button id="profile-delete" class="ghost small">Delete my profile data</button>
                 <span id="prefs-status" class="status" role="status"></span>
               </div>
-              <p class="muted">
-                Stays on this computer like everything else. Turn it off or delete
-                it any time: answers just get less personal.
-              </p>
+              <p class="muted">Stays on this computer like everything else. Ctrl+S saves too.</p>
+            </div>
+
+            <!-- Asked for (INBOX 74): the destructive action in its own group,
+                 not beside Save. -->
+            <div class="settings-group">
+              <h3>Your profile data</h3>
+              <p class="muted">Turn the profile off above or delete it here: answers just get less personal.</p>
+              <div class="row">
+                <button id="profile-delete" class="ghost small">Delete my profile data</button>
+              </div>
             </div>
           </section>
 
@@ -7834,13 +7887,13 @@ Link to another note with [[its first few words]]."></textarea>
        it can safely go first. See frontend/graph.js's own header for the
        full explanation. -->
 
-  <script src="/graph.js?v=0.2.2"></script>
+  <script src="/graph.js?v=0.3.0"></script>
   <!-- After graph.js (which dispatches to it by name) and before app.js, for
        the reason graph.js's own header gives at length: each <script> is its
        own hoisting scope, and app.js's top-level wiring reads these files'
        bare identifiers the moment that line runs. -->
-  <script src="/graph-canvas.js?v=0.2.2"></script>
-  <script src="/app.js?v=0.2.2"></script>
+  <script src="/graph-canvas.js?v=0.3.0"></script>
+  <script src="/app.js?v=0.3.0"></script>
   <!-- Document editor, split out of app.js (§10 of the app.js-split plan).
        Loaded after app.js and shares its global scope; the two directions
        differ. app.js calls INTO this file (loadDocuments, renderDocStorage,
@@ -7850,14 +7903,14 @@ Link to another note with [[its first few words]]."></textarea>
        `initDocSidebarTabs();` sitting in app.js's own wiring block, moved
        here with the function itself, so this file now calls it on its own
        last line instead of app.js calling it mid-file. -->
-  <script src="/documents.js?v=0.2.2"></script>
+  <script src="/documents.js?v=0.3.0"></script>
   <!-- Whiteboard subsystem, split out of app.js (ROADMAP.md Priority 0 item
        2). Loaded after app.js and shares its global scope; every
        cross-file call between the two happens at runtime (inside a
        function or event listener), never at parse time, so this order is
        not load-bearing for correctness, it just keeps app.js as the
        first, larger script, matching the split's own diff. -->
-  <script src="/whiteboard.js?v=0.2.2"></script>
+  <script src="/whiteboard.js?v=0.3.0"></script>
   <!-- The Library tab, split out of app.js and whiteboard.js both (§88.3 of
        the app.js split plan, documents.js above was the first file, this
        is the second). Loaded after both for the same reason documents.js is
@@ -7872,7 +7925,7 @@ Link to another note with [[its first few words]]."></textarea>
        documents.js's split found that this one checked for and did not
        find (a bare top-level call site left orphaned by a moved
        definition). -->
-  <script src="/library.js?v=0.2.2"></script>
+  <script src="/library.js?v=0.3.0"></script>
   <!-- The editor layer: the "/" command menu, the block frames it inserts, and
        the caret-anchored popup the document editor's [[ autocomplete uses.
        Loaded after app.js for the same reason whiteboard.js is, every
@@ -7880,7 +7933,7 @@ Link to another note with [[its first few words]]."></textarea>
        allEntries from app.js, and MD_ACTIONS/markDocDirty from documents.js
        (loaded above): all runtime reads inside closures, so this ordering
        relative to documents.js isn't load-bearing either. -->
-  <script src="/editor.js?v=0.2.2"></script>
+  <script src="/editor.js?v=0.3.0"></script>
   <!-- Dashboard: widgets, masonry packing, the generative-art widget (§88.3
        of the app.js-split plan). Loaded after app.js and shares its global
        scope; every cross-file call happens at runtime (inside a function or
@@ -7892,7 +7945,7 @@ Link to another note with [[its first few words]]."></textarea>
        closure) moved here along with the functions they call, the same fix
        documents.js made for `initDocSidebarTabs()`, see dashboard.js's own
        header for the full explanation. -->
-  <script src="/dashboard.js?v=0.2.2"></script>
+  <script src="/dashboard.js?v=0.3.0"></script>
   <!-- Settings: the modal shell, the logs console, and appearance (theme,
        accent, curated palettes, saved looks, the generative background
        preview): §88.3 of the app.js-split plan, the fourth and LAST file.
@@ -7911,6 +7964,6 @@ Link to another note with [[its first few words]]."></textarea>
        event-listener closure: see this file's own header for the full
        account of what moved, what stayed in app.js and why, and the two
        hazards this ordering fixes. -->
-  <script src="/settings.js?v=0.2.2"></script>
+  <script src="/settings.js?v=0.3.0"></script>
 </body>
 </html>

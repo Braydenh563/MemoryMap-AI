@@ -227,83 +227,7 @@ that need building rather than fixing.
 
 ### Built — items 1, 3, 4 and 5
 
-Four commits, one per item, each measured at 1440 in Chromium against a
-seeded 3-page PDF. **Item 2 (line numbers as a setting) landed separately**
-(`mountGutterFor` in documents.js, commit 68a81d1: one remembered choice in
-the capture box, the note edit form and the documents editor).
-
-**1 — the lightbox shows a document like a document.** The document path
-now goes through the *same* `.lightbox-info` panel and the same `renderInfo`
-as an image (it never called it at all before, so an attachment PDF showed
-whatever the previous item had left there), plus what only a document has:
-page count and how many pages have a stored reading in the facts line, one
-`.chip` per page marked read/unread and clickable, and a page readout with
-prev/next in the actions bar kept in sync by a scroll listener. "Read text
-with AI" opens the workspace **at the page you are on** —
-`openOcrWorkspace(image, images, page)`. Measured: chips 1/2/3 at 24px,
-stepper "Page 1 of 3" → "Page 3 of 3" and back via a chip, actions bar
-scrollWidth 844 = clientWidth 844 and scrollHeight 28 = clientHeight 28
-(eleven controls, one row); an image shows no chips and no stepper.
-
-**3 — captioning for documents.** `PAGE_CAPTION_PROMPT` (ai/captioning.py)
-names the page ("page 4 of 18"), asks about figures/charts/diagrams/tables,
-forbids transcribing and forbids describing the page as an object. Stored
-per page on `PageRead.caption`/`caption_model` — two writers, never one with
-a flag, so a describe cannot clear a reading. `POST
-/files/{id}/page-caption` and `/media/{id}/page-caption`. Shown per page: a
-labelled "Figures" block under each page's reading in the workspace, and the
-*current page's* caption, reading and bylines in the lightbox instead of the
-file's single caption and every page's joined text. Describe works for a
-document now (it was images-only, so a deck of charts could not be described
-anywhere). A described-but-unread page is not counted as read.
-
-**4 — region select.** Drag on the page in the workspace and a small offer
-appears under the rectangle: Read text, Describe. Own drag layer (the
-region-box layer is `display:none` whenever Regions is unticked); the boxes
-layer is pointer-transparent and the boxes put `pointer-events` back, so a
-reader's box is still clickable — measured with an injected box. The crop is
-cut in the browser at the page's own resolution and posted to `POST
-…/region-read`; nothing is stored. Measured: a 55% × 30% drag produced a
-440×180 PNG out of an 800×600 raster, multipart with its own boundary; the
-offer rendered 408×43 inside the pane, three 28px buttons, no overflow; the
-answer came back as a focusable card (`tabIndex -1`, `activeElement`) tagged
-"Page 1 · region"; a second region stacked; Escape cleared the rectangle and
-left the workspace open, a second Escape closed it.
-
-**5 — the Files row.** The clamped paragraph is gone for files (an image
-keeps its editable box). The row shows the first sentence on one line,
-"N pages read · N words" under it, and an "Open reading" action that opens
-the lightbox at the reading — first page that has one, info panel scrolled
-into view, `.lightbox-text` focused. `pages_read` is a new field on both
-gallery payloads. Measured at 1440 and 1024: `.library-image-tile`
-scrollHeight 311 = clientHeight 311, summary exactly 1 line, no "Show more",
-and the same with a 500-character reading whose first sentence runs 160
-characters.
-
-**What was NOT verified.** There is no OCR engine and no vision model in
-this sandbox, so **nothing here was ever run by a real reader.** Specifically:
-
-- `page_caption_text` and the new `PAGE_CAPTION_PROMPT` ran only against the
-  fake transport (`tests/test_page_captions.py`) — what a real vision model
-  answers to that prompt is untested, which is the one thing item 3 is
-  actually about.
-- `_describe_page` and `_read_region`'s model branches ran only with
-  `vision_ocr.vision_ocr_text` / `captioning.page_caption_text` stubbed
-  (`tests/test_region_read.py`). The Tesseract branch of `_read_region` never
-  ran at all — the binary is not installed.
-- In the browser, every page reading and page caption on screen was written
-  straight into `PageRead` rows, which is what a real read stores; the
-  region round trip was driven end to end against a stubbed 200 (the client
-  half is real, the answer is not) and against the live 409 the app gives
-  when no model is running.
-- `pypdfium2` + `Pillow` were installed into `.venv` so PDF pages would
-  actually render — without them the whole viewer degrades to "no pages" and
-  none of this is visible. They are the documented optional extra, not a new
-  dependency.
-- Only the default palette in light mode was screenshotted. Dark mode, the
-  other seven palettes and `[data-glass="off"]` were **not** looked at; the
-  new popover was added to the glass-off selector list by rule, not by
-  observation.
+Moved to HISTORY.md ("Moved from the plans, 2026-09-09", UI_MODERNISATION_PLAN.md) on 2026-09-09: a plan holds open work only.
 
 ## Phase 8 — control docks: one grammar for every tab's head (2 sessions)
 
@@ -446,75 +370,7 @@ it, Enter opens a popover, Escape closes it and returns focus) scripted in
   popover shell. Nothing on the board may feel like a different app.
 ### Built, second sitting
 
-Twelve docks now carry `data-dock-name` and are in
-`test_dock_grammar.py`'s `ON_THE_GRAMMAR`: the five from the first sitting
-(graph, library, notes, timeline, reminders) plus **library-docs,
-library-boards, library-media, library-links, library-contents,
-library-skills and chat**. Every Library sub-tab is on the grammar; so is
-the Chat conversation header; the Settings section heads took the identity
-zone the plan asks of them.
-
-Measured per surface at 1440 and 390 with two new scripts, both in
-`scratchpad/ui-sweeps/`: **`subdocks.js`** (inventory: controls, heights,
-zones, filled buttons per head row, including sub-tabs `docks.js` never
-reaches because they are `hidden` when their tab first paints) and
-**`dockprobe.js`** (behaviour: every dock menu opens, its list stays inside
-the viewport, picking an item closes it, Escape closes it and returns
-focus, an outside click closes it, and the dock never scrolls sideways).
-**`setheads.js`** does the same for the seventeen Settings sections.
-
-| Dock | Before (1440) | After (1440) |
-| --- | --- | --- |
-| library-docs | 9 controls, no zones | 6, four zones, 1 filled, 36px |
-| library-boards | 11 controls, 32/36 | 7 grammar controls, four zones, 1 filled |
-| library-media | 2 rows, 3 + 6/10 controls | 1 row, four zones, 1 filled |
-| library-links | 3 bands, 2 + 4 controls | 5 controls, four zones, 1 filled |
-| library-contents | 2 rows, 2 + 7 controls | 9 controls, four zones, 0 filled |
-| library-skills | 2 controls, search elsewhere | 3 controls, three zones, 1 filled |
-| chat | 3 controls at 28px | 3 at 36px, matching the head beside it |
-
-**Six bugs the measuring found, none of which reading the source would
-have:**
-
-1. On Library then Images the native `#library-media-read` is `hidden`,
-   and `enhanceSelect`'s stand-in still drew a 124x36 "Read or not"
-   dropdown on a tab where "read" means nothing. `#update-version-select`
-   had the same hole. Fixed once inside `enhanceSelect`, which now mirrors
-   the select's `hidden` state onto its shell.
-2. The Files view segment's cells rendered 28px inside a 36px group while
-   everything beside them was 36. The All and Boards segments escaped it
-   only by carrying `.library-view`, whose own rule sets a height. A
-   `.dock > * > .seg > button` rule fixes it for every dock.
-3. `#notes-expand-all`, a labelled verb, was living inside the Notes *view*
-   segment. It is a `doc-dock-menu-item` in the Notes kebab now.
-4. A kebab built by `kebabMenu` sits inside its own `.menu-wrap`, one level
-   deeper than the dock's deliberately shallow height rule reaches, so the
-   Chat kebab stayed 28px while Fork and Compress came up to 36.
-5. Settings then Help's "Ask the guide" `<h4>` was styled by nothing at all
-   and rendered at the browser default 16px/700, larger and heavier than
-   every h3 around it.
-6. `.row h3.flush` meant `flush` silently did nothing on an h2 or h4, and
-   the id-scoped `#settings-modal .settings-group h4` margin outranked it
-   anyway: measured 4px off the centre line of the button beside it.
-
-`test_dock_grammar.py` gained two things while this landed. Its "one
-filled button" detector now means what the stylesheet means by "in the
-dock" (a direct child of a zone, the run `.dock > * > button` sizes), so a
-segment cell and a chip nested in the Chat headline are not counted as
-primaries; and the segment rule its docstring had always claimed is a real
-test now, which is what found bug 3.
-
-**Not done, and why.** The Dashboard hero is descoped: the owner prefers
-the banner-style hero and it is being restored on another branch.
-`#wb-topbar` and `whiteboard.js` belong to another branch. `.sidebar-head`
-was deliberately not converted: it is shared by three sidebars and carries
-the collapse-toggle lane reserve and the negative top margin that aligns
-the row with that toggle, both of which exist because those three headings
-and the New-chat/collapse clash were reported; converting one of the three
-would reintroduce both. It already measures 36px, which is what "one
-height" was asking for. The keyboard-only `keys.js` pass in the acceptance
-above is still not written; `dockprobe.js` covers Escape-closes-and-returns-
-focus but not Tab-in and arrow-across.
+Moved to HISTORY.md ("Moved from the plans, 2026-09-09", UI_MODERNISATION_PLAN.md) on 2026-09-09: a plan holds open work only.
 
 ## Phase 9 — responsive by device, on purpose (1 session)
 
@@ -547,104 +403,111 @@ lands on two controls; screenshots at all four widths in the shots set.
 
 ## Built — Phase 9
 
-Six commits, each measured in Chromium before and after. The breakpoints are
-a design now, stated once at the top of the responsive section in
-`frontend/css/07-whiteboard-misc.css`, in four half-open bands so a boundary
-width belongs to exactly one of them: `>= 1100` desktop, `820-1100` iPad
-landscape, `600-820` iPad portrait, `< 600` phone.
-
-**9.1 The bands, 44px targets, safe areas, hover gating.** `--target-min`
-steps 1.75rem to 2.75rem in one media block at `< 820`, at the root, not per
-component. `env(safe-area-inset-*)` on the top bar, the status bar and both
-bottom docks. `@media (hover: hover)` wrapped around 24 card/chip/row hover
-lift and tint rules, wrapped where they are declared rather than undone in one
-place; a button's own affordance and any rule shared with `:focus-visible` are
-deliberately left alone, the second because gating those would take the focus
-ring off an iPad with a keyboard.
-
-**9.2 iPad landscape.** Sidebars capped at 12rem by `SIDEBAR_TABLET_MAX` in
-app.js, not in CSS, because a resizable sidebar writes its width as an inline
-`grid-template-columns` and a `clamp()` in a media block would have looked
-right and done nothing. The whiteboard properties drawer becomes an
-edge-attached sheet. `tests/test_css_braces.py` added.
-
-**9.3 The docks stop wrapping.** `foldDockArrange` moves the `.dock-arrange`
-zone into the dock's own `...` menu below 1100 and back above it. Moved, never
-cloned, never hidden.
-
-**9.4 One column below 820, sidebars as sheets.** The stacking breakpoint
-moved from 720 to 820 in three places, and the third one had to be found by
-measuring: `@media (min-width: 721px)` in 01-forms-settings.css held
-`#tab-notes #sidebar { position: sticky }` at two ids, so Notes' sidebar
-stayed a sticky column on a tablet while the other two became sheets.
-`--header-h` is now written from a ResizeObserver, because it was a constant
-and the bar is not.
-
-**9.5 The phone.** The tab bar moves to the bottom, seven icon columns, no
-scroller. `--keyboard-inset` from `visualViewport`. The primary action floats
-on the three docks that have one. Cards become one full-width column and the
-whiteboard's tools become a full-width bottom strip.
-
-**9.6 A real jump list for Settings**, replacing a section strip that needed
-2337px of scroll inside 308px.
-
-### The numbers, 390x844
-
-Chrome vs content by MODERNISATION_AUDIT B1's own definition, the first
-content item's top as a share of the viewport (`scratchpad/ui-sweeps/chrome.js`):
-
-| surface | before | after | whole items above the fold |
-| --- | ---: | ---: | --- |
-| dashboard (first widget) | 110% | 95% | 0 of 24 → 0 of 24 |
-| dashboard (first action) | n/a | 29% | n/a → 8 of 8 |
-| notes | 51% | 29% | 2 of 8 → 3 of 8 |
-| chat | 34% | 23% | 2 of 2 → 2 of 2 |
-| library | 54% | 40% | 2 of 21 → 2 of 21 |
-| whiteboard (free canvas) | 44% | 46% | 471px → 452px |
-
-Shell furniture at 390: top bar 158px → 58px, tab bar 40px at the top → 58px
-at the bottom, tabs off screen 3 → 0. Dock heights, 1440 / 1024 / 820 / 390:
-Notes 36/80/80/172 → 36/36/36/96, Graph 36/80/80/180 → 36/36/36/96, Library
-36/36/36/172 → 36/36/36/96, Timeline 36/36/80/164 → 36/36/36/120.
-
-Two of those need saying rather than rounding off. The Dashboard's 95% is the
-strict reading and it is unfair to the page, which is why the fair one is
-printed beside it. And the whiteboard went backwards at 390 by this phase's
-own rule: the tool strip's buttons are 44px touch targets now instead of 36px.
-At 768, where the strip was wrapping to two rows, the same change moves free
-canvas from 457px to 503px.
-
-### Gates
-
-`errors.js` sweeps 390, 820, 1024 and 1440 and reports 0 errors and 0 layout
-findings at all four. `touch.js` is new: a `hasTouch`/`isMobile` context at
-390x844 that asks three questions of every dock control on Notes, Library and
-Chat plus the tab bar — is the hit target 44px on both sides, does a tap at
-its centre reach it, and does any tap land on two controls. It passes with 0
-findings, and it found four real faults getting there, including the floating
-action covering two dock controls. `all.sh` gains the four widths and both
-sweeps. Six lints green.
-
-### What is not done
-
-- **`#wb-topbar` is 104px at 390**, two rows, and is the largest remaining
-  piece of phone chrome. Out of scope by instruction and untouched.
-- **Short tab captions.** Below 480 the captions are hidden because
-  "Dashboard" needs 68px in a 56px column and an ellipsis beside five whole
-  words reads as broken. A short caption per tab would beat both, and
-  "Dashboard" to "Home" is a copy decision this phase did not take alone.
-- **The tab bar still scrolls between 600 and 819** (574px of room, 608px of
-  tabs). The bottom bar is a `< 600` rule by the plan's own table.
-- **A real iPad and a real on-screen keyboard could not be supplied.** Every
-  number here is Chromium with `hasTouch`/`isMobile` at an emulated viewport.
-  `--keyboard-inset` is verified to be written, to be 0px with no keyboard,
-  and to be read by both bottom docks; its behaviour with a keyboard up is
-  reasoned, not observed.
-
-The full remaining list, per surface and breakpoint with files, selectors and
-next steps, is in [`agent-remaining/responsive.md`](agent-remaining/responsive.md).
+Moved to HISTORY.md ("Moved from the plans, 2026-09-09", UI_MODERNISATION_PLAN.md) on 2026-09-09: a plan holds open work only.
 
 ## Not in this plan
 
 New features. The plan is subtraction and alignment; the feature backlog
 (BACKLOG.md) waits until the shell is quiet.
+
+## Phase 10 — the Liquid Glass adoptions (½ session)
+
+DESIGN.md's "Taken from Liquid Glass and the HIG" rules 2, 3, 4, 8, 10 and
+12, as the five placed items below (INBOX 100 to 104): the scroll edge
+effect on bars, concentric corners as a token with a lint, the clear
+variant with its scrim and `--text-on-glass`, menus that morph from their
+opener and sheets inset then opaque at full height, the phone tab bar that
+recedes on scroll. Each measured as its item says. Deliberately not taken:
+refraction and lensing (measured too costly), title-case headers.
+
+## Phase 11 — the phone, done properly (1 to 2 sessions, next session or later)
+
+The owner, 2026-09-09: "the mobile view still needs quite a lot of work but
+that isn't for this PR, scope and plan it for later sessions." Phase 9's
+under-600 rules are moved here whole; this PR ships desktop and tablet.
+
+**Decisions (made here).** The phone is a design of its own, not the
+desktop squeezed: one column, one thing at a time, the primary action
+within thumb reach, every panel a sheet, every list a full-width row.
+Standalone (installed) mode and the browser tab get the same layout;
+`env(safe-area-inset-*)` on every fixed edge. Nothing is hidden that the
+desktop has; it is reached through a sheet or a ⋯ menu instead.
+
+1. **Navigation.** A five-item bottom tab bar (Notes, Chat, Graph,
+   Library, More) that recedes to icons on scroll down and returns on
+   scroll up (INBOX 104), never hidden; More is a sheet with the rest of
+   the tabs and Settings; the top bar keeps the title, the AI dot and one
+   action.
+2. **Notes.** Capture as a full-height sheet from the floating + button;
+   the list as full-width rows with swipe actions (pin, bin) matched to
+   the row's menu (the HIG rule); filters in a sheet; the note view as a
+   page with a back button, its actions in a bottom bar.
+3. **Chat.** The composer above the keyboard with the attachments and
+   mode in one row; sources as a sheet; the sidebar as a sheet from the
+   left edge; the popup agent unavailable on the phone (the chat is the
+   agent).
+4. **Graph.** Pan and pinch, tap to select, long-press for the node
+   menu (no right click), lasso by long-press then drag, the docks as one
+   bottom sheet with the colour rule, groups and views; the node panel as
+   a sheet.
+5. **Library and Files.** Two-up cards, the reader full-screen with a
+   bottom bar; upload from the share sheet.
+6. **Documents.** Read view by default, Edit as a full-screen sheet with
+   the selection toolbar only (no strip), the outline as a sheet.
+7. **Whiteboard and maps.** View and light edit only on a phone (pan,
+   zoom, select, move, edit text); creation tools in a sheet; the mind
+   map's + handles are touch-sized.
+8. **Settings, dashboard, timeline, reminders.** Settings as a page list
+   (sections as rows) with a back button; dashboard widgets one column;
+   timeline as the table view; reminders as rows with swipe done.
+9. **Touch.** 44px targets everywhere below 820 (Phase 9's token step
+   holds), no hover-only affordance (every hover state has a tap
+   equivalent), long-press replaces right-click app-wide.
+10. **Gates.** A phone sweep (`scratchpad/ui-sweeps/phone.js`) at 390 x 844
+    and 430 x 932 per tab: no horizontal scroll, no control under 44px,
+    the primary action within the lower 40% of the screen, the composer
+    above a simulated keyboard, every desktop action reachable in at most
+    two taps (counted); errors.js and contrast.js at 390; a screenshot
+    set for the owner per tab, because this is the one surface the owner
+    checks on a real phone.
+
+## Placed from INBOX, 2026-09-09
+
+The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.
+
+100. **Scroll edge effect** (DESIGN.md, "Taken from Liquid Glass" rule 2):
+    `.dock`, the sub-tab strips and `header#top-bar` fade a 16px gradient
+    under themselves while their region is scrolled (`data-scrolled`). Gate:
+    contrast.js on a scrolled notes list; the gradient absent at scrollTop 0.
+    Owner: Opus, UI Phase 9 batch. Size S.
+101. **Concentric corners**: `--radius-inner: calc(var(--radius) -
+    var(--space-3))` for anything rounded inside a card (inputs, chips,
+    thumbnails, the dock's groups); `tests/test_style_scale.py` extended to
+    fail on a hand-picked inner radius. Owner: Sonnet. Size S.
+102. **Clear glass with a scrim, and text on glass**: `.glass-clear` (blur
+    only, `--card` at 30%) for the whiteboard's floating panels and the
+    graph's docks over the art, paired with `--glass-scrim` (35% ink) when
+    the surface is light; `--text-on-glass` one contrast step above
+    `--text` on every blurred surface. Gate: contrast.js over the aurora
+    and constellation backgrounds. Owner: Opus. Size S.
+103. **Menus morph from their opener; sheets inset**: `kebabMenu` and
+    `details.dock-menu` scale in from the opener's rect (`--motion-base`,
+    spring), off under Reduce motion; a phone sheet has a `--space-3` inset
+    and turns `--modal-bg` at full height. Gate: menus.js, touch.js.
+    Owner: Opus. Size S.
+104. **The phone tab bar recedes on scroll** (icons only on scroll down,
+    full on scroll up), never hidden. Owner: UI Phase 9. Size S.
+94. **Background animations: fix, refine and improve.** Owner: UI Phase 3
+    follow-up (Opus): each style gets a measured frame cost, a still frame
+    under Performance mode, no seams at the edges, the intensity slider
+    changes something visible at every step.
+60. **Dashboard "Jump to / Run a skill / stat tiles" section** (screenshot,
+    00:58; the owner: "could do with an upgrade and better design, utility,
+    features"): three pill links, three skill pills with dashed borders, four
+    stat tiles, all left-aligned in a band with most of its width empty.
+    Owner: Opus, next slot (dashboard). Recommendation: one "Start" row
+    that fills the width, the stats as a compact strip with a sparkline for
+    the week and the streak, the skills row showing the last-run time and a
+    Run button per skill, a "Continue" tile for the last note or document
+    touched; the band's height unchanged.
+

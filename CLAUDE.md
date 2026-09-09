@@ -46,7 +46,9 @@ full text, with the reasons, is the block at the top of
    into `INBOX.md` verbatim and are triaged at the next step boundary in
    one pass; the step in hand is finished to standard first; the "Now"
    line in HANDOVER is never lost to the pile. A usage figure means commit
-   and push now, then continue more tersely.
+   and push now, then continue more tersely. INBOX is a tray, not a
+   backlog: under twenty items by lint; a triaged item is fixed now and
+   moved to HISTORY, or placed in its plan's "Placed from INBOX" section.
 3. **Decisions are not remade.** Every plan has a "Decisions made"
    section. A missing decision becomes an INBOX entry with a one-line
    recommendation, which is then taken.
@@ -84,6 +86,29 @@ full text, with the reasons, is the block at the top of
    itself at the end of every turn with these orders in its prompt.
 8. **No new plan documents.** Eleven exist. A new need is a brief row in
    the plan it belongs to or an INBOX entry.
+10. **Documentation hygiene, enforced by a lint** (the owner, after the
+   fourth time: "I keep having to ask you to clean up and move the
+   documentation"). A plan holds open work only. When a phase or step is
+   built, its "Built" block moves whole into `HISTORY.md` ("Moved from the
+   plans") at that step boundary, leaving a one-line pointer;
+   `tests/test_plan_hygiene.py` fails otherwise, and fails when
+   `HANDOVER.md` passes 600 lines (the session record goes to HISTORY).
+   `tests/test_readme_freshness.py` checks the README's tool count, skill
+   count, version and mode names against the code, so a change that makes
+   the README stale fails the build until the README says the same. Every
+   merge ends with: CHANGELOG line, README if a number or name moved,
+   INBOX entry marked and moved (`python scratchpad/inbox_resolve.py <n>`
+   moves it to HISTORY's "INBOX resolved"; the lint fails on a "Fixed"
+   item left in INBOX), the plan's Built block moved.
+11. **New UI comes from DESIGN.md's recipe index**, never from scratch: a
+   menu is `kebabMenu`, a bar is `.dock`, help is `data-help-for`, a
+   blurred surface is on the glass-off list, spacing and radius are
+   tokens. A need the index does not cover gets its recipe and its lint
+   added in the same commit as the feature. `tests/test_ui_recipes.py`
+   holds the ratchets (hand-built menus may not multiply, every blurred
+   surface is listed). The owner's words: "all the ui issues ... happen
+   when new features are added or changed because you don't follow
+   design.md".
 9. **Commit trailers** on every commit: the `Co-Authored-By` and
    `Claude-Session` lines the recent commits carry. No model identifiers in
    commits, PR bodies or code.
@@ -193,6 +218,10 @@ new" is a fact rather than a guess.
 - `python -m pytest tests/`: 2,700+ tests, about eight minutes, all green.
   Keep it that way. `PYTHONPATH=src` is needed to run the app.
 - `.venv/bin/ruff check .` before pushing; CI runs it and CodeQL.
+- `scripts/gate.sh` is the merge gate in one command: the lint set,
+  `node --check`, ruff; `--full` adds the suite; `BASE=... --sweeps` adds
+  errors, docks, contrast and touch against a running app. Run it before
+  every push and paste its five lines into the report.
 - `node --check frontend/<file>.js` after any JS edit; there is no bundler.
 - The lints that exist because the suite cannot see the DOM:
   `test_style_scale.py`, `test_ui_signatures.py`, `test_css_braces.py`,

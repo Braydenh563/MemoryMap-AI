@@ -107,12 +107,22 @@ def test_a_file_row_shows_a_summary_and_an_image_keeps_its_editable_box():
     point; a document's is pages of text with no "page 3" reachable from a
     two-line clamp. Measured in Chromium: the Images tile still renders
     `.library-image-vision-ocr` and no `.library-file-summary`; the Files row
-    the reverse."""
+    the reverse.
+
+    Re-pointed, not weakened, when INBOX 56 folded both readings under one
+    `<details>`: the split used to key on a ternary
+    (`const visionField = image._isImage ? ... : ...`) that no longer exists,
+    and an assertion that cannot find its subject passes for the wrong
+    reason. The claim is the same one, read off the two branches that now
+    fill the disclosure's body."""
     assert "mediaReadingSummary" in LIBRARY
     assert "buildFileReadingSummary" in LIBRARY
-    branch = LIBRARY.split("const visionField = image._isImage")[1].split(";")[0]
-    assert "library-image-vision-ocr" not in branch, "the image branch keeps its own box"
-    assert "buildFileReadingSummary" in branch
+    image_branch = LIBRARY.split("if (image._isImage) readingBody.append(")[1].split("\n")[0]
+    assert "visionOcrText" in image_branch, "the image branch keeps its own editable box"
+    assert "buildFileReadingSummary" not in image_branch
+    file_branch = LIBRARY.split("else readingBody.append(")[1].split("\n")[0]
+    assert "buildFileReadingSummary" in file_branch
+    assert "visionOcrText" not in file_branch
 
 
 def test_the_summary_states_the_two_numbers_the_item_asked_for():

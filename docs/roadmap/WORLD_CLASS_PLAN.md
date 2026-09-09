@@ -1367,3 +1367,135 @@ insert. Now one lock around the cache, never around the embedding call.
 "defined once, never referenced" probe is noise for them; excluding
 decorated functions leaves under ten candidates, all private helpers
 behind a feature flag. Not worth a session.
+
+## Placed from INBOX, 2026-09-09
+
+The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.
+
+1. **Deleting a space leaves its notes in "All spaces".** Read and not
+   reproduced in code: `routes_spaces.delete_space` hard-deletes every
+   workspace-scoped row in one transaction and
+   `tests/test_space_delete_cascades.py` proves it. The likeliest cause is
+   notes captured while "All spaces" was selected: those carry the default
+   workspace, not the space, so deleting the space cannot touch them. Fix
+   the cause of the confusion, not the cascade: (a) show the space chip on
+   every note card and in the edit form; (b) the capture form files into
+   the *selected* space and says which; (c) a "Move to space" bulk action.
+   Owner: D2 and D5. If the owner can reproduce with a note that shows the
+   space chip, reopen as a backend bug.
+15. **Modal backdrop blur does not cover the full viewport height.** Read: `.modal-overlay` is `position: fixed; inset: 0`, so the unblurred strip is the desktop shell's native title bar, outside the page. Not a CSS bug; if it matters, the shell (pywebview/Electron) must draw a frameless window with the app's own title bar. Owner: packaging.
+22. **Settings > Packages rows misaligned** (icon, text and the install
+    button on different baselines). Owner: consistency.md item 4; the
+    alignment sweep must include Settings > Packages and Settings > Help.
+23. **Settings > Help gaps** (accordion rows touch, sections have no
+    rhythm). Owner: help-popovers.md, with item 22.
+26. **"Things that feel off that I cannot place."** After the consistency
+    and docks lists close, one review pass per tab with the vendored
+    design skills (`.claude/skills/README.md`) against DESIGN.md, writing
+    findings as consistency.md rows, not fixing ad hoc. Owner:
+    consistency.md, last item.
+
+62. **"The documents formatting toolbar is gone."** Intentional, DOCUMENTS
+    Phase 1: the strip is opt-in through the editor's ⋯ menu, "Always show
+    formatting", and Phase 2 makes the floating selection toolbar the
+    formatting UI. Nothing to fix; if the owner wants the strip on by
+    default, flip the default in one line (documents.js `docToolbarMode`).
+99. **Quick wins (Fable, 05:20): five features the plans did not list,
+    each a day or less, each with the site.** (a) Undo on every delete
+    toast: notes, boards, documents and reminders already soft-delete;
+    `toastAction(msg, "Undo", () => restore)` at each delete call site
+    (grep `toast(` beside `DELETE`), so a wrong click never reaches the
+    bin. (b) "Reopen where I left off": documents and chats restore
+    scroll position per id (localStorage `scroll:<kind>:<id>`), the
+    Dashboard "Continue" tile (INBOX 60) reads the same keys. (c) The AI
+    dot's tooltip shows the last answer's latency and the model's context
+    use ("granite4.1:3b, 2.1 s, 39% of window"), from data the chat
+    header already has. (d) A "Paste as note" global shortcut
+    (Ctrl+Shift+V anywhere) that captures the clipboard as a new note
+    with the AI filing it, the fastest capture path on a desktop. (e)
+    Search operators in the Notes search box (`tag:`, `space:`,
+    `before:`, `after:`, `has:file`), parsed client-side into the existing
+    filters, with the operators listed in the box's '?' popover.
+79. **Files sub-tab rows "could still use a massive redesign upgrade", and
+    clicking the file name does nothing**. Owner: Library dossier
+    (WORLD_CLASS 4), Opus: one row recipe (thumbnail, name as the one
+    link that opens the reader, meta line, reading state as a small
+    disclosure, actions in a kebab), the name clickable.
+92. **Suggested links panel UI refine** (screenshot: rows of quoted
+    pairs, a wide "Why?" input, a percent chip, Link and X). Owner: Opus,
+    next slot: two note chips joined by an arrow, the score as a small
+    bar, the reason field collapsed behind "Add a reason", Link primary
+    per row, a "Link all above 70%" action in the head.
+97. **OCR alternative to pytesseract**, asked directly. Answer: RapidOCR
+    (PaddleOCR models on onnxruntime, pip-installable, no system binary,
+    better on photos and mixed layouts, about 60 MB of models, Apache-2)
+    is the one to offer; EasyOCR needs torch (never). Placed as a
+    Settings > Packages option beside Tesseract, same reading pipeline,
+    the reader named on the row. Owner: next session, Sonnet (backend
+    adapter with a fake in tests) plus the Packages row.
+98. **The documents formatting toolbar**: see 62; the owner asked again.
+    Default stays opt-in until Phase 2's selection toolbar lands.
+
+## 17. The original vision, audited (2026-09-09)
+
+The owner's first notes, written months before a line of code (the
+"AI Assistant Personal Database Management" list and the May 2026 master
+reference), read against what exists. Almost all of it is built; the seven
+rows marked open are the vision's own features nobody has planned since,
+and they go first in the next session's World-class section.
+
+| The original idea | Today |
+| --- | --- |
+| Type anything, a local AI files it; guided mode when you want to choose | Built (capture, Let the AI decide, guided) |
+| Two AIs: a Janitor that files and never talks, a Librarian that answers and never writes | Built as the filing step and the chat; the librarian tags, links and flags duplicates in the background |
+| A conversational answer and the raw database results side by side | Built (Ask: the answer beside the matching records) |
+| Confidence on every filing, low ones flagged for review | Built half: the score shows; **open: a review queue** (below) |
+| The AI tidies the database over time: merges near-duplicate categories, removes empty ones, respects manual changes | Built half: duplicates flagged, links suggested; **open: category tidy proposals** |
+| Preferences for how the database is structured | **Open: a filing style preference** |
+| Recycle bin, 30 days, configurable, clearable | Built |
+| 100% offline, models local; optional web search for context | Built (models through Ollama, not bundled, by decision; web search opt-in) |
+| File attachments copied into the app's folder | Built (Files, three readings per image, PDFs read page by page) |
+| Google Drive plus Notion plus NotebookLM | Built as Library, Documents and Ask with sources |
+| AI-generated data visualisation | **Open: charts from questions** |
+| Last five queries; most-accessed information | Built (Ask history); **open: most-opened widget** |
+| A log of everything entered, accessed, altered, archived | Built (activity log) |
+| Manual links, or tell the AI about a link | Built |
+| The graph like Obsidian's | Built (the canvas graph, Phases 1 to 5) |
+| Submit a whole Markdown file as an entry | Built (documents import) |
+| A whiteboard or canvas, submitted as an entry, editable later | Built (whiteboard, mind maps) |
+| Export in bulk or in part | Built (JSON, CSV, Markdown, zip) |
+| Login with a hashed password | Built (bcrypt, throttled) |
+| A profile the AI uses, built over time, opt-out and delete | Built (About you; What it remembers) |
+| Speech to text; the AI reads answers aloud; explains what you entered | Built (Whisper, read aloud); **open: "explain this note"** |
+| Reminders, maybe a calendar | Built (reminders); **open: calendar export and month view** |
+| Fine-tuning | Dropped, correctly, in the May document |
+
+**The seven open rows, as quick rows for the next session (WORLD_CLASS,
+after Brief 18 section A):**
+
+1. **Review queue.** A Notes filter "Needs review" for filings under 60%
+   confidence and anything filed Uncategorised, with Accept, Refile and
+   Split per row; the count on the dashboard. Backend: `confidence` and
+   `category_id` exist; one query. Size S.
+2. **Tidy categories.** The librarian proposes merges (two categories
+   whose embeddings and names are near) and removals (empty for 30 days)
+   as a proposal list in Settings > What it remembers; nothing moves
+   until accepted; manual renames are remembered as "do not merge". Size M.
+3. **Filing style.** A preference (by topic, by project, by time) added
+   to the filing prompt and to the category namer, with three examples
+   each; the default is by topic. Size S.
+4. **Charts from questions.** Ask answers a counting or trend question
+   ("how many notes per category this month", "my race times") with a
+   bar or line drawn from the records, the data table under it, the
+   chart exportable as PNG. Size M.
+5. **Most opened.** A dashboard widget of the ten notes opened most this
+   month (the view counter exists on the node panel). Size S.
+6. **Explain this note.** A note action that reads the note aloud and
+   then says what it links to and why, from the link reasons. Size S.
+7. **Calendar.** `.ics` export per reminder and for all, and a month view
+   beside the reminders list. Size M.
+
+The principle the first notes state and the app keeps: the AI is a
+servant, not a gatekeeper; everything it does can be seen, edited and
+undone.
+

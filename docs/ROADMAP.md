@@ -24,10 +24,11 @@ now says so in its first line.
 | --- | --- |
 | [roadmap/WORLD_CLASS_PLAN.md](roadmap/WORLD_CLASS_PLAN.md) | The week and the quarter, the consistency contract, the flaw classes. **Start here.** How far each plan is: the table at the top of HANDOVER.md. |
 | [roadmap/SESSION_BRIEFS.md](roadmap/SESSION_BRIEFS.md) | One complete brief per session of the week, with the operating protocol for smaller models. **Take one brief and start.** |
-| [roadmap/UI_MODERNISATION_PLAN.md](roadmap/UI_MODERNISATION_PLAN.md) | Phases 8 and 9 still open (docks as one bar; responsive by device). |
-| [roadmap/DOCUMENTS_PLAN.md](roadmap/DOCUMENTS_PLAN.md) | The editor, Phases 1 to 7. |
-| [roadmap/GRAPH_PLAN.md](roadmap/GRAPH_PLAN.md) | The canvas graph, Phases 2 to 5. |
-| [roadmap/MINDMAP_PLAN.md](roadmap/MINDMAP_PLAN.md) | Phases 4 to 5. |
+| [roadmap/INBOX.md](roadmap/INBOX.md) and [roadmap/SESSION_BRIEFS.md](roadmap/SESSION_BRIEFS.md) Brief 18 | The owner's open reports with owners and decisions, and the complete open scope in working order (2026-09-09). |
+| [roadmap/UI_MODERNISATION_PLAN.md](roadmap/UI_MODERNISATION_PLAN.md) | Phase 9 (responsive by device) open; Phase 8 built. |
+| [roadmap/DOCUMENTS_PLAN.md](roadmap/DOCUMENTS_PLAN.md) | Phases 0, 1 and 2 step 1 built; Phase 2 steps 2 to 4 in an agent; Phases 3 to 7 open. |
+| [roadmap/GRAPH_PLAN.md](roadmap/GRAPH_PLAN.md) | Phases 1 to 5 built; Phase 6 (node panel) in an agent; the local pane and 6b (minimap) open. |
+| [roadmap/MINDMAP_PLAN.md](roadmap/MINDMAP_PLAN.md) | Phases 1 to 5 and previews built; §12 (Coggle-level controls, INBOX 93) open. |
 | [roadmap/TIMELINE_PLAN.md](roadmap/TIMELINE_PLAN.md) | The line and table views rebuilt on one row model, Phases 1 to 4. |
 | [roadmap/WHITEBOARD_PLAN.md](roadmap/WHITEBOARD_PLAN.md) | The tool rail, the context bar, export dialog, handles, keys; Phases 1 to 4. |
 | [roadmap/CHAT_PLAN.md](roadmap/CHAT_PLAN.md) | Checkable answers, one composer, Ask unified, the popup agent, skills that finish; Phases 1 to 4. |
@@ -35,7 +36,7 @@ now says so in its first line.
 
 | Reference (look things up, do not start from) | |
 | --- | --- |
-| [roadmap/HANDOVER.md](roadmap/HANDOVER.md) | The last session's state. **Overgrown (12k lines); the first Sonnet session condenses it to under 300 with the rest appended to HISTORY.md.** |
+| [roadmap/HANDOVER.md](roadmap/HANDOVER.md) | The current state only (under 600 lines by lint); the session record is HISTORY.md's "HANDOVER archive". |
 | [roadmap/HISTORY.md](roadmap/HISTORY.md), [roadmap/BACKLOG.md](roadmap/BACKLOG.md), [roadmap/ANALYSIS.md](roadmap/ANALYSIS.md), [roadmap/MODERNISATION_AUDIT.md](roadmap/MODERNISATION_AUDIT.md) | What is built, the standing backlog, the judgements and competitor reads, the measured audit. |
 | [roadmap/PLAN.md](roadmap/PLAN.md), [roadmap/AUDIT.md](roadmap/AUDIT.md), [roadmap/REDESIGN.md](roadmap/REDESIGN.md), [roadmap/FABLE_BRIEF.md](roadmap/FABLE_BRIEF.md) | Superseded; kept only because code comments cite their sections. |
 

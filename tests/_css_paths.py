@@ -37,6 +37,7 @@ CSS_FILES = [
     #: rather than inserted: it is linked last in index.html, and this list is
     #: load order, which is what makes the concatenation above meaningful.
     CSS_DIR / "09-editor.css",
+    CSS_DIR / "10-responsive.css",
 ]
 
 

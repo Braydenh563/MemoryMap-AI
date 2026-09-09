@@ -45,9 +45,6 @@ done-when item 4 and 5), in priority order.
     explicit pin is Shift+drag or the menu; a dragged cluster (lasso
     selection) moves together the same way; a small "pinned" ring only
     on real pins.
-84. **Whiteboard rectangle selection draws behind objects.** Owner:
-    WHITEBOARD Phase 1 (Fable, now): the marquee is drawn on the objects'
-    layer; move it to the overlay canvas above them.
 81. **Web search results in the Sources dropdown: links rendered as
     Markdown links and number-referenced** (the model's table showed raw
     `<https://...>`). Owner: Fable, now: the answer renderer's link rule

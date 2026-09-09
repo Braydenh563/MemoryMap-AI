@@ -7630,7 +7630,15 @@ async function initWhiteboard() {
     wbMarqueeEl.setAttribute("y", y);
     wbMarqueeEl.setAttribute("width", 0);
     wbMarqueeEl.setAttribute("height", 0);
-    document.getElementById("wb-zoom-group").appendChild(wbMarqueeEl);
+    //: **The overlay layer, above the cards.** INBOX 84: "whiteboard
+    //: rectangle selection draws behind objects." `#wb-zoom-group` lives in
+    //: `#wb-svg-layer`, which is *under* `#wb-html-layer` by DOM order, on
+    //: purpose, so a pen stroke passes behind a card. A marquee is the
+    //: opposite case: it says what you are about to select, and a rectangle
+    //: hidden behind the very things it is selecting says nothing. The lasso
+    //: has always gone to `#wb-overlay-zoom-group` for exactly this reason
+    //: (see its own append below); the rectangle never did.
+    document.getElementById("wb-overlay-zoom-group").appendChild(wbMarqueeEl);
     // **The capture is the fix.** Without it every pointermove and pointerup
     // outside the container went to whatever element was under the cursor,
     // so a drag that ended over the top bar, over the left rail or off the

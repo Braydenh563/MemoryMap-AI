@@ -8890,6 +8890,10 @@ themselves (their handlers were not touched, only their buttons' markup).
     nothing; give `:fullscreen .graph-card` the page background art or a
     solid `--modal-bg` on purpose and say so.
 
+84. **Whiteboard rectangle selection draws behind objects.** Owner:
+    WHITEBOARD Phase 1 (Fable, now): the marquee is drawn on the objects'
+    layer; move it to the overlay canvas above them.
+
 ## HANDOVER archive, 2026-09-09
 
 ### The Fable session — UI Phases 0-4, skills reform A-B, backend sprint 1, the audit

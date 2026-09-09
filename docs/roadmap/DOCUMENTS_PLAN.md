@@ -496,11 +496,31 @@ work found and did *not* fix, which is the part that is still open.
   numbers as well", "for code files, include code syntax and make it a
   proper code editor like vs code." Done: the edit menu is Live (default),
   Source, Split, Plain, with Line numbers as a row under them.
-  **Still open:** `csv`, `ini`, `php`, `r` and `swift` are offered as file
-  types and have no mode in the vendored bundle, so they are plain text with
-  numbers. `php` and `swift` need two lines in
-  `frontend/vendor/codemirror/entry.js` and a `build.sh` run (node and npm);
-  `r` has no CodeMirror mode at all.
+  **The missing modes are settled, with the numbers** (a decision, not an
+  oversight; measured 2026-09-09 by building the bundle four ways).
+  Baseline 787,401 raw / 269,374 gzipped.
+  - **`swift`, `r` and `ini` added.** Together +7,658 raw and **+2,476
+    gzipped**, under 1%. All three are ordinary legacy stream modes. `ini` is
+    CodeMirror's `properties` mode, which is what that format is called there;
+    it marks sections bold, keys at 600 and comments muted italic, and leaves
+    values plain, which is the whole of an INI file's syntax.
+    (An earlier note here said "`r` has no CodeMirror mode at all". That was
+    wrong: `@codemirror/legacy-modes/mode/r` exists. It was written from
+    memory rather than from the package, which is the same failure as the two
+    entries above it.)
+  - **`php` refused.** `@codemirror/lang-php` is not a legacy mode but a full
+    Lezer grammar that also pulls in `lang-html`, because PHP is embedded in
+    HTML. On its own it costs +98,144 raw and **+28,563 gzipped: 10.6% of the
+    bundle for one language**, in a local notebook whose documents are notes
+    and plans. Revisit if anyone asks for it; the number is here so the answer
+    does not have to be re-derived.
+  - **`csv` refused, permanently.** There is no CSV mode in CodeMirror and
+    there should not be: a CSV has no syntax, so a highlighter would colour
+    its commas and nothing else. What a CSV wants is a table view, which is a
+    different feature.
+  `scratchpad/ui-sweeps/docviews.js` asserts all five, including that `php`
+  and `csv` highlight *nothing*, so adding a mode later has to come with an
+  update to this decision rather than silently.
 - "i still cant click on a grammar or misspeled underlined word and see a
   popup like in a realworld editor like obsidian, word, notion, vs code."
   **It already worked**, and this entry's previous claim that "the click

@@ -87,6 +87,16 @@ notes) is not repeated here; see `docs/roadmap/` for that record.
   collapsed formatting strip; and code syntax colours drawn from the app's
   own palette, which is what finally makes a code file readable in dark
   mode (a keyword measured 1.76:1 against the page and now reads 6.47:1).
+- The follow-up pass on that batch: `.focus()` on a `<select>` is dead code
+  everywhere in this app (all thirteen reachable selects would have focused
+  the hidden native control), so `focusSelect` replaces it at four call
+  sites; a Live marker reveals when the caret is on its line rather than
+  inside its range, which stops the caret jumping 28.4px to the right on a
+  leftward keystroke; the documents sidebar's sections are as tall as what is
+  in them (243px of empty column gone); every text link in the app stops
+  drawing a filled button's accent glow behind its words; and Swift, R and
+  INI join the highlighter (+2.5 KB gzipped) while PHP and CSV are refused on
+  purpose, with the measurements written down.
 - The Outline sidebar reads as an outline: entries left-aligned and
   indented by depth in the direction depth goes, an empty state that says
   what fills it, References with its close button on its own line, and the

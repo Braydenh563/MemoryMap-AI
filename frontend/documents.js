@@ -6527,6 +6527,18 @@ function docCmLanguageFor(CM, ext) {
     case "kt": return stream(CM.kotlin);
     case "rb": return stream(CM.ruby);
     case "xml": return stream(CM.xml);
+    //: Added with the modes themselves (2026-09-09). `ini` is CodeMirror's
+    //: `properties` mode, which is what that format is called there.
+    case "swift": return stream(CM.swift);
+    case "r": return stream(CM.r);
+    case "ini": return stream(CM.properties);
+    //: **`php` and `csv` stay plain text on purpose.** `@codemirror/lang-php`
+    //: is a full Lezer grammar that also drags in lang-html, measured at
+    //: +28,563 bytes gzipped, 10.6% of this bundle, for one language; and a
+    //: CSV has no syntax to colour, so a highlighter would draw attention to
+    //: its commas and nothing else. Both are recorded as decisions in
+    //: DOCUMENTS_PLAN rather than left looking like an oversight. A wrong
+    //: highlighter is worse than none, and so is a pointless one.
     default: return [];
   }
 }

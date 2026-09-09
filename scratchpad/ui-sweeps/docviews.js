@@ -160,6 +160,50 @@ function contrast(a, b) {
   say('live_on_a_code_file_lands_on', afterLive);
   if (afterLive !== 'source') fail(`asking for Live on a .py file left the view at "${afterLive}"`);
 
+  // Every file type the app offers, against whether the bundle can highlight
+  // it. Two are deliberately plain and are asserted as such, so "php has no
+  // colours" reads as a decision here rather than as a gap someone should go
+  // and fill: `@codemirror/lang-php` is a full Lezer grammar that also drags
+  // in lang-html, measured at +28,563 bytes gzipped (10.6% of the bundle) for
+  // one language, and a CSV has no syntax to colour at all.
+  const MODES = [
+    ['swift', 'func greet(name: String) -> Int {\n    let total = 1 + 2\n    return total\n}\n', true],
+    ['r', 'greet <- function(name) {\n  total <- 1 + 2\n  return(total)\n}\n', true],
+    ['ini', '[server]\nport = 8080\n; a comment\n', true],
+    ['php', '<?php\nfunction greet($name) { echo "hi"; }\n', false],
+    ['csv', 'name,count\nalpha,1\n', false],
+  ];
+  for (const [ext, body, wantColour] of MODES) {
+    await openDoc(page, { title: 'Mode ' + ext, content: body, ext });
+    await page.waitForTimeout(800);
+    const m = await page.evaluate(() => {
+      const c = document.querySelector('#doc-editor .cm-content');
+      const ink = getComputedStyle(c).color;
+      const colours = new Set();
+      let styled = 0;
+      for (const sp of c.querySelectorAll('span')) {
+        const cs = getComputedStyle(sp);
+        if (cs.color !== ink) colours.add(cs.color);
+        // A mode can mark a token by weight or slant rather than by colour,
+        // which is what the INI mode does: bold sections, 600 keys, a muted
+        // italic comment, and plain values. Counting colours alone would call
+        // that "no highlighting".
+        if (cs.color !== ink || cs.fontWeight !== '400' || cs.fontStyle !== 'normal') styled += 1;
+      }
+      return { type: docFileType().ext, colours: colours.size, styledTokens: styled };
+    });
+    say(`mode_${ext}`, m);
+    if (m.type !== ext) fail(`asking for .${ext} gave a ${m.type} document`);
+    if (wantColour && m.styledTokens === 0) fail(`.${ext} has a mode in the bundle and highlighted nothing`);
+    if (!wantColour && m.styledTokens !== 0) {
+      fail(`.${ext} is meant to be plain text and highlighted ${m.styledTokens} tokens; if a mode was added on purpose, update this list and the decision in DOCUMENTS_PLAN`);
+    }
+  }
+
+  // Back to the Python file the contrast block below measures.
+  await openDoc(page, { title: 'Code', content: PY, ext: 'py' });
+  await page.waitForTimeout(900);
+
   // The colours, as ratios against the page's own ground.
   const ground = await page.evaluate(() => {
     const p = document.createElement('div');

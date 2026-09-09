@@ -550,6 +550,37 @@ engine landed in Phase 2, so none of these is a regression from it.
   state is a bare heading with nothing under it, References stacks a close
   button above its own select, and "Where are my documents kept?" is a
   full-width underlined link pinned to the bottom like a footer.
+  **All five done, 2026-09-09**; `scratchpad/ui-sweeps/docoutline.js` is one
+  assertion per problem and passes.
+  - Centre-aligned: **not** `text-align`, which read `left` all along. The
+    bare `button` element rule in 01-forms-settings.css makes every button an
+    `inline-flex` with `justify-content: center`, and `text-align` governs
+    nothing in a flex container, so the rule looked correct where it was set
+    and did nothing where it was used. `justify-content: flex-start`, and the
+    sweep checks where the glyphs start with a `Range`, not where the box does.
+  - Indent: was 4, 16, 24, 38.4px for h1 to h4, steps of 12, 8 and 14.4. One
+    `--outline-step` multiplied by a declared `--outline-depth`: now 4, 16.8,
+    29.6, steps of 12.8 each, and the sweep fails if any two differ or if a
+    deeper entry starts further left on screen.
+  - Empty state: the section hid itself below two headings, so the tab called
+    Outline showed "References" as its first heading. It is always shown, with
+    a line saying what fills it, and a count beside the word.
+  - References: `.outline-link` is `width: 100%`, so the ✕ beside it wrapped.
+    A `.doc-outline-row` flex row; the attach picker gets the same row with
+    its own ✕ and replaces the button that opened it rather than stacking
+    under it, and Escape closes it.
+  - The storage help: was `display: block`, 226px in a 260px column, centred
+    and underlined at rest, 17px off the bottom. Now its own content width at
+    the column's left edge, muted, with a `?` glyph and the underline on
+    hover. Measured 224.9px box for 225px of text, so it is its text and not
+    the column.
+  **Found while measuring and not fixed:** `enhanceSelect` (app.js) rebuilds
+  every `<select>` as a shell with a `<button>` opener and takes the native
+  element out of the tab order, so `select.focus()` anywhere in this app
+  focuses nothing and a `keydown` bound to a select never fires. Two
+  listeners here were written that way before a sweep caught it. There is no
+  lint for the class; a cheap one would fail on `.focus()` or
+  `addEventListener("keydown"` called on a variable holding a `<select>`.
 - "the whole documents sidebar and ui needs fixing and the document editor
   still needs a lot of refinement and cleaning but its still in development
   so just make sure you cover it all."

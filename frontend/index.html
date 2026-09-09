@@ -2494,7 +2494,13 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- Built from the document's own headings: past two screens of text
                the scrollbar stops being a way to navigate. -->
           <div id="doc-outline-wrap" class="doc-outline-wrap hidden">
-            <h3>Outline</h3>
+            <h3>Outline <span class="doc-outline-count" id="doc-outline-count"></span></h3>
+            <!-- The tab is called Outline, so it may not be the one thing on
+                 screen with no outline in it. This section used to hide
+                 itself below two headings, which left "References" as the
+                 first heading on the panel: "the empty state is a bare
+                 heading with nothing under it". -->
+            <p class="muted doc-outline-empty hidden" id="doc-outline-empty"></p>
             <ul id="doc-outline" class="doc-outline"></ul>
           </div>
 
@@ -2531,7 +2537,7 @@ Link to another note with [[its first few words]]."></textarea>
                Used to be an open-by-default <details> here; its body was tall
                enough to push the document list down, so the same content now
                lives in #doc-storage-dialog and this is just the door to it. -->
-          <button type="button" id="doc-storage-toggle" class="linklike doc-storage-toggle">Where are my documents kept?</button>
+          <button type="button" id="doc-storage-toggle" class="linklike doc-storage-toggle"><i class="ph ph-question ph-lead" aria-hidden="true"></i> Where are my documents kept?</button>
         </div>
       </aside>
 

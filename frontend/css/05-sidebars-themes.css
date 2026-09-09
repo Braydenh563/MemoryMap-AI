@@ -1843,7 +1843,26 @@ body.resizing-sidebar {
   font: inherit;
   font-size: 0.85rem;
   text-align: left;
+  /* **`text-align` is the wrong property here, and that is why the outline
+     read as centred.** Reported with a screenshot: "the outline entries are
+     centre-aligned". Measured with a document open, every entry came back
+     `text-align: left` *and* `justify-content: center`, and the second one is
+     the one that decides: the bare `button` element rule in
+     01-forms-settings.css sets `display: inline-flex` with
+     `justify-content: center` so that a lone glyph sits in the middle of its
+     box, and against a flex container `text-align` governs nothing. So the
+     rule above looked correct at the line that set it and did nothing at the
+     line that used it, which is the shape CLAUDE.md's own traps list names.
+     Both are kept: the flex property for the flex box, `text-align` for the
+     text that wraps inside it. */
+  justify-content: flex-start;
+  /* Declared here rather than reached for with a fallback: a top-level entry
+     is depth 0, which is a fact about the outline and not a safety net.
+     `tests/test_style_scale.py` fails on `var(--x, 0)` for exactly this
+     reason, and it was right to. */
+  --outline-depth: 0;
   padding: 0.15rem 0.25rem;
+  padding-left: calc(0.25rem + var(--outline-depth) * var(--outline-step));
   width: 100%;
   border-radius: var(--radius-md);
   cursor: pointer;
@@ -1857,19 +1876,69 @@ body.resizing-sidebar {
   color: var(--ink);
 }
 
-/* Indentation is the whole point of an outline, it shows the shape. */
+/* Indentation is the whole point of an outline: it shows the shape. One step,
+   declared once and multiplied by depth, because the four levels used to be
+   0.25, 1, 1.5 and 2.4rem: steps of 0.75, 0.5 and 0.9, which reads as an
+   outline whose nesting is uneven rather than as three levels. The owner
+   reported it as indenting "the wrong way", and centred entries (above) were
+   most of why: with the text centred, a deeper `padding-left` moves the whole
+   run right *and* a shorter heading starts further right still, so the
+   left edges came out in no order at all. Left-aligned and evenly stepped,
+   depth is the only thing that moves an entry. */
+.doc-outline {
+  --outline-step: 0.8rem;
+}
+
 .outline-h2 .outline-link {
-  padding-left: 1rem;
+  --outline-depth: 1;
 }
 
 .outline-h3 .outline-link {
-  padding-left: 1.5rem;
+  --outline-depth: 2;
   font-size: 0.8rem;
 }
 
 .outline-h4 .outline-link {
-  padding-left: 2.4rem;
+  --outline-depth: 3;
   font-size: 0.8rem;
+}
+
+/* A row, not a stack. `.outline-link` is `width: 100%`, so a ✕ beside one had
+   nowhere to go but the next line: "References stacks a close button above
+   its own select". The link takes the room and shrinks; the action keeps its
+   own size. */
+.doc-outline-row,
+.doc-attach-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.doc-outline-row > .outline-link,
+.doc-attach-row > .bookmark-attach-picker {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.doc-outline-row > .doc-outline-row-action,
+.doc-attach-row > .doc-outline-row-action {
+  flex: 0 0 auto;
+}
+
+/* The line that says what fills an empty outline. One sentence, the muted
+   ink, and the same left edge as the entries that will replace it, so the
+   panel does not shift sideways the moment a heading is written. */
+.doc-outline-empty {
+  margin: 0 0 var(--space-2);
+  padding-left: 0.25rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+/* The heading's own count, beside the word rather than under it. */
+.doc-outline-count:not(:empty) {
+  color: var(--muted);
+  font-weight: 500;
 }
 
 .doc-stats {
@@ -1879,11 +1948,40 @@ body.resizing-sidebar {
 
 /* Replaces what used to be an open-by-default <details> disclosure in the
    sidebar: its body was tall enough to push the document list down. Same
-   content, now behind #doc-storage-dialog; this is just the door to it. */
+   content, now behind #doc-storage-dialog; this is just the door to it.
+
+   **It is help, and it was dressed as a footer.** Reported with a screenshot:
+   "'Where are my documents kept?' is a full-width underlined link pinned to
+   the bottom like a footer". Measured at 1440 with a document open: `display:
+   block`, 226px wide in a 260px sidebar, centred, underlined, 17px off the
+   bottom edge. Three things made it read as chrome rather than as a question
+   you can press: the full width, the centring (nothing else in this column is
+   centred) and a permanent underline, which in this app means a link out to
+   somewhere rather than a panel opening.
+
+   Now it is what it is: one muted line at the sidebar's own left edge, at the
+   size of the outline entries above it, with the underline arriving on hover
+   the way the rest of the app's help does. The `?` glyph is in the markup, so
+   it reads as help before it is read at all. */
 .doc-storage-toggle {
-  display: block;
-  margin-top: 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  align-self: flex-start;
+  width: auto;
+  max-width: 100%;
+  margin-top: var(--space-5);
+  padding: var(--space-2) 0;
   font-size: 0.8rem;
+  text-align: left;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.doc-storage-toggle:hover,
+.doc-storage-toggle:focus-visible {
+  color: var(--accent);
+  text-decoration: underline;
 }
 
 .storage-path {

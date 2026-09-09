@@ -61,14 +61,28 @@ PR's.
       the editor, Live as decorations, findings, undo, search, folding;
       `tests/test_doc_surface.py` has no xfail markers left; doctype.js
       under 30 ms; the vendor bundle absent at boot.
-- [ ] 2. Graph Phase 6 merged: the node panel on the new recipe, measured
-      at 1440, 1024 and 390; graph4b.js passes.
-- [ ] 3. Library image cards and the whiteboard bottom bar and properties
-      panel merged (INBOX 52, 56, 64, 65), with their numbers.
-- [ ] 4. The owner's section-A bugs closed or ruled out at head: INBOX 66,
+- [x] 2. Graph Phase 6 merged: the node panel on the new recipe, measured
+      at 1440, 1024 and 390; graph4b.js passes. (Panel 416x439 to 448x348 at
+      1440 and 1024, three groups of three to nine buttons in one row,
+      shortest control 28 to 36px, no page scroll, and a 362x442 sheet at
+      390. Its header and its action footer were fixed later the same day:
+      close button back at 0,0 with an ellipsised title, and the actions as
+      a centred band 446px wide in a 448px panel.)
+- [x] 3. Library image cards and the whiteboard bottom bar and properties
+      panel merged (INBOX 52, 56, 64, 65), with their numbers. (Card 651.6
+      to 371.8px, font sizes 4 to 3, usage lines 2 to 1, scrim 3.6:1 to
+      6.8:1; whiteboard own backgrounds 16 to 1 and 15 to 3, overlapping
+      pairs 4 to 0, bar and pill both 46px, surface 0.549 to 0.96 opaque.
+      The Arrange group was restructured later the same day into three
+      named rows, 192px wide in a 200px panel.)
+- [x] 4. The owner's section-A bugs closed or ruled out at head: INBOX 66,
       69, 70, 73, 77, 81, 83, 84, 86, 88, 89, 96 (each fixed and moved to
-      HISTORY, or marked "not reproduced" with the measurement).
-- [ ] 5. The three "not verified in a browser" fixes measured: INBOX 75
+      HISTORY, or marked "not reproduced" with the measurement). Eleven of
+      the twelve are in HISTORY with their numbers. 77 is the exception and
+      is half done on purpose: the badge is fixed and measured, the
+      per-model context size is the half the entry itself assigns to the
+      next session, and INBOX says so. It is the only item left in there.
+- [x] 5. The three "not verified in a browser" fixes measured: INBOX 75
       (kebab first click), 82 (settings rows), 91 (chat header), plus
       Ctrl+S and the profile group; errors.js, contrast.js, docks.js,
       touch.js and weight.js green on the head.
@@ -79,23 +93,32 @@ PR's.
       rows carrying both a field and a button, zero height mismatches, which
       is thin coverage rather than a result. 91 is measured by the wrap
       sweep, which took the answer header from three fragmented lines at
-      1280px to two clean rows. 75 is still unmeasured: the probe could not
-      find a card kebab to click, so the first-click behaviour is unproven
-      and must not be ticked on the strength of the others.
+      1280px to two clean rows. 75 is measured now
+      (`scratchpad/ui-sweeps/kebabfirst.js`): 58 kebab wraps on the Notes
+      tab, the first click opens exactly one menu at 375px tall, the second
+      closes it. The earlier probe reported "no kebab found" because it
+      looked for `[aria-haspopup]`; the recipe is `kebabMenu()`, which builds
+      a `.menu-wrap` around a `.action-menu` and a `smallButton`, so the wrap
+      is what to look for. Worth writing down: the same wrong selector would
+      fail the same way next time.
       A note on the metric, so the next attempt does not repeat it: counting
       distinct `top` values among a row's children does **not** detect
       wrapping. A `nowrap` row whose children are baseline- or
       centre-aligned reports several distinct tops and has not wrapped. Test
       whether a child's `top` is at or below the first child's `bottom`.
-- [ ] 5b. The README's screenshots recaptured, last of all. The owner:
+- [x] 5b. The README's screenshots recaptured, last of all. The owner:
       "I think the screen shots on the readme need an update from all the ui
       changes." Eight of them in `docs/images/` (chat, dashboard, documents,
       graph, library, notes, reminders, timeline). Capture them only once
       every UI batch has merged: taken mid-session they are stale within the
       hour, which is how they got stale in the first place.
-- [ ] 6. Mind map previews (INBOX 68) acceptable in the dashboard widget
+- [x] 6. Mind map previews (INBOX 68) acceptable in the dashboard widget
       and the Library gallery (the board's real shapes at its aspect, no
-      inner scrollbar).
+      inner scrollbar). (Whiteboard card 5 blocks at one size to 5 at four
+      sizes with 5 of 5 labels inside their shapes; map card 0 of 6 labels
+      inside to 6 of 6, worst contrast 3.82:1 to 4.77:1; dashboard
+      thumbnail 293.2 square to 40.5 square with the widget's body no
+      longer scrolling, where it was 602 against 320.)
 - [ ] 7. The full suite green on the final head (the one local run this
       PR gets; CI covers every push in between); ruff and CodeQL green;
       **Note, 2026-09-09:** `.github/workflows/ci.yml` runs `python -m
@@ -105,7 +128,7 @@ PR's.
       asks for is therefore a second opinion rather than the only evidence,
       which is exactly why the owner's "not as routine" rule costs nothing.
       no open CodeQL threads; the branch mergeable.
-- [ ] 8. Documentation: every Built block of the merged phases in
+- [x] 8. Documentation: every Built block of the merged phases in
       HISTORY (the lint holds it), INBOX holding open items only, the
       README's numbers passing `test_readme_freshness.py`, CHANGELOG's
       "Since 0.2.2" carrying one line per merged item, this Now line
@@ -392,6 +415,54 @@ merge those and re-brief the rest from its brief.
 | `a12f6d594c4b9c730` | Mindmap bugs (selection box, text selection, map-as-note, node picker, dangling edges), previews, boards widget, Phases 4 to 5 | 8816 | 2 commits merged (a map is no longer a note); working |
 | `abcdedfb8d9f9f2bf` | Timeline redesign | 8817 | **Paused** to save usage after the audit; resume with SESSION_BRIEFS Brief 5 |
 | `a228ba0fe38c417dc` | Paragraphs to '?' popovers | 8818 | **Paused**; 54 paragraphs left; resume with Brief 4 |
+
+### The whole-app visual pass, 2026-09-09
+
+Run once, at the end, because every batch this session was measured in its
+own area and none against the others. `scratchpad/ui-sweeps/finalqa.js`.
+
+Covered: dashboard, notes and its four sub-tabs, chat, graph, library and
+its eight sub-tabs including an opened board and an opened document,
+timeline, reminders, and all seventeen settings sections, at 1440 and 1024
+in both themes, so four full passes, plus five menus at both widths.
+
+**Zero console, JavaScript and HTTP errors in all four passes.**
+
+One real finding, written down rather than fixed: the Library's Contents
+dock wraps to two lines at 1024 in both themes (row tops 162 and 206, with
+Collapse all, refresh and help pushed under the four-way segment). `.dock`'s
+`flex-wrap: wrap` is a deliberate recipe, so narrowing the segment against
+moving the actions behind a kebab is a design call rather than a small fix.
+The boards dock met the same shape today and took the kebab, which is the
+answer this one should take too.
+
+The pass also independently observed the kebab's first click and the chat
+header holding up, which were the two "reasoned, never observed" items.
+
+### The section 6 review of this branch, run 2026-09-09
+
+CLAUDE.md section 6 names four shapes to look for in work that came from
+somewhere else, and this branch is now mostly work that came from somewhere
+else: five agents' worth. Run against the whole diff from the branch point.
+
+- **A feature that never ran once.** 287 new top-level frontend functions;
+  eight had no `name(` call site, and all eight are wired by reference
+  instead (`addEventListener(..., fn)`, an update listener, a `filter`
+  predicate, a `setTimeout`). 131 new Python functions; ten are never
+  referenced by name and all ten carry a route decorator immediately above
+  them. Nothing dead. **The grep that finds this is worth keeping**: search
+  for `name(` first, then re-check every hit for a bare-name reference,
+  because a handler passed by reference looks exactly like dead code.
+- **A policy silently refusing the work.** No inline `style=` attribute was
+  added to any HTML or JS on this branch, so nothing is being refused by the
+  CSP unnoticed. (One was written today, in a sweep, and the CSP refused it
+  on the first run: `page.addStyleTag` fails the same way, and
+  `readmeshots.js` records it.)
+- **A working thing rewritten into a riskier thing**, and **a guard removed
+  while the shape around it was kept**: both need reading rather than
+  grepping, and the merges were reviewed one at a time as they landed. The
+  one deliberate rewrite is the graph's drag, which reverses a decision the
+  code defended at length; GRAPH_PLAN carries the reversal and the reason.
 
 ### Two traps an agent worktree sets (2026-09-09, both hit for real)
 

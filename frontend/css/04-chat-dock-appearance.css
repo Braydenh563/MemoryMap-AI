@@ -2376,6 +2376,18 @@ label.setting-check,
 .linklike {
   background: none;
   border: none;
+  /* **The filled button's glow has to go too, and it was the one thing this
+     rule forgot.** The base `button` rule ends with
+     `box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 25%, transparent)`,
+     which is right for a filled control and wrong for text pretending to be a
+     link. `background: none` and `border: none` above cancel the fill and the
+     edge; nothing cancelled the shadow, so all fifteen `.linklike` buttons in
+     this app drew an accent-coloured halo behind their words. Found by
+     measuring the documents sidebar's "Where are my documents kept?" after it
+     was restyled: computed `background-color: rgba(0, 0, 0, 0)` and
+     `box-shadow: color(srgb 0.27 0.39 0.94 / 0.25) 0px 2px 10px`, which reads
+     on screen as a soft filled pill around a link. */
+  box-shadow: none;
   padding: 0 0.1em;
   font: inherit;
   color: var(--accent);

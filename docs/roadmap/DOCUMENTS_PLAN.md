@@ -471,11 +471,25 @@ work found and did *not* fix, which is the part that is still open.
   those formatting markers are." Done: the cursor-in-range test was already
   built and works; `---` and a callout's `[!kind]` were the two markers it
   had never been run on, and both hide now.
-  **Still open, measured:** revealing a marker shifts the caret 28.4px to
-  the right on a leftward keystroke, because the reveal inserts four
-  characters left of it. `EditorView.atomicRanges` is the usual answer and
-  is the wrong one here: it would skip the marker rather than enter it, and
-  entering it is what this sentence asks for. No good answer found.
+  **The caret jump is fixed, and the fix is a decision** (recorded here so it
+  is not remade). Revealing a marker used to shift the caret 28.4px to the
+  *right* on a leftward keystroke, because the reveal put four characters
+  immediately to its left: measured with `coordsAtPos` walking left through
+  `A **bold** word here.` as x 560.3, 554, 544.2, 531.1, then 559.5.
+  `EditorView.atomicRanges` is the usual answer and is the wrong one here, as
+  it would step *over* the marker rather than into it and entering it is what
+  this sentence asks for. **A marker now reveals when the caret is on its
+  line, not when it is inside its range** (`rangeRevealed` in
+  `docLivePlugin`). Phase 2 item 3 said "when the caret enters the range";
+  this supersedes that phrase and nothing else about it. The reasons: the line
+  is what holds still, so horizontal movement inside one causes no reflow at
+  all and the caret walk is now strictly monotonic (measured, fourteen steps,
+  642.2 down to 529.4 with no reversal); the one reflow left happens when the
+  caret *arrives* on a line, which is a click or a vertical move and both
+  relocate the caret anyway; and `HeaderMark`, `QuoteMark` and `TaskMarker`
+  already worked this way, so the eight constructs now agree instead of
+  splitting into two behaviours. `scratchpad/ui-sweeps/cm-reveal.js` asserts
+  the monotonic walk, so the jump cannot come back unnoticed.
 - "I want to be able to use the documents tab as a plain text editor like
   before as a view option (not the default though)", "and also if I select
   a txt document, and/or other code file document, and these can have line
@@ -504,8 +518,15 @@ work found and did *not* fix, which is the part that is still open.
   listeners in this batch were written that way before a sweep caught it.
   There is no lint for the class; a cheap one would fail on `.focus()` or
   `addEventListener("keydown"` applied to a variable holding a `<select>`.
-  And `.doc-outline-wrap` is `flex: 1 1 auto`, so a short outline leaves
-  ~250px of empty column above References. Not reported, not fixed.
+  The empty column above References is fixed: both sections carried
+  `flex: 1 1 auto`, so with a two-heading document the outline was 312.4px of
+  box around 68.3px of content and References 296.5px around 46px, leaving
+  243.1px of nothing between them. `flex: 0 1 auto` on both; now 85.3px around
+  68.3px and 69.4px around 46px, and `docoutline.js` fails on any section more
+  than 40px taller than what is in it. Found while measuring that: `.linklike`
+  cancels the filled button's background and border and never cancelled its
+  `box-shadow`, so all fifteen text links in the app drew an accent halo
+  behind their words.
 - "the whole documents sidebar and ui needs fixing and the document editor
   still needs a lot of refinement and cleaning but its still in development
   so just make sure you cover it all."

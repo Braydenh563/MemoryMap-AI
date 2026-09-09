@@ -241,6 +241,57 @@ notes) is not repeated here; see `docs/roadmap/` for that record.
 - Every `.py`/`.js` file in the app's own code and tests: no em-dashes,
   enforced by a lint that cannot match its own needle.
 
+**The final day, 2026-09-09**
+
+Written after the rest of this section, which stopped at that morning. A
+hundred and forty commits landed on the last day, from four agents and the
+orchestrator; these are the ones that change what the app does.
+
+- **Graph.** A drag places a note and lets the map settle around it; Shift
+  and drag pins, which reverses a decision the code defended at length (the
+  reason is in GRAPH_PLAN). Tree, radial and arc are read-only for position:
+  no pinned ring on every node, and a double click no longer releases one
+  into the simulation and pulls the layout apart. The node panel's close
+  button stays on its line beside an ellipsised title, its actions became a
+  centred footer band, and the suggested-links list shows note names instead
+  of raw markdown. The lightbox opens above full screen, and full screen
+  keeps its glass when the animated background is on.
+- **Mind maps and boards.** A board is a board and a map is a map in the
+  Library, not two notes with a pencil icon. The OPML and FreeMind exports
+  are iterative and cycle-guarded: a 1,200-node map raised a recursion error
+  before, and a map containing a cycle ran 200,000 rows without stopping. A
+  map's edges are drawn in their branch colours, which a new lint caught on
+  its first run. Board and map previews draw real shapes at real sizes with
+  every label inside its shape.
+- **Documents.** Plain and code views with line numbers and syntax; rule and
+  callout markers hide until the cursor reaches them; setext headings reach
+  the outline; the Outline sidebar indents by one step instead of three and
+  reads left; the Edit and Read pills fit their control. Code in the dark
+  theme was measured at 1.76:1 for keywords and is 6.47 to 13.52 now.
+- **Files.** A document describes itself from its own text when it is
+  attached, on a background thread, so a Files row says what a file is
+  without being asked; the description is a summary rather than a
+  transcription, and it needs no vision model. A document's title opens the
+  reading workspace. The expanded reading no longer closes itself every six
+  seconds.
+- **Chat.** A citation's number and its row in the Sources panel are the
+  same number, which they were not: the two counted from unrelated
+  sequences. An angle-bracket URL renders as a link. The token badge reads
+  "used / window" and keeps its size at every width.
+- **Everywhere.** Ctrl+S saves the settings section that is on screen and
+  marks the button it pressed; the zoom readout appears over dialogs; a menu
+  a panel owns no longer counts as a click away from it; the whiteboard's
+  selection rectangle draws above the cards; the Arrange tools sit in three
+  named rows; nine settings sections trade walls of prose for help popovers;
+  the glass sheen slider drives something for the first time.
+- **The suite and the tooling.** A lint fails the build on a merge conflict
+  marker in any tracked file; another fails on an SVG paint attribute a
+  stylesheet would silently override; `scripts/gate.sh --changed` runs the
+  lint set plus the tests naming the files you touched, and the full suite is
+  no longer run as routine, because CI runs it unselected on every push. The
+  health budget times its fastest sample rather than the median, so it
+  measures the endpoint instead of the machine's load.
+
 ## [0.2.2] — 2026-09-07
 
 ### Recorded late (shipped in 0.2.2, listed under Unreleased until 0.3.0 was cut)

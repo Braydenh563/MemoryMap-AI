@@ -9010,6 +9010,44 @@ themselves (their handlers were not touched, only their buttons' markup).
     accepts autolinks in angle brackets; the sources list numbers web
     results after the notes so `[5]` resolves to a site.
 
+96. **Graph: reimagine the pinned position after a drag.** The owner:
+    "my original annoyance was that I'd try to drag a node or cluster
+    around and it would just snap back ... but I move a node a little and
+    then I have to unpin it and there's got to be a better way." Owner:
+    GRAPH Phase 6 (Fable): a drag does not pin; it sets the node's
+    position and lets the simulation settle from there at low alpha (so
+    it holds where it was put but still relaxes with its neighbours); an
+    explicit pin is Shift+drag or the menu; a dragged cluster (lasso
+    selection) moves together the same way; a small "pinned" ring only
+    on real pins.
+97. **Library and Files: an expanded dropdown closes itself and scrolls
+    back to the top.** The owner, 2026-09-09: "when I expand the ocr text in
+    this image on the image cards in the images library sub tab, it keeps
+    auto closing and scrolling me back to the top", and "the same happens on
+    the text extracted from this file dropdown in the files subtab". One
+    cause, two surfaces: the list re-renders on a poll and rebuilds every
+    row, so an open `<details>` is replaced by a closed one and the scroll
+    position goes with it. The agent activity panel solved this in Phase C
+    by building rows once and updating in place. Fix: keep the open set and
+    the scroll offset across a re-render, or skip the re-render when nothing
+    in the list changed. Owner: Fable/Opus, now. Size S.
+104. **Whiteboard: the Arrange group needs structure.** The owner,
+    2026-09-09: "can the whiteboard arrange tools be better structured??"
+    (screenshot). Ten icon-only buttons under one ARRANGE heading in a
+    ragged 2-3-3-2 grid, with group/ungroup, three horizontal aligns, three
+    vertical aligns and two distributes all reading as one undifferentiated
+    field. Fix: three labelled sub-rows (Group, Align, Distribute), three
+    per row, each button with a title and an aria-label, on DESIGN.md's
+    icon-button recipe. Owner: WHITEBOARD Phase 1. Size S.
+106. **Links: the Save and Cancel buttons do not match.** The owner,
+    2026-09-09: "the links edit save and cancel buttons arent consistent"
+    (screenshot: Save is a filled accent pill, Cancel a grey rounded
+    rectangle at a different radius and a different height). Two buttons
+    side by side in one row must share a radius, a height and a padding;
+    only the fill should differ. Fix on DESIGN.md's button recipe, and
+    check the same pair everywhere an edit row appears. Owner: UI
+    modernisation, placed. Size S.
+
 ## HANDOVER archive, 2026-09-09
 
 ### The Fable session — UI Phases 0-4, skills reform A-B, backend sprint 1, the audit

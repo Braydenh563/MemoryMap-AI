@@ -1374,6 +1374,17 @@ body.resizing-sidebar {
   /* A scrolling strip needs its own scrollbar to be unobtrusive: this is
      chrome, not content. */
   scrollbar-width: thin;
+  /* Reported directly: "icons get cut off top/bottom" in this mode only.
+     A horizontal scrollbar reserves its own strip of space at the bottom
+     of the box it scrolls, and `overflow-y: hidden` above (required, see
+     this rule's own history) means that strip is carved out of the
+     content box rather than added beneath it: with the base rule's
+     `0.4rem` bottom padding, the scrollbar's reserved space ate into the
+     button row itself, clipping a couple of pixels off the bottom of
+     every icon. `--space-1` matches the 4px `::-webkit-scrollbar` height
+     set below, so the buttons keep their full, unclipped height and the
+     scrollbar gets the room it was already taking regardless. */
+  padding-bottom: calc(0.4rem + var(--space-1));
 }
 
 /* **Un-clipping the strip to free a menu freed the whole toolbar too.**

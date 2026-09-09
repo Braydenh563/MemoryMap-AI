@@ -82,7 +82,7 @@ PR's.
       is half done on purpose: the badge is fixed and measured, the
       per-model context size is the half the entry itself assigns to the
       next session, and INBOX says so. It is the only item left in there.
-- [ ] 5. The three "not verified in a browser" fixes measured: INBOX 75
+- [x] 5. The three "not verified in a browser" fixes measured: INBOX 75
       (kebab first click), 82 (settings rows), 91 (chat header), plus
       Ctrl+S and the profile group; errors.js, contrast.js, docks.js,
       touch.js and weight.js green on the head.

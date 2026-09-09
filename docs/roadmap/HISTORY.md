@@ -9000,7 +9000,6 @@ themselves (their handlers were not touched, only their buttons' markup).
     WHITEBOARD Phase 1 (Fable, now): the marquee is drawn on the objects'
     layer; move it to the overlay canvas above them.
 
-<<<<<<< HEAD
 81. **Half done, 2026-09-09: the angle-bracket autolink renders as a link
     now** (`expandAngleAutolinks`, measured end to end through a real note:
     the href is right, `Array<T>` is untouched and a `javascript:` scheme is
@@ -9064,7 +9063,6 @@ themselves (their handlers were not touched, only their buttons' markup).
     `--glass-blur`); opacity drives `--card` alpha (check the palette
     override order); sheen is a gradient over `.card` only when
     `data-glass-sheen=on`.
-=======
 67. **(Not reproduced) Max gravity: "the nodes are all still so spread
     out"** (screenshot at max, 01:30). Re-measured on the current build with
     `scratchpad/ui-sweeps/gravity.js` (new), on a 52-note notebook that is
@@ -9106,7 +9104,6 @@ themselves (their handlers were not touched, only their buttons' markup).
     labels inside (it was 0 of 6). The dashboard's thumbnail was drawn for
     44px and displayed at 293px, which is why that widget scrolled
     (602/320); it is 40.5px square again and the widget does not scroll.
->>>>>>> worktree-agent-a93efefdb83c29141
 
 ## HANDOVER archive, 2026-09-09
 

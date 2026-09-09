@@ -38,25 +38,34 @@
   display: none;
 }
 
-/* The view fills the host. `.cm-editor` is CodeMirror's outer element; giving
-   it a height here rather than in the theme is the one exception to the rule
-   above, and it is safe because the library sets no height of its own. */
+/* The view fills the host, and carries the reading measure the textarea used
+   to carry. `.cm-editor` is CodeMirror's outer element; giving it a height
+   here rather than in the theme is the one exception to the rule above, and
+   it is safe because the library sets no height of its own.
+
+   **The cap is on the editor, not on `.cm-content`, and that is measured
+   rather than preferred.** `.cm-scroller` is a flex row and `.cm-content` is
+   a `flex-grow` item inside it, so a `max-width` there clamps the column but
+   the leftover space stays on one side: measured at 1440, an 1,082px pane
+   with a 794px column left 0px to its left and 288px to its right, which
+   reads as the writing having drifted rather than as a measure. Capping the
+   whole editor centres the column *and* keeps the line-number gutter beside
+   the text it numbers, which is what the textarea and its gutter did.
+
+   78ch rather than the preview's 72: markdown adds syntax characters that are
+   not prose, so the same prose measure needs slightly more room when the
+   marks are visible. `.doc-wide` on the tab is the opt-out
+   (see `applyDocWidth`). */
 .doc-editor .cm-editor {
   flex: 1 1 auto;
   min-height: 0;
   height: 100%;
-}
-
-/* The reading measure the rest of the editor already honours, so switching
-   engines does not change how wide a line of prose is. `.doc-wide` on the tab
-   is the opt-out (see `applyDocWidth`). */
-.doc-editor .cm-content {
+  width: 100%;
   max-width: 78ch;
   margin-inline: auto;
-  width: 100%;
 }
 
-#tab-documents.doc-wide .doc-editor .cm-content {
+#tab-documents.doc-wide .doc-editor .cm-editor {
   max-width: none;
 }
 

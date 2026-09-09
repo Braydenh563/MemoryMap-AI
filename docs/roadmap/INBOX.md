@@ -38,11 +38,6 @@ done-when item 4 and 5), in priority order.
     Fullscreen API is active. Fix: mount the lightbox (and every dialog the
     node panel can open) inside the fullscreen element while fullscreen is
     on, or exit fullscreen first and re-enter on close. Size S.
-70. **Notifications: the "AI activity" combobox doesn't open, and the
-    feature doesn't work** (screenshot). Owner: Fable, now: the select is
-    replaced by enhanceSelect; the panel is a popover that closes on any
-    outside click, which the enhanced menu counts as. Fix: the popover's
-    outside-click guard ignores clicks inside `.select-menu`.
 69. **Agent activity panel: the dropdowns don't expand** (screenshot: a
     "Starting SearXNG" row with a caret that does nothing). Owner: Fable,
     now: the row is a `details`-like custom toggle; check its handler is

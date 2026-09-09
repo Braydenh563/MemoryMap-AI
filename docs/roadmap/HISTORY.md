@@ -8862,6 +8862,12 @@ themselves (their handlers were not touched, only their buttons' markup).
     position, so no ring, no drag, no double-click release, and the node
     menu's Pin and Unpin are hidden there. Owner: GRAPH Phase 6. Size S.
 
+70. **Notifications: the "AI activity" combobox doesn't open, and the
+    feature doesn't work** (screenshot). Owner: Fable, now: the select is
+    replaced by enhanceSelect; the panel is a popover that closes on any
+    outside click, which the enhanced menu counts as. Fix: the popover's
+    outside-click guard ignores clicks inside `.select-menu`.
+
 ## HANDOVER archive, 2026-09-09
 
 ### The Fable session — UI Phases 0-4, skills reform A-B, backend sprint 1, the audit

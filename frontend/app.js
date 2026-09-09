@@ -31013,7 +31013,19 @@ $("notif-mute-toggle").addEventListener("click", () => {
 document.addEventListener("click", (event) => {
   const panel = $("notif-panel");
   if (panel.classList.contains("hidden")) return;
-  if (event.target.closest(".notif-wrap")) return;
+  //: **A menu this panel owns counts as inside it.** INBOX 70: "the 'AI
+  //: activity' combobox doesn't open, and the feature doesn't work". It
+  //: opened: `enhanceSelect` replaces the `<select>` with an
+  //: `.action-menu.select-menu`, which is reparented to `<body>` while open,
+  //: so a click on one of its options is not a descendant of `.notif-wrap`,
+  //: this guard read it as a click away, and the panel closed under the menu
+  //: before the option's own handler could run. The choice never landed, and
+  //: the control read as dead.
+  //:
+  //: `.action-menu` rather than `.select-menu` alone: every escaped menu in
+  //: this app carries it, so a panel that grows a second kind of menu later
+  //: does not have to rediscover this.
+  if (event.target.closest(".notif-wrap, .action-menu")) return;
   closeNotifications();
   $("notif-btn").setAttribute("aria-expanded", "false");
 });
@@ -32142,7 +32154,11 @@ $("note-picker-clear").addEventListener("click", () => {
 // Click-away and Escape close it, like every other popover in the app.
 document.addEventListener("click", (event) => {
   if (!notePickerOpen()) return;
-  if (event.target.closest(".note-picker")) return;
+  // `.action-menu` for the same reason the notifications panel needs it: a
+  // menu this panel owns is reparented to <body> while open, so a click on
+  // one of its options is not a descendant of the panel and would otherwise
+  // read as a click away.
+  if (event.target.closest(".note-picker, .action-menu")) return;
   closeNotePicker();
 });
 $("note-picker-panel").addEventListener("keydown", (event) => {
@@ -32160,7 +32176,7 @@ $("chat-dock-more-btn").addEventListener("click", () => {
 });
 document.addEventListener("click", (event) => {
   if (!chatDockMoreOpen()) return;
-  if (event.target.closest(".chat-dock-more")) return;
+  if (event.target.closest(".chat-dock-more, .action-menu")) return;
   closeChatDockMore();
 });
 $("chat-dock-more-panel").addEventListener("keydown", (event) => {

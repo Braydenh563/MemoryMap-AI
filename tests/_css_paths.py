@@ -33,6 +33,7 @@ CSS_FILES = [
     CSS_DIR / "06-timeline-dialogs.css",
     CSS_DIR / "07-whiteboard-misc.css",
     CSS_DIR / "08-consistency.css",
+    CSS_DIR / "10-responsive.css",
 ]
 
 

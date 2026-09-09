@@ -199,6 +199,13 @@ try {
   $MAX_ROWS  = 6
   $ROW_TOP   = 104
   $ROW_STEP  = 22
+  # The marquee's place in a row: under the detail text, never across it.
+  # Reported with a screenshot: the bar at +6 ran straight through
+  # "Checking for updates on GitHub, 1s". The detail label is 16px tall
+  # from +2, so the bar starts at +18 and is 3px, leaving the next row's
+  # top edge at +22 untouched.
+  $BAR_DROP   = 18
+  $BAR_HEIGHT = 3
   $rowMark   = @()
   $rowName   = @()
   $rowDetail = @()
@@ -221,7 +228,7 @@ try {
     $detail.Font      = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]9)
     $detail.ForeColor = $dim
     $detail.Location  = New-Object System.Drawing.Point(170, ($ROW_TOP + 2 + $i * $ROW_STEP))
-    $detail.Size      = New-Object System.Drawing.Size(320, 18)
+    $detail.Size      = New-Object System.Drawing.Size(320, 16)
     $detail.Text      = ""
 
     $rowMark   += $mark
@@ -240,8 +247,8 @@ try {
   # Milliseconds per step. 30 is brisk; 0 would stop it dead, which is the
   # other way to get the reported "empty bar".
   $bar.MarqueeAnimationSpeed = 30
-  $bar.Location = New-Object System.Drawing.Point(170, ($ROW_TOP + 6))
-  $bar.Size     = New-Object System.Drawing.Size(320, 6)
+  $bar.Location = New-Object System.Drawing.Point(170, ($ROW_TOP + $BAR_DROP))
+  $bar.Size     = New-Object System.Drawing.Size(320, $BAR_HEIGHT)
   $bar.Visible  = $false
   # **No ForeColor/BackColor.** Reported: the bar "just stays empty".
   #
@@ -431,7 +438,7 @@ try {
         $rowDetail[$i].Text = "$($s.Detail)  $($secs)s"
         # The marquee moves to whichever row is active, and is the only thing
         # in this window that animates while a step is running.
-        $bar.Location = New-Object System.Drawing.Point(170, ($ROW_TOP + 6 + $i * $ROW_STEP))
+        $bar.Location = New-Object System.Drawing.Point(170, ($ROW_TOP + $BAR_DROP + $i * $ROW_STEP))
         $bar.Visible = $true
       }
     }

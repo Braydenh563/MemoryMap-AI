@@ -266,8 +266,8 @@ class TestBatchFileRules:
         also pass the flags on, which SHIFT would otherwise have eaten."""
         text = _read(START_BAT)
         assert 'set "MM_ARGS=%*"' in text
-        assert 'call "%~f0" !MM_ARGS!' in text
-        relaunch = text.index('call "%~f0"')
+        assert 'call "!MM_SELF!" !MM_ARGS!' in text
+        relaunch = text.index('call "!MM_SELF!"')
         assert "if defined MM_CHILD goto :after_update" in text[:relaunch]
         assert 'set "MM_CHILD=1"' in text[:relaunch]
 
@@ -278,6 +278,22 @@ class TestBatchFileRules:
         block = text[text.index('if /i "%~1"=="--port" (') :]
         block = block[: block.index("\n)")]
         assert block.index('set "MM_PORT=%~2"') < block.index("shift")
+
+    def test_nothing_after_the_parser_reads_its_own_path_from_percent_zero(self):
+        """SHIFT moves %0 with the rest, so after start-desktop.bat had passed
+        --desktop, "%~f0" in the self-update relaunch expanded to
+        "...\\MemoryMap-AI\\--desktop" and cmd reported it "is not recognized as
+        an internal or external command". The path is captured once, before
+        :parse_args, and only the captured copy is used after it."""
+        text = _read(START_BAT)
+        before, after = text.split("\n:parse_args\n", 1)
+        assert 'set "MM_HOME=%~dp0"' in before and 'set "MM_SELF=%~f0"' in before
+        offenders = [
+            line for line in after.splitlines()
+            if ("%~f0" in line or "%~dp0" in line) and not line.strip().upper().startswith("REM")
+        ]
+        assert offenders == [], offenders
+        assert 'call "!MM_SELF!" !MM_ARGS!' in after
 
     def test_the_status_write_puts_the_redirect_first(self):
         """A value ending in a digit turns `echo !VAR!>>file` into a
@@ -656,7 +672,7 @@ class TestTheSplashLayoutDoesNotOverlap:
         """The marquee is moved to the active row, and a list longer than
         MAX_ROWS would otherwise park it beyond the last row that exists."""
         ps1 = self._ps1()
-        assert "$ROW_TOP + 6 + $i * $ROW_STEP" in ps1
+        assert "$ROW_TOP + $BAR_DROP + $i * $ROW_STEP" in ps1
         assert "$i -ge $count" in ps1
 
 

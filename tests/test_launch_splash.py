@@ -199,6 +199,22 @@ def test_notify_mode_needs_no_cleanup():
     assert "notify" not in done_body
 
 
+def test_the_marquee_sits_under_the_step_text_not_across_it():
+    """Reported with a screenshot: the bar ran straight through "Checking for
+    updates on GitHub, 1s". The detail label starts 2px into the row and is
+    16px tall; the bar must start below that and end before the next row."""
+    import re
+
+    ps1 = (REPO / "scripts" / "splash.ps1").read_text(encoding="utf-8")
+    drop = int(re.search(r"\$BAR_DROP\s*=\s*(\d+)", ps1).group(1))
+    height = int(re.search(r"\$BAR_HEIGHT\s*=\s*(\d+)", ps1).group(1))
+    step = int(re.search(r"\$ROW_STEP\s*=\s*(\d+)", ps1).group(1))
+    detail_h = int(re.search(r"\$detail\.Size\s*=.*Size\(320, (\d+)\)", ps1).group(1))
+    assert drop >= 2 + detail_h
+    assert drop + height <= step
+    assert ps1.count("($ROW_TOP + $BAR_DROP") == 2, "both bar placements use the offset"
+
+
 def test_the_progress_bar_is_not_colour_overridden():
     """Reported: the bar "just stays empty".
 

@@ -45,6 +45,16 @@ for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
 
 cd /d "%~dp0"
 
+REM  This script's own path, captured before the argument parser below runs.
+REM  SHIFT moves %0 along with the rest, so after `start-desktop.bat` had
+REM  passed --desktop, "%~f0" further down expanded to
+REM  "C:\...\MemoryMap-AI\--desktop" and the self-update relaunch failed with
+REM  "is not recognized as an internal or external command". Reported
+REM  exactly that way. Nothing after :parse_args may use %~f0 or %~dp0
+REM  (tests\test_launcher_scripts.py holds that line).
+set "MM_HOME=%~dp0"
+set "MM_SELF=%~f0"
+
 REM  The arguments this run was given, captured before the parser below
 REM  starts shifting them away: SHIFT does not rewrite %*, so this is the
 REM  one chance to keep them for the self-update relaunch further down.
@@ -317,7 +327,7 @@ if not defined MM_CHILD if "!MM_ACTION!"=="" (
   REM  card can offer to open it; -LauncherPath so Try again re-runs this
   REM  exact script; -DataDir for the tip that answers "where are my notes".
   REM  All three are optional on the splash's side: it degrades to saying so.
-  if exist "scripts\splash.ps1" start "" /b powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "scripts\splash.ps1" -StatusFile "!MM_SPLASH_FILE!" -IconPath "%~dp0frontend\icon.ico" -LogPath "!MM_LOG!" -LauncherPath "%~f0" -DataDir "!MM_DATA_DIR!" >nul 2>nul
+  if exist "scripts\splash.ps1" start "" /b powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "scripts\splash.ps1" -StatusFile "!MM_SPLASH_FILE!" -IconPath "!MM_HOME!frontend\icon.ico" -LogPath "!MM_LOG!" -LauncherPath "!MM_SELF!" -DataDir "!MM_DATA_DIR!" >nul 2>nul
 )
 REM  The seed line, so the splash has a step list to draw the moment it
 REM  opens rather than an empty panel for the first second.
@@ -429,7 +439,7 @@ call :bail_if_cancelled
 if defined MM_CANCELLED goto :cancelled
 REM  !MM_ARGS! rather than nothing: the child re-parses the flags this run
 REM  was given, so --port, --no-browser and the rest survive the relaunch.
-call "%~f0" !MM_ARGS!
+call "!MM_SELF!" !MM_ARGS!
 set "MM_RC=!errorlevel!"
 endlocal & exit /b %MM_RC%
 :no_update
@@ -760,7 +770,7 @@ REM  A real .lnk rather than a copy of this file: it carries the icon, the
 REM  working directory and the --desktop argument, which a copy cannot.
 REM  uninstall.bat --shortcuts removes this exact path.
 set "MM_LNK=%USERPROFILE%\Desktop\MemoryMap AI.lnk"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('!MM_LNK!'); $s.TargetPath='%~dp0start.bat'; $s.Arguments='--desktop'; $s.WorkingDirectory='%~dp0'; $s.IconLocation='%~dp0frontend\icon.ico'; $s.Description='MemoryMap AI'; $s.Save()" >nul 2>nul
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('!MM_LNK!'); $s.TargetPath='!MM_HOME!start.bat'; $s.Arguments='--desktop'; $s.WorkingDirectory='!MM_HOME!'; $s.IconLocation='!MM_HOME!frontend\icon.ico'; $s.Description='MemoryMap AI'; $s.Save()" >nul 2>nul
 if exist "!MM_LNK!" goto :do_shortcut_ok
 set "MM_FAIL_MSG=Could not create the shortcut on your Desktop."
 set "MM_FAIL_FIX=Check that your Desktop folder exists and that PowerShell is allowed to run."

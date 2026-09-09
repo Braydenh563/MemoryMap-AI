@@ -537,6 +537,25 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     updated for the split; boot stays synchronous for app.js and the
     guards). Expected: the parse cost of about 1.3 MB of JavaScript leaves
     the startup path. Owner: Opus. Size M.
+50. **Fixed 2026-09-09 (Fable). `start-desktop.bat` fails after the update
+    check: `'"C:\Projects\MemoryMap-AI\--desktop"' is not recognized as an
+    internal or external command`.** SHIFT in the argument parser moved %0,
+    so the self-update relaunch's `"%~f0"` became the first flag. The path
+    is captured as MM_SELF/MM_HOME before :parse_args and nothing after it
+    reads %0 (`tests/test_launcher_scripts.py`). Not verified: a Windows
+    run; the shape is reasoned from cmd's SHIFT semantics and the message.
+51. **Fixed 2026-09-09 (Fable). Splash: the step's marquee bar is drawn
+    across the step text** ("Checking for updates on GitHub, 1s" under a
+    green bar, screenshot). The bar now sits 18px into the row, under the
+    16px detail label, 3px tall (`tests/test_launch_splash.py`). Not
+    verified: a Windows run.
+52. **Whiteboard bottom bar: the tool groups "feel separate from the
+    panels and not integrated"** (screenshot: seven pill groups with their
+    own backgrounds and dividers inside one bar, and the zoom pill on the
+    right in a different style). Owner: WHITEBOARD Phase 1 (bottom rail),
+    with the mind map agent's whiteboard work merged first. Recommendation:
+    one bar surface, groups separated by a hairline divider only, no
+    per-group background; the zoom pill on the same recipe. Size S.
 49. **Fixed 2026-09-09 (Fable): blur off content cards, the hero, the
     sidebar and the status bar; Performance mode (auto/on/off) with the
     small-machine and reduced-transparency auto-on and a one-time toast;

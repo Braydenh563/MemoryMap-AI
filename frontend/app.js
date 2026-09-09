@@ -3167,7 +3167,26 @@ function escapeAndCapMenu(menu, opener) {
   //: has ended up: `placeEscapedMenu` may have flipped it above the opener or
   //: clamped it to the top of the window, and a cap computed from the old top
   //: would be the wrong one for the new position.
-  const top = menu.getBoundingClientRect().top;
+  const box = menu.getBoundingClientRect();
+  //: **Anchor on the opener, not on the menu, and never on a rect that was
+  //: not laid out.** Measured while the whiteboard tab was hidden: every
+  //: `.wb-board-menu` reported `top: 0` and this wrote a 892px cap from it,
+  //: on a viewport of 900. A rect read from an element inside a
+  //: `display: none` ancestor is all zeroes, and the arithmetic below
+  //: cannot tell that from a menu genuinely sitting at the top of the
+  //: window: it just produces a number, which is how a cap ends up either
+  //: meaningless or, when the stale `top` is large, small enough to read as
+  //: the reported "overly short" menu.
+  //:
+  //: The opener is by definition laid out (it was just clicked), so its own
+  //: bottom edge is the honest answer to "where does this menu start".
+  //: The menu's own top is the fallback for a caller that has no opener,
+  //: and if neither is laid out the stylesheet's cap is left alone rather
+  //: than replaced with a number derived from zeroes.
+  const anchor = opener ? opener.getBoundingClientRect() : null;
+  const laidOut = (rect) => rect && (rect.width || rect.height || rect.top);
+  const top = laidOut(anchor) ? anchor.bottom + margin : laidOut(box) ? box.top : null;
+  if (top === null) return;
   //: The floor keeps a menu opened near the bottom edge a menu rather than a
   //: slit; under it, scrolling inside the panel is the affordance.
   menu.style.maxHeight = `${Math.max(120, Math.round(window.innerHeight - top - margin))}px`;
